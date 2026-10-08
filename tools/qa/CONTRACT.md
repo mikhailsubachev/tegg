@@ -212,12 +212,12 @@ The plist has:
 
 All `docs/acceptance/*.md` files except `README.md`.
 - **Requirement heading:** a line starting with `### ` followed by one or more IDs separated by ` / `, then a space and free text. An ID is uppercase letters, digits and hyphens, starting with a letter and containing a hyphen or ending in a digit (`FR-FMT-07`, `NFR-REL-01`, `AR-06`, `TS-VERIFY`, `TS-P`, `TS-G2`, `S2-QA`). A shorthand `-NN` after ` / ` means the previous ID's prefix with a new last part: `### FR-STO-01 / -03 / -05 Vault layout` → `FR-STO-01`, `FR-STO-03`, `FR-STO-05`.
-- **Criterion:** a line starting with `- **AC-<n>**` under a heading. Its ID is `<first heading ID>/AC-<n>`; the other heading IDs are **aliases** (`FR-SYN-02 / NFR-REL-01` → `FR-SYN-02/AC-3`, alias `NFR-REL-01/AC-3`). It is **manual** if `[manual]` follows the label directly (`- **AC-5** [manual] …`); a mention of `[manual]` elsewhere in the text doesn't count. A line `- **<ID>/AC-<n>** …` outside a heading (as in `performance.md`) defines an AC with that explicit ID.
+- **Criterion:** a line starting with `- **AC-<n>**` under a heading. Its ID is `<first heading ID>/AC-<n>`; the other heading IDs are **aliases** (`FR-SYN-02 / NFR-REL-01` → `FR-SYN-02/AC-3`, alias `NFR-REL-01/AC-3`). It is **manual** if `[manual]` follows the label directly (`- **AC-5** [manual] …`); a mention of `[manual]` elsewhere in the text doesn't count. A line `- **<ID>/AC-<n>** …` (as in `performance.md`) defines an AC with that explicit ID, wherever it appears.
 
 ### 9.2 Test keys
 
 - An AC's **key** is its ID lower-cased, `-` replaced by `_`, `/AC-<n>` replaced by `_ac<n>`: `FR-FMT-11/AC-2` → `fr_fmt_11_ac2`, `TS-VERIFY/AC-1` → `ts_verify_ac1`, `S2-QA/AC-4` → `s2_qa_ac4`. Aliases give additional keys.
-- **Test sources:** files with extension `.ts`, `.tsx`, `.js`, `.mjs` whose name contains `.test.` or `.spec.`, and `.rs` files with a `#[test]` attribute (a line that starts, after indentation, with `#[test]`; a mention in a comment doesn't count); anywhere in the repository except `node_modules/`, `.git/`, `.verify/`, `target/`, `dist/` and `tests/fixtures/`.
+- **Test sources:** files with extension `.ts`, `.tsx`, `.js`, `.mjs` whose name contains `.test.` or `.spec.`, and `.rs` files with a `#[test]` attribute (a line that starts, after indentation, with `#[test]`; a mention in a comment doesn't count); anywhere in the repository except `node_modules/`, `.git/`, `.verify/`, `target/`, `dist/`, `tests/fixtures/` and `.claude/worktrees/` (other checkouts of the same repository).
 - A **test reference** is any match of `\b((?:fr|nfr|ar|ts|s\d+)(?:_[a-z0-9]+)*?_ac\d+)(?![0-9])` in a test source, i.e. the shortest prefix ending in `_ac<n>`: `fr_fmt_11_ac2_timezone_does_not_shift_date` → `fr_fmt_11_ac2`.
 - A reference whose key belongs to no AC is an **orphan**.
 

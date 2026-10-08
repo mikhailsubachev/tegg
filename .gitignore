@@ -29,3 +29,4 @@ src-tauri/gen/
 # QA tooling: machine-local output (D-60, tools/qa/CONTRACT.md)
 .verify/
 qa/nightly/
+qa/coverage/

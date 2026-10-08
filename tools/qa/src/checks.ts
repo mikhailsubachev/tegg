@@ -112,7 +112,12 @@ export type Worktree = { dir: string; remove: () => void };
 
 export function createWorktree(root: string, sha: string): Worktree {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tegg-verify-')));
-  git(root, ['worktree', 'add', '--detach', '--force', dir, sha], { stripped: true });
+  try {
+    git(root, ['worktree', 'add', '--detach', '--force', dir, sha], { stripped: true });
+  } catch (e) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
   return {
     dir,
     remove: () => {
