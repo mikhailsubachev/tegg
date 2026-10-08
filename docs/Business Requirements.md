@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.6, for review                                              |
-| **Date**            | 2026-10-07                                                          |
+| **Document status** | Draft v1.7, for review                                              |
+| **Date**            | 2026-10-08                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                   |
 
@@ -22,6 +22,7 @@
 | v1.4 | 2026-10-08 | Capacities importer moved into the MVP (D-41): MVP scope extended (PDF storage, date range, scheduled date, date mentions, backup before import); new §11.1; OQ-33/34/35/37/40 marked as blocking the MVP. |
 | v1.5 | 2026-10-08 | OQ-33…37, 39, 40 answered (D-42…D-48): Image and PDF are system object types; no Weblink type and no metadata fetching; one Capacities space per import; no page hierarchy; tasks have only `due`; Notion people as plain text; no collections in the MVP. OQ-38 (re-import) rewritten with options. |
 | v1.6 | 2026-10-08 | OQ-38 answered (D-49): one-time Capacities import in the MVP, with a duplicate warning; re-import later. No open questions remain. |
+| v1.7 | 2026-10-08 | Consistency fixes: Notion (FR-IMP-02) and Anytype (FR-IMP-04) import priority M → C to match §11 (v1.x); removed the stale ❓ marker on FR-IMP-04. |
 
 ---
 
@@ -468,9 +469,9 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | ID        | Requirement                                                                                                                                                                                                                      | Pri              |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | FR-IMP-01 | **Obsidian vault**: the user chooses to **open it in place** (files aren't rewritten until edited; untyped notes are treated as *Page*) or **copy it into a new vault** with type mapping applied (D-36). Frontmatter, wikilinks, embeds, attachments and tags are preserved; Obsidian tags become (virtual) Tag objects (FR-TAG-03). A mapping wizard lets the user assign types by folder, tag or existing frontmatter key. | M |
-| FR-IMP-02 | **Notion** export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the database CSV; relations → relation attributes; links rewritten to wikilinks. Details: FR-IMP-07…20; Notion-specific: FR-IMP-12, FR-IMP-13. | M |
+| FR-IMP-02 | **Notion** export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the database CSV; relations → relation attributes; links rewritten to wikilinks. Details: FR-IMP-07…20; Notion-specific: FR-IMP-12, FR-IMP-13. | C (v1.x, D-41) |
 | FR-IMP-03 | **Capacities** export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and attributes. Details: FR-IMP-07…21. **In the MVP** (D-41, §11.1). | M |
-| FR-IMP-04 | **Anytype** export (Markdown export; JSON/Protobuf ❓ see Risk R-06): types, relations → attributes.                                                                                                                              | M                |
+| FR-IMP-04 | **Anytype** export (Markdown export first; JSON/Protobuf evaluated later, see Risk R-06): types, relations → attributes. | C (v1.x, D-41) |
 | FR-IMP-05 | Every import shows a **preview** (counts per type, unresolved links, unsupported content) before writing, creates a restore point (FR-HIS-04), and produces an **import report**.                                                | M                |
 | FR-IMP-06 | Kindle / Readwise highlights import: out of scope (D-33). | W |
 | FR-IMP-07 | **Input:** a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in titles) are extracted correctly (FR-FMT-12). Large archives (≥ 100 MB) import with progress and can be cancelled. | M |

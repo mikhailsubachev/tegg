@@ -11,13 +11,13 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 ## Status
 
-Pre-code. Requirements v1.3 are nearly final (OQ-33…40 still open). Next: technical spikes before product code:
+Pre-code. Requirements v1.6 are final: no open questions (D-01…D-49). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
 - S3: Tauri platform (menu bar, global hotkeys, capture window < 300 ms, signed + notarized DMG)
 - S4: Rust index (SQLite FTS5 + file watcher) against NFR-PERF on 5,000 generated notes
-- S5: Capacities import dry-run (preview + report only)
+- S5: Capacities import dry-run (preview + report only); its parsing and mapping code becomes the basis of the MVP importer
 
 Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc.
 
@@ -42,7 +42,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 8. **Dates without time are `YYYY-MM-DD`**, no time or timezone (FR-FMT-11). Date-times are ISO 8601 with offset.
 9. **Unicode NFC** for file names and link targets, written and compared (FR-FMT-12). Content is often Czech; test with diacritics.
 10. **File names** are sanitized titles, valid on macOS/Windows/iOS/Android, ≤ 200 chars (FR-FMT-08, NFR-POR-02). Duplicates get ` (2)` suffixes; links resolve by file/`id`, never by title alone (FR-LNK-14).
-11. **No network calls** except the documented exceptions (NFR-SEC-01, FR-CAP-07). No telemetry.
+11. **No network calls**, no telemetry (NFR-SEC-01). The only allowed exception is opt-in update checks. No link-metadata fetching (D-43).
 12. **Machine-local data** (index, cache, version history, window state) goes in `~/Library/Application Support/Tegg/`, never in the vault (FR-STO-07). Portable config goes in the vault under `.tegg/`.
 13. **Core stays platform-neutral** (AR-03). Vault I/O, parsing, index, queries and sync adapters must not depend on desktop-only APIs; mobile reuses them later.
 
@@ -50,8 +50,8 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 
 ```
 <vault>/
-  Pages/ Tasks/ Quick Notes/ Daily/ Tags/ <Type plural>/   one folder per type
-  _attachments/          images, PDFs
+  Pages/ Tasks/ Quick Notes/ Daily/ Tags/ Images/ PDFs/ <Type plural>/   one folder per type
+  _attachments/          the image and PDF files themselves
   _templates/<Type>/     templates (excluded from search/queries/graph)
   .tegg/vault.yml        vault settings
   .tegg/types/*.yml      type definitions (versioned schema, AR-07)
@@ -59,7 +59,11 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
   .trash/                deleted objects
 ```
 
-Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, parent, import-id`.
+System types (D-22, D-42): Page, Task, Quick Note, Daily Note, Tag, Image, PDF. Every image and PDF is an object: a small `.md` in `Images/` or `PDFs/` with `file: "[[photo.png]]"`, while notes embed the file itself (`![[photo.png]]`) so they still render in Obsidian (FR-ATT-07).
+
+Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id`.
+
+Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45), a separate scheduled task date (D-46), a Weblink type (D-43), nested tags (D-40), tag collections (D-48).
 
 ## Test data and privacy
 
