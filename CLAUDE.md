@@ -1,0 +1,82 @@
+# Tegg
+
+Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Capacities-style typed objects and block editor, but every note is a plain Markdown file in a user-chosen vault folder, compatible with Obsidian. Single user ("me first"), possibly public later.
+
+## Documents
+
+- `docs/Business Requirements.md`: the source of truth for scope. Every requirement has an ID (`FR-TSK-04`, `NFR-PERF-03`, `AR-01`, …) and a priority (M/S/C/W). Decisions are in §3 (`D-xx`), open questions in §13.1, release phasing in §11, export findings in §15.
+- `docs/initial requirements.md`: the owner's original brief. Historical; do not edit.
+- Reference requirement IDs in commit messages, PR descriptions, issues, test names and code comments where a rule comes from the BRD.
+- If an implementation needs a decision the BRD doesn't cover, or contradicts it, stop and ask. Don't silently decide. Propose an update to the BRD (new `D-xx` or `OQ-xx`) instead.
+
+## Status
+
+Pre-code. Requirements v1.3 are nearly final (OQ-33…40 still open). Next: technical spikes before product code:
+
+- S1: Markdown dialect spec + round-trip test corpus
+- S2: TipTap editor prototype passing S1
+- S3: Tauri platform (menu bar, global hotkeys, capture window < 300 ms, signed + notarized DMG)
+- S4: Rust index (SQLite FTS5 + file watcher) against NFR-PERF on 5,000 generated notes
+- S5: Capacities import dry-run (preview + report only)
+
+Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc.
+
+## Stack (confirmed, D-19)
+
+- Tauri 2 (Rust core) + React + TypeScript UI
+- Editor: TipTap / ProseMirror. **Not BlockNote** (lossy Markdown conversion).
+- Markdown ↔ blocks: unified/remark (mdast) with custom plugins (wikilinks, embeds, callouts, block IDs, query blocks)
+- Index: SQLite + FTS5 in the Rust core, stored outside the vault
+- File watching: Rust `notify` crate
+- Target: macOS 14+, arm64, direct-download notarized DMG
+
+## Non-negotiable rules
+
+1. **Files are the source of truth** (AR-01). The index is a disposable cache; deleting and rebuilding it must give the same state. Nothing needed to understand a note lives only in the index (NFR-POR-03).
+2. **Round-trip safety** (FR-FMT-07). Opening and saving a file without edits must not change a single byte. Unknown Markdown, HTML and frontmatter keys are preserved. Only re-serialize what the user actually changed.
+3. **Atomic writes only** (FR-SYN-02): write a temp file in the same folder, then rename. Never write a vault file in place.
+4. **Minimal writes** (FR-SYN-06): don't touch files that didn't change, no timestamp churn. Every write is a sync upload and a possible conflict.
+5. **Never silently overwrite external changes** (NFR-REL-02). Detect them, reload or show a merge.
+6. **Restore point before every bulk or destructive operation** (FR-HIS-04): schema renames, tag renames, imports, mass type changes.
+7. **Obsidian compatibility** (D-05, NFR-POR-01): YAML frontmatter, `[[wikilinks]]`, `![[embeds]]`, Mermaid mindmaps, `.trash/`. A Tegg vault must open in Obsidian without data loss.
+8. **Dates without time are `YYYY-MM-DD`**, no time or timezone (FR-FMT-11). Date-times are ISO 8601 with offset.
+9. **Unicode NFC** for file names and link targets, written and compared (FR-FMT-12). Content is often Czech; test with diacritics.
+10. **File names** are sanitized titles, valid on macOS/Windows/iOS/Android, ≤ 200 chars (FR-FMT-08, NFR-POR-02). Duplicates get ` (2)` suffixes; links resolve by file/`id`, never by title alone (FR-LNK-14).
+11. **No network calls** except the documented exceptions (NFR-SEC-01, FR-CAP-07). No telemetry.
+12. **Machine-local data** (index, cache, version history, window state) goes in `~/Library/Application Support/Tegg/`, never in the vault (FR-STO-07). Portable config goes in the vault under `.tegg/`.
+13. **Core stays platform-neutral** (AR-03). Vault I/O, parsing, index, queries and sync adapters must not depend on desktop-only APIs; mobile reuses them later.
+
+## Vault layout (FR-STO)
+
+```
+<vault>/
+  Pages/ Tasks/ Quick Notes/ Daily/ Tags/ <Type plural>/   one folder per type
+  _attachments/          images, PDFs
+  _templates/<Type>/     templates (excluded from search/queries/graph)
+  .tegg/vault.yml        vault settings
+  .tegg/types/*.yml      type definitions (versioned schema, AR-07)
+  .tegg/queries/*.yml    saved queries
+  .trash/                deleted objects
+```
+
+Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, parent, import-id`.
+
+## Test data and privacy
+
+- `test exports/` holds **real** Capacities and Notion exports with personal and work data. **Never commit it, never copy it into the repo, never quote its content** in code, tests, commits, issues or artifacts.
+- Tests use the **anonymized** corpus only (FR-IMP-23, R-10), once it exists under `tests/fixtures/`.
+- Zips with non-ASCII names: `unzip` fails on them; use `ditto -x -k` on macOS for manual inspection, and a proper UTF-8 zip reader in code (FR-IMP-07).
+- Extract exports only into a temporary directory, never inside the repo.
+
+## Testing
+
+- Every Markdown parser/serializer change needs round-trip tests (AR-06).
+- Performance-sensitive code is checked against NFR-PERF targets on the 5,000-note generated vault (M1 or newer).
+- Commands: _to be added after scaffolding (run `/init` again then)._
+
+## Working conventions
+
+- UI text in English, all strings externalized for localization (NFR-OTH-02).
+- Keyboard-first: every new action is reachable from the command palette (FR-UX-03).
+- Light and dark themes with equal quality (FR-UX-05).
+- Keep changes small and tied to one requirement or milestone; plan first for anything that touches the file format, sync or the index.

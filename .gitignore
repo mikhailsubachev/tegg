@@ -1,0 +1,27 @@
+# Real exports with personal/work data. Never commit (FR-IMP-23, R-10).
+test exports/
+*.zip
+
+# Personal Claude Code settings
+CLAUDE.local.md
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Node / frontend
+node_modules/
+dist/
+*.log
+
+# Rust / Tauri
+target/
+src-tauri/gen/
+
+# Editors
+.vscode/
+.idea/
