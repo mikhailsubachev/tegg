@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./test exports/**)",
+      "Edit(./test exports/**)",
+      "Write(./test exports/**)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -n:*)",
+      "Bash(git push --no-verify:*)"
+    ]
+  }
+}
