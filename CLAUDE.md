@@ -11,7 +11,7 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 ## Status
 
-Pre-code. Requirements v1.6 are final: no open questions (D-01…D-49). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
+Pre-code. Requirements v1.8 are final: no open questions (D-01…D-50). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
@@ -68,7 +68,8 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 ## Test data and privacy
 
 - `test exports/` holds **real** Capacities and Notion exports with personal and work data. **Never commit it, never copy it into the repo, never quote its content** in code, tests, commits, issues or artifacts.
-- Tests use the **anonymized** corpus only (FR-IMP-23, R-10), once it exists under `tests/fixtures/`.
+- Tests use **synthetic fixtures** in `tests/fixtures/`: small hand-written Capacities/Notion exports, each reproducing specific findings from BRD §15 (FR-IMP-23, D-50). No anonymizer.
+- The **local-only real-export test** reads `test exports/` only if it exists and is skipped otherwise (CI). It may output counts and IDs only, never titles or content.
 - Zips with non-ASCII names: `unzip` fails on them; use `ditto -x -k` on macOS for manual inspection, and a proper UTF-8 zip reader in code (FR-IMP-07).
 - Extract exports only into a temporary directory, never inside the repo.
 
