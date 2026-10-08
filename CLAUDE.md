@@ -6,12 +6,13 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 - `docs/Business Requirements.md`: the source of truth for scope. Every requirement has an ID (`FR-TSK-04`, `NFR-PERF-03`, `AR-01`, …) and a priority (M/S/C/W). Decisions are in §3 (`D-xx`), open questions in §13.1, release phasing in §11, export findings in §15.
 - `docs/initial requirements.md`: the owner's original brief. Historical; do not edit.
+- `docs/acceptance/`: acceptance criteria (`<REQ-ID>/AC-n`). A requirement is done only when its ACs pass as automated tests named after them (e.g. `fr_fmt_11_ac2_…`). Write ACs for a milestone's requirements before implementing it. Gaps found while writing ACs go to the owner as AP-n points, then into the BRD as decisions.
 - Reference requirement IDs in commit messages, PR descriptions, issues, test names and code comments where a rule comes from the BRD.
 - If an implementation needs a decision the BRD doesn't cover, or contradicts it, stop and ask. Don't silently decide. Propose an update to the BRD (new `D-xx` or `OQ-xx`) instead.
 
 ## Status
 
-Pre-code. Requirements v1.8 are final: no open questions (D-01…D-50). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
+Pre-code. Requirements v1.9 are final: no open questions (D-01…D-58). Acceptance criteria exist for the critical requirements. The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
@@ -41,7 +42,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 7. **Obsidian compatibility** (D-05, NFR-POR-01): YAML frontmatter, `[[wikilinks]]`, `![[embeds]]`, Mermaid mindmaps, `.trash/`. A Tegg vault must open in Obsidian without data loss.
 8. **Dates without time are `YYYY-MM-DD`**, no time or timezone (FR-FMT-11). Date-times are ISO 8601 with offset.
 9. **Unicode NFC** for file names and link targets, written and compared (FR-FMT-12). Content is often Czech; test with diacritics.
-10. **File names** are sanitized titles, valid on macOS/Windows/iOS/Android, ≤ 200 chars (FR-FMT-08, NFR-POR-02). Duplicates get ` (2)` suffixes; links resolve by file/`id`, never by title alone (FR-LNK-14).
+10. **File names** are sanitized titles, valid on macOS/Windows/iOS/Android, ≤ 200 UTF-8 bytes, forbidden characters replaced by a space (FR-FMT-08, NFR-POR-02, D-51, D-52). Duplicates get ` (2)` suffixes; links resolve by file/`id`, never by title alone (FR-LNK-14).
 11. **No network calls**, no telemetry (NFR-SEC-01). The only allowed exception is opt-in update checks. No link-metadata fetching (D-43).
 12. **Machine-local data** (index, cache, version history, window state) goes in `~/Library/Application Support/Tegg/`, never in the vault (FR-STO-07). Portable config goes in the vault under `.tegg/`.
 13. **Core stays platform-neutral** (AR-03). Vault I/O, parsing, index, queries and sync adapters must not depend on desktop-only APIs; mobile reuses them later.

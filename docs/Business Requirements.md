@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.8, for review                                              |
+| **Document status** | Draft v1.9, for review                                              |
 | **Date**            | 2026-10-08                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -24,6 +24,7 @@
 | v1.6    | 2026-10-08 | OQ-38 answered (D-49): one-time Capacities import in the MVP, with a duplicate warning; re-import later. No open questions remain.                                                                                                                                                                                                                     |
 | v1.7    | 2026-10-08 | Consistency fixes: Notion (FR-IMP-02) and Anytype (FR-IMP-04) import priority M → C to match §11 (v1.x); removed the stale ❓ marker on FR-IMP-04.                                                                                                                                                                                                      |
 | v1.8    | 2026-10-08 | Test data without anonymization (D-50): synthetic fixtures plus a local-only run against the real exports (FR-IMP-23, R-10, §11.1, X3). |
+| v1.9    | 2026-10-08 | Acceptance criteria for the critical requirements added in `docs/acceptance/`. Open points AP-1…AP-8 accepted (D-51…D-58): file-name byte limit, forbidden-character replacement, conflict copies by `id`, first `id` on edit, `modified` only on change, local offset for imported date-times, backup zip as MVP restore point, performance reference setup. |
 
 ---
 
@@ -117,6 +118,14 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-48 | Collections                | No tag groups/collections in the MVP. Possibly later as a new **Collection** system object (OQ-40)                                                                                                               |
 | D-49 | Re-import                  | MVP: **one-time import**; importing a newer export again is treated as a new import. Add-new-only or update re-import may come in v1.x, using the stored `import-id` (OQ-38)                                     |
 | D-50 | Test data | **No anonymizer.** Tests use hand-written synthetic fixtures (committed) plus a local-only run against the real exports (never committed) (FR-IMP-23) |
+| D-51 | File-name length | File names (without `.md`) are limited to **200 UTF-8 bytes**, cut at a character boundary; the full title stays in `title:` (AP-1, NFR-POR-02) |
+| D-52 | Forbidden characters | `/ : \ * ? " < > \|` in titles are replaced by a space; repeated spaces collapsed; leading/trailing spaces and dots trimmed (AP-2, FR-FMT-08) |
+| D-53 | Conflict copies | A file is a conflict copy only if it has the **same `id`** as another file; provider name patterns are only hints. Tegg duplicate suffixes start at `(2)` (AP-3, FR-SYN-04/05, FR-LNK-14) |
+| D-54 | First `id` | `id` and `type: page` are written to an untyped file on its **first edit** in Tegg; until then the index identifies it by path (AP-4, FR-FMT-02, FR-TYP-10) |
+| D-55 | `modified` timestamp | Updated only when content or an attribute actually changed (AP-5, FR-SYN-06) |
+| D-56 | Imported date-times | UTC date-times are converted to the **local time zone at import**, written with offset (AP-6, FR-FMT-11, FR-IMP-09) |
+| D-57 | MVP restore points | Until version history (v1.0), a **vault backup zip** in Application Support is created before every bulk operation (import, attribute rename, tag rename, bulk type change); newest 10 kept (AP-7, FR-HIS-04, NFR-REL-04) |
+| D-58 | Performance reference | Apple M1, 8 GB RAM, macOS 14, release build; generated 5,000-note reference vault; 95th percentile of ≥ 20 runs (AP-8, `docs/acceptance/performance.md`) |
 
 ---
 
@@ -638,7 +647,7 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | ID         | Requirement                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | NFR-POR-01 | A vault created by the app opens in **Obsidian** with content, links, embeds, images, attributes and mindmaps (as Mermaid) intact. |
-| NFR-POR-02 | File names are valid on macOS, Windows, iOS and Android (no `: \ / * ? " < > \|`, length ≤ 200 chars).                             |
+| NFR-POR-02 | File names are valid on macOS, Windows, iOS and Android (no `: \ / * ? " < > \|`, length ≤ 200 UTF-8 bytes, D-51).                             |
 | NFR-POR-03 | No information required to understand a note is stored only in the index.                                                          |
 
 ### 9.4 Privacy & security (NFR-SEC)
@@ -744,7 +753,7 @@ Everything the importer needs must exist in the MVP, so some items move forward 
 
 None at the moment. All questions are resolved (D-21…D-49).
 
-### 13.2 Resolved questions (answers applied in v1.1–v1.6, see D-21…D-50)
+### 13.2 Resolved questions (answers applied in v1.1–v1.6, see D-21…D-58)
 
 | ID    | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Answer                                                                                                                                                                                 |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
