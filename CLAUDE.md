@@ -6,13 +6,14 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 - `docs/Business Requirements.md`: the source of truth for scope. Every requirement has an ID (`FR-TSK-04`, `NFR-PERF-03`, `AR-01`, …) and a priority (M/S/C/W). Decisions are in §3 (`D-xx`), open questions in §13.1, release phasing in §11, export findings in §15.
 - `docs/initial requirements.md`: the owner's original brief. Historical; do not edit.
+- `docs/test-strategy.md`: how testing is automated: test layers, Claude QA roles, local gates, performance reference, milestones (D-59…D-63). Rules have IDs `TS-xx`.
 - `docs/acceptance/`: acceptance criteria (`<REQ-ID>/AC-n`). A requirement is done only when its ACs pass as automated tests named after them (e.g. `fr_fmt_11_ac2_…`). Write ACs for a milestone's requirements before implementing it. Gaps found while writing ACs go to the owner as AP-n points, then into the BRD as decisions.
 - Reference requirement IDs in commit messages, PR descriptions, issues, test names and code comments where a rule comes from the BRD.
 - If an implementation needs a decision the BRD doesn't cover, or contradicts it, stop and ask. Don't silently decide. Propose an update to the BRD (new `D-xx` or `OQ-xx`) instead.
 
 ## Status
 
-Pre-code. Requirements v1.9 are final: no open questions (D-01…D-58). Acceptance criteria exist for the critical requirements. The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
+Pre-code. Requirements v1.10 are final: no open questions (D-01…D-63). Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
@@ -20,7 +21,7 @@ Pre-code. Requirements v1.9 are final: no open questions (D-01…D-58). Acceptan
 - S4: Rust index (SQLite FTS5 + file watcher) against NFR-PERF on 5,000 generated notes
 - S5: Capacities import dry-run (preview + report only); its parsing and mapping code becomes the basis of the MVP importer
 
-Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc.
+Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc. Each spike also has QA exit criteria (`docs/acceptance/qa-infrastructure.md`), and the QA tooling (`./verify`, hooks, agents, AC coverage) is built before product code.
 
 - **S1 done (GO):** source-preserving documents, see `spikes/s1-roundtrip/FINDINGS.md` and `docs/adr/0001-source-preserving-documents.md`. Dialect spec: `docs/markdown-dialect.md`. Round-trip fixtures: `tests/fixtures/format/roundtrip/` (synthetic, byte-exact; don't open and re-save them in an editor).
 
@@ -79,8 +80,12 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 ## Testing
 
 - Every Markdown parser/serializer change needs round-trip tests (AR-06).
-- Performance-sensitive code is checked against NFR-PERF targets on the 5,000-note generated vault (M1 or newer).
-- S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
+- Performance-sensitive code is checked against NFR-PERF targets on the 5,000-note generated vault, on the reference machine (owner's M2 Pro, tightened targets, D-59).
+- **All testing is local** (D-60): `./verify [commit|push|nightly|milestone|release]` is the only entry point for gates; git hooks and Claude Code hooks run it. Never bypass hooks (`--no-verify` is denied).
+- **Test-first, by a separate agent** (D-61): AC tests are written from the ACs and interfaces only, committed red before the implementation. AC test files are `*.ac.test.ts` (TS) and `tests/ac_*.rs` (Rust). Don't modify or delete an existing AC test without an `AC-Test-Change: <reason>; approved-by: owner` commit trailer.
+- Every bug fix starts with a failing regression test named `bug_<issue>_<req-id>_…`. Data-loss (T1) bugs stop feature work in the MVP (D-62).
+- Claude never reads `test exports/` or the owner's real vault (D-62); exploratory sessions use synthetic or generated vaults only. The owner starts the real-export run.
+- S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only; started by the owner, D-62). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
 - Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions

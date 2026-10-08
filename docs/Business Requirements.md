@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.9, for review                                              |
+| **Document status** | Draft v1.10, for review                                             |
 | **Date**            | 2026-10-08                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -25,6 +25,7 @@
 | v1.7    | 2026-10-08 | Consistency fixes: Notion (FR-IMP-02) and Anytype (FR-IMP-04) import priority M → C to match §11 (v1.x); removed the stale ❓ marker on FR-IMP-04.                                                                                                                                                                                                      |
 | v1.8    | 2026-10-08 | Test data without anonymization (D-50): synthetic fixtures plus a local-only run against the real exports (FR-IMP-23, R-10, §11.1, X3). |
 | v1.9    | 2026-10-08 | Acceptance criteria for the critical requirements added in `docs/acceptance/`. Open points AP-1…AP-8 accepted (D-51…D-58): file-name byte limit, forbidden-character replacement, conflict copies by `id`, first `id` on edit, `modified` only on change, local offset for imported date-times, backup zip as MVP restore point, performance reference setup. |
+| v1.10   | 2026-10-08 | Test automation strategy accepted (`docs/test-strategy.md`): performance reference moved to the owner's M2 Pro with tightened targets (D-59, amends D-58); local-only test execution (D-60); Claude QA roles and independence controls (D-61); QA operations (D-62); MVP milestones MS1–MS8 with test gates (D-63, §11.2); new risk R-11 (macOS 14 untested). |
 
 ---
 
@@ -126,6 +127,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-56 | Imported date-times | UTC date-times are converted to the **local time zone at import**, written with offset (AP-6, FR-FMT-11, FR-IMP-09) |
 | D-57 | MVP restore points | Until version history (v1.0), a **vault backup zip** in Application Support is created before every bulk operation (import, attribute rename, tag rename, bulk type change); newest 10 kept (AP-7, FR-HIS-04, NFR-REL-04) |
 | D-58 | Performance reference | Apple M1, 8 GB RAM, macOS 14, release build; generated 5,000-note reference vault; 95th percentile of ≥ 20 runs (AP-8, `docs/acceptance/performance.md`) |
+| D-59 | Performance reference (amends D-58) | Reference machine is the owner's **Apple M2 Pro, 16 GB, macOS 26**, release build, p95 of ≥ 20 runs. Because it is faster than an M1 8 GB, latency targets are tightened (initially 75% of the NFR value, full index 60%, memory unchanged) and a **slow profile** (efficiency cores only) is reported against the original values. Factors are calibrated in spike S4 (`docs/test-strategy.md` §9, `docs/acceptance/performance.md`) |
+| D-60 | Test execution | **Local only**: one `./verify` script with gates G0 commit, G1 push, G2 nightly, G3 milestone, G4 release, enforced by git hooks and Claude Code hooks. No hosted CI until a public release or a second contributor (`docs/test-strategy.md` §8) |
+| D-61 | Claude in QA | Claude acts as AC author, test author, QA reviewer and exploratory tester, separate from the implementing session. AC tests are written from ACs and interfaces only, committed **red** before the implementation, and may be changed only with owner approval (`AC-Test-Change:` trailer). Mutation-score thresholds T1 / T2: 70% / 60% in MS1–MS3, 80% / 70% from MS4 (`docs/test-strategy.md` §6, §11) |
+| D-62 | QA operations | Nightly gate via `launchd` under `caffeinate`; Claude is **denied access to `test exports/`** and the owner starts the real-export run; data-loss (T1) bugs stop feature work during the MVP; iCloud Drive is enabled on both Macs before MS8 to test iCloud sync |
+| D-63 | MVP milestones | The MVP is built in milestones **MS1–MS8**, each with its own automated test gate (§11.2) |
 
 ---
 
@@ -618,7 +624,7 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 
 ## 9. Non-Functional Requirements
 
-### 9.1 Performance (NFR-PERF) for a reference vault of 5,000 notes + 2,000 images, on an M1 or newer
+### 9.1 Performance (NFR-PERF) for a reference vault of 5,000 notes + 2,000 images, on the reference machine (D-59)
 
 | ID          | Metric                            | Target                                          |
 | ----------- | --------------------------------- | ----------------------------------------------- |
@@ -726,6 +732,21 @@ Everything the importer needs must exist in the MVP, so some items move forward 
 
 **MVP-blocking questions:** all answered (D-42…D-48). OQ-38 (re-import) doesn't block the MVP, because the MVP already stores `import-id`.
 
+### 11.2 MVP milestones (D-63)
+
+Each milestone is done only when all ACs of its requirements pass as automated tests and its gate (`docs/test-strategy.md` §8, §10.2) is green. Data-safety code comes first; the importer comes last because it uses almost everything.
+
+| #   | Milestone                         | Main requirements                                                                                                          | Key test gate                                                                                                                          |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| MS1 | Vault core & file format          | FR-STO-01…09, FR-FMT-01…12, FR-SYN-02, -06, FR-TYP-10, -15, NFR-REL-01, -03, NFR-POR-01…03, FR-VLT-01, -02                | File-format and storage ACs; crash (SIGKILL) harness; minimal-write counter; NFC/NFD on APFS                                          |
+| MS2 | Index, watcher, search, switcher  | AR-01, FR-SYN-03…05, -07, FR-VLT-03, FR-SRC-01…03, FR-NAV-01, NFR-PERF-01…04, -08                                         | Index rebuild = incremental state; external-change and conflict ACs via sync simulator; TS ↔ Rust conformance; perf benchmarks running |
+| MS3 | Types, attributes, editor         | FR-TYP-01…09, -11…14, FR-EDT-01…09, -13…15, NFR-PERF-05, -06                                                              | Editor round-trip through UI edits; autosave ACs; attribute edits change only their lines                                              |
+| MS4 | Links, tags, renames, daily notes | FR-LNK-01…04, -07, -14, FR-TAG-01…08, FR-FMT-08, FR-TYP-04, -07, FR-STO-04, FR-DLY-01…06, -08, FR-HIS-04 (backup zip, D-57) | Link-integrity ACs; rename/undo property test; bulk rewrites write only changed files, backup first                                    |
+| MS5 | Tasks, capture, inbox, home       | FR-TSK-01…06, -08…11, FR-CNV-01…06, -08, FR-CAP-01, -03…05, FR-INB-01…04, FR-HOM-01, -02, FR-NAV-02…05, NFR-PERF-10        | Conversion undo; real-app tests of hotkeys, menu bar and capture window; capture < 300 ms                                              |
+| MS6 | Images, PDFs, trash               | FR-ATT-01…03, -07…09, FR-STO-05, -08, FR-HIS-01                                                                            | Paste image → object + file + embed; trash/restore; "moved to trash" placeholder                                                       |
+| MS7 | Capacities importer               | FR-IMP-03, -05, -07…11, -14…17, -19…22, -24                                                                                | Importer ACs on synthetic fixtures; cancel leaves vault byte-identical; real-export local run: imported + reported = total             |
+| MS8 | MVP hardening & release           | All NFR-PERF, NFR-SEC-01, AR-08, FR-SYN-01                                                                                  | Release gate: perf on reference machine, signed/notarized DMG, two-Mac sync (Dropbox, Google Drive, iCloud), 7-day soak                |
+
 ---
 
 ## 12. Risks & Assumptions
@@ -742,6 +763,7 @@ Everything the importer needs must exist in the MVP, so some items move forward 
 | R-08 | Visual Mermaid mindmap editing: Mermaid `mindmap` syntax is indentation-based and limited (no positions or colors per node).                                                           | Accept layout = auto; store extra styling only if Mermaid supports it (OQ-15).                     |
 | R-09 | Source exports are **lossy** (Capacities: query definitions and tag colors; Notion: view filters, properties in body text, truncated names). Users may blame the importer.             | Show the losses in the import preview and report (FR-IMP-19); create stubs to rebuild (FR-IMP-16). |
 | R-10 | Real exports used for testing contain **personal and work data**.                                                                                                                      | Synthetic fixtures in the repository; the real exports are used only in a local test run that outputs counts and IDs, and are never committed (FR-IMP-23, D-50).                      |
+| R-11 | **macOS 14** is the minimum supported version (NFR-OTH-01), but only macOS 26 is available for testing. | Accepted until the public release track: avoid APIs newer than macOS 14; test on macOS 14 before a public release (`docs/test-strategy.md` §12). |
 | A-01 | Assumption: single user, one device editing at a time in most cases.                                                                                                                   |                                                                                                    |
 | A-02 | Assumption: the user keeps Dropbox/Drive desktop clients running and the vault folder available offline.                                                                               |                                                                                                    |
 

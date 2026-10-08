@@ -13,6 +13,7 @@ The **critical requirements**: those where a bug means data loss, corrupted file
 | [links.md](links.md) | Link integrity, renames, duplicates, date mentions, media objects | FR-FMT-08, FR-LNK-03, -04, -14, FR-STO-04, FR-TYP-04, -07, FR-TAG-04, FR-DLY-08, FR-ATT-07 |
 | [import-capacities.md](import-capacities.md) | Capacities importer (MVP, D-41) | FR-IMP-05, -07, -09…17, -19…24, FR-HIS-04 (MVP backup) |
 | [performance.md](performance.md) | Performance targets | NFR-PERF-01…10 |
+| [qa-infrastructure.md](qa-infrastructure.md) | Test tooling and spike QA exit criteria (D-60, D-61) | `docs/test-strategy.md` TS-xx rules |
 
 ACs for the remaining MVP requirements are written **per milestone**, just before that milestone is built.
 
