@@ -8,9 +8,9 @@ Tests are written against this contract only (black box), never against the impl
 
 - **Entry point:** `verify`, an executable shell script at the repository root. It requires Node.js ≥ 22.18 (runs TypeScript directly) and git.
 - **Which repository:** `verify` operates on the git repository that contains the **current working directory** (`git rev-parse --show-toplevel`), not on the repository where the `verify` script itself lives. So the tool can be tested by running the real `verify` script with a temporary git repository as the working directory.
-- **Configuration:** `qa.config.json` at the repository root (§2). If it is missing or not valid JSON, every command except `install` exits with code **2** and an error message on stderr.
+- **Configuration:** `qa.config.json` at the repository root (§2). If it is missing or not valid JSON, every command except `install`, `install-nightly`, `counts-only`, `help` and `hook claude-pre-tool` exits with code **2** and an error message on stderr (`hook claude-pre-tool` then exits 0 silently, so it never blocks Claude in a repository without the tooling).
 - **Exit codes:** `0` = passed; `1` = a gate or check failed; `2` = usage or configuration error (unknown command, missing argument, invalid config).
-- **Output:** human-readable progress on stdout; errors and warnings on stderr. Exact wording isn't part of the contract except where quoted below.
+- **Output:** human-readable progress on stdout; errors and warnings on stderr. Exact wording isn't part of the contract except where quoted below. Check failures (offending paths, commits as abbreviated or full SHAs, AC and requirement IDs) appear in the output and in the summary's `checks[].messages`.
 - **Machine-local output** goes to `.verify/` at the repository root (git-ignored).
 
 ### 1.1 Warnings printed by every command
@@ -26,7 +26,7 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 {
   "steps": [
     { "id": "qa-tools-typecheck", "dir": "tools/qa", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
-    { "id": "qa-tools-test", "dir": "tools/qa", "run": "node --test test/", "level": "push" }
+    { "id": "qa-tools-test", "dir": "tools/qa", "run": "node --test 'test/*.test.ts'", "level": "push" }
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],
   "acRunners": [
@@ -223,11 +223,11 @@ All `docs/acceptance/*.md` files except `README.md`.
 
 ### 9.3 `verify coverage [--results <dir>]` → `qa/coverage/ac-matrix.md`
 
-Results come from JUnit XML files in `<dir>` (default `.verify/last-results/`). A `<testcase>` belongs to an AC if its `name` or `classname` contains a reference to one of the AC's keys. It **passed** if it has no `<failure>`, `<error>` or `<skipped>`.
+Results come from JUnit XML files in `<dir>` (default `.verify/last-results/`). A `<testcase>` belongs to an AC if its `name` or `classname` contains a reference to one of the AC's keys. It **passed** if it has no `<failure>`, `<error>` or `<skipped>`. A testcase that is only `<skipped>` counts as not run.
 
 AC status:
 - automated: `pass` (at least one testcase passed and none failed), `fail` (any failed), `not run` (referenced in a test source but no testcase in the results), `untested` (no reference in any test source);
-- manual: `manual: pass (<MSn>, <file>)` or `manual: fail (<MSn>, <file>)` from the latest record, else `manual: no record`.
+- manual: `manual: pass (<MSn>, <file>)` or `manual: fail (<MSn>, <file>)` from the latest record, `<file>` being the repository-relative path, else `manual: no record`.
 
 **Manual records:** files `qa/sessions/*.md` and `qa/manual/*.md`, read in file-name order (later files win). A record file has a line `milestone: MS<n>` and lines `- <AC-ID>: pass` or `- <AC-ID>: fail`.
 

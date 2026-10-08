@@ -1,6 +1,6 @@
 # Acceptance Criteria: QA Infrastructure & Spike QA Exit Criteria
 
-See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are defined in [`docs/test-strategy.md`](../test-strategy.md); decisions D-59…D-63 are in the BRD. Test names use the rule ID, e.g. `ts_i3_ac1_modifying_ac_test_needs_trailer`.
+See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are defined in [`docs/test-strategy.md`](../test-strategy.md); decisions D-59…D-63 are in the BRD. Test names use the rule ID, e.g. `ts_i_ac1_modifying_ac_test_needs_trailer`. The exact interface (commands, config, file formats) is `tools/qa/CONTRACT.md`.
 
 ---
 
@@ -29,12 +29,12 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 ### TS-I Independence controls (D-61)
 
 - **AC-1** A `commit-msg` hook rejects a commit that modifies or deletes an existing AC test file (`*.ac.test.ts`, `tests/ac_*.rs`) unless the message has an `AC-Test-Change: <reason>; approved-by: owner` trailer. Adding new AC test files needs no trailer.
-- **AC-2** `./verify --check-red <commit>` checks out the given commit, runs the AC tests added in it and passes only if they fail with assertion failures (not compile errors or missing fixtures).
+- **AC-2** `./verify check-red <commit>` checks out the given commit, runs the AC tests added in it and passes only if they fail with assertion failures (not compile errors or missing fixtures).
 - **AC-3** `.claude/agents/` defines the roles AC author, Test author, QA reviewer and Explorer (test-strategy §6.1); the Test author's and Explorer's instructions forbid reading the implementation under test and the real exports respectively; the QA reviewer has read-only tools.
 
 ### TS-COV AC coverage report (test-strategy §7)
 
-- **AC-1** `tools/ac-coverage` lists every `<REQ-ID>/AC-n` in `docs/acceptance/*.md` and every test named after one (TS and Rust), and writes `qa/coverage/ac-matrix.md`.
+- **AC-1** `./verify coverage` lists every `<REQ-ID>/AC-n` in `docs/acceptance/*.md` and every test named after one (TS and Rust), and writes `qa/coverage/ac-matrix.md`.
 - **AC-2** The report lists ACs without a test, tests pointing at ACs that don't exist, and `[manual]` ACs with their latest session or checklist record.
 - **AC-3** `./verify milestone` fails if any AC of the milestone's requirements (BRD §11.2) has no passing test or, for `[manual]` ACs, no record for the current milestone.
 
