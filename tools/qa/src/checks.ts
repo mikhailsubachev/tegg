@@ -12,6 +12,7 @@ import {
   RED_FIRST_EXEMPT_TRAILER,
   commitChanges,
   commitMessage,
+  parentsOf,
   exec,
   git,
   gitTry,
@@ -210,6 +211,7 @@ export function checkRed(root: string, cfg: Config, sha: string): RedResult {
 export function redFirst(root: string, cfg: Config, range: string[]): CheckResult {
   const messages: string[] = [];
   for (const sha of range) {
+    if (parentsOf(root, sha).length > 1) continue; // merges are skipped (CONTRACT §5.0)
     if (addedAcTests(root, cfg, sha).length === 0) continue;
     if (hasTrailer(commitMessage(root, sha), RED_FIRST_EXEMPT_TRAILER)) continue;
     const r = checkRed(root, cfg, sha);

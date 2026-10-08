@@ -57,6 +57,12 @@ export function parseAcs(root: string): Ac[] {
         acs.push({ id: `${ids[0]}/AC-${ac[1]}`, aliases: ids.slice(1).map((i) => `${i}/AC-${ac[1]}`), manual: ac[2] !== undefined, file });
         continue;
       }
+      // Table criterion: a row whose first cell is exactly a requirement ID (performance.md targets).
+      const row = /^\|\s*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s*\|/.exec(line);
+      if (row && !acs.some((a) => a.id === `${row[1]}/AC-1`)) {
+        acs.push({ id: `${row[1]}/AC-1`, aliases: [], manual: false, file });
+        continue;
+      }
       // Explicit form used outside headings, e.g. `- **NFR-PERF-02/AC-2** …` in performance.md.
       const explicit = /^- \*\*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\/AC-(\d+)\*\*(\s*\[manual\])?/.exec(line);
       if (explicit) acs.push({ id: `${explicit[1]}/AC-${explicit[2]}`, aliases: [], manual: explicit[3] !== undefined, file });

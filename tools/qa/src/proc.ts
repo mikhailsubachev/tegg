@@ -64,12 +64,32 @@ export function commitMessage(root: string, sha: string): string {
 
 export type Change = { status: string; path: string; oldPath?: string };
 
-/** Files changed by one commit against its first parent (root commits against the empty tree). */
+export function parentsOf(root: string, sha: string): string[] {
+  return git(root, ['rev-list', '--parents', '-n', '1', sha]).trim().split(' ').slice(1);
+}
+
+/**
+ * Files changed by one commit: against its first parent (root commits against the empty tree);
+ * for merges only the merge's own changes, i.e. files differing from every parent (CONTRACT §5.0).
+ */
 export function commitChanges(root: string, sha: string, renames: boolean): Change[] {
-  const parents = git(root, ['rev-list', '--parents', '-n', '1', sha]).trim().split(' ').slice(1);
+  const parents = parentsOf(root, sha);
+  if (parents.length > 1) return mergeOwnChanges(root, sha);
   const args = ['diff-tree', '-r', '--no-commit-id', '--name-status', '-z', renames ? '-M' : '--no-renames'];
   const out = parents.length === 0 ? git(root, [...args, '--root', sha]) : git(root, [...args, parents[0], sha]);
   return parseNameStatusZ(out);
+}
+
+/** Combined diff (`git diff-tree -c`): one status letter per parent, e.g. `MM`. */
+function mergeOwnChanges(root: string, sha: string): Change[] {
+  const parts = git(root, ['diff-tree', '-r', '-c', '--no-commit-id', '--name-status', '-z', sha]).split('\0').filter(Boolean);
+  const changes: Change[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const letters = parts[i];
+    const status = letters.includes('D') ? 'D' : /^A+$/.test(letters) ? 'A' : 'M';
+    changes.push({ status, path: parts[i + 1] });
+  }
+  return changes;
 }
 
 export function parseNameStatusZ(out: string): Change[] {

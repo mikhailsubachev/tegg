@@ -31,7 +31,8 @@ export type Summary = {
   steps: StepResult[];
 };
 
-export type GateOptions = { commit?: string; range?: string; milestone?: string };
+/** `fromHook`: the range was set by the pre-push hook, so a pass may still be recorded (CONTRACT §3.2). */
+export type GateOptions = { commit?: string; range?: string; milestone?: string; fromHook?: boolean };
 
 const SEED_RE = /seed(?:\s*[=:]\s*|\s+)(-?\d+)/gi;
 
@@ -218,7 +219,9 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
     steps,
   };
   writeSummary(root, summary);
-  if (gate === 'push' && summary.result === 'pass') fs.writeFileSync(path.join(root, '.verify', 'last-pass'), `${tree}\n`);
+  const recordPass = opts.range === undefined || opts.fromHook === true;
+  if (gate === 'push' && summary.result === 'pass' && !recordPass) log('verify: explicit --range: last-pass not recorded');
+  if (gate === 'push' && summary.result === 'pass' && recordPass) fs.writeFileSync(path.join(root, '.verify', 'last-pass'), `${tree}\n`);
   if (gate === 'nightly') recordNightly(root, summary);
   reportBudget(cfg, summary);
   log(`verify ${gate}: ${summary.result.toUpperCase()}`);

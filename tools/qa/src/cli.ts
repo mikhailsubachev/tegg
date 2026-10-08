@@ -81,7 +81,7 @@ function hookPrePush(root: string): number {
       console.log(`verify: ${localSha.slice(0, 10)} already passed ./verify push; skipping`);
       continue;
     }
-    const s = runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}` });
+    const s = runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true });
     if (s.result !== 'pass') failed = true;
   }
   return failed ? 1 : 0;
