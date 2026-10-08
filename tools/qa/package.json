@@ -1,0 +1,16 @@
+{
+  "name": "tegg-qa-tools",
+  "version": "1.0.0",
+  "description": "QA gates for Tegg: ./verify (D-60, tools/qa/CONTRACT.md)",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test 'test/*.test.ts'",
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

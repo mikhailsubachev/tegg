@@ -217,7 +217,7 @@ All `docs/acceptance/*.md` files except `README.md`.
 ### 9.2 Test keys
 
 - An AC's **key** is its ID lower-cased, `-` replaced by `_`, `/AC-<n>` replaced by `_ac<n>`: `FR-FMT-11/AC-2` → `fr_fmt_11_ac2`, `TS-VERIFY/AC-1` → `ts_verify_ac1`, `S2-QA/AC-4` → `s2_qa_ac4`. Aliases give additional keys.
-- **Test sources:** files with extension `.ts`, `.tsx`, `.js`, `.mjs` whose name contains `.test.` or `.spec.`, and `.rs` files containing `#[test]`; anywhere in the repository except `node_modules/`, `.git/`, `.verify/`, `target/`, `dist/` and `tests/fixtures/`.
+- **Test sources:** files with extension `.ts`, `.tsx`, `.js`, `.mjs` whose name contains `.test.` or `.spec.`, and `.rs` files with a `#[test]` attribute (a line that starts, after indentation, with `#[test]`; a mention in a comment doesn't count); anywhere in the repository except `node_modules/`, `.git/`, `.verify/`, `target/`, `dist/` and `tests/fixtures/`.
 - A **test reference** is any match of `\b((?:fr|nfr|ar|ts|s\d+)(?:_[a-z0-9]+)*?_ac\d+)(?![0-9])` in a test source, i.e. the shortest prefix ending in `_ac<n>`: `fr_fmt_11_ac2_timezone_does_not_shift_date` → `fr_fmt_11_ac2`.
 - A reference whose key belongs to no AC is an **orphan**.
 

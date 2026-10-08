@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tegg git hook: push gate G1 unless .verify/last-pass matches (D-60). Installed by ./verify install.
+root=$(git rev-parse --show-toplevel) || exit 1
+exec "$root/verify" hook pre-push "$@"

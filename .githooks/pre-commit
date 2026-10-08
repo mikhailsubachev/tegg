@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tegg git hook: commit gate G0 (D-60). Installed by ./verify install.
+root=$(git rev-parse --show-toplevel) || exit 1
+exec "$root/verify" commit

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tegg git hook: AC test protection, TS-I AC-1 (D-61). Installed by ./verify install.
+root=$(git rev-parse --show-toplevel) || exit 1
+exec "$root/verify" hook commit-msg "$1"

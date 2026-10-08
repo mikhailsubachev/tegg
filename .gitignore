@@ -25,3 +25,7 @@ src-tauri/gen/
 # Editors
 .vscode/
 .idea/
+
+# QA tooling: machine-local output (D-60, tools/qa/CONTRACT.md)
+.verify/
+qa/nightly/
