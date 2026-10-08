@@ -22,6 +22,8 @@ Pre-code. Requirements v1.9 are final: no open questions (D-01…D-58). Acceptan
 
 Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc.
 
+- **S1 done (GO):** source-preserving documents, see `spikes/s1-roundtrip/FINDINGS.md` and `docs/adr/0001-source-preserving-documents.md`. Dialect spec: `docs/markdown-dialect.md`. Round-trip fixtures: `tests/fixtures/format/roundtrip/` (synthetic, byte-exact; don't open and re-save them in an editor).
+
 ## Stack (confirmed, D-19)
 
 - Tauri 2 (Rust core) + React + TypeScript UI
@@ -78,7 +80,8 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 
 - Every Markdown parser/serializer change needs round-trip tests (AR-06).
 - Performance-sensitive code is checked against NFR-PERF targets on the 5,000-note generated vault (M1 or newer).
-- Commands: _to be added after scaffolding (run `/init` again then)._
+- S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
+- Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions
 
