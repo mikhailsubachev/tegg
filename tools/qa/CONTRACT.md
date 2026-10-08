@@ -80,7 +80,7 @@ Order:
 4. **Red-first check** (§5.2): `check-red` for every commit in the range that **adds** an AC test file, unless its message has a trailer line `Red-First-Exempt: <reason>; approved-by: owner`.
 5. Steps with level `commit` and `push` (`changedOnly` is ignored).
 
-On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`. On failure, `.verify/last-pass` is left unchanged.
+On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`, but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08). On failure, `.verify/last-pass` is left unchanged.
 
 ### 3.3 `verify nightly`, `verify milestone --milestone <MSn>`, `verify release`
 
@@ -153,6 +153,10 @@ Reads the Claude Code hook JSON from stdin (`{"tool_name": "Bash", "tool_input":
 
 ## 5. AC tests
 
+### 5.0 Merge commits in the range
+
+For a commit with more than one parent, the per-commit checks (§5.1, §5.2, §7) look only at the changes the **merge itself** introduces: the files whose merge result differs from **every** parent (git's combined diff, `git diff-tree -r -c`). Changes that came in from one side of the merge are not attributed to the merge commit. A file in the combined diff counts as deleted if it is deleted against any parent, added if it is new against every parent, and modified otherwise. The red-first check (§5.2) skips merge commits (owner decision 2026-10-08).
+
 ### 5.1 AC test protection (push gate)
 
 For every commit in the range: if it modifies, deletes or renames an existing AC test file, its message must contain the `AC-Test-Change: …; approved-by: owner` line (§4.3). Otherwise the `ac-test-protection` check fails, naming the commit and file.
@@ -212,6 +216,7 @@ The plist has:
 
 All `docs/acceptance/*.md` files except `README.md`.
 - **Requirement heading:** a line starting with `### ` followed by one or more IDs separated by ` / `, then a space and free text. An ID is uppercase letters, digits and hyphens, starting with a letter and containing a hyphen or ending in a digit (`FR-FMT-07`, `NFR-REL-01`, `AR-06`, `TS-VERIFY`, `TS-P`, `TS-G2`, `S2-QA`). A shorthand `-NN` after ` / ` means the previous ID's prefix with a new last part: `### FR-STO-01 / -03 / -05 Vault layout` → `FR-STO-01`, `FR-STO-03`, `FR-STO-05`.
+- **Table criterion:** a Markdown table row whose first cell is exactly a requirement ID (e.g. `| NFR-PERF-01 | Cold start to usable UI | < 2 s | … |` in `performance.md`) defines the automated AC `<ID>/AC-1` (owner decision 2026-10-08).
 - **Criterion:** a line starting with `- **AC-<n>**` under a heading. Its ID is `<first heading ID>/AC-<n>`; the other heading IDs are **aliases** (`FR-SYN-02 / NFR-REL-01` → `FR-SYN-02/AC-3`, alias `NFR-REL-01/AC-3`). It is **manual** if `[manual]` follows the label directly (`- **AC-5** [manual] …`); a mention of `[manual]` elsewhere in the text doesn't count. A line `- **<ID>/AC-<n>** …` (as in `performance.md`) defines an AC with that explicit ID, wherever it appears.
 
 ### 9.2 Test keys
@@ -255,3 +260,14 @@ The report (exit 0 always) contains, in this order:
 
 - `verify review-prep [--base <rev>]`: writes `.verify/review/diff.patch` (diff of `HEAD` against the merge-base with `<rev>`, default `main`) and `.verify/review/context.md` (branch, base, head sha, head tree hash, last push result and whether its tree matches) for the QA reviewer.
 - `verify help`: usage. Unknown commands exit 2.
+
+## 12. Known limitations (owner decision 2026-10-08)
+
+Found by the QA review of the first version and deliberately not addressed now. Revisit when they start to matter:
+
+- **Claude hook matching:** `git -C <dir> push`, `git -c … push` and other global options aren't detected; `--no-verify` or a `core.hooksPath` override placed after other arguments isn't caught by the deny rules; `git push` inside quoted text (a commit message, a `grep`) is blocked when last-pass is stale.
+- **Test helpers aren't protected:** shared helpers such as `tools/qa/test/helpers.ts` can be changed without an `AC-Test-Change:` trailer. The QA reviewer checks such changes (TS-I5).
+- **No step timeouts:** a hanging step hangs its gate, including the nightly run.
+- **Duplicate AC IDs** (e.g. `FR-TYP-15/AC-1` in two files) and alias collisions are merged silently in the coverage report.
+- **Red-first for Rust:** only failures containing `AssertionError` count as red; Rust `assert!` panics don't yet (needed from spike S4 on).
+- **counts-only** accepts ASCII-only labels and JSON keys, so an ASCII title used as a label passes.
