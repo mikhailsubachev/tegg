@@ -51,15 +51,15 @@ export function parseAcs(root: string): Ac[] {
         continue;
       }
       if (/^#{1,2} /.test(line)) ids = [];
-      const manual = line.includes('[manual]');
-      const ac = /^- \*\*AC-(\d+)\*\*/.exec(line);
+      // The marker follows the AC label directly: `- **AC-5** [manual] …` (a mention elsewhere in the text doesn't count).
+      const ac = /^- \*\*AC-(\d+)\*\*(\s*\[manual\])?/.exec(line);
       if (ac && ids.length > 0) {
-        acs.push({ id: `${ids[0]}/AC-${ac[1]}`, aliases: ids.slice(1).map((i) => `${i}/AC-${ac[1]}`), manual, file });
+        acs.push({ id: `${ids[0]}/AC-${ac[1]}`, aliases: ids.slice(1).map((i) => `${i}/AC-${ac[1]}`), manual: ac[2] !== undefined, file });
         continue;
       }
       // Explicit form used outside headings, e.g. `- **NFR-PERF-02/AC-2** …` in performance.md.
-      const explicit = /^- \*\*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\/AC-(\d+)\*\*/.exec(line);
-      if (explicit) acs.push({ id: `${explicit[1]}/AC-${explicit[2]}`, aliases: [], manual, file });
+      const explicit = /^- \*\*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\/AC-(\d+)\*\*(\s*\[manual\])?/.exec(line);
+      if (explicit) acs.push({ id: `${explicit[1]}/AC-${explicit[2]}`, aliases: [], manual: explicit[3] !== undefined, file });
     }
   }
   return acs;
