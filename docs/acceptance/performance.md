@@ -14,6 +14,8 @@ See [README](README.md) for conventions.
   - 2,000 images (100 KB–3 MB) in `_attachments/` with Image objects.
 - **Measurement:** each metric is the **95th percentile** of at least 20 runs, measured by automated benchmarks unless marked [manual]. Benchmarks run nightly (trend) and on every release candidate; a regression of > 20% against the rolling median of the last 5 runs fails the release gate (`docs/test-strategy.md` §9).
 
+Each row of this table is the acceptance criterion `<ID>/AC-1` (e.g. `NFR-PERF-01/AC-1`): the metric meets its target on the reference machine as defined above.
+
 | ID | Metric | Target | How it's measured |
 | --- | --- | --- | --- |
 | NFR-PERF-01 | Cold start to usable UI | < 2 s | Launch after reboot cache flush → sidebar and Home rendered and accepting input (index already built) |

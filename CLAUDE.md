@@ -86,6 +86,7 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 - Every bug fix starts with a failing regression test named `bug_<issue>_<req-id>_…`. Data-loss (T1) bugs stop feature work in the MVP (D-62).
 - Claude never reads `test exports/` or the owner's real vault (D-62); exploratory sessions use synthetic or generated vaults only. The owner starts the real-export run.
 - S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only; started by the owner, D-62). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
+- QA gates: `./verify install` once per clone (git hooks), then `./verify commit|push|nightly|milestone --milestone MSn|release`; `./verify coverage` writes `qa/coverage/ac-matrix.md`; `./verify check-red <commit>`; `./verify review-prep` before running the `qa-reviewer` agent; `./verify help`. Interface: `tools/qa/CONTRACT.md`; config: `qa.config.json` (add a step there for every new package's tests). QA tool tests: `cd tools/qa && npm test`.
 - Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions

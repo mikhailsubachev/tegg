@@ -216,7 +216,7 @@ Defined as Claude Code subagents in `.claude/agents/`. Each runs in its **own co
 
 | ID    | Control                                                                                                                                                                                                        |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TS-I1 | **Red first.** AC tests are committed before the implementation and must fail at that commit. `verify --check-red <commit>` checks it.                                                                         |
+| TS-I1 | **Red first.** AC tests are committed before the implementation and must fail at that commit. `./verify check-red <commit>` checks it.                                                                         |
 | TS-I2 | **Separate context.** The Test author doesn't see the implementation, so tests describe required behaviour, not the code's behaviour.                                                                          |
 | TS-I3 | **Protected AC tests.** A commit that *modifies or deletes* an existing AC test file needs a commit trailer `AC-Test-Change: <reason>; approved-by: owner`. A `commit-msg` hook enforces it; the QA reviewer flags it. |
 | TS-I4 | **Mutation testing** (Stryker for TS, `cargo-mutants` for Rust) on T1/T2 modules catches tests that pass whatever the code does. Thresholds in §11 (D-61).                                         |
@@ -227,7 +227,7 @@ Defined as Claude Code subagents in `.claude/agents/`. Each runs in its **own co
 
 ## 7. Traceability and AC coverage
 
-- `tools/ac-coverage` parses `docs/acceptance/*.md` (every `<REQ-ID>/AC-n`) and test names in TS and Rust (`fr_fmt_11_ac2_…`). It writes `qa/coverage/ac-matrix.md`:
+- `./verify coverage` parses `docs/acceptance/*.md` (every `<REQ-ID>/AC-n`) and test names in TS and Rust (`fr_fmt_11_ac2_…`). It writes `qa/coverage/ac-matrix.md`:
   - requirement → AC → test(s) → last result;
   - **untested** ACs;
   - tests pointing at ACs that no longer exist;
@@ -306,7 +306,7 @@ QA deliverables are part of each spike's exit criteria.
 | **S3 Tauri platform**     | **Appium Mac2 proof**: open the menu bar capture, trigger both global hotkeys with the main window closed, type and save in the capture window, one interaction inside the WKWebView; capture-window open time measured (< 300 ms); `lsof` network monitor works; signed + notarized DMG installs on the second Mac |
 | **S4 Rust index**         | `tools/gen-vault` (seeded); `criterion` benchmarks for PERF-02/03/04/07/08; **calibration of §9 factors**; conformance suite (L3) runs the S1 corpus against the Rust extractor; index rebuild = incremental snapshot property                                                                         |
 | **S5 Capacities dry-run** | Synthetic fixtures per §15 finding in `tests/fixtures/import/capacities/`; dry-run report asserted; real-export local run with counts-only output test (TS-P2); "imported + reported = total" rule as a reusable assertion                                                                         |
-| **Cross-cutting**         | `./verify` skeleton, git hooks, Claude Code hooks, `.claude/agents/` for the five roles, `tools/ac-coverage`, privacy hooks. **Built before product code starts.**                                                                                                                                  |
+| **Cross-cutting**         | `./verify` skeleton, git hooks, Claude Code hooks, `.claude/agents/` for the four agent roles (the implementer is the main session), `./verify coverage`, privacy hooks. **Built before product code starts.**                                                                                                                                  |
 
 ### 10.2 MVP milestones and their gates (BRD §11.2, D-63)
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# QA gates entry point (D-60). Interface: tools/qa/CONTRACT.md. Usage: ./verify help
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+if ! command -v node >/dev/null 2>&1; then
+  # The Claude Code hook must never block Claude because of the environment (CONTRACT §4.4).
+  if [ "${1:-}" = hook ] && [ "${2:-}" = claude-pre-tool ]; then exit 0; fi
+  echo "verify: Node.js >= 22.18 is required but was not found on PATH" >&2
+  exit 2
+fi
+exec node --no-warnings "$here/tools/qa/src/cli.ts" "$@"
