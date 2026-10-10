@@ -10,7 +10,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | --- | --- |
 | AC-1: one synthetic fixture per finding C1–C19, README mapping finding → fixture | Pass. `tests/fixtures/import/capacities/c01-…/` … `c19-…/`; `s5_qa_ac1_*` checks every finding has a folder and a README row |
 | AC-2: dry-run report asserted per fixture | Pass. 32 tests in `tests/fixtures_report.rs`, named after the FR-IMP ACs they cover |
-| AC-3: reusable "imported + reported = total" assertion for objects, attachments, links | Pass. `accounting::check` / `assert_accounted` recompute the totals from the raw export (not from the planner) and check that every reported item is in a report list; used by the fixture tests, the CLI and the real-export run. A test shows it catches a dropped link |
+| AC-3: reusable "imported + reported = total" assertion for objects, attachments, links | Pass. `accounting::check` / `assert_accounted` recompute the totals from the raw entries with their own simple rules (space membership by path, file classes by extension, a separate regex link counter), sharing no code with the planner or the link scanner, and check that every reported item is in a report list. Used by the fixture tests, the CLI and the real-export run. Tests break the planner on purpose (lost object, attachment, link, dropped-file row, wrong space) and show the check fails |
 | AC-4 [manual]: owner's real-export run, 0 unreadable entries, counts only | **Pending (owner).** `TEGG_REAL_EXPORTS=1 cargo test --release --test real_export -- --nocapture` |
 
 ## How it works
@@ -31,6 +31,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | F4 | **Media files that no note references** have no defined outcome (D-42: every image is an object) | Listed in the report, imported as attachments. **AP-24** |
 | F5 | **Technical attributes** (`mimeType`, `fileSize`, `width`, `height`, `colors`, `domain`, `iframeUrl`) have no target | Dropped by default, reported. **AP-25** |
 | F6 | Capacities' duplicate file suffix starts at `(1)`, Tegg's at `(2)` (D-53) | No decision needed: links resolve by source path, planned names are allocated fresh |
+| F8 | The BRD doesn't say which export files are objects, attachments or neither | Rule in the spike, **AP-26** |
 | F7 | Null values are frequent (most templates export every attribute) | Omitted (FR-IMP-09 AC-4) and counted per attribute in the preview ("Empty" column) |
 
 ### Assumptions only the real-export run can confirm

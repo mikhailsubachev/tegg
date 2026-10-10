@@ -129,7 +129,16 @@ impl LinkOutcome {
 pub struct LinkRow { pub note: String, pub line: usize, pub target: String, pub outcome: LinkOutcome }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct FileRow { pub path: String, pub reason: String }
+pub struct FileRow { pub path: String, pub kind: DropKind, pub reason: String }
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DropKind {
+    /// A file in the export that is neither an object nor an attachment (counted in `other_files`).
+    File,
+    /// A media reference whose file isn't in the export (counted in `links` as `MissingFile`).
+    MissingReference,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Planned { pub source: String, pub target: String, pub title: String, pub import_id: String }
@@ -313,7 +322,9 @@ fn join_relative(note_inner: &str, rel: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-pub fn is_object_file(inner: &str) -> bool { inner.ends_with(".md") }
+// File classes (AP-26): `.md` = object (FR-IMP-03), `.csv` = tag collection or other (FR-IMP-21),
+// dotfiles (`.DS_Store`) = ignored and reported, everything else = attachment (FR-IMP-14, §11.1 "every attachment").
+pub fn is_object_file(inner: &str) -> bool { inner.ends_with(".md") && !is_hidden(inner) }
 fn is_hidden(inner: &str) -> bool { inner.split('/').any(|p| p.starts_with('.')) }
 pub fn is_attachment_file(inner: &str) -> bool { !is_object_file(inner) && !inner.ends_with(".csv") && !is_hidden(inner) }
 
@@ -341,7 +352,7 @@ pub fn dry_run(src: &Source, space: &str, opts: &Options) -> Report {
                 Ok(n) => { r.objects.imported += 1; notes.push(n) }
                 Err(reason) => {
                     r.objects.reported += 1;
-                    r.skipped_objects.push(FileRow { path: inner.to_string(), reason });
+                    r.skipped_objects.push(FileRow { path: inner.to_string(), kind: DropKind::File, reason });
                     for raw in scan::links(&String::from_utf8_lossy(&e.bytes)) {
                         r.links.total += 1;
                         r.links.reported += 1;
@@ -358,9 +369,9 @@ pub fn dry_run(src: &Source, space: &str, opts: &Options) -> Report {
             let rows = text.trim_start_matches('\u{FEFF}').lines().filter(|l| !l.trim().is_empty()).count();
             if inner.ends_with(".csv") && rows <= 1 {
                 r.tag_collections.push(inner.to_string());
-                r.dropped_files.push(FileRow { path: inner.to_string(), reason: "tag collection (header-only CSV): tags kept, colors and icons not exported".into() });
+                r.dropped_files.push(FileRow { path: inner.to_string(), kind: DropKind::File, reason: "tag collection (header-only CSV): tags kept, colors and icons not exported".into() });
             } else {
-                r.dropped_files.push(FileRow { path: inner.to_string(), reason: "not an object or attachment".into() });
+                r.dropped_files.push(FileRow { path: inner.to_string(), kind: DropKind::File, reason: "not an object or attachment".into() });
             }
         }
     }
@@ -471,7 +482,7 @@ pub fn dry_run(src: &Source, space: &str, opts: &Options) -> Report {
             r.links.total += 1;
             if outcome.imported() { r.links.imported += 1 } else { r.links.reported += 1 }
             if outcome == LinkOutcome::MissingFile {
-                r.dropped_files.push(FileRow { path: raw.target.clone(), reason: format!("referenced from {} but not in the export", n.inner) });
+                r.dropped_files.push(FileRow { path: raw.target.clone(), kind: DropKind::MissingReference, reason: format!("referenced from {} but not in the export", n.inner) });
             }
             r.link_rows.push(LinkRow { note: n.inner.into(), line: raw.line, target: raw.target, outcome });
         }

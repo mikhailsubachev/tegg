@@ -393,3 +393,51 @@ fn fr_imp_07_ac2_non_ascii_and_nfd_names_in_zip() {
     assert!(src.entries.iter().any(|e| e.path == "PKM/Pages/Co dál? 🚀.md"));
     assert!(src.entries.iter().any(|e| e.path == long));
 }
+
+#[test]
+fn s5_qa_ac3_accounting_detects_a_planner_that_loses_items() {
+    // A planner that silently drops an object, an attachment or a dropped-file row must fail the check.
+    let (src, r) = load("c05-media-objects");
+    let mut lost_object = r.clone();
+    lost_object.planned.pop();
+    lost_object.objects.imported -= 1;
+    lost_object.objects.total -= 1;
+    assert!(check(&src, &lost_object).iter().any(|e| e.starts_with("objects: total = export")));
+    let mut lost_attachment = r.clone();
+    lost_attachment.attachments.imported -= 1;
+    lost_attachment.attachments.total -= 1;
+    assert!(check(&src, &lost_attachment).iter().any(|e| e.starts_with("attachments: total = export")));
+    let (src8, mut r8) = load("c08-tag-collections");
+    r8.dropped_files.pop();
+    assert!(check(&src8, &r8).iter().any(|e| e.starts_with("other files reported")));
+}
+
+#[test]
+fn s5_qa_ac3_accounting_detects_a_space_split_that_drops_files() {
+    // The planner reports only PKM's files; checking them against another space's raw files must fail.
+    let src = source::read(&fixtures().join("c01-spaces")).unwrap();
+    let mut r = plan::dry_run(&src, "PKM", &Options::default());
+    r.space = "Work".into();
+    assert!(!check(&src, &r).is_empty());
+}
+
+#[test]
+fn s5_qa_ac3_independent_link_count_matches_the_scanner_on_tricky_text() {
+    use s5_capacities_import::{accounting::count_links, scan};
+    let text = "---\nrel: '[[A]]'\n---\n[[B|b]] ![[c.png]] [x](../T/Plan%20(1).md) ![i](./Media/i.png)\n\
+                `[[code]]` [web](https://e.com) [anchor](#h)\n```\n[[fenced]]\n```\n[[D#h]]\n";
+    assert_eq!(count_links(text), 6);
+    assert_eq!(scan::links(text).len(), 6);
+}
+
+#[test]
+fn s5_qa_ac3_hidden_files_are_reported_not_imported() {
+    let tmp = tempfile::tempdir().unwrap();
+    copy_dir(&fixtures().join("c18-checklists"), tmp.path());
+    std::fs::write(tmp.path().join("PKM/Pages/.DS_Store"), b"x").unwrap();
+    std::fs::write(tmp.path().join("PKM/Pages/.hidden.md"), b"---\ntype: 'Page'\ntitle: H\n---\n").unwrap();
+    let src = source::read(tmp.path()).unwrap();
+    let r = plan::dry_run(&src, "PKM", &Options::default());
+    assert_eq!((r.objects.total, r.other_files.reported), (1, 2));
+    assert_accounted(&src, &r);
+}

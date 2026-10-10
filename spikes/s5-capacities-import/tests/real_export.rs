@@ -12,7 +12,7 @@ fn s5_qa_ac4_real_capacities_export_dry_run() {
         eprintln!("skipped: set TEGG_REAL_EXPORTS=1 (owner only, D-62)");
         return;
     }
-    let mut zips: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path())
+    let mut zips: Vec<_> = std::fs::read_dir(&dir).expect("cannot list the export folder").filter_map(|e| e.ok()).map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|x| x == "zip")).collect();
     zips.sort();
     let mut capacities = 0;
