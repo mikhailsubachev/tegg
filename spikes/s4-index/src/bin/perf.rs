@@ -1,0 +1,242 @@
+//! NFR-PERF report for the index (S4-QA AC-2, AC-3): p95 of ≥ 20 runs per metric on the
+//! reference vault, compared with the targets in docs/acceptance/performance.md.
+//!
+//! `perf --vault <dir> [--runs N] [--label normal|slow] [--out results.json] [--threads N]`
+//! Slow profile (D-59): `taskpolicy -b perf …` runs everything on efficiency cores.
+//! The vault is modified during PERF-08 / PERF-02/AC-2 runs and restored afterwards.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use s4_index::index::{walk_notes, Index};
+use s4_index::watch::watch;
+use serde_json::json;
+
+fn p95(xs: &mut [f64]) -> f64 {
+    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    xs[((xs.len() as f64 * 0.95).ceil() as usize).max(1) - 1]
+}
+
+fn ms(d: Duration) -> f64 {
+    d.as_secs_f64() * 1000.0
+}
+
+struct Metric {
+    id: &'static str,
+    what: &'static str,
+    target_ms: f64,
+    /// D-59 factor on the reference machine: 0.75 latency, 0.60 full index.
+    factor: f64,
+    samples: Vec<f64>,
+}
+
+fn rss_mb() -> f64 {
+    let pid = std::process::id().to_string();
+    let out = std::process::Command::new("ps").args(["-o", "rss=", "-p", &pid]).output().unwrap();
+    String::from_utf8_lossy(&out.stdout).trim().parse::<f64>().unwrap_or(0.0) / 1024.0
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let (mut vault, mut runs, mut label, mut out, mut threads) = (None, 20usize, "normal".to_string(), None, 0usize);
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--vault" => vault = args.next().map(PathBuf::from),
+            "--runs" => runs = args.next().unwrap().parse().unwrap(),
+            "--label" => label = args.next().unwrap(),
+            "--out" => out = args.next().map(PathBuf::from),
+            "--threads" => threads = args.next().unwrap().parse().unwrap(),
+            _ => panic!("unknown argument {a}"),
+        }
+    }
+    if threads > 0 {
+        rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+    }
+    let vault = vault.expect("--vault <dir>").canonicalize().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let db = scratch.path().join("index.db");
+    let mut metrics = Vec::new();
+
+    // NFR-PERF-02: full index from nothing (warm file cache; `purge` needs root).
+    let mut m = Metric { id: "NFR-PERF-02", what: "full index, 5,000 notes", target_ms: 30_000.0, factor: 0.60, samples: vec![] };
+    let mut notes = 0;
+    for i in 0..runs {
+        let db_i = scratch.path().join(format!("full-{i}.db"));
+        let t = Instant::now();
+        let mut ix = Index::open(&vault, &db_i).unwrap();
+        notes = ix.rebuild().unwrap();
+        m.samples.push(ms(t.elapsed()));
+        drop(ix);
+        for ext in ["", "-wal", "-shm"] {
+            let _ = fs::remove_file(format!("{}{ext}", db_i.display()));
+        }
+    }
+    metrics.push(m);
+    eprintln!("indexed {notes} notes");
+
+    let mut ix = Index::open(&vault, &db).unwrap();
+    ix.rebuild().unwrap();
+    let db_mb = fs::metadata(&db).map(|m| m.len()).unwrap_or(0) as f64 / 1e6;
+    let rss_after_build = rss_mb();
+
+    // NFR-PERF-03: quick switcher, every keystroke of 1–10 character queries, incl. diacritics.
+    let mut m = Metric { id: "NFR-PERF-03", what: "switcher per keystroke", target_ms: 100.0, factor: 0.75, samples: vec![] };
+    let queries = ["zlutoucky", "Žluťoučký", "rozpocet p", "q3 plan", "kun", "café", "meeting n", "abcxyzqqq", "praha", "rychlý"];
+    while m.samples.len() < runs.max(20) * 3 {
+        for q in queries {
+            for k in 1..=q.chars().count().min(10) {
+                let prefix: String = q.chars().take(k).collect();
+                let t = Instant::now();
+                let r = ix.switcher.query(&prefix, 50);
+                std::hint::black_box(r);
+                m.samples.push(ms(t.elapsed()));
+            }
+        }
+    }
+    metrics.push(m);
+
+    // NFR-PERF-04: full-text search, first 50 results with snippets; words, phrases, type filter.
+    let mut m = Metric { id: "NFR-PERF-04", what: "full-text search, 50 hits + snippets", target_ms: 200.0, factor: 0.75, samples: vec![] };
+    let searches: [(&str, Option<&str>); 8] = [
+        ("rozpočet", None),
+        ("zlutoucky kun", None),
+        ("\"feedback loop\"", None),
+        ("the", None),
+        ("plán", Some("Project")),
+        ("river city", Some("Page")),
+        ("Zürich", None),
+        ("a", None),
+    ];
+    let mut per_query: Vec<Vec<f64>> = vec![vec![]; searches.len()];
+    for _ in 0..runs {
+        for (i, (q, ty)) in searches.iter().enumerate() {
+            let t = Instant::now();
+            let r = ix.search(q, *ty).unwrap();
+            std::hint::black_box(r);
+            let x = ms(t.elapsed());
+            m.samples.push(x);
+            per_query[i].push(x);
+        }
+    }
+    for (i, (q, ty)) in searches.iter().enumerate() {
+        eprintln!("  search {q:?} {ty:?}: p95 {:.2} ms, {} hits", p95(&mut per_query[i]), ix.search(q, *ty).unwrap().len());
+    }
+    metrics.push(m);
+
+    // NFR-PERF-07 (core part only): fetch 1,000 objects with their attributes for a table view.
+    let mut m = Metric { id: "NFR-PERF-07", what: "query view, 1,000 rows (core only)", target_ms: 300.0, factor: 0.75, samples: vec![] };
+    for _ in 0..runs {
+        let t = Instant::now();
+        let rows = ix.query_view(&["Page", "Task", "Idea"], 1000).unwrap();
+        assert_eq!(rows.len(), 1000);
+        m.samples.push(ms(t.elapsed()));
+    }
+    metrics.push(m);
+
+    // Backlinks (no NFR target; reported).
+    let mut m = Metric { id: "backlinks", what: "backlinks of a note", target_ms: f64::NAN, factor: 1.0, samples: vec![] };
+    let some: Vec<String> = walk_notes(&vault).iter().step_by(97).map(|p| p.file_stem().unwrap().to_string_lossy().into_owned()).collect();
+    for name in some.iter().cycle().take(runs.max(20)) {
+        let t = Instant::now();
+        std::hint::black_box(ix.backlinks(name).unwrap());
+        m.samples.push(ms(t.elapsed()));
+    }
+    metrics.push(m);
+
+    // NFR-PERF-08: file changed by another process → index updated. Atomic replace (like sync
+    // clients and Tegg itself) and in-place append (like editors that write in place).
+    let files = walk_notes(&vault);
+    let ix = Arc::new(Mutex::new(ix));
+    let (tx, rx) = channel();
+    let w = watch(ix.clone(), tx).unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    let mut m = Metric { id: "NFR-PERF-08", what: "external change → index updated", target_ms: 2000.0, factor: 0.75, samples: vec![] };
+    for i in 0..runs {
+        let f = &files[(i * 131) % files.len()];
+        let original = fs::read(f).unwrap();
+        let marker = format!("perfmarker{i}x");
+        let t = Instant::now();
+        if i % 2 == 0 {
+            let tmp = f.with_file_name(format!(".perf-{i}.tmp"));
+            fs::write(&tmp, [&original[..], format!("\n{marker}\n").as_bytes()].concat()).unwrap();
+            fs::rename(&tmp, f).unwrap();
+        } else {
+            use std::io::Write;
+            fs::OpenOptions::new().append(true).open(f).unwrap().write_all(format!("\n{marker}\n").as_bytes()).unwrap();
+        }
+        loop {
+            match rx.recv_timeout(Duration::from_secs(10)) {
+                Ok(_) if !ix.lock().unwrap().search(&marker, None).unwrap().is_empty() => break,
+                Ok(_) => continue,
+                Err(_) => panic!("no index update within 10 s for {}", f.display()),
+            }
+        }
+        m.samples.push(ms(t.elapsed()));
+        fs::write(f, &original).unwrap();
+        // Let the restore settle so it doesn't land in the next sample.
+        while rx.recv_timeout(Duration::from_millis(300)).is_ok() {}
+    }
+    metrics.push(m);
+    drop(w);
+    let ix = Arc::try_unwrap(ix).ok().unwrap().into_inner().unwrap();
+    drop(ix);
+
+    // NFR-PERF-02/AC-2: reopen after 100 files changed while closed → caught up.
+    let mut m = Metric { id: "NFR-PERF-02/AC-2", what: "reopen, 100 files changed offline", target_ms: 3000.0, factor: 0.75, samples: vec![] };
+    for i in 0..runs {
+        let changed: Vec<(PathBuf, Vec<u8>)> = files.iter().skip(i).step_by(files.len() / 100).take(100).map(|p| (p.clone(), fs::read(p).unwrap())).collect();
+        for (p, b) in &changed {
+            fs::write(p, [&b[..], b"\noffline edit\n"].concat()).unwrap();
+        }
+        let t = Instant::now();
+        let mut ix = Index::open(&vault, &db).unwrap();
+        let n = ix.sync().unwrap();
+        m.samples.push(ms(t.elapsed()));
+        assert!(n >= 100, "sync saw {n} changes");
+        drop(ix);
+        for (p, b) in &changed {
+            fs::write(p, b).unwrap();
+        }
+        Index::open(&vault, &db).unwrap().sync().unwrap();
+    }
+    metrics.push(m);
+
+    // Report.
+    let mut rows = Vec::new();
+    let mut failed = false;
+    println!("\n{label} · {notes} notes · {runs} runs · index {db_mb:.0} MB · RSS after build {rss_after_build:.0} MB\n");
+    println!("| Metric | What | p95 ms | Target | Reference (×factor) | Result |");
+    println!("| --- | --- | ---: | ---: | ---: | --- |");
+    for m in &mut metrics {
+        let n = m.samples.len();
+        let p = p95(&mut m.samples);
+        let reference = m.target_ms * m.factor;
+        let verdict = if m.target_ms.is_nan() {
+            "reported".to_string()
+        } else if label == "slow" {
+            (if p < m.target_ms { "pass (original target)" } else { "FAIL (original target)" }).to_string()
+        } else {
+            failed |= p >= reference;
+            (if p < reference { "pass" } else { "FAIL" }).to_string()
+        };
+        println!("| {} | {} | {:.2} | {} | {} | {} |", m.id, m.what, p, fmt(m.target_ms), fmt(reference), verdict);
+        rows.push(json!({ "id": m.id, "what": m.what, "n": n, "p95_ms": p, "target_ms": m.target_ms, "factor": m.factor,
+            "median_ms": m.samples[n / 2], "max_ms": m.samples[n - 1], "verdict": verdict }));
+    }
+    if let Some(out) = out {
+        fs::create_dir_all(out.parent().unwrap_or(Path::new("."))).unwrap();
+        fs::write(&out, serde_json::to_string_pretty(&json!({ "label": label, "notes": notes, "runs": runs,
+            "index_mb": db_mb, "rss_after_build_mb": rss_after_build, "metrics": rows })).unwrap()).unwrap();
+    }
+    // The slow profile is reported, not a gate (D-59).
+    if failed {
+        std::process::exit(1);
+    }
+}
+
+fn fmt(x: f64) -> String {
+    if x.is_nan() { "–".into() } else { format!("{x:.0}") }
+}

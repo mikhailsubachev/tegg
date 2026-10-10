@@ -1,0 +1,854 @@
+{
+  "capacities/Books/Systems thinking basics.md": {
+    "title": "Systems thinking basics ®",
+    "id": null,
+    "type": "Book",
+    "attributes": {
+      "type": "Book",
+      "title": "Systems thinking basics ®",
+      "tags": [
+        "project"
+      ],
+      "author": "Novák, Jan; Svobodová, Eva",
+      "medium": "E-Book",
+      "finished": null,
+      "language": "ENG"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Feedback loops",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": [
+      "project"
+    ]
+  },
+  "capacities/DailyNotes/2026-02-01.md": {
+    "title": "2026-02-01",
+    "id": null,
+    "type": "DailyNote",
+    "attributes": {
+      "type": "DailyNote",
+      "title": "2026-02-01",
+      "date": "2026-02-01T00:00:00.000Z",
+      "tags": [
+        "Learning",
+        "Archive"
+      ],
+      "reviewed": true
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Systems thinking basics",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Feedback loops",
+        "subpath": null,
+        "alias": "loops",
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Date/2026-02-03",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "NOTE/3f2c9a1e-0000-4000-8000-000000000001",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": [
+      "learning",
+      "archive"
+    ]
+  },
+  "capacities/Ideas/Feedback loops.md": {
+    "title": "Feedback loops",
+    "id": null,
+    "type": "Idea",
+    "attributes": {
+      "type": "Idea",
+      "title": "Feedback loops",
+      "createdAt": "2026-05-01T11:28:04.613Z",
+      "tags": [],
+      "source": "kniha"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Parts of a system - People",
+        "subpath": null,
+        "alias": "people",
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Good software",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Parts of a system - People",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "capacities/Images/Mapa řeky.md": {
+    "title": "Mapa řeky",
+    "id": null,
+    "type": "Image",
+    "attributes": {
+      "type": "Image",
+      "title": "Mapa řeky",
+      "description": null,
+      "createdAt": "2026-04-07T19:46:20.601Z",
+      "tags": [],
+      "source": "upload",
+      "url": null,
+      "mimeType": "image/jpeg",
+      "fileSize": 28624,
+      "width": 1441,
+      "height": 621,
+      "category": null,
+      "colors": null
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "capacities/Meetings/11 2026-03-19 Jana.md": {
+    "title": "1:1 2026-03-19 Jana",
+    "id": null,
+    "type": "Meeting",
+    "attributes": {
+      "type": "Meeting",
+      "title": "1:1 2026-03-19 Jana",
+      "description": null,
+      "tags": [],
+      "date": "2026-03-19T00:00:00.000Z",
+      "peopleInvolved": "[[Jana]]"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Jana",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      }
+    ],
+    "tags": []
+  },
+  "capacities/People/Tomáš.md": {
+    "title": "Tomáš ",
+    "id": null,
+    "type": "Person",
+    "attributes": {
+      "type": "Person",
+      "title": "Tomáš ",
+      "description": null,
+      "tags": [],
+      "contact": null,
+      "category": null
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "capacities/Queries/All books where.md": {
+    "title": "All Books where ...",
+    "id": null,
+    "type": "Query",
+    "attributes": {
+      "type": "Query",
+      "title": "All Books where ...",
+      "description": null,
+      "icon": null
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "capacities/Tasks/Prepare budget review.md": {
+    "title": "Prepare budget review",
+    "id": null,
+    "type": "Task",
+    "attributes": {
+      "type": "Task",
+      "title": "Prepare budget review",
+      "tags": [],
+      "status": "Done",
+      "date": "2026-02-09T00:00:00.000Z",
+      "deadline": null,
+      "priority": null,
+      "completed": "2026-04-23T15:11:34.148Z"
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "capacities/Trips/Lisbon.md": {
+    "title": "Lisbon",
+    "id": null,
+    "type": "Trip",
+    "attributes": {
+      "type": "Trip",
+      "title": "Lisbon",
+      "tags": [],
+      "dates": "2026-07-01 -> 2026-07-14",
+      "status": "[[in progress]]",
+      "location": "Lisbon",
+      "people": "Jana, Tomáš, Eva",
+      "coverImage": null
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "in progress",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      }
+    ],
+    "tags": []
+  },
+  "capacities/Weblinks/Article.md": {
+    "title": "Article",
+    "id": null,
+    "type": "Weblink",
+    "attributes": {
+      "type": "Weblink",
+      "title": "Article",
+      "description": null,
+      "createdAt": "2026-04-20T10:35:19.079Z",
+      "tags": [
+        "Book"
+      ],
+      "previewImage": null,
+      "url": "https://example.com/a-very-long-article-url-that-capacities-folds-into-multiple-lines-of-yaml",
+      "iframeUrl": null,
+      "domain": "example.com",
+      "category": null,
+      "topic": null
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Reading list",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": [
+      "book"
+    ]
+  },
+  "edge/BOM.md": {
+    "title": "With BOM",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "title": "With BOM"
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/CRLF line endings.md": {
+    "title": "CRLF",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "title": "CRLF",
+      "tags": [
+        "a"
+      ]
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": [
+      "a"
+    ]
+  },
+  "edge/Empty.md": {
+    "title": "Empty",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Frontmatter styles.md": {
+    "title": "Single quoted",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "title": "Single quoted",
+      "plain": "unquoted value",
+      "number": 42,
+      "flag": true,
+      "empty": null,
+      "nothing": null,
+      "flow": [
+        "a",
+        "b c",
+        "d"
+      ],
+      "block": [
+        "x",
+        "y"
+      ],
+      "folded": "a folded string",
+      "literal": "line one\nline two\n",
+      "relation": "[[Some note]]",
+      "unknown_key": "kept as is"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Some note",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      }
+    ],
+    "tags": []
+  },
+  "edge/Invalid YAML.md": {
+    "title": "Invalid YAML",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": true,
+    "links": [],
+    "tags": []
+  },
+  "edge/Many trailing newlines.md": {
+    "title": "Many trailing newlines",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Mixed line endings.md": {
+    "title": "Mixed line endings",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/No final newline.md": {
+    "title": "No final newline",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "title": "No final newline"
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/No frontmatter.md": {
+    "title": "No frontmatter",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Only frontmatter.md": {
+    "title": "Only frontmatter",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "title": "Only frontmatter"
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Quote lazy continuation.md": {
+    "title": "Quote lazy continuation",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Trailing whitespace.md": {
+    "title": "Trailing whitespace",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "edge/Unclosed frontmatter.md": {
+    "title": "Unclosed frontmatter",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "notion/Docs home 37315fea6572805b9366c5dd0f8a560f.md": {
+    "title": "Docs home 37315fea6572805b9366c5dd0f8a560f",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "notion/Empty properties 5f2c9a1e657280c39197cca058676eea.md": {
+    "title": "Empty properties 5f2c9a1e657280c39197cca058676eea",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "notion/Glossary entry a4f15fea65728202adfa012cc67bfd2b.md": {
+    "title": "Glossary entry a4f15fea65728202adfa012cc67bfd2b",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "notion/Meeting notes 2026 d1615fea6572826b8ffd013c6c69bdad.md": {
+    "title": "Meeting notes 2026 d1615fea6572826b8ffd013c6c69bdad",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "notion/Plan the release 38b15fea657280c39197cca058676eea.md": {
+    "title": "Plan the release 38b15fea657280c39197cca058676eea",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "obsidian/01 Callouts and quotes.md": {
+    "title": "01 Callouts and quotes",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "tags": [
+        "reading",
+        "zettel"
+      ],
+      "aliases": [
+        "Callouts"
+      ]
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": [
+      "reading",
+      "zettel"
+    ]
+  },
+  "obsidian/02 Block ids and heading links.md": {
+    "title": "02 Block ids and heading links",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "02 Block ids and heading links",
+        "subpath": "Section two",
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "02 Block ids and heading links",
+        "subpath": "^para-1",
+        "alias": "the paragraph",
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "03 Embeds and images",
+        "subpath": "^summary",
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "obsidian/03 Embeds and images.md": {
+    "title": "03 Embeds and images",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "created": "2026-09-01T10:00:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "photo.png",
+        "subpath": null,
+        "alias": "400",
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "diagram.png",
+        "subpath": null,
+        "alias": "400x300",
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "manual.pdf",
+        "subpath": "page=3",
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "01 Callouts and quotes",
+        "subpath": null,
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "photo.png",
+        "subpath": null,
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "obsidian/04 Tables.md": {
+    "title": "04 Tables",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Dune",
+        "subpath": null,
+        "alias": "the book",
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Emma",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "obsidian/05 Nested lists and checklists.md": {
+    "title": "05 Nested lists and checklists",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "obsidian/06 Tags inline and frontmatter.md": {
+    "title": "06 Tags inline and frontmatter",
+    "id": null,
+    "type": null,
+    "attributes": {
+      "tags": [
+        "project",
+        "čtení"
+      ]
+    },
+    "frontmatterError": false,
+    "links": [],
+    "tags": [
+      "project",
+      "čtení",
+      "idea",
+      "čtení",
+      "multi-word_tag",
+      "area/work",
+      "start-of-line"
+    ]
+  },
+  "obsidian/07 HTML footnotes math.md": {
+    "title": "07 HTML footnotes math",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "obsidian/08 Comments and unknown fences.md": {
+    "title": "08 Comments and unknown fences",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "obsidian/09 Emphasis styles.md": {
+    "title": "09 Emphasis styles",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [],
+    "tags": []
+  },
+  "obsidian/10 Links in code are ignored.md": {
+    "title": "10 Links in code are ignored",
+    "id": null,
+    "type": null,
+    "attributes": null,
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Target note",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "tegg/Meetings/2026-10-07 Weekly Sync.md": {
+    "title": "2026-10-07 Weekly Sync",
+    "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9F",
+    "type": "meeting",
+    "attributes": {
+      "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9F",
+      "type": "meeting",
+      "title": "2026-10-07 Weekly Sync",
+      "date": "2026-10-07",
+      "attendees": [
+        "[[Jana]]"
+      ],
+      "created": "2026-10-07T10:00:00+02:00",
+      "modified": "2026-10-07T10:31:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Jana",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      },
+      {
+        "target": "Send budget draft to finance",
+        "subpath": null,
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "tegg/Pages/Every block type.md": {
+    "title": "Every block type",
+    "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9C",
+    "type": "page",
+    "attributes": {
+      "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9C",
+      "type": "page",
+      "title": "Every block type",
+      "tags": [
+        "demo"
+      ],
+      "created": "2026-10-08T09:00:00+02:00",
+      "modified": "2026-10-08T09:30:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Trip to Lisbon",
+        "subpath": null,
+        "alias": "link",
+        "embed": false,
+        "inFrontmatter": false
+      },
+      {
+        "target": "photo.png",
+        "subpath": null,
+        "alias": "400",
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "manual.pdf",
+        "subpath": "page=3",
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      },
+      {
+        "target": "Trip to Lisbon",
+        "subpath": null,
+        "alias": null,
+        "embed": true,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": [
+      "demo"
+    ]
+  },
+  "tegg/Pages/Q3 plan budget.md": {
+    "title": "Q3: plan/budget",
+    "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9G",
+    "type": "page",
+    "attributes": {
+      "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9G",
+      "type": "page",
+      "title": "Q3: plan/budget",
+      "created": "2026-10-08T11:00:00+02:00",
+      "modified": "2026-10-08T11:00:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Q3 plan budget",
+        "subpath": null,
+        "alias": "Q3: plan/budget",
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  },
+  "tegg/Tasks/Send budget draft to finance.md": {
+    "title": "Send budget draft to finance",
+    "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9E",
+    "type": "task",
+    "attributes": {
+      "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9E",
+      "type": "task",
+      "title": "Send budget draft to finance",
+      "status": "todo",
+      "priority": "high",
+      "due": "2026-10-10",
+      "source": "[[2026-10-07 Weekly Sync]]",
+      "review": "reviewed",
+      "created": "2026-10-07T10:31:00+02:00",
+      "modified": "2026-10-07T10:31:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "2026-10-07 Weekly Sync",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      }
+    ],
+    "tags": []
+  },
+  "tegg/Trips/Trip to Lisbon.md": {
+    "title": "Trip to Lisbon",
+    "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9D",
+    "type": "trip",
+    "attributes": {
+      "id": "01J9ZK4M7Q2R8F3V6X1T0B5N9D",
+      "type": "trip",
+      "title": "Trip to Lisbon",
+      "dates-start": "2026-07-01",
+      "dates-end": "2026-07-14",
+      "budget": 1200,
+      "booked": true,
+      "departure": "2026-07-01T07:15:00+02:00",
+      "status": "planning",
+      "companions": [
+        "[[Jana]]",
+        "[[Tomáš]]"
+      ],
+      "review": "unreviewed",
+      "created": "2026-10-08T09:00:00+02:00",
+      "modified": "2026-10-08T09:00:00+02:00"
+    },
+    "frontmatterError": false,
+    "links": [
+      {
+        "target": "Jana",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      },
+      {
+        "target": "Tomáš",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": true
+      },
+      {
+        "target": "2026-10-08",
+        "subpath": null,
+        "alias": null,
+        "embed": false,
+        "inFrontmatter": false
+      }
+    ],
+    "tags": []
+  }
+}
