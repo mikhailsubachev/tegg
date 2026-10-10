@@ -1,0 +1,24 @@
+[package]
+name = "s5-capacities-import"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Spike S5: Capacities import dry-run (preview + report only), throwaway"
+
+[dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
+yaml-rust2 = "0.13"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+unicode-normalization = "0.1"
+percent-encoding = "2"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "capacities-dryrun"
+path = "src/main.rs"

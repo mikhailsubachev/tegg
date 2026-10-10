@@ -77,3 +77,14 @@ The designs match the requirements apart from these points. Decided in the same 
 | AP-20 | **Attributes in the right panel.** FR-NAV-05 lists Attributes, Backlinks, Local graph and Outline in the right panel; the design shows attributes only at the top of the note (FR-EDT-07) and the panel has Backlinks, Outline and Graph. | Follow the design: remove Attributes from FR-NAV-05; the attribute panel stays at the top of the note (collapsible). | FR-NAV-05, FR-EDT-07 |
 | AP-21 | **Unlinked mentions in the backlinks panel.** The design shows them; FR-LNK-05 is S and §11 places it in v1.x. | Keep v1.x; the design shows the later state. No change, unless you want it in the MVP. | FR-LNK-05, §11 |
 
+
+## Open points (from spike S5, pending the owner)
+
+Found while building the Capacities dry run (`spikes/s5-capacities-import/FINDINGS.md`).
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-22 | **`source` on Image/PDF objects.** FR-IMP-14 AC-1 says Image objects keep `source`, but Capacities writes `source: upload` (plain text), and FR-TYP-15 AC-1 renames plain-text `source` to `source-text`. | Treat it like every other plain-text `source`: rename to `source-text` (the spike does this). Fix FR-IMP-14 AC-1 to say `source-text`. | FR-IMP-14, FR-TYP-15 |
+| AP-23 | **`[[Title]]` with a duplicate title.** Capacities wikilinks carry only the title, so a link to one of two objects titled `Tomáš : Eva` can't be resolved (path links can). | Point it at the first object by source path, mark it, and list it in the report as "ambiguous" so the user can fix it. | FR-IMP-10, FR-LNK-14 |
+| AP-24 | **Media files no object references** (an image in `Media/` without an Image `.md` or any embed). D-42 says every image is an object. | Import the file into `_attachments/` **and** create an Image object for it (title = file name); list it in the report. The spike only lists it. | FR-IMP-14, D-42 |
+| AP-25 | **Technical attributes dropped by default.** Image/PDF `mimeType`, `fileSize`, `width`, `height`, `colors` and Weblink `domain`, `iframeUrl` are derivable or useless in Tegg. | Default mapping = drop (reported, changeable in the mapping step). | FR-IMP-08, FR-IMP-24 |

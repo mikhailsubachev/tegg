@@ -27,6 +27,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 - **S2 done (GO):** TipTap block editor on source blocks, see `spikes/s2-editor/FINDINGS.md` and `docs/adr/0002-editor-on-source-blocks.md`. The S2 editor imports the S1 core via the `@core` alias (`spikes/s1-roundtrip/src`).
 - **S3 in progress (provisional GO):** Tauri 2 menu bar, global hotkeys and pre-warmed capture window (manual: ready in ~40–50 ms), see `spikes/s3-platform/FINDINGS.md`. Pending: the Appium `mac2` run (needs Xcode) and the signed + notarized DMG (needs a Developer ID). AP-9…AP-14 decided (D-66…D-71).
 - **S4 done (GO):** Rust index (SQLite FTS5, in-memory switcher, FSEvents watcher) beats every NFR-PERF target it can measure by ≥ 3.5× (most by 10–1000×), see `spikes/s4-index/FINDINGS.md`. The Rust extractor matches the TS reference (`tests/fixtures/format/extract/expected.json`, plus a nightly differential corpus). The reference vault comes from `tools/gen-vault`. AP-15 and AP-16 decided (D-64, D-65).
+- **S5 in progress (provisional GO):** Capacities dry run (preview + report, no writes) in Rust, see `spikes/s5-capacities-import/FINDINGS.md`. Fixtures C1–C19: `tests/fixtures/import/capacities/`. Pending: the owner's real-export run (S5-QA AC-4). Open points AP-22…AP-25.
 
 ## Stack (confirmed, D-19)
 
@@ -93,6 +94,7 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 - S2 spike: `cd spikes/s2-editor && npm test` (editor ACs, property test); `npm run test:webkit` (all Playwright tests: the WebKit editor flow with a fake core over mocked IPC, and the perf probe on WebKit + Chromium; use `--workers=1` for clean perf numbers); `npm run dev` or the `s2-editor` entry in `.claude/launch.json` for the playground; `npm run test:real` is started by the owner (D-62).
 - S3 spike: `cd spikes/s3-platform && npm run app:build` (.app + ad-hoc DMG); `npm run test:rust` (vault write tests); `cd e2e-appium && npm test` (Appium mac2 real-app suite, S3-QA AC-1…AC-4; needs Xcode, Accessibility permission and a built app); `scripts/sign-notarize.sh` (owner's Developer ID).
 - S4 spike: `cd spikes/s4-index && cargo test --release` (conformance, property, sync, search); `cargo run --release --bin perf -- --vault <dir> --runs 20` (p95 vs NFR-PERF; `taskpolicy -b` for the slow profile); `cargo bench --bench perf` (criterion trend). Reference vault: `cargo run --release --manifest-path tools/gen-vault/Cargo.toml -- --seed 1 --out <dir>` (3 GB with images; `--small-images` for index-only work). After an intended extraction change: `cd spikes/s1-roundtrip && UPDATE_EXTRACT=1 npx vitest run test/extract.test.ts`.
+- S5 spike: `cd spikes/s5-capacities-import && cargo test --release` (fixture reports, accounting rule); `cargo run --release --bin capacities-dryrun -- <zip|folder> [--space NAME] [--json|--counts-only]`; `TEGG_REAL_EXPORTS=1 cargo test --release --test real_export -- --nocapture` is started by the owner (D-62).
 - Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions
