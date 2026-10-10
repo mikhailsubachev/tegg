@@ -5,6 +5,13 @@
     { "id": "qa-tools-test", "dir": "tools/qa",
       "run": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/qa-tools.xml\" 'test/*.test.ts'",
       "level": "push" },
+    { "id": "s2-typecheck", "dir": "spikes/s2-editor", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "s2-test", "dir": "spikes/s2-editor",
+      "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/s2-editor.xml\"",
+      "level": "push" },
+    { "id": "s2-webkit", "dir": "spikes/s2-editor",
+      "run": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=\"$VERIFY_RESULTS/s2-webkit.xml\" npx playwright test --project=webkit e2e/editor-flow.spec.ts --reporter=list,junit",
+      "level": "nightly" },
     { "id": "s1-test", "dir": "spikes/s1-roundtrip",
       "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/s1-roundtrip.xml\"",
       "level": "push" }

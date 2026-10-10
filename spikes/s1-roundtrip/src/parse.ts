@@ -7,6 +7,9 @@ import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import { isMap, isScalar, parseDocument, type Pair } from 'yaml'
 import type { Nodes, Root, RootContent } from 'mdast'
+import { math } from 'micromark-extension-math'
+import { mathFromMarkdown } from 'mdast-util-math'
+import { inlineFromMarkdown, inlineSyntax } from './inline.js'
 import { tagFromMarkdown, tagSyntax } from './tag.js'
 import { wikiLinkFromMarkdown, wikiLinkSyntax } from './wikilink.js'
 
@@ -74,10 +77,7 @@ export function parse(text: string): Doc {
   const { frontmatter, warning } = parseFrontmatter(text, start)
   const bodyStart = frontmatter ? frontmatter.range[1] : start
   const body = text.slice(bodyStart)
-  const mdast = fromMarkdown(body, {
-    extensions: [gfm(), wikiLinkSyntax, tagSyntax],
-    mdastExtensions: [gfmFromMarkdown(), wikiLinkFromMarkdown, tagFromMarkdown],
-  })
+  const mdast = parseMarkdown(body)
   shiftPositions(mdast, bodyStart)
 
   const blocks = mdast.children.map((node): Block => {
@@ -91,6 +91,31 @@ export function parse(text: string): Doc {
 
 export function serialize(doc: Doc): string {
   return doc.text
+}
+
+function parseMarkdown(text: string): Root {
+  const tree = fromMarkdown(text, {
+    extensions: [gfm(), math(), wikiLinkSyntax, tagSyntax, inlineSyntax],
+    mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), wikiLinkFromMarkdown, tagFromMarkdown, inlineFromMarkdown],
+  })
+  expandHighlights(tree)
+  return tree
+}
+
+// The highlight construct captures its inner text as one text node; parse that text as
+// inline Markdown so `==a *b*==` keeps its emphasis (else re-rendering escapes the `*`).
+function expandHighlights(tree: Nodes): void {
+  if (tree.type === 'highlight' && tree.children.length === 1 && tree.children[0].type === 'text') {
+    const inner = tree.children[0]
+    const start = inner.position!.start.offset!
+    const para = parseMarkdown(inner.value).children[0]
+    if (para?.type === 'paragraph') {
+      shiftPositions(para, start)
+      tree.children = para.children
+    }
+    return
+  }
+  if ('children' in tree) for (const c of tree.children) expandHighlights(c as Nodes)
 }
 
 // ---------------------------------------------------------------- frontmatter
@@ -161,6 +186,7 @@ function classify(node: RootContent, raw: string): BlockKind {
     case 'html': return 'raw'
     case 'footnoteDefinition': return 'raw'
     case 'definition': return 'raw'
+    case 'math': return 'raw' // $$ … $$ display math, preserved
     case 'blockquote': return /^>\s*\[!\w[\w-]*\][+-]?/.test(raw) ? 'callout' : 'quote'
     case 'list': return node.children.some((i) => i.checked !== null && i.checked !== undefined) ? 'checklist' : 'list'
     case 'code': {

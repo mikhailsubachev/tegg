@@ -11,7 +11,11 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
    - An edited block keeps its own list-marker style (`*`, `+`, `-`, `1.`, `1)`); only new blocks use the canonical style. Markers separate adjacent lists.
    - Trailing empty quote lines (`>`) of an edited quote are kept; they stop the next line from becoming a lazy continuation.
    - Every block edit is verified by re-parsing. If the edited block would merge with a neighbour, one blank line is added to the gap next to it; otherwise the edit is refused.
-   - Wikilinks, embeds and tags are syntax nodes, written back verbatim, never escaped.
+   - Wikilinks, embeds and tags are syntax nodes, written back verbatim, never escaped. So are `==highlight==`, inline `%%comment%%` and `$math$` (spike S2).
+5. **Saving from the block editor** (spike S2, ADR 0002):
+   - Unchanged blocks are written byte-for-byte, even when moved; only changed or new blocks are rendered. Leading and trailing spaces of a rendered paragraph, heading or table cell are dropped (Markdown ignores them; otherwise they'd be written as `&#x20;`).
+   - When two lists with the same marker become adjacent (e.g. the block between them was deleted), one of them is written with another marker (`-` → `*`, `1.` → `1)`), because a blank line doesn't separate them.
+   - When a list is newly followed by an indented block (indented code), a `<!-- -->` line is written between them; CommonMark would otherwise make the indented block part of the list.
 
 ## 2. File envelope
 

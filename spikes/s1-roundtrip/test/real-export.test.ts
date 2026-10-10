@@ -11,7 +11,9 @@ import { wikilinks, tags } from '../src/links.js'
 import { decode, encode, parse, type Doc } from '../src/parse.js'
 
 const DIR = join(import.meta.dirname, '../../../test exports')
-const zips = existsSync(DIR) ? readdirSync(DIR).filter((f) => f.endsWith('.zip')) : []
+// Runs only when the owner asks for it (`npm run test:real` sets TEGG_REAL_EXPORTS=1, D-62):
+// normal test runs and gates never read the real exports, even when the folder exists.
+const zips = process.env.TEGG_REAL_EXPORTS === '1' && existsSync(DIR) ? readdirSync(DIR).filter((f) => f.endsWith('.zip')) : []
 
 interface Entry { name: string; bytes: Buffer }
 
