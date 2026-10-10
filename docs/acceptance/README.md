@@ -57,3 +57,11 @@ Writing the criteria uncovered gaps and conflicts in the BRD. All proposals belo
 | AP-12 | **"Enter saves" vs. multi-line Markdown capture.** FR-CAP-01 says "Enter/⌘↩ saves and closes", but the field accepts Markdown, which needs Enter for new lines and lists. | ⌘↩ saves, Enter is a new line (what the S3 spike does). | FR-CAP-01 |
 | AP-13 | **Frontmatter keys for captured tasks.** FR-CAP-04 names a `captured` timestamp and FR-TSK-10 a due date and priority, but `captured`, `due`, `priority` and `status` aren't in the reserved keys (FR-TYP-15) or the dialect spec. The spike writes `captured:` and `due:` provisionally. | Add `captured` to the reserved keys; define the Task type's attribute keys (`status`, `priority`, `due`, `completed`, `recurrence`) in the dialect spec before MS5. | FR-TYP-15, FR-CAP-04, FR-TSK-01, dialect spec |
 | AP-14 | **Second app instance and hotkey conflicts.** Launching the app twice runs two copies, and only one gets the global hotkeys; another app can also own ⌃⌥Space. Neither case is covered. | Single instance (a second launch focuses the first); a hotkey that can't be registered is shown in Settings with a prompt to choose another (FR-SET-04). | FR-CAP-05, FR-SET-04 |
+
+## Open points (from spike S4, pending the owner)
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-15 | **Links and tags inside math.** The dialect says `#tags` and `[[links]]` don't count in code or links, but says nothing about math. Obsidian doesn't read `#x` or `[[x]]` inside `$…$` or `$$…$$` as a tag or link; the S1 reference did. | Math is excluded like code: `$…$`, `$$…$$` and `$$` blocks (implemented in both extractors in S4 as a proposal). Add it to dialect §5. | Dialect §5, FR-FMT-03, FR-TAG |
+| AP-16 | **The slow profile doesn't stand in for an M1.** `taskpolicy -b` makes everything 5–6× slower (E-cores at low clock), while an M1 is about 1.2–1.4× slower than the M2 Pro. On it, search p95 is 221 ms against the original 200 ms target. | Keep the 75% / 60% factors (D-59). Keep the slow profile as a reported **worst case** with no target, or drop it. If an M1 is available, measure once with `perf` to confirm the factors. | D-59, performance.md, test-strategy §9 |
+
