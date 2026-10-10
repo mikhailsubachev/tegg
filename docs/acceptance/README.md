@@ -77,3 +77,17 @@ The designs match the requirements apart from these points. Decided in the same 
 | AP-20 | **Attributes in the right panel.** FR-NAV-05 lists Attributes, Backlinks, Local graph and Outline in the right panel; the design shows attributes only at the top of the note (FR-EDT-07) and the panel has Backlinks, Outline and Graph. | Follow the design: remove Attributes from FR-NAV-05; the attribute panel stays at the top of the note (collapsible). | FR-NAV-05, FR-EDT-07 |
 | AP-21 | **Unlinked mentions in the backlinks panel.** The design shows them; FR-LNK-05 is S and §11 places it in v1.x. | Keep v1.x; the design shows the later state. No change, unless you want it in the MVP. | FR-LNK-05, §11 |
 
+
+## Decided points (from spike S5, accepted 2026-10-10, BRD D-75…D-81)
+
+Found while building the Capacities dry run (`spikes/s5-capacities-import/FINDINGS.md`). All proposals accepted by the owner.
+
+| # | Issue | Decision | Affects |
+| --- | --- | --- | --- |
+| AP-22 | **`source` on Image/PDF objects.** FR-IMP-14 AC-1 says Image objects keep `source`, but Capacities writes `source: upload` (plain text), and FR-TYP-15 AC-1 renames plain-text `source` to `source-text`. | Treat it like every other plain-text `source`: rename to `source-text` (the spike does this). Fix FR-IMP-14 AC-1 to say `source-text`. | FR-IMP-14, FR-TYP-15 |
+| AP-23 | **`[[Title]]` with a duplicate title.** Capacities wikilinks carry only the title, so a link to one of two objects titled `Tomáš : Eva` can't be resolved (path links can). | Point it at the first object by source path, mark it, and list it in the report as "ambiguous" so the user can fix it. | FR-IMP-10, FR-LNK-14 |
+| AP-24 | **Media files no object references** (an image in `Media/` without an Image `.md` or any embed). D-42 says every image is an object. | Import the file into `_attachments/` **and** create an Image object for it (title = file name); list it in the report. The spike only lists it. | FR-IMP-14, D-42 |
+| AP-25 | **Technical attributes dropped by default.** Image/PDF `mimeType`, `fileSize`, `width`, `height`, `colors` and Weblink `domain`, `iframeUrl` are derivable or useless in Tegg. | Default mapping = drop (reported, changeable in the mapping step). | FR-IMP-08, FR-IMP-24 |
+| AP-26 | **Which export files are objects, attachments or neither.** The BRD says "every object, attachment and link" (§11.1) but doesn't classify files. | `.md` = object (FR-IMP-03); `.csv` = tag collection or other file, reported (FR-IMP-21); dotfiles (`.DS_Store`, hidden `.md`) = ignored and reported; every other file = attachment (FR-IMP-14). | §11.1, FR-IMP-03, -14, -21 |
+| AP-27 | **File names D-52 doesn't cover.** Windows can't use `CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9` as a name (NFR-POR-02), and a title made only of forbidden characters (`???`) leaves nothing. | Append `_` to a reserved stem (`CON_.md`); an empty result becomes `Untitled` (then ` (2)` …). The title stays in `title:`. The spike lists both cases in the report. | FR-FMT-08, NFR-POR-02, D-52 |
+| AP-28 | **Case-insensitive link matches.** A `[[reading list]]` whose only match is the object titled `Reading list`. FR-LNK-14 resolves by file/`id`, never by title alone, and says nothing about case. | Don't resolve silently: show the match in the preview for the user to confirm (the spike reports it as "case mismatch"). | FR-IMP-10, FR-LNK-14 |

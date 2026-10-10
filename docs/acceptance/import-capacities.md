@@ -48,6 +48,7 @@ See [README](README.md) for conventions. Synthetic fixtures live in `tests/fixtu
 - **AC-3** `[[Date/2026-02-01]]` → `[[2026-02-01]]` (Daily Note link, FR-DLY-08).
 - **AC-4** `[[NOTE/<uuid>]]` and other unresolvable targets → kept as text `[[NOTE/<uuid>]]`, marked unresolved, listed in the report with the source note.
 - **AC-5** Relation attributes `'[[Jana]]'` → `"[[Jana]]"` pointing at the imported Person.
+- **AC-6** `[[Title]]` matching several objects → points at the first by source path, listed as ambiguous (D-76); a match differing only in case → shown in the preview for confirmation, not resolved (D-81).
 
 ### FR-IMP-11 Titles
 
@@ -57,11 +58,12 @@ See [README](README.md) for conventions. Synthetic fixtures live in `tests/fixtu
 
 ### FR-IMP-14 Media
 
-- **AC-1** `Images/<x>.md` + `Images/Media/<x>.jpeg` → Image object in `Images/` with title, description, tags, `source`, `file: "[[<x>.jpeg]]"`, and the file in `_attachments/`.
+- **AC-1** `Images/<x>.md` + `Images/Media/<x>.jpeg` → Image object in `Images/` with title, description, tags, `source-text` (D-75), `file: "[[<x>.jpeg]]"`, and the file in `_attachments/`.
 - **AC-2** `Media: ![Image](./Media/Mapa%20%C5%99eky.jpeg)` in a body → `![[Mapa řeky.jpeg]]`.
 - **AC-3** Generic names (`image (3).png`, `Untitled (44).png`) are renamed to `<owning note title> <n>.png`.
 - **AC-4** A reference to a missing file is dropped from the body and listed in the report.
 - **AC-5** `[real-export]` Every media file in the selected space is either an Image/PDF object or listed as dropped.
+- **AC-6** A media file no note references → imported into `_attachments/` with an Image/PDF object titled after the file, listed in the report (D-77).
 
 ### FR-IMP-15 Metadata
 
