@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Idea type settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--embed:#F7F7F5;--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--danger-bg:#FCECEB;--warn-bg:#FFF6E0;--warn-b:#F0D9A0}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--embed:#232326;--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--danger-bg:#3A1C1B;--warn-bg:#33290F;--warn-b:#5A4718}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.tg input,.tg textarea,.tg select{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:7px;box-sizing:border-box}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg>
+Ideas · Type settings
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- App sidebar -->
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; text-align: left">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<span style="flex: 1">Search or jump to…</span>
+<span style="font-size: 12px">⌘O</span>
+</button>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 10px 6px">Types</div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+</nav>
+
+<!-- Settings -->
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 80px; box-sizing: border-box">
+<div style="max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<!-- Header -->
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted)">
+<a href="Ideas.dc.html">Ideas</a><span aria-hidden="true">/</span><span style="color: var(--text)">Type settings</span>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 11px; background: var(--idea-bg); display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg></span>
+<div style="flex: 1; min-width: 220px">
+<h1 style="margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700">Idea type settings</h1>
+<div style="font-size: 13px; color: var(--muted)">Applies to all 10 ideas · stored in <code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px">.tegg/types/idea.yml</code></div>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>Saved</span>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<!-- Section nav -->
+<nav aria-label="Settings sections" style="flex: 1 1 180px; max-width: 100%; display: flex; flex-direction: column; gap: 2px; font-size: 13px">
+<sc-for list="{{sections}}" as="s" hint-placeholder-count="7">
+<a href="#{{s.id}}" style="display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 7px; background: {{s.bg}}; font-weight: {{s.weight}}; color: {{s.fg}}">{{s.label}}</a>
+</sc-for>
+</nav>
+
+<!-- Section content -->
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 36px">
+
+<!-- General (FR-TYP-01) -->
+<section id="general" aria-labelledby="h-general" style="display: flex; flex-direction: column; gap: 16px">
+<h2 id="h-general" style="margin: 0; font-size: 18px; font-weight: 650">General</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Name<input type="text" value="Idea" style="height: 36px; padding: 0 10px; font-weight: 400"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Plural name<input type="text" value="Ideas" style="height: 36px; padding: 0 10px; font-weight: 400"></label>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 500">Icon</span>
+<div style="display: flex; align-items: center; gap: 10px">
+<span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 8px; background: var(--idea-bg); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg></span>
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">Change icon</button>
+</div>
+</div>
+<div role="radiogroup" aria-label="Color" style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 500">Color</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 36px">
+<sc-for list="{{colors}}" as="c" hint-placeholder-count="8">
+<button role="radio" aria-checked="{{c.sel}}" aria-label="{{c.name}}" style="width: 28px; height: 28px; border-radius: 14px; background: {{c.hex}}; box-shadow: {{c.ring}}"></button>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Folder in the vault
+<input type="text" value="Ideas/" style="height: 36px; padding: 0 10px; font-weight: 400; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px">
+<span style="font-weight: 400; font-size: 12px; color: var(--muted)">Changing it moves all 10 files and updates their links.</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Description
+<textarea rows="2" style="padding: 8px 10px; font-weight: 400; resize: vertical">Atomic notes, one idea each, linked to each other.</textarea>
+</label>
+</div>
+</section>
+
+<!-- Properties (FR-TYP-02/03/04, D-72) -->
+<section id="properties" aria-labelledby="h-props" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 id="h-props" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Properties</h2>
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add property</button>
+</div>
+
+<div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
+<sc-for list="{{props}}" as="p" hint-placeholder-count="3">
+<div style="border-top: {{p.divider}}">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; background: {{p.headBg}}; flex-wrap: wrap">
+<button aria-label="Drag to reorder {{p.name}}" style="width: 18px; height: 28px; color: var(--faint); display: flex; align-items: center; justify-content: center"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.5"></circle><circle cx="7.5" cy="3" r="1.5"></circle><circle cx="2.5" cy="8" r="1.5"></circle><circle cx="7.5" cy="8" r="1.5"></circle><circle cx="2.5" cy="13" r="1.5"></circle><circle cx="7.5" cy="13" r="1.5"></circle></svg></button>
+<span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{p.d}}"></path></svg></span>
+<span style="font-weight: 600; min-width: 120px">{{p.name}}</span>
+<code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--muted); flex: 1">{{p.key}}</code>
+<span style="font-size: 12px; color: var(--muted); min-width: 150px">{{p.typeLabel}}</span>
+<button aria-label="{{p.toggleLabel}}" aria-expanded="{{p.expandedAttr}}" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.chev}}"></path></svg></button>
+</div>
+<sc-if value="{{p.open}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 16px 18px 68px; display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--border)">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Name<input type="text" value="Status" style="height: 34px; padding: 0 10px; font-weight: 400"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Key in frontmatter<input type="text" value="status" style="height: 34px; padding: 0 10px; font-weight: 400; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Type<select style="height: 34px; padding: 0 8px; font-weight: 400"><option>Select</option><option>Multi-select</option><option>Text</option></select></label>
+</div>
+<div role="note" style="display: flex; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); border: 1px solid var(--warn-b); font-size: 12px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 3l9 16H3zM12 10v4M12 17h.01"></path></svg>
+<span>Renaming the key rewrites the frontmatter of all 10 ideas. You’ll confirm first, and a restore point is created.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 500">Options</span>
+<sc-for list="{{options}}" as="o" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; height: 36px">
+<span aria-hidden="true" style="color: var(--faint); font-size: 12px; width: 14px">⋮⋮</span>
+<button aria-label="Change color of {{o.label}}" style="width: 20px; height: 20px; border-radius: 10px; background: {{o.fg}}"></button>
+<span style="height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; background: {{o.bg}}; color: {{o.fg}}; font-size: 12px; font-weight: 500">{{o.label}}</span>
+<span style="flex: 1"></span>
+<span style="font-size: 12px; color: var(--muted)">{{o.used}}</span>
+<button aria-label="Remove option {{o.label}}" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-for>
+<button style="align-self: flex-start; display: flex; align-items: center; gap: 6px; height: 30px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add option</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: end">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Default value<select style="height: 34px; padding: 0 8px; font-weight: 400"><option>Seed</option><option>Developing</option><option>Evergreen</option><option>None</option></select></label>
+<label style="display: flex; align-items: center; gap: 8px; height: 34px; font-size: 13px"><input type="checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: var(--link)">Required</label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Description<input type="text" value="How far the idea has matured" style="height: 34px; padding: 0 10px; font-weight: 400"></label>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 4px">
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; color: var(--danger); font-size: 13px; font-weight: 500">Delete property…</button>
+<span style="font-size: 12px; color: var(--muted)">Deleting asks whether to remove the values from the files or keep them under “Other properties”.</span>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border)">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>
+Built in on every type
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{builtins}}" as="b" hint-placeholder-count="9">
+<code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--hover); color: var(--muted)">{{b}}</code>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- Preview attributes (FR-TYP-11) -->
+<section id="preview" aria-labelledby="h-preview" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="h-preview" style="margin: 0; font-size: 18px; font-weight: 650">Preview properties</h2>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Up to 4, shown as a compact strip in previews, embed cards and the graph.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<sc-for list="{{previewProps}}" as="v" hint-placeholder-count="3">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); font-size: 13px">{{v}}<button aria-label="Remove {{v}} from preview" style="width: 22px; height: 22px; border-radius: 5px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span>
+</sc-for>
+<button style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px dashed var(--border); font-size: 13px; color: var(--muted)">+ Add (1 left)</button>
+</div>
+</section>
+
+<!-- Review workflow (FR-TYP-12) -->
+<section id="review" aria-labelledby="h-review" style="display: flex; align-items: flex-start; gap: 16px">
+<div style="flex: 1">
+<h2 id="h-review" style="margin: 0 0 4px; font-size: 18px; font-weight: 650">Review workflow</h2>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">New ideas get <code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace">review: unreviewed</code> and appear in the Inbox until you review them.</p>
+</div>
+<button role="switch" aria-checked="false" aria-label="Review workflow" style="width: 44px; height: 26px; border-radius: 13px; background: var(--hover); border: 1px solid var(--border); position: relative; flex: none; margin-top: 4px">
+<span aria-hidden="true" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 10px; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.25)"></span>
+</button>
+</section>
+
+<!-- Templates (FR-TPL) -->
+<section id="templates" aria-labelledby="h-tpl" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 id="h-tpl" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Templates</h2>
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">New template</button>
+</div>
+<div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
+<sc-for list="{{templates}}" as="m" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border-top: {{m.divider}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg>
+<span style="font-weight: 500">{{m.name}}</span>
+<code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--muted); flex: 1">{{m.path}}</code>
+<sc-if value="{{m.isDefault}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; background: var(--link-bg); color: var(--link); font-weight: 500">Default</span></sc-if>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; color: var(--muted)">Edit</button>
+</div>
+</sc-for>
+</div>
+</section>
+
+<!-- Views (FR-QRY-07) -->
+<section id="views" aria-labelledby="h-views" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 id="h-views" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Views</h2>
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">Add view</button>
+</div>
+<div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
+<sc-for list="{{views}}" as="w" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border-top: {{w.divider}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{w.d}}"></path></svg>
+<span style="font-weight: 500">{{w.name}}</span>
+<span style="font-size: 12px; color: var(--muted); flex: 1">{{w.desc}}</span>
+<sc-if value="{{w.isDefault}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; background: var(--link-bg); color: var(--link); font-weight: 500">Default</span></sc-if>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; color: var(--muted)">Edit</button>
+</div>
+</sc-for>
+</div>
+</section>
+
+<!-- Danger zone (FR-TYP-05) -->
+<section id="danger" aria-labelledby="h-danger" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 16px; border-radius: 10px; border: 1px solid var(--danger); background: var(--danger-bg)">
+<div style="flex: 1; min-width: 240px">
+<h2 id="h-danger" style="margin: 0 0 4px; font-size: 16px; font-weight: 650; color: var(--danger)">Delete type</h2>
+<p style="margin: 0; font-size: 13px">You’ll choose a type to move the 10 ideas to, or move them to the trash. A restore point is created first.</p>
+</div>
+<button style="height: 34px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--danger); color: var(--danger); background: var(--bg); font-size: 13px; font-weight: 600">Delete Idea type…</button>
+</section>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":2100}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? false;
+const I = {
+page: 'M7 3h7l5 5v13H7zM14 3v5h5',
+task: 'M5 5h14v14H5zM9 12l2 2 4-4',
+bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z',
+person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+select: 'M8 10l4 4 4-4M4 5h16v14H4z',
+relation: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+url: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+table: 'M4 5h16v14H4zM4 10h16M10 5v14',
+board: 'M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v11h-4z'
+};
+const types = [
+{ label: 'Pages', d: I.page, color: 'var(--muted)', count: '128' },
+{ label: 'Tasks', d: I.task, color: 'var(--link)', count: '46' },
+{ label: 'Quick Notes', d: I.bolt, color: 'var(--o)', count: '212' },
+{ label: 'Daily Notes', d: I.cal, color: 'var(--muted)', count: '340' },
+{ label: 'Ideas', d: I.idea, color: 'var(--idea)', count: '10', active: true },
+{ label: 'Meetings', d: I.meet, color: 'var(--accent)', count: '58' },
+{ label: 'Projects', d: I.proj, color: 'var(--o)', count: '9' },
+{ label: 'People', d: I.person, color: 'var(--p)', count: '31' }
+].map((t) => ({ ...t, bg: t.active ? 'var(--hover)' : 'transparent', weight: t.active ? '600' : '400' }));
+const sections = ['General', 'Properties', 'Preview properties', 'Review workflow', 'Templates', 'Views', 'Delete type'].map((label, i) => ({
+label, id: ['general', 'properties', 'preview', 'review', 'templates', 'views', 'danger'][i],
+bg: i === 1 ? 'var(--hover)' : 'transparent', weight: i === 1 ? '600' : '400',
+fg: i === 6 ? 'var(--danger)' : 'var(--text)'
+}));
+const colorList = [
+['Amber', '#C27C0E'], ['Orange', '#D9631E'], ['Red', '#C93C37'], ['Pink', '#C2457F'],
+['Purple', '#7C55C7'], ['Blue', '#2F6FDB'], ['Teal', '#14917D'], ['Gray', '#77777E']
+];
+const colors = colorList.map(([name, hex], i) => ({
+name, hex, sel: i === 0 ? 'true' : 'false',
+ring: i === 0 ? '0 0 0 2px var(--bg), 0 0 0 4px ' + hex : 'none'
+}));
+const props = [
+{ name: 'Status', key: 'status', d: I.select, typeLabel: 'Select · 3 options', open: true },
+{ name: 'Related ideas', key: 'related', d: I.relation, typeLabel: 'Relation · Ideas · multiple', open: false },
+{ name: 'Origin URL', key: 'origin-url', d: I.url, typeLabel: 'URL', open: false }
+].map((p, i) => ({
+...p,
+divider: i === 0 ? '0' : '1px solid var(--border)',
+headBg: p.open ? 'var(--row)' : 'transparent',
+chev: p.open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6',
+expandedAttr: p.open ? 'true' : 'false',
+toggleLabel: (p.open ? 'Collapse ' : 'Edit ') + p.name
+}));
+const options = [
+{ label: 'Seed', bg: 'var(--hover)', fg: 'var(--muted)', used: '4 ideas' },
+{ label: 'Developing', bg: 'var(--link-bg)', fg: 'var(--link)', used: '3 ideas' },
+{ label: 'Evergreen', bg: 'var(--t-bg)', fg: 'var(--t)', used: '3 ideas' }
+];
+const builtins = ['title', 'description', 'aliases', 'tags', 'source', 'icon', 'cover', 'created', 'modified'];
+const previewProps = ['Status', 'Tags', 'Source'];
+const templates = [
+{ name: 'Idea', path: '_templates/Idea/Idea.md', isDefault: true },
+{ name: 'Idea from a book', path: '_templates/Idea/Idea from a book.md', isDefault: false }
+].map((m, i) => ({ ...m, divider: i === 0 ? '0' : '1px solid var(--border)' }));
+const views = [
+{ name: 'All ideas', desc: 'Table · sorted by Modified', d: I.table, isDefault: true },
+{ name: 'By status', desc: 'Board · grouped by Status', d: I.board, isDefault: false }
+].map((w, i) => ({ ...w, divider: i === 0 ? '0' : '1px solid var(--border)' }));
+return {
+themeClass: dark ? 'dark' : '',
+types, sections, colors, props, options, builtins, previewProps, templates, views
+};
+}
+}
+</script>
+</body>
+</html>
