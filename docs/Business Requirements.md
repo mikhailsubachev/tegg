@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.13, for review                                             |
+| **Document status** | Draft v1.14, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -29,6 +29,7 @@
 | v1.11   | 2026-10-10 | Spike S4 decisions: tags inside math are not tags (D-64); the slow profile is a reported worst case and the D-59 factors stay (D-65); spike S2, S3 decisions: typing latency measured in frames (D-66), list-marker and separator exceptions to FR-FMT-07 (D-67), Obsidian-safe file names (D-68), capture ⌘↩ (D-69), Task keys and `captured` (D-70), single instance and hotkey conflicts (D-71) |
 | v1.12   | 2026-10-10 | Design review of the edit-note page: properties are defined only on the Type page or in type settings (D-72; FR-EDT-07, FR-TYP-09); one link chip style with a light tint and regular weight (D-73; FR-LNK-07); Task embed card shows the task body (D-74; FR-EMB-02).                                                                                                                             |
 | v1.13   | 2026-10-10 | Spike S5 decisions (AP-22…AP-28): plain-text `source` on media → `source-text` (D-75); duplicate-title wikilinks point at the first object and are reported (D-76); unreferenced media get an Image/PDF object (D-77); technical attributes dropped by default (D-78); classification of export files (D-79); Windows-reserved and empty file names (D-80); case-insensitive link matches are confirmed, not resolved silently (D-81). |
+| v1.14   | 2026-10-10 | Architecture decisions (AP-29, AP-31): one text engine, Rust orchestrates (D-82, ADR 0003); spike code is ported, never imported (D-83). |
 
 ---
 
@@ -153,6 +154,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-79 | Export file classes                  | `.md` = object (FR-IMP-03); `.csv` = tag collection or other file, reported (FR-IMP-21); dotfiles (incl. hidden `.md`) = ignored and reported; every other file = attachment (FR-IMP-14). Basis of the §11.1 accounting rule (AP-26) |
 | D-80 | Reserved and empty file names        | A file stem reserved on Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, case-insensitive) gets `_` appended (`CON_.md`); a title with no valid characters is named `Untitled` (then ` (2)` …); the title stays in `title:` (AP-27, FR-FMT-08, NFR-POR-02, D-52) |
 | D-81 | Case-insensitive link matches        | A link whose only match is a title differing in case is **not resolved silently**: the import preview shows it for the user to confirm (AP-28, FR-IMP-10, FR-LNK-14) |
+| D-82 | One text engine                      | Every new note's bytes (typing, attribute edits, bulk renames, import body conversion) are produced by the TypeScript document engine `@tegg/doc`; Rust never edits Markdown text. Rust orchestrates bulk jobs (file selection, backup, conflict checks, atomic writes) and runs transformations through a Web Worker in the main webview; the import planner stays in Rust (AP-29, ADR 0003, `docs/architecture.md`) |
+| D-83 | Spike code in the product            | Spike modules are **ported** into product packages deliberately, with tests re-authored from the ACs by the test author (D-61); product code never imports from `spikes/` (L0 check) (AP-31) |
 
 ---
 

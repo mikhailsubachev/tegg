@@ -92,12 +92,12 @@ Found while building the Capacities dry run (`spikes/s5-capacities-import/FINDIN
 | AP-27 | **File names D-52 doesn't cover.** Windows can't use `CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9` as a name (NFR-POR-02), and a title made only of forbidden characters (`???`) leaves nothing. | Append `_` to a reserved stem (`CON_.md`); an empty result becomes `Untitled` (then ` (2)` …). The title stays in `title:`. The spike lists both cases in the report. | FR-FMT-08, NFR-POR-02, D-52 |
 | AP-28 | **Case-insensitive link matches.** A `[[reading list]]` whose only match is the object titled `Reading list`. FR-LNK-14 resolves by file/`id`, never by title alone, and says nothing about case. | Don't resolve silently: show the match in the preview for the user to confirm (the spike reports it as "case mismatch"). | FR-IMP-10, FR-LNK-14 |
 
-## Open points (from the architecture doc, pending the owner)
+## Points from the architecture doc (AP-29, AP-31 accepted 2026-10-10 as D-82, D-83; AP-30 pending)
 
 Details and reasoning: [docs/architecture.md](../architecture.md) §14.
 
-| # | Issue | Proposal | Affects |
+| # | Issue | Proposal / decision | Affects |
 | --- | --- | --- | --- |
-| AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion). Two patch engines (TS and Rust) would drift. | One text engine: `@tegg/doc` produces every new note's bytes; Rust orchestrates and runs jobs through a Web Worker. The import planner stays in Rust. Recorded as ADR 0003. | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-* |
-| AP-30 | **Residual overwrite window** between the disk-version check and the atomic rename; sync clients respect no lock. | Accept the sub-millisecond window as a documented limit; version history (v1.0) keeps replaced bytes. | NFR-REL-02, FR-SYN-03 |
-| AP-31 | **Spike code in the product.** Spikes are throwaway, but S5 says its code becomes the importer. | Port spike modules deliberately with tests re-authored from the ACs (D-61); product code never imports from `spikes/`. | D-61, TS-I |
+| AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion). Two patch engines (TS and Rust) would drift. | One text engine: `@tegg/doc` produces every new note's bytes; Rust orchestrates and runs jobs through a Web Worker. The import planner stays in Rust. **Accepted: D-82, ADR 0003.** | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-* |
+| AP-30 | **Residual overwrite window** between the disk-version check and the atomic rename; sync clients respect no lock. | Accept the sub-millisecond window as a documented limit; version history (v1.0) keeps replaced bytes. **Pending.** | NFR-REL-02, FR-SYN-03 |
+| AP-31 | **Spike code in the product.** Spikes are throwaway, but S5 says its code becomes the importer. | Port spike modules deliberately with tests re-authored from the ACs (D-61); product code never imports from `spikes/`. **Accepted: D-83.** | D-61, TS-I |

@@ -1,6 +1,6 @@
 # Tegg Architecture
 
-- **Status:** Proposed (2026-10-10). Open points AP-29…AP-31 (§14) need the owner before MS1 starts.
+- **Status:** Accepted (2026-10-10), except AP-30 (§14), which is still pending. AP-29 → D-82 (ADR 0003), AP-31 → D-83.
 - **Inputs:** BRD v1.13 (§8, §9, D-01…D-81), `docs/test-strategy.md`, ADR 0001 and 0002, spike findings S1–S5 (`spikes/*/FINDINGS.md`).
 - **Scope:** the MVP (BRD §11, MS1–MS8), plus the seams v1.0, mobile and Phase 2 sync need, so they don't force a rewrite.
 
@@ -89,7 +89,7 @@ All core crates are plain Rust libraries with no Tauri dependency, so they build
 | `@tegg/editor` | TipTap/ProseMirror on source blocks: load with losslessness check (made lazy, S2), normalization guard, Obsidian inline syntax as schema, `reconcile` + read-back verify + separator escalation (ADR 0002, D-67). | S2 |
 | `app/ui` | React screens: note page, type pages, query views, search, switcher, home, inbox, daily, settings, conflicts, import wizard. Command registry: every action is a command with an id, a localized title and an optional shortcut, so the command palette reaches all of them (FR-UX-03). Strings externalized (NFR-OTH-02). Light and dark themes from one token set (FR-UX-05). | — |
 
-**Single text engine (proposed, AP-29).** Every change to Markdown text, whether from typing, the attribute panel, a table cell edit, a link rename across 50 files, or import body conversion, goes through `@tegg/doc`. Rust never edits Markdown text; it only moves whole files' bytes. Reasons:
+**Single text engine (D-82, ADR 0003).** Every change to Markdown text, whether from typing, the attribute panel, a table cell edit, a link rename across 50 files, or import body conversion, goes through `@tegg/doc`. Rust never edits Markdown text; it only moves whole files' bytes. Reasons:
 1. One implementation of the patch model and its verification instead of two that drift. S4 showed the two parsers already disagree in edge cases (P1, P3, P9), and S5 showed a regex shortcut silently losing links (F12).
 2. The editor needs mdast anyway (ADR 0002); the micromark extensions for wikilinks, tags, highlights and math exist only there.
 3. The engine is pure and small, so running it headless is cheap: a Web Worker in the main webview for jobs, Node for tests and tools.
@@ -288,7 +288,7 @@ One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` 
 - One write function: no `File::create`/`OpenOptions::write`/`fs::write` on vault paths outside `tegg-vault::write`; no file writes in TS at all.
 - Core crates and `packages/*` don't depend on `tauri`, AppKit or `app/`.
 - No network crates/packages outside the allow-list.
-- Rust never edits Markdown text: only `@tegg/doc` produces new note bytes (checked by keeping Markdown rendering out of the Rust crates' dependencies, if AP-29 is accepted).
+- Rust never edits Markdown text: only `@tegg/doc` produces new note bytes (checked by keeping Markdown rendering out of the Rust crates' dependencies, D-82).
 - No imports from `spikes/`.
 
 ---
@@ -311,19 +311,19 @@ One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` 
 ## 13. Risks and known limits
 
 - **Two readers** (Rust extractor, TS engine) can still disagree on edge cases; controlled by the conformance corpus (every push) and the differential corpus (nightly), with known differences listed (S4 P3).
-- **Jobs depend on the main webview** (if AP-29 is accepted): a job can't run with no webview at all. Acceptable on desktop, where the hidden window stays alive.
+- **Jobs depend on the main webview** (D-82): a job can't run with no webview at all. Acceptable on desktop, where the hidden window stays alive.
 - **Compare-then-rename window** (§5.3, AP-30).
 - **FSEvents coalescing** under heavy sync load: covered by the "must rescan" path and the 500-file AC.
 
 ---
 
-## 14. Open points (pending the owner)
+## 14. Open points (AP-29 and AP-31 decided as D-82 and D-83; AP-30 pending)
 
 | # | Issue | Proposal | Affects |
 | --- | --- | --- | --- |
-| AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion)? ADR 0001 gives body writes to TypeScript but leaves bulk rewrites open; S5 put the importer in Rust. Two patch engines would drift (S4 P1/P3/P9, S5 F12). | **One text engine:** `@tegg/doc` produces every new note's bytes; Rust orchestrates (file selection, backup, conflict checks, atomic writes) and runs jobs through a Web Worker in the main webview. The import *planner* stays in Rust. Record as ADR 0003. Alternative: port the patch model to Rust and keep both in sync with the conformance corpus. | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-*, AR-03 |
-| AP-30 | **Residual overwrite window.** Between checking the disk version and the atomic rename, an external write can land and be replaced; no file lock is respected by sync clients. NFR-REL-02 says "never". | Accept the sub-millisecond window as a documented limit. In v1.0, version history keeps the replaced bytes, so even that case is recoverable. | NFR-REL-02, FR-SYN-03 |
-| AP-31 | **Spike code in the product.** CLAUDE.md calls spike code throwaway, while S5 says its parsing and mapping become the importer. | Port spike modules into product packages deliberately (reviewed, cleaned up), with tests re-authored from the ACs by the test author; product code never imports from `spikes/`. | D-61, TS-I |
+| AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion)? ADR 0001 gives body writes to TypeScript but leaves bulk rewrites open; S5 put the importer in Rust. Two patch engines would drift (S4 P1/P3/P9, S5 F12). | **One text engine:** `@tegg/doc` produces every new note's bytes; Rust orchestrates (file selection, backup, conflict checks, atomic writes) and runs jobs through a Web Worker in the main webview. The import *planner* stays in Rust. **Accepted (D-82, ADR 0003).** | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-*, AR-03 |
+| AP-30 | **Residual overwrite window.** Between checking the disk version and the atomic rename, an external write can land and be replaced; no file lock is respected by sync clients. NFR-REL-02 says "never". | Accept the sub-millisecond window as a documented limit. In v1.0, version history keeps the replaced bytes, so even that case is recoverable. **Pending.** | NFR-REL-02, FR-SYN-03 |
+| AP-31 | **Spike code in the product.** CLAUDE.md calls spike code throwaway, while S5 says its parsing and mapping become the importer. | Port spike modules into product packages deliberately (reviewed, cleaned up), with tests re-authored from the ACs by the test author; product code never imports from `spikes/`. **Accepted (D-83).** |  D-61, TS-I |
 
 ---
 
@@ -331,4 +331,4 @@ One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` 
 
 - [ADR 0001](adr/0001-source-preserving-documents.md): source-preserving documents (patch, don't regenerate).
 - [ADR 0002](adr/0002-editor-on-source-blocks.md): block editor on source blocks.
-- ADR 0003 (after AP-29): one text engine; Rust orchestrates.
+- [ADR 0003](adr/0003-one-text-engine.md): one text engine; Rust orchestrates (D-82).
