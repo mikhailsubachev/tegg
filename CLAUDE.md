@@ -27,7 +27,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 - **S2 done (GO):** TipTap block editor on source blocks, see `spikes/s2-editor/FINDINGS.md` and `docs/adr/0002-editor-on-source-blocks.md`. The S2 editor imports the S1 core via the `@core` alias (`spikes/s1-roundtrip/src`).
 - **S3 in progress (provisional GO):** Tauri 2 menu bar, global hotkeys and pre-warmed capture window (manual: ready in ~40–50 ms), see `spikes/s3-platform/FINDINGS.md`. Pending: the Appium `mac2` run (needs Xcode) and the signed + notarized DMG (needs a Developer ID). AP-9…AP-14 decided (D-66…D-71).
 - **S4 done (GO):** Rust index (SQLite FTS5, in-memory switcher, FSEvents watcher) beats every NFR-PERF target it can measure by ≥ 3.5× (most by 10–1000×), see `spikes/s4-index/FINDINGS.md`. The Rust extractor matches the TS reference (`tests/fixtures/format/extract/expected.json`, plus a nightly differential corpus). The reference vault comes from `tools/gen-vault`. AP-15 and AP-16 decided (D-64, D-65).
-- **S5 in progress (provisional GO):** Capacities dry run (preview + report, no writes) in Rust, see `spikes/s5-capacities-import/FINDINGS.md`. Fixtures C1–C19: `tests/fixtures/import/capacities/`. Pending: the owner's real-export run (S5-QA AC-4). Open points AP-22…AP-28.
+- **S5 done (GO):** Capacities dry run (preview + report, no writes) in Rust, see `spikes/s5-capacities-import/FINDINGS.md`. Fixtures C1–C19: `tests/fixtures/import/capacities/`. The owner's real-export run passes (0 unreadable, imported + reported = total in all 3 spaces); it caught a link-scanner gap, so the importer takes links from a real Markdown parser. Open points AP-22…AP-28.
 
 ## Stack (confirmed, D-19)
 
