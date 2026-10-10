@@ -4,6 +4,7 @@
 
 use regex::Regex;
 use std::sync::LazyLock;
+use unicode_normalization::UnicodeNormalization;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinkKind { Wiki, Markdown, Image }
@@ -65,14 +66,14 @@ pub fn links(text: &str) -> Vec<RawLink> {
             let inner = &c[2];
             let target = inner.split('|').next().unwrap().split('#').next().unwrap().trim();
             if target.is_empty() { continue }
-            out.push(RawLink { kind: LinkKind::Wiki, target: target.to_string(), line: i + 1 });
+            out.push(RawLink { kind: LinkKind::Wiki, target: target.nfc().collect(), line: i + 1 }); // FR-FMT-12
         }
         let no_wiki = WIKI.replace_all(&clean, |c: &regex::Captures| " ".repeat(c[0].len()));
         for (bang, inner) in md_links(&no_wiki) {
             let dest = inner.split_whitespace().next().unwrap_or("");
             let dest = dest.trim_start_matches('<').trim_end_matches('>');
             if dest.is_empty() || is_external(dest) { continue }
-            let target = decode_path(dest.split('#').next().unwrap());
+            let target: String = decode_path(dest.split('#').next().unwrap()).nfc().collect();
             let kind = if !target.to_lowercase().ends_with(".md") { LinkKind::Image }
                        else if bang { LinkKind::Image } else { LinkKind::Markdown };
             out.push(RawLink { kind, target, line: i + 1 });

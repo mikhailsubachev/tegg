@@ -1,6 +1,6 @@
 //! The dry run: everything the import preview needs (FR-IMP-05, FR-IMP-19), computed without writing anything.
 
-use crate::convert::{is_generic_media_name, parse_date, sanitize_file_name, DateValue, NameAllocator};
+use crate::convert::{is_windows_reserved, is_generic_media_name, parse_date, sanitize_file_name, DateValue, NameAllocator};
 use crate::scan::{self, LinkKind};
 use crate::source::{Entry, ReadStats, Source};
 use chrono_tz::Tz;
@@ -8,6 +8,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::LazyLock;
+use unicode_normalization::UnicodeNormalization;
 use yaml_rust2::{Yaml, YamlLoader};
 
 // ---------- spaces (FR-IMP-22) ----------
@@ -117,6 +118,8 @@ pub enum LinkOutcome {
     SelectValue,
     /// Reported and dropped: a media reference to a file that isn't in the export (FR-IMP-14 AC-4).
     MissingFile,
+    /// Reported: only a title differing in case matches; the user confirms it in the preview (FR-LNK-14).
+    CaseMismatch,
     /// Reported: the link is inside a note that can't be imported (listed in `skipped_objects`).
     InSkippedNote,
 }
@@ -173,6 +176,8 @@ pub struct Report {
     pub renamed_media: Vec<(String, String)>,
     pub duplicate_titles: Vec<DuplicateTitle>,
     pub planned: Vec<Planned>,
+    /// Titles whose file name needs a decision (AP-27): Windows-reserved stem, or nothing left after sanitizing.
+    pub name_issues: Vec<FileRow>,
     pub query_stubs: Vec<String>,
     pub tag_collections: Vec<String>,
     pub losses: Vec<String>,
@@ -227,7 +232,7 @@ fn parse_note<'a>(inner: &'a str, bytes: &[u8]) -> Result<Note<'a>, String> {
     let folder = inner.rsplit_once('/').map(|(d, _)| d.split('/').next().unwrap().to_string()).unwrap_or_default();
     let stem = inner.rsplit('/').next().unwrap().trim_end_matches(".md");
     let title = h.get(&Yaml::from_str("title")).and_then(yaml_str).unwrap_or_else(|| stem.to_string());
-    let title = strip_invisible(&title).trim().to_string(); // FR-IMP-11 AC-2, FR-IMP-17
+    let title: String = strip_invisible(&title).trim().nfc().collect(); // FR-IMP-11 AC-2, FR-IMP-17
     Ok(Note { inner, text, fm: h, ctype, title, folder })
 }
 
@@ -307,9 +312,10 @@ impl Directory {
         self.by_stem.entry(stem.to_string()).or_default().push(inner.into());
         self.paths.insert(inner.into());
     }
-    fn find(&self, t: &str) -> Option<&Vec<String>> {
-        self.by_title.get(t).or_else(|| self.by_stem.get(t)).or_else(|| self.by_title_ci.get(&t.to_lowercase()))
-    }
+    /// Exact title or file-stem match (NFC on both sides, FR-FMT-12).
+    fn find(&self, t: &str) -> Option<&Vec<String>> { self.by_title.get(t).or_else(|| self.by_stem.get(t)) }
+    /// Case-insensitive title match: never resolved silently (FR-LNK-14), reported for the user to confirm.
+    fn find_ci(&self, t: &str) -> Option<&Vec<String>> { self.by_title_ci.get(&t.to_lowercase()) }
 }
 
 /// Resolve `../Tasks/x.md` relative to the note's folder; `None` if it leaves the space.
@@ -394,6 +400,11 @@ pub fn dry_run(src: &Source, space: &str, opts: &Options) -> Report {
                 _ => sanitize_file_name(&n.title),
             }
         } else { sanitize_file_name(&n.title) };
+        if is_windows_reserved(&stem) {
+            r.name_issues.push(FileRow { path: n.inner.into(), kind: DropKind::File, reason: "file name is reserved on Windows (AP-27)".into() });
+        } else if stem == "Untitled" && sanitize_file_name(&n.title) == "Untitled" && n.title != "Untitled" {
+            r.name_issues.push(FileRow { path: n.inner.into(), kind: DropKind::File, reason: "title has no characters valid in a file name; named Untitled (AP-27)".into() });
+        }
         let file = allocators.entry(folder.clone()).or_default().allocate(&stem, ".md");
         let target_path = format!("{folder}/{file}");
         by_target_title.entry((folder.clone(), n.title.clone())).or_default().push(target_path.clone());
@@ -457,6 +468,7 @@ pub fn dry_run(src: &Source, space: &str, opts: &Options) -> Report {
                 LinkKind::Wiki => match dir.find(&raw.target) {
                     Some(v) if v.len() == 1 => LinkOutcome::Resolved,
                     Some(_) => LinkOutcome::Ambiguous,
+                    None if dir.find_ci(&raw.target).is_some() => LinkOutcome::CaseMismatch,
                     None => match others.iter().find(|(_, d)| d.find(&raw.target).is_some()) {
                         Some((s, _)) => LinkOutcome::OtherSpace(s.clone()),
                         None if in_frontmatter => LinkOutcome::SelectValue,

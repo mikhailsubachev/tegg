@@ -40,6 +40,7 @@ pub fn markdown(r: &Report) -> String {
                 LinkOutcome::Unresolved => "not in the export".to_string(),
                 LinkOutcome::OtherSpace(sp) => format!("in space {sp}"),
                 LinkOutcome::Ambiguous => "several objects have this title".into(),
+                LinkOutcome::CaseMismatch => "only a title in different case matches; confirm".into(),
                 LinkOutcome::SelectValue => "becomes a select value".into(),
                 LinkOutcome::MissingFile => "file missing, dropped".into(),
                 LinkOutcome::InSkippedNote => "note not imported".into(),
@@ -50,6 +51,7 @@ pub fn markdown(r: &Report) -> String {
     }
     let _ = writeln!(s, "\nDate mentions → Daily Note links: {}", r.link_rows.iter().filter(|l| l.outcome == LinkOutcome::DateMention).count());
     for (title, list) in [("Duplicate titles", r.duplicate_titles.iter().map(|d| format!("{}: {}", d.title, d.targets.join(", "))).collect::<Vec<_>>()),
+                          ("File names that need a decision", r.name_issues.iter().map(|f| format!("{}: {}", f.path, f.reason)).collect()),
                           ("Query stubs (needs rebuilding)", r.query_stubs.clone()),
                           ("Skipped objects", r.skipped_objects.iter().map(|f| format!("{}: {}", f.path, f.reason)).collect()),
                           ("Dropped files", r.dropped_files.iter().map(|f| format!("{}: {}", f.path, f.reason)).collect()),
@@ -81,12 +83,12 @@ pub fn counts_only(space_index: usize, r: &Report) -> String {
     for (i, t) in r.types.iter().enumerate() { kv(format!("{p}.type.{i}.objects"), t.count) }
     let outcome = |o: &LinkOutcome| r.link_rows.iter().filter(|l| std::mem::discriminant(&l.outcome) == std::mem::discriminant(o)).count();
     for (k, o) in [("resolved", LinkOutcome::Resolved), ("date_mention", LinkOutcome::DateMention), ("attachment", LinkOutcome::Attachment),
-                   ("unresolved", LinkOutcome::Unresolved), ("other_space", LinkOutcome::OtherSpace(String::new())), ("ambiguous", LinkOutcome::Ambiguous),
+                   ("unresolved", LinkOutcome::Unresolved), ("other_space", LinkOutcome::OtherSpace(String::new())), ("ambiguous", LinkOutcome::Ambiguous), ("case_mismatch", LinkOutcome::CaseMismatch),
                    ("select_value", LinkOutcome::SelectValue), ("missing_file", LinkOutcome::MissingFile), ("in_skipped_note", LinkOutcome::InSkippedNote)] {
         kv(format!("{p}.links.{k}"), outcome(&o));
     }
     for (k, v) in [("dates.date_only", r.dates.date_only), ("dates.date_times", r.dates.date_times), ("dates.ranges", r.dates.ranges),
-                   ("dates.unparsed", r.dates.unparsed), ("duplicate_titles", r.duplicate_titles.len()), ("query_stubs", r.query_stubs.len()),
+                   ("dates.unparsed", r.dates.unparsed), ("duplicate_titles", r.duplicate_titles.len()), ("name_issues", r.name_issues.len()), ("query_stubs", r.query_stubs.len()),
                    ("tag_collections", r.tag_collections.len()), ("renamed_media", r.renamed_media.len()), ("orphan_attachments", r.orphan_attachments.len()),
                    ("value_merges", r.value_merges.len()), ("split_candidates", r.split_candidates.len()), ("invisible_chars", r.invisible_chars),
                    ("crlf_files", r.crlf_files), ("checklist_items", r.checklist_items), ("daily_timestamps", r.daily_timestamps),

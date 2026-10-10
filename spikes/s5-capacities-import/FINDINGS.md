@@ -9,7 +9,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | Check (S5-QA, `docs/acceptance/qa-infrastructure.md`) | Result |
 | --- | --- |
 | AC-1: one synthetic fixture per finding C1–C19, README mapping finding → fixture | Pass. `tests/fixtures/import/capacities/c01-…/` … `c19-…/`; `s5_qa_ac1_*` checks every finding has a folder and a README row |
-| AC-2: dry-run report asserted per fixture | Pass. 32 tests in `tests/fixtures_report.rs`, named after the FR-IMP ACs they cover |
+| AC-2: dry-run report asserted per fixture | Pass. 44 tests in `tests/fixtures_report.rs`, named after the FR-IMP ACs they cover |
 | AC-3: reusable "imported + reported = total" assertion for objects, attachments, links | Pass. `accounting::check` / `assert_accounted` recompute the totals from the raw entries with their own simple rules (space membership by path, file classes by extension, a separate regex link counter), sharing no code with the planner or the link scanner, and check that every reported item is in a report list. Used by the fixture tests, the CLI and the real-export run. Tests break the planner on purpose (lost object, attachment, link, dropped-file row, wrong space) and show the check fails |
 | AC-4 [manual]: owner's real-export run, 0 unreadable entries, counts only | **Pending (owner).** `TEGG_REAL_EXPORTS=1 cargo test --release --test real_export -- --nocapture` |
 
@@ -18,7 +18,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 - **Input** (`source.rs`, FR-IMP-07): zip and folder produce the same entry list (tested: same report). Zip names are read as UTF-8 even without the zip UTF-8 flag, with CP437 only as a fallback (counted); all names are NFC. Unreadable entries are counted, not skipped silently.
 - **Spaces** (`plan.rs`, FR-IMP-22): typed notes sit at `<space>/<Type folder>/<note>.md`. The layout is detected from the depth of notes with `type:`: a single-space export without a space folder and a zip with an extra root folder are handled too.
 - **Planner** (`plan.rs`): default type mapping (FR-IMP-08 AC-1; Query/Weblink/AIChat → Page), attribute mapping (FR-IMP-15, FR-TYP-15, FR-IMP-24), attribute type inference (date, date-time, date-range, number, checkbox, select, relation, link-select, list, text), case-variant merges, task status → semantic state, comma-list candidates, file names (D-51, D-52, D-68) with ` (2)` suffixes per folder, compared case-insensitively, `import-id`, repeat-import detection (FR-IMP-20).
-- **Links** (`scan.rs`): wikilinks, Markdown links and images outside code, in the body and the frontmatter. Every link gets exactly one outcome: resolved, date mention, attachment (imported), or unresolved, other space, ambiguous, select value, missing file, in a skipped note (reported).
+- **Links** (`scan.rs`): wikilinks, Markdown links and images outside code, in the body and the frontmatter. Every link gets exactly one outcome: resolved, date mention, attachment (imported), or unresolved, other space, ambiguous, case mismatch, select value, missing file, in a skipped note (reported).
 - **Report** (`report.rs`): a Markdown draft of the preview/report page (FR-IMP-05, FR-IMP-19) and a counts-only form for the real export (TS-P2; its format is asserted).
 
 ## What the spike found
@@ -32,6 +32,9 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | F5 | **Technical attributes** (`mimeType`, `fileSize`, `width`, `height`, `colors`, `domain`, `iframeUrl`) have no target | Dropped by default, reported. **AP-25** |
 | F6 | Capacities' duplicate file suffix starts at `(1)`, Tegg's at `(2)` (D-53) | No decision needed: links resolve by source path, planned names are allocated fresh |
 | F8 | The BRD doesn't say which export files are objects, attachments or neither | Rule in the spike, **AP-26** |
+| F9 | Link targets from note text weren't NFC-normalized; an NFD `[[Tomáš]]` looked unresolved (FR-FMT-12). Found in QA review | Targets and titles are NFC before matching; test `fr_fmt_12_nfd_link_targets_resolve` |
+| F10 | Windows-reserved names (`CON`, `COM1`…) and titles with no valid characters aren't covered by D-52 | Listed in the report, **AP-27** |
+| F11 | Case-insensitive title matches would bind links silently | Reported as "case mismatch", **AP-28** |
 | F7 | Null values are frequent (most templates export every attribute) | Omitted (FR-IMP-09 AC-4) and counted per attribute in the preview ("Empty" column) |
 
 ### Assumptions only the real-export run can confirm

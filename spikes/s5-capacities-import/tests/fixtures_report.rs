@@ -120,7 +120,14 @@ fn fr_imp_09_ac1_c03_utc_midnight_becomes_date_only() {
     assert_eq!(attr(&r, "Meeting", "date").inferred, "date");
     assert_eq!(r.dates.date_only, 2);
     assert_eq!(r.dates.date_times, 1);
-    assert_eq!(attr(&r, "Meeting", "followUp").nulls, 1, "null omitted (FR-IMP-09 AC-4)");
+}
+
+#[test]
+fn fr_imp_09_ac4_c03_null_is_omitted_not_a_value() {
+    let (_, r) = load("c03-utc-midnight-dates");
+    let a = attr(&r, "Meeting", "followUp");
+    assert_eq!((a.values, a.nulls), (1, 1));
+    assert_eq!(attr(&r, "Meeting", "date").nulls, 0);
 }
 
 #[test]
@@ -284,7 +291,7 @@ fn fr_imp_18_c18_checklists_counted() {
 }
 
 #[test]
-fn c19_ai_chat_imported_as_page() {
+fn fr_imp_08_ac1_c19_ai_chat_imported_as_page() {
     let (_, r) = load("c19-ai-chat");
     assert_eq!((r.types[0].source.as_str(), r.types[0].target.as_str()), ("AIChat", "Page"));
 }
@@ -322,10 +329,78 @@ fn ts_p2_counts_only_output_has_no_names() {
 }
 
 #[test]
-fn fr_fmt_08_sanitize() {
+fn fr_fmt_08_ac_d52_d68_sanitize_forbidden_characters() {
     assert_eq!(sanitize_file_name("1:1 2026-03-19 Jana"), "1 1 2026-03-19 Jana");
     assert_eq!(sanitize_file_name(" ..a/b?  c.. "), "a b c");
-    assert_eq!(sanitize_file_name("???"), "Untitled");
+    assert_eq!(sanitize_file_name("Heading #1 ^x [a]"), "Heading 1 x a", "D-68");
+    assert_eq!(sanitize_file_name("???"), "Untitled", "AP-27");
+}
+
+#[test]
+fn fr_fmt_08_ac_d51_cut_at_200_bytes_on_a_character_boundary() {
+    let title = format!("a{}", "ž".repeat(150)); // 1 + 300 bytes; byte 200 falls inside a `ž`
+    let name = sanitize_file_name(&title);
+    assert!(name.len() <= 200);
+    assert_eq!(name.len(), 199);
+    assert!(name.chars().skip(1).all(|c| c == 'ž'));
+}
+
+#[test]
+fn fr_fmt_12_sanitize_outputs_nfc() {
+    use unicode_normalization::UnicodeNormalization;
+    let nfd: String = "Tomáš".nfd().collect();
+    assert_ne!(nfd, "Tomáš");
+    assert_eq!(sanitize_file_name(&nfd), "Tomáš");
+}
+
+#[test]
+fn ap_27_windows_reserved_names_are_listed() {
+    use s5_capacities_import::convert::is_windows_reserved;
+    for n in ["CON", "con", "Nul", "COM1", "lpt9", "AUX.txt"] { assert!(is_windows_reserved(n), "{n}") }
+    for n in ["Console", "COM0", "COM", "Concert"] { assert!(!is_windows_reserved(n), "{n}") }
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(tmp.path().join("PKM/Pages")).unwrap();
+    std::fs::write(tmp.path().join("PKM/Pages/CON.md"), "---\ntype: 'Page'\ntitle: CON\n---\n").unwrap();
+    std::fs::write(tmp.path().join("PKM/Pages/Q.md"), "---\ntype: 'Page'\ntitle: '???'\n---\n").unwrap();
+    let src = source::read(tmp.path()).unwrap();
+    let r = plan::dry_run(&src, "PKM", &Options::default());
+    assert_eq!(r.name_issues.len(), 2, "{:?}", r.name_issues);
+    assert_accounted(&src, &r);
+}
+
+#[test]
+fn fr_fmt_12_nfd_link_targets_resolve() {
+    use unicode_normalization::UnicodeNormalization;
+    let tmp = tempfile::tempdir().unwrap();
+    copy_dir(&fixtures().join("c10-duplicate-titles"), tmp.path());
+    let nfd: String = "Tomáš".nfd().collect();
+    std::fs::create_dir_all(tmp.path().join("PKM/Pages")).unwrap();
+    std::fs::write(tmp.path().join("PKM/Pages/NFD.md"), format!("---\ntype: 'Page'\ntitle: N\n---\n[[{nfd}]]\n")).unwrap();
+    let src = source::read(tmp.path()).unwrap();
+    let r = plan::dry_run(&src, "PKM", &Options::default());
+    assert!(outcomes(&r).contains(&("Tomáš", &LinkOutcome::Resolved)), "{:?}", outcomes(&r));
+    assert_accounted(&src, &r);
+}
+
+#[test]
+fn fr_lnk_14_case_mismatch_is_reported_not_resolved() {
+    let tmp = tempfile::tempdir().unwrap();
+    copy_dir(&fixtures().join("c06-weblinks"), tmp.path());
+    std::fs::write(tmp.path().join("PKM/Pages/Case.md"), "---\ntype: 'Page'\ntitle: Case\n---\n[[reading LIST]]\n").unwrap();
+    let src = source::read(tmp.path()).unwrap();
+    let r = plan::dry_run(&src, "PKM", &Options::default());
+    assert!(outcomes(&r).contains(&("reading LIST", &LinkOutcome::CaseMismatch)));
+    assert_accounted(&src, &r);
+}
+
+#[test]
+fn fr_imp_09_ac3_mixed_range_is_not_parsed() {
+    assert_eq!(parse_date("2026-03-01 -> 2026-03-05T10:00:00.000Z", chrono_tz::Europe::Prague), None);
+}
+
+#[test]
+fn fr_imp_09_ac1_offset_midnight_stays_date_time() {
+    assert_eq!(parse_date("2026-03-19T00:00:00+00:00", chrono_tz::Europe::Prague), Some(DateValue::DateTime("2026-03-19T01:00:00+01:00".into())));
 }
 
 // ---------- FR-IMP-07 input ----------

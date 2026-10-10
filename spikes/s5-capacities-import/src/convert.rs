@@ -38,6 +38,14 @@ impl NameAllocator {
     }
 }
 
+/// NFR-POR-02: names Windows can't use as a file stem (case-insensitive, also with an extension).
+/// Not yet decided how to rename them (AP-27); the dry run lists them.
+pub fn is_windows_reserved(stem: &str) -> bool {
+    let base = stem.split('.').next().unwrap_or("").trim().to_ascii_uppercase();
+    matches!(base.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (base.len() == 4 && (base.starts_with("COM") || base.starts_with("LPT")) && base.as_bytes()[3].is_ascii_digit() && base.as_bytes()[3] != b'0')
+}
+
 static GENERIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(untitled|image|pasted image|screenshot)( \(\d+\))?$").unwrap());
 
 /// FR-IMP-14 AC-3: generic media names are renamed after the owning note.
@@ -60,12 +68,17 @@ pub fn parse_date(s: &str, tz: Tz) -> Option<DateValue> {
     if let Some(c) = RANGE.captures(s) {
         let a = parse_date(&c[1], tz)?;
         let b = parse_date(&c[2], tz)?;
-        let flat = |v: DateValue| match v { DateValue::DateOnly(x) | DateValue::DateTime(x) => Some(x), _ => None };
-        return Some(DateValue::Range(flat(a)?, flat(b)?));
+        // Both ends must be the same kind; a mixed range is left unparsed (reported, kept as text).
+        return match (a, b) {
+            (DateValue::DateOnly(x), DateValue::DateOnly(y)) | (DateValue::DateTime(x), DateValue::DateTime(y)) => Some(DateValue::Range(x, y)),
+            _ => None,
+        };
     }
     if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") { return Some(DateValue::DateOnly(d.to_string())) }
     let dt = DateTime::parse_from_rfc3339(s).ok()?;
     let utc = dt.with_timezone(&Utc);
+    // FR-IMP-09 AC-1 / C3: Capacities writes date-only values as UTC midnight with a `Z`. Only that form
+    // becomes date-only; an explicit offset (`+00:00`) is kept as a date-time with the local offset.
     if s.ends_with('Z') && utc.time() == chrono::NaiveTime::MIN {
         return Some(DateValue::DateOnly(utc.date_naive().to_string()));
     }
