@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-10 · **Branch:** `spike/s2-editor` · **Decision record:** [ADR 0002](../../docs/adr/0002-editor-on-source-blocks.md) (Proposed) · **Builds on:** S1 / [ADR 0001](../../docs/adr/0001-source-preserving-documents.md)
 
-## Verdict: GO, with two points for the owner (AP-9, AP-10)
+## Verdict: GO, with two points for the owner (AP-9, AP-10), accepted as D-66 and D-67
 
 A real TipTap 3 editor (ProseMirror) works on top of S1's source-preserving model.
 - Each top-level editor block remembers the source block it came from (`srcIndex`).
@@ -29,8 +29,8 @@ Each item below would have silently damaged notes, changed their meaning on relo
 | --- | --- | --- | --- |
 | E1 | `==highlight==`, `%%comment%%` and `$math$` would be escaped or dropped when their block is edited (S1 open item 3) | Syntax extensions in the S1 core (`src/inline.ts`); highlight content is parsed for nested emphasis | `s2_qa_ac2_*` |
 | E2 | **Editor plugins change notes on open**: the table plugin adds a cell to a ragged GFM row (a `\|` in a code span counts as a separator) | Generic guard (`attach`): a block the editor changed by itself on load becomes read-only raw | `obsidian/04 Tables.md` via `s2_qa_ac1_unedited_*` |
-| E3 | **Deleting or moving a block can merge two lists** (a blank line doesn't separate two `-` lists) | One of the lists gets another marker (`-` → `*`, `1.` → `1)`). **Proposed, AP-10** | `fr_fmt_07_deleting_the_block_between_two_lists_*` (6 cases in the operation run) |
-| E4 | **Indented code moved below a list becomes part of the list** (CommonMark rule) | Last-resort `<!-- -->` separator. **Proposed, AP-10** | `fr_fmt_07_moving_indented_code_*` |
+| E3 | **Deleting or moving a block can merge two lists** (a blank line doesn't separate two `-` lists) | One of the lists gets another marker (`-` → `*`, `1.` → `1)`). Accepted, D-67 | `fr_fmt_07_deleting_the_block_between_two_lists_*` (6 cases in the operation run) |
+| E4 | **Indented code moved below a list becomes part of the list** (CommonMark rule) | Last-resort `<!-- -->` separator. Accepted, D-67 | `fr_fmt_07_moving_indented_code_*` |
 | E5 | The first losslessness check compared text with the standard rendering (`(1)` → `\(1\)`), which made links to `… (1).md` files read-only | Semantic check: what the editor would write, read back in the note's context, gives the same editor content | load tests; the real-export run showed the effect (190 → 1 read-only blocks, see privacy note) |
 | E6 | `[[` autocomplete left a stray `[` (`\[[[Note]]`), found in manual testing | `insertLink` removes both brackets | `bug_s2_e6_link_autocomplete_*` |
 | E7 | **Autosave while typing wrote `word&#x20;`** (to-markdown encodes paragraph edge spaces) | Edge spaces of paragraphs, headings and cells are trimmed (Markdown ignores them) | `bug_s2_trailing_space_*` |

@@ -16,7 +16,7 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
    - Unchanged blocks are written byte-for-byte, even when moved; only changed or new blocks are rendered. Leading and trailing spaces of a rendered paragraph, heading or table cell are dropped (Markdown ignores them; otherwise they'd be written as `&#x20;`).
    - Every save is verified: untouched blocks are byte-identical, and every changed block reads back to the same editor content. Literal `==`, `%%` and `$` typed as text are written escaped; tags in the editor follow the tag rules in §5 (typing after a tag extends it).
    - Changed blocks are written in NFC (the whole block, not only link targets).
-   - *Proposed, pending the owner's decision (AP-10):* when two lists with the same marker become adjacent (e.g. the block between them was deleted), one of them is written with another marker (`-` → `*`, `1.` → `1)`), because a blank line doesn't separate them; when a list is newly followed by an indented block (indented code), a `<!-- -->` line is written between them, because CommonMark would otherwise make the indented block part of the list. Both change bytes of a block the user didn't edit.
+   - *Decided (D-67):* when two lists with the same marker become adjacent (e.g. the block between them was deleted), one of them is written with another marker (`-` → `*`, `1.` → `1)`), because a blank line doesn't separate them; when a list is newly followed by an indented block (indented code), a `<!-- -->` line is written between them, because CommonMark would otherwise make the indented block part of the list. Both change bytes of a block the user didn't edit.
 
 ## 2. File envelope
 
@@ -33,6 +33,10 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
 - Content is YAML 1.2. Invalid YAML: the file opens in source mode with the error line; it is never rewritten automatically (NFR-REL-03).
 - **Editing** an attribute replaces only that key's source lines (key through the end of its value, including multi-line lists and folded strings). Key order, comments, quoting style and unknown keys elsewhere are preserved. A new attribute is appended as the last entry.
 
+### Task keys (D-70)
+
+The Task type's attribute keys: `status` (a label from the vault's status list, FR-TSK-02), `priority` (FR-TSK-03), `due` (`YYYY-MM-DD`, FR-FMT-11), `completed` (date or date-time, set automatically when the status becomes Done), `recurrence` (FR-TSK-01). `captured` (reserved) is an ISO 8601 date-time with offset, written by Quick Capture (FR-CAP-04).
+
 ### Value formats
 
 | Attribute type | Written as | Also read |
@@ -48,7 +52,7 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
 | Relation | `"[[Note]]"`; multiple as a block list of quoted links | unquoted `[[Note]]` is invalid YAML (a nested list) and is reported |
 | Empty | key omitted | `key:`, `key: null`, `key: ~` all mean empty |
 
-Reserved keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id`. `id` is a 26-character ULID written on creation or on first edit of an untyped file (D-54). `modified` changes only when content changes (D-55). `tags` is a list of tag names without `#`.
+Reserved keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id, captured`. `id` is a 26-character ULID written on creation or on first edit of an untyped file (D-54). `modified` changes only when content changes (D-55). `tags` is a list of tag names without `#`.
 
 ## 4. Blocks (body)
 
@@ -100,7 +104,7 @@ A tag is `#` followed by one or more of: Unicode letters, combining marks (for N
 
 ## 7. File names (FR-FMT-08, NFR-POR-02)
 
-- Title → file name: replace `/ : \ * ? " < > |` and control characters with a space (D-52), collapse spaces, trim leading/trailing spaces and dots, NFC, cut to **200 UTF-8 bytes** at a character boundary (D-51). Windows reserved names (`CON`, `NUL`, …) get ` (note)`.
+- Title → file name: replace `/ : \ * ? " < > |`, `# ^ [ ]` (Obsidian can't link to them, D-68) and control characters with a space (D-52), collapse spaces, trim leading/trailing spaces and dots, NFC, cut to **200 UTF-8 bytes** at a character boundary (D-51). Windows reserved names (`CON`, `NUL`, …) get ` (note)`.
 - If the file name differs from the title, `title:` holds the real title.
 - Duplicates: ` (2)`, ` (3)`, … before `.md` (FR-LNK-14, D-53).
 - Daily notes: `YYYY-MM-DD.md` by default (FR-FMT-09).

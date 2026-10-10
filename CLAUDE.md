@@ -13,7 +13,7 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 ## Status
 
-Pre-code. Requirements v1.11 are final: no open questions (D-01…D-65). Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
+Pre-code. Requirements v1.11 are final: no open questions (D-01…D-71). Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
@@ -25,7 +25,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 
 - **S1 done (GO):** source-preserving documents, see `spikes/s1-roundtrip/FINDINGS.md` and `docs/adr/0001-source-preserving-documents.md`. Dialect spec: `docs/markdown-dialect.md`. Round-trip fixtures: `tests/fixtures/format/roundtrip/` (synthetic, byte-exact; don't open and re-save them in an editor).
 - **S2 done (GO):** TipTap block editor on source blocks, see `spikes/s2-editor/FINDINGS.md` and `docs/adr/0002-editor-on-source-blocks.md`. The S2 editor imports the S1 core via the `@core` alias (`spikes/s1-roundtrip/src`).
-- **S3 in progress (provisional GO):** Tauri 2 menu bar, global hotkeys and pre-warmed capture window (manual: ready in ~40–50 ms), see `spikes/s3-platform/FINDINGS.md`. Pending: the Appium `mac2` run (needs Xcode) and the signed + notarized DMG (needs a Developer ID). Open points AP-11…AP-14.
+- **S3 in progress (provisional GO):** Tauri 2 menu bar, global hotkeys and pre-warmed capture window (manual: ready in ~40–50 ms), see `spikes/s3-platform/FINDINGS.md`. Pending: the Appium `mac2` run (needs Xcode) and the signed + notarized DMG (needs a Developer ID). AP-9…AP-14 decided (D-66…D-71).
 - **S4 done (GO):** Rust index (SQLite FTS5, in-memory switcher, FSEvents watcher) beats every NFR-PERF target it can measure by ≥ 3.5× (most by 10–1000×), see `spikes/s4-index/FINDINGS.md`. The Rust extractor matches the TS reference (`tests/fixtures/format/extract/expected.json`, plus a nightly differential corpus). The reference vault comes from `tools/gen-vault`. AP-15 and AP-16 decided (D-64, D-65).
 
 ## Stack (confirmed, D-19)
@@ -68,7 +68,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 
 System types (D-22, D-42): Page, Task, Quick Note, Daily Note, Tag, Image, PDF. Every image and PDF is an object: a small `.md` in `Images/` or `PDFs/` with `file: "[[photo.png]]"`, while notes embed the file itself (`![[photo.png]]`) so they still render in Obsidian (FR-ATT-07).
 
-Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id`.
+Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id, captured`.
 
 Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45), a separate scheduled task date (D-46), a Weblink type (D-43), nested tags (D-40), tag collections (D-48).
 
