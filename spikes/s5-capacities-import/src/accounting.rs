@@ -57,6 +57,8 @@ pub fn check(src: &Source, r: &Report) -> Vec<String> {
     let t = totals(src, &r.space);
     let mut errs = Vec::new();
     let mut eq = |what: &str, a: usize, b: usize| if a != b { errs.push(format!("{what}: {a} != {b}")) };
+    // Each message starts with a fixed rule name and ends with two numbers, so `violation_counts` can print it
+    // without names or content (TS-P2).
     eq("space files: report = export", r.objects.total + r.attachments.total + r.other_files.total, t.files);
     for (name, tally, total) in [("objects", &r.objects, t.objects), ("attachments", &r.attachments, t.attachments),
                                  ("links", &r.links, t.links), ("other files", &r.other_files, t.other)] {
@@ -75,4 +77,29 @@ pub fn check(src: &Source, r: &Report) -> Vec<String> {
 pub fn assert_accounted(src: &Source, r: &Report) {
     let errs = check(src, r);
     assert!(errs.is_empty(), "imported + reported != total:\n{}", errs.join("\n"));
+}
+
+/// TS-P2: the violated rules as `key: number` lines (rule slug + left/right), safe for the real-export output.
+pub fn violation_counts(prefix: &str, errs: &[String]) -> String {
+    let mut out = String::new();
+    for e in errs {
+        let (rule, nums) = e.rsplit_once(": ").unwrap_or((e.as_str(), ""));
+        let slug: String = rule.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' }).collect();
+        let slug = slug.split('_').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("_");
+        let (a, b) = nums.split_once(" != ").unwrap_or(("0", "0"));
+        out += &format!("{prefix}.violation.{slug}.left: {}\n{prefix}.violation.{slug}.right: {}\n", a.trim(), b.trim());
+    }
+    out
+}
+
+/// Diagnostic (counts only): notes where the independent link count and the scanner disagree,
+/// and the sums of both counts over those notes. Used when `links: total = export` fails.
+pub fn link_count_disagreements(src: &Source, space: &str) -> (usize, usize, usize) {
+    let (mut notes, mut independent, mut scanner) = (0, 0, 0);
+    for e in src.entries.iter().filter(|e| in_space(&e.path, space) && e.path.ends_with(".md") && !e.path.split('/').any(|p| p.starts_with('.'))) {
+        let text = String::from_utf8_lossy(&e.bytes);
+        let (a, b) = (count_links(&text), crate::scan::links(&text).len());
+        if a != b { notes += 1; independent += a; scanner += b }
+    }
+    (notes, independent, scanner)
 }

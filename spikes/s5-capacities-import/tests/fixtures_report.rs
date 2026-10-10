@@ -60,6 +60,9 @@ fn s5_qa_ac3_accounting_detects_a_lost_link() {
     r.links.total -= 1;
     let errs = check(&src, &r);
     assert!(errs.iter().any(|e| e.starts_with("links: total = export")), "{errs:?}");
+    let v = s5_capacities_import::accounting::violation_counts("space.0", &errs);
+    assert!(report::is_counts_only(&v), "{v}");
+    assert!(v.contains("space.0.violation.links_total_export.left:"), "{v}");
     let t = totals(&src, "PKM");
     assert_eq!(t.links, r.links.total + 1);
 }

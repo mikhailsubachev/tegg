@@ -34,6 +34,9 @@ fn s5_qa_ac4_real_capacities_export_dry_run() {
             out += &report::counts_only(si, &r);
             let errs = accounting::check(&src, &r);
             out += &format!("space.{si}.accounting_errors: {}\n", errs.len());
+            out += &accounting::violation_counts(&format!("space.{si}"), &errs);
+            let (n, a, b) = accounting::link_count_disagreements(&src, &s.name);
+            out += &format!("space.{si}.diag.link_disagreement_notes: {n}\nspace.{si}.diag.link_independent: {a}\nspace.{si}.diag.link_scanner: {b}\n");
             failures += errs.len();
         }
         assert!(report::is_counts_only(&out), "counts-only format violated (TS-P2)");
