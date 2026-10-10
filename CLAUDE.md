@@ -25,6 +25,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 
 - **S1 done (GO):** source-preserving documents, see `spikes/s1-roundtrip/FINDINGS.md` and `docs/adr/0001-source-preserving-documents.md`. Dialect spec: `docs/markdown-dialect.md`. Round-trip fixtures: `tests/fixtures/format/roundtrip/` (synthetic, byte-exact; don't open and re-save them in an editor).
 - **S2 done (GO):** TipTap block editor on source blocks, see `spikes/s2-editor/FINDINGS.md` and `docs/adr/0002-editor-on-source-blocks.md`. The S2 editor imports the S1 core via the `@core` alias (`spikes/s1-roundtrip/src`).
+- **S3 in progress (provisional GO):** Tauri 2 menu bar, global hotkeys and pre-warmed capture window (manual: ready in ~40–50 ms), see `spikes/s3-platform/FINDINGS.md`. Pending: the Appium `mac2` run (needs Xcode) and the signed + notarized DMG (needs a Developer ID). Open points AP-11…AP-14.
 
 ## Stack (confirmed, D-19)
 
@@ -89,6 +90,7 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 - S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only; started by the owner, D-62). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
 - QA gates: `./verify install` once per clone (git hooks), then `./verify commit|push|nightly|milestone --milestone MSn|release`; `./verify coverage` writes `qa/coverage/ac-matrix.md`; `./verify check-red <commit>`; `./verify review-prep` before running the `qa-reviewer` agent; `./verify help`. Interface: `tools/qa/CONTRACT.md`; config: `qa.config.json` (add a step there for every new package's tests). QA tool tests: `cd tools/qa && npm test`.
 - S2 spike: `cd spikes/s2-editor && npm test` (editor ACs, property test); `npm run test:webkit` (all Playwright tests: the WebKit editor flow with a fake core over mocked IPC, and the perf probe on WebKit + Chromium; use `--workers=1` for clean perf numbers); `npm run dev` or the `s2-editor` entry in `.claude/launch.json` for the playground; `npm run test:real` is started by the owner (D-62).
+- S3 spike: `cd spikes/s3-platform && npm run app:build` (.app + ad-hoc DMG); `npm run test:rust` (vault write tests); `cd e2e-appium && npm test` (Appium mac2 real-app suite, S3-QA AC-1…AC-4; needs Xcode, Accessibility permission and a built app); `scripts/sign-notarize.sh` (owner's Developer ID).
 - Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions

@@ -14,7 +14,10 @@
       "level": "nightly" },
     { "id": "s1-test", "dir": "spikes/s1-roundtrip",
       "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/s1-roundtrip.xml\"",
-      "level": "push" }
+      "level": "push" },
+    { "id": "s3-typecheck", "dir": "spikes/s3-platform", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "s3-appium-typecheck", "dir": "spikes/s3-platform/e2e-appium", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "s3-rust-test", "dir": "spikes/s3-platform/src-tauri", "run": "cargo test --quiet", "level": "push" }
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],
   "acRunners": [
