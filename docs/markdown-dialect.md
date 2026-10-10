@@ -90,7 +90,7 @@ A **block** is a top-level CommonMark/GFM construct. Text between blocks (blank 
 
 ### Tags
 
-A tag is `#` followed by one or more of: Unicode letters, combining marks (for NFD text), digits, `_`, `-`, `/` (D-40: `/` is part of a flat name), containing **at least one non-digit**, where `#` is at the start of a line or after whitespace or `(`. Not tags: `#1`, `# Heading` (space after `#`), `#` inside URLs (`site.com/#x`), code or links. Matching is case-insensitive and NFC; the stored spelling is kept.
+A tag is `#` followed by one or more of: Unicode letters, combining marks (for NFD text), digits, `_`, `-`, `/` (D-40: `/` is part of a flat name), containing **at least one non-digit**, where `#` is at the start of a line or after whitespace or `(`. Not tags: `#1`, `# Heading` (space after `#`), `#` inside URLs (`site.com/#x`), code, links or math (D-64). Matching is case-insensitive and NFC; the stored spelling is kept.
 
 ## 6. Link resolution
 

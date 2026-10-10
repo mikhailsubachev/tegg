@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.10, for review                                             |
-| **Date**            | 2026-10-08                                                          |
+| **Document status** | Draft v1.11, for review                                             |
+| **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -28,6 +28,7 @@
 | v1.10   | 2026-10-08 | Test automation strategy accepted (`docs/test-strategy.md`): performance reference moved to the owner's M2 Pro with tightened targets (D-59, amends D-58); local-only test execution (D-60); Claude QA roles and independence controls (D-61); QA operations (D-62); MVP milestones MS1–MS8 with test gates (D-63, §11.2); new risk R-11 (macOS 14 untested). |
 
 ---
+| v1.11   | 2026-10-10 | Spike S4 decisions: tags inside math are not tags (D-64); the slow profile is a reported worst case and the D-59 factors stay (D-65) |
 
 ## 1. Vision & Goals
 
@@ -132,6 +133,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-61 | Claude in QA | Claude acts as AC author, test author, QA reviewer and exploratory tester, separate from the implementing session. AC tests are written from ACs and interfaces only, committed **red** before the implementation, and may be changed only with owner approval (`AC-Test-Change:` trailer). Mutation-score thresholds T1 / T2: 70% / 60% in MS1–MS3, 80% / 70% from MS4 (`docs/test-strategy.md` §6, §11) |
 | D-62 | QA operations | Nightly gate via `launchd` under `caffeinate`; Claude is **denied access to `test exports/`** and the owner starts the real-export run; data-loss (T1) bugs stop feature work during the MVP; iCloud Drive is enabled on both Macs before MS8 to test iCloud sync |
 | D-63 | MVP milestones | The MVP is built in milestones **MS1–MS8**, each with its own automated test gate (§11.2) |
+| D-64 | Tags in math | `#tags` inside inline math (`$…$`) and display math (`$$…$$`) are **not tags**, like code and links (AP-15, spike S4; dialect §5) |
+| D-65 | Slow profile | The slow profile (`taskpolicy -b`, efficiency cores) is a **reported worst case with no pass/fail target**; the 75% / 60% factors of D-59 stay (AP-16, spike S4). A one-off measurement on an M1 can confirm them if one is available |
 
 ---
 
