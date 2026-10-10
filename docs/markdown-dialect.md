@@ -11,7 +11,12 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
    - An edited block keeps its own list-marker style (`*`, `+`, `-`, `1.`, `1)`); only new blocks use the canonical style. Markers separate adjacent lists.
    - Trailing empty quote lines (`>`) of an edited quote are kept; they stop the next line from becoming a lazy continuation.
    - Every block edit is verified by re-parsing. If the edited block would merge with a neighbour, one blank line is added to the gap next to it; otherwise the edit is refused.
-   - Wikilinks, embeds and tags are syntax nodes, written back verbatim, never escaped.
+   - Wikilinks, embeds and tags are syntax nodes, written back verbatim, never escaped. So are `==highlight==`, inline `%%comment%%` and `$math$` (spike S2).
+5. **Saving from the block editor** (spike S2, ADR 0002):
+   - Unchanged blocks are written byte-for-byte, even when moved; only changed or new blocks are rendered. Leading and trailing spaces of a rendered paragraph, heading or table cell are dropped (Markdown ignores them; otherwise they'd be written as `&#x20;`).
+   - Every save is verified: untouched blocks are byte-identical, and every changed block reads back to the same editor content. Literal `==`, `%%` and `$` typed as text are written escaped; tags in the editor follow the tag rules in §5 (typing after a tag extends it).
+   - Changed blocks are written in NFC (the whole block, not only link targets).
+   - *Proposed, pending the owner's decision (AP-10):* when two lists with the same marker become adjacent (e.g. the block between them was deleted), one of them is written with another marker (`-` → `*`, `1.` → `1)`), because a blank line doesn't separate them; when a list is newly followed by an indented block (indented code), a `<!-- -->` line is written between them, because CommonMark would otherwise make the indented block part of the list. Both change bytes of a block the user didn't edit.
 
 ## 2. File envelope
 
@@ -79,7 +84,7 @@ A **block** is a top-level CommonMark/GFM construct. Text between blocks (blank 
 | Block ID | ` ^abc123` at the end of a block | `[A-Za-z0-9-]+` |
 | Tag (FR-FMT-10) | `#name` | see below |
 | Comment | `%%text%%` inline | preserved, hidden in the editor |
-| Math | `$x$` | preserved |
+| Math | `$x$`: no space after the opening or before the closing `$`, no digit right after the closing `$`, `\$` never closes (Obsidian rules; so `$5 and $3` is text) | preserved; a literal `$` in text is written `\$` |
 
 **Not links:** anything inside code spans, fenced or indented code, math, HTML, or comments.
 

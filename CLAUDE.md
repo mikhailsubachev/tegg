@@ -24,6 +24,7 @@ Pre-code. Requirements v1.10 are final: no open questions (D-01…D-63). Accepta
 Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after the spikes and the architecture doc. Each spike also has QA exit criteria (`docs/acceptance/qa-infrastructure.md`), and the QA tooling (`./verify`, hooks, agents, AC coverage) is built before product code.
 
 - **S1 done (GO):** source-preserving documents, see `spikes/s1-roundtrip/FINDINGS.md` and `docs/adr/0001-source-preserving-documents.md`. Dialect spec: `docs/markdown-dialect.md`. Round-trip fixtures: `tests/fixtures/format/roundtrip/` (synthetic, byte-exact; don't open and re-save them in an editor).
+- **S2 done (GO):** TipTap block editor on source blocks, see `spikes/s2-editor/FINDINGS.md` and `docs/adr/0002-editor-on-source-blocks.md`. The S2 editor imports the S1 core via the `@core` alias (`spikes/s1-roundtrip/src`).
 
 ## Stack (confirmed, D-19)
 
@@ -87,6 +88,7 @@ Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45
 - Claude never reads `test exports/` or the owner's real vault (D-62); exploratory sessions use synthetic or generated vaults only. The owner starts the real-export run.
 - S1 spike: `cd spikes/s1-roundtrip && npm test` (all ACs, property test); `npm run test:real` runs the local-only real-export check (counts only; started by the owner, D-62). Vitest 5 hides console output of passing tests; add `--silent=false` to see it.
 - QA gates: `./verify install` once per clone (git hooks), then `./verify commit|push|nightly|milestone --milestone MSn|release`; `./verify coverage` writes `qa/coverage/ac-matrix.md`; `./verify check-red <commit>`; `./verify review-prep` before running the `qa-reviewer` agent; `./verify help`. Interface: `tools/qa/CONTRACT.md`; config: `qa.config.json` (add a step there for every new package's tests). QA tool tests: `cd tools/qa && npm test`.
+- S2 spike: `cd spikes/s2-editor && npm test` (editor ACs, property test); `npm run test:webkit` (all Playwright tests: the WebKit editor flow with a fake core over mocked IPC, and the perf probe on WebKit + Chromium; use `--workers=1` for clean perf numbers); `npm run dev` or the `s2-editor` entry in `.claude/launch.json` for the playground; `npm run test:real` is started by the owner (D-62).
 - Product commands: _to be added after scaffolding (run `/init` again then)._
 
 ## Working conventions

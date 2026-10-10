@@ -41,3 +41,10 @@ Writing the criteria uncovered gaps and conflicts in the BRD. All proposals belo
 | AP-6 | **Offset for imported date-times.** Capacities stores UTC (`…Z`); FR-FMT-11 requires ISO 8601 with offset. | Convert to the **local time zone at import time** with its offset (e.g. `2026-04-07T21:46:20+02:00`). | FR-FMT-11, FR-IMP-09 |
 | AP-7 | **Restore point in the MVP.** FR-IMP-05 / FR-HIS-04 need restore points, but version history ships in v1.0. §11.1 says a backup zip stands in for imports. Schema and tag renames are in the MVP too. | Use the same **vault backup zip** before every bulk operation in the MVP (import, attribute rename, tag rename, bulk type change), stored in Application Support, newest 10 kept. | FR-HIS-04, NFR-REL-04 |
 | AP-8 | **"Typical" note size and test machine** for NFR-PERF aren't fully defined. | Reference vault and machine as defined in [performance.md](performance.md). | NFR-PERF-* |
+
+## Open points (from spike S2, pending the owner)
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-9 | **Typing latency is frame-quantized.** Keydown → next paint ends at the next frame, so at 60 Hz a keystroke is "in the next frame (≤ 16.7 ms)" or "a frame late". A ms target below one frame (D-59's 75% → 12 ms) measures the display, not the app. WebKit measured p95 16 ms, max 17 ms on a 5,000-word note. | PERF-06: "≥ 95% of keystrokes painted in the next frame, none later than two frames"; the D-59 factor is not applied to it. | NFR-PERF-06, D-59, `performance.md` |
+| AP-10 | **Save may change a block the user didn't edit.** When a delete or move makes two same-marker lists adjacent, one list's markers change (`-` → `*`), because a blank line doesn't separate them in Markdown; when a list is newly followed by indented code, a `<!-- -->` line is inserted. FR-FMT-07 says only what the user changed is re-serialized. | Accept both as the minimal change that keeps the note's structure (alternatives: always `<!-- -->`; or refuse the move/delete with a message). | FR-FMT-07, ADR 0002, dialect §1.5 |

@@ -6,6 +6,8 @@ import { toMarkdown } from 'mdast-util-to-markdown'
 import { Scalar, stringify } from 'yaml'
 import type { RootContent } from 'mdast'
 import { wikilinks, nameKey } from './links.js'
+import { mathToMarkdown } from 'mdast-util-math'
+import { inlineToMarkdown } from './inline.js'
 import { tagToMarkdown } from './tag.js'
 import { wikiLinkToMarkdown } from './wikilink.js'
 import { parse, type Doc, type Range } from './parse.js'
@@ -56,7 +58,7 @@ export function renderBlock(node: RootContent, originalRaw?: string): string {
       fence: '`',
       fences: true,
       listItemIndent: 'one',
-      extensions: [gfmToMarkdown(), wikiLinkToMarkdown, tagToMarkdown],
+      extensions: [gfmToMarkdown(), mathToMarkdown(), wikiLinkToMarkdown, tagToMarkdown, inlineToMarkdown],
     },
   )
   let out = md.replace(/\n+$/, '') // a block's range never includes the separating newline
