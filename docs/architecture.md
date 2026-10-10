@@ -1,6 +1,6 @@
 # Tegg Architecture
 
-- **Status:** Accepted (2026-10-10), except AP-30 (§14), which is still pending. AP-29 → D-82 (ADR 0003), AP-31 → D-83.
+- **Status:** Accepted (2026-10-10). AP-29 → D-82 (ADR 0003), AP-30 → D-84, AP-31 → D-83.
 - **Inputs:** BRD v1.13 (§8, §9, D-01…D-81), `docs/test-strategy.md`, ADR 0001 and 0002, spike findings S1–S5 (`spikes/*/FINDINGS.md`).
 - **Scope:** the MVP (BRD §11, MS1–MS8), plus the seams v1.0, mobile and Phase 2 sync need, so they don't force a rewrite.
 
@@ -170,7 +170,7 @@ sequenceDiagram
 3. Write `.<name>.tegg-tmp` in the same folder, `fsync`, rename over the target (create: `renamex_np(RENAME_EXCL)`, so an existing name fails instead of being replaced; S3 P3).
 4. Record the new version as **own write**, so the watcher event it causes doesn't trigger a reload (echo suppression), then update the index for that path directly.
 
-Writes to one path are serialized. There is a small window between step 2 and the rename in step 3 in which an external write could land and be replaced; POSIX offers no lock that sync clients respect. The window is under a millisecond and sync clients also replace files atomically, so the risk is very small but not zero (AP-30).
+Writes to one path are serialized. There is a small window between step 2 and the rename in step 3 in which an external write could land and be replaced; POSIX offers no lock that sync clients respect. The window is under a millisecond and sync clients also replace files atomically, so the risk is very small but not zero; accepted as a documented limit (D-84).
 
 ### 5.4 External changes
 
@@ -312,17 +312,17 @@ One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` 
 
 - **Two readers** (Rust extractor, TS engine) can still disagree on edge cases; controlled by the conformance corpus (every push) and the differential corpus (nightly), with known differences listed (S4 P3).
 - **Jobs depend on the main webview** (D-82): a job can't run with no webview at all. Acceptable on desktop, where the hidden window stays alive.
-- **Compare-then-rename window** (§5.3, AP-30).
+- **Compare-then-rename window** (§5.3, D-84).
 - **FSEvents coalescing** under heavy sync load: covered by the "must rescan" path and the 500-file AC.
 
 ---
 
-## 14. Open points (AP-29 and AP-31 decided as D-82 and D-83; AP-30 pending)
+## 14. Decided points (AP-29 → D-82, AP-30 → D-84, AP-31 → D-83)
 
 | # | Issue | Proposal | Affects |
 | --- | --- | --- | --- |
 | AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion)? ADR 0001 gives body writes to TypeScript but leaves bulk rewrites open; S5 put the importer in Rust. Two patch engines would drift (S4 P1/P3/P9, S5 F12). | **One text engine:** `@tegg/doc` produces every new note's bytes; Rust orchestrates (file selection, backup, conflict checks, atomic writes) and runs jobs through a Web Worker in the main webview. The import *planner* stays in Rust. **Accepted (D-82, ADR 0003).** | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-*, AR-03 |
-| AP-30 | **Residual overwrite window.** Between checking the disk version and the atomic rename, an external write can land and be replaced; no file lock is respected by sync clients. NFR-REL-02 says "never". | Accept the sub-millisecond window as a documented limit. In v1.0, version history keeps the replaced bytes, so even that case is recoverable. **Pending.** | NFR-REL-02, FR-SYN-03 |
+| AP-30 | **Residual overwrite window.** Between checking the disk version and the atomic rename, an external write can land and be replaced; no file lock is respected by sync clients. NFR-REL-02 says "never". | Accept the sub-millisecond window as a documented limit. In v1.0, version history keeps the replaced bytes, so even that case is recoverable. **Accepted (D-84).** | NFR-REL-02, FR-SYN-03 |
 | AP-31 | **Spike code in the product.** CLAUDE.md calls spike code throwaway, while S5 says its parsing and mapping become the importer. | Port spike modules into product packages deliberately (reviewed, cleaned up), with tests re-authored from the ACs by the test author; product code never imports from `spikes/`. **Accepted (D-83).** |  D-61, TS-I |
 
 ---
