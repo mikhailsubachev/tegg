@@ -13,7 +13,7 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 ## Status
 
-Pre-code. Requirements v1.13 are final: no open questions (D-01…D-81). Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Next: technical spikes before product code:
+Pre-code. Requirements v1.14 are final: no open questions (D-01…D-83). Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Architecture: `docs/architecture.md` (accepted; AP-30 pending; ADR 0003 one text engine, D-82; spike code is ported, never imported, D-83). Technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
