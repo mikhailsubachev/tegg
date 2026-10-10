@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quick Capture</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="capture">
+    <form id="form">
+      <div class="row drag" data-tauri-drag-region>
+        <span id="kind-label" class="kind" aria-label="Capture type">Quick Note</span>
+        <label id="due-wrap" hidden>
+          <span data-i18n="capture.due">Due</span>
+          <input id="due" type="date" aria-label="Due date" />
+        </label>
+      </div>
+      <textarea id="text" aria-label="Capture text" placeholder="Capture… (⌘↩ to save, Esc to close)" spellcheck="true"></textarea>
+      <div class="row">
+        <span id="status" class="hint" role="status" aria-label="Capture status"></span>
+        <button type="button" id="cancel" aria-label="Cancel capture" data-i18n="capture.cancel">Cancel</button>
+        <button type="submit" id="save" aria-label="Save capture" data-i18n="capture.save">Save</button>
+      </div>
+    </form>
+    <script type="module" src="/src/capture.ts"></script>
+  </body>
+</html>
