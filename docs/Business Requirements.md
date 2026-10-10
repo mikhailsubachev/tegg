@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.12, for review                                             |
+| **Document status** | Draft v1.13, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -28,6 +28,7 @@
 | v1.10   | 2026-10-08 | Test automation strategy accepted (`docs/test-strategy.md`): performance reference moved to the owner's M2 Pro with tightened targets (D-59, amends D-58); local-only test execution (D-60); Claude QA roles and independence controls (D-61); QA operations (D-62); MVP milestones MS1–MS8 with test gates (D-63, §11.2); new risk R-11 (macOS 14 untested).                                      |
 | v1.11   | 2026-10-10 | Spike S4 decisions: tags inside math are not tags (D-64); the slow profile is a reported worst case and the D-59 factors stay (D-65); spike S2, S3 decisions: typing latency measured in frames (D-66), list-marker and separator exceptions to FR-FMT-07 (D-67), Obsidian-safe file names (D-68), capture ⌘↩ (D-69), Task keys and `captured` (D-70), single instance and hotkey conflicts (D-71) |
 | v1.12   | 2026-10-10 | Design review of the edit-note page: properties are defined only on the Type page or in type settings (D-72; FR-EDT-07, FR-TYP-09); one link chip style with a light tint and regular weight (D-73; FR-LNK-07); Task embed card shows the task body (D-74; FR-EMB-02).                                                                                                                             |
+| v1.13   | 2026-10-10 | Spike S5 decisions (AP-22…AP-28): plain-text `source` on media → `source-text` (D-75); duplicate-title wikilinks point at the first object and are reported (D-76); unreferenced media get an Image/PDF object (D-77); technical attributes dropped by default (D-78); classification of export files (D-79); Windows-reserved and empty file names (D-80); case-insensitive link matches are confirmed, not resolved silently (D-81). |
 
 ---
 
@@ -145,6 +146,13 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-72 | Where properties are defined         | An object's properties come only from its type. Properties are **added, renamed or removed only on the type's Type page** (the "all objects" view, e.g. its add-column button) **or in the type settings**, never from a single object: the attribute panel on an object edits values only (FR-EDT-07, FR-TYP-09). Frontmatter keys outside the type's schema (Obsidian files, type changes, deleted attributes) are still kept and shown under "Other properties" (FR-TYP-04, FR-TYP-07) |
 | D-73 | Link style                           | A link is one inline chip, **the same everywhere** (editor text, attribute fields, tables, backlinks): object or type icon + title in the link colour, **regular weight**, on a **light link-coloured background tint**, no border. The tint is not a frame, so links stay distinct from framed embeds (FR-LNK-07). Broken links have no tint: error colour with a dashed underline (FR-LNK-04) |
 | D-74 | Task embed shows its content         | The default Task embed is a **card**: a header row (checkbox, title, status, priority, due date, open button) with the **task's body below it**, editable in place (FR-EMB-02, FR-EMB-03, FR-CNV-05). A plain checklist item (`- [ ]`) stays a Markdown checkbox until the user converts it (FR-TSK-11, FR-CNV-01) |
+| D-75 | Media `source` on import             | Capacities `source: upload` (plain text) on Image/PDF objects is renamed to `source-text` like every plain-text `source` (FR-TYP-15); FR-IMP-14 AC-1 updated (AP-22) |
+| D-76 | Duplicate-title wikilinks on import  | A Capacities `[[Title]]` matching several objects points at the **first by source path**, is marked, and is listed in the import report as "ambiguous" (AP-23, FR-IMP-10, FR-LNK-14) |
+| D-77 | Unreferenced media on import         | A media file no note references is imported into `_attachments/` **and** gets an Image/PDF object (title = file name), listed in the report (AP-24, D-42, FR-IMP-14) |
+| D-78 | Technical attributes on import       | Image/PDF `mimeType`, `fileSize`, `width`, `height`, `colors` and Weblink `domain`, `iframeUrl` are **dropped by default** (reported, changeable in the mapping) (AP-25, FR-IMP-08, FR-IMP-24) |
+| D-79 | Export file classes                  | `.md` = object (FR-IMP-03); `.csv` = tag collection or other file, reported (FR-IMP-21); dotfiles (incl. hidden `.md`) = ignored and reported; every other file = attachment (FR-IMP-14). Basis of the §11.1 accounting rule (AP-26) |
+| D-80 | Reserved and empty file names        | A file stem reserved on Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, case-insensitive) gets `_` appended (`CON_.md`); a title with no valid characters is named `Untitled` (then ` (2)` …); the title stays in `title:` (AP-27, FR-FMT-08, NFR-POR-02, D-52) |
+| D-81 | Case-insensitive link matches        | A link whose only match is a title differing in case is **not resolved silently**: the import preview shows it for the user to confirm (AP-28, FR-IMP-10, FR-LNK-14) |
 
 ---
 
