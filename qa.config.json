@@ -21,7 +21,7 @@
     { "id": "gen-vault-test", "dir": "tools/gen-vault", "run": "cargo test --quiet", "level": "push" },
     { "id": "s4-test", "dir": "spikes/s4-index", "run": "cargo test --release --quiet", "level": "push" },
     { "id": "s4-differential", "dir": "spikes/s1-roundtrip",
-      "run": "D=$(mktemp -d) && EXTRACT_DIFF_OUT=$D npx vitest run test/extract-diff.test.ts && S4_EXTRACT_DIFF=$D/corpus.json cargo test --release --quiet --manifest-path ../s4-index/Cargo.toml --test conformance -- --nocapture",
+      "run": "D=$(mktemp -d); trap 'rm -rf $D' EXIT; EXTRACT_DIFF_OUT=$D npx vitest run test/extract-diff.test.ts --silent=false && S4_EXTRACT_DIFF=$D/corpus.json cargo test --release --quiet --manifest-path ../s4-index/Cargo.toml --test conformance -- --nocapture",
       "level": "nightly" },
     { "id": "s4-perf", "dir": "spikes/s4-index",
       "run": "D=$(mktemp -d) && cargo run --release --quiet --manifest-path ../../tools/gen-vault/Cargo.toml -- --seed 1 --small-images --out $D/vault && cargo run --release --quiet --bin perf -- --vault $D/vault --runs 20 --out \"$VERIFY_RESULTS/s4-perf.json\"; S=$?; rm -rf $D; exit $S",

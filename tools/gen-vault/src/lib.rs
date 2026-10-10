@@ -46,7 +46,7 @@ pub struct Options {
     pub notes: usize,
     pub images: usize,
     pub tags: usize,
-    /// Real image sizes (100 KB–3 MB). Off = 1 KB images, for fast tests; Markdown is unchanged.
+    /// Real image sizes (100 KB–3 MB). Off = 1 KB images, for fast runs; the Markdown is identical (images have their own PRNG).
     pub full_images: bool,
 }
 
@@ -209,9 +209,11 @@ pub fn generate(out: &Path, o: &Options) -> io::Result<usize> {
     // 2. Images: attachment + Image object (FR-ATT-07).
     fs::create_dir_all(out.join("_attachments"))?;
     fs::create_dir_all(out.join("Images"))?;
+    // Own PRNG for image sizes and bytes: the Markdown must not depend on `full_images`.
+    let mut img_rng = Rng::new(o.seed.wrapping_add(0x1a_6e5));
     for i in 1..=o.images {
-        let size = if o.full_images { rng.range(100_000, 3_000_000) } else { 1024 };
-        fs::write(out.join(format!("_attachments/img-{i:04}.png")), png(&mut rng, size))?;
+        let size = if o.full_images { img_rng.range(100_000, 3_000_000) } else { 1024 };
+        fs::write(out.join(format!("_attachments/img-{i:04}.png")), png(&mut img_rng, size))?;
         let md = format!(
             "---\nid: {}\ntype: Image\ntitle: \"Image {i:04}\"\nfile: \"[[img-{i:04}.png]]\"\ncreated: {}T09:00:00+01:00\n---\n",
             id(&mut rng),
@@ -371,7 +373,8 @@ fn note(rng: &mut Rng, o: &Options, notes: &[Note], tags: &[String], i: usize) -
                 .collect();
             body.push(items.join("\n"));
         } else {
-            let mut w: Vec<String> = words_n(rng, cs, 20, 80).into_iter().map(String::from).collect();
+            let remaining = target.saturating_sub(written).max(3);
+            let mut w: Vec<String> = words_n(rng, cs, 20.min(remaining), 80.min(remaining)).into_iter().map(String::from).collect();
             written += w.len();
             w[0] = capitalize(&w[0]);
             if let Some(l) = inline.pop() {
@@ -481,6 +484,52 @@ mod tests {
         generate(a.path(), &small(7)).unwrap();
         generate(b.path(), &small(8)).unwrap();
         assert_ne!(tree_digest(a.path()).unwrap(), tree_digest(b.path()).unwrap());
+    }
+
+    #[test]
+    fn s4_qa_ac1_markdown_does_not_depend_on_image_size() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let mut o = small(5);
+        generate(a.path(), &o).unwrap();
+        o.full_images = true;
+        o.images = 3; // keeps the test fast; sizes differ, Markdown must not
+        let mut o2 = small(5);
+        o2.images = 3;
+        generate(b.path(), &o).unwrap();
+        let c = tempfile::tempdir().unwrap();
+        generate(c.path(), &o2).unwrap();
+        assert_eq!(tree_digest(&b.path().join("Pages")).unwrap(), tree_digest(&c.path().join("Pages")).unwrap());
+    }
+
+    #[test]
+    fn performance_md_distribution_on_5000_notes() {
+        let d = tempfile::tempdir().unwrap();
+        let o = Options { seed: 1, notes: 5000, images: 10, tags: 200, full_images: false };
+        generate(d.path(), &o).unwrap();
+        let mut types = 0;
+        let (mut short, mut medium, mut long) = (0, 0, 0);
+        for t in TYPES {
+            let dir = d.path().join(t.folder);
+            let Ok(rd) = fs::read_dir(&dir) else { continue };
+            let mut any = false;
+            for e in rd.flatten() {
+                any = true;
+                let text = fs::read_to_string(e.path()).unwrap();
+                let body = text.splitn(3, "---\n").nth(2).unwrap_or("");
+                match body.split_whitespace().count() {
+                    0..=330 => short += 1,
+                    331..=2100 => medium += 1,
+                    _ => long += 1,
+                }
+            }
+            types += any as usize;
+        }
+        assert_eq!(types, 12);
+        let n = (short + medium + long) as f64;
+        assert!((short as f64 / n - 0.60).abs() < 0.05, "short {short}");
+        assert!((medium as f64 / n - 0.35).abs() < 0.05, "medium {medium}");
+        assert!((long as f64 / n - 0.05).abs() < 0.03, "long {long}");
+        assert_eq!(fs::read_dir(d.path().join("Tags")).unwrap().count(), 200);
     }
 
     #[test]

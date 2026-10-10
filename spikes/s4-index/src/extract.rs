@@ -258,7 +258,6 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
     opts.insert(Options::ENABLE_FOOTNOTES);
     opts.insert(Options::ENABLE_STRIKETHROUGH);
     opts.insert(Options::ENABLE_TASKLISTS);
-    opts.insert(Options::ENABLE_MATH);
     let mut code = Vec::new();
     let mut links = Vec::new();
     let shift = |r: Range<usize>| r.start + body_start..r.end + body_start;
@@ -272,10 +271,7 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
                 skip_until = r.end;
                 code.push(shift(r));
             }
-            // Math: proposed in spike S4 (AP-15), Obsidian doesn't read links or tags in math.
-            Event::Code(_) | Event::InlineHtml(_) | Event::Html(_) | Event::InlineMath(_) | Event::DisplayMath(_) => {
-                code.push(shift(r))
-            }
+            Event::Code(_) | Event::InlineHtml(_) | Event::Html(_) => code.push(shift(r)),
             Event::Start(Tag::Link { link_type, .. })
                 if matches!(link_type, LinkType::Inline | LinkType::Autolink | LinkType::Email) =>
             {
@@ -284,7 +280,11 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
             _ => {}
         }
     }
+    // Math is excluded (dialect §5 for links; tags are AP-15). pulldown-cmark's math rules differ
+    // from Obsidian's (`$5 [[A]] $6` is text in Obsidian), so math is scanned here, as S1 does.
     code.extend(math_blocks(body).into_iter().map(shift));
+    let skip: Vec<Range<usize>> = code.iter().map(|r| r.start - body_start..r.end - body_start).collect();
+    code.extend(inline_math(body, &skip).into_iter().map(shift));
     for m in COMMENT.find_iter(&text[body_start..]) {
         code.push(shift(m.range()));
     }
@@ -295,7 +295,7 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
 /// a line of ≤ 3 spaces + `$$…` (no `$` after the fence) opens a block, also in the middle of a
 /// paragraph; it ends at a line of ≤ 3 spaces + at least as many `$` + spaces, or at the end of
 /// the note. Top level only, outside fenced code: inside lists and quotes the rules depend on
-/// container continuation, which this pre-pass doesn't model (see FINDINGS.md, P-x).
+/// container continuation, which this pre-pass doesn't model (see FINDINGS.md, P3).
 fn math_blocks(body: &str) -> Vec<Range<usize>> {
     let mut out = Vec::new();
     let mut open: Option<(usize, usize)> = None; // (start, fence length)
@@ -328,6 +328,73 @@ fn math_blocks(body: &str) -> Vec<Range<usize>> {
     }
     if let Some((start, _)) = open {
         out.push(start..body.len());
+    }
+    out
+}
+
+/// Inline math as in S1 (`inline.ts`): `$x$` with a non-space after the opening `$`, a non-space
+/// before the closing `$` that isn't `\$`, no digit after the closing `$`, one line only;
+/// and `$$x$$` (micromark-extension-math, same-length `$` runs, within the paragraph).
+fn inline_math(body: &str, skip: &[Range<usize>]) -> Vec<Range<usize>> {
+    let b = body.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'$' || inside(skip, i) || (i > 0 && b[i - 1] == b'\\') {
+            i += 1;
+            continue;
+        }
+        let run = b[i..].iter().take_while(|&&c| c == b'$').count();
+        if run >= 2 {
+            // `$$…$$`: next run of exactly `run` dollars before a blank line.
+            let para_end = body[i..].find("\n\n").map_or(b.len(), |p| i + p);
+            let mut j = i + run;
+            let mut found = None;
+            while j < para_end {
+                if b[j] == b'$' {
+                    let r = b[j..para_end].iter().take_while(|&&c| c == b'$').count();
+                    if r == run {
+                        found = Some(j + r);
+                        break;
+                    }
+                    j += r;
+                } else {
+                    j += 1;
+                }
+            }
+            match found {
+                Some(end) => {
+                    out.push(i..end);
+                    i = end;
+                }
+                None => i += run,
+            }
+            continue;
+        }
+        // Single `$`.
+        let next = b.get(i + 1).copied();
+        if matches!(next, None | Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            i += 1;
+            continue;
+        }
+        let mut prev = b'\0'; // "no previous" counts as space
+        let mut j = i + 1;
+        let mut end = None;
+        while j < b.len() && b[j] != b'\n' && b[j] != b'\r' {
+            if b[j] == b'$' && !matches!(prev, b'\0' | b' ' | b'\t' | b'\\') && !b.get(j + 1).is_some_and(u8::is_ascii_digit) {
+                end = Some(j + 1);
+                break;
+            }
+            prev = b[j];
+            j += 1;
+        }
+        match end {
+            Some(e) => {
+                out.push(i..e);
+                i = e;
+            }
+            None => i += 1,
+        }
     }
     out
 }

@@ -8,10 +8,10 @@ SQLite FTS5 in the Rust core meets every NFR-PERF target it can measure, with a 
 
 | Check (S4-QA, `docs/acceptance/qa-infrastructure.md`) | Result |
 | --- | --- |
-| AC-1: `tools/gen-vault --seed <n>` generates the reference vault; same seed → byte-identical | Pass. Two full runs (9,201 files, 3.0 GB, 26 s each) have the same tree digest; `s4_qa_ac1_*` tests |
+| AC-1: `tools/gen-vault --seed <n>` generates the reference vault; same seed → byte-identical | Pass. Two full runs (9,201 files, 3.0 GB) had the same tree digest before the image PRNG was split off (Markdown no longer depends on `--small-images`); `s4_qa_ac1_*` tests |
 | AC-2: `criterion` benchmarks for PERF-02, -03, -04, -07, -08 | `benches/perf.rs` (trend); `src/bin/perf` gives p95 against targets, nightly step `s4-perf` |
-| AC-3: normal and slow profile; ratio used to confirm the factors | Measured: the slow profile is **5–6× slower**, not the ~1.3× the factors assume. It doesn't stand in for an M1. **AP-16** |
-| AC-4: Rust extractor = TypeScript reference (`expected.json`) for every round-trip fixture | **43/43**. Plus a differential corpus of ~1,850 random tricky documents per seed: all equal except one known class (P3) |
+| AC-3: normal and slow profile; ratio used to confirm the factors | Measured: the slow profile is **about 3.5–6.5× slower**, not the ~1.3× the factors assume. It doesn't stand in for an M1. **AP-16** |
+| AC-4: Rust extractor = TypeScript reference (`expected.json`) for every round-trip fixture | **43/43**. Plus a differential corpus of ~1,850 random tricky documents per seed: all equal except one known class (P3, about 2% of documents, ≤ 4% allowed) |
 | AC-5: property test, rebuild = incremental after random creates, edits, renames, deletes | Pass: 64 direct cases, 12 watcher-driven cases, plus offline catch-up. Found and fixed one bug (P4) |
 
 ## Performance (p95 of 20 runs, release, warm file cache)
@@ -45,13 +45,15 @@ Reference vault, seed 1: 5,000 notes + 2,000 Image objects + 200 Tag objects = *
 
 | # | Finding | Consequence |
 | --- | --- | --- |
-| P1 | **The S1 reference parser crashes on `$$` followed by a line break inside a paragraph** (`a $$\nb`): a development assertion in micromark-extension-math. Found by the differential corpus; 147 of 2,000 random documents | S1 core bug, follow-up task. The crashing documents are left out of the corpus until it's fixed |
+| P1 | **The S1 reference parser crashes on `$$` followed by a line break inside a paragraph** (`a $$\nb`): a development assertion in micromark-extension-math. Found by the differential corpus; about 6% of random documents (120 of 2,000) | S1 core bug, tracked as a follow-up task. These documents are **left out of the corpus** (the test prints the count), so top-level paragraph-interrupting `$$` has no differential coverage until it's fixed |
 | P2 | **The YAML loaders disagree**: `yaml-rust2`'s loader keeps `Null`/`TRUE` as strings and silently keeps the last of duplicate keys; the reference (`yaml` v2, core schema, `uniqueKeys`) reads null/true and rejects duplicates | The Rust side builds values from parser events (it knows the quoting style). The core-schema rules are pinned by the differential corpus |
-| P3 | **`$$` math blocks inside lists, quotes and HTML blocks** end differently in micromark (container rules) and in the Rust pre-pass, which models only top-level `$$` blocks. 36 of 1,853 documents (2%), all with `$$` in a container | Known difference: counted, not failed (`s4_qa_ac4_differential_corpus`). Only links/tags inside such blocks are affected. Fixing it means a second CommonMark container parser; better options are below |
+| P3 | **`$$` math blocks inside lists, quotes and HTML blocks** end differently in micromark (container rules) and in the Rust pre-pass, which models only top-level `$$` blocks. About 40 of 1,880 documents (2%), all with `$$` in a container | Known difference, narrowed to the `links` and `tags` keys and to documents with `$$` on a container line: counted, capped at 4%, anything else fails (`s4_qa_ac4_differential_corpus`). Fixing it means a second CommonMark container parser; better options are below |
 | P4 | **Watcher bug found by the property test**: a folder renamed away and recreated with the same name within one event batch kept the old folder's notes in the index | A changed folder is reconciled both ways (drop what's gone, index what's there). FSEvents "must rescan" events trigger a full `sync()` |
 | P5 | FSEvents reports `/private/var/…` for a vault under `/var/…` | Event paths are mapped back through the canonical vault path |
-| P6 | Links and tags inside math counted in the reference, but not in Obsidian | Excluded in both extractors. **Proposed, AP-15** |
-| P7 | The slow profile is 5–6× slower, a worst case, not an M1 | **AP-16** |
+| P6 | Links inside math counted in the reference, against the dialect (§5: "not links: … math"); tags inside math are unspecified | Fixed in S1 for links (tests `fr_fmt_03_*`), tags excluded as a proposal (`fr_fmt_10_*_ap15`). **AP-15** |
+| P9 | **Prices read as math differ between parsers**: pulldown-cmark's math takes `$5 [[Cost]] $6`; Obsidian (and S1) don't, because a digit follows the closing `$`. Found because the reviewer asked for currency cases; the Rust index would have shown links the editor doesn't | The Rust extractor scans math itself with S1's Obsidian rules. Currency cases are in the corpus |
+| P10 | **The generator's note sizes missed the spec**: only 53% of notes were short (spec: 60%) because paragraphs overshot the word target | Fixed; `performance_md_distribution_on_5000_notes` checks 12 types, the 60/35/5 length mix and 200 tags |
+| P7 | The slow profile is about 3.5–6.5× slower, a worst case, not an M1 | **AP-16** |
 | P8 | Rebuild uses every core (rayon) | In the app, cap the indexing pool (e.g. cores − 2) so the UI stays responsive while indexing (PERF-02 note) |
 
 ### Two parsers: what the drift means for the architecture

@@ -54,7 +54,7 @@ fn s4_qa_ac4_rust_extractor_matches_typescript_reference() {
 /// S4-QA AC-4, differential part: ~2,000 random documents built from tricky constructs,
 /// with the TypeScript reference's results. Runs when `S4_EXTRACT_DIFF` points at the
 /// `corpus.json` written by `spikes/s1-roundtrip/test/extract-diff.test.ts`
-/// (`npm run test:diff` in this folder does both).
+/// (nightly step `s4-differential` in qa.config.json does both).
 #[test]
 fn s4_qa_ac4_differential_corpus() {
     let Ok(path) = std::env::var("S4_EXTRACT_DIFF") else {
@@ -65,14 +65,21 @@ fn s4_qa_ac4_differential_corpus() {
     assert!(corpus.len() > 1000);
     // Known difference (FINDINGS.md P3): `$$` math blocks inside lists, quotes or HTML blocks.
     // The Rust pre-pass models only top-level math blocks. Such docs are counted, not failed.
-    let known = |t: &str| t.contains("$$");
-    let (mut failures, mut tolerated) = (Vec::new(), std::collections::BTreeSet::new());
+    // Only links and tags, and only when a `$$` shares a line with a container marker
+    // (`>`, `-`, `*`, `+`, `1.`, an HTML tag, indentation) or sits in an HTML block. Anything else must match.
+    let known_key = |k: &str| k == "links" || k == "tags";
+    let known = |t: &str| {
+        t.lines().any(|raw| {
+            let l = raw.trim_start();
+            l.contains("$$") && (raw.starts_with(' ') || l.starts_with(['>', '-', '*', '+', '<']) || l.chars().next().is_some_and(|c| c.is_ascii_digit()))
+        }) || t.contains("<div>")
+    };    let (mut failures, mut tolerated) = (Vec::new(), std::collections::BTreeSet::new());
     for d in &corpus {
         let (name, text) = (d["name"].as_str().unwrap(), d["text"].as_str().unwrap());
         let got = serde_json::to_value(extract(text, name)).unwrap();
         for k in ["title", "id", "type", "attributes", "frontmatterError", "links", "tags"] {
             if got[k] != d["expected"][k] {
-                if known(text) {
+                if known_key(k) && known(text) {
                     tolerated.insert(name);
                     continue;
                 }
@@ -81,7 +88,8 @@ fn s4_qa_ac4_differential_corpus() {
         }
     }
     let with_math = corpus.iter().filter(|d| known(d["text"].as_str().unwrap())).count();
-    eprintln!("differential: {} docs, {} with $$, {} of those differ (known, P3)", corpus.len(), with_math, tolerated.len());
+    eprintln!("differential: {} docs, {} with $$, {} differ in links/tags (known, P3)", corpus.len(), with_math, tolerated.len());
+    assert!(tolerated.len() * 100 <= corpus.len() * 4, "known drift grew: {} of {}", tolerated.len(), corpus.len());
     let shown: Vec<_> = failures.iter().take(15).cloned().collect();
     assert!(failures.is_empty(), "{} mismatches in {} docs; first:\n{}", failures.len(), corpus.len(), shown.join("\n"));
 }

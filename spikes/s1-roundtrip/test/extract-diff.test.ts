@@ -14,7 +14,7 @@ const piece = fc.constantFrom(
   '#tag', '#Čtení', '#123', '#a/b-c_d', '#čaj', '(#paren)', 'a#notag', '#',
   '`[[code]] #c`', '``x ` [[y]]``', '<span>[[html]] #h</span>', '<!-- [[c]] #c -->', '%%[[hidden]] #h%%',
   '[text #t](https://x.cz/#a)', '[ref #r][1]', '<https://x.cz/#y>', 'https://x.cz/ #z', '![img #i](p.png)',
-  '$a #m$', '$$\n#mm\n$$', '==hl #t==', '\\#esc', '**#b**', '_#i_', ' ', ' ', '\n', '\n\n', 'word', 'čeština',
+  '$a #m$', '$5 and $3 #price', '$5 [[Cost]] $6', '$$\n#mm\n$$', '==hl #t==', '\\#esc', '**#b**', '_#i_', ' ', ' ', '\n', '\n\n', 'word', 'čeština',
 )
 const block = fc.oneof(
   fc.array(piece, { maxLength: 8 }).map((p) => p.join(' ')),
@@ -56,5 +56,7 @@ test.runIf(OUT)('write differential extraction corpus', () => {
     }
   })
   writeFileSync(join(OUT!, 'crashes.json'), JSON.stringify(crashes, null, 1))
+  // Documents the reference parser can't parse (S1 bug, see S4 FINDINGS P1) are not in the corpus.
+  console.log(`differential corpus: ${docs.length - crashes.length} documents, ${crashes.length} dropped (reference parser crash, P1)`)
   writeFileSync(join(OUT!, 'corpus.json'), JSON.stringify(out))
 })
