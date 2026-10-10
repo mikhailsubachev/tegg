@@ -54,6 +54,7 @@ Q4 Budget
 <span style="flex: 1">Search or jump to…</span>
 <span style="font-size: 12px">⌘O</span>
 </button>
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
 <div style="display: flex; flex-direction: column; gap: 1px">
 <sc-for list="{{nav}}" as="n" hint-placeholder-count="3">
 <a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
@@ -64,7 +65,7 @@ Q4 Budget
 </sc-for>
 </div>
 <div style="display: flex; flex-direction: column; gap: 1px">
-<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 10px 6px">Types</div>
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
 <sc-for list="{{types}}" as="t" hint-placeholder-count="7">
 <a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
@@ -186,7 +187,7 @@ Meeting
 </sc-if>
 </span>
 </li>
-<li style="margin: 2px 0">Offsite logistics for <a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Lisbon Offsite 2026</a></li>
+<li style="margin: 2px 0">Offsite logistics, see the <a href="https://example.com/lisbon-venues" title="https://example.com/lisbon-venues" style="color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px">venue shortlist<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="opens in browser" role="img" style="margin-left: 2px; vertical-align: -1px"><path d="M7 17L17 7M9 7h8v8"></path></svg></a></li>
 </ul>
 
 <h2 style="margin: 18px 0 2px; font-size: 21px; font-weight: 650">Notes</h2>
@@ -277,6 +278,76 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 <span>Ask Petr about the <a href="#" title="Note does not exist yet – click to create" style="color: var(--broken); text-decoration: underline dashed; text-underline-offset: 3px">Supplier contract</a></span>
 </div>
 
+<!-- Mindmap block (FR-MMP-01…03) -->
+<h2 style="margin: 18px 0 2px; font-size: 21px; font-weight: 650">Offsite brainstorm</h2>
+
+<!-- Step 1: inserting via the slash menu -->
+<sc-if value="{{mmInsert}}" hint-placeholder-val="{{ false }}">
+<div style="position: relative; padding-bottom: 250px">
+<p style="margin: 0">/mind<span aria-hidden="true" style="display: inline-block; width: 2px; height: 20px; background: var(--link); vertical-align: -4px; margin-left: 1px"></span></p>
+<div role="listbox" aria-label="Insert block" style="position: absolute; top: 34px; left: 0; z-index: 20; width: 320px; max-width: 80vw; padding: 6px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.3">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 4px">Blocks</div>
+<div role="option" aria-selected="true" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: var(--hover)">
+<span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Mindmap</span><span style="font-size: 12px; color: var(--muted)">Edit visually, saved as Mermaid</span></span>
+<span style="font-size: 12px; color: var(--muted)">↩</span>
+</div>
+<div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px; border-radius: 8px">
+<span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg></span>
+<span style="flex: 1">Mindmap from template…</span>
+</div>
+<div style="font-size: 12px; color: var(--muted); padding: 8px 8px 4px; border-top: 1px solid var(--border); margin-top: 4px">Also: paste a Mermaid <code>mindmap</code> code block</div>
+</div>
+</div>
+</sc-if>
+
+<!-- Step 2/3: the inserted block -->
+<sc-if value="{{mmBlock}}" hint-placeholder-val="{{ true }}">
+<figure aria-label="Mindmap: Offsite 2026" style="margin: 4px 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg)">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--border); background: var(--embed); font-size: 13px; flex-wrap: wrap">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg>
+<span style="font-weight: 600; flex: 1">Mindmap</span>
+<div role="group" aria-label="Mindmap view" style="display: flex; padding: 2px; border-radius: 7px; background: var(--hover); gap: 2px">
+<button aria-pressed="{{mmVisualPressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmVisualBg}}; color: {{mmVisualFg}}">Visual</button>
+<button aria-pressed="{{mmSourcePressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmSourceBg}}; color: {{mmSourceFg}}">Source</button>
+</div>
+<button aria-label="Zoom out" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+<button aria-label="Zoom in" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<button aria-label="Open full screen" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+</div>
+
+<sc-if value="{{mmVisual}}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 18px 18px">
+<div style="position: relative; width: 640px; height: 268px; margin: 12px 16px">
+<sc-for list="{{mmLines}}" as="l" hint-placeholder-count="12">
+<div style="position: absolute; left: {{l.x}}px; top: {{l.y}}px; width: {{l.w}}px; height: {{l.h}}px; background: var(--faint)"></div>
+</sc-for>
+<sc-for list="{{mmNodes}}" as="n" hint-placeholder-count="12">
+<div style="position: absolute; left: {{n.x}}px; top: {{n.y}}px; width: {{n.w}}px; height: 32px; box-sizing: border-box; border-radius: 8px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; background: {{n.bg}}; color: {{n.fg}}; border: {{n.border}}; font-weight: {{n.weight}}; box-shadow: {{n.ring}}">
+<sc-if value="{{n.isLink}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>{{n.label}}</span></sc-if>
+<sc-if value="{{n.isText}}" hint-placeholder-val="{{ true }}"><span>{{n.label}}</span></sc-if>
+<sc-if value="{{n.editing}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="display: inline-block; width: 2px; height: 16px; background: var(--link); margin-left: -4px"></span></sc-if>
+<sc-if value="{{n.collapsed}}" hint-placeholder-val="{{ false }}"><button aria-label="Expand Travel (3 hidden)" style="margin-left: auto; height: 20px; min-width: 24px; padding: 0 5px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font-size: 11px; color: var(--muted)">+3</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted)">
+<span><b style="color: var(--text); font-weight: 600">Tab</b> child</span>
+<span><b style="color: var(--text); font-weight: 600">↩</b> sibling</span>
+<span><b style="color: var(--text); font-weight: 600">[[</b> link</span>
+<span><b style="color: var(--text); font-weight: 600">⌘.</b> collapse</span>
+<span>Drag to re-parent</span>
+<span><b style="color: var(--text); font-weight: 600">⌘⇧O</b> turn node into object</span>
+</div>
+</sc-if>
+
+<sc-if value="{{mmSource}}" hint-placeholder-val="{{ false }}">
+<pre style="margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.55; overflow-x: auto; white-space: pre; color: var(--text)">{{mmCode}}</pre>
+</sc-if>
+</figure>
+</sc-if>
+
 <!-- Slash menu / empty line -->
 <div style="position: relative; padding-top: 6px">
 <sc-if value="{{showSlash}}" hint-placeholder-val="{{ false }}">
@@ -343,8 +414,45 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"overlay":{"editor":"enum","options":["slash menu","selection toolbar","link preview","none"],"default":"slash menu"},"focusMode":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":1440}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"overlay":{"editor":"enum","options":["slash menu","selection toolbar","link preview","none"],"default":"slash menu"},"focusMode":{"editor":"boolean","default":false},"mindmap":{"editor":"enum","options":["visual editing","source","inserting (/mind)"],"default":"visual editing"},"$preview":{"width":1440,"height":1840}}'>
 class Component extends DCLogic {
+mindmap() {
+const step = this.props.mindmap ?? 'visual editing';
+const C = { a: 'link', v: 'o', t: 'p', m: 't' };
+const kid = (k) => ({ bg: 'var(--' + C[k] + '-bg)', fg: 'var(--' + C[k] + ')', border: '0', weight: '600' });
+const leaf = { bg: 'var(--bg)', fg: 'var(--text)', border: '1px solid var(--border)', weight: '400' };
+const N = [
+{ label: 'Offsite 2026', x: 0, y: 118, w: 130, bg: 'var(--text)', fg: 'var(--bg)', border: '0', weight: '650' },
+{ label: 'Agenda', x: 190, y: 28, w: 150, ...kid('a') },
+{ label: 'Venue', x: 190, y: 108, w: 150, ...kid('v') },
+{ label: 'Travel', x: 190, y: 168, w: 150, ...kid('t'), collapsed: true },
+{ label: 'Team activities', x: 190, y: 208, w: 150, ...kid('m'), editing: true },
+{ label: 'Q4 review', x: 400, y: 8, w: 200, ...leaf },
+{ label: 'Roadmap 2027', x: 400, y: 48, w: 200, ...leaf },
+{ label: 'Lisbon Offsite 2026', x: 400, y: 88, w: 200, ...leaf, isLink: true },
+{ label: 'Budget cap per person', x: 400, y: 128, w: 200, ...leaf }
+];
+const mmNodes = N.map((n) => ({
+...n, isLink: !!n.isLink, isText: !n.isLink, collapsed: !!n.collapsed, editing: !!n.editing,
+ring: n.editing ? '0 0 0 2px var(--bg), 0 0 0 4px var(--link)' : 'none'
+}));
+const h = (x, y, w) => ({ x, y: y - 1, w, h: 2 });
+const v = (x, y1, y2) => ({ x: x - 1, y: y1, w: 2, h: y2 - y1 });
+const mmLines = [
+h(130, 134, 30), v(160, 44, 224), h(160, 44, 30), h(160, 124, 30), h(160, 184, 30), h(160, 224, 30),
+h(340, 44, 30), v(370, 24, 64), h(370, 24, 30), h(370, 64, 30),
+h(340, 124, 30), v(370, 104, 144), h(370, 104, 30), h(370, 144, 30)
+];
+const mmCode = '```mermaid\nmindmap\n  root((Offsite 2026))\n    Agenda\n      Q4 review\n      Roadmap 2027\n    Venue\n      [[Lisbon Offsite 2026]]\n      Budget cap per person\n    Travel\n      Flights\n      Hotel\n      Airport transfer\n    Team activities\n```';
+const ins = step === 'inserting (/mind)', src = step === 'source';
+return {
+mmInsert: ins, mmBlock: !ins, mmVisual: !ins && !src, mmSource: src,
+mmVisualPressed: src ? 'false' : 'true', mmSourcePressed: src ? 'true' : 'false',
+mmVisualBg: src ? 'transparent' : 'var(--bg)', mmVisualFg: src ? 'var(--muted)' : 'var(--text)',
+mmSourceBg: src ? 'var(--bg)' : 'transparent', mmSourceFg: src ? 'var(--text)' : 'var(--muted)',
+mmNodes, mmLines, mmCode
+};
+}
 renderVals() {
 const dark = this.props.dark ?? false;
 const overlay = this.props.overlay ?? 'slash menu';
@@ -427,7 +535,8 @@ showEmptyHint: overlay !== 'slash menu',
 showToolbar: overlay === 'selection toolbar',
 selBg: overlay === 'selection toolbar' ? 'var(--sel)' : 'transparent',
 showPreview: overlay === 'link preview',
-prevLinkBg: overlay === 'link preview' ? 'var(--sel)' : 'var(--link-bg)'
+prevLinkBg: overlay === 'link preview' ? 'var(--sel)' : 'var(--link-bg)',
+...this.mindmap()
 };
 }
 }
