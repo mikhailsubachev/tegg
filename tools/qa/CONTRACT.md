@@ -266,8 +266,13 @@ The report (exit 0 always) contains, in this order:
 Found by the QA review of the first version and deliberately not addressed now. Revisit when they start to matter:
 
 - **Claude hook matching:** `git -C <dir> push`, `git -c … push` and other global options aren't detected; `--no-verify` or a `core.hooksPath` override placed after other arguments isn't caught by the deny rules; `git push` inside quoted text (a commit message, a `grep`) is blocked when last-pass is stale.
-- **Test helpers aren't protected:** shared helpers such as `tools/qa/test/helpers.ts` can be changed without an `AC-Test-Change:` trailer. The QA reviewer checks such changes (TS-I5).
+- **Faked pre-push input:** running `./verify hook pre-push` by hand with a made-up stdin line (`<ref> <head> <ref> <head~1>`) checks a narrowed range and still records last-pass, a smaller version of the `--range` route closed in §3.2.
+- **Test helpers aren't protected:** shared helpers such as `tools/qa/test/helpers.ts` can be changed without an `AC-Test-Change:` trailer. The QA reviewer checks such changes (TS-I3).
 - **No step timeouts:** a hanging step hangs its gate, including the nightly run.
 - **Duplicate AC IDs** (e.g. `FR-TYP-15/AC-1` in two files) and alias collisions are merged silently in the coverage report.
 - **Red-first for Rust:** only failures containing `AssertionError` count as red; Rust `assert!` panics don't yet (needed from spike S4 on).
 - **counts-only** accepts ASCII-only labels and JSON keys, so an ASCII title used as a label passes.
+- **Merge side effects (§5.0):** a merge that itself adds a new AC test (new against every parent) skips red-first; a clean merge where both sides changed the same AC test or fixture (each with its own trailer) differs from every parent, so the merge commit needs the trailer too. The merge rule has tests only for changes brought in from one side, not yet for a merge's own changes.
+- **Coverage after a commit:** every gate run replaces `.verify/last-results/`, so `./verify coverage` right after a commit gate shows automated ACs as "not run"; run it after `push` or `nightly`.
+- **Interrupted runs:** Ctrl-C during a gate can leave its temporary worktree registered until the next run's `git worktree prune`.
+- **Strategy items not in this contract:** the Claude hook blocking "task done" until G1 passed, and an "AC-coverage diff" in G1 (test-strategy §8.1, §8.3).
