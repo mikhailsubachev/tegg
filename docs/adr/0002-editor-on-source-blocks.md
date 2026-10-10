@@ -1,6 +1,6 @@
 # ADR 0002: Block editor on source blocks
 
-- **Status:** Proposed (from spike S2, 2026-10-10)
+- **Status:** Accepted (spike S2, 2026-10-10; owner accepted AP-9 and AP-10 as D-66 and D-67)
 - **Requirements:** FR-EDT-01…06, -13, -14, -15, FR-FMT-07, NFR-PERF-05, NFR-PERF-06
 - **Builds on:** ADR 0001 (source-preserving documents)
 - **Evidence:** `spikes/s2-editor/FINDINGS.md`

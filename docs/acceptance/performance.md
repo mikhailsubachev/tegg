@@ -24,7 +24,7 @@ Each row of this table is the acceptance criterion `<ID>/AC-1` (e.g. `NFR-PERF-0
 | NFR-PERF-03 | Quick switcher | < 100 ms per keystroke | Keystroke → results list rendered, for 1–10 character queries incl. diacritics-insensitive matches |
 | NFR-PERF-04 | Full-text search | < 200 ms | Query submitted → first 50 results with snippets rendered; single words, phrases, and a filter by type |
 | NFR-PERF-05 | Open a note | < 150 ms | Click in switcher → content rendered and editable, for a 5,000-word note with 10 embeds |
-| NFR-PERF-06 | Typing latency | < 16 ms | Key event → glyph painted, in a 5,000-word note, while the index updates in the background |
+| NFR-PERF-06 | Typing latency | ≥ 95% of keystrokes painted in the next frame, none later than two frames (D-66); the D-59 factor is not applied | Key event → glyph painted, in a 5,000-word note, while the index updates in the background |
 | NFR-PERF-07 | Query view, 1,000 results | < 300 ms | Open a table view of 1,000 objects → visible rows rendered; scrolling stays at 60 fps (virtualized) |
 | NFR-PERF-08 | External change reflected | < 2 s | File changed by another process → index, open note and visible query views updated |
 | NFR-PERF-09 | Memory, idle | < 400 MB | Total of all app processes (Rust core + WebView) 60 s after opening the reference vault with one note open |
