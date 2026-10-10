@@ -9,7 +9,7 @@ import { isMap, isScalar, parseDocument, type Pair } from 'yaml'
 import type { Nodes, Root, RootContent } from 'mdast'
 import { math } from 'micromark-extension-math'
 import { mathFromMarkdown } from 'mdast-util-math'
-import { inlineFromMarkdown, inlineSyntax } from './inline.js'
+import { inlineFromMarkdown, inlineSyntax, mathFromMarkdownObsidian, mathSyntax } from './inline.js'
 import { tagFromMarkdown, tagSyntax } from './tag.js'
 import { wikiLinkFromMarkdown, wikiLinkSyntax } from './wikilink.js'
 
@@ -95,8 +95,9 @@ export function serialize(doc: Doc): string {
 
 function parseMarkdown(text: string): Root {
   const tree = fromMarkdown(text, {
-    extensions: [gfm(), math(), wikiLinkSyntax, tagSyntax, inlineSyntax],
-    mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), wikiLinkFromMarkdown, tagFromMarkdown, inlineFromMarkdown],
+    // $$ math from the extension; single-$ inline math with Obsidian's rules (inline.ts).
+    extensions: [gfm(), math({ singleDollarTextMath: false }), mathSyntax, wikiLinkSyntax, tagSyntax, inlineSyntax],
+    mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), mathFromMarkdownObsidian, wikiLinkFromMarkdown, tagFromMarkdown, inlineFromMarkdown],
   })
   expandHighlights(tree)
   return tree

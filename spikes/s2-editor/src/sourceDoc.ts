@@ -2,7 +2,7 @@
 // Save (reconcile): untouched blocks are emitted byte-for-byte; only changed or new blocks are
 // rendered; the result is verified by re-parsing. The editor model is never serialized whole.
 
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode, Schema } from '@tiptap/pm/model'
 import { renderBlock } from '@core/edit'
 import { parse, type Doc } from '@core/parse'
@@ -81,13 +81,16 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode): ReconcileResult {
     const original = src !== null && !used.has(src) ? originals[src] : null
     if (src !== null && original && !used.has(src)) used.add(src)
     if (original && node.eq(original)) {
-      items.push({ text: doc.blocks[src!].raw, src, unchanged: true, node, srcRaw: doc.blocks[src!].raw })
+      const raw = doc.blocks[src!].raw
+      items.push({ base: raw, text: raw, src, unchanged: true, node, srcRaw: raw, hint: raw })
       return
     }
     if (node.type.name === 'paragraph' && node.content.size === 0) return // empty line: nothing to write
     const srcRaw = original ? doc.blocks[src!].raw : undefined
-    const md = node.type.name === 'rawBlock' ? String(node.attrs.source) : renderBlock(pmToBlock(node.toJSON()), srcRaw)
-    items.push({ text: fit(md, eol), src: original ? src : null, unchanged: false, node, srcRaw })
+    const isRaw = node.type.name === 'rawBlock'
+    const md = isRaw ? String(node.attrs.source) : renderBlock(pmToBlock(node.toJSON()), srcRaw)
+    if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
+    items.push({ base: fit(md, eol), text: fit(md, eol), src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
   })
 
   const changedBlocks = items.filter((i) => !i.unchanged).length
@@ -117,6 +120,10 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode): ReconcileResult {
         }
         out += gap
       }
+      // A block that lands indented (` * item`, indent kept in the original gap) is rendered from
+      // column 0; shift its continuation lines by the indent it actually gets in the output, or
+      // nested items lose their nesting (found by the read-back check, QA review finding 3).
+      if (!it.unchanged && it.node.type.name !== 'rawBlock') it.text = indentContinuation(it.base, indentAt(out, out.length))
       out += it.text
     })
     out += items.length ? (suffix || (doc.blocks.length ? '' : eol)) : suffix
@@ -126,11 +133,23 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode): ReconcileResult {
 }
 
 interface Item {
-  text: string
+  base: string // rendered text before indentation
+  text: string // text as written in this attempt
   src: number | null
   unchanged: boolean
   node: PMNode
   srcRaw: string | undefined
+  hint: string | undefined // original raw (or marker hint) the block was rendered with
+}
+
+function indentAt(text: string, start: number): string {
+  const lineStart = text.lastIndexOf('\n', start - 1) + 1
+  const indent = text.slice(lineStart, start)
+  return /^[ \t]*$/.test(indent) ? indent : ''
+}
+
+function indentContinuation(md: string, indent: string): string {
+  return indent ? md.split('\n').map((l, k) => (k === 0 || l === '' ? l : indent + l)).join('\n') : md
 }
 
 const LIST_MARKER = /^[ \t]*(?:([-*+])|\d+([.)]))[ \t]/
@@ -155,7 +174,8 @@ function separateLists(items: Item[], eol: string): boolean {
     const marker = (ordered ? ['.', ')'] : ['-', '*', '+']).find((m) => !taken.has(m))
     if (!marker) continue
     const hint = ordered ? `1${marker} x` : `${marker} x`
-    victim.text = fit(renderBlock(pmToBlock(victim.node.toJSON()), hint), eol)
+    victim.base = victim.text = fit(renderBlock(pmToBlock(victim.node.toJSON()), hint), eol)
+    victim.hint = hint
     victim.unchanged = false
     changed = true
   }
@@ -164,20 +184,74 @@ function separateLists(items: Item[], eol: string): boolean {
 
 export const END_LIST = '<!-- -->'
 
-/** Re-parse `out`: one block per item (ignoring separator comments we inserted), unchanged ones byte-identical. */
-function verify(out: string, items: { text: string; unchanged: boolean }[]): boolean {
-  const blocks = withoutSeparators(parse(out).blocks.map((b) => b.raw), items.map((i) => i.text))
+/**
+ * Re-parse `out`: one block per item (ignoring separator comments we inserted); unchanged blocks
+ * byte-identical; and every changed block **reads back to the same editor content** (same text,
+ * marks and structure), so what the user saw is what the file means. Catches e.g. `abc\` read
+ * back as a literal backslash (QA review finding 3) or a typed `==` turning into a highlight.
+ * Raw blocks are written verbatim and skip the last check.
+ */
+function verify(out: string, items: Item[]): boolean {
+  const after = parse(out)
+  const blocks = withoutSeparators(after.blocks, items.map((i) => i.text))
   if (blocks.length !== items.length) return false
-  return items.every((it, k) => !it.unchanged || blocks[k] === it.text)
+  return items.every((it, k) => {
+    if (it.unchanged) return blocks[k].raw === it.text
+    if (it.node.type.name === 'rawBlock') return true
+    try {
+      const reread = it.node.type.schema.nodeFromJSON(blockToPM(blocks[k].node, after.text))
+      return JSON.stringify(comparable(reread.toJSON())) === JSON.stringify(comparable(it.node.toJSON()))
+    } catch {
+      return false
+    }
+  })
+}
+
+/**
+ * Editor content in a form that ignores what saving legitimately normalizes: source bookkeeping
+ * (`srcIndex`), verbatim inline pieces vs plain text (`[^1]` whose definition was deleted is
+ * text now, as in Obsidian), adjacent text runs, and spaces / hard breaks at the edges of a
+ * textblock (trimmed on save).
+ */
+export function comparable(json: JSONContent): JSONContent {
+  const attrs = { ...(json.attrs ?? {}) }
+  delete attrs.srcIndex
+  const out: JSONContent = { type: json.type }
+  if (Object.keys(attrs).length) out.attrs = attrs
+  if (json.marks?.length) out.marks = json.marks
+  if (json.text !== undefined) out.text = json.text.replace(/\r\n/g, '\n') // line endings are unified on save
+  if (json.content) {
+    let content: JSONContent[] = []
+    for (const c of json.content.map(comparable)) {
+      const t = c.type === 'rawInline' ? { type: 'text', text: String(c.attrs?.source ?? ''), ...(c.marks ? { marks: c.marks } : {}) } : c
+      const prev = content[content.length - 1]
+      if (t.type === 'text' && prev?.type === 'text' && JSON.stringify(prev.marks ?? []) === JSON.stringify(t.marks ?? [])) prev.text += t.text!
+      else content.push({ ...t })
+    }
+    if (['paragraph', 'heading'].includes(json.type!)) content = trimTextblock(content)
+    if (content.length) out.content = content
+  }
+  return out
+}
+
+function trimTextblock(content: JSONContent[]): JSONContent[] {
+  const c = [...content]
+  while (c.length && (c[0].type === 'hardBreak' || (c[0].type === 'text' && !c[0].text!.trim()))) c.shift()
+  while (c.length && (c[c.length - 1].type === 'hardBreak' || (c[c.length - 1].type === 'text' && !c[c.length - 1].text!.trim()))) c.pop()
+  if (c[0]?.type === 'text') c[0] = { ...c[0], text: c[0].text!.replace(/^[ \t]+/, '') }
+  const l = c.length - 1
+  if (c[l]?.type === 'text') c[l] = { ...c[l], text: c[l].text!.replace(/[ \t]+$/, '') }
+  return c
 }
 
 /** Drop `<!-- -->` blocks that don't correspond to an item (i.e. that reconcile inserted). */
-export function withoutSeparators(raws: string[], expected: string[]): string[] {
-  const out: string[] = []
+export function withoutSeparators<T extends string | { raw: string }>(blocks: T[], expected: string[]): T[] {
+  const out: T[] = []
   let j = 0
-  for (const raw of raws) {
+  for (const b of blocks) {
+    const raw = typeof b === 'string' ? b : b.raw
     if (raw === END_LIST && expected[j] !== END_LIST) continue
-    out.push(raw)
+    out.push(b)
     j++
   }
   return out
@@ -194,10 +268,10 @@ function fit(s: string, eol: string): string {
  * replaced by a read-only raw block, so opening a note can never rewrite it (S2 finding).
  */
 export function attach(
-  editor: { schema: Schema; state: { doc: PMNode }; commands: { setContent: (c: JSONContent, o: { emitUpdate: boolean }) => boolean } },
+  editor: Editor,
   loaded: Loaded,
 ): void {
-  editor.commands.setContent(loaded.json, { emitUpdate: false })
+  setContent(editor, loaded.json)
   const normalized = new Set<number>()
   editor.state.doc.forEach((n) => {
     const i = n.attrs.srcIndex as number | null
@@ -217,5 +291,11 @@ export function attach(
     const i = n.attrs.srcIndex as number | null
     if (i !== null) loaded.originals[i] = n
   })
-  editor.commands.setContent(loaded.json, { emitUpdate: false })
+  setContent(editor, loaded.json)
+}
+
+// The parser already found tags with the same rules as the tag plugin (load tests check this),
+// so skip the plugin's full re-scan for the load transaction (open-time cost, S2 perf probe).
+function setContent(editor: Editor, json: JSONContent): void {
+  editor.chain().setMeta('tagRules', true).setContent(json, { emitUpdate: false }).run()
 }

@@ -65,7 +65,7 @@ function run(e: Editor, c: Cmd): void {
 }
 
 export { run }
-test('fr_fmt_07_editor_property_random_command_sequences', () => {
+test('s2_qa_ac1_property_random_command_sequences', () => {
   const usable = fixtures.filter((f) => f.text.trim().length > 0)
   let steps = 0
   fc.assert(

@@ -193,7 +193,12 @@ function trimEdges(children: PhrasingContent[]): PhrasingContent[] {
     const i = end ? list.length - 1 : 0
     const n = list[i] as PhrasingContent | undefined
     if (!n) return
-    if (n.type === 'text') {
+    if (n.type === 'break') {
+      // A hard break at the very start or end can't be written in Markdown (`abc\` would be a
+      // literal backslash), so drop it like edge spaces (QA review finding 3).
+      list.splice(i, 1)
+      edge(list, end)
+    } else if (n.type === 'text') {
       n.value = end ? n.value.replace(/[ \t]+$/, '') : n.value.replace(/^[ \t]+/, '')
       if (!n.value) { list.splice(i, 1); edge(list, end) }
     } else if ('children' in n && n.type !== 'link') edge(n.children as PhrasingContent[], end)

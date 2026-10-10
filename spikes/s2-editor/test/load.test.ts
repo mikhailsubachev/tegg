@@ -4,7 +4,7 @@ import { reconcile } from '../src/sourceDoc'
 import { fixtures, open } from './helpers'
 
 describe('FR-FMT-07 through the editor', () => {
-  test.each(fixtures.map((f) => [f.rel, f] as const))('fr_fmt_07_ac1_ac2_editor_load_save_unedited_is_byte_identical: %s', (_, f) => {
+  test.each(fixtures.map((f) => [f.rel, f] as const))('s2_qa_ac1_unedited_open_save_is_byte_identical: %s', (_, f) => {
     const s = open(f.text)
     const r = reconcile(s.loaded, s.editor.state.doc)
     expect(r.changed).toBe(false)

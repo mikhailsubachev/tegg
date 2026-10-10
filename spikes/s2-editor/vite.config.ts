@@ -21,7 +21,7 @@ function fixtures(): Plugin {
           return res.end(JSON.stringify(list))
         }
         const file = resolve(FIXTURES, path)
-        if (!file.startsWith(FIXTURES)) { res.statusCode = 403; return res.end() }
+        if (!file.startsWith(FIXTURES + '/')) { res.statusCode = 403; return res.end() }
         res.setHeader('Content-Type', 'application/octet-stream')
         res.end(readFileSync(file))
       })

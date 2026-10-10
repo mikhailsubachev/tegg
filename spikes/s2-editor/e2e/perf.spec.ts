@@ -1,7 +1,9 @@
 // Performance probe on the generated 5,000-word note (NFR-PERF-05, NFR-PERF-06, S2-QA AC-4).
 // Types at a realistic pace (one key per 40 ms) so events don't queue behind each other.
-// On Chromium, the Event Timing API (input → next paint, measured by the browser itself) is
-// recorded next to the app's proxy (keydown → next animation frame) for the same keystrokes.
+// The browser's Event Timing API (input → next paint, measured by the engine itself; WebKit and
+// Chromium) is recorded next to the app's proxy (keydown → next animation frame) for the same
+// keystrokes. The API only reports events of ≥ 16 ms, so it confirms "none later than about one
+// frame", not sub-frame values.
 import { expect, test } from '@playwright/test'
 
 const q = (a: number[], p: number) => {
@@ -9,7 +11,7 @@ const q = (a: number[], p: number) => {
   return s.length ? +s[Math.min(s.length - 1, Math.floor(p * s.length))].toFixed(1) : null
 }
 
-test('perf_probe_large_note_open_typing_save', async ({ page, browserName }) => {
+test('s2_qa_ac4_perf_probe_large_note_open_typing_save', async ({ page, browserName }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __evt: number[] }
     w.__evt = []
@@ -18,7 +20,7 @@ test('perf_probe_large_note_open_typing_save', async ({ page, browserName }) => 
       new PerformanceObserver((l) => {
         for (const e of l.getEntries()) if (e.name === 'keydown') w.__evt.push(e.duration)
       }).observe({ type: 'event', durationThreshold: 16, buffered: true } as PerformanceObserverInit)
-    } catch { /* WebKit: no Event Timing API */ }
+    } catch { /* engine without Event Timing API */ }
   })
   await page.goto('/')
   await page.getByRole('button', { name: /Generated 5,000-word note/ }).click()

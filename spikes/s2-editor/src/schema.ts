@@ -7,6 +7,7 @@ import { Extension, Mark, Node, mergeAttributes, type AnyExtension } from '@tipt
 import { ListItem } from '@tiptap/extension-list'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
+import { TagRules } from './tagRules'
 
 export const TOP_LEVEL_TYPES = [
   'paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'codeBlock',
@@ -148,6 +149,7 @@ export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
     RawInline,
     RawBlock,
     Highlight,
+    TagRules,
     ...extra,
   ]
 }

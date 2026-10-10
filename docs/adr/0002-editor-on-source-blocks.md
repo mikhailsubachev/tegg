@@ -15,13 +15,14 @@ ADR 0001 keeps each note as its original text plus block ranges and changes file
 2. **Losslessness check:** a block is editable only if what the editor would write for it, read back in the note's context, gives exactly the same editor content.
 3. **Normalization guard:** after loading, any block the editor changed by itself (plugin normalization) becomes read-only raw, so opening can never rewrite a note.
 4. **Save (`reconcile`):** for each top-level node, in order: if it equals its original node, emit the source block byte-for-byte; otherwise render only that node (keeping its list-marker style). Gaps between consecutive original blocks are kept; new adjacencies get a blank line. No change → no write.
-5. **Verify every save by re-parsing.** If the structure would change, escalate: blank lines around changed blocks → a different marker for one of two adjacent same-marker lists → a `<!-- -->` separator after a list followed by an indented block. If none works, refuse the save rather than damage the note.
-6. **Obsidian syntax is schema:** `wikiLink` and `tag` inline nodes, a `highlight` mark, `rawInline` for inline math, comments, inline HTML, footnote references and Markdown images. Paragraph edge spaces are trimmed before rendering.
+5. **Verify every save by re-parsing**: untouched blocks byte-identical, and every changed block reads back to the same editor content (text, marks, structure). If that fails, escalate: blank lines around changed blocks → a different marker for one of two adjacent same-marker lists → a `<!-- -->` separator after a list followed by an indented block. If none works, refuse the save rather than damage the note.
+6. **Obsidian syntax is schema:** `wikiLink` and `tag` inline nodes, a `highlight` mark, `rawInline` for inline math, comments, inline HTML, footnote references and Markdown images. Paragraph edge spaces and hard breaks are trimmed before rendering; literal `==`, `%%`, `$` are escaped; a tag rules plugin keeps tag nodes equal to what the parser will read.
+   The marker change and `<!-- -->` separator in step 5 change bytes of a block the user didn't edit; they are pending the owner's decision (AP-10).
 7. The editor talks to the core only through `list` / `read` / `write` (bytes) over IPC; the core does atomic writes (FR-SYN-02).
 
 ## Consequences
 
-- **Good:** unedited notes are never rewritten; edits change only the edited blocks; verified on 43 fixtures × all operations, a property test, WebKit end-to-end, and 923 real notes.
+- **Good:** unedited notes are never rewritten; edits change only the edited blocks; verified on 43 fixtures × all operations, a property test, WebKit end-to-end, and 923 real notes (provisional until the owner re-runs `npm run test:real`, see FINDINGS privacy note).
 - **Cost:** a full re-parse per save and a per-block check on open; both need the MVP optimizations in FINDINGS (lazy check, region-limited verify) to meet D-59's reference targets.
 - **Visible artefacts, rare:** a changed list marker when two lists become adjacent; a `<!-- -->` line after a list followed by indented code.
 

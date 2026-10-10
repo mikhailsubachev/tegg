@@ -130,9 +130,101 @@ export const inlineFromMarkdown: FromMarkdownExtension = {
 }
 
 export const inlineToMarkdown: ToMarkdownExtension = {
+  // Literal `==` / `%%` typed as text must be escaped, or they'd read back as a highlight or a
+  // comment (found by S2's read-back check: `==>word$==` became a highlight on reload).
+  unsafe: [
+    { character: '=', after: '=', inConstruct: 'phrasing' },
+    { character: '%', after: '%', inConstruct: 'phrasing' },
+    // Any literal `$` could open inline math (`$*word$` would read back as math), so escape all.
+    { character: '$', inConstruct: 'phrasing' },
+  ],
   handlers: {
     highlight: (node: HighlightNode, _parent: Parents | undefined, state: ToMarkdownState, info: Info) =>
       '==' + state.containerPhrasing(node as never, { ...info, before: '=', after: '=' }) + '==',
     comment: (node: CommentNode) => `%%${node.value}%%`,
   } as never,
+}
+
+// ---------------------------------------------------------------- inline math
+
+declare module 'micromark-util-types' {
+  interface TokenTypeMap { obsidianMath: 'obsidianMath'; obsidianMathMarker: 'obsidianMathMarker'; obsidianMathData: 'obsidianMathData' }
+}
+
+const DOLLAR = 36
+const BACKSLASH = 92
+const isSpace = (code: Code) => code === null || code < 0 || code === 32 || code === 9
+const isDigit = (code: Code) => code !== null && code >= 48 && code <= 57
+
+/**
+ * `$math$` with Obsidian's rules (QA review of S2): the opening `$` is followed by a non-space,
+ * the closing `$` is preceded by a non-space and not followed by a digit, one line only.
+ * So `Paid $5 for [[Lunch]] and $3` is text (its link and tags count), `$e^{i\pi}$` is math.
+ * `micromark-extension-math` would take any `$…$`; it is used for `$$` only.
+ */
+const obsidianMath: Construct = {
+  name: 'obsidianMath',
+  tokenize(this: TokenizeContext, effects: Effects, ok: State, nok: State): State {
+    let previous: Code = null
+    return start
+
+    function start(code: Code): State | undefined {
+      if (code !== DOLLAR) return nok(code)
+      effects.enter('obsidianMath')
+      effects.enter('obsidianMathMarker')
+      effects.consume(code)
+      effects.exit('obsidianMathMarker')
+      return afterOpen
+    }
+    function afterOpen(code: Code): State | undefined {
+      if (isSpace(code) || code === DOLLAR) return nok(code) // `$ x` or `$$` (left to the $$ extension)
+      effects.enter('obsidianMathData')
+      return data(code)
+    }
+    function data(code: Code): State | undefined {
+      if (code === null || code < 0) return nok(code)
+      if (code === DOLLAR && !isSpace(previous) && previous !== BACKSLASH) { // `\$` is a literal dollar
+        return effects.check({ tokenize: closing, partial: true }, close, inside)(code)
+      }
+      return inside(code)
+    }
+    function inside(code: Code): State | undefined {
+      previous = code
+      effects.consume(code)
+      return data
+    }
+    function close(code: Code): State | undefined {
+      effects.exit('obsidianMathData')
+      effects.enter('obsidianMathMarker')
+      effects.consume(code)
+      effects.exit('obsidianMathMarker')
+      effects.exit('obsidianMath')
+      return ok
+    }
+  },
+}
+
+function closing(this: TokenizeContext, effects: Effects, ok: State, nok: State): State {
+  return (code: Code) => {
+    effects.consume(code) // the `$`
+    return (next: Code) => (isDigit(next) ? nok(next) : ok(next))
+  }
+}
+
+export const mathSyntax: Extension = { text: { [DOLLAR]: obsidianMath } }
+
+export const mathFromMarkdownObsidian: FromMarkdownExtension = {
+  enter: {
+    obsidianMath(this: CompileContext, token: Token) {
+      this.enter({ type: 'inlineMath', value: '' } as never, token)
+    },
+  },
+  exit: {
+    obsidianMathData(this: CompileContext, token: Token) {
+      ;(this.stack[this.stack.length - 1] as unknown as { value: string }).value = this.sliceSerialize(token)
+    },
+    obsidianMath(this: CompileContext, token: Token) {
+      this.exit(token)
+    },
+  },
 }

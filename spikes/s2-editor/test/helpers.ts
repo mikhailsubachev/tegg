@@ -51,7 +51,9 @@ export function expectPreserved(s: Session, out: string, ctx: string): number {
   const after = parse(out)
   const nodes: { unchanged: boolean; raw: string | null; list: boolean }[] = []
   s.editor.state.doc.forEach((n) => {
-    if (n.type.name === 'paragraph' && n.content.size === 0) return
+    // Mirrors reconcile: empty or whitespace-only paragraphs aren't written.
+    const blank = n.type.name === 'paragraph' && n.content.content.every((c) => c.isText && c.text!.trim() === '')
+    if (blank) return
     const i = n.attrs.srcIndex as number | null
     const o = i !== null ? s.loaded.originals[i] : null
     const unchanged = !!o && n.eq(o)

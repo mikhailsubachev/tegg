@@ -1,5 +1,6 @@
 // Obsidian syntax survives editing in the real editor; autocomplete inserts real nodes; paste is clean.
 import { describe, expect, test } from 'vitest'
+import { insertLink } from '../src/ui/suggest'
 import { endOfBlock, open } from './helpers'
 
 const lines = [
@@ -16,7 +17,7 @@ const lines = [
 ] as const
 
 describe('Obsidian syntax survives typing in the editor', () => {
-  test.each(lines)('fr_fmt_07_ac3_editor_typing_keeps_%s', (_, line) => {
+  test.each(lines)('s2_qa_ac2_editor_typing_keeps_%s', (_, line) => {
     const text = `${line}\n\n[^1]: Footnote.\n`
     const s = open(text)
     // Insert an unformatted text node (typing right after *star* would continue the italic).
@@ -78,5 +79,69 @@ describe('whitespace while typing', () => {
     e.chain().command(({ tr, state }) => { tr.insert(endOfBlock(e, 0)!, state.schema.text(' more ')); return true }).run()
     e.chain().command(({ tr, state }) => { tr.insert(endOfBlock(e, 1)!, state.schema.text('ing ')); return true }).run()
     expect(s.save()).toBe('Start. more\n\n# Heading\n')
+  })
+})
+
+describe('hard breaks at the edge of a block (QA review finding 3)', () => {
+  test('bug_s2_trailing_hard_break_does_not_write_a_backslash', () => {
+    const s = open('Line\n\n# Head\n')
+    const e = s.editor
+    e.chain().setTextSelection(endOfBlock(e, 0)!).setHardBreak().run() // Shift+Enter at the end
+    e.chain().setTextSelection(endOfBlock(e, 1)!).setHardBreak().run()
+    expect(s.save()).toBe('Line\n\n# Head\n')
+  })
+
+  test('a hard break inside a paragraph is kept', () => {
+    const s = open('One\n')
+    const e = s.editor
+    e.chain().setTextSelection(endOfBlock(e, 0)!).setHardBreak().insertContent('two').run()
+    const out = s.save()
+    expect(out).toBe('One\\\ntwo\n')
+  })
+})
+
+describe('tags in the editor follow Obsidian tag rules (S2 read-back finding)', () => {
+  const tagsOf = (s: ReturnType<typeof open>) => {
+    const out: string[] = []
+    s.editor.state.doc.descendants((n) => { if (n.type.name === 'tag') out.push(n.attrs.value) })
+    return out
+  }
+  const typeAt = (s: ReturnType<typeof open>, k: number, text: string) =>
+    s.editor.chain().command(({ tr, state }) => { tr.insert(endOfBlock(s.editor, k)!, state.schema.text(text)); return true }).run()
+
+  test('typing #word as text makes it a tag, as in Obsidian', () => {
+    const s = open('Start.\n')
+    typeAt(s, 0, ' #word')
+    expect(tagsOf(s)).toEqual(['word'])
+    expect(s.save()).toBe('Start. #word\n')
+  })
+
+  test('typing right after a tag extends the tag', () => {
+    const s = open('See #start\n')
+    typeAt(s, 0, 'more')
+    expect(tagsOf(s)).toEqual(['startmore'])
+    expect(s.save()).toBe('See #startmore\n')
+  })
+
+  test('a # right after a letter is text, not a tag', () => {
+    const s = open('abc\n')
+    typeAt(s, 0, '#x')
+    expect(tagsOf(s)).toEqual([])
+    expect(s.save()).toBe('abc#x\n') // no escape needed: # after a letter never starts a tag
+  })
+})
+
+describe('[[ autocomplete', () => {
+  // E6, found in manual testing: for the two-character trigger `[[` the suggestion range can start
+  // at the second bracket, which left a stray `[` (`\[[[Trip]]`).
+  test.each([['range from the first bracket', 0], ['range from the second bracket', 1]] as const)('bug_s2_e6_link_autocomplete_leaves_no_stray_bracket: %s', (_, offset) => {
+    const s = open('See x\n')
+    const e = s.editor
+    const end = endOfBlock(e, 0)!
+    e.chain().command(({ tr, state }) => { tr.delete(end - 1, end); tr.insert(end - 1, state.schema.text('[[Tri')); return true }).run()
+    const typedEnd = endOfBlock(e, 0)!
+    const bracket = typedEnd - '[[Tri'.length
+    insertLink(e, { from: bracket + offset, to: typedEnd }, 'Trip to Lisbon')
+    expect(s.save()).toBe('See [[Trip to Lisbon]]\n')
   })
 })

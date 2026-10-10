@@ -77,6 +77,7 @@ const ops: Record<string, Op> = {
 }
 
 let markerOnly = 0
+const executed: Record<string, number> = {}
 
 const cases = fixtures.flatMap((f) => {
   const n = open(f.text).editor.state.doc.childCount
@@ -84,11 +85,12 @@ const cases = fixtures.flatMap((f) => {
 })
 
 describe('editor operations keep untouched blocks byte-identical', () => {
-  test.each(cases)('fr_fmt_07_ac3_fr_edt_01_%s', (ctx, opName, f, k) => {
+  test.each(cases)('s2_qa_ac1_%s', (ctx, opName, f, k) => {
     const s = open(f.text)
     if (s.loaded.doc.blocks.length === 0) return
     const r = ops[opName](s.editor, k)
-    if (!r) return
+    if (!r) return // the operation doesn't apply to this block (e.g. split a heading)
+    executed[opName] = (executed[opName] ?? 0) + 1
     const out = reconcile(s.loaded, s.editor.state.doc).text
     markerOnly += expectPreserved(s, out, ctx)
     if (opName === 'type') {
@@ -134,8 +136,13 @@ describe('list separation and multi-block operations', () => {
     expect(s.save()).toBe('# A\n\nLast.\n\n*keep* _this_   \nstyle.\n\n* star list\n')
   })
 
-  test('report: list-marker separations needed across all fixture operations', () => {
-    console.log(`blocks re-marked to keep adjacent lists apart: ${markerOnly}`)
+  test('report: operations that actually ran, and list-marker separations', () => {
+    const total = Object.values(executed).reduce((a, b) => a + b, 0)
+    console.log(`operations that ran: ${total}`, executed, `lists re-marked: ${markerOnly}`)
+    expect(total).toBeGreaterThan(500) // guard against a vacuous pass (QA review finding 5)
+    for (const op of ['type', 'insertAfter', 'delete', 'split', 'joinWithNext', 'toBulletList', 'toHeading', 'toQuote', 'moveDown']) {
+      expect(executed[op], op).toBeGreaterThan(0)
+    }
   })
 })
 

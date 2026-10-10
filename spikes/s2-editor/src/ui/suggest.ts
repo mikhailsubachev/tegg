@@ -139,7 +139,7 @@ export function linkSuggest(names: () => string[]) {
   }, true)
 }
 
-function insertLink(e: Editor, r: Range, name: string) {
+export function insertLink(e: Editor, r: Range, name: string) {
   // Remove the typed `[[query` and any `]]` the user already typed after it. For a two-character
   // trigger the suggestion range may start at the second `[` (found in S2 manual testing).
   const doc = e.state.doc

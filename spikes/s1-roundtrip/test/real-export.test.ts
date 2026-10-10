@@ -1,5 +1,5 @@
 // AR-06 AC-3 / FR-IMP-23: local-only run against the real exports in `test exports/`.
-// Skipped when the folder is absent (CI). PRIVACY: prints counts and file indexes only,
+// Runs only with TEGG_REAL_EXPORTS=1 (`npm run test:real`, started by the owner, D-62). PRIVACY: prints counts and file indexes only,
 // never names, titles or content.
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'

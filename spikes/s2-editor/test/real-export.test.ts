@@ -1,4 +1,5 @@
-// Real exports through the editor (local only; skipped when `test exports/` is absent).
+// Real exports through the editor (local only; runs only with TEGG_REAL_EXPORTS=1, i.e.
+// `npm run test:real` started by the owner, D-62).
 // PRIVACY: prints counts and file indexes only, never names, titles or content (D-50, R-10).
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
