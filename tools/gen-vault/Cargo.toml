@@ -1,0 +1,18 @@
+[package]
+name = "gen-vault"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Deterministic reference vault for NFR-PERF benchmarks (docs/acceptance/performance.md, S4-QA AC-1)"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gen-vault"
+path = "src/main.rs"
+
+[dependencies]
+
+[dev-dependencies]
+tempfile = "3"

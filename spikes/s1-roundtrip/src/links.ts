@@ -104,7 +104,9 @@ function excludedRanges(doc: Doc, forTags = false): Range[] {
   const out: Range[] = []
   const walk = (n: Nodes): void => {
     const p = n.position
-    if (p && (n.type === 'code' || n.type === 'inlineCode' || n.type === 'html' || (forTags && n.type === 'link'))) {
+    // math / inlineMath: proposed in spike S4 (AP-15), as Obsidian doesn't read links or tags in math.
+    const MATH = n.type === 'math' || n.type === 'inlineMath'
+    if (p && (n.type === 'code' || n.type === 'inlineCode' || n.type === 'html' || MATH || (forTags && n.type === 'link'))) {
       out.push([p.start.offset!, p.end.offset!])
       return
     }
