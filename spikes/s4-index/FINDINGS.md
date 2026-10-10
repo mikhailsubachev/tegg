@@ -50,10 +50,10 @@ Reference vault, seed 1: 5,000 notes + 2,000 Image objects + 200 Tag objects = *
 | P3 | **`$$` math blocks inside lists, quotes and HTML blocks** end differently in micromark (container rules) and in the Rust pre-pass, which models only top-level `$$` blocks. About 40 of 1,880 documents (2%), all with `$$` in a container | Known difference, narrowed to the `links` and `tags` keys and to documents with `$$` on a container line: counted, capped at 4%, anything else fails (`s4_qa_ac4_differential_corpus`). Fixing it means a second CommonMark container parser; better options are below |
 | P4 | **Watcher bug found by the property test**: a folder renamed away and recreated with the same name within one event batch kept the old folder's notes in the index | A changed folder is reconciled both ways (drop what's gone, index what's there). FSEvents "must rescan" events trigger a full `sync()` |
 | P5 | FSEvents reports `/private/var/…` for a vault under `/var/…` | Event paths are mapped back through the canonical vault path |
-| P6 | Links inside math counted in the reference, against the dialect (§5: "not links: … math"); tags inside math are unspecified | Fixed in S1 for links (tests `fr_fmt_03_*`), tags excluded as a proposal (`fr_fmt_10_*_ap15`). **AP-15** |
+| P6 | Links inside math counted in the reference, against the dialect (§5: "not links: … math"); tags inside math are unspecified | Fixed in S1 for links (tests `fr_fmt_03_*`), tags excluded (`fr_fmt_10_*_ap15`), decided in D-64 |
 | P9 | **Prices read as math differ between parsers**: pulldown-cmark's math takes `$5 [[Cost]] $6`; Obsidian (and S1) don't, because a digit follows the closing `$`. Found because the reviewer asked for currency cases; the Rust index would have shown links the editor doesn't | The Rust extractor scans math itself with S1's Obsidian rules. Currency cases are in the corpus |
 | P10 | **The generator's note sizes missed the spec**: only 53% of notes were short (spec: 60%) because paragraphs overshot the word target | Fixed; `performance_md_distribution_on_5000_notes` checks 12 types, the 60/35/5 length mix and 200 tags |
-| P7 | The slow profile is about 3.5–6.5× slower, a worst case, not an M1 | **AP-16** |
+| P7 | The slow profile is about 3.5–6.5× slower, a worst case, not an M1 | Decided in D-65: reported only, factors stay |
 | P8 | Rebuild uses every core (rayon) | In the app, cap the indexing pool (e.g. cores − 2) so the UI stays responsive while indexing (PERF-02 note) |
 
 ### Two parsers: what the drift means for the architecture
