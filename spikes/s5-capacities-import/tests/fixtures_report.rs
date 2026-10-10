@@ -519,3 +519,25 @@ fn s5_qa_ac3_hidden_files_are_reported_not_imported() {
     assert_eq!((r.objects.total, r.other_files.reported), (1, 2));
     assert_accounted(&src, &r);
 }
+
+#[test]
+fn bug_s5_real_export_fr_imp_10_links_the_line_scanner_missed() {
+    // Real-export run (counts only): the line scanner found 12 fewer links than the independent counter in
+    // 12 notes. Synthetic reproductions of the suspected forms; each link must be found and accounted for.
+    use s5_capacities_import::{accounting::count_links, scan};
+    let tmp = tempfile::tempdir().unwrap();
+    copy_dir(&fixtures().join("c05-media-objects"), tmp.path());
+    let body = "---\ntype: 'Page'\ntitle: Forms\n---\n\
+        [![Map](../Images/Media/Mapa%20%C5%99eky.jpeg)](../Images/Mapa%20%C5%99eky.md)\n\n\
+        [Trip\nnotes](Trip%20notes.md)\n\n\
+        [see [1] here](Trip%20notes.md)\n";
+    std::fs::write(tmp.path().join("PKM/Pages/Forms.md"), body).unwrap();
+    let found = scan::links(body);
+    assert_eq!(found.len(), 4, "{found:?}");
+    assert_eq!(count_links(body), 4);
+    let src = source::read(tmp.path()).unwrap();
+    let r = plan::dry_run(&src, "PKM", &Options::default());
+    let forms = |o: LinkOutcome| r.link_rows.iter().filter(|l| l.note == "Pages/Forms.md" && l.outcome == o).count();
+    assert_eq!((forms(LinkOutcome::Attachment), forms(LinkOutcome::Resolved)), (1, 3));
+    assert_accounted(&src, &r);
+}

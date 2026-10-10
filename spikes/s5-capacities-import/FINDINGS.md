@@ -9,7 +9,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | Check (S5-QA, `docs/acceptance/qa-infrastructure.md`) | Result |
 | --- | --- |
 | AC-1: one synthetic fixture per finding C1–C19, README mapping finding → fixture | Pass. `tests/fixtures/import/capacities/c01-…/` … `c19-…/`; `s5_qa_ac1_*` checks every finding has a folder and a README row |
-| AC-2: dry-run report asserted per fixture | Pass. 44 tests in `tests/fixtures_report.rs`, named after the FR-IMP ACs they cover |
+| AC-2: dry-run report asserted per fixture | Pass. 45 tests in `tests/fixtures_report.rs`, named after the FR-IMP ACs they cover |
 | AC-3: reusable "imported + reported = total" assertion for objects, attachments, links | Pass. `accounting::check` / `assert_accounted` recompute the totals from the raw entries with their own simple rules (space membership by path, file classes by extension, a separate regex link counter), sharing no code with the planner or the link scanner, and check that every reported item is in a report list. Used by the fixture tests, the CLI and the real-export run. Tests break the planner on purpose (lost object, attachment, link, dropped-file row, wrong space) and show the check fails |
 | AC-4 [manual]: owner's real-export run, 0 unreadable entries, counts only | **Pending (owner).** `TEGG_REAL_EXPORTS=1 cargo test --release --test real_export -- --nocapture` |
 
@@ -35,6 +35,7 @@ The dry run reads a Capacities export (zip or folder), lets the user pick one sp
 | F9 | Link targets from note text weren't NFC-normalized; an NFD `[[Tomáš]]` looked unresolved (FR-FMT-12). Found in QA review | Targets and titles are NFC before matching; test `fr_fmt_12_nfd_link_targets_resolve` |
 | F10 | Windows-reserved names (`CON`, `COM1`…) and titles with no valid characters aren't covered by D-52 | Listed in the report, **AP-27** |
 | F11 | Case-insensitive title matches would bind links silently | Reported as "case mismatch", **AP-28** |
+| F12 | **The real-export run caught the line scanner missing Markdown links**: in the main space the independent count found 814 links, the scanner 802, one per note in 12 notes. A line regex can't see an image inside a link, link text over several lines, or brackets in link text | Markdown links now come from a CommonMark parser (pulldown-cmark); regression test `bug_s5_real_export_fr_imp_10_*` (fails on the old scanner). The accounting check worked as intended: it turned a silent loss into a failing run. The MVP importer must take links from the real parser (mdast), never from regexes |
 | F7 | Null values are frequent (most templates export every attribute) | Omitted (FR-IMP-09 AC-4) and counted per attribute in the preview ("Empty" column) |
 
 ### Assumptions only the real-export run can confirm

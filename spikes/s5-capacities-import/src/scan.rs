@@ -19,23 +19,6 @@ pub struct RawLink {
 }
 
 static WIKI: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(!?)\[\[([^\[\]\n]+?)\]\]").unwrap());
-static MD_OPEN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(!?)\[[^\]\n]*\]\(").unwrap());
-
-/// Markdown link destinations with balanced parentheses (CommonMark): Capacities writes
-/// `../Meetings/Tomáš%20%20Eva%20(1).md` with unencoded parentheses. Returns (is_image, destination).
-fn md_links(line: &str) -> Vec<(bool, String)> {
-    let mut out = Vec::new();
-    for m in MD_OPEN.find_iter(line) {
-        let mut depth = 1;
-        let rest = &line[m.end()..];
-        let mut end = None;
-        for (i, c) in rest.char_indices() {
-            match c { '(' => depth += 1, ')' => { depth -= 1; if depth == 0 { end = Some(i); break } }, _ => {} }
-        }
-        if let Some(end) = end { out.push((line[m.start()..].starts_with('!'), rest[..end].to_string())) }
-    }
-    out
-}
 static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`[^`\n]*`").unwrap());
 
 fn is_external(dest: &str) -> bool {
@@ -68,16 +51,30 @@ pub fn links(text: &str) -> Vec<RawLink> {
             if target.is_empty() { continue }
             out.push(RawLink { kind: LinkKind::Wiki, target: target.nfc().collect(), line: i + 1 }); // FR-FMT-12
         }
-        let no_wiki = WIKI.replace_all(&clean, |c: &regex::Captures| " ".repeat(c[0].len()));
-        for (bang, inner) in md_links(&no_wiki) {
-            let dest = inner.split_whitespace().next().unwrap_or("");
-            let dest = dest.trim_start_matches('<').trim_end_matches('>');
-            if dest.is_empty() || is_external(dest) { continue }
-            let target: String = decode_path(dest.split('#').next().unwrap()).nfc().collect();
-            let kind = if !target.to_lowercase().ends_with(".md") { LinkKind::Image }
-                       else if bang { LinkKind::Image } else { LinkKind::Markdown };
-            out.push(RawLink { kind, target, line: i + 1 });
-        }
+    }
+    out.extend(markdown_links(text));
+    out.sort_by_key(|l| l.line);
+    out
+}
+
+/// Markdown links and images found by a CommonMark parser (nested images in links, link text over
+/// several lines, brackets in link text). Found in the real-export run: a line regex missed 12 links.
+fn markdown_links(text: &str) -> Vec<RawLink> {
+    use pulldown_cmark::{Event, Parser, Tag};
+    let line_starts: Vec<usize> = std::iter::once(0).chain(text.match_indices('\n').map(|(i, _)| i + 1)).collect();
+    let line_of = |off: usize| line_starts.partition_point(|&s| s <= off);
+    let mut out = Vec::new();
+    for (ev, range) in Parser::new(text).into_offset_iter() {
+        let (dest, image) = match ev {
+            Event::Start(Tag::Link { dest_url, .. }) => (dest_url, false),
+            Event::Start(Tag::Image { dest_url, .. }) => (dest_url, true),
+            _ => continue,
+        };
+        let raw = dest.as_ref().trim_start_matches('<').trim_end_matches('>');
+        if raw.is_empty() || is_external(raw) { continue }
+        let target: String = decode_path(raw.split('#').next().unwrap()).nfc().collect();
+        let kind = if image || !target.to_lowercase().ends_with(".md") { LinkKind::Image } else { LinkKind::Markdown };
+        out.push(RawLink { kind, target, line: line_of(range.start) });
     }
     out
 }

@@ -95,11 +95,25 @@ pub fn violation_counts(prefix: &str, errs: &[String]) -> String {
 /// Diagnostic (counts only): notes where the independent link count and the scanner disagree,
 /// and the sums of both counts over those notes. Used when `links: total = export` fails.
 pub fn link_count_disagreements(src: &Source, space: &str) -> (usize, usize, usize) {
+    link_diagnostics(src, space).0
+}
+
+static IMAGE_IN_LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[!\[").unwrap());
+static MULTILINE_TEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[^\]\[]*\n[^\]\[]*\]\(").unwrap());
+static BRACKET_TEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[^\]\n]*\[[^\]\n]*\][^\]\n]*\]\(").unwrap());
+
+/// Diagnostic (counts only): the disagreement sums, plus how many disagreeing notes contain an image inside
+/// a link, link text over several lines, or brackets inside link text.
+pub fn link_diagnostics(src: &Source, space: &str) -> ((usize, usize, usize), [usize; 3]) {
+    let mut features = [0; 3];
     let (mut notes, mut independent, mut scanner) = (0, 0, 0);
     for e in src.entries.iter().filter(|e| in_space(&e.path, space) && e.path.ends_with(".md") && !e.path.split('/').any(|p| p.starts_with('.'))) {
         let text = String::from_utf8_lossy(&e.bytes);
         let (a, b) = (count_links(&text), crate::scan::links(&text).len());
-        if a != b { notes += 1; independent += a; scanner += b }
+        if a != b {
+            notes += 1; independent += a; scanner += b;
+            for (i, re) in [&*IMAGE_IN_LINK, &*MULTILINE_TEXT, &*BRACKET_TEXT].iter().enumerate() { if re.is_match(&text) { features[i] += 1 } }
+        }
     }
-    (notes, independent, scanner)
+    ((notes, independent, scanner), features)
 }

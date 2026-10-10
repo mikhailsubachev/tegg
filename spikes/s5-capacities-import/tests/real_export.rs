@@ -35,7 +35,8 @@ fn s5_qa_ac4_real_capacities_export_dry_run() {
             let errs = accounting::check(&src, &r);
             out += &format!("space.{si}.accounting_errors: {}\n", errs.len());
             out += &accounting::violation_counts(&format!("space.{si}"), &errs);
-            let (n, a, b) = accounting::link_count_disagreements(&src, &s.name);
+            let ((n, a, b), f) = accounting::link_diagnostics(&src, &s.name);
+            out += &format!("space.{si}.diag.image_in_link_notes: {}\nspace.{si}.diag.multiline_link_text_notes: {}\nspace.{si}.diag.bracket_link_text_notes: {}\n", f[0], f[1], f[2]);
             out += &format!("space.{si}.diag.link_disagreement_notes: {n}\nspace.{si}.diag.link_independent: {a}\nspace.{si}.diag.link_scanner: {b}\n");
             failures += errs.len();
         }
