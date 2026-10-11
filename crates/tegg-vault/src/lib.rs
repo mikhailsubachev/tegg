@@ -7,6 +7,7 @@ mod new_vault;
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
@@ -129,6 +130,9 @@ pub struct Vault {
     fs: Box<dyn VaultFs>,
     root: PathBuf,
     local: PathBuf,
+    /// Serializes changes in this vault, so two writes of the same file never share its temporary
+    /// file (`.<name>.tegg-tmp`, FR-SYN-02 AC-2). Other processes: the app is single-instance (D-71).
+    lock: Mutex<()>,
 }
 
 impl Vault {
@@ -165,13 +169,13 @@ impl Vault {
         }
         // FR-VLT-01 AC-7, D-98: remember it in Application Support, never in the vault.
         local::write_local_file(&dirs.last_vault_file(), root.to_string_lossy().as_bytes()).map_err(OpenError::Io)?;
-        Ok(Vault { fs: Box::new(LocalFs::new(&root)), local: local_dir_for(dirs, &root.to_string_lossy()), root })
+        Ok(Vault { fs: Box::new(LocalFs::new(&root)), local: local_dir_for(dirs, &root.to_string_lossy()), root, lock: Mutex::new(()) })
     }
 
     /// Any `VaultFs` (AR-04 AC-2); such a vault has no folder on disk and isn't remembered.
     pub fn open_with(fs: Box<dyn VaultFs>, dirs: &AppDirs) -> Result<Vault, OpenError> {
         match fs.version(VAULT_YML) {
-            Ok(Some(_)) => Ok(Vault { fs, root: PathBuf::new(), local: local_dir_for(dirs, "memory") }),
+            Ok(Some(_)) => Ok(Vault { fs, root: PathBuf::new(), local: local_dir_for(dirs, "memory"), lock: Mutex::new(()) }),
             Ok(None) => Err(OpenError::NotATeggVault),
             Err(e) => Err(OpenError::Io(e)),
         }
@@ -196,6 +200,7 @@ impl Vault {
     /// The one write function (architecture §5.3). Unchanged bytes → nothing written (FR-SYN-06);
     /// disk differs from `base` → `Conflict` (FR-SYN-03 AC-7); file gone while `base` is Some → `Gone`.
     pub fn write(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let path = nfc(path);
         match self.fs.read(&path) {
             Ok((current, disk)) => {
@@ -233,6 +238,7 @@ impl Vault {
     /// A new file with a free name in `dir` (FR-LNK-14, FR-STO-05 AC-3). Names compare in NFC and
     /// case-insensitively (APFS), so `Photo.png` next to `photo.png` becomes `Photo (2).png` (FR-FMT-12 AC-3).
     pub fn create_file(&self, dir: &str, stem: &str, ext: &str, bytes: &[u8]) -> Result<(String, FileVersion), VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let dir = nfc(dir.trim_matches('/'));
         if !dir.is_empty() {
             self.fs.create_dir_all(&dir)?;
@@ -251,6 +257,7 @@ impl Vault {
 
     /// FR-STO-08, FR-STO-01 AC-5: move to `.trash/<same relative path>`, with a suffix if that is taken.
     pub fn trash(&self, path: &str) -> Result<String, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let path = nfc(path);
         if self.fs.version(&path)?.is_none() {
             return Err(VaultError::NotFound);
@@ -260,6 +267,7 @@ impl Vault {
 
     /// Back to the original path, or with a suffix if that is taken.
     pub fn restore(&self, trashed: &str) -> Result<String, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let trashed = nfc(trashed);
         let original = trashed.strip_prefix(&format!("{TRASH}/")).ok_or(VaultError::NotFound)?.to_string();
         self.move_free(&trashed, &original)
@@ -267,6 +275,7 @@ impl Vault {
 
     /// FR-SYN-02 AC-4: deletes `.<name>.tegg-tmp` files older than 1 minute; returns how many.
     pub fn clean_temp_files(&self, now: SystemTime) -> Result<usize, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let now_ns = now.duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as i128).unwrap_or(0);
         let mut removed = 0;
         for path in self.files()? {

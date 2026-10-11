@@ -30,8 +30,11 @@ impl LocalFs {
         let name = abs.file_name().ok_or_else(|| io::Error::other("no file name"))?.to_string_lossy();
         let tmp = abs.with_file_name(format!(".{name}.tegg-tmp")); // FR-SYN-02 AC-2
         let mut f = fs::OpenOptions::new().write(true).create(true).truncate(true).open(&tmp)?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
+        if let Err(e) = f.write_all(bytes).and_then(|_| f.sync_all()) {
+            drop(f);
+            let _ = fs::remove_file(&tmp); // never leave a partial temp file behind (e.g. disk full)
+            return Err(e);
+        }
         Ok(tmp)
     }
 
@@ -150,7 +153,9 @@ pub(crate) fn write_local_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
         fs::create_dir_all(dir)?;
     }
     let tmp = LocalFs::write_temp(path, bytes)?;
-    fs::rename(&tmp, path)
+    fs::rename(&tmp, path).inspect_err(|_| {
+        let _ = fs::remove_file(&tmp);
+    })
 }
 
 pub(crate) fn read_local_file(path: &Path) -> Option<Vec<u8>> {
