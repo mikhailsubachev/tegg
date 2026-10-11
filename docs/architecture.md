@@ -305,7 +305,7 @@ Milestone names and requirements as in BRD §11.2; full requirement mapping in [
 | MS4 Links, tags, renames, daily notes | `tegg-jobs` (link, tag and attribute renames through the worker), backup zips before bulk operations, daily notes, embeds |
 | MS5 Tasks, capture, inbox, home | task list and board, block → object conversion, capture window, menu bar, hotkeys, single instance, Inbox and Home sections |
 | MS6 Images, PDFs, trash | Image/PDF objects, `_attachments/`, trash view and restore |
-| MS7 Capacities importer | import planner (from S5) in `tegg-jobs` + body transformation in the worker |
+| MS7 Capacities and Obsidian importers | import planners (Capacities from S5; Obsidian: open in place or copy, plain Markdown folders, D-93) in `tegg-jobs` + body transformation in the worker |
 | MS8 MVP hardening & release | performance on the reference machine, signing and notarization, two-Mac sync, soak |
 
 The visual query builder and saved queries are v1.0; the MVP's lists (type pages, tasks, Inbox, Home) use fixed query definitions.
