@@ -1,0 +1,15 @@
+# Product Cargo workspace (docs/architecture.md §11). Spikes and tools have their own manifests.
+[workspace]
+resolver = "2"
+members = ["crates/tegg-format", "crates/tegg-vault"]
+exclude = ["spikes", "tools"]
+
+[workspace.package]
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+serde_json = "1"
+tempfile = "3"

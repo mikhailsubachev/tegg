@@ -96,7 +96,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 
 - **AC-1** No file name written by Tegg contains `: \ / * ? " < > |`, control characters, or ends with a space or dot (AP-2).
 - **AC-2** No file name exceeds 200 UTF-8 bytes before the extension (AP-1); longer titles are cut at a character boundary, never in the middle of a multi-byte character.
-- **AC-3** Names reserved on Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`…`LPT9`) get a suffix, e.g. `CON (note).md`.
+- **AC-3** Names reserved on Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, any case) get `_` appended, e.g. `CON_.md` (D-80).
 
 ### NFR-POR-03 Nothing only in the index
 

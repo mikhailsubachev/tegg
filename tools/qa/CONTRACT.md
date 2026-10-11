@@ -169,6 +169,8 @@ For every commit in the range: if it modifies, deletes or renames an existing AC
 4. A file passes if the report has **at least one** `<testcase>` and **every** testcase has a `<failure>` or `<error>` whose `type` attribute, `message` attribute or text contains `AssertionError`. A missing report, zero testcases, a passing testcase or a non-assertion failure (syntax error, missing module, missing fixture) fails the file.
 5. Exit 0 if every added file passes, else 1, listing each failing file and why.
 
+**Rust AC tests** run through `tools/qa/src/cargo-junit.ts` (no extra tools): it runs `cargo test -p <package> --test <file stem>` and converts libtest's output to JUnit. A failure gets `type="AssertionError"` only if the panic happened **in the AC test file itself** and isn't an unwrap/expect of an error or a `todo!()`/`unimplemented!()` message; a panic in library code, a setup unwrap or a compile error (no testcases) is not red. Product stubs therefore return wrong values or `Err(NotImplemented)` rather than panicking (`docs/contracts/ms1-core.md`).
+
 The configuration (`acRunners`) is read from the **current** checkout, not from `<commit>`.
 
 ## 6. Privacy check (TS-P AC-1)
@@ -270,7 +272,6 @@ Found by the QA review of the first version and deliberately not addressed now. 
 - **Test helpers aren't protected:** shared helpers such as `tools/qa/test/helpers.ts` can be changed without an `AC-Test-Change:` trailer. The QA reviewer checks such changes (TS-I3).
 - **No step timeouts:** a hanging step hangs its gate, including the nightly run.
 - **Duplicate AC IDs** (e.g. `FR-TYP-15/AC-1` in two files) and alias collisions are merged silently in the coverage report.
-- **Red-first for Rust:** only failures containing `AssertionError` count as red; Rust `assert!` panics don't yet (needed from spike S4 on).
 - **counts-only** accepts ASCII-only labels and JSON keys, so an ASCII title used as a label passes.
 - **Merge side effects (§5.0):** a merge that itself adds a new AC test (new against every parent) skips red-first; a clean merge where both sides changed the same AC test or fixture (each with its own trailer) differs from every parent, so the merge commit needs the trailer too.
 - **Coverage after a commit:** every gate run replaces `.verify/last-results/`, so `./verify coverage` right after a commit gate shows automated ACs as "not run"; run it after `push` or `nightly`.
