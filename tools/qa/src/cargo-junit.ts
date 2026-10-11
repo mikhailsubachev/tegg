@@ -12,10 +12,13 @@ import { pathToFileURL } from 'node:url';
 
 export type RustCase = { name: string; status: 'ok' | 'failed' | 'ignored'; output: string; assertion: boolean };
 
-const SETUP_PANICS = [/^called `(Result|Option)::unwrap\(\)`/, /^called `(Result|Option)::expect\(\)`/, /^not (yet )?implemented/];
+const SETUP_PANICS = [/^called `(Result|Option)::unwrap\(\)`/, /^not (yet )?implemented/];
 
-/** Parses libtest output of one test binary; `testFile` is the AC test's path (only its file name is used). */
-export function parseCargoTest(output: string, testFile: string): RustCase[] {
+/** Parses libtest output of one test binary; `testFile` is the AC test's path. `source`, when given, is the
+ *  test file's text: a panic on a line with `.expect(` or `.unwrap(` is a setup failure, not an assertion
+ *  (`expect` panics with "<msg>: <err>", which no message pattern can tell from an `assert!` message). */
+export function parseCargoTest(output: string, testFile: string, source?: string): RustCase[] {
+  const srcLines = source?.split('\n') ?? []
   const cases = new Map<string, RustCase>();
   for (const m of output.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)\b/gm)) {
     cases.set(m[1], { name: m[1], status: m[2] === 'FAILED' ? 'failed' : (m[2] as 'ok' | 'ignored'), output: '', assertion: false });
@@ -27,8 +30,13 @@ export function parseCargoTest(output: string, testFile: string): RustCase[] {
     if (!c) continue;
     const text = sections[i + 1].split(/^\n?failures:$|^---- /m)[0].trim();
     c.output = text;
-    const panic = /panicked at ([^\n]+?):\d+:\d+:\n([^\n]*)/.exec(text);
-    c.assertion = !!panic && (panic[1] === file || panic[1].endsWith(`/${file}`)) && !SETUP_PANICS.some((re) => re.test(panic[2]));
+    const panic = /panicked at ([^\n]+?):(\d+):\d+:\n([^\n]*)/.exec(text);
+    const atLine = panic ? (srcLines[Number(panic[2]) - 1] ?? '') : '';
+    c.assertion =
+      !!panic &&
+      (panic[1] === file || panic[1].endsWith(`/${file}`)) &&
+      !SETUP_PANICS.some((re) => re.test(panic[3])) &&
+      !/\.(expect|unwrap)\(/.test(atLine);
   }
   return [...cases.values()];
 }
@@ -74,7 +82,7 @@ function main(argv: string[]): number {
     process.stdout.write(r.stdout ?? '');
     process.stderr.write(r.stderr ?? '');
     if (r.status !== 0) status = 1;
-    reports.push(toJunit(`${pkg}::${stem}`, parseCargoTest(`${r.stdout}\n${r.stderr}`, f)));
+    reports.push(toJunit(`${pkg}::${stem}`, parseCargoTest(`${r.stdout}\n${r.stderr}`, f, fs.readFileSync(f, 'utf8'))));
   }
   // One report per file would need one path each; merge the suites into one file.
   const merged = reports.map((x) => x.replace(/^<\?xml[^>]*>\n<testsuites>|<\/testsuites>\n$/g, '')).join('');

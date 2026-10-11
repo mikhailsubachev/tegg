@@ -62,3 +62,30 @@ test('JUnit output marks only assertion failures with AssertionError', () => {
 test('a compile error gives no testcases', () => {
   assert.deepEqual(parseCargoTest('error[E0425]: cannot find function `x`\nerror: could not compile', 'tests/ac_x.rs'), []);
 });
+
+test('a panic on an .expect( line of the test file is a setup failure, not red (QA review)', () => {
+  const out = `
+running 2 tests
+test fr_x_ac1_expect_setup ... FAILED
+test fr_x_ac2_assert ... FAILED
+
+failures:
+
+---- fr_x_ac1_expect_setup stdout ----
+
+thread 'fr_x_ac1_expect_setup' (1) panicked at crates/tegg-vault/tests/ac_x.rs:3:40:
+read: NotImplemented
+
+---- fr_x_ac2_assert stdout ----
+
+thread 'fr_x_ac2_assert' (2) panicked at crates/tegg-vault/tests/ac_x.rs:5:5:
+expected bytes A
+
+failures:
+    fr_x_ac1_expect_setup
+    fr_x_ac2_assert
+`;
+  const source = ['fn a() {', '    // setup', '    let b = vault.read("x").expect("read");', '    let c = 1;', '    assert!(false, "expected bytes A");'].join('\n');
+  const by = Object.fromEntries(parseCargoTest(out, 'crates/tegg-vault/tests/ac_x.rs', source).map((c) => [c.name, c.assertion]));
+  assert.deepEqual(by, { fr_x_ac1_expect_setup: false, fr_x_ac2_assert: true });
+});
