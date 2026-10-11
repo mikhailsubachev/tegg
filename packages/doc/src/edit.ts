@@ -108,12 +108,22 @@ export type Value =
   | Value[]
 
 export function formatEntry(key: string, value: Value): string {
+  // Multi-line text needs a block scalar indented under its key (or list item); let `yaml` lay it out
+  // (bug_ms1_fr_fmt_01). Every other value keeps the dialect formatter below.
+  if (hasMultiline(value)) {
+    const plain = (v: Value): unknown => (Array.isArray(v) ? v.map(plain) : typeof v === 'string' ? v.normalize('NFC') : formatScalar(v))
+    return stringify({ [key]: plain(value) }, { lineWidth: 0 })
+  }
   const k = /^[\w-]+$/.test(key) ? key : JSON.stringify(key)
   if (Array.isArray(value)) {
     if (value.length === 0) return `${k}: []\n`
     return `${k}:\n` + value.map((v) => `  - ${formatScalar(v)}\n`).join('')
   }
   return `${k}: ${formatScalar(value)}\n`
+}
+
+function hasMultiline(v: Value): boolean {
+  return typeof v === 'string' ? v.includes('\n') : Array.isArray(v) && v.some(hasMultiline)
 }
 
 function formatScalar(v: Value): string {
