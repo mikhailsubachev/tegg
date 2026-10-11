@@ -18,7 +18,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 
 - **AC-1** `tests/fixtures/format/roundtrip/` contains at least: 10 Obsidian-style notes (callouts, block IDs, embeds with size, heading links, tables, nested lists, checklists, tags inline and in frontmatter), 10 Capacities-style notes, 5 Notion-style notes, 5 Tegg-created notes using every MVP block type.
 - **AC-2** Every finding C1–C19 and N1–N10 in BRD §15 that concerns file content is represented by at least one fixture; the fixture README maps finding → fixture file.
-- **AC-3** `[real-export]` The local-only run parses every Markdown file in the real exports and reports the count of files that fail AC-1 (must be 0) by file index only.
+- **AC-3** [manual] `[real-export]` The local-only run parses every Markdown file in the real exports and reports the count of files that fail AC-1 (must be 0) by file index only.
 
 ### FR-FMT-01 YAML frontmatter
 
