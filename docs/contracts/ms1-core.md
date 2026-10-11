@@ -120,6 +120,8 @@ impl Vault {
 
     /// §5.3, the one write function. Unchanged bytes → `Unchanged`, nothing written (FR-SYN-06).
     /// Disk differs from `base` → `Conflict` (FR-SYN-03 AC-7); file gone while `base` is Some → `Gone`.
+    /// `base: None` means "I have no version": a file that exists with other bytes → `Conflict`, never
+    /// overwritten (NFR-REL-02, bug_ms1_nfr_rel_02); no file → created.
     pub fn write(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError>;
 
     /// New file with a free name in `dir` (FR-LNK-14, FR-STO-05 AC-3): returns the path it got.
