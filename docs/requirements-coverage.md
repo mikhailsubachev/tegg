@@ -1,27 +1,27 @@
 # Requirements coverage by phase
 
-- **Generated:** 2026-10-11 from BRD v1.15 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
+- **Generated:** 2026-10-11 from BRD v1.16 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test passes for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 156. Outside: 123.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 188. Outside: 91.
 
 ## Summary
 
 | Where | Requirements |
 | --- | ---: |
-| MVP milestones MS1–MS8 | 156 |
-| **MVP gap: Must (or NFR/AR) with no milestone** | 27 |
-| MVP gap: Should, needed by an MVP requirement | 5 |
-| v1.0 "complete desktop" (§11) | 54 |
+| MVP milestones MS1–MS8 | 188 |
+| **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
+| MVP gap: Should, needed by an MVP requirement | 0 |
+| v1.0 "complete desktop" (§11) | 63 |
 | v1.x (§11) | 9 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
 | Architecture seam only (by design) | 1 |
 | Satisfied by design | 1 |
 | Won't (W): deliberately not built | 8 |
-| Should/Could with no phase (backlog) | 14 |
+| Backlog: Could, unscheduled by decision (D-87) | 5 |
 | **Total** | **279** |
 
-**Verdict:** the phases cover every requirement except **46 that need a decision**: 27 Must/NFR/AR requirements the MVP needs but no milestone owns, 5 Should requirements an MVP requirement depends on, and 14 Should/Could requirements in no phase at all. Proposed fixes: AP-32…AP-34 at the end.
+**Verdict:** every requirement now has a phase. The first run of this check found 46 requirements that needed a decision; the owner decided them on 2026-10-11 (AP-32…AP-34 → D-85…D-87): 32 moved into MVP milestones, 9 Should requirements to v1.0, 5 Could requirements to an explicit backlog.
 
 ## 1. MVP milestones → requirements
 
@@ -29,10 +29,13 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS1: Vault core & file format
 
-32 requirements · 25 with ACs · 10 with spike evidence · 0 implemented
+35 requirements · 26 with ACs · 11 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
+| AR-03 | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | no ACs yet |
+| AR-04 | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | no ACs yet |
+| AR-06 | Markdown parsing/serialization is covered by a round-trip test suite (corpus incl. Obsidian, Notion, Capacitie… | 3 ACs, 2 proven in a spike |
 | FR-FMT-01 | Attributes are stored as YAML frontmatter using Obsidian "Properties" conventions (text, number, checkbox, dat… | 3 ACs |
 | FR-FMT-02 | Every object has a stable `id` in frontmatter (e.g. ULID), so identity survives renames and external edits. Th… | 4 ACs |
 | FR-FMT-03 | Links are `[[Note Name]]`, `[[Note Name\|alias]]`, `[[Note Name#Heading]]` and `[[Note Name#^blockid]]`. Relat… | 4 ACs, 4 proven in a spike |
@@ -68,7 +71,7 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS2: Index, watcher, search, switcher
 
-15 requirements · 11 with ACs · 1 with spike evidence · 0 implemented
+18 requirements · 12 with ACs · 1 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -77,23 +80,27 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-SRC-01 | Full-text search across titles, body text and attribute values of all objects, with results < 200 ms for 5,000… | no ACs yet |
 | FR-SRC-02 | Filters: object type, tags, date created/modified, attribute values, review status. | no ACs yet |
 | FR-SRC-03 | Results show the type icon, title, and a highlighted snippet. Opening a result scrolls to the match. | no ACs yet |
+| FR-SRC-04 | Supports phrase ("…") and exclusion (-word) operators; tolerant of diacritics (e.g. *č* matches *c*) and typos… | no ACs yet |
 | FR-SYN-03 | A file watcher detects external changes (sync, other editors, Obsidian) and reloads the index within 2 s. If t… | 7 ACs |
 | FR-SYN-04 | Detects provider conflict copies (e.g. `Note (conflicted copy 2026-10-07).md`, `Note (1).md`), lists them in a… | 4 ACs |
 | FR-SYN-05 | Duplicate `id`s (e.g. from conflict copies) are detected and resolved without corrupting links. | 4 ACs |
 | FR-SYN-07 | The app works fully offline. | 3 ACs |
+| FR-UX-07 | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | no ACs yet |
 | FR-VLT-03 | The app warns if the vault folder contains online-only / cloud placeholder files (Dropbox Smart Sync, Google D… | 2 ACs |
 | NFR-PERF-01 | Cold start to usable UI | 1 ACs |
 | NFR-PERF-02 | Initial full index of a new vault | 2 ACs, 1 proven in a spike |
 | NFR-PERF-03 | Quick switcher results | 2 ACs |
 | NFR-PERF-04 | Full-text search | 1 ACs |
 | NFR-PERF-08 | External file change reflected | 1 ACs |
+| NFR-REL-02 | The app never silently overwrites changes made outside the app (FR-SYN-03). | 7 ACs |
 
 ### MS3: Types, attributes, editor
 
-27 requirements · 5 with ACs · 0 with spike evidence · 0 implemented
+36 requirements · 5 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
+| AR-07 | Schema/type definitions are versioned so future migrations are possible. | no ACs yet |
 | FR-EDT-01 | Block-based WYSIWYG editor. Each block has a drag handle, can be reordered by drag & drop or keyboard, and has… | no ACs yet |
 | FR-EDT-02 | Block types: paragraph, heading 1–3, bulleted list, numbered list, checklist item (plain checkbox; see FR-TSK-… | no ACs yet |
 | FR-EDT-03 | Slash menu (`/`) to insert any block type, object embed, or query. | no ACs yet |
@@ -103,9 +110,12 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-EDT-07 | Attribute panel at the top of each object, showing the type's attributes as editable fields (not raw YAML). Mi… | no ACs yet |
 | FR-EDT-08 | Autosave (debounced, ≤ 1 s after the last keystroke) using atomic writes (FR-SYN-02). No "Save" button. | 3 ACs |
 | FR-EDT-09 | Undo/redo across block operations, including block-to-object conversion (FR-CNV-06). | no ACs yet |
+| FR-EDT-10 | Raw Markdown source view toggle per note, for power users and debugging. | no ACs yet |
 | FR-EDT-13 | Multi-block selection (Shift+click, Shift+arrows) for move, delete, convert, and copy. | no ACs yet |
 | FR-EDT-14 | Paste handling: rich text/HTML from the web → clean blocks; images from the clipboard → saved attachment; URL … | no ACs yet |
 | FR-EDT-15 | Typing `#` opens tag autocomplete (existing tags shown with their color). Choosing a new name creates a new ta… | no ACs yet |
+| FR-SET-02 | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | no ACs yet |
+| FR-SET-03 | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | no ACs yet |
 | FR-TYP-01 | The user can create, edit, and delete user-defined object types. Each type has: name, plural name, icon, color… | no ACs yet |
 | FR-TYP-02 | Supported attribute types: Text, Long text, Number, Checkbox, Date, Date-time, Date range (start + end, e.g. t… | no ACs yet |
 | FR-TYP-03 | Each attribute can have: name, key (frontmatter key), type, default value, required flag, options (for selects… | no ACs yet |
@@ -119,12 +129,17 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-TYP-12 | Review workflow setting per type (on/off, D-30). When on, new objects of that type get `review: unreviewed` an… | no ACs yet |
 | FR-TYP-13 | Every object has exactly one type (D-24); the type can be changed at any time (FR-TYP-07). | no ACs yet |
 | FR-TYP-14 | Object icon & cover (D-39): any object can have its own icon (emoji or small image) and cover image, stored in… | no ACs yet |
+| FR-UX-01 | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | no ACs yet |
+| FR-UX-02 | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | no ACs yet |
+| FR-UX-03 | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | no ACs yet |
+| FR-UX-05 | Light and dark themes with equal quality. | no ACs yet |
+| NFR-OTH-02 | UI language: English in v1, with all UI strings externalized so other languages (e.g. Czech) can be added late… | no ACs yet |
 | NFR-PERF-05 | Open a note (typical, < 5k words) | 1 ACs |
 | NFR-PERF-06 | Typing latency | 2 ACs |
 
 ### MS4: Links, tags, renames, daily notes
 
-26 requirements · 10 with ACs · 2 with spike evidence · 0 implemented
+30 requirements · 11 with ACs · 2 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -135,6 +150,9 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-DLY-05 | Daily notes have a review status (`unreviewed` by default once created) and appear in the Inbox until reviewed… | no ACs yet |
 | FR-DLY-06 | A daily-note template is applied when the note is first written. | no ACs yet |
 | FR-DLY-08 | Date mentions: typing `@` + a date (or picking one from a date picker; `@today`, `@tomorrow`) inserts a link t… | 3 ACs |
+| FR-EMB-01 | Any object (or block of it) can be embedded in any note via `![[ ]]`, the slash menu, or drag from the sidebar… | no ACs yet |
+| FR-EMB-02 | Embed display modes: full (inline editable content), card (title + key attributes), link (inline chip). Defaul… | no ACs yet |
+| FR-EMB-04 | Recursive embeds are detected and stopped (show "circular embed"). Maximum nesting depth is 3. | no ACs yet |
 | FR-FMT-08 | The file name is the object title, sanitized to be valid on macOS/Windows/iOS/Android (D-36). If the title con… | 6 ACs, 1 proven in a spike |
 | FR-HIS-04 | Bulk operations (schema rename, import, type change of many objects) create a restore point first. | 1 ACs |
 | FR-LNK-01 | Backlinks panel for each object: every object linking to it, with the surrounding text, grouped by type. | no ACs yet |
@@ -154,10 +172,11 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-TAG-08 | Delete a tag: asks whether to remove it from all objects (rewrite, with restore point) or only delete the Tag … | no ACs yet |
 | FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs |
 | FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs |
+| NFR-REL-04 | All destructive bulk operations are preceded by a restore point (FR-HIS-04). | 3 ACs |
 
 ### MS5: Tasks, capture, inbox, home
 
-32 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
+39 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -172,6 +191,8 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-CNV-05 | The embed in the source is editable in place: editing it edits the object's file, and changing a task's status… | no ACs yet |
 | FR-CNV-06 | Conversion is a single undoable action that restores the original blocks and deletes the new file. | no ACs yet |
 | FR-CNV-08 | Removing the embed from the source note does not delete the object (D-27). The first time, the app asks for co… | no ACs yet |
+| FR-EDT-11 | Outline (table of contents) of the current note's headings in the side panel. | no ACs yet |
+| FR-EMB-03 | Embedded content is editable in place (FR-CNV-05). | no ACs yet |
 | FR-HOM-01 | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | no ACs yet |
 | FR-HOM-02 | Pinned objects and saved queries can be added to Home and the sidebar. | no ACs yet |
 | FR-INB-01 | Inbox view lists all objects with `review: unreviewed`: Quick Notes, Daily Notes, captured items, and objects … | no ACs yet |
@@ -182,6 +203,9 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-NAV-03 | Back/forward navigation history (⌘[ / ⌘]). | no ACs yet |
 | FR-NAV-04 | Left sidebar: Home, Inbox, Today, Tasks, Search, Types (list of all types → Type pages), Pinned, Saved queries… | no ACs yet |
 | FR-NAV-05 | Right side panel (toggleable): Attributes, Backlinks, Local graph, Outline. | no ACs yet |
+| FR-SET-01 | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | no ACs yet |
+| FR-SET-04 | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | no ACs yet |
+| FR-SET-05 | Menu bar icon on/off; launch at login. | no ACs yet |
 | FR-TSK-01 | Task attributes: title, status, priority, due date, recurrence, source (relation), completed date (auto), plus… | no ACs yet |
 | FR-TSK-02 | Status: each status has a user-editable label and color and maps to one fixed semantic state: *Open*, *In prog… | no ACs yet |
 | FR-TSK-03 | Priority: an ordered list with user-editable labels and colors (default: High, Medium, Low, None). The order d… | no ACs yet |
@@ -192,11 +216,13 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-TSK-09 | Overdue tasks are visually highlighted. | no ACs yet |
 | FR-TSK-10 | Tasks can be created directly in Task views (quick-add row) without a source note, or from any app via the glo… | no ACs yet |
 | FR-TSK-11 | A plain Markdown checklist item (`- [ ]`) is not a Task object and does not appear in Task views (D-28). The u… | no ACs yet |
+| FR-VLT-05 | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | no ACs yet |
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
+| NFR-SEC-03 | The share extension and capture window only write to the vault; they never read content back to other apps. | no ACs yet |
 
 ### MS6: Images, PDFs, trash
 
-9 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
+10 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -207,12 +233,13 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-ATT-08 | The Image/PDF object's title defaults to the file name (or the owning note's title + number for generic names … | no ACs yet |
 | FR-ATT-09 | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | no ACs yet |
 | FR-HIS-01 | Deleting an object moves it to `.trash/` (with its original path remembered). The Trash view allows restore (b… | no ACs yet |
+| FR-HIS-02 | Trash is auto-emptied after N days (default 30, configurable). | no ACs yet |
 | FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | no ACs yet |
 | FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | no ACs yet |
 
 ### MS7: Capacities importer
 
-16 requirements · 15 with ACs · 11 with spike evidence · 0 implemented
+17 requirements · 15 with ACs · 11 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -231,16 +258,21 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-IMP-20 | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | 1 ACs, 1 proven in a spike |
 | FR-IMP-21 | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | 3 ACs, 1 proven in a spike |
 | FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs, 2 proven in a spike |
+| FR-IMP-23 | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | no ACs yet |
 | FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs, 1 proven in a spike |
 
 ### MS8: MVP hardening & release
 
-13 requirements · 11 with ACs · 1 with spike evidence · 0 implemented
+17 requirements · 11 with ACs · 1 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
+| AR-02 | Native Apple Silicon (arm64) build. Universal binary for Intel: ❓ (C). | no ACs yet |
 | AR-08 | Code-signed and notarized macOS build, distributed as a direct-download DMG (not the Mac App Store in v1; D-32… | no ACs yet |
 | FR-SYN-01 | The app works on a vault placed in any synced folder, including Dropbox, Google Drive and iCloud Drive (D-36),… | 3 ACs |
+| FR-UX-04 | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | no ACs yet |
+| FR-UX-06 | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | no ACs yet |
+| NFR-OTH-01 | Minimum macOS version: macOS 14 Sonoma (D-32). | no ACs yet |
 | NFR-PERF-01 | Cold start to usable UI | 1 ACs |
 | NFR-PERF-02 | Initial full index of a new vault | 2 ACs, 1 proven in a spike |
 | NFR-PERF-03 | Quick switcher results | 2 ACs |
@@ -253,63 +285,64 @@ Requirements in several milestones are built in the first and gated again later 
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
 | NFR-SEC-01 | No telemetry, analytics or network calls in v1, except optional update checks (opt-in). | no ACs yet |
 
-## 2. MVP gaps: required by the MVP, owned by no milestone
+## 2. Requirements added to MVP milestones by D-85 and D-86
 
-These are the findings of this check. Each has a proposed milestone (AP-32).
+Found by the first run of this check: needed by the MVP but owned by no milestone. Now in §11.2 and listed in the milestone tables above.
 
-| Requirement | Pri | Summary | Why it is MVP, and proposed milestone |
-| --- | --- | --- | --- |
-| FR-VLT-05 | M | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | §11 MVP lists "default type"; capture (MS5) and ⌘N need it → **MS5** |
-| FR-EMB-01 | M | Any object (or block of it) can be embedded in any note via `![[ ]]`, the slash menu, or drag from the sidebar… | Converted blocks become embeds (FR-CNV-05, MS5) and images are embedded (FR-ATT-07, MS6); §11 doesn't name embeds → **MS4** (with links) |
-| FR-EMB-02 | M | Embed display modes: full (inline editable content), card (title + key attributes), link (inline chip). Defaul… | as FR-EMB-01 → **MS4** |
-| FR-EMB-03 | M | Embedded content is editable in place (FR-CNV-05). | FR-CNV-05 (MS5) edits converted blocks in place → **MS5** |
-| FR-EMB-04 | M | Recursive embeds are detected and stopped (show "circular embed"). Maximum nesting depth is 3. | as FR-EMB-01 → **MS4** |
-| FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | Importer test data (built in S5) → **MS7** |
-| FR-SET-01 | M | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | Default type and folders must be settable in the MVP → **MS5** |
-| FR-SET-02 | M | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | Theme (FR-UX-05) → **MS3** |
-| FR-SET-03 | M | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | Date formats are shown from MS3 → **MS3** |
-| FR-SET-05 | M | Menu bar icon on/off; launch at login. | Menu bar on/off, launch at login → **MS5** |
-| FR-UX-01 | M | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | Cross-cutting UI rule; no milestone checks it → **MS3** (first UI) + design review per milestone |
-| FR-UX-02 | M | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | App layout (sidebar, editor, right panel) → **MS3** |
-| FR-UX-03 | M | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | Command palette: CLAUDE.md requires every action in it, but no milestone builds it → **MS3**, then a check per milestone |
-| FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout → cross-cutting, checked at **MS8** |
-| FR-UX-05 | M | Light and dark themes with equal quality. | Light/dark → **MS3**, visual check per milestone |
-| FR-UX-06 | M | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | Empty states → with each screen; gate at **MS8** |
-| FR-UX-07 | M | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | Progress + cancel: indexing (MS2), bulk ops (MS4), import (MS7) → **MS2** |
-| AR-02 | M | Native Apple Silicon (arm64) build. Universal binary for Intel: ❓ (C). | arm64 build → **MS8** (with AR-08) |
-| AR-03 | M | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | Core/UI/platform separation, L0 dependency check → **MS1** |
-| AR-04 | M | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | Sync adapter seam → **MS1** (`VaultFs`, architecture §10) |
-| AR-06 | M | Markdown parsing/serialization is covered by a round-trip test suite (corpus incl. Obsidian, Notion, Capacitie… | Round-trip suite (exists from S1) → **MS1** |
-| AR-07 | M | Schema/type definitions are versioned so future migrations are possible. | Versioned type definitions → **MS3** |
-| NFR-REL-02 | NFR | The app never silently overwrites changes made outside the app (FR-SYN-03). | Same rule as FR-SYN-03 (MS2) → **MS2** |
-| NFR-REL-04 | NFR | All destructive bulk operations are preceded by a restore point (FR-HIS-04). | Same rule as FR-HIS-04 (MS4) → **MS4** |
-| NFR-SEC-03 | NFR | The share extension and capture window only write to the vault; they never read content back to other apps. | Capture window part → **MS5**; share-extension part with FR-CAP-02 (v1.0) |
-| NFR-OTH-01 | NFR | Minimum macOS version: macOS 14 Sonoma (D-32). | macOS 14 minimum → **MS8** |
-| NFR-OTH-02 | NFR | UI language: English in v1, with all UI strings externalized so other languages (e.g. Czech) can be added late… | Externalized strings, L0 check → **MS3** |
-
-**Should requirements an MVP requirement depends on** (AP-33):
-
-| Requirement | Summary | Dependency and proposed milestone |
-| --- | --- | --- |
-| FR-EDT-10 | Raw Markdown source view toggle per note, for power users and debugging. | NFR-REL-03 (MS1) opens invalid files "in source mode"; that needs at least a read-only source view → **MS3** |
-| FR-EDT-11 | Outline (table of contents) of the current note's headings in the side panel. | FR-NAV-05 (MS5) puts the outline in the right panel → **MS5** |
-| FR-SRC-04 | Supports phrase ("…") and exclusion (-word) operators; tolerant of diacritics (e.g. *č* matches *c*) and typos… | Diacritic folding already exists (S4); phrase/exclusion are cheap in FTS5 → **MS2** |
-| FR-HIS-02 | Trash is auto-emptied after N days (default 30, configurable). | Trash auto-empty belongs with trash (FR-HIS-01, MS6) → **MS6** |
-| FR-SET-04 | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-71: hotkey registration failures are shown in Settings (FR-CAP-05, MS5) → **MS5** (display only) |
+| Requirement | Pri | Summary | Reason | Milestone |
+| --- | --- | --- | --- | --- |
+| FR-VLT-05 | M | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | §11 MVP lists "default type"; capture (MS5) and ⌘N need it | MS5 |
+| FR-EMB-01 | M | Any object (or block of it) can be embedded in any note via `![[ ]]`, the slash menu, or drag from the sidebar… | Converted blocks become embeds (FR-CNV-05, MS5) and images are embedded (FR-ATT-07, MS6); §11 doesn't name embeds | MS4 |
+| FR-EMB-02 | M | Embed display modes: full (inline editable content), card (title + key attributes), link (inline chip). Defaul… | as FR-EMB-01 | MS4 |
+| FR-EMB-03 | M | Embedded content is editable in place (FR-CNV-05). | FR-CNV-05 (MS5) edits converted blocks in place | MS5 |
+| FR-EMB-04 | M | Recursive embeds are detected and stopped (show "circular embed"). Maximum nesting depth is 3. | as FR-EMB-01 | MS4 |
+| FR-SET-01 | M | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | Default type and folders must be settable in the MVP | MS5 |
+| FR-SET-02 | M | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | Theme (FR-UX-05) | MS3 |
+| FR-SET-03 | M | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | Date formats are shown from MS3 | MS3 |
+| FR-SET-05 | M | Menu bar icon on/off; launch at login. | Menu bar on/off, launch at login | MS5 |
+| FR-UX-01 | M | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | Cross-cutting UI rule; no milestone checks it | MS3 |
+| FR-UX-02 | M | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | App layout (sidebar, editor, right panel) | MS3 |
+| FR-UX-03 | M | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | Command palette: CLAUDE.md requires every action in it, but no milestone builds it | MS3 |
+| FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout | MS8 |
+| FR-UX-05 | M | Light and dark themes with equal quality. | Light/dark | MS3 |
+| FR-UX-06 | M | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | Empty states | MS8 |
+| FR-UX-07 | M | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | Progress + cancel: indexing (MS2), bulk ops (MS4), import (MS7) | MS2 |
+| AR-02 | M | Native Apple Silicon (arm64) build. Universal binary for Intel: ❓ (C). | arm64 build | MS8 |
+| AR-03 | M | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | Core/UI/platform separation, L0 dependency check | MS1 |
+| AR-04 | M | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | Sync adapter seam | MS1 |
+| AR-06 | M | Markdown parsing/serialization is covered by a round-trip test suite (corpus incl. Obsidian, Notion, Capacitie… | Round-trip suite (exists from S1) | MS1 |
+| AR-07 | M | Schema/type definitions are versioned so future migrations are possible. | Versioned type definitions | MS3 |
+| NFR-REL-02 | NFR | The app never silently overwrites changes made outside the app (FR-SYN-03). | Same rule as FR-SYN-03 (MS2) | MS2 |
+| NFR-REL-04 | NFR | All destructive bulk operations are preceded by a restore point (FR-HIS-04). | Same rule as FR-HIS-04 (MS4) | MS4 |
+| NFR-SEC-03 | NFR | The share extension and capture window only write to the vault; they never read content back to other apps. | Capture window part | MS5 |
+| NFR-OTH-01 | NFR | Minimum macOS version: macOS 14 Sonoma (D-32). | macOS 14 minimum | MS8 |
+| NFR-OTH-02 | NFR | UI language: English in v1, with all UI strings externalized so other languages (e.g. Czech) can be added late… | Externalized strings, L0 check | MS3 |
+| FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | Importer test data (built in S5) | MS7 |
+| FR-EDT-10 | S | Raw Markdown source view toggle per note, for power users and debugging. | NFR-REL-03 (MS1) opens invalid files "in source mode"; that needs at least a read-only source view | MS3 |
+| FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-71: hotkey registration failures are shown in Settings (FR-CAP-05, MS5) | MS5 |
+| FR-SRC-04 | S | Supports phrase ("…") and exclusion (-word) operators; tolerant of diacritics (e.g. *č* matches *c*) and typos… | Diacritic folding already exists (S4); phrase/exclusion are cheap in FTS5 | MS2 |
+| FR-HIS-02 | S | Trash is auto-emptied after N days (default 30, configurable). | Trash auto-empty belongs with trash (FR-HIS-01, MS6) | MS6 |
+| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | FR-NAV-05 (MS5) puts the outline in the right panel | MS5 |
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (54)
+### v1.0 "complete desktop" (63)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
 | FR-STO-10 | M | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | Obsidian vault in place: part of "Obsidian import" (§11, FR-IMP-01) |
+| FR-TAG-09 | S | Merge two tags into one. | D-87 (AP-34) |
+| FR-CNV-07 | S | The conversion popover lets the user set key attributes at once (e.g. for a Task: due date, priority) without … | D-87 (AP-34) |
+| FR-CNV-09 | S | Bulk conversion: convert each selected list item into a separate object (e.g. 5 bullet points → 5 tasks). | D-87 (AP-34) |
 | FR-TSK-07 | M | Recurrence: daily, weekdays, weekly (on chosen days), monthly (day of month / nth weekday), yearly, every N da… | Recurrence (§11) |
 | FR-CAP-02 | M | macOS Share sheet extension accepts text, URLs, images and PDFs from any app and creates an object of the vaul… | Share-sheet extension (§11); needs its own small spike (S3 FINDINGS) |
 | FR-DLY-09 | S | Time-stamped entries: a shortcut inserts the current time as a small heading or line (e.g. `21:30`) for log-st… | §11.1 table: time-stamped entries in v1.0 |
+| FR-HOM-04 | S | The app restores the last open note/tabs on launch (configurable: Home vs last state). | D-87 (AP-34) |
 | FR-NAV-06 | M | Tabs in v1: ⌘T new tab, ⌘W close, ⌘-click opens a link in a new tab, tabs are restored on launch. Split view i… | Tabs (§11); split view part v1.x |
+| FR-NAV-07 | S | All primary actions have keyboard shortcuts; shortcuts are customizable. | D-87 (AP-34) |
 | FR-NAV-08 | M | Previews of linked and embedded objects anywhere in the app: click to preview, double-click to open by default… | Object previews (§11) |
 | FR-SRC-06 | S | A search can be saved as a query (FR-QRY). | Query builder and views (§11) |
+| FR-LNK-06 | S | Links to a specific heading or block (`#^id`). Block IDs are generated automatically when the user copies a bl… | D-87 (AP-34) |
 | FR-LNK-08 | M | Click to preview (D-37): a single click on a link shows a preview popover of the linked object. This works eve… | Object previews (§11) |
 | FR-LNK-09 | M | Preview of embeds: a single click on an embed in *card* or *link* mode (FR-EMB-02), or on the header of a *ful… | Object previews (§11) |
 | FR-LNK-10 | M | Preview content is content-first (D-38), so the user can see what the object is about: a header (own icon or t… | Object previews (§11) |
@@ -338,6 +371,8 @@ These are the findings of this check. Each has a proposed milestone (AP-32).
 | FR-MMP-03 | S | Mindmap nodes may contain `[[links]]`. A node can be converted into an object (like FR-CNV). | Mindmap editor (§11) |
 | FR-MMP-04 | M | Per object type, the mindmap block can be included by default via the template ("optional per type"). | Mindmap editor (§11) |
 | FR-MMP-05 | M | Exports render the mindmap as an image (FR-EXP). | Mindmap editor (§11) |
+| FR-ATT-04 | S | Deleting the last reference to an attachment does not delete the file; an "Unused attachments" tool lists orph… | D-87 (AP-34) |
+| FR-ATT-05 | S | Warn on files > 20 MB (configurable). | D-87 (AP-34) |
 | FR-TPL-01 | M | Each type can have multiple templates, one marked default. A template is a `.md` file in `_templates/<Type>/`. | Templates (§11) |
 | FR-TPL-02 | M | A template defines attribute default values and body structure (any blocks, including mindmap and query blocks… | Templates (§11) |
 | FR-TPL-03 | M | Variables: `{{title}}`, `{{date}}`, `{{time}}`, `{{date:FORMAT}}`, `{{yesterday}}`, `{{tomorrow}}`. | Templates (§11) |
@@ -357,6 +392,7 @@ These are the findings of this check. Each has a proposed milestone (AP-32).
 | FR-EXP-06 | M | Whole-vault export is lossless: a Markdown bundle of the whole vault includes type definitions, saved-query de… | Export, all 4 formats (§11) |
 | FR-SET-06 | S | Trash retention (default 30 days), version history retention (default 90 days). | Retention settings, with version history |
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11) |
+| FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
 
 ### v1.x (9)
 
@@ -411,38 +447,30 @@ These are the findings of this check. Each has a proposed milestone (AP-32).
 | FR-QRY-10 | Text query language. |  |
 | FR-IMP-06 | Kindle / Readwise highlights import: out of scope (D-33). |  |
 
-## 5. Should/Could with no phase (backlog)
+## 5. Backlog (unscheduled by decision, D-87)
 
-No phase in §11 names these. They are optional, but "no phase" should be an explicit choice (AP-34).
+Could requirements listed in BRD §11 as an explicit backlog.
 
 | Requirement | Pri | Summary |
 | --- | --- | --- |
-| FR-TAG-09 | S | Merge two tags into one. |
 | FR-TAG-11 | C | Collections (grouping objects or tags, e.g. PARA areas, Status): not in the MVP; possibly later as a new Colle… |
 | FR-EDT-12 | C | Toggle/collapsible blocks. *(Note: there is no standard Markdown equivalent. Proposed storage: a heading or ca… |
-| FR-CNV-07 | S | The conversion popover lets the user set key attributes at once (e.g. for a Task: due date, priority) without … |
-| FR-CNV-09 | S | Bulk conversion: convert each selected list item into a separate object (e.g. 5 bullet points → 5 tasks). |
 | FR-DLY-07 | C | Weekly/monthly review notes. |
-| FR-HOM-04 | S | The app restores the last open note/tabs on launch (configurable: Home vs last state). |
-| FR-NAV-07 | S | All primary actions have keyboard shortcuts; shortcuts are customizable. |
 | FR-SRC-05 | C | Search inside PDF text. |
-| FR-LNK-06 | S | Links to a specific heading or block (`#^id`). Block IDs are generated automatically when the user copies a bl… |
-| FR-ATT-04 | S | Deleting the last reference to an attachment does not delete the file; an "Unused attachments" tool lists orph… |
-| FR-ATT-05 | S | Warn on files > 20 MB (configurable). |
 | FR-ATT-06 | C | Link to a PDF page; PDF annotation/highlight extraction. |
-| FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". |
 
 ## 6. Other findings
 
 - **Priority inconsistency:** FR-IMP-12 and FR-IMP-13 (Notion details) are priority M, while their parent FR-IMP-02 (Notion import) is C, v1.x (D-41). Proposed: mark them "M within FR-IMP-02 (v1.x)".
 - **The MVP needs a basic query engine although the query builder is v1.0:** type pages with default views (FR-TYP-09, MS3), the task list and board (FR-TSK, MS5), Inbox and Home sections (MS5) all show filtered, sorted lists. `tegg-query` therefore starts in MS3/MS5 with fixed definitions; the visual builder and saved queries stay v1.0. NFR-PERF-07 (query view, MS8) measures that engine.
 - **Architecture doc:** its milestone table (§12) labelled MS3, MS4 and MS6 differently from BRD §11.2; corrected together with this report.
-- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/27, 10/26, 1/32, 1/9 of their requirements. That is the D-61 plan (ACs just before each milestone), but **MS1 itself still lacks ACs for 7 requirements**: FR-STO-03, FR-STO-05, FR-STO-06, FR-STO-08, FR-STO-09, FR-VLT-01, FR-VLT-02. They must be written before MS1 starts.
+- **Still open, not part of AP-32…AP-34:** the FR-IMP-12/-13 priority inconsistency above.
+- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 1/10 of their requirements. That is the D-61 plan (ACs just before each milestone), but **MS1 itself still lacks ACs for 9 requirements**: AR-03, AR-04, FR-STO-03, FR-STO-05, FR-STO-06, FR-STO-08, FR-STO-09, FR-VLT-01, FR-VLT-02. They must be written before MS1 starts.
 
-## 7. Open points (pending the owner)
+## 7. Decided points (accepted 2026-10-11, BRD v1.16)
 
-| # | Issue | Proposal | Affects |
-| --- | --- | --- | --- |
-| AP-32 | **27 Must/NFR/AR requirements the MVP needs have no milestone** (§2): default type, embeds, core settings, the UI rules (layout, command palette, themes, empty states, progress), architecture rules, macOS 14, string externalization, NFR-REL-02/-04 restatements, importer test data. Without a milestone they have no gate. | Add each to the milestone proposed in §2 (BRD §11.2), so its ACs are written and gated there. | BRD §11.2, D-63 |
-| AP-33 | **5 Should requirements are needed by MVP requirements** (§2): source view (for NFR-REL-03), hotkey list in Settings (D-71), search operators, trash auto-empty, outline. | Move them into the proposed milestones; in the source view's case only the read-only mode NFR-REL-03 needs. | BRD §11, §11.2 |
-| AP-34 | **14 Should/Could requirements are in no phase** (§5). | Assign them to v1.0 (Should) and leave the Could ones as an explicit "backlog, unscheduled" line in BRD §11. | BRD §11 |
+| # | Issue | Decision |
+| --- | --- | --- |
+| AP-32 | 27 Must/NFR/AR requirements the MVP needs had no milestone | **D-85:** assigned in §11.2 (see §2) |
+| AP-33 | 5 Should requirements are needed by MVP requirements | **D-86:** moved into MVP milestones (§2) |
+| AP-34 | 14 Should/Could requirements were in no phase | **D-87:** Should → v1.0, Could → explicit backlog in §11 |
