@@ -202,10 +202,10 @@ impl Vault {
                 if current == bytes {
                     return Ok(WriteOutcome::Unchanged);
                 }
-                if let Some(b) = base {
-                    if *b != disk {
-                        return Err(VaultError::Conflict { disk });
-                    }
+                // No base means "I have no version": an existing file with other bytes is never
+                // overwritten (NFR-REL-02, bug_ms1_nfr_rel_02); with a base, it must still be on disk.
+                if base != Some(&disk) {
+                    return Err(VaultError::Conflict { disk });
                 }
                 Ok(WriteOutcome::Written(self.fs.replace(&path, bytes)?))
             }
