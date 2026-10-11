@@ -29,6 +29,8 @@ impl LocalFs {
     fn write_temp(abs: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
         let name = abs.file_name().ok_or_else(|| io::Error::other("no file name"))?.to_string_lossy();
         let tmp = abs.with_file_name(format!(".{name}.tegg-tmp")); // FR-SYN-02 AC-2
+        // Fixed name + truncate is safe only because Vault serializes writes and the app is single-instance
+        // (D-71); don't remove Vault's lock without changing this.
         let mut f = fs::OpenOptions::new().write(true).create(true).truncate(true).open(&tmp)?;
         if let Err(e) = f.write_all(bytes).and_then(|_| f.sync_all()) {
             drop(f);
