@@ -1,7 +1,7 @@
 # Requirements coverage by phase
 
 - **Generated:** 2026-10-11 from BRD v1.17 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
-- **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test passes for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
+- **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
 - **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 188. Outside: 91.
 
 ## Summary
@@ -465,7 +465,7 @@ Could requirements listed in BRD §11 as an explicit backlog.
 - **The MVP needs a basic query engine although the query builder is v1.0:** type pages with default views (FR-TYP-09, MS3), the task list and board (FR-TSK, MS5), Inbox and Home sections (MS5) all show filtered, sorted lists. `tegg-query` therefore starts in MS3/MS5 with fixed definitions; the visual builder and saved queries stay v1.0. NFR-PERF-07 (query view, MS8) measures that engine.
 - **Architecture doc:** its milestone table (§12) labelled MS3, MS4 and MS6 differently from BRD §11.2; corrected together with this report.
 - **Still open, not part of AP-32…AP-34:** the FR-IMP-12/-13 priority inconsistency above.
-- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), but **MS1 itself still lacks ACs for 0 requirements**: . They must be written before MS1 starts.
+- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), and **MS1 has ACs for all 35 of its requirements** (FR-VLT-01, -02, AR-03, -04 added 2026-10-11; open points AP-35…AP-38 in `docs/acceptance/README.md`).
 
 ## 7. Decided points (accepted 2026-10-11, BRD v1.16)
 
