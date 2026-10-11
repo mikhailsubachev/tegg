@@ -83,6 +83,8 @@ pub trait VaultFs: Send + Sync {
     fn create_new(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion>;
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()>;
     fn create_dir_all(&self, path: &str) -> io::Result<()>;
+    /// Only for leftover temporary files (FR-SYN-02 AC-4); notes go to `.trash/`, never deleted.
+    fn remove_file(&self, path: &str) -> io::Result<()>;
 }
 pub struct LocalFs; impl LocalFs { pub fn new(root: &Path) -> LocalFs }
 pub struct MemFs;   impl MemFs   { pub fn new() -> MemFs }   // in-memory, for tests (AR-04 AC-2)

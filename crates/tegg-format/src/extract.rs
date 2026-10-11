@@ -307,9 +307,7 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
                 code.push(shift(r));
             }
             Event::Code(_) | Event::InlineHtml(_) | Event::Html(_) => code.push(shift(r)),
-            Event::Start(Tag::Link { link_type, .. })
-                if matches!(link_type, LinkType::Inline | LinkType::Autolink | LinkType::Email) =>
-            {
+            Event::Start(Tag::Link { link_type: LinkType::Inline | LinkType::Autolink | LinkType::Email, .. }) => {
                 links.push(shift(r));
             }
             _ => {}
