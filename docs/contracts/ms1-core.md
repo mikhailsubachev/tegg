@@ -54,7 +54,7 @@ pub struct Extracted {
     pub id: Option<String>,
     pub r#type: Option<String>,      // None for untyped files (shown as Page, FR-TYP-10)
     pub attributes: Option<serde_json::Value>, // None when there is no or invalid frontmatter
-    pub frontmatter_error: Option<FrontmatterError>, // NFR-REL-03
+    pub frontmatter_error: Option<FrontmatterError>, // NFR-REL-03; unclosed `---` → line 1 (D-97)
     pub links: Vec<Link>,
     pub tags: Vec<String>,           // tag keys: NFC + lower case, frontmatter first (FR-FMT-10)
 }
@@ -110,8 +110,9 @@ impl Vault {
     pub fn open_with(fs: Box<dyn VaultFs>, dirs: &AppDirs) -> Result<Vault, OpenError>; // any VaultFs
     pub fn root(&self) -> &Path;
 
-    /// FR-VLT-01 AC-7: the remembered vault (stored under `dirs`), if it still exists.
-    pub fn last_opened(dirs: &AppDirs) -> Option<PathBuf>;
+    /// FR-VLT-01 AC-7, D-98: the remembered vault path (stored under `dirs` by `create` and `open`)
+    /// and whether that folder still exists, so the app can name a missing vault.
+    pub fn last_opened(dirs: &AppDirs) -> Option<(PathBuf, bool)>;
 
     pub fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), VaultError>;
 
@@ -143,7 +144,7 @@ pub enum VaultError { Conflict { disk: FileVersion }, Gone, NotFound, NameTaken,
 pub const SYSTEM_TYPES: &[&str] = &["Page", "Task", "Quick Note", "Daily Note", "Tag", "Image", "PDF"]; // D-89
 ```
 
-**Type definition file** (`.tegg/types/<file>.yml`, FR-STO-06, D-90): YAML with at least `name`, `plural`, `folder`, `system: true|false`, `version` (AR-07), `attributes: []`. File names are the sanitized type name, lower case, spaces as `-` (`quick-note.yml`). Default folders: Page → `Pages`, Task → `Tasks`, Quick Note → `Quick Notes`, Daily Note → `Daily`, Tag → `Tags`, Image → `Images`, PDF → `PDFs` (BRD §5.1).
+**Type definition file** (`.tegg/types/<file>.yml`, FR-STO-06, D-90): exact content of a new vault is the approved fixture `tests/fixtures/vaults/new-empty/` (D-99). YAML with at least `name`, `plural`, `folder`, `system: true|false`, `version` (AR-07), `attributes: []`. File names are the sanitized type name, lower case, spaces as `-` (`quick-note.yml`). Default folders: Page → `Pages`, Task → `Tasks`, Quick Note → `Quick Notes`, Daily Note → `Daily`, Tag → `Tags`, Image → `Images`, PDF → `PDFs` (BRD §5.1).
 
 **`vault.yml`** (FR-STO-06): YAML with at least `version`, `default-type: Quick Note` (D-24, FR-VLT-05), `attachments: _attachments`, `daily-format: YYYY-MM-DD`.
 
@@ -166,6 +167,9 @@ export interface Frontmatter {
 export interface Doc {
   text: string; bom: boolean; eol: '\n' | '\r\n'; finalNewline: boolean
   frontmatter: Frontmatter | null; bodyStart: number; blocks: Block[]
+  /** D-97: set when an opening `---` is never closed (then `frontmatter` is null and the file is body):
+   *  { message: 'frontmatter not closed', line: 1 }. Errors inside closed frontmatter are in `frontmatter.error`. */
+  frontmatterError: { message: string; line: number } | null
 }
 
 export function decode(bytes: Uint8Array): string   // UTF-8, keeps a BOM as U+FEFF
@@ -189,8 +193,9 @@ export interface Tag { name: string; key: string; range: Range | null }
 export function tags(doc: Doc): Tag[]
 export const tagKey: (name: string) => string        // NFC + lower case
 
-/** FR-FMT-02 AC-1: a new note's text: frontmatter with id, type, title (when the file name differs),
- *  created, modified, then the given attributes in order, then the body. Canonical dialect style. */
+/** FR-FMT-02 AC-1, D-96: a new note's text: frontmatter keys `id, type, title, <attributes in the given
+ *  order>, created, modified` (`title` always; `type` lower case with spaces as `-`: 'Quick Note' →
+ *  `quick-note`), then the body. Canonical dialect style. */
 export function newNote(opts: { type: string; title: string; attributes?: [string, Value][]
   body?: string; now: string; newId: () => string }): string
 

@@ -21,9 +21,10 @@ export interface Doc {
   frontmatter: Frontmatter | null
   bodyStart: number
   blocks: Block[]
+  frontmatterError: { message: string; line: number } | null
 }
 
-const empty: Doc = { text: '', bom: false, eol: '\n', finalNewline: false, frontmatter: null, bodyStart: 0, blocks: [] }
+const empty: Doc = { text: '', bom: false, eol: '\n', finalNewline: false, frontmatter: null, bodyStart: 0, blocks: [], frontmatterError: null }
 
 export function decode(_bytes: Uint8Array): string { return '' }
 export function encode(_text: string): Uint8Array { return new Uint8Array() }

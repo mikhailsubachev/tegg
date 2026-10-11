@@ -172,11 +172,20 @@ fn fr_vlt_01_ac7_opened_vault_is_remembered_in_app_support() {
     manual_vault(&b);
     let _va = ok!(Vault::open(&a, &sb.dirs), "open A");
     let remembered = Vault::last_opened(&sb.dirs);
-    assert!(remembered.as_deref().is_some_and(|p| same_path(p, &a)), "remembered {remembered:?}");
+    assert!(matches!(&remembered, Some((p, true)) if same_path(p, &a)), "remembered {remembered:?}");
     assert!(!files(&sb.dirs.root).is_empty(), "the remembered path is stored under Application Support");
     let _vb = ok!(Vault::open(&b, &sb.dirs), "open B");
     let remembered = Vault::last_opened(&sb.dirs);
-    assert!(remembered.as_deref().is_some_and(|p| same_path(p, &b)), "remembered {remembered:?}");
+    assert!(matches!(&remembered, Some((p, true)) if same_path(p, &b)), "remembered {remembered:?}");
+}
+
+#[test]
+fn fr_vlt_01_ac7_created_vault_is_remembered() {
+    let sb = sandbox();
+    let parent = parent_in(&sb, "Dokumenty");
+    let _v = ok!(Vault::create(&parent, "Nový trezor", VaultKind::Empty, &sb.dirs), "create");
+    let remembered = Vault::last_opened(&sb.dirs);
+    assert!(matches!(&remembered, Some((p, true)) if same_path(p, &parent.join("Nový trezor"))), "remembered {remembered:?}");
 }
 
 #[test]
@@ -187,9 +196,14 @@ fn fr_vlt_01_ac7_missing_remembered_vault_is_not_reopened_or_recreated() {
     let opened = Vault::open(&root, &sb.dirs).is_ok();
     assert!(opened, "open");
     let remembered_before = Vault::last_opened(&sb.dirs);
-    assert!(remembered_before.as_deref().is_some_and(|p| same_path(p, &root)), "remembered {remembered_before:?}");
+    assert!(matches!(&remembered_before, Some((p, true)) if same_path(p, &root)), "remembered {remembered_before:?}");
+    let old_path = root.canonicalize().expect("canonical vault path");
     std::fs::remove_dir_all(&root).expect("remove vault");
-    assert_eq!(Vault::last_opened(&sb.dirs), None);
+    let remembered_after = Vault::last_opened(&sb.dirs);
+    assert!(
+        matches!(&remembered_after, Some((p, false)) if p == &root || p == &old_path),
+        "the old path is returned as missing, got {remembered_after:?}"
+    );
     assert!(!root.exists(), "the vault must not be recreated");
 }
 

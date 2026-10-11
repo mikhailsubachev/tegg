@@ -81,7 +81,7 @@ impl Vault {
     pub fn open(_root: &Path, _dirs: &AppDirs) -> Result<Vault, OpenError> { Err(OpenError::NotImplemented) }
     pub fn open_with(_fs: Box<dyn VaultFs>, _dirs: &AppDirs) -> Result<Vault, OpenError> { Err(OpenError::NotImplemented) }
     pub fn root(&self) -> &Path { Path::new("") }
-    pub fn last_opened(_dirs: &AppDirs) -> Option<PathBuf> { None }
+    pub fn last_opened(_dirs: &AppDirs) -> Option<(PathBuf, bool)> { None }
     pub fn read(&self, _path: &str) -> Result<(Vec<u8>, FileVersion), VaultError> { Err(VaultError::NotImplemented) }
     pub fn write(&self, _path: &str, _bytes: &[u8], _base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError> { Err(VaultError::NotImplemented) }
     pub fn create_file(&self, _dir: &str, _stem: &str, _ext: &str, _bytes: &[u8]) -> Result<(String, FileVersion), VaultError> { Err(VaultError::NotImplemented) }

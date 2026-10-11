@@ -17,11 +17,12 @@ function idSource(...ids: string[]): () => string {
 // ---------------------------------------------------------------- FR-FMT-01
 
 test('fr_fmt_01_ac1_new_note_starts_with_frontmatter_delimited_by_dash_lines', () => {
-  const text = newNote({ type: 'page', title: 'Říční poznámka', now: NOW, newId: idSource(ID), body: 'Tělo.\n' })
+  const text = newNote({ type: 'Page', title: 'Říční poznámka', now: NOW, newId: idSource(ID), body: 'Tělo.\n' })
   expect(text).toBe(
     '---\n' +
     `id: ${ID}\n` +
     'type: page\n' +
+    'title: Říční poznámka\n' +
     `created: ${NOW}\n` +
     `modified: ${NOW}\n` +
     '---\n' +
@@ -53,8 +54,7 @@ test('fr_fmt_01_ac2_new_note_writes_every_value_type_as_obsidian_properties', ()
     '---\n' +
     `id: ${ID}\n` +
     'type: book\n' +
-    `created: ${NOW}\n` +
-    `modified: ${NOW}\n` +
+    'title: Čtení o systémech\n' +
     'autor: "[[Jana Nováková]]"\n' +
     'podtitul: Úvod do zpětných vazeb\n' +
     'stran: 320\n' +
@@ -69,6 +69,8 @@ test('fr_fmt_01_ac2_new_note_writes_every_value_type_as_obsidian_properties', ()
     'lide:\n' +
     '  - "[[Jana]]"\n' +
     '  - "[[Tomáš]]"\n' +
+    `created: ${NOW}\n` +
+    `modified: ${NOW}\n` +
     '---\n' +
     'Úvodní odstavec.\n',
   )
@@ -101,13 +103,13 @@ test('fr_fmt_01_ac2_set_attribute_list_is_a_yaml_block_list', () => {
 // ---------------------------------------------------------------- FR-FMT-02
 
 test('fr_fmt_02_ac1_new_object_has_ulid_id_type_created_and_modified', () => {
-  const text = newNote({ type: 'task', title: 'Zavolat Tomášovi', now: NOW, newId: idSource(ID) })
-  expect(text).toBe(`---\nid: ${ID}\ntype: task\ncreated: ${NOW}\nmodified: ${NOW}\n---\n`)
+  const text = newNote({ type: 'Quick Note', title: 'Zavolat Tomášovi', now: NOW, newId: idSource(ID) })
+  expect(text).toBe(`---\nid: ${ID}\ntype: quick-note\ntitle: Zavolat Tomášovi\ncreated: ${NOW}\nmodified: ${NOW}\n---\n`)
   const ex = extract(text, 'Zavolat Tomášovi')
   expect(ex.id).toBe(ID)
   expect(ex.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
-  expect(ex.type).toBe('task')
-  expect(ex.attributes).toEqual({ id: ID, type: 'task', created: NOW, modified: NOW })
+  expect(ex.type).toBe('quick-note')
+  expect(ex.attributes).toEqual({ id: ID, type: 'quick-note', title: 'Zavolat Tomášovi', created: NOW, modified: NOW })
 })
 
 test('fr_fmt_02_ac2_id_is_read_from_frontmatter_whatever_the_file_name', () => {
@@ -276,7 +278,9 @@ for (const [name, text, lines] of INVALID) {
 test('nfr_rel_03_ac1_frontmatter_that_never_closes_is_reported', () => {
   const text = '---\ntitle: nikdy neuzavřeno\n\nText těla.\n'
   const doc = parse(text)
+  expect(doc.frontmatterError).toEqual({ message: 'frontmatter not closed', line: 1 })
   expect(doc.frontmatter).toBe(null)
+  expect(doc.bodyStart).toBe(0)
   expect(serialize(doc)).toBe(text)
   const ex = extract(text, 'Neuzavřená')
   expect(ex.frontmatterError).toBe(true)
