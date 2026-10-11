@@ -17,9 +17,9 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-STO-04 / FR-TYP-07 Type change moves the file
 
-- **AC-1** Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
-- **AC-2** If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
-- **AC-3** Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties".
+- **AC-1** [MS4] Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
+- **AC-2** [MS4] If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
+- **AC-3** [MS4] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties".
 
 ### FR-LNK-14 Duplicate titles
 
