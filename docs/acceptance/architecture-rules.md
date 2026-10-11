@@ -8,7 +8,7 @@ See [README](README.md) for conventions. The rules come from BRD §8.2 and `docs
 
 - **AC-1** An L0 check reads the Cargo dependency graph: no crate under `crates/` depends, directly or transitively, on `tauri`, `tauri-*`, `objc2*`/`cocoa`/AppKit bindings, or on `app/src-tauri`. Adding such a dependency fails `./verify commit`.
 - **AC-2** An L0 check reads the TypeScript imports: nothing under `packages/` imports `@tauri-apps/*`, `app/`, or DOM-only window APIs beyond what a Web Worker provides; in `app/ui`, only the single IPC client module imports `@tauri-apps/api`.
-- **AC-3** The core crates build for iOS: `cargo check --target aarch64-apple-ios` on every crate under `crates/` passes (nightly gate), so the core stays reusable on mobile (D-02).
+- **AC-3** The core stays platform-neutral (D-100): in `crates/`, platform-specific APIs (`libc::renamex_np` and other Darwin-only calls, `objc2`/`cocoa`/AppKit, `windows`/`winapi`, `android`/`jni`) appear only inside items marked `#[cfg(target_os = "…")]`, and each such item has a `#[cfg(not(target_os = "…"))]` counterpart with the same name in the same file (a portable fallback). Checked statically, no extra build targets.
 - **AC-4** The core's tests run without the desktop shell or a webview: `cargo test` in `crates/` and the `packages/` test suites run headless (L1–L4), and no core test starts the app.
 - **AC-5** The menu bar, global hotkeys, windows and share extension live only in `app/src-tauri` (platform); a menu-bar or hotkey symbol referenced from `crates/` or `packages/` fails the AC-1/AC-2 checks.
 

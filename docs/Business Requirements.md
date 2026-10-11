@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.21, for review                                             |
+| **Document status** | Draft v1.22, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -37,6 +37,7 @@
 | v1.19   | 2026-10-11 | Obsidian import moves into the MVP, MS7 (D-93, AP-39). |
 | v1.20   | 2026-10-11 | ACs verified at a later milestone are marked with that milestone (D-94, AP-40). |
 | v1.21   | 2026-10-11 | MS1 test decisions (AP-41…AP-45, D-95…D-99): static AC tests exempt from red-first; new-note key order and type casing; unclosed frontmatter reported; remembered missing vault named; new-empty vault fixture approved by the owner. |
+| v1.22   | 2026-10-11 | Mobile platform open (D-100): the original brief names no mobile platform; D-02's iOS and Android become "platform open"; AR-03 AC-3 is a platform-neutral rule instead of an iOS build check. |
 
 ---
 
@@ -54,7 +55,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | G-2 | Speed                             | Any note reachable in < 1 s via keyboard; UI never blocks while typing (see NFR-PERF)                                                   |
 | G-3 | Structure without friction        | Converting a paragraph into a typed object (e.g. a Task) takes ≤ 2 actions                                                              |
 | G-4 | Trustworthy capture → review loop | Every captured item has a visible review state; the inbox can be emptied                                                                |
-| G-5 | Growth path                       | The architecture allows iOS/Android clients, API sync and AI features later without a rewrite                                           |
+| G-5 | Growth path                       | The architecture allows mobile clients (platform open, D-100), API sync and AI features later without a rewrite                                           |
 
 ### 1.3 Non-goals (for v1)
 
@@ -81,7 +82,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | #    | Topic                                | Decision                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D-01 | Audience                             | Me first, possibly a public product later                                                                                                                                                                                                                                                                                                                                                                                             |
-| D-02 | Mobile                               | iOS **and** Android planned (future phase)                                                                                                                                                                                                                                                                                                                                                                                            |
+| D-02 | Mobile                               | Mobile planned (future phase); **platform open** (superseded by D-100, was: iOS and Android)                                                                                                                                                                                                                                                                                                                                                                                            |
 | D-03 | Sync                                 | Phase 1: rely on the Dropbox/Google Drive **desktop clients** syncing the vault folder. Phase 2: built-in API sync (needed for mobile)                                                                                                                                                                                                                                                                                                |
 | D-04 | Editor                               | Block-based object editor in the style of **Anytype / Capacities**                                                                                                                                                                                                                                                                                                                                                                    |
 | D-05 | File format                          | **Obsidian-compatible**: YAML frontmatter for attributes, `[[wikilinks]]`, `![[embeds]]`, plain attachment files. Mindmaps stored as **Mermaid** code blocks                                                                                                                                                                                                                                                                          |
@@ -179,6 +180,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-97 | Unclosed frontmatter                 | An opening `---` that never closes is reported as "frontmatter not closed" at line 1 and the whole file is treated as body (NFR-REL-03); the S1/S4 extraction reference follows (AP-43) |
 | D-98 | Missing remembered vault             | The app remembers the vault path even when the folder is gone and names it in the chooser (`last_opened` returns the path and whether it exists) (AP-44, FR-VLT-01 AC-7) |
 | D-99 | New-empty vault fixture              | The exact content of a new empty vault is the fixture `tests/fixtures/vaults/new-empty/`, drafted from the BRD and **approved by the owner** before MS1 implementation (AP-45, FR-VLT-02 AC-3) |
+| D-100 | Mobile platform open               | The original brief asks only for "desktop and future mobile". Mobile stays a future phase with the **platform open** (supersedes D-02's iOS and Android). The core must stay platform-neutral, checked statically (AR-03 AC-3): no platform-specific API outside a marked platform module with a portable fallback. File-name rules keep iOS and Android validity (FR-FMT-08, NFR-POR-02), because vaults are synced to and opened on other devices |
 
 ---
 
@@ -651,7 +653,7 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | Mindmap           | Mermaid for rendering + a custom visual editor that serializes to Mermaid                               | Satisfies D-05.                                                                                                                                   |
 | Export            | Rendered HTML → PDF (WebView print); DOCX via a docx library / Pandoc ❓                                 |                                                                                                                                                   |
 
-**Alternatives considered:** *Native Swift*: best Mac feel, but no Android path (conflicts with D-02). *Electron*: proven (Obsidian), but heavy and no mobile. *Flutter*: cross-platform, but weak rich block-editor ecosystem.
+**Alternatives considered:** *Native Swift*: best Mac feel, but no cross-platform mobile path (conflicts with D-02). *Electron*: proven (Obsidian), but heavy and no mobile. *Flutter*: cross-platform, but weak rich block-editor ecosystem.
 
 ### 8.2 Architectural requirements
 
@@ -756,7 +758,7 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | **MVP (v0.1): "usable daily"** | Vault + file format + index; type system with attributes (incl. **Date range**, description, aliases); block editor; links/backlinks (incl. duplicate titles, date mentions); quick switcher; search; Tasks (list/board) + conversion; Tags; Quick Note + menu bar capture + global hotkeys + Inbox; Daily notes; vault setup (empty/starter) and default type; **Image and PDF objects** (PDFs shown as link card; inline viewer in v1.0); trash; folder sync robustness (FR-SYN-01…07); **Capacities importer** (§11.1); **Obsidian import** (open in place or copy, also plain Markdown folders; D-93). |
 | **v1.0: "complete desktop"**   | Visual query builder with all views; embedded queries; calendar view; recurrence; mindmap editor; local graph; templates; version history; PDF inline viewer; share-sheet extension; export (all 4 formats); rebuilding imported query stubs as real queries; tabs; object previews (click to preview). Also (D-87): tag merge, conversion popover attributes, bulk conversion, restore last state, customizable shortcuts, heading/block links, unused-attachments tool, large-file warning, accessibility (FR-TAG-09, FR-CNV-07, -09, FR-HOM-04, FR-NAV-07, FR-LNK-06, FR-ATT-04, -05, FR-UX-08).                                                                                                                                                                                                   |
 | **v1.x**                       | Notion and Anytype import; Capacities re-import (FR-IMP-20); unlinked mentions; split view; customizable Home; multiple vaults; triage mode; global graph.                                                                                                                                                                                                                                                                                                                                                                 |
-| **v2: mobile**                 | Phase 2 API sync; iOS app; Android app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **v2: mobile**                 | Phase 2 API sync; mobile app(s), platform chosen then (D-100).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **v3: AI**                     | Summaries, auto-tagging, semantic search, chat with notes (provider TBD).                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Public release track**       | Onboarding, licensing/payments, auto-update, website/docs, support.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Backlog (unscheduled)**     | Could requirements with no phase, kept as an explicit choice (D-87): tag collections (FR-TAG-11), collapsible blocks (FR-EDT-12), weekly/monthly reviews (FR-DLY-07), search inside PDFs (FR-SRC-05), PDF page links and annotations (FR-ATT-06). |
@@ -871,7 +873,7 @@ None at the moment. All questions are resolved (D-21…D-49).
 
 ## 14. Explicitly Out of Scope (v1)
 
-- Mobile apps (iOS/Android); built-in API sync (Phase 2)
+- Mobile apps (platform open, D-100); built-in API sync (Phase 2)
 - AI features (Phase 3)
 - Real-time collaboration, sharing, publishing to web
 - Text-based query language
