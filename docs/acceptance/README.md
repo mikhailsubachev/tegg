@@ -112,8 +112,8 @@ Details and reasoning: [docs/architecture.md](../architecture.md) §14.
 | AP-37 | **Opening a folder that isn't a Tegg vault.** | **D-91 (owner):** ask whether to import it and run the matching importer (Obsidian vault → Obsidian importer, FR-IMP-01); nothing is written before confirmation. | FR-VLT-01, FR-STO-10, FR-IMP-01 |
 | AP-38 | **Starter vault sequencing and content.** | **D-92:** empty vault in MS1, starter vault in MS3 with attributes specified in MS3's ACs; type named "Reading Note"; until FR-TPL (v1.0) new objects copy the default template file verbatim. | FR-VLT-02, D-23, FR-TPL-01…03, §11.2 |
 
-## Open points (from D-91, pending the owner)
+## Decided points (from D-91, accepted 2026-10-11, BRD D-93)
 
-| # | Issue | Proposal | Affects |
+| # | Issue | Decision | Affects |
 | --- | --- | --- | --- |
-| AP-39 | **D-91 needs the Obsidian importer in the MVP**, but FR-IMP-01 and FR-STO-10 are v1.0 (§11), and FR-VLT-01 (where the flow starts) is MS1. Plain Markdown folders without `.obsidian/` have no importer named. | Move **FR-IMP-01 and FR-STO-10 into MS7** (with the Capacities importer, same job framework, backup and preview); the Obsidian importer also handles plain Markdown folders (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder shows "Import isn't available yet" and writes nothing. | §11, §11.2, FR-IMP-01, FR-STO-10, FR-VLT-01 |
+| AP-39 | **D-91 needs the Obsidian importer in the MVP**, but FR-IMP-01 and FR-STO-10 are v1.0 (§11), and FR-VLT-01 (where the flow starts) is MS1. Plain Markdown folders without `.obsidian/` have no importer named. | Move **FR-IMP-01 and FR-STO-10 into MS7** (with the Capacities importer, same job framework, backup and preview); the Obsidian importer also handles plain Markdown folders (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder shows "Import isn't available yet" and writes nothing. **Accepted: D-93.** | §11, §11.2, FR-IMP-01, FR-STO-10, FR-VLT-01 |

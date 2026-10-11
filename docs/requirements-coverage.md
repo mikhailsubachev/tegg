@@ -1,17 +1,17 @@
 # Requirements coverage by phase
 
-- **Generated:** 2026-10-11 from BRD v1.18 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
+- **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 188. Outside: 91.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 190. Outside: 89.
 
 ## Summary
 
 | Where | Requirements |
 | --- | ---: |
-| MVP milestones MS1–MS8 | 188 |
+| MVP milestones MS1–MS8 | 190 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 63 |
+| v1.0 "complete desktop" (§11) | 61 |
 | v1.x (§11) | 9 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
@@ -238,12 +238,13 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | 6 ACs |
 | FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | 6 ACs |
 
-### MS7: Capacities importer
+### MS7: Capacities and Obsidian importers
 
-17 requirements · 15 with ACs · 0 with spike evidence · 0 implemented
+19 requirements · 15 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
+| FR-IMP-01 | Obsidian vault: the user chooses to open it in place (files aren't rewritten until edited; untyped notes are t… | no ACs yet |
 | FR-IMP-03 | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | no ACs yet |
 | FR-IMP-05 | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | 4 ACs |
 | FR-IMP-07 | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | 4 ACs |
@@ -261,6 +262,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs |
 | FR-IMP-23 | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | no ACs yet |
 | FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs |
+| FR-STO-10 | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | no ACs yet |
 
 ### MS8: MVP hardening & release
 
@@ -327,11 +329,10 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (63)
+### v1.0 "complete desktop" (61)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
-| FR-STO-10 | M | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | Obsidian vault in place: part of "Obsidian import" (§11, FR-IMP-01) |
 | FR-TAG-09 | S | Merge two tags into one. | D-87 (AP-34) |
 | FR-CNV-07 | S | The conversion popover lets the user set key attributes at once (e.g. for a Task: due date, priority) without … | D-87 (AP-34) |
 | FR-CNV-09 | S | Bulk conversion: convert each selected list item into a separate object (e.g. 5 bullet points → 5 tasks). | D-87 (AP-34) |
@@ -383,7 +384,6 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TPL-07 | M | Template files are excluded from search, queries and graph. | Templates (§11) |
 | FR-TPL-08 | C | Prompting for values in a form at creation. | Templates (§11) |
 | FR-HIS-03 | M | Version history: snapshots of each note are taken automatically (at most every 5 minutes while editing, plus b… | Version history (§11) |
-| FR-IMP-01 | M | Obsidian vault: the user chooses to open it in place (files aren't rewritten until edited; untyped notes are t… | Obsidian import (§11) |
 | FR-IMP-18 | S | Option to convert imported checklist items (`- [ ]`) into Task objects (default: keep them as checklists, D-28… | §11.1 table: checklist → Task option in v1.0 |
 | FR-EXP-01 | M | Export a single note, a selection, a query result, or a note with its embeds/links up to depth N. | Export, all 4 formats (§11) |
 | FR-EXP-02 | M | Formats: PDF, HTML (single file, or a static linked site for multi-note export), DOCX, Markdown bundle (.zip) … | Export, all 4 formats (§11) |
