@@ -1,0 +1,37 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Task
+plural: Tasks
+system: true
+folder: Tasks
+icon: check-square
+color: blue
+review: false
+preview: [status, priority, due]
+attributes:
+  - key: status
+    name: Status
+    type: select
+    options:
+      - { label: To do, state: open, color: gray }
+      - { label: In progress, state: in-progress, color: blue }
+      - { label: Waiting, state: open, color: yellow }
+      - { label: Done, state: done, color: green }
+      - { label: Cancelled, state: cancelled, color: red }
+  - key: priority
+    name: Priority
+    type: select
+    options:
+      - { label: High, color: red }
+      - { label: Medium, color: orange }
+      - { label: Low, color: blue }
+      - { label: None, color: gray }
+  - key: due
+    name: Due date
+    type: date
+  - key: completed
+    name: Completed
+    type: date-time
+  - key: recurrence
+    name: Recurrence
+    type: recurrence

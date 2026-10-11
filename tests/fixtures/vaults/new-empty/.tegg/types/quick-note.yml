@@ -1,0 +1,11 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Quick Note
+plural: Quick Notes
+system: true
+folder: Quick Notes
+icon: zap
+color: yellow
+review: locked
+preview: []
+attributes: []

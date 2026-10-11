@@ -1,0 +1,26 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Image
+plural: Images
+system: true
+folder: Images
+icon: image
+color: teal
+review: false
+preview: [width, height]
+attributes:
+  - key: file
+    name: File
+    type: file
+  - key: media-type
+    name: Media type
+    type: text
+  - key: size
+    name: Size
+    type: number
+  - key: width
+    name: Width
+    type: number
+  - key: height
+    name: Height
+    type: number
