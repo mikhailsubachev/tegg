@@ -295,16 +295,20 @@ One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` 
 
 ## 12. Milestones → components
 
+Milestone names and requirements as in BRD §11.2; full requirement mapping in [requirements-coverage.md](requirements-coverage.md).
+
 | Milestone | Builds |
 | --- | --- |
-| MS1 data safety | `tegg-vault` (write path, trash, temp clean-up, versions, backups), `@tegg/doc` (from S1), fault-injection harness |
-| MS2 index | `tegg-format`, `tegg-index`, watcher, `tegg-core`, IPC skeleton, shell with main window |
-| MS3 types | `tegg-schema`, attribute panel, type pages |
-| MS4 editor, links | `@tegg/editor` (from S2), link rename job, `tegg-jobs` skeleton |
-| MS5 capture | capture window, menu bar, hotkeys, single instance |
-| MS6 queries | `tegg-query`, views |
-| MS7 importer | import planner (from S5) + transform in the worker |
-| MS8 hardening | performance on the reference machine, signing, two-Mac sync |
+| MS1 Vault core & file format | `tegg-vault` (write path, trash folder, temp clean-up, versions, `VaultFs` seam), `@tegg/doc` (from S1), file-name and date rules in `tegg-format`, fault-injection harness, L0 architecture checks |
+| MS2 Index, watcher, search, switcher | `tegg-format` extractor, `tegg-index`, watcher, `tegg-core`, IPC skeleton, shell with main window, progress events |
+| MS3 Types, attributes, editor | `tegg-schema`, attribute panel, type pages with default views (first fixed-definition `tegg-query`), `@tegg/editor` (from S2), app layout, command registry, themes, string externalization |
+| MS4 Links, tags, renames, daily notes | `tegg-jobs` (link, tag and attribute renames through the worker), backup zips before bulk operations, daily notes, embeds |
+| MS5 Tasks, capture, inbox, home | task list and board, block → object conversion, capture window, menu bar, hotkeys, single instance, Inbox and Home sections |
+| MS6 Images, PDFs, trash | Image/PDF objects, `_attachments/`, trash view and restore |
+| MS7 Capacities importer | import planner (from S5) in `tegg-jobs` + body transformation in the worker |
+| MS8 MVP hardening & release | performance on the reference machine, signing and notarization, two-Mac sync, soak |
+
+The visual query builder and saved queries are v1.0; the MVP's lists (type pages, tasks, Inbox, Home) use fixed query definitions.
 
 ---
 
