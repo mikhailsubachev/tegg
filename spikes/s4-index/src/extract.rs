@@ -90,7 +90,8 @@ pub fn extract(text: &str, stem: &str) -> Extracted {
         title: s("title").unwrap_or_else(|| nfc(stem)),
         id: s("id"),
         kind: s("type"),
-        frontmatter_error: fm.as_ref().is_some_and(|f| f.data.is_none()),
+        // D-97: an opening `---` that never closes is an error too (the file is then all body).
+        frontmatter_error: fm.as_ref().is_some_and(|f| f.data.is_none()) || (fm.is_none() && unclosed(text, start)),
         attributes: data,
         links,
         tags,
@@ -103,6 +104,11 @@ pub fn tag_key(name: &str) -> String {
 }
 
 // ------------------------------------------------------------------ frontmatter (parse.ts)
+
+fn unclosed(text: &str, start: usize) -> bool {
+    let rest = &text[start..];
+    rest.starts_with("---\n") || rest.starts_with("---\r\n")
+}
 
 fn frontmatter(text: &str, start: usize) -> Option<Frontmatter> {
     let rest = &text[start..];

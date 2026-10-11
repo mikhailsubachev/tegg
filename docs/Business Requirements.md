@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.20, for review                                             |
+| **Document status** | Draft v1.21, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -36,6 +36,7 @@
 | v1.18   | 2026-10-11 | MS1 AC decisions (AP-35…AP-38): seven system types (D-89); system type definitions in the vault (D-90); opening a non-Tegg folder offers the matching importer (D-91); starter vault moves to MS3, "Reading Note" (D-92). Open: AP-39 (Obsidian importer scheduling). |
 | v1.19   | 2026-10-11 | Obsidian import moves into the MVP, MS7 (D-93, AP-39). |
 | v1.20   | 2026-10-11 | ACs verified at a later milestone are marked with that milestone (D-94, AP-40). |
+| v1.21   | 2026-10-11 | MS1 test decisions (AP-41…AP-45, D-95…D-99): static AC tests exempt from red-first; new-note key order and type casing; unclosed frontmatter reported; remembered missing vault named; new-empty vault fixture approved by the owner. |
 
 ---
 
@@ -173,6 +174,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-92 | Starter vault                        | MS1 builds the empty vault; the **starter vault moves to MS3**, with the starter types' attributes specified in MS3's ACs. The type is named **Reading Note**. Until templates (FR-TPL, v1.0), a new object copies its type's default template file verbatim (attribute defaults and body, no variables) (AP-38) |
 | D-93 | Obsidian import in the MVP          | FR-IMP-01 and FR-STO-10 move from v1.0 into **MS7**, next to the Capacities importer (same job framework, backup and preview). The Obsidian importer also handles plain Markdown folders without `.obsidian/` (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder says "Import isn't available yet" and writes nothing (AP-39, D-91) |
 | D-94 | Deferred ACs                         | An AC that needs parts built in a later milestone is marked with that milestone right after its label (`- **AC-2** [MS2] …`). The milestone check verifies it there instead of at its requirement's milestone and lists every deferred AC in a `milestone-deferred` check; `verify release` checks all ACs (AP-40, CONTRACT §9.4) |
+| D-95 | Static AC tests                      | AC tests of rules that already hold before implementation (static/structural checks) are committed separately with `Red-First-Exempt: static rule already holds in the skeleton; approved-by: owner` (AP-41) |
+| D-96 | New note keys                        | Key order `id, type, title, <attributes in schema order>, created, modified`; `title` always written; `type` is the type name in lower case with spaces as `-` (`page`, `quick-note`), as D-54 (AP-42, dialect §3) |
+| D-97 | Unclosed frontmatter                 | An opening `---` that never closes is reported as "frontmatter not closed" at line 1 and the whole file is treated as body (NFR-REL-03); the S1/S4 extraction reference follows (AP-43) |
+| D-98 | Missing remembered vault             | The app remembers the vault path even when the folder is gone and names it in the chooser (`last_opened` returns the path and whether it exists) (AP-44, FR-VLT-01 AC-7) |
+| D-99 | New-empty vault fixture              | The exact content of a new empty vault is the fixture `tests/fixtures/vaults/new-empty/`, drafted from the BRD and **approved by the owner** before MS1 implementation (AP-45, FR-VLT-02 AC-3) |
 
 ---
 

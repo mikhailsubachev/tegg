@@ -28,7 +28,8 @@ export function extract(text: string, stem: string): Extracted {
     id: str(data?.id),
     type: str(data?.type),
     attributes: data,
-    frontmatterError: !!doc.frontmatter?.error,
+    // D-97: an unclosed opening `---` (no frontmatter, a warning) is an error too.
+    frontmatterError: !!doc.frontmatter?.error || (!doc.frontmatter && !!doc.frontmatterWarning),
     links: wikilinks(doc).map((l) => ({
       target: l.target.normalize('NFC'),
       subpath: l.subpath,

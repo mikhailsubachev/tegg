@@ -423,7 +423,7 @@
     "id": null,
     "type": null,
     "attributes": null,
-    "frontmatterError": false,
+    "frontmatterError": true,
     "links": [],
     "tags": []
   },
