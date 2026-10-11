@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg logo directions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDECE8}
+</style>
+</helmet>
+<div style="width: 1680px; height: 2320px; box-sizing: border-box; padding: 56px 64px; background: #EDECE8; color: #1C1C1E; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; align-items: flex-end; gap: 24px">
+<div style="flex: 1">
+<div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #6A6A70">Brand exploration · rounds 1–3</div>
+<h1 style="margin: 6px 0 0; font-family: Fraunces, Georgia, serif; font-size: 48px; line-height: 1.1; font-weight: 700">Tegg logo directions</h1>
+</div>
+<p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.5; color: #4A4A50">Twelve directions (07–09 push contrast; 10–12 are high-contrast blue and white) built around what Tegg is: typed objects, linked notes and plain Markdown files on your own disk. Each is shown as a macOS app icon, with a wordmark, and at 32, 20 and 16 px on light and dark.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; flex: 1">
+<sc-for list="{{concepts}}" as="c" hint-placeholder-count="6">
+<section aria-label="{{c.name}}" style="background: #FFFFFF; border-radius: 18px; padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.05)">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #9A9AA0">{{c.num}}</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 650">{{c.name}}</h2>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55555B; min-height: 40px">{{c.idea}}</p>
+
+<div style="display: flex; align-items: center; gap: 28px">
+<svg width="128" height="128" viewBox="0 0 100 100" role="img" aria-label="{{c.name}} app icon" style="flex: none; filter: drop-shadow(0 6px 14px rgba(0,0,0,.18))">
+<path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="{{c.bg}}"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="3">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="round"></path>
+</sc-for>
+</svg>
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="44" height="44" viewBox="0 0 100 100" aria-hidden="true" style="flex: none">
+<path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="{{c.bg}}"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="3">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="round"></path>
+</sc-for>
+</svg>
+<span style="font-family: {{c.font}}; font-size: 44px; font-weight: {{c.weight}}; letter-spacing: {{c.track}}; line-height: 1; color: {{c.ink}}">{{c.word}}</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: auto">
+<div style="display: flex; align-items: center; justify-content: center; gap: 18px; height: 64px; border-radius: 10px; background: #F4F4F2">
+<sc-for list="{{sizes}}" as="z" hint-placeholder-count="3">
+<svg width="{{z}}" height="{{z}}" viewBox="0 0 100 100" aria-hidden="true">
+<path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="{{c.bg}}"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="3">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="round"></path>
+</sc-for>
+</svg>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: center; gap: 18px; height: 64px; border-radius: 10px; background: #1C1C1E">
+<sc-for list="{{sizes}}" as="z" hint-placeholder-count="3">
+<svg width="{{z}}" height="{{z}}" viewBox="0 0 100 100" aria-hidden="true">
+<path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="{{c.bg}}"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="3">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="round"></path>
+</sc-for>
+</svg>
+</sc-for>
+</div>
+</div>
+</section>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1680,"height":2320}}'>
+class Component extends DCLogic {
+renderVals() {
+const c = (cx, cy, r) => 'M' + (cx - r) + ' ' + cy + ' a' + r + ' ' + r + ' 0 1 0 ' + (2 * r) + ' 0 a' + r + ' ' + r + ' 0 1 0 ' + (-2 * r) + ' 0 Z';
+const rr = (x, y, w, h, r) => 'M' + (x + r) + ' ' + y + ' H' + (x + w - r) + ' Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r) + ' V' + (y + h - r) + ' Q' + (x + w) + ' ' + (y + h) + ' ' + (x + w - r) + ' ' + (y + h) + ' H' + (x + r) + ' Q' + x + ' ' + (y + h) + ' ' + x + ' ' + (y + h - r) + ' V' + (y + r) + ' Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y + ' Z';
+const fill = (d, f) => ({ d, fill: f, stroke: 'none', sw: '0', cap: 'round' });
+const line = (d, s, w, cap) => ({ d, fill: 'none', stroke: s, sw: String(w), cap: cap || 'round' });
+const egg = 'M50 12 C33 12 22 40 22 59 C22 77 34 89 50 89 C66 89 78 77 78 59 C78 40 67 12 50 12 Z';
+const eggBig = 'M50 8 C31 8 19 39 19 60 C19 80 32 93 50 93 C68 93 81 80 81 60 C81 39 69 8 50 8 Z';
+const fraunces = "Fraunces, Georgia, serif";
+const grotesk = "'Space Grotesk', -apple-system, sans-serif";
+const concepts = [
+{
+num: '01', name: 'Hatch', bg: '#1F1D1A',
+idea: 'An egg holding a tiny graph: notes hatch into linked objects. It plays on the name and stays readable as a silhouette.',
+word: 'Tegg', font: fraunces, weight: '700', track: '-0.01em',
+shapes: [
+fill(egg, '#F4E7CF'),
+line('M40 54 L60 47 M40 54 L52 71 M60 47 L52 71', '#B9821F', 3),
+fill(c(40, 54, 5.5), '#E39B2D'), fill(c(60, 47, 5.5), '#E39B2D'), fill(c(52, 71, 5.5), '#E39B2D')
+]
+},
+{
+num: '02', name: 'Brackets', bg: '#1D5CCB',
+idea: 'The [[wikilink]] brackets around a T. It speaks the Obsidian-compatible syntax directly and is built only from straight strokes.',
+word: '[[tegg]]', font: grotesk, weight: '700', track: '-0.02em',
+shapes: [
+line('M24 26 H16 V74 H24 M36 26 H28 V74 H36 M64 26 H72 V74 H64 M76 26 H84 V74 H76', '#FFFFFF', 6, 'square'),
+line('M41 36 H59 M50 36 V66', '#FFFFFF', 7, 'square')
+]
+},
+{
+num: '03', name: 'Linked gg', bg: '#F3EFE6',
+idea: 'The two g’s of Tegg drawn as interlocking links, for backlinks and connected thinking. Works as an icon and inside the wordmark.',
+word: 'Tegg', font: grotesk, weight: '500', track: '-0.03em',
+shapes: [
+line(c(39, 44, 13), '#0E7C6B', 6.5), line('M52 44 V62 C52 73 43 78 33 74', '#0E7C6B', 6.5),
+line(c(61, 44, 13), '#0E7C6B', 6.5), line('M74 44 V62 C74 73 65 78 55 74', '#0E7C6B', 6.5)
+]
+},
+{
+num: '04', name: 'Object blocks', bg: '#F1F0EC',
+idea: 'A T made of blocks, like the block editor, with one block in a different colour for a typed object. Modular, so the colour can change per type.',
+word: 'tegg', font: grotesk, weight: '700', track: '-0.02em',
+shapes: [
+fill(rr(16, 18, 20, 20, 5), '#1C1C1E'), fill(rr(40, 18, 20, 20, 5), '#1C1C1E'), fill(rr(64, 18, 20, 20, 5), '#1C1C1E'),
+fill(rr(40, 42, 20, 20, 5), '#1C1C1E'), fill(rr(40, 66, 20, 20, 5), '#E2552B')
+]
+},
+{
+num: '05', name: 'Plain file', bg: '#2B2F36',
+idea: 'A Markdown page with a heading and a line that ends in a link. It says: your notes are plain files on your disk, still connected.',
+word: 'Tegg', font: fraunces, weight: '600', track: '0',
+shapes: [
+fill('M28 14 H60 L76 30 V86 H28 Z', '#FAFAF7'), fill('M60 14 V30 H76 Z', '#D9D6CC'),
+line('M36 34 H50', '#2B2F36', 5), line('M36 46 H58 M36 58 H66 M36 70 H52', '#9AA0A8', 4),
+line('M52 70 H59.5', '#3C7DEB', 3), fill(c(64, 70, 4.5), '#3C7DEB')
+]
+},
+{
+num: '06', name: 'Egg monogram', bg: '#FFF8EC',
+idea: 'A warm, solid egg with a T cut out of it. The simplest of the set: friendly, ownable and crisp at 16 px.',
+word: 'Tegg', font: fraunces, weight: '700', track: '-0.01em',
+shapes: [
+fill(eggBig, '#E39B2D'),
+line('M37 44 H63 M50 44 V74', '#FFF8EC', 9)
+]
+},
+{
+num: '07', name: 'Black yolk', bg: '#0A0A0A',
+idea: 'Pure black, a white egg and a vivid yolk. The most contrast in the set: it reads instantly in the Dock, in the menu bar and at 16 px.',
+word: 'tegg', font: grotesk, weight: '700', track: '-0.04em',
+shapes: [
+fill(eggBig, '#FFFFFF'),
+fill(c(50, 62, 15), '#FFC400')
+]
+},
+{
+num: '08', name: 'T-node', bg: '#FFD60A',
+idea: 'A heavy black T whose stem ends in a node, so the letter is also a connected object. Signal yellow and black for maximum punch.',
+word: 'TEGG', font: grotesk, weight: '700', track: '0.04em',
+shapes: [
+line('M24 28 H76 M50 28 V60', '#0A0A0A', 15, 'butt'),
+fill(c(50, 72, 11), '#0A0A0A')
+]
+},
+{
+num: '09', name: 'Loud brackets', bg: '#0A0A0A',
+idea: 'Brackets taken to black and white, with a single red-orange T. A sharper version of 02 that holds up on any wallpaper.',
+word: '[[Tegg]]', font: grotesk, weight: '700', track: '-0.02em',
+shapes: [
+line('M24 24 H15 V76 H24 M37 24 H28 V76 H37 M63 24 H72 V76 H63 M76 24 H85 V76 H76', '#FFFFFF', 7.5, 'square'),
+line('M41 36 H59 M50 36 V66', '#FF4D1F', 9, 'square')
+]
+},
+{
+num: '10', name: 'Blue egg', bg: '#0B44F0',
+idea: 'The egg monogram in cobalt and white: a white egg with a T cut out in blue. Calm, trustworthy and sharp at every size.',
+word: 'Tegg', font: grotesk, weight: '700', track: '-0.03em', ink: '#0B44F0',
+shapes: [
+fill(eggBig, '#FFFFFF'),
+line('M36 44 H64 M50 44 V75', '#0B44F0', 10, 'butt')
+]
+},
+{
+num: '11', name: 'Blue T-node', bg: '#FFFFFF',
+idea: 'The T-node in cobalt on white: a T whose stem ends in a node. Light in the Dock, and it flips to white-on-blue for dark surfaces.',
+word: 'TEGG', font: grotesk, weight: '700', track: '0.05em', ink: '#0B44F0',
+shapes: [
+line('M24 28 H76 M50 28 V60', '#0B44F0', 15, 'butt'),
+fill(c(50, 72, 11), '#0B44F0')
+]
+},
+{
+num: '12', name: 'Cobalt brackets', bg: '#0B44F0',
+idea: 'Heavy white [[ ]] around a white T on cobalt. The most Obsidian-literal, and the cleanest at 16 px.',
+word: '[[tegg]]', font: grotesk, weight: '700', track: '-0.02em', ink: '#0B44F0',
+shapes: [
+line('M24 24 H15 V76 H24 M37 24 H28 V76 H37 M63 24 H72 V76 H63 M76 24 H85 V76 H76', '#FFFFFF', 8, 'square'),
+line('M41 36 H59 M50 36 V66', '#FFFFFF', 9, 'square')
+]
+}
+].map((k) => ({ ink: '#1C1C1E', ...k }));
+return { concepts, sizes: [32, 20, 16] };
+}
+}
+</script>
+</body>
+</html>
