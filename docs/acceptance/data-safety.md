@@ -48,6 +48,25 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 - **AC-2** All features work with networking disabled.
 - **AC-3** [manual] A vault in Dropbox, Google Drive and iCloud Drive each: create, edit, rename, and delete a note on Mac A; the change appears on Mac B, and Tegg on Mac B shows it within 2 s of the file arriving.
 
+### FR-VLT-01 Create or open a vault
+
+- **AC-1** Given no vault is configured (first launch), the app shows a chooser with **Create new vault** and **Open existing folder**, and writes nothing (in any folder or in Application Support) until the user picks one.
+- **AC-2** **Create:** given a parent folder and a vault name, the app creates `<parent>/<name>/` with `.tegg/vault.yml` and the type definitions of FR-VLT-02 (D-90), and nothing else; then the vault is open. A name is sanitized like a file name (D-52, D-80).
+- **AC-3** Creating a vault where the target folder already exists and is not empty is refused with a message (the user can open it instead); no file in it is touched.
+- **AC-4** **Open a Tegg vault** (a folder with `.tegg/vault.yml`): the vault opens with **zero writes** to its files (FR-SYN-06 AC-1).
+- **AC-5** **Open a folder that is not a Tegg vault** (no `.tegg/`, e.g. an Obsidian vault or plain Markdown): the app offers to **import** it and starts the matching importer (an Obsidian vault, recognized by `.obsidian/`, → the Obsidian importer, FR-IMP-01) (D-91). Nothing is written to the folder before the user confirms in the importer; cancel writes nothing. Which importer handles plain Markdown folders, and the milestone, are pending AP-39.
+- **AC-6** A folder inside a sync provider's folder (Dropbox, Google Drive `~/Library/CloudStorage/…`, iCloud Drive `~/Library/Mobile Documents/…`) is created and opened exactly like any other folder; the app has no provider-specific code path (FR-SYN-01 AC-1). Real providers are checked manually at MS8 (FR-SYN-01 AC-3).
+- **AC-7** The open vault's path is remembered in Application Support (FR-STO-07) and reopened at the next launch. If the folder is missing or moved, the app shows the chooser with a message naming the old path and never recreates the vault there.
+- **AC-8** One vault is open at a time (D-35): opening another vault flushes pending saves of the current one (FR-EDT-08 AC-3) and closes it.
+
+### FR-VLT-02 Empty or starter vault
+
+- **AC-1** **Empty vault:** `.tegg/types/` contains exactly one definition per system type: Page, Task, Quick Note, Daily Note, Tag, Image, PDF (D-89), one `.tegg/types/<type>.yml` each (D-90). No user types, no templates, no notes, no type folders (folders are created with their first object, FR-SYN-06).
+- **AC-2** **Starter vault** (built in MS3, D-92): additionally the user types Book, Reading Note, Idea, Meeting, Person, Project and Trip (D-23), each with a definition in `.tegg/types/` and one default template in `_templates/<Type>/`. They behave like any user type: editable and deletable (FR-TYP-01).
+- **AC-3** Both kinds are deterministic: apart from generated ids and timestamps, the created files equal the committed fixtures `tests/fixtures/vaults/new-empty/` and `tests/fixtures/vaults/new-starter/` byte for byte (names NFC, LF line endings, valid YAML that `tegg-schema` reads back without warnings).
+- **AC-4** **Add starter types later** (MS3, D-92) (Settings): adds only the starter types the vault doesn't have; a type with the same name or folder is never overwritten (it is skipped and listed). Adding writes only the new definition and template files.
+- **AC-5** A new vault of either kind opens in Obsidian with no warnings or stray notes: `.tegg/` is hidden there, and template files are ordinary Markdown (NFR-POR-01).
+
 ### FR-VLT-03 Online-only files
 
 - **AC-1** Given a vault containing a file that is a cloud placeholder (iCloud `.icloud` stub, a dataless file flagged by APFS, Dropbox/Google Drive File Provider placeholder), when the vault is opened, the app shows a warning naming the number of files and how to make the folder available offline.

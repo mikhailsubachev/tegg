@@ -9,10 +9,11 @@ The **critical requirements**: those where a bug means data loss, corrupted file
 | File | Area | Requirements |
 | --- | --- | --- |
 | [file-format.md](file-format.md) | Markdown file format and round-trip | FR-FMT-01…12, FR-STO-02, FR-TYP-10, FR-TYP-15, NFR-POR-01…03, AR-06 |
-| [data-safety.md](data-safety.md) | Vault storage, writes, sync, external changes | FR-STO-01, -03…09, FR-SYN-01…07, FR-EDT-08, FR-VLT-03, NFR-REL-01…04, AR-01 |
+| [data-safety.md](data-safety.md) | Vault setup and storage, writes, sync, external changes | FR-VLT-01, -02, FR-STO-01, -03…09, FR-SYN-01…07, FR-EDT-08, FR-VLT-03, NFR-REL-01…04, AR-01 |
 | [links.md](links.md) | Link integrity, renames, duplicates, date mentions, media objects | FR-FMT-08, FR-LNK-03, -04, -14, FR-STO-04, FR-TYP-04, -07, FR-TAG-04, FR-DLY-08, FR-ATT-07 |
 | [import-capacities.md](import-capacities.md) | Capacities importer (MVP, D-41) | FR-IMP-05, -07, -09…17, -19…24, FR-HIS-04 (MVP backup) |
 | [performance.md](performance.md) | Performance targets | NFR-PERF-01…10 |
+| [architecture-rules.md](architecture-rules.md) | Architecture rules enforced by checks | AR-03, AR-04 |
 | [qa-infrastructure.md](qa-infrastructure.md) | Test tooling and spike QA exit criteria (D-60, D-61) | `docs/test-strategy.md` TS-xx rules |
 
 ACs for the remaining MVP requirements are written **per milestone**, just before that milestone is built.
@@ -101,3 +102,18 @@ Details and reasoning: [docs/architecture.md](../architecture.md) §14.
 | AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion). Two patch engines (TS and Rust) would drift. | One text engine: `@tegg/doc` produces every new note's bytes; Rust orchestrates and runs jobs through a Web Worker. The import planner stays in Rust. **Accepted: D-82, ADR 0003.** | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-* |
 | AP-30 | **Residual overwrite window** between the disk-version check and the atomic rename; sync clients respect no lock. | Accept the sub-millisecond window as a documented limit; version history (v1.0) keeps replaced bytes. **Accepted: D-84.** | NFR-REL-02, FR-SYN-03 |
 | AP-31 | **Spike code in the product.** Spikes are throwaway, but S5 says its code becomes the importer. | Port spike modules deliberately with tests re-authored from the ACs (D-61); product code never imports from `spikes/`. **Accepted: D-83.** | D-61, TS-I |
+
+## Decided points (from writing the MS1 ACs, accepted 2026-10-11, BRD D-89…D-92)
+
+| # | Issue | Decision | Affects |
+| --- | --- | --- | --- |
+| AP-35 | **System types list.** FR-VLT-02, D-22 and D-23 named five; D-42 added Image and PDF. | **D-89:** seven system types everywhere: Page, Task, Quick Note, Daily Note, Tag, Image, PDF. | FR-VLT-02, D-22, D-42 |
+| AP-36 | **Where system type definitions live.** | **D-90:** one `.tegg/types/<type>.yml` per system type in a new vault; a missing file falls back to built-in defaults and is written only when the user changes the type. | FR-STO-06, FR-VLT-01/-02, D-22 |
+| AP-37 | **Opening a folder that isn't a Tegg vault.** | **D-91 (owner):** ask whether to import it and run the matching importer (Obsidian vault → Obsidian importer, FR-IMP-01); nothing is written before confirmation. | FR-VLT-01, FR-STO-10, FR-IMP-01 |
+| AP-38 | **Starter vault sequencing and content.** | **D-92:** empty vault in MS1, starter vault in MS3 with attributes specified in MS3's ACs; type named "Reading Note"; until FR-TPL (v1.0) new objects copy the default template file verbatim. | FR-VLT-02, D-23, FR-TPL-01…03, §11.2 |
+
+## Open points (from D-91, pending the owner)
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-39 | **D-91 needs the Obsidian importer in the MVP**, but FR-IMP-01 and FR-STO-10 are v1.0 (§11), and FR-VLT-01 (where the flow starts) is MS1. Plain Markdown folders without `.obsidian/` have no importer named. | Move **FR-IMP-01 and FR-STO-10 into MS7** (with the Capacities importer, same job framework, backup and preview); the Obsidian importer also handles plain Markdown folders (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder shows "Import isn't available yet" and writes nothing. | §11, §11.2, FR-IMP-01, FR-STO-10, FR-VLT-01 |
