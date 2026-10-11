@@ -37,6 +37,8 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 - **AC-1** `./verify coverage` lists every `<REQ-ID>/AC-n` in `docs/acceptance/*.md` and every test named after one (TS and Rust), and writes `qa/coverage/ac-matrix.md`.
 - **AC-2** The report lists ACs without a test, tests pointing at ACs that don't exist, and `[manual]` ACs with their latest session or checklist record.
 - **AC-3** `./verify milestone` fails if any AC of the milestone's requirements (BRD §11.2) has no passing test or, for `[manual]` ACs, no record for the current milestone.
+- **AC-4** An AC marked with a milestone right after its label (`- **AC-2** [MS2] …`, also combined with `[manual]` in either order) is checked by `./verify milestone --milestone MS2`, even though its requirement belongs to another milestone. At its requirement's own milestone it doesn't fail the `milestone-acs` check; instead it is listed in a separate, always passing check `milestone-deferred` as `<AC-ID>: verified at MS2` (D-94). `./verify release` checks every AC regardless of markers. The coverage report shows the marker in its Kind column (`auto (MS2)`, `manual (MS2)`).
+- **AC-5** A requirement whose ACs are all deferred still counts as having acceptance criteria. A marker naming a milestone that isn't in the BRD §11.2 table fails the `milestone-acs` check of the requirement's milestone with `<AC-ID>: unknown milestone MSn`.
 
 ### TS-D4 Fixture integrity
 

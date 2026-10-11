@@ -219,7 +219,7 @@ The plist has:
 All `docs/acceptance/*.md` files except `README.md`.
 - **Requirement heading:** a line starting with `### ` followed by one or more IDs separated by ` / `, then a space and free text. An ID is uppercase letters, digits and hyphens, starting with a letter and containing a hyphen or ending in a digit (`FR-FMT-07`, `NFR-REL-01`, `AR-06`, `TS-VERIFY`, `TS-P`, `TS-G2`, `S2-QA`). A shorthand `-NN` after ` / ` means the previous ID's prefix with a new last part: `### FR-STO-01 / -03 / -05 Vault layout` → `FR-STO-01`, `FR-STO-03`, `FR-STO-05`.
 - **Table criterion:** a Markdown table row whose first cell is exactly a requirement ID (e.g. `| NFR-PERF-01 | Cold start to usable UI | < 2 s | … |` in `performance.md`) defines the automated AC `<ID>/AC-1` (owner decision 2026-10-08).
-- **Criterion:** a line starting with `- **AC-<n>**` under a heading. Its ID is `<first heading ID>/AC-<n>`; the other heading IDs are **aliases** (`FR-SYN-02 / NFR-REL-01` → `FR-SYN-02/AC-3`, alias `NFR-REL-01/AC-3`). It is **manual** if `[manual]` follows the label directly (`- **AC-5** [manual] …`); a mention of `[manual]` elsewhere in the text doesn't count. A line `- **<ID>/AC-<n>** …` (as in `performance.md`) defines an AC with that explicit ID, wherever it appears.
+- **Criterion:** a line starting with `- **AC-<n>**` under a heading. Its ID is `<first heading ID>/AC-<n>`; the other heading IDs are **aliases** (`FR-SYN-02 / NFR-REL-01` → `FR-SYN-02/AC-3`, alias `NFR-REL-01/AC-3`). It is **manual** if `[manual]` follows the label directly (`- **AC-5** [manual] …`); a mention of `[manual]` elsewhere in the text doesn't count. It is **deferred** to a milestone if `[MS<n>]` follows the label directly, alone or next to `[manual]` in either order (`- **AC-2** [MS2] …`, `- **AC-5** [manual] [MS3] …`); the same "directly after the label" rule applies (D-94). A line `- **<ID>/AC-<n>** …` (as in `performance.md`) defines an AC with that explicit ID, wherever it appears.
 
 ### 9.2 Test keys
 
@@ -240,7 +240,7 @@ AC status:
 
 The report (exit 0 always) contains, in this order:
 1. `# AC coverage`
-2. a table with one row per AC: `| <AC-ID> | <auto|manual> | <test sources, comma-separated, or —> | <status> |`
+2. a table with one row per AC: `| <AC-ID> | <auto|manual>[ (MS<n>)] | <test sources, comma-separated, or —> | <status> |` (the milestone in parentheses for a deferred AC)
 3. `## Untested ACs` followed by one line `- <AC-ID>` per untested automated AC
 4. `## Orphan tests` followed by one line `- <key> in <repository-relative file>` per orphan reference
 5. `## Manual ACs` followed by one line `- <AC-ID>: <status>` per manual AC
@@ -250,6 +250,7 @@ The report (exit 0 always) contains, in this order:
 - **Milestone requirements** come from `docs/Business Requirements.md`: the table under the heading line starting `### 11.2`, the row whose first cell is `MS<n>`, third cell. That cell is a comma-separated list: `FR-STO-01…09` (range, inclusive, keeping zero padding; `...` works as `…`), `-06` and `-08…11` (shorthand using the previous item's prefix), `AR-01`, `All NFR-PERF` (every requirement whose ID starts with `NFR-PERF-`). Text in parentheses is ignored.
 - Uses the results of the current run (`VERIFY_RESULTS`).
 - The `milestone-acs` check **fails** if (a) an automated AC whose ID or alias is a milestone requirement doesn't have status `pass`, (b) a manual one has no `pass` record for **this** milestone, or (c) a milestone requirement has no AC at all (write ACs before implementing, CLAUDE.md; requirements matched only by an `All <prefix>` item are exempt from (c)). Each offending AC or requirement ID is listed.
+- **Deferred ACs (D-94):** an AC deferred to `MS<k>` is in scope of `verify milestone --milestone MS<k>` (whatever its requirement's milestone) and is **not** checked by its requirement's milestone; there it still counts for (c). A deferred AC skipped this way is listed in a separate check `milestone-deferred`, which always passes, one message `<AC-ID>: verified at MS<k>` each. A marker naming a milestone missing from the §11.2 table fails `milestone-acs` of the requirement's milestone with `<AC-ID>: unknown milestone MS<k>`. `verify release` ignores the markers and checks every AC.
 
 ## 10. Agent definitions (TS-I AC-3)
 
