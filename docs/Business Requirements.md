@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.19, for review                                             |
+| **Document status** | Draft v1.20, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -35,6 +35,7 @@
 | v1.17   | 2026-10-11 | FR-IMP-12/-13 priority: Must within Notion import, which is C, v1.x (D-88). |
 | v1.18   | 2026-10-11 | MS1 AC decisions (AP-35…AP-38): seven system types (D-89); system type definitions in the vault (D-90); opening a non-Tegg folder offers the matching importer (D-91); starter vault moves to MS3, "Reading Note" (D-92). Open: AP-39 (Obsidian importer scheduling). |
 | v1.19   | 2026-10-11 | Obsidian import moves into the MVP, MS7 (D-93, AP-39). |
+| v1.20   | 2026-10-11 | ACs verified at a later milestone are marked with that milestone (D-94, AP-40). |
 
 ---
 
@@ -171,6 +172,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-91 | Opening a folder that isn't a Tegg vault | The app asks whether to **import** the folder and runs the matching importer (an Obsidian vault → the Obsidian importer, FR-IMP-01). Nothing is written before the user confirms (FR-SYN-06) (owner decision on AP-37; scheduling consequence in AP-39) |
 | D-92 | Starter vault                        | MS1 builds the empty vault; the **starter vault moves to MS3**, with the starter types' attributes specified in MS3's ACs. The type is named **Reading Note**. Until templates (FR-TPL, v1.0), a new object copies its type's default template file verbatim (attribute defaults and body, no variables) (AP-38) |
 | D-93 | Obsidian import in the MVP          | FR-IMP-01 and FR-STO-10 move from v1.0 into **MS7**, next to the Capacities importer (same job framework, backup and preview). The Obsidian importer also handles plain Markdown folders without `.obsidian/` (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder says "Import isn't available yet" and writes nothing (AP-39, D-91) |
+| D-94 | Deferred ACs                         | An AC that needs parts built in a later milestone is marked with that milestone right after its label (`- **AC-2** [MS2] …`). The milestone check verifies it there instead of at its requirement's milestone and lists every deferred AC in a `milestone-deferred` check; `verify release` checks all ACs (AP-40, CONTRACT §9.4) |
 
 ---
 

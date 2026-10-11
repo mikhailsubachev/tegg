@@ -29,7 +29,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 ### FR-FMT-02 Stable id, type, timestamps
 
 - **AC-1** A new object created in Tegg has `id` (26-character ULID), `type`, `created` and `modified` in its frontmatter.
-- **AC-2** Given an object is renamed, moved to another type folder, or edited in another editor, then its `id` is unchanged and the index still identifies it as the same object.
+- **AC-2** [MS2] Given an object is renamed, moved to another type folder, or edited in another editor, then its `id` is unchanged and the index still identifies it as the same object.
 - **AC-3** Given an untyped Markdown file (no `id`), it is not modified on open; `id` and `type: page` are written on the first edit in Tegg (AP-4).
 - **AC-4** `modified` changes only when content or an attribute changed (AP-5); `created` never changes after creation.
 
@@ -49,12 +49,12 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 ### FR-FMT-09 Daily note file names
 
 - **AC-1** With the default setting, the Daily Note for 9 Oct 2026 is `Daily/2026-10-09.md`.
-- **AC-2** With the date format set to `DD.MM.YYYY`, the same note is `Daily/09.10.2026.md`, and existing daily notes are still recognized by their `date` attribute.
+- **AC-2** [MS2] With the date format set to `DD.MM.YYYY`, the same note is `Daily/09.10.2026.md`, and existing daily notes are still recognized by their `date` attribute.
 
 ### FR-FMT-10 Tags
 
 - **AC-1** Applying tag `reading` to an object adds `reading` to its `tags:` list (no `#` in frontmatter).
-- **AC-2** An inline `#reading` in the body and `tags: [reading]` count as the same tag; the object is listed once on the tag page.
+- **AC-2** [MS4] An inline `#reading` in the body and `tags: [reading]` count as the same tag; the object is listed once on the tag page.
 - **AC-3** Tag matching is case-insensitive and NFC-normalized (`#Čtení` = `#čtení`); the stored spelling is preserved.
 - **AC-4** `#` followed by a digit only (`#1`), a heading `# Title`, and `#` inside URLs or code are **not** tags.
 
@@ -63,14 +63,14 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 - **AC-1** A Date attribute set to 9 Oct 2026 is written as `2026-10-09` (unquoted, no time, no offset).
 - **AC-2** Given the file contains `due: 2026-10-09`, when the app runs with the system time zone set to America/Los_Angeles, Europe/Prague and Asia/Tokyo, then the UI shows 9 Oct 2026 in all three.
 - **AC-3** A Date-time attribute is written as ISO 8601 with offset, e.g. `2026-10-09T14:30:00+02:00`.
-- **AC-4** A Date range attribute `dates` is written as `dates-start: 2026-07-01` and `dates-end: 2026-07-14` (FR-TYP-02) and shown as one field.
+- **AC-4** [MS3] A Date range attribute `dates` is written as `dates-start: 2026-07-01` and `dates-end: 2026-07-14` (FR-TYP-02) and shown as one field.
 
 ### FR-FMT-12 Unicode normalization
 
 - **AC-1** Given a file name in NFD (`Čtení.md` decomposed, as from some zip tools), then `[[Čtení]]` written in NFC resolves to it.
 - **AC-2** All file names and link targets **written** by Tegg are NFC.
-- **AC-3** Given two files whose names differ only in normalization (NFC vs NFD), the app reports a name conflict instead of treating them as different objects or silently overwriting one.
-- **AC-4** Search and the quick switcher match `cteni` to `Čtení` (diacritic-insensitive, FR-SRC-04).
+- **AC-3** [MS2] Given two files whose names differ only in normalization (NFC vs NFD), the app reports a name conflict instead of treating them as different objects or silently overwriting one.
+- **AC-4** [MS2] Search and the quick switcher match `cteni` to `Čtení` (diacritic-insensitive, FR-SRC-04).
 
 ### FR-STO-02 One file per object
 
@@ -79,17 +79,17 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 
 ### FR-TYP-10 Untyped files
 
-- **AC-1** A file without a `type` key is shown as type Page.
+- **AC-1** [MS3] A file without a `type` key is shown as type Page.
 - **AC-2** Opening, indexing and viewing it never writes the file (AC-2 of FR-FMT-07).
 
 ### FR-TYP-15 Reserved attribute keys
 
-- **AC-1** Creating a user attribute with key `source`, `id`, `file`, etc. is rejected with a message naming the reserved key.
-- **AC-2** On import, a colliding source attribute is renamed with the suffix `-text` (e.g. `source` → `source-text`), and the rename is listed in the import report.
+- **AC-1** [MS3] Creating a user attribute with key `source`, `id`, `file`, etc. is rejected with a message naming the reserved key.
+- **AC-2** [MS7] On import, a colliding source attribute is renamed with the suffix `-text` (e.g. `source` → `source-text`), and the rename is listed in the import report.
 
 ### NFR-POR-01 Opens in Obsidian
 
-- **AC-1** [manual] A vault created by Tegg with the starter types and one object using every MVP feature opens in Obsidian with: content, links, embeds, images, attributes and mindmaps intact, and no Obsidian warnings about invalid properties.
+- **AC-1** [manual] [MS3] A vault created by Tegg with the starter types and one object using every MVP feature opens in Obsidian with: content, links, embeds, images, attributes and mindmaps intact, and no Obsidian warnings about invalid properties.
 - **AC-2** Automated proxy: every file written by Tegg in the test suite parses with a standard YAML parser and a CommonMark parser without errors.
 
 ### NFR-POR-02 Portable file names
@@ -100,4 +100,4 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 
 ### NFR-POR-03 Nothing only in the index
 
-- **AC-1** Given a vault, when the index directory in Application Support is deleted and the app restarted, then every title, attribute, link, tag, type and saved query is identical to before (see also AR-01).
+- **AC-1** [MS2] Given a vault, when the index directory in Application Support is deleted and the app restarted, then every title, attribute, link, tag, type and saved query is identical to before (see also AR-01).
