@@ -1,0 +1,23 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: PDF
+plural: PDFs
+system: true
+folder: PDFs
+icon: file
+color: red
+review: false
+preview: [pages]
+attributes:
+  - key: file
+    name: File
+    type: file
+  - key: media-type
+    name: Media type
+    type: text
+  - key: size
+    name: Size
+    type: number
+  - key: pages
+    name: Pages
+    type: number

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "make:obsidian-check": "node --import ./scripts/ts-resolve.mjs scripts/make-obsidian-check.ts ../../tests/fixtures/vaults/obsidian-check"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
