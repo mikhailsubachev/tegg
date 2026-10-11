@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 export type RustCase = { name: string; status: 'ok' | 'failed' | 'ignored'; output: string; assertion: boolean };
 
@@ -81,4 +82,5 @@ function main(argv: string[]): number {
   return status;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exit(main(process.argv.slice(2)));
+// pathToFileURL: the repository path may contain spaces ("Tegg notes" → %20).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main(process.argv.slice(2)));
