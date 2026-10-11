@@ -103,11 +103,17 @@ Details and reasoning: [docs/architecture.md](../architecture.md) §14.
 | AP-30 | **Residual overwrite window** between the disk-version check and the atomic rename; sync clients respect no lock. | Accept the sub-millisecond window as a documented limit; version history (v1.0) keeps replaced bytes. **Accepted: D-84.** | NFR-REL-02, FR-SYN-03 |
 | AP-31 | **Spike code in the product.** Spikes are throwaway, but S5 says its code becomes the importer. | Port spike modules deliberately with tests re-authored from the ACs (D-61); product code never imports from `spikes/`. **Accepted: D-83.** | D-61, TS-I |
 
-## Open points (from writing the MS1 ACs, pending the owner)
+## Decided points (from writing the MS1 ACs, accepted 2026-10-11, BRD D-89…D-92)
+
+| # | Issue | Decision | Affects |
+| --- | --- | --- | --- |
+| AP-35 | **System types list.** FR-VLT-02, D-22 and D-23 named five; D-42 added Image and PDF. | **D-89:** seven system types everywhere: Page, Task, Quick Note, Daily Note, Tag, Image, PDF. | FR-VLT-02, D-22, D-42 |
+| AP-36 | **Where system type definitions live.** | **D-90:** one `.tegg/types/<type>.yml` per system type in a new vault; a missing file falls back to built-in defaults and is written only when the user changes the type. | FR-STO-06, FR-VLT-01/-02, D-22 |
+| AP-37 | **Opening a folder that isn't a Tegg vault.** | **D-91 (owner):** ask whether to import it and run the matching importer (Obsidian vault → Obsidian importer, FR-IMP-01); nothing is written before confirmation. | FR-VLT-01, FR-STO-10, FR-IMP-01 |
+| AP-38 | **Starter vault sequencing and content.** | **D-92:** empty vault in MS1, starter vault in MS3 with attributes specified in MS3's ACs; type named "Reading Note"; until FR-TPL (v1.0) new objects copy the default template file verbatim. | FR-VLT-02, D-23, FR-TPL-01…03, §11.2 |
+
+## Open points (from D-91, pending the owner)
 
 | # | Issue | Proposal | Affects |
 | --- | --- | --- | --- |
-| AP-35 | **System types list.** FR-VLT-02, D-22 and D-23 name Page, Task, Quick Note, Daily Note and Tag; D-42 added Image and PDF as system types. | System types are the seven everywhere: Page, Task, Quick Note, Daily Note, Tag, Image, PDF. Update FR-VLT-02 and D-22's list. | FR-VLT-02, D-22, D-42 |
-| AP-36 | **Where system type definitions live.** D-22 lets users add attributes to system types, and FR-STO-06 says type definitions are in `.tegg/types/`, but nothing says whether system types get files. | A new vault gets one `.tegg/types/<type>.yml` per system type, so the vault is self-describing on any Mac (FR-STO-06, NFR-POR-03). If a system type's file is missing, the app uses built-in defaults and writes the file only when the user changes that type (FR-SYN-06). | FR-STO-06, FR-VLT-01/-02, D-22 |
-| AP-37 | **Opening a folder that isn't a Tegg vault yet** (MVP). The Obsidian wizard (FR-IMP-01) is v1.0, and opening must cause zero writes (FR-SYN-06 AC-1). | Ask "Use this folder as a Tegg vault?"; on confirm create only `.tegg/vault.yml` and the type definitions; never rewrite a note; untyped notes are Pages (FR-TYP-10, D-54). Cancel writes nothing. | FR-VLT-01, FR-STO-10, FR-IMP-01 |
-| AP-38 | **Starter vault sequencing and content.** FR-VLT-02 is in MS1, but the starter types need attribute schemas (types are MS3) and default templates (templates are v1.0), and the BRD names the types without their attributes; "Reading Note/Highlight" isn't a usable type name. | MS1 builds the empty vault; the **starter vault moves to MS3**, with the seven starter types' attributes specified when MS3's ACs are written. Name the type "Reading Note". Until FR-TPL (v1.0), a new object copies its type's default template file verbatim (attribute defaults and body; no variables, FR-TPL-03 stays v1.0). | FR-VLT-02, D-23, FR-TPL-01…03, §11.2 |
+| AP-39 | **D-91 needs the Obsidian importer in the MVP**, but FR-IMP-01 and FR-STO-10 are v1.0 (§11), and FR-VLT-01 (where the flow starts) is MS1. Plain Markdown folders without `.obsidian/` have no importer named. | Move **FR-IMP-01 and FR-STO-10 into MS7** (with the Capacities importer, same job framework, backup and preview); the Obsidian importer also handles plain Markdown folders (untyped notes → Page, FR-TYP-10). Until MS7, opening a non-Tegg folder shows "Import isn't available yet" and writes nothing. | §11, §11.2, FR-IMP-01, FR-STO-10, FR-VLT-01 |

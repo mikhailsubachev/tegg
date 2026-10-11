@@ -1,6 +1,6 @@
 # Requirements coverage by phase
 
-- **Generated:** 2026-10-11 from BRD v1.17 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
+- **Generated:** 2026-10-11 from BRD v1.18 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
 - **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 188. Outside: 91.
 
@@ -96,7 +96,7 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS3: Types, attributes, editor
 
-36 requirements · 5 with ACs · 0 with spike evidence · 0 implemented
+37 requirements · 6 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -133,6 +133,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-UX-02 | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | no ACs yet |
 | FR-UX-03 | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | no ACs yet |
 | FR-UX-05 | Light and dark themes with equal quality. | no ACs yet |
+| FR-VLT-02 | When creating a new vault the user chooses: Empty vault (system types only: Page, Task, Quick Note, Daily Note… | 5 ACs |
 | NFR-OTH-02 | UI language: English in v1, with all UI strings externalized so other languages (e.g. Czech) can be added late… | no ACs yet |
 | NFR-PERF-05 | Open a note (typical, < 5k words) | 1 ACs |
 | NFR-PERF-06 | Typing latency | 2 ACs |
@@ -465,7 +466,7 @@ Could requirements listed in BRD §11 as an explicit backlog.
 - **The MVP needs a basic query engine although the query builder is v1.0:** type pages with default views (FR-TYP-09, MS3), the task list and board (FR-TSK, MS5), Inbox and Home sections (MS5) all show filtered, sorted lists. `tegg-query` therefore starts in MS3/MS5 with fixed definitions; the visual builder and saved queries stay v1.0. NFR-PERF-07 (query view, MS8) measures that engine.
 - **Architecture doc:** its milestone table (§12) labelled MS3, MS4 and MS6 differently from BRD §11.2; corrected together with this report.
 - **Still open, not part of AP-32…AP-34:** the FR-IMP-12/-13 priority inconsistency above.
-- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), and **MS1 has ACs for all 35 of its requirements** (FR-VLT-01, -02, AR-03, -04 added 2026-10-11; open points AP-35…AP-38 in `docs/acceptance/README.md`).
+- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 6/37, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), and **MS1 has ACs for all 35 of its requirements** (FR-VLT-01, -02, AR-03, -04 added 2026-10-11; decisions D-89…D-92; AP-39 pending).
 
 ## 7. Decided points (accepted 2026-10-11, BRD v1.16)
 
