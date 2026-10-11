@@ -2,16 +2,18 @@
 
 **Date:** 2026-10-10 · **Branch:** `spike/s3-platform` · **Stack:** Tauri 2.x (D-19), `tauri-plugin-global-shortcut` 2, macOS 26, arm64
 
-## Verdict: provisional GO. The real-app suite is written but waits for Xcode; signing waits for a Developer ID
+## Verdict: GO on the platform; only the signed DMG (AC-5) waits for a Developer ID
+
+**Update 2026-10-11:** the Appium `mac2` suite ran on the built app (Xcode 27, mac2 driver 4.3.6): **7 / 7 pass**, covering AC-1 to AC-4. Results: `results/s3-capture-timing.json`, `results/s3-network.json` (machine-local).
 
 Tauri 2 does what Quick Capture needs: a menu bar icon, two global hotkeys and a capture window that work with the main window closed, well under the 300 ms target. The S3-QA exit criteria aren't all met yet. Two of the blockers are setup on the owner's side, not technical problems:
 
 | Check (S3-QA, `docs/acceptance/qa-infrastructure.md`) | Result |
 | --- | --- |
-| AC-1: capture through ⌃⌥Space, ⌃⌥T and the menu bar icon, main window closed; file appears | **Shown manually** (hotkeys posted by System Events from another app → typed → ⌘↩ → file in `Quick Notes/` and `Tasks/` with `review: unreviewed`, `captured:`). **Appium run pending**: `e2e-appium/s3_qa.test.ts` is written and typechecks; Appium `mac2` needs full Xcode, which isn't installed |
-| AC-2: interaction inside the WKWebView, read back | Pending the Appium run. The suite clicks Save on an empty field, reads the `role=status` text back, then enters Czech text and reads the field value back |
-| AC-3: open time over ≥ 20 runs, p95 | **2 manual runs: 47 ms and 39 ms** (hotkey handler → field focused + 2 frames painted). The 20-run p95, plus an external accessibility-based upper bound, is in the suite |
-| AC-4: `lsof` shows no non-IPC sockets | **0 internet sockets** in a manual check while hotkey captures were saved. The suite watches throughout the run (`netmon.ts`) |
+| AC-1: capture through ⌃⌥Space, ⌃⌥T and the menu bar icon, main window closed; file appears | **Pass (Appium, 2026-10-11):** main window closed, app keeps running; both hotkeys and the menu bar icon create the file with the right type and `review: unreviewed`. Earlier: **shown manually** (hotkeys posted by System Events from another app → typed → ⌘↩ → file in `Quick Notes/` and `Tasks/` with `review: unreviewed`, `captured:`). **Appium run pending**: `e2e-appium/s3_qa.test.ts` is written and typechecks; Appium `mac2` needs full Xcode, which isn't installed |
+| AC-2: interaction inside the WKWebView, read back | **Pass (Appium, 2026-10-11).** The suite clicks Save on an empty field, reads the `role=status` text back, then enters Czech text and reads the field value back |
+| AC-3: open time over ≥ 20 runs, p95 | **Pass (Appium, 20 runs per hotkey, 2026-10-11): internal p95 72 ms (⌃⌥Space) and 68 ms (⌃⌥T)**, target 300 ms. External upper bound (osascript + WebDriver round trips included) p95 442 / 611 ms: it measures the automation, not the app. Earlier: **2 manual runs: 47 ms and 39 ms** (hotkey handler → field focused + 2 frames painted). The 20-run p95, plus an external accessibility-based upper bound, is in the suite |
+| AC-4: `lsof` shows no non-IPC sockets | **Pass (Appium, 2026-10-11): 0 internet sockets** across 5 watched processes for the whole suite. Earlier: **0 internet sockets** in a manual check while hotkey captures were saved. The suite watches throughout the run (`netmon.ts`) |
 | AC-5: [manual] signed and notarized DMG installs on the second Mac | **Pending a Developer ID certificate.** The DMG builds, ad-hoc signed with hardened runtime and no entitlements (Gatekeeper rejects it, as expected). `scripts/sign-notarize.sh` does sign → notarize → staple → `spctl` once the owner has the certificate |
 
 Other numbers: `.app` 6.0 MB, DMG 2.3 MB. Idle memory: app process 106 MB RSS plus WebKit helpers (GPU, Networking, 2× WebContent) 103 MB, with two webviews (main + capture).
@@ -36,6 +38,8 @@ Other numbers: `.app` 6.0 MB, DMG 2.3 MB. Idle memory: app process 106 MB RSS pl
 | P6 | **Obsidian can't link to file names with `# ^ [ ] \|`**; D-52 doesn't replace `#^[]` | **AP-11** (spike follows D-52 as written) |
 | P7 | FR-CAP-01's "Enter saves" conflicts with a multi-line Markdown field | Spike: ⌘↩ saves, Enter = new line. **AP-12** |
 | P8 | `captured`, `due` (and the other Task keys) aren't defined in the reserved keys or the dialect | Written provisionally. **AP-13** |
+| P10 | **Three test-side bugs found on the first real run** (the app was right each time): WebKit exposes `aria-label` as an element's text, so the status message must be read from its value or its static-text child; a synthetic ⌘V goes to whatever has focus (a button after clicking Save), so the field is clicked first; `pbcopy` needs `LANG=en_US.UTF-8` or it mangles diacritics | Fixed in `e2e-appium/s3_qa.test.ts`. Rule for L6 tests: read accessibility values, not labels; focus explicitly before pasting |
+| P11 | Automation Mode asks for the user's password when WebDriverAgent starts (`appium driver doctor mac2`) | Fine for owner-started runs. An unattended nightly L6 run needs `automationmodetool enable-automationmode-without-authentication`, a security setting the owner decides on |
 | P9 | Tauri 3 is in alpha (crates.io `3.0.0-alpha.4`) | Stay on Tauri 2 (D-19); review at MS8 |
 
 ## Not covered (deliberately)

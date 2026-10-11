@@ -11,7 +11,7 @@
     "app:dev": "tauri dev",
     "app:build": "tauri build --bundles app,dmg",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "icons": "node scripts/make-icon.mjs && tauri icon src-tauri/icons/source.png"
+    "icons": "swift scripts/render-svg.swift src-tauri/icons/logo.svg src-tauri/icons/source.png 1024 && swift scripts/render-svg.swift src-tauri/icons/tray.svg src-tauri/icons/tray.png 44 && tauri icon src-tauri/icons/source.png -o src-tauri/icons"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.2"

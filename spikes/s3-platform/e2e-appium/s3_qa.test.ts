@@ -75,7 +75,8 @@ async function typeCapture(text: string) {
   if (/^[\x20-\x7e]*$/.test(text)) {
     await field.addValue(text);
   } else {
-    execFileSync('pbcopy', { input: text });
+    await field.click(); // the paste goes to the focused element, which may be a button
+    execFileSync('pbcopy', { input: text, env: { ...process.env, LANG: 'en_US.UTF-8' } }); // UTF-8, or pbcopy mangles diacritics
     press(KEY.v, ['command']);
   }
 }
@@ -161,15 +162,27 @@ test('s3_qa_ac2_webview_interaction_reads_back_result', async () => {
   hotkey('quick');
   await waitFor(captureIsOpen, 3000, 'capture window');
   await (await byLabel('Save capture')).click(); // empty → page refuses and says so
+  // WebKit exposes aria-label as the element's text, so the message is read from its value or its
+  // static-text child; wait until one of them carries the expected message.
   const status = await byLabel('Capture status');
-  const said = await waitFor(async () => (await status.getText()) || (await status.getAttribute('value')), 2000, 'status text');
+  const statusTexts = async () => {
+    const child = await status.$('-ios class chain:**/XCUIElementTypeStaticText');
+    return [await status.getAttribute('value').catch(() => ''), await child.getAttribute('value').catch(() => ''), await status.getText().catch(() => '')]
+      .map((v) => String(v ?? ''));
+  };
+  const said = await waitFor(async () => (await statusTexts()).find((v) => v === 'Nothing to save'), 2000, 'status text')
+    .catch(async (e) => { press(KEY.escape); throw new Error(`${e.message}; read: ${JSON.stringify(await statusTexts())}`); });
   assert.equal(said, 'Nothing to save');
 
   // Type Czech text with diacritics, read the field's value back, then save it (FR-FMT-12).
   const czech = 'Příliš žluťoučký kůň';
   await typeCapture(czech);
   const field = await byLabel('Capture text');
-  assert.equal(String(await field.getAttribute('value')).normalize('NFC'), czech);
+  const value = async () => String((await field.getAttribute('value').catch(() => '')) ?? '').normalize('NFC');
+  await waitFor(async () => (await value()) === czech, 2000, 'pasted text in the field').catch(async () => {
+    if (process.env.S3_DEBUG_AX) writeFileSync(join(RESULTS, 'ax-capture.xml'), await driver.getPageSource());
+  });
+  assert.equal(await value(), czech);
   await saveWith('button');
   await waitFor(() => vaultFiles('Quick Notes').includes(`${czech}.md`), 3000, 'Czech capture file');
 });
