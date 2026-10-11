@@ -9,10 +9,11 @@ The **critical requirements**: those where a bug means data loss, corrupted file
 | File | Area | Requirements |
 | --- | --- | --- |
 | [file-format.md](file-format.md) | Markdown file format and round-trip | FR-FMT-01…12, FR-STO-02, FR-TYP-10, FR-TYP-15, NFR-POR-01…03, AR-06 |
-| [data-safety.md](data-safety.md) | Vault storage, writes, sync, external changes | FR-STO-01, -03…09, FR-SYN-01…07, FR-EDT-08, FR-VLT-03, NFR-REL-01…04, AR-01 |
+| [data-safety.md](data-safety.md) | Vault setup and storage, writes, sync, external changes | FR-VLT-01, -02, FR-STO-01, -03…09, FR-SYN-01…07, FR-EDT-08, FR-VLT-03, NFR-REL-01…04, AR-01 |
 | [links.md](links.md) | Link integrity, renames, duplicates, date mentions, media objects | FR-FMT-08, FR-LNK-03, -04, -14, FR-STO-04, FR-TYP-04, -07, FR-TAG-04, FR-DLY-08, FR-ATT-07 |
 | [import-capacities.md](import-capacities.md) | Capacities importer (MVP, D-41) | FR-IMP-05, -07, -09…17, -19…24, FR-HIS-04 (MVP backup) |
 | [performance.md](performance.md) | Performance targets | NFR-PERF-01…10 |
+| [architecture-rules.md](architecture-rules.md) | Architecture rules enforced by checks | AR-03, AR-04 |
 | [qa-infrastructure.md](qa-infrastructure.md) | Test tooling and spike QA exit criteria (D-60, D-61) | `docs/test-strategy.md` TS-xx rules |
 
 ACs for the remaining MVP requirements are written **per milestone**, just before that milestone is built.
@@ -101,3 +102,12 @@ Details and reasoning: [docs/architecture.md](../architecture.md) §14.
 | AP-29 | **Who changes Markdown text outside the editor** (bulk renames, attribute edits on unopened notes, import body conversion). Two patch engines (TS and Rust) would drift. | One text engine: `@tegg/doc` produces every new note's bytes; Rust orchestrates and runs jobs through a Web Worker. The import planner stays in Rust. **Accepted: D-82, ADR 0003.** | ADR 0001, FR-LNK-03, FR-TAG-04, FR-TYP-04, FR-IMP-* |
 | AP-30 | **Residual overwrite window** between the disk-version check and the atomic rename; sync clients respect no lock. | Accept the sub-millisecond window as a documented limit; version history (v1.0) keeps replaced bytes. **Accepted: D-84.** | NFR-REL-02, FR-SYN-03 |
 | AP-31 | **Spike code in the product.** Spikes are throwaway, but S5 says its code becomes the importer. | Port spike modules deliberately with tests re-authored from the ACs (D-61); product code never imports from `spikes/`. **Accepted: D-83.** | D-61, TS-I |
+
+## Open points (from writing the MS1 ACs, pending the owner)
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-35 | **System types list.** FR-VLT-02, D-22 and D-23 name Page, Task, Quick Note, Daily Note and Tag; D-42 added Image and PDF as system types. | System types are the seven everywhere: Page, Task, Quick Note, Daily Note, Tag, Image, PDF. Update FR-VLT-02 and D-22's list. | FR-VLT-02, D-22, D-42 |
+| AP-36 | **Where system type definitions live.** D-22 lets users add attributes to system types, and FR-STO-06 says type definitions are in `.tegg/types/`, but nothing says whether system types get files. | A new vault gets one `.tegg/types/<type>.yml` per system type, so the vault is self-describing on any Mac (FR-STO-06, NFR-POR-03). If a system type's file is missing, the app uses built-in defaults and writes the file only when the user changes that type (FR-SYN-06). | FR-STO-06, FR-VLT-01/-02, D-22 |
+| AP-37 | **Opening a folder that isn't a Tegg vault yet** (MVP). The Obsidian wizard (FR-IMP-01) is v1.0, and opening must cause zero writes (FR-SYN-06 AC-1). | Ask "Use this folder as a Tegg vault?"; on confirm create only `.tegg/vault.yml` and the type definitions; never rewrite a note; untyped notes are Pages (FR-TYP-10, D-54). Cancel writes nothing. | FR-VLT-01, FR-STO-10, FR-IMP-01 |
+| AP-38 | **Starter vault sequencing and content.** FR-VLT-02 is in MS1, but the starter types need attribute schemas (types are MS3) and default templates (templates are v1.0), and the BRD names the types without their attributes; "Reading Note/Highlight" isn't a usable type name. | MS1 builds the empty vault; the **starter vault moves to MS3**, with the seven starter types' attributes specified when MS3's ACs are written. Name the type "Reading Note". Until FR-TPL (v1.0), a new object copies its type's default template file verbatim (attribute defaults and body; no variables, FR-TPL-03 stays v1.0). | FR-VLT-02, D-23, FR-TPL-01…03, §11.2 |

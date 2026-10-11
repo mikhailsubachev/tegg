@@ -1,6 +1,6 @@
 # Requirements coverage by phase
 
-- **Generated:** 2026-10-11 from BRD v1.16 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
+- **Generated:** 2026-10-11 from BRD v1.17 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test passes for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
 - **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 188. Outside: 91.
 
@@ -29,13 +29,13 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS1: Vault core & file format
 
-35 requirements · 26 with ACs · 11 with spike evidence · 0 implemented
+35 requirements · 35 with ACs · 10 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
-| AR-03 | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | no ACs yet |
-| AR-04 | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | no ACs yet |
-| AR-06 | Markdown parsing/serialization is covered by a round-trip test suite (corpus incl. Obsidian, Notion, Capacitie… | 3 ACs, 2 proven in a spike |
+| AR-03 | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | 5 ACs |
+| AR-04 | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | 4 ACs |
+| AR-06 | Markdown parsing/serialization is covered by a round-trip test suite (corpus incl. Obsidian, Notion, Capacitie… | 3 ACs, 1 proven in a spike |
 | FR-FMT-01 | Attributes are stored as YAML frontmatter using Obsidian "Properties" conventions (text, number, checkbox, dat… | 3 ACs |
 | FR-FMT-02 | Every object has a stable `id` in frontmatter (e.g. ULID), so identity survives renames and external edits. Th… | 4 ACs |
 | FR-FMT-03 | Links are `[[Note Name]]`, `[[Note Name\|alias]]`, `[[Note Name#Heading]]` and `[[Note Name#^blockid]]`. Relat… | 4 ACs, 4 proven in a spike |
@@ -50,19 +50,19 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-FMT-12 | Unicode normalization: file names and link targets are written and compared in Unicode NFC, so names with diac… | 4 ACs, 2 proven in a spike |
 | FR-STO-01 | All user content lives in one vault folder chosen by the user; the app may create sub-folders. | 6 ACs |
 | FR-STO-02 | Each object is stored as one `.md` file (UTF-8, LF line endings). | 2 ACs, 2 proven in a spike |
-| FR-STO-03 | The app places each object in a folder named after its type (D-13), e.g. `Pages/`, `Books/`, `Tasks/`, `Meetin… | no ACs yet |
+| FR-STO-03 | The app places each object in a folder named after its type (D-13), e.g. `Pages/`, `Books/`, `Tasks/`, `Meetin… | 6 ACs |
 | FR-STO-04 | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | 3 ACs |
-| FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | no ACs yet |
-| FR-STO-06 | Type definitions, templates, saved queries and vault settings are stored inside the vault as human-readable fi… | no ACs yet |
+| FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | 6 ACs |
+| FR-STO-06 | Type definitions, templates, saved queries and vault settings are stored inside the vault as human-readable fi… | 6 ACs |
 | FR-STO-07 | Machine-local data (search index, cache, window state, recent list, version history) is stored outside the vau… | 3 ACs |
-| FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | no ACs yet |
-| FR-STO-09 | Files that are not Markdown and not recognized attachments are left untouched and ignored. | no ACs yet |
+| FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | 6 ACs |
+| FR-STO-09 | Files that are not Markdown and not recognized attachments are left untouched and ignored. | 6 ACs |
 | FR-SYN-02 | All writes are atomic (write temp file → rename), so a sync client never picks up a half-written file. | 5 ACs |
 | FR-SYN-06 | Writes are minimized (no rewrite of untouched files, no timestamp churn) to reduce sync traffic and conflicts. | 4 ACs |
 | FR-TYP-10 | A file in the vault with no `type` frontmatter (e.g. from Obsidian) is treated as type Page and is not rewritt… | 2 ACs |
-| FR-TYP-15 | Reserved attribute keys: `id, type, title, description, aliases, tags, created, modified, source, review, icon… | 3 ACs, 2 proven in a spike |
-| FR-VLT-01 | On first launch the user can create a new vault or open an existing folder (including one inside Dropbox/Googl… | no ACs yet |
-| FR-VLT-02 | When creating a new vault the user chooses: Empty vault (system types only: Page, Task, Quick Note, Daily Note… | no ACs yet |
+| FR-TYP-15 | Reserved attribute keys: `id, type, title, description, aliases, tags, created, modified, source, review, icon… | 3 ACs |
+| FR-VLT-01 | On first launch the user can create a new vault or open an existing folder (including one inside Dropbox/Googl… | 8 ACs |
+| FR-VLT-02 | When creating a new vault the user chooses: Empty vault (system types only: Page, Task, Quick Note, Daily Note… | 5 ACs |
 | NFR-POR-01 | A vault created by the app opens in Obsidian with content, links, embeds, images, attributes and mindmaps (as … | 2 ACs |
 | NFR-POR-02 | File names are valid on macOS, Windows, iOS and Android (no `: \ / * ? " < > \|`, length ≤ 200 UTF-8 bytes, D-… | 3 ACs |
 | NFR-POR-03 | No information required to understand a note is stored only in the index. | 1 ACs |
@@ -71,7 +71,7 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS2: Index, watcher, search, switcher
 
-18 requirements · 12 with ACs · 1 with spike evidence · 0 implemented
+18 requirements · 12 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-UX-07 | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | no ACs yet |
 | FR-VLT-03 | The app warns if the vault folder contains online-only / cloud placeholder files (Dropbox Smart Sync, Google D… | 2 ACs |
 | NFR-PERF-01 | Cold start to usable UI | 1 ACs |
-| NFR-PERF-02 | Initial full index of a new vault | 2 ACs, 1 proven in a spike |
+| NFR-PERF-02 | Initial full index of a new vault | 2 ACs |
 | NFR-PERF-03 | Quick switcher results | 2 ACs |
 | NFR-PERF-04 | Full-text search | 1 ACs |
 | NFR-PERF-08 | External file change reflected | 1 ACs |
@@ -222,7 +222,7 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS6: Images, PDFs, trash
 
-10 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
+10 requirements · 3 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -234,36 +234,36 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-ATT-09 | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | no ACs yet |
 | FR-HIS-01 | Deleting an object moves it to `.trash/` (with its original path remembered). The Trash view allows restore (b… | no ACs yet |
 | FR-HIS-02 | Trash is auto-emptied after N days (default 30, configurable). | no ACs yet |
-| FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | no ACs yet |
-| FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | no ACs yet |
+| FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | 6 ACs |
+| FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | 6 ACs |
 
 ### MS7: Capacities importer
 
-17 requirements · 15 with ACs · 11 with spike evidence · 0 implemented
+17 requirements · 15 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
 | FR-IMP-03 | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | no ACs yet |
-| FR-IMP-05 | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | 4 ACs, 1 proven in a spike |
-| FR-IMP-07 | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | 4 ACs, 2 proven in a spike |
-| FR-IMP-08 | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | 5 ACs, 3 proven in a spike |
-| FR-IMP-09 | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | 4 ACs, 4 proven in a spike |
+| FR-IMP-05 | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | 4 ACs |
+| FR-IMP-07 | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | 4 ACs |
+| FR-IMP-08 | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | 5 ACs |
+| FR-IMP-09 | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | 4 ACs |
 | FR-IMP-10 | Link rewriting: all link forms become wikilinks resolved by source file/ID, not title alone: `[[Title]]`; Mark… | 6 ACs |
 | FR-IMP-11 | Titles: the title comes from the source's `title:` (Capacities) or the H1 heading (Notion), never from the fil… | 3 ACs |
 | FR-IMP-14 | Media: Capacities media objects (`Images/*.md` + `Images/Media/*`, `PDFs/*.md` + `PDFs/Media/*`) become Tegg I… | 6 ACs |
-| FR-IMP-15 | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | 5 ACs, 2 proven in a spike |
+| FR-IMP-15 | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | 5 ACs |
 | FR-IMP-16 | Queries and views: Capacities Query objects and Notion database views are exported without their definitions. … | 2 ACs |
-| FR-IMP-17 | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | 3 ACs, 1 proven in a spike |
-| FR-IMP-19 | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | 4 ACs, 1 proven in a spike |
-| FR-IMP-20 | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | 1 ACs, 1 proven in a spike |
-| FR-IMP-21 | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | 3 ACs, 1 proven in a spike |
-| FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs, 2 proven in a spike |
+| FR-IMP-17 | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | 3 ACs |
+| FR-IMP-19 | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | 4 ACs |
+| FR-IMP-20 | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | 1 ACs |
+| FR-IMP-21 | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | 3 ACs |
+| FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs |
 | FR-IMP-23 | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | no ACs yet |
-| FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs, 1 proven in a spike |
+| FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs |
 
 ### MS8: MVP hardening & release
 
-17 requirements · 11 with ACs · 1 with spike evidence · 0 implemented
+17 requirements · 11 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -274,7 +274,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-UX-06 | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | no ACs yet |
 | NFR-OTH-01 | Minimum macOS version: macOS 14 Sonoma (D-32). | no ACs yet |
 | NFR-PERF-01 | Cold start to usable UI | 1 ACs |
-| NFR-PERF-02 | Initial full index of a new vault | 2 ACs, 1 proven in a spike |
+| NFR-PERF-02 | Initial full index of a new vault | 2 ACs |
 | NFR-PERF-03 | Quick switcher results | 2 ACs |
 | NFR-PERF-04 | Full-text search | 1 ACs |
 | NFR-PERF-05 | Open a note (typical, < 5k words) | 1 ACs |
@@ -405,8 +405,8 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-GRP-04 | C | Global vault graph in v1.x (D-35), with the same type filters, icons and previews as the local graph. | Global graph (§11) |
 | FR-IMP-02 | — | Notion export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the datab… | Notion import (§11) |
 | FR-IMP-04 | — | Anytype export (Markdown export first; JSON/Protobuf evaluated later, see Risk R-06): types, relations → attri… | Anytype import (§11) |
-| FR-IMP-12 | M | Notion properties: properties of database rows are read from the database CSV (UTF-8 with BOM) and matched to … | Notion detail. Priority says M, but its parent FR-IMP-02 is C (v1.x): inconsistent |
-| FR-IMP-13 | M | Notion structure: each database → a type (single-column databases such as a glossary become simple types). Chi… | as FR-IMP-12 |
+| FR-IMP-12 | — | Notion properties: properties of database rows are read from the database CSV (UTF-8 with BOM) and matched to … | Notion detail. Priority says M, but its parent FR-IMP-02 is C (v1.x): inconsistent |
+| FR-IMP-13 | — | Notion structure: each database → a type (single-column databases such as a glossary become simple types). Chi… | as FR-IMP-12 |
 
 ### v2: mobile and Phase 2 sync (3)
 
@@ -465,7 +465,7 @@ Could requirements listed in BRD §11 as an explicit backlog.
 - **The MVP needs a basic query engine although the query builder is v1.0:** type pages with default views (FR-TYP-09, MS3), the task list and board (FR-TSK, MS5), Inbox and Home sections (MS5) all show filtered, sorted lists. `tegg-query` therefore starts in MS3/MS5 with fixed definitions; the visual builder and saved queries stay v1.0. NFR-PERF-07 (query view, MS8) measures that engine.
 - **Architecture doc:** its milestone table (§12) labelled MS3, MS4 and MS6 differently from BRD §11.2; corrected together with this report.
 - **Still open, not part of AP-32…AP-34:** the FR-IMP-12/-13 priority inconsistency above.
-- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 1/10 of their requirements. That is the D-61 plan (ACs just before each milestone), but **MS1 itself still lacks ACs for 9 requirements**: AR-03, AR-04, FR-STO-03, FR-STO-05, FR-STO-06, FR-STO-08, FR-STO-09, FR-VLT-01, FR-VLT-02. They must be written before MS1 starts.
+- **ACs for the remaining milestones:** MS3–MS6 have ACs for only 5/36, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), but **MS1 itself still lacks ACs for 0 requirements**: . They must be written before MS1 starts.
 
 ## 7. Decided points (accepted 2026-10-11, BRD v1.16)
 
