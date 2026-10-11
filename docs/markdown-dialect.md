@@ -29,9 +29,10 @@ Status: validated by spike S1 (`spikes/s1-roundtrip/FINDINGS.md`, ADR 0001). Def
 
 ## 3. Frontmatter (FR-FMT-01)
 
-- Starts with `---` as the **very first line** (after an optional BOM) and ends at the next line that is exactly `---` (or `...`). If the closing line is missing, the file has **no frontmatter** and the opening `---` is treated as body (a thematic break), with a warning (NFR-REL-03).
+- Starts with `---` as the **very first line** (after an optional BOM) and ends at the next line that is exactly `---` (or `...`). If the closing line is missing, the file has **no frontmatter** and the opening `---` is treated as body (a thematic break), with a warning "frontmatter not closed" at line 1 (NFR-REL-03, D-97).
 - Content is YAML 1.2. Invalid YAML: the file opens in source mode with the error line; it is never rewritten automatically (NFR-REL-03).
 - **Editing** an attribute replaces only that key's source lines (key through the end of its value, including multi-line lists and folded strings). Key order, comments, quoting style and unknown keys elsewhere are preserved. A new attribute is appended as the last entry.
+- **New notes** write keys in this order (D-96): `id`, `type`, `title`, the type's attributes in schema order, `created`, `modified`. `title` is always written. `type` is the type's name in lower case with spaces as `-` (`page`, `quick-note`, `daily-note`).
 
 ### Task keys (D-70)
 
@@ -104,7 +105,7 @@ A tag is `#` followed by one or more of: Unicode letters, combining marks (for N
 
 ## 7. File names (FR-FMT-08, NFR-POR-02)
 
-- Title → file name: replace `/ : \ * ? " < > |`, `# ^ [ ]` (Obsidian can't link to them, D-68) and control characters with a space (D-52), collapse spaces, trim leading/trailing spaces and dots, NFC, cut to **200 UTF-8 bytes** at a character boundary (D-51). Windows reserved names (`CON`, `NUL`, …) get ` (note)`.
-- If the file name differs from the title, `title:` holds the real title.
+- Title → file name: replace `/ : \ * ? " < > |`, `# ^ [ ]` (Obsidian can't link to them, D-68) and control characters with a space (D-52), collapse spaces, trim leading/trailing spaces and dots, NFC, cut to **200 UTF-8 bytes** at a character boundary (D-51). Windows reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, any case) get `_` appended (`CON_.md`, D-80); a title with no valid characters gives `Untitled`.
+- `title:` always holds the real title (D-96); the file name is derived from it.
 - Duplicates: ` (2)`, ` (3)`, … before `.md` (FR-LNK-14, D-53).
 - Daily notes: `YYYY-MM-DD.md` by default (FR-FMT-09).

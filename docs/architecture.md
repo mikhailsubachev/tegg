@@ -69,7 +69,7 @@ flowchart LR
 
 ### 3.1 Rust core (`crates/`)
 
-All core crates are plain Rust libraries with no Tauri dependency, so they build for iOS/Android later (AR-03) and run in `cargo test` against temp vaults (L4).
+All core crates are plain Rust libraries with no Tauri dependency, so they can serve a future mobile app on whichever platform is chosen (AR-03, D-100); platform-specific calls sit in `cfg`-gated items with a portable fallback (AR-03 AC-3) and run in `cargo test` against temp vaults (L4).
 
 | Crate | Owns | Comes from |
 | --- | --- | --- |

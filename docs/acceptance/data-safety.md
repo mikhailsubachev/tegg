@@ -7,10 +7,10 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 ### FR-SYN-02 / NFR-REL-01 Atomic writes, zero data loss
 
 - **AC-1** Every write to a vault file goes to a temporary file **in the same folder**, is flushed (`fsync`), and then renamed over the target. No code path opens a vault file for in-place writing (enforced by a code check: one write function for the whole app).
-- **AC-2** The temporary file name starts with `.` and ends with `.tegg-tmp`, so sync clients and Obsidian ignore it; the file watcher ignores it too.
+- **AC-2** [MS2] The temporary file name starts with `.` and ends with `.tegg-tmp`, so sync clients and Obsidian ignore it; the file watcher ignores it too.
 - **AC-3** Given a write is interrupted (process killed with `SIGKILL` at random points during 1,000 save cycles in a test harness), then after every interruption the target file is either the complete old version or the complete new version, never empty, truncated or mixed.
 - **AC-4** Given leftover `.tegg-tmp` files from a crash, on next vault open they are deleted if older than 1 minute, and never treated as notes.
-- **AC-5** [manual] Force-quitting the app while typing loses at most the last 1 s of typing (FR-EDT-08) and never corrupts the file.
+- **AC-5** [manual] [MS3] Force-quitting the app while typing loses at most the last 1 s of typing (FR-EDT-08) and never corrupts the file.
 
 ### FR-EDT-08 Autosave
 
@@ -20,9 +20,9 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 
 ### FR-SYN-06 Minimal writes
 
-- **AC-1** Opening the vault, indexing, opening notes, searching and running queries cause **zero** writes to vault files (verified by file modification times and a write counter in tests).
+- **AC-1** [MS2] Opening the vault, indexing, opening notes, searching and running queries cause **zero** writes to vault files (verified by file modification times and a write counter in tests).
 - **AC-2** Saving a note writes exactly one file, unless the change requires others (e.g. rename → link updates).
-- **AC-3** A bulk operation (rename, tag rename) writes only files whose content actually changes.
+- **AC-3** [MS4] A bulk operation (rename, tag rename) writes only files whose content actually changes.
 - **AC-4** `modified` is not updated when nothing changed (AP-5).
 
 ### FR-SYN-03 / NFR-REL-02 External changes
@@ -50,22 +50,22 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 
 ### FR-VLT-01 Create or open a vault
 
-- **AC-1** Given no vault is configured (first launch), the app shows a chooser with **Create new vault** and **Open existing folder**, and writes nothing (in any folder or in Application Support) until the user picks one.
+- **AC-1** [MS3] Given no vault is configured (first launch), the app shows a chooser with **Create new vault** and **Open existing folder**, and writes nothing (in any folder or in Application Support) until the user picks one.
 - **AC-2** **Create:** given a parent folder and a vault name, the app creates `<parent>/<name>/` with `.tegg/vault.yml` and the type definitions of FR-VLT-02 (D-90), and nothing else; then the vault is open. A name is sanitized like a file name (D-52, D-80).
 - **AC-3** Creating a vault where the target folder already exists and is not empty is refused with a message (the user can open it instead); no file in it is touched.
 - **AC-4** **Open a Tegg vault** (a folder with `.tegg/vault.yml`): the vault opens with **zero writes** to its files (FR-SYN-06 AC-1).
-- **AC-5** **Open a folder that is not a Tegg vault** (no `.tegg/`, e.g. an Obsidian vault or plain Markdown): the app offers to **import** it and starts the matching importer (an Obsidian vault, recognized by `.obsidian/`, → the Obsidian importer, FR-IMP-01) (D-91). A plain Markdown folder without `.obsidian/` goes to the same importer (D-93). Nothing is written to the folder before the user confirms in the importer; cancel writes nothing. Until the importer exists (MS7), the app says "Import isn't available yet" and writes nothing.
+- **AC-5** [MS3] **Open a folder that is not a Tegg vault** (no `.tegg/`, e.g. an Obsidian vault or plain Markdown): the app offers to **import** it and starts the matching importer (an Obsidian vault, recognized by `.obsidian/`, → the Obsidian importer, FR-IMP-01) (D-91). A plain Markdown folder without `.obsidian/` goes to the same importer (D-93). Nothing is written to the folder before the user confirms in the importer; cancel writes nothing. Until the importer exists (MS7), the app says "Import isn't available yet" and writes nothing.
 - **AC-6** A folder inside a sync provider's folder (Dropbox, Google Drive `~/Library/CloudStorage/…`, iCloud Drive `~/Library/Mobile Documents/…`) is created and opened exactly like any other folder; the app has no provider-specific code path (FR-SYN-01 AC-1). Real providers are checked manually at MS8 (FR-SYN-01 AC-3).
-- **AC-7** The open vault's path is remembered in Application Support (FR-STO-07) and reopened at the next launch. If the folder is missing or moved, the app shows the chooser with a message naming the old path and never recreates the vault there.
-- **AC-8** One vault is open at a time (D-35): opening another vault flushes pending saves of the current one (FR-EDT-08 AC-3) and closes it.
+- **AC-7** [MS3] The open vault's path is remembered in Application Support (FR-STO-07) and reopened at the next launch. If the folder is missing or moved, the app shows the chooser with a message naming the old path and never recreates the vault there.
+- **AC-8** [MS3] One vault is open at a time (D-35): opening another vault flushes pending saves of the current one (FR-EDT-08 AC-3) and closes it.
 
 ### FR-VLT-02 Empty or starter vault
 
 - **AC-1** **Empty vault:** `.tegg/types/` contains exactly one definition per system type: Page, Task, Quick Note, Daily Note, Tag, Image, PDF (D-89), one `.tegg/types/<type>.yml` each (D-90). No user types, no templates, no notes, no type folders (folders are created with their first object, FR-SYN-06).
-- **AC-2** **Starter vault** (built in MS3, D-92): additionally the user types Book, Reading Note, Idea, Meeting, Person, Project and Trip (D-23), each with a definition in `.tegg/types/` and one default template in `_templates/<Type>/`. They behave like any user type: editable and deletable (FR-TYP-01).
+- **AC-2** [MS3] **Starter vault** (built in MS3, D-92): additionally the user types Book, Reading Note, Idea, Meeting, Person, Project and Trip (D-23), each with a definition in `.tegg/types/` and one default template in `_templates/<Type>/`. They behave like any user type: editable and deletable (FR-TYP-01).
 - **AC-3** Both kinds are deterministic: apart from generated ids and timestamps, the created files equal the committed fixtures `tests/fixtures/vaults/new-empty/` and `tests/fixtures/vaults/new-starter/` byte for byte (names NFC, LF line endings, valid YAML that `tegg-schema` reads back without warnings).
-- **AC-4** **Add starter types later** (MS3, D-92) (Settings): adds only the starter types the vault doesn't have; a type with the same name or folder is never overwritten (it is skipped and listed). Adding writes only the new definition and template files.
-- **AC-5** A new vault of either kind opens in Obsidian with no warnings or stray notes: `.tegg/` is hidden there, and template files are ordinary Markdown (NFR-POR-01).
+- **AC-4** [MS3] **Add starter types later** (MS3, D-92) (Settings): adds only the starter types the vault doesn't have; a type with the same name or folder is never overwritten (it is skipped and listed). Adding writes only the new definition and template files.
+- **AC-5** [MS3] A new vault of either kind opens in Obsidian with no warnings or stray notes: `.tegg/` is hidden there, and template files are ordinary Markdown (NFR-POR-01).
 
 ### FR-VLT-03 Online-only files
 
@@ -75,7 +75,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 ### FR-STO-01 / -03 / -05 / -06 / -08 / -09 Vault layout
 
 - **AC-1** All vault content stays inside the chosen folder; the app never writes outside it except to Application Support.
-- **AC-2** A new object of type Book goes to `Books/` (the type's configured folder); changing the type's folder applies to new objects and offers to move existing ones.
+- **AC-2** [MS3] A new object of type Book goes to `Books/` (the type's configured folder); changing the type's folder applies to new objects and offers to move existing ones.
 - **AC-3** Attachments go to `_attachments/`; a second `photo.png` becomes `photo (2).png`.
 - **AC-4** `.tegg/vault.yml`, `.tegg/types/*.yml`, `.tegg/queries/*.yml` and `_templates/<Type>/*.md` are human-readable YAML/Markdown and contain everything needed to rebuild types, queries and templates on another Mac.
 - **AC-5** Deleting an object moves it to `.trash/` keeping its relative path; restore puts it back at the original path (or with a suffix if taken).
@@ -84,12 +84,12 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 ### FR-STO-07 / AR-01 Machine-local data, rebuildable index
 
 - **AC-1** The index, caches, window state, recent list and backups live under `~/Library/Application Support/Tegg/`; nothing machine-local is written into the vault.
-- **AC-2** Deleting the index and restarting produces the same state: objects, titles, attributes, links, backlinks, tags, search results and query results are identical (compare snapshots before/after on the reference vault).
-- **AC-3** A full rebuild runs in the background; the UI stays usable (NFR-PERF-02).
+- **AC-2** [MS2] Deleting the index and restarting produces the same state: objects, titles, attributes, links, backlinks, tags, search results and query results are identical (compare snapshots before/after on the reference vault).
+- **AC-3** [MS2] A full rebuild runs in the background; the UI stays usable (NFR-PERF-02).
 
 ### NFR-REL-03 Invalid frontmatter
 
-- **AC-1** Given files with invalid YAML (unclosed quote, bad indentation, duplicate keys, tab characters, a `---` that never closes), the app does not crash; each opens in source mode with a warning naming the problem and line.
+- **AC-1** [MS3] Given files with invalid YAML (unclosed quote, bad indentation, duplicate keys, tab characters, a `---` that never closes), the app does not crash; each opens in source mode with a warning naming the problem and line.
 - **AC-2** Such files are indexed by file name and body text; they are never rewritten automatically.
 
 ### NFR-REL-04 / FR-HIS-04 Backup before bulk operations (MVP)

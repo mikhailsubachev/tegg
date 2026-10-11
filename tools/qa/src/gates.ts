@@ -14,7 +14,7 @@ import {
   redFirst,
   type CheckResult,
 } from './checks.ts';
-import { milestoneProblems, milestones } from './coverage.ts';
+import { milestoneCheck, milestones } from './coverage.ts';
 import { exec, git, gitTry, strippedEnv } from './proc.ts';
 
 export type StepResult = { id: string; result: 'pass' | 'fail' | 'skipped'; durationMs: number; seeds: number[] };
@@ -200,10 +200,14 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
 
   if (gate === 'milestone' || gate === 'release') {
     const names = gate === 'release' ? [...milestones(root).keys()] : [opts.milestone ?? ''];
-    const c: CheckResult = { id: 'milestone-acs', result: 'pass', messages: milestoneProblems(root, names, results, gate === 'release') };
-    if (c.messages.length > 0) c.result = 'fail';
+    const mc = milestoneCheck(root, names, results, gate === 'release');
+    const c: CheckResult = { id: 'milestone-acs', result: mc.problems.length > 0 ? 'fail' : 'pass', messages: mc.problems };
     checks.push(c);
     printCheck(c);
+    // D-94: ACs verified at a later milestone, listed so none is forgotten; never fails.
+    const d: CheckResult = { id: 'milestone-deferred', result: 'pass', messages: mc.deferred };
+    checks.push(d);
+    printCheck(d);
   }
 
   copyResults(results, last);

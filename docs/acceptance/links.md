@@ -8,18 +8,18 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-FMT-08 / FR-LNK-03 Rename updates all links
 
-- **AC-1** Given note `A` is linked from 50 notes in all forms (`[[A]]`, `[[A|alias]]`, `[[A#Heading]]`, `[[A#^id]]`, `![[A]]`, relation `"[[A]]"`, lists of relations), when `A` is renamed to `B`, then all 50 notes link to `B` with alias, heading and block parts preserved, and the file is `B.md`.
-- **AC-2** Only notes that contain a link to `A` are written (FR-SYN-06); each is written atomically.
+- **AC-1** [MS4] Given note `A` is linked from 50 notes in all forms (`[[A]]`, `[[A|alias]]`, `[[A#Heading]]`, `[[A#^id]]`, `![[A]]`, relation `"[[A]]"`, lists of relations), when `A` is renamed to `B`, then all 50 notes link to `B` with alias, heading and block parts preserved, and the file is `B.md`.
+- **AC-2** [MS4] Only notes that contain a link to `A` are written (FR-SYN-06); each is written atomically.
 - **AC-3** Links in code blocks and code spans are **not** changed.
-- **AC-4** A title with forbidden characters (`Q3: plan/budget`) produces file `Q3 plan budget.md` (AP-2) with `title: "Q3: plan/budget"`; the UI shows the full title everywhere; links are `[[Q3 plan budget|Q3: plan/budget]]`.
-- **AC-5** Rename is undoable as one action (restores the file name and all link changes).
-- **AC-6** Given another program edits a linking note during a rename, that note is not overwritten; it is listed as "link not updated" with a one-click retry (NFR-REL-02).
+- **AC-4** [MS4] A title with forbidden characters (`Q3: plan/budget`) produces file `Q3 plan budget.md` (AP-2) with `title: "Q3: plan/budget"`; the UI shows the full title everywhere; links are `[[Q3 plan budget|Q3: plan/budget]]`.
+- **AC-5** [MS4] Rename is undoable as one action (restores the file name and all link changes).
+- **AC-6** [MS4] Given another program edits a linking note during a rename, that note is not overwritten; it is listed as "link not updated" with a one-click retry (NFR-REL-02).
 
 ### FR-STO-04 / FR-TYP-07 Type change moves the file
 
-- **AC-1** Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
-- **AC-2** If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
-- **AC-3** Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties".
+- **AC-1** [MS4] Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
+- **AC-2** [MS4] If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
+- **AC-3** [MS4] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties".
 
 ### FR-LNK-14 Duplicate titles
 

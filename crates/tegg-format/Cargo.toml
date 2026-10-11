@@ -1,0 +1,18 @@
+[package]
+name = "tegg-format"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+description = "Tegg core: file names, dates, NFC and read-only extraction (docs/contracts/ms1-core.md §2)"
+
+[dependencies]
+chrono.workspace = true
+serde_json.workspace = true
+pulldown-cmark = { version = "0.13", default-features = false }
+yaml-rust2 = "0.13"
+regex = "1"
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+chrono-tz.workspace = true
+tempfile.workspace = true

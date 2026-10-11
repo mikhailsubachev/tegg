@@ -2,6 +2,14 @@
   "steps": [
     { "id": "qa-tools-typecheck", "dir": "tools/qa", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
     { "id": "s1-typecheck", "dir": "spikes/s1-roundtrip", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "core-rust-check", "dir": "crates", "run": "cargo check --workspace --tests --quiet", "level": "commit", "changedOnly": true },
+    { "id": "doc-typecheck", "dir": "packages/doc", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "core-rust-test", "dir": ".",
+      "run": "cargo test --workspace --lib --quiet && node tools/qa/src/cargo-junit.ts --junit \"$VERIFY_RESULTS/core-rust-ac.xml\" $(ls crates/*/tests/ac_*.rs 2>/dev/null)",
+      "level": "push" },
+    { "id": "doc-test", "dir": "packages/doc",
+      "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/doc.xml\" --passWithNoTests",
+      "level": "push" },
     { "id": "qa-tools-test", "dir": "tools/qa",
       "run": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/qa-tools.xml\" 'test/*.test.ts'",
       "level": "push" },
@@ -30,6 +38,10 @@
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],
   "acRunners": [
+    { "dir": ".", "match": "^crates/[^/]+/tests/ac_[^/]+\\.rs$",
+      "run": "node tools/qa/src/cargo-junit.ts --junit {junit} {files}" },
+    { "dir": "packages/doc", "match": "^packages/doc/test/.*\\.ac\\.test\\.ts$",
+      "run": "npx vitest run --reporter=junit --outputFile.junit={junit} {files}" },
     { "dir": "tools/qa", "match": "^tools/qa/test/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],

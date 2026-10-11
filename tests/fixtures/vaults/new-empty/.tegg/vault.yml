@@ -1,0 +1,6 @@
+# Tegg vault settings (FR-STO-06). Machine-local settings live in Application Support (FR-STO-07).
+version: 1
+default-type: Quick Note
+attachments: _attachments
+templates: _templates
+daily-format: YYYY-MM-DD
