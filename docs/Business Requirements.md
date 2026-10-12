@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.22, for review                                             |
+| **Document status** | Draft v1.23, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -38,6 +38,7 @@
 | v1.20   | 2026-10-11 | ACs verified at a later milestone are marked with that milestone (D-94, AP-40). |
 | v1.21   | 2026-10-11 | MS1 test decisions (AP-41…AP-45, D-95…D-99): static AC tests exempt from red-first; new-note key order and type casing; unclosed frontmatter reported; remembered missing vault named; new-empty vault fixture approved by the owner. |
 | v1.22   | 2026-10-11 | Mobile platform open (D-100): the original brief names no mobile platform; D-02's iOS and Android become "platform open"; AR-03 AC-3 is a platform-neutral rule instead of an iOS build check. |
+| v1.23   | 2026-10-12 | MS2 AC decisions D-101…D-113 (AP-46…AP-58): search typo tolerance, trash and untyped files in search, date-filter time zone, switcher ranking and create, result format, query syntax, attribute filters, progress/cancel, MS3 markers for UI ACs, precise conflict ACs, placeholder detection. |
 
 ---
 
@@ -181,6 +182,19 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-98 | Missing remembered vault             | The app remembers the vault path even when the folder is gone and names it in the chooser (`last_opened` returns the path and whether it exists) (AP-44, FR-VLT-01 AC-7) |
 | D-99 | New-empty vault fixture              | The exact content of a new empty vault is the fixture `tests/fixtures/vaults/new-empty/`, drafted from the BRD and **approved by the owner** before MS1 implementation (AP-45, FR-VLT-02 AC-3) |
 | D-100 | Mobile platform open               | The original brief asks only for "desktop and future mobile". Mobile stays a future phase with the **platform open** (supersedes D-02's iOS and Android). The core must stay platform-neutral, checked statically (AR-03 AC-3): no platform-specific API outside a marked platform module with a portable fallback. File-name rules keep iOS and Android validity (FR-FMT-08, NFR-POR-02), because vaults are synced to and opened on other devices |
+| D-101 | Search typo tolerance | Search words of **≥ 5 letters** match with one edit (insert, delete, substitute, swap of adjacent letters), ranked below exact matches; words of ≤ 4 letters match exactly only. The switcher's in-order-letter match covers typos there (AP-46, FR-SRC-04) |
+| D-102 | Trash in search | Objects in `.trash/` are excluded from search, switcher, filters, backlinks and queries; they are reachable only from the trash view (AP-47) |
+| D-103 | Untyped files in search | Files without frontmatter are treated as Page, title = file name without `.md`; they match no `created`/`modified` filter (no file-system dates) (AP-48) |
+| D-104 | Date filter time zone | Date filters compare in the machine's current time zone; the written offset is kept in the file (AP-49, FR-SRC-02) |
+| D-105 | Switcher ranking | Rank by match tier (exact, prefix, word prefix, substring, in-order letters), then by when the object was last opened in Tegg (stored in Application Support, fallback `modified`). An empty query lists recently opened objects (AP-50, FR-NAV-01) |
+| D-106 | Switcher create | A "Create '<query>'" row is always offered (first when nothing matches) with the default type (FR-VLT-05). The switcher matches file names as well as titles and aliases (AP-51) |
+| D-107 | Search results | One result per object; title matches rank above body matches; snippet ≤ 160 characters around the first body match; pages of 50 results (AP-52, FR-SRC-03) |
+| D-108 | Search query syntax | `"…"` and `„…“` mark phrases; `-` excludes only at the start of a term; no OR in the MVP; everything else is literal (AP-53, FR-SRC-04) |
+| D-109 | Attribute filter operators | Equality for select, text and checkbox (case- and diacritic-insensitive); ranges for dates and numbers; other operators wait for the query builder (AP-54, FR-SRC-02) |
+| D-110 | Progress and cancel | Progress events at least every 500 ms with done/total. Cancellable: import and bulk jobs before their write phase, and indexing (resumed on next open). The write phase of a job is not cancellable (AP-55, FR-UX-07) |
+| D-111 | UI parts of MS2 ACs | FR-SYN-03 AC-2/-3/-4/-6, FR-SYN-04 AC-3 and FR-VLT-03 AC-1 are verified at MS3; MS2 gets core-level ACs: `note:conflict` with both versions and no write, change processing of 500 files, placeholder count (AP-56, D-94) |
+| D-112 | Precise conflict ACs | Reload keeps the cursor in the same block, else the nearest preceding one; "nearly identical" = ≥ 90% equal lines after normalizing line endings; after re-`id`ing a copied file, links keep resolving by file or `id`, never by title (AP-57, FR-LNK-14) |
+| D-113 | Placeholder detection | iCloud `.<name>.icloud` stubs and the `SF_DATALESS` stat flag. Tested with synthetic stubs and a flag injected through the vault file-system abstraction (AR-04); real providers are checked manually at MS8 (AP-58, FR-VLT-03) |
 
 ---
 
