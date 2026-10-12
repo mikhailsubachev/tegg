@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.24, for review                                             |
+| **Document status** | Draft v1.25, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -40,6 +40,7 @@
 | v1.22   | 2026-10-11 | Mobile platform open (D-100): the original brief names no mobile platform; D-02's iOS and Android become "platform open"; AR-03 AC-3 is a platform-neutral rule instead of an iOS build check. |
 | v1.23   | 2026-10-12 | MS2 AC decisions D-101…D-113 (AP-46…AP-58): search typo tolerance, trash and untyped files in search, date-filter time zone, switcher ranking and create, result format, query syntax, attribute filters, progress/cancel, MS3 markers for UI ACs, precise conflict ACs, placeholder detection. |
 | v1.24   | 2026-10-12 | D-114: the desktop shell has its own Cargo manifest, outside the core workspace. |
+| v1.25   | 2026-10-12 | MS3 plan decisions D-115…D-120 (AP-59…AP-64, `docs/plans/ms3-implementation-plan.md`): MS3 in slices 3A–3E with preview builds; full shell from the designs with TBD pages; read view before the editor; Tegg Preview app; dogfood vaults; MS3 builds the frame of the MS5 navigation requirements. |
 
 ---
 
@@ -197,6 +198,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-112 | Precise conflict ACs | Reload keeps the cursor in the same block, else the nearest preceding one; "nearly identical" = ≥ 90% equal lines after normalizing line endings; after re-`id`ing a copied file, links keep resolving by file or `id`, never by title (AP-57, FR-LNK-14) |
 | D-113 | Placeholder detection | iCloud `.<name>.icloud` stubs and the `SF_DATALESS` stat flag. Tested with synthetic stubs and a flag injected through the vault file-system abstraction (AR-04); real providers are checked manually at MS8 (AP-58, FR-VLT-03) |
 | D-114 | Shell outside the core workspace | The desktop shell (`app/src-tauri`) has its own Cargo manifest and lock file, outside the core Cargo workspace, so core builds and gates never need the built web assets (`app/dist`) that Tauri embeds at compile time. The shell depends on the core crates by path; its tests run in the `app-shell-test` gate step (owner, 2026-10-12) |
+| D-115 | MS3 slices and preview builds | MS3 is delivered as slices **3A** frame and page flow, **3B** read view, **3C** editor and autosave, **3D** types and attributes, **3E** settings and polish. Each slice gets its ACs and red tests before it starts (D-61, per slice), ends with `./verify push` and its ACs green plus an explorer session on a generated vault, and ships a preview build with a test charter to the owner. Owner feedback is triaged into `bug_` tests (T1 stops feature work, D-62), AP points or the coverage doc. The MS3 gate is unchanged and runs once, after 3E (AP-59) |
+| D-116 | TBD pages | From MS3 the shell contains every page and panel of the designs (`design/edit-note-page/`). A page whose content belongs to a later phase is a **TBD placeholder** naming the page, its purpose, its milestone and requirement IDs; its sidebar entry, shortcut and command-palette entry already lead to it. A later feature inside a built page is a disabled control marked with its milestone. Placeholders have no ACs; one flow test checks that every route is either built or TBD with a milestone, and each milestone replaces its placeholders (AP-60) |
+| D-117 | Read view before the editor | Slice 3B adds a read-only rendered note view on `@tegg/doc` before the editor (3C). It stays in the product as the view for files the editor can't open safely (NFR-REL-03); the raw text view becomes the source view (FR-EDT-10) (AP-61) |
+| D-118 | Tegg Preview app | Preview builds install as **Tegg Preview.app** (bundle id `app.tegg.preview`) with its own Application Support folder `~/Library/Application Support/Tegg Preview/`, so preview use and test runs never share an index; ad-hoc signed until the Developer ID exists (AP-62, FR-STO-07) |
+| D-119 | Dogfood vaults | Slices 3A–3B are tried on the generated vault and a new real vault (they write only notes the owner creates). From 3C, real notes are written in a vault with a backup (Time Machine or a sync service with file versions), because version history (FR-HIS-03) is v1.0. Imported content waits for MS7; Capacities stays the owner's main tool until then. Claude never reads the owner's vault (D-62) (AP-63) |
+| D-120 | Navigation frame in MS3 | MS3 builds the app frame, sidebar, right-panel container and command palette (FR-UX-02, -03) with TBD entries (D-116). FR-NAV-02, -04 and -05 stay in MS5, which completes them (every action in the palette, Home/Inbox/Tasks, Outline); no requirement moves (AP-64) |
 
 ---
 
@@ -811,6 +818,8 @@ Requirement-to-phase mapping, checked for all requirements: `docs/requirements-c
 | MS6 | Images, PDFs, trash               | FR-ATT-01…03, -07…09, FR-STO-05, -08, FR-HIS-01, FR-HIS-02 | Paste image → object + file + embed; trash/restore; "moved to trash" placeholder                                                       |
 | MS7 | Capacities and Obsidian importers | FR-IMP-03, -05, -07…11, -14…17, -19…22, -24, FR-IMP-23, FR-IMP-01, FR-STO-10 (D-93) | Importer ACs on synthetic fixtures; cancel leaves vault byte-identical; real-export local run: imported + reported = total             |
 | MS8 | MVP hardening & release           | All NFR-PERF, NFR-SEC-01, AR-08, FR-SYN-01, FR-UX-04, -06, AR-02, NFR-OTH-01 | Release gate: perf on reference machine, signed/notarized DMG, two-Mac sync (Dropbox, Google Drive, iCloud), 7-day soak                |
+
+MS3 is delivered in slices 3A–3E with a preview build after each (D-115); from MS3 the shell shows every designed page, with TBD placeholders for later phases (D-116, D-120). Plan: `docs/plans/ms3-implementation-plan.md`.
 
 ---
 

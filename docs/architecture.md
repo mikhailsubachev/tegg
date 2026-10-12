@@ -301,7 +301,7 @@ Milestone names and requirements as in BRD §11.2; full requirement mapping in [
 | --- | --- |
 | MS1 Vault core & file format | `tegg-vault` (write path, trash folder, temp clean-up, versions, `VaultFs` seam), `@tegg/doc` (from S1), file-name and date rules in `tegg-format`, fault-injection harness, L0 architecture checks |
 | MS2 Index, watcher, search, switcher | `tegg-format` extractor, `tegg-index`, watcher, `tegg-core`, IPC skeleton, shell with main window, progress events |
-| MS3 Types, attributes, editor | `tegg-schema`, attribute panel, type pages with default views (first fixed-definition `tegg-query`), `@tegg/editor` (from S2), app layout, command registry, themes, string externalization |
+| MS3 Types, attributes, editor | `tegg-schema`, attribute panel, type pages with default views (first fixed-definition `tegg-query`), `@tegg/editor` (from S2), read view on `@tegg/doc` (D-117), app layout with every designed page (TBD placeholders for later phases, D-116), command registry, themes, string externalization. Delivered in slices 3A–3E with preview builds (D-115) |
 | MS4 Links, tags, renames, daily notes | `tegg-jobs` (link, tag and attribute renames through the worker), backup zips before bulk operations, daily notes, embeds |
 | MS5 Tasks, capture, inbox, home | task list and board, block → object conversion, capture window, menu bar, hotkeys, single instance, Inbox and Home sections |
 | MS6 Images, PDFs, trash | Image/PDF objects, `_attachments/`, trash view and restore |
