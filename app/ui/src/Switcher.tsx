@@ -55,6 +55,10 @@ export function Switcher({ onOpen, onCreate, onClose }: {
         <input
           ref={input}
           aria-label={t.switcherQuery}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           placeholder={t.switcherPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}

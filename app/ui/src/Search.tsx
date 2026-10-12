@@ -25,7 +25,7 @@ export function Search({ onOpen, refresh, inputRef }: { onOpen: (path: string) =
 
   return (
     <section className="search">
-      <input ref={inputRef} type="search" aria-label={t.searchLabel} placeholder={t.searchPlaceholder} value={text} onChange={(e) => setText(e.target.value)} />
+      <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t.searchLabel} placeholder={t.searchPlaceholder} value={text} onChange={(e) => setText(e.target.value)} />
       {page && <div className="count">{page.total === 0 ? t.noResults : t.resultCount(page.total)}</div>}
       <ul aria-label={t.searchResults}>
         {page?.results.map((r) => (
