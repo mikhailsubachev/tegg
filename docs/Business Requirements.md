@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.25, for review                                             |
+| **Document status** | Draft v1.26, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -41,6 +41,7 @@
 | v1.23   | 2026-10-12 | MS2 AC decisions D-101…D-113 (AP-46…AP-58): search typo tolerance, trash and untyped files in search, date-filter time zone, switcher ranking and create, result format, query syntax, attribute filters, progress/cancel, MS3 markers for UI ACs, precise conflict ACs, placeholder detection. |
 | v1.24   | 2026-10-12 | D-114: the desktop shell has its own Cargo manifest, outside the core workspace. |
 | v1.25   | 2026-10-12 | MS3 plan decisions D-115…D-120 (AP-59…AP-64, `docs/plans/ms3-implementation-plan.md`): MS3 in slices 3A–3E with preview builds; full shell from the designs with TBD pages; read view before the editor; Tegg Preview app; dogfood vaults; MS3 builds the frame of the MS5 navigation requirements. |
+| v1.26   | 2026-10-12 | MS3 slice 3A AC decisions D-121…D-138 (AP-65…AP-82, `docs/acceptance/app-shell.md`, `docs/contracts/ms3-shell.md`): Types list, collation, minimal type page in 3A, milestone labels and overdue-placeholder check, page-map additions, new shortcuts, right-panel tabs (settles AP-20), theme storage, contrast rule, disabled controls and focus, ⌘N dialog, launch landing, plurals, FR-UX-07 AC-6 after 3C, shell contract and test hooks, minimum window, commands without a vault, recency on open only. |
 
 ---
 
@@ -204,6 +205,24 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-118 | Tegg Preview app | Preview builds install as **Tegg Preview.app** (bundle id `app.tegg.preview`) with its own Application Support folder `~/Library/Application Support/Tegg Preview/`, so preview use and test runs never share an index; ad-hoc signed until the Developer ID exists (AP-62, FR-STO-07) |
 | D-119 | Dogfood vaults | Slices 3A–3B are tried on the generated vault and a new real vault (they write only notes the owner creates). From 3C, real notes are written in a vault with a backup (Time Machine or a sync service with file versions), because version history (FR-HIS-03) is v1.0. Imported content waits for MS7; Capacities stays the owner's main tool until then. Claude never reads the owner's vault (D-62) (AP-63) |
 | D-120 | Navigation frame in MS3 | MS3 builds the app frame, sidebar, right-panel container and command palette (FR-UX-02, -03) with TBD entries (D-116). FR-NAV-02, -04 and -05 stay in MS5, which completes them (every action in the palette, Home/Inbox/Tasks, Outline); no requirement moves (AP-64) |
+| D-121 | Sidebar Types list | Order: Page, Task, Quick Note, Daily Note, then user types by name (D-122), then Image and PDF; Tag is not listed (own Tags section, MS4). Counts are shown from slice 3A; untyped files count as Page (D-103). A `type` value without a definition gets its own entry after the rest, with a "no type definition" marker (AP-65) |
+| D-122 | Collation | Name-sorted lists use `Intl.Collator` with the macOS region locale, not the UI language, never code-point order; tests run with `cs` and `en` (AP-66, NFR-OTH-02) |
+| D-123 | Type page in 3A | Slice 3A shows a minimal type page: the type's objects sorted by title (D-122), rows open the note; filter, sort, views and `New <Type>` are disabled until 3D; `Type settings` leads to its placeholder (AP-67, FR-TYP-09) |
+| D-124 | Milestone labels and overdue placeholders | Registry entries carry a milestone and, within MS3, a slice, shown as "Coming in MS3 (3D)". `./verify milestone --milestone MSn` passes `VERIFY_MILESTONE` to every step; the registry test fails on any TBD or disabled entry due at or before it (AP-68, D-116) |
+| D-125 | Page-map additions | Search is a built route (⌘⇧F, palette; no extra sidebar entry); Conflicts view TBD MS3 (3C); Back/Forward disabled until MS5 (FR-NAV-03); `New type` disabled until 3D; Quick capture TBD MS5; Pinned TBD MS5 (FR-HOM-02); Saved queries TBD v1.0; Settings sections with their milestones, as in `app-shell.md` R1 and R3 (AP-69) |
+| D-126 | Added shortcuts | Toggle sidebar ⌃⌘S, focus mode ⇧⌘\ (Esc also leaves it), Settings ⌘,, Inbox ⌘⇧I. ⌘K is always the command palette, also in the editor; links are inserted with `[[`, the toolbar or ⇧⌘K. Shortcut labels use Apple's modifier order ⌃ ⌥ ⇧ ⌘ (AP-70, §7 table) |
+| D-127 | Right panel | Tabs Backlinks (MS4), Outline (MS5), Local graph (v1.0); no Attributes tab, attributes stay at the top of the note (FR-EDT-07, 3D); this settles AP-20. The panel exists only on routes that show an object; elsewhere its toggle is absent and ⌘\ does nothing (AP-71, FR-NAV-05) |
+| D-128 | Theme storage | The theme choice is stored per machine in Application Support (FR-STO-07), default System; Tegg Preview keeps its own (D-118). Nothing is written to the vault (AP-72, FR-SET-02) |
+| D-129 | Theme contrast | The text-contrast part of FR-UX-08 is pulled into FR-UX-05 for the MVP: every text token on every surface it is used on ≥ 4.5:1 in both themes, checked from the tokens and with axe-core's `color-contrast` rule (the rest of axe stays v1.0). `faint` is used only for disabled controls and decorative icons; placeholder hints use `muted` (AP-73) |
+| D-130 | Disabled controls and focus | Later-feature controls use `aria-disabled` (focusable) with the description "Coming in <milestone>" on hover and focus; the palette lists them without running them. After any navigation the focus moves to the new page's heading (AP-74, FR-UX-03) |
+| D-131 | ⌘N before the type picker | Until FR-VLT-05 (MS5), ⌘N opens a `New object` dialog with a title field and the vault's default type, picker disabled; ⏎ creates through the same path as the switcher's create item (D-106); an empty title can't be created (AP-75) |
+| D-132 | Launch landing | The last-opened record (Application Support) keeps path and `id`. Launch opens the path if it exists, else the object with that `id`, else (or if it is in `.trash/`) the Home placeholder, with no error dialog; launching never writes to the vault (AP-76, FR-HOM-01) |
+| D-133 | Plural forms | Count messages use plural categories chosen with `Intl.PluralRules` (`one`/`few`/`many`/`other`); no message concatenates a number with a word; a Czech test catalog proves it (AP-77, NFR-OTH-02) |
+| D-134 | FR-UX-07 AC-6 after 3C | FR-UX-07 AC-6 (keep typing during a long operation) needs the editor and is recorded after slice 3C; 3A verifies the non-modal part automatically (FR-UX-07 AC-7) (AP-78) |
+| D-135 | Shell contract and test hooks for 3A | `docs/contracts/ms3-shell.md` defines the 3A IPC (vault create, folder pick, last opened, type definitions, type counts, type list, per-machine UI state, `nav_opened`), accessibility labels, the redefined `ui-ready` mark and `route-ready:` marks. With `TEGG_TEST=1`, `TEGG_TEST_PICK_DIR` answers the folder dialog (empty = cancel) (AP-79) |
+| D-136 | Minimum window | The main window's minimum size is 800 × 500 pt. When the centre pane would be under 400 px, the right panel closes by itself and reopens when there is room; the user's choice isn't changed (AP-80, FR-UX-02) |
+| D-137 | Commands without a vault | With no vault open, the palette offers only `Create new vault…`, `Open vault…`, `Go to Settings` and the theme commands; other shortcuts do nothing and show no error (AP-81, FR-UX-03) |
+| D-138 | Recency counts opens only | Only a note shown in the centre pane counts as opened for switcher recency (D-105) and the launch landing (D-132): the UI calls `nav_opened`; `Core::read_note` no longer records recency, since previews and embeds also read notes (AP-82) |
 
 ---
 
@@ -656,6 +675,9 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | Quick Capture (global, any app) | ⌃⌥Space |
 | New Task (global, any app) | ⌃⌥T |
 | Toggle right panel | ⌘\ |
+| Toggle sidebar | ⌃⌘S (D-126) |
+| Focus mode | ⇧⌘\ (D-126) |
+| Settings | ⌘, (D-126) |
 | Open link under cursor / preview it | ⌘↩ / ⌥Space |
 | Back / Forward | ⌘[ / ⌘] |
 
