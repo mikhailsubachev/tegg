@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.23, for review                                             |
+| **Document status** | Draft v1.24, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -39,6 +39,7 @@
 | v1.21   | 2026-10-11 | MS1 test decisions (AP-41…AP-45, D-95…D-99): static AC tests exempt from red-first; new-note key order and type casing; unclosed frontmatter reported; remembered missing vault named; new-empty vault fixture approved by the owner. |
 | v1.22   | 2026-10-11 | Mobile platform open (D-100): the original brief names no mobile platform; D-02's iOS and Android become "platform open"; AR-03 AC-3 is a platform-neutral rule instead of an iOS build check. |
 | v1.23   | 2026-10-12 | MS2 AC decisions D-101…D-113 (AP-46…AP-58): search typo tolerance, trash and untyped files in search, date-filter time zone, switcher ranking and create, result format, query syntax, attribute filters, progress/cancel, MS3 markers for UI ACs, precise conflict ACs, placeholder detection. |
+| v1.24   | 2026-10-12 | D-114: the desktop shell has its own Cargo manifest, outside the core workspace. |
 
 ---
 
@@ -195,6 +196,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-111 | UI parts of MS2 ACs | FR-SYN-03 AC-2/-3/-4/-6, FR-SYN-04 AC-3 and FR-VLT-03 AC-1 are verified at MS3; MS2 gets core-level ACs: `note:conflict` with both versions and no write, change processing of 500 files, placeholder count (AP-56, D-94) |
 | D-112 | Precise conflict ACs | Reload keeps the cursor in the same block, else the nearest preceding one; "nearly identical" = ≥ 90% equal lines after normalizing line endings; after re-`id`ing a copied file, links keep resolving by file or `id`, never by title (AP-57, FR-LNK-14) |
 | D-113 | Placeholder detection | iCloud `.<name>.icloud` stubs and the `SF_DATALESS` stat flag. Tested with synthetic stubs and a flag injected through the vault file-system abstraction (AR-04); real providers are checked manually at MS8 (AP-58, FR-VLT-03) |
+| D-114 | Shell outside the core workspace | The desktop shell (`app/src-tauri`) has its own Cargo manifest and lock file, outside the core Cargo workspace, so core builds and gates never need the built web assets (`app/dist`) that Tauri embeds at compile time. The shell depends on the core crates by path; its tests run in the `app-shell-test` gate step (owner, 2026-10-12) |
 
 ---
 

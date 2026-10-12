@@ -281,7 +281,7 @@ tools/             gen-vault, qa
 spikes/            throwaway (S1–S5), not imported by product code
 ```
 
-One Cargo workspace and one npm workspace. Each package gets a `qa.config.json` step. Product code **ports** spike modules deliberately, with tests re-authored from the ACs by the test author (D-61); it never imports from `spikes/` (L0 check).
+One Cargo workspace for the core crates; the desktop shell `app/src-tauri` has its own manifest, so core builds never need the web assets Tauri embeds (D-114). One npm workspace. Each package gets a `qa.config.json` step. Product code **ports** spike modules deliberately, with tests re-authored from the ACs by the test author (D-61); it never imports from `spikes/` (L0 check).
 
 ### Architecture checks (L0, test-strategy TS-L0)
 
