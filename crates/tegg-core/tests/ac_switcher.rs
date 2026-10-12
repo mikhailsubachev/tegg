@@ -160,7 +160,7 @@ fn fr_nav_01_ac7_create_item_when_nothing_matches() {
     write_raw(&root, ".tegg/vault.yml", yml.replace("default-type: Quick Note", "default-type: Page").as_bytes());
     let core = open_core(&root, &sb.dirs, true);
 
-    let nfd_query = "Nova\u{301} my\u{301}s\u{30C}lenka";
+    let nfd_query = "Nova\u{301} mys\u{30C}lenka";
     let items = core.switcher(nfd_query, 20);
     assert_eq!(items.len(), 1, "{items:?}");
     let item = items[0].clone();
