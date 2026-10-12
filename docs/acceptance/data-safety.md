@@ -28,19 +28,21 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 ### FR-SYN-03 / NFR-REL-02 External changes
 
 - **AC-1** Given a note is changed by another program while the app is open, the index reflects the change within **2 s** (NFR-PERF-08).
-- **AC-2** Given the changed note is open with **no unsaved edits**, it reloads silently and keeps the cursor position as close as possible.
-- **AC-3** Given the changed note is open **with unsaved edits**, the app does **not** write its version; it shows a merge dialog with both versions (mine / theirs / compare). Nothing is written until the user decides.
-- **AC-4** Given a note is deleted externally while open with unsaved edits, the app keeps the content in the editor and offers "Restore file" or "Discard".
+- **AC-2** [MS3] Given the changed note is open with **no unsaved edits**, it reloads silently; the cursor stays in the same block if that block still exists, else moves to the nearest preceding block (D-111).
+- **AC-3** [MS3] Given the changed note is open **with unsaved edits**, the app does **not** write its version; it shows a merge dialog with both versions (mine / theirs / compare). Nothing is written until the user decides.
+- **AC-4** [MS3] Given a note is deleted externally while open with unsaved edits, the app keeps the content in the editor and offers "Restore file" or "Discard".
 - **AC-5** Given a file is renamed or moved externally, the index updates within 2 s and the object keeps its identity (by `id`) and backlinks.
-- **AC-6** Given 500 files change at once (e.g. a sync client catching up), the app stays responsive (typing latency within NFR-PERF-06) and processes all changes within 30 s.
+- **AC-6** [MS3] Given 500 files change at once (e.g. a sync client catching up), the app stays responsive (typing latency within NFR-PERF-06) and processes all changes within 30 s.
 - **AC-7** Before saving, the app checks that the file on disk is still the version it loaded (modification time + size + content hash); if not, AC-3 applies.
+- **AC-8** Given a save request whose base version no longer matches the file on disk, the core writes nothing and emits `note:conflict` carrying both versions (mine and theirs) (D-110).
+- **AC-9** Given 500 files change at once, the core processes all changes into the index within 30 s and every event is reflected (D-110).
 
 ### FR-SYN-04 / FR-SYN-05 Conflict copies and duplicate ids
 
 - **AC-1** Given two files with the **same `id`** (e.g. `Note.md` and `Note (conflicted copy 2026-10-07).md`), the app lists them in the **Conflicts** view and treats only one as the object for links (the one whose name matches the title; else the older `created`; else the shorter path). (AP-3)
-- **AC-2** File names matching known patterns, Dropbox `(conflicted copy …)`, `(… conflicted copy …)`, Google Drive `Name (1).md`, iCloud `Name 2.md`, are flagged as **possible** conflicts only when they also share an `id` or have nearly identical content (AP-3). A Tegg duplicate-title file `Title (2).md` with its own `id` is **not** a conflict.
-- **AC-3** The Conflicts view offers: side-by-side compare, keep left, keep right, and merge (manual). Resolving keeps the surviving file's `id`, moves the other to `.trash/`, and never breaks a link.
-- **AC-4** Given a duplicate `id` without a conflict-copy name (e.g. a file copied in Finder), the app gives the **newer** file a new `id` after the user confirms, and links by title keep working.
+- **AC-2** File names matching known patterns, Dropbox `(conflicted copy …)`, `(… conflicted copy …)`, Google Drive `Name (1).md`, iCloud `Name 2.md`, are flagged as **possible** conflicts only when they also share an `id` or have nearly identical content: at least 90% equal lines after normalizing line endings (AP-3, D-111). A Tegg duplicate-title file `Title (2).md` with its own `id` is **not** a conflict.
+- **AC-3** [MS3] The Conflicts view offers: side-by-side compare, keep left, keep right, and merge (manual). Resolving keeps the surviving file's `id`, moves the other to `.trash/`, and never breaks a link.
+- **AC-4** Given a duplicate `id` without a conflict-copy name (e.g. a file copied in Finder), the app gives the **newer** file a new `id` after the user confirms, links to the older file keep resolving to it, and links by file name to the newer file resolve to the newer file (FR-LNK-14, D-111).
 
 ### FR-SYN-01 / FR-SYN-07 Any synced folder, offline
 
@@ -69,8 +71,9 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 
 ### FR-VLT-03 Online-only files
 
-- **AC-1** Given a vault containing a file that is a cloud placeholder (iCloud `.icloud` stub, a dataless file flagged by APFS, Dropbox/Google Drive File Provider placeholder), when the vault is opened, the app shows a warning naming the number of files and how to make the folder available offline.
+- **AC-1** [MS3] Given a vault containing a file that is a cloud placeholder (iCloud `.icloud` stub, a dataless file flagged by APFS, Dropbox/Google Drive File Provider placeholder), when the vault is opened, the app shows a warning naming the number of files and how to make the folder available offline.
 - **AC-2** Indexing does **not** trigger downloads of placeholder files (it reads only files that are present locally) and lists skipped files.
+- **AC-3** Placeholders are detected as iCloud `.<name>.icloud` stubs and files with the `SF_DATALESS` stat flag; the core reports their count when a vault is opened. Tested with synthetic stubs and a flag injected through the vault file-system abstraction (AR-04); real providers are checked manually at MS8 (D-112).
 
 ### FR-STO-01 / -03 / -05 / -06 / -08 / -09 Vault layout
 
