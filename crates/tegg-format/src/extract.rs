@@ -105,6 +105,12 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
     }
 }
 
+/// Byte offset where the body starts: after a closed frontmatter block (valid or not), else 0 (after a BOM).
+pub fn body_start(text: &str) -> usize {
+    let start = if text.starts_with('\u{feff}') { 3 } else { 0 };
+    frontmatter(text, start).map_or(start, |f| f.end)
+}
+
 pub fn tag_key(name: &str) -> String {
     nfc(name).to_lowercase()
 }

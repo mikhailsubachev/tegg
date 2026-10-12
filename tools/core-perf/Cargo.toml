@@ -1,0 +1,16 @@
+[package]
+name = "core-perf"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "NFR-PERF trend for the product core (docs/contracts/ms2-core.md §4): p95 per metric on a generated vault, as JSON"
+
+[dependencies]
+tegg-core = { path = "../../crates/tegg-core" }
+tegg-vault = { path = "../../crates/tegg-vault" }
+chrono-tz = "0.10"
+serde_json = "1"
+tempfile = "3"
+
+[profile.release]
+debug = 1

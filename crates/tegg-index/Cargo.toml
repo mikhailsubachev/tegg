@@ -13,6 +13,8 @@ chrono-tz.workspace = true
 serde_json.workspace = true
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::{version_of, FileVersion, FsEntry, VaultFs};
+use crate::{version_of, ChangeSink, FileVersion, FsChange, FsEntry, VaultFs, WatchGuard};
 
 pub struct LocalFs {
     root: PathBuf,
@@ -126,6 +126,59 @@ impl VaultFs for LocalFs {
     fn remove_file(&self, path: &str) -> io::Result<()> {
         fs::remove_file(self.abs(path))
     }
+
+    fn stat(&self, path: &str) -> io::Result<Option<(i128, u64)>> {
+        match fs::metadata(self.abs(path)) {
+            Ok(md) if md.is_dir() => Err(io::Error::other(format!("{path}: is a directory"))),
+            Ok(md) => Ok(Some((mtime_ns(&md), md.len()))),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn is_placeholder(&self, path: &str) -> io::Result<bool> {
+        is_dataless(&fs::symlink_metadata(self.abs(path))?)
+    }
+
+    /// FSEvents through `notify` (spike S4): every reported path, made vault-relative and NFC.
+    fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
+        use notify::{RecursiveMode, Watcher};
+        let root = self.root.canonicalize()?;
+        let base = root.clone();
+        let mut w = notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
+            Ok(ev) if ev.need_rescan() => sink(FsChange::Rescan),
+            Ok(ev) => {
+                let paths: Vec<String> = ev
+                    .paths
+                    .iter()
+                    .filter_map(|p| p.strip_prefix(&base).ok())
+                    .map(|r| tegg_format::nfc(&r.to_string_lossy()))
+                    .filter(|r| !r.is_empty())
+                    .collect();
+                if !paths.is_empty() {
+                    sink(FsChange::Paths(paths));
+                }
+            }
+            Err(_) => sink(FsChange::Rescan),
+        })
+        .map_err(io::Error::other)?;
+        w.watch(&root, RecursiveMode::Recursive).map_err(io::Error::other)?;
+        Ok(Some(Box::new(w)))
+    }
+}
+
+/// D-112: APFS marks files whose content is only in the cloud with `SF_DATALESS`.
+#[cfg(target_os = "macos")]
+fn is_dataless(md: &fs::Metadata) -> io::Result<bool> {
+    use std::os::macos::fs::MetadataExt;
+    const SF_DATALESS: u32 = 0x4000_0000;
+    Ok(md.st_flags() & SF_DATALESS != 0)
+}
+
+/// Portable fallback: no dataless files elsewhere.
+#[cfg(not(target_os = "macos"))]
+fn is_dataless(_md: &fs::Metadata) -> io::Result<bool> {
+    Ok(false)
 }
 
 /// Atomic rename that fails with `AlreadyExists` instead of replacing the target (FR-SYN-02, NFR-REL-02).
@@ -150,7 +203,8 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 // ---------------------------------------------------------------- Application Support (FR-STO-07)
 
 /// Machine-local files outside the vault (e.g. the remembered vault path). Atomic like vault writes.
-pub(crate) fn write_local_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
+/// Used by the index and recency store too, so no other crate touches the file system (AR-04 AC-1).
+pub fn write_local_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
@@ -160,6 +214,22 @@ pub(crate) fn write_local_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
     })
 }
 
-pub(crate) fn read_local_file(path: &Path) -> Option<Vec<u8>> {
+pub fn read_local_file(path: &Path) -> Option<Vec<u8>> {
     fs::read(path).ok()
+}
+
+/// Deletes a machine-local file or folder (e.g. a corrupt index, AR-01); missing is fine.
+/// Never used on vault paths.
+pub fn remove_local_path(path: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(path) {
+        Ok(md) if md.is_dir() => fs::remove_dir_all(path),
+        Ok(_) => fs::remove_file(path),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Creates a machine-local folder (Application Support).
+pub fn create_local_dir(path: &Path) -> io::Result<()> {
+    fs::create_dir_all(path)
 }

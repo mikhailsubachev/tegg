@@ -35,7 +35,7 @@ impl Index {
     pub fn versions(&self) -> Result<Vec<(String, i128, u64)>, IndexError>;
 
     pub fn search(&self, q: &SearchQuery) -> Result<SearchPage, IndexError>;
-    pub fn switcher(&self, q: &str, recency: &dyn Fn(&str) -> Option<i64>, limit: usize) -> Vec<SwitcherItem>;
+    pub fn switcher(&self, q: &str, recency: &dyn Fn(&str) -> Option<i64>, limit: usize) -> Vec<SwitcherItem>; // Object items only; Core adds Create
     pub fn object(&self, path: &str) -> Option<ObjectInfo>;
     pub fn objects(&self) -> Vec<ObjectInfo>;                 // sorted by path
     pub fn backlinks(&self, path: &str) -> Vec<String>;       // sorted paths of notes linking to `path`
@@ -107,7 +107,7 @@ pub enum SwitcherKind { Object, Create }
 pub enum MatchTier { Exact, Prefix, WordPrefix, Substring, InOrder } // best first
 ```
 
-Matches folded titles, aliases and file stems; never body text. Order: tier, then recency (most recent first; `None` falls back to `modified`), then title. An empty query lists objects by recency. A `Create` item is always present for a non-empty query: last when something matches, the only item when nothing does.
+Matches folded titles, aliases and file stems; never body text. Order: tier, then recency (opened objects first, most recent first; never-opened ones after them by `modified`, newest first), then title. An empty query lists objects by recency. `Core::switcher` appends a `Create` item for every non-empty query: last when something matches, the only item when nothing does.
 
 ### 2.3 Conflicts (FR-SYN-04, FR-SYN-05, FR-FMT-12 AC-3)
 
@@ -136,7 +136,9 @@ impl Core {
     pub fn open(root: &Path, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError>;
     pub fn open_with(fs: Arc<dyn VaultFs>, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError>;
     pub fn vault(&self) -> &Vault;
-    pub fn events(&self) -> Receiver<CoreEvent>; // one receiver per call; events after the call
+    /// Every receiver gets all events since `open` (buffered), then live ones, so events sent during open
+    /// (early `IndexProgress`, `Placeholders`) are never lost.
+    pub fn events(&self) -> Receiver<CoreEvent>;
 
     /// Blocks until indexing and pending change processing are done, or the timeout passes (returns false).
     pub fn wait_idle(&self, timeout: Duration) -> bool;
@@ -152,14 +154,15 @@ impl Core {
     pub fn conflicts(&self) -> Vec<Conflict>;
     pub fn daily_note(&self, date: NaiveDate) -> Option<String>;
     pub fn snapshot(&self) -> String;
-    /// FR-VLT-03: placeholders found at open (D-112), never read.
+    /// FR-VLT-03: placeholders found at open (D-112), never read; paths as on disk (an iCloud stub is listed as `Folder/.Name.md.icloud`).
     pub fn placeholders(&self) -> Vec<String>;
 
     // note.* commands
     /// Reads through the vault and records recency in local_dir (D-105). Never writes to the vault.
     pub fn read_note(&self, path: &str, now: SystemTime) -> Result<(Vec<u8>, FileVersion), CoreError>;
     /// The one write path (MS1 `Vault::write`) + direct index update + own-write echo suppression.
-    /// A version mismatch emits `CoreEvent::NoteConflict` and writes nothing (FR-SYN-03 AC-7/AC-8).
+    /// A version mismatch emits `CoreEvent::NoteConflict`, writes nothing and returns
+    /// `Err(CoreError::Vault(VaultError::Conflict { disk }))` (FR-SYN-03 AC-7/AC-8).
     pub fn write_note(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, CoreError>;
     /// FR-NAV-01 AC-7: `Vault::create_file(dir, sanitize_file_stem(title), "md", bytes)`; bytes come from
     /// `@tegg/doc` `newNote`. Indexed at once. Returns the new path.
@@ -188,10 +191,12 @@ pub trait SyncAdapter: Send + Sync {          // in tegg-vault
 **`tegg-vault` additions for MS2:**
 - `impl<T: VaultFs + ?Sized> VaultFs for Arc<T>`, so a test keeps a handle on the `MemFs` the core uses.
 - `VaultFs::is_placeholder(&self, path: &str) -> io::Result<bool>` (default `false`): `SF_DATALESS` on APFS (`LocalFs`); `MemFs::set_placeholder(path, bool)` injects it (D-112). iCloud `.<name>.icloud` stubs are recognized by name.
+- `VaultFs::stat(path) -> io::Result<Option<(i128, u64)>>` (mtime, size without reading; offline catch-up) and `VaultFs::watch(sink) -> io::Result<Option<WatchGuard>>` (FSEvents via `notify` in `LocalFs`; `None` for `MemFs`), with read-only `Vault::list_files`, `version`, `stat`, `is_placeholder`, `watch`.
+- Machine-local file helpers `write_local_file`, `read_local_file`, `remove_local_path`, `create_local_dir` (Application Support only), so `tegg-index`/`tegg-core` never touch the file system directly (AR-04 AC-1).
 - `MemFs::write_external(path, bytes)` / `remove_external(path)` / `rename_external(from, to)`: changes "by another program" for sync-simulator tests (AR-04 AC-4).
 
 ## 4. Performance (NFR-PERF-02, -03, -04, -08)
 
-Benchmarks live in `crates/tegg-core/benches/` (criterion, trend) and a `perf` binary (`cargo run --release -p tegg-core --bin perf -- --vault <dir> --runs 20`) that prints p95 per metric as JSON lines for `qa/perf/history.jsonl` (test-strategy §9), run by `./verify nightly`.
+The trend run is `tools/core-perf` (`cargo run --release -- --vault <dir> --runs 20 [--out results.json]`): p95 per metric for NFR-PERF-02, -02 AC-2, -03, -04 and -08 on a temporary copy of a gen-vault vault, against the D-59 reference targets, run by `./verify nightly` (step `core-perf`, test-strategy §9). It lives in `tools/` because it edits files from outside the core, which `crates/*/src` may not do (AR-04 AC-1).
 
 Core-level latency ACs (FR-SRC-01 AC-11, FR-NAV-01 AC-9, FR-UX-07 AC-1/AC-2, FR-STO-07 AC-2) run in `cargo test` on a reference vault produced by `gen-vault` (dev-dependency, `--seed 1`, small images), generated once per `target/` directory and reused; `TEGG_REF_VAULT=<dir>` overrides it. They assert the D-59 reference targets (75 % of the BRD target) only when built with `--release`; in debug builds they assert the BRD target × 10 and log the measured value, so they still catch gross regressions.

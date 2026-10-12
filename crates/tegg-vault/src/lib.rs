@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
-pub use local::LocalFs;
+pub use local::{create_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
 pub use mem::MemFs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,7 +53,28 @@ pub trait VaultFs: Send + Sync {
     fn is_placeholder(&self, _path: &str) -> io::Result<bool> {
         Ok(false)
     }
+    /// `(mtime_ns, size)` without reading the content, `None` when missing; an error for a folder.
+    /// Used for the index's offline catch-up (architecture §5.1).
+    fn stat(&self, path: &str) -> io::Result<Option<(i128, u64)>> {
+        Ok(self.version(path)?.map(|v| (v.mtime_ns, v.size)))
+    }
+    /// Reports changes made by other programs (architecture §5.4). `None` when this file system has no
+    /// watcher (e.g. `MemFs`: tests report changes through a `SyncAdapter`). Dropping the guard stops it.
+    fn watch(&self, _sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
+        Ok(None)
+    }
 }
+
+/// What a watcher reports: vault-relative NFC paths that may have changed (event kinds are never trusted,
+/// a path can be a file, a folder or gone), or "rescan everything" when events were lost.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FsChange {
+    Paths(Vec<String>),
+    Rescan,
+}
+pub type ChangeSink = Box<dyn Fn(FsChange) + Send + Sync>;
+/// Keeps a watcher alive.
+pub type WatchGuard = Box<dyn std::any::Any + Send>;
 
 /// So a test keeps a handle on the `MemFs` a vault uses (docs/contracts/ms2-core.md §3).
 impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
@@ -83,6 +104,12 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     }
     fn is_placeholder(&self, path: &str) -> io::Result<bool> {
         (**self).is_placeholder(path)
+    }
+    fn stat(&self, path: &str) -> io::Result<Option<(i128, u64)>> {
+        (**self).stat(path)
+    }
+    fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
+        (**self).watch(sink)
     }
 }
 
@@ -336,6 +363,32 @@ impl Vault {
     /// temporary files, `.trash/`, `.obsidian/`, `.git/` or other files (`.docx`, `.txt`).
     pub fn managed_files(&self) -> Result<Vec<String>, VaultError> {
         Ok(self.files()?.into_iter().filter(|p| is_managed(p)).collect())
+    }
+
+    /// All files in the vault (vault-relative, NFC), for the index (read-only).
+    pub fn list_files(&self) -> Result<Vec<String>, VaultError> {
+        self.files()
+    }
+
+    /// The file's current version, `None` when missing; an error for a folder.
+    pub fn version(&self, path: &str) -> Result<Option<FileVersion>, VaultError> {
+        Ok(self.fs.version(&nfc(path))?)
+    }
+
+    /// `(mtime_ns, size)` without reading the file; `None` when missing.
+    pub fn stat(&self, path: &str) -> Result<Option<(i128, u64)>, VaultError> {
+        Ok(self.fs.stat(&nfc(path))?)
+    }
+
+    /// FR-VLT-03, D-112: online-only placeholder (never read it: that would download it).
+    pub fn is_placeholder(&self, path: &str) -> bool {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        (name.starts_with('.') && name.ends_with(".icloud")) || self.fs.is_placeholder(&nfc(path)).unwrap_or(false)
+    }
+
+    /// Starts the file system's watcher, if it has one (architecture §5.4).
+    pub fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
+        self.fs.watch(sink)
     }
 
     /// FR-STO-07: `<Application Support>/vaults/<vault key>/`, the key derived from the vault's path.
