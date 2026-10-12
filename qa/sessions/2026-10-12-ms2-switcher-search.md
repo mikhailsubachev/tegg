@@ -5,6 +5,9 @@ build: 0605943
 
 ## Manual ACs
 - FR-NAV-01/AC-11: fail
+- FR-NAV-01/AC-11: pass
+
+The first run failed; after the autocorrect fix (app rebuilt 15:12) the re-run passed. See "Re-run after the autocorrect fix".
 
 ## Setup
 
@@ -54,3 +57,13 @@ build: 0605943
 ## Risks noticed
 - No data-loss risk found: creation is one atomic new file, nothing else written.
 - Keyboard-only flow is blocked for anything beyond the first switcher item (bug 1); this also blocks the duplicate-name ` (2)` check, which should be re-run once fixed.
+
+## Re-run after the autocorrect fix
+
+- App rebuilt with `autoCorrect`/`spellCheck`/`autoCapitalize` off on the switcher and search inputs. Fresh temp vault and app support, same driving method.
+- `rozp`, ↓ selects "Projekt a rozpočet", ⏎ opens it. Bug 1 was the autocorrect bubble swallowing ↑/↓: fixed.
+- ↓/↑ reach the Create item. Create twice with "Nápad na výlet" (the fixture already has that file): `Quick Notes/Nápad na výlet (2).md` and `(3).md`, frontmatter title unchanged. Pass.
+- `prejm`, a single Esc closes the switcher. Bug 2: fixed.
+- Search `meruňkách` now shows "1 result". Bug 3: fixed in this build.
+- Hash comparison: only the two created files differ from the fixture copy.
+- Bug 4 (snippet space) not re-checked; still unconfirmed.
