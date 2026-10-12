@@ -20,7 +20,7 @@ dist/
 
 # Rust / Tauri
 target/
-src-tauri/gen/
+**/src-tauri/gen/
 
 # Editors
 .vscode/

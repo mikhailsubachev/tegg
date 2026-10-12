@@ -13,6 +13,8 @@
     { "id": "qa-tools-test", "dir": "tools/qa",
       "run": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/qa-tools.xml\" 'test/*.test.ts'",
       "level": "push" },
+    { "id": "app-typecheck", "dir": "app", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "app-shell-test", "dir": "app", "run": "npx vite build --logLevel error && cargo test --quiet --manifest-path src-tauri/Cargo.toml && node --test test/*.test.ts", "level": "push" },
     { "id": "s2-typecheck", "dir": "spikes/s2-editor", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
     { "id": "s2-test", "dir": "spikes/s2-editor",
       "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/s2-editor.xml\"",
@@ -32,9 +34,15 @@
       "run": "D=$(mktemp -d); trap 'rm -rf $D' EXIT; EXTRACT_DIFF_OUT=$D npx vitest run test/extract-diff.test.ts --silent=false && S4_EXTRACT_DIFF=$D/corpus.json cargo test --release --quiet --manifest-path ../s4-index/Cargo.toml --test conformance -- --nocapture",
       "level": "nightly" },
     { "id": "s5-test", "dir": "spikes/s5-capacities-import", "run": "cargo test --release --quiet", "level": "push" },
+    { "id": "core-perf", "dir": "tools/core-perf",
+      "run": "D=$(mktemp -d) && cargo run --release --quiet --manifest-path ../gen-vault/Cargo.toml -- --seed 1 --small-images --out $D/vault && cargo run --release --quiet -- --vault $D/vault --runs 20 --out \"$VERIFY_RESULTS/core-perf.json\"; S=$?; rm -rf $D; exit $S",
+      "level": "nightly" },
     { "id": "s4-perf", "dir": "spikes/s4-index",
       "run": "D=$(mktemp -d) && cargo run --release --quiet --manifest-path ../../tools/gen-vault/Cargo.toml -- --seed 1 --small-images --out $D/vault && cargo run --release --quiet --bin perf -- --vault $D/vault --runs 20 --out \"$VERIFY_RESULTS/s4-perf.json\"; S=$?; rm -rf $D; exit $S",
-      "level": "nightly" }
+      "level": "nightly" },
+    { "id": "app-e2e", "dir": "app",
+      "run": "npm run --silent app:build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-e2e.xml\" e2e/*.ac.test.ts",
+      "level": "milestone" }
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],
   "acRunners": [
@@ -43,6 +51,8 @@
     { "dir": "packages/doc", "match": "^packages/doc/test/.*\\.ac\\.test\\.ts$",
       "run": "npx vitest run --reporter=junit --outputFile.junit={junit} {files}" },
     { "dir": "tools/qa", "match": "^tools/qa/test/.*\\.ac\\.test\\.ts$",
+      "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" },
+    { "dir": "app", "match": "^app/e2e/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],
   "budgets": { "commit": 60, "push": 600, "nightly": 5400 }

@@ -1,7 +1,7 @@
 //! In-memory `VaultFs` for tests (AR-04 AC-2): same results as `LocalFs` on APFS for the same operations.
 //! Names keep their spelling but compare like APFS: normalization- and case-insensitive.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,19 +17,46 @@ enum Node {
 pub struct MemFs {
     nodes: Mutex<BTreeMap<String, (String, Node)>>,
     clock: Mutex<i128>,
+    placeholders: Mutex<BTreeSet<String>>,
 }
 
 impl Default for MemFs {
     fn default() -> Self {
         // Wall-clock start, so age-based rules (temp clean-up, FR-SYN-02 AC-4) behave as on disk.
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as i128).unwrap_or(0);
-        MemFs { nodes: Mutex::new(BTreeMap::new()), clock: Mutex::new(now) }
+        MemFs { nodes: Mutex::new(BTreeMap::new()), clock: Mutex::new(now), placeholders: Mutex::new(BTreeSet::new()) }
     }
 }
 
 impl MemFs {
     pub fn new() -> MemFs {
         MemFs::default()
+    }
+
+    /// D-112: marks a file as an online-only placeholder (`SF_DATALESS` on APFS).
+    pub fn set_placeholder(&self, path: &str, on: bool) {
+        let mut p = self.placeholders.lock().expect("placeholders");
+        if on { p.insert(fold(path)) } else { p.remove(&fold(path)) };
+    }
+
+    /// A change by another program (sync client, editor) for sync-simulator tests (AR-04 AC-4):
+    /// creates missing parent folders, then replaces the file.
+    pub fn write_external(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
+        if let Some(p) = parent(&spelled(path)) {
+            self.create_dir_all(p)?;
+        }
+        self.put(path, bytes, false)
+    }
+
+    pub fn remove_external(&self, path: &str) -> io::Result<()> {
+        self.remove_file(path)
+    }
+
+    pub fn rename_external(&self, from: &str, to: &str) -> io::Result<()> {
+        if let Some(p) = parent(&spelled(to)) {
+            self.create_dir_all(p)?;
+        }
+        self.rename_no_replace(from, to)
     }
 
     fn tick(&self) -> i128 {
@@ -157,6 +184,10 @@ impl VaultFs for MemFs {
             }
         }
         Ok(())
+    }
+
+    fn is_placeholder(&self, path: &str) -> io::Result<bool> {
+        Ok(self.placeholders.lock().expect("placeholders").contains(&fold(path)))
     }
 
     fn remove_file(&self, path: &str) -> io::Result<()> {

@@ -5,7 +5,7 @@ mod extract;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
-pub use extract::{Extracted, FrontmatterError, Link};
+pub use extract::{body_start, Extracted, FrontmatterError, Link};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).
 pub fn sanitize_file_stem(title: &str) -> String {

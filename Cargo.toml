@@ -1,8 +1,8 @@
 # Product Cargo workspace (docs/architecture.md §11). Spikes and tools have their own manifests.
 [workspace]
 resolver = "2"
-members = ["crates/tegg-format", "crates/tegg-vault"]
-exclude = ["spikes", "tools"]
+members = ["crates/tegg-format", "crates/tegg-vault", "crates/tegg-index", "crates/tegg-core"]
+exclude = ["spikes", "tools", "app"]
 
 [workspace.package]
 edition = "2021"
@@ -13,3 +13,8 @@ chrono = { version = "0.4", default-features = false, features = ["std", "clock"
 chrono-tz = "0.10"
 serde_json = "1"
 tempfile = "3"
+
+# Dependencies (SQLite, Markdown and YAML parsers, BLAKE3) optimized in debug builds too, so the AC tests on the
+# 5,000-note reference vault stay fast in the push gate; Tegg's own crates keep debug assertions and no opts.
+[profile.dev.package."*"]
+opt-level = 2

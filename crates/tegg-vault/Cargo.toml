@@ -9,6 +9,7 @@ description = "Tegg core: all vault I/O, the one write function (docs/contracts/
 tegg-format = { path = "../tegg-format" }
 blake3 = "1"
 libc = "0.2"
+notify = "8"
 
 [dev-dependencies]
 tempfile.workspace = true
