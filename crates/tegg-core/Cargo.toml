@@ -17,3 +17,9 @@ notify = "8"
 [dev-dependencies]
 tempfile.workspace = true
 gen-vault = { path = "../../tools/gen-vault" }
+tegg-vault = { path = "../tegg-vault" }
+tegg-index = { path = "../tegg-index" }
+tegg-format = { path = "../tegg-format" }
+chrono.workspace = true
+chrono-tz.workspace = true
+serde_json.workspace = true

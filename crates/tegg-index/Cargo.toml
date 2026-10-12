@@ -16,3 +16,6 @@ unicode-normalization = "0.1"
 
 [dev-dependencies]
 tempfile.workspace = true
+tegg-vault = { path = "../tegg-vault" }
+chrono.workspace = true
+chrono-tz.workspace = true
