@@ -608,3 +608,27 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
         s.emit(CoreEvent::VaultChanged { paths: changed.into_iter().collect() });
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// MS3 slice 3A (docs/contracts/ms3-shell.md §2: `vault_types`, `index_type_counts`, `index_list`).
+// STUB (red tests, D-61 / TS-I1): compiles and returns deliberately wrong (empty) results until implemented.
+
+pub use tegg_vault::TypeDef;
+
+impl Core {
+    /// `vault_types`: the vault's type definitions (read-only, NFC keys, order not guaranteed).
+    pub fn types(&self) -> Vec<TypeDef> {
+        Vec::new()
+    }
+
+    /// `index_type_counts`: objects per `type` value; untyped files as `page` (D-103); templates and `.trash/`
+    /// excluded (FR-TPL-07, D-102); types without objects absent; undefined types under their raw value (AP-65).
+    pub fn type_counts(&self) -> std::collections::BTreeMap<String, usize> {
+        std::collections::BTreeMap::new()
+    }
+
+    /// `index_list`: the objects of one type, same exclusions as `type_counts`, in no particular order.
+    pub fn list_type(&self, _type: &str) -> Vec<ObjectInfo> {
+        Vec::new()
+    }
+}

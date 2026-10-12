@@ -1,0 +1,391 @@
+// MS3 slice 3A, L5 (WebKit + fake core): FR-UX-03 keyboard-first (palette, shortcuts, focus).
+// Written from docs/acceptance/app-shell.md and docs/contracts/ms3-shell.md only (D-61).
+import { test, type Page } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
+import {
+  absent, eventually, focused, gotoType, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
+  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme,
+} from './helpers';
+
+const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
+const query = (page: Page) => page.getByRole('combobox', { name: 'Command query' });
+
+/** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name. */
+async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
+  if (row.id === 'chooser') { await runCommand(page, 'Open vault…'); return 'Choose a vault'; }
+  if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
+  if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
+  if (row.id === 'type-settings/<type>') {
+    await gotoType(page, 'Quick Notes');
+    await page.getByRole('main').getByRole('button', { name: 'Type settings' }).or(page.getByRole('main').getByRole('link', { name: 'Type settings' })).first().click();
+    return 'Type settings';
+  }
+  await runCommand(page, row.goto!);
+  return row.page;
+}
+
+async function paletteOpensWithCursor(page: Page, keys: string, where: string) {
+  await page.keyboard.press(keys);
+  assert.ok(await seen(paletteDialog(page), 1500), `${keys} at ${where}: palette not open`);
+  const f = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
+  assert.equal(f, 'Command query', `${keys} at ${where}: cursor not in Command query`);
+  await page.keyboard.press('Escape');
+  assert.ok(await absent(paletteDialog(page)), `${where}: Esc closes the palette`);
+}
+
+test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus', async ({ page }) => {
+  test.setTimeout(180_000);
+  await start(page);
+  for (const row of R1) {
+    const name = await goRoute(page, row);
+    await mustBeOn(page, name, `route ${row.id}`);
+    for (const keys of ['Meta+k', 'Meta+Shift+p']) {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await paletteOpensWithCursor(page, keys, `${row.id}, focus on body`);
+      if (row.id !== 'chooser') {
+        await sidebar(page).getByText('Inbox', { exact: true }).focus();
+        await paletteOpensWithCursor(page, keys, `${row.id}, focus on a sidebar entry`);
+        await sidebar(page).getByRole('button', { name: 'New type' }).focus();
+        await paletteOpensWithCursor(page, keys, `${row.id}, focus on a disabled control`);
+      }
+    }
+    if (row.id === 'search') {
+      await page.getByRole('textbox', { name: 'Search query' }).or(page.getByRole('searchbox', { name: 'Search query' })).first().focus();
+      await paletteOpensWithCursor(page, 'Meta+k', 'search, focus in a text field');
+    }
+    if (row.id === 'chooser') await page.keyboard.press('Escape');
+  }
+  // Over the switcher and the New object dialog the palette replaces them.
+  await page.keyboard.press('Meta+o');
+  await must(switcherDialog(page), 'Quick switcher');
+  await page.keyboard.press('Meta+k');
+  assert.ok(await seen(paletteDialog(page)), 'palette over switcher');
+  assert.ok(await absent(switcherDialog(page)), 'palette replaces the switcher');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+n');
+  await must(newObjectDialog(page), 'New object dialog');
+  await page.keyboard.press('Meta+Shift+p');
+  assert.ok(await seen(paletteDialog(page)), 'palette over New object');
+  assert.ok(await absent(newObjectDialog(page)), 'palette replaces New object');
+});
+
+/** The effect a command title should have (FR-UX-03 AC-2). */
+async function checkEffect(page: Page, title: string, before: { main: string | null; sidebar: boolean; panel: boolean; theme?: string }): Promise<string | null> {
+  const go = /^Go to (?:type: )?(.+)$/.exec(title);
+  if (go) {
+    const target = go[1] === 'Settings' ? 'Settings: Appearance' : go[1];
+    return (await onPage(page, target, 2000)) ? null : `${title}: centre pane is ${await mainName(page)}`;
+  }
+  const t = /^Theme: (System|Light|Dark)$/.exec(title);
+  if (t) {
+    if (t[1] === 'System') return null;
+    const want = t[1].toLowerCase();
+    return (await eventually(() => theme(page), (v) => v === want, 1000)) === want ? null : `${title}: theme ${await theme(page)}`;
+  }
+  switch (title) {
+    case 'Open vault…':
+    case 'Create new vault…':
+      return (await seen(page.getByRole('main', { name: 'Choose a vault' }), 1500)) || (await seen(page.getByRole('form', { name: 'New vault' }), 300)) ? null : `${title}: no chooser`;
+    case 'Open quick switcher': return (await seen(switcherDialog(page), 1500)) ? null : `${title}: no switcher`;
+    case 'New object': return (await seen(newObjectDialog(page), 1500)) ? null : `${title}: no dialog`;
+    case 'Toggle sidebar': return (await seen(sidebar(page), 800)) !== before.sidebar ? null : `${title}: sidebar unchanged`;
+    case 'Toggle right panel': return (await seen(panel(page), 800)) !== before.panel ? null : `${title}: panel unchanged`;
+    case 'Toggle focus mode': return (await absent(sidebar(page), 800)) ? null : `${title}: sidebar still shown`;
+    case 'Open command palette': return (await seen(paletteDialog(page), 800)) ? null : `${title}: palette not open`;
+    default: return null; // effect not derivable from the title; only "ranked first, runs, closes" is checked
+  }
+}
+
+test('fr_ux_03_ac2_every_command_ranks_first_and_runs', async ({ page }) => {
+  test.setTimeout(240_000);
+  await start(page);
+  await openNote(page, '2026-10-07 Porada'); // so the panel and focus-mode commands have an object
+  await page.keyboard.press('Meta+k');
+  await must(paletteDialog(page), 'Command palette');
+  const all = (await paletteOptions(page)).map((t) => t.split('\n')[0].trim());
+  await page.keyboard.press('Escape');
+  for (const s of STATIC_COMMANDS) assert.ok(all.includes(s), `palette lists "${s}"`);
+  const failures: string[] = [];
+  for (const title of all) {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    if (!(await onPage(page, '2026-10-07 Porada', 200))) await openNote(page, '2026-10-07 Porada');
+    const before = { main: await mainName(page), sidebar: await seen(sidebar(page), 200), panel: await seen(panel(page), 200) };
+    await page.keyboard.press('Meta+k');
+    await query(page).fill(title);
+    await sleep(60);
+    const first = ((await paletteOptions(page))[0] ?? '').split('\n')[0].trim();
+    if (first !== title) { failures.push(`"${title}" ranks "${first}" first`); continue; }
+    const disabled = /Coming in/.test((await paletteOptions(page))[0]);
+    await page.keyboard.press('Enter');
+    if (disabled) continue; // FR-UX-03 AC-6 checks disabled commands
+    if (title !== 'Open command palette' && !(await absent(paletteDialog(page), 1000))) failures.push(`"${title}": palette stays open`);
+    const e = await checkEffect(page, title, before);
+    if (e) failures.push(e);
+    if (title === 'Toggle focus mode') await page.keyboard.press('Escape');
+  }
+  assert.deepEqual(failures, []);
+});
+
+test('fr_ux_03_ac3_type_commands_follow_external_type_changes', async ({ page }) => {
+  const core = await start(page);
+  await page.keyboard.press('Meta+k');
+  await must(paletteDialog(page), 'Command palette');
+  await query(page).fill('Go to type:');
+  const titles = (await paletteOptions(page)).map((t) => t.split('\n')[0].trim()).filter((t) => t.startsWith('Go to type: '));
+  assert.deepEqual([...titles].sort(), TYPE_PLURALS.map((p) => `Go to type: ${p}`).sort());
+  await page.keyboard.press('Escape');
+  await core.setFile('.tegg/types/kniha.yml', 'version: 1\nname: Kniha\nplural: Knihy\nsystem: false\nfolder: Knihy\nicon: book\ncolor: purple\nreview: false\npreview: []\nattributes: []\n');
+  const found = await eventually(async () => {
+    await page.keyboard.press('Meta+k');
+    await query(page).fill('Go to type: Knihy');
+    await sleep(50);
+    const o = ((await paletteOptions(page))[0] ?? '').split('\n')[0].trim();
+    await page.keyboard.press('Escape');
+    return o;
+  }, (o) => o === 'Go to type: Knihy', 2000);
+  assert.equal(found, 'Go to type: Knihy', 'a new type file adds its command within 2 s');
+});
+
+test('fr_ux_03_ac4_palette_matching_folds_case_diacritics_and_nfd', async ({ page }) => {
+  await start(page);
+  for (const q of ['cajovny', 'ČAJOVNY', 'čajovny'.normalize('NFD'), 'gtcaj']) {
+    await page.keyboard.press('Meta+k');
+    await must(paletteDialog(page), 'Command palette');
+    await query(page).fill(q);
+    await sleep(60);
+    const first = ((await paletteOptions(page))[0] ?? '').split('\n')[0].trim();
+    assert.equal(first, 'Go to type: Čajovny', `query ${JSON.stringify(q)}`);
+    await page.keyboard.press('Escape');
+  }
+});
+
+test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
+  await start(page);
+  const entry = sidebar(page).getByText('Inbox', { exact: true });
+  await entry.focus();
+  const before = await focused(page);
+  await page.keyboard.press('Meta+k');
+  await must(paletteDialog(page), 'Command palette');
+  await query(page).fill('Go to');
+  await sleep(60);
+  const selected = () => page.getByRole('listbox', { name: 'Commands' }).getByRole('option', { selected: true }).innerText().then((t) => t.split('\n')[0].trim(), () => '');
+  const opts = (await paletteOptions(page)).map((t) => t.split('\n')[0].trim());
+  assert.ok(opts.length >= 3, 'several Go to commands');
+  assert.equal(await selected(), opts[0], 'first option selected');
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await selected(), opts[1], '↓ moves down');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowUp');
+  assert.equal(await selected(), opts[1], '↑ moves up');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  assert.ok(await absent(paletteDialog(page)), '⏎ closes the palette');
+  const target = opts[2].replace(/^Go to (type: )?/, '');
+  await mustBeOn(page, target === 'Settings' ? 'Settings: Appearance' : target, '⏎ runs the selected command');
+  await sidebar(page).getByText('Inbox', { exact: true }).focus();
+  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('Escape');
+  assert.ok(await absent(paletteDialog(page)), 'Esc closes');
+  assert.deepEqual(await focused(page), before, 'focus returns to the element that had it');
+});
+
+test('fr_ux_03_ac6_shortcut_display_and_disabled_commands', async ({ page }) => {
+  const core = await start(page);
+  const shown: [string, string][] = [
+    ['Go to Search', '⇧⌘F'], ['Toggle sidebar', '⌃⌘S'], ['Open quick switcher', '⌘O'], ['New object', '⌘N'],
+    ['Go to Today', '⌘D'], ['Go to Inbox', '⇧⌘I'], ['Toggle right panel', '⌘\\'], ['Toggle focus mode', '⇧⌘\\'],
+  ];
+  for (const [title, keys] of shown) {
+    await page.keyboard.press('Meta+k');
+    await must(paletteDialog(page), 'Command palette');
+    await query(page).fill(title);
+    await sleep(60);
+    const row = (await paletteOptions(page))[0] ?? '';
+    assert.ok(row.startsWith(title), `"${title}" first`);
+    assert.ok(row.replace(/\s+/g, '').endsWith(keys), `"${title}" shows ${keys}: ${JSON.stringify(row)}`);
+    await page.keyboard.press('Escape');
+  }
+  for (const [title, due] of [['New tab', 'v1.0'], ['Back', 'MS5'], ['Forward', 'MS5'], ['New type', 'MS3 (3D)']]) {
+    const route = await mainName(page);
+    await page.keyboard.press('Meta+k');
+    await query(page).fill(title);
+    await sleep(60);
+    const row = (await paletteOptions(page)).find((r) => r.split('\n')[0].trim() === title) ?? '';
+    assert.match(row, new RegExp(`Coming in ${due.replace(/[.()]/g, '\\$&')}`), `"${title}" shows Coming in ${due}`);
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');
+    assert.equal(await mainName(page), route, `"${title}" does not run`);
+  }
+  assert.deepEqual(await nonReadCalls(core), []);
+});
+
+const CONTROL_SELECTOR = 'button, a[href], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="checkbox"], [role="radio"], [role="switch"], input[type="checkbox"], input[type="radio"]';
+
+async function controlsWithoutCommand(page: Page): Promise<string[]> {
+  return page.evaluate((sel) => {
+    const out: string[] = [];
+    for (const e of document.querySelectorAll(sel)) {
+      const el = e as HTMLElement;
+      if (el.getClientRects().length === 0) continue;
+      if (el.closest('main') && el.closest('[role="row"], [role="listitem"], li') && el.closest('[role="row"], [role="listitem"], li')!.querySelector('[data-user-content]')) continue; // object list rows
+      const cmd = el.getAttribute('data-command');
+      if (!cmd || !cmd.trim()) out.push(`${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)}"`);
+    }
+    return out;
+  }, CONTROL_SELECTOR);
+}
+
+test('fr_ux_03_ac8_every_control_carries_a_command', async ({ page }) => {
+  test.setTimeout(180_000);
+  await start(page);
+  const failures: string[] = [];
+  for (const row of R1) {
+    const name = await goRoute(page, row);
+    if (!(await onPage(page, name, 2000))) { failures.push(`${row.id}: not reached`); continue; }
+    for (const p of await controlsWithoutCommand(page)) failures.push(`${row.id}: ${p}`);
+    if (row.id === 'note/<path>') {
+      await page.keyboard.press('Meta+Backslash');
+      if (!(await seen(panel(page), 1000))) failures.push('note: panel did not open');
+      for (const p of await controlsWithoutCommand(page)) failures.push(`${row.id} (panel open): ${p}`);
+      await page.keyboard.press('Meta+Backslash');
+    }
+    if (row.id === 'chooser') await page.keyboard.press('Escape');
+  }
+  assert.deepEqual(failures, []);
+});
+
+test('fr_ux_03_ac9_global_shortcuts_from_every_route', async ({ page }) => {
+  test.setTimeout(300_000);
+  const core = await start(page);
+  const failures: string[] = [];
+  const reset = async () => { for (let i = 0; i < 3; i++) await page.keyboard.press('Escape'); };
+  const routes = R1.filter((r) => r.id !== 'chooser');
+  for (const row of routes) {
+    for (const r4 of R4.filter((x) => x.enabled)) {
+      if (['Toggle right panel', 'Toggle focus mode'].includes(r4.command) && row.id !== 'note/<path>') continue; // object routes only (FR-UX-02 AC-7, AC-9)
+      await reset();
+      const name = await goRoute(page, row);
+      if (!(await onPage(page, name, 2000))) { failures.push(`${row.id}: not reached`); break; }
+      await page.getByRole('main').getByRole('heading', { level: 1 }).first().focus().catch(() => {});
+      const before = { sidebar: await seen(sidebar(page), 200), panel: await seen(panel(page), 200) };
+      await page.keyboard.press(r4.press);
+      const e = await checkEffect(page, r4.command, { main: name, ...before });
+      if (e) failures.push(`${row.id} ${r4.keys}: ${e}`);
+      if (r4.command === 'Toggle sidebar' && (await seen(sidebar(page), 200)) !== before.sidebar) await page.keyboard.press(r4.press);
+      if (r4.command === 'Toggle right panel' && (await seen(panel(page), 200))) await page.keyboard.press(r4.press);
+    }
+  }
+  // While a dialog is open only its keys act.
+  await reset();
+  await runCommand(page, 'Go to Inbox');
+  for (const open of ['Meta+k', 'Meta+o', 'Meta+n']) {
+    await page.keyboard.press(open);
+    await page.keyboard.press('Meta+d');
+    if ((await mainName(page)) !== 'Inbox') failures.push(`${open} dialog open: ⌘D navigated`);
+    await page.keyboard.press('Control+Meta+s');
+    if (!(await seen(sidebar(page), 300))) failures.push(`${open} dialog open: ⌃⌘S toggled the sidebar`);
+    await reset();
+  }
+  // ⌘T, ⌘[ and ⌘] do nothing and write nothing.
+  for (const k of ['Meta+t', 'Meta+BracketLeft', 'Meta+BracketRight']) {
+    await page.keyboard.press(k);
+    if ((await mainName(page)) !== 'Inbox') failures.push(`${k} changed the route`);
+  }
+  if ((await nonReadCalls(core)).length) failures.push(`non-read commands: ${(await nonReadCalls(core)).join(', ')}`);
+  assert.deepEqual(failures, []);
+});
+
+test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => {
+  test.setTimeout(240_000);
+  await start(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__focusLog = new Map<Element, { on?: string; off?: string; label: string }>();
+    const sig = (e: Element) => { const s = getComputedStyle(e); return JSON.stringify([s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow]); };
+    document.addEventListener('focusin', (ev) => { const t = ev.target as Element; const r = w.__focusLog.get(t) ?? { label: (t.getAttribute('aria-label') ?? t.textContent ?? t.tagName).trim().slice(0, 40) }; r.on = sig(t); w.__focusLog.set(t, r); }, true);
+    document.addEventListener('focusout', (ev) => { const t = ev.target as Element; setTimeout(() => { const r = w.__focusLog.get(t); if (r && document.activeElement !== t) r.off = sig(t); }, 0); }, true);
+    w.__pointer = 0;
+    for (const k of ['pointerdown', 'mousedown', 'click']) document.addEventListener(k, (e) => { if ((e as MouseEvent).detail > 0) w.__pointer++; }, true);
+  });
+  const label = () => page.evaluate(() => (document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent ?? '').trim());
+  const tabTo = async (re: RegExp, what: string) => {
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let i = 0; i < 80; i++) {
+        if (re.test(await label())) return;
+        await page.keyboard.press(key);
+      }
+    }
+    assert.fail(`keyboard tour: could not reach ${what} with Tab / ⇧Tab`);
+  };
+  for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries']) {
+    await tabTo(new RegExp(`^${e}\\b`), `sidebar ${e}`);
+    await page.keyboard.press('Enter');
+    await mustBeOn(page, e, `keyboard: sidebar ${e}`);
+  }
+  for (const t of TYPE_PLURALS) {
+    await tabTo(new RegExp(`^${t}\\b`), `Types entry ${t}`);
+    await page.keyboard.press('Enter');
+    await mustBeOn(page, t, `keyboard: Types ${t}`);
+  }
+  await page.keyboard.press('Meta+o');
+  await must(switcherDialog(page), 'switcher');
+  await page.keyboard.insertText('Porada');
+  await sleep(150);
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, '2026-10-07 Porada', 'keyboard: switcher');
+  await page.keyboard.press('Control+Meta+s');
+  assert.ok(await absent(sidebar(page)), 'keyboard: sidebar hidden');
+  await page.keyboard.press('Control+Meta+s');
+  await page.keyboard.press('Meta+Backslash');
+  assert.ok(await seen(panel(page)), 'keyboard: panel open');
+  await page.keyboard.press('Meta+Backslash');
+  await page.keyboard.press('Meta+Shift+Backslash');
+  assert.ok(await absent(sidebar(page)), 'keyboard: focus mode');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+Comma');
+  await mustBeOn(page, 'Settings: Appearance', 'keyboard: settings');
+  for (const [name, want] of [['Light', 'light'], ['Dark', 'dark'], ['System', null]] as const) {
+    await tabTo(new RegExp(`^${name}$`), `theme radio ${name}`);
+    await page.keyboard.press('Space');
+    if (want) assert.equal(await eventually(() => theme(page), (v) => v === want, 500), want, `keyboard: theme ${name}`);
+  }
+  await page.keyboard.press('Meta+n');
+  await must(newObjectDialog(page), 'New object');
+  await page.keyboard.insertText('Klávesnicový nápad');
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Klávesnicový nápad', 'keyboard: New object');
+  assert.equal(await page.evaluate(() => (window as any).__pointer), 0, 'no pointer events');
+  const bad = await page.evaluate(() => {
+    const out: string[] = [];
+    const w = window as any;
+    for (const [, r] of w.__focusLog as Map<Element, { on?: string; off?: string; label: string }>) {
+      if (!r.on || !r.off) continue;
+      const [style, width, , shadow] = JSON.parse(r.on) as string[];
+      const outline = style !== 'none' && parseFloat(width) >= 2;
+      const ring = shadow !== 'none' && (shadow.match(/(-?\d+(?:\.\d+)?)px/g) ?? []).map(parseFloat).some((v, i) => i >= 2 && v >= 2);
+      if (r.on === r.off || !(outline || ring)) out.push(r.label);
+    }
+    return out;
+  });
+  assert.deepEqual(bad, [], 'focused elements without a visible ≥ 2 px focus indicator');
+});
+
+test('fr_ux_03_ac11_focus_moves_to_the_page_heading_after_navigation', async ({ page }) => {
+  await start(page);
+  const check = async (how: string, name: string) => {
+    await mustBeOn(page, name, how);
+    const f = await eventually(() => focused(page), (x) => x.heading && x.inMain, 1000);
+    assert.ok(f.heading && f.inMain, `${how}: focus on the heading in the centre pane, got ${JSON.stringify(f)}`);
+    assert.equal(f.label.replace(/\s+/g, ' ').trim().startsWith(name) || f.label === name, true, `${how}: heading text`);
+    await page.keyboard.press('Tab');
+    assert.ok((await focused(page)).inMain, `${how}: next Tab starts in the page`);
+  };
+  await sidebar(page).getByText('Inbox', { exact: true }).click();
+  await check('sidebar', 'Inbox');
+  await runCommand(page, 'Go to Tasks');
+  await check('palette', 'Tasks');
+  await page.keyboard.press('Meta+d');
+  await check('shortcut ⌘D', 'Today');
+});
