@@ -121,9 +121,12 @@ test('fr_ux_02_ac4_types_list_en_and_code_point_order', async ({ page, browser }
   const en = await typesOrder(page, collation('en'));
   const user = (xs: [string, number][]) => xs.map(([l]) => l).filter((l) => ['Cesty', 'Čajovny', 'Schůzky'].some((u) => l.startsWith(u)));
   assert.deepEqual(user(en), ['Čajovny', 'Cesty', 'Schůzky'], 'en');
+  // "No locale gives the code-point order" (AC-4, D-122): without a region locale the UI language's collation is
+  // used (WebKit here: en), never code-point order (Cesty, Schůzky, Čajovny).
   const p2 = await browser.newPage();
   const none = await typesOrder(p2, undefined);
-  assert.deepEqual(user(none), ['Cesty', 'Schůzky', 'Čajovny'], 'no locale: code-point order');
+  assert.notDeepEqual(user(none), ['Cesty', 'Schůzky', 'Čajovny'], 'no locale: never code-point order');
+  assert.deepEqual(user(none), ['Čajovny', 'Cesty', 'Schůzky'], 'no locale: the UI language (en)');
   await p2.close();
 });
 
