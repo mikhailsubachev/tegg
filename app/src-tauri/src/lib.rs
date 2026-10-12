@@ -1,6 +1,6 @@
 //! Tegg desktop shell (architecture §3.3): the main window, IPC commands mapped onto `tegg-core`, core events
 //! forwarded to the UI. Thin by design: validate, call the core, map errors. Nothing here reads or writes vault
-//! files; the perf log is test-only and machine-local (docs/contracts/ms2-shell.md §1).
+//! files; the perf log and the UI state are machine-local (docs/contracts/ms2-shell.md §1, ms3-shell.md §1, §2).
 
 mod dto;
 
@@ -11,6 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tegg_core::{AppDirs, Core, CoreError, CoreEvent, CoreOptions, DateRange, MatchField, ProgressState, SearchQuery, SwitcherKind, Vault, VaultError};
+use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
 
@@ -99,6 +100,14 @@ fn core_err(e: CoreError) -> IpcError {
 
 fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     let state = app.state::<AppState>();
+    // FR-VLT-01 AC-4/AC-5, D-91: a folder that isn't a Tegg vault is refused before anything else (zero writes).
+    if let Err(e) = Vault::open(&path, &state.dirs) {
+        return Err(match e {
+            OpenError::NotATeggVault => err("NotATeggVault", "the folder has no .tegg/vault.yml"),
+            OpenError::Missing => err("NotFound", "the folder doesn't exist"),
+            other => err("Io", format!("{other:?}")),
+        });
+    }
     // One vault at a time (D-35): the old core stops (and saves its recency) before the new one opens.
     *state.core.lock().unwrap_or_else(|p| p.into_inner()) = None;
     let core = Arc::new(Core::open(&path, &state.dirs, CoreOptions { watch: true, sync: None }).map_err(core_err)?);
@@ -256,6 +265,127 @@ fn perf_mark(app: AppHandle, name: String) {
     mark(&app, &name);
 }
 
+// ---------------------------------------------------------------- MS3 slice 3A (ms3-shell §2)
+
+#[tauri::command]
+async fn vault_create(app: AppHandle, parent: String, name: String, kind: String) -> Result<VaultInfo, IpcError> {
+    if kind != "empty" {
+        return Err(err("Unsupported", "starter vaults arrive in slice 3D (D-92)"));
+    }
+    let dirs = app.state::<AppState>().dirs.clone();
+    let vault = Vault::create(&PathBuf::from(&parent), &name, VaultKind::Empty, &dirs).map_err(|e| match e {
+        CreateError::NotEmpty => err("NotEmpty", "the target folder exists and isn't empty"),
+        other => err("Io", format!("{other:?}")),
+    })?;
+    let root = vault.root().to_path_buf();
+    drop(vault);
+    open_vault(&app, root)
+}
+
+/// The folder dialog, or the test hook `TEGG_TEST_PICK_DIR` (empty = cancelled, D-135).
+#[tauri::command]
+async fn vault_pick_dir(app: AppHandle) -> Option<String> {
+    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+        if let Ok(dir) = std::env::var("TEGG_TEST_PICK_DIR") {
+            return if dir.is_empty() { None } else { Some(dir) };
+        }
+    }
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog().file().pick_folder(move |p| {
+        let _ = tx.send(p.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned()));
+    });
+    rx.recv().ok().flatten()
+}
+
+#[tauri::command]
+async fn vault_last(state: State<'_, AppState>) -> Result<Option<LastOpenedDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.last_opened().map(|(path, id)| LastOpenedDto { path, id }))
+}
+
+#[tauri::command]
+async fn vault_types(state: State<'_, AppState>) -> Result<Vec<TypeDefDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .types()
+        .into_iter()
+        .map(|t| TypeDefDto { key: t.key, name: t.name, plural: t.plural, folder: t.folder, icon: t.icon, color: t.color, system: t.system, invalid: t.invalid })
+        .collect())
+}
+
+#[tauri::command]
+async fn index_type_counts(state: State<'_, AppState>) -> Result<std::collections::BTreeMap<String, u32>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.type_counts().into_iter().map(|(k, v)| (k, v as u32)).collect())
+}
+
+#[tauri::command]
+async fn index_list(state: State<'_, AppState>, r#type: String) -> Result<Vec<ObjectRowDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .list_type(&r#type)
+        .into_iter()
+        .map(|o| {
+            let modified = o.attributes.get("modified").and_then(|v| v.as_str()).map(str::to_string);
+            ObjectRowDto { path: o.path, id: o.id, title: o.title, type_key: o.r#type, modified }
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
+    let core = core(&state)?;
+    core.record_open(&path, SystemTime::now());
+    Ok(())
+}
+
+const UI_STATE_FILE: &str = "ui-state.json";
+
+fn load_ui_state(dirs: &AppDirs) -> UiStateDto {
+    tegg_vault::read_local_file(&dirs.root.join(UI_STATE_FILE)).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+
+#[tauri::command]
+fn ui_state_get(state: State<AppState>) -> UiStateDto {
+    load_ui_state(&state.dirs)
+}
+
+#[tauri::command]
+fn ui_state_set(app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
+    let bytes = serde_json::to_vec_pretty(&state).map_err(|e| err("Io", e))?;
+    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))
+}
+
+/// The collation locale of this Mac (D-122): the explicit collation order if set, else the region locale.
+fn region_locale() -> Option<String> {
+    let read = |key: &str| {
+        let out = std::process::Command::new("/usr/bin/defaults").args(["read", "-g", key]).output().ok()?;
+        let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
+        (out.status.success() && !s.is_empty()).then_some(s)
+    };
+    let raw = read("AppleCollationOrder").or_else(|| read("AppleLocale"))?;
+    let tag = raw.split('@').next().unwrap_or(&raw).replace('_', "-");
+    Some(tag)
+}
+
+/// Set before the UI's first paint (ms3-shell §3.5, §3.6, §10): the stored theme, the region locale, and in the
+/// test environment the start route.
+fn init_script(dirs: &AppDirs) -> String {
+    let mut ui = load_ui_state(dirs);
+    if let Some(theme) = test_var("TEGG_THEME").filter(|t| ["system", "light", "dark"].contains(&t.as_str())) {
+        ui.theme = theme;
+    }
+    let route = test_var("TEGG_ROUTE");
+    format!(
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {};",
+        serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
+        serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
+        serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
+        std::env::var("TEGG_TEST").as_deref() == Ok("1"),
+    )
+}
+
 pub fn run() {
     let dirs = app_dirs();
     tauri::Builder::default()
@@ -264,6 +394,15 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let dirs = app.state::<AppState>().dirs.clone();
+            // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
+            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .title("Tegg")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(800.0, 500.0)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
+                .initialization_script(&init_script(&dirs))
+                .build()?;
             let path = test_var("TEGG_VAULT").map(PathBuf::from).or_else(|| Vault::last_opened(&dirs).filter(|(_, exists)| *exists).map(|(p, _)| p));
             if let Some(path) = path {
                 // FR-VLT-01 AC-7: a vault that can't be opened leaves the app on its "open a vault" screen.
@@ -273,7 +412,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark])
+        .invoke_handler(tauri::generate_handler![
+            vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
+            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Tegg");
 }

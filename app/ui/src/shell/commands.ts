@@ -1,12 +1,35 @@
-// STUB (MS3 slice 3A red tests, D-61 / TS-I1): docs/contracts/ms3-shell.md §3.3. No commands, no ranking.
-import type { Due } from './registry';
+// The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
+// controls reference theirs with `data-command`, and one key handler runs them by shortcut.
+import type { TypeDefDto, VaultInfo } from '../ipc/types';
+import { DISABLED_CONTROLS, ROUTES, SHORTCUTS, type Due } from './registry';
+import type { Route } from './routes';
+import { typeEntries } from './types';
 
-/** Not specified by the contract yet (see the red-test report); the real shell defines it. */
-export type ShellContext = Record<string, unknown>;
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
+export type ShellActions = {
+  go: (r: Route) => void;
+  openPalette: () => void;
+  openSwitcher: () => void;
+  newObject: () => void;
+  toggleSidebar: () => void;
+  toggleRightPanel: () => void;
+  toggleFocus: () => void;
+  openChooser: (form: boolean) => void;
+  setTheme: (t: ThemeChoice) => void;
+};
+
+export type ShellContext = {
+  vault: VaultInfo | null;
+  types: TypeDefDto[];
+  counts: Record<string, number>;
+  actions?: ShellActions;
+};
 
 export type Command = {
   id: string;
   title: string;
+  vars?: Record<string, string>;
   section: 'navigate' | 'create' | 'view' | 'vault' | 'app';
   shortcut?: string;
   due?: Due;
@@ -14,10 +37,99 @@ export type Command = {
   run: (ctx: ShellContext) => void | Promise<void>;
 };
 
-export function commands(_ctx: ShellContext): Command[] {
-  return [];
+const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys;
+
+/** Command ids of the R3 controls (D-130), in registry order. */
+export const CONTROL_COMMANDS: Record<string, string> = {
+  'ctl.newTab': 'nav.newTab',
+  'ctl.back': 'nav.back',
+  'ctl.forward': 'nav.forward',
+  'ctl.newType': 'type.new',
+  'ctl.starterVault': 'vault.starter',
+  'ctl.showSource': 'note.source',
+  'ctl.addIcon': 'note.icon',
+  'ctl.addCover': 'note.cover',
+  'ctl.filter': 'typePage.filter',
+  'ctl.sort': 'typePage.sort',
+  'ctl.views': 'typePage.views',
+  'ctl.newOfType': 'typePage.newObject',
+  'ctl.font': 'settings.font',
+  'ctl.fontSize': 'settings.fontSize',
+  'ctl.editorWidth': 'settings.editorWidth',
+  'ctl.accentColor': 'settings.accentColor',
+  'ctl.typePicker': 'object.typePicker',
+};
+
+const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>']);
+const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
+
+export function commands(ctx: ShellContext): Command[] {
+  const a = (ctx2: ShellContext) => ctx2.actions;
+  const list: Command[] = [
+    { id: 'app.palette', title: 'cmd.palette', section: 'app', shortcut: '⌘K', needsVault: false, run: (c) => a(c)?.openPalette() },
+    { id: 'app.switcher', title: 'cmd.switcher', section: 'navigate', shortcut: shortcutOf('app.switcher'), needsVault: true, run: (c) => a(c)?.openSwitcher() },
+    { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
+  ];
+  for (const r of ROUTES) {
+    if (NO_GOTO.has(r.id)) continue;
+    const id = `goto.${r.id}`;
+    list.push({ id, title: gotoKey(r.id), section: 'navigate', shortcut: shortcutOf(id), needsVault: r.id !== 'settings/appearance', run: (c) => a(c)?.go({ id: r.id }) });
+  }
+  for (const e of typeEntries(ctx.types, ctx.counts)) {
+    list.push({ id: `goto.type:${e.key}`, title: 'cmd.gotoType', vars: { plural: e.plural }, section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'type/<type>', param: e.key }) });
+  }
+  list.push(
+    { id: 'view.toggleSidebar', title: 'cmd.toggleSidebar', section: 'view', shortcut: shortcutOf('view.toggleSidebar'), needsVault: true, run: (c) => a(c)?.toggleSidebar() },
+    { id: 'view.toggleRightPanel', title: 'cmd.toggleRightPanel', section: 'view', shortcut: shortcutOf('view.toggleRightPanel'), needsVault: true, run: (c) => a(c)?.toggleRightPanel() },
+    { id: 'view.toggleFocus', title: 'cmd.toggleFocus', section: 'view', shortcut: shortcutOf('view.toggleFocus'), needsVault: true, run: (c) => a(c)?.toggleFocus() },
+    { id: 'vault.open', title: 'cmd.openVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(false) },
+    { id: 'vault.create', title: 'cmd.createVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(true) },
+    { id: 'theme.system', title: 'cmd.theme.system', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('system') },
+    { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
+    { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
+  );
+  for (const ctl of DISABLED_CONTROLS) {
+    const id = CONTROL_COMMANDS[ctl.label];
+    list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });
+  }
+  return list;
 }
 
-export function rank(_query: string, _list: Command[]): Command[] {
-  return [];
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().normalize('NFC');
+
+function inOrder(q: string, s: string): number | null {
+  let i = 0;
+  let gaps = 0;
+  let last = -1;
+  for (let j = 0; j < s.length && i < q.length; j++) {
+    if (s[j] === q[i]) {
+      if (last >= 0) gaps += j - last - 1;
+      last = j;
+      i++;
+    }
+  }
+  return i === q.length ? gaps : null;
+}
+
+/** Folded (case, diacritics, NFC/NFD) ranking: exact, prefix, word prefix, substring, then letters in order. */
+export function rank<T extends { title: string }>(query: string, list: T[], text: (c: T) => string = (c) => c.title): T[] {
+  const q = fold(query.trim());
+  if (!q) return list;
+  const scored: [number, number, number, T][] = [];
+  list.forEach((c, idx) => {
+    const s = fold(text(c));
+    let tier = -1;
+    let extra = 0;
+    if (s === q) tier = 0;
+    else if (s.startsWith(q)) tier = 1;
+    else if (s.split(/[\s:]+/).some((w) => w.startsWith(q))) tier = 2;
+    else if (s.includes(q)) tier = 3;
+    else {
+      const g = inOrder(q.replace(/\s+/g, ''), s.replace(/\s+/g, ''));
+      if (g !== null) { tier = 4; extra = g; }
+    }
+    if (tier >= 0) scored.push([tier, extra, idx, c]);
+  });
+  scored.sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
+  return scored.map((x) => x[3]);
 }

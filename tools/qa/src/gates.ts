@@ -97,8 +97,9 @@ function reportBudget(cfg: Config, s: Summary): void {
   }
 }
 
-function stepEnv(gate: Gate, results: string, seed: number): NodeJS.ProcessEnv {
+function stepEnv(gate: Gate, results: string, seed: number, milestone?: string): NodeJS.ProcessEnv {
   return strippedEnv({
+    ...(milestone ? { VERIFY_MILESTONE: milestone } : {}),
     VERIFY_GATE: gate,
     VERIFY_RESULTS: results,
     QA_SEED: String(seed),
@@ -192,7 +193,7 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
   try {
     const gateSteps = cfg.steps.filter((s) => gateRank(s.level) <= gateRank(gate));
     for (const p of provideNodeModules(root, wt.dir, gateSteps.map((s) => s.dir))) log(`⚠ ${p}`);
-    const env = stepEnv(gate, results, seed);
+    const env = stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined);
     for (const step of gateSteps) steps.push(runStep(step, wt.dir, env));
   } finally {
     wt.remove();

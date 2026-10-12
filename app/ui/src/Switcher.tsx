@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ipc } from './ipc/client';
 import type { SwitcherItemDto } from './ipc/types';
 import { typeIcon } from './icons';
-import { t } from './strings';
+import { t } from './i18n/catalog';
 
 /** FR-NAV-01: ⌘O quick switcher. Keyboard only: ↑/↓, ⏎, Esc (AC-11, FR-UX-03). */
 export function Switcher({ onOpen, onCreate, onClose }: {
@@ -51,20 +51,20 @@ export function Switcher({ onOpen, onCreate, onClose }: {
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="switcher" role="dialog" aria-label={t.switcherLabel} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="switcher" role="dialog" aria-label={t('switcher.label')} onMouseDown={(e) => e.stopPropagation()}>
         <input
           ref={input}
-          aria-label={t.switcherQuery}
+          aria-label={t('switcher.query')}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder={t.switcherPlaceholder}
+          placeholder={t('switcher.placeholder')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKey}
         />
-        <ul role="listbox" aria-label={t.switcherLabel}>
+        <ul role="listbox" aria-label={t('switcher.label')}>
           {items.map((i, n) => (
             <li
               key={i.path ?? `create:${i.title}`}
@@ -75,9 +75,9 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               onClick={() => choose(i)}
             >
               <span className="icon">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>
-              <span className="title">{i.kind === 'create' ? t.create(i.title) : i.title}</span>
-              {i.matched_alias && <span className="alias">{t.alias(i.matched_alias)}</span>}
-              <span className="folder">{i.folder}</span>
+              <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>
+              {i.matched_alias && <span className="alias" data-user-content>{i.matched_alias}</span>}
+              <span className="folder" data-user-content>{i.folder}</span>
             </li>
           ))}
         </ul>

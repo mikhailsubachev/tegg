@@ -38,6 +38,19 @@ export type ChangedDto = { paths: Array<string>, };
 export type ConflictDto = { path: string, };
 export type IpcError = { 
 /**
- * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io` or `NoVault`.
+ * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
  */
 kind: string, message: string, };
+export type TypeDefDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, };
+export type ObjectRowDto = { path: string, id: string | null, title: string, type: string, modified: string | null, };
+export type LastOpenedDto = { path: string, id: string | null, };
+export type RightPanelDto = { open: boolean, 
+/**
+ * `backlinks`, `outline` or `graph`.
+ */
+tab: string, };
+export type UiStateDto = { version: number, 
+/**
+ * `system`, `light` or `dark`.
+ */
+theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto, };
