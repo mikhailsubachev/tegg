@@ -96,6 +96,8 @@ Requirements in several milestones are built in the first and gated again later 
 
 ### MS3: Types, attributes, editor
 
+Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/plans/ms3-implementation-plan.md` §3.
+
 37 requirements · 6 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
