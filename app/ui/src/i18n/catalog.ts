@@ -1,0 +1,263 @@
+// The string catalog (NFR-OTH-02, docs/contracts/ms3-shell.md §3.1, §10): every user-visible UI text lives here.
+// Count messages carry plural forms chosen by Intl.PluralRules (D-133); `{name}` placeholders are filled by `t`.
+
+export type Message = string | { one?: string; few?: string; many?: string; other: string };
+export type Catalog = Record<string, Message>;
+
+export const en: Catalog = {
+  'app.name': 'Tegg',
+  'app.home': 'Tegg home',
+
+  // Routes (R1): page names and one-line purposes shown on placeholders (D-116).
+  'route.chooser': 'Vault chooser',
+  'route.home': 'Home',
+  'route.inbox': 'Inbox',
+  'route.today': 'Today',
+  'route.tasks': 'Tasks',
+  'route.search': 'Search',
+  'route.type': 'Type page',
+  'route.typeSettings': 'Type settings',
+  'route.tags': 'Tags',
+  'route.pinned': 'Pinned',
+  'route.savedQueries': 'Saved queries',
+  'route.note': 'Edit note',
+  'route.graph': 'Graph',
+  'route.trash': 'Trash',
+  'route.import': 'Import',
+  'route.conflicts': 'Conflicts',
+  'route.capture': 'Quick capture',
+  'route.settings.appearance': 'Settings: Appearance',
+  'route.settings.dateTime': 'Settings: Date & time',
+  'route.settings.vault': 'Settings: Vault',
+  'route.settings.shortcuts': 'Settings: Shortcuts',
+  'route.settings.menuBar': 'Settings: Menu bar and startup',
+  'route.settings.trashHistory': 'Settings: Trash and history',
+  'route.settings.previews': 'Settings: Previews',
+
+  'purpose.chooser': 'Create a new vault or open an existing one.',
+  'purpose.home': 'Your start screen: today’s note, tasks due, the Inbox and recent objects.',
+  'purpose.inbox': 'Captured and unreviewed objects, newest first, ready for triage.',
+  'purpose.today': 'Today’s daily note, created when you first open it.',
+  'purpose.tasks': 'All open tasks as a list or board, grouped by status.',
+  'purpose.search': 'Full-text search across the vault, with filters.',
+  'purpose.type': 'All objects of one type.',
+  'purpose.typeSettings': 'Name, icon, properties, preview strip and review workflow of a type.',
+  'purpose.tags': 'Every tag with its color and the objects that use it.',
+  'purpose.pinned': 'Objects and queries you pinned for quick access.',
+  'purpose.savedQueries': 'Queries you saved, ready to open as lists or boards.',
+  'purpose.note': 'An object with its attributes and body.',
+  'purpose.graph': 'The local graph of an object and its links.',
+  'purpose.trash': 'Deleted objects, with restore.',
+  'purpose.import': 'Import from Capacities, Obsidian or a Markdown folder.',
+  'purpose.conflicts': 'Files with conflicting versions from sync, with both versions side by side.',
+  'purpose.capture': 'Capture a note or task from anywhere with a global shortcut.',
+  'purpose.settings.appearance': 'Theme, font, editor width and accent color.',
+  'purpose.settings.dateTime': 'Date and time formats and the first day of the week.',
+  'purpose.settings.vault': 'Vault folder, default type and attachments folder.',
+  'purpose.settings.shortcuts': 'Keyboard shortcuts, including the global hotkeys.',
+  'purpose.settings.menuBar': 'Menu bar icon and what happens at startup.',
+  'purpose.settings.trashHistory': 'How long the trash and version history keep files.',
+  'purpose.settings.previews': 'How link and embed previews look.',
+
+  // Right-panel tabs (R2, D-127).
+  'tab.backlinks': 'Backlinks',
+  'tab.outline': 'Outline',
+  'tab.graph': 'Graph',
+
+  // Disabled later-feature controls (R3, D-130).
+  'ctl.newTab': 'New tab',
+  'ctl.back': 'Back',
+  'ctl.forward': 'Forward',
+  'ctl.newType': 'New type',
+  'ctl.starterVault': 'Starter vault',
+  'ctl.showSource': 'Show Markdown source',
+  'ctl.addIcon': 'Add icon',
+  'ctl.addCover': 'Add cover',
+  'ctl.filter': 'Filter',
+  'ctl.sort': 'Sort',
+  'ctl.views': 'Views',
+  'ctl.newOfType': 'New {type}',
+  'ctl.font': 'Font',
+  'ctl.fontSize': 'Font size',
+  'ctl.editorWidth': 'Editor width',
+  'ctl.accentColor': 'Accent color',
+  'ctl.typePicker': 'Type picker',
+
+  // Placeholders (D-116).
+  'due.comingIn': 'Coming in {due}',
+  'placeholder.region': '{page}',
+  'placeholder.reqs': 'Requirements: {reqs}',
+  'placeholder.design': 'View design: {board}',
+  'placeholder.noDesign': 'No design board yet',
+
+  // Commands (FR-UX-03, R4).
+  'cmd.palette': 'Open command palette',
+  'cmd.switcher': 'Open quick switcher',
+  'cmd.newObject': 'New object',
+  'cmd.toggleSidebar': 'Toggle sidebar',
+  'cmd.toggleRightPanel': 'Toggle right panel',
+  'cmd.toggleFocus': 'Toggle focus mode',
+  'cmd.openVault': 'Open vault…',
+  'cmd.createVault': 'Create new vault…',
+  'cmd.theme.system': 'Theme: System',
+  'cmd.theme.light': 'Theme: Light',
+  'cmd.theme.dark': 'Theme: Dark',
+  'cmd.gotoType': 'Go to type: {plural}',
+  'cmd.typeSettings': 'Type settings',
+  'cmd.openItem': 'Open',
+  'cmd.goto.home': 'Go to Home',
+  'cmd.goto.inbox': 'Go to Inbox',
+  'cmd.goto.today': 'Go to Today',
+  'cmd.goto.tasks': 'Go to Tasks',
+  'cmd.goto.search': 'Go to Search',
+  'cmd.goto.tags': 'Go to Tags',
+  'cmd.goto.pinned': 'Go to Pinned',
+  'cmd.goto.savedQueries': 'Go to Saved queries',
+  'cmd.goto.graph': 'Go to Graph',
+  'cmd.goto.trash': 'Go to Trash',
+  'cmd.goto.import': 'Go to Import',
+  'cmd.goto.conflicts': 'Go to Conflicts',
+  'cmd.goto.capture': 'Go to Quick capture',
+  'cmd.goto.settings.appearance': 'Go to Settings: Appearance',
+  'cmd.goto.settings.dateTime': 'Go to Settings: Date & time',
+  'cmd.goto.settings.vault': 'Go to Settings: Vault',
+  'cmd.goto.settings.shortcuts': 'Go to Settings: Shortcuts',
+  'cmd.goto.settings.menuBar': 'Go to Settings: Menu bar and startup',
+  'cmd.goto.settings.trashHistory': 'Go to Settings: Trash and history',
+  'cmd.goto.settings.previews': 'Go to Settings: Previews',
+
+  // Frame (FR-UX-02, ms3-shell §3.7).
+  'frame.sidebar': 'Sidebar',
+  'frame.searchOrJump': 'Search or jump to…',
+  'frame.types': 'Types',
+  'frame.tags': 'Tags',
+  'frame.contextPanel': 'Context panel',
+  'frame.focusMode': 'Focus mode',
+  'frame.noTypeDefinition': 'No type definition',
+  'frame.typeEntry': '{plural}, {count}',
+  'frame.settingsSections': 'Settings sections',
+  'frame.tabs': 'Open pages',
+  'shortcut.keys': '{keys}',
+
+  // Palette.
+  'palette.title': 'Command palette',
+  'palette.query': 'Command query',
+  'palette.list': 'Commands',
+  'palette.placeholder': 'Type a command…',
+  'palette.empty': 'No matching command',
+
+  // Type page (D-123) and note page.
+  'typePage.empty': 'No objects of this type yet. Create one with New object.',
+  'typePage.list': 'Objects',
+  'note.breadcrumb': 'Breadcrumb',
+  'note.toolbar': 'Note toolbar',
+  'note.source': 'Markdown source',
+
+  // Settings: Appearance (FR-SET-02, D-128).
+  'settings.theme': 'Theme',
+  'settings.theme.system': 'System',
+  'settings.theme.light': 'Light',
+  'settings.theme.dark': 'Dark',
+  'settings.appearance': 'Appearance',
+  'settings.dateTime': 'Date & time',
+  'settings.vault': 'Vault',
+  'settings.shortcuts': 'Shortcuts',
+  'settings.menuBar': 'Menu bar and startup',
+  'settings.trashHistory': 'Trash and history',
+  'settings.previews': 'Previews',
+
+  // Chooser and New vault (FR-VLT-01, -02).
+  'chooser.title': 'Choose a vault',
+  'chooser.hint': 'A vault is a folder of Markdown files. Create a new one or open one you already have.',
+  'chooser.create': 'Create new vault',
+  'chooser.open': 'Open existing folder',
+  'chooser.importUnavailable': "Import isn't available yet",
+  'chooser.importUnavailableHint': 'This folder isn’t a Tegg vault. Importing Obsidian and Markdown folders comes in a later version.',
+  'newVault.title': 'New vault',
+  'newVault.name': 'Vault name',
+  'newVault.location': 'Location',
+  'newVault.noLocation': 'No folder chosen',
+  'newVault.choose': 'Choose…',
+  'newVault.kind': 'Kind',
+  'newVault.empty': 'Empty vault',
+  'newVault.emptyHint': 'System types only.',
+  'newVault.create': 'Create',
+  'newVault.cancel': 'Cancel',
+  'newVault.openInstead': 'Open it instead',
+  'error.notEmpty': 'The folder “{name}” already exists and isn’t empty.',
+
+  // New object dialog (D-131).
+  'newObject.title': 'New object',
+  'newObject.field': 'Title',
+  'newObject.placeholder': 'Untitled',
+  'newObject.type': 'Type',
+  'newObject.create': 'Create',
+
+  // Core error kinds (NFR-OTH-02 AC-2): the core's own message text is never shown.
+  'error.conflict': 'The file changed on disk. Nothing was overwritten.',
+  'error.gone': 'The file no longer exists.',
+  'error.notFound': 'The file or folder wasn’t found.',
+  'error.nameTaken': 'That name is already taken.',
+  'error.io': 'The file couldn’t be read or written.',
+  'error.noVault': 'No vault is open.',
+  'error.placeholder': 'The file is online-only and isn’t on this Mac yet.',
+  'error.invalidFrontmatter': 'The note’s properties couldn’t be read.',
+  'error.notATeggVault': 'This folder isn’t a Tegg vault.',
+  'error.unsupported': 'This isn’t available yet.',
+  'error.unknown': 'Something went wrong.',
+
+  // MS2 texts (search, switcher, progress, banner).
+  'search.placeholder': 'Search notes',
+  'search.label': 'Search query',
+  'search.results': 'Search results',
+  'search.none': 'No results',
+  'search.count': { one: '{count} result', other: '{count} results' },
+  'search.typo': 'similar spelling',
+  'switcher.label': 'Quick switcher',
+  'switcher.query': 'Switcher query',
+  'switcher.placeholder': 'Go to or create an object…',
+  'switcher.create': 'Create “{title}”',
+  'switcher.alias': 'alias: {alias}',
+  'progress.label': 'Indexing progress',
+  'progress.running': 'Indexing {done} of {total}',
+  'progress.cancelled': 'Indexing paused',
+  'banner.placeholders': {
+    one: '{count} file is online-only and not indexed. Make the folder available offline in your sync app.',
+    other: '{count} files are online-only and not indexed. Make the folder available offline in your sync app.',
+  },
+  'banner.offline': 'Offline files',
+  'banner.conflict': '{path} changed on disk.',
+  'banner.dismiss': 'Dismiss',
+};
+
+let current: Catalog = en;
+let plural = new Intl.PluralRules('en');
+
+/** Swaps the catalog (tests: a Czech test catalog, the pseudo-locale). */
+export function setCatalog(c: Catalog, locale: string): void {
+  current = c;
+  plural = new Intl.PluralRules(locale);
+}
+
+function fill(s: string, vars: Record<string, string | number>): string {
+  return s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
+}
+
+export function t(key: string, vars: Record<string, string | number> = {}): string {
+  const m = current[key] ?? en[key];
+  if (m === undefined) return key;
+  if (typeof m === 'string') return fill(m, vars);
+  const n = Number(vars.count ?? 0);
+  const form = plural.select(n) as 'one' | 'few' | 'many' | 'other';
+  return fill(m[form] ?? m.other, vars);
+}
+
+/** Wraps every message in ⟦ ⟧ so a test can find UI text that bypasses the catalog (NFR-OTH-02 AC-3). */
+export function pseudo(c: Catalog): Catalog {
+  const out: Catalog = {};
+  for (const [k, m] of Object.entries(c)) {
+    if (typeof m === 'string') out[k] = `⟦${m}⟧`;
+    else out[k] = Object.fromEntries(Object.entries(m).map(([f, s]) => [f, `⟦${s}⟧`])) as Message;
+  }
+  return out;
+}

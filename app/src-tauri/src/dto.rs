@@ -1,4 +1,4 @@
-//! IPC payloads (docs/contracts/ms2-shell.md §2). TypeScript types are generated from these by `ts-rs` into
+//! IPC payloads (docs/contracts/ms2-shell.md §2, ms3-shell.md §2). TypeScript types are generated from these by `ts-rs` into
 //! `app/ui/src/ipc/types.ts`; the `types_file_is_current` test fails when the checked-in file is stale.
 //! Text offsets sent to the UI are UTF-16 code units (JavaScript strings), not Rust bytes.
 
@@ -105,9 +105,64 @@ pub struct ConflictDto {
 
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct IpcError {
-    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io` or `NoVault`.
+    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
     pub kind: String,
     pub message: String,
+}
+
+/// A type definition for the sidebar (ms3-shell §2), read-only until `tegg-schema` (3D).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TypeDefDto {
+    pub key: String,
+    pub name: String,
+    pub plural: String,
+    pub folder: String,
+    pub icon: String,
+    pub color: String,
+    pub system: bool,
+    pub invalid: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct ObjectRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub modified: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct LastOpenedDto {
+    pub path: String,
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct RightPanelDto {
+    pub open: bool,
+    /// `backlinks`, `outline` or `graph`.
+    pub tab: String,
+}
+
+/// Machine-local display state (D-128), `<Application Support>/ui-state.json`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct UiStateDto {
+    pub version: u32,
+    /// `system`, `light` or `dark`.
+    pub theme: String,
+    pub sidebar_open: bool,
+    pub right_panel: RightPanelDto,
+}
+
+impl Default for UiStateDto {
+    fn default() -> Self {
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() } }
+    }
 }
 
 /// The generated `types.ts`, in a fixed order.
@@ -125,6 +180,11 @@ pub fn typescript() -> String {
         ChangedDto::decl(),
         ConflictDto::decl(),
         IpcError::decl(),
+        TypeDefDto::decl(),
+        ObjectRowDto::decl(),
+        LastOpenedDto::decl(),
+        RightPanelDto::decl(),
+        UiStateDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

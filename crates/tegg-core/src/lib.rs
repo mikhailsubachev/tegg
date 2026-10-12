@@ -608,3 +608,64 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
         s.emit(CoreEvent::VaultChanged { paths: changed.into_iter().collect() });
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// MS3 slice 3A (docs/contracts/ms3-shell.md §2, §10: `vault_types`, `index_type_counts`, `index_list`).
+
+pub use tegg_vault::TypeDef;
+
+impl Core {
+    /// `vault_types`: the vault's type definitions (read-only, NFC keys, order not guaranteed).
+    pub fn types(&self) -> Vec<TypeDef> {
+        self.shared.vault.types()
+    }
+
+    /// `index_type_counts`: objects per `type` value; untyped files as `page` (D-103); templates and `.trash/`
+    /// are not indexed (FR-TPL-07, D-102); types without objects absent; undefined types under their raw value
+    /// (D-121).
+    pub fn type_counts(&self) -> std::collections::BTreeMap<String, usize> {
+        let mut out = std::collections::BTreeMap::new();
+        for o in self.index().objects() {
+            *out.entry(nfc(&o.r#type)).or_insert(0) += 1;
+        }
+        out
+    }
+
+    /// `index_list`: the objects of one type, same exclusions as `type_counts`, in no particular order.
+    pub fn list_type(&self, r#type: &str) -> Vec<ObjectInfo> {
+        let want = nfc(r#type);
+        self.index().objects().into_iter().filter(|o| nfc(&o.r#type) == want).collect()
+    }
+
+    /// `nav_opened`: records a note shown in the centre pane as opened, for switcher recency (D-105) and the
+    /// launch landing (D-132, D-138). Machine-local; never writes to the vault.
+    pub fn record_open(&self, path: &str, now: SystemTime) {
+        let path = nfc(path);
+        let ms = now.duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
+        {
+            let mut rec = lock(&self.shared.recency);
+            rec.0.insert(path.clone(), ms);
+            rec.1 = true;
+        }
+        let id = self.index().object(&path).and_then(|o| o.id);
+        let last = serde_json::json!({ "path": path, "id": id });
+        let _ = tegg_vault::write_local_file(&self.shared.vault.local_dir().join(LAST_FILE), last.to_string().as_bytes());
+    }
+
+    /// `vault_last`: the last opened note by path if it is still indexed, else the object with the same `id`
+    /// (external rename); `None` when neither exists or it was moved to `.trash/` (D-132). Never writes.
+    pub fn last_opened(&self) -> Option<(String, Option<String>)> {
+        let bytes = tegg_vault::read_local_file(&self.shared.vault.local_dir().join(LAST_FILE))?;
+        let v: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+        let path = nfc(v.get("path")?.as_str()?);
+        let id = v.get("id").and_then(|i| i.as_str()).map(str::to_string);
+        let index = self.index();
+        if let Some(o) = index.object(&path) {
+            return Some((o.path, o.id));
+        }
+        let id = id?;
+        index.objects().into_iter().find(|o| o.id.as_deref() == Some(id.as_str())).map(|o| (o.path, o.id))
+    }
+}
+
+const LAST_FILE: &str = "last-opened.json";

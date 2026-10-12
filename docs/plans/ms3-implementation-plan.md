@@ -82,35 +82,41 @@ Inside a built page, a later feature shows as a disabled control with a "Coming 
 
 ### 4.2 Page map
 
+The exact route, panel, disabled-control and shortcut lists are tables R1–R4 in `docs/acceptance/app-shell.md` (D-121…D-138); this map is the overview.
+
 | Region or page | Design board | In MS3? | Later content (milestone, requirements) |
 | --- | --- | --- | --- |
 | Vault chooser, New vault (Empty / Starter) | — | **built** (3A, starter 3D) | — |
-| Title bar with tabs | Main | one tab only; ⌘T and "+" TBD | tabs v1.0 (FR-NAV-06) |
+| Title bar with tabs | Main | one tab only; ⌘T and "+" disabled | tabs v1.0 (FR-NAV-06) |
+| Title bar: Back / Forward (⌘[ / ⌘]) | Main | disabled (D-125) | MS5 (FR-NAV-03) |
 | Sidebar: search field (⌘O), New object (⌘N) | all | **built** (3A) | — |
 | Sidebar: Home | Home | TBD | MS5 (FR-HOM-01, -02) |
 | Sidebar: Inbox (count) | Home | TBD | MS5 (FR-INB-01…04) |
 | Sidebar: Today (⌘D) | Home | TBD | MS4 (FR-DLY-01…06) |
 | Sidebar: Tasks | Home | TBD | MS5 (FR-TSK) |
-| Sidebar: Types list with counts | all | **built** (3A list, 3D counts) | — |
+| Sidebar: Types list with counts | all | **built** (3A, order D-121); `New type` disabled until 3D | — |
 | Sidebar: Tags list with counts | Main | TBD | MS4 (FR-TAG-01…08) |
-| Sidebar: Pinned, Saved queries | — | TBD | v1.0 (FR-NAV-04, FR-QRY) |
+| Sidebar: Pinned | — | TBD | MS5 (FR-HOM-02, D-125) |
+| Sidebar: Saved queries | — | TBD | v1.0 (FR-QRY) |
+| Search page (⌘⇧F, palette) | — | **built** (MS2 content, D-125) | — |
+| Conflicts view | — | TBD | MS3 · 3C (FR-SYN-04, -05; D-125) |
 | **Edit note** (breadcrumb, Saved state, icon/cover, title, attribute panel, body) | Main | **built** (3B read, 3C edit, 3D attributes, 3E icon/cover) | — |
 | Editor: slash menu, toolbar, `[[`, `#` | Main | **built** (3C) | items "Object embed", "Query", "Mindmap", "Turn into object" TBD: MS4 (FR-EMB), v1.0 (FR-QRY, FR-MMP), MS5 (FR-CNV) |
 | Editor: embed cards of linked objects | Main | TBD card | MS4 (FR-EMB-01, -02, -04) |
 | Editor: task blocks with status/priority/due | Main | shown as checklist | MS5 (FR-TSK) |
 | Editor: mindmap block | Main | Mermaid shown as code | v1.0 (FR-MMP-01, -02) |
-| Right panel: Attributes | Main | **built** (3D) | — |
-| Right panel: Backlinks, Unlinked mentions | Main | TBD | MS4 (FR-LNK-01…04) |
+| Right panel: no Attributes tab; attributes stay at the top of the note (D-127) | Main | — | — |
+| Right panel: Backlinks | Main | TBD | MS4 (FR-LNK-01…04); unlinked mentions v1.x (FR-LNK-05) |
 | Right panel: Outline | Main | TBD | MS5 (FR-EDT-11, FR-NAV-05) |
 | Right panel: Local graph | Main, Graph | TBD | v1.0 (FR-GRP-01…08) |
-| **Type page** (list view, filter, sort, "New Idea") | Ideas | **built** (3D) | "By status" grouped view, other views: v1.0 (FR-QRY) |
+| **Type page** (list view, filter, sort, "New Idea") | Ideas | **built**: minimal list in 3A (D-123), full in 3D | "By status" grouped view, other views: v1.0 (FR-QRY) |
 | **Type settings** (general, properties, options, preview properties, review, delete type) | TypeSettings | **built** (3D) | folder change and key rename rewriting files: MS4 (FR-TYP-04, FR-LNK); Templates and Views sections: v1.0 (FR-TPL, FR-QRY) |
 | **Graph** full view | Graph | TBD | v1.0 (FR-GRP) |
 | **Home** | Home | TBD | MS5 (FR-HOM-01) |
 | Trash | — | TBD | MS6 (FR-HIS-01, -02) |
 | Import | — | TBD | MS7 (FR-IMP, FR-STO-10) |
 | Settings: Appearance, Date & time | — | **built** (3A theme, 3E rest) | other sections TBD with their milestones |
-| Quick capture window, menu bar | Home (shortcut shown) | TBD | MS5 (FR-CAP, S3 code) |
+| Quick capture (route and window), menu bar | Home (shortcut shown) | TBD | MS5 (FR-CAP, S3 code) |
 
 `Logos.dc.html` is a logo study, not a page; the app icon belongs to MS8 packaging.
 
@@ -133,16 +139,16 @@ flowchart LR
   TypePage --> Note[Edit note · MS3]
   TypePage --> TypeSettings[Type settings · MS3]
   Note -->|"[[link]]"| Note
-  Note --> Panel[Right panel: Attributes MS3 · Backlinks MS4 · Outline MS5 · Graph v1.0]
+  Note --> Panel[Right panel: Backlinks MS4 · Outline MS5 · Graph v1.0]
   Panel --> Graph[Graph full view · TBD v1.0]
   Sidebar --> Settings[Settings · MS3 partly]
 ```
 
-Until Home exists (MS5), launch opens the last note or, with none, the Home placeholder; the start screen setting itself is MS5 (FR-HOM-01) and v1.0 (FR-HOM-04).
+Until Home exists (MS5), launch opens the last note (by path, else by `id`) or, with none, the Home placeholder (D-132); the start screen setting itself is MS5 (FR-HOM-01) and v1.0 (FR-HOM-04).
 
 ### 4.4 Data the frame needs from the core
 
-3A needs two read-only commands that MS2 doesn't have: `index_type_counts` (sidebar) and `index_list` with a fixed definition (type page, recent notes). Both come from `tegg-index`; they are added to a new `docs/contracts/ms3-shell.md` before the red tests (D-61).
+Defined in `docs/contracts/ms3-shell.md` (D-135): vault create and folder pick, last opened note, type definitions, type counts, the type list (minimal type page, D-123), per-machine UI state and `nav_opened` (D-138).
 
 ---
 

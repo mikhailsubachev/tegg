@@ -53,6 +53,7 @@ Gate order: `commit` < `push` < `nightly` < `milestone` < `release`. A gate runs
 | `VERIFY_GATE` | Name of the running gate |
 | `VERIFY_RESULTS` | Absolute path of a directory where steps may write JUnit XML reports (`*.xml`) |
 | `QA_SEED` | A random integer chosen for this run, recorded in the summary |
+| `VERIFY_MILESTONE` | Only in `verify milestone --milestone MS<n>`: the milestone being gated, e.g. `MS3`, so registry tests can fail on placeholders due at or before it (D-124) |
 | `QA_PROPERTY_SCALE` | `1` for commit and push, `100` for nightly, milestone and release |
 
 Git's hook variables (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_PREFIX`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR`) are removed from the environment of steps and runners.

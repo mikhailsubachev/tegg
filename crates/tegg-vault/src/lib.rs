@@ -4,6 +4,7 @@
 mod local;
 mod mem;
 mod new_vault;
+mod types;
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,7 @@ use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
 pub use local::{create_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
 pub use mem::MemFs;
+pub use types::TypeDef;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileVersion {
