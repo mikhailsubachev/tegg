@@ -1,0 +1,18 @@
+[package]
+name = "tegg-index"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+description = "Tegg core: SQLite + FTS5 index, search, quick switcher, conflicts (docs/contracts/ms2-core.md §2)"
+
+[dependencies]
+tegg-format = { path = "../tegg-format" }
+tegg-vault = { path = "../tegg-vault" }
+chrono.workspace = true
+chrono-tz.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+tempfile.workspace = true

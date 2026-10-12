@@ -48,11 +48,50 @@ pub trait VaultFs: Send + Sync {
     fn create_dir_all(&self, path: &str) -> io::Result<()>;
     /// Only for leftover temporary files (FR-SYN-02 AC-4); notes are never deleted, they go to `.trash/`.
     fn remove_file(&self, path: &str) -> io::Result<()>;
+    /// FR-VLT-03, D-112: an online-only placeholder whose content isn't on this Mac (APFS `SF_DATALESS`).
+    /// iCloud `.<name>.icloud` stubs are recognized by name, not here. Reading a placeholder would download it.
+    fn is_placeholder(&self, _path: &str) -> io::Result<bool> {
+        Ok(false)
+    }
+}
+
+/// So a test keeps a handle on the `MemFs` a vault uses (docs/contracts/ms2-core.md §3).
+impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
+    fn list(&self) -> io::Result<Vec<FsEntry>> {
+        (**self).list()
+    }
+    fn read(&self, path: &str) -> io::Result<(Vec<u8>, FileVersion)> {
+        (**self).read(path)
+    }
+    fn version(&self, path: &str) -> io::Result<Option<FileVersion>> {
+        (**self).version(path)
+    }
+    fn replace(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
+        (**self).replace(path, bytes)
+    }
+    fn create_new(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
+        (**self).create_new(path, bytes)
+    }
+    fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
+        (**self).rename_no_replace(from, to)
+    }
+    fn create_dir_all(&self, path: &str) -> io::Result<()> {
+        (**self).create_dir_all(path)
+    }
+    fn remove_file(&self, path: &str) -> io::Result<()> {
+        (**self).remove_file(path)
+    }
+    fn is_placeholder(&self, path: &str) -> io::Result<bool> {
+        (**self).is_placeholder(path)
+    }
 }
 
 /// AR-04 AC-3: remote changes will enter through this trait (Phase 2); Phase 1 relies on the watcher.
 pub trait SyncAdapter: Send + Sync {
     fn name(&self) -> &str;
+    /// AR-04 AC-3 (MS2): the adapter calls `sink(paths)` for changes it applied through the `VaultFs`;
+    /// the core processes them like watcher events. The folder adapter reports nothing (the watcher does).
+    fn start(&self, _sink: Box<dyn Fn(Vec<String>) + Send + Sync>) {}
 }
 
 /// Phase 1: a vault in a folder that Dropbox, Google Drive or iCloud syncs (FR-SYN-01).

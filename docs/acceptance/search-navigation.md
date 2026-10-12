@@ -2,7 +2,7 @@
 
 See [README](README.md) for conventions. Milestone MS2 (BRD §11.2).
 
-Fixture: `tests/fixtures/vaults/search/` (synthetic, D-50; the test copies `tests/fixtures/vaults/new-empty/.tegg/` next to it). Unless stated otherwise, criteria are checked at the Rust core through the `index.search` / `index.switcher` commands (architecture §5.8, §6), with `TZ=Europe/Prague`. "Results" means the set of object paths returned; order is checked only where stated. Open points D-101…D-113 were decided as D-101…D-113 (2026-10-12).
+Fixture: `tests/fixtures/vaults/search/` (synthetic, D-50; the test copies `tests/fixtures/vaults/new-empty/.tegg/` next to it). Unless stated otherwise, criteria are checked at the Rust core through the `index.search` / `index.switcher` commands (architecture §5.8, §6), with `TZ=Europe/Prague`. "Results" means the set of object paths returned; order is checked only where stated. Open points AP-46…AP-58 were decided as D-101…D-113 (2026-10-12).
 
 Fixture objects (paths relative to the vault):
 
