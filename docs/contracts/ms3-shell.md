@@ -88,7 +88,7 @@ export function pseudo(c: Catalog): Catalog;            // wraps every message i
 
 - The MS2 `strings.ts` moves into `en`; its `n === 1` plurals become plural messages.
 - **User content** (titles, file names, type names from the vault, note text) is rendered inside an element with `data-user-content`, which the pseudo-locale test skips.
-- **Static rule** (`app/test/strings.static.test.ts`, L0, NFR-OTH-02 AC-1): exactly as the AC states, including its self-test on a sample file.
+- **Static rule** (`app/test/static_strings.ac.test.ts`, L0, NFR-OTH-02 AC-1): exactly as the AC states, including its self-test on a sample file.
 
 ### 3.2 Registries
 
@@ -118,7 +118,7 @@ export const SHORTCUTS: ShortcutDef[];
 export function overdue(milestone: Milestone): string[];   // entries still TBD or disabled at or before it (AP-68)
 ```
 
-`app/test/registry.test.ts` compares the four registries with tables R1–R4 (FR-UX-02 AC-11, AC-13; FR-UX-03 AC-7). It reads `VERIFY_MILESTONE` from the environment; `./verify milestone --milestone MSn` sets it for every step (AP-68, `tools/qa/CONTRACT.md` §2.1 gets that line).
+`app/test/registry.ac.test.ts` compares the four registries with tables R1–R4 (FR-UX-02 AC-11, AC-13; FR-UX-03 AC-7). It reads `VERIFY_MILESTONE` from the environment; `./verify milestone --milestone MSn` sets it for every step (AP-68, `tools/qa/CONTRACT.md` §2.1 gets that line).
 
 ### 3.3 Commands (FR-UX-03)
 
@@ -240,3 +240,23 @@ The 3A real-app suite uses the test build with `TEGG_TEST=1`, `TEGG_APP_SUPPORT`
 | # | Point | Proposal |
 | --- | --- | --- |
 | AP-82 | **What counts as "opened" for recency and the launch landing.** MS2's `Core::read_note` records recency (D-105) on every read. `note_read` will also serve previews, embeds (MS4) and the read view's link hovers (3B); counting those would reorder the switcher and change the launch note without the user opening anything. | Only a note route shown in the centre pane counts: the UI calls `nav_opened(path)`, which records path and `id`; `Core::read_note` stops recording recency (a change to the MS2 core contract, ms2-core §3). |
+
+## 10. Clarifications from the red tests (2026-10-12)
+
+The test author had to fix these names to write the 3A tests (commit `44a4610`). They complete §2–§5 without changing any AC.
+
+- **Core functions (L4):** `tegg_vault::Vault::types() -> Vec<TypeDef>` (fields as `TypeDefDto`), `tegg_core::Core::types()`, `Core::type_counts() -> BTreeMap<String, usize>`, `Core::list_type(type) -> Vec<ObjectInfo>`. The IPC commands `vault_types`, `index_type_counts` and `index_list` call them.
+- **`ShellContext`:** `{ vault: VaultInfo | null; types: TypeDefDto[]; counts: Record<string, number> }` plus the shell's navigation and state actions. Type commands have the id `goto.type:<key>` and the title key `cmd.gotoType` with the variable `{plural}`; undefined type values use the raw value.
+- **Catalog keys:** one message per core error kind, keyed `error.<kind>` (`error.notEmpty`, `error.noVault`, …); the placeholder warning is the plural message `banner.placeholders`; the disabled-control text is `due.comingIn` = `Coming in {due}`.
+- **Stored theme before first paint (§3.5):** the shell's initialization script sets `window.__TEGG_UI_STATE__` (a `UiStateDto`) before the UI bundle runs; the UI reads it synchronously. The fake core does the same.
+- **Region locale (§3.6):** the same script sets `window.__TEGG_REGION__` (e.g. `cs-CZ`); `collator()` uses it, `setCollationLocale` overrides it in tests. When neither is set the collator falls back to `navigator.language`. Tests that need "no locale" set one explicitly.
+- **Test hooks:** with `TEGG_TEST=1` (and always in the fake core), `window.__TEGG_TEST__ = { commands(): string[]; routes(): string[] }` returns the registered command ids and the router's route ids, for FR-UX-03 AC-8 and FR-UX-02 AC-11.
+- **Selectors:**
+  - the sidebar collapse control has `data-command="view.toggleSidebar"`;
+  - the breadcrumb's first part is a link named after the type plural (or the raw type value);
+  - the placeholder banner is a `region` named `Offline files`;
+  - the "no type definition" mark is the entry's accessible description;
+  - object-list rows are `link` elements whose title is inside `[data-user-content]`.
+- **Settings section list:** a `navigation` named `Settings sections` with links `Appearance`, `Date & time`, `Vault`, `Shortcuts`, `Menu bar and startup`, `Trash and history`, `Previews` (R1 order).
+- **Registry conventions:** R1 requirement ranges are stored as written (`FR-INB-01…04`); R3 has one entry per control, and `New <Type>` is stored as that template. `chooser` is reached by `Open vault…` and `Create new vault…`; `type-settings/<type>` by the type page control and `Go to type settings: <plural>`; R4's `⌘,` runs `goto.settings/appearance`.
+- **Test layout:** L1 in `app/test/*.ac.test.ts` (R1–R4 data in `app/test/shell-tables.ts`), L5 in `app/webkit/`, L6 in `app/e2e/ms3_shell.ac.test.ts` (needs `npm run e2e:setup` once), L4 in `crates/tegg-core/tests/ac_shell.rs`.
