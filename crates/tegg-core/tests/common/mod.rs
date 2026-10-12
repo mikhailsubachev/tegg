@@ -329,3 +329,23 @@ pub fn indexable_notes(root: &Path) -> Vec<String> {
 pub fn tree_digest(root: &Path) -> u64 {
     gen_vault::tree_digest(root).expect("tree digest")
 }
+
+/// The NFR-PERF-03 AC-2 headroom vault: gen-vault `--seed 1` scaled to 20,000 notes (images and tags scaled
+/// ×4 too, small images), generated once per `target/` directory. Read-only for tests.
+pub fn headroom_vault_20k() -> PathBuf {
+    let dest = target_dir().join("tegg-ref-vault-seed1-20k-small");
+    if dest.join(".tegg/vault.yml").exists() {
+        return dest;
+    }
+    let tmp = target_dir().join(format!("tegg-ref-vault-20k.tmp-{}-{:?}", std::process::id(), std::thread::current().id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    let o = gen_vault::Options { seed: 1, notes: 20_000, images: 8_000, tags: 800, full_images: false };
+    let t0 = Instant::now();
+    gen_vault::generate(&tmp, &o).expect("generate 20k vault");
+    println!("generated 20,000-note vault in {:.1} s", t0.elapsed().as_secs_f64());
+    if std::fs::rename(&tmp, &dest).is_err() {
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+    assert_setup(dest.join(".tegg/vault.yml").exists());
+    dest
+}
