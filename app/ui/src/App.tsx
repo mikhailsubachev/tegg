@@ -30,7 +30,12 @@ export function App() {
   // `ui-ready` (contract §1): after the first paint of a usable window.
   useEffect(() => {
     if (vault === undefined) return;
-    requestAnimationFrame(() => setTimeout(() => ipc.perfMark('ui-ready'), 0));
+    // After the next frame; WebKit pauses frames for a hidden or occluded window, so a timer backs it up
+    // (the shell writes each mark once).
+    const mark = () => ipc.perfMark('ui-ready');
+    requestAnimationFrame(() => setTimeout(mark, 0));
+    const fallback = setTimeout(mark, 250);
+    return () => clearTimeout(fallback);
   }, [vault === undefined]);
 
   // ⌘O switcher, ⌘⇧F search (FR-UX-03; the command palette comes with MS3).
