@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.26, for review                                             |
+| **Document status** | Draft v1.27, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -42,6 +42,7 @@
 | v1.24   | 2026-10-12 | D-114: the desktop shell has its own Cargo manifest, outside the core workspace. |
 | v1.25   | 2026-10-12 | MS3 plan decisions D-115…D-120 (AP-59…AP-64, `docs/plans/ms3-implementation-plan.md`): MS3 in slices 3A–3E with preview builds; full shell from the designs with TBD pages; read view before the editor; Tegg Preview app; dogfood vaults; MS3 builds the frame of the MS5 navigation requirements. |
 | v1.26   | 2026-10-12 | MS3 slice 3A AC decisions D-121…D-138 (AP-65…AP-82, `docs/acceptance/app-shell.md`, `docs/contracts/ms3-shell.md`): Types list, collation, minimal type page in 3A, milestone labels and overdue-placeholder check, page-map additions, new shortcuts, right-panel tabs (settles AP-20), theme storage, contrast rule, disabled controls and focus, ⌘N dialog, launch landing, plurals, FR-UX-07 AC-6 after 3C, shell contract and test hooks, minimum window, commands without a vault, recency on open only. |
+| v1.27   | 2026-10-12 | D-139 (AP-83): FR-SET-02 AC-2 keeps the route and focus; from the palette, the palette closes and focus returns. |
 
 ---
 
@@ -223,6 +224,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-136 | Minimum window | The main window's minimum size is 800 × 500 pt. When the centre pane would be under 400 px, the right panel closes by itself and reopens when there is room; the user's choice isn't changed (AP-80, FR-UX-02) |
 | D-137 | Commands without a vault | With no vault open, the palette offers only `Create new vault…`, `Open vault…`, `Go to Settings` and the theme commands; other shortcuts do nothing and show no error (AP-81, FR-UX-03) |
 | D-138 | Recency counts opens only | Only a note shown in the centre pane counts as opened for switcher recency (D-105) and the launch landing (D-132): the UI calls `nav_opened`; `Core::read_note` no longer records recency, since previews and embeds also read notes (AP-82) |
+| D-139 | Theme change keeps context | FR-SET-02 AC-2 checks that a theme change keeps the current route and the focused element; run from the palette, the palette closes and the focus returns to the element that had it. "Keeps the open dialog" is dropped, since no dialog can be open when the theme changes (AP-83) |
 
 ---
 

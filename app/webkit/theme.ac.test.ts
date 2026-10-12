@@ -156,6 +156,15 @@ test('fr_set_02_ac2_choice_applies_within_100ms_keeping_route_and_focus', async 
     const f = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? '');
     assert.match(f, new RegExp(name), 'focus kept on the chosen option');
   }
+  // From the palette (D-139): the palette closes and the focus returns to where it was.
+  const radio = themeGroup(page).getByRole('radio', { name: 'Dark' });
+  await radio.focus();
+  const route = await mainName(page);
+  await runCommand(page, 'Theme: Light');
+  assert.equal(await eventually(() => theme(page), (v) => v === 'light', 1000), 'light', 'Theme: Light from the palette');
+  assert.equal(await eventually(() => paletteDialog(page).count(), (n) => n === 0, 1000), 0, 'palette closed');
+  assert.equal(await mainName(page), route, 'route kept (palette)');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? ''), 'Dark', 'focus returned to the element that had it');
 });
 
 test('fr_set_02_ac3_system_follows_prefers_color_scheme_live', async ({ page }) => {

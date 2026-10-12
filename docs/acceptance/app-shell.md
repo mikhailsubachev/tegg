@@ -167,7 +167,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 ### FR-SET-02 Appearance: theme switch (the part used by 3A)
 
 - **AC-1** **Three choices.** `settings/appearance` has a `Theme` control with exactly the options System, Light and Dark; with an empty Application Support, System is selected. *(L5)*
-- **AC-2** **Applies at once.** Choosing Light or Dark changes the main window's theme tokens within 100 ms, without a reload, and keeps the current route, the open dialog and the focused element. *(L5)*
+- **AC-2** **Applies at once.** Choosing Light or Dark changes the main window's theme tokens within 100 ms, without a reload, and keeps the current route and the focused element; run from the palette (`Theme: Light`), the palette closes and the focus returns to the element that had it (D-139). *(L5)*
 - **AC-3** **System follows macOS live.** With System selected, a change of the system appearance (emulated `prefers-color-scheme`) switches the theme within 100 ms; with Light or Dark selected, the system change is ignored. *(L5)*
 - **AC-4** **Stored per machine (AP-72).** After choosing Dark and relaunching, the window opens in Dark. The choice is stored under the Application Support root; the vault's files, including `.tegg/vault.yml`, are byte-identical before and after. *(L6)*
 - **AC-5** **Palette.** The commands `Theme: System`, `Theme: Light` and `Theme: Dark` set the same value as the Settings control and update it. *(L5)*
