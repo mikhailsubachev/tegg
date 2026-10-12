@@ -13,6 +13,8 @@
     { "id": "qa-tools-test", "dir": "tools/qa",
       "run": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/qa-tools.xml\" 'test/*.test.ts'",
       "level": "push" },
+    { "id": "app-typecheck", "dir": "app", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
+    { "id": "app-shell-test", "dir": "app", "run": "npx vite build --logLevel error && cargo test --quiet --manifest-path src-tauri/Cargo.toml", "level": "push" },
     { "id": "s2-typecheck", "dir": "spikes/s2-editor", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
     { "id": "s2-test", "dir": "spikes/s2-editor",
       "run": "npx vitest run --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/s2-editor.xml\"",

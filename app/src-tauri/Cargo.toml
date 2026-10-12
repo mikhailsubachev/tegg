@@ -1,0 +1,38 @@
+[package]
+name = "tegg-app"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Tegg desktop shell: windows, IPC to tegg-core, events (docs/contracts/ms2-shell.md, architecture §3.3)"
+
+[lib]
+name = "tegg_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "tegg"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tegg-core = { path = "../../crates/tegg-core" }
+tegg-vault = { path = "../../crates/tegg-vault" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+iana-time-zone = "0.1"
+ts-rs = "10"
+libc = "0.2"
+
+[profile.release]
+strip = true
+lto = true
+
+# Dependencies optimized in debug builds too (as in the core workspace).
+[profile.dev.package."*"]
+opt-level = 2

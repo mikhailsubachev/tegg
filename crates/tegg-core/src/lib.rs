@@ -180,7 +180,8 @@ fn default_folder(type_name: &str) -> String {
 pub struct Core {
     shared: Arc<Shared>,
     worker: Option<JoinHandle<()>>,
-    _watch: Option<WatchGuard>,
+    /// Mutex only so `Core` is `Sync` (the shell shares it between IPC threads).
+    watch: Mutex<Option<WatchGuard>>,
 }
 
 impl Core {
@@ -245,7 +246,7 @@ impl Core {
         let adapter: Arc<dyn SyncAdapter> = opts.sync.unwrap_or_else(|| Arc::new(FolderSync));
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
-        Ok(Core { shared, worker: Some(worker), _watch: watch })
+        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch) })
     }
 
     pub fn vault(&self) -> &Vault {
@@ -377,7 +378,7 @@ impl Core {
 
 impl Drop for Core {
     fn drop(&mut self) {
-        self._watch = None;
+        *lock(&self.watch) = None;
         self.shared.cancel.store(true, Ordering::SeqCst);
         let _ = lock(&self.shared.jobs).send(Job::Stop);
         if let Some(w) = self.worker.take() {

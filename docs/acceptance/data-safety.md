@@ -48,7 +48,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 
 - **AC-1** The app makes no network calls and has no code that detects or depends on a specific sync provider (except FR-VLT-03 placeholder detection).
 - **AC-2** All features work with networking disabled.
-- **AC-3** [manual] A vault in Dropbox, Google Drive and iCloud Drive each: create, edit, rename, and delete a note on Mac A; the change appears on Mac B, and Tegg on Mac B shows it within 2 s of the file arriving.
+- **AC-3** [manual] [MS8] A vault in Dropbox, Google Drive and iCloud Drive each: create, edit, rename, and delete a note on Mac A; the change appears on Mac B, and Tegg on Mac B shows it within 2 s of the file arriving.
 
 ### FR-VLT-01 Create or open a vault
 
