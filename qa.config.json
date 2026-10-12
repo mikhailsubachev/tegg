@@ -37,7 +37,10 @@
       "level": "nightly" },
     { "id": "s4-perf", "dir": "spikes/s4-index",
       "run": "D=$(mktemp -d) && cargo run --release --quiet --manifest-path ../../tools/gen-vault/Cargo.toml -- --seed 1 --small-images --out $D/vault && cargo run --release --quiet --bin perf -- --vault $D/vault --runs 20 --out \"$VERIFY_RESULTS/s4-perf.json\"; S=$?; rm -rf $D; exit $S",
-      "level": "nightly" }
+      "level": "nightly" },
+    { "id": "app-e2e", "dir": "app",
+      "run": "npm run --silent app:build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-e2e.xml\" e2e/*.ac.test.ts",
+      "level": "milestone" }
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],
   "acRunners": [
@@ -46,6 +49,8 @@
     { "dir": "packages/doc", "match": "^packages/doc/test/.*\\.ac\\.test\\.ts$",
       "run": "npx vitest run --reporter=junit --outputFile.junit={junit} {files}" },
     { "dir": "tools/qa", "match": "^tools/qa/test/.*\\.ac\\.test\\.ts$",
+      "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" },
+    { "dir": "app", "match": "^app/e2e/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],
   "budgets": { "commit": 60, "push": 600, "nightly": 5400 }
