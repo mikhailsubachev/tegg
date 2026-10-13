@@ -19,6 +19,15 @@ export type TabDef = { id: 'backlinks' | 'outline' | 'graph'; name: string; stat
 export type DisabledControl = { label: string; where: string; due: Due; req: string };
 export type ShortcutDef = { keys: string; command: string };
 
+/** R5 in-note placeholders (read-view.md, D-144; ms3-shell §11.3). STUB (TS-I1): empty until slice 3B is built. */
+export type InNotePlaceholderDef = {
+  id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap';
+  name: string;
+  due: Due;
+  reqs: string[];
+};
+export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [];
+
 const built = { built: true } as const;
 const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, due: slice ? { milestone, slice } : { milestone } });
 

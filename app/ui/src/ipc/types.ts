@@ -53,4 +53,14 @@ export type UiStateDto = { version: number,
 /**
  * `system`, `light` or `dark`.
  */
-theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto, };
+theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto, 
+/**
+ * Attribute strip expanded (FR-TYP-08 AC-5, D-147). STUB (TS-I1): the 3B default (`true`, missing = `true`)
+ * isn't implemented yet.
+ */
+propertiesOpen: boolean, };
+export type LinkTargetDto = { target: string, 
+/**
+ * `note`, `daily`, `date-missing` or `unresolved`.
+ */
+kind: string, path: string | null, title: string | null, type: string | null, };

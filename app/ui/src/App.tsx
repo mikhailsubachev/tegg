@@ -31,7 +31,7 @@ const MIN_CENTRE = 400; // D-136
 type Dialog = 'palette' | 'switcher' | 'newObject' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
-const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' } };
+const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: false }; // propertiesOpen: STUB until 3B (D-147 default true)
 
 function initialUi(): UiStateDto {
   const w = window as { __TEGG_UI_STATE__?: UiStateDto | null };

@@ -669,3 +669,35 @@ impl Core {
 }
 
 const LAST_FILE: &str = "last-opened.json";
+
+// ---------------------------------------------------------------------------------------------------------------
+// MS3 slice 3B (docs/contracts/ms3-shell.md §11.1: `link_resolve` → `Core::resolve_links`).
+
+/// What a link target resolved to (ms3-shell §11.1 `LinkTargetDto.kind`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkKind {
+    Note,
+    Daily,
+    DateMissing,
+    Unresolved,
+}
+
+/// One resolved link target (ms3-shell §11.1, fields as `LinkTargetDto`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkTarget {
+    pub target: String,
+    pub kind: LinkKind,
+    pub path: Option<String>,
+    pub title: Option<String>,
+    pub r#type: Option<String>,
+}
+
+impl Core {
+    /// `link_resolve`: resolves every target of one note in one call, by the rules of ms3-shell §11.1 (dialect §6,
+    /// FR-LNK-14, D-141, D-142). Read-only, records no recency.
+    /// STUB (TS-I1): returns no targets until slice 3B is built.
+    pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
+        let _ = (from, targets);
+        Vec::new()
+    }
+}

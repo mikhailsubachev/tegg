@@ -157,11 +157,28 @@ pub struct UiStateDto {
     pub theme: String,
     pub sidebar_open: bool,
     pub right_panel: RightPanelDto,
+    /// Attribute strip expanded (FR-TYP-08 AC-5, D-147). STUB (TS-I1): the 3B default (`true`, missing = `true`)
+    /// isn't implemented yet.
+    #[serde(default)]
+    pub properties_open: bool,
+}
+
+/// A resolved link target (ms3-shell §11.1, `link_resolve`).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct LinkTargetDto {
+    pub target: String,
+    /// `note`, `daily`, `date-missing` or `unresolved`.
+    pub kind: String,
+    pub path: Option<String>,
+    pub title: Option<String>,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: Option<String>,
 }
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() } }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: false }
     }
 }
 
@@ -185,6 +202,7 @@ pub fn typescript() -> String {
         LastOpenedDto::decl(),
         RightPanelDto::decl(),
         UiStateDto::decl(),
+        LinkTargetDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

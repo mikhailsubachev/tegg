@@ -3,7 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ChangedDto, ConflictDto, LastOpenedDto, NoteDto, ObjectRowDto, ProgressDto, SearchPageDto, SearchQueryDto,
+  ChangedDto, ConflictDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, SearchPageDto, SearchQueryDto,
   SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo,
 } from './types';
 
@@ -24,6 +24,8 @@ export const ipc = {
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),
+  linkResolve: (from: string, targets: string[]) => invoke<LinkTargetDto[]>('link_resolve', { from, targets }),
+  openExternal: (url: string) => invoke<void>('open_external', { url }),
 };
 
 export const events = {

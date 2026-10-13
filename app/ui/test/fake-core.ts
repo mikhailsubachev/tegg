@@ -12,6 +12,8 @@ export type UiStateDto = {
   theme: 'system' | 'light' | 'dark';
   sidebarOpen: boolean;
   rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
+  /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
+  propertiesOpen?: boolean;
 };
 export type FakeCoreHandle = {
   calls(): Promise<{ cmd: string; args: unknown }[]>;
@@ -22,6 +24,8 @@ export type FakeCoreHandle = {
   files(): Promise<Record<string, string>>;
   /** The UI state the app stored through `ui_state_set` (machine-local, never in the vault). */
   uiState(): Promise<UiStateDto | null>;
+  /** URLs passed to `open_external` that the fake accepted (http, https, mailto; ms3-shell §11.1). */
+  externalOpened(): Promise<string[]>;
 };
 export type FakeOptions = {
   uiState?: UiStateDto;
@@ -92,6 +96,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     setFile: (path, text) => page.evaluate(([p, t]) => (window as any).__teggFake.setFile(p, t), [path, text] as const),
     files: () => ev(() => ({ ...(window as any).__teggFake.vault?.files }) as Record<string, string>),
     uiState: () => ev(() => (window as any).__teggFake.uiState as UiStateDto | null),
+    externalOpened: () => ev(() => [...(window as any).__teggFake.external] as string[]),
   };
 }
 
@@ -102,12 +107,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
   const READS = new Set([
     'vault_current', 'vault_last', 'vault_types', 'vault_pick_dir', 'index_type_counts', 'index_list', 'index_search',
     'index_switcher', 'note_read', 'ui_state_get', 'ui_state_set', 'nav_opened', 'perf_mark', 'vault_open',
+    'link_resolve', 'open_external', // 3B: read-only / opens a URL outside the vault (ms3-shell §11.1)
   ]);
   const opts = init.opts;
   const state = {
     vault: init.vault as FakeVault | null,
     calls: [] as { cmd: string; args: unknown }[],
     writes: 0,
+    external: [] as string[],
     uiState: (opts.uiState ?? null) as UiStateDto | null,
     last: (opts.last ?? null) as { path: string; id: string | null } | null,
     emit: (event: string, payload: unknown) => w.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event, payload }),
@@ -240,10 +247,45 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       void state.emit('vault:changed', { paths: [path] });
       return path;
     },
-    ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' } },
+    ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
     ui_state_set: (a) => { state.uiState = a.state; return null; },
     nav_opened: (a) => { const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null; },
     perf_mark: () => null,
+    // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
+    link_resolve: (a) => {
+      const from = String(a.from ?? '').normalize('NFC');
+      const fromDir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '';
+      const objs = objects();
+      const low = (x: string) => x.normalize('NFC').toLowerCase();
+      const byCode = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+      return (a.targets as string[]).map((given) => {
+        let t = String(given).normalize('NFC').trim();
+        const cut = t.search(/[#|]/);
+        if (cut >= 0) t = t.slice(0, cut).trim();
+        const k = low(t);
+        const kmd = k.endsWith('.md') ? k : `${k}.md`;
+        let hit = objs.find((o) => low(o.path) === kmd)
+          ?? objs.find((o) => o.id !== null && low(o.id) === k);
+        if (!hit) {
+          const same = objs.filter((o) => low(o.path.split('/').pop()!.replace(/\.md$/, '')) === k);
+          hit = same.find((o) => o.folder === fromDir)
+            ?? [...same].sort((x, y) => x.path.length - y.path.length || byCode(x.path, y.path))[0];
+        }
+        if (hit) return { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type };
+        if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+          const daily = objs.find((o) => o.type === 'daily-note' && (front(state.vault!.files[o.path]).date === t || o.path.split('/').pop() === `${t}.md`));
+          if (daily) return { target: given, kind: 'daily', path: daily.path, title: daily.title, type: daily.type };
+          return { target: given, kind: 'date-missing', path: null, title: null, type: null };
+        }
+        return { target: given, kind: 'unresolved', path: null, title: null, type: null };
+      });
+    },
+    open_external: (a) => {
+      const url = String(a.url);
+      if (!/^(https?:|mailto:)/i.test(url)) throw err('Unsupported', `fake: scheme not allowed: ${url}`);
+      state.external.push(url);
+      return null;
+    },
   };
 
   w.__teggMocks.mockWindows('main');

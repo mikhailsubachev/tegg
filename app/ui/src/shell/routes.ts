@@ -2,7 +2,8 @@
 // `type/čajovna`, `note/Schůzky/2026-10-07 Porada.md`, `settings/appearance`, `home`.
 import { ROUTES } from './registry';
 
-export type Route = { id: string; param?: string };
+/** `fragment`: a note subpath `<heading>` or `^<block id>` (ms3-shell §11.2; parsed from slice 3B on). */
+export type Route = { id: string; param?: string; fragment?: string };
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note'];
 

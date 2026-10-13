@@ -340,6 +340,19 @@ async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcE
     Ok(())
 }
 
+/// `link_resolve` (ms3-shell §11.1). STUB (TS-I1): returns no targets until slice 3B is built.
+#[tauri::command]
+async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
+    let _ = (core(&state)?, from, targets);
+    Ok(Vec::new())
+}
+
+/// `open_external` (ms3-shell §11.1, D-145). STUB (TS-I1): opens nothing until slice 3B is built.
+#[tauri::command]
+async fn open_external(url: String) -> Result<(), IpcError> {
+    Err(err("Unsupported", format!("open_external is not built yet: {url}")))
+}
+
 const UI_STATE_FILE: &str = "ui-state.json";
 
 fn load_ui_state(dirs: &AppDirs) -> UiStateDto {
@@ -414,7 +427,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
-            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set
+            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
+            link_resolve, open_external
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tegg");
