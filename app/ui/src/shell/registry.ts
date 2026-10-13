@@ -79,8 +79,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.starterVault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02' },
   { label: 'ctl.turnIntoObject', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01' },
   { label: 'ctl.copyBlockLink', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06' },
-  { label: 'ctl.addIcon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
-  { label: 'ctl.addCover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
   { label: 'ctl.filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
   { label: 'ctl.sort', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
   { label: 'ctl.views', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },

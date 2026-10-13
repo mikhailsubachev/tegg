@@ -10,7 +10,7 @@ import type { SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
 import { localIso, renderNewNote, ulid } from '../newNote';
 import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
-import { Icon, typeIconName } from '../shell/Icon';
+import { Icon, iconElement, typeIconName } from '../shell/Icon';
 import { eventKeys } from '../shell/keys';
 import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
 
@@ -100,6 +100,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       unresolved: (target) => t('link.noNote', { target }),
       sourceBlock: t('editor.sourceBlock'),
       checkbox: t('editor.checkbox'),
+      chipIcon: (type) => (type ? iconElement(typeIconName(type)) : null),
       hint: t('editor.hint'),
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
@@ -158,7 +159,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type });
       edRef.current?.refreshUi();
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
@@ -306,7 +307,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const r = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
     const stemResolves = r[0]?.path?.normalize('NFC') === path.normalize('NFC');
-    links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path });
+    links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: item.type });
     e.commands.replaceWithLink(s.from, e.view.state.selection.from, { path, title, viaAlias: item.matched_alias ?? undefined, fromPath: pathRef.current, stemResolves });
     focusEditor();
   };
@@ -590,7 +591,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
             const stem = item.path.split('/').pop()!.replace(/\.md$/, '');
             const r = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
             const stemResolves = r[0]?.path?.normalize('NFC') === item.path.normalize('NFC');
-            links.current.set(stemResolves ? stem.normalize('NFC') : item.path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path: item.path });
+            links.current.set(stemResolves ? stem.normalize('NFC') : item.path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path: item.path, type: item.type });
             ed.commands.insertLink({ path: item.path, title: item.title, fromPath: pathRef.current, stemResolves });
             focusEditor();
           }}

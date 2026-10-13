@@ -191,7 +191,8 @@ export function App() {
     return () => window.removeEventListener('focusin', onFocus);
   }, []);
   const openNote = useCallback((path: string, fragment?: string) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }); }, [go]);
-  const openTag = useCallback((key: string) => { void go({ id: 'search', param: `tag:${key}` }); }, [go]);
+  // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
+  const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
 
   const routeKey = route ? routeString(route) : '';
   // The route a Back/Forward step is restoring the scroll position of (not re-scrolled to its fragment, AC-4).
@@ -326,11 +327,21 @@ export function App() {
 
   // Mouse back/forward buttons and a two-finger horizontal swipe (FR-NAV-03, ms3-shell §12.2).
   useEffect(() => {
-    const onMouse = (e: MouseEvent) => {
-      if ((e.button !== 3 && e.button !== 4) || live.current.dialog) return; // dialogs keep their input (AC-6)
-      e.preventDefault();
-      void step(e.button === 3 ? 'back' : 'forward');
+    // The page's mouseup (where the webview passes it) and the shell's native event (where it doesn't, 3C feedback)
+    // may both report one press: the second within 300 ms is ignored.
+    let last = { from: '', at: 0 };
+    const press = (dir: 'back' | 'forward', from: 'page' | 'native') => {
+      if (live.current.dialog) return; // dialogs keep their input (AC-6)
+      const twice = last.from !== from && Date.now() - last.at < 300;
+      last = { from, at: Date.now() };
+      if (!twice) void step(dir);
     };
+    const onMouse = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      press(e.button === 3 ? 'back' : 'forward', 'page');
+    };
+    const unNative = events.navMouse((d) => press(d, 'native'));
     let dx = 0;
     let since = 0;
     let fired = false;
@@ -353,6 +364,7 @@ export function App() {
     window.addEventListener('mouseup', onMouse);
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => {
+      void unNative.then((f) => f());
       window.removeEventListener('mouseup', onMouse);
       window.removeEventListener('wheel', onWheel);
     };

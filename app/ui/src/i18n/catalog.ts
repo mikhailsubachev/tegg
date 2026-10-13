@@ -71,8 +71,6 @@ export const en: Catalog = {
   'ctl.newType': 'New type',
   'ctl.starterVault': 'Starter vault',
   'ctl.showSource': 'Show Markdown source',
-  'ctl.addIcon': 'Add icon',
-  'ctl.addCover': 'Add cover',
   'ctl.filter': 'Filter',
   'ctl.sort': 'Sort',
   'ctl.views': 'Views',

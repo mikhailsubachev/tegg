@@ -42,6 +42,8 @@ export const events = {
   progress: (f: (p: ProgressDto) => void): Promise<UnlistenFn> => listen<ProgressDto>('index:progress', (e) => f(e.payload)),
   changed: (f: (c: ChangedDto) => void): Promise<UnlistenFn> => listen<ChangedDto>('vault:changed', (e) => f(e.payload)),
   conflict: (f: (c: ConflictDto) => void): Promise<UnlistenFn> => listen<ConflictDto>('note:conflict', (e) => f(e.payload)),
+  /** The mouse's back/forward buttons, caught natively (WKWebView doesn't pass them to the page, FR-NAV-03). */
+  navMouse: (f: (dir: 'back' | 'forward') => void): Promise<UnlistenFn> => listen<'back' | 'forward'>('nav:mouse', (e) => f(e.payload)),
   /** ⌘Q, the Quit Apple Event or closing the window: flush first (FR-EDT-08 AC-7). */
   quitRequested: (f: () => void): Promise<UnlistenFn> => listen('app:quit-requested', () => f()),
 };

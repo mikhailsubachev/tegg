@@ -72,6 +72,31 @@ static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
 static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// The mouse's back and forward buttons (FR-NAV-03, D-165): WKWebView doesn't pass them to the page, so a local
+/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI.
+#[cfg(target_os = "macos")]
+fn watch_mouse_buttons(app: AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask};
+    use std::ptr::NonNull;
+    let block = RcBlock::new(move |e: NonNull<NSEvent>| -> *mut NSEvent {
+        // SAFETY: AppKit passes a valid event for the duration of the handler.
+        let n = unsafe { e.as_ref() }.buttonNumber();
+        match n {
+            3 => { let _ = app.emit("nav:mouse", "back"); }
+            4 => { let _ = app.emit("nav:mouse", "forward"); }
+            _ => {}
+        }
+        e.as_ptr()
+    });
+    // SAFETY: called on the main thread during setup; the monitor lives as long as the app.
+    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp, &block) };
+    std::mem::forget(monitor);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn watch_mouse_buttons(_app: AppHandle) {}
+
 /// The UI's answer to `app:quit-requested`: everything is saved, or the user confirmed (D-179, D-196).
 #[tauri::command]
 fn app_quit(app: AppHandle) {
@@ -598,6 +623,7 @@ pub fn run() {
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
         .setup(|app| {
             let handle = app.handle().clone();
+            watch_mouse_buttons(handle.clone());
             // The default menu, with Quit replaced by an item that lets the UI save first (FR-EDT-08 AC-7, D-196).
             {
                 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};

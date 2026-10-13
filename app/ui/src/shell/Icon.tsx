@@ -61,3 +61,14 @@ export function routeIcon(id: string): string {
 export function typeIconName(key: string): string {
   return ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key] ?? 'type';
 }
+
+/** The same icon as a DOM element, for views that aren't React (the editor's link chips). */
+export function iconElement(name: string, size = 13): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  for (const [k, v] of Object.entries({ class: 'icon', width: String(size), height: String(size), viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', 'data-icon': name })) svg.setAttribute(k, v);
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', PATHS[name] ?? PATHS.dot);
+  svg.appendChild(path);
+  return svg;
+}

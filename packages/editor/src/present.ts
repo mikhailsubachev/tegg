@@ -6,8 +6,9 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
+import { wikiLabel } from './schema'
 
-export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null }
+export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null }
 
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
@@ -18,6 +19,8 @@ export interface EditorUi {
   hint: string
   /** Accessible name of a checklist item's checkbox. */
   checkbox?: string
+  /** The type icon shown in a link chip (the read view's chip, D-217: the type's icon), or null for none. */
+  chipIcon?: (type: string | null) => Element | null
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string }
   onLink(target: string, fragment: string | null): void
@@ -52,13 +55,13 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       const broken = info && info.kind !== 'note' && info.kind !== 'daily'
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
-        class: broken ? 'wikilink broken' : 'wikilink',
+        class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
       }))
       return false
     }
     if (node.type.name === 'tag') {
-      decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'link', class: 'tag' }))
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'link', class: 'chip tag-chip' }))
       return false
     }
     return true
@@ -102,6 +105,38 @@ class RawBlockView implements NodeView {
   }
   stopEvent(e: Event) {
     return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste'
+  }
+  ignoreMutation() {
+    return true
+  }
+}
+
+/** A link chip as in the read view: the target type's icon, then the shown text (FR-EDT-02 AC-16). */
+class WikiLinkView implements NodeView {
+  dom: HTMLElement
+  constructor(private node: PMNode, private ui: EditorUi) {
+    this.dom = document.createElement('span')
+    this.render()
+  }
+  private render() {
+    const v = String(this.node.attrs.value)
+    this.dom.setAttribute('data-wikilink', v)
+    this.dom.replaceChildren()
+    if (!this.node.attrs.embed) {
+      const info = this.ui.resolve(linkTarget(v).target)
+      const icon = info && (info.kind === 'note' || info.kind === 'daily') ? this.ui.chipIcon?.(info.type ?? 'page') : null
+      if (icon) this.dom.appendChild(icon)
+    }
+    const label = document.createElement('span')
+    label.textContent = wikiLabel(v, !!this.node.attrs.embed)
+    this.dom.appendChild(label)
+  }
+  update(node: PMNode, decos: readonly Decoration[]) {
+    if (node.type !== this.node.type) return false
+    this.node = node
+    void decos
+    this.render()
+    return true
   }
   ignoreMutation() {
     return true
@@ -178,6 +213,7 @@ export function presentation(ui: EditorUi) {
             },
             nodeViews: {
               rawBlock: (node) => new RawBlockView(node, ui),
+              wikiLink: (node) => new WikiLinkView(node, ui),
               listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
             },
             handleClickOn(view, _pos, node, _nodePos, event) {

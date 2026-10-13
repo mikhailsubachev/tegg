@@ -29,6 +29,12 @@ iana-time-zone = "0.1"
 ts-rs = "10"
 libc = "0.2"
 
+# macOS: the mouse back/forward buttons, which WKWebView doesn't pass to the page (FR-NAV-03).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSEvent", "block2"] }
+block2 = "0.6"
+
 [profile.release]
 strip = true
 lto = true

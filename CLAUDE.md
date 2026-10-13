@@ -13,7 +13,7 @@ Local-first, object-based note-taking app for macOS (Apple Silicon). Anytype/Cap
 
 ## Status
 
-Pre-code. MS3 plan (slices 3A–3E, preview builds, TBD pages; D-115…D-120): `docs/plans/ms3-implementation-plan.md`. Slice 3A: ACs `docs/acceptance/app-shell.md`, contract `docs/contracts/ms3-shell.md` (D-121…D-138). Slice 3B: ACs `docs/acceptance/read-view.md` (D-140…D-151). Slice 3C: ACs `docs/acceptance/editor.md`, contract `docs/contracts/ms3-shell.md` §13 (D-173…D-216). Requirements v1.35 are final: no open questions (D-01…D-216); every requirement is mapped to a phase in `docs/requirements-coverage.md`. Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Architecture: `docs/architecture.md` (accepted; ADR 0003 one text engine, D-82; spike code is ported, never imported, D-83; residual overwrite window accepted, D-84). Technical spikes before product code:
+Pre-code. MS3 plan (slices 3A–3E, preview builds, TBD pages; D-115…D-120): `docs/plans/ms3-implementation-plan.md`. Slice 3A: ACs `docs/acceptance/app-shell.md`, contract `docs/contracts/ms3-shell.md` (D-121…D-138). Slice 3B: ACs `docs/acceptance/read-view.md` (D-140…D-151). Slice 3C: ACs `docs/acceptance/editor.md`, contract `docs/contracts/ms3-shell.md` §13 (D-173…D-216); preview feedback D-217, D-218. Requirements v1.36 are final: no open questions (D-01…D-218); every requirement is mapped to a phase in `docs/requirements-coverage.md`. Acceptance criteria exist for the critical requirements. Test strategy accepted (`docs/test-strategy.md`); the MVP is built in milestones MS1–MS8 (BRD §11.2). The MVP includes the **Capacities importer** (D-41, BRD §11.1). Architecture: `docs/architecture.md` (accepted; ADR 0003 one text engine, D-82; spike code is ported, never imported, D-83; residual overwrite window accepted, D-84). Technical spikes before product code:
 
 - S1: Markdown dialect spec + round-trip test corpus
 - S2: TipTap editor prototype passing S1
@@ -69,7 +69,7 @@ Spike code is throwaway and lives in `spikes/<name>/`. Product code starts after
 
 System types (D-22, D-42): Page, Task, Quick Note, Daily Note, Tag, Image, PDF. Every image and PDF is an object: a small `.md` in `Images/` or `PDFs/` with `file: "[[photo.png]]"`, while notes embed the file itself (`![[photo.png]]`) so they still render in Obsidian (FR-ATT-07).
 
-Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id, captured`.
+Reserved frontmatter keys (FR-TYP-15): `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id, captured`. `icon`/`cover` are preserved but not used: objects show their type's icon (D-217).
 
 Deliberately **not** supported (don't add them): page hierarchy / `parent` (D-45), a separate scheduled task date (D-46), a Weblink type (D-43), nested tags (D-40), tag collections (D-48).
 

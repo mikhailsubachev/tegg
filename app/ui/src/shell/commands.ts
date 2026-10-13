@@ -56,8 +56,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.starterVault': 'vault.starter',
   'ctl.turnIntoObject': 'edit.turnIntoObject',
   'ctl.copyBlockLink': 'edit.copyBlockLink',
-  'ctl.addIcon': 'note.icon',
-  'ctl.addCover': 'note.cover',
   'ctl.filter': 'typePage.filter',
   'ctl.sort': 'typePage.sort',
   'ctl.views': 'typePage.views',

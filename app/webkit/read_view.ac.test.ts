@@ -346,23 +346,15 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
   assert.deepEqual(Object.keys(await core.files()).sort(), Object.keys(files).sort(), 'no file created');
 });
 
-test('fr_edt_02_ac9_tag_opens_search_with_the_tag_filter', async ({ page }) => {
-  const core = await openAt(page, R.odkazy);
+test('fr_edt_02_ac9_tag_opens_the_tag_page', async ({ page }) => {
+  // D-218 (supersedes D-143): a tag opens its tag page; until MS4 (FR-TAG-06) that is the Tags placeholder.
+  await openAt(page, R.odkazy);
   const art = await mustArticle(page, 'Odkazy');
-  const chip = await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa');
-  const n = (await core.calls()).length;
-  await chip.click();
-  await mustBeOn(page, 'Search', 'tag activation');
-  const searches = (await core.calls()).slice(n).filter((c) => c.cmd === 'index_search').map((c) => (c.args as any)?.query);
-  assert.ok(searches.length > 0, 'the search page queries the index');
-  const last = searches[searches.length - 1];
-  assert.deepEqual([last?.tags, last?.text ?? ''], [['projekt/alfa'], ''], 'tag filter = tagKey, empty text query');
+  await (await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa')).click();
+  await mustBeOn(page, 'Tags', 'tag activation');
   await openNote(page, 'Odkazy');
-  const nfdChip = await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)');
-  await (nfdChip).click();
-  await mustBeOn(page, 'Search', 'NFD tag activation');
-  const s2 = (await core.calls()).filter((c) => c.cmd === 'index_search').map((c) => (c.args as any)?.query);
-  assert.deepEqual(s2[s2.length - 1]?.tags, ['čeština'], 'NFC, lower-case key');
+  await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)')).click();
+  await mustBeOn(page, 'Tags', 'NFD tag activation');
 });
 
 test('fr_edt_02_ac10_external_links_open_outside_and_no_network', async ({ page }) => {

@@ -15,7 +15,6 @@ import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
 import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
-import { Disabled } from '../shell/Disabled';
 import { Icon } from '../shell/Icon';
 import { pluralOf } from '../shell/types';
 
@@ -440,10 +439,6 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
           <span className="sep" aria-hidden="true">/</span>
           <span data-user-content>{stem}</span>
         </nav>
-        <div className="note-header-controls">
-          <Disabled control="ctl.addIcon" />
-          <Disabled control="ctl.addCover" />
-        </div>
         {editable && !showSource ? (
           <h1 className="note-title">
             <TitleField

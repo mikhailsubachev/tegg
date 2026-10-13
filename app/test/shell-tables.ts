@@ -59,8 +59,6 @@ export const R3: R3Control[] = [
   // 3C (editor.md R3): `Edit` removed (the body is the editor); two controls added.
   { label: 'Turn into object', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01', route: null },
   { label: 'Copy link to block', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06', route: null },
-  { label: 'Add icon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
-  { label: 'Add cover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
   { label: 'Filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
   { label: 'Sort', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
   { label: 'Views', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
