@@ -135,4 +135,4 @@ All criteria render the fixture notes in the formatted view. "Is rendered as" me
 
 | AP-95 → D-151 | **Callout types with non-ASCII letters.** `@tegg/doc` recognizes a callout only when its type is ASCII (`[!\w…]`), so `> [!rozpočet] Text` is a plain quote in Tegg. Whether Obsidian shows it as a callout isn't recorded in the dialect. | Check in Obsidian (owner, 1 minute). If Obsidian shows a callout, widen the rule to Unicode letters in `@tegg/doc` with a round-trip test (AR-06) and add a Czech type to the fixture; if not, record "ASCII callout types only" in dialect §4. | dialect §4, FR-EDT-02, NFR-POR-01 |
 
-Next: section "3B read view" in [ms3-shell.md](../contracts/ms3-shell.md) (batch link resolution `link_resolve(from, targets[])` over `Core::resolve_link`, `open_external`, the `note-ready` mark, the renderer module and its accessibility labels, the R5 registry, fake-core additions), the fixture files, then red tests (D-61).
+Next: the interface for the red tests is [ms3-shell.md §11](../contracts/ms3-shell.md#11-slice-3b-read-view-d-140d-151); then the red tests (D-61).
