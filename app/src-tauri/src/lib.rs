@@ -91,7 +91,7 @@ fn mark(app: &AppHandle, name: &str) {
     }
     let line = serde_json::json!({ "mark": name, "ms": ms_since_process_start() });
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
-        let _ = writeln!(f, "{line}");
+        let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
     }
     if test_var("TEGG_EXIT_AFTER").as_deref() == Some(name) {
         app.exit(0);
@@ -125,7 +125,7 @@ fn mark_repeat(name: &str) {
     let Some(log) = test_var("TEGG_PERF_LOG") else { return };
     let line = serde_json::json!({ "mark": name, "ms": ms_since_process_start() });
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
-        let _ = writeln!(f, "{line}");
+        let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
     }
 }
 
@@ -407,7 +407,7 @@ fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) 
             let Some(log) = test_var("TEGG_PERF_LOG") else { return };
             let line = serde_json::json!({ "mark": name, "frame": frame, "ms": ms });
             if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
-                let _ = writeln!(f, "{line}");
+                let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
             }
         }
         _ => mark(&app, &name),
@@ -598,6 +598,32 @@ pub fn run() {
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
         .setup(|app| {
             let handle = app.handle().clone();
+            // The default menu, with Quit replaced by an item that lets the UI save first (FR-EDT-08 AC-7, D-196).
+            {
+                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+                let menu = Menu::default(&handle)?;
+                if let Some(tauri::menu::MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+                    for item in app_menu.items()? {
+                        if let tauri::menu::MenuItemKind::Predefined(p) = &item {
+                            if p.text().unwrap_or_default().starts_with("Quit") {
+                                app_menu.remove(&item)?;
+                            }
+                        }
+                    }
+                    app_menu.append(&PredefinedMenuItem::separator(&handle)?)?;
+                    app_menu.append(&MenuItem::with_id(&handle, "tegg-quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?)?;
+                }
+                app.set_menu(menu)?;
+                app.on_menu_event(|app, e| {
+                    if e.id() == "tegg-quit" {
+                        if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
+                            app.exit(0);
+                        } else {
+                            let _ = app.emit("app:quit-requested", ());
+                        }
+                    }
+                });
+            }
             let dirs = app.state::<AppState>().dirs.clone();
             // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
