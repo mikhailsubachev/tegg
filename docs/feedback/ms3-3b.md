@@ -4,10 +4,10 @@ Owner testing of `Tegg Preview.app` (docs/previews/ms3-3b.md), triaged by Claude
 
 | # | Feedback | Triage | Status |
 | --- | --- | --- | --- |
-| F-1 | The logo in the app is not correct | Bug (FR-UX-01, design board Main): the sidebar shows the plain text "TEGG" in the UI font; the board has the SVG mark (rounded square, blue T and dot) and the "TEGG" wordmark in Space Grotesk 700, brand blue `#0B44F0` / dark `#8FAEFF`. The font can't be loaded from Google Fonts (NFR-SEC-01); it has to be bundled or the wordmark drawn as SVG paths | Open, see AP-108 |
-| F-2 | The mouse back button doesn't go back to the previous page | Not a bug: Back/Forward (FR-NAV-03) is MS5; ⌘[ / ⌘] and the title-bar buttons are disabled (D-125, app-shell R3). Pulling it forward is an owner decision | Open, see AP-109 |
+| F-1 | The logo in the app is not correct | Bug (FR-UX-01, design board Main): the sidebar shows the plain text "TEGG" in the UI font; the board has the SVG mark (rounded square, blue T and dot) and the "TEGG" wordmark in Space Grotesk 700, brand blue `#0B44F0` / dark `#8FAEFF`. The font can't be loaded from Google Fonts (NFR-SEC-01); it has to be bundled or the wordmark drawn as SVG paths | Decided: D-164 (slice 3B.1) |
+| F-2 | The mouse back button doesn't go back to the previous page | Not a bug: Back/Forward (FR-NAV-03) is MS5; ⌘[ / ⌘] and the title-bar buttons are disabled (D-125, app-shell R3). Pulling it forward is an owner decision | Decided: D-165 (slice 3B.1) |
 
-## Points for the owner
+## Points for the owner (accepted 2026-10-13: AP-108 → D-164, AP-109 → D-165)
 
 | # | Issue | Proposal | Affects |
 | --- | --- | --- | --- |
