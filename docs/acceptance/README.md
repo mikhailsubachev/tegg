@@ -15,6 +15,7 @@ The **critical requirements**: those where a bug means data loss, corrupted file
 | [performance.md](performance.md) | Performance targets | NFR-PERF-01…10 |
 | [search-navigation.md](search-navigation.md) | Search, quick switcher, progress (MS2) | FR-SRC-01…04, FR-NAV-01, FR-UX-07 |
 | [app-shell.md](app-shell.md) | App frame and page flow (MS3 slice 3A): layout, page map with TBD placeholders, command palette, shortcuts, themes, externalized strings, vault chooser | FR-UX-01, -02, -03, -05, FR-SET-02 (theme), NFR-OTH-02; MS3 parts of FR-VLT-01, FR-VLT-03, FR-UX-07, FR-NAV-01, FR-SYN-06 |
+| [read-view.md](read-view.md) | Read view (MS3 slice 3B): formatted read-only note, links and tags, attribute strip, source view, in-note placeholders (AP-84…AP-95 accepted as D-140…D-151) | FR-EDT-10, FR-EDT-02 (display), FR-TYP-08 (display), NFR-PERF-05 AC-2; MS3 parts of NFR-REL-03, FR-SYN-03, FR-SYN-06 |
 | [architecture-rules.md](architecture-rules.md) | Architecture rules enforced by checks | AR-03, AR-04 |
 | [qa-infrastructure.md](qa-infrastructure.md) | Test tooling and spike QA exit criteria (D-60, D-61) | `docs/test-strategy.md` TS-xx rules |
 
@@ -180,3 +181,7 @@ Found while writing [app-shell.md](app-shell.md) and [ms3-shell.md](../contracts
 | # | Issue | Proposal | Affects |
 | --- | --- | --- | --- |
 | AP-83 | **FR-SET-02 AC-2 "keeps the open dialog".** The theme can only be changed in Settings or from the palette, and choosing a palette command closes the palette, so no dialog is open when the theme changes; that part can't be tested as written. | Reword to "keeps the current route and the focused element; run from the palette, the palette closes and the focus returns where it was". Needs an `AC-Test-Change` approval. **Accepted: D-139.** | FR-SET-02 AC-2 |
+
+## Points from writing the MS3 slice 3B ACs (accepted 2026-10-13: AP-84…AP-95 → D-140…D-151)
+
+AP-84…AP-95 and their decisions are listed at the end of [read-view.md](read-view.md#points-raised-by-these-criteria-accepted-2026-10-13-ap-84ap-95--d-140d-151).
