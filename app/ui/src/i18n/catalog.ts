@@ -169,6 +169,7 @@ export const en: Catalog = {
   'editor.addBelow': 'Add block below',
   'editor.handle': 'Drag to move, click for block menu',
   'editor.sourceBlock': 'Source block',
+  'editor.checkbox': 'Done',
   'save.label': 'Save state',
   'save.saved': 'Saved',
   'save.saving': 'Saving…',

@@ -343,3 +343,4 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .conflicts-entry .count { margin-left: auto; color: var(--muted); font-size: 12px; }
 .popover button, .save-alert button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
 .popover .option.selected .due, .popover .option.selected .meta, .popover .option.selected .alias { color: var(--text); }
+.editor-host .ProseMirror .checklist-item > .check { cursor: pointer; margin-top: 4px; }

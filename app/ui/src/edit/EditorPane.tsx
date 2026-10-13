@@ -99,6 +99,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       resolve: (target) => links.current.get(target.normalize('NFC')),
       unresolved: (target) => t('link.noNote', { target }),
       sourceBlock: t('editor.sourceBlock'),
+      checkbox: t('editor.checkbox'),
       hint: t('editor.hint'),
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
@@ -714,6 +715,12 @@ function BlockMenu({ menu, ed, wrapRect, onSub, onClose }: { menu: NonNullable<M
     const first = ref.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
     first?.focus();
   }, [menu.sub]);
+  // A click anywhere else closes the menu (bug_3c, FR-EDT-01 AC-6).
+  useEffect(() => {
+    const away = (e: MouseEvent) => { if (!ref.current?.parentElement?.contains(e.target as Node)) onClose(); };
+    window.addEventListener('mousedown', away, true);
+    return () => window.removeEventListener('mousedown', away, true);
+  }, []);
   const act = (f: () => void) => () => { f(); onClose(); };
   const onKey = (e: React.KeyboardEvent) => {
     const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];

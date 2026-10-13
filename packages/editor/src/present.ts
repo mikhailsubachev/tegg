@@ -16,6 +16,8 @@ export interface EditorUi {
   unresolved(target: string): string
   sourceBlock: string
   hint: string
+  /** Accessible name of a checklist item's checkbox. */
+  checkbox?: string
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string }
   onLink(target: string, fragment: string | null): void
@@ -109,46 +111,53 @@ class RawBlockView implements NodeView {
 class ListItemView implements NodeView {
   dom: HTMLElement
   contentDOM: HTMLElement
-  private box: HTMLInputElement | null = null
-  constructor(private node: PMNode, view: EditorView, getPos: () => number | undefined) {
+  private box: HTMLElement | null = null
+  constructor(private node: PMNode, view: EditorView, getPos: () => number | undefined, label: string) {
     this.dom = document.createElement('li')
     this.contentDOM = document.createElement('div')
     this.contentDOM.className = 'li-content'
     if (node.attrs.checked !== null) {
       this.dom.className = 'checklist-item'
-      const box = document.createElement('input')
-      box.type = 'checkbox'
+      // Not a native input: WebKit restores a native checkbox's look after a prevented click, so the box showed the
+      // old state while the file had the new one (bug_3c, FR-EDT-02 AC-18).
+      const box = document.createElement('span')
       box.contentEditable = 'false'
-      box.checked = !!node.attrs.checked
-      box.addEventListener('mousedown', (e) => e.preventDefault())
-      box.addEventListener('click', (e) => {
+      box.setAttribute('role', 'checkbox')
+      box.setAttribute('aria-label', label)
+      box.className = 'check'
+      const toggle = (e: Event) => {
         e.preventDefault()
         const pos = getPos()
         if (pos === undefined) return
         const cur = view.state.doc.nodeAt(pos)
         if (!cur) return
         view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...cur.attrs, checked: !cur.attrs.checked }))
-      })
+      }
+      box.addEventListener('mousedown', toggle)
+      box.addEventListener('click', (e) => e.preventDefault())
       this.box = box
-      const wrap = document.createElement('span')
-      wrap.contentEditable = 'false'
-      wrap.className = 'checkbox-wrap'
-      wrap.appendChild(box)
-      this.dom.appendChild(wrap)
+      this.render()
+      this.dom.appendChild(box)
     }
     this.dom.appendChild(this.contentDOM)
+  }
+  private render() {
+    if (!this.box) return
+    const on = !!this.node.attrs.checked
+    this.box.setAttribute('aria-checked', String(on))
+    this.box.classList.toggle('on', on)
   }
   update(node: PMNode) {
     if (node.type !== this.node.type || (node.attrs.checked === null) !== (this.node.attrs.checked === null)) return false
     this.node = node
-    if (this.box) this.box.checked = !!node.attrs.checked
+    this.render()
     return true
   }
   stopEvent(e: Event) {
-    return e.target instanceof HTMLInputElement
+    return !!this.box && e.target === this.box
   }
   ignoreMutation(m: { target: Node; type: string }) {
-    return !!this.box && (m.target === this.box || m.target === this.box.parentNode)
+    return !!this.box && m.target === this.box
   }
 }
 
@@ -169,7 +178,7 @@ export function presentation(ui: EditorUi) {
             },
             nodeViews: {
               rawBlock: (node) => new RawBlockView(node, ui),
-              listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined),
+              listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
             },
             handleClickOn(view, _pos, node, _nodePos, event) {
               if (event.button !== 0) return false

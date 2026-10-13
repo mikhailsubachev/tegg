@@ -194,6 +194,10 @@ export const TeggRules = Extension.create({
         // A Markdown table cell holds one line: Enter stays in the cell (FR-EDT-02 AC-20).
         for (let d = $from.depth; d > 0; d--) if (['tableCell', 'tableHeader'].includes($from.node(d).type.name)) return true
         if ($from.depth >= 2 && $from.node(-1).type.name === 'listItem' && isEmptyItem($from.node(-1))) return editor.commands.liftListItem('listItem')
+        // ⏎ in a checklist item makes another (unchecked) checklist item (bug_3c, FR-EDT-02 AC-17).
+        if ($from.depth >= 2 && $from.node(-1).type.name === 'listItem' && $from.node(-1).attrs.checked !== null) {
+          return editor.commands.splitListItem('listItem', { checked: false })
+        }
         return false
       },
       'Mod-z': ({ editor }) => undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo(),
