@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.28, for review                                             |
+| **Document status** | Draft v1.29, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -44,6 +44,7 @@
 | v1.26   | 2026-10-12 | MS3 slice 3A AC decisions D-121…D-138 (AP-65…AP-82, `docs/acceptance/app-shell.md`, `docs/contracts/ms3-shell.md`): Types list, collation, minimal type page in 3A, milestone labels and overdue-placeholder check, page-map additions, new shortcuts, right-panel tabs (settles AP-20), theme storage, contrast rule, disabled controls and focus, ⌘N dialog, launch landing, plurals, FR-UX-07 AC-6 after 3C, shell contract and test hooks, minimum window, commands without a vault, recency on open only. |
 | v1.27   | 2026-10-12 | D-139 (AP-83): FR-SET-02 AC-2 keeps the route and focus; from the palette, the palette closes and focus returns. |
 | v1.28   | 2026-10-13 | MS3 slice 3B AC decisions D-140…D-151 (AP-84…AP-95, `docs/acceptance/read-view.md`): click opens links before previews, aliases don't resolve links (FR-TYP-08 reworded), broken and date links before MS4, tag click opens Search, in-note placeholders, external links and no HTML rendering, source view details, attribute strip, NFR-PERF-05 AC-2, headings 4–6, FR-UX-02 AC-14 reworded with 3B, callout types with non-ASCII letters. |
+| v1.29   | 2026-10-13 | MS3 slice 3B red-test decisions D-152…D-163 (AP-96…AP-107): reference-machine perf gate, test locations, Properties component, relative Markdown links, subpath chip text, callout input, source lines, fold button name, date-time display, rename while open, date links resolve as daily first, generated-vault sample. |
 
 ---
 
@@ -238,6 +239,18 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-149 | Headings 4–6 | The read view renders `####`…`######` as headings (dialect §1, read generously); whether the editor offers them is decided with 3C's ACs (AP-93) |
 | D-150 | 3A note page criterion with 3B | FR-UX-02 AC-14 is reworded to the formatted read view (`read-view.md`), keeping the breadcrumb and no-write parts; R1 and R3 are updated in the commit that builds 3B, whose test change carries `AC-Test-Change` approved by the owner (AP-94) |
 | D-151 | Callout types with non-ASCII letters | The owner checks in Obsidian whether `> [!rozpočet]` is a callout. If it is, `@tegg/doc` widens the callout rule to Unicode letters with a round-trip test (AR-06) and the fixture gets a Czech type; if not, dialect §4 records "ASCII callout types only" (AP-95) |
+| D-152 | Reference-machine perf checks | App-level perf benchmarks (NFR-PERF-05 AC-2 first) run in their own `qa.config` step; they enforce their target only with `TEGG_PERF_REF=1` on the reference machine (D-59) and otherwise report the p95 and pass (AP-96) |
+| D-153 | R5 test location | The R5 registry test lives in `app/test/in_note_placeholders.ac.test.ts`, not in `registry.ac.test.ts` (AP-97) |
+| D-154 | Properties component | `read/Properties.tsx` renders the subtitle and the Properties strip from `attributeRows`; the note page places it between the title and `ReadView` (AP-98) |
+| D-155 | Relative Markdown links | A Markdown link to a `.md` path resolves relative to the linking note's folder first, then by file name (dialect §6). The UI sends targets in NFC (AP-99) |
+| D-156 | Chip text with a subpath | A link with a subpath and no alias shows `<title> › <heading>` (block ids: `<title>` only) (AP-100) |
+| D-157 | calloutType input | `calloutType(raw)` takes the callout's first line (`> [!type]±` and the title) (AP-101) |
+| D-158 | Source lines | A final newline doesn't produce an empty last line element; the line-number gutter is inside each `data-line` element, `aria-hidden` and not selectable (AP-102) |
+| D-159 | Fold button name | A callout's fold button is named `Expand <title>` / `Collapse <title>` (type label when untitled) (AP-103) |
+| D-160 | Date-times in the strip | Date-times are shown as medium date plus short time in the region locale (`__TEGG_REGION__`), in the machine's zone (D-104) (AP-104) |
+| D-161 | Rename while open | FR-SYN-03 AC-11 checks the breadcrumb and the reload from the new path; the tab shows the title, which a rename doesn't change (AP-105) |
+| D-162 | Date links first | In `resolve_links`, a `YYYY-MM-DD` target is checked as a date before the path/id/stem rules: kind `daily` (or `date-missing`) (AP-106) |
+| D-163 | Generated-vault sample | FR-EDT-02 AC-12 samples 200 notes of a small generated vault created once per test run in a temp dir (or `TEGG_REF_VAULT`) (AP-107) |
 
 ---
 

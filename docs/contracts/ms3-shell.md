@@ -288,10 +288,10 @@ type LinkTargetDto = {
 
 **Resolution rules** (`Core::resolve_links(from: &str, targets: &[String]) -> Vec<LinkTarget>`, dialect §6, FR-LNK-14):
 
-1. NFC, trim; strip `#…` and `|…` if the UI didn't; compare case-insensitively.
+0. A target `YYYY-MM-DD`: `daily` with the path of `Index::daily_note(date)`, else `date-missing` (D-162).
+1. NFC, trim; strip `#…` and `|…` if the UI didn't; compare case-insensitively. A Markdown link path (`Cíl.md`, URL-decoded) is first tried relative to the folder of `from` (D-155).
 2. A vault path (with or without `.md`), then an `id`, then a file stem. Several files with the stem: the one in the folder of `from`, else the shortest path, then code-point order (dialect §6). This replaces `Index::resolve_link`'s single-stem map for this command; `resolve_link` keeps its MS2 behaviour.
 3. Never by title or alias alone (D-141). Never to `_templates/` or `.trash/` (FR-TPL-07, D-102).
-4. A target `YYYY-MM-DD` that rule 2 doesn't resolve: `daily` with the path of `Index::daily_note(date)` if one exists, else `date-missing` (D-142, FR-DLY-08).
 5. Attachment targets (with a non-`.md` extension) aren't sent: R5 placeholders read nothing (D-144).
 
 `note_read` is unchanged. `Core::read_note` keeps recording recency (§10): 3B has no reads that aren't opens (no previews, D-140; embeds are placeholders, D-144).
@@ -341,13 +341,16 @@ export type AttrRow = {
 };
 export function attributeRows(doc: Doc): { subtitle: string | null; rows: AttrRow[] };   // order and hiding of D-147
 
+// read/Properties.tsx (D-154): subtitle + Properties strip, placed between the title and ReadView
+export function Properties(props: { text: string; links: Map<string, LinkTargetDto>; open: boolean; onToggle: () => void; onOpen: (path: string) => void; onTag: (key: string) => void }): JSX.Element | null;
+
 // read/warning.ts (NFR-REL-03)
 export type FrontmatterWarning = { kind: 'invalidYaml' | 'notClosed'; line: number };
 export function frontmatterWarning(doc: Doc): FrontmatterWarning | null;
 
 // read/callout.ts (FR-EDT-02 AC-3)
 export const CALLOUT_TYPES: readonly string[];  // the 13 Obsidian types
-export function calloutType(raw: string): { type: string; label: string; fold: '+' | '-' | null; title: string | null };   // aliases mapped, unknown → 'note' with the raw label
+export function calloutType(raw: string /* first line: '> [!type]± Title' (D-157) */): { type: string; label: string; fold: '+' | '-' | null; title: string | null };   // aliases mapped, unknown → 'note' with the raw label
 ```
 
 - **Rendering** goes through `@tegg/doc` `parse` for blocks and frontmatter and the mdast it builds on (unified/remark with the wikilink, embed, tag, callout, highlight, comment and math plugins of the dialect). It never uses `dangerouslySetInnerHTML` or a raw-HTML plugin: HTML and math nodes become text (D-145). A static rule (L0) fails on `dangerouslySetInnerHTML` and `rehype-raw` in `app/ui/src/**`.
@@ -369,7 +372,7 @@ export function calloutType(raw: string): { type: string; label: string; fold: '
 | Date link without a note | `link`, `aria-disabled` | display text; description `Coming in MS4` |
 | Tag chip | `link` | `#<name>` as written |
 | External link | `link` | link text; description `Opens in your browser` |
-| Callout | `note` | the title or type label; fold toggle `button` with `aria-expanded` |
+| Callout | `note` | the title or type label; fold toggle `button` with `aria-expanded`, named `Expand <title>` / `Collapse <title>` (D-159) |
 | Checklist item checkbox | `checkbox`, `aria-readonly="true"` | item text |
 | In-note placeholder | `region` | catalog name of the R5 row |
 | Edit (disabled, until 3C) | `button`, `aria-disabled` | `Edit` |
@@ -379,11 +382,12 @@ export function calloutType(raw: string): { type: string; label: string; fold: '
 
 - `switcher-enter`: written when ⏎ on a switcher result starts a note navigation.
 - `note-ready`: written when a note route has painted its formatted view (or source view), all links are resolved, and the title has the focus. Like every mark, at most once per process (ms2-shell §1).
+- Gate (D-152): the benchmark runs in its own `qa.config` step; it enforces 112 ms only with `TEGG_PERF_REF=1`, else it reports the p95 and passes.
 - Benchmark: `app/e2e/perf_open_note.ts` launches the release test build on the reference vault with `TEGG_PERF_LOG` and `TEGG_EXIT_AFTER=note-ready`, opens the switcher, types the target's title, presses ⏎, and records `note-ready − switcher-enter`; 20 launches, p95 < 112 ms. Target note: the generated vault's longest note, with 10 embeds and 50 links added by `tools/gen-vault --perf-note` (a new flag; the seed-1 vault is otherwise unchanged).
 
 ### 11.6 Test layout
 
-- L1: `app/test/read_view.ac.test.ts`, `app/test/properties.ac.test.ts`, `app/test/source_view.ac.test.ts`, registry R5 in `app/test/registry.ac.test.ts` (`app/test/shell-tables.ts` gets R5).
+- L1: `app/test/read_view.ac.test.ts`, `app/test/properties.ac.test.ts`, `app/test/source_view.ac.test.ts`, R5 in `app/test/in_note_placeholders.ac.test.ts` (D-153; `app/test/shell-tables.ts` gets R5).
 - L0: `app/test/static_html.ac.test.ts` (no `dangerouslySetInnerHTML`, no `rehype-raw`).
 - L4: `crates/tegg-core/tests/ac_read_view.rs` (`resolve_links` on the fixture, external rename and delete events).
 - L5: `app/webkit/read_view.ac.test.ts`; the network check of FR-EDT-02 AC-10 uses Playwright's `page.on('request')` and fails on any non-local host.
