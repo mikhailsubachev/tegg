@@ -89,7 +89,6 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const [title, setTitle] = useState<string>('');
   const [diskText, setDiskText] = useState<string>('');
   const root = useRef<HTMLDivElement | null>(null);
-  const titleRef = useRef<HTMLInputElement | null>(null);
   const pane = useRef<EditorPaneApi | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
   const saver = useRef<Saver | null>(null);
@@ -145,9 +144,12 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     }
   }, []);
 
-  // A rename keeps this page (and its editor): saving goes on at the new path (FR-SYN-03 AC-18).
+  // A rename keeps this page (and its editor): saving goes on at the new path (FR-SYN-03 AC-18). A note that hadn't
+  // loaded yet (found by its id after a rename, FR-NAV-03 AC-5) loads from the new path.
+  const firstPath = useRef(path);
   useEffect(() => {
     if (saver.current) saver.current.path = path;
+    if (path !== firstPath.current && !live.current.loaded) void load();
   }, [path]);
 
   // ------------------------------------------------------------------ the editor and autosave
@@ -430,14 +432,14 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         </div>
         {editable && !showSource ? (
           <h1 className="note-title">
-            <input
-              ref={(el) => { titleRef.current = el; (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
-              className="title-field" aria-label={t('editor.title')} value={title} data-user-content
-              autoComplete="off" autoCorrect="off" spellCheck={false}
-              onChange={(e) => onTitle(e.target.value)} onBlur={onTitleBlur}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); onTitleBlur(); pane.current?.focus(); }
-              }} />
+            <TitleField
+              elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
+              value={title}
+              label={t('editor.title')}
+              onChange={onTitle}
+              onLeave={onTitleBlur}
+              onDown={() => { onTitleBlur(); pane.current?.focus(); }}
+            />
           </h1>
         ) : (
           <h1 ref={heading} tabIndex={-1} className="note-title">
@@ -505,6 +507,40 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
           onMine={() => void keepMine()} onTheirs={keepTheirs} onBoth={() => void keepBoth()} />
       )}
     </div>
+  );
+}
+
+/** The title as editable plain text (FR-EDT-01 AC-10, D-173): it is what the page heading shows, gets the focus after
+ *  navigation (D-130) and writes only `title:` (the file name changes with renames in MS4). ⏎, ↓ and Tab go to the body. */
+function TitleField({ elRef, value, label, onChange, onLeave, onDown }: {
+  elRef: (el: HTMLElement | null) => void;
+  value: string;
+  label: string;
+  onChange: (v: string) => void;
+  onLeave: () => void;
+  onDown: () => void;
+}) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && el.textContent !== value) el.textContent = value;
+  }, [value]);
+  return (
+    <span
+      ref={(el) => { ref.current = el; elRef(el); }}
+      role="textbox" aria-label={label} aria-level={1} tabIndex={-1} className="title-field" data-user-content
+      contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
+      onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
+      onBlur={onLeave}
+      onPaste={(e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text/plain').replace(/\s*\n\s*/g, ' ');
+        document.execCommand('insertText', false, text);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); onDown(); }
+      }}
+    />
   );
 }
 

@@ -203,7 +203,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
   const err = (kind: string, message: string) => ({ kind, message });
   const excluded = (p: string) => !p.endsWith('.md') || p.split('/').some((seg, i, a) => i < a.length - 1 && (seg.startsWith('.') || seg === '_templates'));
   const front = (text: string): Record<string, string> => {
-    const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(text); // a BOM before the frontmatter is allowed (dialect §2)
     const out: Record<string, string> = {};
     if (!m) return out;
     for (const line of m[1].split(/\r?\n/)) {

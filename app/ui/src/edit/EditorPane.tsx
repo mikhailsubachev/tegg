@@ -165,13 +165,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   }, []);
 
   // ------------------------------------------------------------------ typing-latency probe (NFR-PERF-06 AC-3)
-  const probe = useRef<{ t0: number; frames: number; applied: boolean } | null>(null);
+  // One record per keystroke: frames are counted from the keydown to the first frame after the editor applied it.
+  const probes = useRef<{ t0: number; frames: number; applied: boolean }[]>([]);
   const probeOn = () => {
     const w = window as { __TEGG_TEST__?: { latencyProbe?: boolean }; __TEGG_TEST_MODE__?: boolean };
     return !!w.__TEGG_TEST__?.latencyProbe || !!w.__TEGG_TEST_MODE__;
   };
   function probeApplied() {
-    if (probe.current) probe.current.applied = true;
+    for (const p of probes.current) p.applied = true;
   }
   useEffect(() => {
     const el = host.current;
@@ -179,16 +180,15 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const onKey = (e: KeyboardEvent) => {
       if (!probeOn() || e.metaKey || e.ctrlKey || e.key.length !== 1) return;
       const p = { t0: performance.now(), frames: 0, applied: false };
-      probe.current = p;
+      probes.current.push(p);
       const tick = () => {
-        if (probe.current !== p) return;
         p.frames++;
-        if (p.applied) {
-          probe.current = null;
+        if (p.applied || p.frames >= 30) {
+          probes.current = probes.current.filter((x) => x !== p);
           void ipc.perfKey(p.frames, performance.now() - p.t0).catch(() => {});
           return;
         }
-        if (p.frames < 30) requestAnimationFrame(tick);
+        requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     };
@@ -549,7 +549,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           </button>
         </div>
       )}
-      <div ref={host} className="editor-host" />
+      <div ref={host} className="editor-host" data-user-content />
       {showToolbar && toolbarPos && e2 && (
         <div role="toolbar" aria-label={t('toolbar.label')} className="format-toolbar" style={toolbarPos}>
           {MARKS.map(([m, label]) => (

@@ -101,7 +101,7 @@ export function ConflictsPage({ heading, onCount }: { heading: React.RefObject<H
             <button type="button" onClick={() => keepLeft(open)}>{t('conflicts.keepLeft')}</button>
             <button type="button" onClick={() => keepRight(open)}>{t('conflicts.keepRight')}</button>
             <button type="button" onClick={() => setDraft(open.left.text)}>{t('conflicts.merge')}</button>
-            {open.row.kind === 'possibleCopy' && <button type="button" onClick={() => newId(open)}>{t('conflicts.newId')}</button>}
+            {open.row.kind === 'duplicateId' && <button type="button" onClick={() => newId(open)}>{t('conflicts.newId')}</button>}
           </div>
         </div>
       )}
