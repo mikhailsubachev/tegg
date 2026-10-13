@@ -47,6 +47,7 @@
 | v1.29   | 2026-10-13 | MS3 slice 3B red-test decisions D-152…D-163 (AP-96…AP-107): reference-machine perf gate, test locations, Properties component, relative Markdown links, subpath chip text, callout input, source lines, fold button name, date-time display, rename while open, date links resolve as daily first, generated-vault sample. |
 | v1.30   | 2026-10-13 | 3B preview feedback: logo as outlined SVG (D-164, AP-108); Back/Forward (FR-NAV-03) pulled into MS3 as slice 3B.1 (D-165, AP-109). |
 | v1.31   | 2026-10-13 | 3B.1 red-test decisions D-166…D-172 (AP-110…AP-116). |
+| v1.32   | 2026-10-13 | MS3 slice 3C AC decisions D-173…D-193 (AP-117…AP-137, `docs/acceptance/editor.md`): editor, autosave, merge dialog, Conflicts view. |
 
 ---
 
@@ -262,6 +263,27 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-170 | Swipe check | The trackpad swipe is checked manually only (FR-NAV-03 AC-3); no synthesized-wheel test (AP-114) |
 | D-171 | History start | On every launch the history starts with the landing route as its only entry; the real-app relaunch test reads the title-bar buttons through Appium's `enabled`, confirmed on its first run (AP-115) |
 | D-172 | Contract checks in AC tests | The logo tests also check the brand colours of ms3-shell §12.3, the history tests the `data-command` values of §12.2 (AP-116) |
+| D-173 | Title editing in 3C | Title editable in 3C, writing only `title:`; file name and links change with renames in MS4; focus lands on the title as a heading (AP-117) |
+| D-174 | First edit without `id` | First edit adds `id`, `type: page` (if missing) and `modified` after existing keys; never `title` or `created` (AP-118) |
+| D-175 | Version comparison | File versions compare by size and content hash; mtime only triggers re-hashing; identical bytes are not a conflict (changes ms1-core §3.2, red test first) (AP-119) |
+| D-176 | Merge dialog | Keep mine / Keep theirs / Keep both / Compare; Esc doesn't close; Keep both writes `<stem> (conflict <YYYY-MM-DD HH-mm>).md` with the same `id`; quit asks, then keeps both (AP-120) |
+| D-177 | Conflicts view | Sidebar entry with count while conflicts exist; the link-target file survives; merge edits a draft written on Done; NFC/NFD-only pairs get the same actions (AP-121) |
+| D-178 | Undo scope | Per note while shown, cleared on leave and external reload; undo never creates, deletes, moves or renames files; a first-edit `id` stays (AP-122) |
+| D-179 | Autosave | Debounce with 1 s max wait; save states table R9; write errors keep edits, show Not saved + Try again, retry every 5 s, ask before quit; ⌘S saves now; no crash journal (AP-123) |
+| D-180 | Invalid UTF-8 | `note_read` reports `utf8`; such files open read-only and are never written (AP-124) |
+| D-181 | Source blocks | HTML, math, footnotes, comments, unknown fences are read-only in the editor but movable, duplicable, deletable as whole blocks (AP-125) |
+| D-182 | Headings 4–6 | Menus offer H1–H3; `####`…`######` creates H4–H6; existing ones stay editable (AP-126) |
+| D-183 | Editor shortcuts | Table R8 in `docs/acceptance/editor.md`; Duplicate has no shortcut (⌘D is Today) (AP-127) |
+| D-184 | Link autocomplete output | Shortest resolving target (file name, else folder path); `|title` when it differs, `|alias` when matched by alias; typed `]]` makes a link; Create uses the default type and survives undo (AP-128) |
+| D-185 | Tag autocomplete before MS4 | Tags from the index, most frequent spelling, default colour; no `Tags/` file until MS4 (AP-129) |
+| D-186 | Paste rules | Text as Markdown, ⇧⌘V literal; HTML keeps structure and marks; images become alt text; scripts/styles/frames dropped; only http(s)/mailto links; clipboard image shows the MS6 notice and writes nothing (AP-130) |
+| D-187 | Copy link to block | Disabled with "Coming in v1.0" until block ids (FR-LNK-06) (AP-131) |
+| D-188 | Multi-block selection | Esc selects the block; ⇧↑/⇧↓ extend; ⇧-click range; mouse drag stays text selection; adjacent paragraphs to list make one list (AP-132) |
+| D-189 | Slash menu | Table R6, Objects group first, later items disabled with milestone; callout submenu with 13 Obsidian types; table row/column actions in the block menu (AP-133) |
+| D-190 | Typing-latency gate | Gated at 60 Hz; native ProMotion rate reported without a target (AP-134) |
+| D-191 | Small editor behaviours | Source toggle saves first; same source text = same block after reload; ⌘Z after auto-conversion restores typed text; empty paragraphs never written; caret and hint text as in editor.md (AP-135) |
+| D-192 | Checkbox toggle | Patches the single marker character, never re-renders the list (AP-136) |
+| D-193 | 3C contract | ms3-shell §13 defines note_write, utf8 flag, index_tags, conflict commands, note:conflict, note-ready, labels, test hooks, fake-core controls and the @tegg/editor API before the red tests (AP-137) |
 
 ---
 

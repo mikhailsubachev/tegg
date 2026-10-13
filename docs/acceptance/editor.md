@@ -1,0 +1,372 @@
+# Acceptance Criteria: Editor and autosave (MS3 slice 3C)
+
+See [README](README.md) for conventions. Milestone MS3 (BRD §11.2), slice **3C "Editor and autosave"** (D-115; plan `docs/plans/ms3-implementation-plan.md` §3). The formatted note view becomes the block editor `@tegg/editor`, ported from spike S2 (D-83, ADR 0002), saving through the MS1 write path (atomic, base-version check, FR-SYN-02, FR-SYN-03 AC-7). The read view of slice 3B stays for files the editor can't open safely (NFR-REL-03, D-117). Exit goal: the owner writes real untyped (Page) notes every day (D-119).
+
+**Status: accepted, 2026-10-13.** Writing these criteria raised AP-117…AP-137 (end of this file); the owner accepted all proposals as D-173…D-193 (BRD v1.32). A criterion that cites an AP follows its decision.
+
+**Scope.** FR-EDT-01, -03, -04, -05, -06, -08, -09, -13, -14 (without image paste, MS6), -15, the editing part of FR-EDT-02, NFR-PERF-06; the MS3 parts of FR-SYN-03 (AC-2, -3, -4, -6) and FR-SYN-04 (AC-3) deferred from MS2 (D-111), with FR-SYN-05; and the MS3 checks the editor makes possible for FR-FMT-07, FR-FMT-02, FR-FMT-12, FR-SYN-02, FR-SYN-06, NFR-REL-03, NFR-PERF-05, FR-EDT-10, FR-UX-03, FR-UX-05 and NFR-OTH-02. **Out of scope:** the attribute panel and types (FR-EDT-07, 3D), icon and cover (3E), rendering embeds (FR-EMB, MS4), renames with link updates (FR-LNK-03, MS4), Tag objects (FR-TAG, MS4), image and PDF paste (FR-ATT, MS6), block → object conversion (FR-CNV, MS5), previews (FR-LNK-08…13, v1.0), block ids (FR-LNK-06, v1.0, AP-131).
+
+**Test layers** as in [app-shell.md](app-shell.md), plus two:
+
+| Tag | Layer |
+| --- | --- |
+| L0 | Static rule over the source tree |
+| L1 | Vitest: `@tegg/editor` with **real ProseMirror transactions** in a DOM environment (as S2), the save path through the real `@tegg/doc` (never mocked), React components |
+| L2 | Property test (fast-check): fixed seed plus one random seed per push, 10 × 1,000 runs nightly; a failing seed is logged and its minimized case becomes a fixture (TS-L2) |
+| L4 | Rust core on a temporary copy of the fixture on APFS (`crates/tegg-core/tests/ac_*.rs`) |
+| L5 | Playwright on WebKit with the fake core over mocked IPC; the fake core uses the real `@tegg/doc`, can delay or fail `note_write`, change files with or without emitting `vault:changed`, and record every call; the clock and time zone are injected (Playwright `clock`, `timezoneId`) |
+| L6 | Appium `mac2` on the built app with `TEGG_TEST=1`, a temporary Application Support and a temporary copy of the fixture; vault checks by bytes, mtime and inode; external changes made by a separate helper process |
+| manual | Owner or explorer session, recorded in `qa/manual/` or `qa/sessions/` |
+
+**Fixtures** (synthetic, D-50; details in `tests/fixtures/vaults/README.md` and `tests/fixtures/editor/README.md`):
+
+- `tests/fixtures/vaults/editor/` plus `tests/fixtures/vaults/new-empty/.tegg/` copied into it (default type Quick Note). Its notes:
+
+| Short name | Path | What it holds |
+| --- | --- | --- |
+| Deset bloků | `Pages/Deset bloků.md` | exactly 10 top-level blocks in non-canonical styles (heading; paragraph with `_em_`, `__strong__` and a two-space hard break; `*` list; `1)` list after two blank lines; **block 5** `Pátý blok, který test upraví.` followed by a whitespace-only gap line; quote ending in `>`; code fence with trailing spaces; table with `:---`/`---:` and `\|`; `[!tip]` callout; paragraph with `[[Cíl]]` and `#projekt`); frontmatter with a full-line comment, a value comment and an unknown key with a flow list |
+| Cíl | `Pages/Cíl.md` | link target, alias `Reading list` |
+| Dvojník (Pages), Dvojník (Quick Notes) | `Pages/Dvojník.md`, `Quick Notes/Dvojník.md` | same file stem in two folders |
+| C tips | `Pages/C tips.md` | title `C# tips`, different from the stem (D-68) |
+| SPM, SPM 2 | `Pages/Senior Product Manager.md`, `Pages/Senior Product Manager (2).md` | same title, `created` 2026-09-01 and 2026-10-02 (FR-LNK-14) |
+| Štítky | `Pages/Štítky.md` | `#projekt` ×2, `#Projekt`, `#rozpočet`, frontmatter tag `čeština` |
+| Bez hlavičky | `Pages/Bez hlavičky.md` | no frontmatter |
+| Cizí hlavička | `Pages/Cizí hlavička.md` | Obsidian frontmatter (`tags`, `aliases`) without `id`, `type`, `modified` |
+| Chyba uvozovky | `Pages/Chyba uvozovky.md` | invalid YAML at line 3 |
+| Seznamy | `Pages/Seznamy.md` | `-` list, paragraph, `-` list (D-67 marker case) |
+| Odsazený kód | `Pages/Odsazený kód.md` | list, paragraph, indented code (D-67 separator case) |
+| Odstavce | `Pages/Odstavce.md` | three paragraphs |
+| Úkoly | `Pages/Úkoly.md` | checklist items `[ ]`, `[x]`, `[X]` |
+| Surové bloky | `Pages/Surové bloky.md` | between two paragraphs: HTML block, footnote definition, `$$` math, comment block, `dataview` fence, `![[Cíl]]`, `![[obrázek.png\|400]]`, `query` fence, mindmap |
+| Prázdná | `Pages/Prázdná.md` | frontmatter only, empty body |
+| Šablona, Smazaná | `_templates/Page/Šablona.md`, `.trash/Pages/Smazaná.md` | never offered in suggestions (`#šablonový`, `#smazaný`) |
+
+- `tests/fixtures/vaults/conflicts/` plus `new-empty/.tegg/`: Plán and its Dropbox copy (same `id`), Rozpočet and a Finder copy (same `id`, no copy name), Zápis and `Zápis (1)` (different ids, ≥ 90 % equal lines), Schůzka and the Tegg duplicate `Schůzka (2)` (not a conflict), and Odkazuje linking to all of them.
+- `tests/fixtures/format/roundtrip/` (the S1 corpus) for the editor round-trip criteria; `tests/fixtures/editor/paste/` for paste.
+- **Created at runtime by the tests:** copies of `roundtrip/edge/CRLF line endings.md`, `BOM.md`, `No final newline.md`, `Many trailing newlines.md`; an NFD-named copy of Cíl; `Pages/Neplatné UTF-8.md` with a `0xFF` byte; the 5,000-word note from `tools/gen-vault --perf-note` (read-view §11.5).
+
+**Existing criteria this slice verifies** (they are not repeated here): data-safety FR-EDT-08 AC-1…AC-3, FR-SYN-02 AC-5 [manual] [MS3], FR-SYN-03 AC-2, -3, -4, -6 [MS3] (D-111), FR-SYN-04 AC-3 [MS3], FR-SYN-06 AC-2, AC-4, FR-VLT-01 AC-8 (flush part), file-format FR-FMT-07 AC-2, AC-3, AC-6, FR-FMT-02 AC-3, FR-STO-02 AC-2 (the MS3 gate's "editor round-trip through UI edits", BRD §11.2), performance NFR-PERF-05 AC-1 (D-148), NFR-PERF-06 AC-1 and AC-2 [manual], search-navigation FR-UX-07 AC-6 [manual] (D-134). The criteria below say which of them they verify.
+
+---
+
+## Reference tables
+
+### R6. Slash menu items (FR-EDT-03, AP-133)
+
+Order and groups as in the Main board (Objects first). "Writes" is the Markdown of the new block in canonical dialect style (dialect §4); an item with a milestone is a disabled entry (D-116, D-130) and joins the registry checked by FR-UX-02 AC-13.
+
+| Group | Item (catalog label) | Writes | Status | Requirement |
+| --- | --- | --- | --- | --- |
+| Objects | Task | — | MS5 | FR-TSK-01, FR-CNV-01 |
+| Objects | Turn into object… | — | MS5 | FR-CNV-01 |
+| Objects | Embed object | `![[…]]` | MS4 | FR-EMB-01 |
+| Blocks | Text | paragraph | built | FR-EDT-02 |
+| Blocks | Heading 1 | `# ` | built | FR-EDT-02 |
+| Blocks | Heading 2 | `## ` | built | FR-EDT-02 |
+| Blocks | Heading 3 | `### ` | built | FR-EDT-02 |
+| Blocks | Bulleted list | `- ` | built | FR-EDT-02 |
+| Blocks | Numbered list | `1. ` | built | FR-EDT-02 |
+| Blocks | Checklist | `- [ ] ` | built | FR-EDT-02, FR-TSK-11 |
+| Blocks | Quote | `> ` | built | FR-EDT-02 |
+| Blocks | Callout | `> [!note] ` | built | FR-EDT-02 |
+| Blocks | Code block | ```` ``` ```` … ```` ``` ```` | built | FR-EDT-02 |
+| Blocks | Divider | `---` | built | FR-EDT-02 |
+| Blocks | Table | GFM table, 3 columns, header row and 2 body rows, empty cells | built | FR-EDT-02 |
+| Media | Image | — | MS6 | FR-ATT-01, FR-ATT-03 |
+| Media | PDF | — | MS6 | FR-ATT-02 |
+| Advanced | Block embed | `![[…#^…]]` | MS4 | FR-EMB-04 |
+| Advanced | Query | ```` ```query ```` | v1.0 | FR-QRY-06, FR-FMT-06 |
+| Advanced | Mindmap | ```` ```mermaid ```` `mindmap` | v1.0 | FR-MMP-01 |
+
+### R7. Markdown shortcuts (FR-EDT-04)
+
+Block shortcuts act when typed at the start of an empty paragraph (or a paragraph whose text is only the trigger); inline shortcuts act when the closing delimiter is typed.
+
+| Typed | Becomes | Written |
+| --- | --- | --- |
+| `# `, `## `, `### ` | Heading 1, 2, 3 | `# `, `## `, `### ` |
+| `#### `, `##### `, `###### ` | Heading 4, 5, 6 (AP-126) | `#### `… |
+| `- `, `* `, `+ ` | Bulleted list | `- ` |
+| `1. `, `1) ` (any start number) | Numbered list starting at that number | `<n>. ` |
+| `[] `, `[ ] ` | Checklist item | `- [ ] ` |
+| `[x] ` | Checked checklist item | `- [x] ` |
+| `> ` | Quote | `> ` |
+| ```` ``` ```` or ```` ```<lang> ```` then ⏎ | Code block (with language) | ```` ```<lang> ```` |
+| `---` then ⏎ | Divider | `---` |
+| `**x**`, `__x__` | Bold | `**x**` |
+| `*x*`, `_x_` | Italic | `*x*` |
+| `~~x~~` | Strikethrough | `~~x~~` |
+| `==x==` | Highlight | `==x==` |
+| `` `x` `` | Inline code | `` `x` `` |
+| `[[` | Link autocomplete (FR-EDT-06) | — |
+| `#` + letter | Tag autocomplete (FR-EDT-15) | — |
+| `/` | Slash menu (FR-EDT-03) | — |
+
+### R8. Editor shortcuts and commands (AP-127)
+
+Added to the command registry (FR-UX-03) with section `edit`; they run on a note route with the editor focused and do nothing elsewhere. Labels in Apple's modifier order (D-126).
+
+| Shortcut | Command | Source |
+| --- | --- | --- |
+| ⌘Z / ⇧⌘Z | Undo / Redo | FR-EDT-09 |
+| ⌘B | Bold | AP-127 |
+| ⌘I | Italic | AP-127 |
+| ⇧⌘S | Strikethrough | AP-127 |
+| ⌘E | Inline code | AP-127 |
+| ⇧⌘H | Highlight | AP-127 |
+| ⇧⌘K | Insert link | D-126 |
+| ⇧⌘↑ / ⇧⌘↓ | Move block up / down | AP-127 |
+| ⌘/ | Open block menu | AP-127 |
+| Esc (in text) | Select block | AP-132 |
+| ⌘↩ | Open link at cursor; else toggle checklist item | AP-127 |
+| ⇧⌘V | Paste as plain text | AP-130 |
+| ⌘S | Save now | AP-123 |
+
+None of them may equal a shortcut of R4 or one macOS reserves (FR-UX-03 AC-7).
+
+### R9. Save state (AP-123)
+
+The note toolbar's `status` element `Save state` (polite live region, never takes focus) shows one of:
+
+| State | Text (catalog) | When |
+| --- | --- | --- |
+| saved | `Saved` (with the check icon of the Main board) | the editor content equals the bytes last read or written |
+| saving | `Saving…` | from the first change not yet written until its `note_write` succeeds |
+| failed | `Not saved` | the last `note_write` failed with `Io`, or save verification refused it (NFR-REL-03 AC-9) |
+| conflict | `Changed outside Tegg` | the merge dialog (FR-SYN-03 AC-13) or the deleted alert (AC-17) is open |
+| read-only | `Read-only` | a file of NFR-REL-03 AC-6…AC-8 |
+
+### R1, R3, R4 changes (made in the commit that builds 3C)
+
+- R1: `note/<path>` becomes "built, editor (3C)"; `conflicts` becomes built (FR-SYN-04 AC-5).
+- R3: the row `Edit` (note toolbar, MS3 (3C)) is removed, since the body is the editor. Added: `Turn into object` (formatting toolbar and block menu, MS5, FR-CNV-01) and `Copy link to block` (block menu, v1.0, FR-LNK-06, AP-131). The disabled R6 items are registry entries too.
+- R4: gets the rows of R8; the palette also lists `Go to Conflicts` (it already reaches the route).
+
+---
+
+### FR-EDT-01 Block editor
+
+- **AC-1** **Ported, not imported (D-83).** `packages/editor` (`@tegg/editor`) exists with its own `qa.config.json` test step; no file under `packages/`, `app/` or `crates/` imports from `spikes/` (architecture §11 L0 check); `@tegg/editor` imports nothing from `@tauri-apps/*` or `app/` (AR-03 AC-2). On every note route the body is the editor, except for the files of NFR-REL-03 AC-6…AC-8. *(L0)*
+- **AC-2** **Loading never changes a note (ADR 0002 §3).** For every file of the round-trip corpus and every note of the editor fixture, loading it into the editor and unloading it produces zero `note_write` calls. A block the editor would change by itself on load (normalization guard) is shown as a read-only source block; in the corpus that is exactly the ragged table of `obsidian/04 Tables.md`. *(L1 with real ProseMirror; L5 for the call count)*
+- **AC-3** **Block handles.** Hovering a block, or putting the cursor in it, shows left of the block the buttons `Add block below` and `Drag to move, click for block menu` (Main board). `Add block below` inserts an empty paragraph after the block with the cursor in it; an empty paragraph is never written (it has no Markdown form): adding one and leaving it empty causes no `note_write` (AP-135). *(L5)*
+- **AC-4** **Move by drag and drop.** Dragging block 3 of Deset bloků (the `*` list) below block 8 (the table) saves a file whose body blocks are, in order, 1, 2, 4, 5, 6, 7, 8, 3, 9, 10, each byte-identical to its original source (moved blocks aren't re-rendered, dialect §1.5); gaps between blocks that were neighbours in the original are kept byte for byte (the whitespace-only line after block 5 included) and new neighbours are separated by one blank line (ADR 0002 §4); the frontmatter differs only in `modified`. *(L5)*
+- **AC-5** **Move by keyboard (AP-127).** With the cursor in a block, or with a block selection (FR-EDT-13), ⇧⌘↑ and ⇧⌘↓ move it one block up or down, with the same file rules as AC-4. At the first or last position nothing changes and nothing is written. *(L5; L1 for the transaction)*
+- **AC-6** **Block menu.** Clicking `Drag to move, click for block menu`, or ⌘/ (AP-127), opens the `menu` `Block actions` with `Turn into` (the built Blocks items of R6), `Duplicate`, `Delete`, `Copy link to block` (disabled, `Coming in v1.0`, AP-131) and `Turn into object` (disabled, `Coming in MS5`). `Duplicate` inserts directly after the block a copy whose source equals the block's source byte for byte; `Delete` removes it; `Turn into` › `Heading 2` on block 5 writes `## Pátý blok, který test upraví.` within block 5's range only. Esc closes the menu and returns the cursor. Every item is reachable with ↑/↓ and ⏎. *(L5)*
+- **AC-7** **The two accepted exceptions (D-67).** In Seznamy, deleting the paragraph `Oddělovací odstavec.` saves the two lists as neighbours with one of them written with the marker `*` instead of `-` and its items' text unchanged; in Odsazený kód, deleting `Oddělovač.` saves a `<!-- -->` line between the list and the indented code. In both, every other byte outside the deleted block is unchanged, and the saved file parses to two lists (resp. a list and a code block). For every other operation of FR-FMT-07 AC-10, no byte outside the edited blocks changes. *(L1; L5 for the Seznamy case)*
+- **AC-8** **Source blocks and placeholders (AP-125).** In Surové bloky, the HTML block, footnote definition, `$$` math, comment block and `dataview` fence are read-only source blocks (`group` named `Source block`, monospace, text exact, D-145); the note embed, image embed, query and mindmap are the R5 placeholders of [read-view.md](read-view.md) (D-144). Typing or pasting inside them changes nothing; each can be selected as a block, moved (AC-4, AC-5), duplicated and deleted. After editing the first and the last paragraph, each of them is byte-identical in the saved file (FR-FMT-07 AC-4). No image file is read. *(L5)*
+- **AC-9** **Empty body.** Prázdná shows one empty paragraph with the hint `Type / for blocks, [[ to link, # to tag` (catalog, `muted` token, D-129); the hint is shown in an empty paragraph that has the cursor and in an empty body, is never saved, and isn't copied by ⌘A ⌘C. Typing `Ahoj` saves the original bytes followed by `Ahoj` and one `\n`, with only `modified` changed in the frontmatter. *(L5)*
+- **AC-10** **Title (AP-117).** The note title (`heading` level 1, Main board) is a single-line field named `Title`. After navigation the focus is on it as a heading (D-130), not in edit mode; ↓ or Tab puts the caret at the start of the body; a note created with New object opens with the caret in the empty body (AP-135). Editing the title saves only the `title:` frontmatter entry (`setAttribute`, with the identity and `modified` rules of FR-FMT-02 AC-5…AC-7) in the same autosave as body edits; the file name and every link stay unchanged (renames with link updates: MS4, FR-LNK-03). ⏎ in the title moves the caret to the body. A title made only of spaces isn't saved; leaving the field restores the last saved title. *(L5)*
+
+### FR-EDT-02 Block types in the editor (editing; display criteria AC-1…AC-15 are in read-view.md)
+
+- **AC-16** **Same look as the read view.** On Bloky of the read-view fixture, the editor shows every block and inline type with the elements, roles and token styling of read-view FR-EDT-02 AC-1…AC-5 and AC-9, and the R5 placeholders of AC-13, with editable text inside the editor's `textbox` named `Note body`; FR-UX-05 AC-4 and AC-5 pass on it in light and dark. A click on a resolved link chip opens it (D-140), as does ⌘↩ with the cursor at the link (AP-127); unresolved links and date links behave as read-view AC-8. *(L5)*
+- **AC-17** **Editable block types.** Each built item of R6 can be created from the slash menu and, where R7 has one, from its shortcut; after typing `Žluťoučký kůň` into the new block and waiting for `Saved`, the file contains the R6 written form with that text at that position, and `@tegg/doc` `parse` of the file returns a block of the matching `BlockKind` there. In list blocks, Tab nests the item one level and ⇧Tab un-nests it; ⏎ on an empty item ends the list. *(L5)*
+- **AC-18** **Checklist toggle (AP-136).** In Úkoly, clicking the checkbox of `Koupit mléko`, or ⌘↩ with the caret in that item (AP-127), checks it: the saved file differs from the original only in that item's ` ` → `x` (one byte) and in `modified`. Unchecking `Velké X` changes only its `X` → ` `. Items not toggled keep `x` or `X`. The checkbox has role `checkbox` and no `aria-readonly`. A checked item doesn't become a Task: no file is created (FR-TSK-11). *(L5)*
+- **AC-19** **Callouts (AP-133).** A callout's title and body are editable text. The block menu's `Turn into` has a `Callout type` submenu with the 13 types of read-view FR-EDT-02 AC-3; choosing `warning` on Deset bloků's callout changes only `[!tip]` → `[!warning]` in its first line, keeping the title `Tip` and any fold marker. Folding writes nothing. *(L5)*
+- **AC-20** **Tables (AP-133).** Typing `x|y` into a cell of Deset bloků's table saves `x\|y` in that cell; the alignment row `| :--- | ---: |` and the other cells are unchanged. Tab and ⇧Tab move between cells; ⏎ in a cell doesn't leave the table. With the caret in a table, the block menu offers `Add row below`, `Add column right`, `Delete row` and `Delete column`; each saves a table that parses with the expected number of rows and columns and the alignment of the remaining columns kept. *(L5)*
+- **AC-21** **Embeds typed by hand (AP-128).** Typing `![[Cíl]]` as the whole text of a paragraph turns it, when `]]` is typed, into the `embed-note` placeholder (read-view R5) and saves `![[Cíl]]`; `![[obrázek.png]]` becomes `embed-image` and reads no file. *(L5)*
+
+### FR-EDT-03 Slash menu
+
+- **AC-1** **Opens where it should.** `/` typed at the start of a block or after a space opens the `listbox` `Insert block` below the caret, listing the items of R6 in that order under their group headers. `/` inside a word (`a/b`), in a code block, in inline code, in a link, in the title or in a source block doesn't open it. *(L5)*
+- **AC-2** **Filter.** Text typed after `/` filters the items by label, case-, diacritic- and NFC/NFD-insensitive, letters in order (as FR-UX-03 AC-4): `/hea2` lists `Heading 2` first, `/tab` `Table`, `/CHECK` `Checklist`; `/xyz` shows `No matching blocks` and ⏎ inserts nothing. Disabled items are filtered like the others. *(L5)*
+- **AC-3** **Keyboard.** ↑ and ↓ move the selection (group headers are skipped), ⏎ or Tab chooses, Esc closes the menu and leaves `/<query>` as typed text (saved so that it reads back as that text); clicking an item chooses it. No step needs the pointer. *(L5)*
+- **AC-4** **Where the block goes.** Choosing an item in a paragraph whose only text is `/<query>` turns that paragraph into the chosen block; in a paragraph with other text, `/<query>` is removed and the block is inserted after the paragraph. The caret ends in the new block (after a divider: in a new empty paragraph below it). The saved bytes contain the R6 written form. *(L5)*
+- **AC-5** **Disabled items.** The R6 items with a milestone are `aria-disabled` with the description `Coming in <milestone>` (D-130); choosing one keeps the menu open, changes no text and sends no IPC command. The registry test lists them with their milestones (FR-UX-02 AC-13). *(L5; L1 for the registry)*
+
+### FR-EDT-04 Markdown shortcuts
+
+- **AC-1** **Block shortcuts.** Each block row of R7, typed at the start of an empty paragraph, turns it into that block with the trigger characters removed; after typing `Řádek` and waiting for `Saved`, the file contains the R7 written form followed by `Řádek`. Typed in the middle of a paragraph (`text - text`, `a 1. b`, `x > y`), nothing converts. *(L5; L1 for the input rules)*
+- **AC-2** **Inline shortcuts.** `**tučné**`, `__tučné__`, `*kurzíva*`, `_kurzíva_`, `~~škrt~~`, `==zvýraznění==` and `` `kód` `` typed in a paragraph become the mark when the closing delimiter is typed and are saved in R7's written form. `2 * 3 * 4`, `snake_case_název`, `cena $5 a $3` stay literal text and read back as the same text (S2 E9, E10). *(L5)*
+- **AC-3** **Undo a conversion (AP-135).** ⌘Z right after an automatic conversion (block or inline) restores the literal typed characters (`- `, `**tučné**`) as text, in one step. *(L5)*
+- **AC-4** **Literal syntax stays text.** Text containing syntax that isn't a shortcut at its position (`1. ` mid-line, `#1`, `[[` closed with Esc, `==` alone, `%%`, a lone `$`) is saved so that `@tegg/doc` reads it back as the same text with no heading, list, tag, link, highlight, comment or math (dialect §1.5, S2 E6, E10). *(L1; L5 for one case)*
+
+### FR-EDT-05 Inline formatting and floating toolbar
+
+- **AC-1** **Toolbar on a text selection.** Selecting at least one character of editable text shows the `toolbar` `Formatting` above the selection (Main board) with the buttons `Bold`, `Italic`, `Strikethrough`, `Inline code`, `Highlight`, `Link`, and `Turn into object` (disabled, `Coming in MS5`, R3). It doesn't appear for a collapsed caret, a block selection, a selection in a source block, a code block or the title. Esc hides it and keeps the selection. Each button's `aria-pressed` shows whether the whole selection has that mark. *(L5)*
+- **AC-2** **Marks.** With `blok` selected in block 5 of Deset bloků, `Bold` saves `Pátý **blok**, který test upraví.`; `Italic` `*blok*`; `Strikethrough` `~~blok~~`; `Inline code` `` `blok` ``; `Highlight` `==blok==`. Pressing the same button again removes the mark. The R8 shortcuts do the same. Only block 5's range and `modified` change. *(L5)*
+- **AC-3** **Link to a note.** `Link` or ⇧⌘K (D-126) with `blok` selected opens the field `Link` with the suggestions of FR-EDT-06; choosing Cíl saves `[[Cíl|blok]]`; with `Cíl` selected, choosing Cíl saves `[[Cíl]]`. *(L5)*
+- **AC-4** **Link to a URL (D-145).** Typing `https://example.com/a?b=c` into the field and ⏎ saves `[blok](https://example.com/a?b=c)`; `mailto:eva@example.com` likewise. `javascript:alert(1)`, `file:///etc/hosts` and `data:text/html,x` are refused with a catalog message and change nothing. *(L5)*
+- **AC-5** **Remove a link.** With the caret in a link, `Link` offers `Remove link`, which keeps the display text as plain text: `[blok](https://example.com/a?b=c)` → `blok`, `[[Cíl|blok]]` → `blok`. ⌫ right after a wikilink chip removes the whole link in one step (S2 behaviour). *(L5)*
+- **AC-6** **⌘K is the palette (D-126).** With text selected in the editor, ⌘K opens `Command palette` and changes no text; Esc returns the focus and the same selection. *(L5)*
+
+### FR-EDT-06 Link autocomplete
+
+- **AC-1** **Opens and matches.** Typing `[[` in editable text opens the `listbox` `Link suggestions` at the caret. The text typed after `[[` filters with the switcher's matching (FR-NAV-01: folded case and diacritics, NFC/NFD, aliases, file names; templates and `.trash/` excluded, FR-TPL-07, D-102): `[[cil`, `[[CÍL` and `[[cíl` typed in NFD each list Cíl first; `[[reading` lists Cíl showing the matched alias; Šablona and Smazaná are never listed. Each row shows the type icon and the title (user content). *(L5; matching itself is MS2's, L4)*
+- **AC-2** **Duplicates are distinguishable (FR-LNK-14).** `[[Senior` lists both SPM objects, each with its type and its `created` date; `[[Dvojník` lists both Dvojník objects, with their types Page and Quick Note. *(L5)*
+- **AC-3** **The link that is written (AP-128).** Choosing a result replaces `[[<query>` with one link chip and saves, from a note in `Pages/`:
+  (a) Cíl → `[[Cíl]]`;
+  (b) Cíl through its alias `Reading list` → `[[Cíl|Reading list]]` (D-141);
+  (c) C tips → `[[C tips|C# tips]]`;
+  (d) SPM 2 → `[[Senior Product Manager (2)|Senior Product Manager]]` (FR-LNK-14);
+  (e) Dvojník (Pages) → `[[Dvojník]]`; Dvojník (Quick Notes) → `[[Quick Notes/Dvojník|Dvojník]]`.
+  Targets are written in NFC, also for a file whose name is NFD on disk (FR-FMT-12 AC-2). After saving, `link_resolve` from that note returns the chosen file for each inserted target (dialect §6). *(L5; L4 for the resolution)*
+- **AC-4** **Create from the link (D-106, D-131, AP-128).** The last row is `Create "<query>"` (the first when nothing matches; absent for an empty query). Choosing it for `Nová stránka` creates `Quick Notes/Nová stránka.md` with the vault's default type (Quick Note; no type picker until MS5, FR-VLT-05) through the same `note_create` path as New object (FR-NAV-01 AC-7), saves `[[Nová stránka]]`, and leaves the caret after the link without navigating. For `C# nápad` the file is `Quick Notes/C nápad.md` and the link `[[C nápad|C# nápad]]`; for `Dvojník` it is `Quick Notes/Dvojník (2).md` and `[[Dvojník (2)|Dvojník]]`. Exactly two files are written: the new note and, at autosave, the edited note. *(L5; L6 for `Nová stránka` on the real core)*
+- **AC-5** **Keyboard and closing.** ↑/↓ move, ⏎ or Tab chooses, Esc closes and leaves `[[<query>` as literal text that reads back as text, not a link (S2 E6). Typing `]]` after a query closes the list and turns `[[<query>]]` into a link chip with the query as target, resolved or not (an unresolved one has the broken style, D-142) (AP-128). *(L5)*
+- **AC-6** **Undo (AP-122).** ⌘Z after choosing a result restores `[[<query>` as text. After `Create`, ⌘Z removes the link but the new note stays (undo never deletes a file). *(L5)*
+- **AC-7** **In a table cell.** A link with an alias chosen inside a table cell is saved with the escaped pipe: `[[C tips\|C# tips]]` (dialect §4, FR-FMT-03 AC-3). *(L5)*
+
+### FR-EDT-15 Tag autocomplete (AP-129)
+
+- **AC-1** **Opens where a tag can start.** `#` followed by a letter at a tag start (line start, after whitespace or `(`, dialect §5) opens the `listbox` `Tag suggestions`; `# ` (heading shortcut), `#1`, `a#b`, and `#` in code, links or math don't. *(L5)*
+- **AC-2** **Suggestions.** The list holds each tag key used in the vault, from frontmatter `tags` and inline tags, excluding templates and `.trash/`: on the fixture exactly `projekt`, `rozpočet` and `čeština`. Each is shown as `#<spelling>` with the vault's most frequent spelling (`#projekt`, not `#Projekt`), filtered folded (`#cest` and `#ČEŠ` list `#čeština`), in the default tag colour token until Tag colours exist (FR-TAG-05, MS4). The list comes from one index command, never by reading notes (AP-137). *(L5; L4 for the command)*
+- **AC-3** **Choosing.** ⏎ or Tab replaces the typed `#<query>` with the chosen tag as a tag node and saves `#projekt`; Esc closes the list and keeps the typed text, which is a tag by the dialect's rules (`#proj` stays the tag `proj`, S2 E12). *(L5)*
+- **AC-4** **A new tag.** For `#nový-štítek`, which matches no tag, the last row is `Create tag "nový-štítek"`; choosing it (or typing a space) saves `#nový-štítek` in NFC. No Tag object file is created in 3C (FR-TAG-03, MS4, AP-129); after the save the tag command lists `nový-štítek`. *(L5; L4 for the index)*
+
+### FR-EDT-08 Autosave (data-safety AC-1…AC-3 are verified by AC-4, AC-5, AC-7)
+
+- **AC-4** **Timing (injected clock; verifies AC-1, AC-2).** After one keystroke in block 5 of Deset bloků, one `note_write` call starts no later than 1,000 ms after it. While typing one key every 100 ms for 10 s, every keystroke is contained in a `note_write` call that starts no later than 1,000 ms after that keystroke, also while typing continues (AP-123, FR-SYN-02 AC-5), and there are at most 10 calls. *(L5)*
+- **AC-5** **In the real app (verifies AC-1).** On the built app, after typing `Ahoj` at the end of block 5 and stopping, the file on disk contains it within 1.2 s of the last key sent (0.2 s allowance for event delivery). *(L6)*
+- **AC-6** **One call with the base version.** Every save is one `note_write(path, text, base)` whose `base` is the version returned by the note's last `note_read` or successful `note_write`. While a write for the note is in flight no second one starts; the next one carries the version the first returned. With a fake core that delays each write by 500 ms, 3 s of typing give strictly sequential calls, each `base` equal to the previous result, and no `Conflict`. *(L5)*
+- **AC-7** **Flush before leaving (verifies AC-3 and FR-VLT-01 AC-8).** With an edit made less than 100 ms earlier, each of these saves it before it completes: opening another note (switcher, link, type page, New object, Back/Forward), going to another route, toggling the source view (AP-135), opening or creating another vault, closing the window and ⌘Q. In L5 the `note_write` resolves before the next route's `note_read` or the vault change; in L6 the file contains the edit after window close and after ⌘Q. *(L5; L6 for close and ⌘Q)*
+- **AC-8** **Never into the wrong note.** Alternating 20 times between Deset bloků and Cíl, typing `A<n>` into Deset bloků and `C<n>` into Cíl each time without waiting, leaves Deset bloků with exactly the `A` strings and Cíl with exactly the `C` strings, in typing order; no other file is written. *(L5; L6 with 5 rounds)*
+- **AC-9** **No Save button.** No control named or labelled `Save` exists on the note route. ⌘S (`Save now`, AP-123) writes pending edits at once and shows no dialog; with nothing pending it writes nothing. *(L5)*
+- **AC-10** **Save state (R9, AP-123).** `Save state` shows `Saved` on open, `Saving…` from the first keystroke until the write succeeds, then `Saved`; `Not saved` after a failed write; `Changed outside Tegg` while the merge dialog or the deleted alert is open; `Read-only` on the files of NFR-REL-03 AC-6…AC-8. It never takes the focus. *(L5)*
+- **AC-11** **Write failure (AP-123).** When `note_write` fails with `Io` (fake core; in the built app, the note's folder made read-only with `chmod a-w`), the edits stay in the editor, the state is `Not saved`, a non-modal `alert` with the catalog message and `Try again` appears, and the save is retried every 5 s; the first successful retry saves the current editor content and the state returns to `Saved`. ⌘Q while a save is failing shows the dialog `Quit without saving?` with `Cancel` (default) and `Quit anyway`. The note file stays either the old or the new complete version, and no `.tegg-tmp` file remains (FR-SYN-02 AC-1). *(L5; L6 for `chmod`)*
+- **AC-12** **Text being composed isn't saved.** During a composition (synthesized `compositionstart`/`compositionupdate`/`compositionend`, as a dead key `ˇ` then `c` on a Czech layout), no `note_write` contains the uncommitted text; after `compositionend` the committed `č` is saved in NFC within 1 s. *(L5)*
+- **AC-13** **Back to the saved text writes nothing.** Typing `x` and ⌘Z within 500 ms, before the autosave, causes no `note_write` (FR-SYN-06). Typing `x`, waiting for `Saved`, then ⌫ saves once more with a body equal to the original body and a new `modified` (D-55). *(L5)*
+
+### FR-EDT-09 Undo and redo (AP-122)
+
+- **AC-1** **Keys, menu, palette.** ⌘Z undoes and ⇧⌘Z redoes in the editor; the built app's Edit menu items `Undo` and `Redo` and the palette commands `Undo` and `Redo` do the same. *(L5; L6 for the menu)*
+- **AC-2** **Undo steps.** Each of these is one step, which undo reverts exactly in the editor and, after the next save, in the file body: a typing burst (keys less than 500 ms apart, ended by a pause of 500 ms, a caret jump or another command), a block move by mouse or keyboard, a duplicate, the deletion of one or several blocks, a turn-into, a slash-menu insertion, a Markdown-shortcut conversion, a mark toggle, a link or tag insertion, a paste, a checkbox toggle, a callout type change, a table row or column change. Redo re-applies it; a new edit after an undo clears redo. *(L1 for each step; L5 for a sequence)*
+- **AC-3** **Across autosave.** In Deset bloků: type `Nová věta.` into block 5, wait for `Saved`, move block 3 below block 8, wait for `Saved`, then ⌘Z twice. Within 1 s of the second ⌘Z the file's body is byte-identical to the original body, the frontmatter differs from the original only in `modified`, and `created` is unchanged. ⇧⌘Z twice then saves a body equal to the second save's body. *(L5; L6 for one undo after a save)*
+- **AC-4** **Identity stays (D-54).** In Bez hlavičky, typing ` Doplněno.` and undoing it after the save leaves the frontmatter added by the first edit (FR-FMT-02 AC-5) in place, with a new `modified`; undo never removes an `id`. *(L5)*
+- **AC-5** **History is per shown note (AP-122).** After leaving a note and returning to it (any navigation, Back included), ⌘Z does nothing and writes nothing. After a reload caused by an external change (FR-SYN-03 AC-12) the history is empty. Undo never creates, deletes, moves or renames a file (the note created from `[[` stays, FR-EDT-06 AC-6). *(L5)*
+- **AC-6** **Nothing to undo.** ⌘Z and ⇧⌘Z with an empty history change nothing and send no write. *(L5)*
+
+### FR-EDT-13 Multi-block selection (AP-132)
+
+- **AC-1** **Selecting blocks.** With the caret in block 2 of Deset bloků, Esc selects block 2 as a block (the whole block highlighted with the `sel` token; the toolbar of FR-EDT-05 isn't shown); ⇧↓ three times extends the selection to blocks 2–5 and ⇧↑ shrinks it. With the caret in block 2, ⇧-click in block 7 selects blocks 2–7. A mouse drag across blocks is a text selection, not a block selection. Esc or a click in text ends the block selection. *(L5)*
+- **AC-2** **Delete.** ⌫ on the selection 2–5 saves blocks 1, 6…10 byte-identical, with one blank line between 1 and 6 (ADR 0002 §4) and only `modified` changed in the frontmatter; one ⌘Z restores all four blocks and, after the save, the original body. *(L5)*
+- **AC-3** **Move.** ⇧⌘↓ moves the selection 2–5 one block down as a group; dragging the handle of any selected block moves the whole group; moved blocks keep their bytes (FR-EDT-01 AC-4). *(L5)*
+- **AC-4** **Turn into.** Selecting the three paragraphs of Odstavce and choosing `Turn into` › `Bulleted list` saves one list `- První odstavec.` / `- Druhý odstavec.` / `- Třetí odstavec.` that parses as one list of three items (AP-132). `Turn into` is disabled when the selection contains a source block or a placeholder. *(L5)*
+- **AC-5** **Copy and cut.** ⌘C on the selection 2–5 puts on the clipboard `text/plain` with the four blocks' source text, byte-identical, joined by one blank line, with LF, and `text/html` with the rendered blocks; ⌘X does the same and then AC-2. Pasting that text into Prázdná creates four blocks that parse to the same block kinds and text (FR-EDT-14 AC-1). *(L5)*
+
+### FR-EDT-14 Paste (AP-130; image paste is MS6)
+
+- **AC-1** **Markdown text.** Pasting the `text/plain` `# Nadpis\n\n- a\n- b\n\nText s [[Cíl]] a #projekt.` into an empty paragraph creates a heading, a bulleted list and a paragraph containing a link chip and a tag node, saved in canonical form. A clipboard with `\r\n` line ends gives the same blocks, and the note keeps its own line ending (FR-STO-02 AC-2). *(L5)*
+- **AC-2** **As plain text.** ⇧⌘V (`Paste as plain text`) pastes the same clipboard with no syntax interpreted: each line becomes one paragraph, and the saved file reads back as paragraphs whose text is `# Nadpis`, `- a`, `- b`, `Text s [[Cíl]] a #projekt.` with no heading, list, link or tag. *(L5)*
+- **AC-3** **HTML from the web.** Pasting `tests/fixtures/editor/paste/web.html` as `text/html` into an empty paragraph of Prázdná saves blocks whose mdast (positions removed) equals that of `web.expected.md`: headings, marks, links as `[text](https://…)`, a nested list, a numbered list, a quote, a code block, a table, the image as its alt text, `<span style>` bold and italic as marks, and the `javascript:` link as its text (AP-130). `script`, `style`, `iframe` and all attributes are dropped; `window.__pasteRan` stays unset; no network request is made (read-view FR-EDT-02 AC-10 network check). *(L5)*
+- **AC-4** **A URL on a selection.** With `blok` selected, pasting `https://example.com/x` saves `[blok](https://example.com/x)`. With no selection it inserts `https://example.com/x` as text (a GFM autolink, shown as an external link). Pasting `javascript:alert(1)` onto a selection inserts it as literal text and creates no link (D-145). *(L5)*
+- **AC-5** **Images wait for MS6.** Pasting a clipboard whose only item is `image/png` inserts nothing, shows the non-modal notice `Pasting images comes in MS6` (catalog), and writes nothing: no file in `_attachments/` or `Images/`, no change to the note. *(L5)*
+- **AC-6** **NFC.** Pasting `Čeština` in NFD into block 5 saves it in NFC (dialect §2); blocks not edited keep their bytes, NFD included (FR-FMT-12 AC-5). *(L5)*
+- **AC-7** **Code and source blocks.** Pasting the AC-1 text into a code block inserts it verbatim (tabs kept, nothing interpreted); pasting into a source block or a placeholder does nothing. *(L5)*
+
+### FR-FMT-07 Round-trip through the editor (MS3 checks; AC-1…AC-7 in file-format.md)
+
+- **AC-8** [MS3] **Open and close writes nothing (verifies AC-2).** For every file of the round-trip corpus placed in a vault (with `new-empty/.tegg/`) and every note of the editor fixture: open it, click into three blocks, move the caret with the arrow keys, select all, copy, scroll to the end, open another note. Zero `note_write` calls (L5). On the built app, the same tour over the editor fixture leaves every file's bytes, mtime and inode unchanged (L6). *(L5, L6)*
+- **AC-9** [MS3] **One edit changes one block (verifies AC-3).** In Deset bloků, typing ` Doplněno.` at the end of block 5 through the UI saves a file that differs from the original only inside block 5's byte range and in the `modified` line (D-55). Byte-identical: block 2's `_` and `__` and its two-space hard break, block 3's `*` markers, the two blank lines before block 4, block 4's `1)` markers, the whitespace-only gap line, block 6's final `>` line, the code block's trailing spaces, the table's alignment row and `\|`, and in the frontmatter the full-line comment, the value comment and the flow list. *(L5)*
+- **AC-10** [MS3] **Every block, every operation.** For every file of the round-trip corpus and every editable block of it, each operation (type, insert text, delete text, split, join with the previous block, turn into list, heading and quote, move up and down, delete) run through `@tegg/editor` with real ProseMirror transactions and saved through `@tegg/doc` gives a file in which every block not touched is byte-identical (except FR-EDT-01 AC-7) and every changed block reads back to the same editor content (ADR 0002 §5). *(L1)*
+- **AC-11** [MS3] **Property.** Random sequences of 1–20 editor commands (those of AC-10 plus marks, links, tags, paste of a corpus block, undo, redo) on random corpus files keep AC-10's two properties after every save. *(L2)*
+- **AC-12** [MS3] **File envelope (verifies AC-6, FR-STO-02 AC-2).** In test-written copies of `edge/CRLF line endings.md`, `edge/BOM.md`, `edge/No final newline.md` and `edge/Many trailing newlines.md`, typing into one paragraph and adding a new paragraph after it keep, respectively, CRLF on every line (new lines too), the BOM, the missing final newline, and the trailing newlines (dialect §2). *(L5)*
+
+### FR-FMT-02 Identity and `modified` when editing (MS3 checks; AC-1…AC-4 in file-format.md)
+
+- **AC-5** [MS3] **First edit of a file without `id` (verifies AC-3; D-54, AP-118).** Opening Bez hlavičky writes nothing. Typing ` Doplněno.` saves `---\nid: <ULID>\ntype: page\nmodified: <now>\n---\n` followed by the original body with the edit; no `title`, no `created` (AP-118). In Cizí hlavička, `id`, `type: page` and `modified` are appended after the existing keys, which stay byte-identical. The `id` is a 26-character ULID and is the same in every later save. *(L5; L1 for the engine calls)*
+- **AC-6** [MS3] **`modified` value in every time zone (FR-FMT-11 AC-3).** With the clock fixed at `2026-10-13T12:00:00Z`, a save writes `modified: 2026-10-13T14:00:00+02:00` in Europe/Prague, `2026-10-13T05:00:00-07:00` in America/Los_Angeles and `2026-10-13T21:00:00+09:00` in Asia/Tokyo. On the Prague DST change, saves at `2026-10-25T00:30:00Z` and `2026-10-25T01:30:00Z` write `2026-10-25T02:30:00+02:00` and `2026-10-25T02:30:00+01:00`. `created` never changes. *(L5 with `timezoneId` and the injected clock; L1 for the formatter)*
+- **AC-7** [MS3] **No change, no `modified` (verifies AC-4, FR-SYN-06 AC-4).** Caret moves, selections, scrolling, folding a callout, opening and closing the block menu, toggling the source view, and typing then undoing before the autosave leave the file, `modified` included, untouched. *(L5)*
+
+### FR-FMT-12 Unicode in the editor (MS3 checks)
+
+- **AC-5** [MS3] **Edited text is NFC.** Typing or pasting `Čeština` in NFD into a paragraph saves it in NFC. In a test-written copy of read-view `Odkazy.md` (which has NFD bytes), editing another block leaves the NFD bytes unchanged (dialect §1.5). *(L5)*
+- **AC-6** [MS3] **NFD file name.** Given the test renames `Pages/Cíl.md` to its NFD form at runtime, opening it from the switcher and editing its body leaves exactly one file in `Pages/` whose name equals `Cíl.md` under NFC, containing the edit; the index has one object for it, with the same `id`. *(L6; L4 for `write_note` on the NFD path)*
+
+### FR-SYN-02 Atomic autosave (MS3 checks; AC-1…AC-5 in data-safety.md)
+
+- **AC-6** [MS3] **Readers never see a partial file.** On the built app, while the test types into the 5,000-word note for 30 s, a helper process reads the file every 5 ms: every read is complete and equal to one of the versions the app saved (or the original); the switcher and search never list a `.tegg-tmp` file. *(L6)*
+- **AC-7** [MS3] **Killed while typing (automates AC-5).** In 20 cycles (nightly): launch the built app, type into block 5 of Deset bloků one key every 50 ms, and `SIGKILL` the app at a random moment 2–10 s after the first key. After each kill the file parses, its frontmatter is valid, its body is the original body with a prefix of the typed text in block 5, and the characters missing are at most those typed in the last 1.2 s before the kill (AP-123). *(L6)*
+
+### FR-SYN-06 Minimal writes from the editor (MS3 checks)
+
+- **AC-7** [MS3] **A reading tour writes nothing.** In the built app on a copy of the editor fixture: open every note, put the caret in each block, select text so the toolbar shows, open and close the block menu, toggle the source view, fold the callout, follow `[[Cíl]]`, Back, and ⌘Z with an empty history. Every vault file's bytes, mtime and inode are unchanged and nothing is created. *(L6; L5 counts zero write calls)*
+- **AC-8** [MS3] **One file per save (verifies AC-2).** During FR-EDT-09 AC-3, every write goes to Deset bloků only. The only editor actions that write a second file are `Create` in link autocomplete (FR-EDT-06 AC-4) and `Keep both` (FR-SYN-03 AC-15). *(L5)*
+
+### FR-SYN-03 External changes and the open note (verifies AC-2, -3, -4, -6 [MS3], D-111)
+
+- **AC-12** [MS3] **Reload when clean (verifies AC-2; D-112, AP-135).** Given Deset bloků open with no unsaved edits and the caret in block 9 at offset 3, when another program changes block 2's text, the editor shows the new text within 2 s (NFR-PERF-08) with the caret still in block 9 at offset 3 and the scroll position kept (± one line); no dialog, no write. When the external change deletes block 9, the caret goes to the end of block 8. A block "still exists" when the new text has a block with identical source (the nearest one by position if several). The undo history is emptied (AP-122). When the external change makes the frontmatter invalid, the note switches to the read-only source view with the warning of read-view NFR-REL-03 AC-3, with no write. *(L5; L6 for one case with a real external write)*
+- **AC-13** [MS3] **Unsaved edits are never overwritten silently (verifies AC-3).** Given an unsaved edit in block 5 (autosave held by a fake core that delays writes, or by the injected clock), when another program changes block 8: no `note_write` of the editor's version succeeds; within 2 s the modal `dialog` `Note changed outside Tegg` appears with `Keep mine`, `Keep theirs`, `Keep both` and `Compare` (AP-120); the file holds the other program's bytes for as long as the dialog is open (checked again after 10 s); the editor doesn't accept typing while the dialog is open; Esc doesn't close it. *(L5; L6 with a real external writer)*
+- **AC-14** [MS3] **The save-time check catches what the watcher missed.** When the file changes without a `vault:changed` event (fake core; in L4, an external write between `read_note` and `write_note`), the next save gets `Conflict` carrying both versions (AC-7, AC-8), writes nothing, and shows the AC-13 dialog. *(L5, L4)*
+- **AC-15** [MS3] **The choices.** `Keep theirs`: the editor shows the disk version, the unsaved edits are dropped, nothing is written. `Keep mine`: one `note_write` whose base is the disk version just shown; the file becomes the editor's content (with a new `modified`). `Keep both` (AP-120): the editor's content is created as `<stem> (conflict <YYYY-MM-DD HH-mm>).md` in the same folder with the same `id`, the note keeps the disk version and the editor shows it, and the Conflicts view lists the pair (FR-SYN-04 AC-5). `Compare` shows the `region` `Compare versions` with `Your version` and `Version on disk` side by side, differing lines marked (`data-diff="changed"`), and the three choices. If the file changes again while the dialog is open, the disk side updates and `Keep mine` uses the newest version as base. *(L5; L4 for `Keep both`'s create)*
+- **AC-16** [MS3] **Same bytes are not a change (AP-119).** When another program rewrites the open note with identical bytes (only the mtime changes, as sync clients do), no dialog appears, nothing reloads, and the next save succeeds without `Conflict`. When the disk version becomes equal to the editor's unsaved content, the edits count as saved and nothing is written. *(L4 for the core rule; L5)*
+- **AC-17** [MS3] **Deleted while open (verifies AC-4).** With unsaved edits, when another program deletes the file or moves it into `.trash/`, the editor keeps the content and shows the `alert` `This note was deleted outside Tegg` with `Restore file` and `Discard`; no save targets the missing path before a choice. `Restore file` creates the file at its old path with the editor's content (if a file appeared there meanwhile: `Conflict` and the AC-13 dialog); `Discard` writes nothing and shows `This note was moved or deleted` (read-view FR-SYN-03 AC-11). Without unsaved edits, that message is shown at once. *(L5; L4 for `Gone`)*
+- **AC-18** [MS3] **Renamed while open with unsaved edits.** When another program renames or moves the open note (same `id`) while it has unsaved edits, the next save goes to the new path, with the renamed file's version as base and no conflict when its bytes equal the old base; no file is created at the old path; the breadcrumb shows the new folder (D-161). *(L5; L4 for the identity)*
+- **AC-19** [MS3] **Quit with the dialog open (AP-120).** ⌘Q while the dialog of AC-13 is open asks `Quit and keep both versions?`; confirming saves the editor's content as in `Keep both` and quits; the original file keeps the other program's bytes. *(L6)*
+- **AC-20** [MS3] **500 changes while typing (verifies AC-6).** On the built app with the reference vault, while the test types 200 characters (one every 40 ms) into the 5,000-word note, a helper process modifies 500 other notes at once: the keystrokes meet NFR-PERF-06 (probe of NFR-PERF-06 AC-3), all 500 changes are in the index within 30 s, and the open note shows no dialog and no reload. Enforced only with `TEGG_PERF_REF=1` (D-152). *(L6 benchmark)*
+
+### FR-SYN-04 / FR-SYN-05 Conflicts view (verifies FR-SYN-04 AC-3 [MS3] and the confirmation of AC-4)
+
+On the `conflicts` fixture.
+
+- **AC-5** [MS3] **The route.** `conflicts` (R1) is built and reached by `Go to Conflicts` in the palette and by the sidebar entry of AC-6. It lists each conflict the core reports, one row each, with its kind (`Same id`, `Possible copy`, `Names differ only in Unicode form`), the file paths (user content), and for same-id rows which file links resolve to. On the fixture: Plán + its Dropbox copy (same id), Rozpočet + Rozpočet kopie (same id), Zápis + Zápis (1) (possible copy); Schůzka (2) isn't listed (AC-2). With no conflicts it shows an empty state. Opening it writes nothing. *(L5; L4 for the list)*
+- **AC-6** [MS3] **Making conflicts visible (AP-121).** While the core reports at least one conflict, the sidebar shows the entry `Conflicts` with the count (plural rules, NFR-OTH-02 AC-4), updated within 2 s of a `vault:changed` that adds or removes one; with none, the entry is absent. *(L5)*
+- **AC-7** [MS3] **Compare.** Opening a row shows the `region` `Compare versions` with both files' text side by side, read-only, the file links resolve to on the left, differing lines marked (`data-diff="changed"`); on Plán, exactly body lines 3 and 8 and the `modified` line are marked. Actions: `Keep left`, `Keep right`, `Merge…`. *(L5)*
+- **AC-8** [MS3] **Keep one, links intact (AP-121).** After a confirmation naming the file that goes to the trash (cancel writes nothing): `Keep left` on Plán moves the copy to `.trash/Pages/` (FR-STO-01 AC-5) and writes nothing else; `Keep right` writes the copy's bytes into `Pages/Plán.md` (base = its version) and moves the copy to `.trash/Pages/`. In both cases `[[Plán]]` and `zdroj: "[[Plán]]"` in Odkazuje resolve to `Pages/Plán.md` with `id` `01JB0K0000000000000000K001`, the row disappears and the count drops. *(L5; L4 for the vault result)*
+- **AC-9** [MS3] **Manual merge (AP-121).** `Merge…` opens the left version as an editable draft next to the right version, read-only. Nothing is written until `Done`, which writes the draft into the left file (base check) and moves the right file to `.trash/`; `Cancel` writes nothing. *(L5)*
+- **AC-10** [MS3] **New id for a copied file (FR-SYN-04 AC-4, FR-SYN-05).** For Rozpočet + Rozpočet kopie (the copy has the newer mtime), the row offers `Give the copy a new id`; confirming writes only `Pages/Rozpočet kopie.md`, changing only its `id` line to a new ULID (`setAttribute`, base check). Afterwards `[[Rozpočet]]` resolves to `Pages/Rozpočet.md`, `[[Rozpočet kopie]]` to `Pages/Rozpočet kopie.md`, and the row disappears. *(L5; L4)*
+- **AC-11** [MS3] **Stale versions never win.** When one of the files changes on disk while its row is open, the compare view reloads both, and `Keep`, `Done` or `Give … a new id` use the new versions; a write with an old base returns `Conflict` and changes nothing. *(L5)*
+- **AC-12** [MS3] **Unicode-form pairs.** A pair the core reports as differing only in normalization (fake core; APFS can't hold both names in one folder) is listed with that kind and has `Compare`, `Keep left` and `Keep right` as in AC-7 and AC-8. *(L5)*
+
+### NFR-REL-03 Files the editor can't open safely (D-117)
+
+- **AC-6** [MS3] **Invalid frontmatter stays read-only.** Chyba uvozovky (and the five files of read-view NFR-REL-03 AC-3) opens in the source view with its warning; the toggle shows the read view, not the editor: no `textbox`, typing and paste change nothing, `Save state` is `Read-only`, nothing is written (D-146). *(L5)*
+- **AC-7** [MS3] **Invalid UTF-8 (AP-124).** `Pages/Neplatné UTF-8.md` (test-written, a `0xFF` byte in the body) opens read-only with the `alert` `This file isn't valid UTF-8` (catalog), its text shown with U+FFFD in place of the bad byte, and is never written; its bytes, mtime and inode are unchanged after opening, toggling and leaving. *(L4 for the core's flag; L5; L6 for the bytes)*
+- **AC-8** [MS3] **The editor fails to load.** With the test hook that makes the editor's load throw, the note opens in the read view with the `alert` `This note opened read-only because the editor couldn't load it` (catalog) and nothing is written; the sidebar, palette and switcher keep working. *(L5)*
+- **AC-9** [MS3] **A save that fails verification is refused (ADR 0002 §5).** With the test hook that makes the save verification fail after all escalation steps, no `note_write` is sent, the edits stay in the editor, `Save state` is `Not saved` with the `alert` `Tegg couldn't save this change safely` and an `Undo` action, and the file is unchanged. *(L5; L1 for the escalation steps)*
+
+### NFR-PERF-05 Open a note with the editor (D-148)
+
+- **AC-4** [MS3] **Editable in time (measures AC-1).** The benchmark of read-view NFR-PERF-05 AC-2 runs with the editor: the `note-ready` mark is written only when the editor accepts input (mounted, editable, focus on the title). p95 of 20 runs from `switcher-enter` to `note-ready` for the 5,000-word note with 10 embeds and 50 links is under **112 ms** on the reference machine (75 % of 150 ms, D-59), enforced only with `TEGG_PERF_REF=1` (D-152). *(L6 benchmark)*
+
+### NFR-PERF-06 Typing latency (AC-1 and AC-2 in performance.md)
+
+- **AC-3** **Latency probe.** The editor has a probe (on with `TEGG_PERF_LOG` or a test flag, off otherwise) that records for each keydown the number of the animation frame in which the typed character is first painted, counting the first frame after the keydown as 1 (D-66). Its own test drives it with a synthetic frame clock and checks frames 1, 2 and 3. *(L1)*
+- **AC-4** **WebKit benchmark on every push.** Playwright WebKit at 60 Hz with the 5,000-word note: 200 keystrokes, one every 40 ms, in a paragraph in the middle, while autosave runs and the fake core emits `vault:changed` for 50 other paths per second. At least 95 % of the keystrokes are painted in frame 1 and none after frame 2; p50, p95 and max in ms are reported. *(L5 benchmark)*
+- **AC-5** **Real app on the reference machine (verifies AC-1).** The same run on the built app (Appium types; the probe writes each keystroke's frame number to `TEGG_PERF_LOG`) meets the same limits at the frame rate of AP-134; enforced only with `TEGG_PERF_REF=1` (D-152). FR-UX-07 AC-6 [manual] (typing during a long operation) is recorded in the same session (D-134). *(L6 benchmark; manual)*
+
+### FR-EDT-10 Source view while editing (adds to read-view.md)
+
+- **AC-9** **Saved first (AP-135).** Toggling to the source view with unsaved edits saves them first; the source view then shows the file text with them. The source view stays read-only after 3C (D-146). *(L5)*
+
+### FR-UX-03 Editor commands (adds to app-shell.md)
+
+- **AC-13** **Editor commands in the registry.** The commands of R8 are registered with their shortcuts and catalog titles, listed in the palette on a note route, and run on the editor's current caret or selection (the palette restores both before running); on other routes they aren't run and show no error. FR-UX-03 AC-7 holds with R8 added to R4. *(L1 for the registry; L5)*
+- **AC-14** **Writing by keyboard only.** Using only keys (no pointer events), the test creates a note with ⌘N, types a heading with `## `, then a paragraph with a link inserted through `[[` and ⏎, a tag through `#` and ⏎ and a word made bold with ⌘B, then a checklist item through `[] ` checked with ⌘↩; moves the heading below the paragraph with ⇧⌘↓ and undoes the move with ⌘Z; and leaves with ⌘O. The saved body parses to a heading, a paragraph containing a link, a tag and bold text, and a checked checklist item, in that order. *(L5)*
+
+### NFR-OTH-02 Externalized strings in the editor (adds to app-shell.md)
+
+- **AC-6** **Pseudo-locale.** With the pseudo-locale catalog, every visible text node of the slash menu, the toolbar, the link and tag suggestions, the block menu, the save state, the merge dialog, the deleted alert, the paste notice and the Conflicts view is inside `⟦ ⟧`, except user content (titles, paths, tag names, note text). *(L5)*
+
+### FR-UX-05 Themes in the editor (adds to app-shell.md)
+
+- **AC-8** **Both themes.** FR-UX-05 AC-4 and AC-5 pass, in light and dark, with the slash menu, the toolbar, the link suggestions, the block menu, a block selection, the merge dialog with `Compare` open, and the Conflicts view with a compare open. *(L5)*
+
+---
+
+## Points raised by these criteria (accepted 2026-10-13: AP-117…AP-137 → D-173…D-193)
+
+Next free decision number: D-173.
+
+| # | Issue | Proposal | Affects |
+| --- | --- | --- | --- |
+| AP-117 | **Can the title be edited in 3C?** The Main board shows the title as the note's heading. The file name is the sanitized title (FR-FMT-08), but renaming the file with link updates is MS4 (FR-LNK-03; FR-FMT-08 AC-1/-2 are `[MS4]`). Without an editable title, a typo in a new note's title can't be fixed until MS4. | Make the title editable in 3C, writing only `title:`; the file name and links don't change until MS4, when renaming follows the title (and can offer to rename files whose name no longer matches). After navigation the focus is on the title as a heading (D-130), not in edit mode. Alternative: read-only title until MS4. | FR-EDT-01 AC-10, FR-FMT-08, FR-LNK-03, D-130 |
+| AP-118 | **Keys written on the first edit of a file without `id`.** D-54 says `id` and `type: page` are written on the first edit; D-55 says `modified` changes when content changes; neither says whether `title` and `created` are added, or where the new keys go in existing frontmatter. `@tegg/doc` today appends `id`, then `type` (if missing), then `modified` at the end. | Write exactly `id`, `type: page` (only if `type` is missing) and `modified`, appended after the existing keys (a new frontmatter for a file without one); never `title` (the file name is the title, D-103) or `created` (the creation time isn't known). | FR-FMT-02 AC-5, D-54, D-55, D-96 |
+| AP-119 | **A sync client rewriting the same bytes is reported as a conflict.** `FileVersion` includes the mtime, and `Vault::write` returns `Conflict` when the disk version differs from the base (ms1-core §3.2). Dropbox and Google Drive rewrite files with identical content and a new mtime, which would show a merge dialog with two identical versions. | Compare versions by size and content hash; the mtime only decides whether to re-hash. When the disk bytes equal the base bytes, the write proceeds and the new version becomes the base. Needs a change to ms1-core §3.2 (`Vault::write`) and FR-SYN-03 AC-7's wording, with a red L4 test first. | FR-SYN-03 AC-7, AC-16, ms1-core §3.2, NFR-REL-02 |
+| AP-120 | **What the merge dialog offers, and quitting with it open.** FR-SYN-03 AC-3 says "mine / theirs / compare". Neither choice keeps both versions, and quitting with an unresolved dialog would lose one of them. | Choices `Keep mine`, `Keep theirs`, `Keep both`, `Compare`; Esc doesn't dismiss it. `Keep both` saves the editor's content as `<stem> (conflict <YYYY-MM-DD HH-mm>).md` beside the note **with the same `id`**, so the existing conflict rules (D-53) list the pair in the Conflicts view. ⌘Q with the dialog open asks and then does `Keep both`, so nothing is lost. | FR-SYN-03 AC-3, AC-13, AC-15, AC-19, FR-SYN-04, D-53 |
+| AP-121 | **Conflicts view details.** FR-SYN-04 says "side-by-side compare / keep one / merge" but not (1) how the user learns there are conflicts, (2) which path survives (keeping the copy's file would break `[[Note]]` links, against FR-SYN-04 AC-3), (3) what "merge" is, (4) what to do with name-normalization pairs (FR-FMT-12 AC-3). | (1) A sidebar entry `Conflicts` with the count, only while there are conflicts. (2) The file links resolve to always survives; "keep right" writes the copy's bytes into it, then trashes the copy. (3) Merge edits a draft of the left version beside the right one; `Done` writes it and trashes the right file; `Cancel` writes nothing. (4) Same compare and keep actions. | FR-SYN-04 AC-3, AC-5…AC-12, FR-FMT-12 AC-3, FR-UX-02 sidebar |
+| AP-122 | **Scope of undo.** FR-EDT-09 doesn't say whether history survives leaving a note, an external reload, or covers files created along the way (`[[` create) and the identity keys (D-54). Undo after a reload could restore text the user never saw on disk and overwrite the external change. | History belongs to the note while it is shown and is emptied on leaving it and on an external-change reload. Undo never creates, deletes, moves or renames files (the note created from `[[` stays; it can be trashed later). The `id`/`type` written on a first edit stay after undo. | FR-EDT-09 AC-2…AC-6, FR-EDT-06 AC-6, FR-CNV-06 (MS5 adds conversion undo) |
+| AP-123 | **Autosave rhythm, visible state, failures, ⌘S.** FR-EDT-08 says "debounced, ≤ 1 s after the last keystroke"; data-safety FR-SYN-02 AC-5 says a force quit loses at most the last 1 s of typing, which a pure debounce can't meet during continuous typing. The Main board shows only `Saved`. Nothing says what happens when a write fails (disk full, permissions, vault unmounted). | Debounce with a 1 s maximum wait (every keystroke is in a write that starts ≤ 1 s after it). Save states of R9. On `Io` errors: keep the edits, show `Not saved` and a non-modal alert with `Try again`, retry every 5 s, and ask before quitting. ⌘S means "save now" (no dialog, no button). No crash journal in Application Support (FR-SYN-02 AC-5's 1 s loss stays accepted). | FR-EDT-08 AC-4, AC-9…AC-11, FR-SYN-02 AC-5, AC-7, R9 |
+| AP-124 | **Files that aren't valid UTF-8.** `note_read` returns decoded text (ms2-shell §2); invalid bytes become U+FFFD, so saving such a file from the editor would silently replace them. | The core reports whether the bytes are valid UTF-8 (`note_read` gets a `utf8: boolean`); such files open read-only with a warning and are never written by the editor. | NFR-REL-03 AC-7, ms2-shell §2, FR-FMT-07 |
+| AP-125 | **Source blocks in the editor.** ADR 0002 makes HTML, footnote definitions, `$$` math, comment blocks, unknown fences and blocks the editor can't represent read-only. S2 FINDINGS suggests editing them as source in place for the MVP; no requirement asks for it. | 3C keeps them read-only but movable, duplicable and deletable as whole blocks (bytes copied verbatim). Editing them in place is not built; record it as a v1.x candidate (owners can edit them in the file with another editor meanwhile). | FR-EDT-01 AC-8, ADR 0002, D-146 |
+| AP-126 | **Headings 4–6 in the editor** (left open by D-149). FR-EDT-02 lists headings 1–3; Obsidian files use 4–6. | The slash menu and block menu offer Heading 1–3 only; typing `#### `…`###### ` creates heading 4–6 (as in Obsidian); existing 4–6 headings stay editable at their level. | FR-EDT-02, FR-EDT-04, R6, R7, D-149 |
+| AP-127 | **Editor shortcuts the BRD doesn't define.** Only ⇧⌘K (link) and ⌘K (palette) are decided (D-126). ⌘D is Today (R4), so Notion's ⌘D for duplicate is taken; ⌘[ / ⌘] are Back/Forward (D-165), so they can't indent. | R8: ⌘B, ⌘I, ⇧⌘S strikethrough, ⌘E inline code, ⇧⌘H highlight (Notion's set), ⇧⌘↑/⇧⌘↓ move block (Notion, Anytype, Capacities), ⌘/ block menu, ⌘↩ open the link at the caret or toggle the checklist item, ⇧⌘V paste as plain text, ⌘S save now. Duplicate has no shortcut (block menu and palette). Tab/⇧Tab indent list items. | R8, R4, FR-UX-03 AC-7, FR-EDT-01, -05, -13 |
+| AP-128 | **What link autocomplete writes and creates.** FR-EDT-06 and FR-LNK-14 cover duplicates by title (`[[Title (2)\|Title]]`) but not two files with the same stem in different folders, titles that sanitize to a different stem (`C# tips`), whether typing `[[Target]]` by hand makes a link (S2 leaves `[[` without a choice as literal text), embeds typed by hand, or what undo does after `Create`. | Insert the stem when it resolves to the chosen file from the current note (dialect §6), else the vault path without `.md`; add `\|<title>` when the title differs from the inserted target, `\|<alias>` when chosen through an alias (D-141). Typing the closing `]]` makes a link (or an embed for `![[…]]`) as typed. `Create` uses the default type through `note_create` (picker in MS5, D-131); undo keeps the created note. | FR-EDT-06 AC-3…AC-6, FR-EDT-02 AC-21, FR-LNK-14, D-131, D-141 |
+| AP-129 | **Tag autocomplete before Tag objects.** FR-EDT-15 shows tags "with their color" and creates a Tag object for a new name (FR-TAG-03), but Tag objects, colours and `Tags/` files are MS4. Spelling variants (`#Projekt`, `#projekt`) need one display form. | In 3C tags come from the index (frontmatter and inline, templates and trash excluded), shown with the vault's most frequent spelling (ties: code-point order) and the default tag colour; a new tag is only written inline, and no `Tags/` file is created until MS4 (which also decides whether existing inline-only tags get files). | FR-EDT-15, FR-TAG-01…03, -05 |
+| AP-130 | **Paste rules.** FR-EDT-14 says "rich text/HTML → clean blocks" and "URL on a selection → link" but not: whether plain text is read as Markdown, how to paste literally, what happens to images inside HTML (they can't be loaded, NFR-SEC-01, and attachments are MS6), Google-Docs-style `<span style>` formatting, or unsafe URLs. | `text/plain` is parsed as Tegg Markdown (copying between Tegg or Obsidian notes keeps structure); ⇧⌘V pastes literal text, one paragraph per line. HTML: structure and marks kept, `font-weight ≥ 600` and `font-style: italic` on spans become bold and italic, images become their alt text (dropped if none), scripts, styles, frames and attributes dropped, links other than `http(s)`/`mailto` become text. A clipboard image shows `Pasting images comes in MS6` and writes nothing. | FR-EDT-14 AC-1…AC-7, D-145, NFR-SEC-01, FR-ATT (MS6) |
+| AP-131 | **"Copy link to block" is in FR-EDT-01 (MS3), but block ids come from FR-LNK-06 (v1.0).** Generating an id writes ` ^abc123` into the block, a file change. | Show `Copy link to block` disabled with `Coming in v1.0` (R3). Alternative: pull FR-LNK-06's id generation into 3C (6 lowercase letters and digits, unique in the note, written by the same autosave). | FR-EDT-01 AC-6, FR-LNK-06, R3 |
+| AP-132 | **How multi-block selection works.** FR-EDT-13 names Shift+click and Shift+arrows but not how a text selection becomes a block selection or what "convert" does with several paragraphs. | Esc selects the caret's block; ⇧↑/⇧↓ extend it; ⇧-click selects a range of blocks; a mouse drag stays a text selection. Delete, cut, copy (the blocks' source text joined by blank lines), move and turn into act on the whole selection; turning adjacent paragraphs into a list gives one list. | FR-EDT-13 AC-1…AC-5, R8 |
+| AP-133 | **Slash menu content and order, callout type, table rows.** The Main board shows groups Objects (Task, Turn into object) and Blocks (Table, Query). FR-EDT-03 asks for every block type, object embed and query; most of those land later. S2 FINDINGS says the MVP needs a callout type picker; FR-EDT-02 says nothing about adding table rows or columns. | R6 as the slash menu, Objects first as on the board, later items disabled with their milestone; a `Callout type` submenu in the block menu with the 13 Obsidian types; table actions `Add row below`, `Add column right`, `Delete row`, `Delete column` in the block menu when the caret is in a table. | R6, FR-EDT-03, FR-EDT-02 AC-19, AC-20 |
+| AP-134 | **Frame rate for the typing-latency gate.** D-66 counts frames. The reference M2 Pro's built-in display runs at up to 120 Hz (ProMotion), where "next frame" means 8.3 ms, twice as strict as the 60 Hz WebKit runs of S2. | Gate on 60 Hz: Playwright WebKit (AC-4) and the real app with the display set to 60 Hz for the run (AC-5); report the native-rate result too, without a target. | NFR-PERF-06 AC-4, AC-5, D-66, D-59 |
+| AP-135 | **Small editor behaviours to confirm together.** (a) Toggling the source view with unsaved edits; (b) the cursor's block after a reload (D-112 says "same block if it still exists" but not how a block is matched); (c) ⌘Z right after an automatic Markdown conversion; (d) empty paragraphs (Markdown has no empty paragraph); (e) where the caret goes when a note opens or is created; (f) the empty-line hint text. | (a) Save first, then show the file. (b) A block still exists when the new text has a block with identical source; the nearest by position wins. (c) Restores the literal typed characters. (d) Never written; they disappear on reload. (e) Focus on the title as a heading after navigation (D-130); a note from New object opens with the caret in the body. (f) `Type / for blocks, [[ to link, # to tag` (Main board). | FR-EDT-10 AC-9, FR-SYN-03 AC-12, FR-EDT-04 AC-3, FR-EDT-01 AC-3, AC-9, AC-10 |
+| AP-136 | **A checkbox toggle re-renders the whole list.** A list is one top-level block, so ticking one item re-renders every item of it (ADR 0002): in a 200-item list, other items' `[X]`, `_em_` or NFD text could be normalized, a large diff for a one-character change. | Toggle a checklist item as a one-character patch of its `[ ]`/`[x]`/`[X]` marker (through `@tegg/doc`, verified by re-parse), not as a block re-render. | FR-EDT-02 AC-18, FR-FMT-07, FR-SYN-06, ADR 0002 |
+| AP-137 | **Interface for the 3C red tests.** D-61 needs the interfaces before the tests; ms3-shell.md has no 3C section yet. | Add ms3-shell §13 before the red tests: `note_write(path, text, base) → { outcome: 'written' \| 'unchanged', version }` with errors `Conflict { mine, theirs, version }` and `Gone`; `note_read` adds `utf8` (AP-124); `index_tags() → { key, spelling, count }[]` (AP-129); `index_conflicts()` and the resolve commands (keep, merge, new id) built on `note_write` and `Vault::trash`; the `note:conflict` event payload; `note-ready` redefined for the editor (NFR-PERF-05 AC-4); the accessibility labels used above; test hooks for editor load failure, verification failure and the latency probe; the fake core's delay/fail/silent-change controls; the `@tegg/editor` package API the L1 tests use. | ms3-shell.md, ms2-shell §2, D-61 |

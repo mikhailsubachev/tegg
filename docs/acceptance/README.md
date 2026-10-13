@@ -16,6 +16,7 @@ The **critical requirements**: those where a bug means data loss, corrupted file
 | [search-navigation.md](search-navigation.md) | Search, quick switcher, progress (MS2) | FR-SRC-01…04, FR-NAV-01, FR-UX-07 |
 | [app-shell.md](app-shell.md) | App frame and page flow (MS3 slice 3A): layout, page map with TBD placeholders, command palette, shortcuts, themes, externalized strings, vault chooser | FR-UX-01, -02, -03, -05, FR-SET-02 (theme), NFR-OTH-02; MS3 parts of FR-VLT-01, FR-VLT-03, FR-UX-07, FR-NAV-01, FR-SYN-06 |
 | [read-view.md](read-view.md) | Read view (MS3 slice 3B): formatted read-only note, links and tags, attribute strip, source view, in-note placeholders (AP-84…AP-95 accepted as D-140…D-151) | FR-EDT-10, FR-EDT-02 (display), FR-TYP-08 (display), NFR-PERF-05 AC-2; MS3 parts of NFR-REL-03, FR-SYN-03, FR-SYN-06 |
+| [editor.md](editor.md) | Editor and autosave (MS3 slice 3C, **draft**): `@tegg/editor`, autosave, undo, slash menu, shortcuts, toolbar, `[[` and `#` autocomplete, multi-block selection, paste, external changes and the merge dialog, Conflicts view (AP-117…AP-137 pending) | FR-EDT-01, -03…06, -08, -09, -13…15, FR-EDT-02 (editing), NFR-PERF-06; MS3 parts of FR-FMT-07, FR-FMT-02, FR-FMT-12, FR-SYN-02, -03, -04/-05, -06, NFR-REL-03, NFR-PERF-05, FR-EDT-10, FR-UX-03, FR-UX-05, NFR-OTH-02 |
 | [architecture-rules.md](architecture-rules.md) | Architecture rules enforced by checks | AR-03, AR-04 |
 | [qa-infrastructure.md](qa-infrastructure.md) | Test tooling and spike QA exit criteria (D-60, D-61) | `docs/test-strategy.md` TS-xx rules |
 
