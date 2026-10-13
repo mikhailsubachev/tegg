@@ -174,3 +174,5 @@ Výplňový odstavec 38, aby další kapitola začínala až pod první obrazovk
 Výplňový odstavec 39, aby další kapitola začínala až pod první obrazovkou.
 
 Výplňový odstavec 40, aby další kapitola začínala až pod první obrazovkou.
+
+Odkaz ven: [[Odkazy]]
