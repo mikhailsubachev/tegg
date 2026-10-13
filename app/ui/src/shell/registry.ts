@@ -75,8 +75,6 @@ const d = (milestone: Milestone, slice?: Slice): Due => (slice ? { milestone, sl
 
 export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.newTab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06' },
-  { label: 'ctl.back', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03' },
-  { label: 'ctl.forward', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03' },
   { label: 'ctl.newType', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01' },
   { label: 'ctl.starterVault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02' },
   { label: 'ctl.edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01' },

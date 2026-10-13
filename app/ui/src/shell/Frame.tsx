@@ -1,5 +1,7 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
-import { useLayoutEffect, useRef } from 'react';
+import logoDark from '../assets/logo-dark.svg';
+import logoLight from '../assets/logo-light.svg';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import type { ProgressDto } from '../ipc/types';
 import { Disabled } from './Disabled';
@@ -11,11 +13,27 @@ const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
 
-export function TitleBar({ name, icon, progress, onToggleSidebar }: {
+/** The resolved theme (`data-theme` on the root, ms3-shell §3.5), following live changes. */
+function useResolvedTheme(): 'light' | 'dark' {
+  const read = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(read);
+  useEffect(() => {
+    const o = new MutationObserver(() => setTheme(read()));
+    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => o.disconnect();
+  }, []);
+  return theme;
+}
+
+export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canForward, onBack, onForward }: {
   name: React.ReactNode;
   icon: string;
   progress: ProgressDto | null;
   onToggleSidebar: () => void;
+  canBack: boolean;
+  canForward: boolean;
+  onBack: () => void;
+  onForward: () => void;
 }) {
   return (
     <header className="titlebar" data-tauri-drag-region>
@@ -23,8 +41,13 @@ export function TitleBar({ name, icon, progress, onToggleSidebar }: {
         <button tabIndex={0} type="button" className="icon-button" aria-label={t('cmd.toggleSidebar')} data-command="view.toggleSidebar" onClick={onToggleSidebar}>
           <Icon name="sidebar" />
         </button>
-        <Disabled control="ctl.back" ariaLabel={t('ctl.back')} className="icon-button"><Icon name="back" /></Disabled>
-        <Disabled control="ctl.forward" ariaLabel={t('ctl.forward')} className="icon-button"><Icon name="forward" /></Disabled>
+        {/* FR-NAV-03 (D-165): without history in a direction the button is aria-disabled, with no "Coming in" note. */}
+        <button tabIndex={0} type="button" className="icon-button" aria-label={t('ctl.back')} aria-disabled={!canBack || undefined} data-command="nav.back" onClick={() => canBack && onBack()}>
+          <Icon name="back" />
+        </button>
+        <button tabIndex={0} type="button" className="icon-button" aria-label={t('ctl.forward')} aria-disabled={!canForward || undefined} data-command="nav.forward" onClick={() => canForward && onForward()}>
+          <Icon name="forward" />
+        </button>
       </div>
       <div className="tabs" role="tablist" aria-label={t('frame.tabs')} data-tauri-drag-region>
         <span className="tab" role="tab" aria-selected="true" tabIndex={0} data-command="tab.current">
@@ -101,7 +124,8 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject }: {
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
       <div className="sidebar-scroll" ref={scroller}>
         <a href="#" tabIndex={0} className="logo" aria-label={t('app.home')} data-command="goto.home" onClick={(e) => { e.preventDefault(); onGo({ id: 'home' }); }}>
-          {t('app.name')}
+          {/* D-164: the board's mark and wordmark as one image per theme; the link keeps its label. */}
+          <img className="logo-img" src={useResolvedTheme() === 'dark' ? logoDark : logoLight} alt="" />
         </a>
         <button tabIndex={0} type="button" className="jump" aria-label={t('frame.searchOrJump')} data-command="app.switcher" onClick={(e) => { e.currentTarget.focus(); onSwitcher(); }}>
           <Icon name="search" />

@@ -15,6 +15,7 @@ import { commands, type Command, type ShellActions, type ShellContext, type Them
 import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
 import { eventKeys } from './shell/keys';
+import { createHistory } from './shell/history';
 import { NewObjectDialog } from './shell/NewObjectDialog';
 import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
@@ -53,6 +54,13 @@ export function App() {
   const [refresh, setRefresh] = useState(0);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
   const [sourceToggle, setSourceToggle] = useState(0);
+  // Back/forward (FR-NAV-03, D-165): in memory, one per window; `histTick` re-renders the title-bar buttons.
+  const history = useRef(createHistory());
+  const [, setHistTick] = useState(0);
+  const pendingScroll = useRef<number | null>(null);
+  // The `id` of every note shown, so Back/Forward can follow a note renamed in the meantime (FR-NAV-03 AC-5).
+  const knownIds = useRef(new Map<string, string>());
+  const centreScroll = () => document.querySelector('main')?.scrollTop ?? 0;
   const heading = useRef<HTMLHeadingElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -92,15 +100,18 @@ export function App() {
   const land = useCallback(async () => {
     const forced = (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
     const r = forced ? parseRoute(forced) : null;
-    if (r) { setRoute(r); return; }
-    const last = await ipc.vaultLast().catch(() => null);
-    setRoute(last ? { id: 'note/<path>', param: last.path } : { id: 'home' });
+    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? { id: 'note/<path>', param: last.path } : { id: 'home' }), () => ({ id: 'home' }));
+    history.current.clear(); // D-171: the history starts with the landing route
+    history.current.push(landing);
+    setHistTick((n) => n + 1);
+    setRoute(landing);
   }, []);
 
   const opened = useCallback((v: VaultInfo) => {
     setVault(v);
     setChooser(null);
     setRoute(null);
+    history.current.clear(); // another vault: a new history (AC-7)
     loadTypes();
     pendingFocus.current = true;
     void land();
@@ -137,7 +148,22 @@ export function App() {
     setFocusMode(false);
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
+    history.current.saveScroll(centreScroll());
+    history.current.push(r);
+    setHistTick((n) => n + 1);
     setRoute(r);
+  }, []);
+  const step = useCallback((dir: 'back' | 'forward') => {
+    history.current.saveScroll(centreScroll());
+    const e = dir === 'back' ? history.current.back() : history.current.forward();
+    if (!e) return;
+    setChooser(null);
+    setFocusMode(false);
+    pendingReturn.current = null;
+    pendingFocus.current = true;
+    pendingScroll.current = e.scrollTop;
+    setHistTick((n) => n + 1);
+    setRoute(e.route);
   }, []);
   // A focus the user makes before the new page is ready wins over the pending heading focus.
   useEffect(() => {
@@ -151,6 +177,8 @@ export function App() {
   const openTag = useCallback((key: string) => go({ id: 'search', param: `tag:${key}` }), [go]);
 
   const routeKey = route ? routeString(route) : '';
+  // The route a Back/Forward step is restoring the scroll position of (not re-scrolled to its fragment, AC-4).
+  const restoreFor = pendingScroll.current !== null ? routeKey : null;
   useEffect(() => {
     setMeta(null);
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
@@ -182,10 +210,12 @@ export function App() {
       requestAnimationFrame(() => heading.current?.focus());
     },
     toggleSource: () => { if (route?.id === 'note/<path>') setSourceToggle((n) => n + 1); },
+    back: () => step('back'),
+    forward: () => step('forward'),
     toggleProperties: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     openChooser: (form: boolean) => { setDialog(null); setChooser({ form }); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
-  }), [go, route?.id, updateUi]);
+  }), [go, step, route?.id, updateUi]);
 
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions };
   const list = useMemo(() => commands(ctx), [types, counts, vault, actions]);
@@ -258,6 +288,40 @@ export function App() {
   }, []);
 
 
+  // Mouse back/forward buttons and a two-finger horizontal swipe (FR-NAV-03, ms3-shell §12.2).
+  useEffect(() => {
+    const onMouse = (e: MouseEvent) => {
+      if ((e.button !== 3 && e.button !== 4) || live.current.dialog) return; // dialogs keep their input (AC-6)
+      e.preventDefault();
+      step(e.button === 3 ? 'back' : 'forward');
+    };
+    let dx = 0;
+    let since = 0;
+    let fired = false;
+    const scrollsX = (el: Element | null) => {
+      for (let n = el; n; n = n.parentElement) {
+        if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true;
+      }
+      return false;
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (live.current.dialog || Math.abs(e.deltaX) <= 3 * Math.abs(e.deltaY) || scrollsX(e.target as Element)) return;
+      if (e.timeStamp - since > 120) { dx = 0; fired = false; }
+      since = e.timeStamp;
+      dx += e.deltaX;
+      if (!fired && Math.abs(dx) >= 80) {
+        fired = true;
+        step(dx < 0 ? 'back' : 'forward'); // fingers to the right scroll left: back, as in Safari
+      }
+    };
+    window.addEventListener('mouseup', onMouse);
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      window.removeEventListener('mouseup', onMouse);
+      window.removeEventListener('wheel', onWheel);
+    };
+  }, [step]);
+
   // ------------------------------------------------------------------ the current page
   const def = route ? routeDef(route.id) : undefined;
   const typeEntry = route?.id === 'type/<type>' ? typeEntries(types, counts).find((e) => e.key === route.param) : undefined;
@@ -276,6 +340,11 @@ export function App() {
       const ready = !!h && (route.id !== 'note/<path>' || meta !== null);
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
       if (pendingFocus.current && !live.current.dialog) { pendingFocus.current = false; h!.focus({ preventScroll: true }); }
+      if (pendingScroll.current !== null && route.id !== 'note/<path>') {
+        const m = document.querySelector('main');
+        if (m) m.scrollTop = pendingScroll.current;
+        pendingScroll.current = null;
+      }
       void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
@@ -299,13 +368,21 @@ export function App() {
         key={route.param}
         path={route.param}
         fragment={route.fragment}
+        restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
+        onRestored={() => { pendingScroll.current = null; }}
+        knownId={knownIds.current.get(route.param)}
+        onId={(id) => knownIds.current.set(route.param!, id)}
         types={types}
         heading={heading}
         onMeta={setMeta}
         onType={(k) => go({ id: 'type/<type>', param: k })}
         onOpen={openNote}
         onTag={openTag}
-        onRenamed={(p) => setRoute({ id: 'note/<path>', param: p.normalize('NFC') })}
+        onRenamed={(p) => {
+          const r: Route = { id: 'note/<path>', param: p.normalize('NFC') };
+          history.current.replace(r);
+          setRoute(r);
+        }}
         toggleSource={sourceToggle}
         focusMode={focusMode}
         onTogglePanel={actions.toggleRightPanel}
@@ -345,7 +422,7 @@ export function App() {
 
   return (
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
-      {!focusMode && <TitleBar name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} />}
+      {!focusMode && <TitleBar name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} canBack={history.current.canBack()} canForward={history.current.canForward()} onBack={actions.back} onForward={actions.forward} />}
       <div className="frame">
         {showSidebar && (
           <Sidebar

@@ -47,7 +47,8 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 /* ------------------------------------------------------------ sidebar */
 .sidebar { width: 232px; flex: none; background: var(--side); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .sidebar-scroll { flex: 1; overflow-y: auto; padding: 10px 8px 16px; display: flex; flex-direction: column; gap: 2px; }
-.logo { font-weight: 700; letter-spacing: .08em; font-size: 12px; padding: 4px 8px 10px; color: var(--text); text-transform: uppercase; }
+.logo { display: flex; align-items: center; height: 32px; padding: 0 8px; margin-bottom: 6px; }
+.logo-img { height: 24px; width: auto; display: block; }
 .jump {
   display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px;
   font-size: 13px; color: var(--muted); text-align: left;

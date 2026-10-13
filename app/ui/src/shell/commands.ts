@@ -16,6 +16,8 @@ export type ShellActions = {
   toggleRightPanel: () => void;
   toggleFocus: () => void;
   toggleSource: () => void;
+  back: () => void;
+  forward: () => void;
   toggleProperties: () => void;
   openChooser: (form: boolean) => void;
   setTheme: (t: ThemeChoice) => void;
@@ -44,8 +46,6 @@ const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys
 /** Command ids of the R3 controls (D-130), in registry order. */
 export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
-  'ctl.back': 'nav.back',
-  'ctl.forward': 'nav.forward',
   'ctl.newType': 'type.new',
   'ctl.starterVault': 'vault.starter',
   'ctl.edit': 'note.edit',
@@ -70,6 +70,8 @@ export function commands(ctx: ShellContext): Command[] {
   const list: Command[] = [
     { id: 'app.palette', title: 'cmd.palette', section: 'app', shortcut: '⌘K', needsVault: false, run: (c) => a(c)?.openPalette() },
     { id: 'app.switcher', title: 'cmd.switcher', section: 'navigate', shortcut: shortcutOf('app.switcher'), needsVault: true, run: (c) => a(c)?.openSwitcher() },
+    { id: 'nav.back', title: 'cmd.goBack', section: 'navigate', shortcut: shortcutOf('nav.back'), needsVault: true, run: (c) => a(c)?.back() },
+    { id: 'nav.forward', title: 'cmd.goForward', section: 'navigate', shortcut: shortcutOf('nav.forward'), needsVault: true, run: (c) => a(c)?.forward() },
     { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
   ];
   for (const r of ROUTES) {

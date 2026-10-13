@@ -92,6 +92,8 @@ export const en: Catalog = {
 
   // Commands (FR-UX-03, R4).
   'cmd.palette': 'Open command palette',
+  'cmd.goBack': 'Go back',
+  'cmd.goForward': 'Go forward',
   'cmd.switcher': 'Open quick switcher',
   'cmd.newObject': 'New object',
   'cmd.toggleSidebar': 'Toggle sidebar',
