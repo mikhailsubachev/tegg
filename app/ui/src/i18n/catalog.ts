@@ -257,6 +257,7 @@ export const en: Catalog = {
   'search.count': { one: '{count} result', other: '{count} results' },
   'search.typo': 'similar spelling',
   'switcher.label': 'Quick switcher',
+  'switcher.results': 'Switcher results',
   'switcher.query': 'Switcher query',
   'switcher.placeholder': 'Go to or create an object…',
   'switcher.create': 'Create “{title}”',

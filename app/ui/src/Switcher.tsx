@@ -67,7 +67,7 @@ export function Switcher({ onOpen, onCreate, onClose }: {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKey}
         />
-        <ul role="listbox" aria-label={t('switcher.label')}>
+        <ul role="listbox" aria-label={t('switcher.results')}>
           {items.map((i, n) => (
             <li
               key={i.path ?? `create:${i.title}`}
