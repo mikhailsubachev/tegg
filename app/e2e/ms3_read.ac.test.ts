@@ -5,7 +5,7 @@
 // TEGG_TEST=1 with temporary Application Support and vault copies of the synthetic fixture (D-62).
 //
 // Prerequisites as in ms3_shell.ac.test.ts: `npm run app:build`, `npm run e2e:setup`, Accessibility permission.
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
@@ -104,7 +104,10 @@ function paste(text: string) {
 let appium: ChildProcess | undefined;
 async function appiumUp() {
   if (appium) return;
-  appium = spawn('npx', ['appium', '--port', String(PORT), '--log-level', 'error'], { cwd: import.meta.dirname, env: { ...process.env, APPIUM_HOME }, stdio: 'ignore' });
+  // Own process group: `npx` starts Appium as a child, and Appium starts WebDriverAgent's xcodebuild, so killing only
+  // the `npx` pid leaves both running and the test process never exits.
+  appium = spawn('npx', ['appium', '--port', String(PORT), '--log-level', 'error'], { cwd: import.meta.dirname, env: { ...process.env, APPIUM_HOME }, stdio: 'ignore', detached: true });
+  appium.unref();
   const end = Date.now() + 30_000;
   while (Date.now() < end) {
     if (await fetch(`http://127.0.0.1:${PORT}/status`).then((r) => r.ok, () => false)) return;
@@ -112,7 +115,14 @@ async function appiumUp() {
   }
   assert.fail(`Appium did not start on port ${PORT} (run npm run e2e:setup)`);
 }
-process.on('exit', () => appium?.kill());
+function appiumDown() {
+  if (appium?.pid) {
+    try { process.kill(-appium.pid, 'SIGTERM'); } catch { /* already gone */ }
+  }
+  appium = undefined;
+}
+after(appiumDown);
+process.on('exit', appiumDown);
 
 type Driver = Awaited<ReturnType<typeof import('webdriverio').remote>>;
 /** Launches the app through Appium with the given environment and returns the session. */
@@ -136,12 +146,23 @@ async function rect(e: any) {
   const { width, height } = await e.getSize();
   return { x, y, width, height };
 }
-const byLabel = (d: Driver, label: string) => d.$(`-ios predicate string:label == "${label}" OR title == "${label}"`);
+// Static text is exposed with its text as the AX value, not the label (macOS), so firstShown matches all three.
+/** The first displayed element with that label, title or value; buttons and links first (a region and its header
+ *  button can share a name), so the lookup is never ambiguous. */
+async function firstShown(d: Driver, label: string): Promise<any | null> {
+  const q = `(label == "${label}" OR title == "${label}" OR value == "${label}")`;
+  // XCUIElementType: 9 button, 10 radio button, 12 checkbox, 17 toolbar button, 41 toggle, 42 link, 80 tab.
+  for (const sel of [`-ios predicate string:elementType IN {9, 10, 12, 17, 41, 42, 80} AND ${q}`, `-ios predicate string:${q}`]) {
+    for (const e of await d.$$(sel).catch(() => [] as any[])) {
+      if (await e.isDisplayed().catch(() => false)) return e;
+    }
+  }
+  return null;
+}
 async function shown(d: Driver, label: string, ms = 3000): Promise<boolean> {
   const endAt = Date.now() + ms;
   while (Date.now() < endAt) {
-    const e = await byLabel(d, label);
-    if ((await e.isExisting().catch(() => false)) && (await e.isDisplayed().catch(() => false))) return true;
+    if (await firstShown(d, label)) return true;
     await sleep(100);
   }
   return false;
@@ -179,8 +200,8 @@ async function openBySwitcher(d: Driver, title: string) {
   await sleep(500);
 }
 async function clickLabel(d: Driver, label: string): Promise<boolean> {
-  const e = await byLabel(d, label);
-  if (!(await e.isExisting().catch(() => false))) return false;
+  const e = await firstShown(d, label);
+  if (!e) return false;
   await e.click().catch(() => {});
   await sleep(300);
   return true;
