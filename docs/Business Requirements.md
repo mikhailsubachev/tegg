@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.30, for review                                             |
+| **Document status** | Draft v1.31, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -46,6 +46,7 @@
 | v1.28   | 2026-10-13 | MS3 slice 3B AC decisions D-140…D-151 (AP-84…AP-95, `docs/acceptance/read-view.md`): click opens links before previews, aliases don't resolve links (FR-TYP-08 reworded), broken and date links before MS4, tag click opens Search, in-note placeholders, external links and no HTML rendering, source view details, attribute strip, NFR-PERF-05 AC-2, headings 4–6, FR-UX-02 AC-14 reworded with 3B, callout types with non-ASCII letters. |
 | v1.29   | 2026-10-13 | MS3 slice 3B red-test decisions D-152…D-163 (AP-96…AP-107): reference-machine perf gate, test locations, Properties component, relative Markdown links, subpath chip text, callout input, source lines, fold button name, date-time display, rename while open, date links resolve as daily first, generated-vault sample. |
 | v1.30   | 2026-10-13 | 3B preview feedback: logo as outlined SVG (D-164, AP-108); Back/Forward (FR-NAV-03) pulled into MS3 as slice 3B.1 (D-165, AP-109). |
+| v1.31   | 2026-10-13 | 3B.1 red-test decisions D-166…D-172 (AP-110…AP-116). |
 
 ---
 
@@ -254,6 +255,13 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-163 | Generated-vault sample | FR-EDT-02 AC-12 samples 200 notes of a small generated vault created once per test run in a temp dir (or `TEGG_REF_VAULT`) (AP-107) |
 | D-164 | Logo without a font | The app logo (Main board: mark and "TEGG" wordmark in Space Grotesk 700, brand blue) ships as two SVG assets, light and dark, with the wordmark's letters converted to paths from Space Grotesk (SIL OFL); no font file ships and nothing is loaded from the network (NFR-SEC-01) (AP-108) |
 | D-165 | Back/Forward in MS3 (3B.1) | FR-NAV-03 moves from MS5 to MS3, slice 3B.1: an in-memory route history (with note fragment and scroll position), driven by the title-bar Back/Forward buttons, ⌘[ / ⌘], the mouse back/forward buttons and the trackpad swipe, and in the palette. Not kept across launches. Amends D-125 (AP-109) |
+| D-166 | Back/Forward command names | ⌘[ / ⌘] run the palette commands `Go back` / `Go forward`; R4 names them so (AP-110) |
+| D-167 | Shortcuts that do nothing | FR-UX-03 AC-9: only ⌘T does nothing and writes nothing; ⌘[ / ⌘] navigate (D-165) (AP-111) |
+| D-168 | Outgoing link in Cíl | The read-view fixture's `Cíl.md` ends with `Odkaz ven: [[Odkazy]]`, the link FR-NAV-03 AC-4 follows (AP-112) |
+| D-169 | Fragments in history | A route with a fragment is a different route string: `note/Pages/Cíl.md` and `note/Pages/Cíl.md#^blok1` are separate history entries (AP-113) |
+| D-170 | Swipe check | The trackpad swipe is checked manually only (FR-NAV-03 AC-3); no synthesized-wheel test (AP-114) |
+| D-171 | History start | On every launch the history starts with the landing route as its only entry; the real-app relaunch test reads the title-bar buttons through Appium's `enabled`, confirmed on its first run (AP-115) |
+| D-172 | Contract checks in AC tests | The logo tests also check the brand colours of ms3-shell §12.3, the history tests the `data-command` values of §12.2 (AP-116) |
 
 ---
 

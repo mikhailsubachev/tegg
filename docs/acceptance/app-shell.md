@@ -105,7 +105,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌘, | Go to Settings | proposed, AP-70 |
 | ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
-| ⌘[ and ⌘] | Back, Forward | FR-NAV-03 (3B.1, D-165) |
+| ⌘[ and ⌘] | Go back, Go forward | FR-NAV-03 (3B.1, D-165, D-166) |
 
 Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e.g. `⇧⌘P`), AP-70.
 
@@ -150,7 +150,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 - **AC-6** **Shortcut display.** Each palette row of a command with a shortcut shows the binding of R4 rendered from the registry (not a literal), with modifiers in the order ⌃ ⌥ ⇧ ⌘ (`⇧⌘F`, `⌃⌘S`) (AP-70). Disabled commands (R3) show `Coming in <milestone>` instead of running (AP-74). *(L5)*
 - **AC-7** **Registry integrity.** Command ids are unique; no two enabled commands share a shortcut; every shortcut of R4 is registered to the command named there; every title is a catalog key (NFR-OTH-02); no command uses a shortcut macOS reserves (⌘Q, ⌘H, ⌥⌘H, ⌘M, ⌘Tab, ⌘Space, ⌘`). *(L1)*
 - **AC-8** **Every control is a command.** On every route of R1, with the right panel open and closed, every button, link, tab, menu item, checkbox, radio and switch in the frame carries a reference to a registered command, except text inputs and the rows of object lists (opened with ⏎). *(L5, DOM walk)*
-- **AC-9** **Global shortcuts.** Each enabled shortcut of R4 runs its command from every route of R1 with the focus anywhere in the main window, except while a dialog (palette, switcher, New object) is open, where only that dialog's keys act. `⌘T`, `⌘[` and `⌘]` do nothing and write nothing. *(L5)*
+- **AC-9** **Global shortcuts.** Each enabled shortcut of R4 runs its command from every route of R1 with the focus anywhere in the main window, except while a dialog (palette, switcher, New object) is open, where only that dialog's keys act. `⌘T` does nothing and writes nothing (D-167; ⌘[ / ⌘] navigate, FR-NAV-03). *(L5)*
 - **AC-10** **Keyboard-only tour.** Using only Tab, ⇧Tab, arrows, ⏎, Space, Esc and R4 shortcuts (no pointer events), the test opens every sidebar entry, every Types entry, toggles sidebar, right panel and focus mode, sets each theme in Settings, opens a note from the switcher and creates an object with New object. Every element that receives focus shows a visible focus indicator: its computed `outline` or `box-shadow` differs from the unfocused state and is at least 2 px wide. *(L5)*
 - **AC-11** **Focus after navigation (AP-74).** After a route change by sidebar, palette or shortcut, the focus is on the new page's heading in the centre pane (not on `body`, not left in the sidebar), so the next Tab starts in the page. *(L5)*
 - **AC-12** **Keys work at launch.** In the built app, right after launch on the fixture and without any click, `⌘K` opens `Command palette` and Esc closes it; then `⌘O` opens `Quick switcher`. *(L6)*
