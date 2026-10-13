@@ -30,7 +30,10 @@ export function Switcher({ onOpen, onCreate, onClose }: {
   const choose = (i: SwitcherItemDto | undefined) => {
     if (!i) return;
     if (i.kind === 'create') onCreate(i);
-    else if (i.path) onOpen(i.path);
+    else if (i.path) {
+      void ipc.perfMark('switcher-enter').catch(() => {}); // NFR-PERF-05 AC-2 (ms3-shell §11.5)
+      onOpen(i.path);
+    }
   };
 
   const onKey = (e: React.KeyboardEvent) => {

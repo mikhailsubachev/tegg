@@ -694,10 +694,81 @@ pub struct LinkTarget {
 
 impl Core {
     /// `link_resolve`: resolves every target of one note in one call, by the rules of ms3-shell §11.1 (dialect §6,
-    /// FR-LNK-14, D-141, D-142). Read-only, records no recency.
-    /// STUB (TS-I1): returns no targets until slice 3B is built.
+    /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
-        let _ = (from, targets);
-        Vec::new()
+        let objs = self.objects();
+        let mut by_path: HashMap<String, usize> = HashMap::new();
+        let mut by_id: HashMap<&str, usize> = HashMap::new();
+        let mut by_stem: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, o) in objs.iter().enumerate() {
+            let p = nfc(&o.path).to_lowercase();
+            let key = p.strip_suffix(".md").unwrap_or(&p).to_string();
+            let stem = key.rsplit('/').next().unwrap_or(&key).to_string();
+            by_path.insert(key, i);
+            if let Some(id) = &o.id {
+                by_id.insert(id.as_str(), i);
+            }
+            by_stem.entry(stem).or_default().push(i);
+        }
+        let from = nfc(from);
+        let from_dir = from.rsplit_once('/').map(|(d, _)| d.to_lowercase()).unwrap_or_default();
+        let found = |target: &str, i: usize, kind: LinkKind| LinkTarget {
+            target: target.to_string(),
+            kind,
+            path: Some(objs[i].path.clone()),
+            title: Some(objs[i].title.clone()),
+            r#type: Some(objs[i].r#type.clone()),
+        };
+        let none = |target: &str, kind: LinkKind| LinkTarget { target: target.to_string(), kind, path: None, title: None, r#type: None };
+        targets
+            .iter()
+            .map(|target| {
+                let mut t = nfc(target.trim());
+                if let Some(i) = t.find('|') {
+                    t.truncate(i);
+                }
+                if let Some(i) = t.find('#') {
+                    t.truncate(i);
+                }
+                let t = t.trim().to_string();
+                // D-162: a date is a Daily Note link first.
+                if t.len() == 10 {
+                    if let Ok(date) = NaiveDate::parse_from_str(&t, "%Y-%m-%d") {
+                        return match self.daily_note(date).and_then(|p| objs.iter().position(|o| o.path == p)) {
+                            Some(i) => found(target, i, LinkKind::Daily),
+                            None => none(target, LinkKind::DateMissing),
+                        };
+                    }
+                }
+                let lower = t.to_lowercase();
+                let key = lower.strip_suffix(".md").unwrap_or(&lower);
+                // D-155: relative to the linking note's folder first.
+                if !from_dir.is_empty() {
+                    if let Some(&i) = by_path.get(&format!("{from_dir}/{key}")) {
+                        return found(target, i, LinkKind::Note);
+                    }
+                }
+                if let Some(&i) = by_path.get(key) {
+                    return found(target, i, LinkKind::Note);
+                }
+                if let Some(&i) = by_id.get(t.as_str()) {
+                    return found(target, i, LinkKind::Note);
+                }
+                if !key.contains('/') {
+                    if let Some(c) = by_stem.get(key) {
+                        let folder = |i: usize| objs[i].path.rsplit_once('/').map(|(d, _)| nfc(d).to_lowercase()).unwrap_or_default();
+                        let best = c.iter().copied().find(|&i| folder(i) == from_dir).or_else(|| {
+                            c.iter().copied().min_by(|&a, &b| {
+                                (objs[a].path.chars().count(), &objs[a].path).cmp(&(objs[b].path.chars().count(), &objs[b].path))
+                            })
+                        });
+                        if let Some(i) = best {
+                            return found(target, i, LinkKind::Note);
+                        }
+                    }
+                }
+                none(target, LinkKind::Unresolved)
+            })
+            .collect()
     }
 }

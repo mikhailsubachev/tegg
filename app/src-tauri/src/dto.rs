@@ -157,9 +157,8 @@ pub struct UiStateDto {
     pub theme: String,
     pub sidebar_open: bool,
     pub right_panel: RightPanelDto,
-    /// Attribute strip expanded (FR-TYP-08 AC-5, D-147). STUB (TS-I1): the 3B default (`true`, missing = `true`)
-    /// isn't implemented yet.
-    #[serde(default)]
+    /// Attribute strip expanded (FR-TYP-08 AC-5, D-147); a missing field reads as `true`.
+    #[serde(default = "yes")]
     pub properties_open: bool,
 }
 
@@ -176,9 +175,13 @@ pub struct LinkTargetDto {
     pub type_key: Option<String>,
 }
 
+fn yes() -> bool {
+    true
+}
+
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: false }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true }
     }
 }
 

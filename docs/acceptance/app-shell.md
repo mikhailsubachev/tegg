@@ -52,7 +52,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `tags` | Tags | TBD | MS4 | FR-TAG-06, FR-TAG-07 | Main | sidebar Tags section, palette |
 | `pinned` | Pinned | TBD | MS5 | FR-HOM-02 | — | sidebar, palette (AP-69) |
 | `saved-queries` | Saved queries | TBD | v1.0 | FR-QRY-06 | — | sidebar, palette |
-| `note/<path>` | Edit note | built, title + raw text until 3B | MS3 | — | Main | switcher, search result, type page row, New object, launch landing |
+| `note/<path>` | Edit note | built, read view (3B, D-150) | MS3 | — | Main | switcher, search result, type page row, New object, launch landing |
 | `graph` | Graph | TBD | v1.0 | FR-GRP-01…08 | Graph | palette, right-panel Graph tab |
 | `trash` | Trash | TBD | MS6 | FR-HIS-01, FR-HIS-02 | — | palette |
 | `import` | Import | TBD | MS7 | FR-IMP-01, -03, -05, FR-STO-10 | — | palette |
@@ -84,7 +84,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | Back, Forward, ⌘[, ⌘] | title bar | MS5 | FR-NAV-03 |
 | New type | sidebar, Types header | MS3 (3D) | FR-TYP-01 |
 | Starter vault | chooser, New vault form | MS3 (3D) | FR-VLT-02 |
-| Show Markdown source | note toolbar | MS3 (3B) | FR-EDT-10 |
+| Edit | note toolbar | MS3 (3C) | FR-EDT-01 |
 | Add icon, Add cover | note header | MS3 (3E) | FR-TYP-14 |
 | Filter, Sort, Views, New <Type> | type page | MS3 (3D) | FR-TYP-09 |
 | Font, Font size, Editor width, Accent color | Settings: Appearance | MS3 (3E) | FR-SET-02 |
@@ -104,6 +104,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌃⌘S | Toggle sidebar | proposed, AP-70 |
 | ⌘⇧\ | Toggle focus mode (Esc also leaves it) | proposed, AP-70 |
 | ⌘, | Go to Settings | proposed, AP-70 |
+| ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
 | ⌘[ and ⌘] | Back, Forward (disabled, MS5) | FR-NAV-03 |
 
@@ -126,7 +127,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 - **AC-11** **Route registry (D-116 flow criterion).** The app's route registry equals table R1 exactly (ids, status, milestone, requirement IDs, design board); a route the router knows that isn't in the registry, or a registry entry the router can't render, fails the test. For every TBD route, rendering it shows the page name, a one-line purpose, the milestone (`MS5`, `v1.0`, `MS3 (3D)` …), the requirement IDs, and `View design: <board>` (or `No design board yet` when the board is —), all from the string catalog. For every route, each means in the "Reached by" column leads to it. *(L1 for the registry comparison; L5 for rendering and reachability)*
 - **AC-12** **Disabled later-feature controls (AP-74).** Every control of table R3 is rendered with `aria-disabled="true"`, stays focusable by keyboard, and has the accessible description `Coming in <milestone>`, shown as a tooltip both on pointer hover and on keyboard focus. Activating it by click, ⏎, Space or its shortcut changes nothing: the route stays, no IPC command other than reads is sent, and nothing is written. *(L5)*
 - **AC-13** **Placeholders can't outlive their milestone (AP-68).** Given `VERIFY_MILESTONE=MS<n>`, the registry test fails, listing each one, if any route of R1, tab of R2 or control of R3 is still TBD or disabled with a milestone at or before `MS<n>` (`MS3 (3D)` counts as MS3). Without the variable, the test only checks that every entry has a milestone and requirement IDs. *(L1)*
-- **AC-14** **Note page in 3A.** Opening Porada shows the breadcrumb `Schůzky / 2026-10-07 Porada` whose first part leads to `type/schůzka`, the title `2026-10-07 Porada`, and the file's text unchanged (the MS2 view, until 3B, D-117). Opening Bez hlavičky shows the breadcrumb `Pages / Bez hlavičky`. Opening Svíčková shows `recept / Svíčková`. Opening a note sends no write command. *(L5)*
+- **AC-14** **Note page in 3A.** Opening Porada shows the breadcrumb `Schůzky / 2026-10-07 Porada` whose first part leads to `type/schůzka`, the title `2026-10-07 Porada`, and the note body in the formatted read view of [read-view.md](read-view.md), not the raw file (D-150). Opening Bez hlavičky shows the breadcrumb `Pages / Bez hlavičky`. Opening Svíčková shows `recept / Svíčková`. Opening a note sends no write command. *(L5)*
 - **AC-15** **Title bar tab.** The single tab shows the current page's name (route name, type plural or note title) and its icon and changes on every navigation; there is exactly one tab. *(L5)*
 - **AC-16** **Launch landing (plan §4.3, AP-76).** With the remembered vault set to a copy of the fixture: (a) after Eva was the last note opened and the app was quit, a relaunch shows `note/Tasks/Zavolat Evě.md`; (b) with no note ever opened, the launch shows the `home` placeholder; (c) after another program renamed Eva's file to `Tasks/Zavolat Evě a Petrovi.md` while the app was closed, the relaunch shows the renamed note (same `id`); (d) after another program deleted it, or moved it into `.trash/`, the relaunch shows the `home` placeholder with no error dialog. In all four cases the vault is byte-identical before and after launch. *(L6; L5 for the UI branch on each core answer)*
 - **AC-17** **Type page in 3A (AP-67).** `type/quick-note` lists exactly Druhý and Čtvrtek, sorted by title with the collation of AP-66; `type/page` lists Bez hlavičky and Úvodní; `type/cesta` shows an empty list with a guiding message; no list contains Šablona or Smazaná. Activating a row (click or ⏎) opens the note. The controls of R3 for the type page are disabled; `Type settings` leads to the `type-settings/<type>` placeholder. *(L5)*

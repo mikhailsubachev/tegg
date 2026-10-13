@@ -274,7 +274,7 @@ ACs: [docs/acceptance/read-view.md](../acceptance/read-view.md) (FR-EDT-10, FR-E
 | Command | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
 | `link_resolve` | `from` (vault path of the note), `targets: string[]` | `LinkTargetDto[]`, same order and length as `targets` | One call per opened note for all its body links, embeds and frontmatter relations (NFR-PERF-05 AC-3). Calls `Core::resolve_links`. Read-only, records no recency. |
-| `open_external` | `url` | — | Opens `http:`, `https:` or `mailto:` in the default macOS handler (`tauri-plugin-opener`). Any other scheme returns `Unsupported` and opens nothing; the shell checks the scheme itself, not only the UI (D-145). No network access by the app. |
+| `open_external` | `url` | — | Opens `http:`, `https:` or `mailto:` in the default macOS handler (`/usr/bin/open`; with `TEGG_TEST=1` nothing is launched). Any other scheme returns `Unsupported` and opens nothing; the shell checks the scheme itself, not only the UI (D-145). No network access by the app. |
 
 ```ts
 type LinkTargetDto = {
@@ -341,7 +341,7 @@ export type AttrRow = {
 };
 export function attributeRows(doc: Doc): { subtitle: string | null; rows: AttrRow[] };   // order and hiding of D-147
 
-// read/Properties.tsx (D-154): subtitle + Properties strip, placed between the title and ReadView
+// read/PropertiesStrip.tsx (D-154; not `Properties.tsx`, which collides with `properties.ts` on a case-insensitive disk): subtitle + Properties strip, placed between the title and ReadView
 export function Properties(props: { text: string; links: Map<string, LinkTargetDto>; open: boolean; onToggle: () => void; onOpen: (path: string) => void; onTag: (key: string) => void }): JSX.Element | null;
 
 // read/warning.ts (NFR-REL-03)
@@ -353,7 +353,7 @@ export const CALLOUT_TYPES: readonly string[];  // the 13 Obsidian types
 export function calloutType(raw: string /* first line: '> [!type]± Title' (D-157) */): { type: string; label: string; fold: '+' | '-' | null; title: string | null };   // aliases mapped, unknown → 'note' with the raw label
 ```
 
-- **Rendering** goes through `@tegg/doc` `parse` for blocks and frontmatter and the mdast it builds on (unified/remark with the wikilink, embed, tag, callout, highlight, comment and math plugins of the dialect). It never uses `dangerouslySetInnerHTML` or a raw-HTML plugin: HTML and math nodes become text (D-145). A static rule (L0) fails on `dangerouslySetInnerHTML` and `rehype-raw` in `app/ui/src/**`.
+- **Rendering** goes through `@tegg/doc` `parse` for frontmatter and `markdownTree(body)` (new export, the mdast `parse` builds on, ms1-core §4) (unified/remark with the wikilink, embed, tag, callout, highlight, comment and math plugins of the dialect). It never uses `dangerouslySetInnerHTML` or a raw-HTML plugin: HTML and math nodes become text (D-145). A static rule (L0) fails on `dangerouslySetInnerHTML` and `rehype-raw` in `app/ui/src/**`.
 - **Registry** (`shell/registry.ts`): adds `IN_NOTE_PLACEHOLDERS: { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; name: string; due: Due; reqs: string[] }[]` equal to R5; `overdue()` includes them (FR-UX-02 AC-13, D-144). `read/InNotePlaceholder.tsx` renders one.
 - **Data attributes** for tests: link chips `data-link-kind="note|daily|date-missing|unresolved|external"`; tag chips `data-tag="<key>"`; placeholders `data-placeholder="<id>"`; callouts `data-callout="<type>"`; source lines `data-line="<n>"`.
 

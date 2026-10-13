@@ -2,16 +2,17 @@
 import { t } from '../i18n/catalog';
 import { Search } from '../Search';
 
-export function SearchPage({ refresh, heading, inputRef, onOpen }: {
+export function SearchPage({ refresh, heading, inputRef, onOpen, tag }: {
   refresh: number;
   heading: React.RefObject<HTMLHeadingElement | null>;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onOpen: (path: string) => void;
+  tag?: string;
 }) {
   return (
     <div className="page-column">
       <h1 ref={heading} tabIndex={-1}>{t('route.search')}</h1>
-      <Search onOpen={onOpen} refresh={refresh} inputRef={inputRef} />
+      <Search onOpen={onOpen} refresh={refresh} inputRef={inputRef} tag={tag} />
     </div>
   );
 }

@@ -96,6 +96,12 @@ export function serialize(doc: Doc): string {
   return doc.text
 }
 
+/** The mdast tree with the dialect's extensions (wikilinks, tags, highlights, comments, math), for display only
+ *  (read view, ms3-shell §11.3). Positions are offsets into `text`. */
+export function markdownTree(text: string): Root {
+  return parseMarkdown(text)
+}
+
 function parseMarkdown(text: string): Root {
   const tree = fromMarkdown(text, {
     // $$ math from the extension; single-$ inline math with Obsidian's rules (inline.ts).

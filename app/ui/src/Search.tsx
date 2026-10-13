@@ -5,27 +5,35 @@ import { Highlighted } from './Highlighted';
 import { typeIcon } from './icons';
 import { t } from './i18n/catalog';
 
-/** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet. */
-export function Search({ onOpen, refresh, inputRef }: { onOpen: (path: string) => void; refresh: number; inputRef: React.RefObject<HTMLInputElement | null> }) {
+/** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet. `tag` presets the tag filter
+ *  (a `#tag` activated in the read view, D-143). */
+export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: string) => void; refresh: number; inputRef: React.RefObject<HTMLInputElement | null>; tag?: string }) {
   const [text, setText] = useState('');
+  const [tagFilter, setTagFilter] = useState<string | null>(tag ?? null);
+  useEffect(() => setTagFilter(tag ?? null), [tag]);
   const [page, setPage] = useState<SearchPageDto | null>(null);
   const seq = useRef(0);
 
   useEffect(() => {
     const n = ++seq.current;
-    if (!text.trim()) {
+    if (!text.trim() && !tagFilter) {
       setPage(null);
       return;
     }
     const timer = setTimeout(() => {
-      ipc.search({ text, types: [], tags: [], offset: 0, limit: 50 }).then((p) => n === seq.current && setPage(p), () => {});
-    }, 120);
+      ipc.search({ text, types: [], tags: tagFilter ? [tagFilter] : [], offset: 0, limit: 50 }).then((p) => n === seq.current && setPage(p), () => {});
+    }, text.trim() ? 120 : 0);
     return () => clearTimeout(timer);
-  }, [text, refresh]);
+  }, [text, tagFilter, refresh]);
 
   return (
     <section className="search">
       <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text} onChange={(e) => setText(e.target.value)} />
+      {tagFilter && (
+        <div className="filters">
+          <span className="chip tag-chip"><span data-user-content>#{tagFilter}</span></span>
+        </div>
+      )}
       {page && <div className="count">{page.total === 0 ? t('search.none') : t('search.count', { count: page.total })}</div>}
       <ul aria-label={t('search.results')}>
         {page?.results.map((r) => (

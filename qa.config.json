@@ -48,7 +48,10 @@
       "run": "D=$(mktemp -d) && cargo run --release --quiet --manifest-path ../../tools/gen-vault/Cargo.toml -- --seed 1 --small-images --out $D/vault && cargo run --release --quiet --bin perf -- --vault $D/vault --runs 20 --out \"$VERIFY_RESULTS/s4-perf.json\"; S=$?; rm -rf $D; exit $S",
       "level": "nightly" },
     { "id": "app-e2e", "dir": "app",
-      "run": "npm run --silent app:build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-e2e.xml\" e2e/*.ac.test.ts",
+      "run": "npm run --silent app:build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-e2e.xml\" $(ls e2e/*.ac.test.ts | grep -v '/nfr_perf_')",
+      "level": "milestone" },
+    { "id": "app-perf", "dir": "app",
+      "run": "npm run --silent app:build && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-perf.xml\" e2e/nfr_perf_*.ac.test.ts",
       "level": "milestone" }
   ],
   "acTestPatterns": ["\\.ac\\.test\\.tsx?$", "(^|/)tests/ac_[^/]+\\.rs$"],

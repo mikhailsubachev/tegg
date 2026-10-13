@@ -55,8 +55,7 @@ export type UiStateDto = { version: number,
  */
 theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto, 
 /**
- * Attribute strip expanded (FR-TYP-08 AC-5, D-147). STUB (TS-I1): the 3B default (`true`, missing = `true`)
- * isn't implemented yet.
+ * Attribute strip expanded (FR-TYP-08 AC-5, D-147); a missing field reads as `true`.
  */
 propertiesOpen: boolean, };
 export type LinkTargetDto = { target: string, 

@@ -28,6 +28,11 @@ const PATHS: Record<string, string> = {
   conflict: 'M12 3l9 16H3zM12 10v4M12 17h.01',
   capture: 'M12 4v16M4 12h16',
   dot: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z',
+  link: 'M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v5H5V6h5',
+  'chevron-down': 'M6 9l6 6 6-6',
+  'chevron-right': 'M9 6l6 6-6 6',
+  source: 'M9 7l-5 5 5 5M15 7l5 5-5 5',
 };
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }) {
