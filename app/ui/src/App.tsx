@@ -56,6 +56,7 @@ export function App() {
   const [meta, setMeta] = useState<NoteMeta | null>(null);
   const [sourceToggle, setSourceToggle] = useState(0);
   const [conflicts, setConflicts] = useState(0);
+  const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
   // The note page stays mounted through a rename (FR-SYN-03 AC-18): it is keyed by navigation, not by path.
   const [navKey, setNavKey] = useState(0);
   const noteApi = useRef<NotePageApi | null>(null);
@@ -206,6 +207,20 @@ export function App() {
     const title = item.title.normalize('NFC');
     ipc.noteCreate(item.folder, title, renderNewNote(item.type, title)).then((p) => { justCreated.current = p.normalize('NFC'); openNote(p); }, () => setMessage(t('error.io')));
   }, [openNote]);
+
+  // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
+  useEffect(() => {
+    const quit = () => { void ipc.appQuit().catch(() => {}); };
+    const un = events.quitRequested(async () => {
+      const api = noteApi.current;
+      if (!api) { quit(); return; }
+      if (api.mergeOpen()) { setQuitAsk('keepBoth'); return; }
+      await Promise.race([api.flush(), new Promise((r) => setTimeout(r, 2000))]);
+      if (api.pending()) setQuitAsk('unsaved');
+      else quit();
+    });
+    return () => void un.then((f) => f());
+  }, []);
 
   // ------------------------------------------------------------------ layout
   const isObject = route?.id === 'note/<path>';
@@ -483,6 +498,24 @@ export function App() {
         {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))} />}
       </div>
       {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
+      {quitAsk && (
+        <div className="dialog-backdrop">
+          <div role="dialog" aria-modal="true" aria-label={t(quitAsk === 'keepBoth' ? 'quit.keepBoth' : 'quit.title')} className="dialog"
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setQuitAsk(null); } }}>
+            <h2>{t(quitAsk === 'keepBoth' ? 'quit.keepBoth' : 'quit.title')}</h2>
+            <p>{t(quitAsk === 'keepBoth' ? 'quit.keepBothBody' : 'quit.body')}</p>
+            <div className="dialog-buttons">
+              <button type="button" autoFocus onClick={() => setQuitAsk(null)}>{t('quit.cancel')}</button>
+              <button type="button" onClick={async () => {
+                const keep = quitAsk === 'keepBoth';
+                setQuitAsk(null);
+                if (keep) await noteApi.current?.keepBoth().catch(() => {});
+                void ipc.appQuit().catch(() => {});
+              }}>{t(quitAsk === 'keepBoth' ? 'quit.keepBothOk' : 'quit.anyway')}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
       {dialog === 'newObject' && <NewObjectDialog types={types} onCreate={createFrom} onClose={closeDialog} />}
     </div>

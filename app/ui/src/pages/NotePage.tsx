@@ -47,7 +47,15 @@ type Mode = 'edit' | 'invalidFrontmatter' | 'utf8' | 'editorFailed' | 'readView'
 type Loaded = { text: string; version: VersionDto; mode: Mode; links: Map<string, LinkTargetDto> };
 type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean };
 
-export type NotePageApi = { flush: () => Promise<void>; edit: (a: EditAction) => void; pending: () => boolean };
+export type NotePageApi = {
+  flush: () => Promise<void>;
+  edit: (a: EditAction) => void;
+  pending: () => boolean;
+  /** The merge dialog is open (FR-SYN-03 AC-19). */
+  mergeOpen: () => boolean;
+  /** `Keep both`, for quitting with the merge dialog open (D-176). */
+  keepBoth: () => Promise<void>;
+};
 
 function stamp(): string {
   const d = new Date(Date.now());
@@ -187,6 +195,8 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       pane.current?.run(a);
     },
     pending: () => !!saver.current?.pending || !!live.current.merge || live.current.deleted,
+    mergeOpen: () => !!live.current.merge,
+    keepBoth: () => keepBothRef.current(),
   }), [flush]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
@@ -307,6 +317,8 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     setMerge(null);
     s.resume(m.theirsVersion);
   };
+  const keepBothRef = useRef(keepBoth);
+  keepBothRef.current = keepBoth;
   const restore = async () => {
     const ed = edRef.current, s = saver.current;
     if (!ed || !s) return;

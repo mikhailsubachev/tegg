@@ -253,6 +253,8 @@ export const en: Catalog = {
   'quit.cancel': 'Cancel',
   'quit.anyway': 'Quit anyway',
   'quit.keepBoth': 'Quit and keep both versions?',
+  'quit.keepBothBody': 'Your version is saved as a conflict copy next to the note; the note keeps the version on disk.',
+  'quit.keepBothOk': 'Quit and keep both',
   'cmd.edit.undo': 'Undo',
   'cmd.edit.redo': 'Redo',
   'cmd.edit.bold': 'Bold',

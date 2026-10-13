@@ -69,6 +69,16 @@ fn ms_since_process_start() -> f64 {
 
 static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
+static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The UI's answer to `app:quit-requested`: everything is saved, or the user confirmed (D-179, D-196).
+#[tauri::command]
+fn app_quit(app: AppHandle) {
+    ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
+    app.exit(0);
+}
+
 /// Writes `{"mark", "ms"}` once per mark to `TEGG_PERF_LOG`; quits (exit code 0) after `TEGG_EXIT_AFTER`.
 fn mark(app: &AppHandle, name: &str) {
     let Some(log) = test_var("TEGG_PERF_LOG") else { return };
@@ -610,8 +620,24 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts
+            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Tegg");
+        .build(tauri::generate_context!())
+        .expect("error while building Tegg")
+        .run(|app, event| {
+            // ⌘Q, the Quit Apple Event and closing the window first let the UI flush the open note (FR-EDT-08 AC-7):
+            // the UI answers with `app_quit` when the note is saved or the user chose to quit anyway (D-196).
+            let allowed = ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst);
+            match event {
+                tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() && !allowed => {
+                    api.prevent_exit();
+                    let _ = app.emit("app:quit-requested", ());
+                }
+                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
+                    api.prevent_close();
+                    let _ = app.emit("app:quit-requested", ());
+                }
+                _ => {}
+            }
+        });
 }
