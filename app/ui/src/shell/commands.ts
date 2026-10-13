@@ -15,6 +15,8 @@ export type ShellActions = {
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
   toggleFocus: () => void;
+  toggleSource: () => void;
+  toggleProperties: () => void;
   openChooser: (form: boolean) => void;
   setTheme: (t: ThemeChoice) => void;
 };
@@ -46,7 +48,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.forward': 'nav.forward',
   'ctl.newType': 'type.new',
   'ctl.starterVault': 'vault.starter',
-  'ctl.showSource': 'note.source',
+  'ctl.edit': 'note.edit',
   'ctl.addIcon': 'note.icon',
   'ctl.addCover': 'note.cover',
   'ctl.filter': 'typePage.filter',
@@ -82,6 +84,8 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'view.toggleSidebar', title: 'cmd.toggleSidebar', section: 'view', shortcut: shortcutOf('view.toggleSidebar'), needsVault: true, run: (c) => a(c)?.toggleSidebar() },
     { id: 'view.toggleRightPanel', title: 'cmd.toggleRightPanel', section: 'view', shortcut: shortcutOf('view.toggleRightPanel'), needsVault: true, run: (c) => a(c)?.toggleRightPanel() },
     { id: 'view.toggleFocus', title: 'cmd.toggleFocus', section: 'view', shortcut: shortcutOf('view.toggleFocus'), needsVault: true, run: (c) => a(c)?.toggleFocus() },
+    { id: 'note.toggleProperties', title: 'cmd.toggleProperties', section: 'view', needsVault: true, run: (c) => a(c)?.toggleProperties() },
+    { id: 'note.toggleSource', title: 'cmd.toggleSource', section: 'view', shortcut: shortcutOf('note.toggleSource'), needsVault: true, run: (c) => a(c)?.toggleSource() },
     { id: 'vault.open', title: 'cmd.openVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(false) },
     { id: 'vault.create', title: 'cmd.createVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(true) },
     { id: 'theme.system', title: 'cmd.theme.system', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('system') },

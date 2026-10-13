@@ -350,16 +350,17 @@ test('fr_ux_02_ac12_disabled_controls_are_inert_and_explained', async ({ page })
   assert.deepEqual(failures, []);
 });
 
-test('fr_ux_02_ac14_note_page_breadcrumb_title_and_raw_text', async ({ page }) => {
+test('fr_ux_02_ac14_note_page_breadcrumb_title_and_read_view', async ({ page }) => {
   const core = await start(page);
-  const vault = shellVault();
   await openNote(page, '2026-10-07 Porada');
   const main = page.getByRole('main');
   assert.match((await main.innerText()).replace(/\s+/g, ' '), /Schůzky\s*\/\s*2026-10-07 Porada/, 'breadcrumb');
   assert.equal((await main.getByRole('heading', { level: 1 }).first().innerText()).trim(), '2026-10-07 Porada', 'title');
-  const raw = vault.files[P.porada];
-  const hasRaw = await main.evaluate((m, text) => [...m.querySelectorAll('*')].some((e) => e.textContent === text), raw);
-  assert.ok(hasRaw, 'the file text is shown unchanged');
+  // D-150: the note page shows the formatted read view (read-view.md), not the raw file.
+  const body = main.getByRole('article', { name: '2026-10-07 Porada', exact: true });
+  assert.ok(await seen(body), 'the formatted read view');
+  assert.match(await body.innerText(), /Týdenní porada, rozpočet a výlet\./, 'the body text');
+  assert.ok(!(await body.innerText()).includes('id: 01JA'), 'not the raw file');
   for (const [title, crumb] of [['Bez hlavičky', /Pages\s*\/\s*Bez hlavičky/], ['Svíčková', /recept\s*\/\s*Svíčková/]] as const) {
     await openNote(page, title);
     assert.match((await page.getByRole('main').innerText()).replace(/\s+/g, ' '), crumb, `${title} breadcrumb`);

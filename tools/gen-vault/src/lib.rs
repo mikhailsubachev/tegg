@@ -549,3 +549,51 @@ mod tests {
         assert_eq!(crc32(b"IEND"), 0xae42_6082);
     }
 }
+
+/// `--perf-note` (ms3-shell §11.5, NFR-PERF-05 AC-2): appends 50 links and 10 embeds (5 images, 5 notes) to the
+/// vault's longest note, chosen by size then path. Deterministic. Returns the note's vault path.
+pub fn add_perf_note(out: &Path) -> io::Result<String> {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, u64)>) -> io::Result<()> {
+        let mut entries: Vec<_> = fs::read_dir(dir)?.collect::<Result<_, _>>()?;
+        entries.sort_by_key(|e| e.file_name());
+        for e in entries {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') || name == "_attachments" || name == "_templates" {
+                continue;
+            }
+            if e.file_type()?.is_dir() {
+                walk(root, &e.path(), out)?;
+            } else if name.ends_with(".md") {
+                let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+                out.push((rel, e.metadata()?.len()));
+            }
+        }
+        Ok(())
+    }
+    let mut notes = Vec::new();
+    walk(out, out, &mut notes)?;
+    let (target, _) = notes.iter().max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0))).cloned().ok_or_else(|| io::Error::other("no notes"))?;
+    let stem = |p: &str| p.rsplit('/').next().unwrap().trim_end_matches(".md").to_string();
+    let others: Vec<String> = notes.iter().filter(|(p, _)| *p != target && !p.starts_with("Images/") && !p.starts_with("Tags/")).map(|(p, _)| stem(p)).collect();
+    let mut add = String::from("\n\n## Perf links\n\n");
+    for s in others.iter().take(50) {
+        add.push_str(&format!("- [[{s}]]\n"));
+    }
+    add.push_str("\n## Perf embeds\n\n");
+    let mut images: Vec<String> = fs::read_dir(out.join("_attachments")).map(|d| d.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect()).unwrap_or_default();
+    images.sort();
+    for i in images.iter().take(5) {
+        add.push_str(&format!("![[{i}]]\n\n"));
+    }
+    for s in others.iter().skip(50).take(10 - images.len().min(5)) {
+        add.push_str(&format!("![[{s}]]\n\n"));
+    }
+    let path = out.join(&target);
+    let mut text = fs::read_to_string(&path)?;
+    if !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(add.trim_start_matches('\n'));
+    fs::write(&path, text)?;
+    Ok(target)
+}

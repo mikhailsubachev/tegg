@@ -19,8 +19,24 @@ export type TabDef = { id: 'backlinks' | 'outline' | 'graph'; name: string; stat
 export type DisabledControl = { label: string; where: string; due: Due; req: string };
 export type ShortcutDef = { keys: string; command: string };
 
+/** R5 in-note placeholders (read-view.md, D-144; ms3-shell §11.3). */
+export type InNotePlaceholderDef = {
+  id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap';
+  name: string;
+  due: Due;
+  reqs: string[];
+};
 const built = { built: true } as const;
 const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, due: slice ? { milestone, slice } : { milestone } });
+
+export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
+  { id: 'embed-note', name: 'ph.embedNote', due: { milestone: 'MS4' }, reqs: ['FR-EMB-01', '-02', '-04'] },
+  { id: 'embed-image', name: 'ph.embedImage', due: { milestone: 'MS6' }, reqs: ['FR-ATT-03', 'FR-ATT-07'] },
+  { id: 'embed-pdf', name: 'ph.embedPdf', due: { milestone: 'MS6' }, reqs: ['FR-ATT-02'] },
+  { id: 'embed-other', name: 'ph.embedOther', due: { milestone: 'MS6' }, reqs: ['FR-ATT-07'] },
+  { id: 'query', name: 'ph.query', due: { milestone: 'v1.0' }, reqs: ['FR-QRY-01', 'FR-FMT-06'] },
+  { id: 'mindmap', name: 'ph.mindmap', due: { milestone: 'v1.0' }, reqs: ['FR-MMP-01', '-02', 'FR-FMT-05'] },
+];
 
 export const ROUTES: RouteDef[] = [
   { id: 'chooser', name: 'route.chooser', purpose: 'purpose.chooser', status: built, reqs: ['FR-VLT-01', 'FR-VLT-02'], design: null },
@@ -63,7 +79,7 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.forward', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03' },
   { label: 'ctl.newType', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01' },
   { label: 'ctl.starterVault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02' },
-  { label: 'ctl.showSource', where: 'note toolbar', due: d('MS3', '3B'), req: 'FR-EDT-10' },
+  { label: 'ctl.edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01' },
   { label: 'ctl.addIcon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
   { label: 'ctl.addCover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
   { label: 'ctl.filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
@@ -89,6 +105,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌃⌘S', command: 'view.toggleSidebar' },
   { keys: '⇧⌘\\', command: 'view.toggleFocus' },
   { keys: '⌘,', command: 'goto.settings/appearance' },
+  { keys: '⌥⌘U', command: 'note.toggleSource' },
   { keys: '⌘T', command: 'nav.newTab' },
   { keys: '⌘[', command: 'nav.back' },
   { keys: '⌘]', command: 'nav.forward' },
@@ -115,6 +132,9 @@ export function overdue(milestone: Milestone | string): string[] {
   }
   for (const c of DISABLED_CONTROLS) {
     if (rank(c.due.milestone) <= limit) out.push(`${String(en[c.label] ?? c.label)} (${showDue(c.due)})`);
+  }
+  for (const p of IN_NOTE_PLACEHOLDERS) {
+    if (rank(p.due.milestone) <= limit) out.push(`${p.id} (${showDue(p.due)})`);
   }
   return out;
 }

@@ -58,7 +58,7 @@ export const R3: R3Control[] = [
   { label: 'Forward', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03', route: null },
   { label: 'New type', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01', route: null },
   { label: 'Starter vault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02', route: 'chooser' },
-  { label: 'Show Markdown source', where: 'note toolbar', due: d('MS3', '3B'), req: 'FR-EDT-10', route: 'note/<path>' },
+  { label: 'Edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01', route: 'note/<path>' },
   { label: 'Add icon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
   { label: 'Add cover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
   { label: 'Filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
@@ -86,6 +86,7 @@ export const R4: R4Row[] = [
   { keys: '⌃⌘S', press: 'Control+Meta+s', command: 'Toggle sidebar', enabled: true },
   { keys: '⇧⌘\\', press: 'Meta+Shift+Backslash', command: 'Toggle focus mode', enabled: true },
   { keys: '⌘,', press: 'Meta+Comma', command: 'Go to Settings', enabled: true },
+  { keys: '⌥⌘U', press: 'Alt+Meta+KeyU', command: 'Toggle Markdown source', enabled: true },
   { keys: '⌘T', press: 'Meta+t', command: 'New tab', enabled: false },
   { keys: '⌘[', press: 'Meta+BracketLeft', command: 'Back', enabled: false },
   { keys: '⌘]', press: 'Meta+BracketRight', command: 'Forward', enabled: false },
@@ -133,3 +134,14 @@ export function expandReqs(items: string[] | string): string[] {
 export const showDue = (due: Due) => (due.slice ? `${due.milestone} (${due.slice})` : due.milestone);
 
 export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
+
+/** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
+export type R5Row = { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
+export const R5: R5Row[] = [
+  { id: 'embed-note', due: d('MS4'), reqs: 'FR-EMB-01, -02, -04' },
+  { id: 'embed-image', due: d('MS6'), reqs: 'FR-ATT-03, FR-ATT-07' },
+  { id: 'embed-pdf', due: d('MS6'), reqs: 'FR-ATT-02' },
+  { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },
+  { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
+  { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
+];

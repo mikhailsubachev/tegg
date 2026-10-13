@@ -1,13 +1,13 @@
 // The MS3 slice 3A shell (architecture §12, docs/contracts/ms3-shell.md): the frame with every designed page,
 // TBD placeholders for later phases (D-116), the command palette and shortcuts (FR-UX-03), themes (FR-UX-05),
-// the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route keeps the MS2 raw view until 3B.
+// the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
 import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
 import { renderNewNote } from './newNote';
 import { Chooser } from './pages/Chooser';
-import { NotePage, NoteToolbar, type NoteMeta } from './pages/NotePage';
+import { NotePage, type NoteMeta } from './pages/NotePage';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TypePage } from './pages/TypePage';
@@ -31,7 +31,7 @@ const MIN_CENTRE = 400; // D-136
 type Dialog = 'palette' | 'switcher' | 'newObject' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
-const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' } };
+const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true };
 
 function initialUi(): UiStateDto {
   const w = window as { __TEGG_UI_STATE__?: UiStateDto | null };
@@ -52,6 +52,7 @@ export function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
+  const [sourceToggle, setSourceToggle] = useState(0);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -146,7 +147,8 @@ export function App() {
     window.addEventListener('focusin', onFocus);
     return () => window.removeEventListener('focusin', onFocus);
   }, []);
-  const openNote = useCallback((path: string) => go({ id: 'note/<path>', param: path.normalize('NFC') }), [go]);
+  const openNote = useCallback((path: string, fragment?: string) => go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }), [go]);
+  const openTag = useCallback((key: string) => go({ id: 'search', param: `tag:${key}` }), [go]);
 
   const routeKey = route ? routeString(route) : '';
   useEffect(() => {
@@ -179,6 +181,8 @@ export function App() {
       setFocusMode((f) => !f);
       requestAnimationFrame(() => heading.current?.focus());
     },
+    toggleSource: () => { if (route?.id === 'note/<path>') setSourceToggle((n) => n + 1); },
+    toggleProperties: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     openChooser: (form: boolean) => { setDialog(null); setChooser({ form }); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
   }), [go, route?.id, updateUi]);
@@ -218,6 +222,9 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const L = live.current;
+      // WebKit goes back in history on ⌫ outside a text field, which would blank the read-only views (3B).
+      const el = e.target as HTMLElement | null;
+      if (e.key === 'Backspace' && !(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)))) e.preventDefault();
       if (e.key === 'Escape' && L.dialog && !e.defaultPrevented) {
         e.preventDefault();
         L.closeDialog();
@@ -268,7 +275,7 @@ export function App() {
       const h = heading.current;
       const ready = !!h && (route.id !== 'note/<path>' || meta !== null);
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
-      if (pendingFocus.current && !live.current.dialog) { pendingFocus.current = false; h!.focus(); }
+      if (pendingFocus.current && !live.current.dialog) { pendingFocus.current = false; h!.focus({ preventScroll: true }); }
       void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
@@ -291,11 +298,20 @@ export function App() {
       <NotePage
         key={route.param}
         path={route.param}
+        fragment={route.fragment}
         types={types}
         heading={heading}
         onMeta={setMeta}
         onType={(k) => go({ id: 'type/<type>', param: k })}
-        toolbar={!focusMode && <NoteToolbar onTogglePanel={actions.toggleRightPanel} onFocus={actions.toggleFocus} />}
+        onOpen={openNote}
+        onTag={openTag}
+        onRenamed={(p) => setRoute({ id: 'note/<path>', param: p.normalize('NFC') })}
+        toggleSource={sourceToggle}
+        focusMode={focusMode}
+        onTogglePanel={actions.toggleRightPanel}
+        onFocus={actions.toggleFocus}
+        propertiesOpen={ui.propertiesOpen}
+        onToggleProperties={actions.toggleProperties}
       />
     );
   } else if (route?.id === 'type/<type>' && route.param) {
@@ -312,7 +328,7 @@ export function App() {
       />
     );
   } else if (route?.id === 'search') {
-    body = <SearchPage refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} />;
+    body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme} />;
   } else if (def) {

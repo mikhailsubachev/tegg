@@ -176,6 +176,10 @@ export interface Doc {
   frontmatterError: { message: string; line: number } | null
 }
 
+/** The mdast tree with the dialect's extensions (wikiLink, tag, highlight, comment, math nodes), for display only
+ *  (read view, ms3-shell §11.3). Positions are offsets into `text`. Added in MS3 slice 3B. */
+export function markdownTree(text: string): import('mdast').Root
+
 export function decode(bytes: Uint8Array): string   // UTF-8, keeps a BOM as U+FEFF
 export function encode(text: string): Uint8Array
 export function parse(text: string): Doc

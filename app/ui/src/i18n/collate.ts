@@ -8,7 +8,8 @@ export function setCollationLocale(locale: string): void {
   override = locale;
 }
 
-function region(): string | null {
+/** The macOS region locale (also for date formats, D-160), or null. */
+export function region(): string | null {
   if (override) return override;
   const w = typeof window !== 'undefined' ? (window as { __TEGG_REGION__?: unknown }) : {};
   return typeof w.__TEGG_REGION__ === 'string' && w.__TEGG_REGION__ ? w.__TEGG_REGION__ : null;

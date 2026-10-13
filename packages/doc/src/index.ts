@@ -5,7 +5,7 @@ import { parse, type Doc } from './parse.js'
 import { formatEntry, setAttribute, type Value } from './edit.js'
 
 export type { Range, BlockKind, Block, FrontmatterEntry, Frontmatter, Doc } from './parse.js'
-export { decode, encode, parse } from './parse.js'
+export { decode, encode, parse, markdownTree } from './parse.js'
 export { editBlock, setAttribute, setDateRange, removeAttribute, renameLinkTarget, type Value } from './edit.js'
 export { tags, tagKey, type Tag } from './links.js'
 import { wikilinks as scanLinks } from './links.js'

@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager, State};
-use tegg_core::{AppDirs, Core, CoreError, CoreEvent, CoreOptions, DateRange, MatchField, ProgressState, SearchQuery, SwitcherKind, Vault, VaultError};
+use tegg_core::{AppDirs, Core, CoreError, CoreEvent, CoreOptions, DateRange, LinkKind, MatchField, ProgressState, SearchQuery, SwitcherKind, Vault, VaultError};
 use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
@@ -340,6 +340,62 @@ async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcE
     Ok(())
 }
 
+/// `link_resolve` (ms3-shell §11.1): all targets of one note in one call (NFR-PERF-05 AC-3).
+#[tauri::command]
+async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .resolve_links(&from, &targets)
+        .into_iter()
+        .map(|t| LinkTargetDto {
+            target: t.target,
+            kind: match t.kind {
+                LinkKind::Note => "note",
+                LinkKind::Daily => "daily",
+                LinkKind::DateMissing => "date-missing",
+                LinkKind::Unresolved => "unresolved",
+            }
+            .into(),
+            path: t.path,
+            title: t.title,
+            type_key: t.r#type,
+        })
+        .collect())
+}
+
+/// D-145: only these schemes are handed to macOS; the shell checks, not only the UI.
+fn external_allowed(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")
+}
+
+/// `open_external` (ms3-shell §11.1, D-145): the default macOS handler opens the URL; Tegg fetches nothing
+/// (NFR-SEC-01). With `TEGG_TEST=1` nothing is launched.
+#[tauri::command]
+async fn open_external(url: String) -> Result<(), IpcError> {
+    if !external_allowed(&url) {
+        return Err(err("Unsupported", "only http, https and mailto links are opened"));
+    }
+    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+        return Ok(());
+    }
+    std::process::Command::new("/usr/bin/open").arg(url.trim()).spawn().map(|_| ()).map_err(|e| err("Io", e.to_string()))
+}
+
+#[cfg(test)]
+mod external_tests {
+    use super::external_allowed;
+    #[test]
+    fn only_http_https_mailto() {
+        for u in ["https://example.com", "http://x", "MAILTO:a@b.c"] {
+            assert!(external_allowed(u), "{u}");
+        }
+        for u in ["javascript:alert(1)", "file:///etc/hosts", "data:text/html,x", "vbscript:x", "ftp://x", "/etc"] {
+            assert!(!external_allowed(u), "{u}");
+        }
+    }
+}
+
 const UI_STATE_FILE: &str = "ui-state.json";
 
 fn load_ui_state(dirs: &AppDirs) -> UiStateDto {
@@ -414,7 +470,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
-            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set
+            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
+            link_resolve, open_external
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tegg");

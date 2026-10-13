@@ -8,7 +8,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": { "@tegg/doc": ["../packages/doc/src/index.ts"] }
   },
   "include": ["test/*.ts", "webkit/*.ts", "ui/test/*.ts", "playwright.config.ts", "vitest.config.ts"],
   "exclude": ["test/bug_*.test.ts"]

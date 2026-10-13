@@ -4,7 +4,7 @@
 - **ACs:** [docs/acceptance/app-shell.md](../acceptance/app-shell.md). Its reference tables R1 (routes), R2 (right-panel tabs), R3 (disabled controls) and R4 (shortcuts) are the expected registry contents and are not repeated here. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Scope:** slice 3A "Frame and page flow" (D-115, D-116, D-120; `docs/plans/ms3-implementation-plan.md` §3, §4). The contract follows D-121…D-138.
 - **Builds on** [ms2-shell.md](ms2-shell.md) (launching, test environment, marks, IPC, generated DTOs, automation labels) and [ms2-core.md](ms2-core.md). Everything there stays valid unless this contract changes it.
-- **Later slices** add their own sections here: 3B read view, 3C `note_write` and the editor, 3D schema and type settings.
+- **Later slices** add their own sections here: 3B read view (§11), 3C `note_write` and the editor, 3D schema and type settings.
 
 Until a part is implemented it exists as a stub that compiles and returns a deliberately wrong result (an empty list, `null`, `{}` or an `Io` error), so a test fails on its assertion, never on a build or import error (TS-I1).
 
@@ -262,3 +262,134 @@ The test author had to fix these names to write the 3A tests (commit `44a4610`).
 - **Test layout:** L1 in `app/test/*.ac.test.ts` (R1–R4 data in `app/test/shell-tables.ts`), L5 in `app/webkit/`, L6 in `app/e2e/ms3_shell.ac.test.ts` (needs `npm run e2e:setup` once), L4 in `crates/tegg-core/tests/ac_shell.rs`.
 - **Recency in 3A (D-138):** `nav_opened` records opens (path and `id`, `Core::record_open`) and `vault_last` reads them (`Core::last_opened`). `Core::read_note` still records recency as in MS2, because FR-NAV-01 AC-4 uses it as the open signal; it stops when 3B adds reads that aren't opens (previews), with an owner-approved change to that AC test.
 - **Window (§1):** the shell builds the main window itself (no window in `tauri.conf.json`), so the init script runs before the UI: overlay title bar, minimum 800 × 500 pt (D-136).
+
+---
+
+## 11. Slice 3B: read view (D-140…D-151)
+
+ACs: [docs/acceptance/read-view.md](../acceptance/read-view.md) (FR-EDT-10, FR-EDT-02, FR-TYP-08, NFR-PERF-05 AC-2/AC-3, NFR-REL-03 AC-3…5, FR-SYN-03 AC-10/11, FR-SYN-06 AC-6) and its table R5. Where this section and those ACs disagree, the ACs win. Draft, 2026-10-13.
+
+### 11.1 IPC added in 3B
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `link_resolve` | `from` (vault path of the note), `targets: string[]` | `LinkTargetDto[]`, same order and length as `targets` | One call per opened note for all its body links, embeds and frontmatter relations (NFR-PERF-05 AC-3). Calls `Core::resolve_links`. Read-only, records no recency. |
+| `open_external` | `url` | — | Opens `http:`, `https:` or `mailto:` in the default macOS handler (`/usr/bin/open`; with `TEGG_TEST=1` nothing is launched). Any other scheme returns `Unsupported` and opens nothing; the shell checks the scheme itself, not only the UI (D-145). No network access by the app. |
+
+```ts
+type LinkTargetDto = {
+  target: string;          // as given (wikilink target without subpath and alias, or decoded Markdown link path)
+  kind: 'note' | 'daily' | 'date-missing' | 'unresolved';
+  path: string | null;     // vault path (NFC) for 'note' and 'daily'
+  title: string | null;    // the target's title (D-73 chip text), null unless resolved
+  type: string | null;     // the target's type key, for the type icon
+};
+```
+
+**Resolution rules** (`Core::resolve_links(from: &str, targets: &[String]) -> Vec<LinkTarget>`, dialect §6, FR-LNK-14):
+
+0. A target `YYYY-MM-DD`: `daily` with the path of `Index::daily_note(date)`, else `date-missing` (D-162).
+1. NFC, trim; strip `#…` and `|…` if the UI didn't; compare case-insensitively. A Markdown link path (`Cíl.md`, URL-decoded) is first tried relative to the folder of `from` (D-155).
+2. A vault path (with or without `.md`), then an `id`, then a file stem. Several files with the stem: the one in the folder of `from`, else the shortest path, then code-point order (dialect §6). This replaces `Index::resolve_link`'s single-stem map for this command; `resolve_link` keeps its MS2 behaviour.
+3. Never by title or alias alone (D-141). Never to `_templates/` or `.trash/` (FR-TPL-07, D-102).
+5. Attachment targets (with a non-`.md` extension) aren't sent: R5 placeholders read nothing (D-144).
+
+`note_read` is unchanged. `Core::read_note` keeps recording recency (§10): 3B has no reads that aren't opens (no previews, D-140; embeds are placeholders, D-144).
+
+Commands the fake core must implement (§5): `link_resolve` by the same rules over its in-memory files, `open_external` recording the URL (`FakeCoreHandle.externalOpened(): Promise<string[]>`) and rejecting other schemes with `Unsupported`.
+
+### 11.2 Routes, shortcut, UI state
+
+- **Search with a tag** (D-143): route `search` takes an optional parameter `tag:<key>` (`search/tag:projekt`, key from `tagKey`); the page opens with that tag filter set and an empty text query.
+- **Note subpath** (D-140): route `note/<path>` takes an optional fragment `#<heading text>` or `#^<block id>` (`note/Pages/Cíl.md#Druhá kapitola`); `parseRoute` returns it as `fragment`. The view scrolls to it after `note-ready`.
+- **Shortcut** (D-146): R4 gets `⌥⌘U` → command `note.toggleSource` (`Toggle Markdown source`, section `view`, `needsVault: true`). On a route without a note it does nothing.
+- **R3/R1 changes** as in read-view.md ("R3 and R1 changes"), made with the 3B implementation (D-150).
+- **UI state** (D-147): `UiStateDto` gets `propertiesOpen: boolean` (default `true`, a missing field reads as `true`; `version` stays 1).
+
+### 11.3 UI modules the tests use
+
+Paths under `app/ui/src/read/`. L1 tests render these with React Testing Library in the DOM environment; nothing in this folder calls IPC directly (the note page passes data and callbacks in).
+
+```ts
+// read/ReadView.tsx: the formatted body (FR-EDT-02)
+export function ReadView(props: {
+  text: string;                                 // file text from note_read
+  path: string;
+  links: Map<string, LinkTargetDto>;            // by target, from link_resolve
+  onOpen: (path: string, fragment?: string) => void;
+  onTag: (key: string) => void;
+  onExternal: (url: string) => void;
+  onScrollInNote: (fragment: string) => void;
+}): JSX.Element;
+export function linkTargets(text: string): string[];   // the targets to send to link_resolve (body + frontmatter relations, no attachments), deduplicated in first-seen order
+
+// read/SourceView.tsx (FR-EDT-10)
+export function SourceView(props: { text: string; warning?: FrontmatterWarning }): JSX.Element;
+
+// read/properties.ts (FR-TYP-08, D-147)
+export type AttrRow = {
+  key: string;                                  // 'tags', 'stav', 'cesta' (a date range shows once)
+  label: string;                                // catalog text for reserved keys, else the key
+  value:
+    | { kind: 'text' | 'number'; text: string }
+    | { kind: 'checkbox'; checked: boolean }
+    | { kind: 'date'; date: string } | { kind: 'datetime'; datetime: string }
+    | { kind: 'range'; start: string; end: string }
+    | { kind: 'tags'; tags: string[] } | { kind: 'links'; targets: string[] }
+    | { kind: 'list'; items: string[] } | { kind: 'review'; value: string }
+    | { kind: 'yaml'; source: string };
+};
+export function attributeRows(doc: Doc): { subtitle: string | null; rows: AttrRow[] };   // order and hiding of D-147
+
+// read/PropertiesStrip.tsx (D-154; not `Properties.tsx`, which collides with `properties.ts` on a case-insensitive disk): subtitle + Properties strip, placed between the title and ReadView
+export function Properties(props: { text: string; links: Map<string, LinkTargetDto>; open: boolean; onToggle: () => void; onOpen: (path: string) => void; onTag: (key: string) => void }): JSX.Element | null;
+
+// read/warning.ts (NFR-REL-03)
+export type FrontmatterWarning = { kind: 'invalidYaml' | 'notClosed'; line: number };
+export function frontmatterWarning(doc: Doc): FrontmatterWarning | null;
+
+// read/callout.ts (FR-EDT-02 AC-3)
+export const CALLOUT_TYPES: readonly string[];  // the 13 Obsidian types
+export function calloutType(raw: string /* first line: '> [!type]± Title' (D-157) */): { type: string; label: string; fold: '+' | '-' | null; title: string | null };   // aliases mapped, unknown → 'note' with the raw label
+```
+
+- **Rendering** goes through `@tegg/doc` `parse` for frontmatter and `markdownTree(body)` (new export, the mdast `parse` builds on, ms1-core §4) (unified/remark with the wikilink, embed, tag, callout, highlight, comment and math plugins of the dialect). It never uses `dangerouslySetInnerHTML` or a raw-HTML plugin: HTML and math nodes become text (D-145). A static rule (L0) fails on `dangerouslySetInnerHTML` and `rehype-raw` in `app/ui/src/**`.
+- **Registry** (`shell/registry.ts`): adds `IN_NOTE_PLACEHOLDERS: { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; name: string; due: Due; reqs: string[] }[]` equal to R5; `overdue()` includes them (FR-UX-02 AC-13, D-144). `read/InNotePlaceholder.tsx` renders one.
+- **Data attributes** for tests: link chips `data-link-kind="note|daily|date-missing|unresolved|external"`; tag chips `data-tag="<key>"`; placeholders `data-placeholder="<id>"`; callouts `data-callout="<type>"`; source lines `data-line="<n>"`.
+
+### 11.4 Accessibility labels (added to §3.7)
+
+| Element | Role | Accessible name |
+| --- | --- | --- |
+| Note body | `article` | note title |
+| Source toggle | `button` with `aria-pressed` | `Show Markdown source` / `Show formatted note` |
+| Source view | `region` | `Markdown source` |
+| Line number gutter | presentation, `aria-hidden` | — |
+| Frontmatter warning | `alert` | catalog message with kind and line |
+| Properties strip | `region` | `Properties`; its header `button` `Properties` with `aria-expanded` |
+| Subtitle (description) | paragraph, `data-user-content` | — |
+| Link chip | `link` | display text; unresolved: description `No note named <target>` |
+| Date link without a note | `link`, `aria-disabled` | display text; description `Coming in MS4` |
+| Tag chip | `link` | `#<name>` as written |
+| External link | `link` | link text; description `Opens in your browser` |
+| Callout | `note` | the title or type label; fold toggle `button` with `aria-expanded`, named `Expand <title>` / `Collapse <title>` (D-159) |
+| Checklist item checkbox | `checkbox`, `aria-readonly="true"` | item text |
+| In-note placeholder | `region` | catalog name of the R5 row |
+| Edit (disabled, until 3C) | `button`, `aria-disabled` | `Edit` |
+| Deleted-note message | `status` | `This note was moved or deleted` |
+
+### 11.5 Marks and the performance benchmark (NFR-PERF-05 AC-2, D-148)
+
+- `switcher-enter`: written when ⏎ on a switcher result starts a note navigation.
+- `note-ready`: written when a note route has painted its formatted view (or source view), all links are resolved, and the title has the focus. Like every mark, at most once per process (ms2-shell §1).
+- Gate (D-152): the benchmark runs in its own `qa.config` step; it enforces 112 ms only with `TEGG_PERF_REF=1`, else it reports the p95 and passes.
+- Benchmark: `app/e2e/perf_open_note.ts` launches the release test build on the reference vault with `TEGG_PERF_LOG` and `TEGG_EXIT_AFTER=note-ready`, opens the switcher, types the target's title, presses ⏎, and records `note-ready − switcher-enter`; 20 launches, p95 < 112 ms. Target note: the generated vault's longest note, with 10 embeds and 50 links added by `tools/gen-vault --perf-note` (a new flag; the seed-1 vault is otherwise unchanged).
+
+### 11.6 Test layout
+
+- L1: `app/test/read_view.ac.test.ts`, `app/test/properties.ac.test.ts`, `app/test/source_view.ac.test.ts`, R5 in `app/test/in_note_placeholders.ac.test.ts` (D-153; `app/test/shell-tables.ts` gets R5).
+- L0: `app/test/static_html.ac.test.ts` (no `dangerouslySetInnerHTML`, no `rehype-raw`).
+- L4: `crates/tegg-core/tests/ac_read_view.rs` (`resolve_links` on the fixture, external rename and delete events).
+- L5: `app/webkit/read_view.ac.test.ts`; the network check of FR-EDT-02 AC-10 uses Playwright's `page.on('request')` and fails on any non-local host.
+- L6: `app/e2e/ms3_read.ac.test.ts` (no-write tour, invalid frontmatter files, relaunch cases) and the benchmark of §11.5.
+- Fixture: `tests/fixtures/vaults/read-view/` plus `new-empty/.tegg/` (read-view.md).

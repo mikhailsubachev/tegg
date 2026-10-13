@@ -26,7 +26,7 @@ export function TitleBar({ name, icon, progress, onToggleSidebar }: {
         <Disabled control="ctl.back" ariaLabel={t('ctl.back')} className="icon-button"><Icon name="back" /></Disabled>
         <Disabled control="ctl.forward" ariaLabel={t('ctl.forward')} className="icon-button"><Icon name="forward" /></Disabled>
       </div>
-      <div className="tabs" role="tablist" aria-label={t('frame.tabs')}>
+      <div className="tabs" role="tablist" aria-label={t('frame.tabs')} data-tauri-drag-region>
         <span className="tab" role="tab" aria-selected="true" tabIndex={0} data-command="tab.current">
           <Icon name={icon} />
           <span className="tab-name">{name}</span>
