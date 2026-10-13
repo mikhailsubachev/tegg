@@ -109,7 +109,10 @@ test('fr_ux_03_ac13_editor_commands_registered_with_r8_shortcuts', async () => {
   assert.deepEqual(enabled.filter((k, i) => enabled.indexOf(k) !== i), [], 'two enabled commands share a shortcut');
   for (const [keys] of R8) {
     assert.ok(!RESERVED.includes(keys), `${keys} is reserved by macOS`);
-    assert.ok(!R4.some((r) => r.keys === keys), `${keys} collides with R4`);
+    // R4 now holds the rows of R8 (editor.md): no R8 key may be bound to a non-editor command.
+    const bound = (reg.SHORTCUTS as { keys: string; command: string }[]).filter((x) => x.keys === keys);
+    assert.ok(bound.every((x) => x.command.startsWith('edit.')), `${keys} collides with an R4 command`);
+    void R4;
   }
   const shortcuts = (reg.SHORTCUTS as { keys: string }[]).map((s) => s.keys);
   for (const [keys] of R8) assert.ok(shortcuts.includes(keys), `SHORTCUTS lists ${keys} (R4 gets the rows of R8)`);

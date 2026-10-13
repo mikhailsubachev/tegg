@@ -156,7 +156,7 @@ test('fr_edt_01_ac6_block_menu_items_duplicate_delete_turn_into', async ({ page 
   t = await savedText(page, core, E.deset);
   const d = diffSpan(noModified(orig), noModified(t))!;
   assert.equal(t.includes('## Pátý blok, který test upraví.'), true, 'block 5 becomes a heading 2');
-  const start5 = orig.indexOf(b5);
+  const start5 = noModified(orig).indexOf(b5); // on the same masked text the diff is computed on
   assert.ok(d.start >= start5 && d.endA <= start5 + b5.length, 'only block 5\'s range changes');
 });
 
@@ -399,7 +399,7 @@ test('fr_edt_02_ac19_callout_type_submenu', async ({ page }) => {
   }
   await page.getByRole('menuitem', { name: /warning/i }).first().click();
   const t = await savedText(page, core, E.deset);
-  assert.equal(noModified(t), noModified(orig).replace('> [!tip] Tip', '> [!warning] Tip'), 'only [!tip] → [!warning]');
+  assert.equal(noModified(t), noModified(orig).replace('> [!tip]+ Tip', '> [!warning]+ Tip'), 'only [!tip] → [!warning], fold marker kept (D-206)');
 });
 
 test('fr_edt_02_ac20_table_cell_pipe_and_actions', async ({ page }) => {
@@ -455,10 +455,12 @@ test('fr_edt_03_ac1_slash_opens_only_where_it_should', async ({ page }) => {
   const opts = (await menu.getByRole('option').allInnerTexts()).map((s) => s.split('\n')[0].trim());
   assert.deepEqual(opts.slice(0, 4), ['Task', 'Turn into object…', 'Embed object', 'Text'], 'R6 order');
   await page.keyboard.press('Escape');
-  for (const [n, after] of [[5, 'Pátý'], [7, 'const'], [10, 'Odkaz na [[C']] as const) {
+  for (const [n, after] of [[5, 'Pátý'], [7, 'const'], [10, 'Odkaz na ']] as const) {
     await caretIn(page, n, after);
+    if (n === 10) { await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); } // past the [[Cíl]] chip (selected, then after it)
     await page.keyboard.type('/');
     assert.ok(await absent(slashMenu(page), 500), `no slash menu after "${after}" in block ${n}`);
+    await page.keyboard.press('Backspace');
   }
 });
 
@@ -529,7 +531,7 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);
-    await o.click();
+    await o.dispatchEvent('click'); // Playwright refuses to click an aria-disabled element; the user still can
     assert.ok(await seen(slashMenu(page), 300), `${name}: menu stays open`);
   }
   await sleep(300);

@@ -55,7 +55,7 @@ test('fr_syn_03_ac12_reload_when_clean_keeps_caret_and_scroll', async ({ page })
 test('fr_syn_03_ac12_deleted_caret_block_moves_to_end_of_previous', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await caretIn(page, 9, 'Tip');
-  await core.setFile(E.deset, original(E.deset).replace('> [!tip] Tip\n> Obsah tipu.\n\n', ''));
+  await core.setFile(E.deset, original(E.deset).replace('> [!tip]+ Tip\n> Obsah tipu.\n\n', ''));
   await eventually(async () => (await editorBody(page).first().innerText()).includes('Obsah tipu'), (v) => !v, 2000);
   const pos = await caretPos(page);
   const b8len = await block(page, 8).evaluate((el) => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let last: Node | null = null; for (let n = w.nextNode(); n; n = w.nextNode()) last = n; const s = window.getSelection(); return { atEnd: !!s && s.anchorNode === last && s.anchorOffset === (last as Text | null)?.data.length }; });

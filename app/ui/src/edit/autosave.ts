@@ -35,6 +35,8 @@ export class Saver {
       gone: () => void;
       written: (text: string, v: VersionDto) => void;
     },
+    /** True while a typed command is still open (the slash menu's `/query`): not saved until it closes. */
+    private paused: () => boolean = () => false,
   ) {}
 
   private set(s: SaveState, f: Failure = null) {
@@ -88,8 +90,9 @@ export class Saver {
 
   private async writeOnce(): Promise<void> {
     if (this.blocked || this.disposed) return;
-    // A composition (dead keys, IME) isn't text yet: wait until it ends (FR-EDT-08 AC-12).
-    if (this.ed.view.composing) {
+    // A composition (dead keys, IME) isn't text yet: wait until it ends (FR-EDT-08 AC-12). The same for an open
+    // slash menu, whose `/query` is a command being typed (FR-EDT-03 AC-5).
+    if (this.ed.view.composing || this.paused()) {
       this.timer = setTimeout(() => { this.timer = null; void this.run(); }, 150);
       return;
     }

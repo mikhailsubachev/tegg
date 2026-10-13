@@ -43,7 +43,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string) {
 }
 
 /** What the page shows: the editor, or a read-only view with the reason (R9 "Read-only"). */
-type Mode = 'edit' | 'invalidFrontmatter' | 'utf8' | 'editorFailed';
+type Mode = 'edit' | 'invalidFrontmatter' | 'utf8' | 'editorFailed' | 'readView';
 type Loaded = { text: string; version: VersionDto; mode: Mode; links: Map<string, LinkTargetDto> };
 type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean };
 
@@ -102,7 +102,9 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     try {
       const n = await ipc.noteRead(path);
       const doc = parse(n.text.replace(/^﻿/, ''));
-      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : 'edit';
+      // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
+      const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
+      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView ? 'readView' : 'edit';
       // The read-only views resolve their links here; the editor resolves its own chips.
       let links = new Map<string, LinkTargetDto>();
       if (mode !== 'edit') {
@@ -149,7 +151,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const firstPath = useRef(path);
   useEffect(() => {
     if (saver.current) saver.current.path = path;
-    if (path !== firstPath.current && !live.current.loaded) void load();
+    if (path !== firstPath.current && (!live.current.loaded || live.current.loaded.mode !== 'edit')) void load();
   }, [path]);
 
   // ------------------------------------------------------------------ the editor and autosave
@@ -166,7 +168,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         savedTitle.current = noteMeta(live.current.path, text).title;
         void ipc.perfMark('note-saved').catch(() => {});
       },
-    });
+    }, () => !!pane.current?.slashOpen());
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
   }, [path]);
@@ -417,7 +419,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
           <a href="#" tabIndex={0} data-command={`goto.type:${meta.type}`} onClick={(e) => { e.preventDefault(); onType(meta.type); }}>
             <span data-user-content>{plural}</span>
           </a>
-          {folder && folder !== plural && (
+          {folder && types.some((x) => x.key === meta.type && x.folder !== folder) && (
             <>
               <span className="sep" aria-hidden="true">/</span>
               <span data-user-content>{folder}</span>

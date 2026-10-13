@@ -617,3 +617,10 @@ export function applyOperation(ed: TeggEditor, op: string, block: number): boole
 - **D-211 Editor test assumptions.** `readonlyBlocks()` returns @tegg/doc block indices; editor top-level nodes map 1:1 to body blocks; title is outside the editor document; L1 `faults` read from `globalThis` (AP-155).
 - **D-212 Typing perf note in L5.** L5 uses a synthetic 5,000-word Czech note; the reference-vault note is used in L6 (AP-156).
 - **D-213 Quit dialogs.** Quit and window-close dialogs are tested in L6 only (AP-157).
+
+### 13.11 Decisions while building 3C (accepted 2026-10-13: AP-158…AP-160 → D-214…D-216)
+
+- **D-214 Editor package and the DOM.** AR-03 AC-2's DOM clause applies to the platform-neutral packages (`packages/doc`); `packages/editor` is a UI package and may use the DOM; it still never imports `@tauri-apps/*` or `app/` (AP-158).
+- **D-215 3B tests after 3C.** The 3B read-view WebKit tests run against the read view through the test-only switch `window.__TEGG_TEST__.readView` (the read view ships as the fallback, D-117); the editor's matching look is FR-EDT-02 AC-16; 3B-only assertions (the disabled Edit control) are retired (AP-159).
+- **D-216 `read_note_info`.** D-198 amended: `Core::read_note` keeps its tuple; `Core::read_note_info` returns `NoteRead { bytes, version, utf8 }` (AP-160).
+- Test hook (D-215): `window.__TEGG_TEST__.readView = true` before a note opens shows it in the read view (read-only, `Save state` `Read-only`, no alert).

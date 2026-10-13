@@ -18,7 +18,7 @@ export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow';
 
-export type EditorPaneApi = { ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void };
+export type EditorPaneApi = { ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean };
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -364,7 +364,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {

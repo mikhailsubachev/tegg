@@ -32,7 +32,7 @@ export const R1: R1Row[] = [
   { id: 'graph', page: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: 'Go to Graph' },
   { id: 'trash', page: 'Trash', built: false, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' },
   { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
-  { id: 'conflicts', page: 'Conflicts', built: false, due: d('MS3', '3C'), reqs: 'FR-SYN-04, FR-SYN-05', design: null, goto: 'Go to Conflicts' },
+  { id: 'conflicts', page: 'Conflicts', built: true, due: d('MS3', '3C'), reqs: 'FR-SYN-04, FR-SYN-05', design: null, goto: 'Go to Conflicts' }, // built in 3C (editor.md R1)
   { id: 'capture', page: 'Quick capture', built: false, due: d('MS5'), reqs: 'FR-CAP-01…05', design: 'Home', goto: 'Go to Quick capture' },
   { id: 'settings/appearance', page: 'Settings: Appearance', built: true, due: d('MS3'), reqs: 'FR-SET-02', design: null, goto: 'Go to Settings: Appearance' },
   { id: 'settings/date-time', page: 'Settings: Date & time', built: false, due: d('MS3', '3E'), reqs: 'FR-SET-03', design: null, goto: 'Go to Settings: Date & time' },
@@ -56,7 +56,9 @@ export const R3: R3Control[] = [
   { label: 'New tab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06', route: null },
   { label: 'New type', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01', route: null },
   { label: 'Starter vault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02', route: 'chooser' },
-  { label: 'Edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01', route: 'note/<path>' },
+  // 3C (editor.md R3): `Edit` removed (the body is the editor); two controls added.
+  { label: 'Turn into object', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01', route: null },
+  { label: 'Copy link to block', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06', route: null },
   { label: 'Add icon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
   { label: 'Add cover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14', route: 'note/<path>' },
   { label: 'Filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
@@ -89,6 +91,22 @@ export const R4: R4Row[] = [
   { keys: '⌘T', press: 'Meta+t', command: 'New tab', enabled: false },
   { keys: '⌘[', press: 'Meta+BracketLeft', command: 'Go back', enabled: true },
   { keys: '⌘]', press: 'Meta+BracketRight', command: 'Go forward', enabled: true },
+  // 3C (editor.md R4 gets the rows of R8).
+  { keys: '⌘Z', press: 'Meta+z', command: 'Undo', enabled: true },
+  { keys: '⇧⌘Z', press: 'Meta+Shift+z', command: 'Redo', enabled: true },
+  { keys: '⌘B', press: 'Meta+b', command: 'Bold', enabled: true },
+  { keys: '⌘I', press: 'Meta+i', command: 'Italic', enabled: true },
+  { keys: '⇧⌘S', press: 'Meta+Shift+s', command: 'Strikethrough', enabled: true },
+  { keys: '⌘E', press: 'Meta+e', command: 'Inline code', enabled: true },
+  { keys: '⇧⌘H', press: 'Meta+Shift+h', command: 'Highlight', enabled: true },
+  { keys: '⇧⌘K', press: 'Meta+Shift+k', command: 'Insert link', enabled: true },
+  { keys: '⇧⌘↑', press: 'Meta+Shift+ArrowUp', command: 'Move block up', enabled: true },
+  { keys: '⇧⌘↓', press: 'Meta+Shift+ArrowDown', command: 'Move block down', enabled: true },
+  { keys: '⌘/', press: 'Meta+Slash', command: 'Open block menu', enabled: true },
+  { keys: 'Esc', press: 'Escape', command: 'Select block', enabled: true },
+  { keys: '⌘↩', press: 'Meta+Enter', command: 'Open link or toggle checklist item', enabled: true },
+  { keys: '⇧⌘V', press: 'Meta+Shift+v', command: 'Paste as plain text', enabled: true },
+  { keys: '⌘S', press: 'Meta+s', command: 'Save now', enabled: true },
 ];
 
 /** Shortcuts macOS reserves (FR-UX-03 AC-7). */

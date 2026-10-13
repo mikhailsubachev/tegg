@@ -58,7 +58,8 @@ export function idOf(text: string): string | null {
 
 // ------------------------------------------------------------------------------------------------ locators
 
-export const editorBody = (page: Page) => page.getByRole('textbox', { name: 'Note body', exact: true });
+// The pseudo-locale wraps the name in ⟦ ⟧ (nfr_oth_02_ac6 tests), so the name also matches when wrapped.
+export const editorBody = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
 export const titleField = (page: Page) => page.getByRole('textbox', { name: 'Title', exact: true });
 export const saveState = (page: Page) => page.getByRole('status', { name: 'Save state', exact: true });
 export const slashMenu = (page: Page) => page.getByRole('listbox', { name: 'Insert block', exact: true });

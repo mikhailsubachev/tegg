@@ -103,9 +103,9 @@ test('fr_fmt_07_ac11_property_random_command_sequences', async () => {
             else if (op === 'bold' || op === 'italic') {
               const t = ed.view.state.doc.child(k).textContent as string;
               if (t.length > 1) { try { selectText(ed, k, t.slice(0, 2)); ed.commands.toggleMark(op); } catch { /* not a text block */ } }
-            } else if (op === 'link') { caret(ed, k); ed.commands.insertLink({ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: 'Pages/X.md', stemResolves: true }); }
-            else if (op === 'tag') { caret(ed, k); ed.commands.insertTag('projekt'); }
-            else if (op === 'pasteBlock') { caret(ed, k); const blocks = await blocksRaw(text); ed.commands.pasteText(blocks[b % Math.max(blocks.length, 1)] ?? 'Ž'); }
+            } else if (op === 'link') { try { caret(ed, k); } catch { continue; /* no text position (divider) */ } ed.commands.insertLink({ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: 'Pages/X.md', stemResolves: true }); }
+            else if (op === 'tag') { try { caret(ed, k); } catch { continue; } ed.commands.insertTag('projekt'); }
+            else if (op === 'pasteBlock') { try { caret(ed, k); } catch { continue; } const blocks = await blocksRaw(text); ed.commands.pasteText(blocks[b % Math.max(blocks.length, 1)] ?? 'Ž'); }
             else m.applyOperation(ed, op, k);
             applied++;
             // Indices shift after structural edits, so the property is: (a) the save reads back to the same editor

@@ -40,7 +40,8 @@ test('ar_03_ac2_packages_do_not_import_tauri_app_or_dom_only_apis', () => {
       if (/(^|\/)app\//.test(spec) || spec.includes('src-tauri')) problems.push(`${rel}: imports ${spec}`)
       if (spec.includes('spikes/')) problems.push(`${rel}: imports ${spec}`)
     }
-    if (/\b(window|document)\s*\.|\blocalStorage\b|\bsessionStorage\b|\bHTMLElement\b/.test(text)) {
+    // D-214: packages/editor is a UI package (TipTap needs the DOM); the DOM clause covers the platform-neutral ones.
+    if (!rel.startsWith('packages/editor/') && /\b(window|document)\s*\.|\blocalStorage\b|\bsessionStorage\b|\bHTMLElement\b/.test(text)) {
       problems.push(`${rel}: uses a DOM-only API`)
     }
   }
