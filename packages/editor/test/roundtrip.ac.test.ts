@@ -103,7 +103,7 @@ test('fr_fmt_07_ac11_property_random_command_sequences', async () => {
             else if (op === 'bold' || op === 'italic') {
               const t = ed.view.state.doc.child(k).textContent as string;
               if (t.length > 1) { try { selectText(ed, k, t.slice(0, 2)); ed.commands.toggleMark(op); } catch { /* not a text block */ } }
-            } else if (op === 'link') { caret(ed, k); ed.commands.insertLink({ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: 'Pages/X.md', stemUnique: true }); }
+            } else if (op === 'link') { caret(ed, k); ed.commands.insertLink({ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: 'Pages/X.md', stemResolves: true }); }
             else if (op === 'tag') { caret(ed, k); ed.commands.insertTag('projekt'); }
             else if (op === 'pasteBlock') { caret(ed, k); const blocks = await blocksRaw(text); ed.commands.pasteText(blocks[b % Math.max(blocks.length, 1)] ?? 'Ž'); }
             else m.applyOperation(ed, op, k);

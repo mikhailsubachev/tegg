@@ -10,13 +10,13 @@ const FROM = 'Pages/Deset bloků.md';
 test('fr_edt_06_ac3_link_text_for_each_chosen_object', async () => {
   const { linkText } = await editorModule();
   const cases: [Parameters<typeof linkText>[0], string, string][] = [
-    [{ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: FROM, stemUnique: true }, 'Cíl', '(a) Cíl'],
-    [{ path: 'Pages/Cíl.md', title: 'Cíl', viaAlias: 'Reading list', fromPath: FROM, stemUnique: true }, 'Cíl|Reading list', '(b) alias'],
-    [{ path: 'Pages/C tips.md', title: 'C# tips', fromPath: FROM, stemUnique: true }, 'C tips|C# tips', '(c) title ≠ stem'],
-    [{ path: 'Pages/Senior Product Manager (2).md', title: 'Senior Product Manager', fromPath: FROM, stemUnique: true }, 'Senior Product Manager (2)|Senior Product Manager', '(d) SPM 2'],
-    [{ path: 'Pages/Dvojník.md', title: 'Dvojník', fromPath: FROM, stemUnique: false }, 'Dvojník', '(e) same-folder Dvojník'],
-    [{ path: 'Quick Notes/Dvojník.md', title: 'Dvojník', fromPath: FROM, stemUnique: false }, 'Quick Notes/Dvojník|Dvojník', '(e) other-folder Dvojník'],
-    [{ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: FROM, stemUnique: true }, 'Cíl', 'NFD file name → NFC target'],
+    [{ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: FROM, stemResolves: true }, 'Cíl', '(a) Cíl'],
+    [{ path: 'Pages/Cíl.md', title: 'Cíl', viaAlias: 'Reading list', fromPath: FROM, stemResolves: true }, 'Cíl|Reading list', '(b) alias'],
+    [{ path: 'Pages/C tips.md', title: 'C# tips', fromPath: FROM, stemResolves: true }, 'C tips|C# tips', '(c) title ≠ stem'],
+    [{ path: 'Pages/Senior Product Manager (2).md', title: 'Senior Product Manager', fromPath: FROM, stemResolves: true }, 'Senior Product Manager (2)|Senior Product Manager', '(d) SPM 2'],
+    [{ path: 'Pages/Dvojník.md', title: 'Dvojník', fromPath: FROM, stemResolves: true }, 'Dvojník', '(e) same-folder Dvojník'],
+    [{ path: 'Quick Notes/Dvojník.md', title: 'Dvojník', fromPath: FROM, stemResolves: false }, 'Quick Notes/Dvojník|Dvojník', '(e) other-folder Dvojník'],
+    [{ path: 'Pages/Cíl.md', title: 'Cíl', fromPath: FROM, stemResolves: true }, 'Cíl', 'NFD file name → NFC target'],
   ];
   for (const [c, want, what] of cases) {
     const got = linkText(c);

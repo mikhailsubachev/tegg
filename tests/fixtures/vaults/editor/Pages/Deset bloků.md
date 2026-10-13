@@ -33,7 +33,7 @@ const x = 1;
 | :--- | ---: |
 | a \| b | 1 |
 
-> [!tip] Tip
+> [!tip]+ Tip
 > Obsah tipu.
 
 Odkaz na [[Cíl]] a štítek #projekt.

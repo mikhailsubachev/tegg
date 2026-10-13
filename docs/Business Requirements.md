@@ -49,6 +49,7 @@
 | v1.31   | 2026-10-13 | 3B.1 red-test decisions D-166…D-172 (AP-110…AP-116). |
 | v1.32   | 2026-10-13 | MS3 slice 3C AC decisions D-173…D-193 (AP-117…AP-137, `docs/acceptance/editor.md`): editor, autosave, merge dialog, Conflicts view. |
 | v1.33   | 2026-10-13 | MS3 slice 3C contract decisions D-194…D-197 (AP-138…AP-141, `docs/contracts/ms3-shell.md` §13). |
+| v1.34   | 2026-10-13 | MS3 slice 3C red-test decisions D-198…D-213 (AP-142…AP-157). |
 
 ---
 
@@ -289,6 +290,22 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-195 | Trash from the Conflicts view | `note_trash(path, base)` with a version check, used only by the Conflicts view until MS6 (AP-139) |
 | D-196 | Quit flush limit | The shell waits up to 2 s for the flush, then shows `Quit without saving?` (AP-140) |
 | D-197 | `note-saved` mark | Stays once per process; L6 waits on file content for later saves (AP-141) |
+| D-198 | Core signatures for 3C | `Core::read_note` → `NoteRead { bytes, version, utf8 }`; `Core::tags() -> Vec<TagInfo>`; `Core::create_exact(path, bytes) -> Result<FileVersion>`; `Core::trash_note(path, base) -> Result<String>` (AP-142) |
+| D-199 | Latency probe | `createLatencyProbe({ nextFrame, log }) → { keydown(), painted() }` in @tegg/editor; L5 switch `window.__TEGG_TEST__.latencyProbe`; reports `perf_mark {mark:'key',frame,ms}` (AP-143) |
+| D-200 | Already-green L4 checks | Added as regression tests in the build commit (AP-144) |
+| D-201 | `stemResolves` | `LinkChoice.stemUnique` is renamed `stemResolves`: the stem resolves to that file from `fromPath` (AP-145) |
+| D-202 | Conflict error shape | `note_write` Conflict error is `{kind:'Conflict', message, path, mine, theirs, theirsVersion}` (AP-146) |
+| D-203 | Switcher created date | `SwitcherItemDto` gains `created: string \| null` (AP-147) |
+| D-204 | Clipboard in L5 | L5 dispatches synthetic clipboard events; ⇧⌘V = keys then a paste event (AP-148) |
+| D-205 | Unsaved-content equality | FR-SYN-03 AC-16 compares disk with the editor's `text()` (AP-149) |
+| D-206 | Foldable fixture callout | Deset bloků's callout becomes `[!tip]+` (AP-150) |
+| D-207 | NFC/NFD pair in the fake | Fake core stays NFC; FR-SYN-04 AC-12 keep results are checked in L6/L4 only (AP-151) |
+| D-208 | `index-idle` mark | A repeatable `index-idle` perf mark under `TEGG_PERF_LOG` when the index queue drains (AP-152) |
+| D-209 | ⌘↩ title | `Open link or toggle checklist item` (AP-153) |
+| D-210 | Command context route | `commands(ctx)` gets `ctx.route: { id, path? }` (AP-154) |
+| D-211 | Editor test assumptions | `readonlyBlocks()` returns @tegg/doc block indices; editor top-level nodes map 1:1 to body blocks; title is outside the editor document; L1 `faults` read from `globalThis` (AP-155) |
+| D-212 | Typing perf note in L5 | L5 uses a synthetic 5,000-word Czech note; the reference-vault note is used in L6 (AP-156) |
+| D-213 | Quit dialogs | Quit and window-close dialogs are tested in L6 only (AP-157) |
 
 ---
 

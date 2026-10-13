@@ -9,7 +9,7 @@ import { join, relative, resolve } from 'node:path';
 export const REPO = resolve(import.meta.dirname, '../../..');
 export const NOW = '2026-10-13T14:00:00+02:00';
 
-export type LinkChoice = { path: string; title: string; viaAlias?: string; fromPath: string; stemUnique: boolean };
+export type LinkChoice = { path: string; title: string; viaAlias?: string; fromPath: string; stemResolves: boolean };
 export type Due = { milestone: string; slice?: string };
 export interface PMView {
   state: any;

@@ -511,7 +511,7 @@ export interface TeggEditor {
   };
   destroy(): void;
 }
-export type LinkChoice = { path: string; title: string; viaAlias?: string; fromPath: string; stemUnique: boolean };
+export type LinkChoice = { path: string; title: string; viaAlias?: string; fromPath: string; stemResolves: boolean };
 export function createEditor(opts: EditorOptions): TeggEditor;
 /** D-184: the wikilink text to insert for a chosen object. */
 export function linkText(c: LinkChoice): string;   // 'Cíl', 'Cíl|Reading list', 'Quick Notes/Dvojník|Dvojník'
@@ -598,3 +598,22 @@ export function applyOperation(ed: TeggEditor, op: string, block: number): boole
 | AP-140 | **Flushing on quit has no time limit.** FR-EDT-08 AC-3 requires the flush; a hung write would block quitting forever. | The shell waits up to 2 s for the page's flush; on timeout or failure it shows the D-179 `Quit without saving?` dialog. |
 | AP-141 | **`note-saved` can only be a once-per-process mark** (ms2-shell §1 rule), so L6 can't wait on later saves with it. | Keep the once-only rule; L6 waits on file content for later saves (as written in §13.4). Alternative: allow repeatable marks with a counter suffix. |
 
+
+### 13.10 Clarifications from the red tests (accepted 2026-10-13: AP-142…AP-157 → D-198…D-213)
+
+- **D-198 Core signatures for 3C.** `Core::read_note` → `NoteRead { bytes, version, utf8 }`; `Core::tags() -> Vec<TagInfo>`; `Core::create_exact(path, bytes) -> Result<FileVersion>`; `Core::trash_note(path, base) -> Result<String>` (AP-142).
+- **D-199 Latency probe.** `createLatencyProbe({ nextFrame, log }) → { keydown(), painted() }` in @tegg/editor; L5 switch `window.__TEGG_TEST__.latencyProbe`; reports `perf_mark {mark:'key',frame,ms}` (AP-143).
+- **D-200 Already-green L4 checks.** Added as regression tests in the build commit (AP-144).
+- **D-201 `stemResolves`.** `LinkChoice.stemResolves` is renamed `stemResolves`: the stem resolves to that file from `fromPath` (AP-145).
+- **D-202 Conflict error shape.** `note_write` Conflict error is `{kind:'Conflict', message, path, mine, theirs, theirsVersion}` (AP-146).
+- **D-203 Switcher created date.** `SwitcherItemDto` gains `created: string \| null` (AP-147).
+- **D-204 Clipboard in L5.** L5 dispatches synthetic clipboard events; ⇧⌘V = keys then a paste event (AP-148).
+- **D-205 Unsaved-content equality.** FR-SYN-03 AC-16 compares disk with the editor's `text()` (AP-149).
+- **D-206 Foldable fixture callout.** Deset bloků's callout becomes `[!tip]+` (AP-150).
+- **D-207 NFC/NFD pair in the fake.** Fake core stays NFC; FR-SYN-04 AC-12 keep results are checked in L6/L4 only (AP-151).
+- **D-208 `index-idle` mark.** A repeatable `index-idle` perf mark under `TEGG_PERF_LOG` when the index queue drains (AP-152).
+- **D-209 ⌘↩ title.** `Open link or toggle checklist item` (AP-153).
+- **D-210 Command context route.** `commands(ctx)` gets `ctx.route: { id, path? }` (AP-154).
+- **D-211 Editor test assumptions.** `readonlyBlocks()` returns @tegg/doc block indices; editor top-level nodes map 1:1 to body blocks; title is outside the editor document; L1 `faults` read from `globalThis` (AP-155).
+- **D-212 Typing perf note in L5.** L5 uses a synthetic 5,000-word Czech note; the reference-vault note is used in L6 (AP-156).
+- **D-213 Quit dialogs.** Quit and window-close dialogs are tested in L6 only (AP-157).
