@@ -81,7 +81,6 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | Control (accessibility label) | Where | Milestone | Requirement |
 | --- | --- | --- | --- |
 | New tab (+), ⌘T | title bar | v1.0 | FR-NAV-06 |
-| Back, Forward, ⌘[, ⌘] | title bar | MS5 | FR-NAV-03 |
 | New type | sidebar, Types header | MS3 (3D) | FR-TYP-01 |
 | Starter vault | chooser, New vault form | MS3 (3D) | FR-VLT-02 |
 | Edit | note toolbar | MS3 (3C) | FR-EDT-01 |
@@ -106,7 +105,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌘, | Go to Settings | proposed, AP-70 |
 | ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
-| ⌘[ and ⌘] | Back, Forward (disabled, MS5) | FR-NAV-03 |
+| ⌘[ and ⌘] | Go back, Go forward | FR-NAV-03 (3B.1, D-165, D-166) |
 
 Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e.g. `⇧⌘P`), AP-70.
 
@@ -138,6 +137,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 - **AC-1** **One readable content column.** On a `note/<path>` route the note column is at most 760 px wide and horizontally centred in the centre pane (equal left and right margins ±1 px), at window widths 1024, 1440 and 2560 px, with the right panel open and closed. *(L5)*
 - **AC-2** **Native window chrome.** In the built app, the macOS close, minimize and zoom buttons lie inside the 44 px title bar, no web control's frame intersects theirs, and dragging an empty area of the title bar moves the window. *(L6)*
 - **AC-3** **Typography.** UI text uses the system font stack (`-apple-system`, SF Pro); sidebar entries are 13 px, UI body text 14 px with line height 1.5, page headings as on the boards (Home and type page 30 px, note title 34 px). *(L5, computed styles)*
+- **AC-5** **Logo (D-164).** The sidebar link `Tegg home` shows the logo of the Main board as one image: the light asset in the light theme and the dark asset in the dark theme, switching with the theme without a reload. The link contains no visible text node (the wordmark is part of the image), its accessible name stays `Tegg home`, and showing it makes no network request (NFR-SEC-01). *(L5; L1 for the assets: both are SVG files with no `<text>` element, no `@font-face` and no external reference)*
 - **AC-4** [manual] **Design review.** The owner compares every built page of R1 and one TBD placeholder with its design board in light and dark: spacing, typography, restrained colour (type colours only as accents: icons, badges, tints), native-feeling chrome. Each deviation is recorded as an issue or accepted in the record. *(manual)*
 
 ### FR-UX-03 Keyboard-first: command palette and shortcuts
@@ -150,7 +150,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 - **AC-6** **Shortcut display.** Each palette row of a command with a shortcut shows the binding of R4 rendered from the registry (not a literal), with modifiers in the order ⌃ ⌥ ⇧ ⌘ (`⇧⌘F`, `⌃⌘S`) (AP-70). Disabled commands (R3) show `Coming in <milestone>` instead of running (AP-74). *(L5)*
 - **AC-7** **Registry integrity.** Command ids are unique; no two enabled commands share a shortcut; every shortcut of R4 is registered to the command named there; every title is a catalog key (NFR-OTH-02); no command uses a shortcut macOS reserves (⌘Q, ⌘H, ⌥⌘H, ⌘M, ⌘Tab, ⌘Space, ⌘`). *(L1)*
 - **AC-8** **Every control is a command.** On every route of R1, with the right panel open and closed, every button, link, tab, menu item, checkbox, radio and switch in the frame carries a reference to a registered command, except text inputs and the rows of object lists (opened with ⏎). *(L5, DOM walk)*
-- **AC-9** **Global shortcuts.** Each enabled shortcut of R4 runs its command from every route of R1 with the focus anywhere in the main window, except while a dialog (palette, switcher, New object) is open, where only that dialog's keys act. `⌘T`, `⌘[` and `⌘]` do nothing and write nothing. *(L5)*
+- **AC-9** **Global shortcuts.** Each enabled shortcut of R4 runs its command from every route of R1 with the focus anywhere in the main window, except while a dialog (palette, switcher, New object) is open, where only that dialog's keys act. `⌘T` does nothing and writes nothing (D-167; ⌘[ / ⌘] navigate, FR-NAV-03). *(L5)*
 - **AC-10** **Keyboard-only tour.** Using only Tab, ⇧Tab, arrows, ⏎, Space, Esc and R4 shortcuts (no pointer events), the test opens every sidebar entry, every Types entry, toggles sidebar, right panel and focus mode, sets each theme in Settings, opens a note from the switcher and creates an object with New object. Every element that receives focus shows a visible focus indicator: its computed `outline` or `box-shadow` differs from the unfocused state and is at least 2 px wide. *(L5)*
 - **AC-11** **Focus after navigation (AP-74).** After a route change by sidebar, palette or shortcut, the focus is on the new page's heading in the centre pane (not on `body`, not left in the sidebar), so the next Tab starts in the page. *(L5)*
 - **AC-12** **Keys work at launch.** In the built app, right after launch on the fixture and without any click, `⌘K` opens `Command palette` and Esc closes it; then `⌘O` opens `Quick switcher`. *(L6)*
@@ -214,3 +214,15 @@ FR-UX-07 AC-6 ([search-navigation.md](search-navigation.md), `[MS3] [manual]`) n
 ### FR-SYN-06 No writes from the frame (slice 3A)
 
 - **AC-5** [MS3] **Zero vault writes outside New object.** In the built app on a copy of the fixture, a scripted keyboard tour (every route of R1 through the palette, every Types entry, sidebar, right panel and focus mode toggled, all three themes, three notes opened from the switcher, two searches, quit and relaunch) leaves every vault file's bytes, mtime and inode unchanged and creates no file or folder in the vault, including `.tegg/` (plan §6, D-119). Only the Application Support root may change. *(L6; L5 counts zero write or create commands to the fake core during the same tour)*
+
+### FR-NAV-03 Back and forward (slice 3B.1, D-165)
+
+History is in memory only: one list of visited routes per window, with the note fragment and the centre pane's scroll position of each entry. In these criteria "navigation" is any route change by the sidebar, the palette, a shortcut, the switcher, New object, a search result, a type-page row, the breadcrumb, a link, a tag or a note embed chip.
+
+- **AC-1** [MS3] **Back and Forward.** Given the fixture opened on `home` and the navigations Porada (switcher) → `type/schůzka` (breadcrumb) → `search` (⌘⇧F): Back shows `search`'s predecessor `type/schůzka`, Back again Porada, Back again `home`; Forward then shows Porada, then `type/schůzka`. A new navigation after a Back drops every forward entry. Navigating to the route that is already shown (same route string) adds no entry. *(L5)*
+- **AC-2** [MS3] **Every trigger.** Each of these goes back, and its counterpart forward, with the same result as AC-1: the title-bar buttons `Back` / `Forward`, ⌘[ / ⌘], the palette commands `Go back` / `Go forward`, and the mouse back / forward buttons (DOM `mouseup` with `button` 3 / 4). The title-bar buttons are `aria-disabled="true"` with no "Coming in" description while there is nothing in their direction, and enabled otherwise; activating a disabled one, or the shortcut, does nothing. *(L5)*
+- **AC-3** [manual] [MS3] **Mouse and trackpad in the real app.** In the built app, the mouse's back and forward buttons and a two-finger horizontal swipe on the trackpad go back and forward as in AC-1. *(manual, owner)*
+- **AC-4** [MS3] **Scroll position and fragments.** Given Cíl of the read-view fixture was scrolled so that `Druhá kapitola` is the first visible block and the user then followed a link, Back shows Cíl with `Druhá kapitola` again the first visible block (± one line). An entry reached with a fragment (`[[Cíl#^blok1]]`) is restored to its scroll position at the time it was left, not re-scrolled to the fragment. *(L5)*
+- **AC-5** [MS3] **Gone and renamed notes.** Going back to a note that was moved to `.trash/` or deleted in the meantime shows `This note was moved or deleted` (read-view FR-SYN-03 AC-11) and keeps the history; going back to a note renamed in the meantime shows it at its new path (same `id`). *(L5)*
+- **AC-6** [MS3] **Dialogs and focus.** While the palette, the switcher or New object is open, ⌘[ / ⌘] and the mouse buttons don't navigate (FR-UX-03 AC-9). After Back or Forward the focus is on the page heading (D-130). *(L5)*
+- **AC-7** [MS3] **Not kept, no writes.** After a relaunch the history is empty (both title-bar buttons disabled). Opening or creating another vault clears it. Back and Forward write nothing to the vault and nothing to `ui-state.json`; a note shown again by Back or Forward is recorded with `nav_opened` like any open (D-138). *(L5; L6 for the relaunch)*

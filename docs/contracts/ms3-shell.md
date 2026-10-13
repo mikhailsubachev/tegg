@@ -393,3 +393,46 @@ export function calloutType(raw: string /* first line: '> [!type]± Title' (D-15
 - L5: `app/webkit/read_view.ac.test.ts`; the network check of FR-EDT-02 AC-10 uses Playwright's `page.on('request')` and fails on any non-local host.
 - L6: `app/e2e/ms3_read.ac.test.ts` (no-write tour, invalid frontmatter files, relaunch cases) and the benchmark of §11.5.
 - Fixture: `tests/fixtures/vaults/read-view/` plus `new-empty/.tegg/` (read-view.md).
+
+---
+
+## 12. Slice 3B.1: back and forward, logo (D-164, D-165)
+
+ACs: [app-shell.md](../acceptance/app-shell.md) FR-NAV-03 AC-1…AC-7 and FR-UX-01 AC-5. Draft, 2026-10-13. No IPC changes.
+
+### 12.1 History (`shell/history.ts`)
+
+```ts
+type Entry = { route: Route; scrollTop: number };           // Route includes `fragment` (§11.2)
+export function createHistory(): {
+  push(r: Route): void;          // drops forward entries; no entry if routeString(r) equals the current one
+  back(): Entry | null;          // null when there is nothing back
+  forward(): Entry | null;
+  canBack(): boolean; canForward(): boolean;
+  saveScroll(scrollTop: number): void;   // stores the centre pane's scroll position on the current entry before leaving it
+  clear(): void;                 // another vault opened or created
+};
+```
+
+- One history per window, in memory; nothing is stored (AC-7).
+- The shell pushes on every navigation (`go`), not on Back/Forward themselves. Back/Forward show the entry's route and restore its `scrollTop` after `note-ready` (notes) or the route's first paint (other routes); they don't re-apply the fragment (AC-4).
+- A note route shown by Back/Forward calls `nav_opened` like any other open (D-138).
+
+### 12.2 Commands, shortcuts, controls
+
+- Commands `nav.back` (`Go back`, ⌘[) and `nav.forward` (`Go forward`, ⌘]), section `navigate`, `needsVault: true`; they do nothing when there is nothing in their direction. They replace the R3 disabled controls `ctl.back` / `ctl.forward` (R3 and R4 changed, app-shell.md).
+- Title-bar buttons `Back` / `Forward` keep their labels and `data-command="nav.back"` / `"nav.forward"`; without history in their direction they are `aria-disabled="true"` with no description (not "Coming in", D-130).
+- Mouse: one `mouseup` listener on the window maps `button === 3` to Back and `4` to Forward (and prevents the default), ignored while a dialog is open.
+- Trackpad: a horizontal two-finger swipe (wheel events with |deltaX| > 3 × |deltaY|, accumulated over 120 ms, threshold 80 px, outside horizontally scrollable elements) goes back (swipe right) or forward (swipe left). Manual check only (AC-3).
+
+### 12.3 Logo (D-164)
+
+- Assets `app/ui/src/assets/logo-light.svg` and `logo-dark.svg`: the Main board's mark plus the "TEGG" wordmark in Space Grotesk 700 converted to paths, brand blue `#0B44F0` (light) / `#8FAEFF` (dark). They are the colour-literal exception of FR-UX-05 AC-2 (`logo*.svg`).
+- The sidebar link `Tegg home` renders `<img alt="" src=…>` with the asset of the resolved theme; its `aria-label` stays `Tegg home`.
+
+### 12.4 Tests
+
+- L1: `app/test/history.ac.test.ts` (history semantics), `app/test/logo.ac.test.ts` (assets).
+- L5: `app/webkit/history.ac.test.ts` (AC-1, AC-2, AC-4…AC-7, logo AC-5).
+- L6: the relaunch part of AC-7 in `app/e2e/ms3_shell.ac.test.ts`.
+

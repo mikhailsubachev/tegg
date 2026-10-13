@@ -207,7 +207,7 @@ test('fr_ux_03_ac6_shortcut_display_and_disabled_commands', async ({ page }) => 
     assert.ok(row.replace(/\s+/g, '').endsWith(keys), `"${title}" shows ${keys}: ${JSON.stringify(row)}`);
     await page.keyboard.press('Escape');
   }
-  for (const [title, due] of [['New tab', 'v1.0'], ['Back', 'MS5'], ['Forward', 'MS5'], ['New type', 'MS3 (3D)']]) {
+  for (const [title, due] of [['New tab', 'v1.0'], ['New type', 'MS3 (3D)']]) {
     const route = await mainName(page);
     await page.keyboard.press('Meta+k');
     await query(page).fill(title);
@@ -288,8 +288,8 @@ test('fr_ux_03_ac9_global_shortcuts_from_every_route', async ({ page }) => {
     if (!(await seen(sidebar(page), 300))) failures.push(`${open} dialog open: ⌃⌘S toggled the sidebar`);
     await reset();
   }
-  // ⌘T, ⌘[ and ⌘] do nothing and write nothing.
-  for (const k of ['Meta+t', 'Meta+BracketLeft', 'Meta+BracketRight']) {
+  // ⌘T does nothing and writes nothing (⌘[ / ⌘] are built in 3B.1, D-165: app/webkit/history.ac.test.ts).
+  for (const k of ['Meta+t']) {
     await page.keyboard.press(k);
     if ((await mainName(page)) !== 'Inbox') failures.push(`${k} changed the route`);
   }

@@ -29,10 +29,13 @@ fn test_var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
+/// The app name: window title and Application Support folder (D-118: the preview keeps its own data).
+const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+
 fn app_dirs() -> AppDirs {
     let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_default();
-        PathBuf::from(home).join("Library/Application Support/Tegg")
+        PathBuf::from(home).join("Library/Application Support").join(APP_NAME)
     });
     AppDirs { root }
 }
@@ -452,7 +455,7 @@ pub fn run() {
             let dirs = app.state::<AppState>().dirs.clone();
             // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                .title("Tegg")
+                .title(APP_NAME)
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(800.0, 500.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)

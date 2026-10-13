@@ -71,9 +71,11 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string) {
 
 type State = { text: string; links: Map<string, LinkTargetDto> } | { gone: true } | null;
 
-export function NotePage({ path, fragment, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties }: {
+export function NotePage({ path, fragment, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId }: {
   path: string;
   fragment?: string;
+  /** Back/Forward: the centre pane's saved scroll position, restored instead of the fragment (FR-NAV-03 AC-4). */
+  restoreScroll?: number;
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
   onType: (key: string) => void;
@@ -88,6 +90,10 @@ export function NotePage({ path, fragment, types, heading, onType, onMeta, onOpe
   onFocus: () => void;
   propertiesOpen: boolean;
   onToggleProperties: () => void;
+  onRestored?: () => void;
+  /** The note's `id` when it was last shown (Back/Forward), to find it after a rename. */
+  knownId?: string;
+  onId?: (id: string) => void;
 }) {
   const [state, setState] = useState<State>(null);
   const [source, setSource] = useState<boolean | null>(null); // null: the default for this file
@@ -103,13 +109,15 @@ export function NotePage({ path, fragment, types, heading, onType, onMeta, onOpe
       const resolved = targets.length ? await ipc.linkResolve(path, targets).catch(() => [] as LinkTargetDto[]) : [];
       if (live.current.path !== path) return;
       setState({ text: n.text, links: new Map(resolved.map((r) => [r.target, r])) });
+      const id = parse(n.text.replace(/^\uFEFF/, '')).frontmatter?.data?.id;
+      if (typeof id === 'string' && id) onId?.(id);
       onMeta(noteMeta(path, n.text));
     } catch {
       if (live.current.path !== path) return;
       // Gone from this path: renamed (same `id`, FR-SYN-03 AC-5) or deleted / moved to `.trash/` (AC-11).
       const prev = live.current.state;
-      const id = prev && 'text' in prev ? parse(prev.text).frontmatter?.data?.id : null;
-      if (!initial && typeof id === 'string' && id) {
+      const id = prev && 'text' in prev ? parse(prev.text).frontmatter?.data?.id : knownId;
+      if (typeof id === 'string' && id) {
         const [r] = await ipc.linkResolve(path, [id]).catch(() => [] as LinkTargetDto[]);
         if (r?.path && r.kind === 'note' && nfc(r.path) !== nfc(path)) {
           onRenamed(r.path);
@@ -168,7 +176,10 @@ export function NotePage({ path, fragment, types, heading, onType, onMeta, onOpe
     if (readyFor.current === key) return;
     readyFor.current = key;
     requestAnimationFrame(() => {
-      if (fragment) scrollToFragment(root.current, fragment);
+      const main = root.current?.closest('main');
+      if (restoreScroll !== undefined && main) main.scrollTop = restoreScroll;
+      else if (fragment) scrollToFragment(root.current, fragment);
+      onRestored?.();
       void ipc.perfMark('note-ready').catch(() => {});
     });
   }, [text, fragment, path]);
