@@ -113,6 +113,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-EDT-08 | Autosave (debounced, ≤ 1 s after the last keystroke) using atomic writes (FR-SYN-02). No "Save" button. | 3 ACs |
 | FR-EDT-09 | Undo/redo across block operations, including block-to-object conversion (FR-CNV-06). | no ACs yet |
 | FR-EDT-10 | Raw Markdown source view toggle per note, for power users and debugging. | no ACs yet |
+| FR-NAV-03 | Back/forward navigation history (⌘[ / ⌘]). | ACs in app-shell.md (3B.1, D-165) |
 | FR-EDT-13 | Multi-block selection (Shift+click, Shift+arrows) for move, delete, convert, and copy. | no ACs yet |
 | FR-EDT-14 | Paste handling: rich text/HTML from the web → clean blocks; images from the clipboard → saved attachment; URL … | no ACs yet |
 | FR-EDT-15 | Typing `#` opens tag autocomplete (existing tags shown with their color). Choosing a new name creates a new ta… | no ACs yet |
@@ -203,7 +204,6 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-INB-03 | Review status is an attribute (`review: unreviewed \| reviewed`). It is mandatory on Quick Notes and Daily Not… | no ACs yet |
 | FR-INB-04 | Converting a Quick Note to another type keeps its content, `id`, and links. | no ACs yet |
 | FR-NAV-02 | Command palette (⌘K / ⌘⇧P): every app action is searchable and runnable by keyboard. | no ACs yet |
-| FR-NAV-03 | Back/forward navigation history (⌘[ / ⌘]). | no ACs yet |
 | FR-NAV-04 | Left sidebar: Home, Inbox, Today, Tasks, Search, Types (list of all types → Type pages), Pinned, Saved queries… | no ACs yet |
 | FR-NAV-05 | Right side panel (toggleable): Attributes, Backlinks, Local graph, Outline. | no ACs yet |
 | FR-SET-01 | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | no ACs yet |

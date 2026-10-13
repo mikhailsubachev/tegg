@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.29, for review                                             |
+| **Document status** | Draft v1.30, for review                                             |
 | **Date**            | 2026-10-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -45,6 +45,7 @@
 | v1.27   | 2026-10-12 | D-139 (AP-83): FR-SET-02 AC-2 keeps the route and focus; from the palette, the palette closes and focus returns. |
 | v1.28   | 2026-10-13 | MS3 slice 3B AC decisions D-140…D-151 (AP-84…AP-95, `docs/acceptance/read-view.md`): click opens links before previews, aliases don't resolve links (FR-TYP-08 reworded), broken and date links before MS4, tag click opens Search, in-note placeholders, external links and no HTML rendering, source view details, attribute strip, NFR-PERF-05 AC-2, headings 4–6, FR-UX-02 AC-14 reworded with 3B, callout types with non-ASCII letters. |
 | v1.29   | 2026-10-13 | MS3 slice 3B red-test decisions D-152…D-163 (AP-96…AP-107): reference-machine perf gate, test locations, Properties component, relative Markdown links, subpath chip text, callout input, source lines, fold button name, date-time display, rename while open, date links resolve as daily first, generated-vault sample. |
+| v1.30   | 2026-10-13 | 3B preview feedback: logo as outlined SVG (D-164, AP-108); Back/Forward (FR-NAV-03) pulled into MS3 as slice 3B.1 (D-165, AP-109). |
 
 ---
 
@@ -251,6 +252,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-161 | Rename while open | FR-SYN-03 AC-11 checks the breadcrumb and the reload from the new path; the tab shows the title, which a rename doesn't change (AP-105) |
 | D-162 | Date links first | In `resolve_links`, a `YYYY-MM-DD` target is checked as a date before the path/id/stem rules: kind `daily` (or `date-missing`) (AP-106) |
 | D-163 | Generated-vault sample | FR-EDT-02 AC-12 samples 200 notes of a small generated vault created once per test run in a temp dir (or `TEGG_REF_VAULT`) (AP-107) |
+| D-164 | Logo without a font | The app logo (Main board: mark and "TEGG" wordmark in Space Grotesk 700, brand blue) ships as two SVG assets, light and dark, with the wordmark's letters converted to paths from Space Grotesk (SIL OFL); no font file ships and nothing is loaded from the network (NFR-SEC-01) (AP-108) |
+| D-165 | Back/Forward in MS3 (3B.1) | FR-NAV-03 moves from MS5 to MS3, slice 3B.1: an in-memory route history (with note fragment and scroll position), driven by the title-bar Back/Forward buttons, ⌘[ / ⌘], the mouse back/forward buttons and the trackpad swipe, and in the palette. Not kept across launches. Amends D-125 (AP-109) |
 
 ---
 
@@ -862,9 +865,9 @@ Requirement-to-phase mapping, checked for all requirements: `docs/requirements-c
 | --- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | MS1 | Vault core & file format          | FR-STO-01…09, FR-FMT-01…12, FR-SYN-02, -06, FR-TYP-10, -15, NFR-REL-01, -03, NFR-POR-01…03, FR-VLT-01, -02 (empty vault, D-92), AR-03, -04, -06 | File-format and storage ACs; crash (SIGKILL) harness; minimal-write counter; NFC/NFD on APFS                                           |
 | MS2 | Index, watcher, search, switcher  | AR-01, FR-SYN-03…05, -07, FR-VLT-03, FR-SRC-01…03, FR-NAV-01, NFR-PERF-01…04, -08, NFR-REL-02, FR-UX-07, FR-SRC-04 | Index rebuild = incremental state; external-change and conflict ACs via sync simulator; TS ↔ Rust conformance; perf benchmarks running |
-| MS3 | Types, attributes, editor         | FR-TYP-01…09, -11…14, FR-EDT-01…09, -13…15, NFR-PERF-05, -06, FR-SET-02, -03, FR-UX-01, -02, -03, -05, AR-07, NFR-OTH-02, FR-EDT-10 (read-only source view, D-86), FR-VLT-02 (starter vault, D-92) | Editor round-trip through UI edits; autosave ACs; attribute edits change only their lines                                              |
+| MS3 | Types, attributes, editor         | FR-TYP-01…09, -11…14, FR-EDT-01…09, -13…15, NFR-PERF-05, -06, FR-SET-02, -03, FR-UX-01, -02, -03, -05, AR-07, NFR-OTH-02, FR-EDT-10 (read-only source view, D-86), FR-VLT-02 (starter vault, D-92), FR-NAV-03 (back/forward, D-165) | Editor round-trip through UI edits; autosave ACs; attribute edits change only their lines                                              |
 | MS4 | Links, tags, renames, daily notes | FR-LNK-01…04, -07, -14, FR-TAG-01…08, FR-FMT-08, FR-TYP-04, -07, FR-STO-04, FR-DLY-01…06, -08, FR-HIS-04 (backup zip, D-57), FR-EMB-01, -02, -04, NFR-REL-04 | Link-integrity ACs; rename/undo property test; bulk rewrites write only changed files, backup first                                    |
-| MS5 | Tasks, capture, inbox, home       | FR-TSK-01…06, -08…11, FR-CNV-01…06, -08, FR-CAP-01, -03…05, FR-INB-01…04, FR-HOM-01, -02, FR-NAV-02…05, NFR-PERF-10, FR-VLT-05, FR-EMB-03, FR-SET-01, -04 (hotkey display, D-86), -05, NFR-SEC-03 (capture window), FR-EDT-11 | Conversion undo; real-app tests of hotkeys, menu bar and capture window; capture < 300 ms                                              |
+| MS5 | Tasks, capture, inbox, home       | FR-TSK-01…06, -08…11, FR-CNV-01…06, -08, FR-CAP-01, -03…05, FR-INB-01…04, FR-HOM-01, -02, FR-NAV-02, -04, -05, NFR-PERF-10, FR-VLT-05, FR-EMB-03, FR-SET-01, -04 (hotkey display, D-86), -05, NFR-SEC-03 (capture window), FR-EDT-11 | Conversion undo; real-app tests of hotkeys, menu bar and capture window; capture < 300 ms                                              |
 | MS6 | Images, PDFs, trash               | FR-ATT-01…03, -07…09, FR-STO-05, -08, FR-HIS-01, FR-HIS-02 | Paste image → object + file + embed; trash/restore; "moved to trash" placeholder                                                       |
 | MS7 | Capacities and Obsidian importers | FR-IMP-03, -05, -07…11, -14…17, -19…22, -24, FR-IMP-23, FR-IMP-01, FR-STO-10 (D-93) | Importer ACs on synthetic fixtures; cancel leaves vault byte-identical; real-export local run: imported + reported = total             |
 | MS8 | MVP hardening & release           | All NFR-PERF, NFR-SEC-01, AR-08, FR-SYN-01, FR-UX-04, -06, AR-02, NFR-OTH-01 | Release gate: perf on reference machine, signed/notarized DMG, two-Mac sync (Dropbox, Google Drive, iCloud), 7-day soak                |

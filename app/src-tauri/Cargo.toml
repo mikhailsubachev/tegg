@@ -36,3 +36,7 @@ lto = true
 # Dependencies optimized in debug builds too (as in the core workspace).
 [profile.dev.package."*"]
 opt-level = 2
+
+[features]
+# Tegg Preview build (D-118): own name and Application Support folder.
+preview = []
