@@ -602,3 +602,45 @@ test('fr_syn_06_ac5_keyboard_tour_leaves_the_vault_untouched', { timeout: 600_00
   assert.deepEqual(tree(vault), before, 'every vault file: bytes, mtime and inode unchanged; no file or folder created (incl. .tegg/)');
   rmSync(base, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- slice 3B.1 (FR-NAV-03, D-165; ms3-shell §12.4)
+
+test('fr_nav_03_ac7_history_is_empty_after_relaunch', { timeout: 180_000 }, async () => {
+  await ready();
+  const base = tmp('nav03-7');
+  const vault = shellCopy(base);
+  const support = join(base, 'support');
+  const log = join(base, 'perf.jsonl');
+  const before = tree(vault);
+  const enabled = async (d: Driver, label: string) => {
+    assert.ok(await shown(d, label, MARK_TIMEOUT), `title-bar button "${label}" shown`);
+    return String(await (await byLabel(d, label)).getAttribute('enabled'));
+  };
+  let d: Driver | undefined;
+  try {
+    d = await session(testEnv(support, log, { TEGG_VAULT: vault, TEGG_ROUTE: 'inbox' }));
+    assert.ok(await waitMark(log, 'route-ready:inbox'), 'inbox shown');
+    press('f', ['command', 'shift']);
+    assert.ok(await waitMark(log, 'route-ready:search'), 'search shown');
+    press('lbracket', ['command']);
+    await sleep(500);
+    assert.equal(await enabled(d, 'Forward'), 'true', 'setup: Forward enabled after Back');
+    press('rbracket', ['command']);
+    await sleep(500);
+    assert.equal(await enabled(d, 'Back'), 'true', 'setup: Back enabled after Forward');
+    await end(d);
+    d = undefined;
+    const log2 = join(base, 'perf2.jsonl');
+    d = await session(testEnv(support, log2, { TEGG_VAULT: vault }));
+    assert.ok(await waitMark(log2, 'ui-ready'), 'relaunch');
+    await sleep(500);
+    assert.equal(await enabled(d, 'Back'), 'false', 'Back disabled after a relaunch (history not kept)');
+    assert.equal(await enabled(d, 'Forward'), 'false', 'Forward disabled after a relaunch');
+    const state = existsSync(join(support, 'ui-state.json')) ? readFileSync(join(support, 'ui-state.json'), 'utf8') : '';
+    assert.doesNotMatch(state, /history|search|inbox/i, 'no history stored in ui-state.json');
+  } finally {
+    await end(d);
+  }
+  assert.deepEqual(tree(vault), before, 'Back and Forward wrote nothing to the vault');
+  rmSync(base, { recursive: true, force: true });
+});
