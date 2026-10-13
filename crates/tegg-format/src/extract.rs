@@ -41,6 +41,8 @@ pub struct Extracted {
     pub links: Vec<Link>,
     /// Tag keys (NFC, lower case) in source order, frontmatter first; duplicates kept.
     pub tags: Vec<String>,
+    /// The same tags as written (NFC, case kept), aligned with `tags` (D-185 spelling).
+    pub tag_spellings: Vec<String>,
 }
 
 struct Frontmatter {
@@ -79,13 +81,14 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
     }
     scan_links(text, body_start..text.len(), &code, false, &mut links, &mut link_ranges);
 
-    let mut tags: Vec<String> = match data.as_ref().and_then(|d| d.get("tags")) {
-        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str()).filter(|t| !t.is_empty()).map(tag_key).collect(),
-        Some(Value::String(t)) if !t.is_empty() => vec![tag_key(t)],
+    let mut tag_spellings: Vec<String> = match data.as_ref().and_then(|d| d.get("tags")) {
+        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str()).filter(|t| !t.is_empty()).map(nfc).collect(),
+        Some(Value::String(t)) if !t.is_empty() => vec![nfc(t)],
         _ => vec![],
     };
     let tag_excluded: Vec<Range<usize>> = code.iter().chain(&links_md).chain(&link_ranges).cloned().collect();
-    scan_tags(text, body_start, &tag_excluded, &mut tags);
+    scan_tags(text, body_start, &tag_excluded, &mut tag_spellings);
+    let tags: Vec<String> = tag_spellings.iter().map(|t| tag_key(t)).collect();
 
     let frontmatter_error = match &fm {
         // The frontmatter starts on line 1 (`---`), so YAML line n is file line n + 1.
@@ -102,6 +105,7 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
         frontmatter_error,
         links,
         tags,
+        tag_spellings,
     }
 }
 
@@ -497,7 +501,7 @@ fn scan_tags(text: &str, body_start: usize, excluded: &[Range<usize>], out: &mut
         }
         let run = TAG_RUN.find(&text[at + 1..]).map_or("", |m| m.as_str());
         if TAG_NON_DIGIT.is_match(run) {
-            out.push(tag_key(run));
+            out.push(nfc(run));
         }
     }
 }

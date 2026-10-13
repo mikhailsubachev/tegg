@@ -18,7 +18,7 @@ use chrono::NaiveDate;
 use tegg_format::{nfc, sanitize_file_stem};
 use tegg_index::{is_indexable, prepare, Index, Prepared};
 pub use tegg_index::{
-    AttrFilter, Conflict, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, SearchPage,
+    AttrFilter, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, SearchPage,
     SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
@@ -51,7 +51,17 @@ pub enum CoreEvent {
 pub enum CoreError {
     Vault(VaultError),
     Index(IndexError),
+    /// D-180: the file's last read wasn't valid UTF-8; it is never written.
+    NotUtf8,
     NotImplemented,
+}
+
+/// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
+#[derive(Debug, Clone)]
+pub struct NoteRead {
+    pub bytes: Vec<u8>,
+    pub version: FileVersion,
+    pub utf8: bool,
 }
 
 impl From<VaultError> for CoreError {
@@ -110,6 +120,8 @@ struct Shared {
     default_type: Mutex<DefaultType>,
     placeholders: Mutex<Vec<String>>,
     jobs: Mutex<Sender<Job>>,
+    /// Paths whose last read wasn't valid UTF-8 (D-180).
+    not_utf8: Mutex<std::collections::HashSet<String>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -213,6 +225,7 @@ impl Core {
             recency: Mutex::new((recency, false)),
             default_type: Mutex::new(DefaultType { key: "quick-note".into(), folder: "Quick Notes".into() }),
             placeholders: Mutex::new(Vec::new()),
+            not_utf8: Mutex::new(Default::default()),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
@@ -333,18 +346,55 @@ impl Core {
 
     /// Reads through the vault and records recency in Application Support (D-105). Never writes to the vault.
     pub fn read_note(&self, path: &str, now: SystemTime) -> Result<(Vec<u8>, FileVersion), CoreError> {
-        let r = self.shared.vault.read(path)?;
+        let r = self.read_note_info(path, now)?;
+        Ok((r.bytes, r.version))
+    }
+
+    /// `read_note` with the UTF-8 flag (D-180, D-198). A non-UTF-8 read makes later writes to the path fail.
+    pub fn read_note_info(&self, path: &str, now: SystemTime) -> Result<NoteRead, CoreError> {
+        let (bytes, version) = self.shared.vault.read(path)?;
+        let utf8 = std::str::from_utf8(&bytes).is_ok();
+        {
+            let mut bad = lock(&self.shared.not_utf8);
+            if utf8 { bad.remove(&nfc(path)) } else { bad.insert(nfc(path)) };
+        }
         let ms = now.duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
         let mut rec = lock(&self.shared.recency);
         rec.0.insert(nfc(path), ms);
         rec.1 = true;
-        Ok(r)
+        Ok(NoteRead { bytes, version, utf8 })
+    }
+
+    /// D-185: tags of indexed objects with their most frequent spelling.
+    pub fn tags(&self) -> Vec<TagInfo> {
+        self.index().tags()
+    }
+
+    /// D-194: a new file at exactly `path` (`Keep both`); `NameTaken` if the name exists.
+    pub fn create_exact(&self, path: &str, bytes: &[u8]) -> Result<FileVersion, CoreError> {
+        let path = nfc(path);
+        let v = self.shared.vault.create_exact(&path, bytes)?;
+        self.index().upsert(&path, bytes, &v)?;
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path] });
+        Ok(v)
+    }
+
+    /// D-195: trash a file only if it is still `base` (Conflicts view). Returns the trash path.
+    pub fn trash_note(&self, path: &str, base: &FileVersion) -> Result<String, CoreError> {
+        let path = nfc(path);
+        let to = self.shared.vault.trash_checked(&path, base)?;
+        self.index().remove(&path)?;
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path, to.clone()] });
+        Ok(to)
     }
 
     /// The one write path (MS1 `Vault::write`), then the index is updated directly (architecture §5.3).
     /// A version mismatch emits `NoteConflict`, writes nothing and returns `Conflict` (FR-SYN-03 AC-7/AC-8).
     pub fn write_note(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, CoreError> {
         let path = nfc(path);
+        if lock(&self.shared.not_utf8).contains(&path) {
+            return Err(CoreError::NotUtf8);
+        }
         match self.shared.vault.write(&path, bytes, base) {
             Ok(WriteOutcome::Written(v)) => {
                 self.index().upsert(&path, bytes, &v)?;

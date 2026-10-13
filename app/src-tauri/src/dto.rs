@@ -77,12 +77,52 @@ pub struct SwitcherItemDto {
     pub type_key: String,
     pub folder: String,
     pub matched_alias: Option<String>,
+    /// `created:` of the object, for telling duplicate titles apart in link suggestions (D-203).
+    pub created: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct NoteDto {
     pub path: String,
+    /// Decoded with U+FFFD for invalid bytes, for display only (D-180).
     pub text: String,
+    pub version: VersionDto,
+    pub utf8: bool,
+}
+
+/// A file version (ms3-shell §13.2): equality is `size` + `hash` (D-175).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct VersionDto {
+    /// i128 as a decimal string.
+    pub mtime_ns: String,
+    pub size: u64,
+    /// BLAKE3, hex.
+    pub hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct WriteResultDto {
+    /// `written` or `unchanged`.
+    pub outcome: String,
+    pub version: VersionDto,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagDto {
+    pub key: String,
+    pub spelling: String,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct ConflictRowDto {
+    /// `duplicateId`, `possibleCopy` or `nameNormalization`.
+    pub kind: String,
+    pub primary: String,
+    pub others: Vec<String>,
+    pub versions: std::collections::BTreeMap<String, VersionDto>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -99,15 +139,24 @@ pub struct ChangedDto {
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 pub struct ConflictDto {
     pub path: String,
+    pub mine: String,
+    pub theirs: String,
+    pub theirs_version: VersionDto,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct IpcError {
-    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
+    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
     pub kind: String,
     pub message: String,
+    /// With `Conflict` from `note_write`: both versions (D-202).
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub conflict: Option<ConflictDto>,
 }
 
 /// A type definition for the sidebar (ms3-shell §2), read-only until `tegg-schema` (3D).
@@ -198,6 +247,10 @@ pub fn typescript() -> String {
         NoteDto::decl(),
         ProgressDto::decl(),
         ChangedDto::decl(),
+        VersionDto::decl(),
+        WriteResultDto::decl(),
+        TagDto::decl(),
+        ConflictRowDto::decl(),
         ConflictDto::decl(),
         IpcError::decl(),
         TypeDefDto::decl(),

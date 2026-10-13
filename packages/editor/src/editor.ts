@@ -1,0 +1,722 @@
+// `createEditor` (docs/contracts/ms3-shell.md §13.3): a TipTap editor on a note's source blocks (ADR 0002). Saving
+// reconciles the body against the loaded file and takes the frontmatter from the last saved text, so unchanged
+// blocks keep their bytes across any number of autosaves; `ensureIdentity` and `touchModified` run on each real
+// change (FR-FMT-02 AC-5…AC-7, D-174). Pure TypeScript: no Tauri, no app imports (AR-03 AC-2).
+
+import { Editor, Extension, type JSONContent } from '@tiptap/core'
+import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
+import { undoDepth } from '@tiptap/pm/history'
+import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
+import { renderBlock } from '@tegg/doc'
+import { pmToBlock } from './convert'
+import { htmlToMarkdown } from './html'
+import { linkText, type LinkChoice } from './links'
+import { TeggRules } from './rules'
+import { teggExtensions } from './schema'
+import { attach, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
+
+export type Now = () => string
+
+export interface EditorOptions {
+  text: string
+  element?: HTMLElement
+  now: Now
+  newId: () => string
+  /** Accessible name of the body (catalog text from the app; default `Note body`). */
+  label?: string
+  onChange?: (dirty: boolean) => void
+  /** Called on every transaction (selection or content), for the app's menus and toolbar. */
+  onUpdate?: () => void
+  /** A clipboard image was pasted (FR-EDT-14 AC-5): the app shows its notice; nothing is inserted. */
+  onImagePaste?: () => void
+  extensions?: import('@tiptap/core').AnyExtension[]
+}
+
+export interface TeggEditor {
+  view: EditorView
+  editor: Editor
+  save(): Promise<string | null>
+  markSaved(text: string): void
+  reload(text: string): void
+  readonlyBlocks(): number[]
+  /** The text a save would write now, without saving (test hook `editor.text()`, §13.6). */
+  text(): string
+  dirty(): boolean
+  historyDepth(): number
+  /** Pending title (FR-EDT-01 AC-10): written as `title:` by the next save; null = unchanged. */
+  setTitle(title: string | null): void
+  /** Top-level blocks in the block selection (0-based, inclusive), or null (FR-EDT-13). */
+  blockSelection(): { from: number; to: number } | null
+  clearBlockSelection(): void
+  /** Top-level block index of the caret. */
+  caretBlock(): number
+  /** The next paste is literal text (⇧⌘V, FR-EDT-14 AC-2). */
+  pastePlainNext(): void
+  /** Markdown source of the selected blocks, or null without a block selection (FR-EDT-13 AC-5). */
+  selectedSource(): string | null
+  commands: {
+    turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
+    toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
+    moveBlock(dir: 'up' | 'down'): boolean
+    duplicateBlock(): boolean
+    deleteBlocks(): boolean
+    selectBlock(): boolean
+    extendBlockSelection(dir: 'up' | 'down'): boolean
+    selectBlockRange(from: number, to: number): boolean
+    toggleChecklist(): boolean
+    insertLink(target: LinkChoice): boolean
+    insertTag(spelling: string): boolean
+    setUrlLink(href: string): boolean
+    removeLink(): boolean
+    pasteText(text: string, plain?: boolean): boolean
+    pasteHtml(html: string): boolean
+    tableAction(a: 'addRowBelow' | 'addColumnRight' | 'deleteRow' | 'deleteColumn'): boolean
+    insertBlock(kind: string, opts?: { level?: number }): boolean
+    undo(): boolean
+    redo(): boolean
+  }
+  destroy(): void
+}
+
+type Faults = { editorLoad?: boolean; verify?: boolean }
+const faults = (): Faults => ((globalThis as { __TEGG_TEST__?: { faults?: Faults } }).__TEGG_TEST__?.faults ?? {})
+
+// ------------------------------------------------------------------------------------------------ block selection
+
+type BlockSel = { anchor: number; head: number } | null
+export const blockSelKey = new PluginKey<BlockSel>('teggBlockSelection')
+
+const BlockSelection = Extension.create({
+  name: 'teggBlockSelection',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<BlockSel>({
+        key: blockSelKey,
+        state: {
+          init: () => null,
+          apply(tr, value) {
+            const meta = tr.getMeta(blockSelKey) as BlockSel | undefined
+            if (meta !== undefined) return meta
+            if (!value) return null
+            if (tr.docChanged || tr.selectionSet) return null
+            return value
+          },
+        },
+        props: {
+          decorations(state) {
+            const sel = blockSelKey.getState(state)
+            if (!sel) return null
+            const from = Math.min(sel.anchor, sel.head)
+            const to = Math.max(sel.anchor, sel.head)
+            const decos: Decoration[] = []
+            let pos = 0
+            state.doc.forEach((n, _o, i) => {
+              if (i >= from && i <= to) decos.push(Decoration.node(pos, pos + n.nodeSize, { 'data-block-selected': '' }))
+              pos += n.nodeSize
+            })
+            return DecorationSet.create(state.doc, decos)
+          },
+        },
+      }),
+    ]
+  },
+})
+
+// ------------------------------------------------------------------------------------------------ helpers
+
+function blockPos(doc: PMNode, k: number): number {
+  let pos = 0
+  for (let i = 0; i < k; i++) pos += doc.child(i).nodeSize
+  return pos
+}
+
+function topIndex(state: EditorState, pos?: number): number {
+  const $p = state.doc.resolve(pos ?? state.selection.from)
+  return $p.depth === 0 ? Math.min($p.index(0), state.doc.childCount - 1) : $p.index(0)
+}
+
+/** First text position inside top-level block `k` (or near it). */
+function startOf(doc: PMNode, k: number): number {
+  const pos = blockPos(doc, k)
+  return TextSelection.near(doc.resolve(Math.min(pos + 1, doc.content.size))).from
+}
+
+function endOf(doc: PMNode, k: number): number {
+  const pos = blockPos(doc, k) + doc.child(k).nodeSize
+  return TextSelection.near(doc.resolve(Math.max(pos - 1, 0)), -1).from
+}
+
+const SAFE_URL = /^(https?:\/\/|mailto:)/i
+
+/** Markdown text → editor blocks, through the real @tegg/doc parser and the load path's lossless check, so a pasted
+ *  block the editor can't write back is kept as a source block (FR-EDT-14 AC-1, ADR 0002). */
+function markdownToNodes(md: string, schema: import('@tiptap/pm/model').Schema): PMNode[] {
+  const loaded = loadDoc(md.replace(/\r\n?/g, '\n').normalize('NFC'), schema)
+  if (!loaded.doc.blocks.length) return []
+  return (loaded.json.content ?? []).map((json, i) => {
+    const raw = () => schema.nodes.rawBlock.create({ source: loaded.doc.blocks[i].raw, kind: 'raw' })
+    try {
+      const { srcIndex: _s, ...attrs } = json.attrs ?? {}
+      const n = schema.nodeFromJSON({ ...json, attrs })
+      n.check()
+      // The table plugin would add cells to a ragged table after insertion (normalization guard, FR-EDT-01 AC-2).
+      if (n.type.name === 'table') {
+        const widths = new Set<number>()
+        n.forEach((row) => widths.add(row.childCount))
+        if (widths.size > 1) return raw()
+      }
+      return n
+    } catch {
+      return raw()
+    }
+  })
+}
+
+/** Two adjacent top-level lists of one kind are one list in Markdown; after a paste, join them so the editor shows
+ *  what the file will mean (otherwise ordered lists may have no marker left to keep them apart, D-67). */
+function joinAdjacentLists(tr: Transaction): void {
+  for (let again = true; again; ) {
+    again = false
+    let pos = 0
+    for (let i = 0; i + 1 < tr.doc.childCount; i++) {
+      const a = tr.doc.child(i)
+      const b = tr.doc.child(i + 1)
+      pos += a.nodeSize
+      if (/List$/.test(a.type.name) && a.type === b.type && (a.attrs.srcIndex === null || b.attrs.srcIndex === null)) {
+        tr.join(pos)
+        again = true
+        break
+      }
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ createEditor
+
+export function createEditor(opts: EditorOptions): TeggEditor {
+  if (faults().editorLoad) throw new Error('editor load failed (test fault, NFR-REL-03 AC-8)')
+  let dirty = false
+  let pendingTitle: string | null = null
+  let loaded: Loaded
+  let lastSaved = opts.text
+
+  const editor = new Editor({
+    element: opts.element ?? document.createElement('div'),
+    extensions: teggExtensions([TeggRules, BlockSelection, ...(opts.extensions ?? [])]),
+    content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    enableInputRules: false,
+    enablePasteRules: false,
+    injectCSS: false,
+    editorProps: {
+      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': opts.label ?? 'Note body', spellcheck: 'true' },
+      handlePaste: (view, event) => {
+        const dt = event.clipboardData
+        if (!dt) return false
+        const files = [...(dt.files ?? [])]
+        const hasImage = files.some((f) => f.type.startsWith('image/')) || [...(dt.items ?? [])].some((i) => i.kind === 'file' && i.type.startsWith('image/'))
+        const html = dt.getData('text/html')
+        const plain = dt.getData('text/plain')
+        if (inSourceBlock(view.state)) return true
+        if (hasImage && !plain && !html) {
+          opts.onImagePaste?.()
+          return true
+        }
+        if (plainNext) {
+          plainNext = false
+          return commands.pasteText(plain, true) || true
+        }
+        // Our own copies carry the Markdown source as text/plain; HTML from elsewhere is converted (FR-EDT-14 AC-3).
+        if (html && !html.includes('data-tegg-copy')) return commands.pasteHtml(html) || true
+        if (plain) return commands.pasteText(plain) || true
+        return false
+      },
+      handleTextInput: (view) => inSourceBlock(view.state),
+      handleDOMEvents: {
+        copy: (_v, event) => copyBlocks(event, false),
+        cut: (_v, event) => copyBlocks(event, true),
+      },
+    },
+    onTransaction: ({ transaction }) => {
+      if (transaction.docChanged && !transaction.getMeta('teggLoad')) {
+        dirty = true
+        opts.onChange?.(true)
+      }
+      opts.onUpdate?.()
+    },
+  })
+  let plainNext = false
+  const view = editor.view
+
+  function copyBlocks(event: ClipboardEvent, cut: boolean): boolean {
+    const src = selectedSource()
+    if (src === null || !event.clipboardData) return false
+    const s = blockSel()!
+    const from = Math.min(s.anchor, s.head)
+    const to = Math.max(s.anchor, s.head)
+    const start = blockPos(editor.state.doc, from)
+    const end = blockPos(editor.state.doc, to) + editor.state.doc.child(to).nodeSize
+    const html = editor.view.serializeForClipboard(editor.state.doc.slice(start, end)).dom.innerHTML
+    event.clipboardData.setData('text/plain', src)
+    event.clipboardData.setData('text/html', `<div data-tegg-copy="">${html}</div>`)
+    event.preventDefault()
+    if (cut) commands.deleteBlocks()
+    return true
+  }
+
+  function inSourceBlock(state: EditorState): boolean {
+    const sel = state.selection
+    if (sel instanceof NodeSelection && sel.node.type.name === 'rawBlock') return true
+    return false
+  }
+
+  /** Loads `text` into the editor with an empty history. */
+  function load(text: string) {
+    loaded = loadDoc(text, editor.schema)
+    attach(editor, loaded)
+    // A fresh state: the load is never an undo step and the history starts empty (AP-122, D-178).
+    const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins, selection: TextSelection.atStart(editor.state.doc) })
+    view.updateState(fresh)
+    dirty = false
+  }
+  load(opts.text)
+
+  function candidate(): string {
+    const r = reconcile(loaded, editor.state.doc)
+    const bodyStart = loaded.doc.bodyStart
+    const body = r.text.slice(bodyStart)
+    const base = parse(lastSaved)
+    let out = lastSaved.slice(0, base.bodyStart) + body
+    if (!base.frontmatter && loaded.doc.frontmatter) out = r.text // never drop a frontmatter the file had
+    if (pendingTitle !== null) {
+      const cur = parse(out).frontmatter?.data?.title
+      if (cur !== pendingTitle) out = setAttribute(parse(out), 'title', pendingTitle)
+    }
+    return out
+  }
+
+  function compute(): string | null {
+    const next = candidate()
+    if (next === lastSaved) return null
+    // Invalid frontmatter is never rewritten automatically (NFR-REL-03); such notes open read-only in the app.
+    if (parse(next).frontmatter?.error || parse(lastSaved).frontmatter?.error) return next
+    const withId = ensureIdentity(parse(next), { now: opts.now(), newId: opts.newId })
+    return touchModified(lastSaved, withId, opts.now())
+  }
+
+  const dispatch = (tr: Transaction) => view.dispatch(tr)
+
+  /** Source of the block selection: unchanged blocks as written in the file, others rendered (FR-EDT-13 AC-5). */
+  function selectedSource(): string | null {
+    const s = blockSel()
+    if (!s) return null
+    const from = Math.min(s.anchor, s.head)
+    const to = Math.max(s.anchor, s.head)
+    const out: string[] = []
+    for (let k = from; k <= to; k++) {
+      const n = editor.state.doc.child(k)
+      const i = n.attrs.srcIndex as number | null
+      if (i !== null && loaded.originals[i] && n.eq(loaded.originals[i]!)) out.push(loaded.doc.blocks[i].raw.replace(/\r\n/g, '\n'))
+      else if (n.type.name === 'rawBlock') out.push(String(n.attrs.source))
+      else out.push(renderBlock(pmToBlock(n.toJSON())))
+    }
+    return out.join('\n\n')
+  }
+  const blockSel = (): BlockSel => blockSelKey.getState(editor.state) ?? null
+  /** The top-level blocks a block command acts on: the block selection, else the caret's block. */
+  const targetRange = (): [number, number] => {
+    const s = blockSel()
+    if (s) return [Math.min(s.anchor, s.head), Math.max(s.anchor, s.head)]
+    const k = topIndex(editor.state)
+    return [k, k]
+  }
+
+  const commands: TeggEditor['commands'] = {
+    turnInto(kind, o = {}) {
+      const [from, to] = targetRange()
+      const doc = editor.state.doc
+      for (let k = from; k <= to; k++) if (doc.child(k).type.name === 'rawBlock') return false
+      const node = doc.child(from)
+      const start = blockPos(doc, from)
+      const end = blockPos(doc, to) + doc.child(to).nodeSize
+      const textSel = () => editor.chain().setTextSelection({ from: startOf(doc, from), to: endOf(doc, to) })
+      if (kind === 'callout') {
+        if (from === to && node.type.name === 'callout') {
+          if (!o.calloutType) return false
+          if (String(node.attrs.calloutType).toLowerCase() === o.calloutType) return false
+          dispatch(editor.state.tr.setNodeMarkup(start, undefined, { ...node.attrs, calloutType: o.calloutType }))
+          return true
+        }
+        if (from !== to || !node.isTextblock) return false
+        const s = editor.schema
+        const callout = s.nodes.callout.create({ calloutType: o.calloutType ?? 'note', fold: '', joined: false }, [s.nodes.calloutTitle.create(null, node.content)])
+        const tr = editor.state.tr.replaceWith(start, end, callout)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)))
+        dispatch(tr)
+        return true
+      }
+      // Lists and quotes of several blocks become one list / quote (FR-EDT-13 AC-4).
+      const c = textSel()
+      switch (kind) {
+        case 'paragraph': return c.setParagraph().run()
+        case 'heading': return c.setHeading({ level: (o.level ?? 1) as 1 }).run()
+        case 'bulletList': return node.type.name === 'bulletList' && from === to ? false : c.toggleBulletList().run()
+        case 'orderedList': return c.toggleOrderedList().run()
+        case 'checklist': {
+          if (!c.toggleBulletList().run()) return false
+          const tr = editor.state.tr
+          const a = blockPos(editor.state.doc, from)
+          const b = Math.min(editor.state.doc.content.size, a + editor.state.doc.child(Math.min(from, editor.state.doc.childCount - 1)).nodeSize)
+          editor.state.doc.nodesBetween(a, b, (n, p) => {
+            if (n.type.name === 'listItem' && n.attrs.checked === null) tr.setNodeMarkup(p, undefined, { ...n.attrs, checked: false })
+            return true
+          })
+          if (tr.docChanged) dispatch(tr.setMeta('addToHistory', true))
+          return true
+        }
+        case 'blockquote': return c.toggleBlockquote().run()
+        case 'codeBlock': return c.setCodeBlock().run()
+        default: return false
+      }
+    },
+    toggleMark(mark) {
+      if (editor.state.selection.$from.parent.type.spec.code) return false
+      return editor.commands.toggleMark(mark)
+    },
+    moveBlock(dir) {
+      const [from, to] = targetRange()
+      const doc = editor.state.doc
+      if (dir === 'up' ? from === 0 : to === doc.childCount - 1) return false
+      const sel = blockSel()
+      const start = blockPos(doc, from)
+      const end = blockPos(doc, to) + doc.child(to).nodeSize
+      const slice = doc.slice(start, end)
+      const tr = editor.state.tr
+      const relSel = editor.state.selection.from - start
+      if (dir === 'down') {
+        const after = end + doc.child(to + 1).nodeSize
+        tr.insert(after, slice.content)
+        tr.delete(start, end)
+      } else {
+        const before = start - doc.child(from - 1).nodeSize
+        tr.delete(start, end)
+        tr.insert(before, slice.content)
+      }
+      const nf = dir === 'down' ? from + 1 : from - 1
+      const newStart = blockPos(tr.doc, nf)
+      if (sel) tr.setMeta(blockSelKey, { anchor: sel.anchor + (nf - from), head: sel.head + (nf - from) })
+      else tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newStart + Math.max(relSel, 0), tr.doc.content.size))))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    duplicateBlock() {
+      const [from, to] = targetRange()
+      const doc = editor.state.doc
+      const start = blockPos(doc, from)
+      const end = blockPos(doc, to) + doc.child(to).nodeSize
+      const tr = editor.state.tr.insert(end, doc.slice(start, end).content)
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    deleteBlocks() {
+      const [from, to] = targetRange()
+      const doc = editor.state.doc
+      const start = blockPos(doc, from)
+      const end = blockPos(doc, to) + doc.child(to).nodeSize
+      const tr = editor.state.tr
+      if (from === 0 && to === doc.childCount - 1) tr.replaceWith(start, end, editor.schema.nodes.paragraph.create())
+      else tr.delete(start, end)
+      const k = Math.min(from, tr.doc.childCount - 1)
+      const target = from > 0 ? endOf(tr.doc, from - 1) : startOf(tr.doc, k)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(target)))
+      tr.setMeta(blockSelKey, null)
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    selectBlock() {
+      const k = topIndex(editor.state)
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+      return true
+    },
+    extendBlockSelection(dir) {
+      const s = blockSel() ?? { anchor: topIndex(editor.state), head: topIndex(editor.state) }
+      const head = Math.max(0, Math.min(editor.state.doc.childCount - 1, s.head + (dir === 'down' ? 1 : -1)))
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: s.anchor, head }))
+      return true
+    },
+    selectBlockRange(from, to) {
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: from, head: to }))
+      return true
+    },
+    toggleChecklist() {
+      const { $from } = editor.state.selection
+      for (let d = $from.depth; d > 0; d--) {
+        const n = $from.node(d)
+        if (n.type.name === 'listItem' && n.attrs.checked !== null) {
+          dispatch(editor.state.tr.setNodeMarkup($from.before(d), undefined, { ...n.attrs, checked: !n.attrs.checked }))
+          return true
+        }
+      }
+      return false
+    },
+    insertLink(target) {
+      const { from, to, empty } = editor.state.selection
+      if (editor.state.selection.$from.parent.type.spec.code) return false
+      let value = linkText(target)
+      if (!empty) {
+        const sel = editor.state.doc.textBetween(from, to, ' ').normalize('NFC')
+        const t = value.split('|')[0]
+        const shown = value.includes('|') ? value.slice(value.indexOf('|') + 1) : t
+        if (sel && sel !== shown) value = `${t}|${sel}`
+        else if (sel === shown) value = t === shown ? t : `${t}|${shown}`
+      }
+      const node = editor.schema.nodes.wikiLink.create({ value, embed: false })
+      const tr = editor.state.tr.replaceWith(from, to, node)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(from + node.nodeSize)))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    insertTag(spelling) {
+      const { from, to, $from } = editor.state.selection
+      if ($from.parent.type.spec.code) return false
+      const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset, undefined, '￼')
+      const pad = before && !/[\s(]/.test(before) ? ' ' : ''
+      const value = spelling.replace(/^#/, '').normalize('NFC')
+      const nodes = [...(pad ? [editor.schema.text(pad)] : []), editor.schema.nodes.tag.create({ value })]
+      const tr = editor.state.tr.replaceWith(from, to, nodes)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(from + pad.length + 1)))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    setUrlLink(href) {
+      if (!SAFE_URL.test(href.trim())) return false
+      const { empty } = editor.state.selection
+      if (empty) return false
+      return editor.chain().setMark('link', { href: href.trim() }).run()
+    },
+    removeLink() {
+      const state = editor.state
+      const { $from, empty } = state.selection
+      // A wikilink chip before or at the caret becomes its shown text.
+      const sel = state.selection
+      let chipPos: number | null = null
+      let chip: PMNode | null = null
+      if (sel instanceof NodeSelection && sel.node.type.name === 'wikiLink') { chipPos = sel.from; chip = sel.node }
+      else if (empty) {
+        const before = $from.nodeBefore
+        const after = $from.nodeAfter
+        if (before?.type.name === 'wikiLink') { chip = before; chipPos = $from.pos - before.nodeSize }
+        else if (after?.type.name === 'wikiLink') { chip = after; chipPos = $from.pos }
+      }
+      if (chip && chipPos !== null) {
+        const v = String(chip.attrs.value)
+        const pipe = /\\?\|/.exec(v)
+        const shown = pipe ? v.slice(pipe.index + pipe[0].length) : v
+        dispatch(state.tr.replaceWith(chipPos, chipPos + chip.nodeSize, state.schema.text(shown, chip.marks)))
+        return true
+      }
+      if (editor.isActive('link')) return editor.chain().extendMarkRange('link').unsetMark('link').run()
+      return false
+    },
+    pasteText(text, plain = false) {
+      const state = editor.state
+      if (inSourceBlock(state)) return false
+      const norm = text.replace(/\r\n?/g, '\n').normalize('NFC')
+      const { $from, empty } = state.selection
+      if ($from.parent.type.spec.code) {
+        dispatch(state.tr.insertText(norm).scrollIntoView())
+        return true
+      }
+      if (plain) {
+        const lines = norm.split('\n')
+        if (lines.length === 1) { dispatch(state.tr.insertText(norm).scrollIntoView()); return true }
+        const nodes = lines.map((l) => state.schema.nodes.paragraph.create(null, l ? state.schema.text(l) : null))
+        dispatch(state.tr.replaceSelection(new Slice(Fragment.from(nodes), 1, 1)).scrollIntoView())
+        return true
+      }
+      // A URL pasted on a selection links it (FR-EDT-14 AC-4); other schemes stay literal text.
+      const one = norm.trim()
+      if (!empty && /^\S+$/.test(one) && /^[a-z][a-z0-9+.-]*:/i.test(one)) {
+        if (SAFE_URL.test(one)) return editor.chain().setMark('link', { href: one }).run()
+        dispatch(state.tr.insertText(one).scrollIntoView())
+        return true
+      }
+      const nodes = markdownToNodes(norm, state.schema)
+      if (!nodes.length) return false
+      if (nodes.length === 1 && nodes[0].type.name === 'paragraph' && $from.parent.isTextblock) {
+        // One paragraph: its inline content goes in at the caret (marks, links and tags kept).
+        const lead = norm.match(/^[ \t]+/)?.[0] ?? ''
+        const content = lead ? Fragment.from(state.schema.text(lead)).append(nodes[0].content) : nodes[0].content
+        dispatch(state.tr.replaceSelection(new Slice(content, 0, 0)).scrollIntoView())
+        return true
+      }
+      const tr = state.tr
+      const atEmpty = $from.depth === 1 && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0
+      if (atEmpty) {
+        const start = $from.before(1)
+        tr.replaceWith(start, $from.after(1), nodes)
+        const end = start + nodes.reduce((s, n) => s + n.nodeSize, 0)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(end), -1))
+      } else if ($from.depth > 1) {
+        // Inside a list, quote, callout or table, pasted blocks go after that block: nesting other blocks into it
+        // could give structures Markdown can't write back (ADR 0002 verification).
+        const after = $from.after(1)
+        tr.insert(after, nodes)
+        const end = after + nodes.reduce((s, n) => s + n.nodeSize, 0)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(end), -1))
+      } else {
+        tr.replaceSelection(new Slice(Fragment.from(nodes), 0, 0))
+      }
+      joinAdjacentLists(tr)
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    pasteHtml(html) {
+      const md = htmlToMarkdown(html)
+      if (!md.trim()) return false
+      return commands.pasteText(md)
+    },
+    tableAction(a) {
+      switch (a) {
+        case 'addRowBelow': return editor.commands.addRowAfter()
+        case 'addColumnRight': return editor.commands.addColumnAfter()
+        case 'deleteRow': return editor.commands.deleteRow()
+        case 'deleteColumn': return editor.commands.deleteColumn()
+      }
+    },
+    insertBlock(kind, o = {}) {
+      const s = editor.schema
+      const state = editor.state
+      const k = topIndex(state)
+      const cur = state.doc.child(k)
+      const empty = cur.type.name === 'paragraph' && cur.content.size === 0
+      const make = (): PMNode | PMNode[] | null => {
+        switch (kind) {
+          case 'paragraph': return s.nodes.paragraph.create()
+          case 'heading': return s.nodes.heading.create({ level: o.level ?? 1 })
+          case 'bulletList': return s.nodes.bulletList.create(null, s.nodes.listItem.create(null, s.nodes.paragraph.create()))
+          case 'orderedList': return s.nodes.orderedList.create({ start: 1 }, s.nodes.listItem.create(null, s.nodes.paragraph.create()))
+          case 'checklist': return s.nodes.bulletList.create(null, s.nodes.listItem.create({ checked: false }, s.nodes.paragraph.create()))
+          case 'blockquote': return s.nodes.blockquote.create(null, s.nodes.paragraph.create())
+          case 'callout': return s.nodes.callout.create({ calloutType: 'note', fold: '', joined: false }, s.nodes.calloutTitle.create())
+          case 'codeBlock': return s.nodes.codeBlock.create()
+          case 'divider': return [s.nodes.horizontalRule.create(), s.nodes.paragraph.create()]
+          case 'table': {
+            const cell = (h: boolean) => (h ? s.nodes.tableHeader : s.nodes.tableCell).create(null, s.nodes.paragraph.create())
+            const row = (h: boolean) => s.nodes.tableRow.create(null, [cell(h), cell(h), cell(h)])
+            return s.nodes.table.create(null, [row(true), row(false), row(false)])
+          }
+          default: return null
+        }
+      }
+      const made = make()
+      if (!made) return false
+      const nodes = Array.isArray(made) ? made : [made]
+      const start = blockPos(state.doc, k)
+      const tr = state.tr
+      let at: number
+      if (empty) { tr.replaceWith(start, start + cur.nodeSize, nodes); at = start }
+      else { at = start + cur.nodeSize; tr.insert(at, nodes) }
+      // Caret: inside the first node's first text position (divider: the paragraph after it).
+      const focusAt = kind === 'divider' ? at + nodes[0].nodeSize : at
+      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(focusAt + 1, tr.doc.content.size))))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    undo() {
+      return editor.commands.undo()
+    },
+    redo() {
+      return editor.commands.redo()
+    },
+  }
+
+  return {
+    view,
+    editor,
+    async save() {
+      if (faults().verify) throw new VerifyError('verification refused (test fault, NFR-REL-03 AC-9)')
+      return compute()
+    },
+    markSaved(text) {
+      lastSaved = text
+      const t = parse(text).frontmatter?.data?.title
+      if (pendingTitle !== null && t === pendingTitle) pendingTitle = null
+      dirty = false
+      opts.onChange?.(false)
+    },
+    reload(text) {
+      const state = editor.state
+      const k = topIndex(state)
+      const node = state.doc.child(k)
+      const src = node.attrs.srcIndex as number | null
+      const oldRaw = (i: number): string | null => {
+        const n = state.doc.child(i)
+        const s = n.attrs.srcIndex as number | null
+        return s !== null && loaded.originals[s] && n.eq(loaded.originals[s]!) ? loaded.doc.blocks[s].raw : null
+      }
+      const $from = state.selection.$from
+      const offset = $from.depth > 0 ? $from.pos - startOf(state.doc, k) : 0
+      void src
+      lastSaved = text
+      pendingTitle = null
+      load(text)
+      const blocks = loaded.doc.blocks.map((b) => b.raw)
+      const doc = editor.state.doc
+      let target: number | null = null
+      const mine = oldRaw(k)
+      const idx = mine !== null ? blocks.indexOf(mine) : -1
+      if (idx >= 0 && idx < doc.childCount) target = Math.min(startOf(doc, idx) + offset, endOf(doc, idx))
+      else {
+        for (let i = k - 1; i >= 0 && target === null; i--) {
+          const r = oldRaw(i)
+          const j = r !== null ? blocks.indexOf(r) : -1
+          if (j >= 0 && j < doc.childCount) target = endOf(doc, j)
+        }
+        if (target === null && mine === null && k < doc.childCount) target = Math.min(startOf(doc, k) + offset, endOf(doc, k))
+      }
+      if (target !== null) view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(target))).setMeta('addToHistory', false).setMeta('teggLoad', true))
+      // The selection change above isn't an undo step; start the history empty again (D-178).
+      view.updateState(EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins, selection: editor.state.selection }))
+      dirty = false
+    },
+    readonlyBlocks() {
+      // Top-level blocks shown read-only now (source blocks and placeholders); at load these are the source-block
+      // indices the normalization guard and the raw kinds produced (FR-EDT-01 AC-2, AC-8).
+      const out: number[] = []
+      editor.state.doc.forEach((n, _o, i) => { if (n.type.name === 'rawBlock') out.push(i) })
+      return out
+    },
+    text() {
+      try {
+        return compute() ?? lastSaved
+      } catch {
+        return lastSaved
+      }
+    },
+    dirty: () => dirty,
+    historyDepth: () => undoDepth(editor.state),
+    setTitle(title) {
+      pendingTitle = title === null ? null : title.normalize('NFC')
+      dirty = true
+      opts.onChange?.(true)
+    },
+    blockSelection() {
+      const s = blockSel()
+      return s ? { from: Math.min(s.anchor, s.head), to: Math.max(s.anchor, s.head) } : null
+    },
+    clearBlockSelection() {
+      if (blockSel()) dispatch(editor.state.tr.setMeta(blockSelKey, null))
+    },
+    caretBlock: () => topIndex(editor.state),
+    pastePlainNext() {
+      plainNext = true
+    },
+    selectedSource,
+    commands,
+    destroy() {
+      editor.destroy()
+    },
+  }
+}

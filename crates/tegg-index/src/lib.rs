@@ -170,6 +170,15 @@ pub enum ConflictKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagInfo {
+    pub key: String,
+    /// The most frequent written form; ties by code point (D-185).
+    pub spelling: String,
+    /// Objects carrying the tag.
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Conflict {
     pub kind: ConflictKind,
     pub primary: String,
@@ -186,6 +195,9 @@ struct Stored {
     title: String,
     aliases: Vec<String>,
     tags: Vec<String>,
+    /// Tags as written, aligned with `tags` (D-185). Older index rows lack it; the key is used then.
+    #[serde(default)]
+    tag_spellings: Vec<String>,
     attributes: Value,
     links: Vec<String>,
     body_start: usize,
@@ -378,6 +390,7 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         title: ex.title,
         aliases,
         tags: ex.tags,
+        tag_spellings: ex.tag_spellings,
         attributes,
         links: ex.links.into_iter().map(|l| l.target).collect(),
         body_start,
@@ -556,6 +569,33 @@ impl Index {
 
     pub fn object(&self, path: &str) -> Option<ObjectInfo> {
         self.meta(path).map(Meta::info)
+    }
+
+    /// D-185: every tag key of indexed objects (templates and `.trash/` are never indexed).
+    pub fn tags(&self) -> Vec<TagInfo> {
+        let mut by_key: BTreeMap<String, (usize, BTreeMap<String, usize>)> = BTreeMap::new();
+        for m in self.metas.values() {
+            let mut seen = std::collections::HashSet::new();
+            for (i, key) in m.s.tags.iter().enumerate() {
+                let e = by_key.entry(key.clone()).or_default();
+                if seen.insert(key.clone()) {
+                    e.0 += 1;
+                }
+                let spelled = m.s.tag_spellings.get(i).cloned().unwrap_or_else(|| key.clone());
+                *e.1.entry(spelled).or_default() += 1;
+            }
+        }
+        by_key
+            .into_iter()
+            .map(|(key, (count, forms))| {
+                // Highest count first; BTreeMap order breaks ties by code point.
+                let best = forms.iter().fold(None::<(&String, usize)>, |b, (f, n)| match b {
+                    Some((_, bn)) if bn >= *n => b,
+                    _ => Some((f, *n)),
+                });
+                TagInfo { spelling: best.map(|b| b.0.clone()).unwrap_or_else(|| key.clone()), key, count }
+            })
+            .collect()
     }
 
     pub fn objects(&self) -> Vec<ObjectInfo> {
