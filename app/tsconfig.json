@@ -9,7 +9,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "paths": { "@tegg/doc": ["../packages/doc/src/index.ts"] }
+    "paths": { "@tegg/doc": ["../packages/doc/src/index.ts"], "@tegg/editor": ["../packages/editor/src/index.ts"] }
   },
   "include": ["ui/src", "vite.config.ts"]
 }

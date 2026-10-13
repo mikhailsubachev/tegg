@@ -87,12 +87,14 @@ const BOTTOM: Entry[] = [
 
 let savedScroll = 0;
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject }: {
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, conflicts = 0 }: {
   route: Route;
   types: TypeEntry[];
   onGo: (r: Route) => void;
   onSwitcher: () => void;
   onNewObject: () => void;
+  /** Open conflicts; the entry shows only while there are some (FR-SYN-04 AC-6, D-177). */
+  conflicts?: number;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -137,7 +139,17 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject }: {
           <span className="entry-label">{t('cmd.newObject')}</span>
           <kbd>{keysOf('object.new')}</kbd>
         </button>
-        <div className="sidebar-group">{TOP.map(link)}</div>
+        <div className="sidebar-group">
+          {TOP.map(link)}
+          {conflicts > 0 && (
+            <a tabIndex={0} href="#" className={`entry conflicts-entry ${route.id === 'conflicts' ? 'current' : ''}`} aria-current={route.id === 'conflicts' ? 'page' : undefined}
+              data-command="goto.conflicts" onClick={(ev) => { ev.preventDefault(); onGo({ id: 'conflicts' }); }}>
+              <Icon name="conflict" />
+              <span className="entry-label">{t('route.conflicts')}</span>
+              <span className="count">{conflicts}</span>
+            </a>
+          )}
+        </div>
         <div className="section-head">
           <span>{t('frame.types')}</span>
           <Disabled control="ctl.newType" ariaLabel={t('ctl.newType')} className="icon-button small"><Icon name="plus" size={14} /></Disabled>

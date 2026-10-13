@@ -33,6 +33,14 @@ const PATHS: Record<string, string> = {
   'chevron-down': 'M6 9l6 6 6-6',
   'chevron-right': 'M9 6l6 6-6 6',
   source: 'M9 7l-5 5 5 5M15 7l5 5-5 5',
+  grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
+  check: 'M5 12l5 5 9-10',
+  'mark-bold': 'M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z',
+  'mark-italic': 'M14 5h-4M14 19h-4M13 5l-2 14',
+  'mark-strike': 'M5 12h14M16 7a4 3 0 0 0-8 0c0 4 8 3 8 7a4 3 0 0 1-8 0',
+  'mark-code': 'M9 8l-4 4 4 4M15 8l4 4-4 4',
+  'mark-highlight': 'M5 19h14M8 15l7-9 3 3-9 7z',
+  object: 'M12 3l8 4.5v9L12 21l-8-4.5v-9z',
 };
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }) {

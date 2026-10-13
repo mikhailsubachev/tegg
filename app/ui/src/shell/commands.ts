@@ -21,7 +21,13 @@ export type ShellActions = {
   toggleProperties: () => void;
   openChooser: (form: boolean) => void;
   setTheme: (t: ThemeChoice) => void;
+  /** Runs an R8 editor action on the note route's editor; a no-op elsewhere (editor.md R8). */
+  edit?: (action: EditAction) => void;
 };
+
+export type EditAction =
+  | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
+  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -34,7 +40,7 @@ export type Command = {
   id: string;
   title: string;
   vars?: Record<string, string>;
-  section: 'navigate' | 'create' | 'view' | 'vault' | 'app';
+  section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit';
   shortcut?: string;
   due?: Due;
   needsVault: boolean;
@@ -48,7 +54,8 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
   'ctl.newType': 'type.new',
   'ctl.starterVault': 'vault.starter',
-  'ctl.edit': 'note.edit',
+  'ctl.turnIntoObject': 'edit.turnIntoObject',
+  'ctl.copyBlockLink': 'edit.copyBlockLink',
   'ctl.addIcon': 'note.icon',
   'ctl.addCover': 'note.cover',
   'ctl.filter': 'typePage.filter',
@@ -94,6 +101,18 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
   );
+  const EDIT: [string, EditAction, string][] = [
+    ['edit.undo', 'undo', 'cmd.edit.undo'], ['edit.redo', 'redo', 'cmd.edit.redo'], ['edit.bold', 'bold', 'cmd.edit.bold'],
+    ['edit.italic', 'italic', 'cmd.edit.italic'], ['edit.strike', 'strike', 'cmd.edit.strike'], ['edit.code', 'code', 'cmd.edit.code'],
+    ['edit.highlight', 'highlight', 'cmd.edit.highlight'], ['edit.link', 'link', 'cmd.edit.link'],
+    ['edit.moveBlockUp', 'moveBlockUp', 'cmd.edit.moveBlockUp'], ['edit.moveBlockDown', 'moveBlockDown', 'cmd.edit.moveBlockDown'],
+    ['edit.blockMenu', 'blockMenu', 'cmd.edit.blockMenu'], ['edit.selectBlock', 'selectBlock', 'cmd.edit.selectBlock'],
+    ['edit.openOrToggle', 'openOrToggle', 'cmd.edit.openOrToggle'], ['edit.pastePlain', 'pastePlain', 'cmd.edit.pastePlain'],
+    ['edit.saveNow', 'saveNow', 'cmd.edit.saveNow'],
+  ];
+  for (const [id, action, title] of EDIT) {
+    list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action) });
+  }
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });

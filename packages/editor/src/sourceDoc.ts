@@ -13,6 +13,8 @@ export interface Loaded {
   originals: (PMNode | null)[] // PM node per source block, for "unchanged?" checks
   /** Source-block indices shown read-only: raw kinds, placeholders and blocks the guard kept (FR-EDT-01 AC-2/AC-8). */
   readonly: Set<number>
+  /** `<!-- -->` separators between a list and an indented block (D-67): not shown, their bytes kept with the gap. */
+  hidden: Set<number>
 }
 
 /** Kinds shown as non-editable blocks: source blocks (`raw`) and placeholders (FR-EDT-01 AC-8, R5). */
@@ -22,7 +24,14 @@ const PLACEHOLDER_KINDS = new Set(['raw', 'embed', 'query', 'mindmap'])
 export function loadDoc(text: string, schema: Schema): Loaded {
   const doc = parse(text)
   const readonly = new Set<number>()
-  const content = doc.blocks.map((b, i): JSONContent => {
+  const hidden = new Set<number>()
+  doc.blocks.forEach((b, i) => {
+    const prev = doc.blocks[i - 1]
+    const next = doc.blocks[i + 1]
+    if (b.raw === END_LIST && prev && next && (prev.kind === 'list' || prev.kind === 'checklist' || /^( {4}|\t)/.test(prev.raw)) && /^[ \t]/.test(next.raw)) hidden.add(i)
+  })
+  const content = doc.blocks.flatMap((b, i): JSONContent[] => (hidden.has(i) ? [] : [block(b, i)]))
+  function block(b: (typeof doc.blocks)[number], i: number): JSONContent {
     let json: JSONContent = { type: 'rawBlock', attrs: { source: b.raw, kind: b.kind } }
     if (!PLACEHOLDER_KINDS.has(b.kind)) {
       const candidate = blockToPM(b.node, doc.text)
@@ -31,7 +40,7 @@ export function loadDoc(text: string, schema: Schema): Loaded {
     }
     if (json.type === 'rawBlock') readonly.add(i)
     return { ...json, attrs: { ...json.attrs, srcIndex: i } }
-  })
+  }
   const json: JSONContent = { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }
   const pm = schema.nodeFromJSON(json)
   const originals: (PMNode | null)[] = doc.blocks.map(() => null)
@@ -39,7 +48,7 @@ export function loadDoc(text: string, schema: Schema): Loaded {
     const i = n.attrs.srcIndex as number | null
     if (i !== null) originals[i] = n
   })
-  return { doc, json, originals, readonly }
+  return { doc, json, originals, readonly, hidden }
 }
 
 /**
@@ -97,13 +106,14 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     if (node.type.name === 'paragraph' && node.textContent.trim() === '' && !hasAtoms(node)) return // empty line: nothing to write
     const srcRaw = original ? doc.blocks[src!].raw : undefined
     const isRaw = node.type.name === 'rawBlock'
-    const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && checkboxPatch(original!, node, srcRaw)) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
+    const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     items.push({ base: fit(md, eol), text: fit(md, eol), src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
   })
 
   const changedBlocks = items.filter((i) => !i.unchanged).length
-  const nothingChanged = changedBlocks === 0 && items.length === doc.blocks.length && items.every((it, k) => it.src === k)
+  const shown = doc.blocks.map((_b, i) => i).filter((i) => !loaded.hidden.has(i))
+  const nothingChanged = changedBlocks === 0 && items.length === shown.length && items.every((it, k) => it.src === shown[k])
   if (nothingChanged && !opts.forceVerifyFailure) return { text: doc.text, changed: false, changedBlocks: 0 }
 
   // Separators: keep the original gap between consecutive original blocks; otherwise a blank line. If verification
@@ -123,11 +133,13 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     items.forEach((it, k) => {
       if (k > 0) {
         const prev = items[k - 1]
-        const consecutive = prev.src !== null && it.src !== null && it.src === prev.src + 1
+        const consecutive = prev.src !== null && it.src !== null && (it.src === prev.src + 1 || (it.src === prev.src + 2 && loaded.hidden.has(prev.src + 1)))
         let gap = consecutive ? doc.text.slice(doc.blocks[prev.src!].range[1], doc.blocks[it.src!].range[0]) : eol + eol
         if (blankAroundChanged && (!it.unchanged || !prev.unchanged) && !/\n[ \t]*\r?\n/.test(gap)) gap = eol + eol
         const sameLists = prev.node.type.name === it.node.type.name && /List$/.test(it.node.type.name) && listMarker(prev.text) === listMarker(it.text)
-        if (attempt === 'end-list comment' && !consecutive && /List$/.test(prev.node.type.name) && (/^[ \t]/.test(it.text) || sameLists)) {
+        // Two indented code blocks in a row would also merge into one.
+        const indentedPair = /^( {4}|\t)/.test(prev.text) && /^[ \t]/.test(it.text)
+        if (attempt === 'end-list comment' && !consecutive && ((/List$/.test(prev.node.type.name) && (/^[ \t]/.test(it.text) || sameLists)) || indentedPair)) {
           gap = eol + eol + END_LIST + eol + eol
         }
         out += gap
@@ -196,6 +208,31 @@ function checkboxPatch(original: PMNode, node: PMNode, raw: string): string | nu
     at = pos + 1
   })
   return (out + raw.slice(at)).replace(/\r\n/g, '\n')
+}
+
+/**
+ * A table whose shape and alignment are unchanged is written by replacing only the rows that changed, each as
+ * `| cell | cell |`, so editing one cell never re-pads the whole table (FR-EDT-02 AC-20). Pipes in cells are escaped.
+ */
+function tablePatch(original: PMNode, node: PMNode, raw: string): string | null {
+  if (node.type.name !== 'table' || original.type.name !== 'table') return null
+  if (JSON.stringify(node.attrs.align) !== JSON.stringify(original.attrs.align) || node.childCount !== original.childCount) return null
+  const lines = raw.replace(/\r\n/g, '\n').split('\n')
+  if (lines.length !== node.childCount + 1) return null // header, delimiter, one line per body row
+  const out = [...lines]
+  for (let r = 0; r < node.childCount; r++) {
+    const row = node.child(r)
+    const was = original.child(r)
+    if (row.childCount !== was.childCount) return null
+    if (row.eq(was)) continue
+    const cells: string[] = []
+    row.forEach((cell) => {
+      const md = renderBlock(pmToBlock({ type: 'paragraph', content: cell.firstChild?.toJSON().content ?? [] }))
+      cells.push(md.replace(/\n/g, ' ').replace(/(^|[^\\])\|/g, '$1\\|').replace(/(^|[^\\])\|/g, '$1\\|'))
+    })
+    out[r === 0 ? 0 : r + 1] = `| ${cells.join(' | ')} |`
+  }
+  return out.join('\n')
 }
 
 const LIST_MARKER = /^[ \t]*(?:([-*+])|\d+([.)]))[ \t]/
@@ -268,6 +305,10 @@ function verify(out: string, items: Item[]): boolean {
 export function comparable(json: JSONContent): JSONContent {
   const attrs = { ...(json.attrs ?? {}) }
   delete attrs.srcIndex
+  // In a table cell a link's pipe is written `\|`; it is the same link (dialect §6).
+  if (json.type === 'wikiLink' && typeof attrs.value === 'string') attrs.value = attrs.value.replace(/\\\|/g, '|')
+  // A table without alignment reads back as one `null` per column.
+  if (json.type === 'table' && Array.isArray(attrs.align) && attrs.align.every((a: unknown) => a === null)) attrs.align = null
   const out: JSONContent = { type: json.type }
   if (Object.keys(attrs).length) out.attrs = attrs
   if (json.marks?.length) out.marks = json.marks
@@ -290,9 +331,9 @@ function trimTextblock(content: JSONContent[]): JSONContent[] {
   const c = [...content]
   while (c.length && (c[0].type === 'hardBreak' || (c[0].type === 'text' && !c[0].text!.trim()))) c.shift()
   while (c.length && (c[c.length - 1].type === 'hardBreak' || (c[c.length - 1].type === 'text' && !c[c.length - 1].text!.trim()))) c.pop()
-  if (c[0]?.type === 'text') c[0] = { ...c[0], text: c[0].text!.replace(/^[ \t]+/, '') }
+  if (c[0]?.type === 'text') c[0] = { ...c[0], text: c[0].text!.replace(/^[ \t\n]+/, '') }
   const l = c.length - 1
-  if (c[l]?.type === 'text') c[l] = { ...c[l], text: c[l].text!.replace(/[ \t]+$/, '') }
+  if (c[l]?.type === 'text') c[l] = { ...c[l], text: c[l].text!.replace(/[ \t\n]+$/, '') }
   return c
 }
 

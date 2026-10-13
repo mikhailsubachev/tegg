@@ -256,3 +256,90 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .note-gone { color: var(--muted); padding: 24px 0; }
 /* Scroll past the end, so a link target near the end can still be brought to the top (D-140). */
 .note-root .note-column { padding-bottom: 70vh; }
+
+/* Editor (slice 3C): the body is @tegg/editor; it looks like the read view (FR-EDT-02 AC-16). */
+.editor-wrap { position: relative; padding-left: 52px; margin-left: -52px; }
+.editor-host .ProseMirror { font-size: 16px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; outline: none; min-height: 40vh; white-space: pre-wrap; padding-bottom: 30vh; caret-color: var(--text); }
+.editor-host .ProseMirror:focus-visible { outline: none; }
+.editor-host .ProseMirror > * { position: relative; }
+.editor-host .ProseMirror h1 { font-size: 30px; line-height: 1.25; margin: 1.2em 0 0.4em; }
+.editor-host .ProseMirror h2 { font-size: 24px; line-height: 1.3; margin: 1.4em 0 0.4em; }
+.editor-host .ProseMirror h3 { font-size: 20px; line-height: 1.3; margin: 1.3em 0 0.4em; }
+.editor-host .ProseMirror h4 { font-size: 17px; } .editor-host .ProseMirror h5, .editor-host .ProseMirror h6 { font-size: 15px; }
+.editor-host .ProseMirror p { margin: 0.5em 0; }
+.editor-host .ProseMirror ul, .editor-host .ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0; }
+.editor-host .ProseMirror li > .li-content > p, .editor-host .ProseMirror li > p { margin: 0.1em 0; }
+.editor-host .ProseMirror li.checklist-item { list-style: none; margin-left: -1.4em; display: flex; gap: 8px; align-items: baseline; }
+.editor-host .ProseMirror li.checklist-item .li-content { flex: 1; min-width: 0; }
+.editor-host .ProseMirror .checkbox-wrap input { width: 14px; height: 14px; accent-color: var(--accent); margin: 0; position: relative; top: 2px; color: var(--text); background: transparent; border-color: var(--muted); }
+.editor-host .ProseMirror blockquote { margin: 0.6em 0; padding: 0 0 0 14px; border-left: 3px solid var(--border); color: var(--muted); }
+.editor-host .ProseMirror code { font-size: 0.88em; background: var(--row); color: var(--text); border-radius: 4px; padding: 0.05em 0.3em; }
+.editor-host .ProseMirror pre { background: var(--row); color: var(--text); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+.editor-host .ProseMirror pre code { background: none; padding: 0; }
+.editor-host .ProseMirror mark { background: var(--type-yellow-bg); color: var(--text); padding: 0 2px; border-radius: 2px; }
+.editor-host .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
+.editor-host .ProseMirror table { border-collapse: collapse; font-size: 14px; margin: 0.6em 0; }
+.editor-host .ProseMirror th, .editor-host .ProseMirror td { border: 1px solid var(--border); padding: 4px 10px; min-width: 3em; vertical-align: top; }
+.editor-host .ProseMirror th { background: var(--row); }
+.editor-host .ProseMirror th p, .editor-host .ProseMirror td p { margin: 0; }
+.editor-host .ProseMirror a { color: var(--link); text-decoration: underline; }
+.editor-host .ProseMirror .wikilink { color: var(--link); cursor: pointer; border-bottom: 1px solid var(--link); }
+.editor-host .ProseMirror .wikilink.broken { color: var(--muted); border-bottom-style: dashed; border-bottom-color: var(--muted); }
+.editor-host .ProseMirror .tag { color: var(--accent); cursor: pointer; }
+.editor-host .ProseMirror .raw-inline { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; }
+.editor-host .ProseMirror .embed-chip { display: inline-block; padding: 0 6px; border: 1px dashed var(--border); border-radius: 4px; color: var(--muted); }
+.editor-host .ProseMirror .source-block { margin: 0.6em 0; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); }
+.editor-host .ProseMirror .source-block pre { background: none; margin: 0; }
+.editor-host .ProseMirror .in-note-placeholder { margin: 0.6em 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); font-size: 14px; }
+.editor-host .ProseMirror [data-callout] { --cfg: var(--type-blue); --cbg: var(--type-blue-bg); margin: 0.6em 0; padding: 8px 12px; border-left: 3px solid var(--cfg); background: var(--cbg); border-radius: 6px; }
+.editor-host .ProseMirror [data-callout='tip'], .editor-host .ProseMirror [data-callout='success'] { --cfg: var(--type-green); --cbg: var(--type-green-bg); }
+.editor-host .ProseMirror [data-callout='warning'], .editor-host .ProseMirror [data-callout='question'] { --cfg: var(--type-orange); --cbg: var(--type-orange-bg); }
+.editor-host .ProseMirror [data-callout='danger'], .editor-host .ProseMirror [data-callout='failure'], .editor-host .ProseMirror [data-callout='bug'] { --cfg: var(--type-red); --cbg: var(--type-red-bg); }
+.editor-host .ProseMirror [data-callout] [data-callout-title] { font-weight: 600; color: var(--text); }
+.editor-host .ProseMirror [data-callout] p { margin: 0.3em 0 0; color: var(--text); }
+.editor-host .ProseMirror [data-block-selected] { background: var(--sel); border-radius: 4px; }
+.editor-host .ProseMirror .editor-hint { color: var(--muted); pointer-events: none; user-select: none; }
+.editor-host .ProseMirror .ProseMirror-selectednode { outline: 2px solid var(--focus); outline-offset: 1px; }
+.block-handles { position: absolute; left: 4px; display: flex; gap: 2px; z-index: 5; }
+.block-handles .icon-button { width: 22px; height: 22px; color: var(--muted); background: var(--bg); }
+.block-handles .drag-handle { cursor: grab; }
+.popover { position: absolute; z-index: 30; min-width: 220px; max-width: 360px; max-height: 340px; overflow: auto; background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: 4px; font-size: 14px; }
+.popover .option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: default; color: var(--text); }
+.popover .option.selected, .popover .option:hover, .popover [role='menuitem']:focus { background: var(--sel); outline: none; }
+.popover .option.disabled { color: var(--muted); }
+.popover .option .due, .popover .option .meta, .popover .option .alias { margin-left: auto; color: var(--muted); font-size: 12px; }
+.popover .option .alias { margin-left: 0; }
+.popover .group-header { padding: 6px 8px 2px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.popover .empty { padding: 8px; color: var(--muted); }
+.link-field { padding: 6px; }
+.link-field input { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.link-field button { margin-top: 6px; }
+.field-error { margin-top: 6px; color: var(--danger); font-size: 13px; }
+.format-toolbar { position: absolute; z-index: 30; display: flex; gap: 2px; padding: 3px; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); }
+.format-toolbar button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--text); }
+.format-toolbar button[aria-pressed='true'] { background: var(--sel); }
+.format-toolbar button[aria-disabled='true'] { color: var(--muted); }
+.save-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.save-state.failed, .save-state.conflict { color: var(--danger); }
+.title-field { font: inherit; color: var(--text); background: none; border: 0; padding: 0; margin: 0; width: 100%; outline: none; }
+.save-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 6px; color: var(--text); background: var(--bg); font-size: 14px; }
+.paste-notice { margin: 8px 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: transparent; }
+.dialog-backdrop .dialog { box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.32), 0 12px 32px rgba(0, 0, 0, 0.24); }
+.dialog-backdrop .dialog { position: static; transform: none; width: min(860px, 92vw); max-height: 86vh; overflow: auto; padding: 16px 20px; background: var(--pop); color: var(--text); }
+.dialog-backdrop .dialog h2 { margin: 0 0 6px; font-size: 18px; }
+.dialog-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.dialog-buttons button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.compare-col { min-width: 0; border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
+.compare-head { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); font-weight: 600; }
+.compare-line { padding: 0 8px; white-space: pre-wrap; color: var(--text); }
+.compare-line.changed { background: var(--type-yellow-bg); }
+.conflict-list { list-style: none; padding: 0; }
+.conflict-list a { display: flex; gap: 8px; padding: 8px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.conflict-list a.current, .conflict-list a:hover { background: var(--hover); }
+.conflict-list .kind { color: var(--muted); }
+.merge-draft { min-height: 300px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; white-space: pre-wrap; color: var(--text); background: var(--bg); }
+.conflicts-entry .count { margin-left: auto; color: var(--muted); font-size: 12px; }
+.popover button, .save-alert button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.popover .option.selected .due, .popover .option.selected .meta, .popover .option.selected .alias { color: var(--text); }

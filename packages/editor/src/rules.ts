@@ -98,8 +98,11 @@ export function teggInputRules(schema: import('@tiptap/pm/model').Schema) {
       new InputRule(/(?:^|[^`])(`([^`\n]+)`)$/, (state, match, start, end) => {
         const markStart = start + (match[0].length - match[1].length)
         if (state.doc.resolve(markStart).parent.type.spec.code) return null
+        // Tags typed inside the backticks become their text again: code is literal (FR-EDT-04 AC-2).
+        const inner = state.doc.textBetween(markStart + 1, end, '', (leaf) => (leaf.type.name === 'tag' ? `#${leaf.attrs.value}` : ''))
+        if (!inner) return null
         const tr = state.tr.delete(markStart, end)
-        tr.insert(markStart, state.schema.text(match[2], [m.code.create()]))
+        tr.insert(markStart, state.schema.text(inner, [m.code.create()]))
         tr.removeStoredMark(m.code)
         return joined(tr, state)
       }),
@@ -159,11 +162,13 @@ const leadingSpaces = new Plugin({
       if (!node.isTextblock) return true
       if (node.type.spec.code || !['paragraph', 'heading', 'calloutTitle'].includes(node.type.name)) return false
       const first = node.firstChild
-      const m = first?.isText ? /^[ \t]+/.exec(first.text!) : null
-      const onlySpaces = node.textContent.trim() === ''
+      const m = first?.isText ? /^[ \t\n]+/.exec(first.text!) : null
+      let atoms = false
+      node.forEach((c) => { if (!c.isText) atoms = true })
+      const onlySpaces = node.textContent.trim() === '' && !atoms
       const hasCaret = caret > pos && caret <= pos + 1 + node.content.size
       const last = node.lastChild
-      const t = last?.isText && !hasCaret && !onlySpaces ? /[ \t]+$/.exec(last.text!) : null
+      const t = last?.isText && !hasCaret && !onlySpaces ? /[ \t\n]+$/.exec(last.text!) : null
       if (t) {
         const end = pos + 1 + node.content.size
         tr.delete(tr.mapping.map(end - t[0].length), tr.mapping.map(end))
@@ -186,10 +191,14 @@ export const TeggRules = Extension.create({
       Enter: ({ editor }) => {
         if (enterConversion(editor.state, editor.view.dispatch)) return true
         const { $from } = editor.state.selection
+        // A Markdown table cell holds one line: Enter stays in the cell (FR-EDT-02 AC-20).
+        for (let d = $from.depth; d > 0; d--) if (['tableCell', 'tableHeader'].includes($from.node(d).type.name)) return true
         if ($from.depth >= 2 && $from.node(-1).type.name === 'listItem' && isEmptyItem($from.node(-1))) return editor.commands.liftListItem('listItem')
         return false
       },
       'Mod-z': ({ editor }) => undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo(),
+      // ⌘↩ opens the link at the caret or toggles the checklist item (R8); the app runs it, never a hard break.
+      'Mod-Enter': () => false,
       Backspace: ({ editor }) => undoInputRule(editor.state, editor.view.dispatch),
     }
   },

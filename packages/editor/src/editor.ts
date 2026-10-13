@@ -7,12 +7,13 @@ import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
-import { undoDepth } from '@tiptap/pm/history'
+import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { renderBlock } from '@tegg/doc'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
+import { presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
 import { attach, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -29,9 +30,13 @@ export interface EditorOptions {
   onChange?: (dirty: boolean) => void
   /** Called on every transaction (selection or content), for the app's menus and toolbar. */
   onUpdate?: () => void
+  /** The selection moved (not by a content change). */
+  onSelection?: () => void
   /** A clipboard image was pasted (FR-EDT-14 AC-5): the app shows its notice; nothing is inserted. */
   onImagePaste?: () => void
   extensions?: import('@tiptap/core').AnyExtension[]
+  /** Presentation and interaction of chips, source blocks, checkboxes and the hint (the app's strings). */
+  ui?: EditorUi
 }
 
 export interface TeggEditor {
@@ -54,6 +59,8 @@ export interface TeggEditor {
   caretBlock(): number
   /** The next paste is literal text (⇧⌘V, FR-EDT-14 AC-2). */
   pastePlainNext(): void
+  /** Re-renders chips after the app learnt new link resolutions. */
+  refreshUi(): void
   /** Markdown source of the selected blocks, or null without a block selection (FR-EDT-13 AC-5). */
   selectedSource(): string | null
   commands: {
@@ -74,6 +81,14 @@ export interface TeggEditor {
     pasteHtml(html: string): boolean
     tableAction(a: 'addRowBelow' | 'addColumnRight' | 'deleteRow' | 'deleteColumn'): boolean
     insertBlock(kind: string, opts?: { level?: number }): boolean
+    /** Replaces `from…to` (the typed `[[query` or `#tag`) with a link or tag, as its own undo step (FR-EDT-06 AC-6). */
+    replaceWithLink(from: number, to: number, target: LinkChoice): boolean
+    replaceWithTag(from: number, to: number, spelling: string): boolean
+    /** Moves top-level blocks `from…to` before block `before` (drag, FR-EDT-01 AC-4, FR-EDT-13 AC-3). */
+    moveBlocksTo(from: number, to: number, before: number): boolean
+    /** Deletes `from…to` and turns the caret's block into / inserts `kind` after it (slash menu, FR-EDT-03 AC-4). */
+    slashInsert(from: number, to: number, kind: string, opts?: { level?: number }): boolean
+    setCalloutType(type: string): boolean
     undo(): boolean
     redo(): boolean
   }
@@ -198,13 +213,14 @@ function joinAdjacentLists(tr: Transaction): void {
 export function createEditor(opts: EditorOptions): TeggEditor {
   if (faults().editorLoad) throw new Error('editor load failed (test fault, NFR-REL-03 AC-8)')
   let dirty = false
+  let loading = false
   let pendingTitle: string | null = null
   let loaded: Loaded
   let lastSaved = opts.text
 
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([TeggRules, BlockSelection, ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([TeggRules, BlockSelection, ...(opts.ui ? [presentation(opts.ui)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     enableInputRules: false,
     enablePasteRules: false,
@@ -239,10 +255,11 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       },
     },
     onTransaction: ({ transaction }) => {
-      if (transaction.docChanged && !transaction.getMeta('teggLoad')) {
+      if (transaction.docChanged && !loading && !transaction.getMeta('teggLoad')) {
         dirty = true
         opts.onChange?.(true)
       }
+      if (transaction.selectionSet && !transaction.docChanged) opts.onSelection?.()
       opts.onUpdate?.()
     },
   })
@@ -273,8 +290,9 @@ export function createEditor(opts: EditorOptions): TeggEditor {
 
   /** Loads `text` into the editor with an empty history. */
   function load(text: string) {
+    loading = true
     loaded = loadDoc(text, editor.schema)
-    attach(editor, loaded)
+    try { attach(editor, loaded) } finally { loading = false }
     // A fresh state: the load is never an undo step and the history starts empty (AP-122, D-178).
     const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins, selection: TextSelection.atStart(editor.state.doc) })
     view.updateState(fresh)
@@ -350,7 +368,7 @@ export function createEditor(opts: EditorOptions): TeggEditor {
         }
         if (from !== to || !node.isTextblock) return false
         const s = editor.schema
-        const callout = s.nodes.callout.create({ calloutType: o.calloutType ?? 'note', fold: '', joined: false }, [s.nodes.calloutTitle.create(null, node.content)])
+        const callout = s.nodes.callout.create({ calloutType: o.calloutType ?? 'note', fold: '', joined: false, srcIndex: node.attrs.srcIndex }, [s.nodes.calloutTitle.create(null, node.content)])
         const tr = editor.state.tr.replaceWith(start, end, callout)
         tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)))
         dispatch(tr)
@@ -358,11 +376,23 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       }
       // Lists and quotes of several blocks become one list / quote (FR-EDT-13 AC-4).
       const c = textSel()
+      // The converted block keeps its source position, so the gaps around it keep their bytes (FR-EDT-01 AC-6).
+      const src = node.attrs.srcIndex as number | null
+      const keepSrc = (ok: boolean) => {
+        if (!ok || src === null) return ok
+        const st = editor.state
+        if (from >= st.doc.childCount) return ok
+        const n = st.doc.child(from)
+        if (n.attrs.srcIndex === null && 'srcIndex' in n.attrs) {
+          dispatch(st.tr.setNodeMarkup(blockPos(st.doc, from), undefined, { ...n.attrs, srcIndex: src }).setMeta('appendedTransaction', st.tr).setMeta('addToHistory', true))
+        }
+        return ok
+      }
       switch (kind) {
-        case 'paragraph': return c.setParagraph().run()
-        case 'heading': return c.setHeading({ level: (o.level ?? 1) as 1 }).run()
-        case 'bulletList': return node.type.name === 'bulletList' && from === to ? false : c.toggleBulletList().run()
-        case 'orderedList': return c.toggleOrderedList().run()
+        case 'paragraph': return keepSrc(c.setParagraph().run())
+        case 'heading': return keepSrc(c.setHeading({ level: (o.level ?? 1) as 1 }).run())
+        case 'bulletList': return node.type.name === 'bulletList' && from === to ? false : keepSrc(c.toggleBulletList().run())
+        case 'orderedList': return keepSrc(c.toggleOrderedList().run())
         case 'checklist': {
           if (!c.toggleBulletList().run()) return false
           const tr = editor.state.tr
@@ -375,8 +405,8 @@ export function createEditor(opts: EditorOptions): TeggEditor {
           if (tr.docChanged) dispatch(tr.setMeta('addToHistory', true))
           return true
         }
-        case 'blockquote': return c.toggleBlockquote().run()
-        case 'codeBlock': return c.setCodeBlock().run()
+        case 'blockquote': return keepSrc(c.toggleBlockquote().run())
+        case 'codeBlock': return keepSrc(c.setCodeBlock().run())
         default: return false
       }
     },
@@ -529,10 +559,11 @@ export function createEditor(opts: EditorOptions): TeggEditor {
         return true
       }
       if (plain) {
+        // Literal text: no tags or links are made from it (FR-EDT-14 AC-2); the save escapes what would be syntax.
         const lines = norm.split('\n')
-        if (lines.length === 1) { dispatch(state.tr.insertText(norm).scrollIntoView()); return true }
+        if (lines.length === 1) { dispatch(state.tr.insertText(norm).setMeta('tagRules', true).scrollIntoView()); return true }
         const nodes = lines.map((l) => state.schema.nodes.paragraph.create(null, l ? state.schema.text(l) : null))
-        dispatch(state.tr.replaceSelection(new Slice(Fragment.from(nodes), 1, 1)).scrollIntoView())
+        dispatch(state.tr.replaceSelection(new Slice(Fragment.from(nodes), 1, 1)).setMeta('tagRules', true).scrollIntoView())
         return true
       }
       // A URL pasted on a selection links it (FR-EDT-14 AC-4); other schemes stay literal text.
@@ -578,12 +609,39 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       return commands.pasteText(md)
     },
     tableAction(a) {
-      switch (a) {
-        case 'addRowBelow': return editor.commands.addRowAfter()
-        case 'addColumnRight': return editor.commands.addColumnAfter()
-        case 'deleteRow': return editor.commands.deleteRow()
-        case 'deleteColumn': return editor.commands.deleteColumn()
+      if (a === 'addRowBelow') return editor.commands.addRowAfter()
+      if (a === 'deleteRow') return editor.commands.deleteRow()
+      // Columns: keep the table's alignment list in step (a Markdown table has one alignment per column).
+      const $f = editor.state.selection.$from
+      let col = -1
+      for (let d = $f.depth; d > 0; d--) if ($f.node(d).type.name === 'tableRow') { col = $f.index(d); break }
+      const ok = a === 'addColumnRight' ? editor.commands.addColumnAfter() : editor.commands.deleteColumn()
+      if (!ok || col < 0) return ok
+      const st = editor.state
+      const k = topIndex(st)
+      const table = st.doc.child(k)
+      if (table.type.name !== 'table') return ok
+      const align = Array.isArray(table.attrs.align) ? [...(table.attrs.align as (string | null)[])] : null
+      if (!align) return ok
+      if (a === 'addColumnRight') align.splice(col + 1, 0, null)
+      else align.splice(col, 1)
+      const tr = st.tr.setNodeMarkup(blockPos(st.doc, k), undefined, { ...table.attrs, align }).setMeta('appendedTransaction', st.tr)
+      if (a === 'addColumnRight') {
+        // The caret moves into the new column, like other table editors.
+        const $c = tr.doc.resolve(tr.mapping.map(st.selection.from))
+        for (let d = $c.depth; d > 0; d--) {
+          if ($c.node(d).type.name !== 'tableRow') continue
+          const row = $c.node(d)
+          if (col + 1 < row.childCount) {
+            let pos = $c.start(d)
+            for (let i = 0; i <= col; i++) pos += row.child(i).nodeSize
+            tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 2)))
+          }
+          break
+        }
       }
+      dispatch(tr)
+      return ok
     },
     insertBlock(kind, o = {}) {
       const s = editor.schema
@@ -605,7 +663,7 @@ export function createEditor(opts: EditorOptions): TeggEditor {
           case 'table': {
             const cell = (h: boolean) => (h ? s.nodes.tableHeader : s.nodes.tableCell).create(null, s.nodes.paragraph.create())
             const row = (h: boolean) => s.nodes.tableRow.create(null, [cell(h), cell(h), cell(h)])
-            return s.nodes.table.create(null, [row(true), row(false), row(false)])
+            return s.nodes.table.create({ align: [null, null, null] }, [row(true), row(false), row(false)])
           }
           default: return null
         }
@@ -623,6 +681,43 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(focusAt + 1, tr.doc.content.size))))
       dispatch(tr.scrollIntoView())
       return true
+    },
+    replaceWithLink(from, to, target) {
+      const node = editor.schema.nodes.wikiLink.create({ value: linkText(target), embed: false })
+      const tr = closeHistory(editor.state.tr).replaceWith(from, to, node)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(from + node.nodeSize)))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    replaceWithTag(from, to, spelling) {
+      const node = editor.schema.nodes.tag.create({ value: spelling.replace(/^#/, '').normalize('NFC') })
+      const tr = closeHistory(editor.state.tr).replaceWith(from, to, node)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(from + node.nodeSize)))
+      dispatch(tr.setMeta('tagRules', true).scrollIntoView())
+      return true
+    },
+    moveBlocksTo(from, to, before) {
+      const doc = editor.state.doc
+      if (before >= from && before <= to + 1) return false
+      const start = blockPos(doc, from)
+      const end = blockPos(doc, to) + doc.child(to).nodeSize
+      const slice = doc.slice(start, end)
+      const at = blockPos(doc, before)
+      const tr = editor.state.tr
+      if (before > to) { tr.insert(at, slice.content); tr.delete(start, end) }
+      else { tr.delete(start, end); tr.insert(at, slice.content) }
+      const nf = before > to ? before - (to - from + 1) : before
+      if (blockSel()) tr.setMeta(blockSelKey, { anchor: nf, head: nf + (to - from) })
+      else tr.setSelection(TextSelection.near(tr.doc.resolve(blockPos(tr.doc, nf) + (tr.doc.child(nf).isLeaf ? 0 : 1))))
+      dispatch(tr.scrollIntoView())
+      return true
+    },
+    slashInsert(from, to, kind, o = {}) {
+      dispatch(editor.state.tr.delete(from, to))
+      return commands.insertBlock(kind, o)
+    },
+    setCalloutType(type) {
+      return commands.turnInto('callout', { calloutType: type })
     },
     undo() {
       return editor.commands.undo()
@@ -712,6 +807,9 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     caretBlock: () => topIndex(editor.state),
     pastePlainNext() {
       plainNext = true
+    },
+    refreshUi() {
+      view.dispatch(editor.state.tr.setMeta(uiRefresh, true).setMeta('addToHistory', false))
     },
     selectedSource,
     commands,

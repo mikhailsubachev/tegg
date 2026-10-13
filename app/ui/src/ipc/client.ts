@@ -3,8 +3,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ChangedDto, ConflictDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, SearchPageDto, SearchQueryDto,
-  SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo,
+  ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, SearchPageDto,
+  SearchQueryDto, SwitcherItemDto, TagDto, TypeDefDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto,
 } from './types';
 
 export const ipc = {
@@ -24,6 +24,14 @@ export const ipc = {
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),
+  /** NFR-PERF-06 AC-3 (D-199): one typing-latency record per keystroke. */
+  perfKey: (frame: number, ms: number) => invoke<void>('perf_mark', { name: 'key', mark: 'key', frame, ms }),
+  // 3C (ms3-shell §13.2).
+  noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),
+  noteCreateExact: (path: string, text: string) => invoke<VersionDto>('note_create_exact', { path, text }),
+  noteTrash: (path: string, base: VersionDto) => invoke<string>('note_trash', { path, base }),
+  tags: () => invoke<TagDto[]>('index_tags'),
+  conflicts: () => invoke<ConflictRowDto[]>('index_conflicts'),
   linkResolve: (from: string, targets: string[]) => invoke<LinkTargetDto[]>('link_resolve', { from, targets }),
   openExternal: (url: string) => invoke<void>('open_external', { url }),
 };

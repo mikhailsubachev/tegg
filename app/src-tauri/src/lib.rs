@@ -389,9 +389,19 @@ async fn note_create(state: State<'_, AppState>, dir: String, title: String, tex
     core.create_note(&dir, &title, text.as_bytes()).map_err(core_err)
 }
 
+/// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
 #[tauri::command]
-fn perf_mark(app: AppHandle, name: String) {
-    mark(&app, &name);
+fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) {
+    match (frame, ms) {
+        (Some(frame), Some(ms)) => {
+            let Some(log) = test_var("TEGG_PERF_LOG") else { return };
+            let line = serde_json::json!({ "mark": name, "frame": frame, "ms": ms });
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
+                let _ = writeln!(f, "{line}");
+            }
+        }
+        _ => mark(&app, &name),
+    }
 }
 
 // ---------------------------------------------------------------- MS3 slice 3A (ms3-shell §2)

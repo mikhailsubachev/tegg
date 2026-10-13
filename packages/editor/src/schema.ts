@@ -5,6 +5,7 @@
 import { Extension, Mark, Node, mergeAttributes, type AnyExtension } from '@tiptap/core'
 import Bold from '@tiptap/extension-bold'
 import Code from '@tiptap/extension-code'
+import HardBreak from '@tiptap/extension-hard-break'
 import Italic from '@tiptap/extension-italic'
 import { ListItem } from '@tiptap/extension-list'
 import Strike from '@tiptap/extension-strike'
@@ -192,7 +193,9 @@ export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
       code: false,
       undoRedo: { newGroupDelay: 500 },
       dropcursor: false,
+      hardBreak: false,
     }),
+    HardBreak.extend({ addKeyboardShortcuts: () => ({ 'Shift-Enter': ({ editor }) => editor.commands.setHardBreak() }) }),
     Bold.extend(noRules),
     Italic.extend(noRules),
     Strike.extend(noRules),
