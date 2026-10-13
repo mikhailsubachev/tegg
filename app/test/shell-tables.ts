@@ -54,8 +54,6 @@ export const R2: R2Row[] = [
 export type R3Control = { label: string; where: string; due: Due; req: string; route: string | null };
 export const R3: R3Control[] = [
   { label: 'New tab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06', route: null },
-  { label: 'Back', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03', route: null },
-  { label: 'Forward', where: 'title bar', due: d('MS5'), req: 'FR-NAV-03', route: null },
   { label: 'New type', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01', route: null },
   { label: 'Starter vault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02', route: 'chooser' },
   { label: 'Edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01', route: 'note/<path>' },
@@ -72,7 +70,8 @@ export const R3: R3Control[] = [
   { label: 'Type picker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05', route: null },
 ];
 
-/** R4. `keys` in ⌃⌥⇧⌘ order as displayed (AP-70); `press` is the Playwright chord; `command` the R4 command text. */
+/** R4. `keys` in ⌃⌥⇧⌘ order as displayed (AP-70); `press` is the Playwright chord; `command` the R4 command text
+ *  (⌘[ / ⌘]: the command titles `Go back` / `Go forward` of FR-NAV-03 AC-2 and ms3-shell §12.2, D-165). */
 export type R4Row = { keys: string; press: string; command: string; enabled: boolean };
 export const R4: R4Row[] = [
   { keys: '⌘K', press: 'Meta+k', command: 'Open command palette', enabled: true },
@@ -88,8 +87,8 @@ export const R4: R4Row[] = [
   { keys: '⌘,', press: 'Meta+Comma', command: 'Go to Settings', enabled: true },
   { keys: '⌥⌘U', press: 'Alt+Meta+KeyU', command: 'Toggle Markdown source', enabled: true },
   { keys: '⌘T', press: 'Meta+t', command: 'New tab', enabled: false },
-  { keys: '⌘[', press: 'Meta+BracketLeft', command: 'Back', enabled: false },
-  { keys: '⌘]', press: 'Meta+BracketRight', command: 'Forward', enabled: false },
+  { keys: '⌘[', press: 'Meta+BracketLeft', command: 'Go back', enabled: true },
+  { keys: '⌘]', press: 'Meta+BracketRight', command: 'Go forward', enabled: true },
 ];
 
 /** Shortcuts macOS reserves (FR-UX-03 AC-7). */
