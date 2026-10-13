@@ -94,7 +94,7 @@ test('fr_ux_02_ac13_placeholders_cannot_outlive_their_milestone', async () => {
   // overdue(): every TBD route/tab and disabled control due at or before the milestone, "MS3 (3D)" counting as MS3.
   assert.deepEqual(reg.overdue('MS2'), [], 'nothing is TBD at MS2');
   const ms3 = (reg.overdue('MS3') as string[]).join('\n');
-  for (const id of ['type-settings/<type>', 'conflicts', 'settings/date-time', 'New type', 'Starter vault', 'Show Markdown source']) {
+  for (const id of ['type-settings/<type>', 'conflicts', 'settings/date-time', 'New type', 'Starter vault', 'Edit']) {
     assert.ok(ms3.includes(id), `overdue('MS3') must list ${id}:\n${ms3}`);
   }
   for (const id of ['inbox', 'today', 'pinned', 'Type picker', 'New tab']) {

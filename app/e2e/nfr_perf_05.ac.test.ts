@@ -1,8 +1,9 @@
 // NFR-PERF-05/AC-2 (docs/acceptance/read-view.md, D-148): the read view opens in time. On the reference machine and
 // vault, ⏎ on a switcher result → `note-ready` (formatted view painted, links resolved, focus on the title), p95 of 20
 // runs < 112 ms (75 % of 150 ms, D-59) for the vault's longest note with 10 embeds and 50 links. Benchmark:
-// perf_open_note.ts (docs/contracts/ms3-shell.md §11.5). Runs in the milestone gate's app-e2e step like NFR-PERF-01
-// (no extra gating); TEGG_REF_VAULT may point at a pre-generated `--perf-note` vault.
+// perf_open_note.ts (docs/contracts/ms3-shell.md §11.5). Runs in its own `app-perf` step (D-152): the 112 ms target is
+// enforced only with TEGG_PERF_REF=1 on the reference machine (D-59); elsewhere the p95 is reported and the test passes.
+// TEGG_REF_VAULT may point at a pre-generated `--perf-note` vault.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
@@ -40,7 +41,8 @@ test('nfr_perf_05_ac2_switcher_enter_to_note_ready_p95_under_112ms', { timeout: 
     }
     const p = p95(times);
     console.log(`NFR-PERF-05 AC-2: p95 ${p.toFixed(1)} ms over ${RUNS} runs (limit ${LIMIT_MS} ms)`);
-    assert.ok(p < 112, `p95 ${p.toFixed(1)} ms ≥ 112 ms`);
+    if (process.env.TEGG_PERF_REF === '1') assert.ok(p < 112, `p95 ${p.toFixed(1)} ms ≥ 112 ms`);
+    else console.log('NFR-PERF-05 AC-2: reported only (set TEGG_PERF_REF=1 on the reference machine to enforce, D-152)');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

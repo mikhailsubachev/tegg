@@ -142,7 +142,7 @@ test('fr_edt_10_ac4_line_numbers_in_a_gutter_not_copied', async ({ page }) => {
     getSelection()!.addRange(r);
     return getSelection()!.toString();
   });
-  assert.equal(sel.replace(/\n+$/, ''), '# Nadpis 1\n', 'selecting lines 8–9 gives their text without line numbers');
+  assert.equal(sel.replace(/\n+$/, ''), '# Nadpis 1', 'selecting lines 8–9 (line 9 is empty) gives their text without line numbers');
 });
 
 test('fr_edt_10_ac5_not_remembered_and_writes_nothing', async ({ page }) => {
@@ -269,7 +269,12 @@ test('fr_edt_02_ac7_following_links', async ({ page }) => {
   assert.equal(await page.locator('[role="tooltip"], [role="dialog"]').count(), 0, 'no preview popover');
 
   await back();
-  await navTo(async () => { (await linkIn(page, 'Odkazy', 'jiný text')).focus(); await page.keyboard.press('Enter'); }, '⏎ on a focused link');
+  await navTo(async () => {
+    (await linkIn(page, 'Odkazy', 'jiný text')).focus();
+    // WebKit can deliver the next key before the focus lands; wait until the link has it.
+    await eventually(() => page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''), (v) => v === 'jiný text', 1000);
+    await page.keyboard.press('Enter');
+  }, '⏎ on a focused link');
   await back();
   await navTo(async () => (await linkIn(page, 'Odkazy', 'jiný text')).click({ modifiers: ['Meta'] }), '⌘-click');
 
@@ -291,7 +296,7 @@ test('fr_edt_02_ac7_following_links', async ({ page }) => {
   // A subpath that doesn't exist opens the note at the top, with no error.
   await core.setFile('Pages/Zkouška.md', '---\ntype: page\ntitle: Zkouška\n---\n[[Cíl#Neexistující kapitola]]\n');
   await openNote(page, 'Zkouška');
-  await navTo(async () => (await linkIn(page, 'Zkouška', 'Cíl')).click(), 'missing subpath');
+  await navTo(async () => (await linkIn(page, 'Zkouška', 'Cíl › Neexistující kapitola')).click(), 'missing subpath'); // chip text per D-156
   await sleep(200);
   assert.equal(await firstVisibleBlockText(page), 'Úvod', 'opened at the top');
   assert.equal(await page.getByRole('alert').count(), 0, 'no error');
@@ -327,7 +332,7 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
   assert.equal(await d8.getAttribute('aria-disabled'), 'true');
   const d8style = await d8.evaluate((e) => getComputedStyle(e).textDecorationStyle);
   assert.notEqual(d8style, 'dashed', 'a date link without a note is not shown broken');
-  await d8.click();
+  await d8.click({ force: true }); // aria-disabled: Playwright won't click it unforced; the app must ignore it
   await sleep(200);
   assert.equal(await mainName(page), 'Odkazy', 'no route change');
   assert.deepEqual(await nonReadCalls(core), [], 'no IPC write command');
@@ -639,7 +644,7 @@ test('fr_syn_06_ac6_read_view_tour_sends_zero_write_commands', async ({ page }) 
     await openNote(page, 'Odkazy');
     const l = article(page, 'Odkazy').getByRole('link').nth(i);
     if (!(await seen(l, 1000))) continue;
-    await l.click();
+    await l.click({ force: true }); // includes the aria-disabled date link (AC-8)
     await sleep(100);
   }
   // Every note: open, toggle the source view twice.
