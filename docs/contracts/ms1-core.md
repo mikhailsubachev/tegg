@@ -119,7 +119,8 @@ impl Vault {
     pub fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), VaultError>;
 
     /// §5.3, the one write function. Unchanged bytes → `Unchanged`, nothing written (FR-SYN-06).
-    /// Disk differs from `base` → `Conflict` (FR-SYN-03 AC-7); file gone while `base` is Some → `Gone`.
+    /// Disk bytes equal `bytes` → `Unchanged`. Disk content (size + hash) differs from `base` → `Conflict`
+    /// (FR-SYN-03 AC-7); an mtime-only change is not a conflict (D-175, ms3-shell §13.1); file gone while `base` is Some → `Gone`.
     /// `base: None` means "I have no version": a file that exists with other bytes → `Conflict`, never
     /// overwritten (NFR-REL-02, bug_ms1_nfr_rel_02); no file → created.
     pub fn write(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError>;

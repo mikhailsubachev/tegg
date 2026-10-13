@@ -436,3 +436,165 @@ export function createHistory(): {
 - L5: `app/webkit/history.ac.test.ts` (AC-1, AC-2, AC-4…AC-7, logo AC-5).
 - L6: the relaunch part of AC-7 in `app/e2e/ms3_shell.ac.test.ts`.
 
+---
+
+## 13. Slice 3C: editor and autosave (D-173…D-193)
+
+ACs: [docs/acceptance/editor.md](../acceptance/editor.md) and its tables R6–R9. Where this section and those ACs disagree, the ACs win. Draft, 2026-10-13.
+
+### 13.1 Core change from D-175 (ms1-core §3.2, ms2-core §3)
+
+- `FileVersion` keeps `{ mtime_ns, size, hash }`, but **version equality is `size` + `hash`** (`FileVersion::same_content(&self, other) -> bool`). `mtime_ns` only decides whether the file must be re-read and re-hashed.
+- `Vault::write(path, bytes, base)`, in order: (1) disk bytes equal `bytes` → `Unchanged` (no write, even if `base` is stale); (2) disk `same_content` as `base` → write, also when only the mtime differs; (3) else `Conflict { disk }`; missing file with `base: Some` → `Gone`. `base: None` unchanged (ms1-core §3.2).
+- ms1-core §3.2's doc comment and data-safety FR-SYN-03 AC-7's wording ("mtime + size + hash") change with it; a red L4 test (`fr_syn_03_ac16_…`, editor.md FR-SYN-03 AC-16) comes first. The MS1 test that expects `Conflict` on an mtime-only change, if any, needs an `AC-Test-Change` approval.
+- `Core::read_note` additionally returns `utf8: bool` (D-180): `false` when the bytes aren't valid UTF-8. `Core::write_note` refuses a path whose last read had `utf8: false` with `CoreError::NotUtf8` (defence in depth; the UI never sends it).
+
+### 13.2 IPC added or changed in 3C
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `note_read` | `path` | `{ text, version, utf8 }` | `utf8` new (D-180). `text` is decoded with U+FFFD for bad bytes, for display only. |
+| `note_write` | `path`, `text`, `base: VersionDto \| null` | `{ outcome: 'written' \| 'unchanged', version: VersionDto }` | `Core::write_note` (encoded by `@tegg/doc` `encode`). Errors: `Conflict` (payload `ConflictDto`, and the `note:conflict` event), `Gone`, `NotUtf8`, `Io`. Writes to one path are serialized in the core; the UI also never has two in flight per note (editor.md FR-EDT-08 AC-6). |
+| `note_create_exact` | `path`, `text` | `VersionDto` | For `Keep both` (D-176): creates exactly `path` with `RENAME_EXCL`, error `NameTaken` (the UI then appends ` (2)`…). Never sanitizes, never replaces. |
+| `note_trash` | `path`, `base: VersionDto` | `string` (trash path) | `Vault::trash` after a base check (`Conflict` if the file changed). Used only by the Conflicts view (D-177). |
+| `index_tags` | — | `TagDto[]` | D-185: every tag key of indexed objects (frontmatter `tags` + inline), templates and `.trash/` excluded; `spelling` = most frequent written form, ties by code point. Read-only. |
+| `index_conflicts` | — | `ConflictRowDto[]` | `Core::conflicts()` (ms2-core §2.3) with versions. Updated content is signalled by `vault:changed`; the UI calls it again. |
+
+```ts
+type VersionDto = { mtimeNs: string; size: number; hash: string };  // mtimeNs as decimal string (i128); hash hex BLAKE3
+type ConflictDto = { path: string; mine: string; theirs: string; theirsVersion: VersionDto };  // texts decoded
+type TagDto = { key: string; spelling: string; count: number };
+type ConflictRowDto = {
+  kind: 'duplicateId' | 'possibleCopy' | 'nameNormalization';
+  primary: string;                       // the file links resolve to (left in the compare)
+  others: string[];
+  versions: Record<string, VersionDto>;  // for every path above
+};
+```
+
+- **Event `note:conflict`** payload becomes `ConflictDto` (was `{ path }`, ms2-shell §2). It is emitted on every `Conflict` result of `note_write`.
+- **Resolving conflicts (D-177)** is composed in the UI from these commands, no job: `Keep left` = `note_trash(other, base)`; `Keep right` = `note_write(primary, otherText, primaryBase)` then `note_trash(other, otherBase)`; merge `Done` = `note_write(primary, draft, primaryBase)` then `note_trash`; `Give the copy a new id` = `@tegg/doc` `setAttribute(id)` + `note_write(copy, …, copyBase)`. A `Conflict` at any step stops the rest and reloads the row (editor.md FR-SYN-04 AC-11).
+- No restore point (D-57) for these: each touches one or two files and the trash keeps the removed one.
+
+### 13.3 `@tegg/editor` (`packages/editor`, D-83 port of S2)
+
+Pure TypeScript + TipTap/ProseMirror; no Tauri, no `app/` imports (AR-03 AC-2), no imports from `spikes/` (L0). L1 tests import it directly.
+
+```ts
+export type Now = () => string;                    // ISO date-time with offset, injected
+export interface EditorOptions {
+  text: string;                                    // from note_read
+  element?: HTMLElement;                           // omitted in headless L1 tests
+  now: Now; newId: () => string;                   // for touchModified / ensureIdentity (D-174)
+  resolve?: (targets: string[]) => Promise<LinkTargetDto[]>;  // link chips (§11.1)
+  suggest?: { links(q: string): Promise<SwitcherItemDto[]>; tags(): Promise<TagDto[]> };
+  onChange?: (dirty: boolean) => void;
+}
+export interface TeggEditor {
+  view: import('prosemirror-view').EditorView;
+  /** Bytes to save, or null when nothing changed (no write, FR-SYN-06). Runs reconcile + verify (ADR 0002 §4–5),
+   *  then ensureIdentity and touchModified. Throws `VerifyError` when every escalation fails (NFR-REL-03 AC-9). */
+  save(): Promise<string | null>;
+  markSaved(text: string): void;                   // the text now on disk becomes the new original
+  reload(text: string): void;                      // external change: keeps caret per D-112/D-191, clears history (D-178)
+  readonlyBlocks(): number[];                      // source-block indices (normalization guard, D-181)
+  commands: {                                      // one function per R6/R8 action, for L1 and the palette
+    turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean;
+    toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean;
+    moveBlock(dir: 'up' | 'down'): boolean; duplicateBlock(): boolean; deleteBlocks(): boolean;
+    selectBlock(): boolean; extendBlockSelection(dir: 'up' | 'down'): boolean;
+    toggleChecklist(): boolean;                    // one-character patch (D-192)
+    insertLink(target: LinkChoice): boolean; insertTag(spelling: string): boolean;
+    pasteText(text: string, plain?: boolean): boolean; pasteHtml(html: string): boolean;
+    tableAction(a: 'addRowBelow' | 'addColumnRight' | 'deleteRow' | 'deleteColumn'): boolean;
+    undo(): boolean; redo(): boolean;
+  };
+  destroy(): void;
+}
+export type LinkChoice = { path: string; title: string; viaAlias?: string; fromPath: string; stemUnique: boolean };
+export function createEditor(opts: EditorOptions): TeggEditor;
+/** D-184: the wikilink text to insert for a chosen object. */
+export function linkText(c: LinkChoice): string;   // 'Cíl', 'Cíl|Reading list', 'Quick Notes/Dvojník|Dvojník'
+export function slashItems(): { id: string; group: 'objects' | 'blocks' | 'media' | 'advanced'; label: string; due?: Due }[];  // = R6
+export class VerifyError extends Error {}
+/** The operations of the S2 property test (`spikes/s2-editor/test/edit.test.ts`), ported for FR-FMT-07 AC-10/AC-11. */
+export const OPERATIONS: readonly string[];
+export function applyOperation(ed: TeggEditor, op: string, block: number): boolean;
+```
+
+- The note page owns autosave (`app/ui/src/edit/autosave.ts`): debounce with a 1 s maximum wait (D-179), one write in flight per note, pauses while a composition is active (editor.md FR-EDT-08 AC-12), flushes on route change, vault change, source toggle, window close and quit (the shell asks the page to flush before closing and waits up to 2 s, then the D-179 quit dialog).
+- `save()` runs in a Web Worker in the app (architecture §5.2); in L1 it runs inline.
+
+### 13.4 Marks, routes, registry
+
+- `note-ready` (§11.5) is redefined: the note route has painted the **editor**, it is editable, links are resolved and the title has the focus (NFR-PERF-05 AC-4). For read-only files (NFR-REL-03 AC-6…AC-8) it is written when the read or source view is painted.
+- New mark `note-saved`: written after each successful `note_write` from the editor (L6 waits on it; at most once per process like every mark, so L6 waits on the file instead after the first).
+- `TEGG_PERF_LOG` also enables the latency probe: one line per keystroke `{"mark":"key","frame":<n>,"ms":<float>}` (NFR-PERF-06 AC-3).
+- R1/R3/R4 changes as in editor.md; R6 is `SLASH_ITEMS` in `shell/registry.ts` (included in `overdue()`); R8 commands have ids `edit.<name>` (`edit.undo`, `edit.bold`, `edit.moveBlockUp`, `edit.blockMenu`, `edit.pastePlain`, `edit.saveNow`, …), section `edit`, `needsVault: true`. `goto.conflicts` exists already (R1).
+- Sidebar entry `Conflicts` (D-177): a `link` with `data-command="goto.conflicts"`, only while `index_conflicts` is non-empty.
+
+### 13.5 Accessibility labels (added to §3.7)
+
+| Element | Role | Accessible name |
+| --- | --- | --- |
+| Editor body | `textbox`, `aria-multiline="true"` | `Note body` |
+| Title field | `textbox` | `Title` |
+| Save state | `status` (polite) | `Save state`; text from R9 |
+| Block buttons | `button` | `Add block below`, `Drag to move, click for block menu` |
+| Block menu | `menu` | `Block actions`; items `Turn into`, `Callout type`, `Duplicate`, `Delete`, `Copy link to block` (disabled), `Turn into object` (disabled), `Add row below`, `Add column right`, `Delete row`, `Delete column` |
+| Selected block | element with `data-block-selected` | — |
+| Source block | `group` | `Source block` |
+| Slash menu | `listbox` | `Insert block`; empty state `No matching blocks` |
+| Formatting toolbar | `toolbar` | `Formatting`; `button`s `Bold`, `Italic`, `Strikethrough`, `Inline code`, `Highlight`, `Link`, `Turn into object` (disabled), with `aria-pressed` |
+| Link field | `combobox` | `Link`; button `Remove link` |
+| Link suggestions | `listbox` | `Link suggestions`; last option `Create "<query>"` |
+| Tag suggestions | `listbox` | `Tag suggestions`; last option `Create tag "<query>"` |
+| Merge dialog | `dialog`, `aria-modal` | `Note changed outside Tegg`; buttons `Keep mine`, `Keep theirs`, `Keep both`, `Compare` |
+| Compare | `region` | `Compare versions`; columns `Your version` / `Version on disk` (dialog) or the two paths (Conflicts view); changed lines `data-diff="changed"` |
+| Deleted alert | `alert` | `This note was deleted outside Tegg`; buttons `Restore file`, `Discard` |
+| Save failure | `alert` | catalog message; button `Try again` (Io) or `Undo` (verification) |
+| Quit dialogs | `dialog` | `Quit without saving?` (`Cancel`, `Quit anyway`); `Quit and keep both versions?` |
+| Read-only warnings | `alert` | `This file isn't valid UTF-8`; `This note opened read-only because the editor couldn't load it` |
+| Paste notice | `status` | `Pasting images comes in MS6` |
+| Conflicts list | `list` | `Conflicts`; rows are `link`s; actions `Keep left`, `Keep right`, `Merge…`, `Done`, `Cancel`, `Give the copy a new id` |
+
+### 13.6 Test hooks (only with `TEGG_TEST=1`, and in the L5 build)
+
+- `window.__TEGG_TEST__.editor` (read-only accessors): `text(): string` (current serialized-would-be text without saving), `dirty(): boolean`, `historyDepth(): number`.
+- `window.__TEGG_TEST__.faults = { editorLoad?: boolean; verify?: boolean }`: set before opening a note; `editorLoad` makes `createEditor` throw (NFR-REL-03 AC-8), `verify` makes `save()` throw `VerifyError` after escalation (AC-9).
+- The clock: the UI takes "now" only from `Date.now()` and the time zone from `Intl`, so Playwright `clock` and `timezoneId` control `modified` (FR-FMT-02 AC-6). L6 uses the system clock.
+- L6 helper `app/e2e/helpers/external.ts`: a separate process that writes, renames, deletes and polls vault files (FR-SYN-02 AC-6, FR-SYN-03 AC-12…AC-20).
+
+### 13.7 Fake core additions (§5)
+
+`installFakeCore` implements `note_write`, `note_create_exact`, `note_trash`, `index_tags`, `index_conflicts` by the rules above, with versions computed like the core (size + a hash of the bytes; mtime a counter), and the `note_read` `utf8` flag (files given as `Uint8Array` may be invalid UTF-8). `FakeCoreHandle` gains:
+
+```ts
+  setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
+    // silent: change without vault:changed (FR-SYN-03 AC-14); sameBytesTouch: new mtime, same bytes (AC-16)
+  renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
+  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean }): Promise<void>;
+    // delay or fail every note_write; hold queues writes until release()
+  release(): Promise<void>;
+  writesTo(): Promise<string[]>;                     // paths of successful writes, in order
+  setConflicts(rows: ConflictRowDto[]): Promise<void>; // e.g. a nameNormalization pair (APFS can't hold one)
+```
+
+### 13.8 Test layout
+
+- L0: `app/test/static_spikes.ac.test.ts` (new in 3C, D-83): no file under `app/` or `packages/` imports from `spikes/` or uses the `@core` alias.
+- L1: `packages/editor/test/*.ac.test.ts` (FR-EDT-01…-15 transactions, FR-FMT-07 AC-10, the probe); L2 `packages/editor/test/property.ac.test.ts` (FR-FMT-07 AC-11); `app/test/editor_registry.ac.test.ts` (R6, R8, FR-UX-03 AC-13).
+- L4: `crates/tegg-core/tests/ac_editor.rs` (D-175 write rule, `utf8`, `index_tags`, conflicts, NFD path write, rename identity).
+- L5: `app/webkit/editor*.ac.test.ts`, `app/webkit/conflicts.ac.test.ts`; benchmark `app/webkit/perf_typing.ts` (NFR-PERF-06 AC-4).
+- L6: `app/e2e/ms3_editor.ac.test.ts` (flush on quit, chmod failure, NFD file, kill cycles nightly, readers), benchmarks `app/e2e/perf_typing.ts` and the §11.5 one; 60 Hz per D-190.
+- Fixtures: `tests/fixtures/vaults/editor/`, `tests/fixtures/vaults/conflicts/`, `tests/fixtures/editor/paste/` (each plus `new-empty/.tegg/`).
+
+### 13.9 Points raised by this section (accepted 2026-10-13: AP-138…AP-141 → D-194…D-197)
+
+| # | Point | Proposal |
+| --- | --- | --- |
+| AP-138 | **`Keep both` needs an exact-path create.** `note_create` sanitizes a title and picks a free name in a type folder (ms2-core `create_note`); `Keep both` (D-176) must create `<stem> (conflict …).md` in the note's own folder with the note's `id`. | Add `note_create_exact(path, text)` (§13.2) on `Vault::create_file`'s `RENAME_EXCL` path; on `NameTaken` the UI appends ` (2)`… itself. |
+| AP-139 | **Trashing from the UI.** No IPC command trashes a file before MS6's trash view, but the Conflicts view (D-177) must move one file to `.trash/`, and a file changed since the compare must not be trashed. | Add `note_trash(path, base)` with a base check, used only by the Conflicts view until MS6 generalizes it. |
+| AP-140 | **Flushing on quit has no time limit.** FR-EDT-08 AC-3 requires the flush; a hung write would block quitting forever. | The shell waits up to 2 s for the page's flush; on timeout or failure it shows the D-179 `Quit without saving?` dialog. |
+| AP-141 | **`note-saved` can only be a once-per-process mark** (ms2-shell §1 rule), so L6 can't wait on later saves with it. | Keep the once-only rule; L6 waits on file content for later saves (as written in §13.4). Alternative: allow repeatable marks with a counter suffix. |
+

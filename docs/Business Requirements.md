@@ -48,6 +48,7 @@
 | v1.30   | 2026-10-13 | 3B preview feedback: logo as outlined SVG (D-164, AP-108); Back/Forward (FR-NAV-03) pulled into MS3 as slice 3B.1 (D-165, AP-109). |
 | v1.31   | 2026-10-13 | 3B.1 red-test decisions D-166…D-172 (AP-110…AP-116). |
 | v1.32   | 2026-10-13 | MS3 slice 3C AC decisions D-173…D-193 (AP-117…AP-137, `docs/acceptance/editor.md`): editor, autosave, merge dialog, Conflicts view. |
+| v1.33   | 2026-10-13 | MS3 slice 3C contract decisions D-194…D-197 (AP-138…AP-141, `docs/contracts/ms3-shell.md` §13). |
 
 ---
 
@@ -284,6 +285,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-191 | Small editor behaviours | Source toggle saves first; same source text = same block after reload; ⌘Z after auto-conversion restores typed text; empty paragraphs never written; caret and hint text as in editor.md (AP-135) |
 | D-192 | Checkbox toggle | Patches the single marker character, never re-renders the list (AP-136) |
 | D-193 | 3C contract | ms3-shell §13 defines note_write, utf8 flag, index_tags, conflict commands, note:conflict, note-ready, labels, test hooks, fake-core controls and the @tegg/editor API before the red tests (AP-137) |
+| D-194 | Exact-path create | `note_create_exact(path, text)` creates a file at an exact path, failing on a taken name; `Keep both` appends ` (2)` itself (AP-138) |
+| D-195 | Trash from the Conflicts view | `note_trash(path, base)` with a version check, used only by the Conflicts view until MS6 (AP-139) |
+| D-196 | Quit flush limit | The shell waits up to 2 s for the flush, then shows `Quit without saving?` (AP-140) |
+| D-197 | `note-saved` mark | Stays once per process; L6 waits on file content for later saves (AP-141) |
 
 ---
 
