@@ -31,11 +31,19 @@ export function blockToPM(node: RootContent, source: string): JSONContent {
       return {
         type: list.ordered ? 'orderedList' : 'bulletList',
         attrs: { spread: !!list.spread, ...(list.ordered ? { start: list.start ?? 1 } : {}) },
-        content: list.children.map((item: ListItem) => ({
-          type: 'listItem',
-          attrs: { checked: item.checked ?? null, spread: !!item.spread },
-          content: item.children.length ? blocks(item.children, source) : [{ type: 'paragraph' }],
-        })),
+        content: list.children.map((item: ListItem) => {
+          // GFM needs text after `[ ]`, so an empty checklist item (`- [ ]`) parses as a bullet with the text `[ ]`.
+          // It is shown, and read back after a save, as the empty checklist item it is (as in Obsidian; bug_3c,
+          // FR-EDT-08, FR-EDT-02 AC-17).
+          const only = item.checked == null && item.children.length === 1 && item.children[0].type === 'paragraph' ? item.children[0].children : null
+          const box = only && only.length === 1 && only[0].type === 'text' ? /^\[( |x|X)\]$/.exec(only[0].value) : null
+          if (box) return { type: 'listItem', attrs: { checked: box[1] !== ' ', spread: !!item.spread }, content: [{ type: 'paragraph' }] }
+          return {
+            type: 'listItem',
+            attrs: { checked: item.checked ?? null, spread: !!item.spread },
+            content: item.children.length ? blocks(item.children, source) : [{ type: 'paragraph' }],
+          }
+        }),
       }
     }
     case 'code': {
@@ -170,12 +178,16 @@ export function pmToBlock(json: JSONContent): RootContent {
         ordered: json.type === 'orderedList',
         ...(json.type === 'orderedList' ? { start: (attrs.start as number) ?? 1 } : {}),
         spread: !!attrs.spread,
-        children: content.map((item) => ({
-          type: 'listItem',
-          checked: (item.attrs?.checked as boolean | null) ?? null,
-          spread: !!item.attrs?.spread,
-          children: (item.content ?? []).map(pmToBlock) as BlockContent[],
-        })),
+        children: content.map((item) => {
+          const checked = (item.attrs?.checked as boolean | null) ?? null
+          const kids = item.content ?? []
+          // An empty checklist item: GFM writes no box without text, so the box is written verbatim (`- [ ]`); it reads
+          // back as the same empty item (blockToPM above; bug_3c, FR-EDT-08).
+          if (checked !== null && kids.length === 1 && kids[0].type === 'paragraph' && !kids[0].content?.length) {
+            return { type: 'listItem', checked: null, spread: !!item.attrs?.spread, children: [{ type: 'paragraph', children: [{ type: 'html', value: checked ? '[x]' : '[ ]' }] }] }
+          }
+          return { type: 'listItem', checked, spread: !!item.attrs?.spread, children: kids.map(pmToBlock) as BlockContent[] }
+        }),
       }
     case 'codeBlock':
       return {
