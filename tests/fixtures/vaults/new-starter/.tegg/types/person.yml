@@ -1,0 +1,22 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Person
+plural: People
+system: false
+folder: People
+icon: user
+color: purple
+description: People you work with or meet.
+review: false
+preview: [organization, role]
+template: _templates/Person/Person.md
+attributes:
+  - key: email
+    name: Email
+    type: email
+  - key: organization
+    name: Organization
+    type: text
+  - key: role
+    name: Role
+    type: text

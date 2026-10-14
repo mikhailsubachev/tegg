@@ -1,0 +1,16 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Nápad
+plural: Nápady
+system: false
+folder: Nápady
+icon: lightbulb
+color: yellow
+review: true
+preview: [hodnocení]
+template: _templates/Nápad/Nápad.md
+attributes:
+  - key: hodnocení
+    name: Hodnocení
+    type: number
+    default: 1

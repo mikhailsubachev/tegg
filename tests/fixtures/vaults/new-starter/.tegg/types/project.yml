@@ -1,0 +1,25 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Project
+plural: Projects
+system: false
+folder: Projects
+icon: folder
+color: orange
+description: Work with a goal and a time frame.
+review: false
+preview: [status, timeframe]
+template: _templates/Project/Project.md
+attributes:
+  - key: status
+    name: Status
+    type: select
+    default: Active
+    options:
+      - { label: Planned, color: gray }
+      - { label: Active, color: blue }
+      - { label: On hold, color: yellow }
+      - { label: Done, color: green }
+  - key: timeframe
+    name: Time frame
+    type: date-range

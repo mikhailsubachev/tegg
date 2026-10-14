@@ -1,0 +1,20 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Reading Note
+plural: Reading Notes
+system: false
+folder: Reading Notes
+icon: book-open
+color: purple
+description: Notes on what you read, one per book or article.
+review: false
+preview: [book]
+template: _templates/Reading Note/Reading Note.md
+attributes:
+  - key: book
+    name: Book
+    type: relation
+    to: [book]
+  - key: pages
+    name: Pages
+    type: text

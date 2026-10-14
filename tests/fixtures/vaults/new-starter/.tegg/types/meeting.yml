@@ -1,0 +1,28 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Meeting
+plural: Meetings
+system: false
+folder: Meetings
+icon: users
+color: teal
+description: Meetings and calls, with who was there and what was decided.
+review: false
+preview: [date, attendees]
+template: _templates/Meeting/Meeting.md
+attributes:
+  - key: date
+    name: Date
+    type: date
+  - key: attendees
+    name: Attendees
+    type: relation
+    to: [person]
+    multiple: true
+  - key: project
+    name: Project
+    type: relation
+    to: [project]
+  - key: location
+    name: Location
+    type: text

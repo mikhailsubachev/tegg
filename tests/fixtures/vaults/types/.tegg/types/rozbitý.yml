@@ -1,0 +1,10 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Rozbitý
+plural: "Rozbité
+folder: Rozbité
+icon: file-text
+color: red
+review: false
+preview: []
+attributes: []

@@ -1,0 +1,31 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Book
+plural: Books
+system: false
+folder: Books
+icon: book
+color: orange
+description: Books you read or want to read.
+review: false
+preview: [author, status]
+template: _templates/Book/Book.md
+attributes:
+  - key: author
+    name: Author
+    type: text
+  - key: year
+    name: Year
+    type: number
+  - key: status
+    name: Status
+    type: select
+    default: To read
+    options:
+      - { label: To read, color: gray }
+      - { label: Reading, color: blue }
+      - { label: Read, color: green }
+      - { label: Abandoned, color: red }
+  - key: finished
+    name: Finished
+    type: date

@@ -1,0 +1,19 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Trip
+plural: Trips
+system: false
+folder: Trips
+icon: map
+color: blue
+description: Trips you plan or remember.
+review: false
+preview: [destination, dates]
+template: _templates/Trip/Trip.md
+attributes:
+  - key: destination
+    name: Destination
+    type: text
+  - key: dates
+    name: Dates
+    type: date-range
