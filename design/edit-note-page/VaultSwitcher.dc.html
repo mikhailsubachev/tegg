@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg vault switcher options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDECE8}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.16),0 2px 6px rgba(20,20,30,.08);--brand:#0B44F0}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="tg" style="width: 1680px; height: 1000px; box-sizing: border-box; padding: 56px 64px; background: #EDECE8; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; align-items: flex-end; gap: 24px">
+<div style="flex: 1">
+<div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #6A6A70">Navigation · vault switching</div>
+<h1 style="margin: 6px 0 0; font-size: 40px; line-height: 1.1; font-weight: 700">Switching the vault: three options</h1>
+</div>
+<p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.5; color: #4A4A50">The logo sits bottom-left on every screen, and option C is applied to all screens. These options show where the vault switcher could live and what opens from it. v1 keeps one vault open at a time (FR-VLT-04), so choosing another vault reopens the window on that folder.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; flex: 1">
+
+<!-- Option A -->
+<section aria-label="Option A" style="background: #FFFFFF; border-radius: 18px; padding: 24px 26px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #9A9AA0">A</span><h2 style="margin: 0; font-size: 20px; font-weight: 650">Vault row with logo</h2></div>
+<p style="margin: 0; font-size: 13px; color: #55555B">The logo, vault name and folder path form one row at the bottom of the sidebar, like a workspace switcher. You always see which folder you’re in. A click opens the menu upwards.</p>
+<div style="position: relative; height: 560px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--side)">
+<div aria-hidden="true" style="padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; opacity: .45">
+<sc-for list="{{fakeNav}}" as="n" hint-placeholder-count="6"><div style="height: 28px; border-radius: 6px; background: var(--hover); width: {{n}}%"></div></sc-for>
+</div>
+<div style="position: absolute; left: 10px; right: 10px; bottom: 10px; border-top: 1px solid var(--border); padding-top: 10px">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; border-radius: 8px; background: var(--hover)">
+<svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true" style="flex: none"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg>
+<span style="flex: 1; display: flex; flex-direction: column; line-height: 1.25"><span style="font-size: 13px; font-weight: 600">Personal</span><span style="font-size: 11px; color: var(--muted)">~/Dropbox/Tegg</span></span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"></path></svg>
+</div>
+</div>
+<div role="menu" aria-label="Vaults" style="position: absolute; left: 10px; right: 10px; bottom: 74px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; font-size: 13px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 4px">Vaults</div>
+<sc-for list="{{vaults}}" as="v" hint-placeholder-count="3">
+<div role="menuitemradio" aria-checked="{{v.checked}}" style="display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; background: {{v.bg}}">
+<span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 7px; background: {{v.color}}; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none">{{v.initial}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600">{{v.name}}</span><span style="font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{v.path}}</span></span>
+<sc-if value="{{v.isCurrent}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+</div>
+</sc-for>
+<div style="height: 1px; background: var(--border); margin: 6px 4px"></div>
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="3">
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg>
+<span style="flex: 1">{{a.label}}</span><span style="font-size: 12px; color: var(--muted)">{{a.key}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #4A4A50"><li>The current vault and its path are always visible</li><li>Uses familiar workspace-switcher behaviour</li><li>The wordmark is replaced by the vault name</li></ul>
+</section>
+
+<!-- Option B -->
+<section aria-label="Option B" style="background: #FFFFFF; border-radius: 18px; padding: 24px 26px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #9A9AA0">B</span><h2 style="margin: 0; font-size: 20px; font-weight: 650">Wordmark + vault pill</h2></div>
+<p style="margin: 0; font-size: 13px; color: #55555B">The bottom row keeps the brand (icon and TEGG wordmark). A compact vault pill sits on the right. The menu also offers to reveal the vault folder in Finder.</p>
+<div style="position: relative; height: 560px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--side)">
+<div aria-hidden="true" style="padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; opacity: .45">
+<sc-for list="{{fakeNav}}" as="n" hint-placeholder-count="6"><div style="height: 28px; border-radius: 6px; background: var(--hover); width: {{n}}%"></div></sc-for>
+</div>
+<div style="position: absolute; left: 10px; right: 10px; bottom: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; align-items: center; gap: 8px; min-height: 44px">
+<svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none; margin-left: 6px"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg>
+<span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .05em; color: var(--brand); flex: 1">TEGG</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px 0 10px; border-radius: 15px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; font-weight: 600">Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></span>
+</div>
+<div role="menu" aria-label="Vaults" style="position: absolute; left: 10px; right: 10px; bottom: 66px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; font-size: 13px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 4px">Switch vault</div>
+<sc-for list="{{vaults}}" as="v" hint-placeholder-count="3">
+<div role="menuitemradio" aria-checked="{{v.checked}}" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px; background: {{v.bg}}">
+<span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: {{v.color}}; flex: none"></span>
+<span style="flex: 1; font-weight: 600">{{v.name}}</span>
+<sc-if value="{{v.isCurrent}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+</div>
+</sc-for>
+<div style="height: 1px; background: var(--border); margin: 6px 4px"></div>
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg><span style="flex: 1">Show in Finder</span><span style="font-size: 12px; color: var(--muted)">~/Dropbox/Tegg</span></div>
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="3">
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg>
+<span style="flex: 1">{{a.label}}</span><span style="font-size: 12px; color: var(--muted)">{{a.key}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #4A4A50"><li>Keeps the brand visible and the vault one click away</li><li>The pill stays compact with long vault names</li><li>The path is hidden until you open the menu</li></ul>
+</section>
+
+<!-- Option C -->
+<section aria-label="Option C" style="background: #FFFFFF; border-radius: 18px; padding: 24px 26px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #9A9AA0">C</span><h2 style="margin: 0; font-size: 20px; font-weight: 650">Vault in the title bar</h2><span style="margin-left: auto; font-size: 12px; height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; background: var(--link-bg); color: var(--link); font-weight: 600">Applied to screens</span></div>
+<p style="margin: 0; font-size: 13px; color: #55555B">The vault name sits in the window title bar, before the tabs, like a project picker. The sidebar bottom shows only the logo, which opens About and Settings.</p>
+<div style="position: relative; height: 560px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--bg)">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; background: var(--side); border-bottom: 1px solid var(--border)">
+<span aria-hidden="true" style="display: flex; gap: 6px"><span style="width: 11px; height: 11px; border-radius: 6px; background: #FF5F57"></span><span style="width: 11px; height: 11px; border-radius: 6px; background: #FEBC2E"></span><span style="width: 11px; height: 11px; border-radius: 6px; background: #28C840"></span></span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+<span aria-hidden="true" style="height: 26px; width: 110px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border)"></span>
+<span aria-hidden="true" style="height: 26px; width: 80px; border-radius: 7px; background: var(--hover); opacity: .6"></span>
+</div>
+<div role="menu" aria-label="Vaults" style="position: absolute; left: 60px; top: 46px; width: 290px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; font-size: 13px; z-index: 2">
+<sc-for list="{{vaults}}" as="v" hint-placeholder-count="3">
+<div role="menuitemradio" aria-checked="{{v.checked}}" style="display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; background: {{v.bg}}">
+<span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: {{v.color}}; flex: none"></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600">{{v.name}}</span><span style="font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{v.path}}</span></span>
+<span style="font-size: 12px; color: var(--muted)">{{v.key}}</span>
+</div>
+</sc-for>
+<div style="height: 1px; background: var(--border); margin: 6px 4px"></div>
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="3">
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg>
+<span style="flex: 1">{{a.label}}</span><span style="font-size: 12px; color: var(--muted)">{{a.key}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; height: 520px">
+<div style="width: 46%; background: var(--side); border-right: 1px solid var(--border); position: relative">
+<div aria-hidden="true" style="padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; opacity: .45">
+<sc-for list="{{fakeNav}}" as="n" hint-placeholder-count="6"><div style="height: 28px; border-radius: 6px; background: var(--hover); width: {{n}}%"></div></sc-for>
+</div>
+<div style="position: absolute; left: 10px; right: 10px; bottom: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; align-items: center; gap: 8px; height: 34px">
+<svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none; margin-left: 6px"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg>
+<span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 15px; font-weight: 700; letter-spacing: .05em; color: var(--brand)">TEGG</span>
+</div>
+</div>
+<div aria-hidden="true" style="flex: 1; padding: 22px 18px; display: flex; flex-direction: column; gap: 10px; opacity: .4">
+<div style="height: 22px; width: 70%; border-radius: 6px; background: var(--hover)"></div>
+<div style="height: 12px; width: 90%; border-radius: 6px; background: var(--hover)"></div>
+<div style="height: 12px; width: 80%; border-radius: 6px; background: var(--hover)"></div>
+</div>
+</div>
+</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #4A4A50"><li>Most prominent, and works when the sidebar is collapsed or in focus mode</li><li>Shortcuts ⌘⌃1…3 for recent vaults</li><li>Takes room from the tabs in the title bar</li></ul>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1680,"height":1000}}'>
+class Component extends DCLogic {
+renderVals() {
+const vaults = [
+{ name: 'Personal', path: '~/Dropbox/Tegg', color: '#0B44F0', current: true },
+{ name: 'Work', path: '~/Documents/Work notes', color: '#0B7564' },
+{ name: 'Reading (Obsidian)', path: '~/Library/Mobile Documents/…/Obsidian/Reading', color: '#A04A06' }
+].map((v, i) => ({
+...v, initial: v.name[0], isCurrent: !!v.current, checked: v.current ? 'true' : 'false',
+bg: v.current ? 'var(--hover)' : 'transparent', key: '⌘⌃' + (i + 1)
+}));
+const actions = [
+{ label: 'Open folder as vault…', key: '', d: 'M3 7h6l2 2h10v10H3zM12 12v4M10 14h4' },
+{ label: 'Create new vault…', key: '', d: 'M12 5v14M5 12h14' },
+{ label: 'Vault settings…', key: '⌘,', d: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6' }
+];
+return { vaults, actions, fakeNav: [62, 48, 55, 70, 40, 58, 66, 45, 52] };
+}
+}
+</script>
+</body>
+</html>
