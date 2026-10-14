@@ -54,6 +54,7 @@
 | v1.36   | 2026-10-13 | 3C preview feedback: D-217 no object icon or cover (FR-TYP-14 removed, supersedes D-39); D-218 tag click opens the tag page (supersedes D-143). |
 | v1.37   | 2026-10-14 | Design change before 3D (owner, design boards option C): D-219 vault switcher in the title bar with recent vaults; D-220 logo at the bottom left opens About and Settings. |
 | v1.38   | 2026-10-14 | MS3 slice 3D decisions D-221…D-244 (AP-161…AP-184, owner accepted all recommendations). |
+| v1.39   | 2026-10-14 | D-245: new-object bytes come from `@tegg/doc` through one UI creation function (D-82 kept over D-232's core path). |
 
 ---
 
@@ -341,6 +342,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-242 | Existing criteria that 3D changes | Retire read-view FR-TYP-08 AC-6 for the editor route (keep it through the read-view test switch, as D-215); keep AC-1 for the read view and use FR-EDT-07 AC-1 on the editor route; reword FR-UX-02 AC-17 to "lists the type's objects" (sort by FR-TYP-09 AC-3). Each with `AC-Test-Change` approved by the owner. (AP-182) |
 | D-243 | Creating from a relation picker | `Create "<query>"` in the relation picker creates an object of the first allowed type (or the default type when unrestricted) through the one creation path, and links it. (AP-183) |
 | D-244 | Where "Add starter types" lives | In 3D a palette command `Add starter types…`; the Settings: Vault button joins in MS5. Skip rules as data-safety AC-4 (same name or same folder), listed in the dialog. (AP-184) |
+| D-245 | New-object bytes (D-82 vs D-232) | D-82 holds: a new object's bytes come from `@tegg/doc` `newObject`, called by one UI function `createObject` that every entry point uses (D-232's one path); the core command `note_create(type, title, text)` picks the folder and free name, writes and indexes. FR-TYP-03 AC-12 checks the bytes at L1, the write at L4, each entry point at L5 (owner, 2026-10-14; ms3-shell §14 Q-3D-1) |
 
 ---
 
