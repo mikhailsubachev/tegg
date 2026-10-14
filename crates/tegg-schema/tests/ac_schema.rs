@@ -430,7 +430,7 @@ fn fr_typ_01_ac4_name_and_plural_patch_only_their_line_and_follow_the_rules() {
     assert_eq!(do_patch("schůzka", &orig, vec![TypeOp::SetName("Po:rada".into())]), Err(SchemaError::Rule(RuleError::ForbiddenChar { field: Field::Name })));
     assert_eq!(do_patch("schůzka", &orig, vec![TypeOp::SetPlural("  ".into())]), Err(SchemaError::Rule(RuleError::Empty { field: Field::Plural })));
     // A name YAML would read as something else is written double-quoted (§14.1.4 scalars).
-    assert_eq!(do_patch("schůzka", &orig, vec![TypeOp::SetName("ano: ne".into())]), Ok(Some(swap(&orig, "name: Schůzka\n", "name: \"ano: ne\"\n"))));
+    assert_eq!(do_patch("schůzka", &orig, vec![TypeOp::SetName("True".into())]), Ok(Some(swap(&orig, "name: Schůzka\n", "name: \"True\"\n"))));
 }
 
 #[test]
