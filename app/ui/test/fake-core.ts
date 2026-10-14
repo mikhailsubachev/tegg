@@ -385,7 +385,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         if (!q || fold(o.title).includes(q) || fold(stem).includes(q)) return [{ kind: 'object', path: o.path, title: o.title, type: o.type, folder: o.folder, matched_alias: null, created }];
         const al = aliasesOf(o.path).find((x) => fold(x).includes(q));
         return al ? [{ kind: 'object', path: o.path, title: o.title, type: o.type, folder: o.folder, matched_alias: al, created }] : [];
-      }).slice(0, a.limit ?? 30);
+      })
+        // As the real switcher (FR-NAV-01): an exact title match first, then prefix matches, then the rest (stable).
+        .map((x, i) => ({ x, i, r: !q ? 2 : fold(x.title) === q ? 0 : fold(x.title).startsWith(q) ? 1 : 2 }))
+        .sort((a1, b1) => a1.r - b1.r || a1.i - b1.i)
+        .map((y) => y.x)
+        .slice(0, a.limit ?? 30);
       if (raw) { const dt = defaultType() as any; items.push({ kind: 'create', path: null, title: raw, type: dt.key, folder: dt.folder, matched_alias: null }); }
       return items;
     },

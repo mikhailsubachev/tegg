@@ -62,7 +62,8 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const d = parseDocument(text, { prettyErrors: false });
   if (d.errors.length) {
     const e = d.errors[0] as any;
-    let line = e.linePos?.[0]?.line ?? 1;
+    // Without pretty errors there is no linePos: count lines up to the error offset.
+    let line = e.linePos?.[0]?.line ?? (Array.isArray(e.pos) ? text.slice(0, e.pos[0]).split('\n').length : text.split('\n').length);
     // An unclosed quote points at the line that opens it (as @tegg/doc).
     const lines = text.split('\n');
     for (let i = 0; i < lines.length; i++) if (/:\s*["'][^"']*$/.test(lines[i]) && i + 1 <= line) { line = i + 1; break; }

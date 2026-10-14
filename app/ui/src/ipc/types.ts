@@ -148,6 +148,11 @@ export type RightPanelDto = { open: boolean,
  * `backlinks`, `outline` or `graph`.
  */
 tab: string, };
+export type TypeSortDto = { column: string, 
+/**
+ * `asc` or `desc`.
+ */
+dir: string, };
 export type UiStateDto = { version: number, 
 /**
  * `system`, `light` or `dark`.
@@ -156,7 +161,15 @@ theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto,
 /**
  * Attribute strip expanded (FR-TYP-08 AC-5, D-147); a missing field reads as `true`.
  */
-propertiesOpen: boolean, };
+propertiesOpen: boolean, 
+/**
+ * Type page sort per type key (FR-TYP-09 AC-3, D-233, ms3-shell §14.7.1); missing reads as empty.
+ */
+typeSort: { [key in string]?: TypeSortDto }, 
+/**
+ * "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
+ */
+otherPropertiesOpen: boolean, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

@@ -421,6 +421,19 @@ pub struct UiStateDto {
     /// Attribute strip expanded (FR-TYP-08 AC-5, D-147); a missing field reads as `true`.
     #[serde(default = "yes")]
     pub properties_open: bool,
+    /// Type page sort per type key (FR-TYP-09 AC-3, D-233, ms3-shell §14.7.1); missing reads as empty.
+    #[serde(default)]
+    pub type_sort: std::collections::BTreeMap<String, TypeSortDto>,
+    /// "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
+    #[serde(default)]
+    pub other_properties_open: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct TypeSortDto {
+    pub column: String,
+    /// `asc` or `desc`.
+    pub dir: String,
 }
 
 /// A resolved link target (ms3-shell §11.1, `link_resolve`).
@@ -442,7 +455,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false }
     }
 }
 
@@ -481,6 +494,7 @@ pub fn typescript() -> String {
         LastOpenedDto::decl(),
         RecentVaultDto::decl(),
         RightPanelDto::decl(),
+        TypeSortDto::decl(),
         UiStateDto::decl(),
         LinkTargetDto::decl(),
     ];

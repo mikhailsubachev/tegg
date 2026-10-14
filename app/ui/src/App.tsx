@@ -94,7 +94,7 @@ export function App() {
       uiLoaded.current = true;
       return;
     }
-    ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...s }); }, () => { uiLoaded.current = true; });
+    ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...(s as UiState) }); }, () => { uiLoaded.current = true; });
   }, []);
   const updateUi = useCallback((f: (u: UiState) => UiState) => {
     setUi((u) => {
