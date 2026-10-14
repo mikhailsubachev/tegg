@@ -74,31 +74,79 @@ export function touchModified(before: string, after: string, now: string): strin
 }
 
 // ---------------------------------------------------------------- slice 3D (ms3-shell §14.5)
-// RED-PHASE STUBS (D-61): the contract's exports with placeholder bodies that return wrong values, so the AC tests
-// (test/set_value.ac.test.ts, test/new_object.ac.test.ts) compile and fail on assertions. 3D replaces them.
 
-/** D-230: set one frontmatter value (contract §14.5). Stub: returns the text unchanged. */
-export function setValue(doc: Doc, _key: string, _value: Value): string {
-  return doc.text
-}
+export { setValue, setRange } from './edit.js'
 
-/** Date range: both halves in one edit. Stub: returns the text unchanged. */
-export function setRange(doc: Doc, _key: string, _start: string | null, _end: string | null): string {
-  return doc.text
-}
-
-/** D-232: the bytes of a new object. Stub: empty. */
-export function newObject(_opts: {
+/** D-232, FR-TYP-03 AC-12: the bytes of a new object. Order: `id`, `type`, `title`; each schema attribute (the
+ *  template's entry verbatim, else its default, else omitted); the template's other entries verbatim (minus identity,
+ *  `review`, `created`, `modified`); `review: unreviewed` when review is on or locked; `created`, `modified`; the
+ *  template's body verbatim. A template with invalid frontmatter contributes only its body (§14.10 item 9). */
+export function newObject(opts: {
   type: { key: string; attributes: { key: string; type: string; default?: unknown }[]; review: 'off' | 'on' | 'locked' }
   title: string
   template: string | null
   now: string
   newId: () => string
 }): string {
-  return ''
+  const tpl = opts.template === null ? null : parse(opts.template)
+  const tplEntries = new Map<string, string>()
+  if (tpl?.frontmatter && !tpl.frontmatter.error) {
+    for (const e of tpl.frontmatter.entries) {
+      let raw = tpl.text.slice(e.range[0], e.range[1]).replace(/\r\n/g, '\n')
+      if (!raw.endsWith('\n')) raw += '\n'
+      tplEntries.set(e.key.normalize('NFC'), raw.normalize('NFC'))
+    }
+  }
+  let out = '---\n' + formatEntry('id', opts.newId()) + formatEntry('type', opts.type.key.normalize('NFC')) + formatEntry('title', opts.title.normalize('NFC'))
+  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified'])
+  for (const a of opts.type.attributes) {
+    const key = a.key.normalize('NFC')
+    if (a.type === 'date-range') {
+      for (const half of [`${key}-start`, `${key}-end`]) {
+        used.add(half)
+        const t = tplEntries.get(half)
+        if (t !== undefined) out += t
+      }
+      continue
+    }
+    used.add(key)
+    const t = tplEntries.get(key)
+    if (t !== undefined) out += t
+    else {
+      const v = defaultValue(a.type, a.default)
+      if (v !== null) out += formatEntry(key, v)
+    }
+  }
+  for (const [k, raw] of tplEntries) if (!used.has(k)) out += raw
+  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
+  out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
+  if (tpl) out += tpl.text.slice(tpl.bodyStart)
+  return out
 }
 
-/** D-239: the matched type key of a `type` value. Stub: wrong value. */
-export function typeMatch(_value: unknown): { key: string; single: boolean } {
-  return { key: '', single: false }
+/** A schema default as the Value written for its attribute type (null = nothing written). */
+function defaultValue(type: string, d: unknown): Value | null {
+  if (d === null || d === undefined || d === '' || (Array.isArray(d) && d.length === 0)) return null
+  if (typeof d === 'string') {
+    const s = d.normalize('NFC')
+    if (type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(s)) return { date: s }
+    if (type === 'date-time') return { datetime: s }
+    if (type === 'relation') {
+      const m = /^\[\[(.*)\]\]$/.exec(s)
+      return { link: m ? m[1] : s }
+    }
+    if (type === 'multi-select') return [s]
+    return s
+  }
+  if (typeof d === 'number' || typeof d === 'boolean') return d
+  if (Array.isArray(d)) return d.map((x) => defaultValue(type === 'multi-select' ? 'text' : type, x)).filter((x): x is Value => x !== null)
+  return null
+}
+
+/** D-239, FR-TYP-13: the matched type key of a `type` value. Absent → Page (single); a value that isn't one
+ *  non-empty string (list, number, null, blank) → Page, not single. */
+export function typeMatch(value: unknown): { key: string; single: boolean } {
+  if (value === undefined) return { key: 'page', single: true }
+  if (typeof value === 'string' && value.trim() !== '') return { key: typeKey(value), single: true }
+  return { key: 'page', single: false }
 }

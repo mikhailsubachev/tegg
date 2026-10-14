@@ -175,6 +175,15 @@ export const Highlight = Mark.create({
   },
 })
 
+/** ms3-shell §14.6 (D-240): the note's frontmatter text (everything before the body) as a doc attribute, so panel
+ *  edits are steps of the same undo history as body edits (`TeggEditor.applyFrontmatter`). Never rendered. */
+export const FrontmatterAttr = Extension.create({
+  name: 'teggFrontmatter',
+  addGlobalAttributes() {
+    return [{ types: ['doc'], attributes: { frontmatter: { default: null, rendered: false } } }]
+  },
+})
+
 // Marks without their default input rules: the editor's own Markdown shortcuts (rules.ts) follow CommonMark flanking
 // so `2 * 3 * 4` stays text (FR-EDT-04 AC-2, AC-4).
 const noRules = { addInputRules: () => [], addPasteRules: () => [], addKeyboardShortcuts: () => ({}) }
@@ -214,6 +223,7 @@ export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
     CalloutTitle,
     Highlight,
     TagRules,
+    FrontmatterAttr,
     ...extra,
   ]
 }

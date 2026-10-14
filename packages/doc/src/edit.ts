@@ -3,7 +3,7 @@
 
 import { gfmToMarkdown } from 'mdast-util-gfm'
 import { toMarkdown } from 'mdast-util-to-markdown'
-import { Scalar, stringify } from 'yaml'
+import { isMap, isScalar, parseDocument, Scalar, stringify } from 'yaml'
 import type { RootContent } from 'mdast'
 import { wikilinks, nameKey } from './links.js'
 import { mathToMarkdown } from 'mdast-util-math'
@@ -108,25 +108,49 @@ export type Value =
   | Value[]
 
 export function formatEntry(key: string, value: Value): string {
+  return formatKey(key) + formatValuePart(value)
+}
+
+/** ms3-shell §14.5 key rule (bug_3d_fr_edt_07): a key Tegg writes fresh is plain when it consists of Unicode letters,
+ *  digits, `-`, `_` and spaces, doesn't start with `-` or a space, and YAML reads it back as the same string; else
+ *  double-quoted. Keys of existing entries are never re-formatted (`entryKeyText`). */
+export function formatKey(key: string): string {
+  const k = key.normalize('NFC')
+  if (/^[\p{L}\p{N}_][\p{L}\p{N}_ -]*$/u.test(k) && readsBackAsKey(k)) return k
+  return JSON.stringify(k)
+}
+
+function readsBackAsKey(k: string): boolean {
+  try {
+    const d = parseDocument(`${k}: x\n`)
+    if (d.errors.length || !isMap(d.contents)) return false
+    const items = d.contents.items
+    return items.length === 1 && isScalar(items[0].key) && items[0].key.value === k
+  } catch {
+    return false
+  }
+}
+
+/** The value part of an entry, everything after the key: `: v\n`, `:\n  - a\n`, `: |-\n  …\n`. */
+function formatValuePart(value: Value): string {
   // Multi-line text needs a block scalar indented under its key (or list item); let `yaml` lay it out
   // (bug_ms1_fr_fmt_01). Every other value keeps the dialect formatter below.
   if (hasMultiline(value)) {
     const plain = (v: Value): unknown => (Array.isArray(v) ? v.map(plain) : typeof v === 'string' ? v.normalize('NFC') : formatScalar(v))
-    return stringify({ [key]: plain(value) }, { lineWidth: 0 })
+    return stringify({ k: plain(value) }, { lineWidth: 0 }).slice(1)
   }
-  const k = /^[\w-]+$/.test(key) ? key : JSON.stringify(key)
   if (Array.isArray(value)) {
-    if (value.length === 0) return `${k}: []\n`
-    return `${k}:\n` + value.map((v) => `  - ${formatScalar(v)}\n`).join('')
+    if (value.length === 0) return `: []\n`
+    return `:\n` + value.map((v) => `  - ${formatScalar(v)}\n`).join('')
   }
-  return `${k}: ${formatScalar(value)}\n`
+  return `: ${formatScalar(value)}\n`
 }
 
 function hasMultiline(v: Value): boolean {
   return typeof v === 'string' ? v.includes('\n') : Array.isArray(v) && v.some(hasMultiline)
 }
 
-function formatScalar(v: Value): string {
+export function formatScalar(v: Value): string {
   if (v === null) return ''
   if (typeof v === 'object' && !Array.isArray(v)) {
     if ('date' in v) {
@@ -142,7 +166,11 @@ function formatScalar(v: Value): string {
     if ('link' in v) return JSON.stringify(`[[${v.link.normalize('NFC')}]]`)
   }
   if (typeof v === 'string') {
-    const s = new Scalar(v.normalize('NFC'))
+    const nfc = v.normalize('NFC')
+    // A text that looks like a date or date-time stays text: YAML 1.1 readers (and the dialect, §3) would read it
+    // as a date, so it is double-quoted (D-230, FR-EDT-07 AC-5).
+    if (/^\d{4}-\d{1,2}-\d{1,2}(?:([Tt]|[ \t]+)\d{1,2}:\d{2}:\d{2}(\.\d*)?([ \t]*(Z|[-+]\d{1,2}(:\d{2})?))?)?$/.test(nfc)) return JSON.stringify(nfc)
+    const s = new Scalar(nfc)
     // Plain when YAML allows it; double quotes otherwise (dialect §3).
     return stringify(s, { defaultStringType: 'PLAIN', defaultKeyType: 'PLAIN', lineWidth: 0 }).replace(/\n$/, '')
   }
@@ -159,7 +187,7 @@ export function setAttribute(doc: Doc, key: string, value: Value): string {
   }
   if (fm.error) throw new Error('Frontmatter is invalid; it is never rewritten automatically (NFR-REL-03)')
   const existing = fm.entries.find((e) => e.key === key)
-  if (existing) return applyPatches(doc.text, [{ range: existing.range, text: entry }])
+  if (existing) return applyPatches(doc.text, [{ range: existing.range, text: entryKeyText(doc, existing.range) + fit(doc, formatValuePart(value)) }])
   // Append before the closing delimiter; make sure the previous line is terminated.
   const end = fm.innerRange[1]
   const needsNl = end > fm.innerRange[0] && doc.text[end - 1] !== '\n'
@@ -185,5 +213,118 @@ export function renameLinkTarget(doc: Doc, from: string, to: string): string {
   const patches = wikilinks(doc)
     .filter((l) => nameKey(l.target) === key)
     .map((l): Patch => ({ range: l.targetRange, text: to.normalize('NFC') }))
+  return patches.length ? applyPatches(doc.text, patches) : doc.text
+}
+
+// ---------------------------------------------------------------- slice 3D: panel values (ms3-shell §14.5, D-230)
+
+/** The key text of an existing entry as written in the source, up to (not including) its `:`. */
+export function entryKeyText(doc: Doc, range: Range): string {
+  const raw = doc.text.slice(range[0], range[1])
+  let i = 0
+  if (raw[0] === '"') {
+    i = 1
+    while (i < raw.length && raw[i] !== '"') i += raw[i] === '\\' ? 2 : 1
+    i++
+  } else if (raw[0] === "'") {
+    i = 1
+    while (i < raw.length) {
+      if (raw[i] === "'" && raw[i + 1] === "'") i += 2
+      else if (raw[i] === "'") break
+      else i++
+    }
+    i++
+  }
+  const m = /:(?=[ \t\r\n]|$)/.exec(raw.slice(i))
+  if (!m) throw new Error('Entry without a key separator')
+  return raw.slice(0, i + m.index)
+}
+
+function isClear(v: Value): boolean {
+  return v === null || v === '' || (Array.isArray(v) && v.length === 0)
+}
+
+/** The value part for an existing entry, keeping its style where the new value allows (D-230). */
+function styledValuePart(oldRaw: string, keyLen: number, value: Value): string {
+  const old = oldRaw.slice(keyLen + 1).replace(/^[ \t]+/, '')
+  if (Array.isArray(value) && !hasMultiline(value) && old.startsWith('[')) {
+    return `: [${value.map(flowItem).join(', ')}]\n`
+  }
+  if (typeof value === 'string' && !value.includes('\n')) {
+    const v = value.normalize('NFC')
+    if (old.startsWith("'")) return `: '${v.replace(/'/g, "''")}'\n`
+    if (old.startsWith('"')) return `: ${JSON.stringify(v)}\n`
+  }
+  return formatValuePart(value)
+}
+
+function flowItem(v: Value): string {
+  const s = formatScalar(v)
+  if (s.startsWith('"') || s.startsWith("'")) return s
+  return /[,[\]{}]/.test(s) || s === '' ? JSON.stringify(typeof v === 'string' ? v.normalize('NFC') : s) : s
+}
+
+function checkWritable(doc: Doc): void {
+  if (doc.frontmatter?.error || doc.frontmatterError) throw new Error('Frontmatter is invalid; it is never rewritten automatically (NFR-REL-03)')
+}
+
+/** One entry's patch: replace (keeping key text and style), remove, or nothing when absent. */
+function entryPatch(doc: Doc, key: string, value: Value): Patch | null {
+  const e = doc.frontmatter?.entries.find((x) => x.key === key)
+  if (!e) return null
+  if (isClear(value)) return { range: e.range, text: '' }
+  const keyText = entryKeyText(doc, e.range)
+  const raw = doc.text.slice(e.range[0], e.range[1])
+  return { range: e.range, text: keyText + fit(doc, styledValuePart(raw, keyText.length, value)) }
+}
+
+/** New entries appended after the last entry (a file without frontmatter gets one, D-174). */
+function appendEntries(doc: Doc, text: string, extra: Patch[] = []): string {
+  const fm = doc.frontmatter
+  if (!fm) {
+    const at = doc.bom ? 1 : 0
+    return applyPatches(doc.text, [...extra, { range: [at, at], text: fit(doc, `---\n`) + text + fit(doc, `---\n`) }])
+  }
+  const end = fm.innerRange[1]
+  const needsNl = end > fm.innerRange[0] && doc.text[end - 1] !== '\n'
+  return applyPatches(doc.text, [...extra, { range: [end, end], text: (needsNl ? doc.eol : '') + text }])
+}
+
+/** D-230: set one frontmatter value (contract §14.5). */
+export function setValue(doc: Doc, key: string, value: Value): string {
+  checkWritable(doc)
+  const p = entryPatch(doc, key, value)
+  if (p) return applyPatches(doc.text, [p])
+  if (isClear(value)) return doc.text
+  return appendEntries(doc, fit(doc, formatEntry(key, value)))
+}
+
+/** Date range: both halves in one edit, consecutive lines; null clears that half (FR-TYP-02, D-230). */
+export function setRange(doc: Doc, key: string, start: string | null, end: string | null): string {
+  checkWritable(doc)
+  const ks = `${key}-start`
+  const ke = `${key}-end`
+  const vs: Value = start === null ? null : { date: start }
+  const ve: Value = end === null ? null : { date: end }
+  const entries = doc.frontmatter?.entries ?? []
+  const es = entries.find((x) => x.key === ks)
+  const ee = entries.find((x) => x.key === ke)
+  const patches: Patch[] = []
+  let append = ''
+  const ps = entryPatch(doc, ks, vs)
+  const pe = entryPatch(doc, ke, ve)
+  if (ps) patches.push(ps)
+  if (pe) patches.push(pe)
+  if (!es && vs !== null) {
+    const line = fit(doc, formatEntry(ks, vs))
+    if (ee) patches.unshift({ range: [ee.range[0], ee.range[0]], text: line })
+    else append += line
+  }
+  if (!ee && ve !== null) {
+    const line = fit(doc, formatEntry(ke, ve))
+    if (es) patches.unshift({ range: [es.range[1], es.range[1]], text: line })
+    else append += line
+  }
+  if (append) return appendEntries(doc, append, patches)
   return patches.length ? applyPatches(doc.text, patches) : doc.text
 }
