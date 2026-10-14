@@ -146,6 +146,16 @@ fn frontmatter(text: &str, start: usize) -> Option<Frontmatter> {
 /// Built from parser events because the loader loses quoting (`"Null"` vs `Null`).
 /// Errors carry a message and a 1-based line within `src` (NFR-REL-03).
 fn parse_yaml(src: &str) -> Result<Map<String, Value>, (String, usize)> {
+    match parse_yaml_value(src)? {
+        Some(Value::Object(m)) => Ok(m),
+        _ => Ok(Map::new()),
+    }
+}
+
+/// The YAML document `src` as JSON by the rules of `parse_yaml` (YAML 1.2 core schema, `yaml` v2 resolution,
+/// duplicate keys refused), without the "non-map becomes `{}`" step: `None` for an empty document. Used for type
+/// files by `tegg-schema` (ms3-shell §14.1.1), so they read exactly like frontmatter.
+pub fn parse_yaml_value(src: &str) -> Result<Option<Value>, (String, usize)> {
     let mut b = Builder { stack: vec![], anchors: Default::default(), root: None, error: None, mark: 0 };
     if let Err(e) = YParser::new_from_str(src).load(&mut b, false) {
         let mut line = e.marker().line();
@@ -159,11 +169,7 @@ fn parse_yaml(src: &str) -> Result<Map<String, Value>, (String, usize)> {
     if let Some(err) = b.error {
         return Err(err);
     }
-    match b.root {
-        None => Ok(Map::new()),
-        Some(Value::Object(m)) => Ok(m),
-        Some(_) => Ok(Map::new()),
-    }
+    Ok(b.root)
 }
 
 /// 1-based line of the last line before `pos` (a char index) with an unbalanced `"` or `'`.

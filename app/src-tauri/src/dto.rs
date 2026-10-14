@@ -150,18 +150,48 @@ pub struct ConflictDto {
 
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct IpcError {
-    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
+    /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault`, `Unsupported`;
+    /// 3D (ms3-shell §14.3): `Rule`, `NewerVersion`, `InvalidType`, `BuiltInChanged`, `ReviewLocked`, `SystemType`,
+    /// `HasObjects`, `UnknownType`.
     pub kind: String,
     pub message: String,
     /// With `Conflict` from `note_write`: both versions (D-202).
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     #[ts(skip)]
     pub conflict: Option<ConflictDto>,
+    /// With `Rule`: `empty`, `forbiddenChar`, `keyTaken`, `keyTooLong`, `folderTaken`, `folderInvalid`, `reservedKey`,
+    /// `attrKeyTaken`, `attrKeyInvalid`, `rangeCollision`, `optionEmpty`, `optionDuplicate`, `optionUsed`, `previewFull`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub reason: Option<String>,
+    /// With `Rule`: `name`, `plural`, `folder`, `attrKey`, `attrName` or `optionLabel`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub field: Option<String>,
+    /// With `Rule` `reservedKey`: the key.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub key: Option<String>,
+    /// With `Rule` `optionUsed`: the label.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub label: Option<String>,
+    /// With `HasObjects`: the number of objects.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub count: Option<u32>,
+    /// With `Conflict` from `type_patch` / `type_delete`: the type as on disk now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub disk: Option<Box<TypeDto>>,
 }
 
-/// A type definition for the sidebar (ms3-shell §2), read-only until `tegg-schema` (3D).
+/// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
+/// definition. `TypeDefDto` is an alias of it.
 #[derive(Debug, Clone, Serialize, TS)]
-pub struct TypeDefDto {
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TypeDto {
     pub key: String,
     pub name: String,
     pub plural: String,
@@ -170,6 +200,180 @@ pub struct TypeDefDto {
     pub color: String,
     pub system: bool,
     pub invalid: bool,
+    /// False: a system type with built-in defaults, no file (D-90).
+    pub exists: bool,
+    /// Base for `type_patch` / `type_delete`.
+    pub version: Option<VersionDto>,
+    /// `ok`, `newer` or `invalid`.
+    pub state: String,
+    pub error: Option<TypeFileErrorDto>,
+    pub declared_version: Option<i64>,
+    pub description: Option<String>,
+    /// `off`, `on` or `locked`.
+    pub review: String,
+    pub preview: Vec<String>,
+    pub preview_ignored: Vec<String>,
+    pub template: Option<String>,
+    pub attributes: Vec<AttributeDto>,
+}
+
+/// Why a type file is invalid (AR-07 AC-4): message and 1-based line.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TypeFileErrorDto {
+    pub message: String,
+    pub line: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct OptionDto {
+    pub label: String,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AttributeDto {
+    pub key: String,
+    pub name: String,
+    /// R10 string, or the raw string of another type.
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    /// One of the 12 R10 types.
+    pub supported: bool,
+    /// `file`, `color`, `recurrence` or `unsupported` (FR-TYP-02 AC-4, AC-5).
+    pub read_only_reason: Option<String>,
+    #[ts(type = "unknown | null")]
+    pub default: Option<serde_json::Value>,
+    pub required: bool,
+    pub options: Vec<OptionDto>,
+    pub to: Option<Vec<String>>,
+    pub multiple: bool,
+    pub description: Option<String>,
+    pub built_in: bool,
+}
+
+/// A new property (`addAttribute`) or the shape `type_misfits` checks against.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AttributeInputDto {
+    pub key: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    #[serde(default)]
+    #[ts(type = "unknown | null")]
+    pub default: Option<serde_json::Value>,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub options: Vec<OptionDto>,
+    #[serde(default)]
+    pub to: Option<Vec<String>>,
+    #[serde(default)]
+    pub multiple: bool,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// Absent = unchanged, `null` = cleared (for `default`, `to`, `description`).
+fn present<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Option<Option<T>>, D::Error> {
+    Ok(Some(Option::deserialize(d)?))
+}
+
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+pub struct AttributeChangeDto {
+    #[serde(default)]
+    #[ts(optional)]
+    pub name: Option<String>,
+    #[serde(default, rename = "type")]
+    #[ts(optional, rename = "type")]
+    pub type_key: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    #[ts(optional, type = "unknown | null")]
+    pub default: Option<Option<serde_json::Value>>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub required: Option<bool>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub options: Option<Vec<OptionDto>>,
+    #[serde(default, deserialize_with = "present")]
+    #[ts(optional, type = "string[] | null")]
+    pub to: Option<Option<Vec<String>>>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub multiple: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    #[ts(optional, type = "string | null")]
+    pub description: Option<Option<String>>,
+}
+
+/// One change of a type file (ms3-shell §14.3); one `type_patch` call = at most one write.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[serde(tag = "op", rename_all = "camelCase")]
+#[ts(tag = "op", rename_all = "camelCase")]
+pub enum TypeOpDto {
+    /// `field`: `name`, `plural`, `folder`, `icon`, `color` or `description`.
+    Set { field: String, value: Option<String> },
+    Review { on: bool },
+    Preview { keys: Vec<String> },
+    AddAttribute { attribute: AttributeInputDto },
+    UpdateAttribute { key: String, change: AttributeChangeDto },
+    RemoveAttribute { key: String },
+    MoveAttribute { key: String, to: u32 },
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TypeUsageDto {
+    pub objects: u32,
+    pub values: std::collections::BTreeMap<String, u32>,
+    pub options: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u32>>,
+}
+
+/// One type-page row (FR-TYP-09 AC-2, D-233).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TypeRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub created: Option<String>,
+    pub modified: Option<String>,
+    #[ts(type = "Record<string, unknown>")]
+    pub values: serde_json::Map<String, serde_json::Value>,
+    pub links: Vec<LinkTargetDto>,
+    pub type_single: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TypeTemplateDto {
+    pub path: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct StarterSkipDto {
+    pub key: String,
+    /// `nameExists` or `folderUsed`.
+    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub folder: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct StarterPlanDto {
+    pub add: Vec<String>,
+    pub skip: Vec<StarterSkipDto>,
+    pub skip_templates: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -261,7 +465,18 @@ pub fn typescript() -> String {
         ConflictRowDto::decl(),
         ConflictDto::decl(),
         IpcError::decl(),
-        TypeDefDto::decl(),
+        TypeDto::decl(),
+        TypeFileErrorDto::decl(),
+        OptionDto::decl(),
+        AttributeDto::decl(),
+        AttributeInputDto::decl(),
+        AttributeChangeDto::decl(),
+        TypeOpDto::decl(),
+        TypeUsageDto::decl(),
+        TypeRowDto::decl(),
+        TypeTemplateDto::decl(),
+        StarterSkipDto::decl(),
+        StarterPlanDto::decl(),
         ObjectRowDto::decl(),
         LastOpenedDto::decl(),
         RecentVaultDto::decl(),
@@ -275,6 +490,8 @@ pub fn typescript() -> String {
         out.push_str(&d);
         out.push('\n');
     }
+    // ms3-shell §14.3: 3A's `TypeDefDto` is now an alias of `TypeDto`.
+    out.push_str("export type TypeDefDto = TypeDto;\n");
     out
 }
 

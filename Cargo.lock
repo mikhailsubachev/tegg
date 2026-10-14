@@ -713,9 +713,9 @@ dependencies = [
 name = "tegg-schema"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "serde_json",
  "tegg-format",
- "yaml-rust2",
 ]
 
 [[package]]

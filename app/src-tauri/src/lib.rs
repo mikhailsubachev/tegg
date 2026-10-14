@@ -11,9 +11,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tegg_core::{
-    AppDirs, ConflictKind, Core, CoreError, CoreEvent, CoreOptions, DateRange, FileVersion, LinkKind, MatchField, ProgressState, SearchQuery,
-    SwitcherKind, Vault, VaultError, WriteOutcome,
+    AppDirs, ConflictKind, Core, CoreError, CoreEvent, CoreOptions, DateRange, FileVersion, LinkKind, LinkTarget, MatchField, ProgressState,
+    SearchQuery, StarterPlan, StarterSkip, SwitcherKind, TypeInfo, Vault, VaultError, WriteOutcome,
 };
+use tegg_schema::{AttrChange, AttrDef, AttrType, Field, OptionDef, RuleError, SchemaError, TypeOp};
 use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
@@ -126,7 +127,7 @@ fn mark(app: &AppHandle, name: &str) {
 // ---------------------------------------------------------------- vault and events
 
 fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None }
 }
 
 fn version_dto(v: &FileVersion) -> VersionDto {
@@ -161,8 +162,49 @@ fn core_err(e: CoreError) -> IpcError {
         CoreError::Vault(VaultError::NotFound) => err("NotFound", "no such file"),
         CoreError::Vault(VaultError::NameTaken) => err("NameTaken", "the name is taken"),
         CoreError::NotUtf8 => err("NotUtf8", "the file isn't valid UTF-8"),
+        // ms3-shell §14.3 (3D).
+        CoreError::Schema(SchemaError::Rule(r)) => rule_err(r),
+        CoreError::Schema(SchemaError::NewerVersion) => err("NewerVersion", "made by a newer version of Tegg"),
+        CoreError::Schema(SchemaError::Invalid) => err("InvalidType", "the type definition can't be read"),
+        CoreError::Schema(SchemaError::BuiltInChanged) => err("BuiltInChanged", "built-in properties can't be changed"),
+        CoreError::Schema(SchemaError::ReviewLocked) => err("ReviewLocked", "review is always on for this type"),
+        CoreError::Schema(SchemaError::SystemTypeName) | CoreError::SystemType => err("SystemType", "system types can't be renamed or deleted"),
+        CoreError::HasObjects(n) => IpcError { count: Some(n as u32), ..err("HasObjects", format!("{n} objects have this type")) },
+        CoreError::UnknownType => err("UnknownType", "no such type"),
         other => err("Io", format!("{other:?}")),
     }
+}
+
+/// `Rule` errors with `reason`, `field` and `key` / `label` (ms3-shell §14.3).
+fn rule_err(r: RuleError) -> IpcError {
+    let field = |f: &Field| {
+        match f {
+            Field::Name => "name",
+            Field::Plural => "plural",
+            Field::Folder => "folder",
+            Field::AttrKey => "attrKey",
+            Field::AttrName => "attrName",
+            Field::OptionLabel => "optionLabel",
+        }
+        .to_string()
+    };
+    let (reason, f, key, label) = match &r {
+        RuleError::Empty { field: x } => ("empty", Some(field(x)), None, None),
+        RuleError::ForbiddenChar { field: x } => ("forbiddenChar", Some(field(x)), None, None),
+        RuleError::KeyTaken => ("keyTaken", Some("name".into()), None, None),
+        RuleError::KeyTooLong => ("keyTooLong", Some("name".into()), None, None),
+        RuleError::FolderTaken => ("folderTaken", Some("folder".into()), None, None),
+        RuleError::FolderInvalid => ("folderInvalid", Some("folder".into()), None, None),
+        RuleError::ReservedKey { key } => ("reservedKey", Some("attrKey".into()), Some(key.clone()), None),
+        RuleError::AttrKeyTaken => ("attrKeyTaken", Some("attrKey".into()), None, None),
+        RuleError::AttrKeyInvalid => ("attrKeyInvalid", Some("attrKey".into()), None, None),
+        RuleError::RangeCollision => ("rangeCollision", Some("attrKey".into()), None, None),
+        RuleError::OptionEmpty => ("optionEmpty", Some("optionLabel".into()), None, None),
+        RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
+        RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
+        RuleError::PreviewFull => ("previewFull", None, None, None),
+    };
+    IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
 
 fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
@@ -418,10 +460,12 @@ async fn index_conflicts(state: State<'_, AppState>) -> Result<Vec<ConflictRowDt
         .collect())
 }
 
+/// ms3-shell §14.3 (3D): `note_create(type, title, text)` → `Core::create_object` (D-232, D-245). The bytes come
+/// from `@tegg/doc` `newObject`; the core picks the folder and a free name and indexes the file.
 #[tauri::command]
-async fn note_create(state: State<'_, AppState>, dir: String, title: String, text: String) -> Result<String, IpcError> {
+async fn note_create(state: State<'_, AppState>, r#type: String, title: String, text: String) -> Result<String, IpcError> {
     let core = core(&state)?;
-    core.create_note(&dir, &title, text.as_bytes()).map_err(core_err)
+    core.create_object(&r#type, &title, text.as_bytes()).map_err(core_err)
 }
 
 /// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
@@ -443,11 +487,14 @@ fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) 
 
 #[tauri::command]
 async fn vault_create(app: AppHandle, parent: String, name: String, kind: String) -> Result<VaultInfo, IpcError> {
-    if kind != "empty" {
-        return Err(err("Unsupported", "starter vaults arrive in slice 3D (D-92)"));
-    }
+    // FR-VLT-02 AC-6 (D-238): the starter kind writes `tegg_schema::STARTER_FILES` on top of the empty vault.
+    let kind = match kind.as_str() {
+        "empty" => VaultKind::Empty,
+        "starter" => VaultKind::Starter(tegg_schema::STARTER_FILES),
+        other => return Err(err("Unsupported", format!("unknown vault kind {other}"))),
+    };
     let dirs = app.state::<AppState>().dirs.clone();
-    let vault = Vault::create(&PathBuf::from(&parent), &name, VaultKind::Empty, &dirs).map_err(|e| match e {
+    let vault = Vault::create(&PathBuf::from(&parent), &name, kind, &dirs).map_err(|e| match e {
         CreateError::NotEmpty => err("NotEmpty", "the target folder exists and isn't empty"),
         other => err("Io", format!("{other:?}")),
     })?;
@@ -501,13 +548,9 @@ async fn app_about(app: AppHandle) -> Result<(), IpcError> {
 }
 
 #[tauri::command]
-async fn vault_types(state: State<'_, AppState>) -> Result<Vec<TypeDefDto>, IpcError> {
+async fn vault_types(state: State<'_, AppState>) -> Result<Vec<TypeDto>, IpcError> {
     let core = core(&state)?;
-    Ok(core
-        .types()
-        .into_iter()
-        .map(|t| TypeDefDto { key: t.key, name: t.name, plural: t.plural, folder: t.folder, icon: t.icon, color: t.color, system: t.system, invalid: t.invalid })
-        .collect())
+    Ok(core.types().into_iter().map(type_dto).collect())
 }
 
 #[tauri::command]
@@ -540,26 +583,247 @@ async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcE
 #[tauri::command]
 async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
     let core = core(&state)?;
-    Ok(core
-        .resolve_links(&from, &targets)
-        .into_iter()
-        .map(|t| LinkTargetDto {
-            target: t.target,
-            kind: match t.kind {
-                LinkKind::Note => "note",
-                LinkKind::Daily => "daily",
-                LinkKind::DateMissing => "date-missing",
-                LinkKind::Unresolved => "unresolved",
+    Ok(core.resolve_links(&from, &targets).into_iter().map(link_dto).collect())
+}
+
+// ---------------------------------------------------------------- MS3 slice 3D (ms3-shell §14.3)
+
+fn type_dto(t: TypeInfo) -> TypeDto {
+    use tegg_schema::{Readability, Review};
+    let (state, error) = match &t.readability {
+        Readability::Ok => ("ok", None),
+        Readability::Newer(_) => ("newer", None),
+        Readability::Invalid { message, line } => ("invalid", Some(TypeFileErrorDto { message: message.clone(), line: *line as u32 })),
+    };
+    let d = t.def;
+    TypeDto {
+        key: t.key,
+        name: t.name,
+        plural: t.plural,
+        folder: t.folder,
+        icon: t.icon,
+        color: t.color,
+        system: t.system,
+        invalid: t.invalid,
+        exists: t.exists,
+        version: t.version.as_ref().map(version_dto),
+        state: state.into(),
+        error,
+        declared_version: d.declared_version,
+        description: d.description,
+        review: match d.review {
+            Review::Off => "off",
+            Review::On => "on",
+            Review::Locked => "locked",
+        }
+        .into(),
+        preview: d.preview,
+        preview_ignored: t.preview_ignored,
+        template: d.template,
+        attributes: d.attributes.into_iter().map(attribute_dto).collect(),
+    }
+}
+
+fn attribute_dto(a: AttrDef) -> AttributeDto {
+    let read_only_reason = match &a.r#type {
+        AttrType::File => Some("file"),
+        AttrType::Color => Some("color"),
+        AttrType::Recurrence => Some("recurrence"),
+        AttrType::Other(_) => Some("unsupported"),
+        _ => None,
+    };
+    AttributeDto {
+        key: a.key,
+        name: a.name,
+        type_key: a.r#type.as_str().to_string(),
+        supported: a.r#type.editable(),
+        read_only_reason: read_only_reason.map(str::to_string),
+        default: a.default,
+        required: a.required,
+        options: a.options.into_iter().map(|o| OptionDto { label: o.label, color: o.color }).collect(),
+        to: a.to,
+        multiple: a.multiple,
+        description: a.description,
+        built_in: a.built_in,
+    }
+}
+
+fn option_def(o: OptionDto) -> OptionDef {
+    OptionDef { label: o.label, color: o.color, extra: Vec::new() }
+}
+
+fn attr_def(a: AttributeInputDto) -> AttrDef {
+    AttrDef {
+        key: a.key,
+        name: a.name,
+        r#type: AttrType::parse(&a.type_key),
+        default: a.default.filter(|v| !v.is_null()),
+        required: a.required,
+        options: a.options.into_iter().map(option_def).collect(),
+        to: a.to,
+        multiple: a.multiple,
+        description: a.description,
+        built_in: false,
+    }
+}
+
+fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
+    Ok(match op {
+        TypeOpDto::Set { field, value } => {
+            let v = value.unwrap_or_default();
+            match field.as_str() {
+                "name" => TypeOp::SetName(v),
+                "plural" => TypeOp::SetPlural(v),
+                "folder" => TypeOp::SetFolder(v),
+                "icon" => TypeOp::SetIcon(v),
+                "color" => TypeOp::SetColor(v),
+                "description" => TypeOp::SetDescription(Some(v).filter(|d| !d.trim().is_empty())),
+                other => return Err(err("Io", format!("unknown type field {other}"))),
             }
-            .into(),
-            path: t.path,
-            title: t.title,
-            type_key: t.r#type,
+        }
+        TypeOpDto::Review { on } => TypeOp::SetReview(on),
+        TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
+        TypeOpDto::AddAttribute { attribute } => TypeOp::AddAttribute(attr_def(attribute)),
+        TypeOpDto::UpdateAttribute { key, change } => TypeOp::UpdateAttribute {
+            key,
+            change: AttrChange {
+                name: change.name,
+                r#type: change.type_key.map(|t| AttrType::parse(&t)),
+                default: change.default.map(|d| d.filter(|v| !v.is_null())),
+                required: change.required,
+                options: change.options.map(|o| o.into_iter().map(option_def).collect()),
+                to: change.to,
+                multiple: change.multiple,
+                description: change.description,
+            },
+        },
+        TypeOpDto::RemoveAttribute { key } => TypeOp::RemoveAttribute(key),
+        TypeOpDto::MoveAttribute { key, to } => TypeOp::MoveAttribute { key, to: to as usize },
+    })
+}
+
+fn link_dto(t: LinkTarget) -> LinkTargetDto {
+    LinkTargetDto {
+        target: t.target,
+        kind: match t.kind {
+            LinkKind::Note => "note",
+            LinkKind::Daily => "daily",
+            LinkKind::DateMissing => "date-missing",
+            LinkKind::Unresolved => "unresolved",
+        }
+        .into(),
+        path: t.path,
+        title: t.title,
+        type_key: t.r#type,
+    }
+}
+
+fn starter_dto(p: StarterPlan) -> StarterPlanDto {
+    StarterPlanDto {
+        add: p.add,
+        skip: p
+            .skip
+            .into_iter()
+            .map(|(key, why)| match why {
+                StarterSkip::NameExists => StarterSkipDto { key, reason: "nameExists".into(), folder: None },
+                StarterSkip::FolderUsed { folder } => StarterSkipDto { key, reason: "folderUsed".into(), folder: Some(folder) },
+            })
+            .collect(),
+        skip_templates: p.skip_templates,
+    }
+}
+
+/// A `Conflict` of a type write carries the type as on disk now (ms3-shell §14.3).
+fn type_err(core: &Core, key: &str, e: CoreError) -> IpcError {
+    let conflict = matches!(e, CoreError::Vault(VaultError::Conflict { .. }));
+    let mut out = core_err(e);
+    if conflict {
+        out.disk = core.type_get(key).map(|t| Box::new(type_dto(t)));
+    }
+    out
+}
+
+#[tauri::command]
+async fn type_get(state: State<'_, AppState>, key: String) -> Result<Option<TypeDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.type_get(&key).map(type_dto))
+}
+
+#[tauri::command]
+async fn type_create(state: State<'_, AppState>, name: String, plural: String) -> Result<TypeDto, IpcError> {
+    let core = core(&state)?;
+    core.type_create(&name, &plural).map(type_dto).map_err(core_err)
+}
+
+#[tauri::command]
+async fn type_patch(state: State<'_, AppState>, key: String, base: Option<VersionDto>, ops: Vec<TypeOpDto>) -> Result<TypeDto, IpcError> {
+    let core = core(&state)?;
+    let base = base.as_ref().map(version_from).transpose()?;
+    let ops = ops.into_iter().map(type_op).collect::<Result<Vec<_>, _>>()?;
+    core.type_patch(&key, base.as_ref(), &ops).map(type_dto).map_err(|e| type_err(&core, &key, e))
+}
+
+#[tauri::command]
+async fn type_delete(state: State<'_, AppState>, key: String, base: VersionDto) -> Result<Vec<String>, IpcError> {
+    let core = core(&state)?;
+    let base = version_from(&base)?;
+    core.type_delete(&key, &base).map_err(|e| type_err(&core, &key, e))
+}
+
+#[tauri::command]
+async fn type_template(state: State<'_, AppState>, key: String) -> Result<Option<TypeTemplateDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.type_template(&key).map_err(core_err)?.map(|(path, bytes)| TypeTemplateDto { path, text: String::from_utf8_lossy(&bytes).into_owned() }))
+}
+
+#[tauri::command]
+async fn type_usage(state: State<'_, AppState>, r#type: String) -> Result<TypeUsageDto, IpcError> {
+    let core = core(&state)?;
+    let u = core.type_usage(&r#type);
+    Ok(TypeUsageDto {
+        objects: u.objects as u32,
+        values: u.values.into_iter().map(|(k, n)| (k, n as u32)).collect(),
+        options: u.options.into_iter().map(|(k, m)| (k, m.into_iter().map(|(l, n)| (l, n as u32)).collect())).collect(),
+    })
+}
+
+#[tauri::command]
+async fn type_misfits(state: State<'_, AppState>, r#type: String, attr: String, r#as: AttributeInputDto) -> Result<u32, IpcError> {
+    let core = core(&state)?;
+    Ok(core.count_misfits(&r#type, &attr, &attr_def(r#as)) as u32)
+}
+
+#[tauri::command]
+async fn index_type_rows(state: State<'_, AppState>, r#type: String) -> Result<Vec<TypeRowDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .type_rows(&r#type)
+        .into_iter()
+        .map(|r| TypeRowDto {
+            path: r.path,
+            id: r.id,
+            title: r.title,
+            created: r.created,
+            modified: r.modified,
+            values: r.values,
+            links: r.links.into_iter().map(link_dto).collect(),
+            type_single: r.type_single,
         })
         .collect())
 }
 
-/// D-145: only these schemes are handed to macOS; the shell checks, not only the UI.
+#[tauri::command]
+async fn starter_plan(state: State<'_, AppState>) -> Result<StarterPlanDto, IpcError> {
+    let core = core(&state)?;
+    Ok(starter_dto(core.starter_plan()))
+}
+
+#[tauri::command]
+async fn starter_add(state: State<'_, AppState>) -> Result<StarterPlanDto, IpcError> {
+    let core = core(&state)?;
+    core.starter_add().map(starter_dto).map_err(core_err)
+}
+
 fn external_allowed(url: &str) -> bool {
     let lower = url.trim().to_ascii_lowercase();
     lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")
@@ -694,7 +958,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit
+            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
+            type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

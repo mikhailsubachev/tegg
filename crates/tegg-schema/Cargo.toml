@@ -8,7 +8,7 @@ description = "Tegg type definitions: read, check and line-patch .tegg/types/*.y
 [dependencies]
 tegg-format = { path = "../tegg-format" }
 serde_json.workspace = true
-yaml-rust2 = "0.13"
+chrono.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

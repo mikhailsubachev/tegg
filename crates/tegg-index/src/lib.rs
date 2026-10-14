@@ -22,7 +22,7 @@ pub use text::fold;
 use text::{contains_item, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2; // 2: matched type key, `type_raw`, `type_single` (3D, D-239)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
 
@@ -43,7 +43,12 @@ impl From<rusqlite::Error> for IndexError {
 pub struct ObjectInfo {
     pub path: String,
     pub id: Option<String>,
+    /// The matched type key (FR-TYP-13, D-239): `type_key` of a non-empty string `type`, else `page`.
     pub r#type: String,
+    /// False when `type` is present but not one non-empty string (list, number, empty): shown as Page.
+    pub type_single: bool,
+    /// The `type` value as written (NFC, trimmed) when it is a non-empty string.
+    pub type_raw: Option<String>,
     pub title: String,
     pub aliases: Vec<String>,
     pub tags: Vec<String>,
@@ -185,6 +190,10 @@ pub struct Conflict {
     pub others: Vec<String>,
 }
 
+fn yes() -> bool {
+    true
+}
+
 // ---------------------------------------------------------------- what is stored per note
 
 /// Persisted per note (JSON in `notes.meta`); everything else is derived when loaded.
@@ -192,6 +201,10 @@ pub struct Conflict {
 struct Stored {
     id: Option<String>,
     r#type: String,
+    #[serde(default = "yes")]
+    type_single: bool,
+    #[serde(default)]
+    type_raw: Option<String>,
     title: String,
     aliases: Vec<String>,
     tags: Vec<String>,
@@ -336,6 +349,8 @@ impl Meta {
             path: self.path.clone(),
             id: self.s.id.clone(),
             r#type: self.s.r#type.clone(),
+            type_single: self.s.type_single,
+            type_raw: self.s.type_raw.clone(),
             title: self.s.title.clone(),
             aliases: self.s.aliases.clone(),
             tags: self.s.tags.clone(),
@@ -381,12 +396,20 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
     let body_start = tegg_format::body_start(&raw).min(raw.len());
     let body_line = raw[..body_start].matches('\n').count();
     let body = &raw[body_start..];
-    // D-103: an untyped file is a Page.
-    let r#type = ex.r#type.map(|t| t.to_lowercase()).unwrap_or_else(|| "page".into());
+    // FR-TYP-13 (D-239): matched by key here, not in the extractor; D-103: an untyped file is a Page; a `type` that
+    // isn't one non-empty string is a Page too, flagged `type_single = false`. Files are never rewritten.
+    let _ = ex.r#type;
+    let (r#type, type_single, type_raw) = match attributes.get("type") {
+        None => ("page".to_string(), true, None),
+        Some(Value::String(t)) if !t.trim().is_empty() => (tegg_format::type_key(t), true, Some(nfc(t.trim()))),
+        Some(_) => ("page".to_string(), false, None),
+    };
     let fts = [text::fts_text(&ex.title), text::fts_text(&aliases.join(" \n ")), text::fts_text(&attribute_text(&attributes)), text::fts_text(body)];
     let stored = Stored {
         id: ex.id,
         r#type,
+        type_single,
+        type_raw,
         title: ex.title,
         aliases,
         tags: ex.tags,
@@ -724,7 +747,7 @@ impl Index {
 
     /// FR-SRC-02 filters, combined with AND (D-103, D-104, D-109).
     fn passes(&self, m: &Meta, q: &SearchQuery) -> bool {
-        if !q.types.is_empty() && !q.types.iter().any(|t| t.to_lowercase() == m.s.r#type) {
+        if !q.types.is_empty() && !q.types.iter().any(|t| tegg_format::type_key(t) == m.s.r#type) {
             return false;
         }
         if !q.tags.iter().all(|t| m.s.tags.contains(&nfc(t).to_lowercase())) {
