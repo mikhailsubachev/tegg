@@ -78,11 +78,12 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 ### FR-STO-01 / -03 / -05 / -06 / -08 / -09 Vault layout
 
 - **AC-1** All vault content stays inside the chosen folder; the app never writes outside it except to Application Support.
-- **AC-2** [MS3] A new object of type Book goes to `Books/` (the type's configured folder); changing the type's folder applies to new objects and offers to move existing ones.
+- **AC-2** [MS3] A new object of type Book goes to `Books/` (the type's configured folder); changing the type's folder applies to new objects and moves no existing file. *(changed by D-226: the "offers to move" part is AC-7)*
 - **AC-3** Attachments go to `_attachments/`; a second `photo.png` becomes `photo (2).png`.
 - **AC-4** `.tegg/vault.yml`, `.tegg/types/*.yml`, `.tegg/queries/*.yml` and `_templates/<Type>/*.md` are human-readable YAML/Markdown and contain everything needed to rebuild types, queries and templates on another Mac.
 - **AC-5** Deleting an object moves it to `.trash/` keeping its relative path; restore puts it back at the original path (or with a suffix if taken).
 - **AC-6** Files that aren't Markdown or recognized attachments (e.g. `.docx`, `.obsidian/`, `.git/`) are never modified, moved or deleted.
+- **AC-7** [MS4] After a type's folder changes, the app offers to move the existing objects of that type to the new folder, with a restore point first (FR-HIS-04, D-57); links keep resolving. *(split from AC-2 by D-226)*
 
 ### FR-STO-07 / AR-01 Machine-local data, rebuildable index
 

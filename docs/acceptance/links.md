@@ -19,7 +19,7 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 - **AC-1** [MS4] Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
 - **AC-2** [MS4] If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
-- **AC-3** [MS4] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties".
+- **AC-3** [MS3] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties". *(changed by D-228: was [MS4]; verified by types.md FR-TYP-07 AC-5)*
 
 ### FR-LNK-14 Duplicate titles
 
@@ -43,9 +43,9 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-TYP-04 / FR-TAG-04 Bulk rewrites
 
-- **AC-1** Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file; values, other keys and body bytes are unchanged (FR-FMT-07 AC-5).
-- **AC-2** Renaming tag `reading` → `čtení` changes `tags:` entries and inline `#reading` in every object that has it, and renames `Tags/reading.md`; `#reading-list` (a different tag) is unchanged.
-- **AC-3** Both operations show a confirmation with the number of affected files, show progress, create a backup first (NFR-REL-04 AC-1) and can be cancelled before writing starts.
+- **AC-1** [MS4] Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file; values, other keys and body bytes are unchanged (FR-FMT-07 AC-5). *(marker added by D-228)*
+- **AC-2** [MS4] Renaming tag `reading` → `čtení` changes `tags:` entries and inline `#reading` in every object that has it, and renames `Tags/reading.md`; `#reading-list` (a different tag) is unchanged. *(marker added by D-228)*
+- **AC-3** [MS4] Both operations show a confirmation with the number of affected files, show progress, create a backup first (NFR-REL-04 AC-1) and can be cancelled before writing starts. *(marker added by D-228)*
 
 ### FR-ATT-07 Image and PDF objects
 
