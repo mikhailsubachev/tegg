@@ -431,7 +431,7 @@ export function createHistory(): {
 ### 12.3 Logo (D-164)
 
 - Assets `app/ui/src/assets/logo-light.svg` and `logo-dark.svg`: the Main board's mark plus the "TEGG" wordmark in Space Grotesk 700 converted to paths, brand blue `#0B44F0` (light) / `#8FAEFF` (dark). They are the colour-literal exception of FR-UX-05 AC-2 (`logo*.svg`).
-- The sidebar link `Tegg home` renders `<img alt="" src=…>` with the asset of the resolved theme; its `aria-label` stays `Tegg home`.
+- The logo button `Tegg: About and Settings` at the bottom left of the sidebar (D-220, §12.5) renders `<img alt="" src=…>` with the asset of the resolved theme; its `aria-label` stays `Tegg: About and Settings`.
 
 ### 12.5 Vault switcher and logo menu (D-219, D-220)
 
