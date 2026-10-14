@@ -34,6 +34,9 @@ test('fr_edt_07_ac5_a_text_values_are_quoted_when_needed', async ({ page }) => {
     ['2026-10-07', 'místo: "2026-10-07"'], ['[[Cíl]]', 'místo: "[[Cíl]]"'], ['#doma', 'místo: "#doma"'], ['Plzeň', 'místo: Plzeň'],
   ];
   for (const [input, line] of cases) {
+    // Clear first: a cleared value removes the key (D-230), so each case is written fresh, not in the previous style.
+    await commitText(page, 'Místo', '');
+    await written(core, P.porada, (x) => entry(x, 'místo') === undefined || entry(x, 'místo') === null || entry(x, 'místo') === '');
     await commitText(page, 'Místo', input);
     const t = await written(core, P.porada, (x) => entry(x, 'místo') === line);
     assert.equal(entry(t, 'místo'), line, JSON.stringify(input));

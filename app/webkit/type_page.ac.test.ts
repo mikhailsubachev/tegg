@@ -102,7 +102,7 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
 test('fr_typ_09_ac6_new_object_from_the_type_page', async ({ page }) => {
   const core = await openTypes(page);
   await gotoTypePage(page, S);
-  for (const how of ['button', 'palette'] as const) {
+  for (const how of ['palette', 'button'] as const) { // palette first: the button step opens the new note, where `New Schůzka` isn't offered (R13)
     if (how === 'button') await main(page).getByRole('button', { name: 'New Schůzka', exact: true }).click();
     else await runCommand(page, 'New Schůzka');
     const d = await must(newObjectDialog(page), `New object (${how})`);

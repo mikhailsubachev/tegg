@@ -154,15 +154,11 @@ export async function stateIs(page: Page, want: string, ms = 2000): Promise<bool
 }
 /** Visible rows of a type table as their first cell's text. */
 export async function rowTitles(page: Page, plural: string): Promise<string[]> {
-  const rows = typeTable(page, plural).getByRole('row');
-  const n = await rows.count();
-  const out: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const r = rows.nth(i);
-    if ((await r.getByRole('columnheader').count()) > 0) continue;
-    out.push(((await r.getByRole('cell').first().innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim());
-  }
-  return out;
+  // One DOM read, so a table update between reads can't mix old and new rows.
+  return typeTable(page, plural).evaluate((t) =>
+    ([...t.querySelectorAll('[role="row"], tr')] as HTMLElement[])
+      .filter((r) => !r.querySelector('[role="columnheader"], th'))
+      .map((r) => ((r.querySelector('[role="cell"], [role="gridcell"], td') as HTMLElement | null)?.innerText ?? '').replace(/\s+/g, ' ').trim()));
 }
 /** The note text a `note_write` sent last for `path`. */
 export async function lastWrite(core: FakeCoreHandle, path: string): Promise<string | null> {

@@ -15,7 +15,8 @@ test.use({ timezoneId: 'Europe/Prague' });
 
 type Core = Awaited<ReturnType<typeof openTypes>>;
 async function clock(page: Page) {
-  await page.clock.install({ time: new Date(NOW) });
+  // A fixed time: `created:` is exactly NOW however long the steps take; timers still run.
+  await page.clock.setFixedTime(new Date(NOW));
 }
 async function created(core: Core): Promise<{ type: string; title: string; text: string; path: string }> {
   const c = await eventually(() => callsOf(core, 'note_create'), (x) => x.length > 0 && x[x.length - 1].ok !== undefined, 3000);

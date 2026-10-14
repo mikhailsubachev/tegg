@@ -511,8 +511,10 @@ test('fr_typ_04_ac5_schema_changes_never_write_notes', async ({ page }) => {
   const before = await core.files();
   const g = await expand(page, 'Místo');
   await commit(g.getByRole('textbox', { name: 'Name', exact: true }), 'Místnost');
-  await commit(g.getByRole('textbox', { name: 'Description', exact: true }), 'Kde to bylo');
-  await g.getByRole('checkbox', { name: 'Required', exact: true }).click();
+  // The group is named after the property's current Name (as the drag handle below).
+  const g2 = await must(property(page, 'Místnost'), 'property group "Místnost"');
+  await commit(g2.getByRole('textbox', { name: 'Description', exact: true }), 'Kde to bylo');
+  await g2.getByRole('checkbox', { name: 'Required', exact: true }).click();
   await section(page, 'Properties').getByRole('button', { name: 'Drag to reorder Místnost', exact: true }).focus();
   await page.keyboard.press('Alt+ArrowUp');
   await sleep(500);
