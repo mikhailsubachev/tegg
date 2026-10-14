@@ -165,7 +165,8 @@ async function end(d: Driver | undefined) {
   await d?.deleteSession().catch(() => {});
 }
 async function firstShown(d: Driver, label: string): Promise<any | null> {
-  const q = `(label == "${label}" OR title == "${label}" OR value == "${label}")`;
+  const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const q = `(label == "${l}" OR title == "${l}" OR value == "${l}")`;
   for (const sel of [`-ios predicate string:elementType IN {9, 10, 12, 17, 41, 42, 80} AND ${q}`, `-ios predicate string:${q}`]) {
     for (const e of await d.$$(sel).catch(() => [] as any[])) {
       if (await e.isDisplayed().catch(() => false)) return e;
@@ -470,10 +471,11 @@ test('fr_fmt_12_ac6_nfd_file_name_edit_keeps_one_file', { timeout: 300_000 }, as
     press('o', ['command']);
     paste('Cíl');
     await sleep(600);
-    const hits = await d.$$('-ios predicate string:value == "Cíl" OR label == "Cíl"');
-    let shownHits = 0;
-    for (const h of hits) if (await h.isDisplayed().catch(() => false)) shownHits++;
-    assert.ok(shownHits >= 1 && shownHits <= 2, 'the switcher lists one object for it (one row; the title may also appear once in the page)');
+    // A switcher row exposes "<icon> <title> <folder>" as its title; the query field and the page also show "Cíl".
+    const rows = await d.$$('-ios predicate string:title ENDSWITH " Cíl Pages"');
+    let shownRows = 0;
+    for (const h of rows) if (await h.isDisplayed().catch(() => false)) shownRows++;
+    assert.equal(shownRows, 1, 'the switcher lists one object for it');
     assert.equal(/^id: (\S+)/m.exec(readFileSync(join(vault, 'Pages', names[0]), 'utf8'))?.[1], '01JB0E0000000000000000E002', 'same id');
   } finally {
     await end(d);
@@ -585,7 +587,7 @@ test('fr_syn_03_ac12_real_external_write_reloads_clean_note', { timeout: 240_000
     let ok = false;
     const endAt = Date.now() + 2500;
     while (!ok && Date.now() < endAt) {
-      const els = await s.d.$$('-ios predicate string:value CONTAINS "změněný jinde"').catch(() => [] as any[]);
+      const els = await s.d.$$('-ios predicate string:elementType IN {48, 49, 50, 52} AND value CONTAINS "změněný jinde"').catch(() => [] as any[]);
       ok = els.length > 0;
       await sleep(100);
     }
