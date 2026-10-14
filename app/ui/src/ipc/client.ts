@@ -4,7 +4,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
-  SearchQueryDto, SwitcherItemDto, TagDto, TypeDefDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto,
+  SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
+  AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto,
 } from './types';
 
 export const ipc = {
@@ -21,7 +22,8 @@ export const ipc = {
   search: (query: SearchQueryDto) => invoke<SearchPageDto>('index_search', { query }),
   switcher: (q: string, limit = 30) => invoke<SwitcherItemDto[]>('index_switcher', { q, limit }),
   noteRead: (path: string) => invoke<NoteDto>('note_read', { path }),
-  noteCreate: (dir: string, title: string, text: string) => invoke<string>('note_create', { dir, title, text }),
+  /** 3D (ms3-shell §14.3): the one creation path's write; the core picks the type's folder and the file name. */
+  noteCreate: (type: string, title: string, text: string) => invoke<string>('note_create', { type, title, text }),
   navOpened: (path: string) => invoke<void>('nav_opened', { path }),
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
@@ -38,6 +40,17 @@ export const ipc = {
   appQuit: () => invoke<void>('app_quit'),
   linkResolve: (from: string, targets: string[]) => invoke<LinkTargetDto[]>('link_resolve', { from, targets }),
   openExternal: (url: string) => invoke<void>('open_external', { url }),
+  // 3D (ms3-shell §14.3).
+  typeGet: (key: string) => invoke<TypeDto | null>('type_get', { key }),
+  typeCreate: (name: string, plural: string) => invoke<TypeDto>('type_create', { name, plural }),
+  typePatch: (key: string, base: VersionDto | null, ops: TypeOpDto[]) => invoke<TypeDto>('type_patch', { key, base, ops }),
+  typeDelete: (key: string, base: VersionDto) => invoke<string[]>('type_delete', { key, base }),
+  typeTemplate: (key: string) => invoke<TypeTemplateDto | null>('type_template', { key }),
+  typeUsage: (type: string) => invoke<TypeUsageDto>('type_usage', { type }),
+  typeMisfits: (type: string, attr: string, as: AttributeInputDto) => invoke<number>('type_misfits', { type, attr, as }),
+  typeRows: (type: string) => invoke<TypeRowDto[]>('index_type_rows', { type }),
+  starterPlan: () => invoke<StarterPlanDto>('starter_plan'),
+  starterAdd: () => invoke<StarterPlanDto>('starter_add'),
 };
 
 export const events = {

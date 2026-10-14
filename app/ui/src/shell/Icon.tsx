@@ -41,7 +41,35 @@ const PATHS: Record<string, string> = {
   'mark-code': 'M9 8l-4 4 4 4M15 8l4 4-4 4',
   'mark-highlight': 'M5 19h14M8 15l7-9 3 3-9 7z',
   object: 'M12 3l8 4.5v9L12 21l-8-4.5v-9z',
+  // R14 type icons (D-236).
+  'file-text': 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
+  'check-square': 'M4 4h16v16H4zM8 12l3 3 5-6',
+  zap: 'M13 3L5 14h6l-1 7 8-11h-6z',
+  hash: 'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16',
+  book: 'M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM5 18a2 2 0 0 1 2-2h11',
+  'book-open': 'M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z',
+  lightbulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.8.8-1 1.5-1 2.5H9c0-1-.2-1.7-1-2.5A6 6 0 0 1 12 3z',
+  users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 21v-1a7 7 0 0 1 14 0v1',
+  folder: 'M3 6h6l2 2h10v11H3z',
+  map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+  star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z',
+  flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
+  bookmark: 'M6 3h12v18l-6-4-6 4z',
+  briefcase: 'M3 7h18v13H3zM8 7V4h8v3M3 12h18',
+  coffee: 'M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 9h1a3 3 0 0 1 0 6h-1M7 2v3M11 2v3',
+  globe: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+  'graduation-cap': 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5M22 9v6',
+  'pen-line': 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  utensils: 'M5 3v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M7 13v8M17 3c-2 2-2 6 0 8v10',
+  plane: 'M2 13l8-2 4-8 2 1-2 7 6 2 2-2 1 1-2 4-4 1-1 5-2 1-1-6-6 2z',
+  warning: 'M12 3l9 16H3zM12 10v4M12 17h.01',
+  x: 'M6 6l12 12M18 6L6 18',
 };
+
+/** R14 icon names a type file may use (D-236); others fall back to the generic type icon. */
+export const TYPE_ICONS = new Set(['file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user',
+  'folder', 'map', 'star', 'flag', 'bookmark', 'briefcase', 'coffee', 'globe', 'graduation-cap', 'pen-line', 'utensils', 'plane']);
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (
@@ -57,9 +85,11 @@ export function routeIcon(id: string): string {
   return ({ home: 'home', inbox: 'inbox', today: 'calendar', tasks: 'task', search: 'search', type: 'type', 'type-settings': 'gear', tags: 'tag', pinned: 'pin', 'saved-queries': 'query', note: 'file', graph: 'graph', trash: 'trash', import: 'import', conflicts: 'conflict', capture: 'capture', settings: 'gear', chooser: 'vault' } as Record<string, string>)[head] ?? 'dot';
 }
 
-/** The icon of a type key (until `icon:` is mapped in 3D). */
-export function typeIconName(key: string): string {
-  return ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key] ?? 'type';
+/** The icon of a type: the R14 `icon` of its definition when given and known (D-236), else by key (3A). */
+export function typeIconName(key: string, icon?: string | null): string {
+  const sys = ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key];
+  if (sys) return sys;
+  return icon && TYPE_ICONS.has(icon) ? icon : 'type';
 }
 
 /** The same icon as a DOM element, for views that aren't React (the editor's link chips). */

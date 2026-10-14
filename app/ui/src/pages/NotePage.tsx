@@ -3,7 +3,8 @@
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { parse } from '@tegg/doc';
+import { parse, setValue } from '@tegg/doc';
+import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
@@ -17,6 +18,9 @@ import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
 import { pluralOf } from '../shell/types';
+import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
+import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
+import { pageFallback, typeOfValue } from '../types/util';
 
 export type NoteMeta = { title: string; type: string };
 
@@ -24,7 +28,7 @@ export type NoteMeta = { title: string; type: string };
 export function noteMeta(path: string, text: string): NoteMeta {
   const doc = parse(text.replace(/^﻿/, ''));
   const type = doc.frontmatter?.data?.type;
-  return { title: noteTitle(doc, path), type: (typeof type === 'string' && type.trim() ? type : 'page').toLowerCase().normalize('NFC') };
+  return { title: noteTitle(doc, path), type: typeMatch(type).key.normalize('NFC') };
 }
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -54,7 +58,12 @@ export type NotePageApi = {
   mergeOpen: () => boolean;
   /** `Keep both`, for quitting with the merge dialog open (D-176). */
   keepBoth: () => Promise<void>;
+  /** 3D (R13): the `Change type` menu and `Edit properties`. */
+  changeType: () => void;
+  editProperties: () => void;
 };
+
+const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
 
 function stamp(): string {
   const d = new Date(Date.now());
@@ -62,7 +71,7 @@ function stamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}`;
 }
 
-export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created }: {
+export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -85,6 +94,11 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   onId?: (id: string) => void;
   /** A note just created with New object: the caret goes into the empty body (AP-135). */
   created?: boolean;
+  /** 3D: Other properties expanded (machine-local UI state, FR-EDT-07 AC-2). */
+  otherOpen?: boolean;
+  onToggleOther?: () => void;
+  /** 3D: a save changed the note's type (sidebar counts follow, FR-TYP-07 AC-5). */
+  onTypeSaved?: () => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [gone, setGone] = useState(false);
@@ -102,6 +116,17 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const savedTitle = useRef('');
   const live = useRef({ path, loaded, merge, deleted });
   live.current = { path, loaded, merge, deleted };
+  // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
+  const [head, setHead] = useState<string>('');
+  const panelApi = useRef<PanelApi | null>(null);
+  const chipApi = useRef<TypeChipApi | null>(null);
+  const descField = useRef<HTMLInputElement | null>(null);
+  const syncHead = useCallback(() => {
+    const ed = edRef.current;
+    if (!ed) return;
+    const h = ed.editor.state.doc.attrs.frontmatter;
+    setHead(typeof h === 'string' ? h : headOf(ed.text()));
+  }, []);
 
   // ------------------------------------------------------------------ load
   const loadedOnce = useRef(false);
@@ -171,14 +196,34 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       conflict: (c: ConflictInfo) => setMerge({ mine: c.mine, theirs: c.theirs, theirsVersion: c.theirsVersion, compare: false }),
       gone: () => setDeleted(true),
       written: (text) => {
+        const before = noteMeta(live.current.path, diskTextRef.current || text).type;
         setDiskText(text);
+        syncHead();
+        if (noteMeta(live.current.path, text).type !== before) onTypeSaved?.();
         savedTitle.current = noteMeta(live.current.path, text).title;
         void ipc.perfMark('note-saved').catch(() => {});
       },
     }, () => !!pane.current?.slashOpen());
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
+    syncHead();
   }, [path]);
+
+  /** A committed panel edit (FR-EDT-07 AC-4, D-240): the next note text from @tegg/doc, one undo step, autosaved. */
+  const commit: Commit = useCallback((edit) => {
+    const ed = edRef.current;
+    if (!ed || live.current.merge || live.current.deleted) return false;
+    try {
+      const cur = ed.text();
+      const next = edit(parse(cur));
+      if (next !== cur) ed.applyFrontmatter(next);
+    } catch {
+      return false;
+    }
+    saver.current?.changed();
+    syncHead();
+    return true;
+  }, []);
 
   useEffect(() => () => saver.current?.dispose(), []);
 
@@ -196,6 +241,8 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     pending: () => !!saver.current?.pending || !!live.current.merge || live.current.deleted,
     mergeOpen: () => !!live.current.merge,
     keepBoth: () => keepBothRef.current(),
+    changeType: () => chipApi.current?.open(),
+    editProperties: () => panelApi.current?.focusFirst(),
   }), [flush]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
@@ -250,6 +297,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     ed.reload(n.text);
     s.base = n.version;
     setDiskText(n.text);
+    syncHead();
     const meta = noteMeta(live.current.path, n.text);
     savedTitle.current = meta.title;
     setTitle(meta.title);
@@ -292,6 +340,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     if (!m || !ed || !s) return;
     ed.reload(m.theirs);
     setDiskText(m.theirs);
+    syncHead();
     setMerge(null);
     s.resume(m.theirsVersion);
   };
@@ -313,6 +362,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     }
     ed.reload(m.theirs);
     setDiskText(m.theirs);
+    syncHead();
     setMerge(null);
     s.resume(m.theirsVersion);
   };
@@ -381,7 +431,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       const main = root.current?.closest('main');
       if (restoreScroll !== undefined && main) main.scrollTop = restoreScroll;
       else if (fragment) scrollToFragment(root.current, fragment);
-      if (created && loaded.mode === 'edit') requestAnimationFrame(() => pane.current?.focus());
+      if (created && loaded.mode === 'edit') requestAnimationFrame(() => { if (!document.querySelector('[role="dialog"]')) pane.current?.focus(); });
       onRestored?.();
       void ipc.perfMark('note-ready').catch(() => {});
     });
@@ -404,6 +454,13 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const editable = loaded.mode === 'edit';
   const warning = loaded.mode === 'invalidFrontmatter' ? frontmatterWarning(parse(loaded.text.replace(/^﻿/, ''))) : null;
   const saveText = t(`save.${save.state}`);
+  // 3D: the type in effect (FR-TYP-13): the panel's frontmatter in the editor, else the file.
+  const fmData = parse(editable ? head : (diskText || loaded.text)).frontmatter?.data ?? {};
+  const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
+  const chipType = typed.single ? typed.type : pageFallback(types);
+  const chipKey = typed.single ? typed.key : 'page';
+  const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
+  const descSaved = typeof (fmData as Record<string, unknown>).description === 'string' ? String((fmData as Record<string, unknown>).description) : '';
 
   return (
     <div ref={root} className="note-root">
@@ -439,6 +496,10 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
           <span className="sep" aria-hidden="true">/</span>
           <span data-user-content>{stem}</span>
         </nav>
+        <div className="note-type-row">
+          <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
+            onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} />
+        </div>
         {editable && !showSource ? (
           <h1 className="note-title">
             <TitleField
@@ -448,6 +509,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
               onChange={onTitle}
               onLeave={onTitleBlur}
               onDown={() => { onTitleBlur(); pane.current?.focus(); }}
+              onTab={() => { onTitleBlur(); descField.current?.focus(); }}
             />
           </h1>
         ) : (
@@ -490,7 +552,13 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         )}
         {editable && (
           <div hidden={showSource}>
-            <Properties text={diskText || loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
+            <DescriptionField elRef={descField} saved={descSaved}
+              onCommit={(v) => commit((d) => setValue(d, 'description', v.trim() === '' ? null : v))}
+              onNext={() => panelApi.current?.focusFirst()} />
+            {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
+            <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
+              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
+              onLeaveLast={() => pane.current?.focus()} />
             <EditorPane
               apiRef={pane}
               text={loaded.text}
@@ -500,7 +568,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
               onReady={onEditor}
               onSaveNow={() => void flush()}
               autoFocus={created}
-              onChange={() => saver.current?.changed()}
+              onChange={() => { saver.current?.changed(); syncHead(); }}
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
@@ -521,13 +589,15 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
 
 /** The title as editable plain text (FR-EDT-01 AC-10, D-173): it is what the page heading shows, gets the focus after
  *  navigation (D-130) and writes only `title:` (the file name changes with renames in MS4). ⏎, ↓ and Tab go to the body. */
-function TitleField({ elRef, value, label, onChange, onLeave, onDown }: {
+function TitleField({ elRef, value, label, onChange, onLeave, onDown, onTab }: {
   elRef: (el: HTMLElement | null) => void;
   value: string;
   label: string;
   onChange: (v: string) => void;
   onLeave: () => void;
   onDown: () => void;
+  /** Tab: the description subtitle (FR-EDT-07 AC-10). */
+  onTab?: () => void;
 }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useLayoutEffect(() => {
@@ -547,9 +617,48 @@ function TitleField({ elRef, value, label, onChange, onLeave, onDown }: {
         document.execCommand('insertText', false, text);
       }}
       onKeyDown={(e) => {
+        if (e.key === 'Tab' && !e.shiftKey && onTab) { e.preventDefault(); onTab(); return; }
         if (e.key === 'Enter' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); onDown(); }
       }}
     />
+  );
+}
+
+/** The description subtitle (FR-TYP-08 AC-7): one line, placeholder `Add a description`; ⏎ or leaving it commits,
+ *  pasted line breaks become spaces, an empty value removes the key (D-230); Esc reverts. */
+function DescriptionField({ elRef, saved, onCommit, onNext }: {
+  elRef: React.MutableRefObject<HTMLInputElement | null>;
+  saved: string;
+  onCommit: (v: string) => void;
+  onNext: () => void;
+}) {
+  const [value, setValue2] = useState(saved);
+  const editing = useRef(false);
+  useEffect(() => { if (!editing.current) setValue2(saved); }, [saved]);
+  const done = () => {
+    if (!editing.current) return;
+    editing.current = false;
+    const v = value.normalize('NFC').replace(/\s*\r?\n\s*/g, ' ');
+    if (v.trim() === saved.trim()) { setValue2(saved); return; }
+    onCommit(v.trim() === '' ? '' : v);
+  };
+  return (
+    <input ref={elRef} type="text" className="note-subtitle-field" aria-label={t('attr.description')} placeholder={t('panel.descriptionPlaceholder')}
+      value={value} data-user-content spellCheck={false} autoComplete="off"
+      onChange={(e) => { editing.current = true; setValue2(e.target.value); }}
+      onPaste={(e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text/plain').replace(/\s*\r?\n\s*/g, ' ');
+        const el = e.currentTarget;
+        const a = el.selectionStart ?? value.length, b = el.selectionEnd ?? value.length;
+        editing.current = true;
+        setValue2(value.slice(0, a) + text + value.slice(b));
+      }}
+      onBlur={done}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setValue2(saved); return; }
+        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); onNext(); }
+      }} />
   );
 }
 

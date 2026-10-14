@@ -173,8 +173,10 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onAbout, conflicts = 0 }: {
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0 }: {
   onAbout: () => void;
+  /** 3D: the New type dialog (FR-TYP-01 AC-1). */
+  onNewType: () => void;
   route: Route;
   types: TypeEntry[];
   onGo: (r: Route) => void;
@@ -235,29 +237,32 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onAbout, 
         </div>
         <div className="section-head">
           <span>{t('frame.types')}</span>
-          <Disabled control="ctl.newType" ariaLabel={t('ctl.newType')} className="icon-button small"><Icon name="plus" size={14} /></Disabled>
+          <button tabIndex={0} type="button" className="icon-button small" aria-label={t('frame.newType')} title={t('frame.newType')} data-command="type.new"
+            onClick={(e) => { e.currentTarget.focus(); onNewType(); }}>
+            <Icon name="plus" size={14} />
+          </button>
         </div>
         <ul className="types" aria-label={t('frame.types')}>
           {types.map((e) => {
             const current = route.id === 'type/<type>' && route.param === e.key;
             return (
-              <li key={e.key}>
+              <li key={e.key} aria-description={!e.defined ? t('frame.noTypeDefinition') : e.invalid ? t('frame.invalidType') : undefined}>
                 <a
                   href="#"
                   tabIndex={0}
                   className={`entry type-entry ${current ? 'current' : ''}`}
                   aria-current={current ? 'page' : undefined}
                   aria-label={t('frame.typeEntry', { plural: e.plural, count: e.count })}
-                  aria-description={e.defined ? undefined : t('frame.noTypeDefinition')}
+                  aria-description={!e.defined ? t('frame.noTypeDefinition') : e.invalid ? t('frame.invalidType') : undefined}
                   data-command={`goto.type:${e.key}`}
                   style={{ ['--type' as string]: `var(--type-${e.color || 'gray'})` }}
                   onClick={(ev) => { ev.preventDefault(); onGo({ id: 'type/<type>', param: e.key }); }}
                 >
-                  <span className="type-icon"><Icon name={typeIconName(e.key)} /></span>
+                  <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
                     {e.plural}
-                    {!e.defined && <span className="undefined-mark" aria-hidden="true" title={t('frame.noTypeDefinition')}>?</span>}
-                    <span className="count"> {e.count}</span>
+                    {!e.defined && <span className="undefined-mark" aria-hidden="true" title={t('frame.noTypeDefinition')} />}
+                    <span className="count">{"\u00a0"}{e.count}</span>
                   </span>
                 </a>
               </li>

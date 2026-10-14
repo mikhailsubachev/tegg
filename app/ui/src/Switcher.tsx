@@ -3,11 +3,12 @@ import { ipc } from './ipc/client';
 import type { SwitcherItemDto } from './ipc/types';
 import { typeIcon } from './icons';
 import { t } from './i18n/catalog';
+import { prepareObject, type Prepared } from './types/create';
 
 /** FR-NAV-01: ⌘O quick switcher. Keyboard only: ↑/↓, ⏎, Esc (AC-11, FR-UX-03). */
 export function Switcher({ onOpen, onCreate, onClose }: {
   onOpen: (path: string) => void;
-  onCreate: (item: SwitcherItemDto) => void;
+  onCreate: (item: SwitcherItemDto, prepared?: Prepared | null) => void;
   onClose: () => void;
 }) {
   const [q, setQ] = useState('');
@@ -16,6 +17,8 @@ export function Switcher({ onOpen, onCreate, onClose }: {
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  // The create item's type, read once (type_get, type_template), so creating sends note_create at once (D-232).
+  const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
 
   useEffect(() => input.current?.focus(), []);
   useEffect(() => {
@@ -24,13 +27,19 @@ export function Switcher({ onOpen, onCreate, onClose }: {
       if (n === seq.current) {
         setItems(r);
         setSel(0);
+        const c = r.find((x) => x.kind === 'create');
+        if (c && prepared.current?.key !== c.type) {
+          const slot = { key: c.type, p: null as Prepared | null };
+          prepared.current = slot;
+          prepareObject(c.type).then((p) => { slot.p = p; }, () => {});
+        }
       }
     }, () => {});
   }, [q]);
 
   const choose = (i: SwitcherItemDto | undefined) => {
     if (!i) return;
-    if (i.kind === 'create') onCreate(i);
+    if (i.kind === 'create') onCreate(i, prepared.current?.key === i.type ? prepared.current.p : null);
     else if (i.path) {
       void ipc.perfMark('switcher-enter').catch(() => {}); // NFR-PERF-05 AC-2 (ms3-shell §11.5)
       onOpen(i.path);
