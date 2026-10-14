@@ -86,9 +86,13 @@ export function routeIcon(id: string): string {
 }
 
 /** The icon of a type: the R14 `icon` of its definition when given and known (D-236), else by key (3A). */
+/** The icon each system type's built-in definition names. */
+const SYSTEM_DEFAULT: Record<string, string> = { page: 'file-text', task: 'check-square', 'quick-note': 'zap', 'daily-note': 'calendar', tag: 'hash', image: 'image', pdf: 'file' };
+
 export function typeIconName(key: string, icon?: string | null): string {
   const sys = ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key];
-  if (sys) return sys;
+  // FR-TYP-06 (D-237): a system type's icon can be changed; its default icon keeps the system glyph.
+  if (sys && (!icon || icon === SYSTEM_DEFAULT[key] || !TYPE_ICONS.has(icon))) return sys;
   return icon && TYPE_ICONS.has(icon) ? icon : 'type';
 }
 

@@ -55,6 +55,7 @@
 | v1.37   | 2026-10-14 | Design change before 3D (owner, design boards option C): D-219 vault switcher in the title bar with recent vaults; D-220 logo at the bottom left opens About and Settings. |
 | v1.38   | 2026-10-14 | MS3 slice 3D decisions D-221…D-244 (AP-161…AP-184, owner accepted all recommendations). |
 | v1.39   | 2026-10-14 | D-245: new-object bytes come from `@tegg/doc` through one UI creation function (D-82 kept over D-232's core path). |
+| v1.40   | 2026-10-14 | D-246…D-250: owner preview feedback (search scope and ranking, focus on open, `source` as free text, links in text properties, `@` links). |
 
 ---
 
@@ -343,6 +344,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-243 | Creating from a relation picker | `Create "<query>"` in the relation picker creates an object of the first allowed type (or the default type when unrestricted) through the one creation path, and links it. (AP-183) |
 | D-244 | Where "Add starter types" lives | In 3D a palette command `Add starter types…`; the Settings: Vault button joins in MS5. Skip rules as data-safety AC-4 (same name or same folder), listed in the dialog. (AP-184) |
 | D-245 | New-object bytes (D-82 vs D-232) | D-82 holds: a new object's bytes come from `@tegg/doc` `newObject`, called by one UI function `createObject` that every entry point uses (D-232's one path); the core command `note_create(type, title, text)` picks the folder and free name, writes and indexes. FR-TYP-03 AC-12 checks the bytes at L1, the write at L4, each entry point at L5 (owner, 2026-10-14; ms3-shell §14 Q-3D-1) |
+| D-246 | Search scope and ranking (feedback F1, F2) | Global search (⌘⇧F) also matches file names. Ranking: exact phrase first, then notes containing all words, then any word (owner, 2026-10-14; docs/feedback/ms3-3d.md) |
+| D-247 | Focus on open (F4) | Opening an existing note puts the cursor in the first body block; a new note focuses the title (owner, 2026-10-14) |
+| D-248 | `source` as free text (F8) | The reserved key `source` (FR-TYP-15) is shown and edited as a free-text property on every type; importers keep writing it (owner, 2026-10-14) |
+| D-249 | Links in text properties (F9) | Free-text property values may hold links, stored as `"[[Note]]"` in YAML (Obsidian-compatible); they count as links and backlinks (owner, 2026-10-14) |
+| D-250 | `@` link trigger (F10) | Typing `@` opens the same note picker as `[[` everywhere (body and text properties) and writes a normal `[[Note]]` link resolved by file (FR-LNK-14) (owner, 2026-10-14) |
 
 ---
 

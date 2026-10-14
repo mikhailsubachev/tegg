@@ -248,7 +248,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               </button>
               {iconOpen && (
                 <OptionsPopup label={t('ts.icon')} anchor={iconBtn.current} current={type.icon}
-                  choices={ICONS.map((i) => ({ value: i, label: t(`icon.${i}`) }))}
+                  choices={ICONS.map((i) => ({ value: i, label: t(`icon.${i}`), icon: i }))}
                   onClose={(refocus) => { setIconOpen(false); if (refocus) iconBtn.current?.focus(); }}
                   onChoose={(c) => { setIconOpen(false); iconBtn.current?.focus(); if (c.value !== type.icon) set('icon', c.value, t('ts.icon')); }} />
               )}

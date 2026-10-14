@@ -7,7 +7,7 @@ import { Icon } from '../../shell/Icon';
 import { rawText } from '../util';
 import { EmptyMark, WarnIcon, joinDesc, type Value } from './common';
 
-export type Choice = { value: string; label: string; color?: string | null };
+export type Choice = { value: string; label: string; color?: string | null; icon?: string };
 
 /** A popup listbox anchored to `anchor`; Esc or a click outside closes it and returns focus to the anchor. */
 export function OptionsPopup({ label, anchor, choices, current, onChoose, onClose }: {
@@ -44,6 +44,7 @@ export function OptionsPopup({ label, anchor, choices, current, onChoose, onClos
         <div key={`${c.clear ? 'clear' : c.value}`} id={`${base}-${i}`} role="option" aria-selected={i === sel}
           className={`option ${i === sel ? 'selected' : ''} ${c.clear ? 'clear-option' : ''}`}
           onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setSel(i)} onClick={() => onChoose(c)}>
+          {c.icon && <Icon name={c.icon} size={16} />}
           {c.color && <span className="option-dot" aria-hidden="true" style={{ background: `var(--type-${c.color})` }} />}
           <span data-user-content={c.clear ? undefined : ''}>{c.label}</span>
         </div>
