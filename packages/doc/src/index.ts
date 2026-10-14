@@ -72,3 +72,33 @@ export function touchModified(before: string, after: string, now: string): strin
   if (strip(before) === strip(after)) return after
   return setAttribute(parse(after), 'modified', { datetime: now })
 }
+
+// ---------------------------------------------------------------- slice 3D (ms3-shell §14.5)
+// RED-PHASE STUBS (D-61): the contract's exports with placeholder bodies that return wrong values, so the AC tests
+// (test/set_value.ac.test.ts, test/new_object.ac.test.ts) compile and fail on assertions. 3D replaces them.
+
+/** D-230: set one frontmatter value (contract §14.5). Stub: returns the text unchanged. */
+export function setValue(doc: Doc, _key: string, _value: Value): string {
+  return doc.text
+}
+
+/** Date range: both halves in one edit. Stub: returns the text unchanged. */
+export function setRange(doc: Doc, _key: string, _start: string | null, _end: string | null): string {
+  return doc.text
+}
+
+/** D-232: the bytes of a new object. Stub: empty. */
+export function newObject(_opts: {
+  type: { key: string; attributes: { key: string; type: string; default?: unknown }[]; review: 'off' | 'on' | 'locked' }
+  title: string
+  template: string | null
+  now: string
+  newId: () => string
+}): string {
+  return ''
+}
+
+/** D-239: the matched type key of a `type` value. Stub: wrong value. */
+export function typeMatch(_value: unknown): { key: string; single: boolean } {
+  return { key: '', single: false }
+}

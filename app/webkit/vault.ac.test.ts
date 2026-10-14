@@ -40,7 +40,7 @@ test('fr_vlt_01_ac10_new_vault_form_and_create', async ({ page }) => {
   await must(form(page).getByRole('textbox', { name: 'Vault name' }), 'Vault name');
   assert.ok(await seen(form(page).getByText('Location', { exact: false })), 'Location row');
   assert.equal(await form(page).getByRole('radio', { name: 'Empty vault' }).isChecked(), true, 'Empty vault selected');
-  assert.equal(await form(page).getByRole('radio', { name: 'Starter vault' }).getAttribute('aria-disabled'), 'true', 'Starter vault disabled (R3)');
+  assert.notEqual(await form(page).getByRole('radio', { name: 'Starter vault' }).getAttribute('aria-disabled'), 'true', 'Starter vault enabled (types.md R3 changes, FR-VLT-02 AC-6)');
   assert.equal(await isDisabled(page, 'Create'), true, 'Create disabled at start');
   await form(page).getByRole('textbox', { name: 'Vault name' }).fill('   ');
   assert.equal(await isDisabled(page, 'Create'), true, 'Create disabled with a whitespace name');

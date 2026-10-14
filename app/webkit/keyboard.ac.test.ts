@@ -207,7 +207,7 @@ test('fr_ux_03_ac6_shortcut_display_and_disabled_commands', async ({ page }) => 
     assert.ok(row.replace(/\s+/g, '').endsWith(keys), `"${title}" shows ${keys}: ${JSON.stringify(row)}`);
     await page.keyboard.press('Escape');
   }
-  for (const [title, due] of [['New tab', 'v1.0'], ['New type', 'MS3 (3D)']]) {
+  for (const [title, due] of [['New tab', 'v1.0']]) { // `New type` is built in 3D (types.md R3 changes)
     const route = await mainName(page);
     await page.keyboard.press('Meta+k');
     await query(page).fill(title);

@@ -8,7 +8,7 @@ export default defineConfig({
   root: resolve(__dirname, 'ui'),
   plugins: [react()],
   clearScreen: false,
-  resolve: { alias: { '@tegg/doc': resolve(__dirname, '../packages/doc/src/index.ts'), '@tegg/editor': resolve(__dirname, '../packages/editor/src/index.ts') } },
+  resolve: { alias: { '@tegg/doc': resolve(__dirname, '../packages/doc/src/index.ts'), '@tegg/editor': resolve(__dirname, '../packages/editor/src/index.ts'), '@tegg/schema': resolve(__dirname, '../packages/schema/src/index.ts') } },
   server: { port: 5176, strictPort: true, fs: { allow: [resolve(__dirname, '..')] } },
   // SVG assets (the logo, D-164) stay files, byte for byte, instead of minified data: URLs.
   build: { target: 'safari16', outDir: resolve(__dirname, 'dist'), emptyOutDir: true, assetsInlineLimit: (file: string) => (file.endsWith('.svg') ? false : undefined) },

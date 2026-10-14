@@ -1,0 +1,1115 @@
+{
+ "_comment": "FR-TYP-01 AC-3, AC-5, FR-TYP-03 AC-1, AC-2, FR-TYP-13 AC-1, D-96, D-222, D-223, D-239, D-241 (ms3-shell §14.1.2, §14.4): names, folders and keys -> expected rule error (null = allowed). `field`/`key` are compared when given. Read by crates/tegg-schema/tests/ac_schema.rs and packages/schema/test/conformance.ac.test.ts. Synthetic (D-50).",
+ "types": [
+  {
+   "key": "page",
+   "name": "Page",
+   "folder": "Pages"
+  },
+  {
+   "key": "task",
+   "name": "Task",
+   "folder": "Tasks"
+  },
+  {
+   "key": "quick-note",
+   "name": "Quick Note",
+   "folder": "Quick Notes"
+  },
+  {
+   "key": "daily-note",
+   "name": "Daily Note",
+   "folder": "Daily"
+  },
+  {
+   "key": "tag",
+   "name": "Tag",
+   "folder": "Tags"
+  },
+  {
+   "key": "image",
+   "name": "Image",
+   "folder": "Images"
+  },
+  {
+   "key": "pdf",
+   "name": "PDF",
+   "folder": "PDFs"
+  },
+  {
+   "key": "schůzka",
+   "name": "Schůzka",
+   "folder": "Schůzky"
+  },
+  {
+   "key": "osoba",
+   "name": "Osoba",
+   "folder": "Osoby"
+  },
+  {
+   "key": "projekt",
+   "name": "Projekt",
+   "folder": "Projekty"
+  },
+  {
+   "key": "nápad",
+   "name": "Nápad",
+   "folder": "Nápady"
+  },
+  {
+   "key": "prázdný",
+   "name": "Prázdný",
+   "folder": "Prázdné"
+  },
+  {
+   "key": "budoucí",
+   "name": "Budoucí",
+   "folder": "Budoucí"
+  },
+  {
+   "key": "čajovna",
+   "name": "Čajovna",
+   "folder": "Čajovny"
+  }
+ ],
+ "undefinedKeys": [
+  "recept"
+ ],
+ "typeNames": [
+  {
+   "name": "",
+   "plural": "Čajovny 2",
+   "expect": {
+    "reason": "empty",
+    "field": "name"
+   }
+  },
+  {
+   "name": "   ",
+   "plural": "Mezery",
+   "expect": {
+    "reason": "empty",
+    "field": "name"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "  ",
+   "expect": {
+    "reason": "empty",
+    "field": "plural"
+   }
+  },
+  {
+   "name": "Page",
+   "plural": "Stránky",
+   "expect": {
+    "reason": "keyTaken"
+   }
+  },
+  {
+   "name": "quick note",
+   "plural": "Rychlé",
+   "expect": {
+    "reason": "keyTaken"
+   }
+  },
+  {
+   "name": "QUICK NOTE",
+   "plural": "Rychlé poznámky",
+   "expect": {
+    "reason": "keyTaken"
+   }
+  },
+  {
+   "name": "Osoba",
+   "plural": "Lidé",
+   "expect": {
+    "reason": "keyTaken"
+   }
+  },
+  {
+   "name": "čajovna",
+   "plural": "Čajovny 2",
+   "expect": {
+    "reason": "keyTaken"
+   }
+  },
+  {
+   "name": "a/b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a:b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a\\b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a*b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a?b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a\"b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a<b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a>b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a|b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a#b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a^b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a[b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a]b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a\u0007b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "a\u0000b",
+   "plural": "Knihy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "name"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "Kni:hy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "plural"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "Kni#hy",
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "plural"
+   }
+  },
+  {
+   "name": "ččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččč",
+   "plural": "Dlouhé",
+   "expect": {
+    "reason": "keyTooLong"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "Osoby",
+   "expect": {
+    "reason": "folderTaken"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "osoby",
+   "expect": {
+    "reason": "folderTaken"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "PAGES",
+   "expect": {
+    "reason": "folderTaken"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "_templates",
+   "expect": {
+    "reason": "folderInvalid"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": ".skryté",
+   "expect": {
+    "reason": "folderInvalid"
+   }
+  },
+  {
+   "name": "Kniha",
+   "plural": "Knihy",
+   "expect": null
+  },
+  {
+   "name": "Čajová ceremonie",
+   "plural": "Čajové ceremonie",
+   "expect": null
+  },
+  {
+   "name": "Recept",
+   "plural": "Recepty",
+   "expect": null
+  },
+  {
+   "name": "čččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččččč",
+   "plural": "Dlouhé",
+   "expect": null
+  }
+ ],
+ "folders": [
+  {
+   "folder": "Práce/Porady",
+   "self": null,
+   "expect": null,
+   "result": "Práce/Porady"
+  },
+  {
+   "folder": "Porady/",
+   "self": null,
+   "expect": null,
+   "result": "Porady"
+  },
+  {
+   "folder": "Práce/Porady",
+   "self": null,
+   "expect": null,
+   "result": "Práce/Porady"
+  },
+  {
+   "folder": "Schůzky",
+   "self": "schůzka",
+   "expect": null,
+   "result": "Schůzky"
+  },
+  {
+   "folder": "",
+   "self": null,
+   "expect": {
+    "reason": "empty",
+    "field": "folder"
+   },
+   "result": null
+  },
+  {
+   "folder": "   ",
+   "self": null,
+   "expect": {
+    "reason": "empty",
+    "field": "folder"
+   },
+   "result": null
+  },
+  {
+   "folder": "/Users/jana/Porady",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "../Porady",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "Práce/../Porady",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "Práce//Porady",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": ".skryté",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "Práce/.skryté",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "_templates",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "_templates/Schůzka",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "_attachments",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": ".trash",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": ".tegg/types",
+   "self": null,
+   "expect": {
+    "reason": "folderInvalid"
+   },
+   "result": null
+  },
+  {
+   "folder": "Prá:ce",
+   "self": null,
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "folder"
+   },
+   "result": null
+  },
+  {
+   "folder": "Práce/Po#rady",
+   "self": null,
+   "expect": {
+    "reason": "forbiddenChar",
+    "field": "folder"
+   },
+   "result": null
+  },
+  {
+   "folder": "Osoby",
+   "self": null,
+   "expect": {
+    "reason": "folderTaken"
+   },
+   "result": null
+  },
+  {
+   "folder": "osoby",
+   "self": null,
+   "expect": {
+    "reason": "folderTaken"
+   },
+   "result": null
+  },
+  {
+   "folder": "Schůzky",
+   "self": null,
+   "expect": {
+    "reason": "folderTaken"
+   },
+   "result": null
+  },
+  {
+   "folder": "Schůzky",
+   "self": "osoba",
+   "expect": {
+    "reason": "folderTaken"
+   },
+   "result": null
+  }
+ ],
+ "attrKeys": [
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "source",
+   "attrType": "text",
+   "expect": {
+    "reason": "reservedKey",
+    "key": "source"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "Source",
+   "attrType": "text",
+   "expect": {
+    "reason": "reservedKey",
+    "key": "Source"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "ID",
+   "attrType": "text",
+   "expect": {
+    "reason": "reservedKey",
+    "key": "ID"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "file",
+   "attrType": "text",
+   "expect": {
+    "reason": "reservedKey",
+    "key": "file"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "captured",
+   "attrType": "text",
+   "expect": {
+    "reason": "reservedKey",
+    "key": "captured"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "stav",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyTaken"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "",
+   "attrType": "text",
+   "expect": {
+    "reason": "empty",
+    "field": "attrKey"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "telefon do práce",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "1rok",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "-x",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "_x",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "a.b",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "cena(kč)",
+   "attrType": "text",
+   "expect": {
+    "reason": "attrKeyInvalid"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "období-start",
+   "attrType": "text",
+   "expect": {
+    "reason": "rangeCollision"
+   }
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "období-end",
+   "attrType": "date",
+   "expect": {
+    "reason": "rangeCollision"
+   }
+  },
+  {
+   "type": {
+    "key": "výlet",
+    "attributes": [
+     {
+      "key": "cesta-start",
+      "type": "date"
+     },
+     {
+      "key": "poznámka",
+      "type": "text"
+     }
+    ]
+   },
+   "key": "cesta",
+   "attrType": "date-range",
+   "expect": {
+    "reason": "rangeCollision"
+   }
+  },
+  {
+   "type": {
+    "key": "výlet",
+    "attributes": [
+     {
+      "key": "cesta-start",
+      "type": "date"
+     },
+     {
+      "key": "poznámka",
+      "type": "text"
+     }
+    ]
+   },
+   "key": "telefon-do-práce",
+   "attrType": "text",
+   "expect": null
+  },
+  {
+   "type": {
+    "key": "výlet",
+    "attributes": [
+     {
+      "key": "cesta-start",
+      "type": "date"
+     },
+     {
+      "key": "poznámka",
+      "type": "text"
+     }
+    ]
+   },
+   "key": "účet_2",
+   "attrType": "text",
+   "expect": null
+  },
+  {
+   "type": {
+    "key": "výlet",
+    "attributes": [
+     {
+      "key": "cesta-start",
+      "type": "date"
+     },
+     {
+      "key": "poznámka",
+      "type": "text"
+     }
+    ]
+   },
+   "key": "日本語",
+   "attrType": "text",
+   "expect": null
+  },
+  {
+   "type": {
+    "key": "projekt",
+    "attributes": [
+     {
+      "key": "stav",
+      "type": "select"
+     },
+     {
+      "key": "období",
+      "type": "date-range"
+     },
+     {
+      "key": "rozpočet",
+      "type": "number"
+     },
+     {
+      "key": "web",
+      "type": "url"
+     }
+    ]
+   },
+   "key": "cesta",
+   "attrType": "date-range",
+   "expect": null
+  }
+ ],
+ "typeKey": [
+  [
+   "Quick Note",
+   "quick-note"
+  ],
+  [
+   "Projekt",
+   "projekt"
+  ],
+  [
+   "  Schůzka ",
+   "schůzka"
+  ],
+  [
+   "Schůzka",
+   "schůzka"
+  ],
+  [
+   "Reading  Note",
+   "reading-note"
+  ],
+  [
+   "Daily\tNote",
+   "daily-note"
+  ],
+  [
+   "QUICK NOTE",
+   "quick-note"
+  ]
+ ],
+ "deriveAttrKey": [
+  [
+   "Telefon do práce",
+   "telefon-do-práce"
+  ],
+  [
+   "E-mail",
+   "e-mail"
+  ],
+  [
+   "Účastníci",
+   "účastníci"
+  ],
+  [
+   "Účastníci",
+   "účastníci"
+  ],
+  [
+   "Cena (Kč)",
+   "cena-kč"
+  ],
+  [
+   "1. kolo",
+   "kolo"
+  ],
+  [
+   "Poznámka #1",
+   "poznámka-1"
+  ],
+  [
+   "Datum_konce",
+   "datum_konce"
+  ],
+  [
+   "日本語 メモ",
+   "日本語-メモ"
+  ]
+ ]
+}

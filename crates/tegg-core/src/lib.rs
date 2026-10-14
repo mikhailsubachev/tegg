@@ -54,6 +54,11 @@ pub enum CoreError {
     /// D-180: the file's last read wasn't valid UTF-8; it is never written.
     NotUtf8,
     NotImplemented,
+    /// ms3-shell §14.2.2 (3D).
+    Schema(tegg_schema::SchemaError),
+    SystemType,
+    HasObjects(usize),
+    UnknownType,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -822,3 +827,10 @@ impl Core {
             .collect()
     }
 }
+
+// ------------------------------------------------------------------------------------------------ slice 3D (stubs)
+// RED-PHASE STUBS (D-61) for docs/contracts/ms3-shell.md §14.2: the public surface with placeholder bodies that return
+// wrong values or `NotImplemented`, so `tests/ac_types.rs` compiles and fails on assertions. 3D replaces them
+// (and makes `TypeDef` an alias of `TypeInfo`).
+mod types3d;
+pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};

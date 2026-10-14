@@ -50,6 +50,8 @@ export interface TeggEditor {
   text(): string
   dirty(): boolean
   historyDepth(): number
+  /** ms3-shell §14.6 (3D): a committed frontmatter edit as one undo step, saved with the next save(). */
+  applyFrontmatter(next: string): void
   /** Pending title (FR-EDT-01 AC-10): written as `title:` by the next save; null = unchanged. */
   setTitle(title: string | null): void
   /** Top-level blocks in the block selection (0-based, inclusive), or null (FR-EDT-13). */
@@ -792,6 +794,7 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     },
     dirty: () => dirty,
     historyDepth: () => undoDepth(editor.state),
+    applyFrontmatter: () => {}, // RED-PHASE STUB (D-61): 3D builds it (ms3-shell §14.6)
     setTitle(title) {
       pendingTitle = title === null ? null : title.normalize('NFC')
       dirty = true

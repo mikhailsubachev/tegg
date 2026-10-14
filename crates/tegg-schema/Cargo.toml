@@ -1,0 +1,15 @@
+[package]
+name = "tegg-schema"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+description = "Tegg type definitions: read, check and line-patch .tegg/types/*.yml (AR-07, docs/contracts/ms3-shell.md §14.1)"
+
+[dependencies]
+tegg-format = { path = "../tegg-format" }
+serde_json.workspace = true
+yaml-rust2 = "0.13"
+
+[dev-dependencies]
+serde_json.workspace = true
+tegg-format = { path = "../tegg-format" }

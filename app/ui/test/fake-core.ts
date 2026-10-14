@@ -5,6 +5,7 @@
 import type { Page } from '@playwright/test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
+import { STARTER, handle as handleTypes } from './fake-schema';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -110,7 +111,10 @@ const MOCKS = resolve(import.meta.dirname, '../../node_modules/@tauri-apps/api/m
 export async function installFakeCore(page: Page, vault: FakeVault | null, opts: FakeOptions = {}): Promise<FakeCoreHandle> {
   const mocks = readFileSync(MOCKS, 'utf8').replace(/export\s*\{[^}]*\};?\s*$/, '');
   await page.addInitScript({ content: `(() => {${mocks}\nwindow.__teggMocks = { mockIPC, mockWindows };})();` });
-  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files });
+  // 3D (ms3-shell §14.8): type-file commands run in Node (fake-schema.ts) over a snapshot of the in-page files.
+  await page.exposeFunction('__teggTypes', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
+    handleTypes(cmd, args, files, vers as any)).catch(() => {});
+  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
     await page.route(/\/src\/main\.tsx(\?.*)?$/, async (route) => {
@@ -139,7 +143,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
 
 // ---------------------------------------------------------------------------------------------------------------
 // In-page part. Serialized by Playwright: it must be self-contained (no imports, no outer variables).
-function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Record<string, string> }) {
+function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Record<string, string>; starter: Record<string, string> }) {
   const w = window as any;
   const READS = new Set([
     'vault_current', 'vault_last', 'vault_types', 'vault_pick_dir', 'index_type_counts', 'index_list', 'index_search',
@@ -147,6 +151,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'link_resolve', 'open_external', // 3B: read-only / opens a URL outside the vault (ms3-shell §11.1)
     'index_tags', 'index_conflicts', // 3C: read-only (ms3-shell §13.2)
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
+    'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -222,6 +227,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     }
     return out;
   };
+  // 3D (D-239, FR-TYP-13): the matched type key; a value that isn't one non-empty string is Page.
+  const match = (raw: string | undefined) => {
+    if (raw === undefined) return 'page';
+    const v = raw.normalize('NFC').trim();
+    if (v === '' || v.startsWith('[') || /^-?\d+(\.\d+)?$/.test(v) || v === 'null' || v === '~') return 'page';
+    return v.toLowerCase().replace(/\s+/g, '-');
+  };
   const objects = () => {
     if (!state.vault) return [];
     return Object.entries(state.vault.files)
@@ -229,7 +241,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       .map(([path, text]) => {
         const f = front(text);
         const stem = path.split('/').pop()!.replace(/\.md$/, '');
-        return { path, id: f.id ?? null, title: f.title ?? stem, type: f.type ?? 'page', modified: f.modified ?? null, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '' };
+        return { path, id: f.id ?? null, title: f.title ?? stem, type: match(f.type), modified: f.modified ?? null, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '' };
       });
   };
   const yaml = (text: string): Record<string, string> => {
@@ -263,6 +275,35 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     return types().find((t) => t.name === name) ?? { key: 'page', folder: 'Pages' };
   };
 
+  // 3D (ms3-shell §14.8): forwards a command to the Node side with the current files and type-file versions, applies
+  // its writes like the other write commands (version, writtenPaths, `vault:changed`) and fills TypeDto versions.
+  const typePathOf = (key: string) => `.tegg/types/${key.normalize('NFC')}.yml`;
+  const withVersions = (v: any): any => {
+    if (Array.isArray(v)) return v.map(withVersions);
+    if (v && typeof v === 'object' && typeof v.key === 'string' && Array.isArray(v.attributes) && 'exists' in v) {
+      const exists = state.vault?.files[typePathOf(v.key)] !== undefined;
+      return { ...v, exists: v.exists && exists, version: exists ? state.ver(typePathOf(v.key)) : null };
+    }
+    return v;
+  };
+  const viaNode = (cmd: string) => async (a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const files = state.vault.files;
+    const vers: Record<string, VersionDto> = {};
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
+    const r = await w.__teggTypes(cmd, a ?? {}, files, vers);
+    if (r.writes) {
+      const paths: string[] = [];
+      for (const [p, t] of Object.entries(r.writes as Record<string, string | null>)) {
+        if (t === null) { delete files[p]; delete state.mtimes[p]; } else { files[p] = t; state.touch(p); state.writtenPaths.push(p); }
+        paths.push(p);
+      }
+      void state.emit('vault:changed', { paths });
+    }
+    if (r.error) throw r.error.disk ? { ...r.error, disk: withVersions(r.error.disk) } : r.error;
+    return withVersions(r.result);
+  };
+
   const handlers: Record<string, (a: any) => unknown> = {
     vault_current: () => info(),
     vault_open: (a) => {
@@ -280,11 +321,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     vault_create: (a) => {
       state.writes++;
       if (opts.createError) throw err(opts.createError.kind, opts.createError.message);
-      if (a.kind === 'starter') throw err('Unsupported', 'fake: starter vaults arrive in 3D');
+
       const name = String(a.name).normalize('NFC');
       const target = `${String(a.parent).replace(/\/+$/, '')}/${name}`;
       if ((opts.nonEmpty ?? []).includes(target)) throw err('NotEmpty', `fake: ${target} is not empty`);
-      state.vault = { name, files: { ...init.empty } };
+      state.vault = { name, files: a.kind === 'starter' ? { ...init.empty, ...init.starter } : { ...init.empty } }; // FR-VLT-02 AC-6/AC-7
       state.path = target;
       state.last = null;
       record(name, target);
@@ -300,7 +341,17 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const byId = state.last.id ? objs.find((o) => o.id === state.last!.id) : undefined;
       return byId ? { path: byId.path, id: byId.id } : null;
     },
-    vault_types: () => types(),
+    vault_types: viaNode('vault_types'),
+    type_get: viaNode('type_get'),
+    type_create: viaNode('type_create'),
+    type_patch: viaNode('type_patch'),
+    type_delete: viaNode('type_delete'),
+    type_template: viaNode('type_template'),
+    type_usage: viaNode('type_usage'),
+    type_misfits: viaNode('type_misfits'),
+    index_type_rows: viaNode('index_type_rows'),
+    starter_plan: viaNode('starter_plan'),
+    starter_add: viaNode('starter_add'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
@@ -453,6 +504,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     note_create: (a) => {
       state.writes++;
       if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)
       let path = `${dir}/${stem}.md`;

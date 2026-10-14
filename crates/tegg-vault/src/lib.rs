@@ -157,6 +157,8 @@ impl AppDirs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VaultKind {
     Empty,
+    /// FR-VLT-02 AC-6/AC-7 (ms3-shell §14.2.5): `EMPTY_VAULT` plus these (vault path, bytes) files.
+    Starter(&'static [(&'static str, &'static [u8])]),
 }
 
 #[derive(Debug)]
@@ -241,7 +243,9 @@ impl Vault {
     /// FR-VLT-01 AC-2, FR-VLT-02 AC-1: `<parent>/<sanitized name>/` with `.tegg/vault.yml` and one type
     /// definition per system type (D-89, D-90). Nothing else.
     pub fn create(parent: &Path, name: &str, kind: VaultKind, dirs: &AppDirs) -> Result<Vault, CreateError> {
-        let VaultKind::Empty = kind;
+        if let VaultKind::Starter(_) = kind {
+            return Err(CreateError::NotImplemented); // red-phase stub (3D builds it)
+        }
         let root = parent.join(sanitize_file_stem(name));
         if root.exists() {
             let empty = root.read_dir().map(|mut d| d.next().is_none()).unwrap_or(false);

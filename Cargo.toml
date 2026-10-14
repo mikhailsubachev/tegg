@@ -1,7 +1,7 @@
 # Product Cargo workspace (docs/architecture.md §11). Spikes and tools have their own manifests.
 [workspace]
 resolver = "2"
-members = ["crates/tegg-format", "crates/tegg-vault", "crates/tegg-index", "crates/tegg-core"]
+members = ["crates/tegg-format", "crates/tegg-vault", "crates/tegg-index", "crates/tegg-schema", "crates/tegg-core"]
 exclude = ["spikes", "tools", "app"]
 
 [workspace.package]

@@ -433,14 +433,17 @@ test('fr_ux_02_ac16_launch_landing_follows_core_answer', async ({ browser }) => 
 });
 
 test('fr_ux_02_ac17_type_page_lists_sorted_rows_and_opens_them', async ({ page }) => {
+  // Changed by D-242 / D-233 (types.md FR-TYP-09): the type page is a table sorted by Modified descending (objects
+  // without `modified` last); `Type settings` leads to the built type-settings page; R3 controls as of 3D.
   const core = await start(page, { prelude: collation('cs') });
-  const rows = (p: Page) => p.getByRole('main').locator('[role="row"], [role="listitem"], li').filter({ has: p.locator('[data-user-content]') });
-  const titles = async () => (await rows(page).allInnerTexts()).map((t) => t.split('\n')[0].trim());
+  const rows = (p: Page) => p.getByRole('main').getByRole('table').getByRole('row').filter({ has: p.locator('[data-user-content]') });
+  const titles = async () => (await rows(page).allInnerTexts()).map((t) => t.split(/\n|\t/)[0].trim());
   await gotoType(page, 'Quick Notes');
-  assert.deepEqual(await eventually(titles, (t) => t.length === 2), ['Druhý nápad', 'Nápad na čtvrtek'], 'type/quick-note');
+  assert.deepEqual(await eventually(titles, (t) => t.length === 2), ['Druhý nápad', 'Nápad na čtvrtek'], 'type/quick-note, Modified descending');
   await gotoType(page, 'Pages');
-  assert.deepEqual(await eventually(titles, (t) => t.length === 2), ['Bez hlavičky', 'Úvodní stránka'], 'type/page');
+  assert.deepEqual(await eventually(titles, (t) => t.length === 2), ['Úvodní stránka', 'Bez hlavičky'], 'type/page: objects without modified last');
   await gotoType(page, 'Cesty');
+  assert.ok(await seen(page.getByRole('main').getByRole('table'), 3000), 'type/cesta shows an empty table');
   assert.deepEqual(await titles(), [], 'type/cesta is empty');
   const guide = (await page.getByRole('main').innerText()).replace('Cesty', '').trim();
   assert.ok(guide.length > 0, 'type/cesta shows a guiding message');
@@ -453,15 +456,14 @@ test('fr_ux_02_ac17_type_page_lists_sorted_rows_and_opens_them', async ({ page }
   await rows(page).filter({ hasText: 'Nápad na čtvrtek' }).first().focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Nápad na čtvrtek', 'row ⏎');
-  // R3 controls on the type page and Type settings.
+  // R3 controls on the type page (types.md R3 changes) and Type settings (built in 3D).
   await gotoType(page, 'Quick Notes');
-  for (const label of ['Filter', 'Sort', 'Views', 'New Quick Note']) {
+  for (const label of ['Filter', 'Group', 'Add view']) {
     const c = page.getByRole('main').locator(`[aria-disabled="true"]`).filter({ hasText: label }).or(page.getByRole('main').locator(`[aria-disabled="true"][aria-label="${label}"]`));
     assert.ok(await seen(c, 1000), `${label} is a disabled control`);
   }
   await page.getByRole('main').getByRole('button', { name: 'Type settings' }).or(page.getByRole('main').getByRole('link', { name: 'Type settings' })).first().click();
-  await mustBeOn(page, 'Type settings', 'Type settings control');
-  assert.ok(await seen(page.getByRole('main').getByRole('region', { name: 'Type settings' })), 'type-settings placeholder');
+  assert.ok(await seen(page.getByRole('heading', { level: 1, name: 'Quick Note type settings' })), 'type-settings/quick-note (built)');
   assert.equal(await core.writes(), 0);
 });
 

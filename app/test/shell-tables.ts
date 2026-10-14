@@ -24,7 +24,7 @@ export const R1: R1Row[] = [
   { id: 'tasks', page: 'Tasks', built: false, due: d('MS5'), reqs: 'FR-TSK-04…06', design: 'Home', goto: 'Go to Tasks' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
-  { id: 'type-settings/<type>', page: 'Type settings', built: false, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null },
+  { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
   { id: 'tags', page: 'Tags', built: false, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'Main', goto: 'Go to Tags' },
   { id: 'pinned', page: 'Pinned', built: false, due: d('MS5'), reqs: 'FR-HOM-02', design: null, goto: 'Go to Pinned' },
   { id: 'saved-queries', page: 'Saved queries', built: false, due: d('v1.0'), reqs: 'FR-QRY-06', design: null, goto: 'Go to Saved queries' },
@@ -54,15 +54,26 @@ export const R2: R2Row[] = [
 export type R3Control = { label: string; where: string; due: Due; req: string; route: string | null };
 export const R3: R3Control[] = [
   { label: 'New tab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06', route: null },
-  { label: 'New type', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01', route: null },
-  { label: 'Starter vault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02', route: 'chooser' },
+  // 3D (types.md R3 changes): `New type` and `Starter vault` are built.
   // 3C (editor.md R3): `Edit` removed (the body is the editor); two controls added.
   { label: 'Turn into object', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01', route: null },
   { label: 'Copy link to block', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06', route: null },
-  { label: 'Filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
-  { label: 'Sort', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
-  { label: 'Views', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
-  { label: 'New <Type>', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09', route: 'type/<type>' },
+  // 3D (types.md R3 changes): Filter, Sort, Views and New <Type> of the type page are built; these are added.
+  { label: 'Filter', where: 'type page', due: d('v1.0'), req: 'FR-QRY-01', route: 'type/<type>' },
+  { label: 'Group', where: 'type page', due: d('v1.0'), req: 'FR-QRY-05', route: 'type/<type>' },
+  { label: 'Add view', where: 'type page', due: d('v1.0'), req: 'FR-QRY-07', route: 'type/<type>' },
+  { label: 'Move existing objects', where: 'type settings, General', due: d('MS4'), req: 'FR-STO-03', route: 'type-settings/<type>' },
+  { label: 'Renaming keys', where: 'type settings, property key field', due: d('MS4'), req: 'FR-TYP-04', route: 'type-settings/<type>' },
+  { label: 'Remove values from <n> notes', where: 'type settings, Delete property dialog', due: d('MS4'), req: 'FR-TYP-04', route: 'type-settings/<type>' },
+  { label: 'Change their type to…', where: 'type settings, Delete type dialog', due: d('MS4'), req: 'FR-TYP-05', route: 'type-settings/<type>' },
+  { label: 'Move them to the trash', where: 'type settings, Delete type dialog', due: d('MS4'), req: 'FR-TYP-05', route: 'type-settings/<type>' },
+  { label: 'New template', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01', route: 'type-settings/<type>' },
+  { label: 'Edit', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01', route: 'type-settings/<type>' },
+  { label: 'Add view', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
+  { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
+  { label: 'file', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07', route: 'note/<path>' },
+  { label: 'color', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05', route: 'note/<path>' },
+  { label: 'recurrence', where: 'attribute panel row', due: d('MS5'), req: 'FR-TSK-01', route: 'note/<path>' },
   { label: 'Font', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Font size', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Editor width', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
@@ -169,4 +180,50 @@ export const R5: R5Row[] = [
   { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },
   { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
   { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
+];
+
+// ------------------------------------------------------------------------------------------------ slice 3D tables
+// R10–R14 of docs/acceptance/types.md, transcribed for the 3D AC tests (D-61). Test data only.
+
+/** R10: `type` string, catalog label, in the order the `Type` control offers them. */
+export const R10: [string, string][] = [
+  ['text', 'Text'], ['long-text', 'Long text'], ['number', 'Number'], ['checkbox', 'Checkbox'], ['date', 'Date'],
+  ['date-time', 'Date-time'], ['date-range', 'Date range'], ['select', 'Select'], ['multi-select', 'Multi-select'],
+  ['url', 'URL'], ['email', 'Email'], ['relation', 'Relation'],
+];
+
+/** R11: name, plural, key/folder, icon, colour, attributes (key: type), preview, template headings. */
+export type R11Row = { name: string; plural: string; key: string; folder: string; icon: string; color: string; attrs: [string, string][]; preview: string[]; template: string[] };
+export const R11: R11Row[] = [
+  { name: 'Book', plural: 'Books', key: 'book', folder: 'Books', icon: 'book', color: 'orange', attrs: [['author', 'text'], ['year', 'number'], ['status', 'select'], ['finished', 'date']], preview: ['author', 'status'], template: ['Summary', 'Notes', 'Quotes'] },
+  { name: 'Reading Note', plural: 'Reading Notes', key: 'reading-note', folder: 'Reading Notes', icon: 'book-open', color: 'purple', attrs: [['book', 'relation'], ['pages', 'text']], preview: ['book'], template: ['Key points', 'My thoughts'] },
+  { name: 'Idea', plural: 'Ideas', key: 'idea', folder: 'Ideas', icon: 'lightbulb', color: 'yellow', attrs: [['status', 'select'], ['related', 'relation'], ['origin-url', 'url']], preview: ['status', 'tags', 'source'], template: ['Idea', 'Why it matters'] },
+  { name: 'Meeting', plural: 'Meetings', key: 'meeting', folder: 'Meetings', icon: 'users', color: 'teal', attrs: [['date', 'date'], ['attendees', 'relation'], ['project', 'relation'], ['location', 'text']], preview: ['date', 'attendees'], template: ['Agenda', 'Notes', 'Decisions'] },
+  { name: 'Person', plural: 'People', key: 'person', folder: 'People', icon: 'user', color: 'purple', attrs: [['email', 'email'], ['organization', 'text'], ['role', 'text']], preview: ['organization', 'role'], template: ['Notes'] },
+  { name: 'Project', plural: 'Projects', key: 'project', folder: 'Projects', icon: 'folder', color: 'orange', attrs: [['status', 'select'], ['timeframe', 'date-range']], preview: ['status', 'timeframe'], template: ['Goal', 'Plan', 'Notes'] },
+  { name: 'Trip', plural: 'Trips', key: 'trip', folder: 'Trips', icon: 'map', color: 'blue', attrs: [['destination', 'text'], ['dates', 'date-range']], preview: ['destination', 'dates'], template: ['Plan', 'Packing list', 'Notes'] },
+];
+
+/** R12: type settings sections in order (section navigation links and region names). */
+export const R12_SECTIONS = ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Review workflow', 'Templates', 'Views', 'Delete type'];
+export const R12_BUILT_IN = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
+
+/** R13 (with ms3-shell §14.7.2 ids and sections): palette title, id, section, routes it is present on. */
+export type R13Row = { title: string; id: string; section: string; on: 'vault' | 'type' | 'type+note' | 'note' };
+export const R13: R13Row[] = [
+  { title: 'New type…', id: 'type.new', section: 'create', on: 'vault' },
+  { title: 'Open type settings', id: 'type.openSettings', section: 'navigate', on: 'type+note' },
+  { title: 'New {name}', id: 'type.newObject', section: 'create', on: 'type' },
+  { title: 'Change type…', id: 'note.changeType', section: 'edit', on: 'note' },
+  { title: 'Edit properties', id: 'note.editProperties', section: 'edit', on: 'note' },
+  { title: 'Add starter types…', id: 'vault.addStarterTypes', section: 'vault', on: 'vault' },
+];
+
+/** R14: colour tokens and labels; icon names in the order `Change icon` offers them. */
+export const R14_COLORS: [string, string][] = [
+  ['gray', 'Gray'], ['blue', 'Blue'], ['green', 'Green'], ['orange', 'Orange'], ['purple', 'Purple'], ['red', 'Red'], ['teal', 'Teal'], ['yellow', 'Yellow'],
+];
+export const R14_ICONS = [
+  'file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user',
+  'folder', 'map', 'star', 'flag', 'bookmark', 'briefcase', 'coffee', 'globe', 'graduation-cap', 'pen-line', 'utensils', 'plane',
 ];

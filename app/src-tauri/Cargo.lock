@@ -3626,6 +3626,7 @@ dependencies = [
  "serde_json",
  "tegg-format",
  "tegg-index",
+ "tegg-schema",
  "tegg-vault",
  "yaml-rust2",
 ]
@@ -3655,6 +3656,15 @@ dependencies = [
  "tegg-format",
  "tegg-vault",
  "unicode-normalization",
+]
+
+[[package]]
+name = "tegg-schema"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "tegg-format",
+ "yaml-rust2",
 ]
 
 [[package]]
