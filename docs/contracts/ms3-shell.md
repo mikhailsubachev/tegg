@@ -4,7 +4,7 @@
 - **ACs:** [docs/acceptance/app-shell.md](../acceptance/app-shell.md). Its reference tables R1 (routes), R2 (right-panel tabs), R3 (disabled controls) and R4 (shortcuts) are the expected registry contents and are not repeated here. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Scope:** slice 3A "Frame and page flow" (D-115, D-116, D-120; `docs/plans/ms3-implementation-plan.md` §3, §4). The contract follows D-121…D-138.
 - **Builds on** [ms2-shell.md](ms2-shell.md) (launching, test environment, marks, IPC, generated DTOs, automation labels) and [ms2-core.md](ms2-core.md). Everything there stays valid unless this contract changes it.
-- **Later slices** add their own sections here: 3B read view (§11), 3C `note_write` and the editor, 3D schema and type settings.
+- **Later slices** add their own sections here: 3B read view (§11), 3C `note_write` and the editor (§13), 3D types and attributes (§14).
 
 Until a part is implemented it exists as a stub that compiles and returns a deliberately wrong result (an empty list, `null`, `{}` or an `Io` error), so a test fails on its assertion, never on a build or import error (TS-I1).
 
@@ -635,3 +635,578 @@ export function applyOperation(ed: TeggEditor, op: string, block: number): boole
 - **D-215 3B tests after 3C.** The 3B read-view WebKit tests run against the read view through the test-only switch `window.__TEGG_TEST__.readView` (the read view ships as the fallback, D-117); the editor's matching look is FR-EDT-02 AC-16; 3B-only assertions (the disabled Edit control) are retired (AP-159).
 - **D-216 `read_note_info`.** D-198 amended: `Core::read_note` keeps its tuple; `Core::read_note_info` returns `NoteRead { bytes, version, utf8 }` (AP-160).
 - Test hook (D-215): `window.__TEGG_TEST__.readView = true` before a note opens shows it in the read view (read-only, `Save state` `Read-only`, no alert).
+
+---
+
+## 14. Slice 3D: types and attributes (D-221…D-244)
+
+ACs: [docs/acceptance/types.md](../acceptance/types.md) and its tables R10–R14. Where this section and those ACs disagree, the ACs win and this section is corrected before the red tests. Written per D-241 (AP-181). Draft, 2026-10-14.
+
+**Split of work (D-82, ADR 0003).** Type files (`.tegg/types/*.yml`, YAML, not notes) are parsed, checked and line-patched by the new Rust crate `tegg-schema`; the core writes them. Note bytes (attribute edits, type changes, new objects) are produced only by `@tegg/doc` in the UI and written with `note_write` / `note_create`, as in 3C. The rules the UI needs before it calls the core (value validity, input parsing, key derivation, name and folder rules, type matching) live in the new TypeScript package `@tegg/schema` (`packages/schema`), which mirrors `tegg-schema`'s rules; both are checked against one corpus (§14.9). The fake core (L5) uses `@tegg/schema` and `@tegg/doc` and implements the type-file patch rules of §14.1.4 in test code.
+
+### 14.1 `tegg-schema` (new crate, `crates/tegg-schema`)
+
+Depends only on `tegg-format` and a YAML 1.2 parser (`yaml-rust2`, already used by the core); no file system, no index (AR-03). Added to the workspace `members` and to `qa.config.json` (cargo test of the crate).
+
+#### 14.1.1 Model
+
+```rust
+pub const CURRENT_VERSION: u32 = 1;                         // AR-07 AC-1
+pub const TYPES_DIR: &str = ".tegg/types";
+/// The first line of every type file Tegg writes (as new-empty, D-99).
+pub const HEADER: &str = "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\n";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttrType {
+    Text, LongText, Number, Checkbox, Date, DateTime, DateRange, Select, MultiSelect, Url, Email, Relation, // R10
+    File, Color, Recurrence,           // system-only, read-only in the panel (FR-TYP-02 AC-4)
+    Other(String),                     // e.g. `rating`: kept, shown read-only (FR-TYP-02 AC-5)
+}
+impl AttrType {
+    pub const OFFERED: [AttrType; 12];             // R10 order: the `Type` control's list (FR-TYP-02 AC-1)
+    pub fn parse(s: &str) -> AttrType;             // R10 `type` strings: `text`, `long-text`, …, `relation`
+    pub fn as_str(&self) -> &str;
+    pub fn editable(&self) -> bool;                // the 12 R10 types
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OptionDef { pub label: String, pub color: Option<String>, pub extra: Vec<(String, serde_json::Value)> } // `extra`: e.g. Task's `state`, kept
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AttrDef {
+    pub key: String, pub name: String, pub r#type: AttrType,
+    pub default: Option<serde_json::Value>, pub required: bool, pub options: Vec<OptionDef>,
+    pub to: Option<Vec<String>>,       // Relation: allowed type keys; None = any type
+    pub multiple: bool, pub description: Option<String>,
+    pub built_in: bool,                // a system type's attribute present in its built-in default (FR-TYP-06 AC-2)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Review { Off, On, Locked }     // `review: false | true | locked`
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeFile {
+    pub key: String,                    // file stem, NFC (D-221: fixed at creation)
+    pub declared_version: Option<i64>,  // None = missing (read as 1, D-235)
+    pub name: String, pub plural: String, pub system: bool, pub folder: String,
+    pub icon: String, pub color: String,  // as written; display fallback is the UI's (R14)
+    pub description: Option<String>, pub review: Review, pub preview: Vec<String>,
+    pub template: Option<String>,       // vault path of the default template (D-232)
+    pub attributes: Vec<AttrDef>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Readability {
+    Ok,
+    Newer(i64),                                   // version > CURRENT_VERSION: read, never written (AR-07 AC-3)
+    Invalid { message: String, line: usize },     // 1-based file line (AR-07 AC-4)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Parsed {
+    pub def: TypeFile,                  // for Invalid: defaults with name = plural = key
+    pub readability: Readability,
+    pub preview_ignored: Vec<String>,   // preview keys that are neither attributes nor universal (FR-TYP-11 AC-2)
+}
+
+/// Never fails and never writes (NFR-REL-03). `text` is the file's UTF-8 text; not UTF-8 → Invalid at line 1.
+pub fn parse(key: &str, text: &str) -> Parsed;
+/// The built-in default file of a system type (byte-equal to `new-empty/.tegg/types/<key>.yml`), else None (D-90).
+pub fn builtin(key: &str) -> Option<&'static str>;
+pub const SYSTEM_KEYS: [&str; 7];      // page, task, quick-note, daily-note, tag, image, pdf
+/// R11, byte-equal to `tests/fixtures/vaults/new-starter/` (D-238): (vault path, bytes), type files then templates.
+pub const STARTER_FILES: &[(&str, &[u8])];
+```
+
+**Validity of a file** (AR-07 AC-4): `Invalid` when the YAML doesn't parse (line of the error; an unclosed quote points at the line that opens it, as `@tegg/doc`), the top level isn't a mapping, `version` is present but not a plain positive integer (`0`, `"1"`, `1.5` are invalid), `attributes` isn't a list, an item lacks a string `key` or `type`, or two items share a key. Missing other fields fall back without being invalid: `name` → key, `plural` → name, `folder` → plural, `icon` → `file-text`, `color` → `gray`, `review` → off, `preview` → `[]`, `system` → whether the key is a system key. Unknown keys and comments are ignored when reading and kept when writing.
+
+#### 14.1.2 Keys and rules
+
+```rust
+/// D-96 / D-239: NFC, trim, lower case, each whitespace run as `-`. `Quick Note` → `quick-note`.
+pub use tegg_format::type_key;          // new in tegg-format, used by the index too (§14.2.4)
+/// D-223: as type_key, then characters other than letters (any script), digits, `-` and `_` removed,
+/// leading characters that aren't letters removed. `Telefon do práce` → `telefon-do-práce`.
+pub fn derive_attr_key(name: &str) -> String;
+
+pub struct TypeNames<'a> { pub key: &'a str, pub name: &'a str, pub folder: &'a str, pub is_self: bool }
+pub fn check_type_name(name: &str, plural: &str, others: &[TypeNames], undefined_ok: bool) -> Result<String /* key */, RuleError>;
+pub fn check_folder(folder: &str, others: &[TypeNames]) -> Result<String /* NFC, no trailing / */, RuleError>;
+pub fn check_attr_key(key: &str, def: &TypeFile, new_type: &AttrType) -> Result<(), RuleError>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuleError {
+    Empty { field: Field },               // name, plural, folder, attribute key/name, option label
+    ForbiddenChar { field: Field },       // `/ : \ * ? " < > | # ^ [ ]` or a control character (D-52, D-68)
+    KeyTaken,                             // type key equals another type's key, system types included (case-insensitive, NFC)
+    KeyTooLong,                           // key > 200 UTF-8 bytes (D-51)
+    FolderTaken,                          // equals another type's folder (case-insensitive, NFC)
+    FolderInvalid,                        // absolute, `..`, segment starting with `.`, `_templates`, `_attachments`, `.trash`, `.tegg` or under them
+    ReservedKey { key: String },          // FR-TYP-15, any case
+    AttrKeyTaken, AttrKeyInvalid, RangeCollision,   // D-223
+    OptionEmpty, OptionDuplicate,         // D-227 (case-insensitive, NFC)
+    OptionUsed { label: String },         // renaming an option used by an object (D-227); checked by the core
+    PreviewFull,                          // more than 4 preview keys (FR-TYP-11 AC-1)
+}
+pub enum Field { Name, Plural, Folder, AttrKey, AttrName, OptionLabel }
+```
+
+- Type names (FR-TYP-01 AC-3, D-222): Name and Plural non-empty after trim, no forbidden character; key = `type_key(name)` unique, ≤ 200 bytes; the default folder (= Plural) passes `check_folder`. A key equal to a `type` value used only by objects (no file) is allowed (D-121, D-222).
+- Folders (FR-TYP-01 AC-5): relative, `/`-separated, NFC, no empty segment, each segment without forbidden characters; nested allowed.
+- Attribute keys (FR-TYP-03 AC-2, D-223): non-empty; only letters (Unicode `L`), digits (`N`), `-`, `_`; starts with a letter; not reserved; not equal to another attribute key of the type; for a date range `x` neither `x-start` nor `x-end` exists, and no new key equals `<range>-start`/`-end` of an existing date range.
+
+#### 14.1.3 Value validity (R10 "Valid when read", D-231)
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Validity { Empty, Valid, Invalid { items: Vec<usize> } }   // items: invalid list positions (Multi-select, multiple Relation); empty = the whole value
+/// `fm` is the note's frontmatter as JSON (the index's `attributes` form). Date range reads `<key>-start` / `<key>-end`.
+pub fn validate(attr: &AttrDef, fm: &serde_json::Map<String, serde_json::Value>) -> Validity;
+```
+
+Empty = key absent, `null`, `""` or `[]` (empty is never invalid, D-231). Rules exactly as R10's last column: Number = a JSON number (from an unquoted YAML int/float); Checkbox = JSON bool; Date = string `YYYY-MM-DD` that is a calendar date; Date-time = RFC 3339 with offset or `Z`; Date range = each present half valid, end ≥ start, a half may be missing; Select = string equal to an option label (NFC, exact); Multi-select = list (a single string counts as a one-item list) of option labels; URL = absolute `http`/`https`; Email = `local@domain`, a dot in the domain, no whitespace; Relation = a string `[[…]]` (or a list of them when `multiple`; a single value when not multiple, else Invalid); Text and Long text = any scalar. Types not in R10 are always `Valid` (read-only). Whether a relation's target has an allowed type is not validity; it is the UI's `Not a <Type>` warning (FR-EDT-07 AC-6).
+
+#### 14.1.4 Writing type files (D-235, AR-07 AC-1, AC-5, AC-6)
+
+```rust
+pub fn new_type_file(name: &str, plural: &str) -> String;   // canonical file; Čajovna → tests/fixtures/types/expected/čajovna.yml
+pub fn serialize(def: &TypeFile) -> String;                 // canonical write of a whole definition (AR-07 AC-6, D-90 default files)
+
+pub enum TypeOp {
+    SetName(String), SetPlural(String), SetFolder(String), SetIcon(String), SetColor(String),
+    SetDescription(Option<String>), SetReview(bool), SetPreview(Vec<String>),
+    AddAttribute(AttrDef), UpdateAttribute { key: String, change: AttrChange }, RemoveAttribute(String),
+    MoveAttribute { key: String, to: usize },
+}
+#[derive(Default)]
+pub struct AttrChange {
+    pub name: Option<String>, pub r#type: Option<AttrType>, pub default: Option<Option<serde_json::Value>>,
+    pub required: Option<bool>, pub options: Option<Vec<OptionDef>>, pub to: Option<Option<Vec<String>>>,
+    pub multiple: Option<bool>, pub description: Option<Option<String>>,
+}
+pub struct PatchContext<'a> { pub others: &'a [TypeNames<'a>] }
+/// Ok(None): the ops leave every value equal, nothing to write (FR-SYN-06). Ops apply in order, all or nothing.
+pub fn patch(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext) -> Result<Option<String>, SchemaError>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SchemaError { NewerVersion, Invalid, BuiltInChanged, ReviewLocked, SystemTypeName, Rule(RuleError) }
+```
+
+- **Canonical order** (fixtures): top level `version, name, plural, system, folder, icon, color, description, review, preview, template, attributes`; attribute items `key, name, type, default, required, options, to, multiple, description`. Indentation: items `  - `, fields 4 spaces; `options` items `      - { label: <l>, color: <c> }` (flow mapping, extra fields after `color`); `preview` and `to` as flow lists `[a, b]`; `attributes: []` when empty. LF, final newline.
+- **Patch rules** (like frontmatter, dialect §3): a changed top-level field replaces only that entry's lines; an absent field is inserted right after the entry of the nearest preceding canonical key that exists (else after `version`); a cleared optional field (`description`, attribute `default`, `description`, `to`, `required: false`, `multiple: false`) removes its lines. `version: 1` is inserted as the first key after the leading comment lines when it is missing and any other change is written (AR-07 AC-2). Inside an item the same rules apply at item level; `AddAttribute` appends one item at the end of `attributes` (replacing `attributes: []` by `attributes:` plus the item); `RemoveAttribute` removes the item's lines and the key from `preview` in the same patch (FR-TYP-04 AC-4, FR-TYP-11 AC-2); `MoveAttribute` moves the item's lines unchanged (FR-TYP-03 AC-9); changing `options` rewrites only the `options:` block; changing the `type` of an item writes its `type:` line and removes `options`, `to`, `multiple` when the new type has no use for them (FR-TYP-03 AC-11). Comments, unknown keys, blank lines, quoting and order of untouched lines stay byte-identical. A setting equal to the current value is no change; if all ops are no change, `Ok(None)`.
+- **Scalars written**: plain when YAML 1.2 reads the plain text back as the same string, else double-quoted (JSON escapes, non-ASCII kept); numbers and booleans plain; a default of a Date as `YYYY-MM-DD`; NFC everywhere.
+- **Refusals**: `Invalid` for an invalid file; `NewerVersion` for `Newer`; `BuiltInChanged` when an op changes or removes a `built_in` attribute or Task's status options (FR-TYP-06 AC-2); `ReviewLocked` for `SetReview` on a `locked` type; `SystemTypeName` for `SetName`/`SetPlural` on a system type; `Rule(..)` per §14.1.2 (names, folder, attribute key on add, option labels, preview size). The file text is never returned partially changed.
+- **Missing system file** (D-90, FR-TYP-06 AC-4): the core patches `builtin(key)` and creates the file (`base: None`).
+
+### 14.2 Core additions (`tegg-core`, `tegg-index`, `tegg-vault`)
+
+#### 14.2.1 Type information
+
+```rust
+/// What `vault_types` / `type_get` return. Superset of 3A's `TypeDef` (§10): `pub type TypeDef = TypeInfo;` in tegg-core,
+/// so 3A tests keep compiling. `tegg_vault::Vault::types()` stays for 3A and agrees with it on valid files.
+pub struct TypeInfo {
+    pub key: String, pub name: String, pub plural: String, pub folder: String, pub icon: String, pub color: String,
+    pub system: bool, pub invalid: bool,                       // 3A fields
+    pub exists: bool,                                          // false: system type without a file, built-in defaults (D-90)
+    pub version: Option<FileVersion>,                          // the file's version as read; None when !exists
+    pub readability: tegg_schema::Readability,
+    pub def: tegg_schema::TypeFile, pub preview_ignored: Vec<String>,
+}
+impl Core {
+    pub fn types(&self) -> Vec<TypeInfo>;                       // one per file + every system key without a file
+    pub fn type_get(&self, key: &str) -> Option<TypeInfo>;      // key NFC; None: neither a file nor a system key
+}
+```
+
+#### 14.2.2 Type CRUD with base versions (D-235, NFR-REL-02)
+
+```rust
+impl Core {
+    /// FR-TYP-01 AC-2: rules of §14.1.2 against `types()`, then `Vault::create_exact(".tegg/types/<key>.yml")` (RENAME_EXCL;
+    /// a file that appeared → VaultError::NameTaken, nothing overwritten). Writes no folder and no template.
+    pub fn type_create(&self, name: &str, plural: &str) -> Result<TypeInfo, CoreError>;
+    /// Reads the file, refuses if its content differs from `base` (Conflict, nothing written), runs `tegg_schema::patch`,
+    /// writes through `Vault::write(path, bytes, base)`. `base: None` only for a system type without a file (creates
+    /// it from `builtin`; a file that appeared meanwhile → Conflict). `Ok` with the new state also when nothing changed.
+    pub fn type_patch(&self, key: &str, base: Option<&FileVersion>, ops: &[TypeOp]) -> Result<TypeInfo, CoreError>;
+    /// FR-TYP-05 AC-1, AC-5 (D-225): refuses a system key (SystemType), a changed file (Conflict) and a type with objects
+    /// (HasObjects(n), counted at the call as §14.2.4). Moves the type file and `_templates/<Name>/` (if present) with
+    /// `Vault::trash` (relative paths kept, ` (2)` on a taken path). Returns the trash paths.
+    pub fn type_delete(&self, key: &str, base: &FileVersion) -> Result<Vec<String>, CoreError>;
+}
+// CoreError gains: Schema(tegg_schema::SchemaError), SystemType, HasObjects(usize), UnknownType.
+```
+
+Every write emits `CoreEvent::VaultChanged` with the type file path (as the watcher does for external changes under `.tegg/types/`). A type-file change never reindexes notes: validity, option counts and rows are computed against the current definitions at query time (AR-07 AC-7).
+
+#### 14.2.3 Creating objects (D-232, D-92, D-96, FR-TYP-12, D-243)
+
+```rust
+impl Core {
+    /// The default template of a type: `template` key of the type file; None when absent, missing or under `.trash/`.
+    pub fn type_template(&self, key: &str) -> Result<Option<(String, Vec<u8>)>, CoreError>;
+    /// The one creation path's write: the folder is the type's current `folder` (re-read at the call, FR-TYP-01 AC-5),
+    /// folders created as needed, file name from `sanitize_file_stem(title)` with ` (2)`… (FR-LNK-14); indexed at once.
+    /// Refuses a key that is neither defined nor a system key (UnknownType) and bytes whose `type` doesn't match it.
+    pub fn create_object(&self, type_key: &str, title: &str, bytes: &[u8]) -> Result<String, CoreError>;
+}
+```
+
+The bytes come from `@tegg/doc` `newObject` (§14.5) in the UI (D-82). `Core::create_note(dir, …)` (MS2) stays for its tests; the UI no longer calls it.
+
+#### 14.2.4 Index: type matching, rows, counts (D-239, D-233, D-227)
+
+- **Matching** (FR-TYP-13): `tegg-index` stores per object `type_key` = `type_key(value)` when `type` is a non-empty string, else `page` with `type_single = false` (list, number, empty, missing value: missing is D-103 and has `type_single = true`). The extractor (`tegg-format` `extract`, conformance fixture) is unchanged; matching happens in `prepare`. `ObjectInfo.r#type` holds the matched key; new field `ObjectInfo.type_single: bool`. Files are never rewritten.
+- **Counts** (`Core::type_counts`, 3A): keyed by matched key. An undefined key is listed under its most frequent raw spelling (ties by code point), as D-185 does for tags.
+- **Rows** (FR-TYP-09 AC-2, one query):
+
+```rust
+pub struct TypeRow {
+    pub path: String, pub id: Option<String>, pub title: String,
+    pub created: Option<String>, pub modified: Option<String>,   // as written
+    pub values: serde_json::Map<String, serde_json::Value>,      // preview keys; a date range as `<k>-start`, `<k>-end`;
+                                                                 // universal keys `tags`, `aliases`, `source` when previewed
+    pub links: Vec<LinkTarget>,                                  // resolved relation values of previewed keys (§11.1 rules, from = path)
+    pub type_single: bool,
+}
+impl Core {
+    pub fn type_rows(&self, key: &str) -> Vec<TypeRow>;           // objects whose matched key = key; no templates, no `.trash/`; unsorted
+    /// FR-TYP-05 AC-2, FR-TYP-03 AC-5, FR-TYP-04 AC-4: object count, per attribute the number of non-empty values,
+    /// per Select/Multi-select attribute the number of objects using each option label (exact, NFC).
+    pub fn type_usage(&self, key: &str) -> TypeUsage;
+    /// FR-TYP-03 AC-11: objects of the type whose value of `attr` is non-empty and not Valid for `as_attr` (§14.1.3).
+    pub fn count_misfits(&self, key: &str, attr: &str, as_attr: &tegg_schema::AttrDef) -> usize;
+}
+pub struct TypeUsage { pub objects: usize, pub values: BTreeMap<String, usize>, pub options: BTreeMap<String, BTreeMap<String, usize>> }
+```
+
+#### 14.2.5 Starter types (FR-VLT-02 AC-6…AC-9, D-238, D-244)
+
+- `tegg_vault::VaultKind::Starter(&'static [(&'static str, &'static [u8])])`: `Vault::create` writes `EMPTY_VAULT` plus the given files; the shell's `vault_create` passes `tegg_schema::STARTER_FILES` (so `tegg-vault` doesn't depend on `tegg-schema`). `vault_create` with `kind: 'starter'` no longer returns `Unsupported`.
+
+```rust
+pub struct StarterPlan {
+    pub add: Vec<String>,                                   // starter keys to add, R11 order
+    pub skip: Vec<(String, StarterSkip)>,                   // key and reason
+    pub skip_templates: Vec<String>,                        // template paths that exist and are kept
+}
+pub enum StarterSkip { NameExists, FolderUsed { folder: String } }   // data-safety FR-VLT-02 AC-4 rules
+impl Core {
+    pub fn starter_plan(&self) -> StarterPlan;               // read-only
+    /// Re-plans at the call and writes the `add` type files (create_exact) and their templates (create_exact; an
+    /// existing path is skipped). Never changes an existing file. Returns the plan it applied.
+    pub fn starter_add(&self) -> Result<StarterPlan, CoreError>;
+}
+```
+
+A starter type is skipped when its key equals an existing type's key (`NameExists`) or its folder equals an existing type's folder (case-insensitive, NFC; `FolderUsed`).
+
+### 14.3 IPC added or changed in 3D
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `vault_types` | — | `TypeDto[]` | Changed: `TypeDto` (a superset of `TypeDefDto`, which becomes an alias). Includes system types without a file. |
+| `type_get` | `key` | `TypeDto \| null` | One type, freshly read. |
+| `type_create` | `name`, `plural` | `TypeDto` | Errors `Rule`, `NameTaken`, `Io`. |
+| `type_patch` | `key`, `base: VersionDto \| null`, `ops: TypeOpDto[]` | `TypeDto` | One call = at most one write. Errors `Conflict` (with `disk: TypeDto`), `NewerVersion`, `InvalidType`, `BuiltInChanged`, `ReviewLocked`, `SystemType`, `Rule`, `Io`. |
+| `type_delete` | `key`, `base: VersionDto` | `string[]` (trash paths) | Errors `SystemType`, `HasObjects` (with `count`), `Conflict`, `Io`. |
+| `type_template` | `key` | `{ path: string; text: string } \| null` | For `newObject`. Read-only. |
+| `type_usage` | `type` | `TypeUsageDto` | Read-only, from the index. |
+| `type_misfits` | `type`, `attr`, `as: AttributeInputDto` | `number` | Read-only (FR-TYP-03 AC-11). |
+| `index_type_rows` | `type` | `TypeRowDto[]` | Read-only, one index query (D-233, D-241). |
+| `note_create` | `type`, `title`, `text` | `string` (path) | Changed: was `dir, title, text`; now `Core::create_object`. Errors `UnknownType`, `Io`. |
+| `starter_plan` | — | `StarterPlanDto` | Read-only. |
+| `starter_add` | — | `StarterPlanDto` (applied) | Writes only new files. |
+| `vault_create` | unchanged | | `kind: 'starter'` supported. |
+
+```ts
+type TypeDto = TypeDefDto & {               // TypeDefDto (§2) fields: key, name, plural, folder, icon, color, system, invalid
+  exists: boolean;                          // false: system type with built-in defaults, no file (D-90)
+  version: VersionDto | null;               // base for type_patch / type_delete
+  state: 'ok' | 'newer' | 'invalid';
+  error: { message: string; line: number } | null;   // when invalid
+  declaredVersion: number | null;
+  description: string | null;
+  review: 'off' | 'on' | 'locked';
+  preview: string[];
+  previewIgnored: string[];
+  template: string | null;
+  attributes: AttributeDto[];
+};
+type OptionDto = { label: string; color: string | null };
+type AttributeDto = {
+  key: string; name: string;
+  type: string;                             // R10 string, or the raw string of another type
+  supported: boolean;                       // one of the 12 R10 types
+  readOnlyReason: 'file' | 'color' | 'recurrence' | 'unsupported' | null;   // FR-TYP-02 AC-4, AC-5
+  default: unknown | null; required: boolean; options: OptionDto[];
+  to: string[] | null; multiple: boolean; description: string | null; builtIn: boolean;
+};
+type AttributeInputDto = Omit<AttributeDto, 'supported' | 'readOnlyReason' | 'builtIn'>;
+type AttributeChangeDto = Partial<{ name: string; type: string; default: unknown | null; required: boolean;
+  options: OptionDto[]; to: string[] | null; multiple: boolean; description: string | null }>;
+type TypeOpDto =
+  | { op: 'set'; field: 'name' | 'plural' | 'folder' | 'icon' | 'color' | 'description'; value: string | null }
+  | { op: 'review'; on: boolean }
+  | { op: 'preview'; keys: string[] }
+  | { op: 'addAttribute'; attribute: AttributeInputDto }
+  | { op: 'updateAttribute'; key: string; change: AttributeChangeDto }
+  | { op: 'removeAttribute'; key: string }
+  | { op: 'moveAttribute'; key: string; to: number };
+type TypeUsageDto = { objects: number; values: Record<string, number>; options: Record<string, Record<string, number>> };
+type TypeRowDto = { path: string; id: string | null; title: string; created: string | null; modified: string | null;
+  values: Record<string, unknown>; links: LinkTargetDto[]; typeSingle: boolean };
+type StarterPlanDto = { add: string[]; skip: { key: string; reason: 'nameExists' | 'folderUsed'; folder?: string }[]; skipTemplates: string[] };
+```
+
+- **Errors** keep `{ kind, message }` plus: `Rule` → `reason` (`empty`, `forbiddenChar`, `keyTaken`, `keyTooLong`, `folderTaken`, `folderInvalid`, `reservedKey`, `attrKeyTaken`, `attrKeyInvalid`, `rangeCollision`, `optionEmpty`, `optionDuplicate`, `optionUsed`, `previewFull`), `field` (`name`, `plural`, `folder`, `attrKey`, `attrName`, `optionLabel`) and `key`/`label` when the message names one; `Conflict` → `disk: TypeDto`; `HasObjects` → `count`. Catalog keys `typeRule.<reason>`, `error.<kind>` (§10).
+- Add column (FR-TYP-09 AC-7) sends `[addAttribute, preview]` in one `type_patch` when fewer than 4 preview keys are set.
+- `vault:changed` carries `.tegg/types/…` paths for own and external type-file writes; the UI then calls `vault_types` and, on a type page or type settings page, `type_get` / `index_type_rows` again. Note routes recompute the panel (FR-EDT-07 AC-14).
+
+### 14.4 `@tegg/schema` (`packages/schema`, new)
+
+Pure TypeScript, platform-neutral (AR-03; no DOM, no Tauri); added to `qa.config.json`. Used by the UI and the fake core; L1 tests import it directly.
+
+```ts
+export const CURRENT_VERSION = 1;
+export const ATTR_TYPES: readonly { type: string; label: string }[];      // R10 order, label = catalog key `attrType.<type>`
+export const COLORS: readonly string[];                                    // R14 order
+export const ICONS: readonly string[];                                     // R14 order (24)
+export function typeKey(name: string): string;                             // = @tegg/doc typeKey (D-96)
+export function deriveAttrKey(name: string): string;                       // D-223
+export function typeMatch(value: unknown): { key: string; single: boolean };   // D-239: non-string/empty → { 'page', false }; absent → { 'page', true }
+export type RuleError = { reason: string; field?: string; key?: string };  // §14.3 reasons
+export function checkTypeName(name: string, plural: string, types: TypeDto[], undefinedKeys: string[]): RuleError | null;
+export function checkFolder(folder: string, types: TypeDto[], selfKey?: string): RuleError | null;
+export function checkAttrKey(key: string, type: TypeDto, attrType: string): RuleError | null;
+export type Validity = { state: 'empty' | 'valid' } | { state: 'invalid'; items: number[] };
+export function validate(attr: AttributeDto, data: Record<string, unknown>): Validity;   // §14.1.3, same corpus
+/** Committed input → the Value to write (@tegg/doc `Value`) or a catalog error key. `region` from `__TEGG_REGION__`
+ *  (§10), zone from Intl (Playwright `timezoneId`). */
+export type Parsed = { ok: true; value: Value } | { ok: false; error: string };
+export function parseNumber(text: string, region: string): Parsed;          // `3,5`, `3.5` → 3.5; `250 000`/NBSP → 250000; else 'value.notNumber'
+export function parseDate(text: string, region: string): Parsed;            // `8. 10. 2026`, `2026-10-08` → { date }; impossible dates refused
+export function parseDateTime(date: string, time: string, zone?: string): Parsed;   // { datetime } with that moment's offset;
+                                                                            // non-existent → 'value.timeNotExist'; ambiguous → first occurrence
+export function parseUrl(text: string): Parsed;                             // 'value.notUrl'
+export function parseEmail(text: string): Parsed;                           // 'value.notEmail'
+export function parseDateRange(start: string | null, end: string | null): Parsed;   // 'value.endBeforeStart'
+```
+
+`TypeDto` and `AttributeDto` are imported as types from the generated `app/ui/src/ipc/types.ts` shapes, redeclared structurally in the package (no app import).
+
+### 14.5 `@tegg/doc` additions (D-230, D-232, D-174)
+
+```ts
+/** D-230: set one frontmatter value, keeping the entry's key text and quoting and its style:
+ *  - existing entry: only its lines change; the key text up to `:` is copied from the source;
+ *  - flow list stays flow (`[a, b, c]`), block list stays block, a scalar that becomes a list is a block list;
+ *  - a single-quoted or double-quoted string stays in that quote style when the new value fits it on one line;
+ *    otherwise the default rule;
+ *  - default rule for strings: plain when YAML 1.2 reads it back as the same string, else double-quoted
+ *    (`"ano: ne"`, `"123"`, `"true"`, `"2026-10-07"`, `"[[Cíl]]"`, `"#doma"`); NFC;
+ *  - multi-line string: `|-` block, two-space indent;
+ *  - `null`, `''` or `[]`: removes the entry's lines (clear, dialect §3);
+ *  - absent entry: appended after the last entry (a file without frontmatter gets one, D-174).
+ *  Throws on invalid frontmatter (NFR-REL-03). */
+export function setValue(doc: Doc, key: string, value: Value): string;
+/** Date range: both halves in one edit, consecutive lines; null clears that half. */
+export function setRange(doc: Doc, key: string, start: string | null, end: string | null): string;
+/** D-232: the bytes of a new object. */
+export function newObject(opts: {
+  type: { key: string; attributes: { key: string; type: string; default?: unknown }[]; review: 'off' | 'on' | 'locked' };
+  title: string; template: string | null; now: string; newId: () => string;
+}): string;
+export function typeMatch(value: unknown): { key: string; single: boolean };   // re-exported by @tegg/schema
+```
+
+- **Key quoting fix.** `formatEntry` today writes any key outside `[\w-]` (ASCII) double-quoted, so `účastníci` would become `"účastníci":`. New rule for keys Tegg writes fresh: plain when the key consists of Unicode letters, digits, `-`, `_` and spaces, doesn't start with `-` or a space, and YAML reads it back as the same string; else double-quoted. `setAttribute` and `setValue` never re-format the key of an existing entry. `newNote` (MS2) and `newObject` use the new rule; round-trip and existing fixture tests stay green (FR-FMT-07, AR-06: a regression test `bug_3d_fr_edt_07_nonascii_key_quoted` comes first).
+- **`newObject` order** (FR-TYP-03 AC-12): `id`, `type: <key>`, `title`; then each schema attribute in order: the template frontmatter's entry for that key copied verbatim (a date range: both halves), else `default` formatted per type, else omitted; then the template's other entries in template order verbatim, except `id`, `type`, `title`, `review`, `created`, `modified`; then `review: unreviewed` when review is `on` or `locked`; then `created`, `modified` (`now`); then the template's body verbatim (from `bodyStart`; a template with invalid frontmatter contributes only its body).
+- Existing `setAttribute`, `removeAttribute`, `setDateRange` keep their contracts; the panel uses `setValue` / `setRange`.
+
+### 14.6 Panel edits through the editor's save path and undo (D-240, FR-EDT-07 AC-4)
+
+`@tegg/editor` `TeggEditor` gains:
+
+```ts
+  /** A committed frontmatter edit (panel value, description, tags, aliases, review, type change). `next` is the whole
+   *  note text from `@tegg/doc` applied to `ed.text()`; only its frontmatter is taken (throws if the body differs).
+   *  It is one step of the note's undo history, marks the note dirty and is written by the next `save()` together
+   *  with any body change (§13.3 autosave, one `note_write`). `ensureIdentity` and `touchModified` run as for body edits. */
+  applyFrontmatter(next: string): void;
+```
+
+- Undo (FR-EDT-07 AC-16, FR-TYP-07 AC-9): `commands.undo()` / `redo()` step through body and frontmatter steps in one chronological history (implementation: the frontmatter text as a ProseMirror doc attribute set with `setDocAttribute`, so it lives in the same history). The shell runs `edit.undo` / `edit.redo` when the focus is in the body or in the panel outside an open text field; in an open text field ⌘Z is the field's own undo.
+- `reload(text)` (external change, D-178) replaces the frontmatter too and clears history; a committed but unsaved panel edit makes the note dirty, so an external change opens the merge dialog (D-176, FR-EDT-07 AC-14).
+- The title stays outside the history (D-211); `setTitle` is unchanged and composes with `applyFrontmatter` (title last).
+- Read-only modes (§13 NFR-REL-03 AC-6…AC-8, `__TEGG_TEST__.readView`) have no editor: the panel is not editable and sends nothing (FR-EDT-07 AC-11).
+
+### 14.7 UI
+
+#### 14.7.1 Routes, registry, UI state
+
+- Routes `type/<key>` (built, full) and `type-settings/<key>` (built); `<key>` NFC. `route-ready:` marks as §1. A route whose type no longer exists (after a delete) shows a `status` `This type no longer exists.` (FR-TYP-05 AC-1). After `type_create` the route is `type-settings/<key>` with the focus on its heading; after `type_delete` it is `type/page`.
+- R1/R3/R4 changes as types.md ("R1, R3, R4 changes"), in `shell/registry.ts`; `overdue()` includes the new R3 entries.
+- `UiStateDto` gains `typeSort: Record<string, { column: string; dir: 'asc' | 'desc' }>` (column `title`, `modified` or a preview key; default `modified`/`desc`) and `otherPropertiesOpen: boolean` (default `false`). Missing fields read as defaults; `version` stays 1.
+- Modules (L1 imports them): `types/panel.ts` (row model), `types/AttributePanel.tsx`, `types/controls/*.tsx` (one per R10 control), `types/RelationPicker.tsx`, `types/ChangeTypeMenu.tsx`, `types/NewTypeDialog.tsx`, `types/StarterTypesDialog.tsx`, `types/create.ts`, `pages/TypePage.tsx`, `pages/TypeSettingsPage.tsx`.
+
+```ts
+// types/panel.ts (FR-EDT-07 AC-1, AC-2, D-229)
+export type PanelRow = {
+  key: string;                       // attribute key; date range once; universal: 'tags' | 'aliases' | 'source' | 'review' | 'created' | 'modified'
+  label: string;                     // attribute Name (user content) or catalog label
+  attr: AttributeDto | null;         // null for universal rows
+  raw: unknown;                      // the frontmatter value(s) as parsed; a date range `{ start, end }`
+  validity: Validity;                // @tegg/schema validate; universal rows by FR-TYP-08 AC-10, AC-11
+  editable: boolean;                 // false for read-only types, Created, Modified, read-only files
+  required: boolean;
+};
+export function panelRows(doc: Doc, type: TypeDto): {
+  subtitle: string | null; rows: PanelRow[];
+  other: { key: string; value: unknown }[];     // file order (Other properties)
+  typeWarning: boolean;                          // FR-TYP-13 AC-2
+};
+// types/create.ts (FR-TYP-03 AC-12): the one creation path of every entry point
+export function createObject(typeKey: string, title: string): Promise<string /* path */>;
+//   type_get → type_template → @tegg/doc newObject (now from Date.now() + Intl zone, ULID ids) → note_create(type, title, text)
+```
+
+Every entry point (⌘N New object, the switcher's create item, `[[` create, the type page's `New <Name>`, the relation picker's `Create "<query>"`) calls `createObject`; ⌘N and the switcher use the vault's default type (D-131, D-234); the relation picker uses `to[0]`, else the default type (D-243), and links the result without leaving the note.
+
+#### 14.7.2 Commands (R13; FR-UX-03)
+
+| Id | Title (catalog) | Section | Present in `commands(ctx)` |
+| --- | --- | --- | --- |
+| `type.new` | `New type…` | `create` | with a vault |
+| `type.openSettings` | `Open type settings` | `navigate` | `ctx.route.id` is `type` (defined types) or `note` |
+| `type.newObject` | `New {name}` | `create` | `type` routes of defined types (not `newer`-blocked: creating writes no type file) |
+| `note.changeType` | `Change type…` | `edit` | `note` routes |
+| `note.editProperties` | `Edit properties` | `edit` | `note` routes |
+| `vault.addStarterTypes` | `Add starter types…` | `vault` | with a vault |
+
+All `needsVault: true`, no shortcut (D-234). Controls carry `data-command`: sidebar `New type` → `type.new`; type page `Type settings` → `type.openSettings`, `New <Name>` → `type.newObject`; the type chip → `note.changeType`.
+
+#### 14.7.3 Accessibility labels (added to §3.7)
+
+Attribute panel (note route, editable mode):
+
+| Element | Role | Accessible name |
+| --- | --- | --- |
+| Panel | `region` | `Properties` |
+| Description subtitle | `textbox` (single line), placeholder `Add a description` | `Description` |
+| Type chip | `button`, `aria-haspopup="menu"`, `aria-expanded`; `aria-disabled` with description on Daily Note, Tag, Image, PDF (`The type of a <Name> can't be changed`) and read-only files | `Type: <Name>. Change type` |
+| Change type menu | `menu` with `menuitem`s (type Names) | `Change type` |
+| Type warning | `status` | `The type value isn't a single type name. Shown as Page.` |
+| Row label | text, `id` referenced by the control | attribute Name (`data-user-content`); tooltip = attribute description |
+| Text, Number, URL, Email | `textbox` | attribute Name |
+| Long text | `textbox`, `aria-multiline="true"` | attribute Name |
+| Checkbox | `checkbox` | attribute Name |
+| Date | `textbox` + `button` `Choose date for <Name>` opening `dialog` `Choose date` (grid of days) | attribute Name |
+| Date-time | `group` with `textbox`es `<Name> date`, `<Name> time` | attribute Name |
+| Date range | `group` with `textbox`es `<Name> start`, `<Name> end` | attribute Name |
+| Select, Review | `combobox` with `listbox` `<Name> options` (options + `Clear`) | attribute Name / `Review` |
+| Multi-select | `group`; chips with `button` `Remove <label>`; `button` `Add <Name>` opening the options `listbox` | attribute Name |
+| Relation, Source | `group`; chips `link` (D-73 text) with `button` `Remove <title>`; `button` `Add <Name>` | attribute Name / `Source` |
+| Relation picker | `dialog` `Choose <Name>` with `combobox` `Search` and `listbox` `Results`; last option `Create "<query>"` | |
+| Tags | `group` `Tags`; chips `link` `#<name>` with `button` `Remove tag <name>`; `button` `Add tag` → combobox `Tag` + `Tag suggestions` (§13.5) | |
+| Aliases | `group` `Aliases`; chips with `button` `Remove alias <name>`; `button` `Add alias` → `textbox` `Alias` | |
+| Created, Modified | text (no control) | `Created`, `Modified` |
+| Empty value | the control shows `Empty` (`muted`), focusable | |
+| Read-only value (file, color, recurrence, unsupported) | text, `tabindex="0"`, description `Editing comes in <milestone>` or `<Type> isn't supported yet` | attribute Name |
+| Required | description `Required` on the control; empty → also a visible warning `Required` | |
+| Invalid value | raw text + `img` `aria-hidden`; description `Not a valid <type label>. The value is kept as it is.` (`Not an option` per item) | |
+| Relation to a non-allowed type | chip description `Not a <Type Name>` | |
+| Other properties | `button`, `aria-expanded` | `Other properties (<n>)`; content `list` `Other properties` |
+| Field error | text referenced by `aria-describedby`, `role="alert"` | catalog message (`Not a number`, …) |
+
+The control's accessible description is, in this order: the attribute description, `Required`, the validity or read-only message.
+
+Type page (`type/<key>`):
+
+| Element | Role | Accessible name |
+| --- | --- | --- |
+| Heading | `heading` level 1 | plural (or raw value for undefined types) |
+| Count | text | `<n> objects` (plural message `typePage.count`) |
+| Buttons | `button` | `Type settings`, `New <Name>`, `Add column`; `Filter`, `Group`, `Add view` `aria-disabled` (`Coming in v1.0`) |
+| View tabs | `tablist` `Views` with one `tab` (selected) | `All <Plural>` |
+| Filter field | `searchbox`, Esc clears | `Filter <Plural>…` |
+| Table | `table` | plural; `columnheader`s `Title`, preview Names, `Modified`, each focusable with `aria-sort` |
+| Row | `row`, roving `tabindex`; ↑/↓, ⏎, click open | title cell text in `data-user-content` |
+| No match | `status` | `No <Plural> match "<text>"` |
+| Undefined type | `note` | `No type definition for "<value>"` |
+
+Type settings (`type-settings/<key>`; R12 names apply as written there):
+
+| Element | Role | Accessible name |
+| --- | --- | --- |
+| Heading | `heading` level 1, `tabindex="-1"` | `<Name> type settings` |
+| Applies line | text | `Applies to <n> <objects> · stored in .tegg/types/<key>.yml` |
+| Save state | `status` | `Save state` (R9 texts) |
+| Sections | `navigation` `Settings sections` with `link`s; each section a `region` named by its title | `General`, `Properties`, `Built in on every type`, `Preview properties`, `Review workflow`, `Templates`, `Views`, `Delete type` |
+| Name, Plural, Folder, Description | `textbox` | `Name`, `Plural name`, `Folder in the vault`, `Description`; folder help text as description |
+| Icon | `button` `Change icon` → `listbox` `Icon` of `option`s (R14 labels) | |
+| Color | `radiogroup` `Color` of `radio`s (R14 labels) | |
+| Property | `group` named by its Name; `button`s `Drag to reorder <name>` (⌥↑/⌥↓), `Edit <name>` / `Collapse <name>` (`aria-expanded`); badge text `Built in` | |
+| Property fields | `textbox` `Name`, `Key in frontmatter`; `combobox` `Type`; `checkbox` `Required`, `Multiple`; `textbox` `Description`; `group` `Allowed types` of `checkbox`es; `Default value` = the R10 control named `Default value`; `button` `Delete property…`; new row: `button`s `Add`, `Cancel` | |
+| Options | `list` `Options`; per option `textbox` `Option label`, `button` `Change color of <label>`, `Remove option <label>`, drag handle `Drag to reorder <label>`, text `Used by <n>`; `button` `Add option` | |
+| Preview | `list` `Preview properties` with chips, `button` `Remove <name> from preview`; `button` `Add (<n> left)` → `menu` `Add preview property` | |
+| Review | `switch` | `Review workflow` |
+| Read-only notices | `status` | `Made by a newer version of Tegg. Read-only.`; invalid: `Line <n>: <message>` |
+| External-change notice | `alert` (non-modal) | `Changed outside Tegg. Your change to <field label> wasn't saved.` |
+
+Dialogs (all `dialog`, `aria-modal`, Esc = Cancel, focus returns to the opener):
+
+| Dialog name | Content |
+| --- | --- |
+| `New type` | `textbox` `Name` (focused), `Plural name`; `button`s `Create`, `Cancel`; field errors as above |
+| `Delete property "<Name>"?` | `button`s `Keep values in notes` (default; description `They stay in the files and show under Other properties.`), `Remove values from <n> notes` (`aria-disabled`, `Coming in MS4`), `Cancel` |
+| `Change type of "<Name>"?` | text `<n> objects have values that aren't valid for <Type>. They stay unchanged in the files.`; `Change type`, `Cancel` |
+| `Remove option "<label>"?` | text of FR-TYP-03 AC-5; `Remove`, `Cancel` |
+| `Delete type "<Name>"?` | `No objects use this type.` or `<n> objects use this type.`; `Change their type to…`, `Move them to the trash` (`aria-disabled`, `Coming in MS4`); `Delete type`, `Cancel` (default) |
+| `Add starter types` | `list` `Will be added`, `list` `Skipped` (name and reason), skipped templates; `Add`, `Cancel`; when nothing to add: `status` `All starter types are already in this vault.` and `Close` |
+| `New object` (§3.7) | gains text `Type` with the type Name (not changeable) |
+
+Sidebar: `New type` enabled (`data-command="type.new"`); an invalid type's entry has the description `Invalid type definition`. New vault form: `radiogroup` `Vault contents` with `Empty vault` (default), `Starter vault`, each with a description.
+
+#### 14.7.4 Flows
+
+- **Type settings writes**: each committed field (⏎, blur, choice) sends one `type_patch` with the `version` of the last `type_get`; `Saving…` while in flight, then `Saved`; on `Rule` the message shows under the field and the field keeps the typed text; on `Conflict` the page loads `disk`, shows the external-change alert and focuses nothing new; `NewerVersion`/`InvalidType` pages never send writes (all controls disabled). Writes to one type file are serialized in the UI.
+- **Panel values**: a control commits per FR-EDT-07 AC-4 and AC-10, parses with `@tegg/schema`, and on success calls `applyFrontmatter(setValue(parse(ed.text()), key, value))` (date range: `setRange`; type change: `setValue(…, 'type', key)`). Esc reverts to the saved value. Invalid raw values are shown until a valid value is committed (D-231).
+- **External changes**: the panel recomputes on reload; schema changes (type file events) re-render rows without touching the note.
+
+### 14.8 Fake core additions (§5, §13.7)
+
+`installFakeCore` implements `type_get`, `type_create`, `type_patch`, `type_delete`, `type_template`, `type_usage`, `type_misfits`, `index_type_rows`, `starter_plan`, `starter_add`, the changed `vault_types` and `note_create(type, title, text)` and `vault_create(kind: 'starter')` over the in-memory files: type files parsed with the `yaml` package by §14.1.1, patched by the line rules of §14.1.4 (`app/ui/test/fake-schema.ts`), versions as §13.7, rules and validity from `@tegg/schema`, matching by `typeMatch`, starter and built-in bytes read from `tests/fixtures/vaults/new-starter/` and `new-empty/`. Type-file writes count in `writes()` and `writesTo()`. `setFile(path, …, { silent: true })` on a type file is the AR-07 / FR-TYP-01 AC-7 conflict case. No new `FakeCoreHandle` method is needed. The "fake handles exactly the registered commands" test (§5) covers the new commands.
+
+No new `__TEGG_TEST__` hook: clock, zone and region are injected as in §13.6 and §10 (`__TEGG_REGION__`).
+
+### 14.9 Test layout
+
+- **L4** `crates/tegg-schema/tests/ac_schema.rs`: AR-07 AC-1, AC-4, AC-5, AC-6; FR-TYP-01 AC-3, AC-5 (rules); FR-TYP-02 AC-2 (validity on the fixture's frontmatter), AC-5 (bytes kept); FR-TYP-03 AC-1, AC-2, AC-9, AC-11 (bytes); FR-TYP-04 AC-4; FR-TYP-06 AC-2, AC-3; FR-TYP-11 AC-1, AC-2; FR-TYP-12 AC-1, AC-2.
+- **L4** `crates/tegg-core/tests/ac_types.rs`: AR-07 AC-2, AC-3, AC-7; FR-TYP-01 AC-2 (file, race), AC-4, AC-6 (watcher), AC-7; FR-TYP-03 AC-5 (counts), AC-11 (count), AC-12 (folder, name, one write, index; bytes see Questions); FR-TYP-04 AC-5; FR-TYP-05 AC-1, AC-2, AC-5; FR-TYP-06 AC-1, AC-4; FR-TYP-09 AC-2 (query), AC-9 (watcher); FR-TYP-12 AC-3; FR-TYP-13 AC-1…AC-3; FR-VLT-02 AC-6, AC-7, AC-9.
+- **Shared corpus** `tests/fixtures/types/values.json` (attribute item + frontmatter YAML → expected `Validity`) and `tests/fixtures/types/rules.json` (names, folders, keys → expected reason), read by both `ac_schema.rs` and `packages/schema/test/conformance.ac.test.ts`, so Rust and TS can't drift (D-241).
+- **L1** `packages/schema/test/*.ac.test.ts` (FR-TYP-02 AC-2; FR-TYP-03 AC-1 key derivation, AC-2; FR-EDT-07 AC-5 input parsing incl. zones and DST, AC-7); `packages/doc/test/set_value.ac.test.ts` (FR-EDT-07 AC-3, AC-5 formatting, AC-8, AC-9, AC-12; FR-TYP-08 AC-7…AC-9 writes; the key-quoting regression) and `packages/doc/test/new_object.ac.test.ts` (FR-TYP-03 AC-12 bytes, FR-TYP-12 AC-3); `packages/editor/test/frontmatter.ac.test.ts` (`applyFrontmatter` + undo, FR-EDT-07 AC-16, FR-TYP-07 AC-9 at the editor level); `app/test/panel.ac.test.ts` (FR-EDT-07 AC-1, AC-2 row model); `app/test/types_registry.ac.test.ts` (R13, R14, R1/R3/R4 changes, FR-TYP-01 AC-9 plural messages; R10–R14 data in `app/test/shell-tables.ts`).
+- **L5** `app/webkit/type_settings.ac.test.ts` (AR-07 AC-2…AC-4, FR-TYP-01 AC-1…AC-9, FR-TYP-02 AC-1, AC-5, FR-TYP-03, FR-TYP-04, FR-TYP-05, FR-TYP-06, FR-TYP-11, FR-TYP-12), `app/webkit/type_page.ac.test.ts` (FR-TYP-09 AC-1…AC-11, FR-TYP-06 AC-5), `app/webkit/attribute_panel.ac.test.ts` (FR-EDT-07 AC-1…AC-4, AC-6, AC-7, AC-9…AC-17, FR-TYP-08 AC-7…AC-12, FR-TYP-02 AC-3, AC-4), `app/webkit/attribute_values.ac.test.ts` (FR-EDT-07 AC-5, AC-8 one case, AC-15), `app/webkit/type_change.ac.test.ts` (FR-TYP-07 AC-4…AC-10, FR-TYP-13 AC-1, AC-2), `app/webkit/starter.ac.test.ts` (FR-VLT-02 AC-6, AC-8, AC-9), `app/webkit/create_object.ac.test.ts` (FR-TYP-03 AC-12 per entry point).
+- **L6** `app/e2e/ms3_types.ac.test.ts`: FR-TYP-01 AC-2 once, FR-TYP-09 AC-3 relaunch, AC-11 once, FR-VLT-02 AC-8 once, FR-EDT-07 AC-14 one external edit; benchmark `app/e2e/perf_type_page.ts` (FR-TYP-09 AC-12, report only in MS3, D-152).
+- **AC-Test-Change** (D-242, D-228): read-view FR-TYP-08 AC-6 via the read-view switch, app-shell FR-UX-02 AC-17 wording, links.md markers; each needs the owner-approved trailer.
+- **Fixtures**: `tests/fixtures/vaults/types/` + `new-empty/.tegg/`, `new-starter/`, `tests/fixtures/types/` (expected file, corpora), `tests/fixtures/vaults/editor/` for FR-EDT-07 AC-6.
+
+### 14.10 Contract choices (no owner decision needed)
+
+1. A TypeScript twin `@tegg/schema` of `tegg-schema`'s reading rules, kept equal by two shared corpora; type-file writing exists only in Rust (and in the fake as test code).
+2. Canonical key orders of type files and attribute items as derived from the approved fixtures (§14.1.4); insertion after the nearest preceding canonical key.
+3. Missing `name`/`plural`/`folder`/`icon`/`color`/`review`/`preview` fall back without making a file invalid; only the listed structural faults make it invalid.
+4. Matching (`type_key`) happens in the index's `prepare`, not the extractor, so the extract conformance fixture is unchanged; an undefined type is keyed by its matched key and shown under its most frequent raw spelling.
+5. `TypeDto` is a superset of `TypeDefDto` and `TypeInfo` of 3A's `TypeDef` (type alias), so 3A tests keep compiling; `note_create` keeps its name with new arguments (`type, title, text`); `Core::create_note` stays.
+6. Type rows carry raw values and resolved relation targets from the index; validity in cells is computed in the UI with `@tegg/schema`.
+7. Panel undo via a ProseMirror doc attribute holding the frontmatter (one history); `applyFrontmatter` takes the whole next text and rejects body changes.
+8. Accessible names not fixed by the ACs: the date-time and date-range groups' field names, `Choose date for <Name>`, picker `Search`/`Results`, `Option label`, `Add preview property`, `Remove alias <name>`, type-chip disabled reason `The type of a <Name> can't be changed`, dialog titles `Change type of "<Name>"?` and `Remove option "<label>"?`, `Line <n>: <message>`.
+9. `newObject` copies template entries verbatim (style kept) and ignores template `id`, `type`, `title`, `review`, `created`, `modified`; a template with invalid frontmatter contributes only its body.
+10. Starter files are compiled into `tegg-schema` (`STARTER_FILES`, from the fixture) and passed to `Vault::create` through `VaultKind::Starter`; `tegg-vault` gets no dependency on `tegg-schema`.
+11. Command ids and sections of §14.7.2; `type.newObject` and `type.openSettings` only appear on their routes.
+12. UI state fields `typeSort` and `otherPropertiesOpen` (default collapsed) without a version bump.
+
+### 14.11 Questions (owner)
+
+- **Q-3D-1 (D-82 vs D-232, FR-TYP-03 AC-12 layer).** D-232 asks for "one core creation path"; D-82 says every new note's bytes come from `@tegg/doc`, never Rust. This contract keeps D-82: the core command `note_create(type, title, text)` decides folder, name, folders and indexing, and the bytes come from `@tegg/doc` `newObject` through one UI function `createObject` used by every entry point. Consequence: FR-TYP-03 AC-12's "L4 for the bytes" becomes L1 (`packages/doc/test/new_object.ac.test.ts`) plus L5 per entry point; L4 keeps folder, name, one write and index. Recommendation: accept (AC tag change to "L1 for the bytes; L4 for the write; L5 for each entry point"). Alternative: the core builds new-object frontmatter in Rust (an exception to D-82 for frontmatter-only new files).
