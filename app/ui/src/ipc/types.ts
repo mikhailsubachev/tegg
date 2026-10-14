@@ -72,6 +72,7 @@ kind: string, message: string, };
 export type TypeDefDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, };
 export type ObjectRowDto = { path: string, id: string | null, title: string, type: string, modified: string | null, };
 export type LastOpenedDto = { path: string, id: string | null, };
+export type RecentVaultDto = { name: string, path: string, exists: boolean, };
 export type RightPanelDto = { open: boolean, 
 /**
  * `backlinks`, `outline` or `graph`.

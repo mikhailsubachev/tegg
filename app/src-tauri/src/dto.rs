@@ -183,6 +183,14 @@ pub struct ObjectRowDto {
     pub modified: Option<String>,
 }
 
+/// D-219: one recent vault for the title-bar switcher (ms3-shell §12.5).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RecentVaultDto {
+    pub name: String,
+    pub path: String,
+    pub exists: bool,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LastOpenedDto {
     pub path: String,
@@ -256,6 +264,7 @@ pub fn typescript() -> String {
         TypeDefDto::decl(),
         ObjectRowDto::decl(),
         LastOpenedDto::decl(),
+        RecentVaultDto::decl(),
         RightPanelDto::decl(),
         UiStateDto::decl(),
         LinkTargetDto::decl(),

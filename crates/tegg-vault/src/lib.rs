@@ -148,6 +148,10 @@ impl AppDirs {
     fn last_vault_file(&self) -> PathBuf {
         self.root.join("last-vault")
     }
+
+    fn recent_vaults_file(&self) -> PathBuf {
+        self.root.join("recent-vaults")
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -210,6 +214,21 @@ pub struct Vault {
     lock: Mutex<()>,
 }
 
+const RECENT_MAX: usize = 9;
+
+/// The recent-vaults file: one NFC path per line, most recent first (D-219).
+fn recent_paths(dirs: &AppDirs) -> Vec<String> {
+    let Some(bytes) = local::read_local_file(&dirs.recent_vaults_file()) else { return Vec::new() };
+    let mut out: Vec<String> = Vec::new();
+    for line in String::from_utf8_lossy(&bytes).lines() {
+        let p = nfc(line.trim_end());
+        if !p.is_empty() && !out.contains(&p) && out.len() < RECENT_MAX {
+            out.push(p);
+        }
+    }
+    out
+}
+
 /// One entry of the recent-vaults list (D-219).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecentVault {
@@ -252,6 +271,11 @@ impl Vault {
         }
         // FR-VLT-01 AC-7, D-98: remember it in Application Support, never in the vault.
         local::write_local_file(&dirs.last_vault_file(), root.to_string_lossy().as_bytes()).map_err(OpenError::Io)?;
+        // D-219, FR-VLT-01 AC-17: most recent first, NFC paths, no duplicates, at most 9. A failure only loses the list.
+        let me = nfc(&root.to_string_lossy());
+        let mut list: Vec<String> = vec![me.clone()];
+        list.extend(recent_paths(dirs).into_iter().filter(|p| *p != me).take(RECENT_MAX - 1));
+        let _ = local::write_local_file(&dirs.recent_vaults_file(), list.join("\n").as_bytes());
         Ok(Vault { fs: Box::new(LocalFs::new(&root)), local: local_dir_for(dirs, &root.to_string_lossy()), root, lock: Mutex::new(()) })
     }
 
@@ -278,8 +302,15 @@ impl Vault {
 
     /// D-219, FR-VLT-01 AC-17: the recently opened vaults, most recent first (at most 9).
     pub fn recent(dirs: &AppDirs) -> Vec<RecentVault> {
-        let _ = dirs;
-        Vec::new()
+        recent_paths(dirs)
+            .into_iter()
+            .map(|p| {
+                let path = PathBuf::from(&p);
+                let name = path.file_name().map(|n| nfc(&n.to_string_lossy())).unwrap_or_default();
+                let exists = path.is_dir();
+                RecentVault { name, path, exists }
+            })
+            .collect()
     }
 
     pub fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), VaultError> {

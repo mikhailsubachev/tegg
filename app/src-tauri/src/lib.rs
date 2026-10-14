@@ -478,6 +478,28 @@ async fn vault_last(state: State<'_, AppState>) -> Result<Option<LastOpenedDto>,
     Ok(core.last_opened().map(|(path, id)| LastOpenedDto { path, id }))
 }
 
+/// D-219: the recently opened vaults, most recent first (ms3-shell §12.5).
+#[tauri::command]
+async fn vault_recent(state: State<'_, AppState>) -> Result<Vec<RecentVaultDto>, IpcError> {
+    Ok(Vault::recent(&state.dirs)
+        .into_iter()
+        .map(|r| RecentVaultDto { name: r.name, path: r.path.to_string_lossy().into_owned(), exists: r.exists })
+        .collect())
+}
+
+/// D-220: the logo menu's `About Tegg` shows the standard macOS About panel.
+#[tauri::command]
+async fn app_about(app: AppHandle) -> Result<(), IpcError> {
+    let _ = app.run_on_main_thread(|| {
+        #[cfg(target_os = "macos")]
+        if let Some(mtm) = objc2::MainThreadMarker::new() {
+            let ns = objc2_app_kit::NSApplication::sharedApplication(mtm);
+            ns.orderFrontStandardAboutPanel(None);
+        }
+    });
+    Ok(())
+}
+
 #[tauri::command]
 async fn vault_types(state: State<'_, AppState>) -> Result<Vec<TypeDefDto>, IpcError> {
     let core = core(&state)?;
@@ -671,7 +693,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
-            vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
+            vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
             link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit
         ])
         .build(tauri::generate_context!())

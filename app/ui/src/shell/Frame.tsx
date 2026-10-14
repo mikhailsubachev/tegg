@@ -1,9 +1,12 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
 import logoDark from '../assets/logo-dark.svg';
 import logoLight from '../assets/logo-light.svg';
+import { PopupMenu, type MenuEntry } from './Menu';
+import { vaultColor } from './vaultColor';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
-import type { ProgressDto } from '../ipc/types';
+import { ipc } from '../ipc/client';
+import type { ProgressDto, RecentVaultDto, VaultInfo } from '../ipc/types';
 import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
@@ -25,7 +28,67 @@ function useResolvedTheme(): 'light' | 'dark' {
   return theme;
 }
 
-export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canForward, onBack, onForward }: {
+/** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
+export type VaultSwitcherProps = {
+  vault: VaultInfo;
+  onOpenPath: (path: string) => void;
+  onOpenFolder: () => void;
+  onCreate: () => void;
+  onSettings: () => void;
+};
+
+function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSettings }: VaultSwitcherProps) {
+  const button = useRef<HTMLButtonElement>(null);
+  const [recent, setRecent] = useState<RecentVaultDto[] | null>(null);
+  const open = recent !== null;
+  const toggle = () => {
+    if (open) { setRecent(null); return; }
+    ipc.vaultRecent().then((r) => setRecent(r), () => setRecent([]));
+  };
+  const close = () => setRecent(null);
+  const here = vault.path.normalize('NFC');
+  const entries: MenuEntry[] = [];
+  for (const [i, r] of (recent ?? []).slice(0, 9).entries()) {
+    const current = r.path.normalize('NFC') === here;
+    entries.push({
+      kind: 'radio',
+      key: r.path,
+      checked: current,
+      disabled: !r.exists,
+      content: (
+        <>
+          <span className="vault-dot" aria-hidden="true" style={{ background: `var(--type-${vaultColor(r.path)})` }} />
+          <span className="menu-text">
+            <span className="menu-title" data-user-content>{r.name}</span>
+            <span className="menu-sub" data-user-content>{r.path}</span>
+          </span>
+          {!r.exists && <span className="menu-note">{t('vault.notFound')}</span>}
+          <kbd>{`⌃⌘${i + 1}`}</kbd>
+        </>
+      ),
+      onChoose: () => { close(); if (current) { button.current?.focus(); return; } onOpenPath(r.path); },
+    });
+  }
+  entries.push(
+    { kind: 'separator' },
+    { kind: 'item', key: 'open', content: <span className="menu-title">{t('cmd.openFolderAsVault')}</span>, onChoose: () => { close(); onOpenFolder(); } },
+    { kind: 'item', key: 'create', content: <span className="menu-title">{t('cmd.createVault')}</span>, onChoose: () => { close(); onCreate(); } },
+    { kind: 'item', key: 'settings', content: <span className="menu-title">{t('vault.settings')}</span>, onChoose: () => { close(); onSettings(); } },
+  );
+  return (
+    <>
+      <button ref={button} tabIndex={0} type="button" className="vault-switcher" aria-label={t('vault.switch', { name: vault.name })}
+        aria-haspopup="menu" aria-expanded={open} data-command="vault.switch" onClick={toggle}>
+        <span className="vault-dot" aria-hidden="true" style={{ background: `var(--type-${vaultColor(vault.path)})` }} />
+        <span className="vault-name" data-user-content>{vault.name}</span>
+      </button>
+      {open && <PopupMenu label={t('vault.menu')} anchor={button.current} entries={entries} onClose={close} />}
+    </>
+  );
+}
+
+export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canForward, onBack, onForward, switcher }: {
+  switcher?: VaultSwitcherProps;
   name: React.ReactNode;
   icon: string;
   progress: ProgressDto | null;
@@ -41,6 +104,7 @@ export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canFo
         <button tabIndex={0} type="button" className="icon-button" aria-label={t('cmd.toggleSidebar')} data-command="view.toggleSidebar" onClick={onToggleSidebar}>
           <Icon name="sidebar" />
         </button>
+        {switcher && <VaultSwitcher {...switcher} />}
         {/* FR-NAV-03 (D-165): without history in a direction the button is aria-disabled, with no "Coming in" note. */}
         <button tabIndex={0} type="button" className="icon-button" aria-label={t('ctl.back')} aria-disabled={!canBack || undefined} data-command="nav.back" onClick={() => canBack && onBack()}>
           <Icon name="back" />
@@ -87,7 +151,30 @@ const BOTTOM: Entry[] = [
 
 let savedScroll = 0;
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, conflicts = 0 }: {
+/** D-220: the logo at the bottom left opens About and Settings (FR-UX-01 AC-5). */
+function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: () => void }) {
+  const button = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const theme = useResolvedTheme();
+  return (
+    <div className="sidebar-foot">
+      <button ref={button} tabIndex={0} type="button" className="logo" aria-label={t('logo.button')} aria-haspopup="menu" aria-expanded={open}
+        data-command="app.logoMenu" onClick={() => setOpen((o) => !o)}>
+        {/* D-164: the board's mark and wordmark as one image per theme; the button keeps its label. */}
+        <img className="logo-img" src={theme === 'dark' ? logoDark : logoLight} alt="" />
+      </button>
+      {open && (
+        <PopupMenu label={t('logo.menu')} anchor={button.current} placement="above" onClose={() => setOpen(false)} entries={[
+          { kind: 'item', key: 'about', content: <span className="menu-title">{t('cmd.about')}</span>, onChoose: () => { setOpen(false); button.current?.focus(); onAbout(); } },
+          { kind: 'item', key: 'settings', content: <span className="menu-title">{t('logo.settings')}</span>, onChoose: () => { setOpen(false); onSettings(); } },
+        ]} />
+      )}
+    </div>
+  );
+}
+
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onAbout, conflicts = 0 }: {
+  onAbout: () => void;
   route: Route;
   types: TypeEntry[];
   onGo: (r: Route) => void;
@@ -125,10 +212,6 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, conflicts
   return (
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
       <div className="sidebar-scroll" ref={scroller}>
-        <a href="#" tabIndex={0} className="logo" aria-label={t('app.home')} data-command="goto.home" onClick={(e) => { e.preventDefault(); onGo({ id: 'home' }); }}>
-          {/* D-164: the board's mark and wordmark as one image per theme; the link keeps its label. */}
-          <img className="logo-img" src={useResolvedTheme() === 'dark' ? logoDark : logoLight} alt="" />
-        </a>
         <button tabIndex={0} type="button" className="jump" aria-label={t('frame.searchOrJump')} data-command="app.switcher" onClick={(e) => { e.currentTarget.focus(); onSwitcher(); }}>
           <Icon name="search" />
           <span className="entry-label">{t('frame.searchOrJump')}</span>
@@ -183,6 +266,7 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, conflicts
         </ul>
         <div className="sidebar-group">{BOTTOM.map(link)}</div>
       </div>
+      <LogoMenu onAbout={onAbout} onSettings={() => onGo({ id: 'settings/appearance' })} />
     </nav>
   );
 }
