@@ -1,6 +1,7 @@
 // Commit-level checks: privacy (TS-P), fixture trailers (TS-D4), AC test protection (TS-I AC-1),
 // red-first (TS-I AC-2). Contract: tools/qa/CONTRACT.md §5–§7.
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -208,14 +209,42 @@ export function checkRed(root: string, cfg: Config, sha: string): RedResult {
   return { ok: messages.length === 0, messages };
 }
 
+/** Commits already found red, keyed by full SHA, valued by the acRunners fingerprint (CONTRACT §5.2.1). */
+function readRedCache(file: string): Record<string, string> {
+  try {
+    const v = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
 export function redFirst(root: string, cfg: Config, range: string[]): CheckResult {
   const messages: string[] = [];
+  const cacheFile = path.join(root, '.verify', 'red-first-cache.json');
+  const fingerprint = createHash('sha256').update(JSON.stringify(cfg.acRunners.map((r) => ({ dir: r.dir, match: r.match.source, run: r.run })))).digest('hex');
+  const cache = readRedCache(cacheFile);
+  let added = false;
   for (const sha of range) {
     if (parentsOf(root, sha).length > 1) continue; // merges are skipped (CONTRACT §5.0)
     if (addedAcTests(root, cfg, sha).length === 0) continue;
     if (hasTrailer(commitMessage(root, sha), RED_FIRST_EXEMPT_TRAILER)) continue;
+    const full = git(root, ['rev-parse', sha]).trim();
+    if (cache[full] === fingerprint) continue;
     const r = checkRed(root, cfg, sha);
     if (!r.ok) messages.push(...r.messages.map((m) => `${shortSha(sha)} (red-first): ${m}`));
+    else {
+      cache[full] = fingerprint;
+      added = true;
+    }
+  }
+  if (added) {
+    try {
+      fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+      fs.writeFileSync(cacheFile, `${JSON.stringify(cache, null, 2)}\n`);
+    } catch {
+      // A cache that can't be written only costs time on the next gate.
+    }
   }
   return check('red-first', messages);
 }

@@ -174,6 +174,15 @@ For every commit in the range: if it modifies, deletes or renames an existing AC
 
 The configuration (`acRunners`) is read from the **current** checkout, not from `<commit>`.
 
+### 5.2.1 Red-first cache (push gate only)
+
+A commit's content never changes, so the push gate's `red-first` check (§4 step 4) remembers commits it found red:
+- After `check-red` passes for a commit inside the gate, the gate records the commit's full SHA together with a fingerprint of the **current** `acRunners` configuration in `.verify/red-first-cache.json` (machine-local, git-ignored like the rest of `.verify/`).
+- The gate skips `check-red` for a commit whose SHA is recorded with the **same** fingerprint; the commit counts as red. The fingerprint is a hash of the JSON of `acRunners` (order and every field of every entry), so any change to a runner's `dir`, `match` or `run` makes every recorded commit run again.
+- A commit whose `check-red` fails is never recorded and runs again on the next gate.
+- `verify check-red <commit>` (§5.2) never reads or writes the cache.
+- A missing, unreadable or malformed cache file is treated as empty and rewritten; it never fails the gate.
+
 ## 6. Privacy check (TS-P AC-1)
 
 Applied to staged files (commit gate: added, copied, modified or renamed, using the staged content) or to every file in the tree (push gate). A file fails if:
