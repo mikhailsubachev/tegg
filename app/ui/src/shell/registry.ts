@@ -106,6 +106,16 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘T', command: 'nav.newTab' },
   { keys: '⌘[', command: 'nav.back' },
   { keys: '⌘]', command: 'nav.forward' },
+  // D-219: the recent vaults of the title-bar switcher (FR-VLT-01 AC-17).
+  { keys: '⌃⌘1', command: 'vault.recent.1' },
+  { keys: '⌃⌘2', command: 'vault.recent.2' },
+  { keys: '⌃⌘3', command: 'vault.recent.3' },
+  { keys: '⌃⌘4', command: 'vault.recent.4' },
+  { keys: '⌃⌘5', command: 'vault.recent.5' },
+  { keys: '⌃⌘6', command: 'vault.recent.6' },
+  { keys: '⌃⌘7', command: 'vault.recent.7' },
+  { keys: '⌃⌘8', command: 'vault.recent.8' },
+  { keys: '⌃⌘9', command: 'vault.recent.9' },
   // R8 (editor.md, D-183): editor commands, acting on the note route's editor.
   { keys: '⌘Z', command: 'edit.undo' },
   { keys: '⇧⌘Z', command: 'edit.redo' },

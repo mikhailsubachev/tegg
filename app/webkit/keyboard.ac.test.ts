@@ -265,6 +265,7 @@ test('fr_ux_03_ac9_global_shortcuts_from_every_route', async ({ page }) => {
   for (const row of routes) {
     for (const r4 of R4.filter((x) => x.enabled)) {
       if (['Toggle right panel', 'Toggle focus mode'].includes(r4.command) && row.id !== 'note/<path>') continue; // object routes only (FR-UX-02 AC-7, AC-9)
+      if (r4.command.startsWith('Open recent vault')) continue; // switches the vault: from every route in vault_switcher.ac.test.ts (FR-VLT-01 AC-17)
       await reset();
       const name = await goRoute(page, row);
       if (!(await onPage(page, name, 2000))) { failures.push(`${row.id}: not reached`); break; }

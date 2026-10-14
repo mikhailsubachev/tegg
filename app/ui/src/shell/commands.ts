@@ -20,6 +20,12 @@ export type ShellActions = {
   forward: () => void;
   toggleProperties: () => void;
   openChooser: (form: boolean) => void;
+  /** D-219: open the n-th recent vault (1-based); nothing for the open, a missing or an absent entry. */
+  openRecent: (n: number) => void;
+  /** D-219: the folder picker, then open that folder as the vault. */
+  openFolder: () => void;
+  /** D-220: the standard About panel. */
+  about: () => void;
   setTheme: (t: ThemeChoice) => void;
   /** Runs an R8 editor action on the note route's editor; a no-op elsewhere (editor.md R8). */
   edit?: (action: EditAction) => void;
@@ -95,6 +101,9 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'note.toggleSource', title: 'cmd.toggleSource', section: 'view', shortcut: shortcutOf('note.toggleSource'), needsVault: true, run: (c) => a(c)?.toggleSource() },
     { id: 'vault.open', title: 'cmd.openVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(false) },
     { id: 'vault.create', title: 'cmd.createVault', section: 'vault', needsVault: false, run: (c) => a(c)?.openChooser(true) },
+    { id: 'vault.openFolder', title: 'cmd.openFolderAsVault', section: 'vault', needsVault: true, run: (c) => a(c)?.openFolder() },
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n): Command => ({ id: `vault.recent.${n}`, title: `cmd.openRecentVault${n}`, section: 'vault', shortcut: shortcutOf(`vault.recent.${n}`), needsVault: true, run: (c) => a(c)?.openRecent(n) })),
+    { id: 'app.about', title: 'cmd.about', section: 'app', needsVault: false, run: (c) => a(c)?.about() },
     { id: 'theme.system', title: 'cmd.theme.system', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('system') },
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },

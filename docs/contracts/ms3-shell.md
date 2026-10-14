@@ -165,7 +165,10 @@ Labels from the ACs, for Playwright, Appium and the explorer agent. MS2 labels (
 | Title bar tab (one) | `tab` | current page name or note title |
 | Back, Forward | `button`, `aria-disabled` | `Back`, `Forward` |
 | Left sidebar | `navigation` | `Sidebar` |
-| Logo link | `link` | `Tegg home` |
+| Vault switcher (title bar, before Back, D-219) | `button`, `aria-haspopup="menu"`, `aria-expanded` | `Vault: <name>. Switch vault` |
+| Vault menu | `menu`; recent vaults `menuitemradio`, actions `menuitem` | `Vaults`; `Open folder as vault…`, `Create new vault…`, `Vault settings…` |
+| Logo button (bottom left of the sidebar, D-220) | `button`, `aria-haspopup="menu"`, `aria-expanded` | `Tegg: About and Settings` |
+| Logo menu | `menu` with `menuitem`s | `About and Settings`; `About Tegg`, `Settings…` |
 | Sidebar switcher field | `button` | `Search or jump to…` |
 | New object | `button` | `New object` |
 | Types list | `list` | `Types` |
@@ -428,7 +431,15 @@ export function createHistory(): {
 ### 12.3 Logo (D-164)
 
 - Assets `app/ui/src/assets/logo-light.svg` and `logo-dark.svg`: the Main board's mark plus the "TEGG" wordmark in Space Grotesk 700 converted to paths, brand blue `#0B44F0` (light) / `#8FAEFF` (dark). They are the colour-literal exception of FR-UX-05 AC-2 (`logo*.svg`).
-- The sidebar link `Tegg home` renders `<img alt="" src=…>` with the asset of the resolved theme; its `aria-label` stays `Tegg home`.
+- The logo button `Tegg: About and Settings` at the bottom left of the sidebar (D-220, §12.5) renders `<img alt="" src=…>` with the asset of the resolved theme; its `aria-label` stays `Tegg: About and Settings`.
+
+### 12.5 Vault switcher and logo menu (D-219, D-220)
+
+- IPC `vault_recent() -> RecentVaultDto[]` with `RecentVaultDto = { name: string, path: string, exists: boolean }`, most recent first, at most 9. The list lives in Application Support next to the last-opened vault file (`tegg-vault`, `Vault::recent(&dirs)`); `vault_open` and `vault_create` record the vault first on success (NFC-normalized path, no duplicates). `vault_open` of the open vault is not called by the UI.
+- IPC `app_about()` shows the standard macOS About panel (no other effect).
+- Commands: `vault.recent.<n>` (n = 1…9, title `Open recent vault <n>`, keys `⌃⌘<n>`, `needsVault: true`), `vault.openFolder` (`Open folder as vault…`), `vault.create` (existing), `goto.settings/vault`; logo menu items run `app.about` and `goto.settings/appearance` (`⌘,` unchanged).
+- Vault colour: `vaultColor(path)` in `shell/vaultColor.ts` = `VAULT_COLORS[fnv1a32(nfc(path)) % VAULT_COLORS.length]`, with `VAULT_COLORS` the type colour names of `theme/tokens.ts` (`blue`, `green`, …); the dot uses `var(--type-<name>)`, so it follows the theme.
+- Both menus: Arrow keys move, Enter/Space choose, Esc or a click outside closes and returns focus to the opener.
 
 ### 12.4 Tests
 

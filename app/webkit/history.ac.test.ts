@@ -343,8 +343,12 @@ test('fr_nav_03_ac7_creating_another_vault_clears_history', async ({ page }) => 
 const ASSETS = resolve(import.meta.dirname, '../ui/src/assets');
 const asset = (name: string) => { try { return readFileSync(resolve(ASSETS, name), 'utf8'); } catch { return null; } };
 
+// D-220: the logo is the bottom-left button `Tegg: About and Settings` (ms3-shell §3.7), no longer the link `Tegg home`.
+const logoButton = (page: Page) => sidebar(page).getByRole('button', { name: 'Tegg: About and Settings', exact: true });
+const logoMenu = (page: Page) => page.getByRole('menu', { name: 'About and Settings' });
+
 async function logoInfo(page: Page) {
-  const link = await must(sidebar(page).getByRole('link', { name: 'Tegg home', exact: true }), 'sidebar link "Tegg home"');
+  const link = await must(logoButton(page), 'sidebar button "Tegg: About and Settings"');
   return link.evaluate(async (a) => {
     const imgs = [...a.querySelectorAll('img')] as HTMLImageElement[];
     const walker = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
@@ -369,9 +373,9 @@ test('fr_ux_01_ac5_logo_image_follows_the_theme_without_network', async ({ page 
   const dark = asset('logo-dark.svg');
   assert.ok(light && dark, 'logo assets exist (ms3-shell §12.3)');
   let info = await logoInfo(page);
-  assert.equal(info.imgs, 1, 'the link shows one image');
+  assert.equal(info.imgs, 1, 'the button shows one image');
   assert.equal(info.svgs, 0, 'no inline SVG beside the image');
-  assert.deepEqual(info.texts, [], 'no visible text node in the link (the wordmark is part of the image)');
+  assert.deepEqual(info.texts, [], 'no visible text node in the button (the wordmark is part of the image)');
   assert.equal(info.alt, '', 'decorative image: alt=""');
   assert.ok(info.loaded, 'the image loaded');
   assert.equal(norm(info.body), norm(light), 'light theme shows logo-light.svg');
@@ -388,16 +392,37 @@ test('fr_ux_01_ac5_logo_image_follows_the_theme_without_network', async ({ page 
   assert.deepEqual(hits, [], 'no network request (NFR-SEC-01)');
 });
 
-test('fr_ux_01_ac5_logo_link_keeps_its_name_and_goes_home', async ({ page }) => {
-  await start(page, { uiState: ui('dark') });
-  const link = await must(sidebar(page).getByRole('link', { name: 'Tegg home', exact: true }), 'sidebar link "Tegg home"');
-  assert.equal(await link.getAttribute('aria-label'), 'Tegg home', 'aria-label stays Tegg home');
+test('fr_ux_01_ac5_logo_button_shows_the_dark_asset_and_opens_its_menu', async ({ page }) => {
+  const core = await start(page, { uiState: ui('dark') });
+  const btn = await must(logoButton(page), 'sidebar button "Tegg: About and Settings"');
+  assert.equal(await btn.getAttribute('aria-haspopup'), 'menu', 'aria-haspopup="menu"');
+  assert.equal(await btn.getAttribute('aria-expanded'), 'false', 'aria-expanded="false" while closed');
   const info = await logoInfo(page);
   assert.equal(info.imgs, 1, 'one image');
   assert.equal(norm(info.body), norm(asset('logo-dark.svg')), 'dark asset in the dark theme');
   await runCommand(page, 'Go to Inbox');
   await mustBeOn(page, 'Inbox', 'setup');
-  await link.click();
-  assert.ok(await onPage(page, 'Home', 2000), 'the logo link goes home');
+  await btn.click();
+  const m = await must(logoMenu(page), 'menu "About and Settings"');
+  assert.equal(await btn.getAttribute('aria-expanded'), 'true', 'aria-expanded="true" while open');
+  const items = (await m.getByRole('menuitem').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim().replace(/\s*⌘.*$/, ''));
+  assert.deepEqual(items, ['About Tegg', 'Settings…'], 'menu items');
+  assert.equal(await onPage(page, 'Inbox', 300), true, 'activating the logo no longer goes home (D-220)');
+  // Esc closes and returns focus to the button.
+  await page.keyboard.press('Escape');
+  assert.equal(await eventually(() => logoMenu(page).count(), (n) => n === 0, 1500), 0, 'Esc closes the menu');
+  const f = await eventually(() => focused(page), (x) => x.label === 'Tegg: About and Settings', 1500);
+  assert.equal(f.label, 'Tegg: About and Settings', 'focus returns to the logo button');
+  // About Tegg calls app_about and nothing else.
+  await btn.click();
+  await (await must(logoMenu(page).getByRole('menuitem', { name: 'About Tegg' }), 'About Tegg')).click();
+  const about = await eventually(() => core.calls(), (c) => c.some((x) => x.cmd === 'app_about'), 1500);
+  assert.equal(about.filter((x) => x.cmd === 'app_about').length, 1, 'About Tegg calls app_about once');
+  assert.equal(await onPage(page, 'Inbox', 300), true, 'About Tegg leaves the route unchanged');
+  // Settings… → settings/appearance.
+  await btn.click();
+  await (await must(logoMenu(page).getByRole('menuitem', { name: 'Settings…' }), 'Settings…')).click();
+  await mustBeOn(page, 'Settings: Appearance', 'Settings… → settings/appearance');
+  assert.equal(await core.writes(), 0);
 });
 

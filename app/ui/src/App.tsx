@@ -120,6 +120,8 @@ export function App() {
     setRoute(landing);
   }, []);
 
+  const liveVault = useRef<VaultInfo | null>(null);
+  liveVault.current = vault ?? null;
   const opened = useCallback((v: VaultInfo) => {
     setVault(v);
     setChooser(null);
@@ -129,6 +131,13 @@ export function App() {
     pendingFocus.current = true;
     void land();
   }, [land, loadTypes]);
+
+  /** D-219: open another vault from the title-bar switcher or ⌃⌘n, as the chooser does (FR-VLT-01 AC-15); an error
+   *  (not a Tegg vault, gone) shows the chooser, which explains it. */
+  const openVaultPath = useCallback((path: string) => {
+    setDialog(null);
+    void flushNote().then(() => ipc.vaultOpen(path)).then(opened, () => setChooser({ form: false }));
+  }, [opened]);
 
   useEffect(() => {
     ipc.vaultCurrent().then((v) => (v ? opened(v) : setVault(null)), () => setVault(null));
@@ -247,6 +256,15 @@ export function App() {
     forward: () => { void step('forward'); },
     toggleProperties: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
+    openRecent: (n: number) => {
+      void ipc.vaultRecent().then((list) => {
+        const r = list[n - 1];
+        if (!r || !r.exists || r.path.normalize('NFC') === liveVault.current?.path.normalize('NFC')) return;
+        openVaultPath(r.path);
+      }, () => {});
+    },
+    openFolder: () => { void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
+    about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
     edit: (a) => { if (route?.id === 'note/<path>') noteApi.current?.edit(a); },
   }), [go, step, route?.id, updateUi]);
@@ -479,7 +497,7 @@ export function App() {
 
   return (
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
-      {!focusMode && <TitleBar name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} canBack={history.current.canBack()} canForward={history.current.canForward()} onBack={actions.back} onForward={actions.forward} />}
+      {!focusMode && <TitleBar switcher={{ vault, onOpenPath: openVaultPath, onOpenFolder: actions.openFolder, onCreate: () => actions.openChooser(true), onSettings: () => go({ id: 'settings/vault' }) }} name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} canBack={history.current.canBack()} canForward={history.current.canForward()} onBack={actions.back} onForward={actions.forward} />}
       <div className="frame">
         {showSidebar && (
           <Sidebar
@@ -488,6 +506,7 @@ export function App() {
             onGo={go}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
+            onAbout={actions.about}
             conflicts={conflicts}
           />
         )}

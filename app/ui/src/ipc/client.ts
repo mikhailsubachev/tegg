@@ -3,7 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, SearchPageDto,
+  ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, SwitcherItemDto, TagDto, TypeDefDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto,
 } from './types';
 
@@ -12,6 +12,8 @@ export const ipc = {
   vaultOpen: (path: string) => invoke<VaultInfo>('vault_open', { path }),
   vaultCreate: (parent: string, name: string, kind: 'empty' | 'starter') => invoke<VaultInfo>('vault_create', { parent, name, kind }),
   vaultPickDir: () => invoke<string | null>('vault_pick_dir'),
+  vaultRecent: () => invoke<RecentVaultDto[]>('vault_recent'),
+  appAbout: () => invoke<void>('app_about'),
   vaultLast: () => invoke<LastOpenedDto | null>('vault_last'),
   vaultTypes: () => invoke<TypeDefDto[]>('vault_types'),
   typeCounts: () => invoke<Record<string, number>>('index_type_counts'),

@@ -52,6 +52,7 @@
 | v1.34   | 2026-10-13 | MS3 slice 3C red-test decisions D-198…D-213 (AP-142…AP-157). |
 | v1.35   | 2026-10-13 | MS3 slice 3C build decisions D-214…D-216 (AP-158…AP-160). |
 | v1.36   | 2026-10-13 | 3C preview feedback: D-217 no object icon or cover (FR-TYP-14 removed, supersedes D-39); D-218 tag click opens the tag page (supersedes D-143). |
+| v1.37   | 2026-10-14 | Design change before 3D (owner, design boards option C): D-219 vault switcher in the title bar with recent vaults; D-220 logo at the bottom left opens About and Settings. |
 
 ---
 
@@ -313,6 +314,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-216 | `read_note_info` | D-198 amended: `Core::read_note` keeps its tuple; `Core::read_note_info` returns `NoteRead { bytes, version, utf8 }` (AP-160) |
 | D-217 | No object icon or cover | Objects have no icon or cover of their own; the icon comes from the object's type everywhere. FR-TYP-14 removed (W); supersedes D-39. `icon`/`cover` stay reserved keys, preserved but not shown; the note header's Add icon / Add cover controls are removed (owner, 3C preview feedback) |
 | D-218 | Tag click | Activating a `#tag` (body or properties) opens the tag's page; until tag pages exist (FR-TAG-06, MS4) that is the Tags route placeholder. Supersedes D-143 (owner, 3C preview feedback) |
+| D-219 | Vault switcher in the title bar | The title bar shows the open vault as a pill (colour dot + name) before Back/Forward; it opens the menu `Vaults`: the recently opened vaults (machine-local list in Application Support, most recent first, at most 9, each with name, folder path and `⌃⌘1…9`; the current one checked; a folder that no longer exists is shown dimmed with `Not found` and can't be chosen), then `Open folder as vault…` (folder picker), `Create new vault…` (New vault form) and `Vault settings…` (Settings: Vault). The dot's colour is derived from the folder path (fixed palette, nothing stored). One vault stays open at a time (FR-VLT-04). Owner, 2026-10-14, design boards option C |
+| D-220 | Logo at the bottom left | The logo (mark + TEGG wordmark, D-164) moves to the bottom left of the sidebar, below the scrolling list, as a button `Tegg: About and Settings` opening a menu: `About Tegg` (the standard macOS About panel) and `Settings…` (Settings: Appearance, `⌘,` unchanged). It no longer links to Home (Home stays in the sidebar list and the palette). Supersedes the logo link of FR-UX-02 AC-2/AC-5 (D-164 assets unchanged). Owner, 2026-10-14 |
 
 ---
 
