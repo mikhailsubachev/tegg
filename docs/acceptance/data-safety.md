@@ -33,7 +33,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 - **AC-4** [MS3] Given a note is deleted externally while open with unsaved edits, the app keeps the content in the editor and offers "Restore file" or "Discard".
 - **AC-5** Given a file is renamed or moved externally, the index updates within 2 s and the object keeps its identity (by `id`) and backlinks.
 - **AC-6** [MS3] Given 500 files change at once (e.g. a sync client catching up), the app stays responsive (typing latency within NFR-PERF-06) and processes all changes within 30 s.
-- **AC-7** Before saving, the app checks that the file on disk is still the version it loaded (modification time + size + content hash); if not, AC-3 applies.
+- **AC-7** Before saving, the app checks that the file on disk is still the version it loaded (size + content hash; the modification time only decides whether to re-hash, D-175); if not, AC-3 applies. Identical bytes are never a conflict.
 - **AC-8** Given a save request whose base version no longer matches the file on disk, the core writes nothing and emits `note:conflict` carrying both versions (mine and theirs) (D-110).
 - **AC-9** Given 500 files change at once, the core processes all changes into the index within 30 s and every event is reflected (D-110).
 

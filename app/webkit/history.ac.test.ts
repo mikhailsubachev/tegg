@@ -146,6 +146,7 @@ async function topIs(page: Page, heading: string): Promise<number | null> {
 }
 
 test('fr_nav_03_ac4_back_restores_scroll_position', async ({ page }) => {
+  await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const vault = readVault();
   vault.files[R.cil] = `${vault.files[R.cil].replace(/\n*$/, '\n')}\nOdkaz ven: [[Odkazy]]\n`; // Cíl needs a link to follow
   await start(page, { vault, last: { path: R.cil, id: IDS[R.cil] } });
@@ -164,6 +165,7 @@ test('fr_nav_03_ac4_back_restores_scroll_position', async ({ page }) => {
 });
 
 test('fr_nav_03_ac4_fragment_entry_restored_to_its_scroll_not_the_fragment', async ({ page }) => {
+  await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   await start(page, { vault: readVault(), last: { path: R.odkazy, id: IDS[R.odkazy] } });
   await mustBeOn(page, 'Odkazy', 'landing on Odkazy', 5000);
   const block = await must(page.locator('main li', { hasText: 'Blok:' }).getByRole('link'), 'link [[Cíl#^blok1]]');
@@ -218,6 +220,7 @@ for (const how of ['trashed', 'deleted'] as const) {
 }
 
 test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ page }) => {
+  await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const core = await start(page);
   await mustBeOn(page, 'Home', 'landing');
   await openNote(page, PORADA);

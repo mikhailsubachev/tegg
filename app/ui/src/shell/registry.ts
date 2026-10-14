@@ -54,7 +54,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: tbd('MS6'), reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null },
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
-  { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: tbd('MS3', '3C'), reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
+  { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: built, reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
   { id: 'capture', name: 'route.capture', purpose: 'purpose.capture', status: tbd('MS5'), reqs: ['FR-CAP-01…05'], design: 'Home' },
   { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: null },
   { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: tbd('MS3', '3E'), reqs: ['FR-SET-03'], design: null },
@@ -77,9 +77,8 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.newTab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06' },
   { label: 'ctl.newType', where: 'sidebar, Types header', due: d('MS3', '3D'), req: 'FR-TYP-01' },
   { label: 'ctl.starterVault', where: 'chooser, New vault form', due: d('MS3', '3D'), req: 'FR-VLT-02' },
-  { label: 'ctl.edit', where: 'note toolbar', due: d('MS3', '3C'), req: 'FR-EDT-01' },
-  { label: 'ctl.addIcon', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
-  { label: 'ctl.addCover', where: 'note header', due: d('MS3', '3E'), req: 'FR-TYP-14' },
+  { label: 'ctl.turnIntoObject', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01' },
+  { label: 'ctl.copyBlockLink', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06' },
   { label: 'ctl.filter', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
   { label: 'ctl.sort', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
   { label: 'ctl.views', where: 'type page', due: d('MS3', '3D'), req: 'FR-TYP-09' },
@@ -107,6 +106,49 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘T', command: 'nav.newTab' },
   { keys: '⌘[', command: 'nav.back' },
   { keys: '⌘]', command: 'nav.forward' },
+  // R8 (editor.md, D-183): editor commands, acting on the note route's editor.
+  { keys: '⌘Z', command: 'edit.undo' },
+  { keys: '⇧⌘Z', command: 'edit.redo' },
+  { keys: '⌘B', command: 'edit.bold' },
+  { keys: '⌘I', command: 'edit.italic' },
+  { keys: '⇧⌘S', command: 'edit.strike' },
+  { keys: '⌘E', command: 'edit.code' },
+  { keys: '⇧⌘H', command: 'edit.highlight' },
+  { keys: '⇧⌘K', command: 'edit.link' },
+  { keys: '⇧⌘↑', command: 'edit.moveBlockUp' },
+  { keys: '⇧⌘↓', command: 'edit.moveBlockDown' },
+  { keys: '⌘/', command: 'edit.blockMenu' },
+  { keys: 'Esc', command: 'edit.selectBlock' },
+  { keys: '⌘↩', command: 'edit.openOrToggle' },
+  { keys: '⇧⌘V', command: 'edit.pastePlain' },
+  { keys: '⌘S', command: 'edit.saveNow' },
+];
+
+/** R6 (editor.md, D-189): the slash menu. Labels are catalog keys; later items are disabled with their milestone. */
+export type SlashDef = { id: string; group: 'objects' | 'blocks' | 'media' | 'advanced'; label: string; status: RouteDef['status']; due?: Due; reqs: string[] };
+const slash = (id: string, group: SlashDef['group'], reqs: string[], due?: Due): SlashDef =>
+  ({ id, group, label: `slash.${id}`, status: due ? { built: false, due } : built, ...(due ? { due } : {}), reqs });
+export const SLASH_ITEMS: SlashDef[] = [
+  slash('task', 'objects', ['FR-TSK-01', 'FR-CNV-01'], d('MS5')),
+  slash('turnIntoObject', 'objects', ['FR-CNV-01'], d('MS5')),
+  slash('embedObject', 'objects', ['FR-EMB-01'], d('MS4')),
+  slash('text', 'blocks', ['FR-EDT-02']),
+  slash('heading1', 'blocks', ['FR-EDT-02']),
+  slash('heading2', 'blocks', ['FR-EDT-02']),
+  slash('heading3', 'blocks', ['FR-EDT-02']),
+  slash('bulletList', 'blocks', ['FR-EDT-02']),
+  slash('orderedList', 'blocks', ['FR-EDT-02']),
+  slash('checklist', 'blocks', ['FR-EDT-02', 'FR-TSK-11']),
+  slash('quote', 'blocks', ['FR-EDT-02']),
+  slash('callout', 'blocks', ['FR-EDT-02']),
+  slash('codeBlock', 'blocks', ['FR-EDT-02']),
+  slash('divider', 'blocks', ['FR-EDT-02']),
+  slash('table', 'blocks', ['FR-EDT-02']),
+  slash('image', 'media', ['FR-ATT-01', 'FR-ATT-03'], d('MS6')),
+  slash('pdf', 'media', ['FR-ATT-02'], d('MS6')),
+  slash('blockEmbed', 'advanced', ['FR-EMB-04'], d('MS4')),
+  slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06'], d('v1.0')),
+  slash('mindmap', 'advanced', ['FR-MMP-01'], d('v1.0')),
 ];
 
 const ORDER: Milestone[] = ['MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
@@ -133,6 +175,9 @@ export function overdue(milestone: Milestone | string): string[] {
   }
   for (const p of IN_NOTE_PLACEHOLDERS) {
     if (rank(p.due.milestone) <= limit) out.push(`${p.id} (${showDue(p.due)})`);
+  }
+  for (const i of SLASH_ITEMS) {
+    if (i.due && rank(i.due.milestone) <= limit) out.push(`${String(en[i.label] ?? i.label)} (${showDue(i.due)})`);
   }
   return out;
 }

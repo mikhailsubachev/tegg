@@ -1,0 +1,29 @@
+{
+  "name": "@tegg/editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tegg block editor: TipTap/ProseMirror on source blocks, ported from spike S2 (D-83, ADR 0002, docs/contracts/ms3-shell.md §13.3)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^26.6.4",
+    "fast-check": "^4.10.2",
+    "jsdom": "^30.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-list": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0"
+  }
+}

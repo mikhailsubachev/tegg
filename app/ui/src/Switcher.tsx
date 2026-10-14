@@ -15,6 +15,7 @@ export function Switcher({ onOpen, onCreate, onClose }: {
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => input.current?.focus(), []);
   useEffect(() => {
@@ -74,7 +75,12 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               role="option"
               aria-selected={n === sel}
               className={n === sel ? 'selected' : ''}
-              onMouseEnter={() => setSel(n)}
+              onMouseMove={(e) => {
+                // A resting pointer never changes the selection: WebKit sends mouse moves when the list appears under it.
+                const p = pointer.current;
+                pointer.current = { x: e.clientX, y: e.clientY };
+                if (p && (p.x !== e.clientX || p.y !== e.clientY) && n !== sel) setSel(n);
+              }}
               onClick={() => choose(i)}
             >
               <span className="icon">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>

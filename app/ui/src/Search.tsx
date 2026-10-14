@@ -38,7 +38,9 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
       <ul aria-label={t('search.results')}>
         {page?.results.map((r) => (
           <li key={r.path}>
-            <button tabIndex={0} onClick={() => onOpen(r.path)}>
+            {/* A link row, not a <button>: WebKit centres a flex button's content, so results with a wrapped snippet
+                jumped to the middle (3C preview feedback). */}
+            <a href="#" tabIndex={0} className="result" onClick={(e) => { e.preventDefault(); onOpen(r.path); }}>
               <span className="icon">{typeIcon(r.type)}</span>
               <span className="title" data-user-content>{r.title}</span>
               {r.typo && <span className="typo">{t('search.typo')}</span>}
@@ -47,7 +49,7 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
                   <Highlighted text={r.snippet.text} ranges={r.snippet.highlights} />
                 </span>
               )}
-            </button>
+            </a>
           </li>
         ))}
       </ul>

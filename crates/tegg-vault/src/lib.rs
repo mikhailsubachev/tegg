@@ -25,6 +25,13 @@ pub struct FileVersion {
     pub hash: [u8; 32],
 }
 
+impl FileVersion {
+    /// D-175: two versions are the same when size and content hash match; the mtime only decides re-hashing.
+    pub fn same_content(&self, other: &FileVersion) -> bool {
+        self.size == other.size && self.hash == other.hash
+    }
+}
+
 pub(crate) fn version_of(bytes: &[u8], mtime_ns: i128) -> FileVersion {
     FileVersion { mtime_ns, size: bytes.len() as u64, hash: *blake3::hash(bytes).as_bytes() }
 }
@@ -266,7 +273,8 @@ impl Vault {
     }
 
     /// The one write function (architecture §5.3). Unchanged bytes → nothing written (FR-SYN-06);
-    /// disk differs from `base` → `Conflict` (FR-SYN-03 AC-7); file gone while `base` is Some → `Gone`.
+    /// disk content (size + hash, D-175) differs from `base` → `Conflict` (FR-SYN-03 AC-7); an mtime-only
+    /// change is not a conflict; file gone while `base` is Some → `Gone`.
     pub fn write(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let path = nfc(path);
@@ -277,7 +285,7 @@ impl Vault {
                 }
                 // No base means "I have no version": an existing file with other bytes is never
                 // overwritten (NFR-REL-02, bug_ms1_nfr_rel_02); with a base, it must still be on disk.
-                if base != Some(&disk) {
+                if !base.is_some_and(|b| b.same_content(&disk)) {
                     return Err(VaultError::Conflict { disk });
                 }
                 Ok(WriteOutcome::Written(self.fs.replace(&path, bytes)?))
@@ -320,6 +328,35 @@ impl Vault {
                 Err(e) if e.kind() == io::ErrorKind::AlreadyExists => taken.push(fold(&name)),
                 Err(e) => return Err(VaultError::Io(e)),
             }
+        }
+    }
+
+    /// A new file at exactly `path`; `NameTaken` if any file has that name (NFC, case-insensitive). D-194.
+    pub fn create_exact(&self, path: &str, bytes: &[u8]) -> Result<FileVersion, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let path = nfc(path.trim_matches('/'));
+        let (dir, name) = path.rsplit_once('/').unwrap_or(("", &path));
+        if !dir.is_empty() {
+            self.fs.create_dir_all(dir)?;
+        }
+        if self.names_in(dir)?.contains(&fold(name)) {
+            return Err(VaultError::NameTaken);
+        }
+        match self.fs.create_new(&path, bytes) {
+            Ok(v) => Ok(v),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Err(VaultError::NameTaken),
+            Err(e) => Err(VaultError::Io(e)),
+        }
+    }
+
+    /// Trash only if the file is still `base` (D-195); else `Conflict`.
+    pub fn trash_checked(&self, path: &str, base: &FileVersion) -> Result<String, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let path = nfc(path);
+        match self.fs.version(&path)? {
+            None => Err(VaultError::Gone),
+            Some(disk) if !disk.same_content(base) => Err(VaultError::Conflict { disk }),
+            Some(_) => self.move_free(&path, &join(TRASH, &path)),
         }
     }
 

@@ -7,7 +7,8 @@ import { events, ipc } from './ipc/client';
 import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
 import { renderNewNote } from './newNote';
 import { Chooser } from './pages/Chooser';
-import { NotePage, type NoteMeta } from './pages/NotePage';
+import { ConflictsPage } from './pages/ConflictsPage';
+import { NotePage, type NoteMeta, type NotePageApi } from './pages/NotePage';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TypePage } from './pages/TypePage';
@@ -54,6 +55,16 @@ export function App() {
   const [refresh, setRefresh] = useState(0);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
   const [sourceToggle, setSourceToggle] = useState(0);
+  const [conflicts, setConflicts] = useState(0);
+  const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
+  // The note page stays mounted through a rename (FR-SYN-03 AC-18): it is keyed by navigation, not by path.
+  const [navKey, setNavKey] = useState(0);
+  const noteApi = useRef<NotePageApi | null>(null);
+  const justCreated = useRef<string | null>(null);
+  /** Saves the open note before leaving it (FR-EDT-08 AC-7). */
+  const flushNote = useCallback(async () => {
+    try { await noteApi.current?.flush(); } catch { /* the page shows its own save state */ }
+  }, []);
   // Back/forward (FR-NAV-03, D-165): in memory, one per window; `histTick` re-renders the title-bar buttons.
   const history = useRef(createHistory());
   const [, setHistTick] = useState(0);
@@ -95,6 +106,7 @@ export function App() {
   const loadTypes = useCallback(() => {
     ipc.vaultTypes().then(setTypes, () => setTypes([]));
     ipc.typeCounts().then(setCounts, () => setCounts({}));
+    ipc.conflicts().then((c) => setConflicts(c.length), () => setConflicts(0));
   }, []);
 
   const land = useCallback(async () => {
@@ -104,6 +116,7 @@ export function App() {
     history.current.clear(); // D-171: the history starts with the landing route
     history.current.push(landing);
     setHistTick((n) => n + 1);
+    setNavKey((n) => n + 1);
     setRoute(landing);
   }, []);
 
@@ -122,7 +135,6 @@ export function App() {
     const un = [
       events.progress(setProgress),
       events.changed(() => { setRefresh((n) => n + 1); }),
-      events.conflict((c) => setMessage(t('banner.conflict', { path: c.path }))),
     ];
     return () => un.forEach((p) => p.then((f) => f()));
   }, []);
@@ -142,7 +154,8 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
-  const go = useCallback((r: Route) => {
+  const go = useCallback(async (r: Route) => {
+    await flushNote();
     setChooser(null);
     setDialog(null);
     setFocusMode(false);
@@ -151,9 +164,12 @@ export function App() {
     history.current.saveScroll(centreScroll());
     history.current.push(r);
     setHistTick((n) => n + 1);
+    setNavKey((n) => n + 1);
     setRoute(r);
   }, []);
-  const step = useCallback((dir: 'back' | 'forward') => {
+  const step = useCallback(async (dir: 'back' | 'forward') => {
+    if (dir === 'back' ? !history.current.canBack() : !history.current.canForward()) return;
+    await flushNote();
     history.current.saveScroll(centreScroll());
     const e = dir === 'back' ? history.current.back() : history.current.forward();
     if (!e) return;
@@ -163,6 +179,7 @@ export function App() {
     pendingFocus.current = true;
     pendingScroll.current = e.scrollTop;
     setHistTick((n) => n + 1);
+    setNavKey((n) => n + 1);
     setRoute(e.route);
   }, []);
   // A focus the user makes before the new page is ready wins over the pending heading focus.
@@ -173,8 +190,9 @@ export function App() {
     window.addEventListener('focusin', onFocus);
     return () => window.removeEventListener('focusin', onFocus);
   }, []);
-  const openNote = useCallback((path: string, fragment?: string) => go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }), [go]);
-  const openTag = useCallback((key: string) => go({ id: 'search', param: `tag:${key}` }), [go]);
+  const openNote = useCallback((path: string, fragment?: string) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }); }, [go]);
+  // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
+  const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
 
   const routeKey = route ? routeString(route) : '';
   // The route a Back/Forward step is restoring the scroll position of (not re-scrolled to its fragment, AC-4).
@@ -184,11 +202,26 @@ export function App() {
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
   }, [routeKey]);
 
-  const createFrom = useCallback((item: SwitcherItemDto) => {
+  const createFrom = useCallback(async (item: SwitcherItemDto) => {
     setDialog(null);
+    await flushNote();
     const title = item.title.normalize('NFC');
-    ipc.noteCreate(item.folder, title, renderNewNote(item.type, title)).then(openNote, () => setMessage(t('error.io')));
+    ipc.noteCreate(item.folder, title, renderNewNote(item.type, title)).then((p) => { justCreated.current = p.normalize('NFC'); openNote(p); }, () => setMessage(t('error.io')));
   }, [openNote]);
+
+  // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
+  useEffect(() => {
+    const quit = () => { void ipc.appQuit().catch(() => {}); };
+    const un = events.quitRequested(async () => {
+      const api = noteApi.current;
+      if (!api) { quit(); return; }
+      if (api.mergeOpen()) { setQuitAsk('keepBoth'); return; }
+      await Promise.race([api.flush(), new Promise((r) => setTimeout(r, 2000))]);
+      if (api.pending()) setQuitAsk('unsaved');
+      else quit();
+    });
+    return () => void un.then((f) => f());
+  }, []);
 
   // ------------------------------------------------------------------ layout
   const isObject = route?.id === 'note/<path>';
@@ -198,7 +231,7 @@ export function App() {
   const showPanel = isObject && ui.rightPanel.open && panelFits && !focusMode;
 
   const actions: ShellActions = useMemo(() => ({
-    go,
+    go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
     newObject: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('newObject'); },
@@ -210,11 +243,12 @@ export function App() {
       requestAnimationFrame(() => heading.current?.focus());
     },
     toggleSource: () => { if (route?.id === 'note/<path>') setSourceToggle((n) => n + 1); },
-    back: () => step('back'),
-    forward: () => step('forward'),
+    back: () => { void step('back'); },
+    forward: () => { void step('forward'); },
     toggleProperties: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
-    openChooser: (form: boolean) => { setDialog(null); setChooser({ form }); },
+    openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
+    edit: (a) => { if (route?.id === 'note/<path>') noteApi.current?.edit(a); },
   }), [go, step, route?.id, updateUi]);
 
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions };
@@ -229,7 +263,8 @@ export function App() {
 
   // Test hook (ms3-shell §10): registered command ids and route ids.
   useEffect(() => {
-    (window as { __TEGG_TEST__?: unknown }).__TEGG_TEST__ = { commands: () => list.map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
+    const w = window as { __TEGG_TEST__?: Record<string, unknown> };
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => list.map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
   }, [list]);
 
   // Focus returns to where it was as soon as the dialog is gone, before the next key (D-139).
@@ -270,6 +305,8 @@ export function App() {
       if (!keys) return;
       const s = SHORTCUTS.find((x) => x.keys === keys);
       if (!s) return;
+      // Editor commands the editor already handled (⌘Z in the text) don't run twice.
+      if (s.command.startsWith('edit.') && e.defaultPrevented) return;
       e.preventDefault();
       if (s.command === 'app.palette') {
         if (L.dialog !== 'palette') {
@@ -290,11 +327,21 @@ export function App() {
 
   // Mouse back/forward buttons and a two-finger horizontal swipe (FR-NAV-03, ms3-shell §12.2).
   useEffect(() => {
-    const onMouse = (e: MouseEvent) => {
-      if ((e.button !== 3 && e.button !== 4) || live.current.dialog) return; // dialogs keep their input (AC-6)
-      e.preventDefault();
-      step(e.button === 3 ? 'back' : 'forward');
+    // The page's mouseup (where the webview passes it) and the shell's native event (where it doesn't, 3C feedback)
+    // may both report one press: the second within 300 ms is ignored.
+    let last = { from: '', at: 0 };
+    const press = (dir: 'back' | 'forward', from: 'page' | 'native') => {
+      if (live.current.dialog) return; // dialogs keep their input (AC-6)
+      const twice = last.from !== from && Date.now() - last.at < 300;
+      last = { from, at: Date.now() };
+      if (!twice) void step(dir);
     };
+    const onMouse = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      press(e.button === 3 ? 'back' : 'forward', 'page');
+    };
+    const unNative = events.navMouse((d) => press(d, 'native'));
     let dx = 0;
     let since = 0;
     let fired = false;
@@ -311,12 +358,13 @@ export function App() {
       dx += e.deltaX;
       if (!fired && Math.abs(dx) >= 80) {
         fired = true;
-        step(dx < 0 ? 'back' : 'forward'); // fingers to the right scroll left: back, as in Safari
+        void step(dx < 0 ? 'back' : 'forward'); // fingers to the right scroll left: back, as in Safari
       }
     };
     window.addEventListener('mouseup', onMouse);
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => {
+      void unNative.then((f) => f());
       window.removeEventListener('mouseup', onMouse);
       window.removeEventListener('wheel', onWheel);
     };
@@ -339,7 +387,12 @@ export function App() {
       const h = heading.current;
       const ready = !!h && (route.id !== 'note/<path>' || meta !== null);
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
-      if (pendingFocus.current && !live.current.dialog) { pendingFocus.current = false; h!.focus({ preventScroll: true }); }
+      if (pendingFocus.current && !live.current.dialog) {
+        pendingFocus.current = false;
+        // A note just made with New object gets the caret in its body (AP-135); the page focuses it itself.
+        if (route.id === 'note/<path>' && route.param === justCreated.current) justCreated.current = null;
+        else h!.focus({ preventScroll: true });
+      }
       if (pendingScroll.current !== null && route.id !== 'note/<path>') {
         const m = document.querySelector('main');
         if (m) m.scrollTop = pendingScroll.current;
@@ -365,7 +418,9 @@ export function App() {
   if (route?.id === 'note/<path>' && route.param) {
     body = (
       <NotePage
-        key={route.param}
+        key={navKey}
+        apiRef={noteApi}
+        created={justCreated.current === route.param}
         path={route.param}
         fragment={route.fragment}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
@@ -404,6 +459,8 @@ export function App() {
         onSettings={() => go({ id: 'type-settings/<type>', param: route.param })}
       />
     );
+  } else if (route?.id === 'conflicts') {
+    body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
@@ -431,6 +488,7 @@ export function App() {
             onGo={go}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
+            conflicts={conflicts}
           />
         )}
         <div className="centre">
@@ -452,6 +510,24 @@ export function App() {
         {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))} />}
       </div>
       {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
+      {quitAsk && (
+        <div className="dialog-backdrop">
+          <div role="dialog" aria-modal="true" aria-label={t(quitAsk === 'keepBoth' ? 'quit.keepBoth' : 'quit.title')} className="dialog"
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setQuitAsk(null); } }}>
+            <h2>{t(quitAsk === 'keepBoth' ? 'quit.keepBoth' : 'quit.title')}</h2>
+            <p>{t(quitAsk === 'keepBoth' ? 'quit.keepBothBody' : 'quit.body')}</p>
+            <div className="dialog-buttons">
+              <button type="button" autoFocus onClick={() => setQuitAsk(null)}>{t('quit.cancel')}</button>
+              <button type="button" onClick={async () => {
+                const keep = quitAsk === 'keepBoth';
+                setQuitAsk(null);
+                if (keep) await noteApi.current?.keepBoth().catch(() => {});
+                void ipc.appQuit().catch(() => {});
+              }}>{t(quitAsk === 'keepBoth' ? 'quit.keepBothOk' : 'quit.anyway')}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
       {dialog === 'newObject' && <NewObjectDialog types={types} onCreate={createFrom} onClose={closeDialog} />}
     </div>

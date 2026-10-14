@@ -10,7 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager, State};
-use tegg_core::{AppDirs, Core, CoreError, CoreEvent, CoreOptions, DateRange, LinkKind, MatchField, ProgressState, SearchQuery, SwitcherKind, Vault, VaultError};
+use tegg_core::{
+    AppDirs, ConflictKind, Core, CoreError, CoreEvent, CoreOptions, DateRange, FileVersion, LinkKind, MatchField, ProgressState, SearchQuery,
+    SwitcherKind, Vault, VaultError, WriteOutcome,
+};
 use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
@@ -66,6 +69,41 @@ fn ms_since_process_start() -> f64 {
 
 static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
+static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The mouse's back and forward buttons (FR-NAV-03, D-165): WKWebView doesn't pass them to the page, so a local
+/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI.
+#[cfg(target_os = "macos")]
+fn watch_mouse_buttons(app: AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask};
+    use std::ptr::NonNull;
+    let block = RcBlock::new(move |e: NonNull<NSEvent>| -> *mut NSEvent {
+        // SAFETY: AppKit passes a valid event for the duration of the handler.
+        let n = unsafe { e.as_ref() }.buttonNumber();
+        match n {
+            3 => { let _ = app.emit("nav:mouse", "back"); }
+            4 => { let _ = app.emit("nav:mouse", "forward"); }
+            _ => {}
+        }
+        e.as_ptr()
+    });
+    // SAFETY: called on the main thread during setup; the monitor lives as long as the app.
+    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp, &block) };
+    std::mem::forget(monitor);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn watch_mouse_buttons(_app: AppHandle) {}
+
+/// The UI's answer to `app:quit-requested`: everything is saved, or the user confirmed (D-179, D-196).
+#[tauri::command]
+fn app_quit(app: AppHandle) {
+    ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
+    app.exit(0);
+}
+
 /// Writes `{"mark", "ms"}` once per mark to `TEGG_PERF_LOG`; quits (exit code 0) after `TEGG_EXIT_AFTER`.
 fn mark(app: &AppHandle, name: &str) {
     let Some(log) = test_var("TEGG_PERF_LOG") else { return };
@@ -78,7 +116,7 @@ fn mark(app: &AppHandle, name: &str) {
     }
     let line = serde_json::json!({ "mark": name, "ms": ms_since_process_start() });
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
-        let _ = writeln!(f, "{line}");
+        let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
     }
     if test_var("TEGG_EXIT_AFTER").as_deref() == Some(name) {
         app.exit(0);
@@ -88,7 +126,32 @@ fn mark(app: &AppHandle, name: &str) {
 // ---------------------------------------------------------------- vault and events
 
 fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string() }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None }
+}
+
+fn version_dto(v: &FileVersion) -> VersionDto {
+    VersionDto { mtime_ns: v.mtime_ns.to_string(), size: v.size, hash: v.hash.iter().map(|b| format!("{b:02x}")).collect() }
+}
+
+fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
+    let bad = || err("Io", "malformed version");
+    if d.hash.len() != 64 {
+        return Err(bad());
+    }
+    let mut hash = [0u8; 32];
+    for (i, h) in hash.iter_mut().enumerate() {
+        *h = u8::from_str_radix(&d.hash[2 * i..2 * i + 2], 16).map_err(|_| bad())?;
+    }
+    Ok(FileVersion { mtime_ns: d.mtime_ns.parse().map_err(|_| bad())?, size: d.size, hash })
+}
+
+/// Repeatable marks (D-207 `index-idle`): one line per occurrence, unlike `mark`.
+fn mark_repeat(name: &str) {
+    let Some(log) = test_var("TEGG_PERF_LOG") else { return };
+    let line = serde_json::json!({ "mark": name, "ms": ms_since_process_start() });
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
+        let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
+    }
 }
 
 fn core_err(e: CoreError) -> IpcError {
@@ -97,6 +160,7 @@ fn core_err(e: CoreError) -> IpcError {
         CoreError::Vault(VaultError::Gone) => err("Gone", "the file was deleted"),
         CoreError::Vault(VaultError::NotFound) => err("NotFound", "no such file"),
         CoreError::Vault(VaultError::NameTaken) => err("NameTaken", "the name is taken"),
+        CoreError::NotUtf8 => err("NotUtf8", "the file isn't valid UTF-8"),
         other => err("Io", format!("{other:?}")),
     }
 }
@@ -120,6 +184,24 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
         placeholders: core.placeholders().len() as u32,
     };
     forward_events(app.clone(), &core);
+    {
+        // D-207: `index-idle` each time the index queue drains (L6 waits on it).
+        let weak = Arc::downgrade(&core);
+        if test_var("TEGG_PERF_LOG").is_some() {
+            std::thread::spawn(move || {
+                let mut was_idle = false;
+                while let Some(core) = weak.upgrade() {
+                    let idle = core.wait_idle(Duration::ZERO);
+                    if idle && !was_idle {
+                        mark_repeat("index-idle");
+                    }
+                    was_idle = idle;
+                    drop(core);
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            });
+        }
+    }
     *state.core.lock().unwrap_or_else(|p| p.into_inner()) = Some(core);
     *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
     Ok(info)
@@ -145,8 +227,14 @@ fn forward_events(app: AppHandle, core: &Core) {
                 CoreEvent::VaultChanged { paths } => {
                     let _ = app.emit("vault:changed", ChangedDto { paths });
                 }
-                CoreEvent::NoteConflict { path, .. } => {
-                    let _ = app.emit("note:conflict", ConflictDto { path });
+                CoreEvent::NoteConflict { path, mine, theirs, disk } => {
+                    let c = ConflictDto {
+                        path,
+                        mine: String::from_utf8_lossy(&mine).into_owned(),
+                        theirs: String::from_utf8_lossy(&theirs).into_owned(),
+                        theirs_version: version_dto(&disk),
+                    };
+                    let _ = app.emit("note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
             }
@@ -240,6 +328,7 @@ async fn index_switcher(state: State<'_, AppState>, q: String, limit: u32) -> Re
         .switcher(&q, limit.max(1) as usize)
         .into_iter()
         .map(|i| SwitcherItemDto {
+            created: i.path.as_deref().and_then(|p| core.object(p)).and_then(|o| o.attributes.get("created").and_then(|v| v.as_str()).map(str::to_string)),
             kind: if i.kind == SwitcherKind::Create { "create" } else { "object" }.into(),
             path: i.path,
             title: i.title,
@@ -253,8 +342,80 @@ async fn index_switcher(state: State<'_, AppState>, q: String, limit: u32) -> Re
 #[tauri::command]
 async fn note_read(state: State<'_, AppState>, path: String) -> Result<NoteDto, IpcError> {
     let core = core(&state)?;
-    let (bytes, _) = core.read_note(&path, SystemTime::now()).map_err(core_err)?;
-    Ok(NoteDto { path, text: String::from_utf8_lossy(&bytes).into_owned() })
+    let r = core.read_note_info(&path, SystemTime::now()).map_err(core_err)?;
+    Ok(NoteDto { path, text: String::from_utf8_lossy(&r.bytes).into_owned(), version: version_dto(&r.version), utf8: r.utf8 })
+}
+
+/// ms3-shell §13.2: the editor's save, through MS1's one write function (D-175 version rule).
+#[tauri::command]
+async fn note_write(app: AppHandle, state: State<'_, AppState>, path: String, text: String, base: Option<VersionDto>) -> Result<WriteResultDto, IpcError> {
+    let core = core(&state)?;
+    let base = base.as_ref().map(version_from).transpose()?;
+    match core.write_note(&path, text.as_bytes(), base.as_ref()) {
+        Ok(WriteOutcome::Written(v)) => {
+            mark(&app, "note-saved");
+            Ok(WriteResultDto { outcome: "written".into(), version: version_dto(&v) })
+        }
+        Ok(WriteOutcome::Unchanged) => {
+            let v = core.vault().version(&path).ok().flatten().ok_or_else(|| err("Gone", "the file was deleted"))?;
+            Ok(WriteResultDto { outcome: "unchanged".into(), version: version_dto(&v) })
+        }
+        Err(CoreError::Vault(VaultError::Conflict { disk })) => {
+            let theirs = core.vault().read(&path).map(|(b, _)| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+            let mut e = err("Conflict", "the file changed on disk");
+            e.conflict = Some(ConflictDto { path, mine: text, theirs, theirs_version: version_dto(&disk) });
+            Err(e)
+        }
+        Err(e) => Err(core_err(e)),
+    }
+}
+
+/// D-194: `Keep both` creates exactly this path; `NameTaken` if it exists.
+#[tauri::command]
+async fn note_create_exact(state: State<'_, AppState>, path: String, text: String) -> Result<VersionDto, IpcError> {
+    let core = core(&state)?;
+    core.create_exact(&path, text.as_bytes()).map(|v| version_dto(&v)).map_err(core_err)
+}
+
+/// D-195: trash after a version check; Conflicts view only.
+#[tauri::command]
+async fn note_trash(state: State<'_, AppState>, path: String, base: VersionDto) -> Result<String, IpcError> {
+    let core = core(&state)?;
+    core.trash_note(&path, &version_from(&base)?).map_err(core_err)
+}
+
+/// D-185.
+#[tauri::command]
+async fn index_tags(state: State<'_, AppState>) -> Result<Vec<TagDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.tags().into_iter().map(|t| TagDto { key: t.key, spelling: t.spelling, count: t.count as u32 }).collect())
+}
+
+/// ms3-shell §13.2: `Core::conflicts()` with versions.
+#[tauri::command]
+async fn index_conflicts(state: State<'_, AppState>) -> Result<Vec<ConflictRowDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .conflicts()
+        .into_iter()
+        .map(|c| {
+            let versions = std::iter::once(&c.primary)
+                .chain(&c.others)
+                .filter_map(|p| core.vault().version(p).ok().flatten().map(|v| (p.clone(), version_dto(&v))))
+                .collect();
+            ConflictRowDto {
+                kind: match c.kind {
+                    ConflictKind::DuplicateId => "duplicateId",
+                    ConflictKind::PossibleCopy => "possibleCopy",
+                    ConflictKind::NameNormalization => "nameNormalization",
+                }
+                .into(),
+                primary: c.primary,
+                others: c.others,
+                versions,
+            }
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -263,9 +424,19 @@ async fn note_create(state: State<'_, AppState>, dir: String, title: String, tex
     core.create_note(&dir, &title, text.as_bytes()).map_err(core_err)
 }
 
+/// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
 #[tauri::command]
-fn perf_mark(app: AppHandle, name: String) {
-    mark(&app, &name);
+fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) {
+    match (frame, ms) {
+        (Some(frame), Some(ms)) => {
+            let Some(log) = test_var("TEGG_PERF_LOG") else { return };
+            let line = serde_json::json!({ "mark": name, "frame": frame, "ms": ms });
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
+                let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
+            }
+        }
+        _ => mark(&app, &name),
+    }
 }
 
 // ---------------------------------------------------------------- MS3 slice 3A (ms3-shell §2)
@@ -452,6 +623,33 @@ pub fn run() {
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
         .setup(|app| {
             let handle = app.handle().clone();
+            watch_mouse_buttons(handle.clone());
+            // The default menu, with Quit replaced by an item that lets the UI save first (FR-EDT-08 AC-7, D-196).
+            {
+                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+                let menu = Menu::default(&handle)?;
+                if let Some(tauri::menu::MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+                    for item in app_menu.items()? {
+                        if let tauri::menu::MenuItemKind::Predefined(p) = &item {
+                            if p.text().unwrap_or_default().starts_with("Quit") {
+                                app_menu.remove(&item)?;
+                            }
+                        }
+                    }
+                    app_menu.append(&PredefinedMenuItem::separator(&handle)?)?;
+                    app_menu.append(&MenuItem::with_id(&handle, "tegg-quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?)?;
+                }
+                app.set_menu(menu)?;
+                app.on_menu_event(|app, e| {
+                    if e.id() == "tegg-quit" {
+                        if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
+                            app.exit(0);
+                        } else {
+                            let _ = app.emit("app:quit-requested", ());
+                        }
+                    }
+                });
+            }
             let dirs = app.state::<AppState>().dirs.clone();
             // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
@@ -474,8 +672,24 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, open_external
+            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Tegg");
+        .build(tauri::generate_context!())
+        .expect("error while building Tegg")
+        .run(|app, event| {
+            // ⌘Q, the Quit Apple Event and closing the window first let the UI flush the open note (FR-EDT-08 AC-7):
+            // the UI answers with `app_quit` when the note is saved or the user chose to quit anyway (D-196).
+            let allowed = ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst);
+            match event {
+                tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() && !allowed => {
+                    api.prevent_exit();
+                    let _ = app.emit("app:quit-requested", ());
+                }
+                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
+                    api.prevent_close();
+                    let _ = app.emit("app:quit-requested", ());
+                }
+                _ => {}
+            }
+        });
 }

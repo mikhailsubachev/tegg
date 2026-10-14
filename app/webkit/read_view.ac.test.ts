@@ -15,6 +15,12 @@ import {
 } from './read-helpers';
 
 const TOGGLE = 'Alt+Meta+KeyU';
+
+// D-215 (3C): the note route is the editor; these 3B tests check the read view, the fallback view (D-117), through the
+// test-only switch.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
+});
 const nfc = (s: string) => s.normalize('NFC');
 
 async function toSource(page: Page) {
@@ -199,6 +205,7 @@ test('fr_edt_10_ac8_source_view_theme_quality', async ({ browser }) => {
   const failures: string[] = [];
   for (const t of ['light', 'dark'] as const) {
     const page = await browser.newPage();
+      await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215
     await openAt(page, R.bloky, { uiState: ui(t) });
     assert.equal(await eventually(() => theme(page), (v) => v === t), t, `theme ${t}`);
     await toSource(page);
@@ -339,23 +346,15 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
   assert.deepEqual(Object.keys(await core.files()).sort(), Object.keys(files).sort(), 'no file created');
 });
 
-test('fr_edt_02_ac9_tag_opens_search_with_the_tag_filter', async ({ page }) => {
-  const core = await openAt(page, R.odkazy);
+test('fr_edt_02_ac9_tag_opens_the_tag_page', async ({ page }) => {
+  // D-218 (supersedes D-143): a tag opens its tag page; until MS4 (FR-TAG-06) that is the Tags placeholder.
+  await openAt(page, R.odkazy);
   const art = await mustArticle(page, 'Odkazy');
-  const chip = await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa');
-  const n = (await core.calls()).length;
-  await chip.click();
-  await mustBeOn(page, 'Search', 'tag activation');
-  const searches = (await core.calls()).slice(n).filter((c) => c.cmd === 'index_search').map((c) => (c.args as any)?.query);
-  assert.ok(searches.length > 0, 'the search page queries the index');
-  const last = searches[searches.length - 1];
-  assert.deepEqual([last?.tags, last?.text ?? ''], [['projekt/alfa'], ''], 'tag filter = tagKey, empty text query');
+  await (await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa')).click();
+  await mustBeOn(page, 'Tags', 'tag activation');
   await openNote(page, 'Odkazy');
-  const nfdChip = await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)');
-  await (nfdChip).click();
-  await mustBeOn(page, 'Search', 'NFD tag activation');
-  const s2 = (await core.calls()).filter((c) => c.cmd === 'index_search').map((c) => (c.args as any)?.query);
-  assert.deepEqual(s2[s2.length - 1]?.tags, ['čeština'], 'NFC, lower-case key');
+  await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)')).click();
+  await mustBeOn(page, 'Tags', 'NFD tag activation');
 });
 
 test('fr_edt_02_ac10_external_links_open_outside_and_no_network', async ({ page }) => {
@@ -399,7 +398,8 @@ test('fr_edt_02_ac13_placeholders_send_nothing_and_note_embed_opens', async ({ p
   const art = await mustArticle(page, 'Odkazy');
   await sleep(300);
   const sent = await cmds(core);
-  const allowed = new Set(['vault_current', 'vault_last', 'vault_types', 'index_type_counts', 'index_list', 'ui_state_get', 'nav_opened', 'perf_mark', 'note_read', 'link_resolve', 'index_switcher']);
+  const allowed = new Set(['vault_current', 'vault_last', 'vault_types', 'index_type_counts', 'index_list', 'ui_state_get', 'nav_opened', 'perf_mark', 'note_read', 'link_resolve', 'index_switcher',
+    'index_conflicts']); // 3C: the sidebar's Conflicts count, read when the vault opens (D-177)
   assert.deepEqual(sent.filter((c) => !allowed.has(c)), [], 'no other IPC command while rendering placeholders');
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));
   assert.deepEqual(reads, [R.odkazy], 'no attachment or embedded note is read');
@@ -421,9 +421,7 @@ test('fr_edt_02_ac14_formatted_view_is_read_only_with_disabled_edit', async ({ p
   for (const k of ['x', 'Backspace', 'Meta+v', 'Enter']) await page.keyboard.press(k);
   assert.equal(await art.innerText(), before, 'typing, paste and ⌫ change nothing');
   assert.deepEqual(await nonReadCalls(core), [], 'no write');
-  const edit = await must(page.getByRole('button', { name: 'Edit', exact: true }), 'disabled control "Edit"');
-  assert.equal(await edit.getAttribute('aria-disabled'), 'true');
-  assert.ok(await seen(page.getByText('Editing comes in MS3 (3C)')), 'visible note "Editing comes in MS3 (3C)"');
+  // The disabled `Edit` control was 3B-only (R3 changes of editor.md, D-215).
 });
 
 test('fr_edt_02_ac15_both_themes_on_bloky_odkazy_vlastnosti', async ({ browser }) => {
@@ -432,6 +430,7 @@ test('fr_edt_02_ac15_both_themes_on_bloky_odkazy_vlastnosti', async ({ browser }
   for (const t of ['light', 'dark'] as const) {
     for (const p of [R.bloky, R.odkazy, R.vlastnosti]) {
       const page = await browser.newPage();
+      await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215
       await openAt(page, p, { uiState: ui(t) });
       await mustArticle(page, TITLES[p]);
       assert.equal(await eventually(() => theme(page), (v) => v === t), t, `theme ${t}`);
@@ -536,6 +535,7 @@ test('nfr_rel_03_ac3_invalid_frontmatter_opens_in_source_with_a_warning', async 
   test.setTimeout(120_000);
   for (const [path, kind, line] of INVALID) {
     const page = await browser.newPage();
+      await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215
     const core = await openAt(page, path);
     const alert = await must(page.getByRole('alert'), `${path}: alert`, 5000);
     const tx = await alert.innerText();
@@ -564,6 +564,7 @@ test('nfr_rel_03_ac4_formatted_view_still_available_with_the_warning', async ({ 
   };
   for (const [path] of INVALID) {
     const page = await browser.newPage();
+      await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215
     await openAt(page, path);
     await must(sourceRegion(page), `${path}: source view`, 5000);
     await (await must(toFormattedButton(page), `${path}: toggle "Show formatted note"`)).click();

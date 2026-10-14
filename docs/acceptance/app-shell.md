@@ -84,7 +84,6 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | New type | sidebar, Types header | MS3 (3D) | FR-TYP-01 |
 | Starter vault | chooser, New vault form | MS3 (3D) | FR-VLT-02 |
 | Edit | note toolbar | MS3 (3C) | FR-EDT-01 |
-| Add icon, Add cover | note header | MS3 (3E) | FR-TYP-14 |
 | Filter, Sort, Views, New <Type> | type page | MS3 (3D) | FR-TYP-09 |
 | Font, Font size, Editor width, Accent color | Settings: Appearance | MS3 (3E) | FR-SET-02 |
 | Type picker | New object dialog | MS5 | FR-VLT-05 |

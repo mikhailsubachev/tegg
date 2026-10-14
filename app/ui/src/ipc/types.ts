@@ -27,18 +27,46 @@ export type SwitcherItemDto = {
 /**
  * `object` or `create`.
  */
-kind: string, path: string | null, title: string, type: string, folder: string, matched_alias: string | null, };
-export type NoteDto = { path: string, text: string, };
+kind: string, path: string | null, title: string, type: string, folder: string, matched_alias: string | null, 
+/**
+ * `created:` of the object, for telling duplicate titles apart in link suggestions (D-203).
+ */
+created: string | null, };
+export type NoteDto = { path: string, 
+/**
+ * Decoded with U+FFFD for invalid bytes, for display only (D-180).
+ */
+text: string, version: VersionDto, utf8: boolean, };
 export type ProgressDto = { done: number, total: number, 
 /**
  * `running`, `done` or `cancelled`.
  */
 state: string, };
 export type ChangedDto = { paths: Array<string>, };
-export type ConflictDto = { path: string, };
+export type VersionDto = { 
+/**
+ * i128 as a decimal string.
+ */
+mtimeNs: string, size: bigint, 
+/**
+ * BLAKE3, hex.
+ */
+hash: string, };
+export type WriteResultDto = { 
+/**
+ * `written` or `unchanged`.
+ */
+outcome: string, version: VersionDto, };
+export type TagDto = { key: string, spelling: string, count: number, };
+export type ConflictRowDto = { 
+/**
+ * `duplicateId`, `possibleCopy` or `nameNormalization`.
+ */
+kind: string, primary: string, others: Array<string>, versions: { [key in string]?: VersionDto }, };
+export type ConflictDto = { path: string, mine: string, theirs: string, theirsVersion: VersionDto, };
 export type IpcError = { 
 /**
- * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
+ * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
  */
 kind: string, message: string, };
 export type TypeDefDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, };

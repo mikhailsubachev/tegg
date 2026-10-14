@@ -316,6 +316,7 @@ test('fr_ux_02_ac12_disabled_controls_are_inert_and_explained', async ({ page })
   await must(sidebar(page), 'frame');
   for (const c of R3) {
     await page.keyboard.press('Escape');
+    if (!places[c.where]) continue; // 3C controls inside the editor's menus are checked in editor.ac.test.ts (editor.md R3)
     await places[c.where]();
     const label = c.label === 'New <Type>' ? 'New Quick Note' : c.label;
     const el = page.locator(`[aria-disabled="true"]`).filter({ hasText: new RegExp(`^\\s*${label.replace(/[+()]/g, '\\$&')}`) })
@@ -351,6 +352,7 @@ test('fr_ux_02_ac12_disabled_controls_are_inert_and_explained', async ({ page })
 });
 
 test('fr_ux_02_ac14_note_page_breadcrumb_title_and_read_view', async ({ page }) => {
+  await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const core = await start(page);
   await openNote(page, '2026-10-07 Porada');
   const main = page.getByRole('main');

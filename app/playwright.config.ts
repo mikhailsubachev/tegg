@@ -8,7 +8,7 @@ const port = gate ? 5197 : 5177;
 
 export default defineConfig({
   testDir: 'webkit',
-  testMatch: /\.ac\.test\.ts$/,
+  testMatch: /\.ac\.test\.ts$|\/bug_[^/]+\.test\.ts$/, // AC tests and bug regressions (bug_<issue>_<req-id>_…)
   timeout: 60_000,
   expect: { timeout: 3_000 },
   reporter: [['list']],
