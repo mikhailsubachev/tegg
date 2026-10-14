@@ -89,6 +89,16 @@ export const R4: R4Row[] = [
   { keys: '⌘T', press: 'Meta+t', command: 'New tab', enabled: false },
   { keys: '⌘[', press: 'Meta+BracketLeft', command: 'Go back', enabled: true },
   { keys: '⌘]', press: 'Meta+BracketRight', command: 'Go forward', enabled: true },
+  // D-219: the title-bar vault switcher's recent vaults (FR-VLT-01 AC-17).
+  { keys: '⌃⌘1', press: 'Control+Meta+1', command: 'Open recent vault 1', enabled: true },
+  { keys: '⌃⌘2', press: 'Control+Meta+2', command: 'Open recent vault 2', enabled: true },
+  { keys: '⌃⌘3', press: 'Control+Meta+3', command: 'Open recent vault 3', enabled: true },
+  { keys: '⌃⌘4', press: 'Control+Meta+4', command: 'Open recent vault 4', enabled: true },
+  { keys: '⌃⌘5', press: 'Control+Meta+5', command: 'Open recent vault 5', enabled: true },
+  { keys: '⌃⌘6', press: 'Control+Meta+6', command: 'Open recent vault 6', enabled: true },
+  { keys: '⌃⌘7', press: 'Control+Meta+7', command: 'Open recent vault 7', enabled: true },
+  { keys: '⌃⌘8', press: 'Control+Meta+8', command: 'Open recent vault 8', enabled: true },
+  { keys: '⌃⌘9', press: 'Control+Meta+9', command: 'Open recent vault 9', enabled: true },
   // 3C (editor.md R4 gets the rows of R8).
   { keys: '⌘Z', press: 'Meta+z', command: 'Undo', enabled: true },
   { keys: '⇧⌘Z', press: 'Meta+Shift+z', command: 'Redo', enabled: true },
@@ -112,7 +122,7 @@ export const RESERVED = ['⌘Q', '⌘H', '⌥⌘H', '⌘M', '⌘Tab', '⌘Space'
 
 /** FR-UX-03 AC-3: the non-navigation commands every vault has. */
 export const STATIC_COMMANDS = [
-  'Open vault…', 'Create new vault…', 'Open quick switcher', 'New object', 'Toggle sidebar', 'Toggle right panel',
+  'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'Open quick switcher', 'New object', 'Toggle sidebar', 'Toggle right panel',
   'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
 ];
 

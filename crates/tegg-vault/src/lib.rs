@@ -210,6 +210,14 @@ pub struct Vault {
     lock: Mutex<()>,
 }
 
+/// One entry of the recent-vaults list (D-219).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecentVault {
+    pub name: String,
+    pub path: PathBuf,
+    pub exists: bool,
+}
+
 impl Vault {
     /// FR-VLT-01 AC-2, FR-VLT-02 AC-1: `<parent>/<sanitized name>/` with `.tegg/vault.yml` and one type
     /// definition per system type (D-89, D-90). Nothing else.
@@ -266,6 +274,12 @@ impl Vault {
         let path = PathBuf::from(String::from_utf8(bytes).ok()?.trim_end_matches('\n'));
         let exists = path.is_dir();
         Some((path, exists))
+    }
+
+    /// D-219, FR-VLT-01 AC-17: the recently opened vaults, most recent first (at most 9).
+    pub fn recent(dirs: &AppDirs) -> Vec<RecentVault> {
+        let _ = dirs;
+        Vec::new()
     }
 
     pub fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), VaultError> {

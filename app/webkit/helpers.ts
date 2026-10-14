@@ -171,6 +171,7 @@ export const READ_COMMANDS = new Set([
   'index_switcher', 'note_read', 'ui_state_get', 'ui_state_set', 'nav_opened', 'perf_mark', 'vault_open',
   'link_resolve', 'open_external', // 3B (ms3-shell §11.1): read-only resolution; a URL opened outside the vault
   'index_tags', 'index_conflicts', // 3C (ms3-shell §13.2): read-only
+  'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only list; shows the About panel
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

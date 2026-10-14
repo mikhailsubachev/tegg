@@ -54,7 +54,6 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   await start(page);
   const sb = sidebar(page);
   const parts = [
-    sb.getByRole('link', { name: 'Tegg home', exact: true }),
     sb.getByRole('button', { name: 'Search or jump to…' }),
     sb.getByRole('button', { name: 'New object' }),
     sb.getByText('Home', { exact: true }),
@@ -66,8 +65,9 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     sb.getByText('Tags', { exact: true }),
     sb.getByText('Pinned', { exact: true }),
     sb.getByText('Saved queries', { exact: true }),
+    sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true }),
   ];
-  const names = ['logo', 'switcher field', 'New object', 'Home', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries'];
+  const names = ['switcher field', 'New object', 'Home', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries', 'logo button'];
   const tops: number[] = [];
   for (let i = 0; i < parts.length; i++) {
     const b = await box(parts[i]);
@@ -85,10 +85,21 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     assert.ok(!/\d/.test(text), `${e} shows a count: ${text}`);
   }
   assert.match(await sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Today', { exact: true }) }).first().innerText(), /⌘D/);
-  // Logo leads home; the Tags section has one entry leading to `tags`.
+  // D-220: the logo is a button at the bottom left, no longer a link home.
+  assert.equal(await sb.getByRole('link', { name: 'Tegg home' }).count(), 0, 'no "Tegg home" link (D-220)');
+  const logo = sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true });
+  const lb = await box(logo);
+  const sbb = await box(sb);
+  assert.ok(lb && sbb, 'logo button and sidebar shown');
+  assert.ok(near(lb.y + lb.height, sbb.y + sbb.height, 24), `logo at the bottom of the sidebar (${lb.y + lb.height} vs ${sbb.y + sbb.height})`);
+  assert.ok(lb.x - sbb.x < sbb.width / 2, 'logo at the left');
+  // Always in view: it is outside the scrolling list, so scrolling the list doesn't move it.
+  await sb.evaluate((n) => { for (const e of [n, ...n.querySelectorAll('*')] as HTMLElement[]) if (e.scrollHeight > e.clientHeight) e.scrollTop = e.scrollHeight; });
+  await sleep(100);
+  const lb2 = await box(logo);
+  assert.ok(lb2 && near(lb2.y, lb.y), 'the logo stays in view when the list scrolls');
+  // The Tags section has one entry leading to `tags`.
   await runCommand(page, 'Go to Inbox');
-  await sb.getByRole('link', { name: 'Tegg home', exact: true }).click();
-  await mustBeOn(page, 'Home', 'logo link');
   await sb.getByText('Tags', { exact: true }).click();
   await mustBeOn(page, 'Tags', 'Tags section entry');
 });
@@ -275,8 +286,6 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
     await check(R1.find((r) => r.id === id)!, `sidebar ${entry}`);
   }
-  await sidebar(page).getByRole('link', { name: 'Tegg home' }).click().catch(() => failures.push('home: logo missing'));
-  await check(R1.find((r) => r.id === 'home')!, 'logo');
   for (const [keys, id] of [['Meta+d', 'today'], ['Meta+Shift+i', 'inbox'], ['Meta+Shift+f', 'search'], ['Meta+Comma', 'settings/appearance']] as const) {
     await page.locator('body').click({ position: { x: 700, y: 600 } }).catch(() => {});
     await page.keyboard.press(keys);

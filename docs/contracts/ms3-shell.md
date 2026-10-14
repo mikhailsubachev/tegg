@@ -437,7 +437,7 @@ export function createHistory(): {
 
 - IPC `vault_recent() -> RecentVaultDto[]` with `RecentVaultDto = { name: string, path: string, exists: boolean }`, most recent first, at most 9. The list lives in Application Support next to the last-opened vault file (`tegg-vault`, `Vault::recent(&dirs)`); `vault_open` and `vault_create` record the vault first on success (NFC-normalized path, no duplicates). `vault_open` of the open vault is not called by the UI.
 - IPC `app_about()` shows the standard macOS About panel (no other effect).
-- Commands: `vault.recent.<n>` (n = 1…9, title `Open recent vault <n>`, keys `⌘⌃<n>`, `needsVault: true`), `vault.openFolder` (`Open folder as vault…`), `vault.create` (existing), `goto.settings/vault`; logo menu items run `app.about` and `goto.settings/appearance` (`⌘,` unchanged).
+- Commands: `vault.recent.<n>` (n = 1…9, title `Open recent vault <n>`, keys `⌃⌘<n>`, `needsVault: true`), `vault.openFolder` (`Open folder as vault…`), `vault.create` (existing), `goto.settings/vault`; logo menu items run `app.about` and `goto.settings/appearance` (`⌘,` unchanged).
 - Vault colour: `vaultColor(path)` in `shell/vaultColor.ts` = `VAULT_COLORS[fnv1a32(nfc(path)) % VAULT_COLORS.length]`, with `VAULT_COLORS` the type colour names of `theme/tokens.ts` (`blue`, `green`, …); the dot uses `var(--type-<name>)`, so it follows the theme.
 - Both menus: Arrow keys move, Enter/Space choose, Esc or a click outside closes and returns focus to the opener.
 

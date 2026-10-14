@@ -50,6 +50,8 @@ export type FakeCoreHandle = {
   /** URLs passed to `open_external` that the fake accepted (http, https, mailto; ms3-shell §11.1). */
   externalOpened(): Promise<string[]>;
 };
+/** ms3-shell §12.5 (D-219). */
+export type RecentVaultDto = { name: string; path: string; exists: boolean };
 export type FakeOptions = {
   uiState?: UiStateDto;
   /** Answer of `vault_pick_dir`; `null` = the user cancelled. */
@@ -64,6 +66,11 @@ export type FakeOptions = {
   placeholders?: number;
   /** The last opened note `{ path, id }` (`vault_last` answers from it, AP-76). */
   last?: { path: string; id: string | null } | null;
+  /** Folder path of the vault open at launch (D-219: the switcher's colour and the recent list); default `/fake/<name>`. */
+  vaultPath?: string;
+  /** The machine-local recent-vaults list `vault_recent` starts from (ms3-shell §12.5), most recent first; default: the
+   *  open vault only. `vault_open` / `vault_create` record their vault first on success, NFC, no duplicates, at most 9. */
+  recent?: RecentVaultDto[];
   /** Code run at the start of `/src/main.tsx`, before the app renders (test catalogs, collation locale). */
   prelude?: string;
 };
@@ -139,6 +146,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'index_switcher', 'note_read', 'ui_state_get', 'ui_state_set', 'nav_opened', 'perf_mark', 'vault_open',
     'link_resolve', 'open_external', // 3B: read-only / opens a URL outside the vault (ms3-shell §11.1)
     'index_tags', 'index_conflicts', // 3C: read-only (ms3-shell §13.2)
+    'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
   ]);
   const opts = init.opts;
   const state = {
@@ -149,6 +157,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     external: [] as string[],
     uiState: (opts.uiState ?? null) as UiStateDto | null,
     last: (opts.last ?? null) as { path: string; id: string | null } | null,
+    path: (init.vault ? (opts.vaultPath ?? `/fake/${init.vault.name}`) : null) as string | null,
+    recent: [] as { name: string; path: string; exists: boolean }[],
     emit: (event: string, payload: unknown) => w.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event, payload }),
     // 3C (ms3-shell §13.7): versions, invalid UTF-8 files, write control, conflicts.
     mtimes: {} as Record<string, number>,
@@ -241,7 +251,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         return { key, name: y.name ?? key, plural: y.plural ?? key, folder: y.folder ?? key, icon: y.icon ?? '', color: y.color ?? '', system: y.system === 'true', invalid: !ok };
       });
   };
-  const info = () => (state.vault ? { name: state.vault.name, path: `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0 } : null);
+  const info = () => (state.vault ? { name: state.vault.name, path: state.path ?? `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0 } : null);
+  state.recent = opts.recent ? opts.recent.map((r) => ({ ...r })) : (state.vault && state.path ? [{ name: state.vault.name, path: state.path, exists: true }] : []);
+  const record = (name: string, path: string) => {
+    const p = path.normalize('NFC');
+    state.recent = [{ name: name.normalize('NFC'), path: p, exists: true }, ...state.recent.filter((r) => r.path.normalize('NFC') !== p)].slice(0, 9);
+  };
   const defaultType = () => {
     const v = yaml(state.vault?.files['.tegg/vault.yml'] ?? '');
     const name = v['default-type'] ?? 'Page';
@@ -257,7 +272,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const v = dirs[path];
       if (v === null) throw err('NotATeggVault', `fake: ${path} has no .tegg/`);
       state.vault = JSON.parse(JSON.stringify(v));
+      state.path = path;
       state.last = null;
+      record(state.vault!.name, path);
       return info();
     },
     vault_create: (a) => {
@@ -268,9 +285,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const target = `${String(a.parent).replace(/\/+$/, '')}/${name}`;
       if ((opts.nonEmpty ?? []).includes(target)) throw err('NotEmpty', `fake: ${target} is not empty`);
       state.vault = { name, files: { ...init.empty } };
+      state.path = target;
       state.last = null;
+      record(name, target);
       return info();
     },
+    vault_recent: () => state.recent.map((r) => ({ ...r })),
+    app_about: () => null,
     vault_pick_dir: () => (opts.pickDir === undefined ? null : opts.pickDir),
     vault_last: () => {
       if (!state.vault || !state.last) return null;
