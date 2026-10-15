@@ -160,6 +160,9 @@ pub struct TypeFile {
     pub description: Option<String>,
     pub review: Review,
     pub preview: Vec<String>,
+    /// Properties not shown among the attribute panel's rows on this type's objects (FR-TYP-17, D-316). Stub: never
+    /// read from the file yet.
+    pub hidden: Vec<String>,
     /// Vault path of the default template (D-232).
     pub template: Option<String>,
     pub attributes: Vec<AttrDef>,
@@ -236,6 +239,7 @@ fn fallback_def(key: &str) -> TypeFile {
         description: None,
         review: Review::Off,
         preview: Vec::new(),
+        hidden: Vec::new(),
         template: None,
         attributes: Vec::new(),
     }
@@ -394,6 +398,7 @@ fn read_def(key: &str, text: &str) -> Result<(TypeFile, Readability), (String, u
             Some(Value::Array(a)) => a.iter().filter_map(scalar_text).collect(),
             _ => Vec::new(),
         },
+        hidden: Vec::new(), // stub (FR-TYP-17)
         template: text_of("template"),
         attributes,
         name,
@@ -888,6 +893,7 @@ pub fn new_type_file_in(name: &str, plural: &str, folder: Option<&str>) -> Strin
         description: None,
         review: Review::Off,
         preview: Vec::new(),
+        hidden: Vec::new(),
         template: None,
         attributes: Vec::new(),
         name,
@@ -908,6 +914,8 @@ pub enum TypeOp {
     SetDescription(Option<String>),
     SetReview(bool),
     SetPreview(Vec<String>),
+    /// FR-TYP-17, D-316. Stub: changes nothing yet.
+    SetHidden(Vec<String>),
     AddAttribute(AttrDef),
     UpdateAttribute { key: String, change: AttrChange },
     RemoveAttribute(String),
@@ -1064,6 +1072,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_top(lines, "preview", render_top("preview", def));
             }
         }
+        TypeOp::SetHidden(_) => {} // stub (FR-TYP-17)
         TypeOp::AddAttribute(a) => {
             let mut a = a.clone();
             a.key = nfc(&a.key);

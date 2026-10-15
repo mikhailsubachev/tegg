@@ -56,7 +56,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const system = SYSTEM.includes(key);
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
-    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], template: null, attributes: [],
+    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], template: null, attributes: [],
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -100,6 +100,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     state: declared !== null && declared > 1 ? 'newer' : 'ok', declaredVersion: declared, description: y.description ?? null,
     review: y.review === 'locked' ? 'locked' : y.review === true ? 'on' : 'off', preview,
     previewIgnored: preview.filter((p) => !attributes.some((a: any) => a.key === p) && !UNIVERSAL_PREVIEW.includes(p)),
+    hidden: [] as string[], // stub (FR-TYP-17)
     template: y.template ?? null, attributes,
   };
 }
@@ -245,6 +246,8 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.keys.length > 4) return rule({ reason: 'previewFull' });
       if (JSON.stringify(op.keys) === JSON.stringify(t.preview)) continue;
       setTop(es, 'preview', `preview: ${flow(op.keys)}\n`);
+    } else if (op.op === 'hidden') {
+      continue; // stub (FR-TYP-17)
     } else {
       const ai = es.findIndex((e) => e.key === 'attributes');
       const its = items(es[ai]);
