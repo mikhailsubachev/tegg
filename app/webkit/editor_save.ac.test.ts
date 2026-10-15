@@ -835,6 +835,7 @@ test('fr_ux_03_ac14_writing_by_keyboard_only', async ({ page }) => {
   await page.keyboard.type('Klávesnice');
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Klávesnice', 'new note');
+  await page.keyboard.press('Enter'); // a new note opens in its title (D-247); ⏎ moves to the body
   await page.keyboard.type('## Nadpis');
   await page.keyboard.press('Enter');
   await page.keyboard.type('Odstavec s [[Cíl');

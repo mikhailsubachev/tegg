@@ -179,6 +179,11 @@ test('fr_typ_08_ac13_source_is_a_text_field_with_text_rules', async ({ page }) =
     ['Plzeň', 'source: Plzeň'],
   ];
   for (const [input, line] of cases) {
+    // Each case starts without a source: an edited entry keeps its quote style (D-230), so the cases are independent.
+    if (entry(await fileText(core, P.obycejna), 'source')) {
+      await commitField(page, sourceField(page), '', 'Source');
+      await written(core, P.obycejna, (x) => entry(x, 'source') === '');
+    }
     await commitField(page, sourceField(page), input, 'panel textbox Source');
     const t = await written(core, P.obycejna, (x) => entry(x, 'source') === line);
     assert.equal(entry(t, 'source'), line, JSON.stringify(input));
@@ -442,6 +447,8 @@ test('fr_typ_09_ac15_a_changed_file_refuses_and_toggles_round_trip', async ({ pa
   const back = await fileWhen(core, typeFile('schůzka'), (x) => !!x?.includes('preview: [datum, účastníci]\n'));
   assert.equal((await callsOf(core, 'type_patch')).length, 2, 'two writes');
   assert.equal(back, schuzka(), 'byte-identical to the start');
+  // Let the app finish re-reading the type files after its own writes, so the silent change stays unseen.
+  await sleep(500);
   const theirs = swap(schuzka(), 'color: teal\n', 'color: red\n');
   await core.setFile(typeFile('schůzka'), theirs, { silent: true });
   await item(page, 'Místo').click();

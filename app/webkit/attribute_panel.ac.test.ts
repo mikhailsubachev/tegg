@@ -146,20 +146,22 @@ test('fr_edt_07_ac6_picker_excludes_chosen_and_creates_without_leaving', async (
 });
 
 test('fr_edt_07_ac6_link_text_follows_the_editor_rule_and_non_allowed_targets_warn', async ({ page }) => {
+  // A single relation to any type on Page (Source is free text since D-248, so it can't carry this check any more).
   const vault = { ...editorVault(), files: { ...editorVault().files } };
+  vault.files['.tegg/types/page.yml'] = vault.files['.tegg/types/page.yml'].replace('attributes: []\n', 'attributes:\n  - key: zdroj\n    name: Zdroj\n    type: relation\n');
   const core = await openTypes(page, 'Pages/Prázdná.md', { vault });
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  const pick = await must(dialog(page, 'Choose Source'), 'Choose Source');
+  await (await must(props(page).getByRole('button', { name: 'Add Zdroj', exact: true }), 'Add Zdroj')).click();
+  const pick = await must(dialog(page, 'Choose Zdroj'), 'Choose Zdroj');
   await pick.getByRole('combobox', { name: 'Search' }).fill('C# tips');
   await sleep(150);
   await pick.getByRole('option', { name: /^C# tips/ }).click();
-  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('source:')))?.includes('source: "[[C tips|C# tips]]"'), 'C tips → "[[C tips|C# tips]]"');
+  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('zdroj:')))?.includes('zdroj: "[[C tips|C# tips]]"'), 'C tips → "[[C tips|C# tips]]"');
   await props(page).getByRole('button', { name: /^Remove C# tips$/ }).click();
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  await dialog(page, 'Choose Source').getByRole('combobox', { name: 'Search' }).fill('Senior');
+  await (await must(props(page).getByRole('button', { name: 'Add Zdroj', exact: true }), 'Add Zdroj')).click();
+  await dialog(page, 'Choose Zdroj').getByRole('combobox', { name: 'Search' }).fill('Senior');
   await sleep(150);
-  await dialog(page, 'Choose Source').getByRole('option').filter({ hasText: /2026-10-02|Oct 2, 2026/ }).first().click();
-  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('Senior')))?.includes('source: "[[Senior Product Manager (2)|Senior Product Manager]]"'));
+  await dialog(page, 'Choose Zdroj').getByRole('option').filter({ hasText: /2026-10-02|Oct 2, 2026/ }).first().click();
+  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('Senior')))?.includes('zdroj: "[[Senior Product Manager (2)|Senior Product Manager]]"'));
 });
 
 test('fr_edt_07_ac6_non_allowed_and_unresolved_targets_are_kept_with_warnings', async ({ page }) => {

@@ -150,14 +150,14 @@ test('fr_edt_06_ac9_at_in_a_table_cell_escapes_the_pipe', async ({ page }) => {
 
 test('fr_edt_06_ac10_at_create_writes_two_files', async ({ page }) => {
   const core = await startEmpty(page);
-  await page.keyboard.type('@Nová stránka');
+  await page.keyboard.type('@Novinka');
   const o = await options(page);
-  assert.equal(o[o.length - 1], 'Create "Nová stránka"', `last row Create: ${o.join(' | ')}`);
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Nová stránka"' }), 'Create row')).click();
+  assert.equal(o[o.length - 1], 'Create "Novinka"', `last row Create: ${o.join(' | ')}`);
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Novinka"' }), 'Create row')).click();
   const t = await saved(page, core, E.prazdna);
-  assert.equal(await bodyOf(t), '[[Nová stránka]]\n');
+  assert.equal(await bodyOf(t), '[[Novinka]]\n');
   assert.equal(await mainName(page), 'Prázdná', 'no navigation');
-  assert.deepEqual(await core.writesTo(), ['Quick Notes/Nová stránka.md', E.prazdna], 'exactly two files written');
+  assert.deepEqual(await core.writesTo(), ['Quick Notes/Novinka.md', E.prazdna], 'exactly two files written');
 });
 
 test('fr_edt_06_ac10_spaces_esc_and_the_create_only_space_rule', async ({ page }) => {
@@ -190,12 +190,12 @@ test('fr_edt_06_ac10_undo_restores_the_at_query_in_one_step', async ({ page }) =
   const t = await saved(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '@Cíl\n', '⌘Z restores @Cíl as text in one step');
   await page.keyboard.press('Enter');
-  await page.keyboard.type('@Úplně nová');
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Úplně nová"' }), 'Create row')).click();
+  await page.keyboard.type('@Úplněnová');
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Úplněnová"' }), 'Create row')).click();
   await mustBeSaved(page);
   await page.keyboard.press('Meta+z');
   await saved(page, core, E.prazdna);
-  assert.ok((await core.files())['Quick Notes/Úplně nová.md'] !== undefined, 'the new note stays');
+  assert.ok((await core.files())['Quick Notes/Úplněnová.md'] !== undefined, 'the new note stays');
   void writes;
 });
 
@@ -261,10 +261,10 @@ test('fr_edt_06_ac11_create_from_a_property_stays_on_the_note', async ({ page })
   const core = await openTypes(page, P.porada);
   const f = await must(control(page, 'textbox', 'Místo'), 'panel textbox Místo');
   await f.click();
-  await page.keyboard.type('@Nové místo');
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Nové místo"' }), 'Create row in the Místo field')).click();
+  await page.keyboard.type('@Hřiště');
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Hřiště"' }), 'Create row in the Místo field')).click();
   await sleep(300);
   assert.equal(await mainName(page), '2026-10-07 Porada', 'no navigation');
   assert.equal((await core.calls()).filter((c) => c.cmd === 'note_create').length, 1, 'created through note_create (AC-4)');
-  assert.equal(await f.inputValue().catch(async () => (await f.innerText()).trim()), '[[Nové místo]]', 'the link is in the field');
+  assert.equal(await f.inputValue().catch(async () => (await f.innerText()).trim()), '[[Hřiště]]', 'the link is in the field');
 });

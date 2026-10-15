@@ -356,6 +356,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const s = live.current.suggest;
     if (!e || !s || s.kind !== 'link') return;
     setSuggest(null);
+    dismissed.current = `l${s.from}`; // ⌘Z restores the typed query as text; it doesn't reopen the list
     let path = item.path;
     let title = item.title.normalize('NFC');
     if (item.kind === 'create') {

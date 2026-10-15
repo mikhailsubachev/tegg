@@ -266,7 +266,9 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 /* Editor (slice 3C): the body is @tegg/editor; it looks like the read view (FR-EDT-02 AC-16). */
 .editor-wrap { position: relative; padding-left: 52px; margin-left: -52px; }
 .editor-host .ProseMirror { font-size: 16px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; outline: none; min-height: 40vh; white-space: pre-wrap; padding-bottom: 30vh; caret-color: var(--text); }
-.editor-host .ProseMirror:focus-visible { outline: none; }
+.editor-host .ProseMirror:focus { outline: none; }
+/* D-264: the body has the caret on open (D-247); keyboard focus shows a ring (FR-UX-03 AC-10), a click doesn't. */
+.editor-host .ProseMirror:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: 4px; }
 .editor-host .ProseMirror > * { position: relative; }
 .editor-host .ProseMirror h1 { font-size: 30px; line-height: 1.25; margin: 1.2em 0 0.4em; }
 .editor-host .ProseMirror h2 { font-size: 24px; line-height: 1.3; margin: 1.4em 0 0.4em; }
