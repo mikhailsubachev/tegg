@@ -211,7 +211,7 @@ async function waitFile(path: string, ok: (t: string | null) => boolean, ms: num
 
 const TITLES = [
   'Cíl', 'Odkazy v textu', 'Rozbité odkazy', 'Markdown odkaz', 'Neplatná hlavička', 'Rychlá poznámka', '2026-10-07', '2026-10-08 Porada',
-  'Starší porada', 'Porada s chybou', 'Bez typu s vlastností', 'Jana Nováková', 'Osamělá', 'Dvojník', 'Z rychlých', 'Ze stránek', 'Z kořene',
+  'Starší porada', 'Porada s chybou', 'Bez typu s vlastností', 'Jana Nováková', 'Osamělá', 'Dvojník', 'Rychlý dvojník', 'Z rychlých', 'Ze stránek', 'Z kořene',
   'Senior Product Manager', 'SPM Alfa', 'SPM velkými', 'Odkaz na SPM', 'Čtení', 'Čtení podruhé', 'Cteni', 'Plán', 'Další rozbitý',
 ];
 // `![[Chybí]]` is an R5 embed placeholder, not a chip (AP point in the red-commit report).

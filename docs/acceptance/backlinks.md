@@ -34,7 +34,7 @@ See [README](README.md) for conventions. Milestone MS4 (BRD §11.2), slice **4A 
 | Bez typu | `Pages/Bez typu s vlastností.md` | `type: neznámý` (no definition, D-121) | `související: "[[Cíl]]"` |
 | Jana | `Osoby/Jana Nováková.md` | osoba | `firma: Beta a.s.`, `role: Analytička` |
 | Osamělá | `Pages/Osamělá.md` | page | nothing links to it |
-| Dvojník ×2 | `Pages/Dvojník.md`, `Quick Notes/Dvojník.md` | page, quick-note | same stem in two folders |
+| Dvojník ×2 | `Pages/Dvojník.md`, `Quick Notes/Dvojník.md` | page, quick-note | same stem in two folders; titles `Dvojník` and `Rychlý dvojník` (D-296) |
 | Z rychlých, Ze stránek, Z kořene | `Quick Notes/Z rychlých.md`, `Pages/Ze stránek.md`, `Z kořene.md` (vault root) | quick-note, page, page | each `[[Dvojník]]`; Ze stránek also `[[2026-10-07]]`; Z kořene also `[[Quick Notes/Dvojník]]` |
 | SPM, SPM 2 | `Pages/Senior Product Manager.md`, `Pages/Senior Product Manager (2).md` | page | title `Senior Product Manager`; `created` 2026-09-01T10:00:00+02:00 and 2026-10-02T00:30:00+02:00 (22:30 UTC on 1 Oct) |
 | SPM Alfa | `Osoby/SPM Alfa.md` | osoba | title `Senior Product Manager`, `firma: Alfa s.r.o.`, `role: Nábor`, `created` 2026-10-03T09:00:00+02:00 |

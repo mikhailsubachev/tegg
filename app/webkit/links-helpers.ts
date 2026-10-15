@@ -45,7 +45,7 @@ export const B = {
 export const TITLES: Record<string, string> = {
   [B.cil]: 'Cíl', [B.odkazy]: 'Odkazy v textu', [B.rozbite]: 'Rozbité odkazy', [B.markdown]: 'Markdown odkaz', [B.neplatna]: 'Neplatná hlavička',
   [B.rychla]: 'Rychlá poznámka', [B.denni]: '2026-10-07', [B.porada]: '2026-10-08 Porada', [B.starsi]: 'Starší porada', [B.sChybou]: 'Porada s chybou',
-  [B.bezTypu]: 'Bez typu s vlastností', [B.jana]: 'Jana Nováková', [B.osamela]: 'Osamělá', [B.dvojnikP]: 'Dvojník', [B.dvojnikQ]: 'Dvojník',
+  [B.bezTypu]: 'Bez typu s vlastností', [B.jana]: 'Jana Nováková', [B.osamela]: 'Osamělá', [B.dvojnikP]: 'Dvojník', [B.dvojnikQ]: 'Rychlý dvojník',
   [B.zRychlych]: 'Z rychlých', [B.zeStranek]: 'Ze stránek', [B.zKorene]: 'Z kořene', [B.spm]: 'Senior Product Manager', [B.spm2]: 'Senior Product Manager',
   [B.spmAlfa]: 'Senior Product Manager', [B.spmVelkymi]: 'SENIOR PRODUCT MANAGER', [B.odkazSpm]: 'Odkaz na SPM', [B.cteni]: 'Čtení', [B.cteni2]: 'Čtení',
   [B.dalsi]: 'Další rozbitý',

@@ -32,7 +32,7 @@ Byte rules: LF line endings, UTF-8 without BOM, NFC everywhere **except** the tw
 | `Pages/Bez typu s vlastností.md` | `type: neznámý` (no type file), `title: Bez typu s vlastností`, `související: "[[Cíl]]"`, `modified: 2026-10-02T09:00:00+02:00` | empty | undefined-type group (D-121), raw key label |
 | `Osoby/Jana Nováková.md` | `type: osoba`, `title: Jana Nováková`, `firma: Beta a.s.`, `role: Analytička` | empty | FR-LNK-02 AC-6; FR-LNK-14 AC-10 |
 | `Pages/Osamělá.md` | `type: page`, `title: Osamělá` | `Na tuto stránku nic neodkazuje.` | empty state; live-update target |
-| `Pages/Dvojník.md`, `Quick Notes/Dvojník.md` | `type: page` / `type: quick-note`, `title: Dvojník` | `Stránky.` / `Rychlé.` | same stem in two folders |
+| `Pages/Dvojník.md`, `Quick Notes/Dvojník.md` | `type: page` / `type: quick-note`, `title: Dvojník` / `title: Rychlý dvojník` (different titles, so they aren't duplicates, D-296) | `Stránky.` / `Rychlé.` | same stem in two folders |
 | `Quick Notes/Z rychlých.md` | `type: quick-note`, `title: Z rychlých` | `[[Dvojník]]` | same-folder rule |
 | `Pages/Ze stránek.md` | `type: page`, `title: Ze stránek` | `[[Dvojník]]`; `[[2026-10-07]]` | same-folder rule; date backlink |
 | `Z kořene.md` (vault root) | `type: page`, `title: Z kořene` | `[[Dvojník]]`; `[[Quick Notes/Dvojník]]` | shortest-path rule (`Pages/Dvojník.md`) and path link |
