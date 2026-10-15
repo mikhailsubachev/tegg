@@ -55,7 +55,7 @@
 | v1.37   | 2026-10-14 | Design change before 3D (owner, design boards option C): D-219 vault switcher in the title bar with recent vaults; D-220 logo at the bottom left opens About and Settings. |
 | v1.38   | 2026-10-14 | MS3 slice 3D decisions D-221…D-244 (AP-161…AP-184, owner accepted all recommendations). |
 | v1.39   | 2026-10-14 | D-245: new-object bytes come from `@tegg/doc` through one UI creation function (D-82 kept over D-232's core path). |
-| v1.40   | 2026-10-14 | D-246…D-250: owner preview feedback (search scope and ranking, focus on open, `source` as free text, links in text properties, `@` links). |
+| v1.40   | 2026-10-14 | D-246…D-252: owner preview feedback (search scope and ranking, focus on open, `source` as free text, links in text properties, `@` links, creating a definition for an undefined type, a Columns control). |
 
 ---
 
@@ -349,6 +349,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-248 | `source` as free text (F8) | The reserved key `source` (FR-TYP-15) is shown and edited as a free-text property on every type; importers keep writing it (owner, 2026-10-14) |
 | D-249 | Links in text properties (F9) | Free-text property values may hold links, stored as `"[[Note]]"` in YAML (Obsidian-compatible); they count as links and backlinks (owner, 2026-10-14) |
 | D-250 | `@` link trigger (F10) | Typing `@` opens the same note picker as `[[` everywhere (body and text properties) and writes a normal `[[Note]]` link resolved by file (FR-LNK-14) (owner, 2026-10-14) |
+| D-251 | Defining an undefined type (F12) | The page of a `type` value without a definition (D-121) offers `Create type "<value>"`: it writes `.tegg/types/<key>.yml` (name from the value, plural and folder editable, D-222 rules, no attributes), after which its objects show the panel; no note file is written. Properties come from type settings (owner, 2026-10-15) |
+| D-252 | Columns on the type page (F11) | The type page's `Add column` becomes `Columns`: a menu of the type's properties with a check per shown column; checking or unchecking one adds or removes it from `preview` (one write, order kept, the 4-column limit of D-72 still applies); `New property…` stays in the menu. Supersedes FR-TYP-09 AC-7 (owner, 2026-10-15) |
 
 ---
 
