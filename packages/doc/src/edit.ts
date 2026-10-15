@@ -175,6 +175,8 @@ export function formatScalar(v: Value): string {
     // A text that looks like a date or date-time stays text: YAML 1.1 readers (and the dialect, §3) would read it
     // as a date, so it is double-quoted (D-230, FR-EDT-07 AC-5).
     if (/^\d{4}-\d{1,2}-\d{1,2}(?:([Tt]|[ \t]+)\d{1,2}:\d{2}:\d{2}(\.\d*)?([ \t]*(Z|[-+]\d{1,2}(:\d{2})?))?)?$/.test(nfc)) return JSON.stringify(nfc)
+    // Text with a link is always double-quoted, so it reads as one string with the link in it (D-249, D-257).
+    if (nfc.includes('[[')) return JSON.stringify(nfc)
     const s = new Scalar(nfc)
     // Plain when YAML allows it; double quotes otherwise (dialect §3).
     return stringify(s, { defaultStringType: 'PLAIN', defaultKeyType: 'PLAIN', lineWidth: 0 }).replace(/\n$/, '')

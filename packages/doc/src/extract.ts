@@ -12,7 +12,7 @@ export interface Extracted {
   /** Frontmatter as JSON; null when there is none or it is invalid. */
   attributes: Record<string, unknown> | null
   frontmatterError: boolean
-  links: { target: string; subpath: string | null; alias: string | null; embed: boolean; inFrontmatter: boolean }[]
+  links: { target: string; subpath: string | null; alias: string | null; embed: boolean; inFrontmatter: boolean; attribute: string | null }[]
   /** Tag keys (NFC, lower case) in source order, frontmatter first; duplicates kept. */
   tags: string[]
 }
@@ -36,6 +36,7 @@ export function extract(text: string, stem: string): Extracted {
       alias: l.alias,
       embed: l.embed,
       inFrontmatter: l.inFrontmatter,
+      attribute: l.attribute,
     })),
     tags: tags(doc).map((t) => t.key),
   }

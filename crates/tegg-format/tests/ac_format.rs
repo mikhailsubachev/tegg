@@ -21,6 +21,7 @@ fn link(target: &str, subpath: Option<&str>, alias: Option<&str>, embed: bool, i
         alias: alias.map(str::to_string),
         embed,
         in_frontmatter,
+        attribute: None,
     }
 }
 
@@ -317,7 +318,11 @@ fn fr_fmt_03_ac2_quoted_relation_links_in_frontmatter_are_extracted() {
     let text = "---\nzdroj: \"[[Porada]]\"\nlide:\n  - \"[[Jana]]\"\n  - \"[[Tomáš]]\"\n---\nText.\n";
     assert_eq!(
         extract(text.as_bytes(), "Úkol").links,
-        vec![link("Porada", None, None, false, true), link("Jana", None, None, false, true), link("Tomáš", None, None, false, true)]
+        vec![
+            Link { attribute: Some("zdroj".into()), ..link("Porada", None, None, false, true) },
+            Link { attribute: Some("lide".into()), ..link("Jana", None, None, false, true) },
+            Link { attribute: Some("lide".into()), ..link("Tomáš", None, None, false, true) },
+        ]
     );
 }
 
