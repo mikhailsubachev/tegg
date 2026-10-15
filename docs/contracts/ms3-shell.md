@@ -1233,7 +1233,7 @@ pub struct SearchResult {
 ```
 
 - The index stores the file stem (no folder, no `.md`) NFC-folded in a new FTS column `stem`; it is derived from the path, so a rebuild gives the same rows (AR-01). External renames update it with the path (FR-SRC-01 AC-13). Schema bump of the index cache: the index is rebuilt on first open, no vault write.
-- Order: tier (Phrase < AllWords < AnyWord), then non-typo before typo, then `matched_in` (Title = FileName < Alias < Attribute < Body), then FTS rank, then path. Quoted phrases filter strictly and `-word` excludes as before (D-108); with any quoted phrase or exclusion the query is an AND of its parts and every result has `tier: Phrase` when the unquoted words are adjacent, else `AllWords`.
+- Order: tier (Phrase < AllWords < AnyWord), then non-typo before typo, then `matched_in` (Title = FileName < Alias < Attribute < Body), then FTS rank, then path. Quoted phrases filter strictly and `-word` excludes as before (D-108): every result must contain each quoted phrase and none of the excluded words; the remaining unquoted words are ranked in the tiers above (FR-SRC-01 AC-16: `účet chaty -opravy` keeps the AC-15 order without the excluded note).
 - `.trash/` and `_templates/` stay excluded (FR-SRC-01 AC-12).
 - IPC DTO gains `tier: 'phrase' | 'allWords' | 'anyWord'` and `file_name: SnippetDto | null`; `matched_in` gains `'fileName'`. UI label `search.fileName` = `File name: {stem}`.
 
@@ -1255,6 +1255,7 @@ pub struct SearchResult {
 - `@tegg/doc` extraction: each frontmatter link record gains `attribute: string | null` (`null` for body links). Scanned keys: values of Text/Long text attributes of the note's type, `description`, `source`, and (as before) relation values. Without a type definition, every string value outside the reserved keys except `title`, `aliases`, `tags` is scanned. `![[…]]` in a value gives `embed: true` but renders as a chip. Inline code inside a value is not scanned.
 - `tegg-format::extract::Link` gains `pub attribute: Option<String>`; the TS/Rust differential corpus gains `tests/fixtures/format/extract/frontmatter-text-links.md` (expected regenerated once with `UPDATE_EXTRACT=1`, reviewed).
 - `tegg-core::backlinks(path)` already returns sources; new `backlinks_detailed(path) -> Vec<Backlink { source: String, attribute: Option<String> }>` for L4 tests. IPC `backlinks` unchanged.
+- Search highlights render as `<mark>` elements (title, file-name line, snippet).
 - UI: `<TextWithLinks text>` renders `[[…]]` as link chips (D-140, broken style D-142) for those four kinds; edit mode shows raw text.
 
 ### 15.5 `@` mentions (D-250, D-258)

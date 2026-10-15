@@ -261,7 +261,7 @@ function phrasing(input: JSONContent[]): PhrasingContent[] {
     const raw = nodes[idx]
     // A link whose text is its URL is written bare, as a GFM autolink literal (FR-EDT-14 AC-4).
     const link = raw.type === 'text' && raw.marks?.find((m) => m.type === 'link')
-    const bare = !!link && raw.text === link.attrs?.href && /^(https?:\/\/|mailto:)/i.test(raw.text ?? '')
+    const bare = !!link && ((raw.text === link.attrs?.href && /^(https?:\/\/|mailto:)/i.test(raw.text ?? '')) || link.attrs?.href === `mailto:${raw.text}`)
     const n: JSONContent = bare ? { type: 'rawInline', attrs: { source: raw.text }, marks: raw.marks!.filter((m) => m.type !== 'link') } : raw
     // Text that would read back as a tag (`#word` after a space) is literal text here: write `\#` (FR-EDT-14 AC-2).
     // A `#` at the start of this text counts only where the text before it allows a tag (block start, space, `(`).
