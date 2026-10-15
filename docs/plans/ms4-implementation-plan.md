@@ -53,7 +53,7 @@ Missing entirely: FR-DLY-01…06, FR-EMB-01, -02, -04, FR-LNK-01, -07, FR-TAG-01
 
 **Order rationale.** 4A first: it is mostly read-only on top of index data that exists, and 4B needs backlinks (FR-DLY-08 AC-3). 4B second: highest daily value and no bulk writes (it writes one file, on the first keystroke). 4C is the riskiest slice and is kept to one client so the engine is proven before 4D and 4E reuse it; if the missing file rename hurts more than missing daily notes in daily use, 4B and 4C can swap. 4F touches the editor and not the job engine, so it can be built in parallel with 4C–4E by a second session in its own worktree.
 
-**4C contract covers all clients.** `docs/contracts/ms4-jobs.md` is written in 4C for note rename, tag rename and delete, key rename and value removal, type move and folder move, and type delete, with one job model: plan (affected files, counts) → confirm → backup → write → report. 4D and 4E then only add planners.
+**4C contract covers all clients.** `docs/contracts/ms4-jobs.md` is written in 4C for note rename, tag rename and delete, key rename and value removal, type move and folder move, type delete, and merging duplicate titles (D-290), with one job model: plan (affected files, counts) → confirm → backup → write → report. 4D and 4E then only add planners.
 
 **Quality bar from MS4.** Mutation thresholds rise to 80% (T1) / 70% (T2) (D-61). Every rewrite job needs a property test: random vault + random rename sequence + undo gives the original bytes; only files containing the target change (links.md FR-LNK-03 AC-2, AC-5). The sync simulator's "external edit during a job" case (AC-6) runs for every job type, not only rename.
 
