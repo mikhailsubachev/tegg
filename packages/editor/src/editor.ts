@@ -57,6 +57,9 @@ export interface TeggEditor {
   /** Top-level blocks in the block selection (0-based, inclusive), or null (FR-EDT-13). */
   blockSelection(): { from: number; to: number } | null
   clearBlockSelection(): void
+  /** A document position followed through every later edit (appended transactions too); `null` once the node
+   *  starting there is deleted (FR-LNK-04 AC-7: the Create offer's chip, D-287). */
+  trackPos(pos: number): () => number | null
   /** Top-level block index of the caret. */
   caretBlock(): number
   /** The next paste is literal text (⇧⌘V, FR-EDT-14 AC-2). */
@@ -272,6 +275,20 @@ export function createEditor(opts: EditorOptions): TeggEditor {
   })
   let plainNext = false
   const view = editor.view
+  const tracked = new Set<{ pos: number | null }>()
+  editor.registerPlugin(new Plugin({
+    state: {
+      init: () => null,
+      apply: (tr: Transaction) => {
+        if (tr.docChanged) for (const t of tracked) {
+          if (t.pos === null) continue
+          const r = tr.mapping.mapResult(t.pos, 1)
+          t.pos = r.deletedAfter ? null : r.pos
+        }
+        return null
+      },
+    },
+  }))
 
   function copyBlocks(event: ClipboardEvent, cut: boolean): boolean {
     const src = selectedSource()
@@ -851,6 +868,11 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     blockSelection() {
       const s = blockSel()
       return s ? { from: Math.min(s.anchor, s.head), to: Math.max(s.anchor, s.head) } : null
+    },
+    trackPos(pos) {
+      const t = { pos: pos as number | null }
+      tracked.add(t)
+      return () => t.pos
     },
     clearBlockSelection() {
       if (blockSel()) dispatch(editor.state.tr.setMeta(blockSelKey, null))

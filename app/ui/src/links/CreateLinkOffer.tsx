@@ -86,7 +86,7 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
       const kind = errorKind(e);
       const x = e as { path?: string; now?: LinkCreatePlanDto };
       if (kind === 'Exists' && x.path) { onClose(); onExists(x.path, plan.title); return; }
-      if ((e as { kind?: string }).kind === 'RewriteFailed') setError(t('createLink.rewriteFailed', { stem }));
+      if (kind === 'RewriteFailed') setError(t('createLink.rewriteFailed', { stem }));
       else if (kind === 'PlanChanged' && x.now) { setPlan(x.now); setError(t('createLink.planChanged')); }
       else setError(t('error.io'));
     } finally {
