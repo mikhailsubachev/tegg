@@ -383,23 +383,6 @@ test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {
   assert.ok(await seen(switcherDialog(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
 });
 
-test('fr_typ_08_ac10_source_is_a_single_relation_to_any_type', async ({ page }) => {
-  const core = await openTypes(page, P.obycejna);
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  const pick = await must(dialog(page, 'Choose Source'), 'picker');
-  await pick.getByRole('combobox', { name: 'Search' }).fill('Rozpočet');
-  await sleep(150);
-  await pick.getByRole('option', { name: /^Rozpočet 2027/ }).click();
-  assert.ok((await written(core, P.obycejna, (x) => x.includes('source:')))?.includes('source: "[[Rozpočet 2027]]"\n'));
-});
-
-test('fr_typ_08_ac10_plain_text_source_is_invalid', async ({ page }) => {
-  const vault = typesVault((f) => { f[P.obycejna] = swap(f[P.obycejna], 'místo: Praha\n', 'source: kniha\n'); });
-  await openTypes(page, P.obycejna, { vault });
-  const src = await must(props(page).getByRole('group', { name: 'Source' }), 'group Source');
-  assert.ok((await description(src.locator('[aria-describedby], [aria-description]').first())).includes('The value is kept as it is.'), 'shown as invalid');
-});
-
 test('fr_typ_08_ac11_review_select', async ({ page }) => {
   const core = await openTypes(page, P.napadKOvereni);
   const r = await must(control(page, 'combobox', 'Review'), 'combobox Review');

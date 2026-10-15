@@ -4,7 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export type MenuEntry =
   | { kind: 'separator' }
-  | { kind: 'item' | 'radio'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; onChoose: () => void };
+  | { kind: 'note'; key: string; content: React.ReactNode }
+  | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
 
 export function PopupMenu({ label, anchor, entries, onClose, placement = 'below' }: {
   label: string;
@@ -23,7 +24,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
     setPos(placement === 'below' ? { left: r.left, top: r.bottom + 4 } : { left: r.left, bottom: window.innerHeight - r.top + 4 });
   }, [anchor, placement]);
 
-  const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"])') ?? [])];
+  const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])') ?? [])];
 
   useEffect(() => {
     const first = items()[0];
@@ -64,13 +65,15 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
     <div ref={ref} className="popup-menu" role="menu" aria-label={label} style={{ left: pos.left, top: pos.top, bottom: pos.bottom }} onKeyDown={onKeyDown}>
       {entries.map((m, i) => {
         if (m.kind === 'separator') return <div key={`sep${i}`} role="separator" className="menu-sep" />;
+        if (m.kind === 'note') return <div key={m.key} className="menu-note">{m.content}</div>;
         const choose = () => { if (!m.disabled) m.onChoose(); };
         return (
           <div
             key={m.key}
-            role={m.kind === 'radio' ? 'menuitemradio' : 'menuitem'}
-            aria-checked={m.kind === 'radio' ? !!m.checked : undefined}
+            role={m.kind === 'radio' ? 'menuitemradio' : m.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitem'}
+            aria-checked={m.kind === 'radio' || m.kind === 'checkbox' ? !!m.checked : undefined}
             aria-disabled={m.disabled || undefined}
+            aria-description={m.description}
             aria-label={m.label}
             tabIndex={-1}
             className={`menu-item${m.checked ? ' checked' : ''}`}

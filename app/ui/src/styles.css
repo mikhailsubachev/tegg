@@ -517,3 +517,7 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .starter-dialog ul { max-height: none; }
 .type-table th[aria-sort='ascending']::after { content: ' ↑'; }
 .type-table th[aria-sort='descending']::after { content: ' ↓'; }
+/* Columns menu on the type page (D-252): a check column, then the property name. */
+.menu-check { display: inline-flex; width: 14px; justify-content: center; }
+.menu-note { padding: 4px 8px; font-size: 12px; max-width: 280px; }
+.type-notice { color: var(--muted); font-size: 13px; margin: 4px 0; }
