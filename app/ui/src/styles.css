@@ -267,8 +267,10 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .editor-wrap { position: relative; padding-left: 52px; margin-left: -52px; }
 .editor-host .ProseMirror { font-size: 16px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; outline: none; min-height: 40vh; white-space: pre-wrap; padding-bottom: 30vh; caret-color: var(--text); }
 .editor-host .ProseMirror:focus { outline: none; }
-/* D-264: the body has the caret on open (D-247); keyboard focus shows a ring (FR-UX-03 AC-10), a click doesn't. */
-.editor-host .ProseMirror:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: 4px; }
+/* D-266 (replaces D-264): text you type into shows its caret, no ring: the note body, the title, the description
+   and the property fields. */
+.editor-host .ProseMirror:focus-visible { outline: none; }
+.title-field:focus, .note-subtitle-field:focus { outline: none; }
 .editor-host .ProseMirror > * { position: relative; }
 .editor-host .ProseMirror h1 { font-size: 30px; line-height: 1.25; margin: 1.2em 0 0.4em; }
 .editor-host .ProseMirror h2 { font-size: 24px; line-height: 1.3; margin: 1.4em 0 0.4em; }
@@ -390,7 +392,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .field-wrap > .field-error { flex-basis: 100%; margin-top: 2px; }
 .pfield { min-width: 0; height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text); font-size: 14px; }
 .pfield:hover { border-color: var(--border); }
-.pfield:focus { border-color: var(--focus); outline: none; }
+.pfield:focus { border-color: var(--border); outline: none; }
 .pfield.invalid { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
 input.pfield { width: 260px; }
 input.pfield.time { width: 70px; }
