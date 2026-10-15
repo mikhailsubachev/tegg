@@ -92,7 +92,7 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   assert.equal(await mainBName(page), 'Schůzka ve stránkách', '↓ then ⏎ opens the second row');
-  assert.equal((await focused(page)).label, 'Title', 'focus on the title (D-130)');
+  assert.equal((await focused(page)).label, 'Note body', 'caret in the first body block (D-247, FR-EDT-01 AC-11)');
   assert.ok((await callsOf(core, 'nav_opened')).length >= 1, 'nav_opened');
   await gotoTypePage(page, S);
   await typeTable(page, S).getByRole('row').filter({ hasText: 'Prázdná schůzka' }).click();
