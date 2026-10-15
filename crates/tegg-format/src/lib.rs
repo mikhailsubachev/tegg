@@ -1,11 +1,14 @@
 //! Tegg core: file names, dates, NFC and read-only extraction. Interface: docs/contracts/ms1-core.md §2.
 
 mod extract;
+/// MS4 slice 4A (docs/contracts/ms4-links.md §2): link positions, block texts, excerpt window.
+pub mod excerpt;
 
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
 pub use extract::{body_start, parse_yaml_value, Extracted, FrontmatterError, Link};
+pub use excerpt::{At, BlockKind, BlockText, Excerpt, LinkTargetInfo, Mark, RSeg, Segment, TargetKind};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).
 pub fn sanitize_file_stem(title: &str) -> String {

@@ -886,3 +886,11 @@ impl<'a> Resolver<'a> {
 // docs/contracts/ms3-shell.md §14.2: types and attributes (`types3d.rs`).
 mod types3d;
 pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};
+
+// ------------------------------------------------------------------------------------------------ slice 4A
+// docs/contracts/ms4-links.md §3: backlinks panel, broken links, duplicate titles, create from a link (`links4a.rs`).
+mod links4a;
+pub use links4a::{
+    BacklinkEntry, BacklinkGroup, BacklinksPanel, BrokenGroup, BrokenLinks, CreateRefusal, DuplicateDetails, DuplicateGroup,
+    DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,
+};
