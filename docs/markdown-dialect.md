@@ -85,6 +85,7 @@ A **block** is a top-level CommonMark/GFM construct. Text between blocks (blank 
 | Markdown link | `[text](url)`, `[text](path.md)` | relative `.md` links are read as links (URL-decoded) |
 | Wikilink (FR-FMT-03) | `[[Target]]`, `[[Target\|alias]]`, `[[Target#Heading]]`, `[[Target#^blockid]]` | inside table cells the `\|` form |
 | Embed (FR-FMT-04) | `![[Target]]`, `![[Target#^id]]`, `![[img.png\|400]]`, `![[img.png\|400x300]]`, `![[doc.pdf#page=3]]` | |
+| Autolink literal (GFM) | `https://example.com`, `eva@example.com` | a bare URL or e-mail address is a link (GFM; an escape like `eva\@example.com` doesn't stop it). Written bare, as typed: no `\@` escape; a link whose text is its URL or address is written bare too. So typed text with an address and a `mailto:` link with the address as its text are the same content (bug fix 2026-10-15, FR-EDT-08) |
 | Image (Markdown) | `![alt](path)` | read; written only as `![[…]]` |
 | Block ID | ` ^abc123` at the end of a block | `[A-Za-z0-9-]+` |
 | Tag (FR-FMT-10) | `#name` | see below |
