@@ -7,6 +7,7 @@ import { t } from '../../i18n/catalog';
 import { locale, rawText } from '../util';
 import { EmptyMark, FieldError, WarnIcon, useErrorId, useField, type Value } from './common';
 import { hasLinks, LinkedText, type LinkContext } from './LinkedText';
+import { useLinkSuggest } from './LinkSuggest';
 
 export type TextKind = 'text' | 'long-text' | 'number' | 'url' | 'email';
 
@@ -56,6 +57,12 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
     f.reset(text);
     return true;
   };
+  // D-257: out of edit mode the input's text is hidden and its [[links]] are drawn over it as chips; the input stays
+  // the control (typing, Playwright `fill`, screen readers), and a click beside a chip still focuses it.
+  const [chipsFocused, setChipsFocused] = useState(false); // after ⌘↩ in Long text: chips while the focus stays
+  const chips = !!linked && !disabled && f.value === saved && hasLinks(saved) && (!focused || chipsFocused);
+  // `[[` and `@` open the link list in Text, Long text and Source (D-250, D-258; FR-EDT-06 AC-11).
+  const sug = useLinkSuggest({ path: linked?.path ?? '', value: f.value, setValue: f.set, field: el });
   const common = {
     ref: (e: HTMLInputElement | HTMLTextAreaElement | null) => { el.current = e; inputRef?.(e); },
     'aria-label': name,
@@ -64,14 +71,15 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
     'aria-invalid': error ? true : undefined,
     disabled,
     value: f.value,
-    className: `pfield ${invalid ? 'invalid' : ''}`,
+    className: `pfield ${invalid ? 'invalid' : ''} ${chips ? 'chips-shown' : ''}`,
     spellCheck: false,
     autoComplete: 'off',
     autoCorrect: 'off',
     autoCapitalize: 'off',
     onFocus: () => { setFocused(true); last.current = null; },
-    onBlur: () => { setFocused(false); setOpen(false); commit(); },
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => f.set(e.target.value),
+    onBlur: () => { setFocused(false); setChipsFocused(false); sug.close(); commit(); },
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { setChipsFocused(false); f.set(e.target.value); if (linked) sug.update(); },
+    onSelect: () => { if (linked && sug.open) sug.update(); },
     // A single-line field gets pasted line breaks as spaces (FR-EDT-07 AC-5, D-256).
     onPaste: (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const text = e.clipboardData.getData('text/plain');
@@ -82,6 +90,7 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
       f.set(f.value.slice(0, a) + text.replace(/\s*\r?\n\s*/g, ' ') + f.value.slice(b));
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (linked && sug.onKeyDown(e)) return;
       if (f.history(e)) return;
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -96,38 +105,22 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
         e.stopPropagation();
         if (commit()) {
           if (single) onNext?.();
-          else if (linked && hasLinks(f.value)) {
-            // ⌘↩ in Long text leaves edit mode: the value shows its link chips, the focus stays on the field.
-            setOpen(false);
-            setFocused(false);
-            stay.current = true;
-          }
+          else if (linked && hasLinks(f.value)) setChipsFocused(true); // ⌘↩ in Long text: show the chips again
         }
       }
     },
   };
-  const [open, setOpen] = useState(false);
-  const display = useRef<HTMLElement | null>(null);
-  const stay = useRef(false); // focus moved to the chips view after a commit: don't reopen
-  const edit = () => { setOpen(true); requestAnimationFrame(() => el.current?.focus()); };
-  if (linked && !open && !focused && !disabled && f.value === saved && hasLinks(saved)) {
-    return (
-      <span className="field-wrap">
-        <span role="textbox" tabIndex={0} aria-label={name} aria-description={desc} aria-readonly="false" ref={(e) => { display.current = e; inputRef?.(e); if (e && stay.current) e.focus({ preventScroll: true }); }}
-          aria-multiline={kind === 'long-text' ? 'true' : undefined} className={`pfield linked-text ${kind === 'long-text' ? 'multi' : ''}`}
-          onFocus={() => { if (stay.current) { stay.current = false; return; } edit(); }} onClick={edit}
-          onKeyDown={(e) => { if (e.key === 'Enter' || (e.key.length === 1 && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); edit(); } }}>
-          <LinkedText text={saved} ctx={linked} />
-        </span>
-        {invalid && <WarnIcon />}
-      </span>
-    );
-  }
   return (
-    <span className="field-wrap">
+    <span className={`field-wrap ${linked ? 'linkable' : ''}`}>
       {kind === 'long-text'
         ? <textarea {...common} aria-multiline="true" rows={Math.min(8, Math.max(1, f.value.split('\n').length))} />
         : <input {...common} type="text" inputMode={kind === 'number' ? 'decimal' : kind === 'url' ? 'url' : kind === 'email' ? 'email' : undefined} />}
+      {chips && (
+        <span className={`linked-overlay ${kind === 'long-text' ? 'multi' : ''}`}>
+          <LinkedText text={saved} ctx={linked!} />
+        </span>
+      )}
+      {linked && sug.list}
       {f.value === '' && !focused && !disabled && <EmptyMark onActivate={() => el.current?.focus()} />}
       {invalid && f.value === saved && <WarnIcon />}
       <FieldError id={errId} text={error} />

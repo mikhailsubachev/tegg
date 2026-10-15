@@ -433,8 +433,8 @@ export function App() {
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
-        // A note just made with New object gets the caret in its body (AP-135); the page focuses it itself.
-        if (route.id === 'note/<path>' && route.param === justCreated.current) justCreated.current = null;
+        // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
+        if (route.id === 'note/<path>' && noteApi.current) { if (route.param === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });

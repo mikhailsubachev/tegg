@@ -80,7 +80,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
   const doc = useMemo(() => parse(text.replace(/^﻿/, '')), [text]);
   const model = useMemo(() => panelRows(doc, type), [doc, type]);
   const links = useLinks(path, text);
-  const linked = { links, types, onOpen };
+  const linked = { links, types, onOpen, path };
   const firstRefs = useRef<(HTMLElement | null)[]>([]);
   const focusRow = (i: number) => {
     for (let j = i; j < firstRefs.current.length; j++) {

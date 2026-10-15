@@ -393,12 +393,16 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 input.pfield { width: 260px; }
 input.pfield.time { width: 70px; }
 .date-field input.pfield, .date-range input.pfield, .date-time input.pfield:not(.time) { width: 130px; }
-/* Text with links out of edit mode (D-257): chips inline, the whole field clickable to edit. */
-.field-wrap:has(> .linked-text) { flex: 1 1 auto; }
-.pfield.linked-text { display: inline-block; flex: 1 1 auto; width: 100%; min-width: 260px; height: auto; min-height: 28px; line-height: 26px; cursor: text; overflow-wrap: anywhere; }
-.pfield.linked-text.multi { width: 100%; min-width: 320px; white-space: pre-wrap; }
-.note-subtitle-field.linked-text { display: block; min-height: 22px; cursor: text; }
-.linked-text .link-chip { margin: 0 2px; }
+/* Text with links out of edit mode (D-257): the input's text is hidden and the value is drawn over it with chips;
+   only the chips take the pointer, so a click beside them edits the field. */
+.field-wrap.linkable { position: relative; display: flex; flex: 1 1 auto; }
+.field-wrap.linkable > input.pfield { width: 100%; min-width: 260px; }
+.subtitle-wrap { position: relative; display: block; }
+.chips-shown { color: transparent !important; }
+.linked-overlay { position: absolute; inset: 0 0 0 0; display: flex; align-items: center; gap: 0; padding: 0 7px; overflow: hidden; white-space: pre; pointer-events: none; font-size: 14px; color: var(--text); }
+.linked-overlay.multi { align-items: flex-start; padding: 5px 7px; white-space: pre-wrap; }
+.linked-overlay.subtitle { padding: 2px 0; font-size: 15px; bottom: 8px; }
+.linked-overlay .link-chip { pointer-events: auto; margin: 0 2px; }
 textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px; resize: vertical; font: inherit; }
 .pfield.select { display: inline-flex; align-items: center; gap: 6px; min-width: 120px; border-color: var(--border); }
 .pfield.select .muted, .muted { color: var(--muted); }
@@ -521,3 +525,5 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .menu-check { display: inline-flex; width: 14px; justify-content: center; }
 .menu-note { padding: 4px 8px; font-size: 12px; max-width: 280px; }
 .type-notice { color: var(--muted); font-size: 13px; margin: 4px 0; }
+/* `[[` / `@` link list under a text property field (D-250, D-258). */
+.field-suggestions { position: absolute; top: 100%; left: 0; z-index: 30; margin-top: 2px; min-width: 260px; }
