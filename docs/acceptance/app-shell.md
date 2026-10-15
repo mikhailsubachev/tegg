@@ -44,7 +44,8 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `chooser` | Vault chooser, New vault | built | MS3 | FR-VLT-01, FR-VLT-02 | — | launch with no vault; palette "Open vault…", "Create new vault…" |
 | `home` | Home | TBD | MS5 | FR-HOM-01, FR-HOM-02 | Home | sidebar Home, sidebar logo, palette |
 | `inbox` | Inbox | TBD | MS5 | FR-INB-01…04 | Home | sidebar, ⌘⇧I (AP-70), palette |
-| `today` | Today | TBD | MS4 | FR-DLY-01…06 | Home | sidebar, ⌘D, palette |
+| `today` | Today | built (4B; redirects to `daily/<today>`, D-321) | MS4 | FR-DLY-01…06 | Home | sidebar, ⌘D, palette |
+| `daily/YYYY-MM-DD` | Daily Note for a date | built (4B, D-321) | MS4 | FR-DLY-01…06 | Home | Today, previous/next day, calendar, date links |
 | `tasks` | Tasks | TBD | MS5 | FR-TSK-04…06 | Home | sidebar, palette |
 | `search` | Search | built (MS2 content) | MS2 | FR-SRC-01…04 | — | ⌘⇧F, palette (AP-69) |
 | `type/<type>` | Type page | built, minimal list (AP-67) | MS3 | FR-TYP-09 | Ideas | sidebar Types list, note breadcrumb, palette "Go to type: <plural>" |
@@ -96,7 +97,8 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌘O | Open quick switcher | FR-NAV-01 |
 | ⌘N | New object | design boards |
 | ⌘⇧F | Go to Search | MS2 shell |
-| ⌘D | Go to Today (TBD) | design Home |
+| ⌘D | Go to Today (built in 4B) | design Home |
+| ⌥⌘← / ⌥⌘→ | Previous day / Next day (4B, only on `daily/…` routes, D-329) | daily-notes.md R17 |
 | ⌘⇧I | Go to Inbox (TBD) | design Home (AP-70) |
 | ⌘\ | Toggle right panel | design Main |
 | ⌃⌘S | Toggle sidebar | proposed, AP-70 |
