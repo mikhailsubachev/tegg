@@ -176,7 +176,6 @@ export const en: Catalog = {
   // Type page (D-123) and note page.
   'typePage.empty': 'No objects of this type yet. Create one with New object.',
   'typePage.list': 'Objects',
-  'note.breadcrumb': 'Breadcrumb',
   'note.toolbar': 'Note toolbar',
   'note.source': 'Markdown source',
   'note.showSource': 'Show Markdown source',
@@ -587,6 +586,8 @@ export const en: Catalog = {
   'ts.builtIn': 'Built in on every type',
   'ts.builtInHelp': 'Every object can have these, whatever its type.',
   'ts.preview': 'Preview properties',
+  'ts.hidden': 'Hidden properties',
+  'ts.hiddenHelp': "Checked properties aren't shown on this type's objects; you'll find them under Other properties.",
   'ts.review': 'Review workflow',
   'ts.templates': 'Templates',
   'ts.views': 'Views',

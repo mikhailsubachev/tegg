@@ -101,10 +101,9 @@ function Value({ row, p }: { row: AttrRow; p: Props }) {
 export function Properties(p: Props) {
   const doc = parse(p.text.replace(/^﻿/, ''));
   if (doc.frontmatter?.error || doc.frontmatterError) return null;
-  const { subtitle, rows } = attributeRows(doc);
+  const { rows } = attributeRows(doc); // no description subtitle on objects (D-313)
   return (
     <>
-      {subtitle && <p className="note-subtitle" data-user-content>{subtitle}</p>}
       {rows.length > 0 && (
         <section className="properties" aria-label={t('props.title')}>
           <button type="button" className="properties-head" aria-expanded={p.open} data-command="note.toggleProperties" onClick={p.onToggle}>

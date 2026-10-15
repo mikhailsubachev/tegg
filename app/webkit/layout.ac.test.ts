@@ -361,25 +361,23 @@ test('fr_ux_02_ac12_disabled_controls_are_inert_and_explained', async ({ page })
   assert.deepEqual(failures, []);
 });
 
-test('fr_ux_02_ac14_note_page_breadcrumb_title_and_read_view', async ({ page }) => {
+test('fr_ux_02_ac14_note_page_title_and_read_view_without_breadcrumb', async ({ page }) => {
   await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const core = await start(page);
   await openNote(page, '2026-10-07 Porada');
   const main = page.getByRole('main');
-  assert.match((await main.innerText()).replace(/\s+/g, ' '), /Schůzky\s*\/\s*2026-10-07 Porada/, 'breadcrumb');
+  assert.equal(await page.locator('nav.breadcrumb').count(), 0, 'no breadcrumb (D-315)');
+  assert.equal(await main.getByRole('link', { name: 'Schůzky', exact: true }).count(), 0, 'no type link above the title (D-315)');
   assert.equal((await main.getByRole('heading', { level: 1 }).first().innerText()).trim(), '2026-10-07 Porada', 'title');
   // D-150: the note page shows the formatted read view (read-view.md), not the raw file.
   const body = main.getByRole('article', { name: '2026-10-07 Porada', exact: true });
   assert.ok(await seen(body), 'the formatted read view');
   assert.match(await body.innerText(), /Týdenní porada, rozpočet a výlet\./, 'the body text');
   assert.ok(!(await body.innerText()).includes('id: 01JA'), 'not the raw file');
-  for (const [title, crumb] of [['Bez hlavičky', /Pages\s*\/\s*Bez hlavičky/], ['Svíčková', /recept\s*\/\s*Svíčková/]] as const) {
+  for (const title of ['Bez hlavičky', 'Svíčková']) {
     await openNote(page, title);
-    assert.match((await page.getByRole('main').innerText()).replace(/\s+/g, ' '), crumb, `${title} breadcrumb`);
+    assert.equal((await main.getByRole('heading', { level: 1 }).first().innerText()).trim(), title, `${title} title`);
   }
-  await openNote(page, '2026-10-07 Porada');
-  await main.getByRole('link', { name: 'Schůzky', exact: true }).click();
-  await mustBeOn(page, 'Schůzky', 'breadcrumb type link → type/schůzka');
   assert.equal(await core.writes(), 0, 'opening notes wrote nothing');
   assert.deepEqual(await nonReadCalls(core), []);
 });

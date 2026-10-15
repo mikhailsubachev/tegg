@@ -227,25 +227,22 @@ test('fr_typ_08_ac13_no_source_value_is_invalid', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-08 AC-14
 
-const descriptionField = (page: Page) => page.getByRole('textbox', { name: 'Description', exact: true });
-
-test('fr_typ_08_ac14_links_in_description', async ({ page }) => {
+// The Description part is superseded by D-313 (no description on objects); its chip checks run on Source.
+test('fr_typ_08_ac14_source_chip_opens_the_note_and_shows_broken_targets', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
-  await commitField(page, descriptionField(page), 'Viz [[Rozpočet 2027]]', 'textbox Description');
-  const t = await written(core, P.obycejna, (x) => entry(x, 'description') !== '');
-  assert.equal(entry(t, 'description'), 'description: "Viz [[Rozpočet 2027]]"', 'double-quoted (AP-189)');
-  await page.keyboard.press('Escape');
+  await commitField(page, sourceField(page), 'Viz [[Rozpočet 2027]]', 'textbox Source');
+  await written(core, P.obycejna, (x) => entry(x, 'source') !== '');
   await editorClickAway(page);
-  const chip = await must(main(page).getByRole('link', { name: 'Rozpočet 2027', exact: true }), 'link chip Rozpočet 2027 in the subtitle');
+  const chip = await must(props(page).getByRole('link', { name: 'Rozpočet 2027', exact: true }), 'link chip Rozpočet 2027 in Source');
   await chip.click();
   await mustBeOn(page, 'Rozpočet 2027', 'the chip opens the note (D-140)');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Obyčejná stránka', 'back');
-  await (await must(descriptionField(page), 'Description')).click();
-  assert.equal(await descriptionField(page).inputValue().catch(async () => (await descriptionField(page).innerText()).trim()), 'Viz [[Rozpočet 2027]]', 'edit mode shows the raw text');
-  await commitField(page, descriptionField(page), 'Viz [[Neexistuje]]', 'Description');
+  await (await must(sourceField(page), 'Source')).click();
+  assert.equal(await sourceField(page).inputValue(), 'Viz [[Rozpočet 2027]]', 'edit mode shows the raw text');
+  await commitField(page, sourceField(page), 'Viz [[Neexistuje]]', 'Source');
   await editorClickAway(page);
-  const broken = await must(main(page).getByRole('link', { name: 'Neexistuje', exact: true }), 'chip Neexistuje');
+  const broken = await must(props(page).getByRole('link', { name: 'Neexistuje', exact: true }), 'chip Neexistuje');
   assert.match(await description(broken), /No note named Neexistuje/, 'broken style (D-142)');
 });
 

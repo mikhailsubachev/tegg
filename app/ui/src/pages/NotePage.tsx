@@ -17,10 +17,7 @@ import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
-import { pluralOf } from '../shell/types';
-import { AttributePanel, useLinks, type Commit, type PanelApi } from '../types/AttributePanel';
-import { hasLinks, LinkedText, type LinkContext } from '../types/controls/LinkedText';
-import { useLinkSuggest } from '../types/controls/LinkSuggest';
+import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { pageFallback, typeOfValue } from '../types/util';
 
@@ -134,10 +131,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   live.current = { path, loaded, merge, deleted };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
-  const descLinks = useLinks(path, head); // D-257: link chips in the description
   const panelApi = useRef<PanelApi | null>(null);
   const chipApi = useRef<TypeChipApi | null>(null);
-  const descField = useRef<HTMLInputElement | null>(null);
   const syncHead = useCallback(() => {
     const ed = edRef.current;
     if (!ed) return;
@@ -527,10 +522,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   }
   if (!loaded) return null;
   const meta = noteMeta(path, diskText || loaded.text);
-  const plural = pluralOf(types, meta.type);
-  const segs = path.split('/');
-  const stem = segs.pop()!.replace(/\.md$/, '');
-  const folder = segs.join('/');
   const editable = loaded.mode === 'edit';
   const warning = loaded.mode === 'invalidFrontmatter' ? frontmatterWarning(parse(loaded.text.replace(/^﻿/, ''))) : null;
   const saveText = t(`save.${save.state}`);
@@ -540,7 +531,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
-  const descSaved = typeof (fmData as Record<string, unknown>).description === 'string' ? String((fmData as Record<string, unknown>).description) : '';
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined}>
@@ -563,19 +553,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         </div>
       )}
       <div className="note-column">
-        <nav className="breadcrumb" aria-label={t('note.breadcrumb')}>
-          <a href="#" tabIndex={0} data-command={`goto.type:${meta.type}`} onClick={(e) => { e.preventDefault(); onType(meta.type); }}>
-            <span data-user-content>{plural}</span>
-          </a>
-          {folder && types.some((x) => x.key === meta.type && x.folder !== folder) && (
-            <>
-              <span className="sep" aria-hidden="true">/</span>
-              <span data-user-content>{folder}</span>
-            </>
-          )}
-          <span className="sep" aria-hidden="true">/</span>
-          <span data-user-content>{stem}</span>
-        </nav>
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} />
@@ -590,7 +567,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               onChange={onTitle}
               onLeave={onTitleBlur}
               onDown={() => { onTitleBlur(); pane.current?.focus(); }}
-              onTab={() => { onTitleBlur(); descField.current?.focus(); }}
+              onTab={() => { onTitleBlur(); if (propertiesOpen) panelApi.current?.focusFirst(); else pane.current?.focus(); }}
             />
           </h1>
         ) : (
@@ -633,9 +610,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         )}
         {editable && (
           <div hidden={showSource}>
-            <DescriptionField elRef={descField} saved={descSaved} linked={{ links: descLinks, types: types as never, onOpen: (p) => onOpen(p), path }}
-              onCommit={(v) => commit((d) => setValue(d, 'description', v.trim() === '' ? null : v))}
-              onNext={() => (propertiesOpen ? panelApi.current?.focusFirst() : pane.current?.focus())} />
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
             <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
               open={propertiesOpen} onToggle={onToggleProperties}
@@ -679,7 +653,7 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   onChange: (v: string) => void;
   onLeave: () => void;
   onDown: () => void;
-  /** Tab: the description subtitle (FR-EDT-07 AC-10). */
+  /** Tab: the first property, else the body (FR-EDT-07 AC-10; no description subtitle, D-313). */
   onTab?: () => void;
 }) {
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -704,56 +678,6 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
         if (e.key === 'Enter' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); onDown(); }
       }}
     />
-  );
-}
-
-/** The description subtitle (FR-TYP-08 AC-7): one line, placeholder `Add a description`; ⏎ or leaving it commits,
- *  pasted line breaks become spaces, an empty value removes the key (D-230); Esc reverts. */
-function DescriptionField({ elRef, saved, onCommit, onNext, linked }: {
-  elRef: React.MutableRefObject<HTMLInputElement | null>;
-  saved: string;
-  /** Links show as chips out of edit mode (D-249, D-257; FR-TYP-08 AC-14). */
-  linked: LinkContext;
-  onCommit: (v: string) => void;
-  onNext: () => void;
-}) {
-  const [value, setValue2] = useState(saved);
-  const editing = useRef(false);
-  useEffect(() => { if (!editing.current) setValue2(saved); }, [saved]);
-  const done = () => {
-    if (!editing.current) return;
-    editing.current = false;
-    const v = value.normalize('NFC').replace(/\s*\r?\n\s*/g, ' ');
-    if (v.trim() === saved.trim()) { setValue2(saved); return; }
-    onCommit(v.trim() === '' ? '' : v);
-  };
-  const [focused, setFocused] = useState(false);
-  const chips = !focused && value === saved && hasLinks(saved);
-  const sug = useLinkSuggest({ path: linked.path, value, setValue: (v) => { editing.current = true; setValue2(v); }, field: elRef as never });
-  return (
-    <span className="subtitle-wrap">
-    <input ref={elRef} type="text" className={`note-subtitle-field ${chips ? 'chips-shown' : ''}`} aria-label={t('attr.description')} placeholder={t('panel.descriptionPlaceholder')}
-      value={value} data-user-content spellCheck={false} autoComplete="off"
-      onChange={(e) => { editing.current = true; setValue2(e.target.value); sug.update(); }}
-      onSelect={() => { if (sug.open) sug.update(); }}
-      onPaste={(e) => {
-        e.preventDefault();
-        const text = e.clipboardData.getData('text/plain').replace(/\s*\r?\n\s*/g, ' ');
-        const el = e.currentTarget;
-        const a = el.selectionStart ?? value.length, b = el.selectionEnd ?? value.length;
-        editing.current = true;
-        setValue2(value.slice(0, a) + text + value.slice(b));
-      }}
-      onFocus={() => setFocused(true)}
-      onBlur={() => { setFocused(false); sug.close(); done(); }}
-      onKeyDown={(e) => {
-        if (sug.onKeyDown(e)) return;
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setValue2(saved); return; }
-        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); onNext(); }
-      }} />
-    {chips && <span className="linked-overlay subtitle"><span className="linked-line"><LinkedText text={saved} ctx={linked} /></span></span>}
-    {sug.list}
-    </span>
   );
 }
 

@@ -216,8 +216,8 @@ test('fr_edt_07_ac10_keyboard_order_and_edit_properties_command', async ({ page 
   await must(control(page, 'textbox', 'Místo'), 'the 3D panel');
   await titleField(page).focus();
   await page.keyboard.press('Tab');
-  assert.equal((await focused(page)).label, 'Description', 'title → description');
-  const seenLabels: string[] = [];
+  assert.ok((await focused(page)).label.startsWith('Datum'), 'title → the first value control (no description, D-313)');
+  const seenLabels: string[] = [(await focused(page)).label];
   for (let i = 0; i < 12; i++) {
     await page.keyboard.press('Tab');
     seenLabels.push((await focused(page)).label);
@@ -321,22 +321,12 @@ test('fr_edt_07_ac17_contrast_light_and_dark_with_pickers_open', async ({ page }
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-08
 
-test('fr_typ_08_ac7_description_subtitle', async ({ page }) => {
+test('fr_typ_08_ac7_superseded_by_d313_no_description_field', async ({ page }) => {
   const core = await openTypes(page, P.porada);
-  const d = await must(subtitle(page), 'textbox Description');
-  assert.equal(await d.getAttribute('placeholder'), 'Add a description');
-  await d.focus();
-  await page.evaluate(() => {
-    const dt = new DataTransfer();
-    dt.setData('text/plain', 'Rozpočet\nna rok 2027');
-    document.activeElement?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-  });
-  await page.keyboard.press('Enter');
-  const t = await written(core, P.porada, (x) => x.includes('description:'));
-  assert.equal(noModified(t ?? ''), noModified(append(original(P.porada), 'description: Rozpočet na rok 2027\n')), 'line breaks become spaces; only that entry and modified');
-  await d.fill('');
-  await titleField(page).focus();
-  assert.ok(!(await written(core, P.porada, (x) => !x.includes('description:')))?.includes('description:'), 'empty removes the key');
+  await must(control(page, 'textbox', 'Místo'), 'the panel');
+  assert.equal(await subtitle(page).count(), 0, 'no Description field on the object (D-313)');
+  assert.equal(await page.getByPlaceholder('Add a description').count(), 0, 'no description placeholder');
+  assert.equal(await lastWrite(core, P.porada), null, 'nothing written');
 });
 
 test('fr_typ_08_ac8_tags_row', async ({ page, browser }) => {
@@ -373,10 +363,12 @@ test('fr_typ_08_ac8_tag_chip_opens_the_tag_page', async ({ page }) => {
 
 test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {
   const core = await openTypes(page, P.styl);
-  const al = await must(props(page).getByRole('group', { name: 'Aliases' }), 'group Aliases');
-  await al.getByRole('button', { name: 'Add alias', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Alias', exact: true }).fill('Třetí');
-  await page.keyboard.press('Enter');
+  // D-312: one text field, comma-separated (FR-TYP-08 AC-15).
+  const al = await must(props(page).getByRole('textbox', { name: 'Aliases', exact: true }), 'textbox Aliases');
+  assert.equal(await al.inputValue(), 'Styl, Hodnoty');
+  await al.click();
+  await al.fill('Styl, Hodnoty, Třetí');
+  await al.press('Enter');
   const t = await written(core, P.styl, (x) => x.includes('Třetí'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.styl), 'aliases: [Styl, Hodnoty]\n', 'aliases: [Styl, Hodnoty, Třetí]\n')), 'flow list kept; key spelling and value style kept (FR-EDT-07 AC-8)');
   await page.keyboard.press('Meta+o');

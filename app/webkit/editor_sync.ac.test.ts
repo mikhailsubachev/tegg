@@ -278,6 +278,6 @@ test('fr_syn_03_ac18_renamed_while_open_with_unsaved_edits', async ({ page }) =>
   assert.equal((ok[0].args as any).path, moved, 'to the new path');
   assert.ok(argText(ok[0]).includes(`${B5} Moje.`), 'with the edit');
   assert.equal((await core.files())[E.deset], undefined, 'no file at the old path');
-  await must(page.getByRole('main').getByText('Quick Notes', { exact: true }), 'breadcrumb shows the new folder (D-161)');
+  // No breadcrumb (D-315): the save to the new path is the evidence of D-161.
   void bodyOf;
 });

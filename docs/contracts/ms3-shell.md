@@ -931,6 +931,7 @@ type TypeDto = TypeDefDto & {               // TypeDefDto (§2) fields: key, nam
   review: 'off' | 'on' | 'locked';
   preview: string[];
   previewIgnored: string[];
+  hidden: string[];          // FR-TYP-17, D-316: left out of the attribute panel's rows, shown under Other properties
   template: string | null;
   attributes: AttributeDto[];
 };
@@ -950,6 +951,7 @@ type TypeOpDto =
   | { op: 'set'; field: 'name' | 'plural' | 'folder' | 'icon' | 'color' | 'description'; value: string | null }
   | { op: 'review'; on: boolean }
   | { op: 'preview'; keys: string[] }
+  | { op: 'hidden'; keys: string[] }    // FR-TYP-17, D-316: `hidden: [..]` after `preview`; not written in new files while empty
   | { op: 'addAttribute'; attribute: AttributeInputDto }
   | { op: 'updateAttribute'; key: string; change: AttributeChangeDto }
   | { op: 'removeAttribute'; key: string }

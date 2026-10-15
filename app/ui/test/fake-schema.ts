@@ -12,7 +12,7 @@ const REPO = resolve(import.meta.dirname, '../../..');
 const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'];
 const UNIVERSAL_PREVIEW = ['tags', 'source', 'aliases', 'created', 'modified'];
-const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'template', 'attributes'];
+const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'template', 'attributes'];
 const ITEM = ['key', 'name', 'type', 'default', 'required', 'options', 'to', 'multiple', 'description'];
 const HEADER = "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\n";
 
@@ -56,7 +56,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const system = SYSTEM.includes(key);
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
-    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], template: null, attributes: [],
+    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], template: null, attributes: [],
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -100,6 +100,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     state: declared !== null && declared > 1 ? 'newer' : 'ok', declaredVersion: declared, description: y.description ?? null,
     review: y.review === 'locked' ? 'locked' : y.review === true ? 'on' : 'off', preview,
     previewIgnored: preview.filter((p) => !attributes.some((a: any) => a.key === p) && !UNIVERSAL_PREVIEW.includes(p)),
+    hidden: Array.isArray(y.hidden) ? y.hidden.map((x: unknown) => String(x).normalize('NFC')) : [],
     template: y.template ?? null, attributes,
   };
 }
@@ -245,6 +246,11 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.keys.length > 4) return rule({ reason: 'previewFull' });
       if (JSON.stringify(op.keys) === JSON.stringify(t.preview)) continue;
       setTop(es, 'preview', `preview: ${flow(op.keys)}\n`);
+    } else if (op.op === 'hidden') {
+      // FR-TYP-17, D-316: a flow list after `preview`.
+      const keys: string[] = [...new Set<string>(op.keys.map((k: string) => k.normalize('NFC')))];
+      if (JSON.stringify(keys) === JSON.stringify(t.hidden)) continue;
+      setTop(es, 'hidden', `hidden: ${flow(keys)}\n`);
     } else {
       const ai = es.findIndex((e) => e.key === 'attributes');
       const its = items(es[ai]);
@@ -259,6 +265,10 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
         if (i < 0) continue;
         its.splice(i, 1);
         if (t.preview.includes(op.key)) setTop(es, 'preview', `preview: ${flow(t.preview.filter((p: string) => p !== op.key))}\n`);
+        if (t.hidden.includes(nfc(op.key))) {
+          const rest = t.hidden.filter((p: string) => p !== nfc(op.key));
+          setTop(es, 'hidden', `hidden: ${flow(rest)}\n`);
+        }
       } else if (op.op === 'moveAttribute') {
         const i = find(op.key);
         if (i < 0 || i === op.to) continue;

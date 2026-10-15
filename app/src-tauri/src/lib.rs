@@ -785,6 +785,7 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         .into(),
         preview: d.preview,
         preview_ignored: t.preview_ignored,
+        hidden: d.hidden,
         template: d.template,
         attributes: d.attributes.into_iter().map(attribute_dto).collect(),
     }
@@ -849,6 +850,7 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         }
         TypeOpDto::Review { on } => TypeOp::SetReview(on),
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
+        TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::AddAttribute { attribute } => TypeOp::AddAttribute(attr_def(attribute)),
         TypeOpDto::UpdateAttribute { key, change } => TypeOp::UpdateAttribute {
             key,

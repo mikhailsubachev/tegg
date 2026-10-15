@@ -131,6 +131,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-TYP-11 | Each type defines its preview attributes (up to ~4 attributes shown as a compact strip in previews and embed c… | no ACs yet |
 | FR-TYP-12 | Review workflow setting per type (on/off, D-30). When on, new objects of that type get `review: unreviewed` an… | no ACs yet |
 | FR-TYP-13 | Every object has exactly one type (D-24); the type can be changed at any time (FR-TYP-07). | no ACs yet |
+| FR-TYP-17 | Hidden properties: per type, chosen properties are moved off the attribute panel into Other properties (D-316). | ACs in types.md (D-316) |
 | FR-TYP-14 | Removed (D-217): no object icon or cover; the type icon is shown | not in scope (W) |
 | FR-UX-01 | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | no ACs yet |
 | FR-UX-02 | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | no ACs yet |
