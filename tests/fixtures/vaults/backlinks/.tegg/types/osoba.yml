@@ -1,0 +1,17 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Osoba
+plural: Osoby
+system: false
+folder: Osoby
+icon: user
+color: purple
+review: false
+preview: [firma, role]
+attributes:
+  - key: firma
+    name: Firma
+    type: text
+  - key: role
+    name: Role
+    type: text
