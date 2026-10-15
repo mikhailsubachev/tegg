@@ -36,6 +36,8 @@ export type ShellActions = {
   changeType?: () => void;
   editProperties?: () => void;
   addStarterTypes?: () => void;
+  /** 4A (R16): opens the Context panel on Backlinks and focuses its first entry. */
+  showBacklinks?: () => void;
 };
 
 export type EditAction =
@@ -89,9 +91,12 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
   'ctl.typePicker': 'object.typePicker',
+  'ctl.typePickerLink': 'createLink.typePicker',
+  'duplicates.merge': 'duplicates.merge',
+  'backlinks.unlinked': 'panel.unlinkedMentions',
 };
 
-const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>']);
+const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -126,6 +131,14 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
   );
+  // R16 (backlinks.md): no shortcuts (D-281).
+  list.push(
+    { id: 'goto.brokenLinks', title: 'commands.gotoBrokenLinks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'broken-links' }) },
+    { id: 'goto.duplicateTitles', title: 'commands.gotoDuplicateTitles', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'duplicate-titles' }) },
+  );
+  if (ctx.route?.id === 'note/<path>') {
+    list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
+  }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
   const route = ctx.route ?? null;
   const routeKey = route ? (route.param ?? route.key ?? route.type ?? '').normalize('NFC') : '';

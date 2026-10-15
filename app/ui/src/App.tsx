@@ -28,6 +28,12 @@ import { parseRoute, routeString, type Route } from './shell/routes';
 import { typeEntries } from './shell/types';
 import { Switcher } from './Switcher';
 import { applyTheme } from './theme/apply';
+import { BrokenLinksPage } from './links/BrokenLinksPage';
+import { CreateLinkOffer } from './links/CreateLinkOffer';
+import { DuplicateTitlesPage } from './links/DuplicateTitlesPage';
+import { setChipTypes } from './links/icons';
+import { setOfferHandler, type OfferRequest } from './links/offer';
+import type { OccurrenceDto } from './ipc/types';
 
 const SIDEBAR_W = 232;
 const PANEL_W = 288;
@@ -59,8 +65,15 @@ export function App() {
   const [width, setWidth] = useState(window.innerWidth);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // 4A: the Create offer of a broken link (FR-LNK-04 AC-4) and `Show backlinks` (R16).
+  const [offer, setOffer] = useState<OfferRequest | null>(null);
+  const [focusBacklinks, setFocusBacklinks] = useState(0);
+  useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
+  useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
+  /** The open note has loaded (or is gone): the centre pane is named only then, so its content is there with it. */
+  const [noteShown, setNoteShown] = useState(false);
   const metaRef = useRef<NoteMeta | null>(null);
   metaRef.current = meta;
   const [sourceToggle, setSourceToggle] = useState(0);
@@ -210,6 +223,13 @@ export function App() {
     window.addEventListener('focusin', onFocus);
     return () => window.removeEventListener('focusin', onFocus);
   }, []);
+  /** An excerpt (FR-LNK-01 AC-6): the source at the mention; a property link focuses that property (D-280). */
+  const openMention = useCallback((source: string, o: OccurrenceDto | null) => {
+    const r: Route = { id: 'note/<path>', param: source.normalize('NFC') };
+    if (o?.kind === 'attribute' && o.attribute) r.attr = o.attribute;
+    else if (o) r.at = { line: o.at.line, byte: o.at.byte };
+    void go(r);
+  }, []);
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
   const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
@@ -219,6 +239,7 @@ export function App() {
   const restoreFor = pendingScroll.current !== null ? routeKey : null;
   useEffect(() => {
     setMeta(null);
+    setNoteShown(false);
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
   }, [routeKey]);
 
@@ -271,7 +292,17 @@ export function App() {
     changeType: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.changeType(), 0); },
     editProperties: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
-    toggleRightPanel: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: !u.rightPanel.open } })); },
+    toggleRightPanel: () => {
+      if (route?.id !== 'note/<path>') return;
+      // Closing the panel with the focus in it gives the focus back to the note (FR-LNK-01 AC-14).
+      if (document.activeElement?.closest('.context-panel')) noteApi.current?.placeFocus();
+      updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: !u.rightPanel.open } }));
+    },
+    showBacklinks: () => {
+      if (route?.id !== 'note/<path>') return;
+      updateUi((u) => ({ ...u, rightPanel: { open: true, tab: 'backlinks' } }));
+      setFocusBacklinks((n) => n + 1);
+    },
     toggleFocus: () => {
       if (route?.id !== 'note/<path>') return;
       setFocusMode((f) => !f);
@@ -469,13 +500,15 @@ export function App() {
         created={justCreated.current === route.param}
         path={route.param}
         fragment={route.fragment}
+        at={route.at}
+        attr={route.attr}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
         onRestored={() => { pendingScroll.current = null; }}
         knownId={knownIds.current.get(route.param)}
         onId={(id) => knownIds.current.set(route.param!, id)}
         types={types}
         heading={heading}
-        onMeta={setMeta}
+        onMeta={(m) => { setMeta(m); setNoteShown(true); }}
         onType={(k) => go({ id: 'type/<type>', param: k })}
         onOpen={openNote}
         onTag={openTag}
@@ -527,6 +560,10 @@ export function App() {
         onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
       />
     );
+  } else if (route?.id === 'broken-links') {
+    body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
+  } else if (route?.id === 'duplicate-titles') {
+    body = <DuplicateTitlesPage heading={heading} refresh={refresh} types={types} onOpen={(p) => openNote(p)} />;
   } else if (route?.id === 'conflicts') {
     body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {
@@ -573,11 +610,17 @@ export function App() {
               <button tabIndex={0} type="button" data-command="banner.dismiss" onClick={() => setMessage(null)}>{t('banner.dismiss')}</button>
             </div>
           )}
-          <main aria-label={pageName} className={route?.id === 'note/<path>' ? 'note-main' : ''}>
+          <main aria-label={route?.id === 'note/<path>' && !noteShown ? undefined : pageName} className={route?.id === 'note/<path>' ? 'note-main' : ''}>
             {body}
           </main>
         </div>
-        {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))} />}
+        {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
+          backlinks={route?.param ? { path: route.param, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
+        {offer && (
+          <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
+            onCreated={(p) => openNote(p)}
+            onExists={(p, title) => { setMessage(t('createLink.exists', { title })); openNote(p); }} />
+        )}
       </div>
       {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
       {quitAsk && (

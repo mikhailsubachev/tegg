@@ -687,6 +687,7 @@ dependencies = [
  "chrono-tz",
  "pulldown-cmark",
  "regex",
+ "serde",
  "serde_json",
  "tempfile",
  "unicode-normalization",

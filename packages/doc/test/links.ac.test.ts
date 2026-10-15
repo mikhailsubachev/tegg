@@ -43,7 +43,8 @@ test('fr_fmt_03_ac1_every_link_form_is_written_back_verbatim', () => {
   const doc = parse(LINKS)
   expect(doc.blocks.map((b) => b.kind)).toEqual(['paragraph', 'embed', 'embed', 'embed', 'embed'])
   expect(serialize(doc)).toBe(LINKS)
-  expect(extract(LINKS, 'Odkazy').links).toEqual([
+  // Records also carry `at`, `block` and `markdown` (ms4-links §2.1, D-298, D-302).
+  expect(extract(LINKS, 'Odkazy').links).toMatchObject([
     { target: 'Řeka', subpath: null, alias: null, embed: false, inFrontmatter: false, attribute: null },
     { target: 'Řeka', subpath: null, alias: 'alias řeky', embed: false, inFrontmatter: false, attribute: null },
     { target: 'Řeka', subpath: 'Prameny', alias: null, embed: false, inFrontmatter: false, attribute: null },

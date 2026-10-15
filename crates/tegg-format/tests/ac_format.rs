@@ -22,6 +22,7 @@ fn link(target: &str, subpath: Option<&str>, alias: Option<&str>, embed: bool, i
         embed,
         in_frontmatter,
         attribute: None,
+        ..Default::default()
     }
 }
 

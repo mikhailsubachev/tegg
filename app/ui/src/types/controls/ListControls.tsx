@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
 import type { LinkTargetDto, TagDto, TypeDto } from '../../ipc/types';
-import { Icon, typeIconName } from '../../shell/Icon';
+import { Icon } from '../../shell/Icon';
+import { chipIcon } from '../../links/icons';
+import { requestOffer } from '../../links/offer';
 import { RelationPicker } from '../RelationPicker';
 import { nfc, rawText, wiki } from '../util';
 import { EmptyMark, WarnIcon, type Value } from './common';
@@ -60,13 +62,18 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
         const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
         const wrongType = ok && to && to.length > 0 && !to.map(nfc).includes(nfc(info!.type ?? 'page'));
         const d = !ok ? t('link.noNote', { target: w.target }) : wrongType ? t('panel.notType', { type: allowedNames.join(' / ') }) : invalidItems.includes(i) ? t('panel.invalid', { type: t('attrType.relation') }) : undefined;
-        const typeIcon = info?.type ? typeIconName(info.type, types.find((x) => nfc(x.key) === nfc(info.type!))?.icon) : 'file';
+        const icon = chipIcon(info?.type ?? 'page');
         return (
-          <span key={`${i}:${w.inner}`} className={`chip link-chip ${ok ? '' : 'kind-unresolved'} ${wrongType ? 'warn' : ''}`}>
+          <span key={`${i}:${w.inner}`} className={`chip-wrap ${wrongType ? 'warn' : ''}`}>
             <a data-command="panel.list.a1" href="#" aria-description={d} data-link-kind={ok ? info!.kind : 'unresolved'}
-              onClick={(e) => { e.preventDefault(); if (ok) onOpen(info!.path!); }}
+              className={`chip link-chip kind-${ok ? info!.kind : 'unresolved'}`}
+              onClick={(e) => {
+                e.preventDefault();
+                if (ok) onOpen(info!.path!);
+                else if (info?.kind !== 'date-missing') requestOffer({ from: path, target: w.target, relationTo: to && to.length ? to : null, anchor: e.currentTarget }); // FR-LNK-04 AC-4, D-243
+              }}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); remove(i); } }}>
-              {ok && <Icon name={typeIcon} size={13} />}
+              {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
               <span data-user-content>{shown}</span>
             </a>
             {wrongType && <WarnIcon />}

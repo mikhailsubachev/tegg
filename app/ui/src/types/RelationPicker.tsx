@@ -3,6 +3,7 @@
 // The last row `Create "<query>"` creates an object of the first allowed type (or the default type) through the one
 // creation path (D-232) and links it without leaving the note. The link text follows editor.md FR-EDT-06 AC-3 (D-184).
 import { useEffect, useRef, useState } from 'react';
+import { DuplicateDetails } from '../links/DuplicateDetails';
 import { linkText } from '@tegg/editor';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -108,8 +109,7 @@ export function RelationPicker({ name, to, exclude, from, types, onPick, onClose
                 <Icon name={typeIconName(it.type, types.find((x) => nfc(x.key) === nfc(it.type))?.icon)} size={14} />
                 <span data-user-content>{it.title}</span>
                 {it.matched_alias && <span className="meta" data-user-content>{it.matched_alias}</span>}
-                <span className="meta" data-user-content>{typeName}</span>
-                {(titles.get(it.title) ?? 0) > 1 && it.created && <span className="meta" data-user-content>{it.created.slice(0, 10)}</span>}
+                {it.duplicate ? <DuplicateDetails details={it.duplicate} typeName={typeName} /> : <span className="meta" data-user-content>{typeName}</span>}
               </div>
             );
           })}

@@ -80,7 +80,8 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .undefined-mark { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
 
 /* ------------------------------------------------------------ context panel */
-.context-panel { width: 288px; flex: none; background: var(--panel); border-left: 1px solid var(--border); padding: 12px; overflow: auto; }
+.context-panel { width: 288px; flex: none; background: var(--panel); border-left: 1px solid var(--border); padding: 12px; overflow: auto; display: flex; flex-direction: column; }
+.context-panel > .panel-body.backlinks { flex: 1 1 0; min-height: 0; overflow: auto; margin: 0 -10px; }
 .panel-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--hover); margin-bottom: 12px; }
 .panel-tabs button { flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--muted); }
 .panel-tabs button.on { background: var(--bg); color: var(--text); font-weight: 600; }
@@ -531,3 +532,28 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .type-notice { color: var(--muted); font-size: 13px; margin: 4px 0; }
 /* `[[` / `@` link list under a text property field (D-250, D-258). */
 .field-suggestions { position: absolute; top: 100%; left: 0; z-index: 30; margin-top: 2px; min-width: 260px; }
+
+/* 4A: Backlinks panel, Create offer, vault checks (backlinks.md R15, R16). */
+.excerpt .link-chip { display: inline; }
+.excerpt { display: block; color: var(--text); text-decoration: none; padding: 4px 6px; border-radius: 6px; line-height: 1.45; }
+.excerpt:hover, .excerpt:focus-visible { background: var(--hover); }
+.excerpt-label, .excerpt-embed { color: var(--muted); }
+.panel-body.backlinks { overflow: auto; padding: 8px 10px; min-height: 0; flex: 1; }
+.backlinks-heading { font-size: 13px; font-weight: 600; margin: 4px 0 8px; }
+.backlinks-hint { color: var(--muted); font-size: 13px; }
+.group-header { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; color: var(--text); font-weight: 600; padding: 4px 2px; text-align: left; }
+.group-header .group-count, .group-header .no-def { color: var(--muted); font-weight: 400; }
+.backlink-entry { margin: 4px 0 10px; }
+.entry-title { display: inline-flex; align-items: center; gap: 5px; color: var(--text); font-weight: 500; text-decoration: none; }
+.backlink-entry .excerpts, .dup-rows { list-style: none; margin: 2px 0; padding: 0; }
+.show-more { background: none; border: 0; color: var(--link); padding: 2px 6px; }
+.tab-badge { margin-left: 4px; font-size: 11px; color: var(--muted); }
+.create-offer { z-index: 50; width: 320px; max-width: 340px; max-height: none; padding: 12px; }
+.create-offer .offer-type { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.vault-check .check-group { margin: 16px 0; }
+.vault-check .check-group h2 { font-size: 15px; margin: 0 0 6px; }
+.dup-row { display: flex; gap: 8px; align-items: center; color: var(--text); text-decoration: none; padding: 4px 0; }
+.chip-wrap { display: inline; white-space: nowrap; border-radius: 5px; }
+.chip-wrap.warn { outline: 1px dashed var(--danger); }
+.chips-field .chip-wrap > .link-chip, .chip-wrap > a.link-chip { display: inline-flex; }
+.linked-line { display: block; white-space: inherit; overflow: hidden; }

@@ -2,6 +2,8 @@
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
 // it, math and footnotes are shown as source text. Embeds, queries and mindmaps are R5 placeholders (D-144).
 import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from 'react';
+import { chipIcon } from '../links/icons';
+import { requestOffer } from '../links/offer';
 import { markdownTree, parse, wikilinks } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
@@ -106,12 +108,13 @@ function plainText(n: Any): string {
 type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean };
 
 function Chip({ kind, name, type, description, disabled, onActivate }: {
-  kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: () => void;
+  kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
 }) {
   const act = (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!disabled) onActivate?.();
+    if (!disabled) onActivate?.(e.currentTarget as HTMLElement);
   };
+  const icon = type && kind !== 'external' ? chipIcon(type) : null;
   return (
     <a
       href="#"
@@ -122,7 +125,7 @@ function Chip({ kind, name, type, description, disabled, onActivate }: {
       onClick={act}
       onKeyDown={(e) => e.key === 'Enter' && act(e)}
     >
-      {type && <Icon name={kind === 'external' ? 'link' : typeIconName(type)} size={13} />}
+      {type && (icon ? <Icon name={icon.glyph} dataIcon={icon.def} size={13} /> : <Icon name="link" size={13} />)}
       <span data-user-content>{name}</span>
     </a>
   );
@@ -146,7 +149,8 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
   if (info?.kind === 'date-missing') {
     return <Chip kind="date-missing" name={shown ?? target} type="daily-note" disabled description={t('due.comingIn', { due: 'MS4' })} />;
   }
-  return <Chip kind="unresolved" name={shown ?? target} type={null} description={t('link.noNote', { target })} />;
+  return <Chip kind="unresolved" name={shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target)} type={null} description={t('link.noNote', { target })}
+    onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} />;
 }
 
 function embedPlaceholder(c: Ctx, value: string, inline: boolean): ReactNode {

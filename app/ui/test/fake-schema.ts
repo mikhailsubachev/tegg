@@ -436,7 +436,12 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
       const t = getType(files, vers, key);
       if (!t) return { error: err('UnknownType', `no type ${key}`) };
       const folder = t.folder.replace(/\/+$/, '');
-      const path = unique(files, folder, sanitize(String(a.title)), '.md');
+      // D-291: a stem no other indexed file has anywhere in the vault (templates and .trash/ don't count).
+      const stems = new Set(Object.keys(files).filter((p) => !excluded(p)).map((p) => nfc(p.split('/').pop()!.replace(/\.md$/, '')).toLowerCase()));
+      const base = sanitize(String(a.title));
+      let stem = base;
+      for (let n = 2; stems.has(nfc(stem).toLowerCase()); n++) stem = `${base} (${n})`;
+      const path = unique(files, folder, stem, '.md');
       return { result: path, writes: { [path]: String(a.text) } };
     }
     case 'starter_plan':

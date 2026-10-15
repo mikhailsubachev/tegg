@@ -5,6 +5,8 @@ import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
 import type { LinkTargetDto } from '../ipc/types';
 import { Icon, typeIconName } from '../shell/Icon';
+import { chipIcon } from '../links/icons';
+import { requestOffer } from '../links/offer';
 import { attributeRows, type AttrRow } from './properties';
 
 const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
@@ -32,9 +34,10 @@ type Props = {
   onTag: (key: string) => void;
 };
 
-function LinkChip({ target, links, onOpen }: { target: string; links: Map<string, LinkTargetDto>; onOpen: (path: string) => void }) {
+function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<string, LinkTargetDto>; onOpen: (path: string) => void; from?: string }) {
   const info = links.get(target) ?? links.get(target.normalize('NFC'));
   const ok = info && info.path && (info.kind === 'note' || info.kind === 'daily');
+  const icon = chipIcon(info?.type ?? 'page');
   return (
     <a
       href="#"
@@ -44,9 +47,10 @@ function LinkChip({ target, links, onOpen }: { target: string; links: Map<string
       onClick={(e) => {
         e.preventDefault();
         if (ok) onOpen(info!.path!);
+        else if (from !== undefined && info?.kind !== 'date-missing') requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
       }}
     >
-      {ok && <Icon name={typeIconName(info!.type ?? 'page')} size={13} />}
+      {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
       <span data-user-content>{ok ? info!.title ?? target : target}</span>
     </a>
   );

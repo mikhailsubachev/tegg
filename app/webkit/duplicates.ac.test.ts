@@ -30,13 +30,14 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles'] as const) {
     test.use({ timezoneId: tz });
     test(`fr_lnk_14_ac6_switcher_details_line_${tz.replace(/\W/g, '_')}`, async ({ page }) => {
       const core = await openLinks(page, B.osamela, { region: 'en-US' });
+      const readsBefore = (await core.calls()).filter((c) => c.cmd === 'note_read').length; // the landing note's own read
       await page.keyboard.press('Meta+o');
       await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('senior');
       await sleep(250);
       const list = await must(page.getByRole('dialog', { name: 'Quick switcher' }).getByRole('listbox'), 'switcher results');
       const want = tz === 'Europe/Prague' ? prague : prague.map((d) => d.replace('Oct 2, 2026', 'Oct 1, 2026'));
       checkDetails(await optionTexts(list), want, 'switcher');
-      assert.equal((await core.calls()).filter((c) => c.cmd === 'note_read').length, 0, 'details come with the results (no note_read)');
+      assert.equal((await core.calls()).filter((c) => c.cmd === 'note_read').length - readsBefore, 0, 'details come with the results (no note_read)');
       await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Odkaz na SPM');
       await sleep(250);
       const row = (await optionTexts(list)).find((o) => o.startsWith('Odkaz na SPM'));

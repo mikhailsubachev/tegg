@@ -4,6 +4,10 @@
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { createEditor, linkTarget, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { extract } from '@tegg/doc';
+import { requestOffer } from '../links/offer';
+import { DuplicateDetails } from '../links/DuplicateDetails';
+import { chipIcon } from '../links/icons';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
@@ -24,7 +28,15 @@ export type EditorPaneApi = {
   /** D-247, D-255: the caret at the start of the first editable block (or of the heading `fragment`), without
    *  scrolling; false when nothing in the body is editable. Writes nothing. */
   caretToStart: (fragment?: string) => boolean;
+  /** ms4-links §5.4: the caret right before the wikilink that starts at `at` in `text` (the file as read). */
+  caretAtLink: (at: { line: number; byte: number }, text: string) => boolean;
 };
+
+/** A chip's icon element with the type's icon name as `data-icon` (FR-LNK-07 AC-1). */
+function chipIconElement(type: string): Element {
+  const i = chipIcon(type);
+  return iconElement(i.glyph, 13, i.def);
+}
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -108,16 +120,17 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       unresolved: (target) => t('link.noNote', { target }),
       sourceBlock: t('editor.sourceBlock'),
       checkbox: t('editor.checkbox'),
-      chipIcon: (type) => (type ? iconElement(typeIconName(type)) : null),
+      chipIcon: (type) => (type ? chipIconElement(type) : null),
       hint: t('editor.hint'),
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
         const name = kind === 'query' ? t('ph.query') : kind === 'mindmap' ? t('ph.mindmap') : /\.(png|jpe?g|gif|webp|svg|heic|avif|bmp|tiff?)(\||#|$)/i.test(v) ? t('ph.embedImage') : /\.pdf(\||#|$)/i.test(v) ? t('ph.embedPdf') : t('ph.embedNote');
         return { name, text: kind === 'embed' ? `${name}: ${v}` : name };
       },
-      onLink: (target, fragment) => {
+      onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
         if (r?.path && (r.kind === 'note' || r.kind === 'daily')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
+        else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
       },
       onTag: (v) => cb.current.onTag(v.normalize('NFC').toLowerCase()),
       onExternal: (url) => cb.current.onExternal(url),
@@ -169,7 +182,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title });
       edRef.current?.refreshUi();
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
@@ -317,6 +330,40 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     return true;
   };
 
+  /** FR-LNK-04 AC-4: the Create offer for the broken chip at `pos`; the caret goes right after it (⌘↩ works again). */
+  const offerFor = (target: string, pos: number, dom: HTMLElement | null) => {
+    const ed = edRef.current;
+    if (!ed) return;
+    const node = ed.view.state.doc.nodeAt(pos);
+    if (node) ed.editor.commands.setTextSelection(pos + node.nodeSize);
+    requestOffer({ from: pathRef.current, target, relationTo: null, anchor: dom, editor: ed, chipPos: pos });
+  };
+  const caretAtLink = (at: { line: number; byte: number }, text: string): boolean => {
+    const ed = edRef.current;
+    if (!ed) return false;
+    // The n-th body wikilink of the file is the n-th wikiLink node of the editor's document.
+    const body = extract(text, '').links.filter((l) => !l.inFrontmatter && !l.markdown);
+    const n = body.findIndex((l) => l.at.line === at.line && l.at.byte === at.byte);
+    if (n < 0) return false;
+    let k = 0;
+    let pos: number | null = null;
+    ed.view.state.doc.descendants((node, p) => {
+      if (pos !== null) return false;
+      if (node.type.name === 'wikiLink') {
+        if (k === n) pos = p;
+        k++;
+        return false;
+      }
+      return true;
+    });
+    if (pos === null) return false;
+    (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+    ed.editor.commands.setTextSelection(pos);
+    const dom = ed.view.nodeDOM(pos) as HTMLElement | null;
+    dom?.scrollIntoView?.({ block: 'center' });
+    return true;
+  };
+
   const openMenu = useCallback((block: number) => {
     const e = edRef.current;
     if (!e) return;
@@ -415,6 +462,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           const { target, fragment } = linkTarget(String(n.attrs.value));
           const r = links.current.get(target.normalize('NFC'));
           if (r?.path) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
+          else if (r?.kind !== 'date-missing' && target) {
+            const pos = $f.nodeBefore === n ? $f.pos - n.nodeSize : $f.pos;
+            offerFor(target, pos, e.view.nodeDOM(pos) as HTMLElement | null); // ⌘↩ on a broken link (FR-LNK-04 AC-4)
+          }
         } else c.toggleChecklist();
         break;
       }
@@ -430,7 +481,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart, caretAtLink }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -737,8 +788,7 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
                     <Icon name={typeIconName(it.type)} />
                     <span data-user-content>{it.title}</span>
                     {it.matched_alias && <span className="alias" data-user-content>{it.matched_alias}</span>}
-                    <span className="meta" data-user-content>{typeName}</span>
-                    {(titles.get(it.title) ?? 0) > 1 && it.created && <span className="meta" data-user-content>{it.created.slice(0, 10)}</span>}
+                    {it.duplicate ? <DuplicateDetails details={it.duplicate} typeName={typeName} /> : <span className="meta" data-user-content>{typeName}</span>}
                   </>
                 )}
               </div>
