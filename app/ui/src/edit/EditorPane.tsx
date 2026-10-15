@@ -336,7 +336,17 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!ed) return;
     const node = ed.view.state.doc.nodeAt(pos);
     if (node) ed.editor.commands.setTextSelection(pos + node.nodeSize);
-    requestOffer({ from: pathRef.current, target, relationTo: null, anchor: dom, editor: ed, chipPos: pos });
+    // The offer is non-modal: the note can change while it is open, so Create finds the chip again (the n-th wikiLink
+    // with this target) instead of trusting `pos`.
+    const same = (v: string) => linkTarget(v).target.normalize('NFC') === target.normalize('NFC');
+    const links = (): number[] => {
+      const at: number[] = [];
+      ed.view.state.doc.descendants((n, p) => { if (n.type.name === 'wikiLink' && same(String(n.attrs.value))) at.push(p); });
+      return at;
+    };
+    const nth = links().indexOf(pos);
+    const chipAt = () => (nth < 0 ? null : links()[nth] ?? null);
+    requestOffer({ from: pathRef.current, target, relationTo: null, anchor: dom, editor: ed, chipPos: pos, chipAt });
   };
   const caretAtLink = (at: { line: number; byte: number }, text: string): boolean => {
     const ed = edRef.current;

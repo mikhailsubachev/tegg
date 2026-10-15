@@ -77,14 +77,17 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
     setBusy(true);
     setError(null);
     try {
-      const path = await createObjectForLink(req.from, req.target, plan, { editor: req.editor, chipPos: req.chipPos });
+      const chipPos = req.chipAt ? req.chipAt() ?? undefined : req.chipPos;
+      if (plan.rewrite && chipPos === undefined) { setError(t('createLink.rewriteFailed', { stem })); return; }
+      const path = await createObjectForLink(req.from, req.target, plan, { editor: req.editor, chipPos });
       onClose();
       onCreated(path);
     } catch (e) {
       const kind = errorKind(e);
       const x = e as { path?: string; now?: LinkCreatePlanDto };
       if (kind === 'Exists' && x.path) { onClose(); onExists(x.path, plan.title); return; }
-      if (kind === 'PlanChanged' && x.now) { setPlan(x.now); setError(t('createLink.planChanged')); }
+      if ((e as { kind?: string }).kind === 'RewriteFailed') setError(t('createLink.rewriteFailed', { stem }));
+      else if (kind === 'PlanChanged' && x.now) { setPlan(x.now); setError(t('createLink.planChanged')); }
       else setError(t('error.io'));
     } finally {
       setBusy(false);
