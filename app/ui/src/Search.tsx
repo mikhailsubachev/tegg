@@ -44,6 +44,15 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
               <span className="icon">{typeIcon(r.type)}</span>
               <span className="title" data-user-content>{r.title}</span>
               {r.typo && <span className="typo">{t('search.typo')}</span>}
+              {r.file_name && (() => {
+                // D-254: a hit by its file name only says so, with the stem's matches highlighted.
+                const [before, after = ''] = t('search.fileName').split('{stem}');
+                return (
+                  <span className="file-name">
+                    {before}<span data-user-content><Highlighted text={r.file_name.text} ranges={r.file_name.highlights} /></span>{after}
+                  </span>
+                );
+              })()}
               {r.snippet && (
                 <span className="snippet" data-user-content>
                   <Highlighted text={r.snippet.text} ranges={r.snippet.highlights} />

@@ -415,6 +415,7 @@ export const en: Catalog = {
   'search.none': 'No results',
   'search.count': { one: '{count} result', other: '{count} results' },
   'search.typo': 'similar spelling',
+  'search.fileName': 'File name: {stem}',
   'switcher.label': 'Quick switcher',
   'switcher.results': 'Switcher results',
   'switcher.query': 'Switcher query',

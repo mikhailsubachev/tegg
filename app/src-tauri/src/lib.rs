@@ -11,7 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tegg_core::{
-    AppDirs, ConflictKind, Core, CoreError, CoreEvent, CoreOptions, DateRange, FileVersion, LinkKind, LinkTarget, MatchField, ProgressState,
+    AppDirs, ConflictKind, Core, CoreError, CoreEvent, CoreOptions, DateRange, FileVersion, LinkKind, LinkTarget, MatchField, ProgressState, QueryTier,
     SearchQuery, StarterPlan, StarterSkip, SwitcherKind, TypeInfo, Vault, VaultError, WriteOutcome,
 };
 use tegg_schema::{AttrChange, AttrDef, AttrType, Field, OptionDef, RuleError, SchemaError, TypeOp};
@@ -309,6 +309,10 @@ async fn vault_open(app: AppHandle, path: String) -> Result<VaultInfo, IpcError>
     open_vault(&app, PathBuf::from(path))
 }
 
+fn snippet_dto(s: tegg_core::Snippet) -> SnippetDto {
+    SnippetDto { highlights: s.highlights.iter().map(|&(a, b)| (utf16(&s.text, a), utf16(&s.text, b))).collect(), line: s.line as u32, text: s.text }
+}
+
 #[tauri::command]
 async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Result<SearchPageDto, IpcError> {
     let core = core(&state)?;
@@ -343,17 +347,21 @@ async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Resu
                 title: r.title,
                 matched_in: match r.matched_in {
                     MatchField::Title => "title",
+                    MatchField::FileName => "fileName",
                     MatchField::Alias => "alias",
                     MatchField::Attribute => "attribute",
                     MatchField::Body => "body",
                 }
                 .into(),
+                tier: match r.tier {
+                    QueryTier::Phrase => "phrase",
+                    QueryTier::AllWords => "allWords",
+                    QueryTier::AnyWord => "anyWord",
+                }
+                .into(),
                 typo: r.typo,
-                snippet: r.snippet.map(|s| SnippetDto {
-                    highlights: s.highlights.iter().map(|&(a, b)| (utf16(&s.text, a), utf16(&s.text, b))).collect(),
-                    line: s.line as u32,
-                    text: s.text,
-                }),
+                snippet: r.snippet.map(snippet_dto),
+                file_name: r.file_name.map(snippet_dto),
             })
             .collect(),
     })

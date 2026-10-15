@@ -359,8 +359,51 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map(({ folder: _f, ...o }) => o),
     index_search: (a) => {
-      const q = fold(String(a.query?.text ?? '').trim());
-      const results = q ? objects().filter((o) => fold(o.title).includes(q)).map((o) => ({ path: o.path, type: o.type, title: o.title, matched_in: 'title', typo: false, snippet: null })) : [];
+      // §15.8: words in tiers (D-253), quoted phrases strict, `-word` excluded, file stems searched (D-254). No typos.
+      const words = (t: string) => [...t.normalize('NFC').matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => ({ at: m.index!, end: m.index! + m[0].length, w: fold(m[0]) }));
+      const toks = (t: string) => words(t).map((x) => x.w);
+      const items: { toks: string[]; neg: boolean; quoted: boolean }[] = [];
+      for (const m of String(a.query?.text ?? '').matchAll(/(-?)(?:["„“]([^"“”]*)["“”]?|(\S+))/g)) {
+        const tk = toks(m[2] ?? m[3] ?? '');
+        if (tk.length) items.push({ toks: tk, neg: m[1] === '-' && (m[2] !== undefined || (m[3] ?? '').length > 0), quoted: m[2] !== undefined });
+      }
+      const pos = items.filter((i) => !i.neg);
+      if (!pos.length) return { results: [], total: 0 };
+      const seq = (hay: string[], its: { toks: string[] }[]) => {
+        const need = its.flatMap((i) => i.toks);
+        return hay.some((_, k) => need.every((w, j) => hay[k + j] === w));
+      };
+      const unq = pos.filter((i) => !i.quoted);
+      const rows = objects().flatMap((o) => {
+        const text = state.vault!.files[o.path];
+        const fm = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(text);
+        const body = fm ? text.slice(fm[0].length) : text;
+        const f = front(text);
+        const stem = o.path.split('/').pop()!.replace(/\.md$/, '');
+        const attrs = Object.entries(f).filter(([k]) => !['id', 'type', 'title', 'aliases', 'tags', 'created', 'modified'].includes(k)).map(([, v]) => v).join(' \n ');
+        const fields = { title: toks(o.title), fileName: toks(stem), attribute: toks(attrs), body: toks(body) };
+        const all = Object.values(fields);
+        const has = (i: { toks: string[] }) => all.some((h) => seq(h, [i]));
+        if (items.some((i) => i.neg && has(i)) || pos.some((i) => i.quoted && !has(i))) return [];
+        const matched = pos.filter(has);
+        if (unq.length && !unq.some(has)) return [];
+        const tier = unq.length <= 1 ? 'phrase' : !unq.every(has) ? 'anyWord' : all.some((h) => seq(h, unq)) ? 'phrase' : 'allWords';
+        const field = (Object.keys(fields) as (keyof typeof fields)[]).find((k) => matched.some((i) => seq(fields[k], [i])))!;
+        const mark = (t: string): [number, number][] => {
+          const ws = words(t);
+          return ws.flatMap((w, k) => matched.filter((i) => i.toks.every((x, j) => ws[k + j]?.w === x)).map((i) => [w.at, ws[k + i.toks.length - 1].end] as [number, number]));
+        };
+        const lines = body.split(/\r?\n/);
+        const hit = lines.findIndex((l) => mark(l).length);
+        const lead = lines.findIndex((l) => l.trim());
+        const snippet = hit >= 0 ? { text: lines[hit], highlights: mark(lines[hit]), line: hit + 1 } : field === 'fileName' && lead >= 0 ? { text: lines[lead], highlights: [], line: lead + 1 } : null;
+        return [{ rank: [['phrase', 'allWords', 'anyWord'].indexOf(tier), field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field)], r: {
+          path: o.path, type: o.type, title: o.title, matched_in: field, tier, typo: false, snippet,
+          file_name: field === 'fileName' ? { text: stem.normalize('NFC'), highlights: mark(stem.normalize('NFC')), line: 0 } : null,
+        } }];
+      });
+      rows.sort((x, y) => x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.r.path.localeCompare(y.r.path));
+      const results = rows.map((x) => x.r);
       return { results, total: results.length };
     },
     index_switcher: (a) => {

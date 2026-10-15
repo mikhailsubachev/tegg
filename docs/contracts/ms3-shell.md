@@ -1232,7 +1232,7 @@ pub struct SearchResult {
 }
 ```
 
-- The index stores the file stem (no folder, no `.md`) NFC-folded in a new FTS column `stem`; it is derived from the path, so a rebuild gives the same rows (AR-01). External renames update it with the path (FR-SRC-01 AC-13). Schema bump of the index cache: the index is rebuilt on first open, no vault write.
+- File stems are matched from the index's in-memory note data (folded tokens of the stem, derived from the path), so a rebuild gives the same results (AR-01) and no index schema change is needed. External renames update it with the path (FR-SRC-01 AC-13). Searching writes nothing.
 - Order: tier (Phrase < AllWords < AnyWord), then non-typo before typo, then `matched_in` (Title = FileName < Alias < Attribute < Body), then FTS rank, then path. Quoted phrases filter strictly and `-word` excludes as before (D-108): every result must contain each quoted phrase and none of the excluded words; the remaining unquoted words are ranked in the tiers above (FR-SRC-01 AC-16: `účet chaty -opravy` keeps the AC-15 order without the excluded note).
 - `.trash/` and `_templates/` stay excluded (FR-SRC-01 AC-12).
 - IPC DTO gains `tier: 'phrase' | 'allWords' | 'anyWord'` and `file_name: SnippetDto | null`; `matched_in` gains `'fileName'`. UI label `search.fileName` = `File name: {stem}`.

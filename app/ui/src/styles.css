@@ -141,8 +141,8 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .search li .result { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 8px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 12px; border-radius: 8px; color: var(--text); text-decoration: none; }
 .search li .result:hover, .search li .result:focus-visible { background: var(--row); }
 .search .count { padding: 0 12px; }
-.search .count, .search .typo, .search .snippet { color: var(--muted); font-size: 13px; }
-.search .snippet { flex-basis: 100%; }
+.search .count, .search .typo, .search .snippet, .search .file-name { color: var(--muted); font-size: 13px; }
+.search .snippet, .search .file-name { flex-basis: 100%; }
 mark { background: var(--accent-bg); color: var(--text); }
 
 /* banners */
