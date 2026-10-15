@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.46, for review                                             |
+| **Document status** | Draft v1.47, for review                                             |
 | **Date**            | 2026-10-15                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -62,6 +62,7 @@
 | v1.44   | 2026-10-15 | MS4 plan decisions D-267…D-275 (AP-195…AP-203, `docs/plans/ms4-implementation-plan.md`): MS4 in slices 4A–4F; rename on title commit; no backup zip for a single note rename; one daily-note template; daily context sections and review before MS5; embed modes before tasks; backup list in Settings; tag parts moved to v1.0. |
 | v1.45   | 2026-10-15 | MS4 slice 4A AC decisions D-276…D-295 (AP-204…AP-223, `docs/acceptance/backlinks.md`): backlinks order, excerpts and scope, Broken links and Duplicate titles pages, Create offer and odd targets, duplicate details and merge (a 4C job), one link-resolution rule and vault-wide free stems, MS4 slice labels, external renames, 4A contract. |
 | v1.46   | 2026-10-15 | MS4 slice 4A red-test decisions D-296…D-311 (AP-224…AP-239): fixture retitle, path and Markdown-link targets, `rewrite` format, `link_create` as the offer's write, TS shapes, excerpt whitespace, new test files, catalog variables, chip attributes, page roles, fake-core failures, embed placeholder offer, create race error. |
+| v1.47   | 2026-10-15 | Owner feedback on the preview, decisions D-312…D-317: Aliases as one comma-separated text field; no description subtitle on objects; `Other properties` hidden when empty; no breadcrumb on the note page; per-type hidden properties (new FR-TYP-17); link chips while a text value is being edited (supersedes the edit-mode part of D-257, built separately) |
 
 ---
 
@@ -416,6 +417,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-309 | Fake core write failures | `writeControl({ fail: 'Io' })` also applies to `link_create` (FR-LNK-04 AC-11) (AP-237) |
 | D-310 | Create from a broken note embed (FR-LNK-04 AC-6) | A broken `![[Note]]` stays an R5 placeholder; the offer opens from the link chip the placeholder shows for its target (D-144) (AP-238) |
 | D-311 | Create race error | When create-exclusive fails because the target file appeared before the index saw it, `link_create` returns `CoreError::Exists { path }`, not `NameTaken` (AP-239) |
+| D-312 | Aliases field (owner, 2026-10-15) | Aliases are edited as one single-line text field, not chips: aliases are separated by commas, trimmed, NFC, duplicates (case-insensitive) dropped; saved as a YAML list (`aliases: [A, B]`, Obsidian-compatible); an empty field removes the value. An alias can't contain a comma. Supersedes the chips control of FR-EDT-07 (R10 Aliases) |
+| D-313 | No description on objects (owner, 2026-10-15) | The object page shows no description subtitle and offers no way to edit `description`. A `description:` key in a file is preserved byte-for-byte (FR-FMT-07) and isn't listed under Other properties. The type's own description (type settings) is unchanged. Supersedes the subtitle parts of D-229, D-249 and D-257 |
+| D-314 | Empty Other properties (owner, 2026-10-15) | The `Other properties (n)` group isn't shown when n = 0 (changes types.md FR-EDT-07 AC-2) |
+| D-315 | No breadcrumb (owner, 2026-10-15) | The note page has no breadcrumb; the Type page stays reachable from the sidebar Types list and the palette. Criteria that used the breadcrumb (FR-UX-02 AC-14, D-150, D-161, history navigation) drop that part; their tests change with `AC-Test-Change` approved by the owner |
+| D-316 | Hidden properties (FR-TYP-17) (owner, 2026-10-15) | Type file top-level key `hidden: [key, …]` (flow list, after `preview`), type op `{op:'hidden', keys}`, `TypeDto.hidden`; edited in type settings section `Hidden properties` (one checkbox per property, schema attributes then the universal ones). Removing an attribute drops it from `hidden`. On the object, hidden rows move into `Other properties (n)` with their normal controls (empty ones show `Empty`); n = hidden rows + other keys |
+| D-317 | Link chips while editing (owner, 2026-10-15) | In Text, Long text and Source values, a complete `[[link]]` shows as a chip also while the field is being edited (as in the note body), not only out of edit mode. Supersedes the edit-mode rule of D-257; needs its own ACs and is built as a separate change |
 
 ---
 
@@ -529,6 +536,7 @@ In `Meetings/2026-10-07 Weekly Sync.md` the original paragraph becomes `![[Send 
 | FR-TYP-14 | ~~Object icon & cover~~ **Removed (D-217):** objects have no icon or cover of their own; every object shows its **type's icon** (FR-TYP-01) wherever it appears (links, embeds, previews, graph, sidebar, quick switcher, query views). `icon:` and `cover:` keys found in files (e.g. imported) stay reserved and are preserved byte-for-byte but not shown. | W   |
 | FR-TYP-15 | **Reserved attribute keys**: `id, type, title, description, aliases, tags, created, modified, source, review, icon, cover, previous, file, import-id, captured`. User-defined and imported attributes cannot use them; on import a colliding attribute is renamed (e.g. a plain-text `source` → `source-text`) and the rename is listed in the import report.                                                                                                                           | M   |
 | FR-TYP-16 | Page hierarchy (parent/child pages): **not supported** (D-45). Links between pages cover the need.                                                                                                                                                                                                                                                                                                                                                                                      | W   |
+| FR-TYP-17 | **Hidden properties**: in a type's settings any of its properties, schema attributes and the universal Tags, Aliases, Source, Review, Created, Modified, can be marked hidden. A hidden property isn't shown among the attribute panel's rows on that type's objects; it is listed, still editable, under the collapsed `Other properties (n)` group. Stored in the type file (`hidden:` list, AR-07); values stay in the notes, and the Type page and queries are unaffected (D-316). | S   |
 
 ### 6.2.1 Tags, system type (FR-TAG) (D-29)
 

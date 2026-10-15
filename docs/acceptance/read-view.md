@@ -109,7 +109,7 @@ All criteria render the fixture notes in the formatted view. "Is rendered as" me
 ### FR-SYN-03 External changes in the read view (slice 3B)
 
 - **AC-10** [MS3] **Reload in place.** Given Cíl is open in the formatted view and scrolled to `Druhá kapitola`, when another program changes a paragraph above it, the view shows the new text within 2 s (NFR-PERF-08) and `Druhá kapitola` is still the first visible block (± one line); with the source view open, the source updates and the same line stays visible. No dialog, no write. (The editor cases AC-2…AC-4 stay 3C.) *(L4 for the event; L5 for the view)*
-- **AC-11** [MS3] **Deleted or renamed while open.** When another program moves the open note to `.trash/` or deletes it, the centre pane shows a catalog message `This note was moved or deleted` with no content and no write; when it renames it, the view reloads from the new path (same `id`, FR-SYN-03 AC-5) and the breadcrumb shows the new file's folder (D-161). Links in other open views to the old name are re-resolved on the next `vault:changed`. *(L5; L4 for the rename identity)*
+- **AC-11** [MS3] **Deleted or renamed while open.** When another program moves the open note to `.trash/` or deletes it, the centre pane shows a catalog message `This note was moved or deleted` with no content and no write; when it renames it, the view reloads from the new path (same `id`, FR-SYN-03 AC-5) and the breadcrumb shows the new file's folder (D-161). Links in other open views to the old name are re-resolved on the next `vault:changed`. *(L5; L4 for the rename identity)* *(breadcrumb part removed by D-315: the note page has no breadcrumb)*
 
 ### FR-SYN-06 No writes from the read view (slice 3B)
 
