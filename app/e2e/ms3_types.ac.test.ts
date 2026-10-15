@@ -316,14 +316,17 @@ test('fr_vlt_02_ac8_starter_vault_on_the_real_core', { timeout: 300_000 }, async
     await (await firstShown(d, 'Create new vault'))?.click();
     assert.ok(await shown(d, 'Starter vault'), 'Starter vault choice');
     await (await firstShown(d, 'Starter vault'))?.click();
+    await (await firstShown(d, 'Vault name'))?.click(); // the radio keeps the focus after its click
     paste('Startovní');
     await (await firstShown(d, 'Choose…'))?.click();
     await sleep(500);
     await (await firstShown(d, 'Create'))?.click();
     const root = join(parent, 'Startovní');
     assert.ok(await waitFile(join(root, '.tegg/types/meeting.yml'), (t) => t !== null, 5000), 'starter types written');
-    const files = Object.keys(tree(root)).filter((p) => !p.endsWith('/')).sort();
     const want = [...Object.keys(tree(join(FX, 'new-empty'))), ...Object.keys(tree(join(FX, 'new-starter')))].filter((p) => !p.endsWith('/')).sort();
+    const listed = () => Object.keys(tree(root)).filter((p) => !p.endsWith('/')).sort();
+    for (let i = 0; i < 50 && listed().length < want.length; i++) await sleep(100); // the starter files are written one by one
+    const files = listed();
     assert.deepEqual(files, want, 'exactly new-empty plus new-starter');
     await paletteRun(d, 'Go to type: Meetings');
     await (await firstShown(d, 'New Meeting'))?.click();

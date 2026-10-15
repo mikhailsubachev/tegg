@@ -321,9 +321,10 @@ test('fr_typ_08_ac5_properties_state_survives_relaunch', { timeout: 240_000 }, a
   try {
     d = await session(testEnv(support, log, { TEGG_VAULT: vault, TEGG_ROUTE: 'note/Pages/Vlastnosti.md' }));
     assert.ok(await waitMark(log, 'note-ready'), 'Vlastnosti shown');
-    assert.ok(await shown(d, 'Rozpracováno'), 'strip expanded by default');
+    // 3D (FR-EDT-07 AC-2): `stav` isn't a Page property, so it sits under the collapsed Other properties; `Review` is always a row.
+    assert.ok(await shown(d, 'Review'), 'strip expanded by default');
     assert.ok(await clickLabel(d, 'Properties'), 'header button Properties');
-    assert.equal(await shown(d, 'Rozpracováno', 1000), false, 'collapsed');
+    assert.equal(await shown(d, 'Review', 1000), false, 'collapsed');
     await sleep(500);
     await end(d);
     d = undefined;
@@ -332,7 +333,7 @@ test('fr_typ_08_ac5_properties_state_survives_relaunch', { timeout: 240_000 }, a
     d = await session(testEnv(support, join(base, 'perf2.jsonl'), { TEGG_VAULT: vault, TEGG_ROUTE: 'note/Pages/Vlastnosti.md' }));
     assert.ok(await waitMark(join(base, 'perf2.jsonl'), 'note-ready'), 'relaunch');
     assert.ok(await shown(d, 'Properties'), 'strip header shown');
-    assert.equal(await shown(d, 'Rozpracováno', 1000), false, 'still collapsed after relaunch');
+    assert.equal(await shown(d, 'Review', 1000), false, 'still collapsed after relaunch');
   } finally {
     await end(d);
   }
