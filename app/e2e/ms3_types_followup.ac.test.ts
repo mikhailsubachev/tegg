@@ -151,7 +151,8 @@ async function rect(e: any) {
 /** The first displayed element with that label, title or value; buttons and links first (a region and its header
  *  button can share a name), so the lookup is never ambiguous. */
 async function firstShown(d: Driver, label: string): Promise<any | null> {
-  const q = `(label == "${label}" OR title == "${label}" OR value == "${label}")`;
+  const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); // predicate string literal: escape \ and "
+  const q = `(label == "${l}" OR title == "${l}" OR value == "${l}")`;
   // XCUIElementType: 9 button, 10 radio button, 12 checkbox, 17 toolbar button, 41 toggle, 42 link, 80 tab.
   for (const sel of [`-ios predicate string:elementType IN {9, 10, 12, 17, 41, 42, 80} AND ${q}`, `-ios predicate string:${q}`]) {
     for (const e of await d.$$(sel).catch(() => [] as any[])) {

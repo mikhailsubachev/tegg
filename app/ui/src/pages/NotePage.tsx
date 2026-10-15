@@ -220,7 +220,10 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
     syncHead();
-    requestAnimationFrame(() => placeFocus.current()); // D-247: the caret goes in once the editor is ready
+    requestAnimationFrame(() => {
+      placeFocus.current(); // D-247: the caret goes in once the editor is ready
+      void ipc.perfMark('note-ready').catch(() => {}); // NFR-PERF-05 AC-4: mounted, editable, caret placed
+    });
   }, [path]);
 
   /** A committed panel edit (FR-EDT-07 AC-4, D-240): the next note text from @tegg/doc, one undo step, autosaved. */
@@ -451,7 +454,8 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       else if (fragment) scrollToFragment(root.current, fragment);
       onRestored?.();
       placeFocus.current();
-      void ipc.perfMark('note-ready').catch(() => {});
+      // NFR-PERF-05 AC-4 (D-247): an editable note is ready once the editor is mounted and the caret placed (onEditor).
+      if (loaded.mode !== 'edit') void ipc.perfMark('note-ready').catch(() => {});
     });
   }, [loaded, fragment, path]);
 

@@ -188,15 +188,17 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         )}
       </header>
       {!type && <p role="note" className="type-note">{t('typePage.noDefinition', { value: plural })}</p>}
-      {!type && value !== null && onDefine && (() => {
-        const ok = canDefine(value).ok;
+      {!type && onDefine && (() => {
+        // The value as written, once a row is read; until then its key (the route has only the key).
+        const v = value ?? typeKey;
+        const ok = canDefine(v).ok;
         const [before, after = ''] = t('typePage.createType').split('{value}');
         return (
           <p className="type-define">
             <button type="button" className="text-button" data-command="typePage.createType" aria-disabled={ok ? undefined : 'true'}
               aria-description={ok ? undefined : t('typePage.cannotDefine')} title={ok ? undefined : t('typePage.cannotDefine')}
-              onClick={() => { if (ok) onDefine(value); }}>
-              {before}<span data-user-content>{value}</span>{after}
+              onClick={() => { if (ok) onDefine(v); }}>
+              {before}<span data-user-content>{v}</span>{after}
             </button>
           </p>
         );
