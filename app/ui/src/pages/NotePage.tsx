@@ -18,7 +18,8 @@ import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
 import { pluralOf } from '../shell/types';
-import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
+import { AttributePanel, useLinks, type Commit, type PanelApi } from '../types/AttributePanel';
+import { hasLinks, LinkedText, type LinkContext } from '../types/controls/LinkedText';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { pageFallback, typeOfValue } from '../types/util';
 
@@ -118,6 +119,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   live.current = { path, loaded, merge, deleted };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
+  const descLinks = useLinks(path, head); // D-257: link chips in the description
   const panelApi = useRef<PanelApi | null>(null);
   const chipApi = useRef<TypeChipApi | null>(null);
   const descField = useRef<HTMLInputElement | null>(null);
@@ -555,7 +557,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         )}
         {editable && (
           <div hidden={showSource}>
-            <DescriptionField elRef={descField} saved={descSaved}
+            <DescriptionField elRef={descField} saved={descSaved} linked={{ links: descLinks, types: types as never, onOpen: (p) => onOpen(p) }}
               onCommit={(v) => commit((d) => setValue(d, 'description', v.trim() === '' ? null : v))}
               onNext={() => (propertiesOpen ? panelApi.current?.focusFirst() : pane.current?.focus())} />
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
@@ -630,9 +632,11 @@ function TitleField({ elRef, value, label, onChange, onLeave, onDown, onTab }: {
 
 /** The description subtitle (FR-TYP-08 AC-7): one line, placeholder `Add a description`; ⏎ or leaving it commits,
  *  pasted line breaks become spaces, an empty value removes the key (D-230); Esc reverts. */
-function DescriptionField({ elRef, saved, onCommit, onNext }: {
+function DescriptionField({ elRef, saved, onCommit, onNext, linked }: {
   elRef: React.MutableRefObject<HTMLInputElement | null>;
   saved: string;
+  /** Links show as chips out of edit mode (D-249, D-257; FR-TYP-08 AC-14). */
+  linked: LinkContext;
   onCommit: (v: string) => void;
   onNext: () => void;
 }) {
@@ -646,6 +650,15 @@ function DescriptionField({ elRef, saved, onCommit, onNext }: {
     if (v.trim() === saved.trim()) { setValue2(saved); return; }
     onCommit(v.trim() === '' ? '' : v);
   };
+  const [open, setOpen] = useState(false);
+  if (!open && value === saved && hasLinks(saved)) {
+    return (
+      <span role="textbox" tabIndex={0} aria-label={t('attr.description')} className="note-subtitle-field linked-text" data-user-content
+        ref={(e) => { elRef.current = e as never; }} onFocus={() => { setOpen(true); requestAnimationFrame(() => elRef.current?.focus()); }}>
+        <LinkedText text={saved} ctx={linked} />
+      </span>
+    );
+  }
   return (
     <input ref={elRef} type="text" className="note-subtitle-field" aria-label={t('attr.description')} placeholder={t('panel.descriptionPlaceholder')}
       value={value} data-user-content spellCheck={false} autoComplete="off"
@@ -658,7 +671,7 @@ function DescriptionField({ elRef, saved, onCommit, onNext }: {
         editing.current = true;
         setValue2(value.slice(0, a) + text + value.slice(b));
       }}
-      onBlur={done}
+      onBlur={() => { setOpen(false); done(); }}
       onKeyDown={(e) => {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setValue2(saved); return; }
         if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); onNext(); }

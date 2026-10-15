@@ -16,8 +16,9 @@ import { joinDesc, WarnIcon, type Value } from './controls/common';
 import { DateControl, DateRangeControl, DateTimeControl } from './controls/DateControls';
 import { AliasesControl, RelationControl, TagsControl } from './controls/ListControls';
 import { TextControl, type TextKind } from './controls/TextControl';
-import { panelRows, SOURCE_ATTR, type PanelRow } from './panel';
-import { attrTypeLabel, nfc, rawText, wiki } from './util';
+import { linkParts } from './controls/LinkedText';
+import { panelRows, type PanelRow } from './panel';
+import { attrTypeLabel, nfc, rawText } from './util';
 
 /** `(doc) => next text`: one committed edit; false when it couldn't be applied. */
 export type Commit = (edit: (doc: Doc) => string) => boolean;
@@ -34,14 +35,15 @@ function readOnlyReason(row: PanelRow): string {
 }
 
 /** Relation targets of the note's frontmatter (rows and Other properties), resolved once per change of the head. */
-function useLinks(path: string, text: string): Map<string, LinkTargetDto> {
+export function useLinks(path: string, text: string): Map<string, LinkTargetDto> {
   const [links, setLinks] = useState<Map<string, LinkTargetDto>>(new Map());
   const targets = useMemo(() => {
     const data = parse(text).frontmatter?.data ?? {};
     const out = new Set<string>();
+    // Whole-value relations, and links inside text values (D-249, D-257).
     const scan = (v: unknown) => {
       if (Array.isArray(v)) v.forEach(scan);
-      else { const w = wiki(v); if (w) out.add(nfc(w.target)); }
+      else if (typeof v === 'string') for (const p of linkParts(v)) if ('target' in p) out.add(nfc(p.target));
     };
     Object.values(data).forEach(scan);
     return [...out].sort();
@@ -78,6 +80,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
   const doc = useMemo(() => parse(text.replace(/^﻿/, '')), [text]);
   const model = useMemo(() => panelRows(doc, type), [doc, type]);
   const links = useLinks(path, text);
+  const linked = { links, types, onOpen };
   const firstRefs = useRef<(HTMLElement | null)[]>([]);
   const focusRow = (i: number) => {
     for (let j = i; j < firstRefs.current.length; j++) {
@@ -95,7 +98,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     const a = row.attr;
     const invalidWhole = row.validity.state === 'invalid' && row.validity.items.length === 0;
     const invalidItems = row.validity.state === 'invalid' ? row.validity.items : [];
-    const label = a ? attrTypeLabel(a.type) : row.key === 'source' ? attrTypeLabel('relation') : row.key === 'review' ? attrTypeLabel('select') : '';
+    const label = a ? attrTypeLabel(a.type) : row.key === 'source' ? attrTypeLabel('text') : row.key === 'review' ? attrTypeLabel('select') : '';
     const validityMsg = invalidWhole ? (a?.type === 'select' || row.key === 'review' ? t('panel.notOption') : t('panel.invalid', { type: label })) : null;
     const desc = joinDesc(a?.description, row.required ? t('panel.required') : null, validityMsg);
     const disabled = !editable || !row.editable;
@@ -110,8 +113,9 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       if (row.key === 'tags') return <TagsControl raw={row.raw} disabled={disabled} inputRef={ref} onTag={onTag} onValue={(v) => set('tags', v)} />;
       if (row.key === 'aliases') return <AliasesControl raw={row.raw} disabled={disabled} inputRef={ref} onValue={(v) => set('aliases', v)} />;
       if (row.key === 'source') {
-        return <RelationControl name={row.label} desc={desc} raw={row.raw} to={null} multiple={false} links={links} types={types} path={path} invalidWhole={invalidWhole}
-          invalidItems={invalidItems} disabled={disabled} inputRef={ref} onOpen={onOpen} onValue={(v) => set(SOURCE_ATTR.key, v)} />;
+        // D-248, D-256: free text on every type, with links (D-257).
+        return <TextControl name={row.label} desc={desc} raw={row.raw} kind="text" disabled={disabled} inputRef={ref} onNext={next} linked={linked}
+          onValue={(v) => set('source', v)} />;
       }
       if (row.key === 'review') {
         return <SelectControl name={row.label} desc={desc} raw={row.raw} invalid={invalidWhole} disabled={disabled} inputRef={ref}
@@ -121,7 +125,9 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     }
     const common = { name: a.name, desc, raw: row.raw, disabled, inputRef: ref };
     switch (a.type) {
-      case 'text': case 'long-text': case 'number': case 'url': case 'email':
+      case 'text': case 'long-text':
+        return <TextControl {...common} kind={a.type as TextKind} invalid={invalidWhole} onNext={next} linked={linked} onValue={(v) => set(a.key, v)} />;
+      case 'number': case 'url': case 'email':
         return <TextControl {...common} kind={a.type as TextKind} invalid={invalidWhole} onNext={next} onValue={(v) => set(a.key, v)} />;
       case 'checkbox':
         return <CheckboxControl {...common} invalid={invalidWhole} onValue={(v) => set(a.key, v)} />;

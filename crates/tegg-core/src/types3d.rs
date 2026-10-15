@@ -203,11 +203,19 @@ impl Core {
     /// FR-TYP-01 AC-2, AC-3: the rules of §14.1.2 against `types()`, then a new file that never replaces one that
     /// appeared meanwhile (`NameTaken`). Writes no folder and no template.
     pub fn type_create(&self, name: &str, plural: &str) -> Result<TypeInfo, CoreError> {
+        self.type_create_in(name, plural, None)
+    }
+
+    /// As `type_create`, with the folder for new objects (D-259; `None` = the plural). One write.
+    pub fn type_create_in(&self, name: &str, plural: &str, folder: Option<&str>) -> Result<TypeInfo, CoreError> {
         let types = self.types();
         let names = names_of(&types, "");
         let key = tegg_schema::check_type_name(name, plural, &as_names(&names), true).map_err(|e| schema(SchemaError::Rule(e)))?;
+        if let Some(f) = folder {
+            tegg_schema::check_folder(f, &as_names(&names)).map_err(|e| schema(SchemaError::Rule(e)))?;
+        }
         let path = type_path(&key);
-        self.shared.vault.create_exact(&path, tegg_schema::new_type_file(name, plural).as_bytes())?;
+        self.shared.vault.create_exact(&path, tegg_schema::new_type_file_in(name, plural, folder).as_bytes())?;
         self.after_type_write(vec![path]);
         self.type_get(&key).ok_or(CoreError::UnknownType)
     }

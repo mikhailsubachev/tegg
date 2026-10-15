@@ -6,6 +6,7 @@ import { parseEmail, parseNumber, parseUrl, type Parsed } from '@tegg/schema';
 import { t } from '../../i18n/catalog';
 import { locale, rawText } from '../util';
 import { EmptyMark, FieldError, WarnIcon, useErrorId, useField, type Value } from './common';
+import { hasLinks, LinkedText, type LinkContext } from './LinkedText';
 
 export type TextKind = 'text' | 'long-text' | 'number' | 'url' | 'email';
 
@@ -20,7 +21,7 @@ export function parseText(kind: TextKind, text: string): Parsed {
   }
 }
 
-export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue, onNext, inputRef, describedBy }: {
+export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue, onNext, inputRef, describedBy, linked }: {
   kind: TextKind;
   name: string;
   desc?: string;
@@ -32,6 +33,8 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
   onNext?: () => void;
   inputRef?: (el: HTMLElement | null) => void;
   describedBy?: string;
+  /** Text and Long text: `[[links]]` show as chips out of edit mode (D-249, D-257). */
+  linked?: LinkContext;
 }) {
   const saved = rawText(raw);
   const f = useField(saved);
@@ -67,8 +70,17 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
     autoCorrect: 'off',
     autoCapitalize: 'off',
     onFocus: () => { setFocused(true); last.current = null; },
-    onBlur: () => { setFocused(false); commit(); },
+    onBlur: () => { setFocused(false); setOpen(false); commit(); },
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => f.set(e.target.value),
+    // A single-line field gets pasted line breaks as spaces (FR-EDT-07 AC-5, D-256).
+    onPaste: (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const text = e.clipboardData.getData('text/plain');
+      if (kind === 'long-text' || !/[\r\n]/.test(text)) return;
+      e.preventDefault();
+      const el2 = e.currentTarget;
+      const a = el2.selectionStart ?? f.value.length, b = el2.selectionEnd ?? f.value.length;
+      f.set(f.value.slice(0, a) + text.replace(/\s*\r?\n\s*/g, ' ') + f.value.slice(b));
+    },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       if (f.history(e)) return;
       if (e.key === 'Escape') {
@@ -82,10 +94,35 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
       if (e.key === 'Enter' && (single || e.metaKey) && !e.nativeEvent.isComposing) {
         e.preventDefault();
         e.stopPropagation();
-        if (commit() && single) onNext?.();
+        if (commit()) {
+          if (single) onNext?.();
+          else if (linked && hasLinks(f.value)) {
+            // ⌘↩ in Long text leaves edit mode: the value shows its link chips, the focus stays on the field.
+            setOpen(false);
+            setFocused(false);
+            stay.current = true;
+          }
+        }
       }
     },
   };
+  const [open, setOpen] = useState(false);
+  const display = useRef<HTMLElement | null>(null);
+  const stay = useRef(false); // focus moved to the chips view after a commit: don't reopen
+  const edit = () => { setOpen(true); requestAnimationFrame(() => el.current?.focus()); };
+  if (linked && !open && !focused && !disabled && f.value === saved && hasLinks(saved)) {
+    return (
+      <span className="field-wrap">
+        <span role="textbox" tabIndex={0} aria-label={name} aria-description={desc} aria-readonly="false" ref={(e) => { display.current = e; inputRef?.(e); if (e && stay.current) e.focus({ preventScroll: true }); }}
+          aria-multiline={kind === 'long-text' ? 'true' : undefined} className={`pfield linked-text ${kind === 'long-text' ? 'multi' : ''}`}
+          onFocus={() => { if (stay.current) { stay.current = false; return; } edit(); }} onClick={edit}
+          onKeyDown={(e) => { if (e.key === 'Enter' || (e.key.length === 1 && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); edit(); } }}>
+          <LinkedText text={saved} ctx={linked} />
+        </span>
+        {invalid && <WarnIcon />}
+      </span>
+    );
+  }
   return (
     <span className="field-wrap">
       {kind === 'long-text'

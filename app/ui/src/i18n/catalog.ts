@@ -570,6 +570,8 @@ export const en: Catalog = {
   'typePage.title': 'Title',
   'typePage.modified': 'Modified',
   'typePage.addColumn': 'Add column',
+  'typePage.createType': 'Create type "{value}"',
+  'typePage.cannotDefine': "This type name can't be used as a file name",
   'typePage.noDefinition': 'No type definition for "{value}"',
   'typePage.gone': 'This type no longer exists.',
 

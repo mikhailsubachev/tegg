@@ -4,7 +4,8 @@
 // UI state (AC-3). `Add column` adds a property and its preview column in one write (D-72, AC-7). Nothing here writes
 // a note.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { validate } from '@tegg/schema';
+import { canDefine, validate } from '@tegg/schema';
+import { parse as parseDoc } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
@@ -42,7 +43,7 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag, onDefine }: {
   typeKey: string;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
@@ -56,6 +57,8 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   onSettings: () => void;
   onNew: () => void;
   onTag: (key: string) => void;
+  /** D-251: open `New type` for this undefined value, as written. */
+  onDefine?: (value: string) => void;
 }) {
   const [rows, setRows] = useState<TypeRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
@@ -73,6 +76,19 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     const mine = ++seq.current;
     ipc.typeRows(typeKey).then((r) => { if (mine === seq.current) setRows(r); }, () => { if (mine === seq.current) setRows([]); });
   }, [typeKey, refresh]);
+
+  // D-251: the `type:` value as written in the first object (the route only has its key).
+  const [value, setValue] = useState<string | null>(null);
+  const firstPath = rows?.[0]?.path;
+  useEffect(() => {
+    if (type || !firstPath) return;
+    let live = true;
+    ipc.noteRead(firstPath).then((n) => {
+      const v = (parseDoc(n.text).frontmatter?.data as Record<string, unknown> | undefined)?.type;
+      if (live) setValue(typeof v === 'string' && v.trim() ? v.normalize('NFC').trim() : typeKey);
+    }, () => { if (live) setValue(typeKey); });
+    return () => { live = false; };
+  }, [type, firstPath, typeKey]);
 
   const columns: Column[] = useMemo(() => {
     const out: Column[] = [{ key: 'title', label: t('typePage.title'), attr: null, userNamed: false }];
@@ -143,6 +159,19 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         )}
       </header>
       {!type && <p role="note" className="type-note">{t('typePage.noDefinition', { value: plural })}</p>}
+      {!type && value !== null && onDefine && (() => {
+        const ok = canDefine(value).ok;
+        const [before, after = ''] = t('typePage.createType').split('{value}');
+        return (
+          <p className="type-define">
+            <button type="button" className="text-button" data-command="typePage.createType" aria-disabled={ok ? undefined : 'true'}
+              aria-description={ok ? undefined : t('typePage.cannotDefine')} title={ok ? undefined : t('typePage.cannotDefine')}
+              onClick={() => { if (ok) onDefine(value); }}>
+              {before}<span data-user-content>{value}</span>{after}
+            </button>
+          </p>
+        );
+      })()}
       <div className="page-toolbar type-toolbar">
         <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
           <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('typePage.allView', { plural: pluralName })}</span>

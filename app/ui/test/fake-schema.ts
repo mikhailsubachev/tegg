@@ -304,8 +304,8 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
   return { text: out };
 }
 
-function newTypeFile(name: string, plural: string): string {
-  return `${HEADER}version: 1\nname: ${scalar(name)}\nplural: ${scalar(plural)}\nsystem: false\nfolder: ${scalar(plural)}\nicon: file-text\ncolor: gray\nreview: false\npreview: []\nattributes: []\n`;
+function newTypeFile(name: string, plural: string, folder?: string): string {
+  return `${HEADER}version: 1\nname: ${scalar(name)}\nplural: ${scalar(plural)}\nsystem: false\nfolder: ${scalar(folder || plural)}\nicon: file-text\ncolor: gray\nreview: false\npreview: []\nattributes: []\n`;
 }
 
 const sanitize = (title: string) => nfc(title).replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim();
@@ -328,12 +328,13 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
       return { result: getType(files, vers, String(a.key)) };
     case 'type_create': {
       const name = nfc(String(a.name)).trim(), plural = nfc(String(a.plural)).trim();
-      const r = s.checkTypeName(name, plural, types(), []);
+      const folder = a.folder == null ? undefined : nfc(String(a.folder)).trim();
+      const r = s.checkTypeName(name, plural, types(), []) ?? (folder ? s.checkFolder(folder, types()) : null);
       if (r) return { error: err('Rule', `rule: ${r.reason}`, r) };
       const key = s.typeKey(name);
       const p = typePath(key);
       if (files[p] !== undefined) return { error: err('NameTaken', 'A type with this name already exists') };
-      const text = newTypeFile(name, plural);
+      const text = newTypeFile(name, plural, folder);
       return { result: readType(key, text, true, null), writes: { [p]: text } };
     }
     case 'type_patch': {

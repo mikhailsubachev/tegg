@@ -393,6 +393,12 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 input.pfield { width: 260px; }
 input.pfield.time { width: 70px; }
 .date-field input.pfield, .date-range input.pfield, .date-time input.pfield:not(.time) { width: 130px; }
+/* Text with links out of edit mode (D-257): chips inline, the whole field clickable to edit. */
+.field-wrap:has(> .linked-text) { flex: 1 1 auto; }
+.pfield.linked-text { display: inline-block; flex: 1 1 auto; width: 100%; min-width: 260px; height: auto; min-height: 28px; line-height: 26px; cursor: text; overflow-wrap: anywhere; }
+.pfield.linked-text.multi { width: 100%; min-width: 320px; white-space: pre-wrap; }
+.note-subtitle-field.linked-text { display: block; min-height: 22px; cursor: text; }
+.linked-text .link-chip { margin: 0 2px; }
 textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px; resize: vertical; font: inherit; }
 .pfield.select { display: inline-flex; align-items: center; gap: 6px; min-width: 120px; border-color: var(--border); }
 .pfield.select .muted, .muted { color: var(--muted); }

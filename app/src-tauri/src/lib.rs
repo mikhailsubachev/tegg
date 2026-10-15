@@ -758,9 +758,9 @@ async fn type_get(state: State<'_, AppState>, key: String) -> Result<Option<Type
 }
 
 #[tauri::command]
-async fn type_create(state: State<'_, AppState>, name: String, plural: String) -> Result<TypeDto, IpcError> {
+async fn type_create(state: State<'_, AppState>, name: String, plural: String, folder: Option<String>) -> Result<TypeDto, IpcError> {
     let core = core(&state)?;
-    core.type_create(&name, &plural).map(type_dto).map_err(core_err)
+    core.type_create_in(&name, &plural, folder.as_deref()).map(type_dto).map_err(core_err)
 }
 
 #[tauri::command]

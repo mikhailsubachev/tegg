@@ -1,0 +1,55 @@
+// Text with `[[links]]` (D-249, D-257; FR-EDT-07 AC-18, FR-TYP-08 AC-14): out of edit mode each link is a chip that
+// opens its note (D-140), with the broken style when it doesn't resolve (D-142); the rest is plain text. `![[…]]`
+// in a value is a chip too, never an embed. Chips take no focus on mouse down, so clicking one doesn't open the field.
+import { t } from '../../i18n/catalog';
+import type { LinkTargetDto, TypeDto } from '../../ipc/types';
+import { Icon, typeIconName } from '../../shell/Icon';
+import { nfc } from '../util';
+
+export type LinkContext = { links: Map<string, LinkTargetDto>; types: TypeDto[]; onOpen: (path: string) => void };
+
+type Part = { text: string } | { target: string; alias: string | null };
+
+const LINK = /!?\[\[([^[\]\n]+?)\]\]/g;
+
+/** The `[[…]]` parts of a value, in order, with the text between them. */
+export function linkParts(text: string): Part[] {
+  const out: Part[] = [];
+  let at = 0;
+  for (const m of text.matchAll(LINK)) {
+    if (m.index! > at) out.push({ text: text.slice(at, m.index) });
+    const inner = m[1];
+    const bar = inner.search(/\\?\|/);
+    const head = bar >= 0 ? inner.slice(0, bar) : inner;
+    const alias = bar >= 0 ? inner.slice(bar).replace(/^\\?\|/, '').trim() : '';
+    out.push({ target: head.split('#')[0].trim(), alias: alias || null });
+    at = m.index! + m[0].length;
+  }
+  if (at < text.length) out.push({ text: text.slice(at) });
+  return out;
+}
+
+export const hasLinks = (text: string) => linkParts(text).some((p) => 'target' in p);
+
+export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
+  return (
+    <>
+      {linkParts(text).map((p, i) => {
+        if ('text' in p) return <span key={i} data-user-content>{p.text}</span>;
+        const info = ctx.links.get(nfc(p.target));
+        const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+        const shown = p.alias ?? (ok ? info!.title ?? p.target : p.target);
+        const icon = info?.type ? typeIconName(info.type, ctx.types.find((x) => nfc(x.key) === nfc(info.type!))?.icon) : 'file';
+        return (
+          <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`}
+            aria-description={ok ? undefined : t('link.noNote', { target: p.target })} data-link-kind={ok ? info!.kind : 'unresolved'}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ok) ctx.onOpen(info!.path!); }}>
+            {ok && <Icon name={icon} size={13} />}
+            <span data-user-content>{shown}</span>
+          </a>
+        );
+      })}
+    </>
+  );
+}
