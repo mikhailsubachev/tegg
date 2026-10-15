@@ -59,3 +59,17 @@ test('bug_3d_fr_src_01_search_opens_with_the_field_focused', async ({ page }) =>
   await page.keyboard.type('Porada');
   assert.equal(await page.getByRole('searchbox', { name: 'Search query' }).inputValue(), 'Porada');
 });
+
+test('bug_3d_fr_typ_08_ac5_edit_panel_collapses_like_the_strip', async ({ page }) => {
+  await openTypes(page);
+  await openNoteByTitle(page, '2026-10-07 Porada');
+  const region = await must(props(page), 'Properties');
+  const head = await must(region.getByRole('button', { name: 'Properties', exact: true }), 'header button Properties');
+  assert.equal(await head.getAttribute('aria-expanded'), 'true');
+  assert.ok(await seen(region.getByText('Created', { exact: true }), 1000), 'rows shown');
+  await head.click();
+  assert.equal(await head.getAttribute('aria-expanded'), 'false');
+  assert.equal(await region.getByText('Created', { exact: true }).count(), 0, 'rows hidden');
+  await head.click();
+  assert.ok(await seen(region.getByText('Created', { exact: true }), 1000), 'rows shown again');
+});

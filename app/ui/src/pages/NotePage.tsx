@@ -242,8 +242,11 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     mergeOpen: () => !!live.current.merge,
     keepBoth: () => keepBothRef.current(),
     changeType: () => chipApi.current?.open(),
-    editProperties: () => panelApi.current?.focusFirst(),
-  }), [flush]);
+    editProperties: () => {
+      if (!propertiesOpen) { onToggleProperties(); setTimeout(() => panelApi.current?.focusFirst(), 0); }
+      else panelApi.current?.focusFirst();
+    },
+  }), [flush, propertiesOpen, onToggleProperties]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
   const external = useCallback(async () => {
@@ -554,9 +557,10 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
           <div hidden={showSource}>
             <DescriptionField elRef={descField} saved={descSaved}
               onCommit={(v) => commit((d) => setValue(d, 'description', v.trim() === '' ? null : v))}
-              onNext={() => panelApi.current?.focusFirst()} />
+              onNext={() => (propertiesOpen ? panelApi.current?.focusFirst() : pane.current?.focus())} />
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
             <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
+              open={propertiesOpen} onToggle={onToggleProperties}
               otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />
             <EditorPane

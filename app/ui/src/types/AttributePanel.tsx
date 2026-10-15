@@ -56,7 +56,7 @@ function useLinks(path: string, text: string): Map<string, LinkTargetDto> {
   return links;
 }
 
-export function AttributePanel({ apiRef, text, type, types, path, editable, otherOpen, onToggleOther, onCommit, onOpen, onTag, onLeaveLast }: {
+export function AttributePanel({ apiRef, text, type, types, path, editable, open = true, onToggle, otherOpen, onToggleOther, onCommit, onOpen, onTag, onLeaveLast }: {
   apiRef?: Ref<PanelApi>;
   /** The note text whose frontmatter is in effect (saved or committed, not yet saved). */
   text: string;
@@ -64,6 +64,9 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, othe
   types: TypeDto[];
   path: string;
   editable: boolean;
+  /** D-127: the `Properties` header collapses the panel, as in the read view; the state is per machine. */
+  open?: boolean;
+  onToggle?: () => void;
   otherOpen: boolean;
   onToggleOther: () => void;
   onCommit: Commit;
@@ -142,6 +145,13 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, othe
 
   return (
     <section className="attr-panel" aria-label={t('props.title')}>
+      {onToggle && (
+        <button type="button" className="properties-head" aria-expanded={open} data-command="note.toggleProperties" onClick={onToggle}>
+          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
+          {t('props.title')}
+        </button>
+      )}
+      {open && (<>
       <div className="attr-grid">
         {model.rows.map((row, i) => {
           const userNamed = !!row.attr;
@@ -171,6 +181,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, othe
           ))}
         </ul>
       )}
+      </>)}
     </section>
   );
 }
