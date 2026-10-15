@@ -79,6 +79,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
 }) {
   const doc = useMemo(() => parse(text.replace(/^﻿/, '')), [text]);
   const model = useMemo(() => panelRows(doc, type), [doc, type]);
+  const otherCount = model.hidden.length + model.other.length;
   const links = useLinks(path, text);
   const linked = { links, types, onOpen, path };
   const firstRefs = useRef<(HTMLElement | null)[]>([]);
@@ -111,7 +112,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     if (!editable) return <span className="value-text" data-user-content>{rawText(row.raw)}</span>;
     if (!a) {
       if (row.key === 'tags') return <TagsControl raw={row.raw} disabled={disabled} inputRef={ref} onTag={onTag} onValue={(v) => set('tags', v)} />;
-      if (row.key === 'aliases') return <AliasesControl raw={row.raw} disabled={disabled} inputRef={ref} onValue={(v) => set('aliases', v)} />;
+      if (row.key === 'aliases') return <AliasesControl raw={row.raw} desc={desc} disabled={disabled} inputRef={ref} onNext={next} onValue={(v) => set('aliases', v)} />;
       if (row.key === 'source') {
         // D-248, D-256: free text on every type, with links (D-257).
         return <TextControl name={row.label} desc={desc} raw={row.raw} kind="text" disabled={disabled} inputRef={ref} onNext={next} linked={linked}
@@ -173,12 +174,20 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
           );
         })}
       </div>
-      <button type="button" className="other-props" aria-expanded={otherOpen} data-command="panel.otherProperties" onClick={onToggleOther}>
-        <Icon name={otherOpen ? 'chevron-down' : 'chevron-right'} size={12} />
-        {t('panel.otherButton', { count: model.other.length })}
-      </button>
-      {otherOpen && (
+      {otherCount > 0 && ( // D-314: no button when there is nothing under it
+        <button type="button" className="other-props" aria-expanded={otherOpen} data-command="panel.otherProperties" onClick={onToggleOther}>
+          <Icon name={otherOpen ? 'chevron-down' : 'chevron-right'} size={12} />
+          {t('panel.otherButton', { count: otherCount })}
+        </button>
+      )}
+      {otherOpen && otherCount > 0 && (
         <ul className="other-list" aria-label={t('panel.otherList')}>
+          {model.hidden.map((row, j) => ( // FR-TYP-17: hidden properties keep their controls (D-316)
+            <li key={`h:${row.key}`} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key}>
+              <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={row.attr ? '' : undefined}>{row.label}</span>
+              <span className="attr-value">{rowControl(row, model.rows.length + j)}</span>
+            </li>
+          ))}
           {model.other.map((o) => (
             <li key={o.key} className="attr-row">
               <span className="attr-label" data-user-content>{o.key}</span>

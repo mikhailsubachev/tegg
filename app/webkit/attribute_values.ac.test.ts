@@ -157,9 +157,10 @@ test('fr_edt_07_ac5_i_email', async ({ page }) => {
 test('fr_edt_07_ac8_key_text_and_flow_style_are_kept_through_the_panel', async ({ page }) => {
   // The one L5 case: Styl hodnot is a Page, so its universal `aliases` row is edited (flow list, D-230).
   const core = await openTypes(page, P.styl, { region: 'cs' });
-  await (await must(props(page).getByRole('group', { name: 'Aliases' }).getByRole('button', { name: 'Add alias', exact: true }), 'Add alias')).click();
-  await page.getByRole('textbox', { name: 'Alias', exact: true }).fill('Třetí');
-  await page.keyboard.press('Enter');
+  const al = await must(props(page).getByRole('textbox', { name: 'Aliases', exact: true }), 'textbox Aliases (D-312)');
+  await al.click();
+  await al.fill('Styl, Hodnoty, Třetí');
+  await al.press('Enter');
   const t = await written(core, P.styl, (x) => x.includes('Třetí'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.styl), 'aliases: [Styl, Hodnoty]\n', 'aliases: [Styl, Hodnoty, Třetí]\n')), '"klíč s mezerou", stav and účastníci untouched');
 });

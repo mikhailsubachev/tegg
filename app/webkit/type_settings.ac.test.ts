@@ -254,7 +254,7 @@ test('fr_typ_01_ac9_sections_contrast_and_palette_commands', async ({ page }) =>
   await openTypes(page);
   await gotoSettings(page, 'Projekty', 'Projekt');
   const nav = await must(main(page).getByRole('navigation', { name: 'Settings sections' }), 'Settings sections');
-  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Review workflow', 'Templates', 'Views', 'Delete type']);
+  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Hidden properties', 'Review workflow', 'Templates', 'Views', 'Delete type']);
   await must(main(page).getByText(/^Applies to 3 objects · stored in \.tegg\/types\/projekt\.yml$/), 'Applies line');
   for (const n of ['Stav', 'Období', 'Rozpočet', 'Aktivní', 'Oblasti', 'Web', 'Poznámka']) await expand(page, n);
   for (const theme of ['Theme: Light', 'Theme: Dark']) {
@@ -361,7 +361,7 @@ test('fr_typ_03_ac3_adding_a_property_adopts_existing_values', async ({ page }) 
   await openNoteByTitle(page, '2026-10-07 Porada');
   const box = await must(props(page).getByRole('textbox', { name: 'Nálada', exact: true }), 'nálada in the schema rows');
   assert.equal(await box.inputValue().catch(async () => (await box.innerText()).trim()), 'dobrá');
-  assert.equal((await otherProps(page).innerText()).trim(), 'Other properties (0)');
+  assert.equal(await otherProps(page).count(), 0, 'no Other properties button when none are left (D-314)');
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note written');
 });
 

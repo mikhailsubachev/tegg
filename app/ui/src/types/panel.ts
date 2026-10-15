@@ -1,7 +1,8 @@
 // The attribute panel's row model (FR-EDT-07 AC-1, AC-2, D-229; ms3-shell §14.7.1). Rows: the type's attributes in
 // schema order (a date range once), then the universal Tags, Aliases, Source, Review (when the workflow is on or
 // locked, or the note has `review`), Created, Modified. Other properties are the remaining non-empty keys in file
-// order. Validity comes from @tegg/schema (D-231); nothing here writes.
+// order. The type's hidden properties (FR-TYP-17, D-316) leave the rows for the Other properties group. Validity comes
+// from @tegg/schema (D-231); nothing here writes.
 import type { Doc } from '@tegg/doc';
 import { typeMatch, validate, type Validity } from '@tegg/schema';
 import { t } from '../i18n/catalog';
@@ -56,6 +57,8 @@ function universalValidity(key: string, v: unknown): Validity {
 export function panelRows(doc: Doc, type: TypeDto): {
   subtitle: string | null;
   rows: PanelRow[];
+  /** Rows of the type's hidden properties, in row order; shown under Other properties (D-316). */
+  hidden: PanelRow[];
   other: { key: string; value: unknown }[];
   typeWarning: boolean;
 } {
@@ -105,5 +108,12 @@ export function panelRows(doc: Doc, type: TypeDto): {
     if (isEmpty(v)) continue;
     other.push({ key: e.key, value: v });
   }
-  return { subtitle, rows, other, typeWarning: !typeMatch(data.type).single };
+  const hiddenKeys = new Set((type.hidden ?? []).map(nfc));
+  return {
+    subtitle,
+    rows: rows.filter((r) => !hiddenKeys.has(r.key)),
+    hidden: rows.filter((r) => hiddenKeys.has(r.key)),
+    other,
+    typeWarning: !typeMatch(data.type).single,
+  };
 }

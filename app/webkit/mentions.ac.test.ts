@@ -219,11 +219,10 @@ for (const trigger of ['@', '[['] as const) {
   });
 }
 
-test('fr_edt_06_ac11_long_text_description_and_source_offer_the_picker', async ({ page }) => {
+test('fr_edt_06_ac11_long_text_and_source_offer_the_picker', async ({ page }) => {
   await openTypes(page, P.rozpocet);
   for (const [name, loc] of [
     ['Poznámka', () => props(page).getByRole('textbox', { name: 'Poznámka', exact: true })],
-    ['Description', () => page.getByRole('textbox', { name: 'Description', exact: true })],
     ['Source', () => props(page).getByRole('textbox', { name: 'Source', exact: true })],
   ] as const) {
     const f = await must(loc(), `textbox ${name}`);

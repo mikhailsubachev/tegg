@@ -19,9 +19,9 @@ import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
 const UNIVERSAL_PREVIEW: [string, string][] = [['tags', 'attr.tags'], ['source', 'attr.source'], ['aliases', 'attr.aliases'], ['created', 'attr.created'], ['modified', 'attr.modified']];
-const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'review', 'templates', 'views', 'delete'] as const;
+const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'review', 'templates', 'views', 'delete'] as const;
 const SECTION_LABEL: Record<(typeof SECTIONS)[number], string> = {
-  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'ts.preview', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
+  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'ts.preview', hidden: 'ts.hidden', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
 };
 const NO_OPTIONS = new Set(['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'url', 'email', 'relation']);
 
@@ -288,6 +288,8 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
           </section>
 
           <PreviewSection type={type} ro={ro} w={w} setType={setType} />
+
+          <HiddenSection type={type} ro={ro} w={w} setType={setType} />
 
           <section id="ts-review" aria-label={t('ts.review')} className="ts-section">
             <h2>{t('ts.review')}</h2>
@@ -742,6 +744,42 @@ function OptionLabel({ label, disabled, desc, autoFocus, onCommit, onCancel }: {
         if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
         else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setV(label); onCancel?.(); }
       }} />
+  );
+}
+
+// ------------------------------------------------------------------------------------------------ hidden
+
+/** The universal properties a type can hide, in panel order (FR-TYP-17, D-316). */
+const UNIVERSAL_HIDDEN: [string, string][] = [['tags', 'attr.tags'], ['aliases', 'attr.aliases'], ['source', 'attr.source'], ['review', 'attr.review'], ['created', 'attr.created'], ['modified', 'attr.modified']];
+
+/** Hidden properties (FR-TYP-17 AC-1, D-316): one checkbox per property; a checked one leaves the attribute panel's
+ *  rows for its Other properties group. Keys in `hidden` that aren't properties are kept as they are (AC-3). */
+function HiddenSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w: ReturnType<typeof useTypeWriter>; setType: (t: TypeDto) => void }) {
+  const hidden = (type.hidden ?? []).map(nfc);
+  const rows: [string, string, boolean][] = [
+    ...type.attributes.map((a): [string, string, boolean] => [nfc(a.key), a.name, true]),
+    ...UNIVERSAL_HIDDEN.map(([k, l]): [string, string, boolean] => [k, t(l), false]),
+  ];
+  const toggle = (key: string, on: boolean) => {
+    const next = on ? [...hidden.filter((k) => k !== key), key] : hidden.filter((k) => k !== key);
+    setType({ ...type, hidden: next });
+    void w.send([{ op: 'hidden', keys: next }], t('ts.hidden'), 'hidden');
+  };
+  return (
+    <section id="ts-hidden" aria-label={t('ts.hidden')} className="ts-section">
+      <h2>{t('ts.hidden')}</h2>
+      <p className="hint">{t('ts.hiddenHelp')}</p>
+      <ul className="hidden-list">
+        {rows.map(([key, name, user]) => (
+          <li key={key}>
+            <label className="ts-check">
+              <input type="checkbox" data-command="typeSettings.hidden" checked={hidden.includes(key)} disabled={ro} onChange={(e) => toggle(key, e.target.checked)} />
+              <span data-user-content={user ? '' : undefined}>{name}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

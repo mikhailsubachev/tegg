@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 import { newEmptyVault } from '../ui/test/fake-core';
 import {
   P, eventually, focused, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, paletteDialog,
-  runCommand, seen, sidebar, sleep, start, switcherDialog, theme,
+  runCommand, seen, sidebar, sleep, start, switcherDialog, theme, typesList,
 } from './helpers';
 import { IDS, R, article, firstVisibleBlockText, headingFn, placement, readVault, scrollToTop, ui, watchNetwork } from './read-helpers';
 
@@ -39,13 +39,14 @@ const TRIGGERS: Trigger[] = [
   { name: 'mouse_buttons', back: (p) => mouse(p, 3), forward: (p) => mouse(p, 4) },
 ];
 
-/** AC-1 setup: the fixture on `home`, then Porada (switcher) → type/schůzka (breadcrumb) → search (⌘⇧F). */
+/** AC-1 setup: the fixture on `home`, then Porada (switcher) → type/schůzka (sidebar Types list; no breadcrumb, D-315)
+ *  → search (⌘⇧F). */
 async function visitThree(page: Page) {
   await mustBeOn(page, 'Home', 'the fixture opens on home');
   await openNote(page, PORADA);
-  const crumb = await must(page.getByRole('main').getByRole('link', { name: 'Schůzky', exact: true }), 'breadcrumb link "Schůzky"');
-  await crumb.click();
-  await mustBeOn(page, 'Schůzky', 'breadcrumb → type/schůzka');
+  const entry = await must(typesList(page).getByRole('link', { name: /^Schůzky\b/ }), 'sidebar Types entry "Schůzky"');
+  await entry.click();
+  await mustBeOn(page, 'Schůzky', 'Types list → type/schůzka');
   await page.keyboard.press('Meta+Shift+f');
   await mustBeOn(page, 'Search', '⌘⇧F → search');
 }
@@ -233,7 +234,7 @@ test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ p
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, PORADA, 'Back shows the renamed note (same id, title unchanged)');
   assert.ok(await seen(article(page, PORADA), 3000), 'note body shown');
-  assert.match((await page.getByRole('main').innerText()).normalize('NFC'), /Porada týmu/, 'breadcrumb shows the new file name');
+  // No breadcrumb (D-315): the new path shows in the read below.
   assert.equal(await page.getByText('This note was moved or deleted').count(), 0, 'not shown as deleted');
   const reads = (await core.calls()).slice(before).filter((c) => c.cmd === 'note_read').map((c) => String((c.args as any)?.path).normalize('NFC'));
   assert.ok(reads.includes(renamed), `read from the new path: ${reads.join(', ')}`);

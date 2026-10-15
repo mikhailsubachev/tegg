@@ -160,8 +160,7 @@ pub struct TypeFile {
     pub description: Option<String>,
     pub review: Review,
     pub preview: Vec<String>,
-    /// Properties not shown among the attribute panel's rows on this type's objects (FR-TYP-17, D-316). Stub: never
-    /// read from the file yet.
+    /// Properties not shown among the attribute panel's rows on this type's objects (FR-TYP-17, D-316).
     pub hidden: Vec<String>,
     /// Vault path of the default template (D-232).
     pub template: Option<String>,
@@ -398,7 +397,10 @@ fn read_def(key: &str, text: &str) -> Result<(TypeFile, Readability), (String, u
             Some(Value::Array(a)) => a.iter().filter_map(scalar_text).collect(),
             _ => Vec::new(),
         },
-        hidden: Vec::new(), // stub (FR-TYP-17)
+        hidden: match top.get("hidden") {
+            Some(Value::Array(a)) => a.iter().filter_map(scalar_text).collect(),
+            _ => Vec::new(),
+        },
         template: text_of("template"),
         attributes,
         name,
@@ -784,7 +786,7 @@ fn option_text(o: &OptionDef) -> String {
 // ------------------------------------------------------------------------------------------------ writing: whole files
 
 /// Canonical top-level order (§14.1.4, from the approved fixtures).
-const TOP_ORDER: [&str; 12] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "template", "attributes"];
+const TOP_ORDER: [&str; 13] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "template", "attributes"];
 /// Canonical attribute item order.
 const ITEM_ORDER: [&str; 9] = ["key", "name", "type", "default", "required", "options", "to", "multiple", "description"];
 const ITEM_INDENT: usize = 2;
@@ -806,6 +808,7 @@ fn render_top(field: &str, def: &TypeFile) -> Option<Vec<String>> {
             Review::Locked => "locked".into(),
         }),
         "preview" => one(flow_list(&def.preview)),
+        "hidden" => one(flow_list(&def.hidden)), // FR-TYP-17, D-316
         "template" => def.template.as_ref().and_then(|t| one(scalar(t, false))),
         "attributes" => {
             if def.attributes.is_empty() {
@@ -866,6 +869,10 @@ fn render_item(a: &AttrDef, ind: usize) -> Vec<String> {
 pub fn serialize(def: &TypeFile) -> String {
     let mut out = String::from(HEADER);
     for f in TOP_ORDER {
+        // A whole file has a `hidden` line only when something is hidden (FR-TYP-17, D-316).
+        if f == "hidden" && def.hidden.is_empty() {
+            continue;
+        }
         for l in render_top(f, def).unwrap_or_default() {
             out.push_str(&l);
             out.push('\n');
@@ -914,7 +921,7 @@ pub enum TypeOp {
     SetDescription(Option<String>),
     SetReview(bool),
     SetPreview(Vec<String>),
-    /// FR-TYP-17, D-316. Stub: changes nothing yet.
+    /// FR-TYP-17, D-316.
     SetHidden(Vec<String>),
     AddAttribute(AttrDef),
     UpdateAttribute { key: String, change: AttrChange },
@@ -1072,7 +1079,18 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_top(lines, "preview", render_top("preview", def));
             }
         }
-        TypeOp::SetHidden(_) => {} // stub (FR-TYP-17)
+        TypeOp::SetHidden(keys) => {
+            let mut out: Vec<String> = Vec::new();
+            for k in keys.iter().map(|k| nfc(k)) {
+                if !out.contains(&k) {
+                    out.push(k);
+                }
+            }
+            if def.hidden != out {
+                def.hidden = out;
+                set_top(lines, "hidden", render_top("hidden", def));
+            }
+        }
         TypeOp::AddAttribute(a) => {
             let mut a = a.clone();
             a.key = nfc(&a.key);
@@ -1176,6 +1194,11 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             if def.preview.contains(&key) {
                 def.preview.retain(|p| *p != key);
                 set_top(lines, "preview", render_top("preview", def));
+            }
+            // FR-TYP-17 AC-3: and its hidden key.
+            if def.hidden.contains(&key) {
+                def.hidden.retain(|p| *p != key);
+                set_top(lines, "hidden", render_top("hidden", def));
             }
         }
         TypeOp::MoveAttribute { key, to } => {

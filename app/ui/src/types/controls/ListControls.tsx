@@ -10,6 +10,7 @@ import { requestOffer } from '../../links/offer';
 import { RelationPicker } from '../RelationPicker';
 import { nfc, rawText, wiki } from '../util';
 import { EmptyMark, WarnIcon, type Value } from './common';
+import { TextControl } from './TextControl';
 
 const asList = (raw: unknown): unknown[] => (raw === null || raw === undefined || raw === '' ? [] : Array.isArray(raw) ? raw : [raw]);
 
@@ -193,53 +194,33 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
   );
 }
 
-export function AliasesControl({ raw, disabled, onValue, inputRef }: {
+/** The aliases typed in the Aliases field (D-312): comma-separated, trimmed, NFC, without empty parts and without
+ *  case-insensitive duplicates. */
+export function parseAliases(text: string): string[] {
+  const out: string[] = [];
+  for (const part of text.split(',')) {
+    const a = nfc(part.trim());
+    if (a && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a);
+  }
+  return out;
+}
+
+/** Aliases as one single-line text field (D-312, FR-TYP-08 AC-15); written as a YAML list, cleared = key removed. */
+export function AliasesControl({ raw, desc, disabled, onValue, onNext, inputRef }: {
   raw: unknown;
+  desc?: string;
   disabled?: boolean;
   onValue: (v: Value) => boolean | void;
+  onNext?: () => void;
   inputRef?: (el: HTMLElement | null) => void;
 }) {
   const list = asList(raw).map((x) => rawText(x));
-  const [adding, setAdding] = useState(false);
-  const [q, setQ] = useState('');
-  const add = useRef<HTMLButtonElement | null>(null);
-  const field = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { if (adding) field.current?.focus(); }, [adding]);
-  const commit = () => {
-    const n = nfc(q.trim());
-    setAdding(false);
-    setQ('');
-    add.current?.focus();
-    if (!n || list.some((x) => nfc(x).toLowerCase() === n.toLowerCase())) return;
-    onValue([...list, n]);
-  };
   return (
-    <span role="group" aria-label={t('attr.aliases')} className="field-wrap chips-field">
-      {list.map((x, i) => (
-        <span key={`${i}:${x}`} className="chip alias-chip" tabIndex={0}
-          onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); onValue(list.filter((_, j) => j !== i)); } }}>
-          <span data-user-content>{x}</span>
-          {!disabled && (
-            <button data-command="panel.list.button7" type="button" tabIndex={-1} className="chip-remove" aria-label={t('panel.removeAlias', { name: x })} onClick={() => onValue(list.filter((_, j) => j !== i))}>
-              <Icon name="x" size={11} />
-            </button>
-          )}
-        </span>
-      ))}
-      {list.length === 0 && !adding && <EmptyMark onActivate={() => add.current?.focus()} />}
-      {!disabled && !adding && (
-        <button data-command="panel.list.button8" ref={(e) => { add.current = e; inputRef?.(e); }} type="button" className="chip-add" aria-label={t('panel.addAlias')} onClick={() => setAdding(true)}>
-          <Icon name="plus" size={12} />
-        </button>
-      )}
-      {adding && (
-        <input ref={field} type="text" aria-label={t('panel.aliasField')} value={q} className="pfield" spellCheck={false} autoComplete="off"
-          onChange={(e) => setQ(e.target.value)} onBlur={() => { setAdding(false); setQ(''); }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setAdding(false); setQ(''); add.current?.focus(); }
-            else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
-          }} />
-      )}
-    </span>
+    <TextControl kind="text" name={t('attr.aliases')} desc={desc} raw={list.join(', ')} disabled={disabled} inputRef={inputRef} onNext={onNext}
+      onValue={(v) => {
+        const next = parseAliases(typeof v === 'string' ? v : '');
+        if (next.length === list.length && next.every((a, i) => a === nfc(list[i]))) return true; // same aliases: no write
+        return onValue(next.length ? next : null);
+      }} />
   );
 }
