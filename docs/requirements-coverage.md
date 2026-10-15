@@ -170,9 +170,9 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-TAG-02 | Storage: applying a tag writes its name to the object's `tags:` frontmatter list (inline `#tag` in the body co… | no ACs yet |
 | FR-TAG-03 | A Tag object file is created when the user creates the tag in the app or edits its color/description. Tags tha… | no ACs yet |
 | FR-TAG-04 | Rename a tag: renames the Tag file and rewrites the `tags:` values and inline `#tags` in every object that use… | 3 ACs |
-| FR-TAG-05 | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | no ACs yet |
+| FR-TAG-05 | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | no ACs yet; graph-node part v1.0 (D-275) |
 | FR-TAG-06 | Tag page: opening a tag shows its description and all objects with that tag (a query view, groupable by type). | no ACs yet |
-| FR-TAG-07 | Tags appear in the sidebar (with colors and counts), in search filters (FR-SRC-02) and in the query builder ("… | no ACs yet |
+| FR-TAG-07 | Tags appear in the sidebar (with colors and counts), in search filters (FR-SRC-02) and in the query builder ("… | no ACs yet; query-builder part v1.0 (D-275) |
 | FR-TAG-08 | Delete a tag: asks whether to remove it from all objects (rewrite, with restore point) or only delete the Tag … | no ACs yet |
 | FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs |
 | FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs |

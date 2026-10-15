@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.31, for review                                             |
-| **Date**            | 2026-10-10                                                          |
+| **Document status** | Draft v1.44, for review                                             |
+| **Date**            | 2026-10-15                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -59,6 +59,7 @@
 | v1.41   | 2026-10-15 | D-253…D-262: AP-185…AP-194 from the 3D follow-up ACs (search tiers, file-name scope, caret on open, `source` text rules, links in text values, `@` trigger, `Create type` defaults, Columns menu, contract §15, AC test changes). D-108 reworded; D-191 (e) superseded by D-247/D-255. |
 | v1.42   | 2026-10-15 | D-263…D-265: `@` space rule kept, one-word create example (FR-EDT-06 AC-10); keyboard focus ring on the note body (FR-UX-03 AC-10); Esc in focus mode leaves it before selecting a block. |
 | v1.43   | 2026-10-15 | D-266: no focus ring on text you type into (note body, title, description, property fields); replaces D-264. |
+| v1.44   | 2026-10-15 | MS4 plan decisions D-267…D-275 (AP-195…AP-203, `docs/plans/ms4-implementation-plan.md`): MS4 in slices 4A–4F; rename on title commit; no backup zip for a single note rename; one daily-note template; daily context sections and review before MS5; embed modes before tasks; backup list in Settings; tag parts moved to v1.0. |
 
 ---
 
@@ -368,6 +369,15 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-264 | Focus ring on the note body (FR-UX-03 AC-10) | *Replaced by D-266.* With the caret in the body on open (D-247), the note body shows a 2 px focus ring on keyboard focus only (`:focus-visible`), never after a mouse click (owner, 2026-10-15) |
 | D-265 | Esc in focus mode (FR-UX-02 AC-9, FR-EDT-13) | With the caret in the body (D-247), Esc in focus mode with nothing selected leaves focus mode; a text or block selection is still cleared first. Outside focus mode Esc selects the block (AP-132) (owner, 2026-10-15) |
 | D-266 | No ring on text fields (replaces D-264) | The note body, the title, the description and the property fields show only their caret when focused, no outline or ring, also on keyboard focus; buttons, links, menus and other controls keep the 2 px ring. FR-UX-03 AC-10 exempts these text fields (owner, 2026-10-15) |
+| D-267 | MS4 in slices | MS4 is delivered as slices 4A Backlinks and link states, 4B Daily notes, 4C Rename engine, 4D Tags, 4E Schema and type moves, 4F Embeds, each with its ACs and red tests before it starts and a preview build after it; 4F may run in parallel with 4C–4E; the MS4 gate runs once, at the end. The 4C jobs contract covers every rewrite job (note rename, tag rename and delete, key rename and value removal, type and folder moves, type delete) (AP-195, owner, 2026-10-15) |
+| D-268 | When a title edit renames the file (FR-FMT-08, FR-LNK-03) | The file is renamed and links rewritten when the title is committed (↩, Tab, or focus leaving the title), never while typing. A rename that rewrites other files shows non-blocking progress (`Updating links in <n> notes`), with no confirmation (AP-196) |
+| D-269 | No backup zip for a note rename (FR-HIS-04, D-57) | Renaming one note creates no backup zip; undo as one action (links.md FR-LNK-03 AC-5) is its restore. Every other rewrite job (tag rename and delete, key rename, value removal, type and folder moves, type delete, import) creates one first (AP-197) |
+| D-270 | Daily-note template before FR-TPL (FR-DLY-06) | One template file `_templates/Daily Note/Daily Note.md`, applied on the first keystroke, with only `{{date}}`, `{{date:FORMAT}}`, `{{yesterday}}`, `{{tomorrow}}` (a subset of FR-TPL-03). The starter vault includes it; without it a Daily Note starts empty. Multiple templates and the other variables stay v1.0 (FR-TPL) (AP-198) |
+| D-271 | Daily context sections before MS5 (FR-DLY-04) | MS4 shows Quick Notes created that day and objects created or modified that day (by `created` / `modified`); the tasks due/overdue section is an in-note placeholder `Coming in MS5` until FR-TSK (AP-199) |
+| D-272 | Daily review before the Inbox (FR-DLY-05) | 4B writes `review: unreviewed` with the first write of a Daily Note and shows the review control; listing in the Inbox comes with FR-INB-01 (MS5) (AP-200) |
+| D-273 | Embed modes before tasks (FR-EMB-02, D-74) | 4F builds full, card and link modes with a per-type default in type settings. Task defaults to card with a generic header until MS5 adds the checkbox, status, priority and due row (D-74). Full mode is editable in place, with the same autosave and conflict rules as the note editor (AP-201) |
+| D-274 | Using backup zips (D-57) | Settings → Backups lists the newest 10 with date, operation and size, and `Reveal in Finder`. Restoring is manual in the MVP (unzip over a copy of the vault); one-click restore comes with version history (v1.0) (AP-202) |
+| D-275 | Tag parts after MS4 (FR-TAG-05, FR-TAG-07) | MS4 covers tag colours and tags in the sidebar, search filters, chips, inline `#tags`, tag pages and type-page lists. The query-builder part of FR-TAG-07 and the graph-node part of FR-TAG-05 are v1.0, with FR-QRY and FR-GRP (AP-203) |
 
 ---
 
@@ -987,6 +997,8 @@ Requirement-to-phase mapping, checked for all requirements: `docs/requirements-c
 | MS8 | MVP hardening & release           | All NFR-PERF, NFR-SEC-01, AR-08, FR-SYN-01, FR-UX-04, -06, AR-02, NFR-OTH-01 | Release gate: perf on reference machine, signed/notarized DMG, two-Mac sync (Dropbox, Google Drive, iCloud), 7-day soak                |
 
 MS3 is delivered in slices 3A–3E with a preview build after each (D-115); from MS3 the shell shows every designed page, with TBD placeholders for later phases (D-116, D-120). Plan: `docs/plans/ms3-implementation-plan.md`.
+
+MS4 is delivered in slices 4A–4F with a preview build after each (D-267). Plan: `docs/plans/ms4-implementation-plan.md`.
 
 ---
 
