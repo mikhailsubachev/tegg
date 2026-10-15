@@ -3,13 +3,13 @@
 import type { TypeDefDto } from '../ipc/types';
 import { collator } from '../i18n/collate';
 
-export type TypeEntry = { key: string; plural: string; name: string; color: string; icon: string; count: number; defined: boolean; folder: string };
+export type TypeEntry = { key: string; plural: string; name: string; color: string; icon: string; count: number; defined: boolean; folder: string; invalid?: boolean };
 
 const HEAD = ['page', 'task', 'quick-note', 'daily-note'];
 const TAIL = ['image', 'pdf'];
 
 export function typeEntries(types: TypeDefDto[], counts: Record<string, number>): TypeEntry[] {
-  const entry = (t: TypeDefDto): TypeEntry => ({ key: t.key, plural: t.plural, name: t.name, color: t.color, icon: t.icon, count: counts[t.key] ?? 0, defined: true, folder: t.folder });
+  const entry = (t: TypeDefDto): TypeEntry => ({ key: t.key, plural: t.plural, name: t.name, color: t.color, icon: t.icon, count: counts[t.key] ?? 0, defined: true, folder: t.folder, invalid: t.invalid || (t as { state?: string }).state === 'invalid' });
   const byKey = new Map(types.map((t) => [t.key.normalize('NFC'), t]));
   const head = HEAD.flatMap((k) => (byKey.has(k) ? [entry(byKey.get(k)!)] : []));
   const tail = TAIL.flatMap((k) => (byKey.has(k) ? [entry(byKey.get(k)!)] : []));

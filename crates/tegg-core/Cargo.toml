@@ -9,12 +9,14 @@ description = "Tegg core façade: vault + index + watcher + events (docs/contrac
 tegg-format = { path = "../tegg-format" }
 tegg-vault = { path = "../tegg-vault" }
 tegg-index = { path = "../tegg-index" }
+tegg-schema = { path = "../tegg-schema" }
 chrono.workspace = true
 chrono-tz.workspace = true
 serde_json.workspace = true
 yaml-rust2 = "0.13"
 
 [dev-dependencies]
+tegg-schema = { path = "../tegg-schema" }
 tempfile.workspace = true
 gen-vault = { path = "../../tools/gen-vault" }
 tegg-vault = { path = "../tegg-vault" }

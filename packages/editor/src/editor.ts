@@ -50,6 +50,8 @@ export interface TeggEditor {
   text(): string
   dirty(): boolean
   historyDepth(): number
+  /** ms3-shell §14.6 (3D): a committed frontmatter edit as one undo step, saved with the next save(). */
+  applyFrontmatter(next: string): void
   /** Pending title (FR-EDT-01 AC-10): written as `title:` by the next save; null = unchanged. */
   setTitle(title: string | null): void
   /** Top-level blocks in the block selection (0-based, inclusive), or null (FR-EDT-13). */
@@ -210,6 +212,9 @@ function joinAdjacentLists(tr: Transaction): void {
 
 // ------------------------------------------------------------------------------------------------ createEditor
 
+/** Everything before the body (BOM and frontmatter). */
+const headOf = (text: string): string => text.slice(0, parse(text).bodyStart)
+
 export function createEditor(opts: EditorOptions): TeggEditor {
   if (faults().editorLoad) throw new Error('editor load failed (test fault, NFR-REL-03 AC-8)')
   let dirty = false
@@ -294,18 +299,27 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     loaded = loadDoc(text, editor.schema)
     try { attach(editor, loaded) } finally { loading = false }
     // A fresh state: the load is never an undo step and the history starts empty (AP-122, D-178).
-    const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins, selection: TextSelection.atStart(editor.state.doc) })
+    const d = editor.state.doc
+    const withHead = d.type.create({ ...d.attrs, frontmatter: headOf(text) }, d.content, d.marks)
+    const fresh = EditorState.create({ doc: withHead, plugins: editor.state.plugins, selection: TextSelection.atStart(withHead) })
     view.updateState(fresh)
     dirty = false
   }
   load(opts.text)
 
+  /** The frontmatter text in effect: the doc attribute (panel edits, §14.6), else the last saved text's. */
+  function head(): string {
+    const h = editor.state.doc.attrs.frontmatter as string | null
+    return h ?? headOf(lastSaved)
+  }
+
   function candidate(): string {
     const r = reconcile(loaded, editor.state.doc)
     const bodyStart = loaded.doc.bodyStart
     const body = r.text.slice(bodyStart)
-    const base = parse(lastSaved)
-    let out = lastSaved.slice(0, base.bodyStart) + body
+    const h = head()
+    const base = parse(h)
+    let out = h + body
     if (!base.frontmatter && loaded.doc.frontmatter) out = r.text // never drop a frontmatter the file had
     if (pendingTitle !== null) {
       const cur = parse(out).frontmatter?.data?.title
@@ -314,13 +328,26 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     return out
   }
 
+  /** The last compute's result and the frontmatter attribute it used (markSaved syncs the attribute, §14.6). */
+  let computed: { out: string; head: unknown } | null = null
+
   function compute(): string | null {
     const next = candidate()
     if (next === lastSaved) return null
+    computed = null
     // Invalid frontmatter is never rewritten automatically (NFR-REL-03); such notes open read-only in the app.
     if (parse(next).frontmatter?.error || parse(lastSaved).frontmatter?.error) return next
     const withId = ensureIdentity(parse(next), { now: opts.now(), newId: opts.newId })
-    return touchModified(lastSaved, withId, opts.now())
+    const out = touchModified(lastSaved, withId, opts.now())
+    computed = { out, head: editor.state.doc.attrs.frontmatter }
+    return out
+  }
+
+  /** Sets the frontmatter attribute outside the history (load bookkeeping, never an undo step or a change). */
+  function syncHead(text: string) {
+    const h = headOf(text)
+    if (editor.state.doc.attrs.frontmatter === h) return
+    view.dispatch(editor.state.tr.setDocAttribute('frontmatter', h).setMeta('addToHistory', false).setMeta('teggLoad', true))
   }
 
   const dispatch = (tr: Transaction) => view.dispatch(tr)
@@ -735,6 +762,11 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       return compute()
     },
     markSaved(text) {
+      // The saved head (identity keys, `modified`) becomes the frontmatter in effect unless a panel edit was committed
+      // after the save was computed; that edit stays pending (§14.6).
+      const attr = editor.state.doc.attrs.frontmatter
+      if ((computed && computed.out === text && computed.head === attr) || attr === headOf(lastSaved) || attr === null) syncHead(text)
+      computed = null
       lastSaved = text
       const t = parse(text).frontmatter?.data?.title
       if (pendingTitle !== null && t === pendingTitle) pendingTitle = null
@@ -792,6 +824,15 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     },
     dirty: () => dirty,
     historyDepth: () => undoDepth(editor.state),
+    applyFrontmatter(next) {
+      // ms3-shell §14.6 (D-240, FR-EDT-07 AC-4, AC-16): only the frontmatter of `next` is taken, as one undo step.
+      const nd = parse(next)
+      const cur = candidate()
+      if (next.slice(nd.bodyStart) !== cur.slice(parse(cur).bodyStart)) throw new Error('applyFrontmatter: the body differs from the editor body')
+      const h = next.slice(0, nd.bodyStart)
+      if (h === head()) return
+      dispatch(closeHistory(editor.state.tr.setDocAttribute('frontmatter', h)))
+    },
     setTitle(title) {
       pendingTitle = title === null ? null : title.normalize('NFC')
       dirty = true

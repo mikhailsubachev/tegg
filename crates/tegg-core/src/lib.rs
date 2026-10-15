@@ -54,6 +54,11 @@ pub enum CoreError {
     /// D-180: the file's last read wasn't valid UTF-8; it is never written.
     NotUtf8,
     NotImplemented,
+    /// ms3-shell §14.2.2 (3D).
+    Schema(tegg_schema::SchemaError),
+    SystemType,
+    HasObjects(usize),
+    UnknownType,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -122,6 +127,9 @@ struct Shared {
     jobs: Mutex<Sender<Job>>,
     /// Paths whose last read wasn't valid UTF-8 (D-180).
     not_utf8: Mutex<std::collections::HashSet<String>>,
+    /// Type definitions by key for the index queries (rows, counts; 3D): read at open, after own type-file writes
+    /// and on watched `.tegg/types/` changes, so a type page reads no file (D-233).
+    type_defs: Mutex<std::collections::BTreeMap<String, tegg_schema::TypeFile>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -226,9 +234,11 @@ impl Core {
             default_type: Mutex::new(DefaultType { key: "quick-note".into(), folder: "Quick Notes".into() }),
             placeholders: Mutex::new(Vec::new()),
             not_utf8: Mutex::new(Default::default()),
+            type_defs: Mutex::new(Default::default()),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
+        shared.refresh_types();
 
         // FR-VLT-03, D-112: placeholders are listed at open and never read.
         let listing = shared.vault.list_files()?;
@@ -589,10 +599,16 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
 /// trusted, and a folder is reconciled both ways. Emits `VaultChanged` with the note paths that changed.
 fn apply_paths(s: &Shared, paths: Vec<String>) {
     let paths: BTreeSet<String> = paths.into_iter().map(|p| nfc(p.trim_matches('/'))).filter(|p| !p.is_empty()).collect();
+    let mut changed: BTreeSet<String> = BTreeSet::new();
     if paths.iter().any(|p| p.starts_with(".tegg/")) {
         s.load_default_type();
+        // FR-TYP-01 AC-6, FR-TYP-09 AC-9: type-file changes are reported like note changes; notes aren't reindexed.
+        let types: Vec<&String> = paths.iter().filter(|p| p.starts_with(".tegg/types")).collect();
+        if !types.is_empty() {
+            s.refresh_types();
+            changed.extend(types.into_iter().cloned());
+        }
     }
-    let mut changed: BTreeSet<String> = BTreeSet::new();
     let mut read: Vec<String> = Vec::new();
     let mut folders: Vec<String> = Vec::new();
     let known: HashMap<String, (i128, u64)> = match lock(&s.index).versions() {
@@ -662,29 +678,43 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
 // ---------------------------------------------------------------------------------------------------------------
 // MS3 slice 3A (docs/contracts/ms3-shell.md §2, §10: `vault_types`, `index_type_counts`, `index_list`).
 
-pub use tegg_vault::TypeDef;
+/// 3A's type definition, now the full 3D `TypeInfo` (ms3-shell §14.2.1, §14.10 item 5).
+pub type TypeDef = TypeInfo;
 
 impl Core {
-    /// `vault_types`: the vault's type definitions (read-only, NFC keys, order not guaranteed).
-    pub fn types(&self) -> Vec<TypeDef> {
-        self.shared.vault.types()
-    }
-
-    /// `index_type_counts`: objects per `type` value; untyped files as `page` (D-103); templates and `.trash/`
-    /// are not indexed (FR-TPL-07, D-102); types without objects absent; undefined types under their raw value
-    /// (D-121).
+    /// `index_type_counts`: objects per matched type key (FR-TYP-13, D-239); untyped files and `type` values that
+    /// aren't one type as `page` (D-103); templates and `.trash/` are not indexed (FR-TPL-07, D-102); types without
+    /// objects absent. A key without a definition (D-121) is listed under its most frequent raw spelling (ties by
+    /// code point), as D-185 does for tags.
     pub fn type_counts(&self) -> std::collections::BTreeMap<String, usize> {
-        let mut out = std::collections::BTreeMap::new();
+        let defined: BTreeSet<String> = self.shared.read_types().into_iter().map(|t| t.key).collect();
+        let mut by_key: std::collections::BTreeMap<String, (usize, std::collections::BTreeMap<String, usize>)> = Default::default();
         for o in self.index().objects() {
-            *out.entry(nfc(&o.r#type)).or_insert(0) += 1;
+            let e = by_key.entry(o.r#type.clone()).or_default();
+            e.0 += 1;
+            if let Some(raw) = o.type_raw {
+                *e.1.entry(raw).or_default() += 1;
+            }
         }
-        out
+        by_key
+            .into_iter()
+            .map(|(key, (n, spellings))| {
+                if defined.contains(&key) {
+                    return (key, n);
+                }
+                let best = spellings.iter().fold(None::<(&String, usize)>, |b, (s, c)| match b {
+                    Some((_, bc)) if bc >= *c => b,
+                    _ => Some((s, *c)),
+                });
+                (best.map(|b| b.0.clone()).unwrap_or(key), n)
+            })
+            .collect()
     }
 
-    /// `index_list`: the objects of one type, same exclusions as `type_counts`, in no particular order.
+    /// `index_list`: the objects of one type (matched key, FR-TYP-13), same exclusions as `type_counts`, unsorted.
     pub fn list_type(&self, r#type: &str) -> Vec<ObjectInfo> {
-        let want = nfc(r#type);
-        self.index().objects().into_iter().filter(|o| nfc(&o.r#type) == want).collect()
+        let want = tegg_format::type_key(r#type);
+        self.index().objects().into_iter().filter(|o| o.r#type == want).collect()
     }
 
     /// `nav_opened`: records a note shown in the centre pane as opened, for switcher recency (D-105) and the
@@ -747,6 +777,21 @@ impl Core {
     /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
         let objs = self.objects();
+        Resolver::new(&objs, self).resolve(from, targets)
+    }
+}
+
+/// The link lookup tables of `resolve_links`, built once so a type page resolves every row in one pass (D-233).
+pub(crate) struct Resolver<'a> {
+    objs: &'a [ObjectInfo],
+    core: &'a Core,
+    by_path: HashMap<String, usize>,
+    by_id: HashMap<&'a str, usize>,
+    by_stem: HashMap<String, Vec<usize>>,
+}
+
+impl<'a> Resolver<'a> {
+    pub(crate) fn new(objs: &'a [ObjectInfo], core: &'a Core) -> Resolver<'a> {
         let mut by_path: HashMap<String, usize> = HashMap::new();
         let mut by_id: HashMap<&str, usize> = HashMap::new();
         let mut by_stem: HashMap<String, Vec<usize>> = HashMap::new();
@@ -759,6 +804,15 @@ impl Core {
                 by_id.insert(id.as_str(), i);
             }
             by_stem.entry(stem).or_default().push(i);
+        }
+        Resolver { objs, core, by_path, by_id, by_stem }
+    }
+
+    pub(crate) fn resolve(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
+        let objs = self.objs;
+        let (by_path, by_id, by_stem) = (&self.by_path, &self.by_id, &self.by_stem);
+        if targets.is_empty() {
+            return Vec::new();
         }
         let from = nfc(from);
         let from_dir = from.rsplit_once('/').map(|(d, _)| d.to_lowercase()).unwrap_or_default();
@@ -784,7 +838,7 @@ impl Core {
                 // D-162: a date is a Daily Note link first.
                 if t.len() == 10 {
                     if let Ok(date) = NaiveDate::parse_from_str(&t, "%Y-%m-%d") {
-                        return match self.daily_note(date).and_then(|p| objs.iter().position(|o| o.path == p)) {
+                        return match self.core.daily_note(date).and_then(|p| objs.iter().position(|o| o.path == p)) {
                             Some(i) => found(target, i, LinkKind::Daily),
                             None => none(target, LinkKind::DateMissing),
                         };
@@ -822,3 +876,8 @@ impl Core {
             .collect()
     }
 }
+
+// ------------------------------------------------------------------------------------------------ slice 3D
+// docs/contracts/ms3-shell.md §14.2: types and attributes (`types3d.rs`).
+mod types3d;
+pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};

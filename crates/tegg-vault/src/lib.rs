@@ -157,6 +157,8 @@ impl AppDirs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VaultKind {
     Empty,
+    /// FR-VLT-02 AC-6/AC-7 (ms3-shell §14.2.5): `EMPTY_VAULT` plus these (vault path, bytes) files.
+    Starter(&'static [(&'static str, &'static [u8])]),
 }
 
 #[derive(Debug)]
@@ -239,9 +241,9 @@ pub struct RecentVault {
 
 impl Vault {
     /// FR-VLT-01 AC-2, FR-VLT-02 AC-1: `<parent>/<sanitized name>/` with `.tegg/vault.yml` and one type
-    /// definition per system type (D-89, D-90). Nothing else.
+    /// definition per system type (D-89, D-90). A starter vault adds the given files (FR-VLT-02 AC-7, D-238;
+    /// the shell passes `tegg_schema::STARTER_FILES`). Nothing else.
     pub fn create(parent: &Path, name: &str, kind: VaultKind, dirs: &AppDirs) -> Result<Vault, CreateError> {
-        let VaultKind::Empty = kind;
         let root = parent.join(sanitize_file_stem(name));
         if root.exists() {
             let empty = root.read_dir().map(|mut d| d.next().is_none()).unwrap_or(false);
@@ -253,6 +255,14 @@ impl Vault {
         fs.create_dir_all(".tegg/types").map_err(CreateError::Io)?;
         for (path, text) in new_vault::EMPTY_VAULT {
             fs.create_new(path, text.as_bytes()).map_err(CreateError::Io)?;
+        }
+        if let VaultKind::Starter(files) = kind {
+            for (path, bytes) in files {
+                if let Some((dir, _)) = path.rsplit_once('/') {
+                    fs.create_dir_all(dir).map_err(CreateError::Io)?;
+                }
+                fs.create_new(path, bytes).map_err(CreateError::Io)?;
+            }
         }
         Vault::open(&root, dirs).map_err(|e| match e {
             OpenError::Io(e) => CreateError::Io(e),
@@ -413,6 +423,26 @@ impl Vault {
             return Err(VaultError::NotFound);
         }
         self.move_free(&path, &join(TRASH, &path))
+    }
+
+    /// FR-TYP-05 AC-1 (D-225): moves the folder `dir` with everything in it to `.trash/<same relative path>` in one
+    /// rename, with a ` (2)` suffix if that is taken; `NotFound` when there is no such folder. Where the file system
+    /// can't rename folders, each file is trashed on its own.
+    pub fn trash_dir(&self, dir: &str) -> Result<Vec<String>, VaultError> {
+        let dir = nfc(dir.trim_matches('/'));
+        let prefix = format!("{dir}/");
+        let files: Vec<String> = self.files()?.into_iter().filter(|p| p.starts_with(&prefix)).collect();
+        let is_dir = self.fs.list()?.into_iter().any(|e| matches!(e, FsEntry::Dir { path } if nfc(&path) == dir));
+        if !is_dir && files.is_empty() {
+            return Err(VaultError::NotFound);
+        }
+        {
+            let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+            if let Ok(to) = self.move_free(&dir, &join(TRASH, &dir)) {
+                return Ok(files.iter().map(|f| format!("{to}/{}", &f[prefix.len()..])).collect());
+            }
+        }
+        files.iter().map(|f| self.trash(f)).collect()
     }
 
     /// Back to the original path, or with a suffix if that is taken.

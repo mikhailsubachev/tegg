@@ -1,0 +1,25 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Osoba
+plural: Osoby
+system: false
+folder: Osoby
+icon: user
+color: purple
+# Barvu vybrala Jana.
+review: false
+preview: [firma]
+poznámka-pro-mě: ručně přidaný klíč
+attributes:
+  - key: e-mail
+    name: E-mail
+    type: email
+  - key: firma
+    name: Firma
+    type: text
+  - key: telefon
+    name: Telefon
+    type: text
+  - key: hodnocení
+    name: Hodnocení
+    type: rating

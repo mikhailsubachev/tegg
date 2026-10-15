@@ -29,6 +29,13 @@ export type ShellActions = {
   setTheme: (t: ThemeChoice) => void;
   /** Runs an R8 editor action on the note route's editor; a no-op elsewhere (editor.md R8). */
   edit?: (action: EditAction) => void;
+  // 3D (R13, ms3-shell §14.7.2).
+  newType?: () => void;
+  openTypeSettings?: () => void;
+  newObjectOfType?: (key: string) => void;
+  changeType?: () => void;
+  editProperties?: () => void;
+  addStarterTypes?: () => void;
 };
 
 export type EditAction =
@@ -40,6 +47,8 @@ export type ShellContext = {
   types: TypeDefDto[];
   counts: Record<string, number>;
   actions?: ShellActions;
+  /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
+  route?: { id: string; param?: string; key?: string; type?: string } | null;
 };
 
 export type Command = {
@@ -58,14 +67,23 @@ const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys
 /** Command ids of the R3 controls (D-130), in registry order. */
 export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
-  'ctl.newType': 'type.new',
-  'ctl.starterVault': 'vault.starter',
   'ctl.turnIntoObject': 'edit.turnIntoObject',
   'ctl.copyBlockLink': 'edit.copyBlockLink',
   'ctl.filter': 'typePage.filter',
-  'ctl.sort': 'typePage.sort',
-  'ctl.views': 'typePage.views',
-  'ctl.newOfType': 'typePage.newObject',
+  'ctl.group': 'typePage.group',
+  'ctl.addView': 'typePage.addView',
+  'ctl.moveExisting': 'typeSettings.moveExisting',
+  'ctl.renameKeys': 'typeSettings.renameKey',
+  'ctl.removeValues': 'typeSettings.removeValues',
+  'ctl.changeTheirType': 'typeSettings.changeTheirType',
+  'ctl.trashObjects': 'typeSettings.trashObjects',
+  'ctl.newTemplate': 'typeSettings.newTemplate',
+  'ctl.editTemplate': 'typeSettings.editTemplate',
+  'ctl.addViewSettings': 'typeSettings.addView',
+  'ctl.editView': 'typeSettings.editView',
+  'ctl.rowFile': 'panel.editFile',
+  'ctl.rowColor': 'panel.editColor',
+  'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
@@ -108,6 +126,27 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
   );
+  // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
+  const route = ctx.route ?? null;
+  const routeKey = route ? (route.param ?? route.key ?? route.type ?? '').normalize('NFC') : '';
+  const definedType = route?.id === 'type/<type>' ? ctx.types.find((x) => x.key.normalize('NFC') === routeKey) : undefined;
+  list.push(
+    { id: 'type.new', title: 'cmd.newType', section: 'create', needsVault: true, run: (c) => a(c)?.newType?.() },
+    { id: 'vault.addStarterTypes', title: 'cmd.addStarterTypes', section: 'vault', needsVault: true, run: (c) => a(c)?.addStarterTypes?.() },
+  );
+  if (definedType || route?.id === 'note/<path>') {
+    list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
+  }
+  if (definedType) {
+    const key = definedType.key;
+    list.push({ id: 'type.newObject', title: 'cmd.newOfType', vars: { name: definedType.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.(key) });
+  }
+  if (route?.id === 'note/<path>') {
+    list.push(
+      { id: 'note.changeType', title: 'cmd.changeType', section: 'edit', needsVault: true, run: (c) => a(c)?.changeType?.() },
+      { id: 'note.editProperties', title: 'cmd.editProperties', section: 'edit', needsVault: true, run: (c) => a(c)?.editProperties?.() },
+    );
+  }
   const EDIT: [string, EditAction, string][] = [
     ['edit.undo', 'undo', 'cmd.edit.undo'], ['edit.redo', 'redo', 'cmd.edit.redo'], ['edit.bold', 'bold', 'cmd.edit.bold'],
     ['edit.italic', 'italic', 'cmd.edit.italic'], ['edit.strike', 'strike', 'cmd.edit.strike'], ['edit.code', 'code', 'cmd.edit.code'],

@@ -1,0 +1,945 @@
+{
+ "_comment": "FR-TYP-02 AC-2, FR-EDT-07 AC-7, D-231, D-241 (ms3-shell §14.1.3, §14.9): attribute item + frontmatter YAML -> expected validity. Read by crates/tegg-schema/tests/ac_schema.rs and packages/schema/test/conformance.ac.test.ts. items: invalid list positions; [] = the whole value. Synthetic (D-50).",
+ "cases": [
+  {
+   "name": "text plain",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: Praha 1\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "text number-looking scalar",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: 123\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "text boolean scalar",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: true\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "text quoted",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: \"ano: ne\"\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "text key without value is empty",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo:\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "text null is empty",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: null\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "text empty string is empty",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "místo: \"\"\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "text absent is empty",
+   "attr": {
+    "key": "místo",
+    "name": "Místo",
+    "type": "text"
+   },
+   "yaml": "jiný: x\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "long text block",
+   "attr": {
+    "key": "poznámka",
+    "name": "Poznámka",
+    "type": "long-text"
+   },
+   "yaml": "poznámka: |-\n  Řádek 1\n  Řádek 2\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "number int",
+   "attr": {
+    "key": "rozpočet",
+    "name": "Rozpočet",
+    "type": "number"
+   },
+   "yaml": "rozpočet: 250000\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "number float",
+   "attr": {
+    "key": "rozpočet",
+    "name": "Rozpočet",
+    "type": "number"
+   },
+   "yaml": "rozpočet: 3.5\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "number text",
+   "attr": {
+    "key": "rozpočet",
+    "name": "Rozpočet",
+    "type": "number"
+   },
+   "yaml": "rozpočet: hodně\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "number quoted",
+   "attr": {
+    "key": "rozpočet",
+    "name": "Rozpočet",
+    "type": "number"
+   },
+   "yaml": "rozpočet: \"12\"\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "checkbox true",
+   "attr": {
+    "key": "aktivní",
+    "name": "Aktivní",
+    "type": "checkbox"
+   },
+   "yaml": "aktivní: true\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "checkbox false",
+   "attr": {
+    "key": "aktivní",
+    "name": "Aktivní",
+    "type": "checkbox"
+   },
+   "yaml": "aktivní: false\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "checkbox ano",
+   "attr": {
+    "key": "aktivní",
+    "name": "Aktivní",
+    "type": "checkbox"
+   },
+   "yaml": "aktivní: ano\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date plain",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: 2026-10-07\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date single-quoted",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: '2026-10-07'\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date double-quoted",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: \"2026-10-07\"\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date Czech format",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: 7. 10. 2026\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date not a calendar date",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: 2026-02-30\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date month 13",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: 2027-13-01\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date with time",
+   "attr": {
+    "key": "datum",
+    "name": "Datum",
+    "type": "date"
+   },
+   "yaml": "datum: 2026-10-07T10:00:00+02:00\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date-time offset",
+   "attr": {
+    "key": "začátek",
+    "name": "Začátek",
+    "type": "date-time"
+   },
+   "yaml": "začátek: 2026-10-07T09:30:00+02:00\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date-time Z",
+   "attr": {
+    "key": "začátek",
+    "name": "Začátek",
+    "type": "date-time"
+   },
+   "yaml": "začátek: 2026-10-07T07:30:00Z\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date-time without offset",
+   "attr": {
+    "key": "začátek",
+    "name": "Začátek",
+    "type": "date-time"
+   },
+   "yaml": "začátek: 2026-10-07T09:30:00\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date-time date only",
+   "attr": {
+    "key": "začátek",
+    "name": "Začátek",
+    "type": "date-time"
+   },
+   "yaml": "začátek: 2026-10-07\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date range both",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období-start: 2027-01-01\nobdobí-end: 2027-12-31\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date range start only",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období-start: 2027-01-01\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date range end only",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období-end: 2027-12-31\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "date range invalid start",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období-start: 2027-13-01\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date range end before start",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období-start: 2027-12-31\nobdobí-end: 2027-01-01\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "date range absent",
+   "attr": {
+    "key": "období",
+    "name": "Období",
+    "type": "date-range"
+   },
+   "yaml": "období: 2027\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "select option",
+   "attr": {
+    "key": "stav",
+    "name": "Stav",
+    "type": "select",
+    "required": true,
+    "options": [
+     {
+      "label": "Plánovaný",
+      "color": "gray"
+     },
+     {
+      "label": "Běží",
+      "color": "blue"
+     },
+     {
+      "label": "Hotovo",
+      "color": "green"
+     }
+    ]
+   },
+   "yaml": "stav: Běží\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "select NFD option equals after NFC",
+   "attr": {
+    "key": "stav",
+    "name": "Stav",
+    "type": "select",
+    "required": true,
+    "options": [
+     {
+      "label": "Plánovaný",
+      "color": "gray"
+     },
+     {
+      "label": "Běží",
+      "color": "blue"
+     },
+     {
+      "label": "Hotovo",
+      "color": "green"
+     }
+    ]
+   },
+   "yaml": "stav: Běží\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "select not an option",
+   "attr": {
+    "key": "stav",
+    "name": "Stav",
+    "type": "select",
+    "required": true,
+    "options": [
+     {
+      "label": "Plánovaný",
+      "color": "gray"
+     },
+     {
+      "label": "Běží",
+      "color": "blue"
+     },
+     {
+      "label": "Hotovo",
+      "color": "green"
+     }
+    ]
+   },
+   "yaml": "stav: Neznámý\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "select other case",
+   "attr": {
+    "key": "stav",
+    "name": "Stav",
+    "type": "select",
+    "required": true,
+    "options": [
+     {
+      "label": "Plánovaný",
+      "color": "gray"
+     },
+     {
+      "label": "Běží",
+      "color": "blue"
+     },
+     {
+      "label": "Hotovo",
+      "color": "green"
+     }
+    ]
+   },
+   "yaml": "stav: běží\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "select empty",
+   "attr": {
+    "key": "stav",
+    "name": "Stav",
+    "type": "select",
+    "required": true,
+    "options": [
+     {
+      "label": "Plánovaný",
+      "color": "gray"
+     },
+     {
+      "label": "Běží",
+      "color": "blue"
+     },
+     {
+      "label": "Hotovo",
+      "color": "green"
+     }
+    ]
+   },
+   "yaml": "stav:\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "multi-select block list",
+   "attr": {
+    "key": "oblasti",
+    "name": "Oblasti",
+    "type": "multi-select",
+    "options": [
+     {
+      "label": "Práce",
+      "color": "blue"
+     },
+     {
+      "label": "Rodina",
+      "color": "green"
+     },
+     {
+      "label": "Zdraví",
+      "color": "red"
+     }
+    ]
+   },
+   "yaml": "oblasti:\n  - Práce\n  - Rodina\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "multi-select flow list",
+   "attr": {
+    "key": "oblasti",
+    "name": "Oblasti",
+    "type": "multi-select",
+    "options": [
+     {
+      "label": "Práce",
+      "color": "blue"
+     },
+     {
+      "label": "Rodina",
+      "color": "green"
+     },
+     {
+      "label": "Zdraví",
+      "color": "red"
+     }
+    ]
+   },
+   "yaml": "oblasti: [Práce, Zdraví]\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "multi-select single string",
+   "attr": {
+    "key": "oblasti",
+    "name": "Oblasti",
+    "type": "multi-select",
+    "options": [
+     {
+      "label": "Práce",
+      "color": "blue"
+     },
+     {
+      "label": "Rodina",
+      "color": "green"
+     },
+     {
+      "label": "Zdraví",
+      "color": "red"
+     }
+    ]
+   },
+   "yaml": "oblasti: Práce\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "multi-select one item not an option",
+   "attr": {
+    "key": "oblasti",
+    "name": "Oblasti",
+    "type": "multi-select",
+    "options": [
+     {
+      "label": "Práce",
+      "color": "blue"
+     },
+     {
+      "label": "Rodina",
+      "color": "green"
+     },
+     {
+      "label": "Zdraví",
+      "color": "red"
+     }
+    ]
+   },
+   "yaml": "oblasti:\n  - Práce\n  - Koníčky\n",
+   "expect": {
+    "state": "invalid",
+    "items": [
+     1
+    ]
+   }
+  },
+  {
+   "name": "multi-select empty list",
+   "attr": {
+    "key": "oblasti",
+    "name": "Oblasti",
+    "type": "multi-select",
+    "options": [
+     {
+      "label": "Práce",
+      "color": "blue"
+     },
+     {
+      "label": "Rodina",
+      "color": "green"
+     },
+     {
+      "label": "Zdraví",
+      "color": "red"
+     }
+    ]
+   },
+   "yaml": "oblasti: []\n",
+   "expect": {
+    "state": "empty"
+   }
+  },
+  {
+   "name": "url https",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: https://example.com/rozpocet\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "url http",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: http://example.com\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "url text",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: není url\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "url without scheme",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: example.com\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "url javascript",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: javascript:alert(1)\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "url ftp",
+   "attr": {
+    "key": "web",
+    "name": "Web",
+    "type": "url"
+   },
+   "yaml": "web: ftp://example.com/x\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "email valid",
+   "attr": {
+    "key": "e-mail",
+    "name": "E-mail",
+    "type": "email"
+   },
+   "yaml": "e-mail: jana@example.com\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "email at spelled out",
+   "attr": {
+    "key": "e-mail",
+    "name": "E-mail",
+    "type": "email"
+   },
+   "yaml": "e-mail: petr(at)example.com\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "email without domain",
+   "attr": {
+    "key": "e-mail",
+    "name": "E-mail",
+    "type": "email"
+   },
+   "yaml": "e-mail: eva@\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "email domain without dot",
+   "attr": {
+    "key": "e-mail",
+    "name": "E-mail",
+    "type": "email"
+   },
+   "yaml": "e-mail: eva@example\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "email with space",
+   "attr": {
+    "key": "e-mail",
+    "name": "E-mail",
+    "type": "email"
+   },
+   "yaml": "e-mail: e va@example.com\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "relation multiple list",
+   "attr": {
+    "key": "účastníci",
+    "name": "Účastníci",
+    "type": "relation",
+    "to": [
+     "osoba"
+    ],
+    "multiple": true
+   },
+   "yaml": "účastníci:\n  - \"[[Jana Nováková]]\"\n  - \"[[Petr Dvořák]]\"\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "relation multiple plain text",
+   "attr": {
+    "key": "účastníci",
+    "name": "Účastníci",
+    "type": "relation",
+    "to": [
+     "osoba"
+    ],
+    "multiple": true
+   },
+   "yaml": "účastníci: Jana\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "relation multiple one item not a link",
+   "attr": {
+    "key": "účastníci",
+    "name": "Účastníci",
+    "type": "relation",
+    "to": [
+     "osoba"
+    ],
+    "multiple": true
+   },
+   "yaml": "účastníci:\n  - \"[[Jana Nováková]]\"\n  - Petr\n",
+   "expect": {
+    "state": "invalid",
+    "items": [
+     1
+    ]
+   }
+  },
+  {
+   "name": "relation single link",
+   "attr": {
+    "key": "projekt",
+    "name": "Projekt",
+    "type": "relation",
+    "to": [
+     "projekt"
+    ]
+   },
+   "yaml": "projekt: \"[[Rozpočet 2027]]\"\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "relation single as list",
+   "attr": {
+    "key": "projekt",
+    "name": "Projekt",
+    "type": "relation",
+    "to": [
+     "projekt"
+    ]
+   },
+   "yaml": "projekt:\n  - \"[[Rozpočet 2027]]\"\n  - \"[[Jiný]]\"\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "relation single plain text",
+   "attr": {
+    "key": "projekt",
+    "name": "Projekt",
+    "type": "relation",
+    "to": [
+     "projekt"
+    ]
+   },
+   "yaml": "projekt: Rozpočet\n",
+   "expect": {
+    "state": "invalid",
+    "items": []
+   }
+  },
+  {
+   "name": "unsupported type always valid",
+   "attr": {
+    "key": "hodnocení",
+    "name": "Hodnocení",
+    "type": "rating"
+   },
+   "yaml": "hodnocení: hvězdy\n",
+   "expect": {
+    "state": "valid"
+   }
+  },
+  {
+   "name": "system-only file type always valid",
+   "attr": {
+    "key": "file",
+    "name": "File",
+    "type": "file"
+   },
+   "yaml": "file: \"[[photo.png]]\"\n",
+   "expect": {
+    "state": "valid"
+   }
+  }
+ ]
+}

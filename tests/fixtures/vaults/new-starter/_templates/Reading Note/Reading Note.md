@@ -1,0 +1,3 @@
+## Key points
+
+## My thoughts

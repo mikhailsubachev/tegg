@@ -1,32 +1,45 @@
-// New object (⌘N) before the type picker (D-131): a title and the vault's default type; it creates through the
-// same path as the switcher's create item (FR-NAV-01 AC-7, D-106). An empty title can't be created.
+// New object (⌘N) before the type picker (D-131): a title and the vault's default type, or the type of the type page's
+// `New <Name>` (FR-TYP-09 AC-6), shown as text (not changeable until FR-VLT-05). It creates through the one creation
+// path (FR-TYP-03 AC-12, D-232). An empty title can't be created.
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { SwitcherItemDto, TypeDefDto } from '../ipc/types';
+import type { TypeDefDto } from '../ipc/types';
+import { prepareObject, type Prepared } from '../types/create';
 import { Disabled } from './Disabled';
 
-export function NewObjectDialog({ types, onCreate, onClose }: {
+export function NewObjectDialog({ types, typeKey: fixedKey, onCreate, onClose }: {
   types: TypeDefDto[];
-  onCreate: (item: SwitcherItemDto) => void;
+  /** The type to create; the vault's default type when absent. */
+  typeKey?: string;
+  /** `prepared`: the type already read (type_get, type_template), so creating sends note_create at once. */
+  onCreate: (typeKey: string, title: string, prepared: Prepared | null) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
-  const [typeKey, setTypeKey] = useState<string | null>(null);
+  const [typeKey, setTypeKey] = useState<string | null>(fixedKey ?? null);
   const input = useRef<HTMLInputElement>(null);
+  const prepared = useRef<Prepared | null>(null);
   useEffect(() => input.current?.focus(), []);
   useEffect(() => {
+    const ready = (key: string) => { prepareObject(key).then((p) => { prepared.current = p; }, () => {}); };
+    if (fixedKey) { ready(fixedKey); return; }
     // The core's default type is the type of its create item (D-106); limit 0 returns only that item.
-    ipc.switcher('?', 0).then((items) => setTypeKey(items.find((i) => i.kind === 'create')?.type ?? null), () => {});
+    ipc.switcher('?', 0).then((items) => {
+      const key = items.find((i) => i.kind === 'create')?.type ?? null;
+      setTypeKey(key);
+      if (key) ready(key);
+    }, () => {});
   }, []);
   const typeName = types.find((x) => x.key === typeKey)?.name ?? typeKey ?? '';
   const clean = title.normalize('NFC').trim();
 
   const create = async () => {
     if (!clean) return;
-    const items = await ipc.switcher(clean, 0).catch(() => []);
-    const item = items.find((i) => i.kind === 'create');
-    if (item) onCreate({ ...item, title: clean });
+    if (prepared.current) { onCreate(prepared.current.key, clean, prepared.current); return; }
+    let key = typeKey;
+    if (!key) key = (await ipc.switcher('?', 0).catch(() => [])).find((i) => i.kind === 'create')?.type ?? 'page';
+    onCreate(key, clean, null);
   };
 
   return (

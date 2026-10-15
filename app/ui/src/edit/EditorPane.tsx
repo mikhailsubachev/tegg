@@ -7,7 +7,8 @@ import { createEditor, linkTarget, type EditorUi, type LinkInfo, type TeggEditor
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
-import { localIso, renderNewNote, ulid } from '../newNote';
+import { localIso, ulid } from '../newNote';
+import { createObject, prepareObject, type Prepared } from '../types/create';
 import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
 import { Icon, iconElement, typeIconName } from '../shell/Icon';
@@ -134,7 +135,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
     edRef.current = ed;
     onReady(ed);
-    if (autoFocus) ed.view.focus();
+    // A dialog opened meanwhile (the palette while the object was being created) keeps the focus.
+    if (autoFocus && !document.querySelector('[role="dialog"]')) ed.view.focus();
     void resolveLinks();
     return () => {
       edRef.current = null;
@@ -226,7 +228,16 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         if (!cur || cur.kind !== 'link' || cur.from !== from || cur.query !== lm[1]) {
           const q = lm[1];
           setSuggest((s) => ({ kind: 'link', from, to: $f.pos, query: q, items: s?.kind === 'link' ? s.items : [], sel: 0 }));
-          void ipc.switcher(q, 20).then((items) => setSuggest((s) => (s && s.kind === 'link' && s.query === q ? { ...s, items, to: $f.pos } : s)), () => {});
+          void ipc.switcher(q, 20).then((items) => {
+            // The create row's type is read ahead (D-232), so choosing it sends note_create at once.
+            const c = items.find((x) => x.kind === 'create');
+            if (c && prepared.current?.key !== c.type) {
+              const slot = { key: c.type, p: null as Prepared | null };
+              prepared.current = slot;
+              prepareObject(c.type).then((p) => { slot.p = p; }, () => {});
+            }
+            setSuggest((s) => (s && s.kind === 'link' && s.query === q ? { ...s, items, to: $f.pos } : s));
+          }, () => {});
         }
         return;
       }
@@ -289,6 +300,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     focusEditor();
   };
 
+  const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
   const chooseLink = async (item: SwitcherItemDto) => {
     const e = edRef.current;
     const s = live.current.suggest;
@@ -298,7 +310,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     let title = item.title.normalize('NFC');
     if (item.kind === 'create') {
       try {
-        path = await ipc.noteCreate(item.folder, title, renderNewNote(item.type, title));
+        const ready = prepared.current?.key === item.type ? prepared.current.p : null;
+        path = await (ready ? ready.create(title) : createObject(item.type, title));
       } catch {
         return;
       }

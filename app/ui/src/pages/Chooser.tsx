@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
 import type { VaultInfo } from '../ipc/types';
-import { Disabled } from '../shell/Disabled';
 
 export function errorMessage(kind: string, vars: Record<string, string> = {}): string {
   const key = `error.${kind.charAt(0).toLowerCase()}${kind.slice(1)}`;
@@ -89,6 +88,7 @@ function NewVaultForm({ onCreated, onCancel }: { onCreated: (v: VaultInfo) => vo
   const [parent, setParent] = useState<string | null>(null);
   const [error, setError] = useState<{ text: string; target?: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [kind, setKind] = useState<'empty' | 'starter'>('empty');
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
 
@@ -105,7 +105,7 @@ function NewVaultForm({ onCreated, onCancel }: { onCreated: (v: VaultInfo) => vo
     setBusy(true);
     setError(null);
     try {
-      onCreated(await ipc.vaultCreate(parent, clean, 'empty'));
+      onCreated(await ipc.vaultCreate(parent, clean, kind));
     } catch (e) {
       const kind = errorKind(e);
       const target = `${parent.replace(/\/+$/, '')}/${clean}`;
@@ -155,11 +155,21 @@ function NewVaultForm({ onCreated, onCancel }: { onCreated: (v: VaultInfo) => vo
       </div>
       <div className="field">
         <span id="kind-label">{t('newVault.kind')}</span>
-        <div role="radiogroup" aria-labelledby="kind-label" className="kinds">
-          <button tabIndex={0} type="button" role="radio" aria-checked="true" className="kind on" data-command="vault.kindEmpty">
-            {t('newVault.empty')}
-          </button>
-          <Disabled control="ctl.starterVault" role="radio" className="kind" />
+        <div role="radiogroup" aria-labelledby="kind-label" className="kinds"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            e.preventDefault();
+            const next = kind === 'empty' ? 'starter' : 'empty';
+            setKind(next);
+            (e.currentTarget.querySelector(`[data-kind="${next}"]`) as HTMLElement | null)?.focus();
+          }}>
+          {(['empty', 'starter'] as const).map((k) => (
+            <button key={k} tabIndex={kind === k ? 0 : -1} type="button" role="radio" aria-checked={kind === k} data-kind={k}
+              aria-description={t(k === 'empty' ? 'newVault.emptyHint' : 'newVault.starterHint')}
+              className={`kind ${kind === k ? 'on' : ''}`} data-command={k === 'empty' ? 'vault.kindEmpty' : 'vault.kindStarter'} onClick={() => setKind(k)}>
+              {t(k === 'empty' ? 'newVault.empty' : 'newVault.starter')}
+            </button>
+          ))}
         </div>
       </div>
       {error && (

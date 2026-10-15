@@ -1,0 +1,12 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Prázdný
+plural: Prázdné
+system: false
+folder: Prázdné
+icon: file-text
+color: gray
+review: false
+preview: []
+template: _templates/Prázdný/Prázdný.md
+attributes: []

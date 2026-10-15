@@ -3613,6 +3613,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tegg-core",
+ "tegg-schema",
  "tegg-vault",
  "ts-rs",
 ]
@@ -3626,6 +3627,7 @@ dependencies = [
  "serde_json",
  "tegg-format",
  "tegg-index",
+ "tegg-schema",
  "tegg-vault",
  "yaml-rust2",
 ]
@@ -3655,6 +3657,15 @@ dependencies = [
  "tegg-format",
  "tegg-vault",
  "unicode-normalization",
+]
+
+[[package]]
+name = "tegg-schema"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "serde_json",
+ "tegg-format",
 ]
 
 [[package]]

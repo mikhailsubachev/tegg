@@ -66,10 +66,80 @@ kind: string, primary: string, others: Array<string>, versions: { [key in string
 export type ConflictDto = { path: string, mine: string, theirs: string, theirsVersion: VersionDto, };
 export type IpcError = { 
 /**
- * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault` or `Unsupported`.
+ * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault`, `Unsupported`;
+ * 3D (ms3-shell §14.3): `Rule`, `NewerVersion`, `InvalidType`, `BuiltInChanged`, `ReviewLocked`, `SystemType`,
+ * `HasObjects`, `UnknownType`.
  */
-kind: string, message: string, };
-export type TypeDefDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, };
+kind: string, message: string, 
+/**
+ * With `Rule`: `empty`, `forbiddenChar`, `keyTaken`, `keyTooLong`, `folderTaken`, `folderInvalid`, `reservedKey`,
+ * `attrKeyTaken`, `attrKeyInvalid`, `rangeCollision`, `optionEmpty`, `optionDuplicate`, `optionUsed`, `previewFull`.
+ */
+reason?: string, 
+/**
+ * With `Rule`: `name`, `plural`, `folder`, `attrKey`, `attrName` or `optionLabel`.
+ */
+field?: string, 
+/**
+ * With `Rule` `reservedKey`: the key.
+ */
+key?: string, 
+/**
+ * With `Rule` `optionUsed`: the label.
+ */
+label?: string, 
+/**
+ * With `HasObjects`: the number of objects.
+ */
+count?: number, 
+/**
+ * With `Conflict` from `type_patch` / `type_delete`: the type as on disk now.
+ */
+disk?: TypeDto, };
+export type TypeDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, 
+/**
+ * False: a system type with built-in defaults, no file (D-90).
+ */
+exists: boolean, 
+/**
+ * Base for `type_patch` / `type_delete`.
+ */
+version: VersionDto | null, 
+/**
+ * `ok`, `newer` or `invalid`.
+ */
+state: string, error: TypeFileErrorDto | null, declaredVersion: bigint | null, description: string | null, 
+/**
+ * `off`, `on` or `locked`.
+ */
+review: string, preview: Array<string>, previewIgnored: Array<string>, template: string | null, attributes: Array<AttributeDto>, };
+export type TypeFileErrorDto = { message: string, line: number, };
+export type OptionDto = { label: string, color: string | null, };
+export type AttributeDto = { key: string, name: string, 
+/**
+ * R10 string, or the raw string of another type.
+ */
+type: string, 
+/**
+ * One of the 12 R10 types.
+ */
+supported: boolean, 
+/**
+ * `file`, `color`, `recurrence` or `unsupported` (FR-TYP-02 AC-4, AC-5).
+ */
+readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
+export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
+export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, };
+export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
+export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
+export type TypeTemplateDto = { path: string, text: string, };
+export type StarterSkipDto = { key: string, 
+/**
+ * `nameExists` or `folderUsed`.
+ */
+reason: string, folder?: string, };
+export type StarterPlanDto = { add: Array<string>, skip: Array<StarterSkipDto>, skipTemplates: Array<string>, };
 export type ObjectRowDto = { path: string, id: string | null, title: string, type: string, modified: string | null, };
 export type LastOpenedDto = { path: string, id: string | null, };
 export type RecentVaultDto = { name: string, path: string, exists: boolean, };
@@ -78,6 +148,11 @@ export type RightPanelDto = { open: boolean,
  * `backlinks`, `outline` or `graph`.
  */
 tab: string, };
+export type TypeSortDto = { column: string, 
+/**
+ * `asc` or `desc`.
+ */
+dir: string, };
 export type UiStateDto = { version: number, 
 /**
  * `system`, `light` or `dark`.
@@ -86,9 +161,18 @@ theme: string, sidebarOpen: boolean, rightPanel: RightPanelDto,
 /**
  * Attribute strip expanded (FR-TYP-08 AC-5, D-147); a missing field reads as `true`.
  */
-propertiesOpen: boolean, };
+propertiesOpen: boolean, 
+/**
+ * Type page sort per type key (FR-TYP-09 AC-3, D-233, ms3-shell §14.7.1); missing reads as empty.
+ */
+typeSort: { [key in string]?: TypeSortDto }, 
+/**
+ * "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
+ */
+otherPropertiesOpen: boolean, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
  */
 kind: string, path: string | null, title: string | null, type: string | null, };
+export type TypeDefDto = TypeDto;

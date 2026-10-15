@@ -5,13 +5,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
 import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
-import { renderNewNote } from './newNote';
 import { Chooser } from './pages/Chooser';
 import { ConflictsPage } from './pages/ConflictsPage';
 import { NotePage, type NoteMeta, type NotePageApi } from './pages/NotePage';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { TypePage } from './pages/TypePage';
+import { TypePage, type TypeSort } from './pages/TypePage';
+import { TypeSettingsPage } from './pages/TypeSettingsPage';
+import { createObject, type Prepared } from './types/create';
+import { NewTypeDialog } from './types/NewTypeDialog';
+import { StarterTypesDialog } from './types/StarterTypesDialog';
 import { commands, type Command, type ShellActions, type ShellContext, type ThemeChoice } from './shell/commands';
 import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
@@ -30,13 +33,15 @@ const SIDEBAR_W = 232;
 const PANEL_W = 288;
 const MIN_CENTRE = 400; // D-136
 
-type Dialog = 'palette' | 'switcher' | 'newObject' | null;
+type Dialog = 'palette' | 'switcher' | 'newObject' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
-const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true };
+/** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
+type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean };
+const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false };
 
-function initialUi(): UiStateDto {
-  const w = window as { __TEGG_UI_STATE__?: UiStateDto | null };
+function initialUi(): UiState {
+  const w = window as { __TEGG_UI_STATE__?: UiState | null };
   return w.__TEGG_UI_STATE__ ? { ...DEFAULT_UI, ...w.__TEGG_UI_STATE__ } : DEFAULT_UI;
 }
 
@@ -47,13 +52,16 @@ export function App() {
   const [route, setRoute] = useState<Route | null>(null);
   const [chooser, setChooser] = useState<{ form: boolean } | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [ui, setUi] = useState<UiStateDto>(initialUi);
+  const [ui, setUi] = useState<UiState>(initialUi);
+  const [newOfType, setNewOfType] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [width, setWidth] = useState(window.innerWidth);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
+  const metaRef = useRef<NoteMeta | null>(null);
+  metaRef.current = meta;
   const [sourceToggle, setSourceToggle] = useState(0);
   const [conflicts, setConflicts] = useState(0);
   const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
@@ -86,9 +94,9 @@ export function App() {
       uiLoaded.current = true;
       return;
     }
-    ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...s }); }, () => { uiLoaded.current = true; });
+    ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...(s as UiState) }); }, () => { uiLoaded.current = true; });
   }, []);
-  const updateUi = useCallback((f: (u: UiStateDto) => UiStateDto) => {
+  const updateUi = useCallback((f: (u: UiState) => UiState) => {
     setUi((u) => {
       const next = f(u);
       void ipc.uiStateSet(next).catch(() => {});
@@ -103,10 +111,12 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ vault, types, counts, events
-  const loadTypes = useCallback(() => {
-    ipc.vaultTypes().then(setTypes, () => setTypes([]));
-    ipc.typeCounts().then(setCounts, () => setCounts({}));
+  const loadTypes = useCallback((): Promise<unknown> => {
     ipc.conflicts().then((c) => setConflicts(c.length), () => setConflicts(0));
+    return Promise.all([
+      ipc.vaultTypes().then(setTypes, () => setTypes([])),
+      ipc.typeCounts().then(setCounts, () => setCounts({})),
+    ]);
   }, []);
 
   const land = useCallback(async () => {
@@ -127,9 +137,9 @@ export function App() {
     setChooser(null);
     setRoute(null);
     history.current.clear(); // another vault: a new history (AC-7)
-    loadTypes();
     pendingFocus.current = true;
-    void land();
+    // The landing page shows with the sidebar's types and counts (3D: the panel needs the type definitions).
+    void loadTypes().finally(() => void land());
   }, [land, loadTypes]);
 
   /** D-219: open another vault from the title-bar switcher or ⌃⌘n, as the chooser does (FR-VLT-01 AC-15); an error
@@ -163,10 +173,10 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
-  const go = useCallback(async (r: Route) => {
+  const go = useCallback(async (r: Route, o: { keepDialog?: boolean } = {}) => {
     await flushNote();
     setChooser(null);
-    setDialog(null);
+    if (!o.keepDialog) setDialog(null);
     setFocusMode(false);
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
@@ -199,7 +209,7 @@ export function App() {
     window.addEventListener('focusin', onFocus);
     return () => window.removeEventListener('focusin', onFocus);
   }, []);
-  const openNote = useCallback((path: string, fragment?: string) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }); }, [go]);
+  const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
   const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
 
@@ -211,12 +221,17 @@ export function App() {
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
   }, [routeKey]);
 
-  const createFrom = useCallback(async (item: SwitcherItemDto) => {
+  /** The one creation path (D-232, FR-TYP-03 AC-12): ⌘N, the switcher's create item and the type page's New <Name>. */
+  const createOf = useCallback(async (typeKey: string, rawTitle: string, prepared: Prepared | null = null) => {
     setDialog(null);
-    await flushNote();
-    const title = item.title.normalize('NFC');
-    ipc.noteCreate(item.folder, title, renderNewNote(item.type, title)).then((p) => { justCreated.current = p.normalize('NFC'); openNote(p); }, () => setMessage(t('error.io')));
+    setNewOfType(null);
+    const title = rawTitle.normalize('NFC');
+    if (noteApi.current?.pending()) await flushNote(); // FR-EDT-08 AC-7: the open note is saved before the new object is written
+    const made = prepared ? prepared.create(title) : createObject(typeKey, title);
+    // A dialog the user opened while the object was being created stays open (the new note opens behind it).
+    made.then((p) => { justCreated.current = p.normalize('NFC'); openNote(p, undefined, true); }, () => setMessage(t('error.io')));
   }, [openNote]);
+  const createFrom = useCallback((item: SwitcherItemDto, prepared?: Prepared | null) => createOf(item.type, item.title, prepared ?? null), [createOf]);
 
   // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
   useEffect(() => {
@@ -243,7 +258,17 @@ export function App() {
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
-    newObject: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('newObject'); },
+    newObject: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject'); },
+    newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('newType'); },
+    addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
+    newObjectOfType: (key: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
+    openTypeSettings: () => {
+      const key = route?.id === 'type/<type>' ? route.param : route?.id === 'note/<path>' ? (metaRef.current?.type ?? 'page') : undefined;
+      if (key) void go({ id: 'type-settings/<type>', param: key });
+    },
+    // After the palette has closed and given the focus back (D-139), the menu or the first control takes it.
+    changeType: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.changeType(), 0); },
+    editProperties: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
     toggleRightPanel: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: !u.rightPanel.open } })); },
     toggleFocus: () => {
@@ -267,10 +292,10 @@ export function App() {
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
     edit: (a) => { if (route?.id === 'note/<path>') noteApi.current?.edit(a); },
-  }), [go, step, route?.id, updateUi]);
+  }), [go, step, route?.id, route?.param, updateUi]);
 
-  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions]);
+  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: route ?? null };
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -409,6 +434,8 @@ export function App() {
         pendingFocus.current = false;
         // A note just made with New object gets the caret in its body (AP-135); the page focuses it itself.
         if (route.id === 'note/<path>' && route.param === justCreated.current) justCreated.current = null;
+        // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
+        else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });
       }
       if (pendingScroll.current !== null && route.id !== 'note/<path>') {
@@ -462,19 +489,40 @@ export function App() {
         onFocus={actions.toggleFocus}
         propertiesOpen={ui.propertiesOpen}
         onToggleProperties={actions.toggleProperties}
+        otherOpen={!!ui.otherPropertiesOpen}
+        onToggleOther={() => updateUi((u) => ({ ...u, otherPropertiesOpen: !u.otherPropertiesOpen }))}
+        onTypeSaved={loadTypes}
       />
     );
   } else if (route?.id === 'type/<type>' && route.param) {
+    const key = route.param;
     body = (
       <TypePage
-        key={route.param}
-        typeKey={route.param}
+        key={key}
+        typeKey={key}
+        type={types.find((x) => x.key.normalize('NFC') === key.normalize('NFC'))}
+        types={types}
         plural={pageName}
-        name={typeEntry?.name ?? route.param}
         refresh={refresh}
         heading={heading}
+        sort={ui.typeSort?.[key]}
+        onSort={(s) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } }))}
         onOpen={openNote}
-        onSettings={() => go({ id: 'type-settings/<type>', param: route.param })}
+        onTag={openTag}
+        onSettings={() => go({ id: 'type-settings/<type>', param: key })}
+        onNew={() => actions.newObjectOfType?.(key)}
+      />
+    );
+  } else if (route?.id === 'type-settings/<type>' && route.param) {
+    const key = route.param;
+    body = (
+      <TypeSettingsPage
+        key={key}
+        typeKey={key}
+        types={types}
+        refresh={refresh}
+        heading={heading}
+        onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
       />
     );
   } else if (route?.id === 'conflicts') {
@@ -492,7 +540,7 @@ export function App() {
     );
   }
 
-  const tabIcon = route?.id === 'note/<path>' ? typeIconName(meta?.type ?? 'page') : route?.id === 'type/<type>' ? typeIconName(route.param ?? '') : routeIcon(route?.id ?? '');
+  const tabIcon = route?.id === 'note/<path>' ? typeIconName(meta?.type ?? 'page', types.find((x) => x.key === meta?.type)?.icon) : route?.id === 'type/<type>' ? typeIconName(route.param ?? '', typeEntry?.icon) : routeIcon(route?.id ?? '');
   const named = userNamed ? <span data-user-content>{pageName}</span> : pageName;
 
   return (
@@ -506,6 +554,7 @@ export function App() {
             onGo={go}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
+            onNewType={() => actions.newType?.()}
             onAbout={actions.about}
             conflicts={conflicts}
           />
@@ -548,7 +597,12 @@ export function App() {
         </div>
       )}
       {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
-      {dialog === 'newObject' && <NewObjectDialog types={types} onCreate={createFrom} onClose={closeDialog} />}
+      {dialog === 'newObject' && <NewObjectDialog key={newOfType ?? ''} types={types} typeKey={newOfType ?? undefined} onCreate={(k, title, p) => void createOf(k, title, p)} onClose={closeDialog} />}
+      {dialog === 'newType' && (
+        <NewTypeDialog types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
+          onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />
+      )}
+      {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
     </div>
   );
 }

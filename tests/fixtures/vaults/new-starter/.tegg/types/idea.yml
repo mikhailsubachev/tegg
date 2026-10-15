@@ -1,0 +1,29 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Idea
+plural: Ideas
+system: false
+folder: Ideas
+icon: lightbulb
+color: yellow
+description: Atomic notes, one idea each, linked to each other.
+review: false
+preview: [status, tags, source]
+template: _templates/Idea/Idea.md
+attributes:
+  - key: status
+    name: Status
+    type: select
+    default: Seed
+    options:
+      - { label: Seed, color: gray }
+      - { label: Developing, color: blue }
+      - { label: Evergreen, color: teal }
+  - key: related
+    name: Related ideas
+    type: relation
+    to: [idea]
+    multiple: true
+  - key: origin-url
+    name: Origin URL
+    type: url

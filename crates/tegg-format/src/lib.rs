@@ -5,7 +5,7 @@ mod extract;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
-pub use extract::{body_start, Extracted, FrontmatterError, Link};
+pub use extract::{body_start, parse_yaml_value, Extracted, FrontmatterError, Link};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).
 pub fn sanitize_file_stem(title: &str) -> String {
@@ -101,4 +101,10 @@ pub fn is_reserved_key(key: &str) -> bool {
 /// Read-only extraction (the index's view of a note). Invalid UTF-8 is read lossily.
 pub fn extract(bytes: &[u8], stem: &str) -> Extracted {
     extract::extract_text(&String::from_utf8_lossy(bytes), stem)
+}
+
+/// D-96 / D-239 (ms3-shell §14.1.2): the key of a type name or `type` value: NFC, trimmed, lower case, each
+/// whitespace run as `-`. `Quick Note` → `quick-note`. Used by `tegg-schema` (type files) and the index (matching).
+pub fn type_key(name: &str) -> String {
+    nfc(name).split_whitespace().collect::<Vec<_>>().join("-").to_lowercase()
 }

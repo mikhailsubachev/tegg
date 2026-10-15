@@ -5,6 +5,13 @@ import { resolve } from 'node:path';
 // test/ (bug_*.test.ts) and the Playwright suite in webkit/ are run by their own steps.
 export default defineConfig({
   root: __dirname,
-  resolve: { alias: { '@tegg/doc': resolve(__dirname, '../packages/doc/src/index.ts') } },
+  resolve: {
+    alias: [
+      { find: '@tegg/doc', replacement: resolve(__dirname, '../packages/doc/src/index.ts') },
+      { find: '@tegg/schema', replacement: resolve(__dirname, '../packages/schema/src/index.ts') },
+      // A runtime `import('../../packages/…')` from test/ resolves against the server root (app/) as `/packages/…`.
+      { find: /^\/packages\//, replacement: `${resolve(__dirname, '../packages')}/` },
+    ],
+  },
   test: { include: ['test/**/*.ac.test.ts'], environment: 'node' },
 });
