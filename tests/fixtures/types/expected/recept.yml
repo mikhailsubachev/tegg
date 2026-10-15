@@ -1,0 +1,11 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Recept
+plural: Recepty
+system: false
+folder: Recepty
+icon: file-text
+color: gray
+review: false
+preview: []
+attributes: []

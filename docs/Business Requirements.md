@@ -56,6 +56,7 @@
 | v1.38   | 2026-10-14 | MS3 slice 3D decisions D-221…D-244 (AP-161…AP-184, owner accepted all recommendations). |
 | v1.39   | 2026-10-14 | D-245: new-object bytes come from `@tegg/doc` through one UI creation function (D-82 kept over D-232's core path). |
 | v1.40   | 2026-10-14 | D-246…D-252: owner preview feedback (search scope and ranking, focus on open, `source` as free text, links in text properties, `@` links, creating a definition for an undefined type, a Columns control). |
+| v1.41   | 2026-10-15 | D-253…D-262: AP-185…AP-194 from the 3D follow-up ACs (search tiers, file-name scope, caret on open, `source` text rules, links in text values, `@` trigger, `Create type` defaults, Columns menu, contract §15, AC test changes). D-108 reworded; D-191 (e) superseded by D-247/D-255. |
 
 ---
 
@@ -206,7 +207,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-105 | Switcher ranking | Rank by match tier (exact, prefix, word prefix, substring, in-order letters), then by when the object was last opened in Tegg (stored in Application Support, fallback `modified`). An empty query lists recently opened objects (AP-50, FR-NAV-01) |
 | D-106 | Switcher create | A "Create '<query>'" row is always offered (first when nothing matches) with the default type (FR-VLT-05). The switcher matches file names as well as titles and aliases (AP-51) |
 | D-107 | Search results | One result per object; title matches rank above body matches; snippet ≤ 160 characters around the first body match; pages of 50 results (AP-52, FR-SRC-03) |
-| D-108 | Search query syntax | `"…"` and `„…“` mark phrases; `-` excludes only at the start of a term; no OR in the MVP; everything else is literal (AP-53, FR-SRC-04) |
+| D-108 | Search query syntax | `"…"` and `„…“` mark phrases; `-` excludes only at the start of a term; no OR operator in the MVP (D-253 ranks unquoted multi-word queries in tiers); everything else is literal (AP-53, FR-SRC-04) |
 | D-109 | Attribute filter operators | Equality for select, text and checkbox (case- and diacritic-insensitive); ranges for dates and numbers; other operators wait for the query builder (AP-54, FR-SRC-02) |
 | D-110 | Progress and cancel | Progress events at least every 500 ms with done/total. Cancellable: import and bulk jobs before their write phase, and indexing (resumed on next open). The write phase of a job is not cancellable (AP-55, FR-UX-07) |
 | D-111 | UI parts of MS2 ACs | FR-SYN-03 AC-2/-3/-4/-6, FR-SYN-04 AC-3 and FR-VLT-03 AC-1 are verified at MS3; MS2 gets core-level ACs: `note:conflict` with both versions and no write, change processing of 500 files, placeholder count (AP-56, D-94) |
@@ -289,7 +290,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-188 | Multi-block selection | Esc selects the block; ⇧↑/⇧↓ extend; ⇧-click range; mouse drag stays text selection; adjacent paragraphs to list make one list (AP-132) |
 | D-189 | Slash menu | Table R6, Objects group first, later items disabled with milestone; callout submenu with 13 Obsidian types; table row/column actions in the block menu (AP-133) |
 | D-190 | Typing-latency gate | Gated at 60 Hz; native ProMotion rate reported without a target (AP-134) |
-| D-191 | Small editor behaviours | Source toggle saves first; same source text = same block after reload; ⌘Z after auto-conversion restores typed text; empty paragraphs never written; caret and hint text as in editor.md (AP-135) |
+| D-191 | Small editor behaviours | Source toggle saves first; same source text = same block after reload; ⌘Z after auto-conversion restores typed text; empty paragraphs never written; caret and hint text as in editor.md (AP-135); part (e), focus on open, superseded by D-247 and D-255 |
 | D-192 | Checkbox toggle | Patches the single marker character, never re-renders the list (AP-136) |
 | D-193 | 3C contract | ms3-shell §13 defines note_write, utf8 flag, index_tags, conflict commands, note:conflict, note-ready, labels, test hooks, fake-core controls and the @tegg/editor API before the red tests (AP-137) |
 | D-194 | Exact-path create | `note_create_exact(path, text)` creates a file at an exact path, failing on a taken name; `Keep both` appends ` (2)` itself (AP-138) |
@@ -351,6 +352,16 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-250 | `@` link trigger (F10) | Typing `@` opens the same note picker as `[[` everywhere (body and text properties) and writes a normal `[[Note]]` link resolved by file (FR-LNK-14) (owner, 2026-10-14) |
 | D-251 | Defining an undefined type (F12) | The page of a `type` value without a definition (D-121) offers `Create type "<value>"`: it writes `.tegg/types/<key>.yml` (name from the value, plural and folder editable, D-222 rules, no attributes), after which its objects show the panel; no note file is written. Properties come from type settings (owner, 2026-10-15) |
 | D-252 | Columns on the type page (F11) | The type page's `Add column` becomes `Columns`: a menu of the type's properties with a check per shown column; checking or unchecking one adds or removes it from `preview` (one write, order kept, the 4-column limit of D-72 still applies); `New property…` stays in the menu. Supersedes FR-TYP-09 AC-7 (owner, 2026-10-15) |
+| D-253 | Multi-word search tiers (AP-185) | Unquoted words: tier 1 exact phrase, tier 2 all words, tier 3 any word; inside a tier exact words before typo matches, then title/file name, attribute, body (D-107), then relevance. Quoted text stays a strict phrase; `-word` still excludes (owner, 2026-10-15) |
+| D-254 | File names in search (AP-186) | The file stem only (no folder, no `.md`), NFC and folded, ranked as a title match; a hit matched only by its file name shows `File name: <stem>` with the highlight (owner, 2026-10-15) |
+| D-255 | Caret on open, details (AP-187) | Caret at the start of the first editable body block, without scrolling; empty body → the empty paragraph; read-only files or nothing editable → D-130 heading focus; the body textbox is described by the title; a search result or heading link puts the caret at the match/heading. New note: title in edit mode, caret at the end, nothing selected. Supersedes D-191 (e) (owner, 2026-10-15) |
+| D-256 | `source` text rules (AP-188) | Text-attribute rules: pasted line breaks become spaces, ambiguous text double-quoted, empty removes the key; URLs are plain text (owner, 2026-10-15) |
+| D-257 | Links in text values (AP-189) | In Text, Long text, `description`, `source` only; every single-line value containing `[[` is double-quoted; Long text keeps its `\|-` block; link records carry the attribute key; `![[…]]` in a value is a link chip, never an embed; links.md FR-LNK-03 AC-1 [MS4] covers them; mixed text showing as plain text in Obsidian is accepted (owner, 2026-10-15) |
+| D-258 | `@` trigger (AP-190) | Opens only at a mention start (line start, after whitespace or `(`), not in code, links, math, source blocks, title, aliases, URL, Email, Number, Select or date fields; the query may contain spaces; closes on Esc, a choice, or a space when only the create row is left. FR-DLY-08 (MS4) adds date rows to the same list (owner, 2026-10-15) |
+| D-259 | `Create type` defaults (AP-191) | Name = the value with its first letter upper-cased, read-only; Plural prefilled with the Name; Folder follows the Plural until edited; D-222-breaking values disable the button with a reason; after Create go to `type-settings/<key>`. `tests/fixtures/types/expected/recept.yml` approved (owner, 2026-10-15) |
+| D-260 | Columns menu contents (AP-192) | The type's attributes, then `Tags`, `Source`, `Aliases`, `Created`; `Modified` stays the fixed last column, not listed; `New property…` also checks the new column when fewer than 4 are chosen (one write); a missing `preview` key is written as FR-TYP-11 AC-1 (owner, 2026-10-15) |
+| D-261 | Contract for the 3D follow-up (AP-193) | ms3-shell §15 is written before the red tests (owner, 2026-10-15) |
+| D-262 | Changed AC tests of the follow-up (AP-194) | The tests of FR-EDT-01 AC-10, NFR-PERF-05 AC-4, FR-TYP-08 AC-10, FR-TYP-09 AC-5, AC-7, AC-10 and FR-TYP-03 AC-1 change in the commits that build each decision, with `AC-Test-Change: <reason>; approved-by: owner` (owner, 2026-10-15) |
 
 ---
 
