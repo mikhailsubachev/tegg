@@ -57,7 +57,7 @@
 | v1.39   | 2026-10-14 | D-245: new-object bytes come from `@tegg/doc` through one UI creation function (D-82 kept over D-232's core path). |
 | v1.40   | 2026-10-14 | D-246…D-252: owner preview feedback (search scope and ranking, focus on open, `source` as free text, links in text properties, `@` links, creating a definition for an undefined type, a Columns control). |
 | v1.41   | 2026-10-15 | D-253…D-262: AP-185…AP-194 from the 3D follow-up ACs (search tiers, file-name scope, caret on open, `source` text rules, links in text values, `@` trigger, `Create type` defaults, Columns menu, contract §15, AC test changes). D-108 reworded; D-191 (e) superseded by D-247/D-255. |
-| v1.42   | 2026-10-15 | D-263, D-264: `@` space rule kept, one-word create example (FR-EDT-06 AC-10); keyboard focus ring on the note body (FR-UX-03 AC-10). |
+| v1.42   | 2026-10-15 | D-263…D-265: `@` space rule kept, one-word create example (FR-EDT-06 AC-10); keyboard focus ring on the note body (FR-UX-03 AC-10); Esc in focus mode leaves it before selecting a block. |
 
 ---
 
@@ -365,6 +365,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-262 | Changed AC tests of the follow-up (AP-194) | The tests of FR-EDT-01 AC-10, NFR-PERF-05 AC-4, FR-TYP-08 AC-10, FR-TYP-09 AC-5, AC-7, AC-10 and FR-TYP-03 AC-1 change in the commits that build each decision, with `AC-Test-Change: <reason>; approved-by: owner` (owner, 2026-10-15) |
 | D-263 | `@` and spaces (FR-EDT-06 AC-10) | The D-258 rule stands: a space typed when no note matches and only the Create row is left closes the `@` list, leaving `@<query>` as text. So `@` creates one-word notes (`@Novinka`); a multi-word new note is made with `[[`. AC-10's example changes accordingly (owner, 2026-10-15) |
 | D-264 | Focus ring on the note body (FR-UX-03 AC-10) | With the caret in the body on open (D-247), the note body shows a 2 px focus ring on keyboard focus only (`:focus-visible`), never after a mouse click (owner, 2026-10-15) |
+| D-265 | Esc in focus mode (FR-UX-02 AC-9, FR-EDT-13) | With the caret in the body (D-247), Esc in focus mode with nothing selected leaves focus mode; a text or block selection is still cleared first. Outside focus mode Esc selects the block (AP-132) (owner, 2026-10-15) |
 
 ---
 

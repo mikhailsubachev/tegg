@@ -493,6 +493,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const sel = ed.view.state.selection;
       if (bs) { ed.clearBlockSelection(); return; }
       if (!sel.empty && !(sel as { node?: unknown }).node) { setToolbarHidden(`${sel.from}-${sel.to}`); return; }
+      // Owner decision (2026-10-15): in focus mode, Esc with nothing selected leaves it (FR-UX-02 AC-9) instead of
+      // selecting the block; the app's key handler gets it.
+      if (wrap.current?.closest('.focus-mode')) { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return; }
       ed.commands.selectBlock();
       return;
     }
