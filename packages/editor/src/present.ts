@@ -8,7 +8,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
 import { wikiLabel } from './schema'
 
-export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null }
+export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null; title?: string | null }
 
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
@@ -23,7 +23,8 @@ export interface EditorUi {
   chipIcon?: (type: string | null) => Element | null
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string }
-  onLink(target: string, fragment: string | null): void
+  /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */
+  onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }): void
   onTag(value: string): void
   onExternal(href: string): void
 }
@@ -56,6 +57,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
+        'data-link-kind': info?.kind ?? 'unresolved', // FR-LNK-07 (D-306): the same attribute in every context
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
       }))
       return false
@@ -111,6 +113,19 @@ class RawBlockView implements NodeView {
   }
 }
 
+/** D-156, D-306: the alias, else the resolved title (or the target), with ` › subpath` as the read view shows it. */
+function chipLabel(value: string, info: LinkInfo | undefined): string {
+  const pipe = /\\?\|/.exec(value)
+  if (pipe) return value.slice(pipe.index + pipe[0].length)
+  const hash = value.indexOf('#')
+  const target = hash >= 0 ? value.slice(0, hash) : value
+  const sub = hash >= 0 ? value.slice(hash + 1) : ''
+  if (!target && sub) return sub
+  const ok = info && (info.kind === 'note' || info.kind === 'daily')
+  const base = ok && info!.title ? info!.title : target
+  return sub && !sub.startsWith('^') ? `${base} › ${sub}` : base
+}
+
 /** A link chip as in the read view: the target type's icon, then the shown text (FR-EDT-02 AC-16). */
 class WikiLinkView implements NodeView {
   dom: HTMLElement
@@ -124,11 +139,13 @@ class WikiLinkView implements NodeView {
     this.dom.replaceChildren()
     if (!this.node.attrs.embed) {
       const info = this.ui.resolve(linkTarget(v).target)
+      this.dom.setAttribute('data-link-kind', info?.kind ?? 'unresolved') // from the first paint (FR-LNK-07)
       const icon = info && (info.kind === 'note' || info.kind === 'daily') ? this.ui.chipIcon?.(info.type ?? 'page') : null
       if (icon) this.dom.appendChild(icon)
     }
     const label = document.createElement('span')
-    label.textContent = wikiLabel(v, !!this.node.attrs.embed)
+    label.setAttribute('data-user-content', '')
+    label.textContent = this.node.attrs.embed ? wikiLabel(v, true) : chipLabel(v, this.ui.resolve(linkTarget(v).target))
     this.dom.appendChild(label)
   }
   update(node: PMNode, decos: readonly Decoration[]) {
@@ -216,11 +233,11 @@ export function presentation(ui: EditorUi) {
               wikiLink: (node) => new WikiLinkView(node, ui),
               listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
             },
-            handleClickOn(view, _pos, node, _nodePos, event) {
+            handleClickOn(view, _pos, node, nodePos, event) {
               if (event.button !== 0) return false
               if (node.type.name === 'wikiLink' && !node.attrs.embed) {
                 const { target, fragment } = linkTarget(String(node.attrs.value))
-                ui.onLink(target, fragment)
+                ui.onLink(target, fragment, { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null })
                 return true
               }
               if (node.type.name === 'tag') {

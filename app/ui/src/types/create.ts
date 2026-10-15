@@ -35,3 +35,29 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
 export async function createObject(typeKey: string, title: string): Promise<string /* path */> {
   return (await prepareObject(typeKey)).create(title);
 }
+
+/** ms4-links §5.3 (D-286, D-287): creates the note a broken link names, by the plan the Create offer showed. Bytes as
+ *  `createObject` (D-82); `link_create` re-plans and writes create-exclusive. A plan with a `rewrite` changes the
+ *  clicked link through the editor (one undo step); without an editor such a plan is refused and nothing is sent. */
+export async function createObjectForLink(
+  from: string,
+  target: string,
+  plan: { state: 'create'; path: string; title: string; type: string; rewrite: string | null },
+  opts: { editor?: { commands: { replaceLink(pos: number, linkText: string): boolean } }; chipPos?: number },
+): Promise<string> {
+  if (plan.rewrite && (!opts.editor || opts.chipPos === undefined)) throw new Error('createLink.needsEdit');
+  const key = plan.type.normalize('NFC');
+  const type = await ipc.typeGet(key);
+  const tpl = await ipc.typeTemplate(key).catch(() => null);
+  const review = (type?.review === 'on' || type?.review === 'locked' ? type.review : 'off') as 'off' | 'on' | 'locked';
+  const text = newObject({
+    type: { key: type?.key ?? key, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined })), review },
+    title: plan.title.normalize('NFC').trim(),
+    template: tpl ? tpl.text : null,
+    now: localIso(new Date(Date.now())),
+    newId: () => ulid(Date.now()),
+  });
+  const made = await ipc.linkCreate(from, target, plan, text);
+  if (made.rewrite && opts.editor && opts.chipPos !== undefined) opts.editor.commands.replaceLink(opts.chipPos, made.rewrite);
+  return made.path;
+}

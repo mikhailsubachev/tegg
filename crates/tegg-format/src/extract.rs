@@ -5,14 +5,16 @@
 use std::ops::Range;
 use std::sync::LazyLock;
 
-use pulldown_cmark::{Event, LinkType, Options, Parser, Tag};
+use pulldown_cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
+
+use crate::excerpt::{At, BlockKind, BlockText, Mark, Segment};
 use regex::Regex;
 use serde_json::{Map, Number, Value};
 use unicode_normalization::UnicodeNormalization;
 use yaml_rust2::parser::{Event as YEvent, MarkedEventReceiver, Parser as YParser};
 use yaml_rust2::scanner::{Marker, TScalarStyle};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct Link {
     pub target: String,
     pub subpath: Option<String>,
@@ -21,6 +23,20 @@ pub struct Link {
     pub in_frontmatter: bool,
     /// Top-level frontmatter key the link is in; None for body links (D-257, FR-LNK-02 AC-1).
     pub attribute: Option<String>,
+    /// Where the link starts (ms4-links §2.1, D-302): 1-based line, 0-based UTF-8 byte offset in the line.
+    pub at: At,
+    /// Index into `Extracted::blocks` for body links; None in frontmatter.
+    pub block: Option<u32>,
+    /// A Markdown link `[text](Cíl.md)` (D-298): `target` is the URL-decoded path, `alias` the link text.
+    pub markdown: bool,
+}
+
+/// Two link records are the same link whatever their position (`at`, `block` say where it is, not what it is).
+impl PartialEq for Link {
+    fn eq(&self, o: &Link) -> bool {
+        (&self.target, &self.subpath, &self.alias, self.embed, self.in_frontmatter, &self.attribute, self.markdown)
+            == (&o.target, &o.subpath, &o.alias, o.embed, o.in_frontmatter, &o.attribute, o.markdown)
+    }
 }
 
 /// NFR-REL-03: what is wrong with the frontmatter and where (1-based line in the file).
@@ -45,6 +61,8 @@ pub struct Extracted {
     pub tags: Vec<String>,
     /// The same tags as written (NFC, case kept), aligned with `tags` (D-185 spelling).
     pub tag_spellings: Vec<String>,
+    /// Body blocks that contain at least one link, in file order (ms4-links §2.1, D-277).
+    pub blocks: Vec<BlockText>,
 }
 
 struct Frontmatter {
@@ -81,7 +99,21 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
     if let Some(f) = &fm {
         scan_links(text, f.inner.clone(), &frontmatter_code(text, f.inner.clone()), true, &mut links, &mut link_ranges);
     }
+    let fm_count = links.len();
     scan_links(text, body_start..text.len(), &code, false, &mut links, &mut link_ranges);
+    // D-298: Markdown links to `.md` paths are link records too, in file order with the wikilinks.
+    let mut body: Vec<(Range<usize>, Link)> = link_ranges[fm_count..].iter().cloned().zip(links.drain(fm_count..)).collect();
+    body.extend(markdown_links(text, body_start));
+    body.sort_by_key(|(r, _)| r.start);
+    let mut ranges: Vec<Range<usize>> = link_ranges[..fm_count].to_vec();
+    for (r, l) in body {
+        ranges.push(r);
+        links.push(l);
+    }
+    for (l, r) in links.iter_mut().zip(&ranges) {
+        l.at = at_of(text, r.start);
+    }
+    let blocks = build_blocks(text, body_start, &ranges[fm_count..], fm_count, &code, &mut links);
 
     let mut tag_spellings: Vec<String> = match data.as_ref().and_then(|d| d.get("tags")) {
         Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str()).filter(|t| !t.is_empty()).map(nfc).collect(),
@@ -108,6 +140,7 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
         links,
         tags,
         tag_spellings,
+        blocks,
     }
 }
 
@@ -484,6 +517,7 @@ fn scan_links(
             embed: !c.get(1).unwrap().as_str().is_empty(),
             in_frontmatter,
             attribute: if in_frontmatter { attribute_at(text, span.start, start) } else { None },
+            ..Link::default()
         });
         ranges.push(start..span.start + all.end());
     }
@@ -594,4 +628,363 @@ fn scan_tags(text: &str, body_start: usize, excluded: &[Range<usize>], out: &mut
             out.push(nfc(run));
         }
     }
+}
+
+// ------------------------------------------------------------------ positions, Markdown links, blocks (ms4-links §2.1)
+
+fn md_options() -> Options {
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_FOOTNOTES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    opts
+}
+
+/// 1-based line and 0-based byte offset in that line of byte `pos`.
+fn at_of(text: &str, pos: usize) -> At {
+    let before = &text[..pos.min(text.len())];
+    let line = before.matches('\n').count() as u32 + 1;
+    let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+    At { line, byte: (pos - line_start) as u32 }
+}
+
+/// `%XX` decoding (UTF-8); an invalid sequence is kept as written.
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() + 0 && i + 2 <= b.len() - 1 {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| s.to_string())
+}
+
+/// D-155, D-298: an inline Markdown link to a `.md` path (no scheme), as a link record with its source range.
+fn markdown_links(text: &str, body_start: usize) -> Vec<(Range<usize>, Link)> {
+    let body = &text[body_start..];
+    let mut out = Vec::new();
+    let mut open: Option<(Range<usize>, String, String)> = None; // (range, dest, link text)
+    let mut skip_until = 0;
+    for (ev, r) in Parser::new_ext(body, md_options()).into_offset_iter() {
+        if r.start < skip_until {
+            continue;
+        }
+        match ev {
+            Event::Start(Tag::CodeBlock(_)) | Event::Start(Tag::HtmlBlock) => skip_until = r.end,
+            Event::Start(Tag::Link { link_type: LinkType::Inline, dest_url, .. }) => {
+                open = Some((r.start + body_start..r.end + body_start, dest_url.to_string(), String::new()));
+            }
+            Event::Text(t) | Event::Code(t) => {
+                if let Some(o) = open.as_mut() {
+                    o.2.push_str(&t);
+                }
+            }
+            Event::End(TagEnd::Link) => {
+                if let Some((range, dest, label)) = open.take() {
+                    if let Some(l) = markdown_link(&dest, &label) {
+                        out.push((range, l));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+fn markdown_link(dest: &str, label: &str) -> Option<Link> {
+    let dest = dest.trim();
+    if dest.is_empty() || dest.starts_with('#') {
+        return None;
+    }
+    let (path, sub) = match dest.split_once('#') {
+        Some((p, s)) => (p, Some(percent_decode(s))),
+        None => (dest, None),
+    };
+    // No scheme (`https:`, `mailto:`, `obsidian:`…) and a `.md` path (D-155).
+    if path.split('/').next().is_some_and(|first| first.contains(':')) || !path.to_lowercase().ends_with(".md") {
+        return None;
+    }
+    Some(Link {
+        target: nfc(percent_decode(path).trim()),
+        subpath: sub,
+        alias: Some(label.to_string()),
+        markdown: true,
+        ..Link::default()
+    })
+}
+
+struct Atom {
+    range: Range<usize>,
+    text: String,
+    marks: Vec<Mark>,
+    code: bool,
+    /// A Markdown link record (index into `links`) this atom is the text of.
+    md: Option<usize>,
+}
+
+struct Leaf {
+    kind: BlockKind,
+    atoms: Vec<Atom>,
+}
+
+static BLOCK_ID_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+\^[A-Za-z0-9-]+\s*$").unwrap());
+static HIGHLIGHT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"==([^=\n]+)==").unwrap());
+static CALLOUT_MARK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\[![^\]\n]*\][+-]?\s*").unwrap());
+
+#[derive(Clone, Copy, PartialEq)]
+enum Container {
+    Item,
+    Quote { callout: bool },
+    Other,
+}
+
+/// §2.1 (D-277, D-303): one `BlockText` per body block with at least one link; sets `block` on body links.
+/// `ranges[i]` is the source range of `links[fm_count + i]`.
+fn build_blocks(text: &str, body_start: usize, ranges: &[Range<usize>], fm_count: usize, code: &[Range<usize>], links: &mut [Link]) -> Vec<BlockText> {
+    let body = &text[body_start..];
+    let comments: Vec<Range<usize>> = COMMENT.find_iter(body).map(|m| m.start() + body_start..m.end() + body_start).collect();
+    let md_at: std::collections::HashMap<usize, usize> =
+        ranges.iter().enumerate().filter(|(i, _)| links[fm_count + i].markdown).map(|(i, r)| (r.start, fm_count + i)).collect();
+    let wiki: Vec<(Range<usize>, usize)> =
+        ranges.iter().enumerate().filter(|(i, _)| !links[fm_count + i].markdown).map(|(i, r)| (r.clone(), fm_count + i)).collect();
+
+    let mut blocks: Vec<BlockText> = Vec::new();
+    let mut containers: Vec<Container> = Vec::new();
+    let mut marks: Vec<Mark> = Vec::new();
+    let mut leaf: Option<Leaf> = None;
+    let mut md_open: Option<usize> = None;
+    let mut cell_in_row = 0usize;
+    let mut skip_until = 0;
+
+    let leaf_kind = |containers: &[Container]| match containers.iter().rev().find(|c| **c != Container::Other) {
+        Some(Container::Item) => BlockKind::ListItem,
+        Some(Container::Quote { callout: true }) => BlockKind::Callout,
+        Some(Container::Quote { callout: false }) => BlockKind::Quote,
+        _ => BlockKind::Paragraph,
+    };
+    let finish = |leaf: &mut Option<Leaf>, blocks: &mut Vec<BlockText>, links: &mut [Link]| {
+        if let Some(l) = leaf.take() {
+            if let Some((segs, used)) = segments(text, l, &wiki, &comments) {
+                let n = blocks.len() as u32;
+                for i in used {
+                    links[i].block = Some(n);
+                }
+                blocks.push(BlockText { kind: segs.0, segments: segs.1 });
+            }
+        }
+    };
+
+    for (ev, r) in Parser::new_ext(body, md_options()).into_offset_iter() {
+        let r = r.start + body_start..r.end + body_start;
+        if r.start < skip_until {
+            continue;
+        }
+        match ev {
+            Event::Start(Tag::CodeBlock(_)) | Event::Start(Tag::HtmlBlock) => {
+                finish(&mut leaf, &mut blocks, links);
+                skip_until = r.end;
+            }
+            Event::Start(Tag::Paragraph) => {
+                if leaf.is_some() && matches!(containers.last(), Some(Container::Item)) {
+                    finish(&mut leaf, &mut blocks, links);
+                }
+                if leaf.is_none() {
+                    leaf = Some(Leaf { kind: leaf_kind(&containers), atoms: vec![] });
+                }
+            }
+            Event::End(TagEnd::Paragraph) | Event::End(TagEnd::Heading(_)) | Event::End(TagEnd::TableHead) | Event::End(TagEnd::TableRow) => {
+                finish(&mut leaf, &mut blocks, links);
+            }
+            Event::Start(Tag::Heading { .. }) => {
+                finish(&mut leaf, &mut blocks, links);
+                leaf = Some(Leaf { kind: BlockKind::Heading, atoms: vec![] });
+            }
+            Event::Start(Tag::TableHead) | Event::Start(Tag::TableRow) => {
+                finish(&mut leaf, &mut blocks, links);
+                leaf = Some(Leaf { kind: BlockKind::TableRow, atoms: vec![] });
+                cell_in_row = 0;
+            }
+            Event::Start(Tag::TableCell) => {
+                if cell_in_row > 0 {
+                    if let Some(l) = leaf.as_mut() {
+                        l.atoms.push(Atom { range: r.start..r.start, text: " · ".into(), marks: vec![], code: false, md: None });
+                    }
+                }
+                cell_in_row += 1;
+            }
+            Event::Start(Tag::Item) => {
+                finish(&mut leaf, &mut blocks, links);
+                containers.push(Container::Item);
+            }
+            Event::End(TagEnd::Item) => {
+                finish(&mut leaf, &mut blocks, links);
+                containers.pop();
+            }
+            Event::Start(Tag::List(_)) => {
+                finish(&mut leaf, &mut blocks, links);
+                containers.push(Container::Other);
+            }
+            Event::End(TagEnd::List(_)) => {
+                containers.pop();
+            }
+            Event::Start(Tag::BlockQuote(_)) => {
+                finish(&mut leaf, &mut blocks, links);
+                let rest = text[r.start..].trim_start_matches(['>', ' ', '\t']);
+                containers.push(Container::Quote { callout: rest.starts_with("[!") });
+            }
+            Event::End(TagEnd::BlockQuote(_)) => {
+                finish(&mut leaf, &mut blocks, links);
+                containers.pop();
+            }
+            Event::Start(Tag::Strong) => marks.push(Mark::Strong),
+            Event::Start(Tag::Emphasis) => marks.push(Mark::Em),
+            Event::Start(Tag::Strikethrough) => marks.push(Mark::Strike),
+            Event::End(TagEnd::Strong) | Event::End(TagEnd::Emphasis) | Event::End(TagEnd::Strikethrough) => {
+                marks.pop();
+            }
+            Event::Start(Tag::Link { .. }) => md_open = md_at.get(&r.start).copied(),
+            Event::End(TagEnd::Link) => md_open = None,
+            ev @ (Event::Text(_) | Event::Code(_)) => {
+                let (t, is_code) = match ev {
+                    Event::Code(t) => (t, true),
+                    Event::Text(t) => (t, false),
+                    _ => unreachable!(),
+                };
+                if leaf.is_none() && matches!(containers.last(), Some(Container::Item)) {
+                    leaf = Some(Leaf { kind: BlockKind::ListItem, atoms: vec![] }); // a tight list item's own text
+                }
+                if let Some(l) = leaf.as_mut() {
+                    let mut m = marks.clone();
+                    if is_code {
+                        m.push(Mark::Code);
+                    }
+                    l.atoms.push(Atom { range: r.clone(), text: t.to_string(), marks: m, code: is_code, md: md_open });
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                if let Some(l) = leaf.as_mut() {
+                    l.atoms.push(Atom { range: r.start..r.start, text: " ".into(), marks: marks.clone(), code: false, md: md_open });
+                }
+            }
+            _ => {}
+        }
+    }
+    finish(&mut leaf, &mut blocks, links);
+    let _ = code;
+    blocks
+}
+
+/// Atoms → segments: wikilinks become one `Link` each, Markdown-link text one `Link`, comments are dropped,
+/// `==x==` becomes `Highlight`, a trailing block id and trailing whitespace are dropped, equal neighbours merge.
+/// Returns None when the leaf holds no link.
+#[allow(clippy::type_complexity)]
+fn segments(text: &str, leaf: Leaf, wiki: &[(Range<usize>, usize)], comments: &[Range<usize>]) -> Option<((BlockKind, Vec<Segment>), Vec<usize>)> {
+    let mut segs: Vec<Segment> = Vec::new();
+    let mut used: Vec<usize> = Vec::new();
+    let push_text = |segs: &mut Vec<Segment>, t: &str, marks: &[Mark], code: bool| {
+        if t.is_empty() {
+            return;
+        }
+        if code {
+            segs.push(Segment::Text { text: t.to_string(), marks: marks.to_vec() });
+            return;
+        }
+        let mut last = 0;
+        for c in HIGHLIGHT.captures_iter(t) {
+            let m = c.get(0).unwrap();
+            if m.start() > last {
+                segs.push(Segment::Text { text: t[last..m.start()].to_string(), marks: marks.to_vec() });
+            }
+            let mut hm = marks.to_vec();
+            hm.push(Mark::Highlight);
+            segs.push(Segment::Text { text: c[1].to_string(), marks: hm });
+            last = m.end();
+        }
+        if last < t.len() {
+            segs.push(Segment::Text { text: t[last..].to_string(), marks: marks.to_vec() });
+        }
+    };
+    let mut md_done: Option<usize> = None;
+    for a in leaf.atoms {
+        if let Some(i) = a.md {
+            if md_done != Some(i) {
+                segs.push(Segment::Link { link: i as u32, marks: a.marks.clone() });
+                used.push(i);
+                md_done = Some(i);
+            }
+            continue;
+        }
+        md_done = None;
+        // Pieces of the atom outside wikilinks and comments, in order; a wikilink overlapping the atom is emitted once.
+        let source_matches = text.get(a.range.clone()) == Some(a.text.as_str());
+        let mut cuts: Vec<(Range<usize>, Option<usize>)> = Vec::new(); // (excluded range, Some(link) for a wikilink)
+        for (r, i) in wiki {
+            if r.start < a.range.end.max(a.range.start + 1) && r.end > a.range.start {
+                cuts.push((r.clone(), Some(*i)));
+            }
+        }
+        for r in comments {
+            if r.start < a.range.end && r.end > a.range.start {
+                cuts.push((r.clone(), None));
+            }
+        }
+        if cuts.is_empty() {
+            push_text(&mut segs, &a.text, &a.marks, a.code);
+            continue;
+        }
+        cuts.sort_by_key(|c| c.0.start);
+        let mut pos = a.range.start;
+        for (r, link) in cuts {
+            if source_matches && r.start > pos {
+                push_text(&mut segs, &text[pos..r.start.min(a.range.end)], &a.marks, a.code);
+            }
+            if let Some(i) = link {
+                if !used.contains(&i) {
+                    segs.push(Segment::Link { link: i as u32, marks: a.marks.clone() });
+                    used.push(i);
+                }
+            }
+            pos = pos.max(r.end);
+        }
+        if source_matches && pos < a.range.end {
+            push_text(&mut segs, &text[pos..a.range.end], &a.marks, a.code);
+        }
+    }
+    if used.is_empty() {
+        return None;
+    }
+    // A callout's `[!type]` marker isn't text.
+    if leaf.kind == BlockKind::Callout {
+        if let Some(Segment::Text { text, .. }) = segs.first_mut() {
+            *text = CALLOUT_MARK.replace(text, "").into_owned();
+        }
+    }
+    // Merge neighbours with equal marks.
+    let mut merged: Vec<Segment> = Vec::new();
+    for s in segs {
+        match (merged.last_mut(), s) {
+            (Some(Segment::Text { text: a, marks: ma }), Segment::Text { text: b, marks: mb }) if *ma == mb => a.push_str(&b),
+            (_, s) => merged.push(s),
+        }
+    }
+    // Trailing block id and whitespace (D-303), leading whitespace.
+    if let Some(Segment::Text { text, .. }) = merged.last_mut() {
+        let t = BLOCK_ID_END.replace(text, "").into_owned();
+        *text = t.trim_end().to_string();
+    }
+    if let Some(Segment::Text { text, .. }) = merged.first_mut() {
+        *text = text.trim_start().to_string();
+    }
+    merged.retain(|s| !matches!(s, Segment::Text { text, .. } if text.is_empty()));
+    Some(((leaf.kind, merged), used))
 }

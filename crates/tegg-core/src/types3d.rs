@@ -322,7 +322,9 @@ impl Core {
             return Err(CoreError::UnknownType);
         }
         let folder = if t.invalid { key.clone() } else { t.folder.trim_end_matches('/').to_string() };
-        let (path, v) = self.shared.vault.create_file(&folder, &sanitize_file_stem(title), "md", bytes)?;
+        // D-291: a stem no other indexed file has anywhere in the vault.
+        let stem = self.free_stem(&folder, &sanitize_file_stem(title));
+        let (path, v) = self.shared.vault.create_file(&folder, &stem, "md", bytes)?;
         lock(&self.shared.index).upsert(&path, bytes, &v)?;
         self.shared.emit(CoreEvent::VaultChanged { paths: vec![path.clone()] });
         Ok(path)

@@ -4,6 +4,7 @@
 // UI state (AC-3). `Columns` (D-252, D-260) checks and unchecks the preview properties, one write each, up to 4
 // (D-72), and offers `New property…`. Nothing here writes a note.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { chipIcon } from '../links/icons';
 import { canDefine, validate } from '@tegg/schema';
 import { parse as parseDoc } from '@tegg/doc';
 import { t } from '../i18n/catalog';
@@ -358,8 +359,9 @@ function LinkCell({ value, links, types, onOpen }: { value: unknown; links: Link
   const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
   return (
     <a data-command="typePage.a1" href="#" className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`} aria-description={ok ? undefined : t('link.noNote', { target: w.target })}
+      data-link-kind={ok ? info!.kind : 'unresolved'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ok) onOpen(info!.path!); }}>
-      {ok && <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} size={12} />}
+      {ok && <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} dataIcon={chipIcon(info!.type ?? 'page').def} size={12} />}
       <span data-user-content>{shown}</span>
     </a>
   );

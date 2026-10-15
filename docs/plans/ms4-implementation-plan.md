@@ -1,6 +1,6 @@
 # MS4 implementation plan: Links, tags, renames, daily notes
 
-- **Status:** proposed, 2026-10-15. Open points AP-195…AP-203 (§6) need the owner's decision.
+- **Status:** accepted, 2026-10-15. AP-195…AP-203 (§6) were accepted by the owner as D-267…D-275 (BRD v1.44).
 - **Scope:** BRD §11.2 MS4 (30 requirements), architecture §12 (`tegg-jobs`, backup zips, daily notes, embeds), `docs/requirements-coverage.md` § MS4, and every `[MS4]` criterion already written in earlier slices (§2.2).
 - **Start conditions:** MS3 done: 3D follow-up (D-253…D-265) merged, 3E built, `./verify milestone --milestone MS3` green.
 
@@ -53,7 +53,7 @@ Missing entirely: FR-DLY-01…06, FR-EMB-01, -02, -04, FR-LNK-01, -07, FR-TAG-01
 
 **Order rationale.** 4A first: it is mostly read-only on top of index data that exists, and 4B needs backlinks (FR-DLY-08 AC-3). 4B second: highest daily value and no bulk writes (it writes one file, on the first keystroke). 4C is the riskiest slice and is kept to one client so the engine is proven before 4D and 4E reuse it; if the missing file rename hurts more than missing daily notes in daily use, 4B and 4C can swap. 4F touches the editor and not the job engine, so it can be built in parallel with 4C–4E by a second session in its own worktree.
 
-**4C contract covers all clients.** `docs/contracts/ms4-jobs.md` is written in 4C for note rename, tag rename and delete, key rename and value removal, type move and folder move, and type delete, with one job model: plan (affected files, counts) → confirm → backup → write → report. 4D and 4E then only add planners.
+**4C contract covers all clients.** `docs/contracts/ms4-jobs.md` is written in 4C for note rename, tag rename and delete, key rename and value removal, type move and folder move, type delete, and merging duplicate titles (D-290), with one job model: plan (affected files, counts) → confirm → backup → write → report. 4D and 4E then only add planners.
 
 **Quality bar from MS4.** Mutation thresholds rise to 80% (T1) / 70% (T2) (D-61). Every rewrite job needs a property test: random vault + random rename sequence + undo gives the original bytes; only files containing the target change (links.md FR-LNK-03 AC-2, AC-5). The sync simulator's "external edit during a job" case (AC-6) runs for every job type, not only rename.
 
@@ -82,18 +82,18 @@ Still TBD after MS4: Inbox (MS5), tasks due in daily notes (MS5), Task embed car
 
 ---
 
-## 6. Open points for the owner
+## 6. Decided points (AP-195…AP-203 → D-267…D-275, accepted 2026-10-15)
 
 | # | Point | Proposal |
 | --- | --- | --- |
-| AP-195 | **MS4 in slices.** | Slices 4A–4F (§3), ACs and red tests per slice, preview build after each, one MS4 gate at the end. Same as D-115. |
-| AP-196 | **When a title edit renames the file.** Renaming on every keystroke would churn files and links (FR-SYN-06, R-04). | Rename when the title is committed (↩, Tab, or focus leaves the title), not while typing. A rename that rewrites more than 0 other files shows a non-blocking "Updating links in n notes" progress, no confirmation. |
-| AP-197 | **Backup zip for a note rename.** D-57 lists import, attribute rename, tag rename and bulk type change, not a single note rename, which can still rewrite many files. | No zip for a note rename: undo as one action (AC-5) is its restore. Zip for every other job. |
-| AP-198 | **Daily-note template before templates (FR-TPL, v1.0).** FR-DLY-06 is MS4. | One file `_templates/Daily Note/Daily Note.md`, applied on the first keystroke, with only `{{date}}`, `{{date:FORMAT}}`, `{{yesterday}}`, `{{tomorrow}}` (a subset of FR-TPL-03). Starter vaults get it; without it the note starts empty. Multiple templates and other variables stay v1.0. |
-| AP-199 | **Context sections before tasks and capture (MS5).** FR-DLY-04 lists Quick Notes captured that day, tasks due/overdue, objects created and modified that day. | MS4 shows Quick Notes created that day and objects created / modified that day (by `created` / `modified`); the tasks section is an in-note placeholder `Coming in MS5`. |
-| AP-200 | **Review and Inbox (FR-DLY-05).** The Inbox is MS5. | 4B writes `review: unreviewed` on the first write and shows the review control; the Inbox listing stays TBD until MS5. |
-| AP-201 | **Embed modes before tasks (FR-EMB-02, D-74).** | 4F builds full, card and link with a per-type default in type settings; Task defaults to card with a generic header until MS5 adds the checkbox/status/due row. Full mode is editable in place (a nested editor on the embedded file, with the same autosave and conflict rules). |
-| AP-202 | **Restoring a backup zip.** D-57 creates them; nothing says how one is used. | Settings → Backups lists the last 10 with date, operation and size, and `Reveal in Finder`. Restoring is manual in the MVP (unzip over a copy); one-click restore comes with version history (v1.0). |
-| AP-203 | **Tags in the MVP views.** FR-TAG-07 includes the query builder (v1.0); FR-TAG-05 includes graph nodes (v1.0). | MS4 covers the sidebar, search filters, chips, inline `#tags`, tag page and type-page lists; the query builder and graph parts move to the coverage doc under v1.0. |
+| AP-195 | **MS4 in slices.** | Slices 4A–4F (§3), ACs and red tests per slice, preview build after each, one MS4 gate at the end. Same as D-115. **Accepted: D-267.** |
+| AP-196 | **When a title edit renames the file.** Renaming on every keystroke would churn files and links (FR-SYN-06, R-04). | Rename when the title is committed (↩, Tab, or focus leaves the title), not while typing. A rename that rewrites more than 0 other files shows a non-blocking "Updating links in n notes" progress, no confirmation. **Accepted: D-268.** |
+| AP-197 | **Backup zip for a note rename.** D-57 lists import, attribute rename, tag rename and bulk type change, not a single note rename, which can still rewrite many files. | No zip for a note rename: undo as one action (AC-5) is its restore. Zip for every other job. **Accepted: D-269.** |
+| AP-198 | **Daily-note template before templates (FR-TPL, v1.0).** FR-DLY-06 is MS4. | One file `_templates/Daily Note/Daily Note.md`, applied on the first keystroke, with only `{{date}}`, `{{date:FORMAT}}`, `{{yesterday}}`, `{{tomorrow}}` (a subset of FR-TPL-03). Starter vaults get it; without it the note starts empty. Multiple templates and other variables stay v1.0. **Accepted: D-270.** |
+| AP-199 | **Context sections before tasks and capture (MS5).** FR-DLY-04 lists Quick Notes captured that day, tasks due/overdue, objects created and modified that day. | MS4 shows Quick Notes created that day and objects created / modified that day (by `created` / `modified`); the tasks section is an in-note placeholder `Coming in MS5`. **Accepted: D-271.** |
+| AP-200 | **Review and Inbox (FR-DLY-05).** The Inbox is MS5. | 4B writes `review: unreviewed` on the first write and shows the review control; the Inbox listing stays TBD until MS5. **Accepted: D-272.** |
+| AP-201 | **Embed modes before tasks (FR-EMB-02, D-74).** | 4F builds full, card and link with a per-type default in type settings; Task defaults to card with a generic header until MS5 adds the checkbox/status/due row. Full mode is editable in place (a nested editor on the embedded file, with the same autosave and conflict rules). **Accepted: D-273.** |
+| AP-202 | **Restoring a backup zip.** D-57 creates them; nothing says how one is used. | Settings → Backups lists the last 10 with date, operation and size, and `Reveal in Finder`. Restoring is manual in the MVP (unzip over a copy); one-click restore comes with version history (v1.0). **Accepted: D-274.** |
+| AP-203 | **Tags in the MVP views.** FR-TAG-07 includes the query builder (v1.0); FR-TAG-05 includes graph nodes (v1.0). | MS4 covers the sidebar, search filters, chips, inline `#tags`, tag page and type-page lists; the query builder and graph parts move to the coverage doc under v1.0. **Accepted: D-275.** |
 
-Next, after the owner decides: ac-author drafts slice 4A's ACs (`docs/acceptance/links.md` additions, backlinks), then test-author commits them red.
+Next: ac-author drafts slice 4A's ACs (`docs/acceptance/links.md` additions, backlinks), then test-author commits them red.

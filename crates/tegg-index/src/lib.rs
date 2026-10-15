@@ -22,7 +22,8 @@ pub use text::fold;
 use text::{contains_item, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 3; // 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257)
+const SCHEMA_VERSION: i64 = 4; // 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
+// 4: link positions and block texts (4A, ms4-links §2.3)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
 
@@ -185,6 +186,19 @@ pub struct SwitcherItem {
     pub folder: String,
     pub matched_alias: Option<String>,
     pub tier: Option<MatchTier>,
+    /// FR-LNK-14 (D-289, D-301): set by the core when another object shares the title.
+    pub duplicate: Option<DuplicateDetails>,
+}
+
+/// FR-LNK-14 AC-6 (D-289): what tells objects with the same title apart.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DuplicateDetails {
+    /// As written; the UI formats it (D-160).
+    pub created: Option<String>,
+    /// Up to 2 set preview values, in preview order.
+    pub preview: Vec<(String, Value)>,
+    /// The file stem when it differs from the title.
+    pub stem: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -238,6 +252,52 @@ struct Stored {
     link_attrs: Vec<Option<String>>,
     body_start: usize,
     body_line: usize,
+    /// Per link, aligned with `links` (4A, ms4-links §2.3).
+    #[serde(default)]
+    link_meta: Vec<StoredLink>,
+    #[serde(default)]
+    blocks: Vec<tegg_format::BlockText>,
+    #[serde(default)]
+    frontmatter_error: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StoredLink {
+    subpath: Option<String>,
+    alias: Option<String>,
+    embed: bool,
+    markdown: bool,
+    at: tegg_format::At,
+    block: Option<u32>,
+}
+
+/// One link of a note with what it resolves to now (ms4-links §1).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LinkRecord {
+    /// Index into the note's extracted links (what `Segment::Link` refers to).
+    pub index: usize,
+    pub target: String,
+    pub subpath: Option<String>,
+    pub alias: Option<String>,
+    pub embed: bool,
+    pub markdown: bool,
+    pub attribute: Option<String>,
+    pub at: tegg_format::At,
+    pub block: Option<u32>,
+    pub resolved: tegg_format::LinkTargetInfo,
+}
+
+/// A note's links and block texts, for the backlinks panel and broken links (ms4-links §3).
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteLinks {
+    pub path: String,
+    pub title: String,
+    pub r#type: String,
+    pub type_raw: Option<String>,
+    pub attributes: Value,
+    pub frontmatter_error: bool,
+    pub links: Vec<LinkRecord>,
+    pub blocks: Vec<tegg_format::BlockText>,
 }
 
 /// A note read and extracted, ready to be written to the index. Built outside the index lock, so
@@ -456,9 +516,16 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         tag_spellings: ex.tag_spellings,
         attributes,
         link_attrs: ex.links.iter().map(|l| l.attribute.clone()).collect(),
+        link_meta: ex
+            .links
+            .iter()
+            .map(|l| StoredLink { subpath: l.subpath.clone(), alias: l.alias.clone(), embed: l.embed, markdown: l.markdown, at: l.at, block: l.block })
+            .collect(),
         links: ex.links.into_iter().map(|l| l.target).collect(),
         body_start,
         body_line,
+        blocks: ex.blocks,
+        frontmatter_error: ex.frontmatter_error.is_some(),
     };
     Some(Prepared { path: path.to_string(), mtime_ns: version.mtime_ns as i64, size: version.size as i64, stored, raw, fts })
 }
@@ -470,7 +537,23 @@ struct Links {
     by_path: HashMap<String, String>,
     by_id: HashMap<String, String>,
     by_stem: HashMap<String, String>,
+    /// Every path per stem key (NFC, lower case), for the same-folder rule (ms3-shell §11.1).
+    stems: HashMap<String, Vec<String>>,
+    /// Daily Note per `YYYY-MM-DD` (D-162).
+    daily: HashMap<String, String>,
     backlinks: HashMap<String, BTreeSet<String>>,
+    /// Per source path, what each of its links resolves to (None: not a note).
+    resolved: HashMap<String, Vec<Resolved>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Resolved {
+    /// A link in frontmatter that can't be parsed: not read (NFR-REL-03), never a backlink or broken.
+    Ignored,
+    Note(String),
+    Daily(String),
+    DateMissing,
+    Unresolved,
 }
 
 pub struct Index {
@@ -912,6 +995,7 @@ impl Index {
                 folder: m.folder.clone(),
                 matched_alias: alias,
                 tier: t,
+                duplicate: None,
             })
             .collect()
     }
@@ -941,19 +1025,132 @@ impl Index {
         for (id, group) in self.id_groups() {
             by_id.insert(id, self.primary(&group).to_string());
         }
-        let mut l = Links { by_path, by_id, by_stem, backlinks: HashMap::new() };
-        let mut back: HashMap<String, BTreeSet<String>> = HashMap::new();
-        for m in self.metas.values() {
-            for t in &m.s.links {
-                if let Some(target) = resolve(&l, t) {
-                    if target != m.path {
-                        back.entry(target).or_default().insert(m.path.clone());
-                    }
+        let mut stems: HashMap<String, Vec<String>> = HashMap::new();
+        for m in &paths {
+            stems.entry(nfc(&m.stem).to_lowercase()).or_default().push(m.path.clone());
+        }
+        let mut daily: HashMap<String, String> = HashMap::new();
+        let mut dailies: Vec<&Meta> = self.metas.values().filter(|m| m.s.r#type == "daily-note").collect();
+        dailies.sort_by(|a, b| (a.path.chars().count(), &a.path).cmp(&(b.path.chars().count(), &b.path)));
+        for m in dailies {
+            for d in m.attr_texts("date") {
+                if let Some(day) = d.trim().get(..10) {
+                    daily.entry(day.to_string()).or_insert_with(|| m.path.clone());
                 }
             }
         }
+        let mut l = Links { by_path, by_id, by_stem, stems, daily, backlinks: HashMap::new(), resolved: HashMap::new() };
+        let mut back: HashMap<String, BTreeSet<String>> = HashMap::new();
+        let mut resolved = HashMap::new();
+        for m in self.metas.values() {
+            let r: Vec<Resolved> = m
+                .s
+                .links
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    if m.s.frontmatter_error && m.s.link_attrs.get(i).is_some_and(|a| a.is_some()) {
+                        Resolved::Ignored
+                    } else {
+                        resolve_from(&l, &m.path, t)
+                    }
+                })
+                .collect();
+            for x in &r {
+                if let Resolved::Note(p) | Resolved::Daily(p) = x {
+                    if *p != m.path {
+                        back.entry(p.clone()).or_default().insert(m.path.clone());
+                    }
+                }
+            }
+            resolved.insert(m.path.clone(), r);
+        }
         l.backlinks = back;
+        l.resolved = resolved;
         l
+    }
+
+    /// ms4-links §1, §3: a note's links with their current resolution, and its block texts.
+    pub fn note_links(&self, path: &str) -> Option<NoteLinks> {
+        let m = self.meta(path)?;
+        self.with_links(|l| Some(self.note_links_of(l, m)))
+    }
+
+    /// D-291: every indexed stem (NFC, lower case), vault-wide; templates and `.trash/` are never indexed.
+    pub fn stem_keys(&self) -> std::collections::HashSet<String> {
+        self.metas.values().map(|m| nfc(&m.stem).to_lowercase()).collect()
+    }
+
+    /// ms4-links §3: every note that has a link to a note that doesn't resolve (dates and attachments excluded).
+    pub fn broken_sources(&self) -> Vec<NoteLinks> {
+        self.with_links(|l| {
+            let mut v: Vec<NoteLinks> = self
+                .metas
+                .values()
+                .filter(|m| {
+                    l.resolved.get(&m.path).is_some_and(|r| r.iter().zip(&m.s.links).any(|(x, t)| *x == Resolved::Unresolved && is_note_target(t)))
+                })
+                .map(|m| self.note_links_of(l, m))
+                .collect();
+            v.sort_by(|a, b| a.path.cmp(&b.path));
+            v
+        })
+    }
+
+    fn note_links_of(&self, l: &Links, m: &Meta) -> NoteLinks {
+        let empty = Vec::new();
+        let res = l.resolved.get(&m.path).unwrap_or(&empty);
+        let links = m
+            .s
+            .links
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let meta = m.s.link_meta.get(i);
+                let info = |kind, p: Option<&String>| {
+                    let o = p.and_then(|p| self.meta(p));
+                    tegg_format::LinkTargetInfo {
+                        target: t.clone(),
+                        kind,
+                        path: p.cloned(),
+                        title: o.map(|o| o.s.title.clone()),
+                        r#type: o.map(|o| o.s.r#type.clone()),
+                    }
+                };
+                if matches!(res.get(i), Some(Resolved::Ignored)) {
+                    return None;
+                }
+                let resolved = match res.get(i) {
+                    Some(Resolved::Note(p)) => info(tegg_format::TargetKind::Note, Some(p)),
+                    Some(Resolved::Daily(p)) => info(tegg_format::TargetKind::Daily, Some(p)),
+                    Some(Resolved::DateMissing) => info(tegg_format::TargetKind::DateMissing, None),
+                    _ => info(tegg_format::TargetKind::Unresolved, None),
+                };
+                Some(LinkRecord {
+                    index: i,
+                    target: t.clone(),
+                    subpath: meta.and_then(|x| x.subpath.clone()),
+                    alias: meta.and_then(|x| x.alias.clone()),
+                    embed: meta.is_some_and(|x| x.embed),
+                    markdown: meta.is_some_and(|x| x.markdown),
+                    attribute: m.s.link_attrs.get(i).cloned().flatten(),
+                    at: meta.map(|x| x.at).unwrap_or_default(),
+                    block: meta.and_then(|x| x.block),
+                    resolved,
+                })
+            })
+            .flatten()
+            .collect();
+        NoteLinks {
+            path: m.path.clone(),
+            title: m.s.title.clone(),
+            r#type: m.s.r#type.clone(),
+            type_raw: m.s.type_raw.clone(),
+            attributes: m.s.attributes.clone(),
+            frontmatter_error: m.s.frontmatter_error,
+            links,
+            blocks: m.s.blocks.clone(),
+        }
     }
 
     /// FR-LNK-14: by vault path (with or without `.md`), by `id`, or by file name; never by title alone.
@@ -974,8 +1171,10 @@ impl Index {
         let mut out: Vec<Backlink> = self.with_links(|l| {
             let mut v = Vec::new();
             for m in self.metas.values().filter(|m| m.path != path) {
-                for (i, t) in m.s.links.iter().enumerate() {
-                    if resolve(l, t).as_deref() == Some(path.as_str()) {
+                let res = l.resolved.get(&m.path);
+                for (i, _) in m.s.links.iter().enumerate() {
+                    let hit = matches!(res.and_then(|r| r.get(i)), Some(Resolved::Note(p) | Resolved::Daily(p)) if *p == path);
+                    if hit {
                         v.push(Backlink { source: m.path.clone(), attribute: m.s.link_attrs.get(i).cloned().flatten() });
                     }
                 }
@@ -1119,6 +1318,67 @@ impl Index {
             out
         })
     }
+}
+
+/// A target that names a note: not a date and not an attachment with another extension (ms4-links §3, D-284).
+pub fn is_note_target(target: &str) -> bool {
+    let t = nfc(target.trim());
+    if t.is_empty() {
+        return false;
+    }
+    let name = t.rsplit('/').next().unwrap_or(&t);
+    match name.rsplit_once('.') {
+        Some((_, ext)) => ext.eq_ignore_ascii_case("md") || ext.contains(' ') || ext.len() > 5,
+        None => true,
+    }
+}
+
+/// ms3-shell §11.1 rules from the linking note `from` (D-155, D-162, D-291; dialect §6).
+fn resolve_from(l: &Links, from: &str, target: &str) -> Resolved {
+    let mut t = nfc(target.trim());
+    if let Some(i) = t.find('|') {
+        t.truncate(i);
+    }
+    if let Some(i) = t.find('#') {
+        t.truncate(i);
+    }
+    let t = t.trim().to_string();
+    if t.is_empty() {
+        return Resolved::Unresolved;
+    }
+    if t.len() == 10 && NaiveDate::parse_from_str(&t, "%Y-%m-%d").is_ok() {
+        return match l.daily.get(&t) {
+            Some(p) => Resolved::Daily(p.clone()),
+            None => Resolved::DateMissing,
+        };
+    }
+    let from = nfc(from);
+    let from_dir = from.rsplit_once('/').map(|(d, _)| d.to_lowercase()).unwrap_or_default();
+    let lower = t.to_lowercase();
+    let key = lower.strip_suffix(".md").unwrap_or(&lower);
+    if !from_dir.is_empty() {
+        if let Some(p) = l.by_path.get(&format!("{from_dir}/{key}")) {
+            return Resolved::Note(p.clone());
+        }
+    }
+    if let Some(p) = l.by_path.get(key) {
+        return Resolved::Note(p.clone());
+    }
+    if let Some(p) = l.by_id.get(&t) {
+        return Resolved::Note(p.clone());
+    }
+    if !key.contains('/') {
+        if let Some(c) = l.stems.get(key) {
+            let folder = |p: &String| p.rsplit_once('/').map(|(d, _)| nfc(d).to_lowercase()).unwrap_or_default();
+            if let Some(p) = c.iter().find(|p| folder(p) == from_dir) {
+                return Resolved::Note(p.clone());
+            }
+            if let Some(p) = c.first() {
+                return Resolved::Note(p.clone()); // `stems` lists shortest path first, then code-point order
+            }
+        }
+    }
+    Resolved::Unresolved
 }
 
 fn resolve(l: &Links, target: &str) -> Option<String> {

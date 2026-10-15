@@ -127,7 +127,7 @@ fn mark(app: &AppHandle, name: &str) {
 // ---------------------------------------------------------------- vault and events
 
 fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None }
 }
 
 fn version_dto(v: &FileVersion) -> VersionDto {
@@ -171,6 +171,8 @@ fn core_err(e: CoreError) -> IpcError {
         CoreError::Schema(SchemaError::SystemTypeName) | CoreError::SystemType => err("SystemType", "system types can't be renamed or deleted"),
         CoreError::HasObjects(n) => IpcError { count: Some(n as u32), ..err("HasObjects", format!("{n} objects have this type")) },
         CoreError::UnknownType => err("UnknownType", "no such type"),
+        CoreError::Exists { path } => IpcError { path: Some(path), ..err("Exists", "the note exists now") },
+        CoreError::PlanChanged { now } => IpcError { now: Some(Box::new(plan_dto(now))), ..err("PlanChanged", "the plan changed") },
         other => err("Io", format!("{other:?}")),
     }
 }
@@ -385,6 +387,7 @@ async fn index_switcher(state: State<'_, AppState>, q: String, limit: u32) -> Re
             type_key: i.r#type,
             folder: i.folder,
             matched_alias: i.matched_alias,
+            duplicate: i.duplicate.map(duplicate_dto),
         })
         .collect())
 }
@@ -592,6 +595,161 @@ async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcE
 async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
     let core = core(&state)?;
     Ok(core.resolve_links(&from, &targets).into_iter().map(link_dto).collect())
+}
+
+// ---------------------------------------------------------------- MS4 slice 4A (ms4-links §4)
+
+fn mark_name(m: &tegg_core::Mark) -> String {
+    use tegg_core::Mark::*;
+    match m {
+        Strong => "strong",
+        Em => "em",
+        Code => "code",
+        Strike => "strike",
+        Highlight => "highlight",
+    }
+    .into()
+}
+
+fn target_info_dto(t: tegg_core::LinkTargetInfo) -> LinkTargetDto {
+    use tegg_core::TargetKind::*;
+    let kind = match t.kind {
+        Note => "note",
+        Daily => "daily",
+        DateMissing => "date-missing",
+        Unresolved => "unresolved",
+    };
+    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type }
+}
+
+fn excerpt_dto(e: tegg_core::Excerpt) -> ExcerptDto {
+    ExcerptDto {
+        segments: e
+            .segments
+            .into_iter()
+            .map(|g| match g {
+                tegg_core::RSeg::Text { text, marks } => ExcerptSegDto::Text { text, marks: marks.iter().map(mark_name).collect() },
+                tegg_core::RSeg::Link { text, target, here, marks } => {
+                    ExcerptSegDto::Link { text, target: target_info_dto(target), here, marks: marks.iter().map(mark_name).collect() }
+                }
+            })
+            .collect(),
+        cut_start: e.cut_start,
+        cut_end: e.cut_end,
+    }
+}
+
+fn entry_dto(e: tegg_core::BacklinkEntry) -> BacklinkEntryDto {
+    use tegg_core::OccurrenceKind::*;
+    BacklinkEntryDto {
+        source: e.source,
+        title: e.title,
+        type_key: e.type_key,
+        modified: e.modified,
+        read_only: e.read_only,
+        occurrences: e
+            .occurrences
+            .into_iter()
+            .map(|o| OccurrenceDto {
+                kind: match o.kind {
+                    Body => "body",
+                    Attribute => "attribute",
+                    Embed => "embed",
+                }
+                .into(),
+                attribute: o.attribute,
+                attribute_name: o.attribute_name,
+                at: AtDto { line: o.at.line, byte: o.at.byte },
+                excerpt: excerpt_dto(o.excerpt),
+            })
+            .collect(),
+    }
+}
+
+fn plan_dto(p: tegg_core::LinkCreatePlan) -> LinkCreatePlanDto {
+    use tegg_core::LinkCreatePlan::*;
+    match p {
+        Create { path, title, type_key, rewrite } => LinkCreatePlanDto::Create { path, title, type_key, rewrite },
+        Exists { path } => LinkCreatePlanDto::Exists { path },
+        Forbidden { .. } => LinkCreatePlanDto::Forbidden { reason: "folder".into() },
+    }
+}
+
+fn plan_from(p: LinkCreatePlanDto) -> tegg_core::LinkCreatePlan {
+    match p {
+        LinkCreatePlanDto::Create { path, title, type_key, rewrite } => tegg_core::LinkCreatePlan::Create { path, title, type_key, rewrite },
+        LinkCreatePlanDto::Exists { path } => tegg_core::LinkCreatePlan::Exists { path },
+        LinkCreatePlanDto::Forbidden { .. } => tegg_core::LinkCreatePlan::Forbidden { reason: tegg_core::CreateRefusal::Folder },
+    }
+}
+
+fn duplicate_dto(d: tegg_core::DuplicateDetails) -> DuplicateDetailsDto {
+    DuplicateDetailsDto { created: d.created, preview: d.preview, stem: d.stem }
+}
+
+/// `index_backlinks` (FR-LNK-01, -02): one query per opened note, from the index.
+#[tauri::command]
+async fn index_backlinks(state: State<'_, AppState>, path: String) -> Result<BacklinksPanelDto, IpcError> {
+    let core = core(&state)?;
+    let p = core.backlinks_panel(&path);
+    Ok(BacklinksPanelDto {
+        objects: p.objects as u32,
+        groups: p
+            .groups
+            .into_iter()
+            .map(|g| BacklinkGroupDto { type_key: g.type_key, defined: g.defined, raw: g.raw, entries: g.entries.into_iter().map(entry_dto).collect() })
+            .collect(),
+    })
+}
+
+/// `index_broken_links` (FR-LNK-04, D-284).
+#[tauri::command]
+async fn index_broken_links(state: State<'_, AppState>) -> Result<BrokenLinksDto, IpcError> {
+    let core = core(&state)?;
+    let b = core.broken_links();
+    Ok(BrokenLinksDto {
+        occurrences: b.occurrences as u32,
+        objects: b.objects as u32,
+        groups: b
+            .groups
+            .into_iter()
+            .map(|g| BrokenGroupDto { key: g.key, label: g.label, count: g.count as u32, create: plan_dto(g.create), sources: g.sources.into_iter().map(entry_dto).collect() })
+            .collect(),
+    })
+}
+
+/// `index_duplicate_titles` (FR-LNK-14, D-284, D-290).
+#[tauri::command]
+async fn index_duplicate_titles(state: State<'_, AppState>) -> Result<Vec<DuplicateGroupDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .duplicate_titles()
+        .into_iter()
+        .map(|g| DuplicateGroupDto {
+            key: g.key,
+            label: g.label,
+            objects: g
+                .objects
+                .into_iter()
+                .map(|o| DuplicateObjectDto { path: o.path, title: o.title, type_key: o.type_key, folder: o.folder, details: duplicate_dto(o.details), backlinks: o.backlinks as u32 })
+                .collect(),
+        })
+        .collect())
+}
+
+/// `link_create_plan` (FR-LNK-04, D-286…D-288): read-only, when the Create offer opens.
+#[tauri::command]
+async fn link_create_plan(state: State<'_, AppState>, from: String, target: String, relation_to: Option<Vec<String>>) -> Result<LinkCreatePlanDto, IpcError> {
+    let core = core(&state)?;
+    Ok(plan_dto(core.link_create_plan(&from, &target, relation_to.as_deref())))
+}
+
+/// `link_create` (FR-LNK-04 AC-5, AC-11): the one write of the Create offer; re-plans first.
+#[tauri::command]
+async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String) -> Result<LinkCreatedDto, IpcError> {
+    let core = core(&state)?;
+    let made = core.link_create(&from, &target, &plan_from(expect), text.as_bytes()).map_err(core_err)?;
+    Ok(LinkCreatedDto { path: made.path, rewrite: made.rewrite })
 }
 
 // ---------------------------------------------------------------- MS3 slice 3D (ms3-shell §14.3)
@@ -967,7 +1125,8 @@ pub fn run() {
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
             link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
-            type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add
+            type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
+            index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

@@ -4,7 +4,9 @@
 // are aria-hidden (the input already has the value), the chips are links; a chip takes no focus on mouse down.
 import { t } from '../../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../../ipc/types';
-import { Icon, typeIconName } from '../../shell/Icon';
+import { Icon } from '../../shell/Icon';
+import { chipIcon } from '../../links/icons';
+import { requestOffer } from '../../links/offer';
 import { nfc } from '../util';
 
 /** `path`: the note being edited (link text and resolution are relative to it, D-73). */
@@ -41,13 +43,18 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
         const info = ctx.links.get(nfc(p.target));
         const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
         const shown = p.alias ?? (ok ? info!.title ?? p.target : p.target);
-        const icon = info?.type ? typeIconName(info.type, ctx.types.find((x) => nfc(x.key) === nfc(info.type!))?.icon) : 'file';
+        const icon = chipIcon(info?.type ?? 'page');
         return (
           <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`}
             aria-description={ok ? undefined : t('link.noNote', { target: p.target })} data-link-kind={ok ? info!.kind : 'unresolved'}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ok) ctx.onOpen(info!.path!); }}>
-            {ok && <Icon name={icon} size={13} />}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (ok) ctx.onOpen(info!.path!);
+              else if (info?.kind !== 'date-missing') requestOffer({ from: ctx.path, target: p.target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
+            }}>
+            {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
             <span data-user-content>{shown}</span>
           </a>
         );

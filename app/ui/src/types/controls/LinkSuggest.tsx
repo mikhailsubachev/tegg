@@ -3,6 +3,8 @@
 // by the link text the editor writes (`linkText`), and the field's own commit rules then apply (FR-EDT-07 AC-18).
 // `Create "<query>"` makes the note with note_create and stays on this note (FR-EDT-06 AC-4).
 import { useEffect, useRef, useState } from 'react';
+import { DuplicateDetails } from '../../links/DuplicateDetails';
+import { typeNameOf } from '../../links/icons';
 import { linkText } from '@tegg/editor';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
@@ -120,6 +122,7 @@ export function useLinkSuggest({ path, value, setValue, field }: {
                   <Icon name={typeIconName(it.type)} />
                   <span data-user-content>{it.title}</span>
                   {it.matched_alias && <span className="alias" data-user-content>{it.matched_alias}</span>}
+                  {it.duplicate && <DuplicateDetails details={it.duplicate} typeName={typeNameOf(it.type)} />}
                 </>
               )}
             </div>

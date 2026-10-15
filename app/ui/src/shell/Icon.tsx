@@ -71,9 +71,10 @@ const PATHS: Record<string, string> = {
 export const TYPE_ICONS = new Set(['file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user',
   'folder', 'map', 'star', 'flag', 'bookmark', 'briefcase', 'coffee', 'globe', 'graduation-cap', 'pen-line', 'utensils', 'plane']);
 
-export function Icon({ name, size = 16 }: { name: string; size?: number }) {
+/** `dataIcon`: the `data-icon` value when it differs from the glyph (link chips name the type's icon, FR-LNK-07). */
+export function Icon({ name, size = 16, dataIcon }: { name: string; size?: number; dataIcon?: string }) {
   return (
-    <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={name}>
+    <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={dataIcon ?? name}>
       <path d={PATHS[name] ?? PATHS.dot} />
     </svg>
   );
@@ -87,7 +88,7 @@ export function routeIcon(id: string): string {
 
 /** The icon of a type: the R14 `icon` of its definition when given and known (D-236), else by key (3A). */
 /** The icon each system type's built-in definition names. */
-const SYSTEM_DEFAULT: Record<string, string> = { page: 'file-text', task: 'check-square', 'quick-note': 'zap', 'daily-note': 'calendar', tag: 'hash', image: 'image', pdf: 'file' };
+export const SYSTEM_DEFAULT: Record<string, string> = { page: 'file-text', task: 'check-square', 'quick-note': 'zap', 'daily-note': 'calendar', tag: 'hash', image: 'image', pdf: 'file' };
 
 export function typeIconName(key: string, icon?: string | null): string {
   const sys = ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key];
@@ -97,10 +98,10 @@ export function typeIconName(key: string, icon?: string | null): string {
 }
 
 /** The same icon as a DOM element, for views that aren't React (the editor's link chips). */
-export function iconElement(name: string, size = 13): SVGSVGElement {
+export function iconElement(name: string, size = 13, dataIcon?: string): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  for (const [k, v] of Object.entries({ class: 'icon', width: String(size), height: String(size), viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', 'data-icon': name })) svg.setAttribute(k, v);
+  for (const [k, v] of Object.entries({ class: 'icon', width: String(size), height: String(size), viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', 'data-icon': dataIcon ?? name })) svg.setAttribute(k, v);
   const path = document.createElementNS(ns, 'path');
   path.setAttribute('d', PATHS[name] ?? PATHS.dot);
   svg.appendChild(path);

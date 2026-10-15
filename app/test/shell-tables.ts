@@ -32,6 +32,9 @@ export const R1: R1Row[] = [
   { id: 'graph', page: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: 'Go to Graph' },
   { id: 'trash', page: 'Trash', built: false, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' },
   { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
+  // 4A (backlinks.md R16): vault checks, palette only (D-284).
+  { id: 'broken-links', page: 'Broken links', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-04', design: null, goto: 'Go to Broken links' },
+  { id: 'duplicate-titles', page: 'Duplicate titles', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-14', design: null, goto: 'Go to Duplicate titles' },
   { id: 'conflicts', page: 'Conflicts', built: true, due: d('MS3', '3C'), reqs: 'FR-SYN-04, FR-SYN-05', design: null, goto: 'Go to Conflicts' }, // built in 3C (editor.md R1)
   { id: 'capture', page: 'Quick capture', built: false, due: d('MS5'), reqs: 'FR-CAP-01…05', design: 'Home', goto: 'Go to Quick capture' },
   { id: 'settings/appearance', page: 'Settings: Appearance', built: true, due: d('MS3'), reqs: 'FR-SET-02', design: null, goto: 'Go to Settings: Appearance' },
@@ -45,7 +48,7 @@ export const R1: R1Row[] = [
 
 export type R2Row = { id: 'backlinks' | 'outline' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };
 export const R2: R2Row[] = [
-  { id: 'backlinks', tab: 'Backlinks', built: false, due: d('MS4'), reqs: 'FR-LNK-01…04' },
+  { id: 'backlinks', tab: 'Backlinks', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-01, FR-LNK-02' }, // built in 4A (backlinks.md R16, D-293)
   { id: 'outline', tab: 'Outline', built: false, due: d('MS5'), reqs: 'FR-EDT-11' },
   { id: 'graph', tab: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01' },
 ];
@@ -79,6 +82,10 @@ export const R3: R3Control[] = [
   { label: 'Editor width', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Accent color', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Type picker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05', route: null },
+  // 4A (backlinks.md R16).
+  { label: 'Type picker', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05', route: null },
+  { label: 'Merge…', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14', route: 'duplicate-titles' },
+  { label: 'Unlinked mentions', where: 'Backlinks panel', due: d('v1.x'), req: 'FR-LNK-05', route: null },
 ];
 
 /** R4. `keys` in ⌃⌥⇧⌘ order as displayed (AP-70); `press` is the Playwright chord; `command` the R4 command text
@@ -174,7 +181,7 @@ export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7',
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
 export type R5Row = { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
 export const R5: R5Row[] = [
-  { id: 'embed-note', due: d('MS4'), reqs: 'FR-EMB-01, -02, -04' },
+  { id: 'embed-note', due: d('MS4', '4F'), reqs: 'FR-EMB-01, -02, -04' },
   { id: 'embed-image', due: d('MS6'), reqs: 'FR-ATT-03, FR-ATT-07' },
   { id: 'embed-pdf', due: d('MS6'), reqs: 'FR-ATT-02' },
   { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },

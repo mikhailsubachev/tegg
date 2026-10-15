@@ -76,10 +76,14 @@ function stamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}`;
 }
 
-export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved }: {
+export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
+  /** ms4-links §5.4: the caret at the link starting there (a backlinks excerpt, FR-LNK-01 AC-6). */
+  at?: { line: number; byte: number };
+  /** ms4-links §5.4: the focus on this property's value control. */
+  attr?: string;
   restoreScroll?: number;
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
@@ -480,6 +484,25 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         return;
       }
     }
+    // FR-LNK-01 AC-6 (D-280): from a backlinks excerpt, the property or the link itself.
+    if (attr) {
+      const row = [...(root.current?.querySelectorAll<HTMLElement>('[data-key]') ?? [])].find((r) => r.dataset.key?.normalize('NFC') === attr.normalize('NFC'));
+      const ctl = row?.querySelector<HTMLElement>('input, textarea, [role="combobox"], [role="textbox"], button:not([aria-disabled="true"]), [tabindex="0"]');
+      if (ctl) {
+        row!.scrollIntoView({ block: 'nearest' });
+        ctl.focus({ preventScroll: true });
+        setFocusTarget('body');
+        return;
+      }
+    }
+    if (at && !edit) {
+      const line = root.current?.querySelector<HTMLElement>(`[data-line="${at.line}"]`);
+      if (line) line.scrollIntoView({ block: 'center' });
+    }
+    if (at && edit && pane.current?.caretAtLink(at, loaded.text)) {
+      setFocusTarget('body');
+      return;
+    }
     if (edit && pane.current?.caretToStart(fragment)) {
       setFocusTarget('body');
       // Back/Forward restore a scroll position: the caret never moves it (D-255).
@@ -728,7 +751,7 @@ function DescriptionField({ elRef, saved, onCommit, onNext, linked }: {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setValue2(saved); return; }
         if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); onNext(); }
       }} />
-    {chips && <span className="linked-overlay subtitle"><LinkedText text={saved} ctx={linked} /></span>}
+    {chips && <span className="linked-overlay subtitle"><span className="linked-line"><LinkedText text={saved} ctx={linked} /></span></span>}
     {sug.list}
     </span>
   );

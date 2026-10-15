@@ -19,7 +19,7 @@ use tegg_format::{nfc, sanitize_file_stem};
 use tegg_index::{is_indexable, prepare, Index, Prepared};
 pub use tegg_index::{
     AttrFilter, Backlink, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, QueryTier, SearchPage,
-    SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind,
+    SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
 use tegg_vault::{FsChange, WatchGuard};
@@ -59,6 +59,10 @@ pub enum CoreError {
     SystemType,
     HasObjects(usize),
     UnknownType,
+    /// ms4-links §3 (FR-LNK-04 AC-11): the Create offer's plan no longer holds; nothing was written.
+    PlanChanged { now: LinkCreatePlan },
+    /// ms4-links §3 (D-311): the target resolves now, or its file appeared; nothing was written.
+    Exists { path: String },
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -313,10 +317,11 @@ impl Core {
             let recency = lock(&self.shared.recency);
             self.index().switcher(q, &|p| recency.0.get(p).copied(), limit)
         };
+        self.add_duplicate_details(&mut items);
         let title = nfc(&q.split_whitespace().collect::<Vec<_>>().join(" "));
         if !title.is_empty() {
             let d = lock(&self.shared.default_type).clone();
-            items.push(SwitcherItem { kind: SwitcherKind::Create, path: None, title, r#type: d.key, folder: d.folder, matched_alias: None, tier: None });
+            items.push(SwitcherItem { kind: SwitcherKind::Create, path: None, title, r#type: d.key, folder: d.folder, matched_alias: None, tier: None, duplicate: None });
         }
         items
     }
@@ -886,3 +891,12 @@ impl<'a> Resolver<'a> {
 // docs/contracts/ms3-shell.md §14.2: types and attributes (`types3d.rs`).
 mod types3d;
 pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};
+
+// ------------------------------------------------------------------------------------------------ slice 4A
+// docs/contracts/ms4-links.md §3: backlinks panel, broken links, duplicate titles, create from a link (`links4a.rs`).
+mod links4a;
+pub use links4a::{
+    BacklinkEntry, BacklinkGroup, BacklinksPanel, BrokenGroup, BrokenLinks, CreateRefusal, DuplicateGroup,
+    DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,
+};
+pub use tegg_format::excerpt::{At, Excerpt, LinkTargetInfo, Mark, RSeg, TargetKind};

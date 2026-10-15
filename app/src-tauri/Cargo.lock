@@ -3639,6 +3639,7 @@ dependencies = [
  "chrono",
  "pulldown-cmark",
  "regex",
+ "serde",
  "serde_json",
  "unicode-normalization",
  "yaml-rust2",

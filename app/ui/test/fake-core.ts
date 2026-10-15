@@ -6,6 +6,7 @@ import type { Page } from '@playwright/test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
+import { handle as handleLinks } from './fake-links';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -114,6 +115,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // 3D (ms3-shell §14.8): type-file commands run in Node (fake-schema.ts) over a snapshot of the in-page files.
   await page.exposeFunction('__teggTypes', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleTypes(cmd, args, files, vers as any)).catch(() => {});
+  // 4A (ms4-links §6): link commands in Node with the real @tegg/doc extraction and excerpt window.
+  await page.exposeFunction('__teggLinks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
+    handleLinks(cmd, args, files, vers as any)).catch(() => {});
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
@@ -152,6 +156,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'index_tags', 'index_conflicts', // 3C: read-only (ms3-shell §13.2)
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
+    'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -286,12 +291,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     }
     return v;
   };
-  const viaNode = (cmd: string) => async (a: any) => {
+  const viaNode = (cmd: string, fn = '__teggTypes') => async (a: any) => {
     if (!state.vault) throw err('NoVault', 'fake: no vault');
+    if (fn === '__teggLinks' && cmd === 'link_create' && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
     for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
-    const r = await w.__teggTypes(cmd, a ?? {}, files, vers);
+    const r = await w[fn](cmd, a ?? {}, files, vers);
     if (r.writes) {
       const paths: string[] = [];
       for (const [p, t] of Object.entries(r.writes as Record<string, string | null>)) {
@@ -352,6 +358,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     index_type_rows: viaNode('index_type_rows'),
     starter_plan: viaNode('starter_plan'),
     starter_add: viaNode('starter_add'),
+    // 4A (ms4-links §4, §6).
+    index_backlinks: viaNode('index_backlinks', '__teggLinks'),
+    backlinks: viaNode('backlinks', '__teggLinks'),
+    index_broken_links: viaNode('index_broken_links', '__teggLinks'),
+    index_duplicate_titles: viaNode('index_duplicate_titles', '__teggLinks'),
+    link_create_plan: viaNode('link_create_plan', '__teggLinks'),
+    link_create: viaNode('link_create', '__teggLinks'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
@@ -435,7 +448,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         .map((y) => y.x)
         .slice(0, a.limit ?? 30);
       if (raw) { const dt = defaultType() as any; items.push({ kind: 'create', path: null, title: raw, type: dt.key, folder: dt.folder, matched_alias: null }); }
-      return items;
+      return viaNode('switcher_duplicates', '__teggLinks')({ items }); // 4A: `duplicate` details (D-289)
     },
     note_read: (a) => {
       const p = String(a.path).normalize('NFC');
@@ -578,6 +591,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);
         if (cut >= 0) t = t.slice(0, cut).trim();
+        // D-162: a date is a Daily Note link first.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+          const daily = objs.find((o) => o.type === 'daily-note' && (front(state.vault!.files[o.path]).date === t || o.path.split('/').pop() === `${t}.md`));
+          if (daily) return { target: given, kind: 'daily', path: daily.path, title: daily.title, type: daily.type };
+          return { target: given, kind: 'date-missing', path: null, title: null, type: null };
+        }
         const k = low(t);
         const kmd = k.endsWith('.md') ? k : `${k}.md`;
         let hit = objs.find((o) => low(o.path) === kmd)

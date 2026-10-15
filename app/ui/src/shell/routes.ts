@@ -3,7 +3,12 @@
 import { ROUTES } from './registry';
 
 /** `fragment`: a note subpath `<heading>` or `^<block id>` (ms3-shell §11.2, D-140). */
-export type Route = { id: string; param?: string; fragment?: string };
+export type Route = {
+  id: string; param?: string; fragment?: string;
+  /** ms4-links §5.4: open a note with the caret at a link (`?at=<line>:<byte>`, ms3-shell §15.2) or with the focus on a
+   *  property's value control (`?attr=<key>`); not part of the route string, so Back/Forward compare notes only. */
+  at?: { line: number; byte: number }; attr?: string;
+};
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note'];
 

@@ -83,6 +83,8 @@ pub struct SwitcherItemDto {
     pub matched_alias: Option<String>,
     /// `created:` of the object, for telling duplicate titles apart in link suggestions (D-203).
     pub created: Option<String>,
+    /// FR-LNK-14 AC-6 (D-289): set when another object shares the title.
+    pub duplicate: Option<DuplicateDetailsDto>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -188,6 +190,14 @@ pub struct IpcError {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub disk: Option<Box<TypeDto>>,
+    /// With `Exists` from `link_create` (ms4-links §4): the note the target resolves to now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub path: Option<String>,
+    /// With `PlanChanged` from `link_create`: the plan as the core makes it now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub now: Option<Box<LinkCreatePlanDto>>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
@@ -453,6 +463,139 @@ pub struct LinkTargetDto {
     pub type_key: Option<String>,
 }
 
+// ---------------------------------------------------------------- MS4 slice 4A (ms4-links §4)
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct AtDto {
+    pub line: u32,
+    pub byte: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+#[ts(tag = "kind", rename_all = "lowercase")]
+pub enum ExcerptSegDto {
+    Text { text: String, marks: Vec<String> },
+    Link { text: String, target: LinkTargetDto, here: bool, marks: Vec<String> },
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct ExcerptDto {
+    pub segments: Vec<ExcerptSegDto>,
+    pub cut_start: bool,
+    pub cut_end: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct OccurrenceDto {
+    /// `body`, `attribute` or `embed`.
+    pub kind: String,
+    pub attribute: Option<String>,
+    pub attribute_name: Option<String>,
+    pub at: AtDto,
+    pub excerpt: ExcerptDto,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct BacklinkEntryDto {
+    pub source: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub modified: Option<String>,
+    pub read_only: bool,
+    pub occurrences: Vec<OccurrenceDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BacklinkGroupDto {
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub defined: bool,
+    pub raw: String,
+    pub entries: Vec<BacklinkEntryDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BacklinksPanelDto {
+    pub objects: u32,
+    pub groups: Vec<BacklinkGroupDto>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "state", rename_all = "lowercase")]
+#[ts(tag = "state", rename_all = "lowercase")]
+pub enum LinkCreatePlanDto {
+    Create {
+        path: String,
+        title: String,
+        #[serde(rename = "type")]
+        #[ts(rename = "type")]
+        type_key: String,
+        rewrite: Option<String>,
+    },
+    Exists { path: String },
+    /// `folder`.
+    Forbidden { reason: String },
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BrokenGroupDto {
+    pub key: String,
+    pub label: String,
+    pub count: u32,
+    pub create: LinkCreatePlanDto,
+    pub sources: Vec<BacklinkEntryDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BrokenLinksDto {
+    pub occurrences: u32,
+    pub objects: u32,
+    pub groups: Vec<BrokenGroupDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DuplicateDetailsDto {
+    pub created: Option<String>,
+    #[ts(type = "Array<[string, unknown]>")]
+    pub preview: Vec<(String, serde_json::Value)>,
+    pub stem: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DuplicateObjectDto {
+    pub path: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub folder: String,
+    pub details: DuplicateDetailsDto,
+    pub backlinks: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DuplicateGroupDto {
+    pub key: String,
+    pub label: String,
+    pub objects: Vec<DuplicateObjectDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct LinkCreatedDto {
+    pub path: String,
+    pub rewrite: Option<String>,
+}
+
 fn yes() -> bool {
     true
 }
@@ -501,6 +644,20 @@ pub fn typescript() -> String {
         TypeSortDto::decl(),
         UiStateDto::decl(),
         LinkTargetDto::decl(),
+        AtDto::decl(),
+        ExcerptSegDto::decl(),
+        ExcerptDto::decl(),
+        OccurrenceDto::decl(),
+        BacklinkEntryDto::decl(),
+        BacklinkGroupDto::decl(),
+        BacklinksPanelDto::decl(),
+        LinkCreatePlanDto::decl(),
+        BrokenGroupDto::decl(),
+        BrokenLinksDto::decl(),
+        DuplicateDetailsDto::decl(),
+        DuplicateObjectDto::decl(),
+        DuplicateGroupDto::decl(),
+        LinkCreatedDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

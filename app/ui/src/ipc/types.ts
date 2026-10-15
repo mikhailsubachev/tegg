@@ -39,7 +39,11 @@ kind: string, path: string | null, title: string, type: string, folder: string, 
 /**
  * `created:` of the object, for telling duplicate titles apart in link suggestions (D-203).
  */
-created: string | null, };
+created: string | null, 
+/**
+ * FR-LNK-14 AC-6 (D-289): set when another object shares the title.
+ */
+duplicate: DuplicateDetailsDto | null, };
 export type NoteDto = { path: string, 
 /**
  * Decoded with U+FFFD for invalid bytes, for display only (D-180).
@@ -103,7 +107,15 @@ count?: number,
 /**
  * With `Conflict` from `type_patch` / `type_delete`: the type as on disk now.
  */
-disk?: TypeDto, };
+disk?: TypeDto, 
+/**
+ * With `Exists` from `link_create` (ms4-links §4): the note the target resolves to now.
+ */
+path?: string, 
+/**
+ * With `PlanChanged` from `link_create`: the plan as the core makes it now.
+ */
+now?: LinkCreatePlanDto, };
 export type TypeDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, 
 /**
  * False: a system type with built-in defaults, no file (D-90).
@@ -183,4 +195,22 @@ export type LinkTargetDto = { target: string,
  * `note`, `daily`, `date-missing` or `unresolved`.
  */
 kind: string, path: string | null, title: string | null, type: string | null, };
+export type AtDto = { line: number, byte: number, };
+export type ExcerptSegDto = { "kind": "text", text: string, marks: Array<string>, } | { "kind": "link", text: string, target: LinkTargetDto, here: boolean, marks: Array<string>, };
+export type ExcerptDto = { segments: Array<ExcerptSegDto>, cutStart: boolean, cutEnd: boolean, };
+export type OccurrenceDto = { 
+/**
+ * `body`, `attribute` or `embed`.
+ */
+kind: string, attribute: string | null, attributeName: string | null, at: AtDto, excerpt: ExcerptDto, };
+export type BacklinkEntryDto = { source: string, title: string, type: string, modified: string | null, readOnly: boolean, occurrences: Array<OccurrenceDto>, };
+export type BacklinkGroupDto = { type: string, defined: boolean, raw: string, entries: Array<BacklinkEntryDto>, };
+export type BacklinksPanelDto = { objects: number, groups: Array<BacklinkGroupDto>, };
+export type LinkCreatePlanDto = { "state": "create", path: string, title: string, type: string, rewrite: string | null, } | { "state": "exists", path: string, } | { "state": "forbidden", reason: string, };
+export type BrokenGroupDto = { key: string, label: string, count: number, create: LinkCreatePlanDto, sources: Array<BacklinkEntryDto>, };
+export type BrokenLinksDto = { occurrences: number, objects: number, groups: Array<BrokenGroupDto>, };
+export type DuplicateDetailsDto = { created: string | null, preview: Array<[string, unknown]>, stem: string | null, };
+export type DuplicateObjectDto = { path: string, title: string, type: string, folder: string, details: DuplicateDetailsDto, backlinks: number, };
+export type DuplicateGroupDto = { key: string, label: string, objects: Array<DuplicateObjectDto>, };
+export type LinkCreatedDto = { path: string, rewrite: string | null, };
 export type TypeDefDto = TypeDto;

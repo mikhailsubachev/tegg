@@ -178,6 +178,7 @@ test('fr_ux_02_ac7_right_panel_toggle_tabs_and_placeholders', async ({ page }) =
     assert.deepEqual(tabs.map((t) => t.trim()), R2.map((t) => t.tab), 'R2 tabs in order');
     for (const t of R2) {
       await panel(page).getByRole('tab', { name: t.tab }).click();
+      if (t.built) { await must(panel(page).getByRole('tabpanel', { name: t.tab }), `${t.tab} panel`); continue; } // built in 4A (D-293)
       const region = panel(page).getByRole('region', { name: t.tab });
       await must(region, `${t.tab} placeholder in the panel`);
       assert.match(await region.innerText(), new RegExp(`Coming in ${showDue(t.due).replace(/[.()]/g, '\\$&')}`));

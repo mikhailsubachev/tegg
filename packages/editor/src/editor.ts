@@ -77,6 +77,8 @@ export interface TeggEditor {
     toggleChecklist(): boolean
     insertLink(target: LinkChoice): boolean
     insertTag(spelling: string): boolean
+    /** ms4-links §5.3 (D-299): replaces the wikilink node at `pos` with `[[linkText]]` (no brackets given) as one step. */
+    replaceLink(pos: number, linkText: string): boolean
     setUrlLink(href: string): boolean
     removeLink(): boolean
     pasteText(text: string, plain?: boolean): boolean
@@ -532,6 +534,14 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       const tr = editor.state.tr.replaceWith(from, to, node)
       tr.setSelection(TextSelection.near(tr.doc.resolve(from + node.nodeSize)))
       dispatch(tr.scrollIntoView())
+      return true
+    },
+    replaceLink(pos, text) {
+      const node = editor.state.doc.nodeAt(pos)
+      if (!node || node.type.name !== 'wikiLink') return false
+      const value = text.replace(/^\[\[|\]\]$/g, '').normalize('NFC')
+      const next = editor.schema.nodes.wikiLink.create({ value, embed: !!node.attrs.embed })
+      dispatch(editor.state.tr.replaceWith(pos, pos + node.nodeSize, next))
       return true
     },
     insertTag(spelling) {

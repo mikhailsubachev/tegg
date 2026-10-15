@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { DuplicateDetails } from './links/DuplicateDetails';
+import { typeNameOf } from './links/icons';
 import { ipc } from './ipc/client';
 import type { SwitcherItemDto } from './ipc/types';
 import { typeIcon } from './icons';
@@ -95,7 +97,7 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               <span className="icon">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>
               <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>
               {i.matched_alias && <span className="alias" data-user-content>{i.matched_alias}</span>}
-              <span className="folder" data-user-content>{i.folder}</span>
+              {i.duplicate ? <DuplicateDetails details={i.duplicate} typeName={typeNameOf(i.type)} /> : <span className="folder" data-user-content>{i.folder}</span>}
             </li>
           ))}
         </ul>

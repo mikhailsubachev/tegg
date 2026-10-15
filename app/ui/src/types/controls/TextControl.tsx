@@ -111,13 +111,13 @@ export function TextControl({ kind, name, desc, raw, invalid, disabled, onValue,
     },
   };
   return (
-    <span className={`field-wrap ${linked ? 'linkable' : ''}`}>
+    <span className={`field-wrap ${linked ? 'linkable' : ''}`} {...(chips ? { role: 'group', 'aria-label': name } : {})}>
       {kind === 'long-text'
         ? <textarea {...common} aria-multiline="true" rows={Math.min(8, Math.max(1, f.value.split('\n').length))} />
         : <input {...common} type="text" inputMode={kind === 'number' ? 'decimal' : kind === 'url' ? 'url' : kind === 'email' ? 'email' : undefined} />}
       {chips && (
         <span className={`linked-overlay ${kind === 'long-text' ? 'multi' : ''}`}>
-          <LinkedText text={saved} ctx={linked!} />
+          <span className="linked-line"><LinkedText text={saved} ctx={linked!} /></span>
         </span>
       )}
       {linked && sug.list}

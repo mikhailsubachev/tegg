@@ -5,7 +5,8 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
-  AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto,
+  AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
+  LinkCreatePlanDto, LinkCreatedDto,
 } from './types';
 
 export const ipc = {
@@ -51,6 +52,12 @@ export const ipc = {
   typeRows: (type: string) => invoke<TypeRowDto[]>('index_type_rows', { type }),
   starterPlan: () => invoke<StarterPlanDto>('starter_plan'),
   starterAdd: () => invoke<StarterPlanDto>('starter_add'),
+  // 4A (ms4-links §4).
+  backlinks: (path: string) => invoke<BacklinksPanelDto>('index_backlinks', { path }),
+  brokenLinks: () => invoke<BrokenLinksDto>('index_broken_links'),
+  duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
+  linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),
+  linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text }),
 };
 
 export const events = {

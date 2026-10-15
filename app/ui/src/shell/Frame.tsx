@@ -6,10 +6,11 @@ import { vaultColor } from './vaultColor';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { ProgressDto, RecentVaultDto, VaultInfo } from '../ipc/types';
+import type { ProgressDto, RecentVaultDto, TypeDefDto, VaultInfo } from '../ipc/types';
 import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
+import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { PANEL_TABS, SHORTCUTS } from './registry';
 
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
@@ -276,8 +277,13 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   );
 }
 
-export function ContextPanel({ tab, onTab }: { tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void }) {
+export function ContextPanel({ tab, onTab, backlinks }: {
+  tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void;
+  /** 4A: the Backlinks tab's content (FR-LNK-01). */
+  backlinks?: { path: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
+}) {
   const current = PANEL_TABS.find((p) => p.id === tab) ?? PANEL_TABS[0];
+  const [count, setCount] = useState(0);
   return (
     <aside className="context-panel" aria-label={t('frame.contextPanel')}>
       <div className="panel-tabs" role="tablist">
@@ -287,15 +293,28 @@ export function ContextPanel({ tab, onTab }: { tab: string; onTab: (t: 'backlink
             type="button"
             role="tab"
             aria-selected={p.id === current.id}
+            aria-label={t(p.name)}
+            aria-description={p.id === 'backlinks' && count > 0 ? t('backlinks.count', { count }) : undefined}
             className={p.id === current.id ? 'on' : ''}
             data-command={`panel.${p.id}`}
             onClick={(e) => { e.currentTarget.focus(); onTab(p.id); }}
           >
             {t(p.name)}
+            {p.id === 'backlinks' && count > 0 && <span className="tab-badge"> {t('backlinks.badge', { count })}</span>}
           </button>
         ))}
       </div>
-      <Placeholder def={current} compact />
+      {current.id === 'backlinks' && current.status.built && backlinks
+        ? <BacklinksPanel key="backlinks" {...backlinks} onCount={setCount} />
+        : <Placeholder def={current} compact />}
+      {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} refresh={backlinks.refresh} onCount={setCount} />}
     </aside>
   );
+}
+
+/** Keeps the Backlinks badge current while another tab is shown. */
+function BadgeCount({ path, refresh, onCount }: { path: string; refresh: number; onCount: (n: number) => void }) {
+  const n = useBacklinkCount(path, refresh);
+  useEffect(() => onCount(n), [n]);
+  return null;
 }

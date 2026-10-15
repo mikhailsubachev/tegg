@@ -4,7 +4,7 @@
 import { en } from '../i18n/catalog';
 
 export type Milestone = 'MS3' | 'MS4' | 'MS5' | 'MS6' | 'MS7' | 'MS8' | 'v1.0' | 'v1.x';
-export type Slice = '3A' | '3B' | '3C' | '3D' | '3E';
+export type Slice = '3A' | '3B' | '3C' | '3D' | '3E' | '4A' | '4B' | '4C' | '4D' | '4E' | '4F'; // D-292: MS4 slices too
 export type Due = { milestone: Milestone; slice?: Slice };
 
 export type RouteDef = {
@@ -30,7 +30,7 @@ const built = { built: true } as const;
 const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, due: slice ? { milestone, slice } : { milestone } });
 
 export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
-  { id: 'embed-note', name: 'ph.embedNote', due: { milestone: 'MS4' }, reqs: ['FR-EMB-01', '-02', '-04'] },
+  { id: 'embed-note', name: 'ph.embedNote', due: { milestone: 'MS4', slice: '4F' }, reqs: ['FR-EMB-01', '-02', '-04'] },
   { id: 'embed-image', name: 'ph.embedImage', due: { milestone: 'MS6' }, reqs: ['FR-ATT-03', 'FR-ATT-07'] },
   { id: 'embed-pdf', name: 'ph.embedPdf', due: { milestone: 'MS6' }, reqs: ['FR-ATT-02'] },
   { id: 'embed-other', name: 'ph.embedOther', due: { milestone: 'MS6' }, reqs: ['FR-ATT-07'] },
@@ -54,6 +54,9 @@ export const ROUTES: RouteDef[] = [
   { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: tbd('MS6'), reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null },
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
+  // 4A (backlinks.md R16): vault checks, reached from the palette only (D-284).
+  { id: 'broken-links', name: 'route.brokenLinks', purpose: 'purpose.brokenLinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-04'], design: null },
+  { id: 'duplicate-titles', name: 'route.duplicateTitles', purpose: 'purpose.duplicateTitles', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-14'], design: null },
   { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: built, reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
   { id: 'capture', name: 'route.capture', purpose: 'purpose.capture', status: tbd('MS5'), reqs: ['FR-CAP-01…05'], design: 'Home' },
   { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: null },
@@ -66,7 +69,7 @@ export const ROUTES: RouteDef[] = [
 ];
 
 export const PANEL_TABS: TabDef[] = [
-  { id: 'backlinks', name: 'tab.backlinks', status: tbd('MS4'), reqs: ['FR-LNK-01…04'] },
+  { id: 'backlinks', name: 'tab.backlinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-01', 'FR-LNK-02'] }, // built in 4A (D-293)
   { id: 'outline', name: 'tab.outline', status: tbd('MS5'), reqs: ['FR-EDT-11'] },
   { id: 'graph', name: 'tab.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01'] },
 ];
@@ -98,6 +101,10 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.typePicker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05' },
+  // 4A (backlinks.md R16).
+  { label: 'ctl.typePickerLink', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05' },
+  { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },
+  { label: 'backlinks.unlinked', where: 'Backlinks panel', due: d('v1.x'), req: 'FR-LNK-05' },
 ];
 
 export const SHORTCUTS: ShortcutDef[] = [
