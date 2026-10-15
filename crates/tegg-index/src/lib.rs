@@ -22,7 +22,7 @@ pub use text::fold;
 use text::{contains_item, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 2; // 2: matched type key, `type_raw`, `type_single` (3D, D-239)
+const SCHEMA_VERSION: i64 = 3; // 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
 
@@ -117,6 +117,13 @@ pub enum MatchField {
     Alias,
     Attribute,
     Body,
+}
+
+/// A link to a note, from `source`, in frontmatter key `attribute` (None for the body) (D-257).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Backlink {
+    pub source: String,
+    pub attribute: Option<String>,
 }
 
 /// D-253: how an unquoted multi-word query matched; a single-word query is always `Phrase`.
@@ -226,6 +233,9 @@ struct Stored {
     tag_spellings: Vec<String>,
     attributes: Value,
     links: Vec<String>,
+    /// The frontmatter key of each link, aligned with `links`; None for body links (D-257).
+    #[serde(default)]
+    link_attrs: Vec<Option<String>>,
     body_start: usize,
     body_line: usize,
 }
@@ -445,6 +455,7 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         tags: ex.tags,
         tag_spellings: ex.tag_spellings,
         attributes,
+        link_attrs: ex.links.iter().map(|l| l.attribute.clone()).collect(),
         links: ex.links.into_iter().map(|l| l.target).collect(),
         body_start,
         body_line,
@@ -954,6 +965,25 @@ impl Index {
     pub fn backlinks(&self, path: &str) -> Vec<String> {
         let path = self.meta(path).map(|m| m.path.clone()).unwrap_or_else(|| path.to_string());
         self.with_links(|l| l.backlinks.get(&path).map(|s| s.iter().cloned().collect()).unwrap_or_default())
+    }
+
+    /// FR-LNK-02 (D-257): each note linking to `path`, once per link, with the frontmatter key the link is in
+    /// (None for the body), sorted by source path.
+    pub fn backlinks_detailed(&self, path: &str) -> Vec<Backlink> {
+        let path = self.meta(path).map(|m| m.path.clone()).unwrap_or_else(|| path.to_string());
+        let mut out: Vec<Backlink> = self.with_links(|l| {
+            let mut v = Vec::new();
+            for m in self.metas.values().filter(|m| m.path != path) {
+                for (i, t) in m.s.links.iter().enumerate() {
+                    if resolve(l, t).as_deref() == Some(path.as_str()) {
+                        v.push(Backlink { source: m.path.clone(), attribute: m.s.link_attrs.get(i).cloned().flatten() });
+                    }
+                }
+            }
+            v
+        });
+        out.sort_by(|a, b| (&a.source, &a.attribute).cmp(&(&b.source, &b.attribute)));
+        out
     }
 
     /// FR-FMT-09 AC-2: daily notes are recognized by their `date` attribute, whatever the file name.

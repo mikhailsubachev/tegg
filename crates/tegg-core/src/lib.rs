@@ -18,7 +18,7 @@ use chrono::NaiveDate;
 use tegg_format::{nfc, sanitize_file_stem};
 use tegg_index::{is_indexable, prepare, Index, Prepared};
 pub use tegg_index::{
-    AttrFilter, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, QueryTier, SearchPage,
+    AttrFilter, Backlink, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, QueryTier, SearchPage,
     SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
@@ -331,6 +331,11 @@ impl Core {
 
     pub fn backlinks(&self, path: &str) -> Vec<String> {
         self.index().backlinks(path)
+    }
+
+    /// FR-LNK-02 (D-257, ms3-shell §15.4): backlinks with the frontmatter key each link is in.
+    pub fn backlinks_detailed(&self, path: &str) -> Vec<Backlink> {
+        self.index().backlinks_detailed(path)
     }
 
     pub fn resolve_link(&self, target: &str) -> Option<String> {
