@@ -361,8 +361,10 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
   const bad = await page.evaluate(() => {
     const out: string[] = [];
     const w = window as any;
-    for (const [, r] of w.__focusLog as Map<Element, { on?: string; off?: string; label: string }>) {
+    for (const [el, r] of w.__focusLog as Map<Element, { on?: string; off?: string; label: string }>) {
       if (!r.on || !r.off) continue;
+      // D-266: the note body, title, description and property fields show their caret instead of a ring.
+      if (el.matches('.ProseMirror, .title-field, .note-subtitle-field, .pfield')) continue;
       const [style, width, , shadow] = JSON.parse(r.on) as string[];
       const outline = style !== 'none' && parseFloat(width) >= 2;
       const ring = shadow !== 'none' && (shadow.match(/(-?\d+(?:\.\d+)?)px/g) ?? []).map(parseFloat).some((v, i) => i >= 2 && v >= 2);
