@@ -141,8 +141,8 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .search li .result { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 8px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 12px; border-radius: 8px; color: var(--text); text-decoration: none; }
 .search li .result:hover, .search li .result:focus-visible { background: var(--row); }
 .search .count { padding: 0 12px; }
-.search .count, .search .typo, .search .snippet { color: var(--muted); font-size: 13px; }
-.search .snippet { flex-basis: 100%; }
+.search .count, .search .typo, .search .snippet, .search .file-name { color: var(--muted); font-size: 13px; }
+.search .snippet, .search .file-name { flex-basis: 100%; }
 mark { background: var(--accent-bg); color: var(--text); }
 
 /* banners */
@@ -266,7 +266,9 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 /* Editor (slice 3C): the body is @tegg/editor; it looks like the read view (FR-EDT-02 AC-16). */
 .editor-wrap { position: relative; padding-left: 52px; margin-left: -52px; }
 .editor-host .ProseMirror { font-size: 16px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; outline: none; min-height: 40vh; white-space: pre-wrap; padding-bottom: 30vh; caret-color: var(--text); }
-.editor-host .ProseMirror:focus-visible { outline: none; }
+.editor-host .ProseMirror:focus { outline: none; }
+/* D-264: the body has the caret on open (D-247); keyboard focus shows a ring (FR-UX-03 AC-10), a click doesn't. */
+.editor-host .ProseMirror:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: 4px; }
 .editor-host .ProseMirror > * { position: relative; }
 .editor-host .ProseMirror h1 { font-size: 30px; line-height: 1.25; margin: 1.2em 0 0.4em; }
 .editor-host .ProseMirror h2 { font-size: 24px; line-height: 1.3; margin: 1.4em 0 0.4em; }
@@ -393,6 +395,16 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 input.pfield { width: 260px; }
 input.pfield.time { width: 70px; }
 .date-field input.pfield, .date-range input.pfield, .date-time input.pfield:not(.time) { width: 130px; }
+/* Text with links out of edit mode (D-257): the input's text is hidden and the value is drawn over it with chips;
+   only the chips take the pointer, so a click beside them edits the field. */
+.field-wrap.linkable { position: relative; display: flex; flex: 1 1 auto; }
+.field-wrap.linkable > input.pfield { width: 100%; min-width: 260px; }
+.subtitle-wrap { position: relative; display: block; }
+.chips-shown { color: transparent !important; }
+.linked-overlay { position: absolute; inset: 0 0 0 0; display: flex; align-items: center; gap: 0; padding: 0 7px; overflow: hidden; white-space: pre; pointer-events: none; font-size: 14px; color: var(--text); }
+.linked-overlay.multi { align-items: flex-start; padding: 5px 7px; white-space: pre-wrap; }
+.linked-overlay.subtitle { padding: 2px 0; font-size: 15px; bottom: 8px; }
+.linked-overlay .link-chip { pointer-events: auto; margin: 0 2px; }
 textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px; resize: vertical; font: inherit; }
 .pfield.select { display: inline-flex; align-items: center; gap: 6px; min-width: 120px; border-color: var(--border); }
 .pfield.select .muted, .muted { color: var(--muted); }
@@ -511,3 +523,9 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .starter-dialog ul { max-height: none; }
 .type-table th[aria-sort='ascending']::after { content: ' ↑'; }
 .type-table th[aria-sort='descending']::after { content: ' ↓'; }
+/* Columns menu on the type page (D-252): a check column, then the property name. */
+.menu-check { display: inline-flex; width: 14px; justify-content: center; }
+.menu-note { padding: 4px 8px; font-size: 12px; max-width: 280px; }
+.type-notice { color: var(--muted); font-size: 13px; margin: 4px 0; }
+/* `[[` / `@` link list under a text property field (D-250, D-258). */
+.field-suggestions { position: absolute; top: 100%; left: 0; z-index: 30; margin-top: 2px; min-width: 260px; }

@@ -2,7 +2,7 @@
 // (FR-EDT-01, FR-EDT-08), the title is editable (D-173), external changes reload a clean note and open the merge
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
-import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
+import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { parse, setValue } from '@tegg/doc';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
@@ -18,7 +18,9 @@ import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
 import { pluralOf } from '../shell/types';
-import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
+import { AttributePanel, useLinks, type Commit, type PanelApi } from '../types/AttributePanel';
+import { hasLinks, LinkedText, type LinkContext } from '../types/controls/LinkedText';
+import { useLinkSuggest } from '../types/controls/LinkSuggest';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { pageFallback, typeOfValue } from '../types/util';
 
@@ -61,6 +63,9 @@ export type NotePageApi = {
   /** 3D (R13): the `Change type` menu and `Edit properties`. */
   changeType: () => void;
   editProperties: () => void;
+  /** D-247, D-255: put the focus where an opened note wants it (after navigation; App calls it instead of focusing
+   *  the heading): a new note's title, else the start of the first editable body block, else the heading (D-130). */
+  placeFocus: () => void;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
@@ -92,7 +97,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   onRestored?: () => void;
   knownId?: string;
   onId?: (id: string) => void;
-  /** A note just created with New object: the caret goes into the empty body (AP-135). */
+  /** A note just created (⌘N, switcher Create, `New <Type>`): the title is in edit mode (D-247, D-255). */
   created?: boolean;
   /** 3D: Other properties expanded (machine-local UI state, FR-EDT-07 AC-2). */
   otherOpen?: boolean;
@@ -110,6 +115,13 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const [title, setTitle] = useState<string>('');
   const [diskText, setDiskText] = useState<string>('');
   const root = useRef<HTMLDivElement | null>(null);
+  // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
+  const [focusTarget, setFocusTarget] = useState<'body' | 'title' | 'heading' | null>(null);
+  const wantFocus = useRef(false);
+  const editorReady = useRef(false);
+  const placeFocus = useRef<() => void>(() => {});
+  const createdAtOpen = useRef(!!created);
+  const titleId = useId();
   const pane = useRef<EditorPaneApi | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
   const saver = useRef<Saver | null>(null);
@@ -118,6 +130,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   live.current = { path, loaded, merge, deleted };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
+  const descLinks = useLinks(path, head); // D-257: link chips in the description
   const panelApi = useRef<PanelApi | null>(null);
   const chipApi = useRef<TypeChipApi | null>(null);
   const descField = useRef<HTMLInputElement | null>(null);
@@ -207,6 +220,10 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
     syncHead();
+    requestAnimationFrame(() => {
+      placeFocus.current(); // D-247: the caret goes in once the editor is ready
+      void ipc.perfMark('note-ready').catch(() => {}); // NFR-PERF-05 AC-4: mounted, editable, caret placed
+    });
   }, [path]);
 
   /** A committed panel edit (FR-EDT-07 AC-4, D-240): the next note text from @tegg/doc, one undo step, autosaved. */
@@ -246,6 +263,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       if (!propertiesOpen) { onToggleProperties(); setTimeout(() => panelApi.current?.focusFirst(), 0); }
       else panelApi.current?.focusFirst();
     },
+    placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
   }), [flush, propertiesOpen, onToggleProperties]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
@@ -434,11 +452,47 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
       const main = root.current?.closest('main');
       if (restoreScroll !== undefined && main) main.scrollTop = restoreScroll;
       else if (fragment) scrollToFragment(root.current, fragment);
-      if (created && loaded.mode === 'edit') requestAnimationFrame(() => { if (!document.querySelector('[role="dialog"]')) pane.current?.focus(); });
       onRestored?.();
-      void ipc.perfMark('note-ready').catch(() => {});
+      placeFocus.current();
+      // NFR-PERF-05 AC-4 (D-247): an editable note is ready once the editor is mounted and the caret placed (onEditor).
+      if (loaded.mode !== 'edit') void ipc.perfMark('note-ready').catch(() => {});
     });
   }, [loaded, fragment, path]);
+
+  placeFocus.current = () => {
+    if (!wantFocus.current || !loaded) return;
+    if (document.querySelector('[role="dialog"]')) { wantFocus.current = false; return; }
+    const edit = loaded.mode === 'edit' && !showSource;
+    if (edit && !edRef.current) return; // again when the editor is ready
+    wantFocus.current = false;
+    if (edit && createdAtOpen.current) {
+      // A new note: the title in edit mode, caret at its end, nothing selected (D-255).
+      const el = heading.current;
+      if (el) {
+        el.focus({ preventScroll: true });
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(r);
+        setFocusTarget('title');
+        return;
+      }
+    }
+    if (edit && pane.current?.caretToStart(fragment)) {
+      setFocusTarget('body');
+      // Back/Forward restore a scroll position: the caret never moves it (D-255).
+      const main = root.current?.closest('main');
+      if (restoreScroll !== undefined && main) {
+        main.scrollTop = restoreScroll;
+        requestAnimationFrame(() => { main.scrollTop = restoreScroll; });
+      }
+      return;
+    }
+    heading.current?.focus({ preventScroll: true });
+    setFocusTarget('heading');
+  };
 
   if (gone) {
     return (
@@ -466,7 +520,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
   const descSaved = typeof (fmData as Record<string, unknown>).description === 'string' ? String((fmData as Record<string, unknown>).description) : '';
 
   return (
-    <div ref={root} className="note-root">
+    <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined}>
       {!focusMode && (
         <div className="note-toolbar" role="toolbar" aria-label={t('note.toolbar')}>
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
@@ -506,6 +560,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         {editable && !showSource ? (
           <h1 className="note-title">
             <TitleField
+              id={titleId}
               elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
               value={title}
               label={t('editor.title')}
@@ -555,7 +610,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
         )}
         {editable && (
           <div hidden={showSource}>
-            <DescriptionField elRef={descField} saved={descSaved}
+            <DescriptionField elRef={descField} saved={descSaved} linked={{ links: descLinks, types: types as never, onOpen: (p) => onOpen(p), path }}
               onCommit={(v) => commit((d) => setValue(d, 'description', v.trim() === '' ? null : v))}
               onNext={() => (propertiesOpen ? panelApi.current?.focusFirst() : pane.current?.focus())} />
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
@@ -571,7 +626,7 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
               labelBody={t('editor.body')}
               onReady={onEditor}
               onSaveNow={() => void flush()}
-              autoFocus={created}
+              describedBy={titleId}
               onChange={() => { saver.current?.changed(); syncHead(); }}
               onOpen={onOpen}
               onTag={onTag}
@@ -593,7 +648,8 @@ export function NotePage({ apiRef, path, fragment, restoreScroll, types, heading
 
 /** The title as editable plain text (FR-EDT-01 AC-10, D-173): it is what the page heading shows, gets the focus after
  *  navigation (D-130) and writes only `title:` (the file name changes with renames in MS4). ⏎, ↓ and Tab go to the body. */
-function TitleField({ elRef, value, label, onChange, onLeave, onDown, onTab }: {
+function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab }: {
+  id?: string;
   elRef: (el: HTMLElement | null) => void;
   value: string;
   label: string;
@@ -611,7 +667,7 @@ function TitleField({ elRef, value, label, onChange, onLeave, onDown, onTab }: {
   return (
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
-      role="textbox" aria-label={label} aria-level={1} tabIndex={-1} className="title-field" data-user-content
+      id={id} role="textbox" aria-label={label} aria-level={1} tabIndex={-1} className="title-field" data-user-content
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onBlur={onLeave}
@@ -630,9 +686,11 @@ function TitleField({ elRef, value, label, onChange, onLeave, onDown, onTab }: {
 
 /** The description subtitle (FR-TYP-08 AC-7): one line, placeholder `Add a description`; ⏎ or leaving it commits,
  *  pasted line breaks become spaces, an empty value removes the key (D-230); Esc reverts. */
-function DescriptionField({ elRef, saved, onCommit, onNext }: {
+function DescriptionField({ elRef, saved, onCommit, onNext, linked }: {
   elRef: React.MutableRefObject<HTMLInputElement | null>;
   saved: string;
+  /** Links show as chips out of edit mode (D-249, D-257; FR-TYP-08 AC-14). */
+  linked: LinkContext;
   onCommit: (v: string) => void;
   onNext: () => void;
 }) {
@@ -646,10 +704,15 @@ function DescriptionField({ elRef, saved, onCommit, onNext }: {
     if (v.trim() === saved.trim()) { setValue2(saved); return; }
     onCommit(v.trim() === '' ? '' : v);
   };
+  const [focused, setFocused] = useState(false);
+  const chips = !focused && value === saved && hasLinks(saved);
+  const sug = useLinkSuggest({ path: linked.path, value, setValue: (v) => { editing.current = true; setValue2(v); }, field: elRef as never });
   return (
-    <input ref={elRef} type="text" className="note-subtitle-field" aria-label={t('attr.description')} placeholder={t('panel.descriptionPlaceholder')}
+    <span className="subtitle-wrap">
+    <input ref={elRef} type="text" className={`note-subtitle-field ${chips ? 'chips-shown' : ''}`} aria-label={t('attr.description')} placeholder={t('panel.descriptionPlaceholder')}
       value={value} data-user-content spellCheck={false} autoComplete="off"
-      onChange={(e) => { editing.current = true; setValue2(e.target.value); }}
+      onChange={(e) => { editing.current = true; setValue2(e.target.value); sug.update(); }}
+      onSelect={() => { if (sug.open) sug.update(); }}
       onPaste={(e) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain').replace(/\s*\r?\n\s*/g, ' ');
@@ -658,11 +721,16 @@ function DescriptionField({ elRef, saved, onCommit, onNext }: {
         editing.current = true;
         setValue2(value.slice(0, a) + text + value.slice(b));
       }}
-      onBlur={done}
+      onFocus={() => setFocused(true)}
+      onBlur={() => { setFocused(false); sug.close(); done(); }}
       onKeyDown={(e) => {
+        if (sug.onKeyDown(e)) return;
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setValue2(saved); return; }
         if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); onNext(); }
       }} />
+    {chips && <span className="linked-overlay subtitle"><LinkedText text={saved} ctx={linked} /></span>}
+    {sug.list}
+    </span>
   );
 }
 

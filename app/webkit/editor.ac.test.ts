@@ -254,8 +254,8 @@ test('fr_edt_01_ac9_empty_body_hint_and_first_text', async ({ page }) => {
 test('fr_edt_01_ac10_title_field', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   const title = await must(titleField(page), 'textbox "Title"');
-  const f = await page.evaluate(() => ({ tag: document.activeElement?.tagName, label: document.activeElement?.getAttribute('aria-label') }));
-  assert.ok(f.label === 'Title' || (await title.evaluate((el) => el === document.activeElement || el.contains(document.activeElement))), 'focus on the title after navigation');
+  // Where the focus goes on open is FR-EDT-01 AC-11/AC-12 (D-247); ↓ from the title still moves to the body.
+  await title.click();
   await page.keyboard.press('ArrowDown');
   assert.ok(await page.evaluate(() => !!document.activeElement?.closest('[aria-label="Note body"]')), '↓ puts the caret in the body');
   await title.click();
@@ -274,17 +274,6 @@ test('fr_edt_01_ac10_title_field', async ({ page }) => {
   await title.click();
   await page.keyboard.press('Enter');
   assert.ok(await page.evaluate(() => !!document.activeElement?.closest('[aria-label="Note body"]')), '⏎ in the title moves to the body');
-});
-
-test('fr_edt_01_ac10_new_object_opens_with_caret_in_body', async ({ page }) => {
-  await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+n');
-  const dlg = await must(page.getByRole('dialog', { name: 'New object' }), 'New object');
-  await dlg.getByRole('textbox').first().fill('Nový zápis');
-  await page.keyboard.press('Enter');
-  await mustBeOn(page, 'Nový zápis', 'new note opens');
-  await must(editorBody(page), 'editor');
-  assert.ok(await page.evaluate(() => !!document.activeElement?.closest('[aria-label="Note body"]')), 'caret in the empty body (AP-135)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-02

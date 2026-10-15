@@ -92,7 +92,7 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   assert.equal(await mainBName(page), 'Schůzka ve stránkách', '↓ then ⏎ opens the second row');
-  assert.equal((await focused(page)).label, 'Title', 'focus on the title (D-130)');
+  assert.equal((await focused(page)).label, 'Note body', 'caret in the first body block (D-247, FR-EDT-01 AC-11)');
   assert.ok((await callsOf(core, 'nav_opened')).length >= 1, 'nav_opened');
   await gotoTypePage(page, S);
   await typeTable(page, S).getByRole('row').filter({ hasText: 'Prázdná schůzka' }).click();
@@ -119,20 +119,6 @@ test('fr_typ_09_ac6_new_object_from_the_type_page', async ({ page }) => {
   assert.equal(created.length, 1);
   assert.equal((created[0].args as any).type, 'schůzka', 'note_create(type, title, text)');
   assert.ok((await fileText(core, 'Schůzky/Plánování.md'))?.startsWith('---\nid: '), 'Schůzky/Plánování.md');
-});
-
-test('fr_typ_09_ac7_add_column_adds_a_property_and_a_preview_column_in_one_write', async ({ page }) => {
-  const core = await openTypes(page);
-  await gotoTypePage(page, S);
-  await (await must(main(page).getByRole('button', { name: 'Add column', exact: true }), 'Add column')).click();
-  assert.equal((await focused(page)).label, 'Name', 'the Add property flow with Name focused');
-  await page.keyboard.type('Místnost');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await sleep(300);
-  const p = await callsOf(core, 'type_patch');
-  assert.equal(p.length, 1, 'one write');
-  assert.deepEqual((p[0].args as any).ops.map((o: any) => o.op), ['addAttribute', 'preview'], '[addAttribute, preview]');
-  assert.ok((await typeTable(page, S).getByRole('columnheader').allInnerTexts()).map((t) => t.trim()).includes('Místnost'), 'appears as a column');
 });
 
 test('fr_typ_09_ac8_later_controls_are_disabled_and_cells_not_editable', async ({ page }) => {

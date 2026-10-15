@@ -311,7 +311,10 @@ export function comparable(json: JSONContent): JSONContent {
   if (json.type === 'table' && Array.isArray(attrs.align) && attrs.align.every((a: unknown) => a === null)) attrs.align = null
   const out: JSONContent = { type: json.type }
   if (Object.keys(attrs).length) out.attrs = attrs
-  if (json.marks?.length) out.marks = json.marks
+  // An e-mail address in text always reads back as a GFM autolink literal (`mailto:` link with the address as its
+  // text), even when written `\@`; it is the same content as the typed text (bug_3d_fr_edt_08_email_in_body_saves).
+  const marks = json.marks?.filter((m) => !(m.type === 'link' && json.text !== undefined && m.attrs?.href === `mailto:${json.text}`))
+  if (marks?.length) out.marks = marks
   if (json.text !== undefined) out.text = json.text.replace(/\r\n/g, '\n').normalize('NFC')
   if (json.content) {
     let content: JSONContent[] = []

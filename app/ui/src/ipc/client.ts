@@ -42,7 +42,7 @@ export const ipc = {
   openExternal: (url: string) => invoke<void>('open_external', { url }),
   // 3D (ms3-shell §14.3).
   typeGet: (key: string) => invoke<TypeDto | null>('type_get', { key }),
-  typeCreate: (name: string, plural: string) => invoke<TypeDto>('type_create', { name, plural }),
+  typeCreate: (name: string, plural: string, folder?: string) => invoke<TypeDto>('type_create', { name, plural, folder: folder ?? null }),
   typePatch: (key: string, base: VersionDto | null, ops: TypeOpDto[]) => invoke<TypeDto>('type_patch', { key, base, ops }),
   typeDelete: (key: string, base: VersionDto) => invoke<string[]>('type_delete', { key, base }),
   typeTemplate: (key: string) => invoke<TypeTemplateDto | null>('type_template', { key }),

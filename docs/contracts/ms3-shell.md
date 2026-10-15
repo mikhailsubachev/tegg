@@ -1210,3 +1210,74 @@ No new `__TEGG_TEST__` hook: clock, zone and region are injected as in §13.6 an
 ### 14.11 Questions (owner)
 
 - **Q-3D-1 (D-82 vs D-232, FR-TYP-03 AC-12 layer) — decided: D-245 (owner, 2026-10-14), recommendation accepted.** D-232 asks for "one core creation path"; D-82 says every new note's bytes come from `@tegg/doc`, never Rust. This contract keeps D-82: the core command `note_create(type, title, text)` decides folder, name, folders and indexing, and the bytes come from `@tegg/doc` `newObject` through one UI function `createObject` used by every entry point. Consequence: FR-TYP-03 AC-12's "L4 for the bytes" becomes L1 (`packages/doc/test/new_object.ac.test.ts`) plus L5 per entry point; L4 keeps folder, name, one write and index. Recommendation: accept (AC tag change to "L1 for the bytes; L4 for the write; L5 for each entry point"). Alternative: the core builds new-object frontmatter in Rust (an exception to D-82 for frontmatter-only new files).
+
+## 15. Slice 3D follow-up: preview feedback (D-246…D-262)
+
+ACs: FR-SRC-01 AC-12…AC-17 ([search-navigation.md](../acceptance/search-navigation.md)), FR-EDT-01 AC-11, AC-12 and FR-EDT-06 AC-8…AC-11 ([editor.md](../acceptance/editor.md)), FR-TYP-01 AC-10, AC-11, FR-TYP-08 AC-13, AC-14, FR-TYP-09 AC-13…AC-16, FR-EDT-07 AC-18, AC-19, FR-LNK-02 AC-1…AC-3 ([types.md](../acceptance/types.md)). Where this section and those ACs disagree, the ACs win and this section is corrected before the red tests. Written per D-261. 2026-10-15.
+
+### 15.1 Search: tiers and file names (D-246, D-253, D-254)
+
+Additive changes to ms2-core §2.1 (`tegg-index`, `tegg-core`, IPC `SearchResultDto`):
+
+```rust
+pub enum MatchField { Title, FileName, Alias, Attribute, Body }   // FileName new (D-254), ranked as Title
+pub enum QueryTier { Phrase, AllWords, AnyWord }                  // D-253; a single-word query is always Phrase
+pub struct SearchResult {
+    pub path: String, pub r#type: String, pub title: String,
+    pub matched_in: MatchField,
+    pub tier: QueryTier,                       // new
+    pub typo: bool,                            // true if any counted word matched only by a typo (D-101)
+    pub snippet: Option<Snippet>,              // body text; also present for FileName-only hits (start of body)
+    pub file_name: Option<Snippet>,            // new: Some only when matched_in == FileName; `text` = stem, `line` = 0
+}
+```
+
+- File stems are matched from the index's in-memory note data (folded tokens of the stem, derived from the path), so a rebuild gives the same results (AR-01) and no index schema change is needed. External renames update it with the path (FR-SRC-01 AC-13). Searching writes nothing.
+- Order: tier (Phrase < AllWords < AnyWord), then non-typo before typo, then `matched_in` (Title = FileName < Alias < Attribute < Body), then FTS rank, then path. Quoted phrases filter strictly and `-word` excludes as before (D-108): every result must contain each quoted phrase and none of the excluded words; the remaining unquoted words are ranked in the tiers above (FR-SRC-01 AC-16: `účet chaty -opravy` keeps the AC-15 order without the excluded note).
+- `.trash/` and `_templates/` stay excluded (FR-SRC-01 AC-12).
+- IPC DTO gains `tier: 'phrase' | 'allWords' | 'anyWord'` and `file_name: SnippetDto | null`; `matched_in` gains `'fileName'`. UI label `search.fileName` = `File name: {stem}`.
+
+### 15.2 Caret on open (D-247, D-255)
+
+- `NotePage` exposes `data-focus-target="body" | "title" | "heading"` on its root after `note-ready`; tests read it and `document.activeElement`.
+- Existing note: caret at offset 0 of the first editable textblock (`@tegg/editor` `firstEditablePos(doc): number | null`), set with `scrollIntoView: false`; `null` or a read-only file → D-130 heading focus. The editor's `aria-describedby` points to the title element.
+- Route parameters `note/<path>?at=<line>:<byte>` (search result) and `#<heading>` place the caret there instead (FR-SRC-03 AC-5).
+- New note (`note_create` from ⌘N, switcher Create, `New <Type>`): the title is in edit mode, caret at its end, no selection; `note-ready` for NFR-PERF-05 AC-4 means "editor mounted and focus target set".
+
+### 15.3 `source` as text (D-248, D-256)
+
+- `@tegg/schema`: `UNIVERSAL_ATTRS.source.type` becomes `text` (was `relation`); validity never fails for it. `tegg-schema` mirrors it. Importers are unchanged.
+- The panel renders `source` with the Text control plus link support (§15.4).
+
+### 15.4 Links in text values (D-249, D-257)
+
+- `@tegg/schema` `formatText(value: string): string` quotes every single-line value containing `[[` (double quotes, YAML 1.2 escapes); Long text keeps `|-`. Applies to Text, Long text, `description`, `source`.
+- `@tegg/doc` extraction: each frontmatter link record gains `attribute: string | null` (`null` for body links). Scanned keys: values of Text/Long text attributes of the note's type, `description`, `source`, and (as before) relation values. Without a type definition, every string value outside the reserved keys except `title`, `aliases`, `tags` is scanned. `![[…]]` in a value gives `embed: true` but renders as a chip. Inline code inside a value is not scanned.
+- `tegg-format::extract::Link` gains `pub attribute: Option<String>`; the public `@tegg/doc` `wikilinks()` shape (ms1-core §4) is unchanged, only `extract()` records carry `attribute`. TS/Rust parity is checked by the paired tests `packages/doc/test/property_links.ac.test.ts` and `crates/tegg-format/tests/ac_property_links.rs` (one shared expectation); the spikes' corpus (`tests/fixtures/format/extract/`) is not product code and isn't changed.
+- `tegg-core::backlinks(path)` already returns sources; new `backlinks_detailed(path) -> Vec<Backlink { source: String, attribute: Option<String> }>` for L4 tests. IPC `backlinks` unchanged.
+- Search highlights render as `<mark>` elements (title, file-name line, snippet).
+- UI: `<TextWithLinks text>` renders `[[…]]` as link chips (D-140, broken style D-142) for those four kinds; edit mode shows raw text.
+
+### 15.5 `@` mentions (D-250, D-258)
+
+- `@tegg/editor` suggestion plugin config gains a second trigger: `{ char: '@', allowSpaces: true, startOfLine: false, allowedPrefixes: [' ', '(', null] }`, with the same item source and the same insert (`[[Target]]` / `[[Target|alias]]`, same bytes as `[[`). Disabled in code, links, math, source blocks.
+- Closing rule: Esc, a choice, or a space typed when only the `Create` row is left; the typed `@query` stays as text.
+- Property fields of §15.4 get the same picker via `useLinkSuggest(inputRef, { triggers: ['[[', '@'] })`.
+- The listbox keeps its accessible name `Link suggestions`.
+
+### 15.6 `Create type "<value>"` (D-251, D-259)
+
+- `TypePage` for an undefined key shows the button `Create type "{value}"` (i18n `typePage.createType`). It opens `NewTypeDialog` with a new prop `fromValue?: string`: Name = `upperFirst(value)` read-only, key = `typeKey(value)`, Plural prefilled with the Name and focused, Folder following Plural until edited.
+- `@tegg/schema` `canDefine(value): { ok: true } | { ok: false; reason: 'fileName' }`: D-222 characters, or a key over 200 UTF-8 bytes → disabled with `typePage.cannotDefine` = `This type name can't be used as a file name`.
+- Writes through the existing `type_create` (§14); no new core command. After create: route `type-settings/<key>`.
+
+### 15.7 Columns menu (D-252, D-260)
+
+- `TypePage` toolbar: button `Columns` (i18n `typePage.columns`, `aria-haspopup="menu"`) replaces `typePage.addColumn`, which is removed. Menu `role="menu"`, name `Columns`; items `menuitemcheckbox` labelled with the attribute name or `Tags`, `Source`, `Aliases`, `Created`; separator; `menuitem` `New property…` (`typePage.newProperty`).
+- Each toggle calls the existing `type_patch` with `{ preview: string[] }` (one line written, §14.1.4); the 4-limit description is `typePage.columnLimit` = `Up to 4 columns`; the message after a property added at the limit is `typePage.columnLimitAdded`.
+- `New property…` uses the Add property flow with `alsoPreview: preview.length < 4` and one `type_patch`.
+- Disabled (aria-disabled) for invalid and newer-version type files; absent for undefined types.
+
+### 15.8 Fake core (L5)
+
+`app/ui/test/fake-core.ts` gains: search tiers, `fileName` matches and the `file_name` snippet (using `@tegg/schema` folding), `backlinks` from frontmatter text links via `@tegg/doc` extraction, and the `?at=` route handling needs nothing. No other fake-core change.

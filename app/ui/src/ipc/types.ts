@@ -19,9 +19,17 @@ highlights: Array<[number, number]>,
 line: number, };
 export type SearchResultDto = { path: string, type: string, title: string, 
 /**
- * `title`, `alias`, `attribute` or `body`.
+ * `title`, `fileName`, `alias`, `attribute` or `body`.
  */
-matched_in: string, typo: boolean, snippet: SnippetDto | null, };
+matched_in: string, 
+/**
+ * `phrase`, `allWords` or `anyWord` (D-253).
+ */
+tier: string, typo: boolean, snippet: SnippetDto | null, 
+/**
+ * The file stem with its matches, only for a `fileName` match (D-254).
+ */
+file_name: SnippetDto | null, };
 export type SearchPageDto = { results: Array<SearchResultDto>, total: number, };
 export type SwitcherItemDto = { 
 /**

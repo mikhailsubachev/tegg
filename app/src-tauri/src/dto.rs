@@ -54,10 +54,14 @@ pub struct SearchResultDto {
     #[ts(rename = "type")]
     pub type_key: String,
     pub title: String,
-    /// `title`, `alias`, `attribute` or `body`.
+    /// `title`, `fileName`, `alias`, `attribute` or `body`.
     pub matched_in: String,
+    /// `phrase`, `allWords` or `anyWord` (D-253).
+    pub tier: String,
     pub typo: bool,
     pub snippet: Option<SnippetDto>,
+    /// The file stem with its matches, only for a `fileName` match (D-254).
+    pub file_name: Option<SnippetDto>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

@@ -36,13 +36,24 @@ async function editorReadyRun(label: string) {
       const end = Date.now() + 240_000;
       while (Date.now() < end && !readMarks(log0).some((m) => m.mark === 'note-ready')) await sleep(50);
       readyOk = readMarks(log0).some((m) => m.mark === 'note-ready');
-      try { focusName = osa(`${PROC} to get description of (value of attribute "AXFocusedUIElement")`); } catch { /* none */ }
-      try { bodyFound = osa(`${PROC} to get description of (first UI element of (entire contents of window 1) whose description is "Note body")`); } catch { /* none */ }
+      // macOS reports a focused element only for the app in front; bring it there (no keystrokes are sent).
+      try { osa(`tell application "System Events" to set frontmost of (first process whose unix id is ${child.pid}) to true`); } catch { /* the asserts tell */ }
+      await sleep(800);
+      // By pid: another app with the same bundle id (e.g. Tegg Preview) could be `first process` otherwise.
+      const proc = `tell application "System Events" to tell (first process whose unix id is ${child.pid})`;
+      // The accessibility tree reports the new focus a moment after the window comes to front: poll up to 4 s.
+      for (const until = Date.now() + 4000; !focusName && Date.now() < until; await sleep(100)) {
+        try { osa(`tell application "System Events" to set frontmost of (first process whose unix id is ${child.pid}) to true`); } catch { /* not yet */ }
+        try { focusName = osa(`${proc} to get value of attribute "AXDescription" of (value of attribute "AXFocusedUIElement")`); } catch { /* not yet */ }
+      }
+      // The focused element being the note body shows it is mounted; else look it up in the window.
+      if (focusName === 'Note body') bodyFound = focusName;
+      else try { bodyFound = osa(`${proc} to get description of (first UI element of (entire contents of window 1) whose description is "Note body")`); } catch { /* none */ }
     } finally {
       child.kill('SIGKILL'); // never leave the app running (a second launch would reach the first instance)
     }
     assert.ok(readyOk, 'note-ready written');
-    assert.equal(focusName, 'Title', 'at note-ready the focus is on the Title field');
+    assert.equal(focusName, 'Note body', 'at note-ready the caret is in the note body (D-247, FR-EDT-01 AC-11)');
     assert.equal(bodyFound, 'Note body', 'at note-ready the editor (Note body) is mounted');
 
     const warm = await oneRun(base, join(tmp, 'warm.jsonl'), target.title, 240_000);

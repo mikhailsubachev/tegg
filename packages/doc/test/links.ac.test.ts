@@ -44,14 +44,14 @@ test('fr_fmt_03_ac1_every_link_form_is_written_back_verbatim', () => {
   expect(doc.blocks.map((b) => b.kind)).toEqual(['paragraph', 'embed', 'embed', 'embed', 'embed'])
   expect(serialize(doc)).toBe(LINKS)
   expect(extract(LINKS, 'Odkazy').links).toEqual([
-    { target: 'Řeka', subpath: null, alias: null, embed: false, inFrontmatter: false },
-    { target: 'Řeka', subpath: null, alias: 'alias řeky', embed: false, inFrontmatter: false },
-    { target: 'Řeka', subpath: 'Prameny', alias: null, embed: false, inFrontmatter: false },
-    { target: 'Řeka', subpath: '^blok-1', alias: null, embed: false, inFrontmatter: false },
-    { target: 'Řeka', subpath: null, alias: null, embed: true, inFrontmatter: false },
-    { target: 'Řeka', subpath: '^blok-1', alias: null, embed: true, inFrontmatter: false },
-    { target: 'mapa.png', subpath: null, alias: '400', embed: true, inFrontmatter: false },
-    { target: 'průvodce.pdf', subpath: 'page=3', alias: null, embed: true, inFrontmatter: false },
+    { target: 'Řeka', subpath: null, alias: null, embed: false, inFrontmatter: false, attribute: null },
+    { target: 'Řeka', subpath: null, alias: 'alias řeky', embed: false, inFrontmatter: false, attribute: null },
+    { target: 'Řeka', subpath: 'Prameny', alias: null, embed: false, inFrontmatter: false, attribute: null },
+    { target: 'Řeka', subpath: '^blok-1', alias: null, embed: false, inFrontmatter: false, attribute: null },
+    { target: 'Řeka', subpath: null, alias: null, embed: true, inFrontmatter: false, attribute: null },
+    { target: 'Řeka', subpath: '^blok-1', alias: null, embed: true, inFrontmatter: false, attribute: null },
+    { target: 'mapa.png', subpath: null, alias: '400', embed: true, inFrontmatter: false, attribute: null },
+    { target: 'průvodce.pdf', subpath: 'page=3', alias: null, embed: true, inFrontmatter: false, attribute: null },
   ])
 })
 

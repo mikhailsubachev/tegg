@@ -451,10 +451,10 @@ function NewPropertyForm({ type, onAdd, onCancel, error }: {
   );
 }
 
-/** Add column on the type page (FR-TYP-09 AC-7): the Add property flow; the new property also becomes a preview
- *  column when fewer than 4 are chosen, in the same write. */
+/** `New property…` in the type page's Columns menu (D-252, D-260): the Add property flow; the new property also
+ *  becomes a preview column when fewer than 4 are chosen, in the same write. `onDone(true)` when it got the column. */
 export function NewPropertyDialog({ type, types, withPreview, onClose, onDone }: {
-  type: TypeDto; types: TypeDto[]; withPreview?: boolean; onClose: () => void; onDone: () => void;
+  type: TypeDto; types: TypeDto[]; withPreview?: boolean; onClose: () => void; onDone: (withColumn: boolean) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   return (
@@ -463,10 +463,11 @@ export function NewPropertyDialog({ type, types, withPreview, onClose, onDone }:
       <NewPropertyForm type={type} types={types} error={error} onCancel={onClose}
         onAdd={async (attr) => {
           const ops: TypeOpDto[] = [{ op: 'addAttribute', attribute: attr }];
-          if (withPreview && type.preview.length < 4) ops.push({ op: 'preview', keys: [...type.preview, attr.key] });
+          const column = !!withPreview && type.preview.length < 4;
+          if (column) ops.push({ op: 'preview', keys: [...type.preview, attr.key] });
           try {
             await ipc.typePatch(type.key, type.exists ? type.version : null, ops);
-            onDone();
+            onDone(column);
             return null;
           } catch (e) {
             const m = typeErrorMessage(e);

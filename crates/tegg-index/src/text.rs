@@ -52,6 +52,8 @@ pub fn fts_text(s: &str) -> String {
 pub struct Item {
     pub tokens: Vec<String>,
     pub negative: bool,
+    /// Written in quotes: a strict phrase filter, outside the ranking tiers (D-108, D-253).
+    pub quoted: bool,
     /// D-101: alternative tokens within one edit (filled by the index for single words of ≥ 5 letters).
     pub alternatives: Vec<String>,
 }
@@ -88,7 +90,8 @@ pub fn parse_query(q: &str) -> Vec<Item> {
             i += 1;
         }
         let text: String;
-        if is_open_quote(chars[i]) {
+        let quoted = is_open_quote(chars[i]);
+        if quoted {
             i += 1;
             let start = i;
             while i < chars.len() && !is_close_quote(chars[i]) {
@@ -105,7 +108,7 @@ pub fn parse_query(q: &str) -> Vec<Item> {
         }
         let toks = tokens(&text);
         if !toks.is_empty() {
-            items.push(Item { tokens: toks, negative, alternatives: Vec::new() });
+            items.push(Item { tokens: toks, negative, quoted, alternatives: Vec::new() });
         }
     }
     items
@@ -238,6 +241,40 @@ pub fn snippet(body: &str, items: &[Item]) -> Option<SnippetParts> {
             .map(|h| (h.start - cut - from_b, h.end - cut - from_b))
             .collect();
         return Some(SnippetParts { text, highlights, body_line: line_no, byte_in_line: first.start });
+    }
+    None
+}
+
+/// Whether `items` occur next to each other, in order, in the folded token list (each exactly or, for a single
+/// token, through an alternative): the phrase tier of D-253.
+pub fn contains_sequence(toks: &[String], items: &[&Item]) -> bool {
+    let n: usize = items.iter().map(|i| i.tokens.len()).sum();
+    if n == 0 || toks.len() < n {
+        return false;
+    }
+    (0..=toks.len() - n).any(|start| {
+        let mut at = start;
+        items.iter().all(|it| {
+            let k = it.tokens.len();
+            let ok = toks[at..at + k] == it.tokens[..] || (k == 1 && it.alternatives.contains(&toks[at]));
+            at += k;
+            ok
+        })
+    })
+}
+
+/// D-254: the start of the body for a hit matched only by its file name: the first non-empty line, block markers
+/// removed, ≤ 160 characters, no highlights.
+pub fn lead(body: &str) -> Option<SnippetParts> {
+    for (line_no, line) in body.split('\n').enumerate() {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let cut = marker_len(line);
+        let display = line[cut..].trim_end();
+        if display.is_empty() {
+            continue;
+        }
+        let text: String = display.chars().take(SNIPPET_CHARS).collect();
+        return Some(SnippetParts { text, highlights: Vec::new(), body_line: line_no, byte_in_line: cut });
     }
     None
 }

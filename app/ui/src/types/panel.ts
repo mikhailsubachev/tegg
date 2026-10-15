@@ -27,9 +27,9 @@ const LABEL: Record<string, string> = {
 const nfc = (s: string) => s.normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
-/** The universal Source attribute: a single relation to any type (FR-TYP-08 AC-10). */
+/** The universal Source attribute: free text on every type (D-248; FR-TYP-08 AC-13). */
 export const SOURCE_ATTR: AttributeDto = {
-  key: 'source', name: 'Source', type: 'relation', supported: true, readOnlyReason: null, default: null, required: false,
+  key: 'source', name: 'Source', type: 'text', supported: true, readOnlyReason: null, default: null, required: false,
   options: [], to: null, multiple: false, description: null, builtIn: false,
 };
 
@@ -42,7 +42,7 @@ function lookup(data: Record<string, unknown>, key: string): unknown {
 
 function universalValidity(key: string, v: unknown): Validity {
   if (isEmpty(v)) return { state: 'empty' };
-  if (key === 'source') return validate(SOURCE_ATTR as never, { source: v }) as Validity;
+  if (key === 'source') return { state: 'valid' }; // any value is text (D-248)
   if (key === 'review') return v === 'unreviewed' || v === 'reviewed' ? { state: 'valid' } : { state: 'invalid', items: [] };
   if (key === 'tags' || key === 'aliases') {
     if (typeof v === 'string') return { state: 'valid' };

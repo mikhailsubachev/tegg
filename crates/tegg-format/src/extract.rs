@@ -19,6 +19,8 @@ pub struct Link {
     pub alias: Option<String>,
     pub embed: bool,
     pub in_frontmatter: bool,
+    /// Top-level frontmatter key the link is in; None for body links (D-257, FR-LNK-02 AC-1).
+    pub attribute: Option<String>,
 }
 
 /// NFR-REL-03: what is wrong with the frontmatter and where (1-based line in the file).
@@ -77,7 +79,7 @@ pub fn extract_text(text: &str, stem: &str) -> Extracted {
     let mut links = Vec::new();
     let mut link_ranges = Vec::new();
     if let Some(f) = &fm {
-        scan_links(text, f.inner.clone(), &[], true, &mut links, &mut link_ranges);
+        scan_links(text, f.inner.clone(), &frontmatter_code(text, f.inner.clone()), true, &mut links, &mut link_ranges);
     }
     scan_links(text, body_start..text.len(), &code, false, &mut links, &mut link_ranges);
 
@@ -481,9 +483,91 @@ fn scan_links(
             alias: pipe.map(|p| inner[p.end()..].to_string()),
             embed: !c.get(1).unwrap().as_str().is_empty(),
             in_frontmatter,
+            attribute: if in_frontmatter { attribute_at(text, span.start, start) } else { None },
         });
         ranges.push(start..span.start + all.end());
     }
+}
+
+/// The top-level key whose entry holds byte `at`: the last unindented `key:` line at or before it (links.ts).
+fn attribute_at(text: &str, from: usize, at: usize) -> Option<String> {
+    let mut key = None;
+    let mut line_start = from;
+    while line_start <= at && line_start < text.len() {
+        let line_end = text[line_start..].find('\n').map_or(text.len(), |i| line_start + i);
+        if let Some(k) = line_key(&text[line_start..line_end]) {
+            key = Some(nfc(&k));
+        }
+        line_start = line_end + 1;
+    }
+    key
+}
+
+/// `key:` at the start of a frontmatter line: double-quoted, single-quoted or plain (not `#`, not a `- ` item).
+fn line_key(line: &str) -> Option<String> {
+    let line = line.strip_suffix('\r').unwrap_or(line);
+    let colon_ok = |rest: &str| {
+        let rest = rest.trim_start_matches([' ', '\t']);
+        rest.strip_prefix(':').filter(|r| r.is_empty() || r.starts_with([' ', '\t'])).is_some()
+    };
+    let first = line.chars().next()?;
+    if first == '"' {
+        let mut out = String::new();
+        let mut chars = line[1..].char_indices();
+        while let Some((i, c)) = chars.next() {
+            match c {
+                '\\' => out.push(chars.next()?.1),
+                '"' => return colon_ok(&line[1 + i + 1..]).then_some(out),
+                _ => out.push(c),
+            }
+        }
+        return None;
+    }
+    if first == '\'' {
+        let body = &line[1..];
+        let mut out = String::new();
+        let mut i = 0;
+        while i < body.len() {
+            let c = body[i..].chars().next()?;
+            if c == '\'' {
+                if body[i + 1..].starts_with('\'') {
+                    out.push('\'');
+                    i += 2;
+                    continue;
+                }
+                return colon_ok(&body[i + 1..]).then_some(out);
+            }
+            out.push(c);
+            i += c.len_utf8();
+        }
+        return None;
+    }
+    if js_space(first) || first == '#' || (first == '-' && line[1..].chars().next().map_or(true, |c| js_space(c) || c == ':')) {
+        return None;
+    }
+    let colon = line.find(':')?;
+    let after = &line[colon + 1..];
+    if !(after.is_empty() || after.starts_with([' ', '\t'])) {
+        return None;
+    }
+    Some(line[..colon].trim_end_matches([' ', '\t']).to_string())
+}
+
+/// Backtick code spans inside frontmatter values: links there aren't links (dialect §6, FR-LNK-02 AC-1).
+fn frontmatter_code(text: &str, span: Range<usize>) -> Vec<Range<usize>> {
+    let mut out = Vec::new();
+    let mut i = span.start;
+    while let Some(o) = text[i..span.end].find('`') {
+        let open = i + o;
+        match text[open + 1..span.end].find(['`', '\n']) {
+            Some(c) if text.as_bytes()[open + 1 + c] == b'`' => {
+                out.push(open..open + 1 + c + 1);
+                i = open + 1 + c + 1;
+            }
+            _ => i = open + 1,
+        }
+    }
+    out
 }
 
 /// JS `\s` (ECMAScript WhiteSpace + LineTerminator).

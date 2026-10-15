@@ -52,6 +52,7 @@ export function App() {
   const [route, setRoute] = useState<Route | null>(null);
   const [chooser, setChooser] = useState<{ form: boolean } | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [defineValue, setDefineValue] = useState<string | null>(null); // D-251: New type for an undefined value
   const [ui, setUi] = useState<UiState>(initialUi);
   const [newOfType, setNewOfType] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
@@ -259,7 +260,7 @@ export function App() {
     openPalette: () => setDialog('palette'),
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
     newObject: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject'); },
-    newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('newType'); },
+    newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
     newObjectOfType: (key: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
     openTypeSettings: () => {
@@ -432,8 +433,8 @@ export function App() {
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
-        // A note just made with New object gets the caret in its body (AP-135); the page focuses it itself.
-        if (route.id === 'note/<path>' && route.param === justCreated.current) justCreated.current = null;
+        // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
+        if (route.id === 'note/<path>' && noteApi.current) { if (route.param === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });
@@ -511,6 +512,7 @@ export function App() {
         onTag={openTag}
         onSettings={() => go({ id: 'type-settings/<type>', param: key })}
         onNew={() => actions.newObjectOfType?.(key)}
+        onDefine={(v) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(v); setDialog('newType'); }}
       />
     );
   } else if (route?.id === 'type-settings/<type>' && route.param) {
@@ -599,7 +601,7 @@ export function App() {
       {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
       {dialog === 'newObject' && <NewObjectDialog key={newOfType ?? ''} types={types} typeKey={newOfType ?? undefined} onCreate={(k, title, p) => void createOf(k, title, p)} onClose={closeDialog} />}
       {dialog === 'newType' && (
-        <NewTypeDialog types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
+        <NewTypeDialog key={defineValue ?? ''} fromValue={defineValue ?? undefined} types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
           onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}

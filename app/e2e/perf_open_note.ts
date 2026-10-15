@@ -54,18 +54,31 @@ const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) 
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<Mark[]> {
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];
-  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: 'note-ready' }, stdio: 'ignore' });
+  // Every run starts on Home: otherwise the app reopens the note the previous run opened (vault_last, D-132), reaches
+  // note-ready and quits before the switcher is used.
+  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_ROUTE: 'home', TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: 'note-ready' }, stdio: 'ignore' });
   const end = Date.now() + timeoutMs;
   while (Date.now() < end && !readMarks(log).some((m) => m.mark === 'ui-ready')) await sleep(50);
+  const alive = () => child.exitCode === null && child.signalCode === null;
+  // Keys go through System Events to the frontmost app: send each one only while this Tegg process is alive and in
+  // front, so no keystroke ever reaches another app (a stray ⌘O opened another app's file dialog).
+  const inFront = () => {
+    if (!alive()) return false;
+    try { return osa('tell application "System Events" to get unix id of first process whose frontmost is true').trim() === String(child.pid); } catch { return false; }
+  };
   try {
-    osa(`tell application id "${BUNDLE_ID}" to activate`);
+    osa(`tell application "System Events" to set frontmost of (first process whose unix id is ${child.pid}) to true`);
     await sleep(300);
-    osa('tell application "System Events" to keystroke "o" using {command down}');
-    await sleep(300);
-    execFileSync('pbcopy', { input: title, env: { ...process.env, LANG: 'en_US.UTF-8' } });
-    osa('tell application "System Events" to keystroke "v" using {command down}');
-    await sleep(500);
-    osa('tell application "System Events" to key code 36');
+    if (inFront()) {
+      osa('tell application "System Events" to keystroke "o" using {command down}');
+      await sleep(300);
+      execFileSync('pbcopy', { input: title, env: { ...process.env, LANG: 'en_US.UTF-8' } });
+      if (inFront()) {
+        osa('tell application "System Events" to keystroke "v" using {command down}');
+        await sleep(500);
+        if (inFront()) osa('tell application "System Events" to key code 36');
+      }
+    }
   } catch { /* the marks tell */ }
   while (Date.now() < end && child.exitCode === null && child.signalCode === null) await sleep(50);
   if (child.exitCode === null) child.kill('SIGKILL');

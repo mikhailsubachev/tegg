@@ -85,7 +85,7 @@ test('fr_edt_07_ac7_invalid_values_marked_in_the_row_model', async () => {
   assert.deepEqual(inv, ['stav', 'období', 'rozpočet', 'aktivní', 'oblasti', 'web']);
   assert.deepEqual(r.rows.find((x) => x.key === 'oblasti')?.validity, { state: 'invalid', items: [1] });
   const s = await rows('Pages/Obyčejná stránka.md', 'page', typesNote('Pages/Obyčejná stránka.md').replace('místo: Praha', 'source: Praha'));
-  assert.equal(s.rows.find((x) => x.key === 'source')?.validity.state, 'invalid', 'plain-text source is invalid (FR-TYP-08 AC-10)');
+  assert.equal(s.rows.find((x) => x.key === 'source')?.validity.state, 'valid', 'plain-text source is valid text (D-248, FR-TYP-08 AC-13; FR-TYP-08 AC-10 superseded)');
 });
 
 test('fr_typ_02_ac4_system_only_types_are_read_only_rows', async () => {

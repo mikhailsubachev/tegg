@@ -872,12 +872,17 @@ pub fn serialize(def: &TypeFile) -> String {
 /// The canonical file of a new user type (FR-TYP-01 AC-2, `tests/fixtures/types/expected/čajovna.yml`): folder =
 /// plural, icon `file-text`, colour `gray`, review off, no preview, no attributes, no description or template.
 pub fn new_type_file(name: &str, plural: &str) -> String {
+    new_type_file_in(name, plural, None)
+}
+
+/// As `new_type_file`, with a folder other than the plural (D-259: the folder follows the plural until edited).
+pub fn new_type_file_in(name: &str, plural: &str, folder: Option<&str>) -> String {
     let (name, plural) = (nfc(name.trim()), nfc(plural.trim()));
     let def = TypeFile {
         key: type_key(&name),
         declared_version: Some(CURRENT_VERSION as i64),
         system: false,
-        folder: plural.clone(),
+        folder: folder.map(|f| nfc(f.trim())).filter(|f| !f.is_empty()).unwrap_or_else(|| plural.clone()),
         icon: "file-text".into(),
         color: "gray".into(),
         description: None,

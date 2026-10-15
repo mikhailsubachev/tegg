@@ -1,10 +1,11 @@
 // The type page (FR-TYP-09, D-233; ms3-shell §14.7): header with the type icon, plural, description, count, `Type
 // settings` and `New <Name>`; the view tab `All <Plural>`; a title filter; a read-only table of Title, the preview
 // properties and Modified from one index query (D-241), sortable per column with the choice kept in the machine-local
-// UI state (AC-3). `Add column` adds a property and its preview column in one write (D-72, AC-7). Nothing here writes
-// a note.
+// UI state (AC-3). `Columns` (D-252, D-260) checks and unchecks the preview properties, one write each, up to 4
+// (D-72), and offers `New property…`. Nothing here writes a note.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { validate } from '@tegg/schema';
+import { canDefine, validate } from '@tegg/schema';
+import { parse as parseDoc } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
@@ -12,6 +13,9 @@ import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto } from '../ipc/ty
 import { Disabled } from '../shell/Disabled';
 import { Icon, typeIconName } from '../shell/Icon';
 import { NewPropertyDialog } from './TypeSettingsPage';
+import { PopupMenu, type MenuEntry } from '../shell/Menu';
+import type { TypeOpDto } from '../ipc/types';
+import { typeErrorMessage } from '../types/util';
 import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } from '../types/util';
 
 export type TypeSort = { column: string; dir: 'asc' | 'desc' };
@@ -42,7 +46,7 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag, onDefine }: {
   typeKey: string;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
@@ -56,10 +60,18 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   onSettings: () => void;
   onNew: () => void;
   onTag: (key: string) => void;
+  /** D-251: open `New type` for this undefined value, as written. */
+  onDefine?: (value: string) => void;
 }) {
   const [rows, setRows] = useState<TypeRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; alert: boolean } | null>(null);
+  // The type as last written from this page, so quick toggles build on each other (D-252).
+  const [local, setLocal] = useState<TypeDto | null>(null);
+  useEffect(() => { setLocal(null); }, [type]);
+  const cur = local ?? type;
   const [cursor, setCursor] = useState(0);
   const tbody = useRef<HTMLTableSectionElement | null>(null);
   const addBtn = useRef<HTMLButtonElement | null>(null);
@@ -73,6 +85,19 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     const mine = ++seq.current;
     ipc.typeRows(typeKey).then((r) => { if (mine === seq.current) setRows(r); }, () => { if (mine === seq.current) setRows([]); });
   }, [typeKey, refresh]);
+
+  // D-251: the `type:` value as written in the first object (the route only has its key).
+  const [value, setValue] = useState<string | null>(null);
+  const firstPath = rows?.[0]?.path;
+  useEffect(() => {
+    if (type || !firstPath) return;
+    let live = true;
+    ipc.noteRead(firstPath).then((n) => {
+      const v = (parseDoc(n.text).frontmatter?.data as Record<string, unknown> | undefined)?.type;
+      if (live) setValue(typeof v === 'string' && v.trim() ? v.normalize('NFC').trim() : typeKey);
+    }, () => { if (live) setValue(typeKey); });
+    return () => { live = false; };
+  }, [type, firstPath, typeKey]);
 
   const columns: Column[] = useMemo(() => {
     const out: Column[] = [{ key: 'title', label: t('typePage.title'), attr: null, userNamed: false }];
@@ -122,6 +147,26 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     );
   }
 
+  /** One `preview` write (D-252); a file changed outside Tegg is refused with the alert of FR-TYP-01 AC-7. */
+  const togglePreview = async (keys: string[]) => {
+    if (!cur) return;
+    const ops: TypeOpDto[] = [{ op: 'preview', keys }];
+    setLocal({ ...cur, preview: keys });
+    try {
+      setLocal(await ipc.typePatch(cur.key, cur.exists ? cur.version : null, ops));
+      setNotice(null);
+    } catch (e) {
+      const x = e as { kind?: string; disk?: TypeDto };
+      if (x.kind === 'Conflict' && x.disk) {
+        setLocal(x.disk);
+        setNotice({ text: t('ts.conflict', { field: t('typePage.columns') }), alert: true });
+      } else {
+        setLocal(null);
+        setNotice({ text: typeErrorMessage(e), alert: true });
+      }
+    }
+  };
+
   return (
     <div className="page-column type-page">
       <header className="page-header type-header">
@@ -143,6 +188,21 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         )}
       </header>
       {!type && <p role="note" className="type-note">{t('typePage.noDefinition', { value: plural })}</p>}
+      {!type && onDefine && (() => {
+        // The value as written, once a row is read; until then its key (the route has only the key).
+        const v = value ?? typeKey;
+        const ok = canDefine(v).ok;
+        const [before, after = ''] = t('typePage.createType').split('{value}');
+        return (
+          <p className="type-define">
+            <button type="button" className="text-button" data-command="typePage.createType" aria-disabled={ok ? undefined : 'true'}
+              aria-description={ok ? undefined : t('typePage.cannotDefine')} title={ok ? undefined : t('typePage.cannotDefine')}
+              onClick={() => { if (ok) onDefine(v); }}>
+              {before}<span data-user-content>{v}</span>{after}
+            </button>
+          </p>
+        );
+      })()}
       <div className="page-toolbar type-toolbar">
         <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
           <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('typePage.allView', { plural: pluralName })}</span>
@@ -154,9 +214,11 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         <Disabled control="ctl.filter" />
         <Disabled control="ctl.group" />
         <Disabled control="ctl.addView" />
-        {writable && (
-          <button ref={addBtn} type="button" className="text-button" data-command="typePage.addColumn" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={12} />{t('typePage.addColumn')}
+        {type && (
+          <button ref={addBtn} type="button" className="text-button" data-command="typePage.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
+            aria-disabled={writable ? undefined : 'true'} aria-description={writable ? undefined : t(type.state === 'newer' ? 'typePage.columnsNewer' : 'typePage.columnsInvalid')}
+            onClick={() => { if (writable) { setNotice(null); setColumnsOpen((o) => !o); } }}>
+            <Icon name="panel" size={12} />{t('typePage.columns')}
           </button>
         )}
       </div>
@@ -198,13 +260,45 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         </table>
       </div>
       {rows && rows.length === 0 && <p className="empty">{t('typePage.empty')}</p>}
-      {adding && type && (
-        <NewPropertyDialog type={type} types={types} withPreview
+      {notice && <p role={notice.alert ? 'alert' : 'status'} className={notice.alert ? 'warning-text' : 'type-notice'}>{notice.text}</p>}
+      {columnsOpen && cur && (
+        <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)}
+          entries={columnEntries(cur, (keys) => void togglePreview(keys), () => { setColumnsOpen(false); setAdding(true); })} />
+      )}
+      {adding && cur && (
+        <NewPropertyDialog type={cur} types={types} withPreview
           onClose={() => { setAdding(false); addBtn.current?.focus(); }}
-          onDone={() => setAdding(false)} />
+          onDone={(withColumn) => { setAdding(false); addBtn.current?.focus(); if (!withColumn) setNotice({ text: t('typePage.columnLimitAdded'), alert: false }); }} />
       )}
     </div>
   );
+}
+
+/** D-260: the type's attributes in schema order, then Tags, Source, Aliases, Created (`Modified` is always the last
+ *  column); checked = in `preview`; with 4 chosen (hand-written keys count too) the rest are disabled. */
+function columnEntries(type: TypeDto, write: (keys: string[]) => void, onNewProperty: () => void): MenuEntry[] {
+  const choices: [string, string][] = [
+    ...type.attributes.map((a): [string, string] => [a.key, a.name]),
+    ...(['tags', 'source', 'aliases', 'created'] as const).map((k): [string, string] => [k, t(UNIVERSAL[k])]),
+  ];
+  const has = (k: string) => type.preview.some((p) => nfc(p) === nfc(k));
+  const full = type.preview.length >= 4;
+  const out: MenuEntry[] = [];
+  if (type.previewIgnored.length) {
+    out.push({ kind: 'note', key: 'ignored', content: <span className="warning-text">{t('ts.previewIgnored', { keys: type.previewIgnored.join(', ') })}</span> });
+  }
+  for (const [k, label] of choices) {
+    const on = has(k);
+    const off = !on && full;
+    out.push({
+      kind: 'checkbox', key: k, label, checked: on, disabled: off, description: off ? t('typePage.columnLimit') : undefined,
+      content: <><span className="menu-check" aria-hidden="true">{on && <Icon name="check" size={14} />}</span><span className="menu-title" data-user-content>{label}</span></>,
+      onChoose: () => write(on ? type.preview.filter((p) => nfc(p) !== nfc(k)) : [...type.preview, k]),
+    });
+  }
+  out.push({ kind: 'separator' });
+  out.push({ kind: 'item', key: 'new', label: t('typePage.newProperty'), content: <span className="menu-title">{t('typePage.newProperty')}</span>, onChoose: onNewProperty });
+  return out;
 }
 
 function Cell({ row, col, type, types, onOpen, onTag, typeKey }: {

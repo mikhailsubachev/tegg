@@ -14,6 +14,8 @@ export interface WikiLink {
   alias: string | null // alias or embed size
   escapedPipe: boolean // `\|` form (inside tables)
   inFrontmatter: boolean
+  /** Top-level frontmatter key the link is in; null for body links (D-257, FR-LNK-02 AC-1). */
+  attribute: string | null
 }
 
 const WIKILINK = /(!?)\[\[([^\[\]\n]+?)\]\]/g
@@ -21,7 +23,7 @@ const WIKILINK = /(!?)\[\[([^\[\]\n]+?)\]\]/g
 export function wikilinks(doc: Doc): WikiLink[] {
   const out: WikiLink[] = []
   const fm = doc.frontmatter
-  if (fm) scanLinks(doc.text, fm.innerRange, [], true, out)
+  if (fm) scanLinks(doc.text, fm.innerRange, frontmatterCode(doc.text, fm.innerRange), true, out)
   scanLinks(doc.text, [doc.bodyStart, doc.text.length], excludedRanges(doc), false, out)
   return out
 }
@@ -48,8 +50,29 @@ function scanLinks(text: string, [from, to]: Range, excluded: Range[], inFrontma
       alias: pipe ? inner.slice(pipe.index + pipe[0].length) : null,
       escapedPipe: pipe?.[0] === '\\|',
       inFrontmatter,
+      attribute: inFrontmatter ? attributeAt(text, from, start) : null,
     })
   }
+}
+
+/** The top-level key whose entry holds offset `at`: the last unindented `key:` line at or before it. */
+function attributeAt(text: string, from: number, at: number): string | null {
+  const KEY = /^(?:"((?:[^"\\]|\\.)*)"|'((?:[^']|'')*)'|([^\s#'"\-][^:\n]*?|-[^\s:][^:\n]*?))[ \t]*:(?=[ \t]|\r?\n|$)/gm
+  KEY.lastIndex = from
+  let key: string | null = null
+  let m: RegExpExecArray | null
+  while ((m = KEY.exec(text)) && m.index <= at) key = (m[1] ?? m[2]?.replace(/''/g, "'") ?? m[3]).normalize('NFC')
+  return key
+}
+
+/** Backtick code spans inside frontmatter values: links there aren't links (dialect §6, FR-LNK-02 AC-1). */
+function frontmatterCode(text: string, [from, to]: Range): Range[] {
+  const out: Range[] = []
+  const CODE = /`[^`\n]*`/g
+  CODE.lastIndex = from
+  let m: RegExpExecArray | null
+  while ((m = CODE.exec(text)) && m.index < to) out.push([m.index, m.index + m[0].length])
+  return out
 }
 
 // ---------------------------------------------------------------- tags

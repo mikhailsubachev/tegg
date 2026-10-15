@@ -146,20 +146,22 @@ test('fr_edt_07_ac6_picker_excludes_chosen_and_creates_without_leaving', async (
 });
 
 test('fr_edt_07_ac6_link_text_follows_the_editor_rule_and_non_allowed_targets_warn', async ({ page }) => {
+  // A single relation to any type on Page (Source is free text since D-248, so it can't carry this check any more).
   const vault = { ...editorVault(), files: { ...editorVault().files } };
+  vault.files['.tegg/types/page.yml'] = vault.files['.tegg/types/page.yml'].replace('attributes: []\n', 'attributes:\n  - key: zdroj\n    name: Zdroj\n    type: relation\n');
   const core = await openTypes(page, 'Pages/Prázdná.md', { vault });
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  const pick = await must(dialog(page, 'Choose Source'), 'Choose Source');
+  await (await must(props(page).getByRole('button', { name: 'Add Zdroj', exact: true }), 'Add Zdroj')).click();
+  const pick = await must(dialog(page, 'Choose Zdroj'), 'Choose Zdroj');
   await pick.getByRole('combobox', { name: 'Search' }).fill('C# tips');
   await sleep(150);
   await pick.getByRole('option', { name: /^C# tips/ }).click();
-  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('source:')))?.includes('source: "[[C tips|C# tips]]"'), 'C tips → "[[C tips|C# tips]]"');
+  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('zdroj:')))?.includes('zdroj: "[[C tips|C# tips]]"'), 'C tips → "[[C tips|C# tips]]"');
   await props(page).getByRole('button', { name: /^Remove C# tips$/ }).click();
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  await dialog(page, 'Choose Source').getByRole('combobox', { name: 'Search' }).fill('Senior');
+  await (await must(props(page).getByRole('button', { name: 'Add Zdroj', exact: true }), 'Add Zdroj')).click();
+  await dialog(page, 'Choose Zdroj').getByRole('combobox', { name: 'Search' }).fill('Senior');
   await sleep(150);
-  await dialog(page, 'Choose Source').getByRole('option').filter({ hasText: /2026-10-02|Oct 2, 2026/ }).first().click();
-  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('Senior')))?.includes('source: "[[Senior Product Manager (2)|Senior Product Manager]]"'));
+  await dialog(page, 'Choose Zdroj').getByRole('option').filter({ hasText: /2026-10-02|Oct 2, 2026/ }).first().click();
+  assert.ok((await written(core, 'Pages/Prázdná.md', (x) => x.includes('Senior')))?.includes('zdroj: "[[Senior Product Manager (2)|Senior Product Manager]]"'));
 });
 
 test('fr_edt_07_ac6_non_allowed_and_unresolved_targets_are_kept_with_warnings', async ({ page }) => {
@@ -381,23 +383,6 @@ test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('třetí');
   assert.ok(await seen(switcherDialog(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
-});
-
-test('fr_typ_08_ac10_source_is_a_single_relation_to_any_type', async ({ page }) => {
-  const core = await openTypes(page, P.obycejna);
-  await (await must(props(page).getByRole('button', { name: 'Add Source', exact: true }), 'Add Source')).click();
-  const pick = await must(dialog(page, 'Choose Source'), 'picker');
-  await pick.getByRole('combobox', { name: 'Search' }).fill('Rozpočet');
-  await sleep(150);
-  await pick.getByRole('option', { name: /^Rozpočet 2027/ }).click();
-  assert.ok((await written(core, P.obycejna, (x) => x.includes('source:')))?.includes('source: "[[Rozpočet 2027]]"\n'));
-});
-
-test('fr_typ_08_ac10_plain_text_source_is_invalid', async ({ page }) => {
-  const vault = typesVault((f) => { f[P.obycejna] = swap(f[P.obycejna], 'místo: Praha\n', 'source: kniha\n'); });
-  await openTypes(page, P.obycejna, { vault });
-  const src = await must(props(page).getByRole('group', { name: 'Source' }), 'group Source');
-  assert.ok((await description(src.locator('[aria-describedby], [aria-description]').first())).includes('The value is kept as it is.'), 'shown as invalid');
 });
 
 test('fr_typ_08_ac11_review_select', async ({ page }) => {

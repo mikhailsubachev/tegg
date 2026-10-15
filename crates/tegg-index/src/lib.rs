@@ -19,10 +19,10 @@ use tegg_format::nfc;
 use tegg_vault::FileVersion;
 
 pub use text::fold;
-use text::{contains_item, parse_query, tokens, within_one_edit, Item};
+use text::{contains_item, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 2; // 2: matched type key, `type_raw`, `type_single` (3D, D-239)
+const SCHEMA_VERSION: i64 = 3; // 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
 
@@ -112,9 +112,26 @@ impl SearchQuery {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MatchField {
     Title,
+    /// The file stem matched, not the title (D-254); ranked as Title.
+    FileName,
     Alias,
     Attribute,
     Body,
+}
+
+/// A link to a note, from `source`, in frontmatter key `attribute` (None for the body) (D-257).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Backlink {
+    pub source: String,
+    pub attribute: Option<String>,
+}
+
+/// D-253: how an unquoted multi-word query matched; a single-word query is always `Phrase`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum QueryTier {
+    Phrase,
+    AllWords,
+    AnyWord,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,8 +148,11 @@ pub struct SearchResult {
     pub r#type: String,
     pub title: String,
     pub matched_in: MatchField,
+    pub tier: QueryTier,
     pub typo: bool,
     pub snippet: Option<Snippet>,
+    /// Some only when `matched_in` is `FileName`: the stem with the matches highlighted, `line` 0 (D-254).
+    pub file_name: Option<Snippet>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -213,6 +233,9 @@ struct Stored {
     tag_spellings: Vec<String>,
     attributes: Value,
     links: Vec<String>,
+    /// The frontmatter key of each link, aligned with `links`; None for body links (D-257).
+    #[serde(default)]
+    link_attrs: Vec<Option<String>>,
     body_start: usize,
     body_line: usize,
 }
@@ -243,6 +266,7 @@ struct Meta {
     s: Stored,
     folder: String,
     stem: String,
+    stem_t: Vec<String>,
     title_t: Vec<String>,
     alias_t: Vec<Vec<String>>,
     attr_t: Vec<String>,
@@ -281,6 +305,21 @@ impl DateVal {
             DateVal::Instant(t) => t.timestamp(),
         }
     }
+}
+
+/// D-254: the stem (NFC) with every word of the query highlighted by byte ranges.
+fn file_name_snippet(stem: &str, positives: &[&Item]) -> Snippet {
+    let text = nfc(stem);
+    let ws = text::words(&text);
+    let mut highlights: Vec<(usize, usize)> = positives
+        .iter()
+        .flat_map(|it| text::match_positions(&ws, it))
+        .map(|r| (ws[r.start].0.start, ws[r.end - 1].0.end))
+        .collect();
+    highlights.sort();
+    highlights.dedup();
+    let byte_in_line = highlights.first().map_or(0, |h| h.0);
+    Snippet { text, highlights, line: 0, byte_in_line }
 }
 
 fn collapse(s: &str) -> String {
@@ -328,6 +367,7 @@ impl Meta {
         Meta {
             rowid,
             folder,
+            stem_t: tokens(&stem),
             stem,
             title_t: tokens(&s.title),
             alias_t: s.aliases.iter().map(|a| tokens(a)).collect(),
@@ -415,6 +455,7 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         tags: ex.tags,
         tag_spellings: ex.tag_spellings,
         attributes,
+        link_attrs: ex.links.iter().map(|l| l.attribute.clone()).collect(),
         links: ex.links.into_iter().map(|l| l.target).collect(),
         body_start,
         body_line,
@@ -665,82 +706,136 @@ impl Index {
             return Ok(SearchPage::default());
         }
         let quote = |toks: &[String]| format!("\"{}\"", toks.join(" ").replace('"', "\"\""));
+        // D-253: unquoted words are ranked in tiers; quoted phrases must all match.
+        let words: Vec<&Item> = positives.iter().copied().filter(|i| !i.quoted).collect();
+        let phrases: Vec<&Item> = positives.iter().copied().filter(|i| i.quoted).collect();
 
-        // Candidate rows: every positive item matches exactly (`exact`) or through an alternative (`full`).
-        let mut exact: Option<BTreeSet<i64>> = None;
-        let mut full: Option<BTreeSet<i64>> = None;
+        // Per item: rows matching it exactly, and rows matching it at all (exactly, by a typo, D-101, or in the file
+        // stem, D-254).
+        let mut exact_of: Vec<BTreeSet<i64>> = Vec::new();
+        let mut full_of: Vec<BTreeSet<i64>> = Vec::new();
         for it in &positives {
-            let e: BTreeSet<i64> = self.fts_rowids(&quote(&it.tokens))?.into_iter().map(|(r, _)| r).collect();
-            let mut f = e.clone();
+            let mut e: BTreeSet<i64> = self.fts_rowids(&quote(&it.tokens))?.into_iter().map(|(r, _)| r).collect();
+            let mut f = BTreeSet::new();
             for chunk in it.alternatives.chunks(200) {
                 let alt = chunk.iter().map(|a| quote(std::slice::from_ref(a))).collect::<Vec<_>>().join(" OR ");
                 f.extend(self.fts_rowids(&alt)?.into_iter().map(|(r, _)| r));
             }
-            exact = Some(match exact {
-                Some(x) => x.intersection(&e).copied().collect(),
-                None => e,
-            });
-            full = Some(match full {
-                Some(x) => x.intersection(&f).copied().collect(),
-                None => f,
-            });
-        }
-        let (exact, mut full) = match (exact, full) {
-            (Some(e), Some(f)) => (e, f),
-            _ => {
-                let all: BTreeSet<i64> = self.metas.keys().copied().collect();
-                (all.clone(), all)
+            for m in self.metas.values() {
+                if m.stem_t.windows(it.tokens.len().max(1)).any(|w| w == it.tokens.as_slice()) {
+                    e.insert(m.rowid);
+                } else if it.tokens.len() == 1 && m.stem_t.iter().any(|t| it.alternatives.contains(t)) {
+                    f.insert(m.rowid);
+                }
             }
+            f.extend(e.iter().copied());
+            exact_of.push(e);
+            full_of.push(f);
+        }
+        let idx = |it: &Item| positives.iter().position(|p| std::ptr::eq(*p, it)).unwrap_or(0);
+        let mut full: BTreeSet<i64> = if positives.is_empty() {
+            self.metas.keys().copied().collect()
+        } else if words.is_empty() {
+            let mut all: Option<BTreeSet<i64>> = None;
+            for p in &phrases {
+                let f = &full_of[idx(p)];
+                all = Some(match all {
+                    Some(x) => x.intersection(f).copied().collect(),
+                    None => f.clone(),
+                });
+            }
+            all.unwrap_or_default()
+        } else {
+            let mut any: BTreeSet<i64> = words.iter().flat_map(|w| full_of[idx(w)].iter().copied()).collect();
+            for p in &phrases {
+                any = any.intersection(&full_of[idx(p)]).copied().collect();
+            }
+            any
         };
         for it in items.iter().filter(|i| i.negative) {
             for (r, _) in self.fts_rowids(&quote(&it.tokens))? {
                 full.remove(&r);
             }
         }
-        // bm25 of the exact query, for ranking within a group (lower is better).
+        // bm25 of the exact words, for ranking within a group (lower is better).
         let mut score: HashMap<i64, f64> = HashMap::new();
-        if !positives.is_empty() && !exact.is_empty() {
-            let all = positives.iter().map(|i| quote(&i.tokens)).collect::<Vec<_>>().join(" AND ");
-            score = self.fts_rowids(&all)?.into_iter().collect();
+        if !positives.is_empty() {
+            let any = positives.iter().map(|i| quote(&i.tokens)).collect::<Vec<_>>().join(" OR ");
+            score = self.fts_rowids(&any)?.into_iter().collect();
         }
 
-        let mut hits: Vec<(&Meta, bool, MatchField)> = full
-            .iter()
-            .filter_map(|r| self.metas.get(r))
-            .filter(|m| self.passes(m, q))
-            .map(|m| {
-                let typo = !exact.contains(&m.rowid);
-                let any = |toks: &[String]| positives.iter().any(|i| contains_item(toks, i));
-                let field = if positives.is_empty() || any(&m.title_t) {
-                    MatchField::Title
-                } else if m.alias_t.iter().any(|a| any(a)) {
-                    MatchField::Alias
-                } else if any(&m.attr_t) {
-                    MatchField::Attribute
-                } else {
-                    MatchField::Body
-                };
-                (m, typo, field)
-            })
-            .collect();
+        let mut hits: Vec<(&Meta, QueryTier, bool, MatchField)> = Vec::new();
+        for m in full.iter().filter_map(|r| self.metas.get(r)).filter(|m| self.passes(m, q)) {
+            let matched: Vec<&Item> = positives.iter().copied().filter(|it| full_of[idx(it)].contains(&m.rowid)).collect();
+            let typo = matched.iter().any(|it| !exact_of[idx(it)].contains(&m.rowid));
+            let all_words = words.iter().all(|w| full_of[idx(w)].contains(&m.rowid));
+            let tier = if words.len() <= 1 {
+                QueryTier::Phrase
+            } else if !all_words {
+                QueryTier::AnyWord
+            } else if [&m.title_t, &m.stem_t, &m.attr_t].iter().any(|t| contains_sequence(t, &words))
+                || m.alias_t.iter().any(|a| contains_sequence(a, &words))
+                || self.body_tokens(m)?.is_some_and(|b| contains_sequence(&b, &words))
+            {
+                QueryTier::Phrase
+            } else {
+                QueryTier::AllWords
+            };
+            let any = |toks: &[String]| matched.iter().any(|i| contains_item(toks, i));
+            let field = if positives.is_empty() || any(&m.title_t) {
+                MatchField::Title
+            } else if any(&m.stem_t) {
+                MatchField::FileName
+            } else if m.alias_t.iter().any(|a| any(a)) {
+                MatchField::Alias
+            } else if any(&m.attr_t) {
+                MatchField::Attribute
+            } else {
+                MatchField::Body
+            };
+            hits.push((m, tier, typo, field));
+        }
+        // D-253: tier, then exact before typo, then title/file name, alias, attribute, body (D-107), then bm25.
+        let field_rank = |f: MatchField| if f == MatchField::FileName { MatchField::Title } else { f };
         hits.sort_by(|a, b| {
             let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
             let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
-            (a.1, a.2).cmp(&(b.1, b.2)).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
+            (a.1, a.2, field_rank(a.3)).cmp(&(b.1, b.2, field_rank(b.3))).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
         });
         let total = hits.len();
         let limit = if q.limit == 0 { 50 } else { q.limit };
         let mut results = Vec::new();
-        for (m, typo, field) in hits.into_iter().skip(q.offset).take(limit) {
-            let snippet = if positives.is_empty() { None } else { self.snippet_for(m, &items)? };
-            results.push(SearchResult { path: m.path.clone(), r#type: m.s.r#type.clone(), title: m.s.title.clone(), matched_in: field, typo, snippet });
+        for (m, tier, typo, field) in hits.into_iter().skip(q.offset).take(limit) {
+            let mut snippet = if positives.is_empty() { None } else { self.snippet_for(m, &items)? };
+            let file_name = if field == MatchField::FileName {
+                if snippet.is_none() {
+                    snippet = self.lead_for(m)?;
+                }
+                Some(file_name_snippet(&m.stem, &positives))
+            } else {
+                None
+            };
+            results.push(SearchResult { path: m.path.clone(), r#type: m.s.r#type.clone(), title: m.s.title.clone(), matched_in: field, tier, typo, snippet, file_name });
         }
         Ok(SearchPage { results, total })
     }
 
+    fn raw_of(&self, m: &Meta) -> Result<Option<String>, IndexError> {
+        Ok(self.conn.prepare_cached("SELECT raw FROM notes WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?)
+    }
+
+    fn body_tokens(&self, m: &Meta) -> Result<Option<Vec<String>>, IndexError> {
+        Ok(self.raw_of(m)?.map(|raw| tokens(raw.get(m.s.body_start..).unwrap_or(""))))
+    }
+
+    fn lead_for(&self, m: &Meta) -> Result<Option<Snippet>, IndexError> {
+        let Some(raw) = self.raw_of(m)? else { return Ok(None) };
+        let body = raw.get(m.s.body_start..).unwrap_or("");
+        Ok(text::lead(body).map(|s| Snippet { text: s.text, highlights: s.highlights, line: m.s.body_line + s.body_line + 1, byte_in_line: s.byte_in_line }))
+    }
+
     fn snippet_for(&self, m: &Meta, items: &[Item]) -> Result<Option<Snippet>, IndexError> {
-        let raw: Option<String> = self.conn.prepare_cached("SELECT raw FROM notes WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?;
-        let Some(raw) = raw else { return Ok(None) };
+        let Some(raw) = self.raw_of(m)? else { return Ok(None) };
         let body = raw.get(m.s.body_start..).unwrap_or("");
         Ok(text::snippet(body, items).map(|s| Snippet { text: s.text, highlights: s.highlights, line: m.s.body_line + s.body_line + 1, byte_in_line: s.byte_in_line }))
     }
@@ -870,6 +965,25 @@ impl Index {
     pub fn backlinks(&self, path: &str) -> Vec<String> {
         let path = self.meta(path).map(|m| m.path.clone()).unwrap_or_else(|| path.to_string());
         self.with_links(|l| l.backlinks.get(&path).map(|s| s.iter().cloned().collect()).unwrap_or_default())
+    }
+
+    /// FR-LNK-02 (D-257): each note linking to `path`, once per link, with the frontmatter key the link is in
+    /// (None for the body), sorted by source path.
+    pub fn backlinks_detailed(&self, path: &str) -> Vec<Backlink> {
+        let path = self.meta(path).map(|m| m.path.clone()).unwrap_or_else(|| path.to_string());
+        let mut out: Vec<Backlink> = self.with_links(|l| {
+            let mut v = Vec::new();
+            for m in self.metas.values().filter(|m| m.path != path) {
+                for (i, t) in m.s.links.iter().enumerate() {
+                    if resolve(l, t).as_deref() == Some(path.as_str()) {
+                        v.push(Backlink { source: m.path.clone(), attribute: m.s.link_attrs.get(i).cloned().flatten() });
+                    }
+                }
+            }
+            v
+        });
+        out.sort_by(|a, b| (&a.source, &a.attribute).cmp(&(&b.source, &b.attribute)));
+        out
     }
 
     /// FR-FMT-09 AC-2: daily notes are recognized by their `date` attribute, whatever the file name.

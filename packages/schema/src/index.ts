@@ -3,7 +3,7 @@
 // matching (D-239). Pure TypeScript, platform-neutral (AR-03): no DOM, no Tauri. Checked against the shared corpora
 // tests/fixtures/types/{values,rules}.json, which the Rust crate reads too.
 
-import { typeKey as docTypeKey, typeMatch as docTypeMatch, type Value } from '@tegg/doc';
+import { formatScalar, typeKey as docTypeKey, typeMatch as docTypeMatch, type Value } from '@tegg/doc';
 
 export type { Value };
 
@@ -41,6 +41,28 @@ const RESERVED = new Set(['id', 'type', 'title', 'description', 'aliases', 'tags
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase();
+
+/** Universal attributes every type has, with the control type they use (D-248: `source` is text). */
+export const UNIVERSAL_ATTRS: Readonly<Record<string, { type: string }>> = {
+  description: { type: 'text' },
+  source: { type: 'text' },
+  aliases: { type: 'multi-select' },
+  tags: { type: 'multi-select' },
+};
+
+/** The YAML scalar for a text value: plain when YAML allows it, else double-quoted; text with a `[[link]]` and
+ *  date-like text are always double-quoted (D-230, D-249, D-257). Same as `@tegg/doc`'s formatter. */
+export function formatText(value: string): string {
+  return formatScalar(value);
+}
+
+/** D-251, D-222, D-259: can a `type:` value without a definition get one as it is? */
+export function canDefine(value: string): { ok: true } | { ok: false; reason: 'fileName' } {
+  const v = nfc(value).trim();
+  const key = typeKey(v);
+  if (!v || !key || /[\\/:*?"<>|#^[\]]/.test(v) || new TextEncoder().encode(key).length > 200) return { ok: false, reason: 'fileName' };
+  return { ok: true };
+}
 
 // ------------------------------------------------------------------------------------------------ keys
 

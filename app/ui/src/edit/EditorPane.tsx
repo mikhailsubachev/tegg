@@ -19,7 +19,12 @@ export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow';
 
-export type EditorPaneApi = { ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean };
+export type EditorPaneApi = {
+  ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
+  /** D-247, D-255: the caret at the start of the first editable block (or of the heading `fragment`), without
+   *  scrolling; false when nothing in the body is editable. Writes nothing. */
+  caretToStart: (fragment?: string) => boolean;
+};
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -53,10 +58,12 @@ function Due({ due }: { due: SlashDef['due'] }) {
   return due ? <span className="due">{t('due.coming', { milestone: showDue(due) })}</span> : null;
 }
 
-export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus }: {
+export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy }: {
   onSaveNow?: () => void;
   /** A note just created: the caret goes into the body at once (AP-135). */
   autoFocus?: boolean;
+  /** The note body is described by the title for screen readers (D-255). */
+  describedBy?: string;
   apiRef: Ref<EditorPaneApi>;
   text: string;
   path: string;
@@ -134,6 +141,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       return;
     }
     edRef.current = ed;
+    if (describedBy) (ed.view.dom as HTMLElement).setAttribute('aria-describedby', describedBy);
     onReady(ed);
     // A dialog opened meanwhile (the palette while the object was being created) keeps the focus.
     if (autoFocus && !document.querySelector('[role="dialog"]')) ed.view.focus();
@@ -219,8 +227,20 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         if (!live.current.slash || live.current.slash.from !== from || live.current.slash.query !== sm[2]) setSlash({ from, query: sm[2], sel: 0 });
       } else if (live.current.slash) setSlash(null);
     } else if (live.current.slash) setSlash(null);
-    // `[[` autocomplete (FR-EDT-06 AC-1).
-    const lm = !inCode && sel.empty ? /\[\[([^[\]\n|￼]*)$/.exec(before) : null;
+    // `[[` autocomplete (FR-EDT-06 AC-1), and `@` at a mention start with the same list (D-250, D-258): after a
+    // line start, a space or `(`, not inside a word (`eva@example.com`), code, a link or math; the query may hold
+    // spaces, and a space typed when only the Create row is left closes it, leaving `@<query>` as text.
+    const lm0 = !inCode && sel.empty ? /\[\[([^[\]\n|￼]*)$/.exec(before) : null;
+    const am = !lm0 && !inCode && sel.empty && !$f.marks().some((m) => m.type.name === 'link') ? /(?:^|[\s(])@([^\s@￼[\]][^@\n￼[\]]*|)$/.exec(before) : null;
+    const lm = lm0 ?? (am ? [`@${am[1]}`, am[1]] as const : null);
+    if (am && !lm0) {
+      const from = $f.pos - am[1].length - 1;
+      const cur = live.current.suggest;
+      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create')) {
+        dismissed.current = `l${from}`;
+        setSuggest(null);
+      }
+    }
     if (lm) {
       const from = $f.pos - lm[0].length;
       if (dismissed.current !== `l${from}`) {
@@ -266,6 +286,36 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
 
   // ------------------------------------------------------------------ actions
   const focusEditor = () => edRef.current?.view.focus();
+  const caretToStart = (fragment?: string): boolean => {
+    const ed = edRef.current;
+    if (!ed) return false;
+    const { state } = ed.view;
+    const want = fragment?.replace(/^#/, '').normalize('NFC').toLowerCase();
+    let pos: number | null = null;
+    let first: number | null = null;
+    state.doc.descendants((n, p) => {
+      if (pos !== null) return false;
+      if (n.type.name === 'rawBlock' || (n.isAtom && n.isBlock)) return false; // read-only blocks (D-191)
+      if (n.isTextblock) {
+        if (first === null) first = p + 1;
+        if (want && n.type.name === 'heading' && n.textContent.normalize('NFC').toLowerCase() === want) pos = p + 1;
+        return false;
+      }
+      return true;
+    });
+    const at = pos ?? first;
+    if (at === null) return false;
+    // WebKit scrolls a focused editable to a new caret; keep every scroll position (Back restores one, D-255).
+    const kept: [Element, number][] = [];
+    for (let e: Element | null = ed.view.dom; e; e = e.parentElement) if (e.scrollTop) kept.push([e, e.scrollTop]);
+    const restore = () => { for (const [e, top] of kept) e.scrollTop = top; };
+    // Focus first: on focus ProseMirror reads the DOM selection, which would move the caret to the document start.
+    (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+    ed.editor.commands.setTextSelection(at); // a selection change: no write, no history step
+    restore();
+    requestAnimationFrame(restore);
+    return true;
+  };
 
   const openMenu = useCallback((block: number) => {
     const e = edRef.current;
@@ -306,6 +356,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const s = live.current.suggest;
     if (!e || !s || s.kind !== 'link') return;
     setSuggest(null);
+    dismissed.current = `l${s.from}`; // ⌘Z restores the typed query as text; it doesn't reopen the list
     let path = item.path;
     let title = item.title.normalize('NFC');
     if (item.kind === 'create') {
@@ -379,7 +430,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -442,6 +493,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const sel = ed.view.state.selection;
       if (bs) { ed.clearBlockSelection(); return; }
       if (!sel.empty && !(sel as { node?: unknown }).node) { setToolbarHidden(`${sel.from}-${sel.to}`); return; }
+      // Owner decision (2026-10-15): in focus mode, Esc with nothing selected leaves it (FR-UX-02 AC-9) instead of
+      // selecting the block; the app's key handler gets it.
+      if (wrap.current?.closest('.focus-mode')) { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return; }
       ed.commands.selectBlock();
       return;
     }
@@ -553,12 +607,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     <div ref={wrap} className="editor-wrap" onKeyDownCapture={onKeyDownCapture} onMouseDownCapture={onMouseDownCapture} onMouseMove={onMouseMove} onMouseLeave={() => setHover(null)}>
       {handleTop !== null && handleBlock !== null && (
         <div className="block-handles" style={{ top: handleTop }}>
-          <button type="button" tabIndex={-1} className="icon-button" aria-label={t('editor.addBelow')} title={t('editor.addBelow')}
+          <button data-command="editor.addBlockBelow" type="button" tabIndex={-1} className="icon-button" aria-label={t('editor.addBelow')} title={t('editor.addBelow')}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => { selectBlockCaret(handleBlock); edRef.current?.commands.insertBlock('paragraph'); const ed = edRef.current; if (ed) { const doc = ed.view.state.doc; const k = handleBlock + 1; let p = 0; for (let i = 0; i < k && i < doc.childCount; i++) p += doc.child(i).nodeSize; void p; } focusEditor(); }}>
             <Icon name="plus" />
           </button>
-          <button type="button" tabIndex={-1} className="icon-button drag-handle" aria-label={t('editor.handle')} title={t('editor.handle')}
+          <button data-command="edit.blockMenu" type="button" tabIndex={-1} className="icon-button drag-handle" aria-label={t('editor.handle')} title={t('editor.handle')}
             onMouseDown={(e) => onHandleDown(e, handleBlock)}>
             <Icon name="grip" />
           </button>

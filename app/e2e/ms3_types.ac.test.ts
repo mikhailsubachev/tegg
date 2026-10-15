@@ -289,7 +289,7 @@ test('fr_typ_09_ac11_type_pages_write_nothing_on_the_real_core', { timeout: 300_
   try {
     d = await session(testEnv(join(base, 'support'), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/schůzka' }));
     assert.ok(await waitMark(log, 'route-ready:type/schůzka'), 'type/schůzka shown');
-    assert.ok(await shown(d, 'Add column'), 'red guard: the 3D type page (table with Add column, FR-TYP-09 AC-7)');
+    assert.ok(await shown(d, 'Columns'), 'red guard: the 3D type page (table with Columns, FR-TYP-09 AC-13)');
     for (const pl of ['Schůzky', 'Projekty', 'Osoby', 'Pages', 'Nápady']) {
       await paletteRun(d, `Go to type: ${pl}`);
       for (const h of ['Title', 'Modified']) await (await firstShown(d, h))?.click().catch(() => {});

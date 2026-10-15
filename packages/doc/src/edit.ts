@@ -45,6 +45,11 @@ function fit(doc: Doc, s: string): string {
  * marker is what separates it from an adjacent list, so changing `1)` to `1.` or
  * `*` to `-` would merge two lists into one (finding from S1).
  */
+// GFM escapes `@` between word characters (`a\@b`) to stop e-mail autolinks, but the escape doesn't stop them
+// (`eva\@example.com` still reads back as a link), so it only adds bytes the user didn't type. Without it, text is
+// written as typed (bug_3d_fr_edt_08_email_in_body_saves, FR-EDT-06 AC-8).
+const GFM = ((g) => ({ ...g, extensions: g.extensions?.map((e) => ({ ...e, unsafe: e.unsafe?.filter((u) => u.character !== '@') })) }))(gfmToMarkdown())
+
 export function renderBlock(node: RootContent, originalRaw?: string): string {
   const marker = originalRaw?.trimStart().match(/^(?:([-*+])|\d+([.)]))[ \t]/)
   const md = toMarkdown(
@@ -58,7 +63,7 @@ export function renderBlock(node: RootContent, originalRaw?: string): string {
       fence: '`',
       fences: true,
       listItemIndent: 'one',
-      extensions: [gfmToMarkdown(), mathToMarkdown(), wikiLinkToMarkdown, tagToMarkdown, inlineToMarkdown],
+      extensions: [GFM, mathToMarkdown(), wikiLinkToMarkdown, tagToMarkdown, inlineToMarkdown],
     },
   )
   let out = md.replace(/\n+$/, '') // a block's range never includes the separating newline
@@ -170,6 +175,8 @@ export function formatScalar(v: Value): string {
     // A text that looks like a date or date-time stays text: YAML 1.1 readers (and the dialect, §3) would read it
     // as a date, so it is double-quoted (D-230, FR-EDT-07 AC-5).
     if (/^\d{4}-\d{1,2}-\d{1,2}(?:([Tt]|[ \t]+)\d{1,2}:\d{2}:\d{2}(\.\d*)?([ \t]*(Z|[-+]\d{1,2}(:\d{2})?))?)?$/.test(nfc)) return JSON.stringify(nfc)
+    // Text with a link is always double-quoted, so it reads as one string with the link in it (D-249, D-257).
+    if (nfc.includes('[[')) return JSON.stringify(nfc)
     const s = new Scalar(nfc)
     // Plain when YAML allows it; double quotes otherwise (dialect §3).
     return stringify(s, { defaultStringType: 'PLAIN', defaultKeyType: 'PLAIN', lineWidth: 0 }).replace(/\n$/, '')

@@ -272,8 +272,10 @@ test('fr_nav_03_ac6_focus_on_page_heading_after_back_and_forward', async ({ page
     await (await must(sidebar(page), 'sidebar')).focus().catch(() => {});
     if (step === 'back') await backBtn(page).click({ force: true }); else await fwdBtn(page).click({ force: true });
     await mustBeOn(page, want, `${step}`);
-    const f = await eventually(() => focused(page), (x) => x.heading && x.inMain, 1500);
-    assert.ok(f.heading && f.inMain, `${step} to ${want}: focus on the page heading, got ${JSON.stringify(f)}`);
+    // A note gets the caret in its body (D-247, FR-EDT-01 AC-11); other pages focus their heading (D-130).
+    const note = want === PORADA;
+    const f = await eventually(() => focused(page), (x) => x.inMain && (note ? x.label === 'Note body' : x.heading), 1500);
+    assert.ok(f.inMain && (note ? f.label === 'Note body' : f.heading), `${step} to ${want}: ${note ? 'caret in the note body' : 'focus on the page heading'}, got ${JSON.stringify(f)}`);
   }
 });
 
