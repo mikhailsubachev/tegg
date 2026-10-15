@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.45, for review                                             |
+| **Document status** | Draft v1.46, for review                                             |
 | **Date**            | 2026-10-15                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -61,6 +61,7 @@
 | v1.43   | 2026-10-15 | D-266: no focus ring on text you type into (note body, title, description, property fields); replaces D-264. |
 | v1.44   | 2026-10-15 | MS4 plan decisions D-267…D-275 (AP-195…AP-203, `docs/plans/ms4-implementation-plan.md`): MS4 in slices 4A–4F; rename on title commit; no backup zip for a single note rename; one daily-note template; daily context sections and review before MS5; embed modes before tasks; backup list in Settings; tag parts moved to v1.0. |
 | v1.45   | 2026-10-15 | MS4 slice 4A AC decisions D-276…D-295 (AP-204…AP-223, `docs/acceptance/backlinks.md`): backlinks order, excerpts and scope, Broken links and Duplicate titles pages, Create offer and odd targets, duplicate details and merge (a 4C job), one link-resolution rule and vault-wide free stems, MS4 slice labels, external renames, 4A contract. |
+| v1.46   | 2026-10-15 | MS4 slice 4A red-test decisions D-296…D-311 (AP-224…AP-239): fixture retitle, path and Markdown-link targets, `rewrite` format, `link_create` as the offer's write, TS shapes, excerpt whitespace, new test files, catalog variables, chip attributes, page roles, fake-core failures, embed placeholder offer, create race error. |
 
 ---
 
@@ -399,6 +400,22 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-293 | Existing criteria changed by 4A | read-view FR-EDT-02 AC-8's unresolved part becomes "opens the Create offer" (its date-link part stays until 4B); editor FR-EDT-02 AC-16 follows it; app-shell R2's Backlinks requirements become FR-LNK-01, FR-LNK-02; the test changes carry `AC-Test-Change: 4A replaces D-142's broken-link behaviour; approved-by: owner` (AP-221) |
 | D-294 | External renames and backlinks (FR-SYN-03 AC-5) | After an external rename or move, the object keeps its identity (by `id`); links that still resolve keep their backlinks; links that no longer resolve become broken and appear in Broken links within 2 s. Tegg rewrites nothing on its own; 4C may offer "Update links to the renamed note" as a job the user starts (AP-222) |
 | D-295 | 4A contract | `docs/contracts/ms4-links.md` is written before the 4A red tests, including D-291's resolution rule and the change to `note_create`'s free-name rule (AP-223) |
+| D-296 | Backlinks fixture duplicates (FR-LNK-14 AC-8) | `Quick Notes/Dvojník.md` in the backlinks fixture is titled `Rychlý dvojník`, so the fixture has 2 titles shared by 6 objects; FR-LNK-14 AC-7 needs only the shared stems (AP-224) |
+| D-297 | Title for a path target (FR-LNK-04 AC-8) | The created note's title is the last path segment (`[[Projekty/Alfa]]` → `Alfa`); the button still names the target as written (`Create "Projekty/Alfa"`) (AP-225) |
+| D-298 | Markdown links in extraction and Create | `[text](Cíl.md)` gives a link record whose target is the URL-decoded path as written (`Cíl.md`), resolved relative to the source's folder (D-155). Create from a Markdown link takes the title from the decoded path without folders and without `.md` (`Nov%C3%A1%20v%C4%9Bc.md` → `Nová věc`) and places it by the D-288 rules (AP-226) |
+| D-299 | `rewrite` format (D-287) | `LinkCreatePlan.rewrite` and `replaceLink(pos, linkText)` take the link text without brackets, like `linkText` (D-184): `Q3 plán\|Q3: plán?` (AP-227) |
+| D-300 | The Create offer's write (FR-SYN-06 AC-9) | The one write of the Create offer is `link_create`; FR-SYN-06 AC-9 counts 1 `link_create` (AP-228) |
+| D-301 | Switcher duplicate field (Rust) | `SwitcherItem` gains `duplicate: Option<DuplicateDetails>` (AP-229) |
+| D-302 | TS extraction and excerpt shapes | `extract().blocks` as `{ kind: 'paragraph' \| 'heading' \| 'listItem' \| 'tableRow' \| 'quote' \| 'callout', segments: ({ text, marks } \| { link, marks })[] }`; link `at: { line, byte }` with a 1-based line and a 0-based UTF-8 byte offset in the line, and `block: number \| null`; `excerptWindow(rendered, here, max, before) → ExcerptDto`; Rust `LinkTargetInfo { target, kind: TargetKind, path, title, type }` (AP-230) |
+| D-303 | Excerpt whitespace and segments | Whitespace at a cut is dropped; whitespace left at a block's end by a removed comment or block id is dropped; adjacent text with equal marks is one segment (AP-231) |
+| D-304 | 4A test files (TS-I3) | New tests go in new files (`links_catalog.ac.test.ts`, `links_registry.ac.test.ts`), never added to existing AC test files; ms4-links §7 says so (AP-232) |
+| D-305 | Catalog variables for 4A | Plural messages take `count` (ms3-shell §3.1); `brokenLinks.summary` and `duplicates.summary` take `count` and `objects`; the singular is `1 object links here` (AP-233) |
+| D-306 | Chip attributes in every context (FR-LNK-07) | Every link chip, the editor's included, has `data-link-kind` and `data-icon`; the editor shows a subpath link as `Cíl › Úvod` like the read view (D-156) (AP-234) |
+| D-307 | Roles on the Broken links and Duplicate titles pages | One `group` per group named `<label>, <n>`; sources as `article`s with `[data-occurrence]` excerpts on Broken links; duplicate rows as `link`s (AP-235) |
+| D-308 | Duplicate details line | The details are part of the row's text, joined with ` · `; a row without a shared title contains no ` · ` (AP-236) |
+| D-309 | Fake core write failures | `writeControl({ fail: 'Io' })` also applies to `link_create` (FR-LNK-04 AC-11) (AP-237) |
+| D-310 | Create from a broken note embed (FR-LNK-04 AC-6) | A broken `![[Note]]` stays an R5 placeholder; the offer opens from the link chip the placeholder shows for its target (D-144) (AP-238) |
+| D-311 | Create race error | When create-exclusive fails because the target file appeared before the index saw it, `link_create` returns `CoreError::Exists { path }`, not `NameTaken` (AP-239) |
 
 ---
 
