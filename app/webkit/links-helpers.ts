@@ -122,6 +122,24 @@ export async function entriesIn(page: Page, plural: string): Promise<string[]> {
   if (!(await seen(g, 1000))) return [];
   return (await g.getByRole('article').evaluateAll((as) => as.map((a) => a.getAttribute('aria-label') ?? ''))).map(flat);
 }
+/** D-368 (R15 D-368 row): the panel's entries are `link` chips with `data-link-kind="note"`, named by the source title. */
+export const panelChips = (scope: Locator) => scope.getByRole('link').and(scope.page().locator('[data-link-kind="note"]'));
+async function chipTexts(loc: Locator): Promise<string[]> {
+  return (await loc.evaluateAll((as) => as.map((a) => a.getAttribute('aria-label') ?? (a as HTMLElement).innerText ?? a.textContent ?? ''))).map(flat);
+}
+/** Chip titles in the panel, in order (D-368). */
+export async function chipNames(page: Page): Promise<string[]> {
+  await mustPanel(page);
+  return chipTexts(panelChips(backlinksPanel(page)));
+}
+export async function chipsIn(page: Page, plural: string): Promise<string[]> {
+  await mustPanel(page);
+  const g = backlinksPanel(page).getByRole('group', { name: plural, exact: true });
+  if (!(await seen(g, 1000))) return [];
+  return chipTexts(panelChips(g));
+}
+export const panelChip = (page: Page, title: string) =>
+  panelChips(backlinksPanel(page)).filter({ hasText: new RegExp(`^\\s*${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
 export async function excerptTexts(scope: Locator): Promise<string[]> {
   return (await excerpts(scope).allInnerTexts()).map(flat);
 }

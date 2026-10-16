@@ -100,7 +100,11 @@ export const calendarGrid = (page: Page) => calendar(page).getByRole('grid');
 export const dayButton = (page: Page, longDate: string) => calendarGrid(page).getByRole('gridcell').getByRole('button', { name: longDate, exact: true });
 export const sidebarToday = (page: Page) => page.getByRole('navigation', { name: 'Sidebar' }).getByRole('link', { name: 'Today', exact: true });
 export const linkSuggestions = (page: Page) => page.getByRole('listbox', { name: 'Link suggestions', exact: true });
-export const typeChip = (page: Page) => page.getByRole('button', { name: /^Type: .*\. Change type$/ });
+/** D-369: the type chip is a link `Type: <Name>` (types.md FR-TYP-07 AC-11). */
+export const typeChip = (page: Page) => main(page).getByRole('link', { name: /^Type: / });
+/** D-369: `Change type…` in the note header's `More` menu (FR-TYP-07 AC-12). */
+export const moreButton = (page: Page) => main(page).getByRole('button', { name: 'More', exact: true });
+export const changeTypeItem = (page: Page) => page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name: 'Change type…', exact: true });
 export const contextPanel = (page: Page) => page.getByRole('complementary', { name: 'Context panel' });
 export const backlinksTab = (page: Page) => contextPanel(page).getByRole('tab', { name: /^Backlinks\b/ });
 export const backlinksPanel = (page: Page) => page.getByRole('tabpanel', { name: 'Backlinks' });

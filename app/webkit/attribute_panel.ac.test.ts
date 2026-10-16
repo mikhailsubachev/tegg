@@ -242,9 +242,12 @@ test('fr_edt_07_ac11_read_only_files_have_no_editable_panel', async ({ page }) =
     assert.equal(await region.locator('input, textarea, [contenteditable="true"], [role="combobox"]').count(), 0, 'not editable');
     assert.equal(await region.getByText('Empty', { exact: true }).count(), 0, 'no Empty placeholders');
   }
-  const chip = page.getByRole('button', { name: /^Type: .*\. Change type$/ });
-  assert.ok(await seen(chip), 'red guard: the 3D type chip is shown');
-  assert.equal(await chip.getAttribute('aria-disabled'), 'true', 'the chip is disabled on files the panel can\'t edit');
+  // D-369: the chip is a link to the type page; `Change type…` in the `More` menu is the disabled control (FR-TYP-07 AC-12).
+  assert.ok(await seen(page.getByRole('main').getByRole('link', { name: /^Type: / })), 'red guard: the type chip is shown');
+  await (await must(page.getByRole('main').getByRole('button', { name: 'More', exact: true }), 'button "More"')).click();
+  const item = page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name: 'Change type…', exact: true });
+  assert.equal(await (await must(item, 'menuitem "Change type…"')).getAttribute('aria-disabled'), 'true', 'Change type… is disabled on files the panel can\'t edit');
+  await page.keyboard.press('Escape');
   assert.deepEqual(await nonReadCalls(core), [], 'no write');
 });
 

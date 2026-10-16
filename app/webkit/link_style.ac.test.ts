@@ -7,7 +7,7 @@
 import { test, type Browser, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { B, backlinksPanel, chips, description, editorBody, entry, linksVault, main, must, mustPanel, openLinks, props, runCommand, swap } from './links-helpers';
+import { B, backlinksPanel, chips, description, editorBody, linksVault, main, must, mustPanel, openLinks, props, runCommand, swap } from './links-helpers';
 import { tokenColour } from './read-helpers';
 
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -51,7 +51,8 @@ async function resolvedChips(browser: Browser, theme: 'light' | 'dark'): Promise
   styles.push(['text value', await style(await chipIn(props(p3).locator('[aria-label="Poznámka"], [aria-labelledby]').filter({ hasText: 'Připravit' }), 'Cíl', 'Poznámka'))]);
   const p4 = await page(browser, theme, B.cil); pages.push(p4);
   await mustPanel(p4);
-  styles.push(['backlinks excerpt', await style(await chipIn(entry(p4, 'Odkazy v textu').locator('[data-occurrence]').first(), 'Cíl', 'excerpt'))]);
+  // D-368: the panel shows chips, not excerpts; the chip of the source Odkazy v textu (a Page) is the panel's resolved chip.
+  styles.push(['backlinks chip', await style(await chipIn(backlinksPanel(p4), 'Odkazy v textu', 'backlinks panel'))]);
   await runCommand(p4, 'Go to Broken links');
   styles.push(['broken links excerpt', await style(await chipIn(main(p4).getByRole('group', { name: /^Neexistuje/ }).locator('[data-occurrence]').filter({ hasText: 'Cíl' }), 'Cíl', 'Broken links excerpt'))]);
   const p5 = await page(browser, theme, B.cil); pages.push(p5);

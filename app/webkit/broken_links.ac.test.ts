@@ -6,7 +6,7 @@
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  B, SUBPATH_CHIP, chips, createOffer, description, editorBody, entries, eventually, fileText, flat, focus, gotoNote, isDisabled, linksVault, main, must,
+  B, SUBPATH_CHIP, chipNames, chips, createOffer, description, editorBody, eventually, fileText, flat, focus, gotoNote, isDisabled, linksVault, main, must,
   mustBeOn, mustPanel, nfc, openLinks, props, runCommand, seen, sleep, swap, writeCalls, type FakeCoreHandle,
 } from './links-helpers';
 import { absent } from './helpers';
@@ -100,9 +100,11 @@ test('fr_lnk_04_ac5_create_writes_one_file_and_links_resolve', async ({ page }) 
   const t = await fileText(core, 'Quick Notes/Neexistuje.md');
   assert.match(t ?? '', /^type: quick-note$/m);
   assert.match(t ?? '', /^title: Neexistuje$/m);
-  assert.equal(await page.evaluate(() => document.querySelector('[data-focus-target]')?.getAttribute('data-focus-target')), 'body', 'caret in the empty body (AP-214)');
+  // D-367 changed AP-214: the caret is at the end of the title (editor.md FR-EDT-01 AC-13).
+  assert.equal(await page.evaluate(() => document.querySelector('[data-focus-target]')?.getAttribute('data-focus-target')), 'title', 'caret at the end of the title (D-367)');
   await mustPanel(page);
-  assert.deepEqual([...(await eventually(() => entries(page), (x) => x.length === 2, 2000))].sort(), ['Další rozbitý', 'Rozbité odkazy'], "the new note's panel");
+  // D-368: the panel's entries are chips.
+  assert.deepEqual([...(await eventually(() => chipNames(page), (x) => x.length === 2, 2000))].sort(), ['Další rozbitý', 'Rozbité odkazy'], "the new note's panel");
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Rozbité odkazy', 'Back', 5000);
   const kinds = await eventually(

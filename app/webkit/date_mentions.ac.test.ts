@@ -4,7 +4,7 @@
 // (`@` trigger, listbox `Link suggestions`), ms4-links §5.2 (chips with `data-link-kind`). Clock, zone and region
 // injected; (TZ) criteria run in Europe/Prague and America/Los_Angeles. Written from the ACs and the contract only
 // (D-61). Missing elements fail an assertion (TS-I1).
-import { test, type Page } from '@playwright/test';
+import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   D, ZONES, absent, backlinksPanel, backlinksTab, calendar, caretAtEnd, chips, cmdD, dailyVault, dayButton, editorBody, eventually, fileWhen,
@@ -13,6 +13,8 @@ import {
 } from './daily-helpers';
 
 const LOCAL: Record<string, string> = { 'Europe/Prague': '+02:00', 'America/Los_Angeles': '-07:00' };
+/** D-368: a backlinks panel entry is a `link` chip with `data-link-kind="note"` named by the source title. */
+const noteChip = (scope: Locator, title: string) => scope.getByRole('link', { name: title, exact: true }).and(scope.page().locator('[data-link-kind="note"]'));
 
 async function options(page: Page): Promise<string[]> {
   const l = await must(linkSuggestions(page), 'listbox "Link suggestions"');
@@ -251,12 +253,12 @@ test.describe('date links', () => {
     const tab = await must(backlinksTab(page), 'tab "Backlinks"');
     assert.equal(flat(await tab.innerText()).replace(/^Backlinks\s*/, ''), '1', 'badge 1');
     const p = await must(backlinksPanel(page), 'tabpanel "Backlinks"');
-    assert.ok(await seen(p.getByRole('article', { name: 'Zmínky', exact: true }), 1000), 'entry Zmínky');
-    assert.ok((await p.locator('[data-occurrence]').allInnerTexts()).map(flat).includes('Budoucnost 2026-10-20.'), 'excerpt Budoucnost 2026-10-20.');
+    // D-368: the panel shows one chip per source, no excerpts.
+    assert.ok(await seen(noteChip(p, 'Zmínky'), 1000), 'chip Zmínky');
     await gotoDaily(page, '2026-10-12'); // ⌘D always opens today (14 Oct)
-    assert.ok(await seen(backlinksPanel(page).getByRole('article', { name: 'Zmínky', exact: true }), 1000), '12 Oct (2): Zmínky listed');
+    assert.ok(await seen(noteChip(backlinksPanel(page), 'Zmínky'), 1000), '12 Oct (2): Zmínky listed');
     await gotoDaily(page, '2026-10-09'); // ⌘D always opens today (14 Oct)
-    assert.ok((await backlinksPanel(page).locator('[data-occurrence]').allInnerTexts()).map(flat).includes('Pátek pátek.'), '9 Oct: the alias in the excerpt');
+    assert.ok(await seen(noteChip(backlinksPanel(page), 'Zmínky'), 1000), '9 Oct: Zmínky listed for the alias link');
     await cmdD(page, '2026-10-14');
     await gotoDaily(page, '2026-10-20');
     await caretAtEnd(page);
@@ -269,12 +271,12 @@ test.describe('date links', () => {
     const v = dailyVault((f) => { f['Pages/Zítra.md'] = '---\nid: 01JB4B0000000000000000W030\ntype: page\ntitle: Zítra\n---\nZítra [[2026-10-15]].\n'; });
     await startDaily(page, { vault: v, panel: true });
     await gotoDaily(page, '2026-10-15');
-    assert.ok(await seen(backlinksPanel(page).getByRole('article', { name: 'Zítra', exact: true }), 1000), 'NFD text counts the same');
+    assert.ok(await seen(noteChip(backlinksPanel(page), 'Zítra'), 1000), 'NFD text counts the same');
     await gotoDaily(page, '2026-10-12'); // ⌘D always opens today (14 Oct)
     const notice = page.getByRole('region', { name: 'Other notes for this date', exact: true });
     await (await must(notice.getByRole('link', { name: D.d12, exact: true }), `link ${D.d12}`)).click();
     await mustBeOn(page, '2026-10-12', 'the older 12 Oct');
-    assert.ok(await absent(backlinksPanel(page).getByRole('article', { name: 'Zmínky', exact: true }), 1000), 'Zmínky is not listed on the older 12 Oct');
+    assert.ok(await absent(noteChip(backlinksPanel(page), 'Zmínky'), 1000), 'Zmínky is not listed on the older 12 Oct');
   });
 
   test('fr_dly_08_ac8_date_links_in_text_and_relation_values', async ({ page }) => {
@@ -294,8 +296,9 @@ test.describe('date links', () => {
     }
     await cs.nth(0).click();
     await mustDaily(page, '2026-10-20', 'the Text value opens the virtual note');
-    const texts = (await backlinksPanel(page).locator('[data-occurrence]').allInnerTexts()).map(flat);
-    assert.ok(texts.some((t) => t.startsWith('Poznámka:')) && texts.some((t) => t.startsWith('Den:')), `backlinks with the attribute labels: ${texts.join(' | ')}`);
+    // D-368: no attribute labels; links from two properties make the source one chip.
+    assert.ok(await seen(noteChip(backlinksPanel(page), 'Výlet'), 1000), 'chip Výlet');
+    assert.equal(await noteChip(backlinksPanel(page), 'Výlet').count(), 1, 'one chip for both property links');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
   });
 });
