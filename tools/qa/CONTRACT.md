@@ -42,6 +42,7 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 | `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). |
 | `acTestPatterns` | Regular expressions (JavaScript syntax) matched against **repository-relative paths** with `/` separators. A file matching any of them is an **AC test file**. Default when omitted: the two patterns above. |
 | `acRunners[]` | How to run AC test files for `check-red` (§5). `dir`: runner working directory, relative to the checkout root. `match`: regex on the repository-relative path selecting files this runner handles. `run`: command template; `{files}` is replaced by the file path(s) relative to `dir`, each single-quoted; `{junit}` by an absolute path where the runner must write a JUnit XML report. |
+| `realAppTests` | Repository-relative directory prefixes (ending in `/`) whose test sources are **real-app tests** for the `l6-coverage` check (§9.5), e.g. `["app/e2e/"]`. When omitted or empty, the check isn't run. |
 | `budgets` | Time budget per gate in seconds (§3.4). Defaults: commit 60, push 600, nightly 5400; other gates have no budget. |
 
 Gate order: `commit` < `push` < `nightly` < `milestone` < `release`. A gate runs every step whose `level` is at or below it.
@@ -80,7 +81,8 @@ Order:
 2. **Fixture trailer check** on every commit in the range (§7).
 3. **AC test protection** on every commit in the range (§5.1).
 4. **Red-first check** (§5.2): `check-red` for every commit in the range that **adds** an AC test file, unless its message has a trailer line `Red-First-Exempt: <reason>; approved-by: owner`.
-5. Steps with level `commit` and `push` (`changedOnly` is ignored).
+5. **L6 coverage check** on the tree of `<rev>` (§9.5).
+6. Steps with level `commit` and `push` (`changedOnly` is ignored).
 
 On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`, but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08). On failure, `.verify/last-pass` is left unchanged.
 
@@ -118,7 +120,7 @@ Every gate run writes a JSON summary to `.verify/runs/<timestamp>-<gate>.json` a
 ```
 
 - `result` is `pass` or `fail`; step `result` is `pass`, `fail` or `skipped`. For the commit gate, `commit` is the `HEAD` sha and `tree` is the tree of the staged index (`git write-tree`).
-- Check `id`s: `privacy`, `fixtures`, `ac-test-protection`, `red-first`, `milestone-acs`.
+- Check `id`s: `privacy`, `fixtures`, `ac-test-protection`, `red-first`, `l6-coverage`, `milestone-acs`, `milestone-deferred`.
 - `seeds`: every integer found in the step's output after `seed` followed by `=`, `:` or spaces (case-insensitive), in order.
 - JUnit files written to `VERIFY_RESULTS` by the run are copied to `.verify/last-results/` (replacing its previous content).
 - **Budget:** if `durationMs` exceeds the gate's budget, stdout gets a line containing `exceeded` and the budget, followed by the up-to-3 slowest steps, one per line, each containing the step `id` and its duration. The exit code doesn't change.
@@ -262,7 +264,8 @@ The report (exit 0 always) contains, in this order:
 2. a table with one row per AC: `| <AC-ID> | <auto|manual>[ (MS<n>)] | <test sources, comma-separated, or —> | <status> |` (the milestone in parentheses for a deferred AC)
 3. `## Untested ACs` followed by one line `- <AC-ID>` per untested automated AC
 4. `## Orphan tests` followed by one line `- <key> in <repository-relative file>` per orphan reference
-5. `## Manual ACs` followed by one line `- <AC-ID>: <status>` per manual AC
+5. `## Real-app ACs without an L6 test` (§9.5)
+6. `## Manual ACs` followed by one line `- <AC-ID>: <status>` per manual AC
 
 ### 9.4 Milestone AC check (TS-COV AC-3)
 
@@ -270,6 +273,14 @@ The report (exit 0 always) contains, in this order:
 - Uses the results of the current run (`VERIFY_RESULTS`).
 - The `milestone-acs` check **fails** if (a) an automated AC whose ID or alias is a milestone requirement doesn't have status `pass`, (b) a manual one has no `pass` record for **this** milestone, or (c) a milestone requirement has no AC at all (write ACs before implementing, CLAUDE.md; requirements matched only by an `All <prefix>` item are exempt from (c)). Each offending AC or requirement ID is listed.
 - **Deferred ACs (D-94):** an AC deferred to `MS<k>` is in scope of `verify milestone --milestone MS<k>` (whatever its requirement's milestone) and is **not** checked by its requirement's milestone; there it still counts for (c). A deferred AC skipped this way is listed in a separate check `milestone-deferred`, which always passes, one message `<AC-ID>: verified at MS<k>` each. A marker naming a milestone missing from the §11.2 table fails `milestone-acs` of the requirement's milestone with `<AC-ID>: unknown milestone MS<k>`. `verify release` ignores the markers and checks every AC; a deferred manual AC there needs any `pass` record (as every manual AC at release), and an unknown-milestone marker fails it too. A marker naming the requirement's own milestone is checked normally and not listed. The `milestone-deferred` check is always present after `milestone-acs`, with its messages sorted (none when nothing is deferred).
+
+### 9.5 L6 coverage check (TS-COV AC-6, D-382)
+
+- An AC is a **real-app AC** if its criterion line contains a layer marker `*(` … `)*` whose text contains the token `L6` (matched by `\bL6\b`): `*(L6)*`, `*(L5; L6 once)*`, `*(L6 benchmark)*`. Table criteria (§9.1) are never real-app ACs.
+- A **real-app reference** is a test reference (§9.2) in a test source whose repository-relative path starts with one of the `realAppTests` prefixes (§2).
+- The `l6-coverage` check runs on the files of the checked tree. It **fails** for every real-app AC that has a test reference (by its key or an alias key) in some test source but no real-app reference; each such AC is one message `<AC-ID>: no real-app test in <prefixes joined by ", ">`, sorted by AC ID. A real-app AC with no test reference at all passes (its slice isn't tested yet; it shows as untested in the report). Deferred and manual markers don't change this.
+- When `realAppTests` is omitted or empty, the check is not run and not listed.
+- `verify coverage` adds, after `## Orphan tests`, a section `## Real-app ACs without an L6 test` with one line `- <AC-ID>` per AC the check would fail (none when `realAppTests` is empty).
 
 ## 10. Agent definitions (TS-I AC-3)
 
