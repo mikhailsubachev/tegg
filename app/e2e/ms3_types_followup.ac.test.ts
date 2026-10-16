@@ -247,3 +247,61 @@ test('fr_typ_01_ac10_create_type_from_an_undefined_value_on_the_real_core', { ti
   assert.deepEqual(changedPaths(before, tree(vault)), ['.tegg/types/recept.yml'], 'one file; Recepty/Svíčková.md keeps bytes, mtime and inode');
   rmSync(base, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- FR-TYP-07 AC-11 (L6 once for the vault)
+// Added with `AC-Test-Change: L6 test for FR-TYP-07 AC-11; approved-by: owner`; the test above is unchanged. Uses the
+// types fixture (Obyčejná, Porada, Bez hlavičky, a Daily Note) and the shell fixture's Svíčková (`type: recept`, no
+// definition). The chip is the `link` `Type: <Name>` (ms3-shell §14.7, D-369).
+/** A temp copy of tests/fixtures/vaults/types plus new-empty/.tegg (as ms3_types.ac.test.ts). */
+function typesCopy(base: string): string {
+  const v = join(base, 'Typy');
+  cpSync(join(FX, 'types'), v, { recursive: true });
+  cpSync(join(FX, 'new-empty/.tegg'), join(v, '.tegg'), { recursive: true });
+  return v;
+}
+const countMark = (file: string, mark: string) => marks(file).filter((m) => m === mark).length;
+async function waitMarkCount(file: string, mark: string, n: number, ms = MARK_TIMEOUT): Promise<boolean> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    if (countMark(file, mark) >= n) return true;
+    await sleep(50);
+  }
+  return false;
+}
+
+test('fr_typ_07_ac11_activating_the_type_chip_writes_nothing_to_the_vault', { timeout: 600_000 }, async () => {
+  await ready();
+  const base = tmp('typ07ac11');
+  const vaults = { types: typesCopy(base), shell: shellCopy(base) };
+  // [vault, start route, chip name, type route]
+  const cases: [keyof typeof vaults, string, string, string][] = [
+    ['types', 'note/Pages/Obyčejná stránka.md', 'Type: Page', 'type/page'],
+    ['types', 'note/Schůzky/2026-10-07 Porada.md', 'Type: Schůzka', 'type/schůzka'],
+    ['types', 'note/Pages/Bez hlavičky.md', 'Type: Page', 'type/page'],
+    ['types', 'daily/2026-10-07', 'Type: Daily Note', 'type/daily-note'],
+    ['shell', 'note/Recepty/Svíčková.md', 'Type: recept', 'type/recept'],
+  ];
+  const before = { types: tree(vaults.types), shell: tree(vaults.shell) };
+  for (const [i, [vault, route, chip, typeRoute]] of cases.entries()) {
+    const log = join(base, `perf-${i}.jsonl`);
+    let d: Driver | undefined;
+    try {
+      d = await session(testEnv(join(base, `support-${i}`), log, { TEGG_VAULT: vaults[vault], TEGG_ROUTE: route }));
+      assert.ok(await waitMark(log, `route-ready:${route}`), `${route} shown`);
+      const link = await firstShown(d, chip);
+      assert.ok(link, `type chip ${chip} on ${route}`);
+      await link.click();
+      assert.ok(await waitMark(log, `route-ready:${typeRoute}`, 5000), `${chip} opens ${typeRoute}`);
+      assert.equal(await shown(d, 'Change type', 500), false, 'the chip never opens the Change type menu');
+      press('lbracket', ['command']);
+      // route-ready is written once per route per process (ms3-shell §1); the type chip is shown only on the note page.
+      assert.ok(await shown(d, chip, 5000), `Back returns to ${route}`);
+      await sleep(1500);
+    } finally {
+      await end(d);
+    }
+  }
+  assert.deepEqual(changedPaths(before.types, tree(vaults.types)), [], 'types fixture: every vault file keeps bytes, mtime and inode');
+  assert.deepEqual(changedPaths(before.shell, tree(vaults.shell)), [], 'shell fixture: every vault file keeps bytes, mtime and inode');
+  rmSync(base, { recursive: true, force: true });
+});

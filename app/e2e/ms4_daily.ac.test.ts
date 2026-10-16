@@ -355,3 +355,94 @@ test('fr_dly_04_ac4_the_daily_file_never_contains_section_text', { timeout: 300_
   }
   rmSync(base, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- FR-DLY-02 AC-2 on the real core (L6 once)
+// Added with `AC-Test-Change: L6 test for FR-DLY-02 AC-2; approved-by: owner`; the tests above are unchanged. The clock
+// is the system clock (D-351), so `created`/`modified` are checked against the time of typing and the zone's offset at
+// that instant instead of the L4/L5 test clock `2026-10-14T12:00:00+02:00`. Atomicity is observed from another process
+// (e2e/helpers/external.ts `poll`): a reader never sees a partial `Daily/2026-10-14.md`.
+const EXTERNAL = resolve(import.meta.dirname, 'helpers/external.ts');
+/** `+HH:MM` / `-HH:MM` of `tz` at `ms`. */
+function offsetIn(tz: string, ms: number): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(ms).find((p) => p.type === 'timeZoneName')!.value;
+  return name === 'GMT' ? '+00:00' : name.replace('GMT', '');
+}
+const FIRST_WRITE = /^---\nid: [0-9A-HJKMNP-TV-Z]{26}\ntype: daily-note\ntitle: "2026-10-14"\ndate: 2026-10-14\ntags: \[deník\]\nreview: unreviewed\ncreated: (\S+)\nmodified: (\S+)\n---\n([\s\S]*)$/;
+const TEMPLATE_BODY = '# Deník 14. 10. 2026\n\nVčera: [[2026-10-13]] · Zítra: [[2026-10-15]] · Dnes: 2026-10-14 · {{time}}\n\n## Poznámky';
+/** The typed text the body holds after the expanded template (D-322: where the caret was, the end of the body). */
+function typedPart(text: string): string | null {
+  const m = FIRST_WRITE.exec(text);
+  if (!m || !m[3].startsWith(TEMPLATE_BODY)) return null;
+  return m[3].slice(TEMPLATE_BODY.length).replace(/^\n\n/, '').replace(/\n$/, '');
+}
+
+for (const tz of ZONES) {
+  test(`fr_dly_02_ac2_first_keystroke_writes_exactly_one_file_on_the_real_core_${tz.replace(/\W/g, '_')}`, { timeout: 300_000 }, async () => {
+    await ready();
+    const base = tmp('dly02ac2');
+    const vault = dailyCopy(base);
+    const log = join(base, 'perf.jsonl');
+    const reads = join(base, 'reads.jsonl');
+    const rel = 'Daily/2026-10-14.md';
+    const file = join(vault, rel);
+    const before = tree(vault);
+    let d: Driver | undefined;
+    let poller: ChildProcess | undefined;
+    let first = '';
+    let t0 = 0;
+    let t1 = 0;
+    try {
+      d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'daily/2026-10-14', TZ: tz }));
+      assert.ok(await waitMark(log, 'route-ready:daily/2026-10-14'), 'virtual daily/2026-10-14 shown');
+      assert.ok(await shown(d, 'Not saved yet. Start typing to create this note.', 3000), 'the virtual marker');
+      assert.equal(existsSync(file), false, 'no file before the first keystroke');
+      poller = spawn(process.execPath, [EXTERNAL, 'poll', file, '2', '8000', reads], { stdio: 'ignore' });
+      await sleep(300);
+      t0 = Date.now();
+      typeText('Dnes');
+      const t = await waitFile(file, (x) => typedPart(x ?? '') === 'Dnes', 5000);
+      t1 = Date.now();
+      assert.ok(t !== null, `${rel} written`);
+      first = t!;
+      assert.ok(await shown(d, 'Saved', 3000), 'Save state Saved');
+      assert.ok(await gone(d, 'Not saved yet. Start typing to create this note.', 2000), 'the virtual marker disappears');
+      await new Promise((r) => poller!.on('exit', r));
+      poller = undefined;
+      // Further typing autosaves into the same file (editor FR-EDT-09).
+      typeText('!');
+      const t2 = await waitFile(file, (x) => typedPart(x ?? '') === 'Dnes!', 5000);
+      assert.equal(typedPart(t2 ?? ''), 'Dnes!', 'the next keystroke is saved into the same file');
+      await sleep(1000);
+    } finally {
+      poller?.kill('SIGTERM');
+      await end(d);
+    }
+    // Frontmatter in the D-324 order, `title` quoted, `date` bare (FR-FMT-11), template key, review, created, modified.
+    const m = FIRST_WRITE.exec(first);
+    assert.ok(m, `frontmatter in the D-324 order:\n${first}`);
+    assert.equal(typedPart(first), 'Dnes', 'the expanded template body (FR-DLY-06 AC-1) with the typed text at the caret (D-322)');
+    for (const [key, v] of [['created', m![1]], ['modified', m![2]]] as const) {
+      assert.match(v, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/, `${key} is ISO 8601 with offset`);
+      const at = Date.parse(v);
+      assert.ok(at >= Math.floor(t0 / 1000) * 1000 - 1000 && at <= t1 + 1000, `${key} ${v} is the clock at the keystroke`);
+      assert.equal(v.slice(-6), offsetIn(tz, at), `${key} carries the ${tz} offset`);
+    }
+    // Exactly one file; no temp file left in Daily/ and nothing else changed.
+    assert.deepEqual(dailyDir(vault), [...FIXTURE_DAILY, '2026-10-14.md'].sort(), 'Daily/ gains exactly 2026-10-14.md and no temp file');
+    assert.deepEqual(changedPaths(before, tree(vault)), [rel], 'no other vault file changes (bytes, mtime, inode)');
+    // Create-exclusive temp + rename (FR-SYN-02): every read by another process is no file or a complete one.
+    const seen = existsSync(reads) ? readFileSync(reads, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { text?: string; error?: string }) : [];
+    assert.ok(seen.some((r) => r.text !== undefined), 'the reader saw the file');
+    const bad = seen.filter((r) => (r.error !== undefined ? !r.error.includes('ENOENT') : !['D', 'Dn', 'Dne', 'Dnes'].includes(typedPart(r.text ?? '') ?? '')));
+    assert.deepEqual(bad, [], 'no partial file was ever visible');
+    rmSync(base, { recursive: true, force: true });
+  });
+}
+async function gone(d: Driver, label: string, ms = 2000): Promise<boolean> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    if (!(await firstShown(d, label))) return true;
+    await sleep(100);
+  }
+  return false;
+}

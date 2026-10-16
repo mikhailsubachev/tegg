@@ -313,3 +313,117 @@ test('fr_lnk_01_ac10_an_own_link_shows_in_the_targets_panel', { timeout: 300_000
   }
   rmSync(base, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- FR-LNK-04 AC-5 and AC-12 on their own (L6 once)
+// Added with `AC-Test-Change: dedicated L6 tests for FR-LNK-04 AC-5 and AC-12; approved-by: owner`; the tests above
+// are unchanged. Atomicity is observed from another process (e2e/helpers/external.ts `poll`, ms3-shell §13.6): a
+// reader never sees a partial `Quick Notes/Neexistuje.md`.
+const EXTERNAL = resolve(import.meta.dirname, 'helpers/external.ts');
+const countMark = (file: string, mark: string) => marks(file).filter((m) => m === mark).length;
+async function waitMarkCount(file: string, mark: string, n: number, ms = MARK_TIMEOUT): Promise<boolean> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    if (countMark(file, mark) >= n) return true;
+    await sleep(50);
+  }
+  return false;
+}
+async function gone(d: Driver, label: string, ms = 2000): Promise<boolean> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    if (!(await firstShown(d, label))) return true;
+    await sleep(100);
+  }
+  return false;
+}
+type Read = { t: number; sha?: string; text?: string; error?: string };
+function readsOf(file: string): Read[] {
+  return existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Read) : [];
+}
+
+test('fr_lnk_04_ac5_create_writes_one_file_atomically_on_the_real_core', { timeout: 300_000 }, async () => {
+  await ready();
+  const base = tmp('lnk04ac5');
+  const vault = linksCopy(base);
+  const log = join(base, 'perf.jsonl');
+  const reads = join(base, 'reads.jsonl');
+  const target = join(vault, 'Quick Notes/Neexistuje.md');
+  const source = 'note/Pages/Rozbité odkazy.md';
+  const before = tree(vault);
+  let d: Driver | undefined;
+  let poller: ChildProcess | undefined;
+  try {
+    d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: source }));
+    assert.ok(await waitMark(log, `route-ready:${source}`), 'Rozbité odkazy shown');
+    const chip = await firstShown(d, 'Neexistuje');
+    assert.ok(chip, 'broken chip Neexistuje');
+    await chip.click();
+    assert.ok(await shown(d, 'Create note', 2000), 'the offer Create note (AC-4)');
+    assert.ok(await shown(d, 'No note named "Neexistuje"', 1000), 'offer text');
+    assert.equal(existsSync(target), false, 'nothing written while the offer is open');
+    poller = spawn(process.execPath, [EXTERNAL, 'poll', target, '2', '6000', reads], { stdio: 'ignore' });
+    await sleep(200);
+    const create = await firstShown(d, 'Create "Neexistuje"');
+    assert.ok(create, 'button Create "Neexistuje"');
+    await create.click();
+    const t = await waitFile(target, (x) => x !== null, 3000);
+    assert.ok(t !== null, 'Quick Notes/Neexistuje.md written');
+    assert.match(t!, /^---\nid: [0-9A-HJKMNP-TV-Z]{26}\n/, 'starts with frontmatter and a new id');
+    assert.match(t!, /^type: quick-note$/m, 'the default type Quick Note');
+    assert.match(t!, /^title: Neexistuje$/m, 'title from the link');
+    assert.ok(await waitMark(log, 'route-ready:note/Quick Notes/Neexistuje.md', 5000), 'the route becomes the new note');
+    await new Promise((r) => poller!.on('exit', r));
+    poller = undefined;
+    const seen = readsOf(reads);
+    const final = readFileSync(target, 'utf8');
+    const bad = seen.filter((r) => (r.error !== undefined ? !r.error.includes('ENOENT') : r.text !== final));
+    assert.ok(seen.some((r) => r.text === final), 'the reader saw the created file');
+    assert.deepEqual(bad, [], 'a reader in another process sees either no file or the complete file (temp + rename, FR-SYN-02)');
+    press('lbracket', ['command']);
+    // route-ready is written once per route per process (ms3-shell §1), so Back is checked by a chip only Rozbité odkazy has.
+    assert.ok(await shown(d, 'Q3: plán?', 5000), 'Back returns to Rozbité odkazy');
+    await sleep(1500);
+  } finally {
+    poller?.kill('SIGTERM');
+    await end(d);
+  }
+  assert.deepEqual(changedPaths(before, tree(vault)), ['Quick Notes/Neexistuje.md'],
+    'exactly one file added and no temp file left; Rozbité odkazy, Další rozbitý and every other file keep bytes, mtime and inode');
+  rmSync(base, { recursive: true, force: true });
+});
+
+test('fr_lnk_04_ac12_opening_and_closing_offers_writes_nothing', { timeout: 600_000 }, async () => {
+  await ready();
+  const base = tmp('lnk04ac12');
+  const vault = linksCopy(base);
+  const log = join(base, 'perf.jsonl');
+  const source = 'note/Pages/Rozbité odkazy.md';
+  const before = tree(vault);
+  // Every broken chip of Rozbité odkazy, as the L5 part of this AC. The R5 embed placeholder's chip (D-310) isn't in
+  // the editor yet; it joins this list when it lands.
+  const chips = [...BROKEN];
+  let d: Driver | undefined;
+  try {
+    d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: source }));
+    assert.ok(await waitMark(log, `route-ready:${source}`), 'Rozbité odkazy shown in the editor');
+    for (const [i, label] of chips.entries()) {
+      const c = (await firstShown(d, label)) ?? (label.includes(' › ') ? await firstShown(d, label.replace(' › ', '#')) : null);
+      assert.ok(c, `broken chip ${label}`);
+      await c.click();
+      assert.ok(await shown(d, 'Create note', 2000), `offer for ${label}`);
+      if (i % 2 === 0) press('escape');
+      else {
+        const cancel = await firstShown(d, 'Cancel');
+        assert.ok(cancel, `Cancel in the offer for ${label}`);
+        await cancel.click();
+      }
+      assert.ok(await gone(d, 'Create note', 2000), `the offer for ${label} closes (${i % 2 === 0 ? 'Esc' : 'Cancel'})`);
+    }
+    // Longer than an autosave delay, so a write caused by the offers would have happened.
+    await sleep(3000);
+  } finally {
+    await end(d);
+  }
+  assert.deepEqual(changedPaths(before, tree(vault)), [], 'every vault file keeps bytes, mtime and inode; nothing created');
+  rmSync(base, { recursive: true, force: true });
+});
