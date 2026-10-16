@@ -765,12 +765,20 @@ async fn daily_dates(state: State<'_, AppState>, year: i32, month: u32) -> Resul
     Ok(core.daily_dates(year, month).into_iter().map(|d| d.format("%Y-%m-%d").to_string()).collect())
 }
 
+/// `daily_backlinks` (D-348, FR-DLY-08 AC-7): read-only; the panel of a date, virtual or not.
+#[tauri::command]
+async fn daily_backlinks(state: State<'_, AppState>, date: String) -> Result<BacklinksPanelDto, IpcError> {
+    let core = core(&state)?;
+    let _ = core.daily_backlinks(parse_day(&date)?);
+    Ok(BacklinksPanelDto { objects: 0, groups: Vec::new() }) // STUB until 4B is built
+}
+
 /// `daily_draft` (FR-DLY-02, FR-DLY-06): read-only.
 #[tauri::command]
 async fn daily_draft(state: State<'_, AppState>, date: String) -> Result<DailyDraftDto, IpcError> {
     let core = core(&state)?;
     let d = core.daily_draft(parse_day(&date)?).map_err(core_err)?;
-    Ok(DailyDraftDto { text: d.body.clone(), body: String::new(), template_invalid: d.template_invalid, path: d.path, format_fallback: d.format_fallback })
+    Ok(DailyDraftDto { text: d.text, body: d.body, template_invalid: d.template_invalid, path: d.path, format_fallback: d.format_fallback })
 }
 
 /// `daily_create` (FR-DLY-02 AC-2): the one write of a first keystroke.
@@ -1188,7 +1196,7 @@ pub fn run() {
             link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
-            daily_view, daily_dates, daily_draft, daily_create, daily_context
+            daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

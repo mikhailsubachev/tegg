@@ -157,7 +157,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
-    'daily_view', 'daily_dates', 'daily_draft', 'daily_context', // 4B (ms4-daily §4): read-only
+    'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -371,7 +371,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     daily_view: (a) => ({ date: String(a.date), path: null, duplicates: [], review: null }),
     daily_dates: () => [],
     daily_draft: () => { throw err('Io', 'fake: daily_draft is not built (4B)'); },
-    daily_create: () => { throw err('Io', 'fake: daily_create is not built (4B)'); },
+    daily_create: async () => {
+      // D-363: writeControl applies as to note_write.
+      if (state.control.hold) await new Promise<void>((r) => state.held.push(r));
+      if (state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
+      if (state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      throw err('Io', 'fake: daily_create is not built (4B)');
+    },
+    daily_backlinks: () => ({ objects: 0, groups: [] }),
     daily_context: () => ({ quickNotes: [], created: [], modified: [], totals: [0, 0, 0] }),
     index_type_counts: () => {
       const out: Record<string, number> = {};

@@ -28,8 +28,10 @@ pub struct DailyView {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DailyDraft {
-    /// The bytes a first write of this date would have with an empty edit: frontmatter (D-324) + expanded template
-    /// body (D-322, D-325); `id`, `created`, `modified` are the placeholders `{{id}}` / `{{now}}` (§4).
+    /// D-345: the bytes a first write of this date would have with an empty edit: frontmatter (D-324) + expanded
+    /// template body (D-322, D-325); `id`, `created`, `modified` are the placeholders `{{id}}` / `{{now}}` (§4).
+    pub text: String,
+    /// D-345: the part after the frontmatter (the editor's virtual content).
     pub body: String,
     /// Template keys to write after `date`, in template order, reserved keys removed (D-325).
     pub template_keys: Vec<(String, String)>,
@@ -89,6 +91,11 @@ impl Core {
     /// The first write (§4.1).
     pub fn daily_create(&self, _date: NaiveDate, _bytes: &[u8]) -> Result<DailyCreated, CoreError> {
         Err(CoreError::NotImplemented)
+    }
+
+    /// D-348: the backlinks panel of a date: of its winner, or of the date links to it while virtual. STUB: empty.
+    pub fn daily_backlinks(&self, _date: NaiveDate) -> crate::BacklinksPanel {
+        crate::BacklinksPanel::default()
     }
 
     /// D-271, D-328: the three live sections for one day window.
