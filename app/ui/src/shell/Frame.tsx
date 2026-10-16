@@ -11,7 +11,7 @@ import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
-import { localDate } from '@tegg/doc';
+import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
 import { PANEL_TABS, SHORTCUTS } from './registry';
 

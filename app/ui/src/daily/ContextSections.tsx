@@ -1,6 +1,8 @@
 // The live context sections of a Daily Note (FR-DLY-04, D-271, D-328, R19): Quick Notes, Tasks due (Coming in MS5),
 // Created and Modified of that day, after the body, never saved into it. The day window is the UI's (ms4-daily §1).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { afterNoteReady, noteReadyCount } from '../readiness';
+import { localMidnight as zonedMidnight } from '../zone';
 import { addDays } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
@@ -12,15 +14,29 @@ const LIMIT = 50;
 
 /** Local midnight of `date` as RFC 3339 with that instant's offset (a DST day is 23 or 25 h). */
 export function localMidnight(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  const t0 = new Date(y, m - 1, d, 0, 0, 0);
-  const off = -t0.getTimezoneOffset();
-  const p = (n: number) => String(Math.abs(n)).padStart(2, '0');
-  return `${date}T00:00:00${off >= 0 ? '+' : '-'}${p(Math.trunc(off / 60))}:${p(off % 60)}`;
+  return zonedMidnight(date);
 }
 
 export function ContextSections({ date, onOpen }: { date: string; onOpen: (path: string) => void }) {
   const [data, setData] = useState<DailyContextDto | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  // ms4-daily §7: `daily-ready:<date>` once per open, after the body (note-ready) and the sections have painted.
+  const openedAt = useRef({ date, since: noteReadyCount() });
+  if (openedAt.current.date !== date) openedAt.current = { date, since: noteReadyCount() };
+  const marked = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedFor !== date || marked.current === date) return;
+    let live = true;
+    const { since } = openedAt.current;
+    requestAnimationFrame(() => {
+      void afterNoteReady(since).then(() => {
+        if (!live || marked.current === date) return;
+        marked.current = date;
+        void ipc.perfMark(`daily-ready:${date}`).catch(() => {});
+      });
+    });
+    return () => { live = false; };
+  }, [loadedFor, date]);
   const [all, setAll] = useState<Set<number>>(new Set());
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
@@ -30,7 +46,7 @@ export function ContextSections({ date, onOpen }: { date: string; onOpen: (path:
   useEffect(() => {
     let live = true;
     const limit = all.size ? 100_000 : LIMIT;
-    ipc.dailyContext(date, localMidnight(date), localMidnight(addDays(date, 1)), limit).then((d) => { if (live) setData(d); }, () => {});
+    ipc.dailyContext(date, localMidnight(date), localMidnight(addDays(date, 1)), limit).then((d) => { if (live) { setData(d); setLoadedFor(date); } }, () => {});
     return () => { live = false; };
   }, [date, refresh, all.size]);
 

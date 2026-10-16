@@ -1,7 +1,8 @@
 // The calendar popover (FR-DLY-03 AC-3…AC-6, daily-notes.md R18, D-329): a WAI-ARIA date-picker grid of one month,
 // days with a Daily Note marked from `daily_dates`, live on every vault change. Region formats come from Intl (D-133).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { addDays, localDate } from '@tegg/doc';
+import { addDays } from '@tegg/doc';
+import { localDate } from '../zone';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
 import { events, ipc } from '../ipc/client';

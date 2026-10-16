@@ -1,7 +1,7 @@
 // The header of a Daily Note (daily-notes.md R17, R19; D-321, D-329, D-330, D-337): previous/next day, Today, Pick date,
 // the localized long date, the review toggle on a written note, the virtual marker and the D-319 duplicate notice.
 import { useRef } from 'react';
-import { localDate } from '@tegg/doc';
+import { localDate } from '../zone';
 import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
 import { longDate } from './Calendar';
@@ -9,7 +9,7 @@ import { longDate } from './Calendar';
 export type DailyInfo = {
   date: string;
   /** Set while the note is virtual: the bytes the editor opens on (ms4-daily §4.1). */
-  virtual: { text: string } | null;
+  virtual: { text: string; stamp: string } | null;
   /** The other notes of this date (D-319). */
   duplicates: string[];
   /** Non-modal messages: an invalid daily-format (D-336) or template (D-325). */
