@@ -14,7 +14,7 @@ import {
   redFirst,
   type CheckResult,
 } from './checks.ts';
-import { milestoneCheck, milestones } from './coverage.ts';
+import { l6Problems, milestoneCheck, milestones } from './coverage.ts';
 import { exec, git, gitTry, strippedEnv } from './proc.ts';
 
 export type StepResult = { id: string; result: 'pass' | 'fail' | 'skipped'; durationMs: number; seeds: number[] };
@@ -196,6 +196,13 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
   const steps: StepResult[] = [];
   const wt = createWorktree(root, sha, { stable: true });
   try {
+    // D-382: real-app ACs tested only at lower layers, on the committed tree (CONTRACT §9.5).
+    if (cfg.realAppTests.length > 0) {
+      const messages = l6Problems(wt.dir, cfg.realAppTests);
+      const c: CheckResult = { id: 'l6-coverage', result: messages.length > 0 ? 'fail' : 'pass', messages };
+      checks.push(c);
+      printCheck(c);
+    }
     const gateSteps = cfg.steps.filter((s) => gateRank(s.level) <= gateRank(gate));
     for (const p of provideNodeModules(root, wt.dir, gateSteps.map((s) => s.dir))) log(`⚠ ${p}`);
     const env = stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined);
