@@ -156,12 +156,11 @@ Task board
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; align-items: stretch">
 <sc-for list="{{sec.tasks}}" as="t" hint-placeholder-count="4">
 <article aria-label="Task: {{t.title}}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 7px; box-shadow: 0 1px 2px rgba(0,0,0,.05); opacity: {{t.opacity}}">
-<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted)">
-<button role="checkbox" onClick="{{t.toggleDone}}" aria-checked="{{t.doneAttr}}" aria-label="Complete “{{t.title}}”" title="{{t.checkTitle}}" style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {{t.boxBorder}}; background: {{t.boxBg}}; display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; box-sizing: border-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{t.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></button>
-<span style="flex: 1"></span>
-<button aria-label="More actions for “{{t.title}}”" aria-haspopup="menu" style="width: 26px; height: 26px; margin: -5px -6px -5px 0; border-radius: 7px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+<div style="display: flex; align-items: flex-start; gap: 8px">
+<button role="checkbox" onClick="{{t.toggleDone}}" aria-checked="{{t.doneAttr}}" aria-label="Complete “{{t.title}}”" title="{{t.checkTitle}}" style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {{t.boxBorder}}; background: {{t.boxBg}}; display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; margin-top: 1px; box-sizing: border-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{t.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></button>
+<h3 style="flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 650; line-height: 1.35; text-decoration: {{t.titleDeco}}; overflow-wrap: anywhere"><a href="#">{{t.title}}</a></h3>
+<button aria-label="More actions for “{{t.title}}”" aria-haspopup="menu" style="width: 26px; height: 26px; margin: -4px -6px -4px 0; border-radius: 7px; flex: none; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
 </div>
-<h3 style="margin: 0; font-size: 15px; font-weight: 650; line-height: 1.3; text-decoration: {{t.titleDeco}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"><a href="#">{{t.title}}</a></h3>
 <sc-if value="{{t.hasTags}}" hint-placeholder-val="{{ true }}"><div style="display: flex; gap: 5px; flex-wrap: wrap"><sc-for list="{{t.tags}}" as="g" hint-placeholder-count="2"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--hover); color: var(--muted); font-size: 12px; display: inline-flex; align-items: center">#{{g}}</span></sc-for></div></sc-if>
 <sc-if value="{{t.hasBody}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{t.body}}</p></sc-if>
 <sc-if value="{{t.hasProps}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px">
@@ -202,12 +201,11 @@ Task board
 </div>
 <sc-for list="{{col.tasks}}" as="t" hint-placeholder-count="2">
 <article aria-label="Task: {{t.title}}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 7px; box-shadow: 0 1px 2px rgba(0,0,0,.05); opacity: {{t.opacity}}">
-<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted)">
-<button role="checkbox" onClick="{{t.toggleDone}}" aria-checked="{{t.doneAttr}}" aria-label="Complete “{{t.title}}”" title="{{t.checkTitle}}" style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {{t.boxBorder}}; background: {{t.boxBg}}; display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; box-sizing: border-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{t.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></button>
-<span style="flex: 1"></span>
-<button aria-label="More actions for “{{t.title}}”" aria-haspopup="menu" style="width: 26px; height: 26px; margin: -5px -6px -5px 0; border-radius: 7px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+<div style="display: flex; align-items: flex-start; gap: 8px">
+<button role="checkbox" onClick="{{t.toggleDone}}" aria-checked="{{t.doneAttr}}" aria-label="Complete “{{t.title}}”" title="{{t.checkTitle}}" style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {{t.boxBorder}}; background: {{t.boxBg}}; display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; margin-top: 1px; box-sizing: border-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{t.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></button>
+<h3 style="flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 650; line-height: 1.35; text-decoration: {{t.titleDeco}}; overflow-wrap: anywhere"><a href="#">{{t.title}}</a></h3>
+<button aria-label="More actions for “{{t.title}}”" aria-haspopup="menu" style="width: 26px; height: 26px; margin: -4px -6px -4px 0; border-radius: 7px; flex: none; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
 </div>
-<h3 style="margin: 0; font-size: 15px; font-weight: 650; line-height: 1.3; text-decoration: {{t.titleDeco}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"><a href="#">{{t.title}}</a></h3>
 <sc-if value="{{t.hasTags}}" hint-placeholder-val="{{ true }}"><div style="display: flex; gap: 5px; flex-wrap: wrap"><sc-for list="{{t.tags}}" as="g" hint-placeholder-count="2"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--hover); color: var(--muted); font-size: 12px; display: inline-flex; align-items: center">#{{g}}</span></sc-for></div></sc-if>
 <sc-if value="{{t.hasBody}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{t.body}}</p></sc-if>
 <sc-if value="{{t.hasProps}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px">
@@ -279,7 +277,7 @@ const raw = [
 { id: 't7', title: 'Prepare notes for the weekly sync', s: 'todo', p: 'med', due: 'Fri 23 Oct', when: 'Friday 23', tags: ['q4'], body: '', src: ['meet', '2026-10-14 Weekly Sync'], rec: 'weekly' },
 { id: 't8', title: 'Return the library books', s: 'todo', p: null, due: 'Sat 24 Oct', when: 'Saturday 24', tags: ['home', 'reading'], body: '' },
 { id: 't9', title: 'Read chapter 3 of “The Organized Mind”', s: 'todo', p: 'low', due: null, when: 'none', tags: ['reading'], body: 'Petr says chapter 3 is the one.', src: ['quick', 'Book tip from Petr'] },
-{ id: 't10', title: 'Compare sync engines for the blog post', s: 'prog', p: null, due: null, when: 'none', tags: ['podcast'], body: 'Dropbox, iCloud Drive, Syncthing. Note how each handles conflicts.', src: ['page', 'Files outlive apps'] },
+{ id: 't10', title: 'Compare Dropbox, iCloud Drive and Syncthing for the local-first blog post, including how each one handles conflicting edits made offline on two Macs', s: 'prog', p: null, due: null, when: 'none', tags: ['podcast'], body: 'Start with Dropbox, it is what most readers use.', src: ['page', 'Files outlive apps'] },
 { id: 't11', title: 'Clean up old tags', s: 'wait', p: null, due: null, when: 'none', tags: [], body: '' },
 { id: 't13', title: 'Buy printer paper', s: 'todo', p: null, due: null, when: 'none', tags: [], body: '' },
 { id: 't14', title: 'Call the plumber', s: 'todo', p: null, due: null, when: 'none', tags: [], body: '' },
@@ -300,7 +298,7 @@ dueFg: over ? 'var(--danger)' : (today ? 'var(--link)' : 'var(--muted)'), dueWei
 hasPrio: !!r.p && !done, prioLabel: r.p ? P[r.p][0] : '', prioColor: r.p ? P[r.p][1] : '',
 recurring: !!r.rec && !done, recLabel: r.rec || '',
 hasSource: !!r.src, noSource: !r.src, source: r.src ? r.src[1] : '', sourceD: r.src ? T[r.src[0]][0] : '',
-hasAlso: !!also, also, hasFooter: !!r.src || !!also, hasProps: (!!r.due || (!!r.p && !done) || (!!r.rec && !done)),
+hasAlso: !!also, also, hasFooter: !!r.src || !!also, hasStatus: false, hasProps: (false) || (!!r.due || (!!r.p && !done) || (!!r.rec && !done)),
 doneAttr: done ? 'true' : 'false', checkTitle: done ? 'Mark not done' : 'Mark done',
 boxBorder: done ? 'var(--t)' : 'var(--faint)', boxBg: done ? 'var(--t)' : 'var(--bg)', tickOpacity: done ? '1' : '0',
 titleDeco: done ? 'line-through' : 'none', opacity: done ? '0.6' : '1',
