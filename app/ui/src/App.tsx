@@ -276,8 +276,6 @@ export function App() {
     setNoteDaily(null);
     setCalendar(null);
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
-    // D-369 (FR-TYP-07 AC-11): a type page opened from the chip is recorded by its route (D-138).
-    else if (route?.id === 'type/<type>' && route.param) void ipc.navOpened(null, `type/${route.param}`).catch(() => {});
   }, [routeKey]);
 
   /** The one creation path (D-232, FR-TYP-03 AC-12): ⌘N, the switcher's create item and the type page's New <Name>. */
@@ -567,7 +565,7 @@ export function App() {
         types={types}
         heading={heading}
         onMeta={(m) => { setMeta(m); setNoteShown(true); }}
-        onType={(k) => go({ id: 'type/<type>', param: k })}
+        onType={(k) => { void go({ id: 'type/<type>', param: k }); void ipc.navOpened(null, `type/${k}`).catch(() => {}); }} // D-369: the chip's open is recorded (FR-TYP-07 AC-11)
         onOpen={openNote}
         onTag={openTag}
         onRenamed={(p) => {
