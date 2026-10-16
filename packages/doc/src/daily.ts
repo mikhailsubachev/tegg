@@ -117,28 +117,36 @@ export function newDailyNote(opts: { date: string; keys: [string, string][]; bod
   return `${s}review: unreviewed\ncreated: ${now}\nmodified: ${now}\n---\n${body}`
 }
 
-/** §6.3: sets `title: "<date>"` when the title differs from `date` (D-334); changes only that line. */
+/** §6.3: sets `title: "<date>"` when the title differs from `date` (D-334); changes only that line, in the file's line
+ *  ending. A title that isn't one plain single-line value (block scalar, continued or multi-line quoted value,
+ *  trailing comment) is left alone, so the fix can never break the frontmatter (FR-FMT-07, PR #38 review). */
 export function fixDailyTitle(text: string): string {
-  const m = /^---\r?\n([\s\S]*?\r?\n)?---(\r?\n|$)/.exec(text)
-  if (!m) return text
-  const fm = m[1] ?? ''
-  const dateLine = /^date:[ \t]*["']?([0-9]{4}-[0-9]{2}-[0-9]{2})/m.exec(fm)
-  const date = dateLine && parseDate(dateLine[1])
+  const lines = text.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  const bare = (l: string | undefined) => (l ?? '').replace(/\r?\n$/, '')
+  if (!lines.length || bare(lines[0]) !== '---') return text
+  const close = lines.findIndex((l, i) => i > 0 && bare(l) === '---')
+  if (close < 0) return text
+  const nl = /\r\n$/.test(lines[0] ?? '') ? '\r\n' : '\n'
+  const fm = lines.slice(1, close)
+  const di = fm.findIndex((l) => /^date:/.test(l))
+  const dm = di >= 0 ? /^date:[ \t]*["']?([0-9]{4}-[0-9]{2}-[0-9]{2})/.exec(fm[di]) : null
+  const date = dm && parseDate(dm[1])
   if (!date) return text
   const want = `title: "${date}"`
-  const titleLine = /^title:.*$/m.exec(fm)
-  let next: string
-  if (titleLine) {
-    const raw = titleLine[0].slice(6).trim().replace(/^["']|["']$/g, '')
-    if (raw.normalize('NFC') === date) return text
-    next = fm.slice(0, titleLine.index) + want + fm.slice(titleLine.index + titleLine[0].length)
+  const ti = fm.findIndex((l) => /^title:/.test(l))
+  if (ti >= 0) {
+    const raw = bare(fm[ti]).slice(6).trim()
+    const next = fm[ti + 1]
+    const continued = next !== undefined && /^[ \t]/.test(next)
+    const plainOne = !continued && !/^[|>]/.test(raw) && !/\s#/.test(raw) && (/^"[^"]*"$/.test(raw) || /^'[^']*'$/.test(raw) || !/^["']/.test(raw))
+    if (!plainOne) return text
+    if (raw.replace(/^["']|["']$/g, '').normalize('NFC') === date) return text
+    fm[ti] = `${want}${nl}`
   } else {
-    const typeLine = /^type:.*\r?\n/m.exec(fm)
-    const at = typeLine ? typeLine.index + typeLine[0].length : 0
-    next = `${fm.slice(0, at)}${want}\n${fm.slice(at)}`
+    const at = fm.findIndex((l) => /^type:/.test(l))
+    fm.splice(at >= 0 ? at + 1 : 0, 0, `${want}${nl}`)
   }
-  const start = text.indexOf('\n') + 1
-  return text.slice(0, start) + next + text.slice(start + fm.length)
+  return [lines[0], ...fm, ...lines.slice(close)].join('')
 }
 
 type Keyword = { word: string; n: number; label: string }
