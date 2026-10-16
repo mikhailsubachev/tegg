@@ -1,0 +1,68 @@
+{
+  "about": "PR #38 review: the instants the D-319/D-335 winner rule compares, read alike by tegg_format::daily::instant and @tegg/doc instantOf. kind instant: utcNanos is the instant in nanoseconds since 1970 (a string); kind local: an offset-less date-time read in the machine's zone (D-339, D-365); kind none: missing (counts as oldest).",
+  "cases": [
+    {
+      "value": "2026-10-12T08:00:00+02:00",
+      "kind": "instant",
+      "utcNanos": "1791784800000000000"
+    },
+    {
+      "value": "2026-10-12T21:30:00+03:00",
+      "kind": "instant",
+      "utcNanos": "1791829800000000000"
+    },
+    {
+      "value": "2026-10-12T06:00:00Z",
+      "kind": "instant",
+      "utcNanos": "1791784800000000000"
+    },
+    {
+      "value": "2026-10-12 08:00:00+02:00",
+      "kind": "instant",
+      "utcNanos": "1791784800000000000"
+    },
+    {
+      "value": "2026-10-12T08:00+02:00",
+      "kind": "instant",
+      "utcNanos": "1791784800000000000"
+    },
+    {
+      "value": "2026-10-12T08:00:00.123456789+02:00",
+      "kind": "instant",
+      "utcNanos": "1791784800123456789"
+    },
+    {
+      "value": "2026-10-12T08:00:00.5Z",
+      "kind": "instant",
+      "utcNanos": "1791792000500000000"
+    },
+    {
+      "value": "2026-10-12T08:00:00",
+      "kind": "local"
+    },
+    {
+      "value": "2026-10-12 08:00",
+      "kind": "local"
+    },
+    {
+      "value": "2026-10-12",
+      "kind": "none"
+    },
+    {
+      "value": "",
+      "kind": "none"
+    },
+    {
+      "value": "včera",
+      "kind": "none"
+    },
+    {
+      "value": "2026-02-30T08:00:00Z",
+      "kind": "none"
+    },
+    {
+      "value": "2026-10-12T25:00:00Z",
+      "kind": "none"
+    }
+  ]
+}

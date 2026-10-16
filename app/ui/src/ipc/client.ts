@@ -6,7 +6,7 @@ import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
-  LinkCreatePlanDto, LinkCreatedDto,
+  LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto,
 } from './types';
 
 export const ipc = {
@@ -25,7 +25,7 @@ export const ipc = {
   noteRead: (path: string) => invoke<NoteDto>('note_read', { path }),
   /** 3D (ms3-shell §14.3): the one creation path's write; the core picks the type's folder and the file name. */
   noteCreate: (type: string, title: string, text: string) => invoke<string>('note_create', { type, title, text }),
-  navOpened: (path: string) => invoke<void>('nav_opened', { path }),
+  navOpened: (path: string | null, route?: string) => invoke<void>('nav_opened', route ? { path, route } : { path }),
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),
@@ -58,6 +58,13 @@ export const ipc = {
   duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
   linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),
   linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text }),
+  // 4B (ms4-daily §4).
+  dailyView: (date: string) => invoke<DailyViewDto>('daily_view', { date }),
+  dailyDates: (year: number, month: number) => invoke<string[]>('daily_dates', { year, month }),
+  dailyDraft: (date: string) => invoke<DailyDraftDto>('daily_draft', { date }),
+  dailyCreate: (date: string, text: string) => invoke<DailyCreatedDto>('daily_create', { date, text }),
+  dailyBacklinks: (date: string) => invoke<BacklinksPanelDto>('daily_backlinks', { date }),
+  dailyContext: (date: string, start: string, end: string, limit: number) => invoke<DailyContextDto>('daily_context', { date, start, end, limit }),
 };
 
 export const events = {

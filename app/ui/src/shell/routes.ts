@@ -1,5 +1,6 @@
 // Route strings (docs/contracts/ms3-shell.md §4.1, §11.2): the R1 ids with their parameter, NFC.
 // `type/čajovna`, `note/Schůzky/2026-10-07 Porada.md`, `note/Pages/Cíl.md#Druhá kapitola`, `search/tag:projekt`, `home`.
+import { parseDate } from '@tegg/doc';
 import { ROUTES } from './registry';
 
 /** `fragment`: a note subpath `<heading>` or `^<block id>` (ms3-shell §11.2, D-140). */
@@ -19,6 +20,8 @@ export function parseRoute(s: string): Route | null {
     const head = str.slice(0, slash);
     let rest = str.slice(slash + 1);
     if (head === 'search') return rest.startsWith('tag:') && rest.length > 4 ? { id: 'search', param: rest } : null;
+    // 4B (D-321): a valid date only.
+    if (head === 'daily') return parseDate(rest) ? { id: 'daily/YYYY-MM-DD', param: rest } : null;
     if (PARAM_ROUTES.includes(head)) {
       if (!rest) return null;
       let fragment: string | undefined;

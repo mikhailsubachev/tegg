@@ -45,6 +45,11 @@ function printCheck(c: CheckResult): void {
   for (const m of c.messages) log(`    ${m}`);
 }
 
+/** The shared Cargo build cache of tree gates (CONTRACT §3.2.1, D-343): machine-local, under .verify/. */
+export function cargoCacheDir(root: string): string {
+  return path.join(root, '.verify', 'cargo-target');
+}
+
 function runStep(step: Step, checkout: string, env: NodeJS.ProcessEnv): StepResult {
   const cwd = path.join(checkout, step.dir);
   const t0 = Date.now();
@@ -189,12 +194,13 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
   checks.forEach(printCheck);
 
   const steps: StepResult[] = [];
-  const wt = createWorktree(root, sha);
+  const wt = createWorktree(root, sha, { stable: true });
   try {
     const gateSteps = cfg.steps.filter((s) => gateRank(s.level) <= gateRank(gate));
     for (const p of provideNodeModules(root, wt.dir, gateSteps.map((s) => s.dir))) log(`⚠ ${p}`);
     const env = stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined);
-    for (const step of gateSteps) steps.push(runStep(step, wt.dir, env));
+    const cached = { ...env, CARGO_TARGET_DIR: cargoCacheDir(root) };
+    for (const step of gateSteps) steps.push(runStep(step, wt.dir, step.cargoCache ? cached : env));
   } finally {
     wt.remove();
   }

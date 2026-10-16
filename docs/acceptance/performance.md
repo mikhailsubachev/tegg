@@ -15,6 +15,8 @@ See [README](README.md) for conventions.
   - 2,000 images (100 KB–3 MB) in `_attachments/` with Image objects.
 - **Measurement:** each metric is the **95th percentile** of at least 20 runs, measured by automated benchmarks unless marked [manual]. Benchmarks run nightly (trend) and on every release candidate; a regression of > 20% against the rolling median of the last 5 runs fails the release gate (`docs/test-strategy.md` §9).
 
+**Gates (D-343):** the automated latency ACs (`nfr_perf_*`, plus FR-NAV-01 AC-9 and FR-SRC-01 AC-11, which assert the same budgets) run in the nightly gate and above, not in the push gate.
+
 Each row of this table is the acceptance criterion `<ID>/AC-1` (e.g. `NFR-PERF-01/AC-1`): the metric meets its target on the reference machine as defined above.
 
 | ID | Metric | Target | How it's measured |

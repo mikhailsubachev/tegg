@@ -42,7 +42,9 @@ export const ROUTES: RouteDef[] = [
   { id: 'chooser', name: 'route.chooser', purpose: 'purpose.chooser', status: built, reqs: ['FR-VLT-01', 'FR-VLT-02'], design: null },
   { id: 'home', name: 'route.home', purpose: 'purpose.home', status: tbd('MS5'), reqs: ['FR-HOM-01', 'FR-HOM-02'], design: 'Home' },
   { id: 'inbox', name: 'route.inbox', purpose: 'purpose.inbox', status: tbd('MS5'), reqs: ['FR-INB-01…04'], design: 'Home' },
-  { id: 'today', name: 'route.today', purpose: 'purpose.today', status: tbd('MS4'), reqs: ['FR-DLY-01…06'], design: 'Home' },
+  // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
+  { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
+  { id: 'daily/YYYY-MM-DD', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
   { id: 'tasks', name: 'route.tasks', purpose: 'purpose.tasks', status: tbd('MS5'), reqs: ['FR-TSK-04…06'], design: 'Home' },
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
@@ -113,7 +115,10 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘O', command: 'app.switcher' },
   { keys: '⌘N', command: 'object.new' },
   { keys: '⇧⌘F', command: 'goto.search' },
-  { keys: '⌘D', command: 'goto.today' },
+  { keys: '⌘D', command: 'daily.today' },
+  // 4B (R17, D-329): on daily routes only.
+  { keys: '⌥⌘←', command: 'daily.previous' },
+  { keys: '⌥⌘→', command: 'daily.next' },
   { keys: '⇧⌘I', command: 'goto.inbox' },
   { keys: '⌘\\', command: 'view.toggleRightPanel' },
   { keys: '⌃⌘S', command: 'view.toggleSidebar' },

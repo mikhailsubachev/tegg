@@ -10,6 +10,10 @@ export default defineConfig({
   testDir: 'webkit',
   testMatch: /\.ac\.test\.ts$|\/bug_[^/]+\.test\.ts$/, // AC tests and bug regressions (bug_<issue>_<req-id>_…)
   timeout: 60_000,
+  // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
+  // shares state. Under ./verify 8 workers (12-core reference Mac); otherwise Playwright's default.
+  fullyParallel: true,
+  workers: gate ? 8 : undefined,
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },

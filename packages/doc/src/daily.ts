@@ -1,0 +1,213 @@
+// MS4 slice 4B (docs/contracts/ms4-daily.md §1, §5, §6, §12): dates, daily file names, the daily template, first-write
+// bytes, the D-334 title fix and `@` date rows. The Rust twins are `tegg_format::date` and `tegg_format::daily`; both
+// follow the shared corpora in tests/fixtures/format/dates/.
+
+import { parseDocument } from 'yaml'
+
+const pad = (n: number, w = 2) => String(n).padStart(w, '0')
+const iso = (y: number, m: number, d: number) => `${pad(y, 4)}-${pad(m)}-${pad(d)}`
+
+function validYmd(y: number, m: number, d: number): boolean {
+  if (m < 1 || m > 12 || d < 1) return false
+  return d <= new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+
+/** §1: `YYYY-MM-DD` with a valid calendar day (D-332), else null. */
+export function parseDate(s: string): string | null {
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(s)
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  return validYmd(y, mo, d) ? s : null
+}
+
+/** §1: today's local calendar date of `nowMs` in `timeZone` (default: the current `Intl` zone). */
+export function localDate(nowMs: number, timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(nowMs))
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+  return iso(get('year'), get('month'), get('day'))
+}
+
+/** §1: calendar-day arithmetic, no time involved (FR-DLY-03 AC-1). */
+export function addDays(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d + n))
+  return iso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate())
+}
+
+function format(date: string, fmt: string): { text: string; day: boolean } {
+  const [y, m, d] = date.split('-').map(Number)
+  const c = Array.from(fmt)
+  let out = ''
+  let day = false
+  const at = (i: number, t: string) => Array.from(t).every((ch, k) => c[i + k] === ch)
+  for (let i = 0; i < c.length; ) {
+    if (c[i] === '\\') { if (i + 1 < c.length) out += c[i + 1]; i += 2 }
+    else if (at(i, 'YYYY')) { out += pad(y, 4); i += 4 }
+    else if (at(i, 'MM')) { out += pad(m); i += 2 }
+    else if (at(i, 'M')) { out += String(m); i += 1 }
+    else if (at(i, 'DD')) { out += pad(d); day = true; i += 2 }
+    else if (at(i, 'D')) { out += String(d); day = true; i += 1 }
+    else { out += c[i]; i += 1 }
+  }
+  return { text: out, day }
+}
+
+/** §6.1: `YYYY`, `MM`, `M`, `DD`, `D` (longest first); a backslash makes the next character literal (D-361). */
+export function formatDate(date: string, fmt: string): string {
+  return format(date, fmt).text
+}
+
+/** D-51, D-52: the file-stem sanitizer of `tegg_format::sanitize_file_stem`, for daily names. */
+function sanitizeStem(title: string): string {
+  let s = Array.from(title.normalize('NFC'), (ch) => ('/:\\*?"<>|#^[]'.includes(ch) || /\p{Cc}/u.test(ch) ? ' ' : ch)).join('')
+  const trim = (x: string) => x.replace(/^[ .]+|[ .]+$/g, '')
+  s = trim(s.split(' ').filter((w) => w !== '').join(' '))
+  return s === '' ? 'Untitled' : s
+}
+
+/** §5: the daily file stem for `format`, or null when the format is bad (D-336, D-355). */
+export function dailyFileStem(fmt: string, date: string): string | null {
+  const { text, day } = format(date, fmt)
+  if (!day || /[/\\:*?"<>|\p{Cc}]/u.test(text)) return null
+  if (text.replace(/^[ .]+|[ .]+$/g, '') === '') return null
+  return sanitizeStem(text)
+}
+
+/** D-346: the template keys the first write never takes from the template. */
+const IGNORED = ['id', 'type', 'title', 'date', 'review', 'created', 'modified']
+
+function expandVariables(text: string, date: string): string {
+  return text.replace(/\{\{([^}]*)\}\}/g, (all, name: string) => {
+    if (name === 'date') return date
+    if (name === 'yesterday') return addDays(date, -1)
+    if (name === 'tomorrow') return addDays(date, 1)
+    if (name.startsWith('date:')) return formatDate(date, name.slice(5))
+    return all
+  })
+}
+
+const isFence = (line: string | undefined) => (line ?? '').replace(/\r?\n$/, '') === '---'
+
+/** §6.1: the daily template expanded for `date` (D-270, D-325, D-346, D-362). */
+export function expandDailyTemplate(templateText: string, date: string): { keys: [string, string][]; body: string; invalid: boolean } {
+  const lines = templateText.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  if (lines.length === 0 || !isFence(lines[0])) return { keys: [], body: expandVariables(templateText, date), invalid: false }
+  const close = lines.findIndex((l, i) => i > 0 && isFence(l))
+  if (close < 0) return { keys: [], body: expandVariables(templateText, date), invalid: true }
+  const fm = lines.slice(1, close).join('')
+  const body = lines.slice(close + 1).join('')
+  const doc = parseDocument(fm, { uniqueKeys: true })
+  const top = doc.contents
+  const valid = doc.errors.length === 0 && (top === null || (top as { items?: unknown }).items !== undefined && !Array.isArray(doc.toJS()))
+  if (!valid) return { keys: [], body: expandVariables(body, date), invalid: true }
+  const keys: [string, string][] = []
+  for (const line of lines.slice(1, close)) {
+    const isTop = !/^[ \t#\-\r\n]/.test(line) && line.includes(':')
+    if (isTop) keys.push([line.slice(0, line.indexOf(':')).trim().replace(/^["']|["']$/g, ''), line])
+    else if (keys.length > 0) keys[keys.length - 1][1] += line
+  }
+  return { keys: keys.filter(([k]) => !IGNORED.includes(k)), body: expandVariables(body, date), invalid: false }
+}
+
+/** §6.2: the bytes of a Daily Note's first write (D-324, D-347). */
+export function newDailyNote(opts: { date: string; keys: [string, string][]; body: string; id: string; now: string }): string {
+  const { date, keys, body, id, now } = opts
+  let s = `---\nid: ${id}\ntype: daily-note\ntitle: "${date}"\ndate: ${date}\n`
+  for (const [, lines] of keys) s += lines.endsWith('\n') ? lines : `${lines}\n`
+  return `${s}review: unreviewed\ncreated: ${now}\nmodified: ${now}\n---\n${body}`
+}
+
+/** §6.3: sets `title: "<date>"` when the title differs from `date` (D-334); changes only that line, in the file's line
+ *  ending. A title that isn't one plain single-line value (block scalar, continued or multi-line quoted value,
+ *  trailing comment) is left alone, so the fix can never break the frontmatter (FR-FMT-07, PR #38 review). */
+export function fixDailyTitle(text: string): string {
+  const lines = text.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  const bare = (l: string | undefined) => (l ?? '').replace(/\r?\n$/, '')
+  if (!lines.length || bare(lines[0]) !== '---') return text
+  const close = lines.findIndex((l, i) => i > 0 && bare(l) === '---')
+  if (close < 0) return text
+  const nl = /\r\n$/.test(lines[0] ?? '') ? '\r\n' : '\n'
+  const fm = lines.slice(1, close)
+  const di = fm.findIndex((l) => /^date:/.test(l))
+  const dm = di >= 0 ? /^date:[ \t]*["']?([0-9]{4}-[0-9]{2}-[0-9]{2})/.exec(fm[di]) : null
+  const date = dm && parseDate(dm[1])
+  if (!date) return text
+  const want = `title: "${date}"`
+  const ti = fm.findIndex((l) => /^title:/.test(l))
+  if (ti >= 0) {
+    const raw = bare(fm[ti]).slice(6).trim()
+    const next = fm[ti + 1]
+    const continued = next !== undefined && /^[ \t]/.test(next)
+    const plainOne = !continued && !/^[|>]/.test(raw) && !/\s#/.test(raw) && (/^"[^"]*"$/.test(raw) || /^'[^']*'$/.test(raw) || !/^["']/.test(raw))
+    if (!plainOne) return text
+    if (raw.replace(/^["']|["']$/g, '').normalize('NFC') === date) return text
+    fm[ti] = `${want}${nl}`
+  } else {
+    const at = fm.findIndex((l) => /^type:/.test(l))
+    fm.splice(at >= 0 ? at + 1 : 0, 0, `${want}${nl}`)
+  }
+  return [lines[0], ...fm, ...lines.slice(close)].join('')
+}
+
+type Keyword = { word: string; n: number; label: string }
+const KEYWORDS: Record<string, Keyword[]> = {
+  en: [{ word: 'today', n: 0, label: 'Today' }, { word: 'tomorrow', n: 1, label: 'Tomorrow' }, { word: 'yesterday', n: -1, label: 'Yesterday' }],
+  cs: [{ word: 'dnes', n: 0, label: 'Dnes' }, { word: 'zítra', n: 1, label: 'Zítra' }, { word: 'včera', n: -1, label: 'Včera' }],
+}
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+
+/** §6.4: zero or one `@` date row (D-331, D-357). Locale tags match by language. */
+export function dateRows(query: string, today: string, locale: string): { date: string; label: string; keyword: string | null }[] {
+  const q = query.normalize('NFC').trim()
+  if (q === '') return []
+  const lang = locale.toLowerCase().split('-')[0]
+  const words = [...KEYWORDS.en, ...(lang === 'cs' ? KEYWORDS.cs : [])]
+  const fq = fold(q)
+  const kw = words.find((k) => fold(k.word).startsWith(fq))
+  if (kw) {
+    const date = addDays(today, kw.n)
+    return [{ date, label: `${kw.label}, ${date}`, keyword: kw.word }]
+  }
+  if (parseDate(q)) return [{ date: q, label: q, keyword: null }]
+  const short = lang === 'cs' ? /^([0-9]{1,2})\.([0-9]{1,2})\.([0-9]{4})$/.exec(q) : lang === 'en' ? /^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/.exec(q) : null
+  if (short) {
+    const [a, b, y] = [Number(short[1]), Number(short[2]), Number(short[3])]
+    const [d, m] = lang === 'cs' ? [a, b] : [b, a]
+    if (validYmd(y, m, d)) {
+      const date = iso(y, m, d)
+      return [{ date, label: date, keyword: null }]
+    }
+  }
+  return []
+}
+
+/** An instant of the D-319/D-335 winner rule (PR #38 review, D-365): nanoseconds since 1970 UTC; `local` without an
+ *  offset, read in the machine's zone (D-339). The twin of `tegg_format::daily::instant`. */
+export type Instant = { kind: 'instant' | 'local'; nanos: bigint }
+
+export function instantOf(v: string): Instant | null {
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?$/.exec(v.trim())
+  if (!m || !parseDate(m[1])) return null
+  const [y, mo, d] = m[1].split('-').map(Number)
+  const [h, mi, s] = [Number(m[2]), Number(m[3]), Number(m[4] ?? 0)]
+  if (h > 23 || mi > 59 || s > 59) return null
+  const frac = BigInt((m[5] ?? '').padEnd(9, '0') || '0')
+  if (m[6] === undefined) {
+    const t = new Date(y, mo - 1, d, h, mi, s).getTime()
+    return { kind: 'local', nanos: BigInt(Math.floor(t / 1000)) * 1_000_000_000n + frac }
+  }
+  const off = m[6] === 'Z' ? 0 : (m[6][0] === '-' ? -1 : 1) * (Number(m[6].slice(1, 3)) * 3600 + Number(m[6].slice(4, 6)) * 60)
+  const secs = Date.UTC(y, mo - 1, d, h, mi, s) / 1000 - off
+  return { kind: 'instant', nanos: BigInt(secs) * 1_000_000_000n + frac }
+}
+
+/** D-319, D-335: the winner order of two Daily Notes (newest `created`, then `modified`, missing oldest, then the
+ *  UTF-8 bytes of the NFC path). The fake core's one copy of the rule. */
+export function dailyOrder(a: { path: string; created?: unknown; modified?: unknown }, b: { path: string; created?: unknown; modified?: unknown }): number {
+  const n = (v: unknown) => (typeof v === 'string' ? instantOf(v)?.nanos ?? null : null)
+  const by = (x: bigint | null, y: bigint | null) => (x !== null && y !== null ? (y > x ? 1 : y < x ? -1 : 0) : x !== null ? -1 : y !== null ? 1 : 0)
+  const enc = new TextEncoder()
+  const bytes = (p: string) => enc.encode(p.normalize('NFC'))
+  const cmp = (x: Uint8Array, y: Uint8Array) => { for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]; return x.length - y.length }
+  return by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
+}

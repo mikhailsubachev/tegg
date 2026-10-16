@@ -3,6 +3,10 @@
 mod extract;
 /// MS4 slice 4A (docs/contracts/ms4-links.md §2): link positions, block texts, excerpt window.
 pub mod excerpt;
+/// MS4 slice 4B (docs/contracts/ms4-daily.md §1): the one date type.
+pub mod date;
+/// MS4 slice 4B (docs/contracts/ms4-daily.md §5, §6.1): daily file names and the daily template.
+pub mod daily;
 
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;

@@ -12,6 +12,10 @@ import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
 import { localIso, ulid } from '../newNote';
+import { openDate } from '../daily/open';
+import { Calendar } from '../daily/Calendar';
+import { dateRows, localDate } from '@tegg/doc';
+import { region } from '../i18n/collate';
 import { createObject, prepareObject, type Prepared } from '../types/create';
 import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
@@ -30,6 +34,8 @@ export type EditorPaneApi = {
   caretToStart: (fragment?: string) => boolean;
   /** ms4-links §5.4: the caret right before the wikilink that starts at `at` in `text` (the file as read). */
   caretAtLink: (at: { line: number; byte: number }, text: string) => boolean;
+  /** D-322: the caret at the end of the last editable block (a virtual Daily Note). */
+  caretToEnd: () => boolean;
 };
 
 /** A chip's icon element with the type's icon name as `data-icon` (FR-LNK-07 AC-1). */
@@ -61,7 +67,9 @@ const SAFE_URL = /^(https?:\/\/|mailto:)/i;
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().normalize('NFC');
 
 type Slash = { from: number; query: string; sel: number };
-type Suggest = { kind: 'link'; from: number; to: number; query: string; items: SwitcherItemDto[]; sel: number }
+/** 4B (D-331, ms4-daily §6.4): the `@` list adds date rows and `Pick a date…` (rows of kind `date` / `pickDate`). */
+type Row = SwitcherItemDto | { kind: 'date'; title: string; date: string; path: null; type: 'daily-note'; matched_alias: null; duplicate: null } | { kind: 'pickDate'; title: string; path: null; type: ''; matched_alias: null; duplicate: null };
+type Suggest = { kind: 'link'; from: number; to: number; query: string; items: Row[]; sel: number; at?: boolean }
   | { kind: 'tag'; from: number; to: number; query: string; items: TagDto[]; sel: number };
 type Menu = { block: number; sub: null | 'turnInto' | 'calloutType'; x: number; y: number } | null;
 type LinkField = { query: string; items: SwitcherItemDto[]; sel: number; error: boolean; onLink: boolean } | null;
@@ -131,6 +139,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       },
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
+        if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
         if (r?.path && (r.kind === 'note' || r.kind === 'daily')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
         else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
       },
@@ -246,26 +255,32 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     // line start, a space or `(`, not inside a word (`eva@example.com`), code, a link or math; the query may hold
     // spaces, and a space typed when only the Create row is left closes it, leaving `@<query>` as text.
     const lm0 = !inCode && sel.empty ? /\[\[([^[\]\n|￼]*)$/.exec(before) : null;
-    const am = !lm0 && !inCode && sel.empty && !$f.marks().some((m) => m.type.name === 'link') ? /(?:^|[\s(])@([^\s@￼[\]][^@\n￼[\]]*|)$/.exec(before) : null;
+    const am0 = !lm0 && !inCode && sel.empty && !$f.marks().some((m) => m.type.name === 'link') ? /(?:^|[\s(])@([^\s@￼[\]][^@\n￼[\]]*|)$/.exec(before) : null;
+    // The `@` itself in inline code or a link (a code span closed after it) is no mention start (D-258).
+    const atMarks = am0 ? state.doc.resolve($f.pos - am0[1].length).marks() : [];
+    const am = am0 && !atMarks.some((m) => m.type.name === 'code' || m.type.name === 'link') ? am0 : null;
     const lm = lm0 ?? (am ? [`@${am[1]}`, am[1]] as const : null);
     if (am && !lm0) {
       const from = $f.pos - am[1].length - 1;
       const cur = live.current.suggest;
-      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create')) {
-        dismissed.current = `l${from}`;
+      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create' || x.kind === 'pickDate')) {
+        dismissed.current = `a${from}`;
         setSuggest(null);
       }
     }
     if (lm) {
       const from = $f.pos - lm[0].length;
-      if (dismissed.current !== `l${from}`) {
+      // The dismissal is per trigger: closing the `@` list doesn't block a `[[` typed at the same place.
+      if (dismissed.current !== `${lm0 ? 'l' : 'a'}${from}`) {
         const cur = live.current.suggest;
         if (!cur || cur.kind !== 'link' || cur.from !== from || cur.query !== lm[1]) {
           const q = lm[1];
-          setSuggest((s) => ({ kind: 'link', from, to: $f.pos, query: q, items: s?.kind === 'link' ? s.items : [], sel: 0 }));
-          void ipc.switcher(q, 20).then((items) => {
+          const at = !lm0;
+          setSuggest((s) => ({ kind: 'link', from, to: $f.pos, query: q, items: s?.kind === 'link' ? s.items : [], sel: 0, at }));
+          void ipc.switcher(q, 20).then((found) => {
+            const items: Row[] = at ? withDates(q, found) : found;
             // The create row's type is read ahead (D-232), so choosing it sends note_create at once.
-            const c = items.find((x) => x.kind === 'create');
+            const c = found.find((x) => x.kind === 'create');
             if (c && prepared.current?.key !== c.type) {
               const slot = { key: c.type, p: null as Prepared | null };
               prepared.current = slot;
@@ -329,6 +344,21 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     ed.editor.commands.setTextSelection(at); // a selection change: no write, no history step
     restore();
     requestAnimationFrame(restore);
+    return true;
+  };
+
+  const caretToEnd = (): boolean => {
+    const ed = edRef.current;
+    if (!ed) return false;
+    let last: number | null = null;
+    ed.view.state.doc.descendants((n, p) => {
+      if (n.type.name === 'rawBlock' || (n.isAtom && n.isBlock)) return false;
+      if (n.isTextblock) { last = p + n.nodeSize - 1; return false; }
+      return true;
+    });
+    if (last === null) return false;
+    (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+    ed.editor.commands.setTextSelection(last);
     return true;
   };
 
@@ -411,12 +441,32 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   };
 
   const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
-  const chooseLink = async (item: SwitcherItemDto) => {
+  /** FR-DLY-08 AC-1…AC-3: a date row inserts `[[YYYY-MM-DD]]` at the `@` (D-333); `Pick a date…` opens the calendar. */
+  const [pick, setPick] = useState<{ at: { left: number; top: number } } | null>(null);
+  const insertDate = (date: string) => {
     const e = edRef.current;
     const s = live.current.suggest;
     if (!e || !s || s.kind !== 'link') return;
     setSuggest(null);
-    dismissed.current = `l${s.from}`; // ⌘Z restores the typed query as text; it doesn't reopen the list
+    setPick(null);
+    dismissed.current = `${s.at ? 'a' : 'l'}${s.from}`;
+    links.current.set(date, { kind: 'date-missing', type: 'daily-note' });
+    e.commands.replaceWithLink(s.from, e.view.state.selection.from, { path: date, title: date, fromPath: pathRef.current, stemResolves: true });
+    focusEditor();
+  };
+  const chooseLink = async (row: Row) => {
+    const e = edRef.current;
+    const s = live.current.suggest;
+    if (!e || !s || s.kind !== 'link') return;
+    if (row.kind === 'date') { insertDate((row as { date: string }).date); return; }
+    if (row.kind === 'pickDate') {
+      const c = e.view.coordsAtPos(s.from);
+      setPick({ at: { left: c.left, top: c.bottom + 4 } });
+      return;
+    }
+    const item = row;
+    setSuggest(null);
+    dismissed.current = `${s.at ? 'a' : 'l'}${s.from}`; // ⌘Z restores the typed query as text; it doesn't reopen the list
     let path = item.path;
     let title = item.title.normalize('NFC');
     if (item.kind === 'create') {
@@ -474,6 +524,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         if (n) {
           const { target, fragment } = linkTarget(String(n.attrs.value));
           const r = links.current.get(target.normalize('NFC'));
+          if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) break; // FR-DLY-08 AC-6
           if (r?.path) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
           else if (r?.kind !== 'date-missing' && target) {
             const pos = $f.nodeBefore === n ? $f.pos - n.nodeSize : $f.pos;
@@ -494,7 +545,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart, caretAtLink }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart, caretAtLink, caretToEnd }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -537,7 +588,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       }
       if (e.key === 'Escape') {
         stop();
-        dismissed.current = L.suggest.kind === 'link' ? `l${L.suggest.from}` : `t${L.suggest.from}:${L.suggest.query}`;
+        dismissed.current = L.suggest.kind === 'link' ? `${L.suggest.at ? 'a' : 'l'}${L.suggest.from}` : `t${L.suggest.from}:${L.suggest.query}`;
         setSuggest(null);
         return;
       }
@@ -706,6 +757,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       {suggest && e2 && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
       )}
+      {pick && suggest && (
+        <Calendar selected={localDate(Date.now())} anchor={null} at={pick.at} onChoose={insertDate}
+          onClose={() => { setPick(null); focusEditor(); }} />
+      )}
       {menu && e2 && (
         <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect}
           onSub={(sub) => setMenu({ ...menu, sub })}
@@ -782,14 +837,30 @@ function SlashMenu({ slash, pos, onPick, onSel }: { slash: Slash; pos: { left: n
 
 // ------------------------------------------------------------------------------------------------ suggestions
 
-function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: TypeDefDto[]; pos: { left: number; top: number }; onLink: (i: SwitcherItemDto) => void; onTag: (spelling: string) => void }) {
+/** D-331: date rows first, then note rows, `Pick a date…`, then Create. */
+function withDates(q: string, found: SwitcherItemDto[]): Row[] {
+  const dates: Row[] = dateRows(q, localDate(Date.now()), region() ?? navigator.language)
+    .map((r) => ({ kind: 'date' as const, title: r.label, date: r.date, path: null, type: 'daily-note' as const, matched_alias: null, duplicate: null }));
+  const pickRow: Row = { kind: 'pickDate', title: t('mention.pickDate'), path: null, type: '', matched_alias: null, duplicate: null };
+  return [...dates, ...found.filter((x) => x.kind !== 'create'), pickRow, ...found.filter((x) => x.kind === 'create')];
+}
+
+function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: TypeDefDto[]; pos: { left: number; top: number }; onLink: (i: Row) => void; onTag: (spelling: string) => void }) {
   if (s.kind === 'link') {
-    const titles = new Map<string, number>();
-    for (const it of s.items) if (it.kind === 'object') titles.set(it.title, (titles.get(it.title) ?? 0) + 1);
     return (
       <div className="popover suggestions" style={pos}>
         <div role="listbox" aria-label={t('suggest.links')}>
-          {s.items.map((it, i) => {
+          {s.items.map((row, i) => {
+            if (row.kind === 'date' || row.kind === 'pickDate') {
+              return (
+                <div key={`${row.kind}:${row.title}`} role="option" aria-selected={i === s.sel} className={`option ${i === s.sel ? 'selected' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => onLink(row)}>
+                  <Icon name="calendar" dataIcon="calendar" />
+                  <span>{row.title}</span>
+                </div>
+              );
+            }
+            const it = row;
             const typeName = types.find((x) => x.key === it.type)?.name ?? it.type;
             const create = it.kind === 'create';
             const label = create ? t('suggest.create', { query: it.title }) : undefined;

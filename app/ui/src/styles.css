@@ -225,7 +225,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .chip .icon { flex: none; }
 .link-chip { --cbg: var(--type-blue-bg); color: var(--link); background: var(--cbg); }
 .link-chip.kind-unresolved { color: var(--danger); background: none; text-decoration: underline dashed var(--danger); text-underline-offset: 3px; }
-.link-chip.kind-date-missing { cursor: default; }
+.link-chip.kind-date-missing { cursor: pointer; }
 .tag-chip { color: var(--accent); background: var(--accent-bg); }
 .external-link { color: var(--link); text-decoration: underline; text-decoration-color: var(--link); display: inline-flex; align-items: center; gap: 2px; }
 .unsafe-link { color: var(--text); }

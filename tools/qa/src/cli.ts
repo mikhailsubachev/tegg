@@ -7,7 +7,7 @@ import path from 'node:path';
 import { loadConfig, type Gate } from './config.ts';
 import { checkRed, protectedChanges } from './checks.ts';
 import { writeReport } from './coverage.ts';
-import { nightlyWarning, runCommitGate, runTreeGate } from './gates.ts';
+import { cargoCacheDir, nightlyWarning, runCommitGate, runTreeGate } from './gates.ts';
 import { AC_TEST_CHANGE_TRAILER, UsageError, git, gitTry, hasTrailer, parseNameStatusZ, repoRoot, treeOf } from './proc.ts';
 
 const USAGE = `Usage: ./verify <command> [options]
@@ -25,6 +25,7 @@ Tools:
   check-red <commit>              AC tests added by <commit> must fail by assertion (TS-I AC-2)
   counts-only [file]              real-export output must contain counts only (TS-P AC-3)
   review-prep [--base <rev>]      write .verify/review/ for the QA reviewer agent
+  clean                           delete the gates' Cargo build cache (.verify/cargo-target)
   install                         use .githooks/ as git hooks
   install-nightly [--dry-run]     install the launchd job running the nightly gate
   hook pre-push|commit-msg|claude-pre-tool   called by git / Claude Code hooks
@@ -294,6 +295,12 @@ function main(argv: string[]): number {
       for (const m of r.messages) console.log(`✗ ${m}`);
       console.log(`verify check-red: ${r.ok ? 'PASS (all added AC tests fail by assertion)' : 'FAIL'}`);
       return r.ok ? 0 : 1;
+    }
+    case 'clean': {
+      const dir = cargoCacheDir(root);
+      fs.rmSync(dir, { recursive: true, force: true });
+      console.log(`verify: removed ${path.relative(root, dir)}`);
+      return 0;
     }
     case 'review-prep':
       return reviewPrep(root, option(args, '--base') ?? 'main');

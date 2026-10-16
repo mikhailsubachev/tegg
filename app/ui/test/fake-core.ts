@@ -157,6 +157,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
+    'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -239,6 +240,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (v === '' || v.startsWith('[') || /^-?\d+(\.\d+)?$/.test(v) || v === 'null' || v === '~') return 'page';
     return v.toLowerCase().replace(/\s+/g, '-');
   };
+  // D-332: a valid YYYY-MM-DD calendar date.
+  const isDate = (t: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    if (!m) return false;
+    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  };
   const objects = () => {
     if (!state.vault) return [];
     return Object.entries(state.vault.files)
@@ -246,9 +254,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       .map(([path, text]) => {
         const f = front(text);
         const stem = path.split('/').pop()!.replace(/\.md$/, '');
-        return { path, id: f.id ?? null, title: f.title ?? stem, type: match(f.type), modified: f.modified ?? null, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '' };
+        const type = match(f.type);
+        const day = type === 'daily-note' && f.date && isDate(f.date.trim().slice(0, 10)) ? f.date.trim().slice(0, 10) : null;
+        return { path, id: f.id ?? null, title: day ?? f.title ?? stem, stored: day ? (f.title ?? null) : null, type, daily: day, created: f.created ?? null, modified: f.modified ?? null, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '' };
       });
   };
+  // D-319, D-335: the Daily Note a date opens, from the one copy of the rule in Node (fake-links.ts, PR #38 review).
+  const dailyWinners = async (): Promise<Record<string, string>> => (await w.__teggLinks('daily_winners', {}, state.vault!.files, {})).result ?? {};
   const yaml = (text: string): Record<string, string> => {
     const out: Record<string, string> = {};
     for (const line of text.split(/\r?\n/)) {
@@ -342,6 +354,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     vault_pick_dir: () => (opts.pickDir === undefined ? null : opts.pickDir),
     vault_last: () => {
       if (!state.vault || !state.last) return null;
+      if (/^daily\/\d{4}-\d{2}-\d{2}$/.test(state.last.path)) return { ...state.last };
       const objs = objects();
       if (state.vault.files[state.last.path] !== undefined && !excluded(state.last.path)) return { ...state.last };
       const byId = state.last.id ? objs.find((o) => o.id === state.last!.id) : undefined;
@@ -365,12 +378,26 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     index_duplicate_titles: viaNode('index_duplicate_titles', '__teggLinks'),
     link_create_plan: viaNode('link_create_plan', '__teggLinks'),
     link_create: viaNode('link_create', '__teggLinks'),
+    // 4B (ms4-daily §4, §8): in Node (fake-links.ts) with the §2 winner rule and the real @tegg/doc twins.
+    daily_view: viaNode('daily_view', '__teggLinks'),
+    daily_dates: viaNode('daily_dates', '__teggLinks'),
+    daily_draft: viaNode('daily_draft', '__teggLinks'),
+    daily_create: async (a) => {
+      // D-363: writeControl applies as to note_write.
+      if (state.control.hold) await new Promise<void>((r) => state.held.push(r));
+      if (state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
+      if (state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      const r: any = await viaNode('daily_create', '__teggLinks')(a);
+      return { ...r, version: state.ver(r.path) };
+    },
+    daily_backlinks: viaNode('daily_backlinks', '__teggLinks'),
+    daily_context: viaNode('daily_context', '__teggLinks'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
       return out;
     },
-    index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map(({ folder: _f, ...o }) => o),
+    index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map((o) => ({ path: o.path, id: o.id, title: o.title, type: o.type, modified: o.modified })),
     index_search: (a) => {
       // §15.8: words in tiers (D-253), quoted phrases strict, `-word` excluded, file stems searched (D-254). No typos.
       const words = (t: string) => [...t.normalize('NFC').matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => ({ at: m.index!, end: m.index! + m[0].length, w: fold(m[0]) }));
@@ -438,7 +465,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const items: any[] = objects().flatMap((o): any[] => {
         const stem = o.path.split('/').pop()!.replace(/\.md$/, '');
         const created = front(state.vault!.files[o.path]).created ?? null;
-        if (!q || fold(o.title).includes(q) || fold(stem).includes(q)) return [{ kind: 'object', path: o.path, title: o.title, type: o.type, folder: o.folder, matched_alias: null, created }];
+        if (!q || fold(o.title).includes(q) || fold(stem).includes(q) || (o.stored !== null && fold(o.stored).includes(q))) return [{ kind: 'object', path: o.path, title: o.title, type: o.type, folder: o.folder, matched_alias: null, created }];
         const al = aliasesOf(o.path).find((x) => fold(x).includes(q));
         return al ? [{ kind: 'object', path: o.path, title: o.title, type: o.type, folder: o.folder, matched_alias: al, created }] : [];
       })
@@ -565,6 +592,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     note_create: (a) => {
       state.writes++;
       if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (a.type !== undefined && String(a.type).normalize('NFC') === 'daily-note') throw err('UseDailyNote', 'fake: a Daily Note is created by typing in it'); // D-318
       if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)
@@ -578,22 +606,29 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
     ui_state_set: (a) => { state.uiState = a.state; return null; },
-    nav_opened: (a) => { const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null; },
+    nav_opened: (a) => {
+      // D-349: a daily route is recorded as the route, so the landing can reopen it.
+      if (typeof a.route === 'string' && a.route.startsWith('daily/')) { state.last = { path: a.route, id: null }; return null; }
+      if (a.path == null) return null;
+      const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null;
+    },
     perf_mark: () => null,
     // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
-    link_resolve: (a) => {
+    link_resolve: async (a) => {
       const from = String(a.from ?? '').normalize('NFC');
       const fromDir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '';
       const objs = objects();
       const low = (x: string) => x.normalize('NFC').toLowerCase();
       const byCode = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+      const winners = (a.targets as string[]).some((x) => /\d{4}-\d{2}-\d{2}/.test(String(x))) ? await dailyWinners() : {};
+      const dailyWinner = (date: string) => objects().find((o) => o.path === winners[date]);
       return (a.targets as string[]).map((given) => {
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);
         if (cut >= 0) t = t.slice(0, cut).trim();
         // D-162: a date is a Daily Note link first.
-        if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-          const daily = objs.find((o) => o.type === 'daily-note' && (front(state.vault!.files[o.path]).date === t || o.path.split('/').pop() === `${t}.md`));
+        if (isDate(t)) {
+          const daily = dailyWinner(t);
           if (daily) return { target: given, kind: 'daily', path: daily.path, title: daily.title, type: daily.type };
           return { target: given, kind: 'date-missing', path: null, title: null, type: null };
         }
@@ -607,11 +642,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
             ?? [...same].sort((x, y) => x.path.length - y.path.length || byCode(x.path, y.path))[0];
         }
         if (hit) return { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type };
-        if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-          const daily = objs.find((o) => o.type === 'daily-note' && (front(state.vault!.files[o.path]).date === t || o.path.split('/').pop() === `${t}.md`));
-          if (daily) return { target: given, kind: 'daily', path: daily.path, title: daily.title, type: daily.type };
-          return { target: given, kind: 'date-missing', path: null, title: null, type: null };
-        }
+
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
       });
     },

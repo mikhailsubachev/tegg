@@ -38,6 +38,9 @@ export type ShellActions = {
   addStarterTypes?: () => void;
   /** 4A (R16): opens the Context panel on Backlinks and focuses its first entry. */
   showBacklinks?: () => void;
+  /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
+  pickDate?: () => void;
+  setReviewed?: (reviewed: boolean) => void;
 };
 
 export type EditAction =
@@ -50,7 +53,7 @@ export type ShellContext = {
   counts: Record<string, number>;
   actions?: ShellActions;
   /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
-  route?: { id: string; param?: string; key?: string; type?: string } | null;
+  route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null } | null;
 };
 
 export type Command = {
@@ -96,7 +99,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'backlinks.unlinked': 'panel.unlinkedMentions',
 };
 
-const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles']);
+const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -136,7 +139,27 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'goto.brokenLinks', title: 'commands.gotoBrokenLinks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'broken-links' }) },
     { id: 'goto.duplicateTitles', title: 'commands.gotoDuplicateTitles', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'duplicate-titles' }) },
   );
-  if (ctx.route?.id === 'note/<path>') {
+  // R17 (daily-notes.md, D-329, D-330): Go to Today and Go to date… everywhere; the rest on daily routes only.
+  list.push(
+    { id: 'daily.today', title: 'cmd.goto.today', section: 'navigate', shortcut: shortcutOf('daily.today'), needsVault: true, run: (c) => a(c)?.go({ id: 'today' }) },
+    { id: 'daily.pickDate', title: 'daily.goToDate', section: 'navigate', needsVault: true, run: (c) => a(c)?.pickDate?.() },
+  );
+  const dailyDate = ctx.route?.id === 'daily/YYYY-MM-DD' ? (ctx.route.date ?? ctx.route.param) : undefined;
+  if (dailyDate) {
+    const step = (n: number) => (c: ShellContext) => {
+      const [y, m, d] = dailyDate.split('-').map(Number);
+      const t = new Date(Date.UTC(y, m - 1, d + n));
+      const iso = `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+      a(c)?.go({ id: 'daily/YYYY-MM-DD', param: iso });
+    };
+    list.push(
+      { id: 'daily.previous', title: 'daily.previous', section: 'navigate', shortcut: shortcutOf('daily.previous'), needsVault: true, run: step(-1) },
+      { id: 'daily.next', title: 'daily.next', section: 'navigate', shortcut: shortcutOf('daily.next'), needsVault: true, run: step(1) },
+      { id: 'daily.markReviewed', title: 'daily.markReviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setReviewed?.(true) },
+      { id: 'daily.markUnreviewed', title: 'daily.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setReviewed?.(false) },
+    );
+  }
+  if (ctx.route?.id === 'note/<path>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
   }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
@@ -147,14 +170,15 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'type.new', title: 'cmd.newType', section: 'create', needsVault: true, run: (c) => a(c)?.newType?.() },
     { id: 'vault.addStarterTypes', title: 'cmd.addStarterTypes', section: 'vault', needsVault: true, run: (c) => a(c)?.addStarterTypes?.() },
   );
-  if (definedType || route?.id === 'note/<path>') {
+  const onNote = route?.id === 'note/<path>' || route?.id === 'daily/YYYY-MM-DD';
+  if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
   }
   if (definedType) {
     const key = definedType.key;
     list.push({ id: 'type.newObject', title: 'cmd.newOfType', vars: { name: definedType.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.(key) });
   }
-  if (route?.id === 'note/<path>') {
+  if (onNote) {
     list.push(
       { id: 'note.changeType', title: 'cmd.changeType', section: 'edit', needsVault: true, run: (c) => a(c)?.changeType?.() },
       { id: 'note.editProperties', title: 'cmd.editProperties', section: 'edit', needsVault: true, run: (c) => a(c)?.editProperties?.() },

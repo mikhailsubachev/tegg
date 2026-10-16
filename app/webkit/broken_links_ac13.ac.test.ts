@@ -1,4 +1,4 @@
-// MS4 slice 4A, L5 (WebKit + fake core): FR-LNK-04 AC-13 (D-339), the note changes while the Create offer is open.
+// MS4 slice 4A, L5 (WebKit + fake core): FR-LNK-04 AC-13 (D-364), the note changes while the Create offer is open.
 // docs/acceptance/backlinks.md; interface docs/contracts/ms4-links.md §5.3. Written from the AC and the contract (D-61).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ async function createButton(offer: Locator, label: string): Promise<Locator> {
   return must(offer.getByRole('button', { name: `Create "${label}"`, exact: true }), `button Create "${label}"`);
 }
 
-// ------------------------------------------------------------------------------------------------ AC-13 (D-339)
+// ------------------------------------------------------------------------------------------------ AC-13 (D-364)
 
 const Q3_FAILED = 'The link couldn’t be changed to point to "Q3 plán". Edit it, then try again.';
 /** Rozbité odkazy with an extra `[[Q3: plán?]] první` as the first body line. */

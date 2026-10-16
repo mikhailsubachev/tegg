@@ -671,6 +671,7 @@ dependencies = [
  "chrono-tz",
  "gen-vault",
  "serde_json",
+ "tegg-core",
  "tegg-format",
  "tegg-index",
  "tegg-schema",

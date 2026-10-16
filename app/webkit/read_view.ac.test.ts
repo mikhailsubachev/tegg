@@ -336,13 +336,15 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
     await page.keyboard.press('Enter');
   }
   const d8 = await must(art.getByRole('link', { name: '2026-10-08', exact: true }), 'date link 2026-10-08');
-  assert.equal(await d8.getAttribute('aria-disabled'), 'true');
+  // From 4B (D-142 ended; daily-notes.md FR-DLY-08 AC-5, AC-6): the date link keeps the date-link style and opens the
+  // virtual Daily Note daily/2026-10-08 without writing; the `Coming in MS4 (4B)` disabled state is gone.
+  assert.notEqual(await d8.getAttribute('aria-disabled'), 'true', 'not a disabled control');
   const d8style = await d8.evaluate((e) => getComputedStyle(e).textDecorationStyle);
   assert.notEqual(d8style, 'dashed', 'a date link without a note is not shown broken');
-  await d8.click({ force: true }); // aria-disabled: Playwright won't click it unforced; the app must ignore it
-  await sleep(200);
-  assert.equal(await mainName(page), 'Odkazy', 'no route change');
-  assert.deepEqual(await nonReadCalls(core), [], 'no IPC write command');
+  await d8.click();
+  await mustBeOn(page, '2026-10-08', 'activating [[2026-10-08]] opens daily/2026-10-08');
+  const dailyReads = new Set(['daily_view', 'daily_dates', 'daily_draft', 'daily_context']); // ms4-daily §4: read-only
+  assert.deepEqual((await nonReadCalls(core)).filter((c) => !dailyReads.has(c)), [], 'no IPC write command');
   assert.deepEqual(Object.keys(await core.files()).sort(), Object.keys(files).sort(), 'no file created');
 });
 

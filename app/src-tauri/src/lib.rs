@@ -173,6 +173,9 @@ fn core_err(e: CoreError) -> IpcError {
         CoreError::UnknownType => err("UnknownType", "no such type"),
         CoreError::Exists { path } => IpcError { path: Some(path), ..err("Exists", "the note exists now") },
         CoreError::PlanChanged { now } => IpcError { now: Some(Box::new(plan_dto(now))), ..err("PlanChanged", "the plan changed") },
+        // ms4-daily §3 (4B).
+        CoreError::UseDailyNote => err("UseDailyNote", "a Daily Note is created by typing in it"),
+        CoreError::DailyMismatch => err("DailyMismatch", "the bytes aren't this date's Daily Note"),
         other => err("Io", format!("{other:?}")),
     }
 }
@@ -584,9 +587,15 @@ async fn index_list(state: State<'_, AppState>, r#type: String) -> Result<Vec<Ob
 }
 
 #[tauri::command]
-async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
+async fn nav_opened(state: State<'_, AppState>, path: Option<String>, route: Option<String>) -> Result<(), IpcError> {
     let core = core(&state)?;
-    core.record_open(&path, SystemTime::now());
+    // D-349: a daily route is recorded by its route (virtual or not), so the launch landing can reopen it.
+    if let Some(p) = &path {
+        core.record_open(p, SystemTime::now());
+    }
+    if let Some(r) = route.filter(|r| r.starts_with("daily/")) {
+        core.record_open(&r, SystemTime::now());
+    }
     Ok(())
 }
 
@@ -694,15 +703,18 @@ fn duplicate_dto(d: tegg_core::DuplicateDetails) -> DuplicateDetailsDto {
 #[tauri::command]
 async fn index_backlinks(state: State<'_, AppState>, path: String) -> Result<BacklinksPanelDto, IpcError> {
     let core = core(&state)?;
-    let p = core.backlinks_panel(&path);
-    Ok(BacklinksPanelDto {
+    Ok(panel_dto(core.backlinks_panel(&path)))
+}
+
+fn panel_dto(p: tegg_core::BacklinksPanel) -> BacklinksPanelDto {
+    BacklinksPanelDto {
         objects: p.objects as u32,
         groups: p
             .groups
             .into_iter()
             .map(|g| BacklinkGroupDto { type_key: g.type_key, defined: g.defined, raw: g.raw, entries: g.entries.into_iter().map(entry_dto).collect() })
             .collect(),
-    })
+    }
 }
 
 /// `index_broken_links` (FR-LNK-04, D-284).
@@ -738,6 +750,68 @@ async fn index_duplicate_titles(state: State<'_, AppState>) -> Result<Vec<Duplic
                 .collect(),
         })
         .collect())
+}
+
+// ---------------------------------------------------------------- slice 4B (ms4-daily §4)
+
+fn parse_day(date: &str) -> Result<chrono::NaiveDate, IpcError> {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| err("Io", format!("not a date: {date}")))
+}
+fn context_rows(rows: Vec<tegg_core::ContextRow>) -> Vec<ContextRowDto> {
+    rows.into_iter().map(|r| ContextRowDto { path: r.path, title: r.title, type_key: r.r#type, at: r.at }).collect()
+}
+
+/// `daily_view` (FR-DLY-01, D-318, D-319): read-only.
+#[tauri::command]
+async fn daily_view(state: State<'_, AppState>, date: String) -> Result<DailyViewDto, IpcError> {
+    let core = core(&state)?;
+    let v = core.daily_view(parse_day(&date)?);
+    Ok(DailyViewDto { date: v.date.format("%Y-%m-%d").to_string(), path: v.path, duplicates: v.duplicates, review: v.review })
+}
+
+/// `daily_dates` (FR-DLY-03 AC-3): read-only calendar marks.
+#[tauri::command]
+async fn daily_dates(state: State<'_, AppState>, year: i32, month: u32) -> Result<Vec<String>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.daily_dates(year, month).into_iter().map(|d| d.format("%Y-%m-%d").to_string()).collect())
+}
+
+/// `daily_backlinks` (D-348, FR-DLY-08 AC-7): read-only; the panel of a date, virtual or not.
+#[tauri::command]
+async fn daily_backlinks(state: State<'_, AppState>, date: String) -> Result<BacklinksPanelDto, IpcError> {
+    let core = core(&state)?;
+    Ok(panel_dto(core.daily_backlinks(parse_day(&date)?)))
+}
+
+/// `daily_draft` (FR-DLY-02, FR-DLY-06): read-only.
+#[tauri::command]
+async fn daily_draft(state: State<'_, AppState>, date: String) -> Result<DailyDraftDto, IpcError> {
+    let core = core(&state)?;
+    let d = core.daily_draft(parse_day(&date)?).map_err(core_err)?;
+    Ok(DailyDraftDto { text: d.text, body: d.body, template_invalid: d.template_invalid, path: d.path, format_fallback: d.format_fallback })
+}
+
+/// `daily_create` (FR-DLY-02 AC-2): the one write of a first keystroke.
+#[tauri::command]
+async fn daily_create(state: State<'_, AppState>, date: String, text: String) -> Result<DailyCreatedDto, IpcError> {
+    let core = core(&state)?;
+    let c = core.daily_create(parse_day(&date)?, text.as_bytes()).map_err(core_err)?;
+    Ok(DailyCreatedDto { path: c.path, version: version_dto(&c.version), duplicates: c.duplicates })
+}
+
+/// `daily_context` (FR-DLY-04, D-271, D-328): read-only; `start` / `end` RFC 3339 with offset.
+#[tauri::command]
+async fn daily_context(state: State<'_, AppState>, date: String, start: String, end: String, limit: u32) -> Result<DailyContextDto, IpcError> {
+    let core = core(&state)?;
+    let t = |s: &str| chrono::DateTime::parse_from_rfc3339(s).map_err(|_| err("Io", format!("not an instant: {s}")));
+    let w = tegg_core::DayWindow { date: parse_day(&date)?, start: t(&start)?, end: t(&end)? };
+    let p = core.daily_context(&w, limit as usize);
+    Ok(DailyContextDto {
+        quick_notes: context_rows(p.sections.quick_notes),
+        created: context_rows(p.sections.created),
+        modified: context_rows(p.sections.modified),
+        totals: [p.totals[0] as u32, p.totals[1] as u32, p.totals[2] as u32],
+    })
 }
 
 /// `link_create_plan` (FR-LNK-04, D-286…D-288): read-only, when the Create offer opens.
@@ -1131,7 +1205,8 @@ pub fn run() {
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
             link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
-            index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create
+            index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
+            daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

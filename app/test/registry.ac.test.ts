@@ -129,9 +129,11 @@ test('fr_ux_03_ac7_registry_integrity', async () => {
   for (const c of list) assert.ok(!RESERVED.includes(c.shortcut), `${c.id} uses the reserved ${c.shortcut}`);
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
   assert.deepEqual(shortcuts.map((s) => s.keys).sort(), R4.map((r) => r.keys).sort(), 'shortcut table = R4 (keys in ⌃⌥⇧⌘ order)');
+  // 4B (R17, D-127): ⌥⌘← / ⌥⌘→ are registered on daily routes only.
+  const onDaily = cmd.commands({ ...CTX, route: { id: 'daily/YYYY-MM-DD', param: '2026-10-14', date: '2026-10-14' } }) as any[];
   for (const row of R4) {
     const s = shortcuts.find((x) => x.keys === row.keys)!;
-    const c = list.find((x) => x.id === s.command);
+    const c = list.find((x) => x.id === s.command) ?? onDaily.find((x) => x.id === s.command);
     assert.ok(c, `${row.keys}: command ${s.command} is not registered`);
     assert.ok(cat.t(c.title).startsWith(row.command), `${row.keys}: bound to "${cat.t(c.title)}", R4 says "${row.command}"`);
     if (row.command !== 'Open command palette') assert.equal(c.shortcut, row.keys, `${row.keys}: command's shortcut`);

@@ -169,7 +169,7 @@ test('fr_edt_06_ac10_spaces_esc_and_the_create_only_space_rule', async ({ page }
   await page.keyboard.press('Enter');
   await page.keyboard.type('@Žádnátakovávěc');
   const o = await options(page);
-  assert.deepEqual(o, ['Create "Žádnátakovávěc"'], 'only the create row');
+  assert.deepEqual(o.filter((x) => x !== 'Pick a date…'), ['Create "Žádnátakovávěc"'], 'only the create row (and 4B\'s Pick a date…, D-331)');
   await page.keyboard.type(' ');
   assert.ok(await absent(linkSuggestions(page)), 'a space with only the create row closes the list (AP-190)');
   await page.keyboard.type('dál');

@@ -600,6 +600,59 @@ pub struct LinkCreatedDto {
     pub rewrite: Option<String>,
 }
 
+// ---------------------------------------------------------------- slice 4B (ms4-daily §4)
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DailyViewDto {
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// The winner's path, or null: the note is virtual.
+    pub path: Option<String>,
+    pub duplicates: Vec<String>,
+    /// `unreviewed` | `reviewed` | null.
+    pub review: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct DailyDraftDto {
+    /// The complete first-write bytes for an empty edit, with `{{id}}` / `{{now}}` placeholders.
+    pub text: String,
+    /// The part after the frontmatter: the editor's virtual content.
+    pub body: String,
+    pub template_invalid: Option<String>,
+    pub path: String,
+    pub format_fallback: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct ContextRowDto {
+    pub path: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub at: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct DailyContextDto {
+    pub quick_notes: Vec<ContextRowDto>,
+    pub created: Vec<ContextRowDto>,
+    pub modified: Vec<ContextRowDto>,
+    pub totals: [u32; 3],
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DailyCreatedDto {
+    pub path: String,
+    pub version: VersionDto,
+    pub duplicates: Vec<String>,
+}
+
 fn yes() -> bool {
     true
 }
@@ -662,6 +715,11 @@ pub fn typescript() -> String {
         DuplicateObjectDto::decl(),
         DuplicateGroupDto::decl(),
         LinkCreatedDto::decl(),
+        DailyViewDto::decl(),
+        DailyDraftDto::decl(),
+        ContextRowDto::decl(),
+        DailyContextDto::decl(),
+        DailyCreatedDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

@@ -24,6 +24,15 @@ export class Saver {
   private disposed = false;
   state: SaveState = 'saved';
   failure: Failure = null;
+  /** 4B (ms4-daily §4.1): while a Daily Note is virtual, its first save is this call instead of `note_write`;
+   *  it returns the new path and version, and is cleared once it succeeds. */
+  create: ((text: string) => Promise<{ path: string; version: VersionDto }>) | null = null;
+  /** 4B (D-334): a last change to the saved text (a Daily Note's title fix), applied in the editor too. */
+  transform: ((text: string) => string) | null = null;
+  /** FR-DLY-05 AC-2 (PR #38 review): the next save holds only the review toggle, so it skips `transform`. */
+  skipTransform = false;
+  /** The document as opened (a virtual note's first write needs a changed document, D-323). */
+  private openedDoc: TeggEditor['editor']['state']['doc'];
 
   constructor(
     public path: string,
@@ -37,7 +46,9 @@ export class Saver {
     },
     /** True while a typed command is still open (the slash menu's `/query`): not saved until it closes. */
     private paused: () => boolean = () => false,
-  ) {}
+  ) {
+    this.openedDoc = ed.editor.state.doc;
+  }
 
   private set(s: SaveState, f: Failure = null) {
     this.state = s;
@@ -49,6 +60,8 @@ export class Saver {
   changed() {
     this.changes++;
     if (this.blocked) return;
+    // A first write that failed is retried on the next keystroke (FR-DLY-02 AC-8).
+    if (this.create && this.retry) { clearTimeout(this.retry); this.retry = null; }
     if (this.state !== 'failed') this.set('saving');
     this.schedule();
   }
@@ -106,13 +119,30 @@ export class Saver {
       else this.set('failed', 'io');
       return;
     }
+    // FR-DLY-02 AC-3: on a virtual Daily Note any change of the document counts (Enter adds an empty block that
+    // serializes to the same bytes); a change undone before the save leaves the editor clean and writes nothing (D-323).
+    if (text === null && this.create && !this.ed.editor.state.doc.eq(this.openedDoc)) text = this.ed.text();
     if (text === null) {
       if (this.changes === mark) this.set('saved');
       return;
     }
+    const skip = this.skipTransform;
+    this.skipTransform = false;
+    if (this.transform && !skip) {
+      const fixed = this.transform(text);
+      if (fixed !== text) { this.ed.applyFrontmatter(fixed); text = fixed; }
+    }
     const path = this.path;
     try {
-      const r = await ipc.noteWrite(path, text, this.base);
+      let r: { version: VersionDto };
+      if (this.create) {
+        const made = await this.create(text);
+        this.create = null;
+        this.path = made.path;
+        r = made;
+      } else {
+        r = await ipc.noteWrite(path, text, this.base);
+      }
       this.base = r.version;
       this.ed.markSaved(text);
       this.on.written(text, r.version);

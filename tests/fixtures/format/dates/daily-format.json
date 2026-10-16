@@ -1,0 +1,146 @@
+{
+  "about": "ms4-daily §5 (FR-FMT-09, D-336): tegg_format::daily::file_stem(format, date) and @tegg/doc dailyFileStem(format, date). Tokens YYYY, MM, M, DD, D (longest first); other characters copied. `stem` null = BadFormat: no DD or D token, a D-52 forbidden character (/ \\ : * ? \" < > |) or a control character, or an empty stem. D-361: a backslash makes the next character literal.",
+  "cases": [
+    {
+      "format": "YYYY-MM-DD",
+      "date": "2026-10-14",
+      "stem": "2026-10-14"
+    },
+    {
+      "format": "YYYY-MM-DD",
+      "date": "2026-03-05",
+      "stem": "2026-03-05"
+    },
+    {
+      "format": "DD.MM.YYYY",
+      "date": "2026-10-14",
+      "stem": "14.10.2026"
+    },
+    {
+      "format": "DD.MM.YYYY",
+      "date": "2026-03-05",
+      "stem": "05.03.2026"
+    },
+    {
+      "format": "D. M. YYYY",
+      "date": "2026-10-14",
+      "stem": "14. 10. 2026"
+    },
+    {
+      "format": "D. M. YYYY",
+      "date": "2026-03-05",
+      "stem": "5. 3. 2026"
+    },
+    {
+      "format": "YYYYMMDD",
+      "date": "2026-10-14",
+      "stem": "20261014"
+    },
+    {
+      "format": "MM-DD-YYYY",
+      "date": "2026-10-14",
+      "stem": "10-14-2026"
+    },
+    {
+      "format": "den DD. MM. YYYY",
+      "date": "2026-10-14",
+      "stem": "den 14. 10. 2026"
+    },
+    {
+      "format": "zápis YYYY-MM-DD",
+      "date": "2026-03-05",
+      "stem": "zápis 2026-03-05"
+    },
+    {
+      "format": "DD",
+      "date": "2026-10-14",
+      "stem": "14"
+    },
+    {
+      "format": "D",
+      "date": "2026-03-05",
+      "stem": "5"
+    },
+    {
+      "format": "YYYY-MM-DD",
+      "date": "2028-02-29",
+      "stem": "2028-02-29"
+    },
+    {
+      "format": "YYYY/MM/DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY:MM:DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY\\MM\\DD",
+      "date": "2026-10-14",
+      "stem": "2026M10D14",
+      "note": "D-361: a backslash escapes the next character, so this is YYYY, literal M, M, literal D, D"
+    },
+    {
+      "format": "YYYY*MM*DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY-MM-DD?",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY\"MM\"DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY<MM>DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY|MM|DD",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY-MM-DD\t",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY-MM",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "YYYY",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "MM",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "",
+      "date": "2026-10-14",
+      "stem": null
+    },
+    {
+      "format": "\\Deník YYYY-MM-DD",
+      "date": "2026-10-14",
+      "stem": "Deník 2026-10-14"
+    },
+    {
+      "format": "\\D\\D YYYY-MM-DD",
+      "date": "2026-03-05",
+      "stem": "DD 2026-03-05"
+    }
+  ]
+}

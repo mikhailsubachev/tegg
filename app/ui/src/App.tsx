@@ -34,6 +34,15 @@ import { DuplicateTitlesPage } from './links/DuplicateTitlesPage';
 import { setChipTypes } from './links/icons';
 import { setOfferHandler, type OfferRequest } from './links/offer';
 import type { OccurrenceDto } from './ipc/types';
+import { localDate } from '@tegg/doc';
+import { Calendar } from './daily/Calendar';
+import { DailyPage } from './daily/DailyPage';
+import type { DailyInfo } from './daily/DailyHeader';
+import { setDateHandler } from './daily/open';
+
+const DAILY = 'daily/YYYY-MM-DD';
+/** D-321: `today` is a redirect to the daily route of the local date. */
+const todayRoute = (): Route => ({ id: DAILY, param: localDate(Date.now()) });
 
 const SIDEBAR_W = 232;
 const PANEL_W = 288;
@@ -71,6 +80,9 @@ export function App() {
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
+  // 4B: the calendar popover (R18) and the daily info of a note route showing a Daily Note that doesn't win (D-319).
+  const [calendar, setCalendar] = useState<{ selected: string; anchor: HTMLElement | null; onChoose: (d: string) => void } | null>(null);
+  const [noteDaily, setNoteDaily] = useState<{ path: string; date: string; duplicates: string[] } | null>(null);
   const [meta, setMeta] = useState<NoteMeta | null>(null);
   /** The open note has loaded (or is gone): the centre pane is named only then, so its content is there with it. */
   const [noteShown, setNoteShown] = useState(false);
@@ -136,7 +148,7 @@ export function App() {
   const land = useCallback(async () => {
     const forced = (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
     const r = forced ? parseRoute(forced) : null;
-    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? { id: 'note/<path>', param: last.path } : { id: 'home' }), () => ({ id: 'home' }));
+    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'home' }), () => ({ id: 'home' }));
     history.current.clear(); // D-171: the history starts with the landing route
     history.current.push(landing);
     setHistTick((n) => n + 1);
@@ -187,7 +199,8 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
-  const go = useCallback(async (r: Route, o: { keepDialog?: boolean } = {}) => {
+  const go = useCallback(async (r0: Route, o: { keepDialog?: boolean } = {}) => {
+    const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
     setChooser(null);
     if (!o.keepDialog) setDialog(null);
@@ -231,15 +244,35 @@ export function App() {
     void go(r);
   }, []);
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
+  const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
+  useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
+  /** A note route that shows a Daily Note (D-321): the winner opens as its daily route; another note keeps its route
+   *  and shows the notice naming the others (D-319). */
+  const onNoteDaily = useCallback((path: string, date: string) => {
+    void ipc.dailyView(date).then((v) => {
+      if (v.path && v.path.normalize('NFC') === path.normalize('NFC')) {
+        const r: Route = { id: DAILY, param: date };
+        history.current.replace(r);
+        setNavKey((n) => n + 1);
+        setRoute(r);
+      } else {
+        setNoteDaily({ path, date, duplicates: [v.path, ...v.duplicates].filter((p): p is string => !!p && p.normalize('NFC') !== path.normalize('NFC')) });
+      }
+    }, () => {});
+  }, []);
   // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
   const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
 
   const routeKey = route ? routeString(route) : '';
+  const shownRoute = useRef(routeKey);
+  shownRoute.current = routeKey;
   // The route a Back/Forward step is restoring the scroll position of (not re-scrolled to its fragment, AC-4).
   const restoreFor = pendingScroll.current !== null ? routeKey : null;
   useEffect(() => {
     setMeta(null);
     setNoteShown(false);
+    setNoteDaily(null);
+    setCalendar(null);
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
   }, [routeKey]);
 
@@ -247,6 +280,7 @@ export function App() {
   const createOf = useCallback(async (typeKey: string, rawTitle: string, prepared: Prepared | null = null) => {
     setDialog(null);
     setNewOfType(null);
+    if (typeKey === 'daily-note') { void go({ id: 'today' }); return; } // D-318, D-353: never a second Daily Note
     const title = rawTitle.normalize('NFC');
     if (noteApi.current?.pending()) await flushNote(); // FR-EDT-08 AC-7: the open note is saved before the new object is written
     const made = prepared ? prepared.create(title) : createObject(typeKey, title);
@@ -270,7 +304,8 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ layout
-  const isObject = route?.id === 'note/<path>';
+  const isDaily = route?.id === DAILY;
+  const isObject = route?.id === 'note/<path>' || isDaily;
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
   const panelFits = available - PANEL_W >= MIN_CENTRE;
   const showSidebar = ui.sidebarOpen && !focusMode;
@@ -280,38 +315,51 @@ export function App() {
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
-    newObject: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject'); },
+    newObject: () => {
+      // D-353: with `default-type: Daily Note`, New object opens today's Daily Note instead of the dialog.
+      // The dialog opens at once so typing isn't lost; it gives way to today's note when that is the default type.
+      returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject');
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => {
+        if (key === 'daily-note') void go({ id: 'today' });
+      });
+    },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
-    newObjectOfType: (key: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
+    newObjectOfType: (key: string) => { if (key === 'daily-note') { void go({ id: 'today' }); return; } returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
     openTypeSettings: () => {
-      const key = route?.id === 'type/<type>' ? route.param : route?.id === 'note/<path>' ? (metaRef.current?.type ?? 'page') : undefined;
+      const key = route?.id === 'type/<type>' ? route.param : route?.id === 'note/<path>' || route?.id === DAILY ? (metaRef.current?.type ?? 'page') : undefined;
       if (key) void go({ id: 'type-settings/<type>', param: key });
     },
     // After the palette has closed and given the focus back (D-139), the menu or the first control takes it.
-    changeType: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.changeType(), 0); },
-    editProperties: () => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.editProperties(), 0); },
+    changeType: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setTimeout(() => noteApi.current?.changeType(), 0); },
+    editProperties: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
     toggleRightPanel: () => {
-      if (route?.id !== 'note/<path>') return;
+      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
       // Closing the panel with the focus in it gives the focus back to the note (FR-LNK-01 AC-14).
       if (document.activeElement?.closest('.context-panel')) noteApi.current?.placeFocus();
       updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: !u.rightPanel.open } }));
     },
+    pickDate: () => {
+      const selected = route?.id === DAILY && route.param ? route.param : localDate(Date.now());
+      const anchor = document.querySelector<HTMLElement>('[data-command="daily.pickDate"]');
+      setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); void go({ id: DAILY, param: d }); } });
+    },
+    setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     showBacklinks: () => {
-      if (route?.id !== 'note/<path>') return;
+      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
       updateUi((u) => ({ ...u, rightPanel: { open: true, tab: 'backlinks' } }));
       setFocusBacklinks((n) => n + 1);
     },
     toggleFocus: () => {
-      if (route?.id !== 'note/<path>') return;
+      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
       setFocusMode((f) => !f);
       requestAnimationFrame(() => heading.current?.focus());
     },
-    toggleSource: () => { if (route?.id === 'note/<path>') setSourceToggle((n) => n + 1); },
+    toggleSource: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setSourceToggle((n) => n + 1); },
     back: () => { void step('back'); },
     forward: () => { void step('forward'); },
-    toggleProperties: () => { if (route?.id === 'note/<path>') updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
+    toggleProperties: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
     openRecent: (n: number) => {
       void ipc.vaultRecent().then((list) => {
@@ -323,11 +371,12 @@ export function App() {
     openFolder: () => { void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
-    edit: (a) => { if (route?.id === 'note/<path>') noteApi.current?.edit(a); },
-  }), [go, step, route?.id, route?.param, updateUi]);
+    edit: (a) => { if (route?.id === 'note/<path>' || route?.id === DAILY) noteApi.current?.edit(a); },
+  }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
-  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: route ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey]);
+  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route;
+  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -380,6 +429,8 @@ export function App() {
       if (!keys) return;
       const s = SHORTCUTS.find((x) => x.keys === keys);
       if (!s) return;
+      // ⌥⌘← / ⌥⌘→ leave an open `@` / `[[` list alone (FR-DLY-03 AC-2).
+      if ((s.command === 'daily.previous' || s.command === 'daily.next') && document.querySelector('[role="listbox"]')) return;
       // Editor commands the editor already handled (⌘Z in the text) don't run twice.
       if (s.command.startsWith('edit.') && e.defaultPrevented) return;
       e.preventDefault();
@@ -449,28 +500,32 @@ export function App() {
   const def = route ? routeDef(route.id) : undefined;
   const typeEntry = route?.id === 'type/<type>' ? typeEntries(types, counts).find((e) => e.key === route.param) : undefined;
   const pageName: string =
-    route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
+    route?.id === DAILY ? (route.param ?? '')
+      : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
         : def ? t(def.name) : '';
-  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>';
+  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY;
 
   // Focus moves to the new page's heading after navigation (D-130); `route-ready:` marks for Appium (§1).
   useEffect(() => {
     if (!route || chooserShown) return;
     let tries = 0;
     const tick = () => {
+      if (shownRoute.current !== routeKey) return; // a tick of a page that was left before it was ready
       const h = heading.current;
-      const ready = !!h && (route.id !== 'note/<path>' || meta !== null);
+      const ready = !!h && ((route.id !== 'note/<path>' && route.id !== DAILY) || meta !== null);
       if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
+      // A daily route mounts its note page after its view is known: wait for it rather than focusing the heading.
+      if (route.id === DAILY && !noteApi.current && tries++ < 60) { requestAnimationFrame(tick); return; }
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
         // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
-        if (route.id === 'note/<path>' && noteApi.current) { if (route.param === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
+        if ((route.id === 'note/<path>' || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });
       }
-      if (pendingScroll.current !== null && route.id !== 'note/<path>') {
+      if (pendingScroll.current !== null && route.id !== 'note/<path>' && route.id !== DAILY) {
         const m = document.querySelector('main');
         if (m) m.scrollTop = pendingScroll.current;
         pendingScroll.current = null;
@@ -492,20 +547,19 @@ export function App() {
   }
 
   let body: React.ReactNode = null;
-  if (route?.id === 'note/<path>' && route.param) {
-    body = (
+  const notePage = (path: string, key: string | number, daily?: DailyInfo) => (
       <NotePage
-        key={navKey}
+        key={key}
         apiRef={noteApi}
-        created={justCreated.current === route.param}
-        path={route.param}
-        fragment={route.fragment}
-        at={route.at}
-        attr={route.attr}
+        created={justCreated.current === path}
+        path={path}
+        fragment={daily ? undefined : route?.fragment}
+        at={daily ? undefined : route?.at}
+        attr={daily ? undefined : route?.attr}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
         onRestored={() => { pendingScroll.current = null; }}
-        knownId={knownIds.current.get(route.param)}
-        onId={(id) => knownIds.current.set(route.param!, id)}
+        knownId={knownIds.current.get(path)}
+        onId={(id) => knownIds.current.set(path, id)}
         types={types}
         heading={heading}
         onMeta={(m) => { setMeta(m); setNoteShown(true); }}
@@ -513,6 +567,7 @@ export function App() {
         onOpen={openNote}
         onTag={openTag}
         onRenamed={(p) => {
+          if (route?.id === DAILY) return;
           const r: Route = { id: 'note/<path>', param: p.normalize('NFC') };
           history.current.replace(r);
           setRoute(r);
@@ -526,8 +581,31 @@ export function App() {
         otherOpen={!!ui.otherPropertiesOpen}
         onToggleOther={() => updateUi((u) => ({ ...u, otherPropertiesOpen: !u.otherPropertiesOpen }))}
         onTypeSaved={loadTypes}
+        daily={daily}
+        onDaily={(date) => onNoteDaily(path, date)}
       />
-    );
+  );
+  const dailyNav = {
+    go: (d: string) => openDay(d),
+    today: () => { void go({ id: 'today' }); },
+    pickDate: (anchor: HTMLElement | null) => {
+      const selected = route?.id === DAILY && route.param ? route.param : noteDaily?.date ?? localDate(Date.now());
+      setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); openDay(d); } });
+    },
+    openPath: (p: string) => openNote(p),
+    duplicateTitles: () => { void go({ id: 'duplicate-titles' }); },
+  };
+  if (route?.id === DAILY && route.param) {
+    body = <DailyPage key={navKey} date={route.param} refresh={refresh} apiRef={noteApi} nav={dailyNav} render={(p, info, k) => notePage(p, k, info)} />;
+  } else if (route?.id === 'note/<path>' && route.param) {
+    const nd = noteDaily && noteDaily.path === route.param ? noteDaily : null;
+    const info: DailyInfo | undefined = nd ? {
+      date: nd.date, virtual: null, duplicates: nd.duplicates, messages: [],
+      onCreate: () => Promise.reject(new Error('written')),
+      onDay: (n) => { const [y, m, d] = nd.date.split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, d + n)); openDay(x.toISOString().slice(0, 10)); },
+      onToday: dailyNav.today, onPickDate: dailyNav.pickDate, onOpenPath: dailyNav.openPath, onDuplicateTitles: dailyNav.duplicateTitles,
+    } : undefined;
+    body = notePage(route.param, navKey, info);
   } else if (route?.id === 'type/<type>' && route.param) {
     const key = route.param;
     body = (
@@ -610,18 +688,20 @@ export function App() {
               <button tabIndex={0} type="button" data-command="banner.dismiss" onClick={() => setMessage(null)}>{t('banner.dismiss')}</button>
             </div>
           )}
-          <main aria-label={route?.id === 'note/<path>' && !noteShown ? undefined : pageName} className={route?.id === 'note/<path>' ? 'note-main' : ''}>
+          <main aria-label={(route?.id === 'note/<path>' || isDaily) && !noteShown ? undefined : pageName} className={route?.id === 'note/<path>' || isDaily ? 'note-main' : ''}>
             {body}
           </main>
         </div>
         {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
-          backlinks={route?.param ? { path: route.param, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
+          backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
             onCreated={(p) => openNote(p)}
             onExists={(p, title) => { setMessage(t('createLink.exists', { title })); openNote(p); }} />
         )}
       </div>
+      {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
+        onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
       {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
       {quitAsk && (
         <div className="dialog-backdrop">

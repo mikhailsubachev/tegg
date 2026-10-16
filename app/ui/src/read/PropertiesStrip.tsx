@@ -7,6 +7,7 @@ import type { LinkTargetDto } from '../ipc/types';
 import { Icon, typeIconName } from '../shell/Icon';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
+import { openDate } from '../daily/open';
 import { attributeRows, type AttrRow } from './properties';
 
 const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
@@ -37,20 +38,23 @@ type Props = {
 function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<string, LinkTargetDto>; onOpen: (path: string) => void; from?: string }) {
   const info = links.get(target) ?? links.get(target.normalize('NFC'));
   const ok = info && info.path && (info.kind === 'note' || info.kind === 'daily');
-  const icon = chipIcon(info?.type ?? 'page');
+  const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
+  const kind = ok ? info!.kind : dated ? 'date-missing' : 'unresolved';
+  const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
   return (
     <a
       href="#"
-      className={`chip link-chip kind-${ok ? info!.kind : 'unresolved'}`}
-      data-link-kind={ok ? info!.kind : 'unresolved'}
-      aria-description={ok ? undefined : t('link.noNote', { target })}
+      className={`chip link-chip kind-${kind}`}
+      data-link-kind={kind}
+      aria-description={ok || dated ? undefined : t('link.noNote', { target })}
       onClick={(e) => {
         e.preventDefault();
+        if ((dated || info?.kind === 'daily') && openDate(target)) return; // FR-DLY-08 AC-6
         if (ok) onOpen(info!.path!);
-        else if (from !== undefined && info?.kind !== 'date-missing') requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
+        else if (from !== undefined) requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
       }}
     >
-      {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      {(ok || dated) && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
       <span data-user-content>{ok ? info!.title ?? target : target}</span>
     </a>
   );

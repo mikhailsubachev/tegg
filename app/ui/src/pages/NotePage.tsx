@@ -3,7 +3,7 @@
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { parse, setValue } from '@tegg/doc';
+import { fixDailyTitle, parse, parseDate, setValue } from '@tegg/doc';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
@@ -20,6 +20,8 @@ import { Icon } from '../shell/Icon';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { pageFallback, typeOfValue } from '../types/util';
+import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
+import { ContextSections } from '../daily/ContextSections';
 
 export type NoteMeta = { title: string; type: string };
 
@@ -63,9 +65,16 @@ export type NotePageApi = {
   /** D-247, D-255: put the focus where an opened note wants it (after navigation; App calls it instead of focusing
    *  the heading): a new note's title, else the start of the first editable body block, else the heading (D-130). */
   placeFocus: () => void;
+  /** 4B: the user changed the note (or a save is pending) since it opened (D-326 needs an untouched virtual note). */
+  touched: () => boolean;
+  /** 4B (D-330): the review toggle, also from the palette. */
+  setReviewed: (reviewed: boolean) => void;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
+
+/** D-330: a missing or unknown `review` counts as unreviewed. */
+const reviewOf = (fm: unknown): boolean => String((fm as Record<string, unknown> | null)?.review ?? '').trim() === 'reviewed';
 
 function stamp(): string {
   const d = new Date(Date.now());
@@ -73,7 +82,7 @@ function stamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved }: {
+export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -105,6 +114,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   onToggleOther?: () => void;
   /** 3D: a save changed the note's type (sidebar counts follow, FR-TYP-07 AC-5). */
   onTypeSaved?: () => void;
+  /** 4B (ms4-daily §4.1, R17, R19): this page shows a Daily Note (virtual while `daily.virtual` is set). */
+  daily?: DailyInfo;
+  /** 4B: a note route opened a Daily Note (type daily-note with a valid date). */
+  onDaily?: (date: string) => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [gone, setGone] = useState(false);
@@ -127,8 +140,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const edRef = useRef<TeggEditor | null>(null);
   const saver = useRef<Saver | null>(null);
   const savedTitle = useRef('');
-  const live = useRef({ path, loaded, merge, deleted });
-  live.current = { path, loaded, merge, deleted };
+  const live = useRef({ path, loaded, merge, deleted, daily });
+  live.current = { path, loaded, merge, deleted, daily };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
   const panelApi = useRef<PanelApi | null>(null);
@@ -144,7 +157,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const loadedOnce = useRef(false);
   const load = useCallback(async () => {
     try {
-      const n = await ipc.noteRead(path);
+      // 4B (ms4-daily §4.1): a virtual Daily Note opens on its draft; nothing is read or written.
+      const v = live.current.daily?.virtual;
+      const n = v ? { text: v.text, version: null as unknown as VersionDto, utf8: true } : await ipc.noteRead(path);
       const doc = parse(n.text.replace(/^﻿/, ''));
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
       const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
@@ -164,7 +179,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       savedTitle.current = meta.title;
       const id = doc.frontmatter?.data?.id;
       if (typeof id === 'string' && id) onId?.(id);
-      onMeta(meta);
+      const day = meta.type === 'daily-note' ? parseDate(String(doc.frontmatter?.data?.date ?? '').trim().slice(0, 10)) : null;
+      onMeta(day ? { ...meta, title: day } : meta); // D-320: a Daily Note's title is its date
+      if (day && !live.current.daily) onDaily?.(day);
       if (mode !== 'edit') setSave({ state: 'readOnly', failure: null });
     } catch {
       if (live.current.path !== path) return;
@@ -203,7 +220,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     edRef.current = ed;
     const l = live.current.loaded!;
     saver.current?.dispose();
-    saver.current = new Saver(path, ed, l.version, {
+    const s = new Saver(path, ed, l.version, {
       state: (state, failure) => setSave({ state, failure }),
       conflict: (c: ConflictInfo) => setMerge({ mine: c.mine, theirs: c.theirs, theirsVersion: c.theirsVersion, compare: false }),
       gone: () => setDeleted(true),
@@ -216,6 +233,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         void ipc.perfMark('note-saved').catch(() => {});
       },
     }, () => !!pane.current?.slashOpen());
+    saver.current = s;
+    const d = live.current.daily;
+    if (d) {
+      s.transform = fixDailyTitle; // D-334
+      if (d.virtual) s.create = (text) => live.current.daily!.onCreate(text);
+    }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
     syncHead();
@@ -242,6 +265,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   }, []);
 
   useEffect(() => () => saver.current?.dispose(), []);
+  // A note route that turned out to be a Daily Note (D-334) gets the title fix once known.
+  useEffect(() => { if (saver.current && !saver.current.create) saver.current.transform = daily ? fixDailyTitle : null; }, [!!daily]);
+
+  /** D-330: writes only `review` (and `modified`) through the editor's save path. */
+  const setReviewedRef = useRef<(r: boolean) => void>(() => {});
+  setReviewedRef.current = (r: boolean) => {
+    if (!live.current.daily || live.current.daily.virtual) return;
+    const only = !saver.current?.pending; // nothing else waits to be saved: only `review` and `modified` change
+    commit((d) => setValue(d, 'review', r ? 'reviewed' : 'unreviewed'));
+    if (only && saver.current) saver.current.skipTransform = true;
+  };
 
   const flush = useCallback(async () => {
     const s = saver.current;
@@ -263,12 +297,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       else panelApi.current?.focusFirst();
     },
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
+    touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && live.current.daily?.virtual),
+    setReviewed: (r) => setReviewedRef.current(r),
   }), [flush, propertiesOpen, onToggleProperties]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
   const external = useCallback(async () => {
     const l = live.current.loaded;
     if (!l) return;
+    if (saver.current?.create) return; // a virtual Daily Note: a file at its planned path isn't this note (D-326)
     let n: { text: string; version: VersionDto; utf8: boolean } | null = null;
     try { n = await ipc.noteRead(live.current.path); } catch { n = null; }
     const ed = edRef.current;
@@ -498,6 +535,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       setFocusTarget('body');
       return;
     }
+    if (edit && live.current.daily?.virtual && pane.current?.caretToEnd()) {
+      setFocusTarget('body');
+      return;
+    }
     if (edit && pane.current?.caretToStart(fragment)) {
       setFocusTarget('body');
       // Back/Forward restore a scroll position: the caret never moves it (D-255).
@@ -557,7 +598,20 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} />
         </div>
-        {editable && !showSource ? (
+        {daily && (
+          <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}
+            onReview={(r) => setReviewedRef.current(r)} />
+        )}
+        {daily ? (
+          <h1 className="note-title">
+            <span ref={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }} id={titleId}
+              role="textbox" aria-label={t('editor.title')} aria-readonly="true" aria-description={t('daily.titleReadonly')} aria-level={1}
+              tabIndex={-1} className="title-field readonly" data-user-content
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); pane.current?.focus(); } else if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') e.preventDefault(); }}>
+              {daily.date}
+            </span>
+          </h1>
+        ) : editable && !showSource ? (
           <h1 className="note-title">
             <TitleField
               id={titleId}
@@ -624,7 +678,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               onReady={onEditor}
               onSaveNow={() => void flush()}
               describedBy={titleId}
-              onChange={() => { saver.current?.changed(); syncHead(); }}
+              onChange={() => { if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false; saver.current?.changed(); syncHead(); }}
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
@@ -633,6 +687,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             />
           </div>
         )}
+        {daily && <ContextSections date={daily.date} onOpen={(p) => onOpen(p)} />}
       </div>
       {merge && (
         <MergeDialog merge={merge}

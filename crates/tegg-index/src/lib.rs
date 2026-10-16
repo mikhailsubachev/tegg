@@ -55,6 +55,9 @@ pub struct ObjectInfo {
     pub tags: Vec<String>,
     pub attributes: Value,
     pub folder: String,
+    /// MS4 4B (ms4-daily §2, D-334, AP-264): a Daily Note's stored `title:` text when it differs from its `date`
+    /// (the displayed title is the date). STUB: always `None` until 4B is built.
+    pub stored_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -336,6 +339,10 @@ struct Meta {
     modified: Option<DateVal>,
     modified_ts: Option<i64>,
     created_ts: Option<i64>,
+    /// ms4-daily §2 (D-332): a Daily Note's valid `date`; its displayed title is that date (D-320).
+    daily: Option<NaiveDate>,
+    /// D-334, D-342: the stored `title:` of a Daily Note when it differs from its date.
+    stored_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -417,11 +424,28 @@ fn attribute_text(attrs: &Value) -> String {
 }
 
 impl Meta {
-    fn new(rowid: i64, path: String, mtime_ns: i64, size: i64, s: Stored) -> Meta {
+    fn new(rowid: i64, path: String, mtime_ns: i64, size: i64, mut s: Stored) -> Meta {
         let (folder, stem) = split_path(&path);
+        let daily = (s.r#type == "daily-note").then(|| daily_date(&s.attributes)).flatten();
+        let mut stored_title = None;
+        if let Some(d) = daily {
+            let date = tegg_format::format_date(d);
+            if nfc(s.title.trim()) != date {
+                stored_title = Some(std::mem::replace(&mut s.title, date));
+            } else {
+                s.title = date;
+            }
+        }
         let mut names_f = vec![collapse(&fold(&s.title))];
         names_f.extend(s.aliases.iter().map(|a| collapse(&fold(a))));
         names_f.push(collapse(&fold(&stem)));
+        if let Some(st) = &stored_title {
+            names_f.push(collapse(&fold(st)));
+        }
+        let mut title_t = tokens(&s.title);
+        if let Some(st) = &stored_title {
+            title_t.extend(tokens(st));
+        }
         let attr = |k: &str| s.attributes.get(k).and_then(DateVal::parse);
         let (created, modified) = (attr("created"), attr("modified"));
         Meta {
@@ -429,7 +453,9 @@ impl Meta {
             folder,
             stem_t: tokens(&stem),
             stem,
-            title_t: tokens(&s.title),
+            title_t,
+            daily,
+            stored_title,
             alias_t: s.aliases.iter().map(|a| tokens(a)).collect(),
             attr_t: tokens(&attribute_text(&s.attributes)),
             names_f,
@@ -456,6 +482,7 @@ impl Meta {
             tags: self.s.tags.clone(),
             attributes: self.s.attributes.clone(),
             folder: self.folder.clone(),
+            stored_title: self.stored_title.clone(),
         }
     }
 
@@ -466,6 +493,20 @@ impl Meta {
         }
         out
     }
+}
+
+/// ms4-daily §2 (D-332): the first 10 characters of `date`, trimmed, when they are a valid calendar date.
+fn daily_date(attrs: &Value) -> Option<NaiveDate> {
+    let mut v = Vec::new();
+    value_texts(attrs.get("date")?, &mut v);
+    v.iter().find_map(|d| d.trim().get(..10).and_then(tegg_format::date::parse_date))
+}
+
+/// D-319, D-335: newest `created` first (missing counts as oldest), then newest `modified`, then NFC path bytes.
+/// The instants are read by `tegg_format::daily::instant`, shared with the fake core (D-365, PR #38 review).
+fn daily_order(a: &Meta, b: &Meta) -> std::cmp::Ordering {
+    let inst = |m: &Meta, k: &str| m.s.attributes.get(k).and_then(|v| v.as_str()).and_then(tegg_format::daily::instant).map(|i| i.nanos());
+    inst(b, "created").cmp(&inst(a, "created")).then_with(|| inst(b, "modified").cmp(&inst(a, "modified"))).then_with(|| nfc(&a.path).cmp(&nfc(&b.path)))
 }
 
 /// Contract §1: `*.md` outside dot-folders and `_templates/`; never temporary files (FR-SYN-02 AC-2),
@@ -539,8 +580,12 @@ struct Links {
     by_stem: HashMap<String, String>,
     /// Every path per stem key (NFC, lower case), for the same-folder rule (ms3-shell §11.1).
     stems: HashMap<String, Vec<String>>,
-    /// Daily Note per `YYYY-MM-DD` (D-162).
+    /// Daily Note per `YYYY-MM-DD` (D-162): the D-319 winner.
     daily: HashMap<String, String>,
+    /// Every Daily Note per date, winner first (D-319).
+    daily_all: HashMap<String, Vec<String>>,
+    /// Sources of date links to dates without a Daily Note (D-348).
+    date_sources: HashMap<String, BTreeSet<String>>,
     backlinks: HashMap<String, BTreeSet<String>>,
     /// Per source path, what each of its links resolves to (None: not a note).
     resolved: HashMap<String, Vec<Resolved>>,
@@ -1029,17 +1074,15 @@ impl Index {
         for m in &paths {
             stems.entry(nfc(&m.stem).to_lowercase()).or_default().push(m.path.clone());
         }
-        let mut daily: HashMap<String, String> = HashMap::new();
-        let mut dailies: Vec<&Meta> = self.metas.values().filter(|m| m.s.r#type == "daily-note").collect();
-        dailies.sort_by(|a, b| (a.path.chars().count(), &a.path).cmp(&(b.path.chars().count(), &b.path)));
+        let mut dailies: Vec<&Meta> = self.metas.values().filter(|m| m.daily.is_some()).collect();
+        dailies.sort_by(|a, b| daily_order(a, b));
+        let mut daily_all: HashMap<String, Vec<String>> = HashMap::new();
         for m in dailies {
-            for d in m.attr_texts("date") {
-                if let Some(day) = d.trim().get(..10) {
-                    daily.entry(day.to_string()).or_insert_with(|| m.path.clone());
-                }
-            }
+            daily_all.entry(tegg_format::format_date(m.daily.expect("filtered"))).or_default().push(m.path.clone());
         }
-        let mut l = Links { by_path, by_id, by_stem, stems, daily, backlinks: HashMap::new(), resolved: HashMap::new() };
+        let daily: HashMap<String, String> = daily_all.iter().map(|(d, v)| (d.clone(), v[0].clone())).collect();
+        let mut l = Links { by_path, by_id, by_stem, stems, daily, daily_all, date_sources: HashMap::new(), backlinks: HashMap::new(), resolved: HashMap::new() };
+        let mut date_sources: HashMap<String, BTreeSet<String>> = HashMap::new();
         let mut back: HashMap<String, BTreeSet<String>> = HashMap::new();
         let mut resolved = HashMap::new();
         for m in self.metas.values() {
@@ -1056,10 +1099,15 @@ impl Index {
                     }
                 })
                 .collect();
-            for x in &r {
+            for (i, x) in r.iter().enumerate() {
                 if let Resolved::Note(p) | Resolved::Daily(p) = x {
                     if *p != m.path {
                         back.entry(p.clone()).or_default().insert(m.path.clone());
+                    }
+                }
+                if *x == Resolved::DateMissing {
+                    if let Some(d) = date_key(&m.s.links[i]) {
+                        date_sources.entry(d).or_default().insert(m.path.clone());
                     }
                 }
             }
@@ -1067,6 +1115,7 @@ impl Index {
         }
         l.backlinks = back;
         l.resolved = resolved;
+        l.date_sources = date_sources;
         l
     }
 
@@ -1185,16 +1234,37 @@ impl Index {
         out
     }
 
+    /// MS4 4B (ms4-daily §2, D-319): the other Daily Notes of `date` (the losers), in winner order. STUB: empty until
+    /// 4B is built.
+    pub fn daily_duplicates(&self, date: NaiveDate) -> Vec<String> {
+        let d = tegg_format::format_date(date);
+        self.with_links(|l| l.daily_all.get(&d).map(|v| v[1..].to_vec()).unwrap_or_default())
+    }
+
+    /// FR-DLY-03 AC-3: the dates of one month that have a Daily Note, ascending.
+    pub fn daily_dates(&self, year: i32, month: u32) -> Vec<NaiveDate> {
+        use chrono::Datelike;
+        let mut v: Vec<NaiveDate> = self.with_links(|l| l.daily.keys().filter_map(|d| tegg_format::date::parse_date(d)).filter(|d| d.year() == year && d.month() == month).collect());
+        v.sort();
+        v
+    }
+
+    /// D-348: sources whose date links point at `date` while it has no Daily Note, sorted.
+    pub fn date_link_sources(&self, date: NaiveDate) -> Vec<String> {
+        let d = tegg_format::format_date(date);
+        self.with_links(|l| l.date_sources.get(&d).map(|s| s.iter().cloned().collect()).unwrap_or_default())
+    }
+
+    /// ms4-daily §2: a Daily Note's valid date, if the note is one.
+    pub fn daily_date_of(&self, path: &str) -> Option<NaiveDate> {
+        self.meta(path).and_then(|m| m.daily)
+    }
+
     /// FR-FMT-09 AC-2: daily notes are recognized by their `date` attribute, whatever the file name.
+    /// D-319: the winner of `date`.
     pub fn daily_note(&self, date: NaiveDate) -> Option<String> {
         let want = tegg_format::format_date(date);
-        let mut found: Vec<&Meta> = self
-            .metas
-            .values()
-            .filter(|m| m.s.r#type == "daily-note" && m.attr_texts("date").iter().any(|d| d.trim().get(..10) == Some(want.as_str())))
-            .collect();
-        found.sort_by(|a, b| (a.path.chars().count(), &a.path).cmp(&(b.path.chars().count(), &b.path)));
-        found.first().map(|m| m.path.clone())
+        self.with_links(|l| l.daily.get(&want).cloned())
     }
 
     // ------------------------------------------------------------ conflicts (FR-SYN-04, -05, FR-FMT-12)
@@ -1346,7 +1416,7 @@ fn resolve_from(l: &Links, from: &str, target: &str) -> Resolved {
     if t.is_empty() {
         return Resolved::Unresolved;
     }
-    if t.len() == 10 && NaiveDate::parse_from_str(&t, "%Y-%m-%d").is_ok() {
+    if tegg_format::date::parse_date(&t).is_some() {
         return match l.daily.get(&t) {
             Some(p) => Resolved::Daily(p.clone()),
             None => Resolved::DateMissing,
@@ -1379,6 +1449,13 @@ fn resolve_from(l: &Links, from: &str, target: &str) -> Resolved {
         }
     }
     Resolved::Unresolved
+}
+
+/// The date a link target names (D-332), without subpath and alias.
+fn date_key(target: &str) -> Option<String> {
+    let t = nfc(target.trim());
+    let t = t.split(['|', '#']).next().unwrap_or("").trim();
+    tegg_format::date::parse_date(t).map(tegg_format::format_date)
 }
 
 fn resolve(l: &Links, target: &str) -> Option<String> {

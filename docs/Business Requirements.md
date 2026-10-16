@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.50, for review                                             |
-| **Date**            | 2026-10-15                                                          |
+| **Document status** | Draft v1.54, for review                                             |
+| **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -65,7 +65,11 @@
 | v1.47   | 2026-10-15 | Owner feedback on the preview, decisions D-312…D-317: Aliases as one comma-separated text field; no description subtitle on objects; `Other properties` hidden when empty; no breadcrumb on the note page; per-type hidden properties (new FR-TYP-17); link chips while a text value is being edited (supersedes the edit-mode part of D-257, built separately) |
 | v1.48   | 2026-10-15 | Slice 4B daily-note decisions D-318…D-320 (AP-240…AP-242): one Daily Note per day, newest wins when two share a date (notice and Duplicate titles), fixed `YYYY-MM-DD` title. |
 | v1.49   | 2026-10-15 | Slice 4B daily-note decisions D-321…D-338 (AP-243…AP-260): daily route, virtual note and first write, template, context sections, navigation, review control, @ date rows, date-link rules, title mismatch, tie-breaks, invalid daily-format. |
-| v1.50   | 2026-10-16 | D-339: the Create offer acts on the clicked link after edits made while it is open; `createLink.rewriteFailed` when it can't (QA review of PR #36). |
+| v1.50   | 2026-10-16 | Slice 4B contract decisions D-339…D-342 (AP-261…AP-264, `docs/contracts/ms4-daily.md`): offset-less instants, today in the UI, literal `{{time}}`, stored title in the index. |
+| v1.51   | 2026-10-16 | D-343: faster push gate (G1) at the same functional coverage: latency ACs move to nightly, Cargo build cache for gate worktrees, parallel WebKit tests (`docs/plans/verify-speedup-proposal.md`). |
+| v1.52   | 2026-10-16 | Slice 4B red-test decisions D-344…D-363 (AP-265…AP-284): temp-file name, draft fields, template keys and bytes, `daily_backlinks`, daily recency and command context, create entry points, test layers, catalog keys, `dateRows` locales, escaped format letters, unclosed template frontmatter, fake write control. |
+| v1.53   | 2026-10-16 | D-364 (numbered D-339 on main, renumbered in the 4B merge): the Create offer acts on the clicked link after edits made while it is open; `createLink.rewriteFailed` when it can't (QA review of PR #36). |
+| v1.54   | 2026-10-16 | PR #38 review decisions D-365, D-366: offset-less instants in the winner rule, review toggle without the title fix. |
 
 ---
 
@@ -447,7 +451,34 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-336 | Invalid `daily-format` (FR-FMT-09) (AP-258, owner, 2026-10-15) | A format giving a D-52 character, an empty stem or no `DD` falls back to `YYYY-MM-DD` with a once-per-session message; no subfolders from the format |
 | D-337 | Daily header (D-320) (AP-259, owner, 2026-10-15) | Read-only title `YYYY-MM-DD` plus a localized long-date subtitle (not stored); the sidebar Today's description uses the same string |
 | D-338 | Emptied Daily Note (FR-DLY-02) (AP-260, owner, 2026-10-15) | Never deleted automatically; FR-DLY-02 only prevents creating empty files |
-| D-339 | Create offer and edits made while it is open (D-287) | The offer is non-modal: `Create` rewrites the clicked link at its current place (followed through every edit). If that link was deleted, nothing is written; if the note was created but the link can't be changed, the note stays. Both show `createLink.rewriteFailed`: `The link couldn’t be changed to point to "{stem}". Edit it, then try again.` (owner, 2026-10-16; backlinks.md FR-LNK-04 AC-13) |
+| D-339 | Offset-less instants in a day (FR-DLY-04, D-328) (AP-261, owner, 2026-10-16) | A `created`/`modified` without an offset is in a day when its local date text equals the day's date; no zone database in the core; on a DST day the repeated hour counts for that day |
+| D-340 | Today is computed in the UI (FR-DLY-01) (AP-262, owner, 2026-10-16) | The UI computes today (`@tegg/doc` `localDate`) and passes day windows to the core (ms4-daily §1); FR-DLY-01 AC-2's test tag is L1 for `localDate` |
+| D-341 | `{{time}}` in the daily template (FR-DLY-06, D-270) (AP-263, owner, 2026-10-16) | Stays literal until FR-TPL (v1.0); the starter vault's daily template has no `{{time}}` |
+| D-342 | Stored title kept in the index (D-334) (AP-264, owner, 2026-10-16) | The index keeps a Daily Note's stored `title` when it differs from its date (`ObjectInfo.stored_title`), only so the switcher still matches it; never written, rebuilt from files (AR-01) |
+| D-343 | Faster push gate G1 (TS-G4; owner, 2026-10-16) | G1 took ~20 min against its 10-min budget. (1) Latency-target ACs (`nfr_perf_*`, FR-NAV-01 AC-9, FR-SRC-01 AC-11, NFR-PERF-03 AC-2 headroom) run at G2 nightly and above, not G1; functional ACs in the same files (FR-UX-07, FR-STO-07) stay in G1. (2) Tree gates share a Cargo build cache in `.verify/cargo-target` and check out the commit at a stable path outside the repository; sources still come only from the commit (`tools/qa/CONTRACT.md` §3.2.1). (3) WebKit (L5) tests run fully parallel with 8 workers under `./verify`; the route sweeps of FR-UX-03 AC-1, AC-2, AC-8, AC-9 are split into one test per route or shard with the same assertions. Precondition: the nightly job is installed, else (1) lowers coverage |
+| D-344 | Fault injection and temp files (FR-DLY-02 AC-5) (AP-265, owner, 2026-10-16) | The kill-point wrapper lives in the test file over `LocalFs`; the temp name is part of the contract: `.<name>.tegg-tmp` in the target folder (FR-SYN-02 AC-2), so orphan cleanup is tested by planting one |
+| D-345 | `DailyDraft` fields (ms4-daily §3) (AP-266, owner, 2026-10-16) | Rust `DailyDraft` has `text` (full first-write bytes for an empty edit) and `body` (after the frontmatter), matching `DailyDraftDto` |
+| D-346 | Template keys ignored (FR-DLY-06 AC-3, D-325) (AP-267, owner, 2026-10-16) | Ignored keys are exactly `id, type, title, date, review, created, modified`; every other key, `tags` included, is written |
+| D-347 | First-write bytes (D-324) (AP-268, owner, 2026-10-16) | Template key source lines end with LF; the body follows the closing `---\n` with no blank line added, as `newObject` |
+| D-348 | Backlinks of a date (FR-DLY-08 AC-7) (AP-269, owner, 2026-10-16) | New core call and IPC `daily_backlinks(date) -> BacklinksPanelDto`: the panel of the date's winner, or of the date links to it when virtual; `index_backlinks(path)` unchanged |
+| D-349 | Recency of daily routes (FR-DLY-01 AC-1, D-105) (AP-270, owner, 2026-10-16) | `nav_opened` gains an optional `route`: daily routes call it with `route: 'daily/<date>'` and `path` = the winner or null; the launch landing can reopen `daily/<date>`, virtual or not |
+| D-350 | Zone change while running (FR-DLY-01 AC-2) (AP-271, owner, 2026-10-16) | That sentence is tested at L1 (`localDate` with an explicit zone) |
+| D-351 | L6 clock (AP-272, owner, 2026-10-16) | L6 uses the system clock and `TZ`; tests compute today from `Date.now()` in that zone; no `TEGG_NOW` hook |
+| D-352 | Command context on daily routes (D-127) (AP-273, owner, 2026-10-16) | `ctx.route = { id: 'daily/YYYY-MM-DD', date: string, path: string \| null }` |
+| D-353 | Creating a Daily Note from New object (D-318) (AP-274, owner, 2026-10-16) | Entry points are `New Daily Note` on the Daily Notes type page and every create path whose type is Daily Note (New object with `default-type: Daily Note`, the switcher create): each opens today's Daily Note instead of a dialog |
+| D-354 | Calendar locale tag (FR-DLY-03 AC-6) (AP-275, owner, 2026-10-16) | Tested at L5 only; the AC tag changes to L5 |
+| D-355 | `dailyFileStem` signature (ms4-daily §5) (AP-276, owner, 2026-10-16) | `dailyFileStem(format: string, date: string): string \| null` (null = bad format) |
+| D-356 | Error catalog keys (AP-277, owner, 2026-10-16) | `error.useDailyNote`, `error.dailyMismatch` (the ms3-shell §10 `error.<kind>` scheme) |
+| D-357 | `dateRows` locales and labels (D-331) (AP-278, owner, 2026-10-16) | Locale tags as BCP 47 language or language-region (`cs`, `cs-CZ`, `en-US`), matched by language; labels `Today, <date>`, `Tomorrow, <date>`, `Yesterday, <date>`; in `cs` `Dnes, <date>`, `Zítra, <date>`, `Včera, <date>` |
+| D-358 | `stored_title` (D-342) (AP-279, owner, 2026-10-16) | A field of `ObjectInfo` only, not an index method |
+| D-359 | Shared FR-DLY-08 IDs (AP-280, owner, 2026-10-16) | `fr_dly_08_ac1…ac3_*` tests cover both links.md and daily-notes.md criteria of that ID; coverage counts them once |
+| D-360 | Daily benchmark (FR-DLY-04 AC-6) (AP-281, owner, 2026-10-16) | `app/e2e/perf_daily.ts` is written with the build (report only, D-152) |
+| D-361 | Literal letters in date formats (FR-FMT-09, D-325) (AP-282, owner, 2026-10-16) | Tokens match anywhere; a backslash makes the next character literal (`\Deník YYYY-MM-DD` → `Deník 2026-10-14`); the corpus gets this case |
+| D-362 | Template without a closing fence (D-325) (AP-283, owner, 2026-10-16) | Frontmatter that opens but never closes is invalid: no keys, the whole text is the body, and the message names the template |
+| D-363 | Fake `writeControl` for the first write (AP-284, owner, 2026-10-16) | The fake applies `delay`, `hold` and `fail` to `daily_create` as to `note_write` |
+| D-364 | Create offer and edits made while it is open (D-287) | The offer is non-modal: `Create` rewrites the clicked link at its current place (followed through every edit). If that link was deleted, nothing is written; if the note was created but the link can't be changed, the note stays. Both show `createLink.rewriteFailed`: `The link couldn’t be changed to point to "{stem}". Edit it, then try again.` (owner, 2026-10-16; backlinks.md FR-LNK-04 AC-13) |
+| D-365 | Offset-less instants in the winner rule (D-319, D-335, D-339) (PR #38 review, owner, 2026-10-16) | A `created`/`modified` date-time without an offset is read in the machine's zone for the winner order too (as D-339 does for the day sections); a date alone still counts as missing. Rust `tegg_format::daily::instant` and `@tegg/doc` `instantOf` share `tests/fixtures/format/dates/winner-instants.json`, and the fake core has one copy of the rule |
+| D-366 | Review toggle and the title fix (FR-DLY-05 AC-2, D-334) (PR #38 review, owner, 2026-10-16) | A save that holds only the review toggle writes only `review` and `modified`; the D-334 title fix waits for the next edit of the note. The title fix leaves a title that isn't one plain single-line value alone |
 
 ---
 

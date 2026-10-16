@@ -39,7 +39,7 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 
 | Field | Meaning |
 | --- | --- |
-| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. |
+| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). |
 | `acTestPatterns` | Regular expressions (JavaScript syntax) matched against **repository-relative paths** with `/` separators. A file matching any of them is an **AC test file**. Default when omitted: the two patterns above. |
 | `acRunners[]` | How to run AC test files for `check-red` (§5). `dir`: runner working directory, relative to the checkout root. `match`: regex on the repository-relative path selecting files this runner handles. `run`: command template; `{files}` is replaced by the file path(s) relative to `dir`, each single-quoted; `{junit}` by an absolute path where the runner must write a JUnit XML report. |
 | `budgets` | Time budget per gate in seconds (§3.4). Defaults: commit 60, push 600, nightly 5400; other gates have no budget. |
@@ -55,6 +55,7 @@ Gate order: `commit` < `push` < `nightly` < `milestone` < `release`. A gate runs
 | `QA_SEED` | A random integer chosen for this run, recorded in the summary |
 | `VERIFY_MILESTONE` | Only in `verify milestone --milestone MS<n>`: the milestone being gated, e.g. `MS3`, so registry tests can fail on placeholders due at or before it (D-124) |
 | `QA_PROPERTY_SCALE` | `1` for commit and push, `100` for nightly, milestone and release |
+| `CARGO_TARGET_DIR` | Tree gates only, for steps whose `cargoCache` isn't `false`: `<repository root>/.verify/cargo-target` (§3.2.1). Not set by the commit gate |
 
 Git's hook variables (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_PREFIX`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR`) are removed from the environment of steps and runners.
 
@@ -82,6 +83,14 @@ Order:
 5. Steps with level `commit` and `push` (`changedOnly` is ignored).
 
 On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`, but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08). On failure, `.verify/last-pass` is left unchanged.
+
+### 3.2.1 Build cache and worktree path (D-343)
+
+- **Cargo cache.** Steps of tree gates (push, nightly, milestone, release) run with `CARGO_TARGET_DIR=<repository root>/.verify/cargo-target` unless their `cargoCache` is `false`. All Cargo workspaces share it. Cargo keys artifacts by package, path, profile and source fingerprints, so a cached artifact never stands in for changed source. Test helpers that cache generated data per `target/` (the reference vaults) cache it there too.
+- **Stable worktree path.** The fresh worktree of §3.2 is created at the same path every run: `<os temp dir>/tegg-verify-<first 12 hex digits of the SHA-256 of the repository root's real path>/wt`, outside the repository. Any leftover directory there is removed before `git worktree add`, and the worktree is removed after the run as before, so steps see only the commit's files. The stable path lets Cargo reuse the artifacts of the checkout's own crates (their metadata hash includes the path).
+- **Exclusive use.** A pid file `lock` next to `wt` guards the path. If a live process holds it (another gate of the same repository is running), the gate uses a fresh temporary directory instead, as before D-343. A lock whose process is gone is taken over.
+- `check-red` (§5.2) keeps using a fresh temporary worktree and no shared cache.
+- **`verify clean`** deletes `.verify/cargo-target` (exit 0), for when the cache is suspected or too large.
 
 ### 3.3 `verify nightly`, `verify milestone --milestone <MSn>`, `verify release`
 
