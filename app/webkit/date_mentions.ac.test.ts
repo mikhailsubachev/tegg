@@ -57,7 +57,7 @@ for (const tz of ZONES) {
         const o = await mention(page, q);
         assert.ok(o[0]?.endsWith(want), `@${q}: the first row is for ${want}: ${o.join(' | ')}`);
         await page.keyboard.press('Enter');
-        assert.ok((await savedZminky(core, `[[${want}]]`))?.includes(`. [[${want}]]`), `[[${want}]] inserted`);
+        assert.ok((await savedZminky(core, `. [[${want}]]`))?.includes(`. [[${want}]]`), `[[${want}]] inserted`); // Zmínky already holds [[2026-10-14]]: wait for the new one
       });
     }
 
@@ -253,9 +253,9 @@ test.describe('date links', () => {
     const p = await must(backlinksPanel(page), 'tabpanel "Backlinks"');
     assert.ok(await seen(p.getByRole('article', { name: 'Zmínky', exact: true }), 1000), 'entry Zmínky');
     assert.ok((await p.locator('[data-occurrence]').allInnerTexts()).map(flat).includes('Budoucnost 2026-10-20.'), 'excerpt Budoucnost 2026-10-20.');
-    await gotoDaily(page, '2026-10-12', '2026-10-20');
+    await gotoDaily(page, '2026-10-12'); // ⌘D always opens today (14 Oct)
     assert.ok(await seen(backlinksPanel(page).getByRole('article', { name: 'Zmínky', exact: true }), 1000), '12 Oct (2): Zmínky listed');
-    await gotoDaily(page, '2026-10-09', '2026-10-12');
+    await gotoDaily(page, '2026-10-09'); // ⌘D always opens today (14 Oct)
     assert.ok((await backlinksPanel(page).locator('[data-occurrence]').allInnerTexts()).map(flat).includes('Pátek pátek.'), '9 Oct: the alias in the excerpt');
     await cmdD(page, '2026-10-14');
     await gotoDaily(page, '2026-10-20');
@@ -270,7 +270,7 @@ test.describe('date links', () => {
     await startDaily(page, { vault: v, panel: true });
     await gotoDaily(page, '2026-10-15');
     assert.ok(await seen(backlinksPanel(page).getByRole('article', { name: 'Zítra', exact: true }), 1000), 'NFD text counts the same');
-    await gotoDaily(page, '2026-10-12', '2026-10-15');
+    await gotoDaily(page, '2026-10-12'); // ⌘D always opens today (14 Oct)
     const notice = page.getByRole('region', { name: 'Other notes for this date', exact: true });
     await (await must(notice.getByRole('link', { name: D.d12, exact: true }), `link ${D.d12}`)).click();
     await mustBeOn(page, '2026-10-12', 'the older 12 Oct');

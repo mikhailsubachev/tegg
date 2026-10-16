@@ -141,7 +141,7 @@ test('fr_vlt_03_ac4_placeholder_banner_non_modal', async ({ browser }) => {
     await page.keyboard.press('Escape');
     for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) {
       await sidebar(page).getByText(e, { exact: true }).click();
-      await mustBeOn(page, e, `sidebar ${e} with the banner`);
+      await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `sidebar ${e} with the banner`); // 4B: named by its date
     }
     await page.close();
   }

@@ -75,9 +75,16 @@ test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the switcher a
 
 /** The effect a command title should have (FR-UX-03 AC-2). */
 async function checkEffect(page: Page, title: string, before: { main: string | null; sidebar: boolean; panel: boolean; theme?: string }): Promise<string | null> {
+  // 4B (R18): `Go to date…` opens the calendar, not a page.
+  if (title === 'Go to date…') {
+    const ok = await seen(page.getByRole('dialog', { name: 'Calendar' }), 1500);
+    await page.keyboard.press('Escape');
+    return ok ? null : `${title}: no calendar`;
+  }
   const go = /^Go to (?:type: )?(.+)$/.exec(title);
   if (go) {
-    const target = go[1] === 'Settings' ? 'Settings: Appearance' : go[1];
+    // 4B (D-320): Today opens the daily route, named by its date.
+    const target = go[1] === 'Settings' ? 'Settings: Appearance' : go[1] === 'Today' ? new Date().toLocaleDateString('sv') : go[1];
     return (await onPage(page, target, 2000)) ? null : `${title}: centre pane is ${await mainName(page)}`;
   }
   const t = /^Theme: (System|Light|Dark)$/.exec(title);
@@ -335,7 +342,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
   for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries']) {
     await tabTo(new RegExp(`^${e}\\b`), `sidebar ${e}`);
     await page.keyboard.press('Enter');
-    await mustBeOn(page, e, `keyboard: sidebar ${e}`);
+    await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date
   }
   for (const t of TYPE_PLURALS) {
     await tabTo(new RegExp(`^${t}\\b`), `Types entry ${t}`);
@@ -402,5 +409,7 @@ test('fr_ux_03_ac11_focus_moves_to_the_page_heading_after_navigation', async ({ 
   await runCommand(page, 'Go to Tasks');
   await check('palette', 'Tasks');
   await page.keyboard.press('Meta+d');
-  await check('shortcut ⌘D', 'Today');
+  // 4B: the daily route is named by its date and, like a note, puts the caret in its body (D-322, D-247).
+  await mustBeOn(page, new Date().toLocaleDateString('sv'), 'shortcut ⌘D');
+  assert.ok((await eventually(() => focused(page), (x) => x.inMain, 1000)).inMain, 'shortcut ⌘D: focus in the centre pane');
 });

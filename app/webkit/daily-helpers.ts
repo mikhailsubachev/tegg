@@ -175,7 +175,7 @@ export async function stateIs(page: Page, want: string, ms = 3000): Promise<bool
 // ------------------------------------------------------------------------------------------------ calls
 
 /** Read-only commands: helpers.ts plus ms4-daily §4. Every other command counts as a write. */
-export const DAILY_READS = new Set([...READ_COMMANDS, 'daily_view', 'daily_dates', 'daily_draft', 'daily_context']);
+export const DAILY_READS = new Set([...READ_COMMANDS, 'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks']); // D-348: read-only
 export async function writeCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !DAILY_READS.has(c) && !c.startsWith('plugin:'));
 }

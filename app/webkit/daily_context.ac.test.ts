@@ -142,6 +142,7 @@ test.describe('live sections', () => {
     const core = await startDaily(page, { vault: v });
     await cmdD(page, '2026-10-14');
     await caretAtEnd(page);
+    await page.keyboard.press('Enter'); // a new paragraph after the template's last heading, not into it
     await page.keyboard.type('Dnes');
     const t = await fileWhen(core, D.new14, (x) => !!x);
     assert.ok(bodyOf(t).includes('## Quick Notes\n'), 'the template text is written as the user content');

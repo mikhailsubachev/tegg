@@ -356,6 +356,10 @@ test.describe('virtual note', () => {
     await page.keyboard.press('Shift+ArrowLeft');
     await page.keyboard.press('Meta+c');
     await page.keyboard.press('Meta+z');
+    // Collapse the selection (typing over it would be an edit) at the line start, where `@` and `[[` open their lists
+    // (D-258); elsewhere Esc would select the block (D-183) and Backspace delete it.
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Meta+ArrowLeft');
     await page.keyboard.type('@');
     await sleep(200);
     await page.keyboard.press('Escape');
@@ -515,7 +519,7 @@ test.describe('review', () => {
   });
 
   test('fr_dly_05_ac4_missing_or_unknown_review_value', async ({ page }) => {
-    const v = dailyVault((f) => { f[D.d01] = swap(f[D.d01], 'review: reviewed', 'review: maybe'); });
+    const v = dailyVault((f) => { f[D.d01] = swap(f[D.d01], 'review: reviewed', 'review: maybe'); f[D.archiv] = swap(f[D.archiv], 'review: reviewed\n', ''); });
     const core = await startDaily(page, { vault: v });
     for (const date of ['2026-10-10', '2026-10-01']) {
       await gotoDaily(page, date);
