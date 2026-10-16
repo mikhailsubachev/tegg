@@ -25,7 +25,7 @@ Ordered as the slices run. "Small" means a dialog or a strip inside an existing 
 | --- | --- | --- | --- |
 | 4C | `Updating links in n notes` progress (non-blocking, D-268) and the `links not updated` list with retry; Settings → Backups list (D-274) | small | FR-LNK-03, FR-UX-07, FR-HIS-04 |
 | 4F | per-type default embed mode in Type settings; the `circular embed` stop (FR-EMB-04); full-mode embed (nested editor) inside a note. Main shows the card and the link chip only | small | FR-EMB-02, -04 |
-| 5A | **Task views page** (Today / Upcoming / All open / By source / Done, quick-add row, overdue highlight) | page | FR-TSK-04, -09, -10 |
+| 5A | ~~**Task views page**~~ drawn by the owner 2026-10-16: `Tasks.dc.html` (Schedule) and `TasksBoard.dc.html` (Kanban by status or tag), D-378; open points AP-i…AP-k in §5 | page | FR-TSK-04, -05, -09, -10 |
 | 5A | **Conversion popover** (`Turn into object` ⌘⇧O is in the toolbar; the popover with editable title and type choice is not drawn) and the first-time `Removing the embed keeps the object` confirmation (FR-CNV-08) | small | FR-CNV-01, -02, -08 |
 | 5A | Task type settings: editable status labels and semantic state, priority order (TypeSettings is drawn for Idea only) | small | FR-TSK-02, -03 |
 | 5A | Daily Note tasks section (the `Coming in MS5` placeholder); the Daily Note page itself was built in 4B from ACs without a board | page | FR-DLY-04, D-271 |
@@ -62,10 +62,20 @@ Everything else checked matches: the attribute panel with `Other properties (1)`
 
 ## 4. Suggested order for the missing designs
 
-1. Task views page and the conversion popover (5A is next after 4C/4F, and the biggest undesigned page).
+1. ~~Task views page~~ (owner, D-378) and the conversion popover (5A is next after 4C/4F, and the biggest undesigned page).
 2. Quick capture window and the Settings sections (5B).
 3. Trash view, Image/PDF object pages (6A).
 4. Tag page (4D-lite; can reuse the type-page layout).
 5. ~~Fix M1–M11 on the existing boards, and register `TypeCards.dc.html` in `canvas.json`.~~ Done 2026-10-16.
 
 CardAnatomy is a proposal: if accepted, it decides how the type page card view, Home items, embed cards and Inbox rows share one component, which would be worth deciding (as an AP) before 4F draws the embed card.
+
+## 5. Open points from the owner's Tasks boards (2026-10-16; accepted the same day as D-379…D-381, BRD v1.58)
+
+`Tasks.dc.html` and `TasksBoard.dc.html` are one component with two views. D-378 takes the Schedule and Kanban views into 5A. Three details go beyond the BRD:
+
+| # | Design shows | Requirements say | Proposal |
+| --- | --- | --- | --- |
+| AP-i → D-379 | **Schedule sections** Today & overdue, This week (by day), Later, Not scheduled, Done (collapsed), plus filters All / Today / This week and a tag filter | FR-TSK-04 names the views Today, Upcoming, All open, By source, Done | Replace the FR-TSK-04 list with the designed sections: Today & overdue = Today, This week + Later = Upcoming, Not scheduled is new (open tasks without `due`), All open = the Schedule with the All filter, By source = the source chip and the Kanban's tag/status columns. Record in FR-TSK-04 |
+| AP-j → D-380 | **Quick-add tokens**: `try "Call venue tomorrow #offsite !high"` parses a date word, `#tag` and `!priority` | FR-TSK-10 has a quick-add row with no syntax | MVP: `#tag` and `!high/!medium/!low` tokens plus `today`, `tomorrow` and a weekday name at the end of the title; anything else stays in the title. Record as FR-TSK-10 detail |
+| AP-k → D-381 | **Recurrence badges** (`monthly`, `weekly`) on cards and the Done hint "Recurring tasks keep each done instance" | FR-TSK-07 recurrence is v1.0 | Keep the badge in the design as v1.0 (dimmed, like the other deferred controls); 5A shows no recurrence |

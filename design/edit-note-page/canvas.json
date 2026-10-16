@@ -78,7 +78,8 @@
       "title": "Inbox",
       "w": 1440,
       "x": 1760,
-      "y": 3380
+      "y": 3380,
+      "is_interactive": true
     },
     "CardAnatomy.dc.html": {
       "h": 1160,
@@ -95,6 +96,24 @@
       "w": 1680,
       "x": 5040,
       "y": 3500
+    },
+    "Tasks.dc.html": {
+      "expand": "fill",
+      "h": 1640,
+      "title": "Tasks · schedule",
+      "w": 1440,
+      "x": 0,
+      "y": 4640,
+      "is_interactive": true
+    },
+    "TasksBoard.dc.html": {
+      "expand": "fill",
+      "h": 1240,
+      "title": "Task board · kanban",
+      "w": 1440,
+      "x": 1520,
+      "y": 4640,
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -118,7 +137,9 @@
     "FolderLogos.dc.html",
     "Inbox.dc.html",
     "CardAnatomy.dc.html",
-    "TypeCards.dc.html"
+    "TypeCards.dc.html",
+    "Tasks.dc.html",
+    "TasksBoard.dc.html"
   ],
   "pages": [
     {
