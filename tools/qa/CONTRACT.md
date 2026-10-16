@@ -56,6 +56,7 @@ Gate order: `commit` < `push` < `nightly` < `milestone` < `release`. A gate runs
 | `VERIFY_MILESTONE` | Only in `verify milestone --milestone MS<n>`: the milestone being gated, e.g. `MS3`, so registry tests can fail on placeholders due at or before it (D-124) |
 | `QA_PROPERTY_SCALE` | `1` for commit and push, `100` for nightly, milestone and release |
 | `CARGO_TARGET_DIR` | Tree gates only, for steps whose `cargoCache` isn't `false`: `<repository root>/.verify/cargo-target` (§3.2.1). Not set by the commit gate |
+| `VERIFY_PORT_BASE` | Tree gates only: a TCP port in 20000–29999 that was free when the run started, for the steps' dev servers (§3.2.1). Not set by the commit gate |
 
 Git's hook variables (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_PREFIX`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR`) are removed from the environment of steps and runners.
 
@@ -89,6 +90,7 @@ On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), 
 - **Cargo cache.** Steps of tree gates (push, nightly, milestone, release) run with `CARGO_TARGET_DIR=<repository root>/.verify/cargo-target` unless their `cargoCache` is `false`. All Cargo workspaces share it. Cargo keys artifacts by package, path, profile and source fingerprints, so a cached artifact never stands in for changed source. Test helpers that cache generated data per `target/` (the reference vaults) cache it there too.
 - **Stable worktree path.** The fresh worktree of §3.2 is created at the same path every run: `<os temp dir>/tegg-verify-<first 12 hex digits of the SHA-256 of the repository root's real path>/wt`, outside the repository. Any leftover directory there is removed before `git worktree add`, and the worktree is removed after the run as before, so steps see only the commit's files. The stable path lets Cargo reuse the artifacts of the checkout's own crates (their metadata hash includes the path).
 - **Exclusive use.** A pid file `lock` next to `wt` guards the path. If a live process holds it (another gate of the same repository is running), the gate uses a fresh temporary directory instead, as before D-343. A lock whose process is gone is taken over.
+- **Per-run port.** Steps that start a dev server (the Playwright steps) bind it to `VERIFY_PORT_BASE`, never to a fixed port, with Vite's `--strictPort` and without reusing a running server, so a gate never tests a stray server's code. The runner derives the candidate from the worktree path (so the stable path and a fall-back path start from different ports), skips ports that are already in use, and so two gates of the same repository can run at the same time. The developer ports (`app` 5177, `spikes/s2-editor` 5174) are outside the range and unchanged.
 - `check-red` (§5.2) keeps using a fresh temporary worktree and no shared cache.
 - **`verify clean`** deletes `.verify/cargo-target` (exit 0), for when the cache is suspected or too large.
 
