@@ -258,29 +258,29 @@ The date-link activation of read-view and editor chips (`data-link-kind` `daily`
 | AP-263 | **The template's `{{time}}` stays literal (FR-DLY-06 AC-1).** In daily use, the fixture's own template shows a literal `{{time}}`. | Keep it: it's correct per D-270, and FR-TPL (v1.0) adds it. The starter template (D-92) gets no `{{time}}`. | FR-DLY-06 AC-1, starter vault |
 | AP-264 | **The `ObjectInfo.stored_title` field (§2)** is added only so the switcher can still match `Pátek` (D-334). | Accept it as an index-only field. Nothing is written, and it is rebuilt from the files (AR-01). | FR-DLY-01 AC-11 |
 
-## 12. Clarifications from the red tests (accepted 2026-10-16: AP-265…AP-284 → D-343…D-362)
+## 12. Clarifications from the red tests (accepted 2026-10-16: AP-265…AP-284 → D-344…D-363)
 
 These override the sections above where they differ.
 
 | ID | Decision | Topic | Rule |
 | --- | --- | --- | --- |
-| AP-265 | D-343 | Fault injection and temp files (FR-DLY-02 AC-5) | The kill-point wrapper lives in the test file over `LocalFs`; the temp name is part of the contract: `.<name>.tegg-tmp` in the target folder (FR-SYN-02 AC-2), so orphan cleanup is tested by planting one |
-| AP-266 | D-344 | `DailyDraft` fields (ms4-daily §3) | Rust `DailyDraft` has `text` (full first-write bytes for an empty edit) and `body` (after the frontmatter), matching `DailyDraftDto` |
-| AP-267 | D-345 | Template keys ignored (FR-DLY-06 AC-3, D-325) | Ignored keys are exactly `id, type, title, date, review, created, modified`; every other key, `tags` included, is written |
-| AP-268 | D-346 | First-write bytes (D-324) | Template key source lines end with LF; the body follows the closing `---\n` with no blank line added, as `newObject` |
-| AP-269 | D-347 | Backlinks of a date (FR-DLY-08 AC-7) | New core call and IPC `daily_backlinks(date) -> BacklinksPanelDto`: the panel of the date's winner, or of the date links to it when virtual; `index_backlinks(path)` unchanged |
-| AP-270 | D-348 | Recency of daily routes (FR-DLY-01 AC-1, D-105) | `nav_opened` gains an optional `route`: daily routes call it with `route: 'daily/<date>'` and `path` = the winner or null; the launch landing can reopen `daily/<date>`, virtual or not |
-| AP-271 | D-349 | Zone change while running (FR-DLY-01 AC-2) | That sentence is tested at L1 (`localDate` with an explicit zone) |
-| AP-272 | D-350 | L6 clock | L6 uses the system clock and `TZ`; tests compute today from `Date.now()` in that zone; no `TEGG_NOW` hook |
-| AP-273 | D-351 | Command context on daily routes (D-127) | `ctx.route = { id: 'daily/YYYY-MM-DD', date: string, path: string \| null }` |
-| AP-274 | D-352 | Creating a Daily Note from New object (D-318) | Entry points are `New Daily Note` on the Daily Notes type page and every create path whose type is Daily Note (New object with `default-type: Daily Note`, the switcher create): each opens today's Daily Note instead of a dialog |
-| AP-275 | D-353 | Calendar locale tag (FR-DLY-03 AC-6) | Tested at L5 only; the AC tag changes to L5 |
-| AP-276 | D-354 | `dailyFileStem` signature (ms4-daily §5) | `dailyFileStem(format: string, date: string): string \| null` (null = bad format) |
-| AP-277 | D-355 | Error catalog keys | `error.useDailyNote`, `error.dailyMismatch` (the ms3-shell §10 `error.<kind>` scheme) |
-| AP-278 | D-356 | `dateRows` locales and labels (D-331) | Locale tags as BCP 47 language or language-region (`cs`, `cs-CZ`, `en-US`), matched by language; labels `Today, <date>`, `Tomorrow, <date>`, `Yesterday, <date>`; in `cs` `Dnes, <date>`, `Zítra, <date>`, `Včera, <date>` |
-| AP-279 | D-357 | `stored_title` (D-342) | A field of `ObjectInfo` only, not an index method |
-| AP-280 | D-358 | Shared FR-DLY-08 IDs | `fr_dly_08_ac1…ac3_*` tests cover both links.md and daily-notes.md criteria of that ID; coverage counts them once |
-| AP-281 | D-359 | Daily benchmark (FR-DLY-04 AC-6) | `app/e2e/perf_daily.ts` is written with the build (report only, D-152) |
-| AP-282 | D-360 | Literal letters in date formats (FR-FMT-09, D-325) | Tokens match anywhere; a backslash makes the next character literal (`\Deník YYYY-MM-DD` → `Deník 2026-10-14`); the corpus gets this case |
-| AP-283 | D-361 | Template without a closing fence (D-325) | Frontmatter that opens but never closes is invalid: no keys, the whole text is the body, and the message names the template |
-| AP-284 | D-362 | Fake `writeControl` for the first write | The fake applies `delay`, `hold` and `fail` to `daily_create` as to `note_write` |
+| AP-265 | D-344 | Fault injection and temp files (FR-DLY-02 AC-5) | The kill-point wrapper lives in the test file over `LocalFs`; the temp name is part of the contract: `.<name>.tegg-tmp` in the target folder (FR-SYN-02 AC-2), so orphan cleanup is tested by planting one |
+| AP-266 | D-345 | `DailyDraft` fields (ms4-daily §3) | Rust `DailyDraft` has `text` (full first-write bytes for an empty edit) and `body` (after the frontmatter), matching `DailyDraftDto` |
+| AP-267 | D-346 | Template keys ignored (FR-DLY-06 AC-3, D-325) | Ignored keys are exactly `id, type, title, date, review, created, modified`; every other key, `tags` included, is written |
+| AP-268 | D-347 | First-write bytes (D-324) | Template key source lines end with LF; the body follows the closing `---\n` with no blank line added, as `newObject` |
+| AP-269 | D-348 | Backlinks of a date (FR-DLY-08 AC-7) | New core call and IPC `daily_backlinks(date) -> BacklinksPanelDto`: the panel of the date's winner, or of the date links to it when virtual; `index_backlinks(path)` unchanged |
+| AP-270 | D-349 | Recency of daily routes (FR-DLY-01 AC-1, D-105) | `nav_opened` gains an optional `route`: daily routes call it with `route: 'daily/<date>'` and `path` = the winner or null; the launch landing can reopen `daily/<date>`, virtual or not |
+| AP-271 | D-350 | Zone change while running (FR-DLY-01 AC-2) | That sentence is tested at L1 (`localDate` with an explicit zone) |
+| AP-272 | D-351 | L6 clock | L6 uses the system clock and `TZ`; tests compute today from `Date.now()` in that zone; no `TEGG_NOW` hook |
+| AP-273 | D-352 | Command context on daily routes (D-127) | `ctx.route = { id: 'daily/YYYY-MM-DD', date: string, path: string \| null }` |
+| AP-274 | D-353 | Creating a Daily Note from New object (D-318) | Entry points are `New Daily Note` on the Daily Notes type page and every create path whose type is Daily Note (New object with `default-type: Daily Note`, the switcher create): each opens today's Daily Note instead of a dialog |
+| AP-275 | D-354 | Calendar locale tag (FR-DLY-03 AC-6) | Tested at L5 only; the AC tag changes to L5 |
+| AP-276 | D-355 | `dailyFileStem` signature (ms4-daily §5) | `dailyFileStem(format: string, date: string): string \| null` (null = bad format) |
+| AP-277 | D-356 | Error catalog keys | `error.useDailyNote`, `error.dailyMismatch` (the ms3-shell §10 `error.<kind>` scheme) |
+| AP-278 | D-357 | `dateRows` locales and labels (D-331) | Locale tags as BCP 47 language or language-region (`cs`, `cs-CZ`, `en-US`), matched by language; labels `Today, <date>`, `Tomorrow, <date>`, `Yesterday, <date>`; in `cs` `Dnes, <date>`, `Zítra, <date>`, `Včera, <date>` |
+| AP-279 | D-358 | `stored_title` (D-342) | A field of `ObjectInfo` only, not an index method |
+| AP-280 | D-359 | Shared FR-DLY-08 IDs | `fr_dly_08_ac1…ac3_*` tests cover both links.md and daily-notes.md criteria of that ID; coverage counts them once |
+| AP-281 | D-360 | Daily benchmark (FR-DLY-04 AC-6) | `app/e2e/perf_daily.ts` is written with the build (report only, D-152) |
+| AP-282 | D-361 | Literal letters in date formats (FR-FMT-09, D-325) | Tokens match anywhere; a backslash makes the next character literal (`\Deník YYYY-MM-DD` → `Deník 2026-10-14`); the corpus gets this case |
+| AP-283 | D-362 | Template without a closing fence (D-325) | Frontmatter that opens but never closes is invalid: no keys, the whole text is the body, and the message names the template |
+| AP-284 | D-363 | Fake `writeControl` for the first write | The fake applies `delay`, `hold` and `fail` to `daily_create` as to `note_write` |
