@@ -25,6 +25,7 @@ import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
 import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
 import { parseRoute, routeString, type Route } from './shell/routes';
+import { createdMarker, settleCreated } from './shell/created';
 import { typeEntries } from './shell/types';
 import { Switcher } from './Switcher';
 import { applyTheme } from './theme/apply';
@@ -211,6 +212,7 @@ export function App() {
     history.current.push(r);
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
+    justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
     setRoute(r);
   }, []);
   const step = useCallback(async (dir: 'back' | 'forward') => {
@@ -226,6 +228,7 @@ export function App() {
     pendingScroll.current = e.scrollTop;
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
+    justCreated.current = settleCreated(justCreated.current, e.route);
     setRoute(e.route);
   }, []);
   // A focus the user makes before the new page is ready wins over the pending heading focus.
@@ -244,7 +247,7 @@ export function App() {
     void go(r);
   }, []);
   /** A create path that lands on today's Daily Note (D-318, D-353): the caret goes into its body (D-367). */
-  const createToday = useCallback(() => { justCreated.current = `daily:${localDate(Date.now())}`; void go({ id: 'today' }); }, [go]);
+  const createToday = useCallback(() => { const r = todayRoute(); justCreated.current = createdMarker(r); void go(r); }, [go]);
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);

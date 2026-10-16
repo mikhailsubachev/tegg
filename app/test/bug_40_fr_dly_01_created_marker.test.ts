@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 async function load(): Promise<Record<string, any> | null> {
-  try { return await import(/* @vite-ignore */ '../ui/src/shell/created'); } catch { return null; }
+  try { return await import(/* @vite-ignore */ '../ui/src/shell/created.ts'); } catch { return null; }
 }
 
 test('bug_40_fr_dly_01_marker_matches_the_resolved_today_route', async () => {
