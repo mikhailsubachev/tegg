@@ -503,12 +503,10 @@ fn daily_date(attrs: &Value) -> Option<NaiveDate> {
 }
 
 /// D-319, D-335: newest `created` first (missing counts as oldest), then newest `modified`, then NFC path bytes.
+/// The instants are read by `tegg_format::daily::instant`, shared with the fake core (D-365, PR #38 review).
 fn daily_order(a: &Meta, b: &Meta) -> std::cmp::Ordering {
-    let inst = |d: &Option<DateVal>| match d {
-        Some(DateVal::Instant(t)) => Some(t.timestamp_nanos_opt().unwrap_or(i64::MAX)),
-        _ => None,
-    };
-    inst(&b.created).cmp(&inst(&a.created)).then_with(|| inst(&b.modified).cmp(&inst(&a.modified))).then_with(|| nfc(&a.path).cmp(&nfc(&b.path)))
+    let inst = |m: &Meta, k: &str| m.s.attributes.get(k).and_then(|v| v.as_str()).and_then(tegg_format::daily::instant).map(|i| i.nanos());
+    inst(b, "created").cmp(&inst(a, "created")).then_with(|| inst(b, "modified").cmp(&inst(a, "modified"))).then_with(|| nfc(&a.path).cmp(&nfc(&b.path)))
 }
 
 /// Contract §1: `*.md` outside dot-folders and `_templates/`; never temporary files (FR-SYN-02 AC-2),

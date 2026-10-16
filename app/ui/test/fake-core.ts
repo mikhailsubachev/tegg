@@ -259,12 +259,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         return { path, id: f.id ?? null, title: day ?? f.title ?? stem, stored: day ? (f.title ?? null) : null, type, daily: day, created: f.created ?? null, modified: f.modified ?? null, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '' };
       });
   };
-  // D-319, D-335: the Daily Note a date opens (latest created, then modified, missing oldest; then path).
-  const dailyWinner = (date: string) => {
-    const inst = (v: string | null) => (v && /T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(v) && !Number.isNaN(Date.parse(v)) ? Date.parse(v) : null);
-    const by = (x: number | null, y: number | null) => (x !== null && y !== null ? y - x : x !== null ? -1 : y !== null ? 1 : 0);
-    return objects().filter((o) => o.daily === date).sort((a, b) => by(inst(a.created), inst(b.created)) || by(inst(a.modified), inst(b.modified)) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))[0];
-  };
+  // D-319, D-335: the Daily Note a date opens, from the one copy of the rule in Node (fake-links.ts, PR #38 review).
+  const dailyWinners = async (): Promise<Record<string, string>> => (await w.__teggLinks('daily_winners', {}, state.vault!.files, {})).result ?? {};
   const yaml = (text: string): Record<string, string> => {
     const out: Record<string, string> = {};
     for (const line of text.split(/\r?\n/)) {
@@ -618,12 +614,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     perf_mark: () => null,
     // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
-    link_resolve: (a) => {
+    link_resolve: async (a) => {
       const from = String(a.from ?? '').normalize('NFC');
       const fromDir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '';
       const objs = objects();
       const low = (x: string) => x.normalize('NFC').toLowerCase();
       const byCode = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+      const winners = (a.targets as string[]).some((x) => /\d{4}-\d{2}-\d{2}/.test(String(x))) ? await dailyWinners() : {};
+      const dailyWinner = (date: string) => objects().find((o) => o.path === winners[date]);
       return (a.targets as string[]).map((given) => {
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);

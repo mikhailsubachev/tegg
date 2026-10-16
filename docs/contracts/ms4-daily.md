@@ -284,3 +284,10 @@ These override the sections above where they differ.
 | AP-282 | D-361 | Literal letters in date formats (FR-FMT-09, D-325) | Tokens match anywhere; a backslash makes the next character literal (`\Deník YYYY-MM-DD` → `Deník 2026-10-14`); the corpus gets this case |
 | AP-283 | D-362 | Template without a closing fence (D-325) | Frontmatter that opens but never closes is invalid: no keys, the whole text is the body, and the message names the template |
 | AP-284 | D-363 | Fake `writeControl` for the first write | The fake applies `delay`, `hold` and `fail` to `daily_create` as to `note_write` |
+
+## 13. After the PR #38 review (D-365, D-366)
+
+- The winner rule reads instants with `tegg_format::daily::instant` / `@tegg/doc` `instantOf` (corpus `tests/fixtures/format/dates/winner-instants.json`); offset-less date-times are local (D-365). The fake core's one copy of the rule is `@tegg/doc` `dailyOrder` (fake-links.ts); `link_resolve` asks it through `daily_winners`.
+- `daily_create` treats the exact bytes already at the planned path as its own landed write (an error reported after the rename), so a retry never writes a second file (FR-SYN-06).
+- A review-only save skips the title fix (D-366); the title fix leaves non-plain titles alone and keeps CRLF.
+

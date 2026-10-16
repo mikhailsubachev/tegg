@@ -79,13 +79,8 @@ function isDate(t: string): boolean {
 
 /** D-319, D-335: per date, the Daily Notes newest first (latest created, then modified; missing is oldest), then path. */
 function dailyGroups(objs: Obj[]): Map<string, Obj[]> {
-  const inst = (v: unknown) => {
-    if (typeof v !== 'string' || !/T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(v.trim())) return null;
-    const t = Date.parse(v.trim());
-    return Number.isNaN(t) ? null : t;
-  };
-  const order = (a: Obj, b: Obj) => byInstant(inst(a.attributes.created), inst(b.attributes.created), true)
-    || byInstant(inst(a.attributes.modified), inst(b.attributes.modified), true) || byCode(nfc(a.path), nfc(b.path));
+  // The one copy of the rule in the fake: @tegg/doc dailyOrder, the twin of the Rust index (PR #38 review, D-365).
+  const order = (a: Obj, b: Obj) => docMod.dailyOrder({ path: a.path, created: a.attributes.created, modified: a.attributes.modified }, { path: b.path, created: b.attributes.created, modified: b.attributes.modified });
   const out = new Map<string, Obj[]>();
   for (const o of objs) if (o.daily) out.set(o.daily, [...(out.get(o.daily) ?? []), o]);
   for (const g of out.values()) g.sort(order);
@@ -242,6 +237,7 @@ async function daily(cmd: string, a: any, files: Files, ctx: Ctx): Promise<Answe
   const groups = dailyGroups(ctx.objs);
   const of = (x: string) => groups.get(x) ?? [];
   switch (cmd) {
+    case 'daily_winners': return { result: Object.fromEntries([...groups].map(([k, g]) => [k, g[0].path])) };
     case 'daily_view': {
       const g = of(date);
       const r = g[0] ? String(g[0].attributes.review ?? '').trim() : '';

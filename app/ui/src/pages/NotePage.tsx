@@ -272,7 +272,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const setReviewedRef = useRef<(r: boolean) => void>(() => {});
   setReviewedRef.current = (r: boolean) => {
     if (!live.current.daily || live.current.daily.virtual) return;
+    const only = !saver.current?.pending; // nothing else waits to be saved: only `review` and `modified` change
     commit((d) => setValue(d, 'review', r ? 'reviewed' : 'unreviewed'));
+    if (only && saver.current) saver.current.skipTransform = true;
   };
 
   const flush = useCallback(async () => {
@@ -676,7 +678,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               onReady={onEditor}
               onSaveNow={() => void flush()}
               describedBy={titleId}
-              onChange={() => { saver.current?.changed(); syncHead(); }}
+              onChange={() => { if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false; saver.current?.changed(); syncHead(); }}
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}

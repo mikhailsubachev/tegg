@@ -186,15 +186,24 @@ impl Core {
         let (path, version) = loop {
             let s = self.free_stem(&folder, &stem);
             let path = if folder.is_empty() { format!("{s}.md") } else { format!("{folder}/{s}.md") };
+            // The exact bytes already at the path are this write, landed by an attempt that reported an error after
+            // the rename (PR #38 review): taken as done, never written again under another name (FR-SYN-06).
+            let ours = || self.shared.vault.read(&path).ok().filter(|(b, _)| b.as_slice() == bytes).map(|(_, v)| v);
             match self.shared.vault.create_exact(&path, bytes) {
                 Ok(v) => break (path, v),
                 Err(VaultError::NameTaken) if tries < 20 => {
+                    if let Some(v) = ours() {
+                        break (path, v);
+                    }
                     tries += 1;
                     if let Ok((b, v)) = self.shared.vault.read(&path) {
                         let _ = self.index().upsert(&path, &b, &v);
                     }
                 }
-                Err(e) => return Err(e.into()),
+                Err(e) => match ours() {
+                    Some(v) => break (path, v),
+                    None => return Err(e.into()),
+                },
             }
         };
         self.index().upsert(&path, bytes, &version)?;

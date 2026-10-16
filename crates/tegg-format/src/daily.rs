@@ -154,3 +154,49 @@ pub fn new_daily_note(date: NaiveDate, keys: &[(String, String)], body: &str, id
     s.push_str(body);
     s
 }
+
+/// An instant the D-319/D-335 winner rule compares (PR #38 review, D-365): nanoseconds since 1970 UTC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instant {
+    /// With an offset (or `Z`).
+    At(i128),
+    /// Without one: read in the machine's zone (D-339, D-365).
+    Local(i128),
+}
+
+impl Instant {
+    pub fn nanos(self) -> i128 {
+        match self {
+            Instant::At(n) | Instant::Local(n) => n,
+        }
+    }
+}
+
+/// `YYYY-MM-DD[T| ]HH:MM[:SS[.f…]]` with `Z`, `±HH:MM` or no offset; anything else (a date alone, text) is None.
+/// The twin of `@tegg/doc` `instantOf`; both follow tests/fixtures/format/dates/winner-instants.json.
+pub fn instant(v: &str) -> Option<Instant> {
+    use chrono::{NaiveDateTime, TimeZone};
+    static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?$").expect("regex")
+    });
+    let c = RE.captures(v.trim())?;
+    let date = crate::date::parse_date(&c[1])?;
+    let (h, m) = (c[2].parse::<u32>().ok()?, c[3].parse::<u32>().ok()?);
+    let s = c.get(4).map_or(Some(0), |x| x.as_str().parse::<u32>().ok())?;
+    let frac = c.get(5).map_or(0i128, |x| format!("{:0<9}", x.as_str()).parse::<i128>().unwrap_or(0));
+    let naive: NaiveDateTime = date.and_hms_opt(h, m, s)?;
+    match c.get(6).map(|x| x.as_str()) {
+        Some(z) => {
+            let off = if z == "Z" { 0 } else {
+                let sign = if z.starts_with('-') { -1 } else { 1 };
+                sign * (z[1..3].parse::<i32>().ok()? * 3600 + z[4..6].parse::<i32>().ok()? * 60)
+            };
+            let secs = naive.and_utc().timestamp() as i128 - off as i128;
+            Some(Instant::At(secs * 1_000_000_000 + frac))
+        }
+        None => {
+            let t = chrono::Local.from_local_datetime(&naive).earliest()?;
+            Some(Instant::Local(t.timestamp() as i128 * 1_000_000_000 + frac))
+        }
+    }
+}

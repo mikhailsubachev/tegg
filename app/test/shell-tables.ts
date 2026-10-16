@@ -3,8 +3,8 @@
 
 export type Due = { milestone: string; slice?: string };
 
-/** Today's local date: the page name of the daily routes (4B, D-320). */
-const TODAY = new Date().toLocaleDateString('sv');
+/** Today's local date, read when used (not at import, PR #38 review): the page name of the daily routes (4B, D-320). */
+const today = () => new Date().toLocaleDateString('sv');
 
 export type R1Row = {
   id: string;
@@ -24,8 +24,8 @@ export const R1: R1Row[] = [
   { id: 'home', page: 'Home', built: false, due: d('MS5'), reqs: 'FR-HOM-01, FR-HOM-02', design: 'Home', goto: 'Go to Home' },
   { id: 'inbox', page: 'Inbox', built: false, due: d('MS5'), reqs: 'FR-INB-01…04', design: 'Home', goto: 'Go to Inbox' },
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
-  { id: 'today', page: TODAY, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
-  { id: 'daily/YYYY-MM-DD', page: TODAY, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
+  { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
+  { id: 'daily/YYYY-MM-DD', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
   { id: 'tasks', page: 'Tasks', built: false, due: d('MS5'), reqs: 'FR-TSK-04…06', design: 'Home', goto: 'Go to Tasks' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },

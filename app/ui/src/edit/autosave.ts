@@ -29,6 +29,8 @@ export class Saver {
   create: ((text: string) => Promise<{ path: string; version: VersionDto }>) | null = null;
   /** 4B (D-334): a last change to the saved text (a Daily Note's title fix), applied in the editor too. */
   transform: ((text: string) => string) | null = null;
+  /** FR-DLY-05 AC-2 (PR #38 review): the next save holds only the review toggle, so it skips `transform`. */
+  skipTransform = false;
   /** The document as opened (a virtual note's first write needs a changed document, D-323). */
   private openedDoc: TeggEditor['editor']['state']['doc'];
 
@@ -124,7 +126,9 @@ export class Saver {
       if (this.changes === mark) this.set('saved');
       return;
     }
-    if (this.transform) {
+    const skip = this.skipTransform;
+    this.skipTransform = false;
+    if (this.transform && !skip) {
       const fixed = this.transform(text);
       if (fixed !== text) { this.ed.applyFrontmatter(fixed); text = fixed; }
     }

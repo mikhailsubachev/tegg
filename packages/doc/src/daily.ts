@@ -180,3 +180,34 @@ export function dateRows(query: string, today: string, locale: string): { date: 
   }
   return []
 }
+
+/** An instant of the D-319/D-335 winner rule (PR #38 review, D-365): nanoseconds since 1970 UTC; `local` without an
+ *  offset, read in the machine's zone (D-339). The twin of `tegg_format::daily::instant`. */
+export type Instant = { kind: 'instant' | 'local'; nanos: bigint }
+
+export function instantOf(v: string): Instant | null {
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?$/.exec(v.trim())
+  if (!m || !parseDate(m[1])) return null
+  const [y, mo, d] = m[1].split('-').map(Number)
+  const [h, mi, s] = [Number(m[2]), Number(m[3]), Number(m[4] ?? 0)]
+  if (h > 23 || mi > 59 || s > 59) return null
+  const frac = BigInt((m[5] ?? '').padEnd(9, '0') || '0')
+  if (m[6] === undefined) {
+    const t = new Date(y, mo - 1, d, h, mi, s).getTime()
+    return { kind: 'local', nanos: BigInt(Math.floor(t / 1000)) * 1_000_000_000n + frac }
+  }
+  const off = m[6] === 'Z' ? 0 : (m[6][0] === '-' ? -1 : 1) * (Number(m[6].slice(1, 3)) * 3600 + Number(m[6].slice(4, 6)) * 60)
+  const secs = Date.UTC(y, mo - 1, d, h, mi, s) / 1000 - off
+  return { kind: 'instant', nanos: BigInt(secs) * 1_000_000_000n + frac }
+}
+
+/** D-319, D-335: the winner order of two Daily Notes (newest `created`, then `modified`, missing oldest, then the
+ *  UTF-8 bytes of the NFC path). The fake core's one copy of the rule. */
+export function dailyOrder(a: { path: string; created?: unknown; modified?: unknown }, b: { path: string; created?: unknown; modified?: unknown }): number {
+  const n = (v: unknown) => (typeof v === 'string' ? instantOf(v)?.nanos ?? null : null)
+  const by = (x: bigint | null, y: bigint | null) => (x !== null && y !== null ? (y > x ? 1 : y < x ? -1 : 0) : x !== null ? -1 : y !== null ? 1 : 0)
+  const enc = new TextEncoder()
+  const bytes = (p: string) => enc.encode(p.normalize('NFC'))
+  const cmp = (x: Uint8Array, y: Uint8Array) => { for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]; return x.length - y.length }
+  return by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
+}
