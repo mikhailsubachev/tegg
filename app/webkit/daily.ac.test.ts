@@ -217,7 +217,7 @@ test.describe('which note a date opens', () => {
     await cmdD(page, '2026-10-07');
     // D-369: the chip is the link `Type: Daily Note`; the reason moves to `Change type…` in the `More` menu.
     const chip = await must(typeChip(page), 'the type chip');
-    assert.equal(flat(await chip.innerText()), 'Type: Daily Note', 'the link Type: Daily Note');
+    assert.equal(await chip.getAttribute('aria-label'), 'Type: Daily Note', 'the link Type: Daily Note (accessible name)');
     await (await must(moreButton(page), 'button "More"')).click();
     const item = await must(changeTypeItem(page), 'menuitem "Change type…"');
     assert.equal(await isDisabled(item), true, 'aria-disabled');

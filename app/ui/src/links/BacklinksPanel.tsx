@@ -1,5 +1,5 @@
 // The Backlinks tab (FR-LNK-01, FR-LNK-02; backlinks.md R15; ms4-links §5.2; D-276…D-285): who links to the open
-// note, grouped by type, with an excerpt per mention. Data comes from one index query per note (`index_backlinks`),
+// note, grouped by type, one chip per source (D-368: no excerpts). Data comes from one index query per note (`index_backlinks`),
 // re-asked on every vault change; nothing here writes.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
@@ -8,14 +8,12 @@ import { ipc } from '../ipc/client';
 import type { BacklinkEntryDto, BacklinksPanelDto, OccurrenceDto, TypeDefDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
 import { Icon } from '../shell/Icon';
-import { Excerpt } from './Excerpt';
 import { chipIcon } from './icons';
 import { orderBacklinks } from './order';
 
-const SHOWN = 3;
 /** Rows are windowed above this many entries (FR-LNK-01 AC-16: at most 100 entry elements in the DOM). */
 const WINDOW_FROM = 60;
-const ENTRY_H = 96;
+const ENTRY_H = 30;
 const HEADER_H = 32;
 /** Session-only scroll positions per note (Back restores them, FR-LNK-01 AC-6). */
 const scrolls = new Map<string, number>();
@@ -45,23 +43,18 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
 }) {
   const [data, setData] = useState<{ path: string; panel: BacklinksPanelDto } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scroll, setScroll] = useState(0);
   const box = useRef<HTMLDivElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const restored = useRef<string | null>(null);
-  const focusExcerpt = useRef<{ source: string; index: number } | null>(null);
 
   useEffect(() => {
     let live = true;
     panelOf(path, date).then((p) => { if (live) setData({ path, panel: p }); }, () => {});
     return () => { live = false; };
   }, [path, refresh, date]);
-  // A new note: groups expanded and excerpts collapsed again (D-278, D-281); the old note's scroll is kept.
-  useEffect(() => {
-    setCollapsed(new Set());
-    setExpanded(new Set());
-  }, [path]);
+  // A new note: groups expanded again (D-281); the old note's scroll is kept.
+  useEffect(() => { setCollapsed(new Set()); }, [path]);
 
   const panel = useMemo(() => (data && data.path === path ? orderBacklinks(data.panel, types, collator()) : null), [data, path, types]);
   useEffect(() => { if (panel) onCount?.(panel.objects); }, [panel?.objects]);
@@ -78,18 +71,12 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     if (!panel || focusFirst <= focusConsumed) return;
     focusConsumed = focusFirst;
     requestAnimationFrame(() => {
-      const first = box.current?.querySelector<HTMLElement>('article .entry-title');
+      const first = box.current?.querySelector<HTMLElement>('.backlink-entry .link-chip');
       (first ?? heading.current)?.focus();
     });
   }, [panel, focusFirst]);
 
-  useLayoutEffect(() => {
-    const f = focusExcerpt.current;
-    if (!f) return;
-    focusExcerpt.current = null;
-    const art = [...(box.current?.querySelectorAll<HTMLElement>('article') ?? [])].find((a) => a.dataset.source === f.source);
-    art?.querySelectorAll<HTMLElement>('[data-occurrence]')[f.index]?.focus();
-  });
+
 
   if (!panel) return <div role="tabpanel" aria-label={t('tab.backlinks')} className="panel-body backlinks" ref={box} />;
 
@@ -120,29 +107,15 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
 
   const entryEl = (g: Row & { kind: 'entry' }) => {
     const e = g.e;
-    const all = expanded.has(e.source);
-    const shown = all ? e.occurrences : e.occurrences.slice(0, SHOWN);
-    const icon = chipIcon(e.type);
+    // FR-LNK-01 AC-17: the source type's icon; a type without a definition shows the generic type icon (D-121).
+    const icon = g.g.defined ? chipIcon(e.type) : { glyph: 'type', def: 'type' };
     return (
-      <article key={`e:${e.source}`} aria-label={e.title} data-source={e.source} className="backlink-entry">
-        <a href="#" tabIndex={0} className="entry-title" data-command="panel.backlinks.open" onClick={(ev) => { ev.preventDefault(); onOpen(e.source, null, e.readOnly); }}>
-          <Icon name={icon.glyph} dataIcon={icon.def} size={14} /><span data-user-content>{e.title}</span>
+      <div key={`e:${e.source}`} data-source={e.source} className="backlink-entry">
+        <a href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"
+          onClick={(ev) => { ev.preventDefault(); onOpen(e.source, null, e.readOnly); }}>
+          <Icon name={icon.glyph} dataIcon={icon.def} size={13} /><span data-user-content>{e.title}</span>
         </a>
-        <ul className="excerpts">
-          {shown.map((o, i) => (
-            <li key={i}><Excerpt occurrence={o} source={e.source} readOnly={e.readOnly} onOpen={(s, oc, ro) => onOpen(s, oc, ro)} /></li>
-          ))}
-        </ul>
-        {e.occurrences.length > SHOWN && (
-          <button type="button" tabIndex={0} className="show-more" data-command="panel.backlinks.more" aria-expanded={all}
-            onClick={() => {
-              if (!all) focusExcerpt.current = { source: e.source, index: SHOWN };
-              setExpanded((s) => { const n = new Set(s); if (n.has(e.source)) n.delete(e.source); else n.add(e.source); return n; });
-            }}>
-            {t('backlinks.more', { count: e.occurrences.length - SHOWN })}
-          </button>
-        )}
-      </article>
+      </div>
     );
   };
 

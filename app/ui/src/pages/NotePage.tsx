@@ -501,6 +501,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     const edit = loaded.mode === 'edit' && !showSource;
     if (edit && !edRef.current) return; // again when the editor is ready
     wantFocus.current = false;
+    // D-367: a new object whose title is fixed (a Daily Note, D-320) gets the caret at the start of its first block.
+    if (edit && createdAtOpen.current && live.current.daily && pane.current?.caretToStart()) {
+      setFocusTarget('body');
+      return;
+    }
     if (edit && createdAtOpen.current) {
       // A new note: the title in edit mode, caret at its end, nothing selected (D-255).
       const el = heading.current;
@@ -596,7 +601,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       <div className="note-column">
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
-            onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} />
+            onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />
         </div>
         {daily && (
           <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}

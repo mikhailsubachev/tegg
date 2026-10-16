@@ -87,7 +87,8 @@ for (const [slug, at, name, route] of CASES) {
 
 // ------------------------------------------------------------------------------------------------ AC-12
 
-const TARGETS = ['Task', 'Quick Note', 'Schůzka', 'Osoba', 'Projekt', 'Nápad'];
+// D-122 order: system types first, then the user types by collation.
+const TARGETS = ['Task', 'Quick Note', 'Nápad', 'Osoba', 'Projekt', 'Schůzka'];
 async function menuItems(page: Page): Promise<string[]> {
   return (await (await must(changeTypeMenu(page), 'menu "Change type"')).getByRole('menuitem').allInnerTexts()).map((x) => x.trim());
 }
