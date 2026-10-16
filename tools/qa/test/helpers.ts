@@ -143,6 +143,7 @@ export type Step = {
   level: 'commit' | 'push' | 'nightly' | 'milestone' | 'release';
   dir?: string;
   changedOnly?: boolean;
+  cargoCache?: boolean;
 };
 
 export type Config = {

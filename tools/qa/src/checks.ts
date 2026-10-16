@@ -112,12 +112,29 @@ export function acTestProtection(root: string, cfg: Config, range: string[]): Ch
 
 export type Worktree = { dir: string; remove: () => void };
 
-export function createWorktree(root: string, sha: string): Worktree {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tegg-verify-')));
+/**
+ * `stable` (tree gates, CONTRACT §3.2.1): the worktree lives at the same path outside the repository every run,
+ * so Cargo reuses its incremental artifacts for the checkout's own crates (their metadata hash includes the
+ * path). Sources still come from `sha` only: the directory is wiped before `git worktree add` and removed after.
+ * If another gate of the same repository holds the stable path, a fresh temporary directory is used instead.
+ */
+export function createWorktree(root: string, sha: string, opts: { stable?: boolean } = {}): Worktree {
+  const lock = opts.stable ? takeStableLock(root) : undefined;
+  let dir: string;
+  if (lock) {
+    dir = path.join(lock.base, 'wt');
+    if (fs.existsSync(dir)) gitTry(root, ['worktree', 'remove', '--force', dir], { stripped: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+    gitTry(root, ['worktree', 'prune'], { stripped: true });
+  } else {
+    dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tegg-verify-')));
+  }
+  const release = () => lock?.release();
   try {
     git(root, ['worktree', 'add', '--detach', '--force', dir, sha], { stripped: true });
   } catch (e) {
     fs.rmSync(dir, { recursive: true, force: true });
+    release();
     throw e;
   }
   return {
@@ -126,8 +143,50 @@ export function createWorktree(root: string, sha: string): Worktree {
       gitTry(root, ['worktree', 'remove', '--force', dir], { stripped: true });
       fs.rmSync(dir, { recursive: true, force: true });
       gitTry(root, ['worktree', 'prune'], { stripped: true });
+      release();
     },
   };
+}
+
+/** The stable worktree's base directory for this repository: outside it, keyed by the checkout root. */
+export function stableWorktreeBase(root: string): string {
+  const key = createHash('sha256').update(fs.realpathSync(root)).digest('hex').slice(0, 12);
+  return path.join(fs.realpathSync(os.tmpdir()), `tegg-verify-${key}`);
+}
+
+/** An exclusive lock on the stable worktree path (a pid file; a dead holder's lock is taken over). */
+function takeStableLock(root: string): { base: string; release: () => void } | undefined {
+  const base = stableWorktreeBase(root);
+  fs.mkdirSync(base, { recursive: true });
+  const file = path.join(base, 'lock');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(file, `${process.pid}\n`, { flag: 'wx' });
+      const release = () => {
+        fs.rmSync(file, { force: true });
+        try {
+          fs.rmdirSync(base); // empty once the worktree is gone; the path itself is what stays stable
+        } catch {
+          // not empty or already gone
+        }
+      };
+      return { base, release };
+    } catch {
+      const pid = Number(fs.readFileSync(file, 'utf8').trim());
+      if (Number.isInteger(pid) && pid > 0 && pidAlive(pid)) return undefined;
+      fs.rmSync(file, { force: true });
+    }
+  }
+  return undefined;
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }
 
 /**

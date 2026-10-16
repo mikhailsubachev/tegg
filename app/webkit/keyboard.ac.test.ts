@@ -34,10 +34,10 @@ async function paletteOpensWithCursor(page: Page, keys: string, where: string) {
   assert.ok(await absent(paletteDialog(page)), `${where}: Esc closes the palette`);
 }
 
-test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus', async ({ page }) => {
-  test.setTimeout(180_000);
-  await start(page);
-  for (const row of R1) {
+// One test per route so Playwright spreads the routes over workers (D-343); each starts from a fresh app.
+for (const row of R1) {
+  test(`fr_ux_03_ac1_palette_opens_from_every_route_and_focus: ${row.id}`, async ({ page }) => {
+    await start(page);
     const name = await goRoute(page, row);
     await mustBeOn(page, name, `route ${row.id}`);
     for (const keys of ['Meta+k', 'Meta+Shift+p']) {
@@ -54,8 +54,11 @@ test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus', async ({ page }) =
       await page.getByRole('textbox', { name: 'Search query' }).or(page.getByRole('searchbox', { name: 'Search query' })).first().focus();
       await paletteOpensWithCursor(page, 'Meta+k', 'search, focus in a text field');
     }
-    if (row.id === 'chooser') await page.keyboard.press('Escape');
-  }
+  });
+}
+
+test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the switcher and New object', async ({ page }) => {
+  await start(page);
   // Over the switcher and the New object dialog the palette replaces them.
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'Quick switcher');
@@ -97,8 +100,10 @@ async function checkEffect(page: Page, title: string, before: { main: string | n
   }
 }
 
-test('fr_ux_03_ac2_every_command_ranks_first_and_runs', async ({ page }) => {
-  test.setTimeout(240_000);
+// Four shards over the command list so they run on parallel workers (D-343); every command is in exactly one.
+const AC2_SHARDS = 4;
+for (let shard = 0; shard < AC2_SHARDS; shard++) test(`fr_ux_03_ac2_every_command_ranks_first_and_runs: shard ${shard + 1}/${AC2_SHARDS}`, async ({ page }) => {
+  test.setTimeout(120_000);
   await start(page);
   await openNote(page, '2026-10-07 Porada'); // so the panel and focus-mode commands have an object
   await page.keyboard.press('Meta+k');
@@ -107,7 +112,8 @@ test('fr_ux_03_ac2_every_command_ranks_first_and_runs', async ({ page }) => {
   await page.keyboard.press('Escape');
   for (const s of STATIC_COMMANDS) assert.ok(all.includes(s), `palette lists "${s}"`);
   const failures: string[] = [];
-  for (const title of all) {
+  for (const [i, title] of all.entries()) {
+    if (i % AC2_SHARDS !== shard) continue;
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     if (!(await onPage(page, '2026-10-07 Porada', 200))) await openNote(page, '2026-10-07 Porada');
@@ -237,13 +243,12 @@ async function controlsWithoutCommand(page: Page): Promise<string[]> {
   }, CONTROL_SELECTOR);
 }
 
-test('fr_ux_03_ac8_every_control_carries_a_command', async ({ page }) => {
-  test.setTimeout(180_000);
-  await start(page);
-  const failures: string[] = [];
-  for (const row of R1) {
+for (const row of R1) {
+  test(`fr_ux_03_ac8_every_control_carries_a_command: ${row.id}`, async ({ page }) => {
+    await start(page);
+    const failures: string[] = [];
     const name = await goRoute(page, row);
-    if (!(await onPage(page, name, 2000))) { failures.push(`${row.id}: not reached`); continue; }
+    assert.ok(await onPage(page, name, 2000), `${row.id}: not reached`);
     for (const p of await controlsWithoutCommand(page)) failures.push(`${row.id}: ${p}`);
     if (row.id === 'note/<path>') {
       await page.keyboard.press('Meta+Backslash');
@@ -251,18 +256,17 @@ test('fr_ux_03_ac8_every_control_carries_a_command', async ({ page }) => {
       for (const p of await controlsWithoutCommand(page)) failures.push(`${row.id} (panel open): ${p}`);
       await page.keyboard.press('Meta+Backslash');
     }
-    if (row.id === 'chooser') await page.keyboard.press('Escape');
-  }
-  assert.deepEqual(failures, []);
-});
+    assert.deepEqual(failures, []);
+  });
+}
 
-test('fr_ux_03_ac9_global_shortcuts_from_every_route', async ({ page }) => {
-  test.setTimeout(300_000);
-  const core = await start(page);
-  const failures: string[] = [];
-  const reset = async () => { for (let i = 0; i < 3; i++) await page.keyboard.press('Escape'); };
-  const routes = R1.filter((r) => r.id !== 'chooser');
-  for (const row of routes) {
+const ac9Reset = async (page: Page) => { for (let i = 0; i < 3; i++) await page.keyboard.press('Escape'); };
+
+for (const row of R1.filter((r) => r.id !== 'chooser')) {
+  test(`fr_ux_03_ac9_global_shortcuts_from_every_route: ${row.id}`, async ({ page }) => {
+    const core = await start(page);
+    const failures: string[] = [];
+    const reset = () => ac9Reset(page);
     for (const r4 of R4.filter((x) => x.enabled)) {
       if (['Toggle right panel', 'Toggle focus mode'].includes(r4.command) && row.id !== 'note/<path>') continue; // object routes only (FR-UX-02 AC-7, AC-9)
       if (r4.command.startsWith('Open recent vault')) continue; // switches the vault: from every route in vault_switcher.ac.test.ts (FR-VLT-01 AC-17)
@@ -277,7 +281,15 @@ test('fr_ux_03_ac9_global_shortcuts_from_every_route', async ({ page }) => {
       if (r4.command === 'Toggle sidebar' && (await seen(sidebar(page), 200)) !== before.sidebar) await page.keyboard.press(r4.press);
       if (r4.command === 'Toggle right panel' && (await seen(panel(page), 200))) await page.keyboard.press(r4.press);
     }
-  }
+    if ((await nonReadCalls(core)).length) failures.push(`non-read commands: ${(await nonReadCalls(core)).join(', ')}`);
+    assert.deepEqual(failures, []);
+  });
+}
+
+test('fr_ux_03_ac9_global_shortcuts_from_every_route: dialogs and unbound keys', async ({ page }) => {
+  const core = await start(page);
+  const failures: string[] = [];
+  const reset = () => ac9Reset(page);
   // While a dialog is open only its keys act.
   await reset();
   await runCommand(page, 'Go to Inbox');

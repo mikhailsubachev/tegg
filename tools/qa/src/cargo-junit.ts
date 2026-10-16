@@ -3,7 +3,8 @@
 // panic happened inside the test file itself and isn't an unwrap of a setup error; a stub's `todo!()`,
 // a panic elsewhere or a compile error is not red.
 //
-// Usage (from the Cargo workspace root): node tools/qa/src/cargo-junit.ts --junit <report.xml> <tests/ac_*.rs …>
+// Usage (from the Cargo workspace root): node tools/qa/src/cargo-junit.ts --junit <report.xml> <tests/ac_*.rs …> [-- <libtest args>]
+// Arguments after `--` go to every test binary, e.g. `--skip nfr_perf_` (the push gate leaves latency ACs to nightly, D-343).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -72,13 +73,15 @@ function main(argv: string[]): number {
     return 2;
   }
   const junit = argv[i + 1];
-  const files = argv.filter((_, k) => k !== i && k !== i + 1);
+  const dd = argv.indexOf('--');
+  const libtest = dd < 0 ? [] : argv.slice(dd + 1);
+  const files = (dd < 0 ? argv : argv.slice(0, dd)).filter((_, k) => k !== i && k !== i + 1);
   let status = 0;
   const reports: string[] = [];
   for (const f of files) {
     const pkg = packageOf(f);
     const stem = path.basename(f, '.rs');
-    const r = spawnSync('cargo', ['test', '-p', pkg, '--test', stem, '--no-fail-fast', '--', '--test-threads=1'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+    const r = spawnSync('cargo', ['test', '-p', pkg, '--test', stem, '--no-fail-fast', '--', '--test-threads=1', ...libtest], { encoding: 'utf8', maxBuffer: 1 << 28 });
     process.stdout.write(r.stdout ?? '');
     process.stderr.write(r.stderr ?? '');
     if (r.status !== 0) status = 1;

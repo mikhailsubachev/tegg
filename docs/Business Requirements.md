@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.50, for review                                             |
+| **Document status** | Draft v1.51, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -65,6 +65,7 @@
 | v1.47   | 2026-10-15 | Owner feedback on the preview, decisions D-312…D-317: Aliases as one comma-separated text field; no description subtitle on objects; `Other properties` hidden when empty; no breadcrumb on the note page; per-type hidden properties (new FR-TYP-17); link chips while a text value is being edited (supersedes the edit-mode part of D-257, built separately) |
 | v1.48   | 2026-10-15 | Slice 4B daily-note decisions D-318…D-320 (AP-240…AP-242): one Daily Note per day, newest wins when two share a date (notice and Duplicate titles), fixed `YYYY-MM-DD` title. |
 | v1.49   | 2026-10-15 | Slice 4B daily-note decisions D-321…D-338 (AP-243…AP-260): daily route, virtual note and first write, template, context sections, navigation, review control, @ date rows, date-link rules, title mismatch, tie-breaks, invalid daily-format. |
+| v1.51   | 2026-10-16 | D-343: faster push gate (G1) at the same functional coverage: latency ACs move to nightly, Cargo build cache for gate worktrees, parallel WebKit tests (`docs/plans/verify-speedup-proposal.md`). |
 | v1.50   | 2026-10-16 | Slice 4B contract decisions D-339…D-342 (AP-261…AP-264, `docs/contracts/ms4-daily.md`): offset-less instants, today in the UI, literal `{{time}}`, stored title in the index. |
 
 ---
@@ -451,6 +452,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-340 | Today is computed in the UI (FR-DLY-01) (AP-262, owner, 2026-10-16) | The UI computes today (`@tegg/doc` `localDate`) and passes day windows to the core (ms4-daily §1); FR-DLY-01 AC-2's test tag is L1 for `localDate` |
 | D-341 | `{{time}}` in the daily template (FR-DLY-06, D-270) (AP-263, owner, 2026-10-16) | Stays literal until FR-TPL (v1.0); the starter vault's daily template has no `{{time}}` |
 | D-342 | Stored title kept in the index (D-334) (AP-264, owner, 2026-10-16) | The index keeps a Daily Note's stored `title` when it differs from its date (`ObjectInfo.stored_title`), only so the switcher still matches it; never written, rebuilt from files (AR-01) |
+| D-343 | Faster push gate G1 (TS-G4; owner, 2026-10-16) | G1 took ~20 min against its 10-min budget. (1) Latency-target ACs (`nfr_perf_*`, FR-NAV-01 AC-9, FR-SRC-01 AC-11, NFR-PERF-03 AC-2 headroom) run at G2 nightly and above, not G1; functional ACs in the same files (FR-UX-07, FR-STO-07) stay in G1. (2) Tree gates share a Cargo build cache in `.verify/cargo-target` and check out the commit at a stable path outside the repository; sources still come only from the commit (`tools/qa/CONTRACT.md` §3.2.1). (3) WebKit (L5) tests run fully parallel with 8 workers under `./verify`; the route sweeps of FR-UX-03 AC-1, AC-2, AC-8, AC-9 are split into one test per route or shard with the same assertions. Precondition: the nightly job is installed, else (1) lowers coverage |
 
 ---
 

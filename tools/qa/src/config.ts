@@ -7,7 +7,8 @@ import { UsageError } from './proc.ts';
 export const GATES = ['commit', 'push', 'nightly', 'milestone', 'release'] as const;
 export type Gate = (typeof GATES)[number];
 
-export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean };
+/** `cargoCache` (default true): tree gates give the step the shared Cargo build cache (CONTRACT §3.2.1, D-343). */
+export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean };
 export type AcRunner = { dir: string; match: RegExp; run: string };
 export type Config = {
   steps: Step[];
@@ -49,7 +50,8 @@ export function loadConfig(root: string): Config {
     if (ids.has(s.id)) throw new UsageError(`qa.config.json: duplicate step id "${s.id}"`);
     ids.add(s.id);
     if (!GATES.includes(s.level)) throw new UsageError(`qa.config.json: steps[${i}].level must be one of ${GATES.join(', ')}`);
-    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true };
+    if (s.cargoCache !== undefined && typeof s.cargoCache !== 'boolean') throw new UsageError(`qa.config.json: steps[${i}].cargoCache must be true or false`);
+    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false };
   });
   const acTestPatterns = (raw.acTestPatterns ?? DEFAULT_AC_TEST_PATTERNS).map((p: unknown, i: number) => regex(p, `acTestPatterns[${i}]`));
   const acRunners: AcRunner[] = (raw.acRunners ?? []).map((r: any, i: number) => {
