@@ -462,7 +462,7 @@ test.describe('in America/Los_Angeles with region cs-CZ', () => {
     assert.ok(txt.includes(want.start) && txt.includes(want.end), 'cesta shows both dates in one row');
     for (const l of ['Tags', 'Aliases', 'stav', 'počet', 'Source', 'Review', 'Created', 'Modified', 'Unreviewed', 'Rozpracováno', 'hodnota']) assert.ok(txt.includes(l), `shows ${l}`);
     for (const hidden of ['abc-123', 'obal.jpg', 'prázdné', 'seznam', '01JB0R0000000000000000R007']) assert.ok(!txt.includes(hidden), `hides ${hidden}`);
-    assert.ok(await seen(page.locator('main [data-user-content]', { hasText: 'Poznámka se všemi druhy vlastností.' })), 'description as the subtitle');
+    assert.equal(await page.locator('main [data-user-content]', { hasText: 'Poznámka se všemi druhy vlastností.' }).count(), 0, 'no description subtitle (D-313)');
     assert.ok(await seen(strip.getByRole('link', { name: '#projekt' })), 'tags as tag chips');
     assert.ok(await seen(strip.getByRole('link', { name: 'Dvojník', exact: true })), 'relations as link chips');
     const box = await must(strip.getByRole('checkbox'), 'hotovo as a read-only checkbox');
@@ -614,7 +614,7 @@ test('fr_syn_03_ac11_deleted_or_renamed_while_open', async ({ page }) => {
   }, [R.cil, 'Pages/Cíl nový.md']);
   await sleep(500);
   assert.ok(await seen(article(page, 'Cíl')), 'view follows the renamed note');
-  assert.match(nfc(await page.getByRole('main').innerText()), /Cíl nový/, 'breadcrumb shows the new name');
+  // No breadcrumb (D-315): the reload from the new path is the evidence.
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));
   assert.ok(reads.includes('Pages/Cíl nový.md'), 'reloaded from the new path');
   assert.equal(await page.getByRole('status', { name: 'This note was moved or deleted' }).count(), 0, 'not shown as deleted');

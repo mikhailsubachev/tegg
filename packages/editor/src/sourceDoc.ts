@@ -235,7 +235,8 @@ function tablePatch(original: PMNode, node: PMNode, raw: string): string | null 
   return out.join('\n')
 }
 
-const LIST_MARKER = /^[ \t]*(?:([-*+])|\d+([.)]))[ \t]/
+// An empty item is a bare marker at the end of its line (bug_4a_fr_edt_08_empty_list_after_checklist_saves).
+const LIST_MARKER = /^[ \t]*(?:([-*+])|\d+([.)]))(?=[ \t]|\r?\n|$)/
 
 function listMarker(text: string): string | null {
   const m = text.match(LIST_MARKER)

@@ -227,6 +227,8 @@ pub struct TypeDto {
     pub review: String,
     pub preview: Vec<String>,
     pub preview_ignored: Vec<String>,
+    /// Properties left out of the attribute panel's rows (FR-TYP-17, D-316).
+    pub hidden: Vec<String>,
     pub template: Option<String>,
     pub attributes: Vec<AttributeDto>,
 }
@@ -336,6 +338,8 @@ pub enum TypeOpDto {
     Set { field: String, value: Option<String> },
     Review { on: bool },
     Preview { keys: Vec<String> },
+    /// FR-TYP-17, D-316.
+    Hidden { keys: Vec<String> },
     AddAttribute { attribute: AttributeInputDto },
     UpdateAttribute { key: String, change: AttributeChangeDto },
     RemoveAttribute { key: String },

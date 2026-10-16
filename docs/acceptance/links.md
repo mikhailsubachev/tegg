@@ -37,7 +37,7 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-DLY-08 Date mentions
 
-- **AC-1** Typing `@today` and confirming inserts `[[2026-10-08]]` (today's date in the daily-note format).
+- **AC-1** Typing `@today` and confirming inserts `[[2026-10-08]]` (today's date as `YYYY-MM-DD`, whatever the `daily-format`; D-333).
 - **AC-2** A link to a date whose Daily Note doesn't exist opens the virtual Daily Note for that date; no file is created until the user types in it (FR-DLY-02).
 - **AC-3** The Daily Note for that date shows the mentioning note in its backlinks, even while it's virtual.
 

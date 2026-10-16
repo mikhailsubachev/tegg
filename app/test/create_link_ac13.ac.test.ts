@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// MS4 slice 4A, L1: FR-LNK-04 AC-13 (D-312), a refused rewrite after the note is created fails with `RewriteFailed`
+// MS4 slice 4A, L1: FR-LNK-04 AC-13 (D-339), a refused rewrite after the note is created fails with `RewriteFailed`
 // (docs/contracts/ms4-links.md §4, §5.3). Written from docs/acceptance/backlinks.md and the contract only (D-61).
 import { afterEach, test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -36,7 +36,7 @@ test('fr_lnk_04_ac13_a_refused_rewrite_fails_with_rewrite_failed', async () => {
   } catch (e) {
     err = e;
   }
-  assert.notEqual(err, null, 'createObjectForLink rejects (D-312)');
+  assert.notEqual(err, null, 'createObjectForLink rejects (D-339)');
   assert.equal(err.kind, 'RewriteFailed');
   assert.equal(err.path, 'Quick Notes/Q3 plán.md', 'the created path');
   assert.equal(calls.filter((c) => c.cmd === 'link_create').length, 1, 'exactly one link_create');
