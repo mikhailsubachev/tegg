@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.46, for review                                             |
+| **Document status** | Draft v1.47, for review                                             |
 | **Date**            | 2026-10-15                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -62,6 +62,7 @@
 | v1.44   | 2026-10-15 | MS4 plan decisions D-267…D-275 (AP-195…AP-203, `docs/plans/ms4-implementation-plan.md`): MS4 in slices 4A–4F; rename on title commit; no backup zip for a single note rename; one daily-note template; daily context sections and review before MS5; embed modes before tasks; backup list in Settings; tag parts moved to v1.0. |
 | v1.45   | 2026-10-15 | MS4 slice 4A AC decisions D-276…D-295 (AP-204…AP-223, `docs/acceptance/backlinks.md`): backlinks order, excerpts and scope, Broken links and Duplicate titles pages, Create offer and odd targets, duplicate details and merge (a 4C job), one link-resolution rule and vault-wide free stems, MS4 slice labels, external renames, 4A contract. |
 | v1.46   | 2026-10-15 | MS4 slice 4A red-test decisions D-296…D-311 (AP-224…AP-239): fixture retitle, path and Markdown-link targets, `rewrite` format, `link_create` as the offer's write, TS shapes, excerpt whitespace, new test files, catalog variables, chip attributes, page roles, fake-core failures, embed placeholder offer, create race error. |
+| v1.47   | 2026-10-16 | D-312: the Create offer acts on the clicked link after edits made while it is open; `createLink.rewriteFailed` when it can't (QA review of PR #36). |
 
 ---
 
@@ -416,6 +417,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-309 | Fake core write failures | `writeControl({ fail: 'Io' })` also applies to `link_create` (FR-LNK-04 AC-11) (AP-237) |
 | D-310 | Create from a broken note embed (FR-LNK-04 AC-6) | A broken `![[Note]]` stays an R5 placeholder; the offer opens from the link chip the placeholder shows for its target (D-144) (AP-238) |
 | D-311 | Create race error | When create-exclusive fails because the target file appeared before the index saw it, `link_create` returns `CoreError::Exists { path }`, not `NameTaken` (AP-239) |
+| D-312 | Create offer and edits made while it is open (D-287) | The offer is non-modal: `Create` rewrites the clicked link at its current place (followed through every edit). If that link was deleted, nothing is written; if the note was created but the link can't be changed, the note stays. Both show `createLink.rewriteFailed`: `The link couldn’t be changed to point to "{stem}". Edit it, then try again.` (owner, 2026-10-16; backlinks.md FR-LNK-04 AC-13) |
 
 ---
 
