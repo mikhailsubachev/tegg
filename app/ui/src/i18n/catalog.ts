@@ -535,7 +535,7 @@ export const en: Catalog = {
   'note.more': 'More',
   'note.more.changeType': 'Change type…',
   'panel.changeTypeMenu': 'Change type',
-  'panel.chipLocked': "The type of a {name} can't be changed",
+  'panel.chipLocked': "The type of {name} objects can't be changed",
   'panel.chipReadOnly': 'This note is read-only, so its type can’t be changed',
   'panel.typeWarning': "The type value isn't a single type name. Shown as Page.",
   'panel.chooseDate': 'Choose date for {name}',

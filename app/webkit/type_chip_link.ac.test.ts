@@ -141,7 +141,7 @@ test('fr_typ_07_ac12_palette_change_type_opens_the_same_menu', async ({ page }) 
 });
 
 const FIXED: [string, string, RegExp | null][] = [
-  ['daily_note', P.denni, /^The type of Daily Note objects can't be changed$/],
+  ['daily_note', P.denni, /^The type of a Daily Note can't be changed$/],
   ['tag', EXTRA.tag, /^The type of Tag objects can't be changed$/],
   ['image', EXTRA.image, /^The type of Image objects can't be changed$/],
   ['pdf', EXTRA.pdf, /^The type of PDF objects can't be changed$/],
