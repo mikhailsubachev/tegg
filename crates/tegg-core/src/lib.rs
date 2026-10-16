@@ -63,6 +63,10 @@ pub enum CoreError {
     PlanChanged { now: LinkCreatePlan },
     /// ms4-links §3 (D-311): the target resolves now, or its file appeared; nothing was written.
     Exists { path: String },
+    /// ms4-daily §3 (D-318): a Daily Note is created only by `daily_create`.
+    UseDailyNote,
+    /// ms4-daily §3: `daily_create` bytes don't have `type: daily-note`, the date and the date as title.
+    DailyMismatch,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -900,3 +904,8 @@ pub use links4a::{
     DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,
 };
 pub use tegg_format::excerpt::{At, Excerpt, LinkTargetInfo, Mark, RSeg, TargetKind};
+
+// ------------------------------------------------------------------------------------------------ slice 4B
+// docs/contracts/ms4-daily.md §3: Daily Notes (`daily.rs`).
+pub mod daily;
+pub use daily::{ContextRow, DailyContext, DailyContextPage, DailyCreated, DailyDraft, DailyView, DayWindow};

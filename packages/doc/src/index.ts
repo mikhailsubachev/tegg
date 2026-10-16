@@ -151,3 +151,7 @@ export function typeMatch(value: unknown): { key: string; single: boolean } {
   if (typeof value === 'string' && value.trim() !== '') return { key: typeKey(value), single: true }
   return { key: 'page', single: false }
 }
+
+// ---------------------------------------------------------------- slice 4B (ms4-daily §1, §5, §6)
+
+export { parseDate, localDate, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows } from './daily.js'

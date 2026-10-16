@@ -217,4 +217,29 @@ export type DuplicateDetailsDto = { created: string | null, preview: Array<[stri
 export type DuplicateObjectDto = { path: string, title: string, type: string, folder: string, details: DuplicateDetailsDto, backlinks: number, };
 export type DuplicateGroupDto = { key: string, label: string, objects: Array<DuplicateObjectDto>, };
 export type LinkCreatedDto = { path: string, rewrite: string | null, };
+export type DailyViewDto = { 
+/**
+ * `YYYY-MM-DD`.
+ */
+date: string, 
+/**
+ * The winner's path, or null: the note is virtual.
+ */
+path: string | null, duplicates: Array<string>, 
+/**
+ * `unreviewed` | `reviewed` | null.
+ */
+review: string | null, };
+export type DailyDraftDto = { 
+/**
+ * The complete first-write bytes for an empty edit, with `{{id}}` / `{{now}}` placeholders.
+ */
+text: string, 
+/**
+ * The part after the frontmatter: the editor's virtual content.
+ */
+body: string, templateInvalid: string | null, path: string, formatFallback: boolean, };
+export type ContextRowDto = { path: string, title: string, type: string, at: string, };
+export type DailyContextDto = { quickNotes: Array<ContextRowDto>, created: Array<ContextRowDto>, modified: Array<ContextRowDto>, totals: [number, number, number], };
+export type DailyCreatedDto = { path: string, version: VersionDto, duplicates: Array<string>, };
 export type TypeDefDto = TypeDto;

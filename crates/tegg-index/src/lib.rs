@@ -55,6 +55,9 @@ pub struct ObjectInfo {
     pub tags: Vec<String>,
     pub attributes: Value,
     pub folder: String,
+    /// MS4 4B (ms4-daily §2, D-334, AP-264): a Daily Note's stored `title:` text when it differs from its `date`
+    /// (the displayed title is the date). STUB: always `None` until 4B is built.
+    pub stored_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -456,6 +459,7 @@ impl Meta {
             tags: self.s.tags.clone(),
             attributes: self.s.attributes.clone(),
             folder: self.folder.clone(),
+            stored_title: None,
         }
     }
 
@@ -1183,6 +1187,12 @@ impl Index {
         });
         out.sort_by(|a, b| (&a.source, &a.attribute).cmp(&(&b.source, &b.attribute)));
         out
+    }
+
+    /// MS4 4B (ms4-daily §2, D-319): the other Daily Notes of `date` (the losers), in winner order. STUB: empty until
+    /// 4B is built.
+    pub fn daily_duplicates(&self, _date: NaiveDate) -> Vec<String> {
+        Vec::new()
     }
 
     /// FR-FMT-09 AC-2: daily notes are recognized by their `date` attribute, whatever the file name.

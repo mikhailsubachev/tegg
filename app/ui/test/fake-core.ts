@@ -157,6 +157,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
+    'daily_view', 'daily_dates', 'daily_draft', 'daily_context', // 4B (ms4-daily §4): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -365,6 +366,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     index_duplicate_titles: viaNode('index_duplicate_titles', '__teggLinks'),
     link_create_plan: viaNode('link_create_plan', '__teggLinks'),
     link_create: viaNode('link_create', '__teggLinks'),
+    // 4B (ms4-daily §4, §8). STUBS until 4B is built: deliberately wrong answers (TS-I1). The build replaces them with
+    // the §2 winner rule, the @tegg/doc twins and the `note_create` refusal (UseDailyNote).
+    daily_view: (a) => ({ date: String(a.date), path: null, duplicates: [], review: null }),
+    daily_dates: () => [],
+    daily_draft: () => { throw err('Io', 'fake: daily_draft is not built (4B)'); },
+    daily_create: () => { throw err('Io', 'fake: daily_create is not built (4B)'); },
+    daily_context: () => ({ quickNotes: [], created: [], modified: [], totals: [0, 0, 0] }),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
