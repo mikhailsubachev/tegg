@@ -16,15 +16,24 @@ use tegg_vault::{FileVersion, FsEntry, LocalFs, VaultFs};
 struct LateError {
     inner: LocalFs,
     fired: AtomicBool,
+    /// Also fail the next read of the landed file once, so the error reaches the caller.
+    blind: bool,
+    blind_now: AtomicBool,
 }
 impl VaultFs for LateError {
     fn list(&self) -> io::Result<Vec<FsEntry>> { self.inner.list() }
-    fn read(&self, p: &str) -> io::Result<(Vec<u8>, FileVersion)> { self.inner.read(p) }
+    fn read(&self, p: &str) -> io::Result<(Vec<u8>, FileVersion)> {
+        if p.contains("2026-10-14") && self.blind_now.swap(false, Ordering::SeqCst) {
+            return Err(io::Error::other("read failed (test)"));
+        }
+        self.inner.read(p)
+    }
     fn version(&self, p: &str) -> io::Result<Option<FileVersion>> { self.inner.version(p) }
     fn replace(&self, p: &str, b: &[u8]) -> io::Result<FileVersion> { self.inner.replace(p, b) }
     fn create_new(&self, p: &str, b: &[u8]) -> io::Result<FileVersion> {
         let v = self.inner.create_new(p, b)?;
         if p.contains("2026-10-14") && !self.fired.swap(true, Ordering::SeqCst) {
+            self.blind_now.store(self.blind, Ordering::SeqCst);
             return Err(io::Error::other("fsync failed after rename (test)"));
         }
         Ok(v)
@@ -35,8 +44,7 @@ impl VaultFs for LateError {
     fn is_placeholder(&self, p: &str) -> io::Result<bool> { self.inner.is_placeholder(p) }
 }
 
-#[test]
-fn bug_38_fr_dly_02_io_after_rename_never_makes_a_second_file() {
+fn open_late_error(blind: bool) -> (Sandbox, std::path::PathBuf, Core) {
     let sb = sandbox();
     let root = sb.base.join("Deník");
     std::fs::create_dir_all(&root).expect("setup");
@@ -54,9 +62,15 @@ fn bug_38_fr_dly_02_io_after_rename_never_makes_a_second_file() {
             std::fs::copy(e.path(), root.join(".tegg").join(e.file_name())).expect("setup");
         }
     }
-    let fs = Arc::new(LateError { inner: LocalFs::new(&root), fired: AtomicBool::new(false) });
+    let fs = Arc::new(LateError { inner: LocalFs::new(&root), fired: AtomicBool::new(false), blind, blind_now: AtomicBool::new(false) });
     let core = Core::open_with(fs as Arc<dyn VaultFs>, &sb.dirs, CoreOptions { watch: false, sync: None }).expect("open");
     assert!(core.wait_idle(Duration::from_secs(30)));
+    (sb, root, core)
+}
+
+#[test]
+fn bug_38_fr_dly_02_io_after_rename_never_makes_a_second_file() {
+    let (_sb, root, core) = open_late_error(false);
     let d = NaiveDate::from_ymd_opt(2026, 10, 14).expect("date");
     let bytes = "---\nid: 01JB4B0000000000000000B038\ntype: daily-note\ntitle: \"2026-10-14\"\ndate: 2026-10-14\nreview: unreviewed\ncreated: 2026-10-14T12:00:00+02:00\nmodified: 2026-10-14T12:00:00+02:00\n---\nDnes\n";
     let first = core.daily_create(d, bytes.as_bytes());
@@ -67,4 +81,21 @@ fn bug_38_fr_dly_02_io_after_rename_never_makes_a_second_file() {
     assert_eq!(made.path, "Daily/2026-10-14.md");
     let names: Vec<String> = std::fs::read_dir(root.join("Daily")).expect("Daily/").filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.ends_with(".md")).collect();
     assert_eq!(names, vec!["2026-10-14.md".to_string()], "exactly one Daily Note file");
+}
+
+/// QA re-review of PR #38: the user keeps typing after the `Io` error, so the retry sends other bytes with the same
+/// `id`. The file at the planned path is still this write: replaced atomically, never a `(2)` copy (FR-SYN-06).
+#[test]
+fn bug_38_fr_dly_02_io_then_retry_with_new_bytes_replaces_the_same_file() {
+    let (_sb, root, core) = open_late_error(true);
+    let d = NaiveDate::from_ymd_opt(2026, 10, 14).expect("date");
+    let head = "---\nid: 01JB4B0000000000000000B039\ntype: daily-note\ntitle: \"2026-10-14\"\ndate: 2026-10-14\nreview: unreviewed\ncreated: 2026-10-14T12:00:00+02:00\nmodified: 2026-10-14T12:00:00+02:00\n---\n";
+    let first = format!("{head}Dnes\n");
+    let second = format!("{head}Dnes píšu dál\n");
+    assert!(core.daily_create(d, first.as_bytes()).is_err(), "the injected error is reported");
+    let made = core.daily_create(d, second.as_bytes()).expect("the retry");
+    assert_eq!(made.path, "Daily/2026-10-14.md");
+    let names: Vec<String> = std::fs::read_dir(root.join("Daily")).expect("Daily/").filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.ends_with(".md")).collect();
+    assert_eq!(names, vec!["2026-10-14.md".to_string()], "exactly one Daily Note file");
+    assert_eq!(std::fs::read_to_string(root.join("Daily/2026-10-14.md")).expect("read"), second, "the newer bytes win");
 }

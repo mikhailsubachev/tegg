@@ -138,7 +138,8 @@ export function fixDailyTitle(text: string): string {
     const raw = bare(fm[ti]).slice(6).trim()
     const next = fm[ti + 1]
     const continued = next !== undefined && /^[ \t]/.test(next)
-    const plainOne = !continued && !/^[|>]/.test(raw) && !/\s#/.test(raw) && (/^"[^"]*"$/.test(raw) || /^'[^']*'$/.test(raw) || !/^["']/.test(raw))
+    // An empty value may continue on the next line at column 0 (`- Pátek`): left alone (PR #38 re-review).
+    const plainOne = raw !== '' && !continued && !/^[|>]/.test(raw) && !/\s#/.test(raw) && (/^"[^"]*"$/.test(raw) || /^'[^']*'$/.test(raw) || !/^["']/.test(raw))
     if (!plainOne) return text
     if (raw.replace(/^["']|["']$/g, '').normalize('NFC') === date) return text
     fm[ti] = `${want}${nl}`
