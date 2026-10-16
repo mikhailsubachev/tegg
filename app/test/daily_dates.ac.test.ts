@@ -1,8 +1,8 @@
 // MS4 slice 4B, L1: the UI's clock and calendar arithmetic through the real @tegg/doc (never mocked). FR-DLY-01 AC-2
 // (`localDate`: midnight is local, both test zones, D-340), FR-DLY-03 AC-1 (`addDays` on calendar days across DST,
 // month, year and leap boundaries). docs/acceptance/daily-notes.md; interface docs/contracts/ms4-daily.md §1. FR-DLY-03
-// AC-6 (calendar locale) has no L1 interface in the contract and is tested in app/webkit/daily_calendar.ac.test.ts
-// (see the red-commit report). Written from the ACs and the contract only (D-61). Imports inside the tests, every check
+// AC-6 (calendar locale) is L5 only (D-354): app/webkit/daily_calendar.ac.test.ts. A zone change while running
+// (FR-DLY-01 AC-2) is covered here by `localDate` with an explicit zone (D-350). Written from the ACs and the contract only (D-61). Imports inside the tests, every check
 // node:assert (TS-I1).
 import { test } from 'vitest';
 import assert from 'node:assert/strict';

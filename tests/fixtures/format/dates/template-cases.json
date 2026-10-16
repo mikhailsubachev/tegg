@@ -100,12 +100,12 @@
       "invalid": true
     },
     {
-      "name": "no closing fence: the whole text is the body",
+      "name": "no closing fence: invalid, the whole text is the body (D-362)",
       "date": "2026-10-14",
       "template": "---\ntags: [deník]\nText {{date}}.\n",
       "keys": [],
       "body": "---\ntags: [deník]\nText 2026-10-14.\n",
-      "invalid": null
+      "invalid": true
     },
     {
       "name": "empty template",
@@ -113,6 +113,14 @@
       "template": "",
       "keys": [],
       "body": "",
+      "invalid": false
+    },
+    {
+      "name": "escaped letters in a format (D-361)",
+      "date": "2026-10-14",
+      "template": "{{date:\\Den D. M.}}\n",
+      "keys": [],
+      "body": "Den 14. 10.\n",
       "invalid": false
     }
   ],

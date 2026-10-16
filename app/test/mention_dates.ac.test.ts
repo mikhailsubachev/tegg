@@ -102,3 +102,27 @@ test('fr_dly_08_ac2_invalid_dates_give_no_row', async () => {
   // Red guard: a valid date in the same call shape does give a row.
   assert.equal(await dateOf('2026-10-20', 'en-US'), '2026-10-20');
 });
+
+test('fr_dly_08_ac1_labels_of_the_keyword_rows', async () => {
+  // D-357: Today / Tomorrow / Yesterday, <date>; in cs Dnes / Zítra / Včera, <date>.
+  const cases: [string, string, string][] = [
+    ['today', 'en-US', 'Today, 2026-10-14'], ['tomorrow', 'en-US', 'Tomorrow, 2026-10-15'], ['yesterday', 'en-US', 'Yesterday, 2026-10-13'],
+    ['dnes', 'cs', 'Dnes, 2026-10-14'], ['zítra', 'cs', 'Zítra, 2026-10-15'], ['včera', 'cs', 'Včera, 2026-10-13'],
+  ];
+  const bad: string[] = [];
+  for (const [q, loc, want] of cases) {
+    const r = await rows(q, loc);
+    if (r[0]?.label !== want) bad.push(`@${q} (${loc}): want ${want}, got ${r[0]?.label}`);
+  }
+  assert.deepEqual(bad, [], 'the six keyword labels');
+});
+
+test('fr_dly_08_ac1_locale_tags_match_by_language', async () => {
+  // D-357: `cs` and `cs-CZ` behave the same; `en-US` gets no Czech keywords.
+  for (const [q, want] of [['zítra', '2026-10-15'], ['dnes', '2026-10-14']] as const) {
+    assert.equal(await dateOf(q, 'cs-CZ'), want, `@${q} in cs-CZ`);
+    assert.equal(await dateOf(q, 'cs'), want, `@${q} in cs`);
+  }
+  assert.equal(await dateOf('20.10.2026', 'cs-CZ'), '2026-10-20', 'the cs short date in cs-CZ');
+  assert.equal(await dateOf('zítra', 'en-US'), null, 'no Czech keyword in en-US');
+});

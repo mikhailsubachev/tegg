@@ -37,8 +37,8 @@ function dailyRouteId(reg: Mod): string | null {
   return r ? String(r.id) : null;
 }
 function dailyCtx(reg: Mod, date: string, written: boolean) {
-  const id = dailyRouteId(reg) ?? 'daily/YYYY-MM-DD';
-  return ctx({ id, date, param: date, ...(written ? { path: `Daily/${date}.md` } : {}) });
+  // D-352: ctx.route = { id: 'daily/YYYY-MM-DD', date, path: string | null }.
+  return ctx({ id: dailyRouteId(reg) ?? 'daily/YYYY-MM-DD', date, path: written ? `Daily/${date}.md` : null });
 }
 const byTitle = (cat: Mod, list: any[], t: string) => list.find((c) => cat.t(c.title, c.vars ?? {}) === t);
 
@@ -49,7 +49,7 @@ test('fr_dly_01_ac1_routes_today_and_daily_are_built', async () => {
   assert.ok(today, 'R1 route today');
   assert.equal(today.status.built, true, 'today built in 4B (R17)');
   const id = dailyRouteId(reg);
-  assert.ok(id, 'R1 route daily/YYYY-MM-DD (D-321)');
+  assert.equal(id, 'daily/YYYY-MM-DD', 'R1 route daily/YYYY-MM-DD (D-321, D-352)');
   const daily = routes.find((r) => r.id === id);
   assert.equal(daily.status.built, true, 'daily/… built');
   assert.equal(daily.status.due?.milestone ?? 'MS4', 'MS4', 'MS4');
@@ -149,7 +149,7 @@ test('fr_dly_01_ac1_catalog_has_the_r19_strings', async () => {
   ];
   const bad = want.filter(([k, t, v]) => !(k in cat.en) || cat.t(k, v ?? {}) !== t).map(([k, t, v]) => `${k}${v ? ' ' + JSON.stringify(v) : ''}: want ${JSON.stringify(t)}, got ${k in cat.en ? JSON.stringify(cat.t(k, v ?? {})) : 'missing'}`);
   assert.deepEqual(bad, [], 'R19 strings in the catalog (§7.1)');
-  for (const k of ['daily.templateInvalid', 'mention.today', 'mention.tomorrow', 'mention.yesterday', 'errors.useDailyNote', 'errors.dailyMismatch']) {
+  for (const k of ['daily.templateInvalid', 'mention.today', 'mention.tomorrow', 'mention.yesterday', 'error.useDailyNote', 'error.dailyMismatch']) {
     assert.ok(k in cat.en, `catalog key ${k}`);
   }
 });

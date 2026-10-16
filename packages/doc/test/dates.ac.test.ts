@@ -83,6 +83,8 @@ test('fr_dly_06_ac2_format_tokens_and_literal_text', async () => {
     ['2026-03-05', 'YYYY-MM-DD', '2026-03-05'],
     ['2026-03-05', 'zápis č. D/M', 'zápis č. 5/3'],
     ['2026-10-14', 'žluťoučký YYYY', 'žluťoučký 2026'],
+    ['2026-10-14', '\\Deník YYYY-MM-DD', 'Deník 2026-10-14'], // D-361: a backslash makes the next character literal
+    ['2026-03-05', '\\D\\D D', 'DD 5'],
   ]
   const bad = cases.filter(([d, f, want]) => m.formatDate(d, f) !== want).map(([d, f, want]) => `${f} on ${d}: want ${want}, got ${m.formatDate(d, f)}`)
   assert.deepEqual(bad, [], 'formatDate tokens YYYY MM M DD D, other characters copied (D-325)')

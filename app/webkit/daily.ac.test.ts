@@ -37,7 +37,8 @@ for (const tz of ZONES) {
         const n0 = (await callsOf(core, 'nav_opened')).length;
         await cmdD(page, '2026-10-14', '⌘D from the body');
         assert.ok(await seen(main(page).getByText(LONG_14[region], { exact: true }), 1000), `subtitle ${LONG_14[region]} (D-337)`);
-        assert.ok((await callsOf(core, 'nav_opened')).length > n0, 'the open is recorded with nav_opened (D-138)');
+        const opened = (await callsOf(core, 'nav_opened')).slice(n0).map((c) => c.args as any);
+        assert.ok(opened.some((a) => a?.route === 'daily/2026-10-14' && (a?.path ?? null) === null), `nav_opened({ route: 'daily/2026-10-14', path: null }) (D-138, D-349): ${JSON.stringify(opened)}`);
         await page.keyboard.press('Meta+BracketLeft');
         await mustBeOn(page, 'Zmínky', 'Back returns to the previous route');
         // ⌘D from the title field and from the sidebar.
@@ -114,6 +115,18 @@ test.describe('which note a date opens', () => {
     assert.ok(await seen(virtualMarker(page), 1000), 'virtual');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
     assert.equal((await callsOf(core, 'note_create')).length, 0, 'note_create is never sent for a Daily Note');
+  });
+
+  test('fr_dly_01_ac5_new_object_with_default_type_daily_note_opens_today', async ({ page }) => {
+    // D-353: every create path whose type is Daily Note opens today's Daily Note instead of a dialog.
+    const v = dailyVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Daily Note'); });
+    const core = await startDaily(page, { vault: v });
+    await page.keyboard.press('Meta+n');
+    await mustDaily(page, '2026-10-14', '⌘N (New object) with default-type Daily Note');
+    assert.ok(await absent(page.getByRole('dialog', { name: 'New object' }), 300), 'no New object dialog');
+    await runCommand(page, 'New object');
+    await mustDaily(page, '2026-10-14', 'palette New object');
+    assert.deepEqual(await writeCalls(core), [], 'nothing written');
   });
 
   test('fr_dly_01_ac5_on_7_october_create_opens_the_existing_note', async ({ page }) => {

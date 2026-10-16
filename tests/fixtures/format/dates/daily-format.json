@@ -1,5 +1,5 @@
 {
-  "about": "ms4-daily §5 (FR-FMT-09, D-336): tegg_format::daily::file_stem(format, date) and @tegg/doc dailyFileStem(format, date). Tokens YYYY, MM, M, DD, D (longest first); other characters copied. `stem` null = BadFormat: no DD or D token, a D-52 forbidden character (/ \\ : * ? \" < > |) or a control character, or an empty stem.",
+  "about": "ms4-daily §5 (FR-FMT-09, D-336): tegg_format::daily::file_stem(format, date) and @tegg/doc dailyFileStem(format, date). Tokens YYYY, MM, M, DD, D (longest first); other characters copied. `stem` null = BadFormat: no DD or D token, a D-52 forbidden character (/ \\ : * ? \" < > |) or a control character, or an empty stem. D-361: a backslash makes the next character literal.",
   "cases": [
     {
       "format": "YYYY-MM-DD",
@@ -130,6 +130,16 @@
       "format": "",
       "date": "2026-10-14",
       "stem": null
+    },
+    {
+      "format": "\\Deník YYYY-MM-DD",
+      "date": "2026-10-14",
+      "stem": "Deník 2026-10-14"
+    },
+    {
+      "format": "\\D\\D YYYY-MM-DD",
+      "date": "2026-03-05",
+      "stem": "DD 2026-03-05"
     }
   ]
 }

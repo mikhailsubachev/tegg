@@ -364,7 +364,8 @@ fn first_write_in(tz_now: &str) {
     let root = daily_vault(&sb);
     let core = open(&root, &sb, false);
     let draft = ok!(core.daily_draft(day("2026-10-14")), "daily_draft(14)");
-    assert_eq!(draft.body, draft_text("2026-10-14", "tags: [deník]\n", &template_body("2026-10-14")), "draft bytes (D-324, D-322)");
+    assert_eq!(draft.text, draft_text("2026-10-14", "tags: [deník]\n", &template_body("2026-10-14")), "draft bytes (D-324, D-322, D-345)");
+    assert_eq!(draft.body, template_body("2026-10-14"), "DailyDraft.body is the part after the frontmatter (D-345)");
     assert_eq!(nfc(&draft.path), NEW14, "draft path");
     assert!(!draft.format_fallback && draft.template_invalid.is_none());
     let before = snapshot(&root);
@@ -507,8 +508,12 @@ fn fr_dly_02_ac5_kill_points_leave_no_partial_or_orphan_file() {
                 assert!(r.is_ok(), "{point:?}: the write completes: {r:?}");
             }
         }
+        // D-344: an orphaned temp file of the first write (`.<name>.tegg-tmp` in the target folder) is cleaned up at the
+        // next start.
+        write_raw(&root, "Daily/.2026-10-14.md.tegg-tmp", b"---\nid: 01JB4B0000000000000000N010\ntype: daily-no");
         // Next start on the plain file system.
         let core = open(&root, &sb, false);
+        assert!(!root.join("Daily/.2026-10-14.md.tegg-tmp").exists(), "{point:?}: the orphaned temp file is removed at the next start (D-344)");
         let added = changed(&before, &snapshot(&root));
         match point {
             Kill::Before => assert_eq!(added, Vec::<String>::new(), "{point:?}: no file, no orphaned temp file after the next start"),
@@ -754,8 +759,8 @@ fn fr_dly_05_ac1_first_write_is_unreviewed_even_with_a_review_key_in_the_templat
     write_raw(&root, TEMPLATE, swap(&read(&root, TEMPLATE), "tags: [deník]\n", "tags: [deník]\nreview: reviewed\n").as_bytes());
     let core = open(&root, &sb, false);
     let d = ok!(core.daily_draft(day("2026-10-14")), "daily_draft(14)");
-    assert!(d.body.contains("\nreview: unreviewed\n"), "the system value wins (D-325)");
-    assert!(!d.body.contains("review: reviewed"), "the template's review is ignored");
+    assert!(d.text.contains("\nreview: unreviewed\n"), "the system value wins (D-325)");
+    assert!(!d.text.contains("review: reviewed"), "the template's review is ignored");
     assert_eq!(core.daily_view(day("2026-10-14")).review, None, "a virtual note has no review state");
     assert_eq!(core.daily_view(day("2026-10-07")).review.as_deref(), Some("unreviewed"));
     assert_eq!(core.daily_view(day("2026-10-01")).review.as_deref(), Some("reviewed"));
@@ -787,7 +792,7 @@ fn fr_dly_06_ac1_draft_body_is_relative_to_the_notes_date() {
     let core = open(&root, &sb, false);
     for d in ["2026-10-14", "2026-03-01", "2026-12-31"] {
         let dr = ok!(core.daily_draft(day(d)), "daily_draft");
-        assert_eq!(dr.body, draft_text(d, "tags: [deník]\n", &template_body(d)), "{d}: frontmatter + expanded template");
+        assert_eq!(dr.text, draft_text(d, "tags: [deník]\n", &template_body(d)), "{d}: frontmatter + expanded template");
     }
 }
 
@@ -802,7 +807,7 @@ fn fr_dly_06_ac3_template_keys_after_date_and_reserved_keys_ignored() {
     );
     let core = open(&root, &sb, false);
     let d = ok!(core.daily_draft(day("2026-10-14")), "daily_draft(14)");
-    assert_eq!(d.body, draft_text("2026-10-14", "nálada: dobrá\ntags: [deník]\n", "Dnes 2026-10-14.\n"), "template order, reserved keys ignored (D-325)");
+    assert_eq!(d.text, draft_text("2026-10-14", "nálada: dobrá\ntags: [deník]\n", "Dnes 2026-10-14.\n"), "template order, reserved keys ignored (D-325)");
     assert_eq!(d.template_keys, vec![("nálada".to_string(), "nálada: dobrá\n".to_string()), ("tags".to_string(), "tags: [deník]\n".to_string())]);
 }
 
@@ -816,7 +821,7 @@ fn fr_dly_06_ac4_template_applied_once() {
     ext_write(&core, &root, TEMPLATE, &swap(&read(&root, TEMPLATE), "## Poznámky", "## Úkoly"));
     assert_eq!(read(&root, NEW14), bytes, "a written note doesn't change with the template");
     let d15 = ok!(core.daily_draft(day("2026-10-15")), "daily_draft(15)");
-    assert!(d15.body.contains("## Úkoly\n") && !d15.body.contains("## Poznámky"), "the next new Daily Note uses the edited template");
+    assert!(d15.text.contains("## Úkoly\n") && !d15.text.contains("## Poznámky"), "the next new Daily Note uses the edited template");
 }
 
 #[test]
@@ -826,12 +831,12 @@ fn fr_dly_06_ac5_no_template_and_an_invalid_template() {
     std::fs::remove_file(root.join(TEMPLATE)).expect("setup: no template");
     let core = open(&root, &sb, false);
     let d = ok!(core.daily_draft(day("2026-10-14")), "daily_draft without a template");
-    assert_eq!(d.body, draft_text("2026-10-14", "", ""), "the AC-2 frontmatter without tags, empty body");
+    assert_eq!(d.text, draft_text("2026-10-14", "", ""), "the AC-2 frontmatter without tags, empty body");
     assert_eq!(d.template_invalid, None);
     ext_write(&core, &root, TEMPLATE, "---\ntags: [deník\n---\nText {{date}}.\n");
     let d2 = ok!(core.daily_draft(day("2026-10-14")), "daily_draft with an invalid template");
     assert_eq!(d2.template_invalid.as_deref().map(nfc), some(TEMPLATE), "the message names the template");
-    assert_eq!(d2.body, draft_text("2026-10-14", "", "Text 2026-10-14.\n"), "body-only (D-325)");
+    assert_eq!(d2.text, draft_text("2026-10-14", "", "Text 2026-10-14.\n"), "body-only (D-325)");
 }
 
 #[test]
@@ -975,4 +980,25 @@ fn fr_fmt_09_ac5_invalid_formats_fall_back_to_iso() {
         let made = ok!(core.daily_create(day("2026-10-14"), first_bytes("2026-10-14", NOW_PRAGUE, "Dnes").as_bytes()), "first write");
         assert_eq!(nfc(&made.path), NEW14, "{f}: no subfolders from the format");
     }
+}
+
+#[test]
+fn fr_dly_08_ac7_daily_backlinks_of_a_virtual_date() {
+    let sb = sandbox();
+    let root = daily_vault(&sb);
+    let core = open(&root, &sb, false);
+    // D-348: `daily_backlinks(date)` is the panel of the winner, or of the date links to a virtual date.
+    let p = core.daily_backlinks(day("2026-10-20"));
+    assert_eq!(p.objects, 1, "virtual 20 Oct: one linking object");
+    let texts: Vec<(String, String)> = p
+        .groups
+        .iter()
+        .flat_map(|g| g.entries.iter())
+        .flat_map(|e| e.occurrences.iter().map(move |o| (nfc(&e.source), nfc(&o.excerpt.segments.iter().map(|s| match s { RSeg::Text { text, .. } | RSeg::Link { text, .. } => text.as_str() }).collect::<String>()))))
+        .collect();
+    assert_eq!(texts, vec![(ZMINKY.to_string(), "Budoucnost 2026-10-20.".to_string())], "Zmínky with its excerpt");
+    let p12 = core.daily_backlinks(day("2026-10-12"));
+    assert!(p12.groups.iter().flat_map(|g| g.entries.iter()).any(|e| nfc(&e.source) == ZMINKY), "12 Oct: the winner's panel lists Zmínky");
+    ok!(core.daily_create(day("2026-10-20"), first_bytes("2026-10-20", NOW_PRAGUE, "Budoucnost").as_bytes()), "first write of 20");
+    assert_eq!(core.daily_backlinks(day("2026-10-20")).objects, 1, "unchanged after the first write");
 }

@@ -244,8 +244,10 @@ test.describe('date links', () => {
   });
 
   test('fr_dly_08_ac7_backlinks_of_a_virtual_note', async ({ page }) => {
-    await startDaily(page, { panel: true });
+    const core = await startDaily(page, { panel: true });
     await gotoDaily(page, '2026-10-20');
+    const q = await eventually(async () => (await core.calls()).filter((c) => c.cmd === 'daily_backlinks'), (x) => x.length > 0, 2000);
+    assert.ok(q.some((c) => (c.args as any)?.date === '2026-10-20'), 'the panel of a virtual date comes from daily_backlinks(date) (D-348)');
     const tab = await must(backlinksTab(page), 'tab "Backlinks"');
     assert.equal(flat(await tab.innerText()).replace(/^Backlinks\s*/, ''), '1', 'badge 1');
     const p = await must(backlinksPanel(page), 'tabpanel "Backlinks"');
