@@ -167,7 +167,7 @@ Tasks
 <sc-if value="{{t.hasProps}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px">
 <sc-if value="{{t.hasDue}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: {{t.dueBg}}; color: {{t.dueFg}}; font-weight: {{t.dueWeight}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4"></path></svg>{{t.dueLabel}}</span></sc-if>
 <sc-if value="{{t.hasPrio}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: {{t.prioColor}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-2 4 2 4H5"></path></svg>{{t.prioLabel}}</span></sc-if>
-<sc-if value="{{t.recurring}}" hint-placeholder-val="{{ false }}"><span title="Repeats {{t.recLabel}}" style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: var(--muted)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 4v5h-5M20 12a8 8 0 0 1-14 5.3M4 20v-5h5"></path></svg>{{t.recLabel}}</span></sc-if>
+<sc-if value="{{t.recurring}}" hint-placeholder-val="{{ false }}"><span title="Repeats {{t.recLabel}} · recurrence is v1.0 (FR-TSK-07, D-381)" style="opacity: .5; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: var(--muted)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 4v5h-5M20 12a8 8 0 0 1-14 5.3M4 20v-5h5"></path></svg>{{t.recLabel}}</span></sc-if>
 </div>
 </sc-if>
 <sc-if value="{{t.hasFooter}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; min-height: 24px">
@@ -189,7 +189,7 @@ Tasks
 </div>
 </sc-if>
 
-<!-- Board (FR-TSK-05, MVP per D-378) -->
+<!-- Board (FR-TSK-05, MVP per owner 2026-10-16) -->
 <sc-if value="{{isBoard}}" hint-placeholder-val="{{ false }}">
 <div class="scroller" style="overflow-x: auto; margin: 0 -40px; padding: 0 40px 12px">
 <div style="display: flex; gap: 14px; align-items: flex-start; width: max-content">
@@ -213,7 +213,7 @@ Tasks
 <sc-if value="{{t.hasProps}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px">
 <sc-if value="{{t.hasDue}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: {{t.dueBg}}; color: {{t.dueFg}}; font-weight: {{t.dueWeight}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4"></path></svg>{{t.dueLabel}}</span></sc-if>
 <sc-if value="{{t.hasPrio}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: {{t.prioColor}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-2 4 2 4H5"></path></svg>{{t.prioLabel}}</span></sc-if>
-<sc-if value="{{t.recurring}}" hint-placeholder-val="{{ false }}"><span title="Repeats {{t.recLabel}}" style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: var(--muted)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 4v5h-5M20 12a8 8 0 0 1-14 5.3M4 20v-5h5"></path></svg>{{t.recLabel}}</span></sc-if>
+<sc-if value="{{t.recurring}}" hint-placeholder-val="{{ false }}"><span title="Repeats {{t.recLabel}} · recurrence is v1.0 (FR-TSK-07, D-381)" style="opacity: .5; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--hover); color: var(--muted)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 4v5h-5M20 12a8 8 0 0 1-14 5.3M4 20v-5h5"></path></svg>{{t.recLabel}}</span></sc-if>
 </div>
 </sc-if>
 <sc-if value="{{t.hasFooter}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; min-height: 24px">
@@ -330,7 +330,7 @@ days: [{ hasLabel: false, label: '', color: '', tasks: of((r) => r.when === 'non
 ].map((s) => { const tasks = s.days.flatMap((d) => d.tasks); return { ...s, tasks, count: String(tasks.length), showAdd: true }; }).slice(0, range === 'today' ? 1 : range === 'week' ? 2 : 3);
 const collapsedAll = [
 { label: 'Later', count: '5', hint: 'Due after Sun 25 Oct' },
-{ label: 'Done', count: '1 today · 38 total', hint: 'Recurring tasks keep each done instance (FR-TSK-07)' }
+{ label: 'Done', count: '1 today · 38 total', hint: 'Recurring tasks keep each done instance (FR-TSK-07, v1.0 · D-381)' }
 ];
 const collapsed = collapsedAll.filter((c) => range === 'all' || c.label === 'Done');
 // Board
