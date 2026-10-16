@@ -1099,7 +1099,7 @@ Attribute panel (note route, editable mode):
 | Description subtitle | `textbox` (single line), placeholder `Add a description` | `Description` |
 | Type chip (D-369) | `link` to `type/<key>`, never disabled; `data-command="note.openType"` | `Type: <Name>` |
 | More button (D-369) | `button`, `aria-haspopup="menu"`, after the type chip | `More` |
-| More menu (D-369) | `menu` with the `menuitem` `Change type…` (`aria-disabled` with description on Daily Note, Tag, Image, PDF (`The type of a Daily Note can't be changed`, else `The type of <Name> objects can't be changed`) and read-only files) | `More` |
+| More menu (D-369) | `menu` with the `menuitem` `Change type…` (`aria-disabled` with description on Daily Note, Tag, Image, PDF (`The type of <Name> objects can't be changed`) and read-only files) | `More` |
 | Change type menu | `menu` with `menuitem`s (type Names) | `Change type` |
 | Type warning | `status` | `The type value isn't a single type name. Shown as Page.` |
 | Row label | text, `id` referenced by the control | attribute Name (`data-user-content`); tooltip = attribute description |

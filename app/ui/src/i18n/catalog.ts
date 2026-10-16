@@ -744,7 +744,6 @@ export const en: Catalog = {
   'daily.nextMonth': 'Next month',
   'daily.formatInvalid': "The daily-note format in vault.yml isn't valid; using YYYY-MM-DD.",
   'daily.templateInvalid': "The daily template {path} has properties that can't be read; only its text was used.",
-  'daily.typeLocked': "The type of a Daily Note can't be changed",
   'daily.header': 'Daily Note',
   'daily.section.quickNotes': 'Quick Notes',
   'daily.section.tasks': 'Tasks due',

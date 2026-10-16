@@ -31,7 +31,7 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
   const opener = useRef<HTMLElement | null>(null);
   const name = type?.name ?? typeKey;
   const fixed = FIXED.has(nfc(typeKey));
-  const disabledWhy = fixed ? (nfc(typeKey) === 'daily-note' ? t('daily.typeLocked') : t('panel.chipLocked', { name })) : readOnly ? t('panel.chipReadOnly') : null;
+  const disabledWhy = fixed ? t('panel.chipLocked', { name }) : readOnly ? t('panel.chipReadOnly') : null;
   const show = (from: HTMLElement | null) => { if (!disabledWhy) { opener.current = from; setOpen(true); } };
   // From the palette the focus may have gone back to <body>; Esc then returns it to More (FR-TYP-07 AC-12).
   const opened = () => { const a = document.activeElement as HTMLElement | null; return a && a !== document.body ? a : moreBtn.current; };

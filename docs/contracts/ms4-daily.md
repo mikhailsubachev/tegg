@@ -190,7 +190,7 @@ The core builds the same bytes in `daily_draft` through the Rust twin, checked b
 - **`registry.ts`:** the 4B rows of R17 become `built`.
 - **Sidebar:** the `Today` description is refreshed every 30 s from `Date.now()` (D-327: within 60 s).
 - **i18n keys** (exact English texts are the ACs'):
-  - the `daily.*` group: `daily.notSaved`, `daily.titleReadonly`, `daily.otherNotes` (plural), `daily.duplicateTitles`, `daily.reviewed`, `daily.markReviewed`, `daily.markUnreviewed`, `daily.previous`, `daily.next`, `daily.today`, `daily.pickDate`, `daily.calendar`, `daily.hasNote`, `daily.previousMonth`, `daily.nextMonth`, `daily.formatInvalid`, `daily.templateInvalid`, `daily.typeLocked`, `daily.section.quickNotes`, `daily.section.tasks`, `daily.section.created`, `daily.section.modified`, `daily.section.empty`, `daily.section.more` (plural);
+  - the `daily.*` group: `daily.notSaved`, `daily.titleReadonly`, `daily.otherNotes` (plural), `daily.duplicateTitles`, `daily.reviewed`, `daily.markReviewed`, `daily.markUnreviewed`, `daily.previous`, `daily.next`, `daily.today`, `daily.pickDate`, `daily.calendar`, `daily.hasNote`, `daily.previousMonth`, `daily.nextMonth`, `daily.formatInvalid`, `daily.templateInvalid`, `daily.section.quickNotes`, `daily.section.tasks`, `daily.section.created`, `daily.section.modified`, `daily.section.empty`, `daily.section.more` (plural);
   - the `mention.*` group: `mention.today`, `mention.tomorrow`, `mention.yesterday`, `mention.pickDate`;
   - the error messages `errors.useDailyNote` and `errors.dailyMismatch`.
   - Long dates and month names come from `Intl.DateTimeFormat` with the region (D-133), never from the catalog.

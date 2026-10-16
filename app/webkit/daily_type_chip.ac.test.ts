@@ -17,7 +17,7 @@ test('fr_dly_01_ac9_the_daily_type_chip_links_to_type_daily_note', async ({ page
   await more.click();
   const item = await must(page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name: 'Change type…', exact: true }), 'menuitem "Change type…"');
   assert.equal(await item.getAttribute('aria-disabled'), 'true', 'Change type… is aria-disabled');
-  assert.equal(await description(item), "The type of a Daily Note can't be changed");
+  assert.equal(await description(item), "The type of Daily Note objects can't be changed");
   await page.keyboard.press('Escape');
   await runCommand(page, 'Change type…');
   await sleep(300);
