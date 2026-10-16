@@ -753,6 +753,10 @@ impl Core {
         let v: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
         let path = nfc(v.get("path")?.as_str()?);
         let id = v.get("id").and_then(|i| i.as_str()).map(str::to_string);
+        // D-349: a daily route, virtual or not, reopens as that route.
+        if path.strip_prefix("daily/").and_then(tegg_format::date::parse_date).is_some() {
+            return Some((path, None));
+        }
         let index = self.index();
         if let Some(o) = index.object(&path) {
             return Some((o.path, o.id));

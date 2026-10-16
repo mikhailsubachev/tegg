@@ -587,9 +587,15 @@ async fn index_list(state: State<'_, AppState>, r#type: String) -> Result<Vec<Ob
 }
 
 #[tauri::command]
-async fn nav_opened(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
+async fn nav_opened(state: State<'_, AppState>, path: Option<String>, route: Option<String>) -> Result<(), IpcError> {
     let core = core(&state)?;
-    core.record_open(&path, SystemTime::now());
+    // D-349: a daily route is recorded by its route (virtual or not), so the launch landing can reopen it.
+    if let Some(p) = &path {
+        core.record_open(p, SystemTime::now());
+    }
+    if let Some(r) = route.filter(|r| r.starts_with("daily/")) {
+        core.record_open(&r, SystemTime::now());
+    }
     Ok(())
 }
 
@@ -694,15 +700,18 @@ fn duplicate_dto(d: tegg_core::DuplicateDetails) -> DuplicateDetailsDto {
 #[tauri::command]
 async fn index_backlinks(state: State<'_, AppState>, path: String) -> Result<BacklinksPanelDto, IpcError> {
     let core = core(&state)?;
-    let p = core.backlinks_panel(&path);
-    Ok(BacklinksPanelDto {
+    Ok(panel_dto(core.backlinks_panel(&path)))
+}
+
+fn panel_dto(p: tegg_core::BacklinksPanel) -> BacklinksPanelDto {
+    BacklinksPanelDto {
         objects: p.objects as u32,
         groups: p
             .groups
             .into_iter()
             .map(|g| BacklinkGroupDto { type_key: g.type_key, defined: g.defined, raw: g.raw, entries: g.entries.into_iter().map(entry_dto).collect() })
             .collect(),
-    })
+    }
 }
 
 /// `index_broken_links` (FR-LNK-04, D-284).
@@ -741,7 +750,6 @@ async fn index_duplicate_titles(state: State<'_, AppState>) -> Result<Vec<Duplic
 }
 
 // ---------------------------------------------------------------- slice 4B (ms4-daily §4)
-// STUBS until 4B is built: thin wiring to the `tegg-core` daily stubs, which return deliberately wrong values.
 
 fn parse_day(date: &str) -> Result<chrono::NaiveDate, IpcError> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| err("Io", format!("not a date: {date}")))
@@ -769,8 +777,7 @@ async fn daily_dates(state: State<'_, AppState>, year: i32, month: u32) -> Resul
 #[tauri::command]
 async fn daily_backlinks(state: State<'_, AppState>, date: String) -> Result<BacklinksPanelDto, IpcError> {
     let core = core(&state)?;
-    let _ = core.daily_backlinks(parse_day(&date)?);
-    Ok(BacklinksPanelDto { objects: 0, groups: Vec::new() }) // STUB until 4B is built
+    Ok(panel_dto(core.daily_backlinks(parse_day(&date)?)))
 }
 
 /// `daily_draft` (FR-DLY-02, FR-DLY-06): read-only.

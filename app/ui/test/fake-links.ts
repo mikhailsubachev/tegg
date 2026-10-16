@@ -21,6 +21,8 @@ const schema = async () => (schemaMod ??= await import('@tegg/schema'));
 type Obj = {
   path: string; stem: string; folder: string; title: string; id: string | null; type: string; raw: string | null;
   attributes: Record<string, any>; frontmatterError: boolean; links: any[]; blocks: any[];
+  /** ms4-daily §2: a Daily Note's valid date (its displayed title, D-320) and its stored title when different. */
+  daily: string | null; storedTitle: string | null;
 };
 
 async function objects(files: Files): Promise<Obj[]> {
@@ -32,7 +34,9 @@ async function objects(files: Files): Promise<Obj[]> {
     const attributes = (x.attributes ?? {}) as Record<string, any>;
     const m = s.typeMatch(x.attributes && 'type' in attributes ? attributes.type : undefined) as { key: string };
     const raw = typeof attributes.type === 'string' && attributes.type.trim() ? nfc(attributes.type.trim()) : null;
-    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks };
+    const daily = m.key === 'daily-note' && attributes.date != null ? d.parseDate(String(attributes.date).trim().slice(0, 10)) : null;
+    const storedTitle = daily && nfc(String(x.title).trim()) !== daily ? x.title : null;
+    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: daily ?? x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks, daily, storedTitle };
   });
 }
 
@@ -50,19 +54,42 @@ function resolver(objs: Obj[]) {
     byStem.set(k, [...(byStem.get(k) ?? []), o]);
   }
   const daily = new Map<string, Obj>();
-  for (const o of sorted) if (o.type === 'daily-note' && typeof o.attributes.date === 'string') { const k = o.attributes.date.trim().slice(0, 10); if (!daily.has(k)) daily.set(k, o); }
+  for (const [k, g] of dailyGroups(objs)) daily.set(k, g[0]);
   return (from: string, target: string): Res => {
     let t = nfc(target).trim();
     const cut = t.search(/[#|]/);
     if (cut >= 0) t = t.slice(0, cut).trim();
     if (!t) return { kind: 'unresolved', path: null };
-    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) { const o = daily.get(t); return o ? { kind: 'daily', path: o.path } : { kind: 'date-missing', path: null }; }
+    if (isDate(t)) { const o = daily.get(t); return o ? { kind: 'daily', path: o.path } : { kind: 'date-missing', path: null }; }
     const fromDir = nfc(from).includes('/') ? low(from.slice(0, from.lastIndexOf('/'))) : '';
     const key = low(t).replace(/\.md$/, '');
     const hit = (fromDir && byPath.get(`${fromDir}/${key}`)) || byPath.get(key) || byId.get(t)
       || (!key.includes('/') ? ((byStem.get(key) ?? []).find((o) => low(o.folder) === fromDir) ?? (byStem.get(key) ?? [])[0]) : undefined);
     return hit ? { kind: 'note', path: hit.path } : { kind: 'unresolved', path: null };
   };
+}
+
+/** D-332: a valid `YYYY-MM-DD` calendar date. */
+function isDate(t: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
+}
+
+/** D-319, D-335: per date, the Daily Notes newest first (latest created, then modified; missing is oldest), then path. */
+function dailyGroups(objs: Obj[]): Map<string, Obj[]> {
+  const inst = (v: unknown) => {
+    if (typeof v !== 'string' || !/T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(v.trim())) return null;
+    const t = Date.parse(v.trim());
+    return Number.isNaN(t) ? null : t;
+  };
+  const order = (a: Obj, b: Obj) => byInstant(inst(a.attributes.created), inst(b.attributes.created), true)
+    || byInstant(inst(a.attributes.modified), inst(b.attributes.modified), true) || byCode(nfc(a.path), nfc(b.path));
+  const out = new Map<string, Obj[]>();
+  for (const o of objs) if (o.daily) out.set(o.daily, [...(out.get(o.daily) ?? []), o]);
+  for (const g of out.values()) g.sort(order);
+  return out;
 }
 
 function isNoteTarget(t: string): boolean {
@@ -171,6 +198,101 @@ function group(ctx: Ctx, entries: any[]) {
       entries: g.entries.sort((a, b) => byInstant(instant(a.modified), instant(b.modified), true) || byCode(a.source, b.source)),
     }))
     .sort((a, b) => rank(a.type)[0] - rank(b.type)[0] || rank(a.type)[1] - rank(b.type)[1] || byCode(a.type, b.type));
+}
+
+/** D-348: the panel of a date without a Daily Note. */
+async function dateBacklinksPanel(ctx: Ctx, date: string) {
+  const entries: any[] = [];
+  const key = (l: any) => nfc(String(l.target).split(/[|#]/)[0].trim());
+  for (const o of ctx.objs) {
+    const e = await entryFor(ctx, o, (l, r) => r.kind === 'date-missing' && key(l) === date);
+    if (e) entries.push(e);
+  }
+  return { objects: entries.length, groups: group(ctx, entries) };
+}
+
+const TEMPLATE = '_templates/Daily Note/Daily Note.md';
+
+/** ms4-daily §5 (D-336): the daily stem from vault.yml's `daily-format`, and whether it fell back. */
+async function dailyStem(files: Files, date: string): Promise<[string, boolean]> {
+  const d = await doc();
+  const m = /^daily-format:[ \t]*(.*)$/m.exec(files['.tegg/vault.yml'] ?? '');
+  if (!m) return [d.dailyFileStem('YYYY-MM-DD', date), false];
+  const raw = m[1].trim().replace(/^"(.*)"$|^'(.*)'$/, '$1$2');
+  const s = d.dailyFileStem(raw, date);
+  return s === null ? [d.dailyFileStem('YYYY-MM-DD', date), true] : [s, false];
+}
+function dailyFolder(ctx: Ctx): string {
+  const t = ctx.types.find((x) => x.key === 'daily-note');
+  return t && !t.invalid ? String(t.folder).replace(/^\/+|\/+$/g, '') : 'Daily';
+}
+
+/** D-339: `created`/`modified` in the day window: instants by [start, end), offset-less values by their local date. */
+function inWindow(v: unknown, date: string, start: number, end: number): number | null {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(s)) { const t = Date.parse(s); return t >= start && t < end ? t : null; }
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(s)) return s.slice(0, 10) === date ? Date.parse(s.length > 10 ? `${s}Z` : `${s}T00:00:00Z`) : null;
+  return null;
+}
+
+async function daily(cmd: string, a: any, files: Files, ctx: Ctx): Promise<Answer> {
+  const d = await doc();
+  const date = String(a.date ?? '');
+  const groups = dailyGroups(ctx.objs);
+  const of = (x: string) => groups.get(x) ?? [];
+  switch (cmd) {
+    case 'daily_view': {
+      const g = of(date);
+      const r = g[0] ? String(g[0].attributes.review ?? '').trim() : '';
+      return { result: { date, path: g[0]?.path ?? null, duplicates: g.slice(1).map((o) => o.path), review: r === 'reviewed' || r === 'unreviewed' ? r : null } };
+    }
+    case 'daily_dates': {
+      const pre = `${String(a.year).padStart(4, '0')}-${String(a.month).padStart(2, '0')}-`;
+      return { result: [...groups.keys()].filter((k) => k.startsWith(pre)).sort(byCode) };
+    }
+    case 'daily_draft': {
+      const tpl = files[TEMPLATE];
+      const x = tpl === undefined ? { keys: [], body: '', invalid: false } : d.expandDailyTemplate(tpl, date);
+      const [stem0, formatFallback] = await dailyStem(files, date);
+      const folder = dailyFolder(ctx);
+      const stem = freeStem(files, ctx, folder, stem0);
+      return { result: { text: d.newDailyNote({ date, keys: x.keys, body: x.body, id: '{{id}}', now: '{{now}}' }), body: x.body, templateInvalid: x.invalid ? TEMPLATE : null, path: folder ? `${folder}/${stem}.md` : `${stem}.md`, formatFallback } };
+    }
+    case 'daily_create': {
+      const text = String(a.text ?? '');
+      const x = d.extract(text, date);
+      const at = (x.attributes ?? {}) as Record<string, any>;
+      const ok = String(at.type ?? '').trim().toLowerCase().replace(/\s+/g, '-') === 'daily-note' && String(at.date ?? '').trim().slice(0, 10) === date && nfc(String(at.title ?? '').trim()) === date;
+      if (!ok) return { error: err('DailyMismatch', "fake: the bytes aren't this date's Daily Note") };
+      const [stem0] = await dailyStem(files, date);
+      const folder = dailyFolder(ctx);
+      const path = `${folder ? `${folder}/` : ''}${freeStem(files, ctx, folder, stem0)}.md`;
+      const others = of(date).map((o) => o.path);
+      return { result: { path, version: null, duplicates: others }, writes: { [path]: text } };
+    }
+    case 'daily_backlinks': {
+      const w = of(date)[0];
+      return { result: w ? await backlinksPanel(ctx, w.path) : await dateBacklinksPanel(ctx, date) };
+    }
+    case 'daily_context': {
+      const start = Date.parse(String(a.start)), end = Date.parse(String(a.end)), limit = Number(a.limit ?? 50);
+      const own = of(date)[0]?.path ?? null;
+      const q: [number, any][] = [], c: [number, any][] = [], m: [number, any][] = [];
+      for (const o of ctx.objs) {
+        if (o.path === own) continue;
+        const row = (v: unknown) => ({ path: o.path, title: o.title, type: o.type, at: String(v) });
+        const cr = inWindow(o.attributes.created, date, start, end), mo = inWindow(o.attributes.modified, date, start, end);
+        if (o.type === 'quick-note' && cr !== null) q.push([cr, row(o.attributes.created)]);
+        else if (cr !== null) c.push([cr, row(o.attributes.created)]);
+        else if (mo !== null) m.push([mo, row(o.attributes.modified)]);
+      }
+      const fin = (v: [number, any][]) => v.sort((x, y) => y[0] - x[0] || byCode(x[1].path, y[1].path)).map((x) => x[1]);
+      const [qq, cc, mm] = [fin(q), fin(c), fin(m)];
+      return { result: { quickNotes: qq.slice(0, limit), created: cc.slice(0, limit), modified: mm.slice(0, limit), totals: [qq.length, cc.length, mm.length] } };
+    }
+    default: return { error: err('Io', `fake-daily: unknown ${cmd}`) };
+  }
 }
 
 async function backlinksPanel(ctx: Ctx, path: string) {
@@ -334,6 +456,7 @@ const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
   const ctx = await context(files, vers);
+  if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {
     case 'index_backlinks': return { result: await backlinksPanel(ctx, String(a.path)) };
     case 'backlinks': {

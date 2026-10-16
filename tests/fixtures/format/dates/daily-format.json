@@ -79,7 +79,8 @@
     {
       "format": "YYYY\\MM\\DD",
       "date": "2026-10-14",
-      "stem": null
+      "stem": "2026M10D14",
+      "note": "D-361: a backslash escapes the next character, so this is YYYY, literal M, M, literal D, D"
     },
     {
       "format": "YYYY*MM*DD",

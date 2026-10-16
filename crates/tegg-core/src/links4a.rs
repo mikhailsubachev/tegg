@@ -354,6 +354,21 @@ impl Core {
         BacklinksPanel { objects: entries.len(), groups: self.group(entries, &defs) }
     }
 
+    /// D-348: the panel of a date without a Daily Note: every note whose date links name `date`.
+    pub(crate) fn date_backlinks_panel(&self, date: chrono::NaiveDate) -> BacklinksPanel {
+        let want = tegg_format::format_date(date);
+        let sources: Vec<NoteLinks> = {
+            let idx = self.index();
+            idx.date_link_sources(date).iter().filter_map(|s| idx.note_links(s)).collect()
+        };
+        let defs = self.type_names();
+        let here = |l: &LinkRecord| {
+            l.resolved.kind == TargetKind::DateMissing && nfc(l.target.split(['|', '#']).next().unwrap_or("").trim()) == want
+        };
+        let entries: Vec<(BacklinkEntry, Option<String>)> = sources.iter().filter_map(|nl| self.entry_for(nl, &defs, &here).map(|e| (e, nl.type_raw.clone()))).collect();
+        BacklinksPanel { objects: entries.len(), groups: self.group(entries, &defs) }
+    }
+
     pub fn broken_links(&self) -> BrokenLinks {
         let sources = self.index().broken_sources();
         let defs = self.type_names();

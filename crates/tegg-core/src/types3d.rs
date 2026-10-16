@@ -308,6 +308,9 @@ impl Core {
     /// come from `@tegg/doc` `newObject` (D-82, D-245) and must carry this type (`UnknownType` otherwise).
     pub fn create_object(&self, type_key_: &str, title: &str, bytes: &[u8]) -> Result<String, CoreError> {
         let key = type_key(type_key_);
+        if key == "daily-note" {
+            return Err(CoreError::UseDailyNote); // D-318: only `daily_create` makes a Daily Note
+        }
         let Some(t) = self.type_get(&key) else { return Err(CoreError::UnknownType) };
         let declared = match tegg_format::extract(bytes, "x").attributes {
             Some(Value::Object(m)) => m.get("type").cloned(),

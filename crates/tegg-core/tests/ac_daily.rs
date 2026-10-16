@@ -511,6 +511,9 @@ fn fr_dly_02_ac5_kill_points_leave_no_partial_or_orphan_file() {
         // D-344: an orphaned temp file of the first write (`.<name>.tegg-tmp` in the target folder) is cleaned up at the
         // next start.
         write_raw(&root, "Daily/.2026-10-14.md.tegg-tmp", b"---\nid: 01JB4B0000000000000000N010\ntype: daily-no");
+        // A crash leftover is older than FR-SYN-02 AC-4's one-minute guard by the time Tegg starts again.
+        let old = SystemTime::now() - Duration::from_secs(120);
+        std::fs::File::options().write(true).open(root.join("Daily/.2026-10-14.md.tegg-tmp")).and_then(|f| f.set_modified(old)).expect("setup: age the temp file");
         // Next start on the plain file system.
         let core = open(&root, &sb, false);
         assert!(!root.join("Daily/.2026-10-14.md.tegg-tmp").exists(), "{point:?}: the orphaned temp file is removed at the next start (D-344)");
