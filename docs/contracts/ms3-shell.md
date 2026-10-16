@@ -1099,7 +1099,7 @@ Attribute panel (note route, editable mode):
 | Description subtitle | `textbox` (single line), placeholder `Add a description` | `Description` |
 | Type chip (D-369) | `link` to `type/<key>`, never disabled; `data-command="note.openType"` | `Type: <Name>` |
 | More button (D-369) | `button`, `aria-haspopup="menu"`, after the type chip | `More` |
-| More menu (D-369) | `menu` with the `menuitem` `Change type…` (`aria-disabled` with description on Daily Note, Tag, Image, PDF (`The type of a <Name> can't be changed`) and read-only files) | `More` |
+| More menu (D-369) | `menu` with the `menuitem` `Change type…` (`aria-disabled` with description on Daily Note, Tag, Image, PDF (`The type of <Name> objects can't be changed`) and read-only files) | `More` |
 | Change type menu | `menu` with `menuitem`s (type Names) | `Change type` |
 | Type warning | `status` | `The type value isn't a single type name. Shown as Page.` |
 | Row label | text, `id` referenced by the control | attribute Name (`data-user-content`); tooltip = attribute description |
@@ -1205,7 +1205,7 @@ No new `__TEGG_TEST__` hook: clock, zone and region are injected as in §13.6 an
 5. `TypeDto` is a superset of `TypeDefDto` and `TypeInfo` of 3A's `TypeDef` (type alias), so 3A tests keep compiling; `note_create` keeps its name with new arguments (`type, title, text`); `Core::create_note` stays.
 6. Type rows carry raw values and resolved relation targets from the index; validity in cells is computed in the UI with `@tegg/schema`.
 7. Panel undo via a ProseMirror doc attribute holding the frontmatter (one history); `applyFrontmatter` takes the whole next text and rejects body changes.
-8. Accessible names not fixed by the ACs: the date-time and date-range groups' field names, `Choose date for <Name>`, picker `Search`/`Results`, `Option label`, `Add preview property`, `Remove alias <name>`, type-chip disabled reason `The type of a <Name> can't be changed`, dialog titles `Change type of "<Name>"?` and `Remove option "<label>"?`, `Line <n>: <message>`.
+8. Accessible names not fixed by the ACs: the date-time and date-range groups' field names, `Choose date for <Name>`, picker `Search`/`Results`, `Option label`, `Add preview property`, `Remove alias <name>`, type-chip disabled reason `The type of <Name> objects can't be changed`, dialog titles `Change type of "<Name>"?` and `Remove option "<label>"?`, `Line <n>: <message>`.
 9. `newObject` copies template entries verbatim (style kept) and ignores template `id`, `type`, `title`, `review`, `created`, `modified`; a template with invalid frontmatter contributes only its body.
 10. Starter files are compiled into `tegg-schema` (`STARTER_FILES`, from the fixture) and passed to `Vault::create` through `VaultKind::Starter`; `tegg-vault` gets no dependency on `tegg-schema`.
 11. Command ids and sections of §14.7.2; `type.newObject` and `type.openSettings` only appear on their routes.

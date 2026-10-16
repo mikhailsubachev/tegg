@@ -33,7 +33,9 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
   const fixed = FIXED.has(nfc(typeKey));
   const disabledWhy = fixed ? t('panel.chipLocked', { name }) : readOnly ? t('panel.chipReadOnly') : null;
   const show = (from: HTMLElement | null) => { if (!disabledWhy) { opener.current = from; setOpen(true); } };
-  useImperativeHandle(apiRef, () => ({ open: () => show(document.activeElement as HTMLElement | null) }));
+  // From the palette the focus may have gone back to <body>; Esc then returns it to More (FR-TYP-07 AC-12).
+  const opened = () => { const a = document.activeElement as HTMLElement | null; return a && a !== document.body ? a : moreBtn.current; };
+  useImperativeHandle(apiRef, () => ({ open: () => show(opened()) }));
   const targets = typeEntries(types, {}).filter((e) => e.defined && !e.invalid && !FIXED.has(e.key) && nfc(e.key) !== nfc(typeKey));
   const back = () => { const el = opener.current; if (el?.isConnected) el.focus(); };
   return (
