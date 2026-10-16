@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.49, for review                                             |
-| **Date**            | 2026-10-15                                                          |
+| **Document status** | Draft v1.50, for review                                             |
+| **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -65,6 +65,7 @@
 | v1.47   | 2026-10-15 | Owner feedback on the preview, decisions D-312…D-317: Aliases as one comma-separated text field; no description subtitle on objects; `Other properties` hidden when empty; no breadcrumb on the note page; per-type hidden properties (new FR-TYP-17); link chips while a text value is being edited (supersedes the edit-mode part of D-257, built separately) |
 | v1.48   | 2026-10-15 | Slice 4B daily-note decisions D-318…D-320 (AP-240…AP-242): one Daily Note per day, newest wins when two share a date (notice and Duplicate titles), fixed `YYYY-MM-DD` title. |
 | v1.49   | 2026-10-15 | Slice 4B daily-note decisions D-321…D-338 (AP-243…AP-260): daily route, virtual note and first write, template, context sections, navigation, review control, @ date rows, date-link rules, title mismatch, tie-breaks, invalid daily-format. |
+| v1.50   | 2026-10-16 | Slice 4B contract decisions D-339…D-342 (AP-261…AP-264, `docs/contracts/ms4-daily.md`): offset-less instants, today in the UI, literal `{{time}}`, stored title in the index. |
 
 ---
 
@@ -446,6 +447,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-336 | Invalid `daily-format` (FR-FMT-09) (AP-258, owner, 2026-10-15) | A format giving a D-52 character, an empty stem or no `DD` falls back to `YYYY-MM-DD` with a once-per-session message; no subfolders from the format |
 | D-337 | Daily header (D-320) (AP-259, owner, 2026-10-15) | Read-only title `YYYY-MM-DD` plus a localized long-date subtitle (not stored); the sidebar Today's description uses the same string |
 | D-338 | Emptied Daily Note (FR-DLY-02) (AP-260, owner, 2026-10-15) | Never deleted automatically; FR-DLY-02 only prevents creating empty files |
+| D-339 | Offset-less instants in a day (FR-DLY-04, D-328) (AP-261, owner, 2026-10-16) | A `created`/`modified` without an offset is in a day when its local date text equals the day's date; no zone database in the core; on a DST day the repeated hour counts for that day |
+| D-340 | Today is computed in the UI (FR-DLY-01) (AP-262, owner, 2026-10-16) | The UI computes today (`@tegg/doc` `localDate`) and passes day windows to the core (ms4-daily §1); FR-DLY-01 AC-2's test tag is L1 for `localDate` |
+| D-341 | `{{time}}` in the daily template (FR-DLY-06, D-270) (AP-263, owner, 2026-10-16) | Stays literal until FR-TPL (v1.0); the starter vault's daily template has no `{{time}}` |
+| D-342 | Stored title kept in the index (D-334) (AP-264, owner, 2026-10-16) | The index keeps a Daily Note's stored `title` when it differs from its date (`ObjectInfo.stored_title`), only so the switcher still matches it; never written, rebuilt from files (AR-01) |
 
 ---
 
