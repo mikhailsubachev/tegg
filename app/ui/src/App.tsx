@@ -317,10 +317,10 @@ export function App() {
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
     newObject: () => {
       // D-353: with `default-type: Daily Note`, New object opens today's Daily Note instead of the dialog.
-      const from = document.activeElement as HTMLElement | null;
+      // The dialog opens at once so typing isn't lost; it gives way to today's note when that is the default type.
+      returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject');
       void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => {
-        if (key === 'daily-note') { void go({ id: 'today' }); return; }
-        returnFocus.current = from; pendingFocus.current = false; setNewOfType(null); setDialog('newObject');
+        if (key === 'daily-note') void go({ id: 'today' });
       });
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
