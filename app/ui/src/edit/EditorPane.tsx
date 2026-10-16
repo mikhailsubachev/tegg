@@ -100,6 +100,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const host = useRef<HTMLDivElement | null>(null);
   const wrap = useRef<HTMLDivElement | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
+  /** The chip of the open Create offer, mapped through every edit (null once it's deleted). */
+  const chipTrack = useRef<(() => number | null) | null>(null);
   const [, setTick] = useState(0);
   const rerender = useCallback(() => setTick((n) => n + 1), []);
   const links = useRef(new Map<string, LinkInfo & { path?: string | null }>());
@@ -366,7 +368,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!ed) return;
     const node = ed.view.state.doc.nodeAt(pos);
     if (node) ed.editor.commands.setTextSelection(pos + node.nodeSize);
-    requestOffer({ from: pathRef.current, target, relationTo: null, anchor: dom, editor: ed, chipPos: pos });
+    // The offer is non-modal: the note can change while it is open, so `pos` is mapped through every edit and Create
+    // uses the clicked chip only if it is still there (D-287).
+    const track = ed.trackPos(pos);
+    chipTrack.current = track;
+    const chipAt = () => {
+      const at = chipTrack.current === track && edRef.current === ed ? track() : null;
+      if (at === null) return null;
+      const n = ed.view.state.doc.nodeAt(at);
+      const same = n?.type.name === 'wikiLink' && linkTarget(String(n.attrs.value)).target.normalize('NFC') === target.normalize('NFC');
+      return same ? at : null;
+    };
+    requestOffer({ from: pathRef.current, target, relationTo: null, anchor: dom, editor: ed, chipPos: pos, chipAt });
   };
   const caretAtLink = (at: { line: number; byte: number }, text: string): boolean => {
     const ed = edRef.current;

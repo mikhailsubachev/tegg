@@ -58,6 +58,9 @@ export async function createObjectForLink(
     newId: () => ulid(Date.now()),
   });
   const made = await ipc.linkCreate(from, target, plan, text);
-  if (made.rewrite && opts.editor && opts.chipPos !== undefined) opts.editor.commands.replaceLink(opts.chipPos, made.rewrite);
+  if (made.rewrite && opts.editor && opts.chipPos !== undefined && !opts.editor.commands.replaceLink(opts.chipPos, made.rewrite)) {
+    // The note exists now, but its link couldn't be changed (D-287): say so instead of leaving it broken silently.
+    throw Object.assign(new Error('createLink.rewriteFailed'), { kind: 'RewriteFailed', path: made.path });
+  }
   return made.path;
 }

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.52, for review                                             |
+| **Document status** | Draft v1.53, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -68,6 +68,7 @@
 | v1.50   | 2026-10-16 | Slice 4B contract decisions D-339…D-342 (AP-261…AP-264, `docs/contracts/ms4-daily.md`): offset-less instants, today in the UI, literal `{{time}}`, stored title in the index. |
 | v1.51   | 2026-10-16 | D-343: faster push gate (G1) at the same functional coverage: latency ACs move to nightly, Cargo build cache for gate worktrees, parallel WebKit tests (`docs/plans/verify-speedup-proposal.md`). |
 | v1.52   | 2026-10-16 | Slice 4B red-test decisions D-344…D-363 (AP-265…AP-284): temp-file name, draft fields, template keys and bytes, `daily_backlinks`, daily recency and command context, create entry points, test layers, catalog keys, `dateRows` locales, escaped format letters, unclosed template frontmatter, fake write control. |
+| v1.53   | 2026-10-16 | D-364 (numbered D-339 on main, renumbered in the 4B merge): the Create offer acts on the clicked link after edits made while it is open; `createLink.rewriteFailed` when it can't (QA review of PR #36). |
 
 ---
 
@@ -474,6 +475,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-361 | Literal letters in date formats (FR-FMT-09, D-325) (AP-282, owner, 2026-10-16) | Tokens match anywhere; a backslash makes the next character literal (`\Deník YYYY-MM-DD` → `Deník 2026-10-14`); the corpus gets this case |
 | D-362 | Template without a closing fence (D-325) (AP-283, owner, 2026-10-16) | Frontmatter that opens but never closes is invalid: no keys, the whole text is the body, and the message names the template |
 | D-363 | Fake `writeControl` for the first write (AP-284, owner, 2026-10-16) | The fake applies `delay`, `hold` and `fail` to `daily_create` as to `note_write` |
+| D-364 | Create offer and edits made while it is open (D-287) | The offer is non-modal: `Create` rewrites the clicked link at its current place (followed through every edit). If that link was deleted, nothing is written; if the note was created but the link can't be changed, the note stays. Both show `createLink.rewriteFailed`: `The link couldn’t be changed to point to "{stem}". Edit it, then try again.` (owner, 2026-10-16; backlinks.md FR-LNK-04 AC-13) |
 
 ---
 
