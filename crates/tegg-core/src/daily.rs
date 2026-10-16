@@ -6,6 +6,7 @@ use tegg_format::daily::{expand_template, file_stem, new_daily_note};
 use tegg_format::{nfc, type_key};
 
 use crate::{Core, CoreError, CoreEvent, FileVersion, VaultError};
+use tegg_vault::WriteOutcome;
 
 /// §1: one local calendar day, `[start, end)`, each end with its own offset (a DST day is 23 or 25 h). Built by the
 /// UI; the core never reads the system zone.
@@ -182,29 +183,51 @@ impl Core {
             }
         }
         let (stem, _) = self.daily_stem(date);
-        let mut tries = 0;
-        let (path, version) = loop {
-            let s = self.free_stem(&folder, &stem);
-            let path = if folder.is_empty() { format!("{s}.md") } else { format!("{folder}/{s}.md") };
-            // The exact bytes already at the path are this write, landed by an attempt that reported an error after
-            // the rename (PR #38 review): taken as done, never written again under another name (FR-SYN-06).
-            let ours = || self.shared.vault.read(&path).ok().filter(|(b, _)| b.as_slice() == bytes).map(|(_, v)| v);
-            match self.shared.vault.create_exact(&path, bytes) {
-                Ok(v) => break (path, v),
-                Err(VaultError::NameTaken) if tries < 20 => {
-                    if let Some(v) = ours() {
-                        break (path, v);
-                    }
-                    tries += 1;
-                    if let Ok((b, v)) = self.shared.vault.read(&path) {
-                        let _ = self.index().upsert(&path, &b, &v);
-                    }
-                }
-                Err(e) => match ours() {
-                    Some(v) => break (path, v),
-                    None => return Err(e.into()),
-                },
+        let id = text("id").filter(|i| !i.is_empty());
+        let at = |s: &str| if folder.is_empty() { format!("{s}.md") } else { format!("{folder}/{s}.md") };
+        // A file at the path with this write's `id` is this write, landed by an attempt that reported an error after
+        // the rename (PR #38 review): the newer bytes replace it atomically, never a second file (FR-SYN-06).
+        let ours = |path: &str| -> Option<Result<FileVersion, CoreError>> {
+            let (b, v) = self.shared.vault.read(path).ok()?;
+            if b.as_slice() == bytes {
+                return Some(Ok(v));
             }
+            let theirs = match tegg_format::extract(&b, "x").attributes {
+                Some(Value::Object(m)) => m.get("id").and_then(|v| v.as_str()).map(|s| nfc(s.trim())),
+                _ => None,
+            };
+            if id.is_none() || theirs != id {
+                return None;
+            }
+            Some(match self.shared.vault.write(path, bytes, Some(&v)) {
+                Ok(WriteOutcome::Written(n)) => Ok(n),
+                Ok(WriteOutcome::Unchanged) => Ok(v),
+                Err(e) => Err(e.into()),
+            })
+        };
+        let planned = at(&stem);
+        let mut tries = 0;
+        let (path, version) = match ours(&planned) {
+            Some(r) => (planned, r?),
+            None => loop {
+                let path = at(&self.free_stem(&folder, &stem));
+                match self.shared.vault.create_exact(&path, bytes) {
+                    Ok(v) => break (path, v),
+                    Err(VaultError::NameTaken) if tries < 20 => {
+                        if let Some(r) = ours(&path) {
+                            break (path, r?);
+                        }
+                        tries += 1;
+                        if let Ok((b, v)) = self.shared.vault.read(&path) {
+                            let _ = self.index().upsert(&path, &b, &v);
+                        }
+                    }
+                    Err(e) => match ours(&path) {
+                        Some(r) => break (path, r?),
+                        None => return Err(e.into()),
+                    },
+                }
+            },
         };
         self.index().upsert(&path, bytes, &version)?;
         let mut changed = unseen;

@@ -263,8 +263,12 @@ async function daily(cmd: string, a: any, files: Files, ctx: Ctx): Promise<Answe
       if (!ok) return { error: err('DailyMismatch', "fake: the bytes aren't this date's Daily Note") };
       const [stem0] = await dailyStem(files, date);
       const folder = dailyFolder(ctx);
-      const path = `${folder ? `${folder}/` : ''}${freeStem(files, ctx, folder, stem0)}.md`;
-      const others = of(date).map((o) => o.path);
+      // FR-SYN-06, PR #38 re-review: a file at the planned path with this write's id is this write; replaced, not copied.
+      const planned = `${folder ? `${folder}/` : ''}${nfc(stem0)}.md`;
+      const id = String(at.id ?? '').trim();
+      const mine = id !== '' && files[planned] !== undefined && String((d.extract(files[planned], date).attributes as any)?.id ?? '').trim() === id;
+      const path = mine ? planned : `${folder ? `${folder}/` : ''}${freeStem(files, ctx, folder, stem0)}.md`;
+      const others = of(date).map((o) => o.path).filter((p) => p !== path);
       return { result: { path, version: null, duplicates: others }, writes: { [path]: text } };
     }
     case 'daily_backlinks': {
