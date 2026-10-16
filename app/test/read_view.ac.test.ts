@@ -256,11 +256,11 @@ test('fr_edt_02_ac8_unresolved_and_date_links', async () => {
   fireEvent.click(d7);
   assert.deepEqual(calls.open.map(([p]) => nfc(p)), [F.denni], '[[2026-10-07]] opens the Daily Note');
   assert.equal(d8.getAttribute('data-link-kind'), 'date-missing', '[[2026-10-08]] is not broken');
-  assert.equal(d8.getAttribute('aria-disabled'), 'true', 'date link without a note is a disabled control');
-  assert.equal(desc(d8), 'Coming in MS4');
-  calls.open.length = 0;
-  fireEvent.click(d8);
-  assert.deepEqual([...calls.open], [], 'the disabled date link opens nothing');
+  // From 4B (D-142 ended; daily-notes.md FR-DLY-08 AC-5, AC-6): no disabled control and no `Coming in MS4`; activating it
+  // opens the virtual Daily Note daily/2026-10-08, which is checked at L5 (app/webkit/read_view.ac.test.ts).
+  assert.notEqual(d8.getAttribute('aria-disabled'), 'true', 'a date link without a note is not a disabled control');
+  assert.ok(!/Coming in MS4/.test(desc(d8)), `no Coming in MS4 description: ${desc(d8)}`);
+  assert.notEqual(desc(d8), 'No note named 2026-10-08', 'not described as a broken link');
 });
 
 test('fr_edt_02_ac9_tag_detection', async () => {
