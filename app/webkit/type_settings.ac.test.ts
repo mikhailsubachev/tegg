@@ -177,7 +177,7 @@ test('fr_typ_01_ac4_general_edits_write_only_the_type_file_and_update_the_ui', a
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note file written; the file keeps its name');
   assert.ok(await seen(typesList(page).getByRole('listitem').filter({ hasText: 'Porady' }), 1000), 'sidebar updated');
   await openNoteByTitle(page, '2026-10-07 Porada');
-  await must(page.getByRole('button', { name: 'Type: Porada. Change type', exact: true }), 'the type chip shows the new Name');
+  await must(page.getByRole('link', { name: 'Type: Porada', exact: true }), 'the type chip shows the new Name (a link since D-369)');
   await gotoSettings(page, 'Porady', 'Porada');
   await commit(textbox(page, 'General', 'Name'), 'Po:rada');
   await must(general(page).getByRole('alert'), 'message under the field');

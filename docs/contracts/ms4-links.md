@@ -197,6 +197,8 @@ They keep the core's order for system types and instants, and sort only the name
 
 ### 5.2 Components
 
+**D-368 (slice 4B preview feedback):** the Backlinks panel renders each entry as one chip, `a.chip.link-chip` with `data-link-kind="note"` and `data-icon` (the source type's icon; the generic `type` icon for a type without a definition), inside its group. `index_backlinks` keeps returning `occurrences` (the Broken links page uses the same `BacklinkEntry`); the panel ignores them.
+
 | Module | What it is | Notes |
 | --- | --- | --- |
 | `links/BacklinksPanel.tsx` | The `backlinks` tab content (R15) | Props `{ path }`. Calls `index_backlinks` on mount, on route change and on `vault:changed`; keeps scroll and focus (FR-LNK-01 AC-9). Virtualized list: at most 100 entry elements in the DOM (AC-16). Collapsed groups in component state only (D-281). |

@@ -34,6 +34,7 @@ const PATHS: Record<string, string> = {
   'chevron-right': 'M9 6l6 6-6 6',
   'chevron-left': 'M15 6l-6 6 6 6',
   source: 'M9 7l-5 5 5 5M15 7l5 5-5 5',
+  'more-horizontal': 'M6 12h.01M12 12h.01M18 12h.01',
   grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   check: 'M5 12l5 5 9-10',
   'mark-bold': 'M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z',

@@ -2,16 +2,16 @@
 
 - **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 190. Outside: 89.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 178. Outside: 101 (after D-370…D-377, 2026-10-16: 15 moved to v1.0, 3 moved in).
 
 ## Summary
 
 | Where | Requirements |
 | --- | ---: |
-| MVP milestones MS1–MS8 | 190 |
+| MVP milestones MS1–MS8 | 178 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 61 |
+| v1.0 "complete desktop" (§11) | 73 |
 | v1.x (§11) | 9 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
@@ -144,7 +144,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 
 ### MS4: Links, tags, renames, daily notes
 
-30 requirements · 11 with ACs · 2 with spike evidence · 0 implemented
+26 requirements (D-370, D-372 moved 4 to v1.0) · 8 with ACs · 2 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -166,22 +166,18 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-LNK-04 | Broken links are visually marked; clicking one offers to create the object. | 3 ACs |
 | FR-LNK-07 | Links and embeds look clearly different. A *link* is an inline text chip (object/type icon + title, link color… | no ACs yet |
 | FR-LNK-14 | Duplicate titles are allowed (even within one type, e.g. several job applications called "Senior Product Manag… | 5 ACs |
-| FR-STO-04 | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | 3 ACs |
 | FR-TAG-01 | Tag is a system type. Each tag is an object with an editable name and color, an optional description, and any … | no ACs yet |
 | FR-TAG-02 | Storage: applying a tag writes its name to the object's `tags:` frontmatter list (inline `#tag` in the body co… | no ACs yet |
 | FR-TAG-03 | A Tag object file is created when the user creates the tag in the app or edits its color/description. Tags tha… | no ACs yet |
 | FR-TAG-04 | Rename a tag: renames the Tag file and rewrites the `tags:` values and inline `#tags` in every object that use… | 3 ACs |
-| FR-TAG-05 | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | no ACs yet; graph-node part v1.0 (D-275) |
 | FR-TAG-06 | Tag page: opening a tag shows its description and all objects with that tag (a query view, groupable by type). | no ACs yet |
 | FR-TAG-07 | Tags appear in the sidebar (with colors and counts), in search filters (FR-SRC-02) and in the query builder ("… | no ACs yet; query-builder part v1.0 (D-275) |
 | FR-TAG-08 | Delete a tag: asks whether to remove it from all objects (rewrite, with restore point) or only delete the Tag … | no ACs yet |
-| FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs |
-| FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs |
 | NFR-REL-04 | All destructive bulk operations are preceded by a restore point (FR-HIS-04). | 3 ACs |
 
-### MS5: Tasks, capture, inbox, home
+### MS5: Tasks, capture, inbox, home, mindmaps
 
-39 requirements · 1 with ACs · 0 with spike evidence · 0 implemented
+37 requirements (D-371, D-376 moved 5 to v1.0; D-377 added FR-MMP-01, -02, -04) · 1 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -196,10 +192,8 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-CNV-05 | The embed in the source is editable in place: editing it edits the object's file, and changing a task's status… | no ACs yet |
 | FR-CNV-06 | Conversion is a single undoable action that restores the original blocks and deletes the new file. | no ACs yet |
 | FR-CNV-08 | Removing the embed from the source note does not delete the object (D-27). The first time, the app asks for co… | no ACs yet |
-| FR-EDT-11 | Outline (table of contents) of the current note's headings in the side panel. | no ACs yet |
 | FR-EMB-03 | Embedded content is editable in place (FR-CNV-05). | no ACs yet |
 | FR-HOM-01 | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | no ACs yet |
-| FR-HOM-02 | Pinned objects and saved queries can be added to Home and the sidebar. | no ACs yet |
 | FR-INB-01 | Inbox view lists all objects with `review: unreviewed`: Quick Notes, Daily Notes, captured items, and objects … | no ACs yet |
 | FR-INB-02 | Inbox actions per item (keyboard-first): mark reviewed, convert to type (changes the type and moves the file),… | no ACs yet |
 | FR-INB-03 | Review status is an attribute (`review: unreviewed \| reviewed`). It is mandatory on Quick Notes and Daily Not… | no ACs yet |
@@ -208,14 +202,11 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-NAV-04 | Left sidebar: Home, Inbox, Today, Tasks, Search, Types (list of all types → Type pages), Pinned, Saved queries… | no ACs yet |
 | FR-NAV-05 | Right side panel (toggleable): Attributes, Backlinks, Local graph, Outline. | no ACs yet |
 | FR-SET-01 | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | no ACs yet |
-| FR-SET-04 | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | no ACs yet |
 | FR-SET-05 | Menu bar icon on/off; launch at login. | no ACs yet |
 | FR-TSK-01 | Task attributes: title, status, priority, due date, recurrence, source (relation), completed date (auto), plus… | no ACs yet |
 | FR-TSK-02 | Status: each status has a user-editable label and color and maps to one fixed semantic state: *Open*, *In prog… | no ACs yet |
 | FR-TSK-03 | Priority: an ordered list with user-editable labels and colors (default: High, Medium, Low, None). The order d… | no ACs yet |
 | FR-TSK-04 | Task views (from the sidebar): *Today* (due today + overdue), *Upcoming*, *All open*, *By source*, *Done*. Eac… | no ACs yet |
-| FR-TSK-05 | Board view (Kanban) grouped by status (or by any select attribute). Dragging a card between columns changes th… | no ACs yet |
-| FR-TSK-06 | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | no ACs yet |
 | FR-TSK-08 | Every task in any view shows its source note as a clickable chip. Click previews the source; double-click open… | no ACs yet |
 | FR-TSK-09 | Overdue tasks are visually highlighted. | no ACs yet |
 | FR-TSK-10 | Tasks can be created directly in Task views (quick-add row) without a source note, or from any app via the glo… | no ACs yet |
@@ -223,31 +214,30 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-VLT-05 | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | no ACs yet |
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
 | NFR-SEC-03 | The share extension and capture window only write to the vault; they never read content back to other apps. | no ACs yet |
+| FR-MMP-01 | A mindmap block can be inserted into any note; it is stored as a Mermaid `mindmap` code block. | no ACs yet (slice MM, D-377) |
+| FR-MMP-02 | Visual editing (D-36): add child/sibling node with Tab/Enter, edit text inline, drag to re-parent, collapse br… | no ACs yet; render + outline editing in the MVP, drag/collapse/zoom/pan v1.0 (D-377) |
+| FR-MMP-04 | Per object type, the mindmap block can be included by default via the template ("optional per type"). | no ACs yet (slice MM, D-377) |
 
 ### MS6: Images, PDFs, trash
 
-10 requirements · 3 with ACs · 0 with spike evidence · 0 implemented
+7 requirements (D-376 moved 3 to v1.0) · 3 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
 | FR-ATT-01 | Add images via paste, drag & drop, file picker, capture/share sheet. Formats: PNG, JPG, GIF, WebP, HEIC (conve… | no ACs yet |
 | FR-ATT-02 | Add PDFs the same way; display as an inline viewer or a link card. | no ACs yet |
-| FR-ATT-03 | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | no ACs yet |
 | FR-ATT-07 | Images and PDFs are objects (D-42). Adding an image or PDF (paste, drag & drop, picker, capture, share sheet, … | 4 ACs |
 | FR-ATT-08 | The Image/PDF object's title defaults to the file name (or the owning note's title + number for generic names … | no ACs yet |
-| FR-ATT-09 | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | no ACs yet |
 | FR-HIS-01 | Deleting an object moves it to `.trash/` (with its original path remembered). The Trash view allows restore (b… | no ACs yet |
-| FR-HIS-02 | Trash is auto-emptied after N days (default 30, configurable). | no ACs yet |
 | FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | 6 ACs |
 | FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | 6 ACs |
 
-### MS7: Capacities and Obsidian importers
+### MS7: Capacities importer
 
-19 requirements · 15 with ACs · 0 with spike evidence · 0 implemented
+17 requirements (D-373 moved 2 to v1.0; starts after the daily-use point, D-375) · 15 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
-| FR-IMP-01 | Obsidian vault: the user chooses to open it in place (files aren't rewritten until edited; untyped notes are t… | no ACs yet |
 | FR-IMP-03 | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | no ACs yet |
 | FR-IMP-05 | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | 4 ACs |
 | FR-IMP-07 | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | 4 ACs |
@@ -265,18 +255,16 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs |
 | FR-IMP-23 | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | no ACs yet |
 | FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs |
-| FR-STO-10 | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | no ACs yet |
 
 ### MS8: MVP hardening & release
 
-17 requirements · 11 with ACs · 0 with spike evidence · 0 implemented
+16 requirements (D-374 moved 1 to v1.0) · 11 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
 | AR-02 | Native Apple Silicon (arm64) build. Universal binary for Intel: ❓ (C). | no ACs yet |
 | AR-08 | Code-signed and notarized macOS build, distributed as a direct-download DMG (not the Mac App Store in v1; D-32… | no ACs yet |
 | FR-SYN-01 | The app works on a vault placed in any synced folder, including Dropbox, Google Drive and iCloud Drive (D-36),… | 3 ACs |
-| FR-UX-04 | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | no ACs yet |
 | FR-UX-06 | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | no ACs yet |
 | NFR-OTH-01 | Minimum macOS version: macOS 14 Sonoma (D-32). | no ACs yet |
 | NFR-PERF-01 | Cold start to usable UI | 1 ACs |
@@ -309,7 +297,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-UX-01 | M | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | Cross-cutting UI rule; no milestone checks it | MS3 |
 | FR-UX-02 | M | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | App layout (sidebar, editor, right panel) | MS3 |
 | FR-UX-03 | M | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | Command palette: CLAUDE.md requires every action in it, but no milestone builds it | MS3 |
-| FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout | MS8 |
+| FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout | MS8 → v1.0 (D-374) |
 | FR-UX-05 | M | Light and dark themes with equal quality. | Light/dark | MS3 |
 | FR-UX-06 | M | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | Empty states | MS8 |
 | FR-UX-07 | M | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | Progress + cancel: indexing (MS2), bulk ops (MS4), import (MS7) | MS2 |
@@ -325,14 +313,14 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | NFR-OTH-02 | NFR | UI language: English in v1, with all UI strings externalized so other languages (e.g. Czech) can be added late… | Externalized strings, L0 check | MS3 |
 | FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | Importer test data (built in S5) | MS7 |
 | FR-EDT-10 | S | Raw Markdown source view toggle per note, for power users and debugging. | NFR-REL-03 (MS1) opens invalid files "in source mode"; that needs at least a read-only source view | MS3 |
-| FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-71: hotkey registration failures are shown in Settings (FR-CAP-05, MS5) | MS5 |
+| FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-71: hotkey registration failures are shown in Settings (FR-CAP-05, MS5) | MS5 → v1.0 (D-376) |
 | FR-SRC-04 | S | Supports phrase ("…") and exclusion (-word) operators; tolerant of diacritics (e.g. *č* matches *c*) and typos… | Diacritic folding already exists (S4); phrase/exclusion are cheap in FTS5 | MS2 |
-| FR-HIS-02 | S | Trash is auto-emptied after N days (default 30, configurable). | Trash auto-empty belongs with trash (FR-HIS-01, MS6) | MS6 |
-| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | FR-NAV-05 (MS5) puts the outline in the right panel | MS5 |
+| FR-HIS-02 | S | Trash is auto-emptied after N days (default 30, configurable). | Trash auto-empty belongs with trash (FR-HIS-01, MS6) | MS6 → v1.0 (D-376) |
+| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | FR-NAV-05 (MS5) puts the outline in the right panel | MS5 → v1.0 (D-376) |
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (61)
+### v1.0 "complete desktop" (73)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
@@ -371,10 +359,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-QRY-07 | M | Each type has default views (FR-TYP-09); users can add more views per type (e.g. Books: "Currently reading" bo… | Query builder and views (§11) |
 | FR-QRY-08 | S | Creating an object from within a query view pre-fills the attributes that match the filters (e.g. a new card i… | Query builder and views (§11) |
 | FR-QRY-09 | M | Query results update live when files change (including external edits). | Query builder and views (§11) |
-| FR-MMP-01 | M | A mindmap block can be inserted into any note; it is stored as a Mermaid `mindmap` code block. | Mindmap editor (§11) |
-| FR-MMP-02 | M | Visual editing (D-36): add child/sibling node with Tab/Enter, edit text inline, drag to re-parent, collapse br… | Mindmap editor (§11) |
 | FR-MMP-03 | S | Mindmap nodes may contain `[[links]]`. A node can be converted into an object (like FR-CNV). | Mindmap editor (§11) |
-| FR-MMP-04 | M | Per object type, the mindmap block can be included by default via the template ("optional per type"). | Mindmap editor (§11) |
 | FR-MMP-05 | M | Exports render the mindmap as an image (FR-EXP). | Mindmap editor (§11) |
 | FR-ATT-04 | S | Deleting the last reference to an attachment does not delete the file; an "Unused attachments" tool lists orph… | D-87 (AP-34) |
 | FR-ATT-05 | S | Warn on files > 20 MB (configurable). | D-87 (AP-34) |
@@ -397,6 +382,21 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-06 | S | Trash retention (default 30 days), version history retention (default 90 days). | Retention settings, with version history |
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
+| FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370: tag colour to v1.0 |
+| FR-STO-04 | M | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | D-372: type moves to v1.0 |
+| FR-TYP-04 | M | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | D-372: schema rewrites to v1.0 |
+| FR-TYP-07 | M | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | D-372: the file-move part to v1.0; the type change itself stays MS3 (D-224) |
+| FR-TSK-05 | M | Board view (Kanban) grouped by status (or by any select attribute). Dragging a card between columns changes th… | D-371: board after the daily-use point (5C or v1.0) |
+| FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
+| FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries |
+| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 |
+| FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-376: the D-71 hotkey-failure display stays in MS5 with FR-CAP-05 |
+| FR-ATT-03 | M | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | D-376 |
+| FR-ATT-09 | M | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | D-376 |
+| FR-HIS-02 | S | Trash is auto-emptied after N days (default 30, configurable). | D-376 |
+| FR-IMP-01 | M | Obsidian vault: the user chooses to open it in place (files aren't rewritten until edited; untyped notes are t… | D-373: Obsidian import to v1.0 |
+| FR-STO-10 | M | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | D-373: Obsidian import to v1.0 |
+| FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | D-374 |
 
 ### v1.x (9)
 
@@ -463,7 +463,11 @@ Could requirements listed in BRD §11 as an explicit backlog.
 | FR-SRC-05 | C | Search inside PDF text. |
 | FR-ATT-06 | C | Link to a PDF page; PDF annotation/highlight extraction. |
 
-## 6. Other findings
+## 6. Daily-use re-plan (owner, 2026-10-16, D-370…D-377)
+
+The owner starts daily use from an empty vault, so the Capacities importer and everything that reshapes existing data left the critical path. Moved from MVP milestones to v1.0: FR-TAG-05 (D-370), FR-STO-04, FR-TYP-04, the file-move part of FR-TYP-07 (D-372), FR-TSK-05, -06 (D-371), FR-HOM-02, FR-EDT-11, FR-SET-04, FR-ATT-03, -09, FR-HIS-02 (D-376), FR-IMP-01, FR-STO-10 (D-373), FR-UX-04 (D-374). Moved in: FR-MMP-01, -02 (render + outline editing), -04 (D-377). Order of the remaining slices: `docs/plans/mvp-daily-use-plan.md` (D-375). The MS1–MS3 tables are unchanged; FR-TYP-07 stays in MS3 for the type change that writes only `type:`.
+
+## 7. Other findings
 
 - **Priority inconsistency:** FR-IMP-12 and FR-IMP-13 (Notion details) are priority M, while their parent FR-IMP-02 (Notion import) is C, v1.x (D-41). Proposed: mark them "M within FR-IMP-02 (v1.x)".
 - **The MVP needs a basic query engine although the query builder is v1.0:** type pages with default views (FR-TYP-09, MS3), the task list and board (FR-TSK, MS5), Inbox and Home sections (MS5) all show filtered, sorted lists. `tegg-query` therefore starts in MS3/MS5 with fixed definitions; the visual builder and saved queries stay v1.0. NFR-PERF-07 (query view, MS8) measures that engine.
@@ -471,7 +475,7 @@ Could requirements listed in BRD §11 as an explicit backlog.
 - **Still open, not part of AP-32…AP-34:** the FR-IMP-12/-13 priority inconsistency above.
 - **ACs for the remaining milestones:** MS3–MS6 have ACs for only 6/37, 11/30, 1/39, 3/10 of their requirements. That is the D-61 plan (ACs just before each milestone), and **MS1 has ACs for all 35 of its requirements** (FR-VLT-01, -02, AR-03, -04 added 2026-10-11; decisions D-89…D-92; AP-39 pending).
 
-## 7. Decided points (accepted 2026-10-11, BRD v1.16)
+## 8. Decided points (accepted 2026-10-11, BRD v1.16)
 
 | # | Issue | Decision |
 | --- | --- | --- |

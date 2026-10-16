@@ -243,6 +243,8 @@ export function App() {
     else if (o) r.at = { line: o.at.line, byte: o.at.byte };
     void go(r);
   }, []);
+  /** A create path that lands on today's Daily Note (D-318, D-353): the caret goes into its body (D-367). */
+  const createToday = useCallback(() => { justCreated.current = `daily:${localDate(Date.now())}`; void go({ id: 'today' }); }, [go]);
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
@@ -280,13 +282,13 @@ export function App() {
   const createOf = useCallback(async (typeKey: string, rawTitle: string, prepared: Prepared | null = null) => {
     setDialog(null);
     setNewOfType(null);
-    if (typeKey === 'daily-note') { void go({ id: 'today' }); return; } // D-318, D-353: never a second Daily Note
+    if (typeKey === 'daily-note') { createToday(); return; } // D-318, D-353: never a second Daily Note
     const title = rawTitle.normalize('NFC');
     if (noteApi.current?.pending()) await flushNote(); // FR-EDT-08 AC-7: the open note is saved before the new object is written
     const made = prepared ? prepared.create(title) : createObject(typeKey, title);
     // A dialog the user opened while the object was being created stays open (the new note opens behind it).
     made.then((p) => { justCreated.current = p.normalize('NFC'); openNote(p, undefined, true); }, () => setMessage(t('error.io')));
-  }, [openNote]);
+  }, [openNote, createToday]);
   const createFrom = useCallback((item: SwitcherItemDto, prepared?: Prepared | null) => createOf(item.type, item.title, prepared ?? null), [createOf]);
 
   // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
@@ -320,12 +322,12 @@ export function App() {
       // The dialog opens at once so typing isn't lost; it gives way to today's note when that is the default type.
       returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject');
       void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => {
-        if (key === 'daily-note') void go({ id: 'today' });
+        if (key === 'daily-note') createToday();
       });
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
-    newObjectOfType: (key: string) => { if (key === 'daily-note') { void go({ id: 'today' }); return; } returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
+    newObjectOfType: (key: string) => { if (key === 'daily-note') { createToday(); return; } returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
     openTypeSettings: () => {
       const key = route?.id === 'type/<type>' ? route.param : route?.id === 'note/<path>' || route?.id === DAILY ? (metaRef.current?.type ?? 'page') : undefined;
       if (key) void go({ id: 'type-settings/<type>', param: key });
@@ -520,7 +522,7 @@ export function App() {
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
         // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
-        if ((route.id === 'note/<path>' || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
+        if ((route.id === 'note/<path>' || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });
@@ -551,7 +553,7 @@ export function App() {
       <NotePage
         key={key}
         apiRef={noteApi}
-        created={justCreated.current === path}
+        created={justCreated.current === path || (!!daily && justCreated.current === `daily:${daily.date}`)}
         path={path}
         fragment={daily ? undefined : route?.fragment}
         at={daily ? undefined : route?.at}
@@ -563,7 +565,7 @@ export function App() {
         types={types}
         heading={heading}
         onMeta={(m) => { setMeta(m); setNoteShown(true); }}
-        onType={(k) => go({ id: 'type/<type>', param: k })}
+        onType={(k) => { void go({ id: 'type/<type>', param: k }); void ipc.navOpened(null, `type/${k}`).catch(() => {}); }} // D-369: the chip's open is recorded (FR-TYP-07 AC-11)
         onOpen={openNote}
         onTag={openTag}
         onRenamed={(p) => {
@@ -696,7 +698,7 @@ export function App() {
           backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
-            onCreated={(p) => openNote(p)}
+            onCreated={(p) => { justCreated.current = p.normalize('NFC'); openNote(p); }}
             onExists={(p, title) => { setMessage(t('createLink.exists', { title })); openNote(p); }} />
         )}
       </div>

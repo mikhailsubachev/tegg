@@ -67,7 +67,12 @@ export async function openTypes(page: Page, at?: string, o: TypesStart = {}): Pr
 export const main = (page: Page) => page.getByRole('main');
 export const props = (page: Page) => page.getByRole('region', { name: 'Properties', exact: true });
 export const saveState = (page: Page) => page.getByRole('status', { name: 'Save state', exact: true });
-export const typeChip = (page: Page) => page.getByRole('button', { name: /^Type: .*\. Change type$/ });
+/** D-369: the header's type chip is a link `Type: <Name>` to `type/<key>` (types.md FR-TYP-07 AC-11). */
+export const typeChip = (page: Page) => main(page).getByRole('link', { name: /^Type: / });
+/** D-369: the note header's `More` button and menu with `Change type…` (FR-TYP-07 AC-12). */
+export const moreButton = (page: Page) => main(page).getByRole('button', { name: 'More', exact: true });
+export const moreMenu = (page: Page) => page.getByRole('menu', { name: 'More', exact: true });
+export const changeTypeItem = (page: Page) => moreMenu(page).getByRole('menuitem', { name: 'Change type…', exact: true });
 export const changeTypeMenu = (page: Page) => page.getByRole('menu', { name: 'Change type', exact: true });
 export const otherProps = (page: Page) => page.getByRole('button', { name: /^Other properties \(\d+\)$/ });
 export const typeTable = (page: Page, plural: string) => main(page).getByRole('table', { name: plural, exact: true });

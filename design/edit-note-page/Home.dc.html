@@ -135,8 +135,8 @@ Home
 <div style="font-weight: 650">Inbox <span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-weight: 700; margin-left: 4px">4</span></div>
 <div style="font-size: 12px; color: var(--muted)">Captured and unreviewed, newest first</div>
 </div>
-<button style="height: 32px; padding: 0 12px; border-radius: 7px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600">Start triage</button>
-<button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">Open Inbox <span style="color: var(--muted)">⌘⇧I</span></button>
+<!-- Start triage removed: triage mode is v1.x (§11) -->
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600">Open Inbox <span style="opacity: .7">⌘⇧I</span></button>
 </div>
 <div style="display: flex; flex-direction: column">
 <sc-for list="{{inbox}}" as="i" hint-placeholder-count="4">
@@ -315,7 +315,7 @@ const recents = [
 ['daily', '2026-10-10', 'yesterday'],
 ['proj', 'Lisbon Offsite 2026', 'Thu']
 ]) },
-{ label: 'Pinned', items: row([
+{ label: 'Pinned · v1.0 (FR-HOM-02, D-376)', items: row([
 ['proj', 'Q4 Budget', 'due 2026-12-31'],
 ['proj', 'Lisbon Offsite 2026', 'from 2026-11-16'],
 ['query', 'Ideas to develop', '4 results'],

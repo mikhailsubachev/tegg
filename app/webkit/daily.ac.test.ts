@@ -10,7 +10,7 @@ import {
   D, NOW, NOW_IN, ZONES, absent, bodyOf, btn, callsOf, caretAtEnd, cmdD, dailyVault, description, duplicateNotice, editorBody, eventually,
   fileText, fileWhen, flat, gotoDaily, gotoNote, isDisabled, keysOf, main, mainName, must, mustBeOn, mustDaily, nextDay, original, pickDate,
   prevDay, reviewToggle, runCommand, saveState, seen, sidebarToday, sleep, startDaily, stateIs, swap, templateBody, titleField, titleText,
-  todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
+  changeTypeItem, moreButton, todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
 } from './daily-helpers';
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
@@ -215,14 +215,20 @@ test.describe('which note a date opens', () => {
   test('fr_dly_01_ac9_the_type_chip_is_locked_on_daily_notes', async ({ page }) => {
     await startDaily(page, { now: '2026-10-07T12:00:00+02:00', at: D.zminky });
     await cmdD(page, '2026-10-07');
+    // D-369: the chip is the link `Type: Daily Note`; the reason moves to `Change type…` in the `More` menu.
     const chip = await must(typeChip(page), 'the type chip');
-    assert.equal(await isDisabled(chip), true, 'aria-disabled');
-    assert.equal(await description(chip), "The type of a Daily Note can't be changed");
+    assert.equal(await chip.getAttribute('aria-label'), 'Type: Daily Note', 'the link Type: Daily Note (accessible name)');
+    await (await must(moreButton(page), 'button "More"')).click();
+    const item = await must(changeTypeItem(page), 'menuitem "Change type…"');
+    assert.equal(await isDisabled(item), true, 'aria-disabled');
+    assert.equal(await description(item), "The type of a Daily Note can't be changed");
+    await page.keyboard.press('Escape');
     await runCommand(page, 'Change type');
     await sleep(300);
     assert.ok(await absent(page.getByRole('menu', { name: 'Change type', exact: true }), 500), '`Change type` is not run');
     await gotoNote(page, 'Zmínky');
-    await (await must(typeChip(page), 'type chip on Zmínky')).click();
+    await (await must(moreButton(page), 'More on Zmínky')).click();
+    await (await must(changeTypeItem(page), 'Change type… on Zmínky')).click();
     const menu = await must(page.getByRole('menu', { name: 'Change type', exact: true }), 'menu "Change type"');
     assert.equal(await menu.getByRole('menuitem', { name: /^Daily Note\b/ }).count(), 0, 'Daily Note is not offered');
   });

@@ -1,4 +1,4 @@
-// The note header's type chip and its `Change type` menu (FR-TYP-07 AC-4, D-224): targets are Page, Task, Quick Note
+// The note header's type chip, the `More` menu and the `Change type` menu (FR-TYP-07 AC-4, D-224): targets are Page, Task, Quick Note
 // and the user types (D-122 order) without the current type; Daily Note, Tag, Image and PDF are neither targets nor
 // changeable, and files the panel can't edit have a disabled chip. Choosing writes only `type:` (and `modified`).
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
@@ -13,7 +13,9 @@ const FIXED = new Set(['daily-note', 'tag', 'image', 'pdf']);
 
 export type TypeChipApi = { open: () => void };
 
-export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange }: {
+/** D-369: the chip is a link to `type/<key>` (FR-TYP-07 AC-11); `Change type…` lives in the `More` menu and the
+ *  palette (AC-12), with AC-4's targets and disabled cases. */
+export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onOpenType }: {
   apiRef?: Ref<TypeChipApi>;
   /** The note's type definition (null: a `type` value without a definition). */
   type: TypeDto | null;
@@ -21,30 +23,45 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange }: {
   types: TypeDto[];
   readOnly: boolean;
   onChange: (key: string) => void;
+  onOpenType: (key: string) => void;
 }) {
+  const [more, setMore] = useState(false);
   const [open, setOpen] = useState(false);
-  const btn = useRef<HTMLButtonElement | null>(null);
+  const moreBtn = useRef<HTMLButtonElement | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const name = type?.name ?? typeKey;
   const fixed = FIXED.has(nfc(typeKey));
   const disabledWhy = fixed ? t('panel.chipLocked', { name }) : readOnly ? t('panel.chipReadOnly') : null;
-  const show = () => { if (!disabledWhy) { setOpen(true); } };
-  useImperativeHandle(apiRef, () => ({ open: () => { btn.current?.focus(); show(); } }));
+  const show = (from: HTMLElement | null) => { if (!disabledWhy) { opener.current = from; setOpen(true); } };
+  useImperativeHandle(apiRef, () => ({ open: () => show(document.activeElement as HTMLElement | null) }));
   const targets = typeEntries(types, {}).filter((e) => e.defined && !e.invalid && !FIXED.has(e.key) && nfc(e.key) !== nfc(typeKey));
+  const back = () => { const el = opener.current; if (el?.isConnected) el.focus(); };
   return (
     <>
-      <button ref={btn} type="button" className="type-chip" aria-haspopup="menu" aria-expanded={open} aria-disabled={disabledWhy ? true : undefined}
-        aria-label={t('panel.typeChip', { name })} aria-description={disabledWhy ?? undefined} data-command="note.changeType"
+      <a href="#" className="type-chip" aria-label={t('panel.typeChip', { name })} data-command="note.openType"
         style={{ ['--type' as string]: `var(--type-${colorName(type?.color)})` }}
-        onClick={() => (open ? setOpen(false) : show())}>
+        onClick={(e) => { e.preventDefault(); onOpenType(typeKey); }}>
         <Icon name={typeIconName(typeKey, type?.icon)} size={13} />
         <span data-user-content>{name}</span>
+      </a>
+      <button ref={moreBtn} type="button" tabIndex={0} className="icon-button small note-more" aria-label={t('note.more')} aria-haspopup="menu" aria-expanded={more}
+        data-command="note.more" onClick={() => setMore((m) => !m)}>
+        <Icon name="more-horizontal" size={14} />
       </button>
+      {more && (
+        <PopupMenu label={t('note.more')} anchor={moreBtn.current} onClose={() => { setMore(false); moreBtn.current?.focus(); }}
+          entries={[{
+            kind: 'item' as const, key: 'changeType', label: t('note.more.changeType'), disabled: !!disabledWhy, description: disabledWhy ?? undefined,
+            content: <span className="menu-title">{t('note.more.changeType')}</span>,
+            onChoose: () => { setMore(false); show(moreBtn.current); },
+          }]} />
+      )}
       {open && (
-        <PopupMenu label={t('panel.changeTypeMenu')} anchor={btn.current} onClose={() => setOpen(false)}
+        <PopupMenu label={t('panel.changeTypeMenu')} anchor={opener.current ?? moreBtn.current} onClose={() => { setOpen(false); back(); }}
           entries={targets.map((e) => ({
             kind: 'item' as const, key: e.key, label: e.name,
             content: (<><Icon name={typeIconName(e.key, e.icon)} size={14} /><span className="menu-title" data-user-content>{e.name}</span></>),
-            onChoose: () => { setOpen(false); btn.current?.focus(); onChange(e.key); },
+            onChoose: () => { setOpen(false); back(); onChange(e.key); },
           }))} />
       )}
     </>

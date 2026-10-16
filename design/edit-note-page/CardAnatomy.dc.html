@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – universal object card</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#EDECE8}
+body:has(.tg.dark){background:#111113}
+a{color:inherit;text-decoration:none}
+.tg{--board:#EDECE8;--bg:#FFFFFF;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--pin:#D9480F;--danger:#B3261E;--shadow:0 1px 2px rgba(20,20,30,.06)}
+.tg.dark{--board:#111113;--bg:#1C1C1E;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--link:#86AEFF;--link-bg:#1F2A3F;--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--pin:#FF8A4C;--danger:#FF8A85;--shadow:none}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="width: 1680px; min-height: 1160px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; align-items: flex-end; gap: 24px">
+<div style="flex: 1">
+<div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">Components · proposal</div>
+<h1 style="margin: 6px 0 0; font-size: 40px; line-height: 1.1; font-weight: 700">One card for every object</h1>
+</div>
+<p style="margin: 0; max-width: 600px; font-size: 15px; line-height: 1.5; color: var(--muted)">A single card built only from attributes every object has: <b style="color: var(--text)">title</b>, <b style="color: var(--text)">tags</b> and <b style="color: var(--text)">content</b>, plus its type’s icon (FR-TYP-08; objects have no icon or cover of their own, D-217). It works for any type, including user types and plain Obsidian files with no frontmatter. Type-specific properties are an optional extra slot, not part of the base card.</p>
+</div>
+
+<div style="display: flex; gap: 48px; align-items: flex-start">
+
+<!-- ANATOMY -->
+<section aria-label="Anatomy" style="flex: none; display: flex; gap: 28px; align-items: flex-start">
+<div style="position: relative; width: 340px">
+<article style="background: var(--bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow)">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3z"></path></svg></span><span style="flex: 1; font-size: 13px; color: var(--muted)">Project</span><span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 7px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></span></div>
+<h2 style="margin: 0; font-size: 17px; font-weight: 650; line-height: 1.3">Lisbon Offsite 2026</h2>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<span style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--t-bg); color: var(--t); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">offsite</span>
+<span style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--o-bg); color: var(--o); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">finance</span>
+<span style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--hover); color: var(--muted); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">+2</span>
+</div>
+<p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5">Three days in Lisbon in the week of 2026-11-16. Agenda first, then venue, then travel. Budget is capped per person…</p>
+<div style="display: flex; gap: 14px; font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px dashed var(--border)">
+<span><span style="color: var(--muted)">Status</span> Active</span><span><span style="color: var(--muted)">Dates</span> 16–18 Nov</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px">
+<span>9 links</span><span aria-hidden="true">·</span><span>Edited Thu</span>
+</div>
+</div>
+</article>
+<sc-for list="{{pins}}" as="p" hint-placeholder-count="8">
+<span aria-hidden="true" style="position: absolute; {{p.side}}: {{p.x}}px; top: {{p.y}}px; width: 24px; height: 24px; border-radius: 12px; background: var(--pin); color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px var(--board)">{{p.n}}</span>
+</sc-for>
+</div>
+
+<ol style="margin: 0; padding: 0; list-style: none; width: 330px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="8">
+<li style="display: flex; gap: 10px">
+<span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 11px; background: var(--pin); color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; margin-top: 1px">{{p.n}}</span>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<span style="font-weight: 650; font-size: 14px">{{p.name}} <code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; font-weight: 400; color: var(--muted)">{{p.key}}</code></span>
+<span style="font-size: 12px; color: var(--muted); line-height: 1.45">{{p.rule}}</span>
+</div>
+</li>
+</sc-for>
+</ol>
+</section>
+
+<!-- VARIANTS -->
+<section aria-label="Variants" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Same card, any object</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start">
+<sc-for list="{{variants}}" as="v" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 8px; position: relative">
+<article style="background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{v.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{v.d}}"></path></svg><span style="flex: 1">{{v.type}}</span><button aria-label="More actions for {{v.title}}" aria-haspopup="menu" aria-expanded="{{v.menuAttr}}" style="width: 28px; height: 28px; margin: -6px -8px -6px 0; border-radius: 7px; border: 0; background: {{v.menuBg}}; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button></div>
+<h3 title="{{v.title}}" style="margin: 0; font-size: 16px; font-weight: 650; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{v.title}}</h3>
+<sc-if value="{{v.hasTags}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{v.tags}}" as="g" hint-placeholder-count="2"><span style="height: 22px; padding: 0 8px; border-radius: 11px; background: {{g.bg}}; color: {{g.fg}}; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">{{g.label}}</span></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{v.hasContent}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">{{v.content}}</p>
+<sc-if value="{{v.long}}" hint-placeholder-val="{{ false }}"><a href="#" style="font-size: 12px; color: var(--link)">Preview</a></sc-if>
+</sc-if>
+<sc-if value="{{v.noContent}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: var(--faint); font-style: italic">No content yet</p>
+</sc-if>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; min-height: 28px"><span style="flex: 1">{{v.footer}}</span><sc-if value="{{v.hasReview}}" hint-placeholder-val="{{ false }}"><button role="checkbox" onClick="{{v.toggleReview}}" aria-checked="{{v.reviewedAttr}}" title="{{v.reviewTitle}}" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; margin-right: -8px; border-radius: 7px; border: 0; background: transparent; color: {{v.revFg}}; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid {{v.boxBorder}}; background: {{v.boxBg}}; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{v.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></span>Reviewed</button></sc-if></div>
+</article>
+<span style="font-size: 12px; color: var(--muted)">{{v.note}}</span>
+<sc-if value="{{v.menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Actions for {{v.title}}" style="position: absolute; top: 46px; right: 8px; z-index: 5; width: 230px; padding: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(20,20,30,.16), 0 2px 6px rgba(20,20,30,.08); font-size: 13px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 4px 8px">Convert to type</div>
+<sc-for list="{{convertTo}}" as="t" hint-placeholder-count="5">
+<div role="menuitemradio" aria-checked="{{t.checked}}" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 7px; background: {{t.bg}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span><span style="font-size: 12px; color: var(--muted)">{{t.mark}}</span>
+</div>
+</sc-for>
+<div style="height: 1px; background: var(--border); margin: 6px 4px"></div>
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 7px; color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"></path></svg><span style="flex: 1">Move to trash</span><span style="font-size: 12px">⌫</span></div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<h2 style="margin: 8px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Three sizes from the same parts</h2>
+<div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 8px; width: 250px">
+<article style="background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg>Idea</div>
+<div style="font-weight: 650">Files outlive apps</div>
+<div style="display: flex; gap: 6px"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--t-bg); color: var(--t); font-size: 11px; font-weight: 500; display: inline-flex; align-items: center">local-first</span></div>
+<p style="margin: 0; font-size: 12px; color: var(--muted)">Plain Markdown is readable in 20 years…</p>
+</article>
+<span style="font-size: 12px; color: var(--muted)"><b style="color: var(--text)">Card</b> · gallery views, Home, Pinned. Content clamps to 3 lines.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 300px">
+<article style="background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg>
+<span style="font-weight: 650; flex: 1">Files outlive apps</span>
+<span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--t-bg); color: var(--t); font-size: 11px; font-weight: 500; display: inline-flex; align-items: center">local-first</span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg>
+</div>
+<p style="margin: 0 0 0 23px; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Plain Markdown is readable in 20 years; a proprietary database may not be.</p>
+</article>
+<span style="font-size: 12px; color: var(--muted)"><b style="color: var(--text)">Embed card</b> · inside a note (FR-EMB-02). One row of header, one line of content.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; width: 330px">
+<div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg>
+<span style="font-weight: 600; flex: 1; font-size: 13px">Files outlive apps</span>
+<span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: var(--t)"></span>
+<span style="font-size: 12px; color: var(--muted)">Thu</span>
+</div>
+<span style="font-size: 12px; color: var(--muted)"><b style="color: var(--text)">Row</b> · lists, search, backlinks. Tags shrink to colour dots, content hidden.</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1680,"height":1160}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? false;
+const pins = [[1, 22, 'left', -14], [2, -10, 'left', 66], [3, 66], [4, 102], [5, 150], [6, 210], [7, 260], [8, 22]].map(([n, y, side, x]) => ({ n: String(n), y: String(y), side: side || 'right', x: String(x ?? -14) }));
+const parts = [
+{ n: '1', name: 'Icon', key: 'icon', rule: 'The object’s own icon, else the type icon in the type colour.' },
+{ n: '2', name: 'Type', key: 'type', rule: 'Type name in small grey text, inline right after the icon. Files with no type read as Page (FR-TYP-10).' },
+{ n: '3', name: 'Title', key: 'title', rule: 'Always present; falls back to the file name. Bold, up to 2 lines, then …' },
+{ n: '4', name: 'Tags', key: 'tags', rule: 'Up to 3 chips in their tag colours, then “+N”. Hidden when there are none.' },
+{ n: '5', name: 'Content', key: 'body', rule: 'The description if set, else the start of the body as plain text (no headings, images or embeds). Up to 3 lines.' },
+{ n: '6', name: 'Type properties', key: 'optional', rule: 'Optional slot for the type’s preview properties (FR-TYP-11). Off for the base card.' },
+{ n: '7', name: 'Footer', key: 'links · modified', rule: 'Link count and relative edit time. Types with the review workflow on (always for Quick and Daily Notes, FR-TYP-12) also get a “Reviewed” checkbox here; one click ticks or clears it (no menu needed). Try it in Play.' },
+{ n: '8', name: 'More menu ⋯', key: 'actions', rule: 'Convert to another type (keeps content, id and links, FR-TYP-07) and move to trash (restorable from .trash/). Also on right-click.' }
+];
+const tag = (label, c) => ({ label, bg: 'var(--' + c + '-bg)', fg: 'var(--' + c + ')' });
+const variants = [
+{ type: 'Page', d: 'M7 3h7l5 5v13H7zM14 3v5h5', color: 'var(--muted)', title: 'Untitled', hasTags: false, tags: [], hasContent: false, noContent: true, long: false, content: '', footer: '0 links · Created just now', note: 'Title only: a new, empty object.' },
+{ type: 'Meeting', d: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5', color: 'var(--t)', title: '2026-10-07 Weekly Sync', hasTags: true, tags: [tag('finance', 'o'), tag('q4', 'p')], hasContent: true, noContent: false, long: false, content: 'Agenda: Q4 budget status, offsite logistics. Finance wants the draft before Friday.', footer: '11 links · Edited 10 min ago', note: 'Title + tags + content. Its type has the review workflow on, so the footer shows Reviewed.' },
+{ type: 'Idea', d: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z', color: 'var(--idea)', title: 'Why local-first software and plain Markdown files will outlast every proprietary note-taking database we use today', hasTags: true, tags: [tag('local-first', 't'), tag('zettelkasten', 'p'), tag('essay', 'o'), { label: '+4', bg: 'var(--hover)', fg: 'var(--muted)' }], hasContent: true, noContent: false, long: true, content: 'Every note-taking app I have used in the last fifteen years has either shut down, changed its export format, or locked my notes behind a sync service I did not choose. Plain text has survived all of them. The argument here is simple: if the file is readable without the app, the app becomes replaceable, and that changes how much I am willing to write into it. This essay walks through formats, sync, search and links, and ends with what Tegg should never do.', footer: '23 links · Edited yesterday', note: 'Unreviewed (review workflow on). Very long title, content and many tags: title clamps to 2 lines, tags to 3 + “+N”, content to 3 lines; the full text opens in the preview.' },
+{ type: 'Page', d: 'M7 3h7l5 5v13H7zM14 3v5h5', color: 'var(--muted)', title: 'Obsidian: Reading list', hasTags: true, tags: [tag('books', 'p')], hasContent: true, noContent: false, long: false, content: 'Imported from an Obsidian vault with no type; it still gets a full card.', footer: '4 links · Edited Aug 2025', note: 'Plain Markdown file, no frontmatter.' }
+];
+const I = { page: 'M7 3h7l5 5v13H7zM14 3v5h5', task: 'M5 5h14v14H5zM9 12l2 2 4-4', idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z', proj: 'M3 7h6l2 2h10v10H3z', meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5' };
+const convertTo = [['Meeting', 'meet', 'var(--t)', true], ['Page', 'page', 'var(--muted)'], ['Task', 'task', 'var(--link)'], ['Idea', 'idea', 'var(--idea)'], ['Project', 'proj', 'var(--o)']].map(([label, k, color, cur]) => ({ label, d: I[k], color, checked: cur ? 'true' : 'false', mark: cur ? 'current' : '', bg: cur ? 'var(--hover)' : 'transparent' }));
+const review = [null, 'reviewed', 'unreviewed', null];
+const st = this.state || {};
+const revState = st.rev || { 1: true, 2: false };
+const vs = variants.map((v, i) => {
+const r = review[i], done = r ? !!revState[i] : false;
+return { ...v, menuOpen: i === 1, menuAttr: i === 1 ? 'true' : 'false', menuBg: i === 1 ? 'var(--hover)' : 'transparent',
+hasReview: !!r, reviewedAttr: done ? 'true' : 'false',
+revFg: done ? 'var(--t)' : 'var(--muted)', boxBorder: done ? 'var(--t)' : 'var(--faint)', boxBg: done ? 'var(--t)' : 'var(--bg)', tickOpacity: done ? '1' : '0',
+reviewTitle: done ? 'Mark unreviewed · sends it back to the Inbox' : 'Mark reviewed · removes it from the Inbox',
+toggleReview: () => this.setState({ rev: { ...revState, [i]: !done } }) };
+});
+return { themeClass: dark ? 'dark' : '', pins, parts, variants: vs, convertTo };
+}
+}
+</script>
+</body>
+</html>

@@ -1,17 +1,22 @@
 // MS3 slice 3D, L5 (WebKit + fake core): changing an object's type (MS3 part, D-224) and type matching (D-239).
 // FR-TYP-07 AC-4…AC-10; FR-TYP-13 AC-1, AC-2; links.md FR-STO-04 / FR-TYP-07 AC-3 (attributes kept, [MS3] by D-228).
-// Written from docs/acceptance/types.md and docs/contracts/ms3-shell.md §14.7 only (D-61).
+// Written from docs/acceptance/types.md and docs/contracts/ms3-shell.md §14.7 only (D-61). D-369: the chip is a link to
+// the type page (FR-TYP-07 AC-11), so the menu is opened through the note's `More` menu (AC-12).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, changeTypeMenu, control, description, eventually, fileText, gotoTypePage, lastWrite, must, noModified, nonReadCalls,
-  openTypes, original, otherProps, props, rowTitles, runCommand, seen, sleep, swap, typeChip, typesList, typesVault,
+  P, changeTypeItem, changeTypeMenu, control, description, eventually, moreButton, fileText, gotoTypePage, lastWrite, must, noModified, nonReadCalls,
+  openTypes, original, otherProps, props, rowTitles, runCommand, seen, sleep, swap, typesList, typesVault,
 } from './types-helpers';
 
 type Core = Awaited<ReturnType<typeof openTypes>>;
 const written = (core: Core, path: string, ok: (t: string) => boolean, ms = 2000) => eventually(() => lastWrite(core, path), (t) => t !== null && ok(t), ms);
+async function openChangeType(page: Page) {
+  await (await must(moreButton(page), 'button "More"')).click();
+  await (await must(changeTypeItem(page), 'menuitem "Change type…"')).click();
+}
 async function changeTo(page: Page, name: string) {
-  await (await must(typeChip(page), 'type chip')).click();
+  await openChangeType(page);
   const menu = await must(changeTypeMenu(page), 'menu "Change type"');
   await menu.getByRole('menuitem', { name, exact: true }).click();
 }
@@ -20,28 +25,28 @@ const count = async (page: Page, label: string) => {
   return t ? Number(/(\d+)$/.exec(t)?.[1] ?? 0) : 0;
 };
 
-test('fr_typ_07_ac4_the_type_chip_and_its_menu', async ({ page }) => {
+test('fr_typ_07_ac4_the_change_type_menu', async ({ page }) => {
+  // D-369: the chip part is superseded (FR-TYP-07 AC-11); the menu is reached through `More` (AC-12).
   await openTypes(page, P.obycejna);
-  const chip = await must(page.getByRole('button', { name: 'Type: Page. Change type', exact: true }), 'chip');
-  assert.equal(await chip.getAttribute('aria-haspopup'), 'menu');
-  assert.equal(await chip.getAttribute('aria-expanded'), 'false');
-  await chip.click();
+  await openChangeType(page);
   const items = (await (await must(changeTypeMenu(page), 'menu')).getByRole('menuitem').allInnerTexts()).map((x) => x.trim());
   for (const t of ['Task', 'Quick Note', 'Schůzka', 'Osoba', 'Projekt', 'Nápad']) assert.ok(items.includes(t), `${t} is a target`);
   for (const t of ['Page', 'Daily Note', 'Tag', 'Image', 'PDF']) assert.ok(!items.includes(t), `${t} is not a target`);
   await page.keyboard.press('Escape');
-  assert.equal(await chip.getAttribute('aria-expanded'), 'false', 'Esc closes');
+  assert.equal(await changeTypeMenu(page).count(), 0, 'Esc closes');
   await runCommand(page, 'Change type…');
   await must(changeTypeMenu(page), 'the palette command opens the same menu');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Escape');
 });
 
-test('fr_typ_07_ac4_daily_note_and_read_only_files_have_a_disabled_chip', async ({ page }) => {
+test('fr_typ_07_ac4_daily_note_has_a_disabled_change_type', async ({ page }) => {
+  // D-369: the disabled case moves from the chip to `Change type…` in the `More` menu (FR-TYP-07 AC-12).
   await openTypes(page, P.denni);
-  const chip = await must(page.getByRole('button', { name: 'Type: Daily Note. Change type', exact: true }), 'chip');
-  assert.equal(await chip.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(chip), "The type of a Daily Note can't be changed");
+  await (await must(moreButton(page), 'button "More"')).click();
+  const item = await must(changeTypeItem(page), 'menuitem "Change type…"');
+  assert.equal(await item.getAttribute('aria-disabled'), 'true');
+  assert.equal(await description(item), "The type of a Daily Note can't be changed");
 });
 
 test('fr_typ_07_ac5_only_the_type_line_changes_and_counts_follow', async ({ page }) => {
@@ -97,7 +102,8 @@ test('fr_typ_07_ac9_undo_and_redo_a_type_change', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
   await changeTo(page, 'Schůzka');
   await written(core, P.obycejna, (x) => x.includes('type: schůzka'));
-  await (await must(typeChip(page), 'chip')).focus();
+  // D-369: the chip no longer changes the type; ⌘Z with the focus in the body (FR-TYP-07 AC-9, AC-12).
+  await (await must(page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ }), 'Note body')).click();
   await page.keyboard.press('Meta+z');
   assert.ok(await written(core, P.obycejna, (x) => x.includes('type: page')), 'one ⌘Z restores the previous type; the next save writes it');
   await page.keyboard.press('Meta+Shift+z');
@@ -117,7 +123,7 @@ test('fr_typ_13_ac1_type_values_match_by_key', async ({ page }) => {
     f['Pages/Rychlá.md'] = '---\nid: 01JB0T0000000000000000T098\ntype: Quick Note\ntitle: Rychlá\n---\n';
   });
   const core = await openTypes(page, P.velka, { vault });
-  await must(page.getByRole('button', { name: 'Type: Projekt. Change type', exact: true }), 'Velká písmena is a Projekt');
+  await must(page.getByRole('link', { name: 'Type: Projekt', exact: true }), 'Velká písmena is a Projekt');
   await must(control(page, 'combobox', 'Stav'), 'with the Projekt schema');
   await gotoTypePage(page, 'Projekty');
   assert.ok((await rowTitles(page, 'Projekty')).includes('Velká písmena'));
@@ -137,7 +143,7 @@ test('fr_typ_13_ac2_values_that_are_not_one_type_are_pages_with_a_warning', asyn
   });
   const core = await openTypes(page, P.dvaTypy, { vault });
   await must(page.getByRole('status').filter({ hasText: "The type value isn't a single type name. Shown as Page." }), 'warning');
-  await must(page.getByRole('button', { name: 'Type: Page. Change type', exact: true }), 'shown as Page');
+  await must(page.getByRole('link', { name: 'Type: Page', exact: true }), 'shown as Page');
   await gotoTypePage(page, 'Pages');
   const rows = await rowTitles(page, 'Pages');
   for (const t of ['Dva typy', 'Číslo', 'Prázdný typ', 'Prázdný řetězec']) assert.equal(rows.filter((r) => r === t).length, 1, `${t} listed once on type/page`);
