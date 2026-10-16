@@ -24,19 +24,22 @@ let focusConsumed = 0;
 
 export type OpenMention = (source: string, occurrence: OccurrenceDto | null, readOnly: boolean) => void;
 
-export function useBacklinkCount(path: string | null, refresh: number): number {
+/** 4B (D-348): a daily route asks by its date, so a virtual note has backlinks too. */
+const panelOf = (path: string, date?: string) => (date ? ipc.dailyBacklinks(date) : ipc.backlinks(path));
+
+export function useBacklinkCount(path: string | null, refresh: number, date?: string): number {
   const [n, setN] = useState(0);
   useEffect(() => {
     if (!path) { setN(0); return; }
     let live = true;
-    ipc.backlinks(path).then((p) => { if (live) setN(p.objects); }, () => {});
+    panelOf(path, date).then((p) => { if (live) setN(p.objects); }, () => {});
     return () => { live = false; };
-  }, [path, refresh]);
+  }, [path, refresh, date]);
   return n;
 }
 
-export function BacklinksPanel({ path, types, refresh, onOpen, focusFirst, onCount }: {
-  path: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention;
+export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst, onCount }: {
+  path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention;
   /** Changes when `Show backlinks` ran: the focus goes to the first entry's title link (or the heading). */
   focusFirst: number; onCount?: (n: number) => void;
 }) {
@@ -51,9 +54,9 @@ export function BacklinksPanel({ path, types, refresh, onOpen, focusFirst, onCou
 
   useEffect(() => {
     let live = true;
-    ipc.backlinks(path).then((p) => { if (live) setData({ path, panel: p }); }, () => {});
+    panelOf(path, date).then((p) => { if (live) setData({ path, panel: p }); }, () => {});
     return () => { live = false; };
-  }, [path, refresh]);
+  }, [path, refresh, date]);
   // A new note: groups expanded and excerpts collapsed again (D-278, D-281); the old note's scroll is kept.
   useEffect(() => {
     setCollapsed(new Set());

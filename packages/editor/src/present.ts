@@ -53,7 +53,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
         return false
       }
       const info = ui.resolve(target)
-      const broken = info && info.kind !== 'note' && info.kind !== 'daily'
+      const broken = info && info.kind === 'unresolved' // a date without a note is never broken (D-142, FR-DLY-08 AC-5)
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,

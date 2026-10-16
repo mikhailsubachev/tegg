@@ -7,6 +7,7 @@ import type { LinkTargetDto, TagDto, TypeDto } from '../../ipc/types';
 import { Icon } from '../../shell/Icon';
 import { chipIcon } from '../../links/icons';
 import { requestOffer } from '../../links/offer';
+import { openDate } from '../../daily/open';
 import { RelationPicker } from '../RelationPicker';
 import { nfc, rawText, wiki } from '../util';
 import { EmptyMark, WarnIcon, type Value } from './common';
@@ -60,18 +61,20 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
         }
         const info = links.get(nfc(w.target));
         const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+        const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
         const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
         const wrongType = ok && to && to.length > 0 && !to.map(nfc).includes(nfc(info!.type ?? 'page'));
-        const d = !ok ? t('link.noNote', { target: w.target }) : wrongType ? t('panel.notType', { type: allowedNames.join(' / ') }) : invalidItems.includes(i) ? t('panel.invalid', { type: t('attrType.relation') }) : undefined;
+        const d = dated ? undefined : !ok ? t('link.noNote', { target: w.target }) : wrongType ? t('panel.notType', { type: allowedNames.join(' / ') }) : invalidItems.includes(i) ? t('panel.invalid', { type: t('attrType.relation') }) : undefined;
         const icon = chipIcon(info?.type ?? 'page');
         return (
           <span key={`${i}:${w.inner}`} className={`chip-wrap ${wrongType ? 'warn' : ''}`}>
-            <a data-command="panel.list.a1" href="#" aria-description={d} data-link-kind={ok ? info!.kind : 'unresolved'}
-              className={`chip link-chip kind-${ok ? info!.kind : 'unresolved'}`}
+            <a data-command="panel.list.a1" href="#" aria-description={d} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
+              className={`chip link-chip kind-${ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}`}
               onClick={(e) => {
                 e.preventDefault();
+                if ((dated || info?.kind === 'daily') && openDate(w.target)) return; // FR-DLY-08 AC-6
                 if (ok) onOpen(info!.path!);
-                else if (info?.kind !== 'date-missing') requestOffer({ from: path, target: w.target, relationTo: to && to.length ? to : null, anchor: e.currentTarget }); // FR-LNK-04 AC-4, D-243
+                else requestOffer({ from: path, target: w.target, relationTo: to && to.length ? to : null, anchor: e.currentTarget }); // FR-LNK-04 AC-4, D-243
               }}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); remove(i); } }}>
               {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}

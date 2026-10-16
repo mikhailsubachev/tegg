@@ -32,6 +32,7 @@ const PATHS: Record<string, string> = {
   external: 'M14 4h6v6M20 4l-9 9M18 14v5H5V6h5',
   'chevron-down': 'M6 9l6 6 6-6',
   'chevron-right': 'M9 6l6 6-6 6',
+  'chevron-left': 'M15 6l-6 6 6 6',
   source: 'M9 7l-5 5 5 5M15 7l5 5-5 5',
   grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   check: 'M5 12l5 5 9-10',
@@ -83,7 +84,7 @@ export function Icon({ name, size = 16, dataIcon }: { name: string; size?: numbe
 /** The icon of a route id (R1). */
 export function routeIcon(id: string): string {
   const head = id.split('/')[0];
-  return ({ home: 'home', inbox: 'inbox', today: 'calendar', tasks: 'task', search: 'search', type: 'type', 'type-settings': 'gear', tags: 'tag', pinned: 'pin', 'saved-queries': 'query', note: 'file', graph: 'graph', trash: 'trash', import: 'import', conflicts: 'conflict', capture: 'capture', settings: 'gear', chooser: 'vault' } as Record<string, string>)[head] ?? 'dot';
+  return ({ home: 'home', inbox: 'inbox', today: 'calendar', daily: 'calendar', tasks: 'task', search: 'search', type: 'type', 'type-settings': 'gear', tags: 'tag', pinned: 'pin', 'saved-queries': 'query', note: 'file', graph: 'graph', trash: 'trash', import: 'import', conflicts: 'conflict', capture: 'capture', settings: 'gear', chooser: 'vault' } as Record<string, string>)[head] ?? 'dot';
 }
 
 /** The icon of a type: the R14 `icon` of its definition when given and known (D-236), else by key (3A). */

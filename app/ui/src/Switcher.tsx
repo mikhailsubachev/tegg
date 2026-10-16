@@ -94,7 +94,7 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               }}
               onClick={() => choose(i)}
             >
-              <span className="icon">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>
+              <span className="icon" aria-hidden="true">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>
               <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>
               {i.matched_alias && <span className="alias" data-user-content>{i.matched_alias}</span>}
               {i.duplicate ? <DuplicateDetails details={i.duplicate} typeName={typeNameOf(i.type)} /> : <span className="folder" data-user-content>{i.folder}</span>}

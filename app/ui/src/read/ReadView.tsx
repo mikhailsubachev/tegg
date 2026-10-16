@@ -10,6 +10,7 @@ import type { LinkTargetDto } from '../ipc/types';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
 import { InNotePlaceholder } from './InNotePlaceholder';
+import { openDate } from '../daily/open';
 
 export type ReadViewProps = {
   text: string;
@@ -144,10 +145,12 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
   if (info && (info.kind === 'note' || info.kind === 'daily') && info.path) {
     const title = info.title ?? target;
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title);
-    return <Chip kind={info.kind} name={name} type={info.type} onActivate={() => c.onOpen(info.path!, subpath ?? undefined)} />;
+    return <Chip kind={info.kind} name={name} type={info.type} onActivate={() => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); }} />;
   }
   if (info?.kind === 'date-missing') {
-    return <Chip kind="date-missing" name={shown ?? target} type="daily-note" disabled description={t('due.comingIn', { due: 'MS4' })} />;
+    // FR-DLY-08 AC-5, AC-6 (D-142 ended): never broken; opens the virtual Daily Note.
+    const name = shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target);
+    return <Chip kind="date-missing" name={name} type="daily-note" onActivate={() => void openDate(target)} />;
   }
   return <Chip kind="unresolved" name={shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target)} type={null} description={t('link.noNote', { target })}
     onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} />;

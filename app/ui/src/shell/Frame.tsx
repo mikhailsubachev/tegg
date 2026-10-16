@@ -11,6 +11,8 @@ import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
+import { localDate } from '@tegg/doc';
+import { longDate } from '../daily/Calendar';
 import { PANEL_TABS, SHORTCUTS } from './registry';
 
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
@@ -141,7 +143,7 @@ type Entry = { id: string; label: string; icon: string; kbd?: string };
 const TOP: Entry[] = [
   { id: 'home', label: 'route.home', icon: 'home' },
   { id: 'inbox', label: 'route.inbox', icon: 'inbox' },
-  { id: 'today', label: 'route.today', icon: 'calendar', kbd: 'goto.today' },
+  { id: 'today', label: 'route.today', icon: 'calendar', kbd: 'daily.today' },
   { id: 'tasks', label: 'route.tasks', icon: 'task' },
 ];
 const BOTTOM: Entry[] = [
@@ -151,6 +153,16 @@ const BOTTOM: Entry[] = [
 ];
 
 let savedScroll = 0;
+
+/** Today's local date, re-read every 30 s so the sidebar follows midnight within 60 s (D-327). */
+function useToday(): string {
+  const [d, setD] = useState(() => localDate(Date.now()));
+  useEffect(() => {
+    const i = setInterval(() => setD(localDate(Date.now())), 30_000);
+    return () => clearInterval(i);
+  }, []);
+  return d;
+}
 
 /** D-220: the logo at the bottom left opens About and Settings (FR-UX-01 AC-5). */
 function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: () => void }) {
@@ -195,11 +207,15 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
     el.addEventListener('scroll', save);
     return () => el.removeEventListener('scroll', save);
   }, []);
+  const today = useToday();
   const link = (e: Entry) => {
-    const current = route.id === e.id;
+    // 4B (R17): Today is current on today's daily route, with the long date as its description (D-337).
+    const isToday = e.id === 'today';
+    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : route.id === e.id;
     const go = (ev: React.MouseEvent) => { ev.preventDefault(); onGo({ id: e.id }); };
     return (
-      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={`goto.${e.id}`} onClick={go}>
+      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : `goto.${e.id}`} onClick={go}
+        {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}>
         <Icon name={e.icon} />
         {e.kbd ? (
           <>
@@ -280,7 +296,7 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
 export function ContextPanel({ tab, onTab, backlinks }: {
   tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void;
   /** 4A: the Backlinks tab's content (FR-LNK-01). */
-  backlinks?: { path: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
+  backlinks?: { path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
 }) {
   const current = PANEL_TABS.find((p) => p.id === tab) ?? PANEL_TABS[0];
   const [count, setCount] = useState(0);
@@ -307,14 +323,14 @@ export function ContextPanel({ tab, onTab, backlinks }: {
       {current.id === 'backlinks' && current.status.built && backlinks
         ? <BacklinksPanel key="backlinks" {...backlinks} onCount={setCount} />
         : <Placeholder def={current} compact />}
-      {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} refresh={backlinks.refresh} onCount={setCount} />}
+      {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} date={backlinks.date} refresh={backlinks.refresh} onCount={setCount} />}
     </aside>
   );
 }
 
 /** Keeps the Backlinks badge current while another tab is shown. */
-function BadgeCount({ path, refresh, onCount }: { path: string; refresh: number; onCount: (n: number) => void }) {
-  const n = useBacklinkCount(path, refresh);
+function BadgeCount({ path, date, refresh, onCount }: { path: string; date?: string; refresh: number; onCount: (n: number) => void }) {
+  const n = useBacklinkCount(path, refresh, date);
   useEffect(() => onCount(n), [n]);
   return null;
 }

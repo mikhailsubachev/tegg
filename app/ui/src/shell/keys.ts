@@ -1,6 +1,6 @@
 // Shortcut strings in Apple's modifier order ⌃ ⌥ ⇧ ⌘ (D-126), matched against keyboard events by key code.
 
-const CODES: Record<string, string> = { Backslash: '\\', Comma: ',', BracketLeft: '[', BracketRight: ']', Period: '.', Slash: '/', Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', Enter: '↩' };
+const CODES: Record<string, string> = { Backslash: '\\', Comma: ',', BracketLeft: '[', BracketRight: ']', Period: '.', Slash: '/', Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: '↩' };
 
 /** The shortcut string of a keydown event, e.g. `⇧⌘F`; null without ⌘ or ⌃. */
 export function eventKeys(e: KeyboardEvent): string | null {

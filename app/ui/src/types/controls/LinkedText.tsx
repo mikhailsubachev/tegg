@@ -7,6 +7,7 @@ import type { LinkTargetDto, TypeDto } from '../../ipc/types';
 import { Icon } from '../../shell/Icon';
 import { chipIcon } from '../../links/icons';
 import { requestOffer } from '../../links/offer';
+import { openDate } from '../../daily/open';
 import { nfc } from '../util';
 
 /** `path`: the note being edited (link text and resolution are relative to it, D-73). */
@@ -42,19 +43,21 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
         if ('text' in p) return <span key={i} aria-hidden="true" data-user-content>{p.text}</span>;
         const info = ctx.links.get(nfc(p.target));
         const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+        const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
         const shown = p.alias ?? (ok ? info!.title ?? p.target : p.target);
-        const icon = chipIcon(info?.type ?? 'page');
+        const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
         return (
-          <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`}
-            aria-description={ok ? undefined : t('link.noNote', { target: p.target })} data-link-kind={ok ? info!.kind : 'unresolved'}
+          <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : dated ? 'kind-date-missing' : 'kind-unresolved'}`}
+            aria-description={ok || dated ? undefined : t('link.noNote', { target: p.target })} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if ((dated || info?.kind === 'daily') && openDate(p.target)) return; // FR-DLY-08 AC-6
               if (ok) ctx.onOpen(info!.path!);
-              else if (info?.kind !== 'date-missing') requestOffer({ from: ctx.path, target: p.target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
+              else requestOffer({ from: ctx.path, target: p.target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
             }}>
-            {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+            {(ok || dated) && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
             <span data-user-content>{shown}</span>
           </a>
         );
