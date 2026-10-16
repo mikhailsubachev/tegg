@@ -70,12 +70,12 @@ Everything else checked matches: the attribute panel with `Other properties (1)`
 
 CardAnatomy is a proposal: if accepted, it decides how the type page card view, Home items, embed cards and Inbox rows share one component, which would be worth deciding (as an AP) before 4F draws the embed card.
 
-## 5. Open points from the owner's Tasks boards (2026-10-16, pending the owner)
+## 5. Open points from the owner's Tasks boards (2026-10-16; accepted the same day as D-379…D-381, BRD v1.58)
 
 `Tasks.dc.html` and `TasksBoard.dc.html` are one component with two views. D-378 takes the Schedule and Kanban views into 5A. Three details go beyond the BRD:
 
 | # | Design shows | Requirements say | Proposal |
 | --- | --- | --- | --- |
-| AP-i | **Schedule sections** Today & overdue, This week (by day), Later, Not scheduled, Done (collapsed), plus filters All / Today / This week and a tag filter | FR-TSK-04 names the views Today, Upcoming, All open, By source, Done | Replace the FR-TSK-04 list with the designed sections: Today & overdue = Today, This week + Later = Upcoming, Not scheduled is new (open tasks without `due`), All open = the Schedule with the All filter, By source = the source chip and the Kanban's tag/status columns. Record in FR-TSK-04 |
-| AP-j | **Quick-add tokens**: `try "Call venue tomorrow #offsite !high"` parses a date word, `#tag` and `!priority` | FR-TSK-10 has a quick-add row with no syntax | MVP: `#tag` and `!high/!medium/!low` tokens plus `today`, `tomorrow` and a weekday name at the end of the title; anything else stays in the title. Record as FR-TSK-10 detail |
-| AP-k | **Recurrence badges** (`monthly`, `weekly`) on cards and the Done hint "Recurring tasks keep each done instance" | FR-TSK-07 recurrence is v1.0 | Keep the badge in the design as v1.0 (dimmed, like the other deferred controls); 5A shows no recurrence |
+| AP-i → D-379 | **Schedule sections** Today & overdue, This week (by day), Later, Not scheduled, Done (collapsed), plus filters All / Today / This week and a tag filter | FR-TSK-04 names the views Today, Upcoming, All open, By source, Done | Replace the FR-TSK-04 list with the designed sections: Today & overdue = Today, This week + Later = Upcoming, Not scheduled is new (open tasks without `due`), All open = the Schedule with the All filter, By source = the source chip and the Kanban's tag/status columns. Record in FR-TSK-04 |
+| AP-j → D-380 | **Quick-add tokens**: `try "Call venue tomorrow #offsite !high"` parses a date word, `#tag` and `!priority` | FR-TSK-10 has a quick-add row with no syntax | MVP: `#tag` and `!high/!medium/!low` tokens plus `today`, `tomorrow` and a weekday name at the end of the title; anything else stays in the title. Record as FR-TSK-10 detail |
+| AP-k → D-381 | **Recurrence badges** (`monthly`, `weekly`) on cards and the Done hint "Recurring tasks keep each done instance" | FR-TSK-07 recurrence is v1.0 | Keep the badge in the design as v1.0 (dimmed, like the other deferred controls); 5A shows no recurrence |
