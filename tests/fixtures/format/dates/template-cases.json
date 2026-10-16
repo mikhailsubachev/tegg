@@ -1,0 +1,158 @@
+{
+  "about": "ms4-daily §6.1 (D-270, D-325): tegg_format::daily::expand_template(text, date) and @tegg/doc expandDailyTemplate(text, date). `keys`: non-reserved template keys in template order as [key, the key's source lines including the final LF]; `invalid` null = not checked. `firstWrite`: §6.2 @tegg/doc newDailyNote bytes (D-324), the same bytes Core::daily_draft builds with id {{id}} and now {{now}}.",
+  "cases": [
+    {
+      "name": "fixture template, 14 Oct",
+      "template": "---\ntags: [deník]\n---\n# Deník {{date:D. M. YYYY}}\n\nVčera: [[{{yesterday}}]] · Zítra: [[{{tomorrow}}]] · Dnes: {{date}} · {{time}}\n\n## Poznámky\n",
+      "date": "2026-10-14",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 14. 10. 2026\n\nVčera: [[2026-10-13]] · Zítra: [[2026-10-15]] · Dnes: 2026-10-14 · {{time}}\n\n## Poznámky\n",
+      "invalid": false
+    },
+    {
+      "name": "fixture template, 1 Mar (month start)",
+      "template": "---\ntags: [deník]\n---\n# Deník {{date:D. M. YYYY}}\n\nVčera: [[{{yesterday}}]] · Zítra: [[{{tomorrow}}]] · Dnes: {{date}} · {{time}}\n\n## Poznámky\n",
+      "date": "2026-03-01",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 1. 3. 2026\n\nVčera: [[2026-02-28]] · Zítra: [[2026-03-02]] · Dnes: 2026-03-01 · {{time}}\n\n## Poznámky\n",
+      "invalid": false
+    },
+    {
+      "name": "fixture template, 31 Dec (year end)",
+      "template": "---\ntags: [deník]\n---\n# Deník {{date:D. M. YYYY}}\n\nVčera: [[{{yesterday}}]] · Zítra: [[{{tomorrow}}]] · Dnes: {{date}} · {{time}}\n\n## Poznámky\n",
+      "date": "2026-12-31",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 31. 12. 2026\n\nVčera: [[2026-12-30]] · Zítra: [[2027-01-01]] · Dnes: 2026-12-31 · {{time}}\n\n## Poznámky\n",
+      "invalid": false
+    },
+    {
+      "name": "fixture template, 28 Feb 2028 (leap)",
+      "template": "---\ntags: [deník]\n---\n# Deník {{date:D. M. YYYY}}\n\nVčera: [[{{yesterday}}]] · Zítra: [[{{tomorrow}}]] · Dnes: {{date}} · {{time}}\n\n## Poznámky\n",
+      "date": "2028-02-28",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 28. 2. 2028\n\nVčera: [[2028-02-27]] · Zítra: [[2028-02-29]] · Dnes: 2028-02-28 · {{time}}\n\n## Poznámky\n",
+      "invalid": false
+    },
+    {
+      "name": "fixture template, 1 Mar 2028 (after leap day)",
+      "template": "---\ntags: [deník]\n---\n# Deník {{date:D. M. YYYY}}\n\nVčera: [[{{yesterday}}]] · Zítra: [[{{tomorrow}}]] · Dnes: {{date}} · {{time}}\n\n## Poznámky\n",
+      "date": "2028-03-01",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 1. 3. 2028\n\nVčera: [[2028-02-29]] · Zítra: [[2028-03-02]] · Dnes: 2028-03-01 · {{time}}\n\n## Poznámky\n",
+      "invalid": false
+    },
+    {
+      "name": "reserved keys ignored, template order kept",
+      "date": "2026-10-14",
+      "template": "---\nid: 01JB4B0000000000000000T001\nnálada: dobrá\ntype: page\ntitle: Šablona\ndate: 2000-01-01\nreview: reviewed\ncreated: 2020-01-01T00:00:00+01:00\nmodified: 2020-01-01T00:00:00+01:00\ntags:\n  - deník\n  - práce\n---\nDnes {{date}}.\n",
+      "keys": [
+        [
+          "nálada",
+          "nálada: dobrá\n"
+        ],
+        [
+          "tags",
+          "tags:\n  - deník\n  - práce\n"
+        ]
+      ],
+      "body": "Dnes 2026-10-14.\n",
+      "invalid": false
+    },
+    {
+      "name": "formats, unknown variables literal",
+      "date": "2026-10-14",
+      "template": "Jen {{date:DD.MM.YYYY}} a {{date:den D}} a {{date:D. M. YYYY}} a {{tomorrow}} a {{yesterday}} a {{neznámá}} a {{time}} a {{title}}.\n",
+      "keys": [],
+      "body": "Jen 14.10.2026 a den 14 a 14. 10. 2026 a 2026-10-15 a 2026-10-13 a {{neznámá}} a {{time}} a {{title}}.\n",
+      "invalid": false
+    },
+    {
+      "name": "invalid frontmatter: body only",
+      "date": "2026-10-14",
+      "template": "---\ntags: [deník\nnálada: \"neuzavřená\n---\nText {{date}}.\n",
+      "keys": [],
+      "body": "Text 2026-10-14.\n",
+      "invalid": true
+    },
+    {
+      "name": "no closing fence: the whole text is the body",
+      "date": "2026-10-14",
+      "template": "---\ntags: [deník]\nText {{date}}.\n",
+      "keys": [],
+      "body": "---\ntags: [deník]\nText 2026-10-14.\n",
+      "invalid": null
+    },
+    {
+      "name": "empty template",
+      "date": "2026-10-14",
+      "template": "",
+      "keys": [],
+      "body": "",
+      "invalid": false
+    }
+  ],
+  "firstWrite": [
+    {
+      "name": "fixture template, 14 Oct, Prague",
+      "date": "2026-10-14",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 14. 10. 2026\n\nVčera: [[2026-10-13]] · Zítra: [[2026-10-15]] · Dnes: 2026-10-14 · {{time}}\n\n## Poznámky\n",
+      "id": "01JB4B0000000000000000N001",
+      "now": "2026-10-14T12:00:00+02:00",
+      "text": "---\nid: 01JB4B0000000000000000N001\ntype: daily-note\ntitle: \"2026-10-14\"\ndate: 2026-10-14\ntags: [deník]\nreview: unreviewed\ncreated: 2026-10-14T12:00:00+02:00\nmodified: 2026-10-14T12:00:00+02:00\n---\n# Deník 14. 10. 2026\n\nVčera: [[2026-10-13]] · Zítra: [[2026-10-15]] · Dnes: 2026-10-14 · {{time}}\n\n## Poznámky\n"
+    },
+    {
+      "name": "no template, 14 Oct, Los Angeles",
+      "date": "2026-10-14",
+      "keys": [],
+      "body": "",
+      "id": "01JB4B0000000000000000N002",
+      "now": "2026-10-14T03:00:00-07:00",
+      "text": "---\nid: 01JB4B0000000000000000N002\ntype: daily-note\ntitle: \"2026-10-14\"\ndate: 2026-10-14\nreview: unreviewed\ncreated: 2026-10-14T03:00:00-07:00\nmodified: 2026-10-14T03:00:00-07:00\n---\n"
+    },
+    {
+      "name": "draft placeholders, 16 Oct",
+      "date": "2026-10-16",
+      "keys": [
+        [
+          "tags",
+          "tags: [deník]\n"
+        ]
+      ],
+      "body": "# Deník 16. 10. 2026\n\nVčera: [[2026-10-15]] · Zítra: [[2026-10-17]] · Dnes: 2026-10-16 · {{time}}\n\n## Poznámky\n",
+      "id": "{{id}}",
+      "now": "{{now}}",
+      "text": "---\nid: {{id}}\ntype: daily-note\ntitle: \"2026-10-16\"\ndate: 2026-10-16\ntags: [deník]\nreview: unreviewed\ncreated: {{now}}\nmodified: {{now}}\n---\n# Deník 16. 10. 2026\n\nVčera: [[2026-10-15]] · Zítra: [[2026-10-17]] · Dnes: 2026-10-16 · {{time}}\n\n## Poznámky\n"
+    }
+  ]
+}

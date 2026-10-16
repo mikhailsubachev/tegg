@@ -1,0 +1,170 @@
+{
+  "about": "ms4-daily §1 (D-332): tegg_format::date::parse_date and @tegg/doc parseDate accept exactly ^\\d{4}-\\d{2}-\\d{2}$ (ASCII digits) with a valid calendar day. `date` null = not a date.",
+  "cases": [
+    {
+      "name": "plain",
+      "input": "2026-10-14",
+      "date": "2026-10-14"
+    },
+    {
+      "name": "leap day 2028",
+      "input": "2028-02-29",
+      "date": "2028-02-29"
+    },
+    {
+      "name": "leap day 2000 (400 rule)",
+      "input": "2000-02-29",
+      "date": "2000-02-29"
+    },
+    {
+      "name": "last day of February",
+      "input": "2026-02-28",
+      "date": "2026-02-28"
+    },
+    {
+      "name": "last day of the year",
+      "input": "2026-12-31",
+      "date": "2026-12-31"
+    },
+    {
+      "name": "first day of the year",
+      "input": "2027-01-01",
+      "date": "2027-01-01"
+    },
+    {
+      "name": "Prague DST end",
+      "input": "2026-10-25",
+      "date": "2026-10-25"
+    },
+    {
+      "name": "30 February",
+      "input": "2026-02-30",
+      "date": null
+    },
+    {
+      "name": "month 13",
+      "input": "2026-13-01",
+      "date": null
+    },
+    {
+      "name": "month 00",
+      "input": "2026-00-10",
+      "date": null
+    },
+    {
+      "name": "day 00",
+      "input": "2026-10-00",
+      "date": null
+    },
+    {
+      "name": "day 32",
+      "input": "2026-10-32",
+      "date": null
+    },
+    {
+      "name": "31 November",
+      "input": "2026-11-31",
+      "date": null
+    },
+    {
+      "name": "no leap day 2027",
+      "input": "2027-02-29",
+      "date": null
+    },
+    {
+      "name": "no leap day 1900 (100 rule)",
+      "input": "1900-02-29",
+      "date": null
+    },
+    {
+      "name": "one-digit month",
+      "input": "2026-1-14",
+      "date": null
+    },
+    {
+      "name": "one-digit day",
+      "input": "2026-10-4",
+      "date": null
+    },
+    {
+      "name": "trailing space",
+      "input": "2026-10-14 ",
+      "date": null
+    },
+    {
+      "name": "leading space",
+      "input": " 2026-10-14",
+      "date": null
+    },
+    {
+      "name": "with time",
+      "input": "2026-10-14T00:00:00",
+      "date": null
+    },
+    {
+      "name": "no separators",
+      "input": "20261014",
+      "date": null
+    },
+    {
+      "name": "slashes",
+      "input": "2026/10/14",
+      "date": null
+    },
+    {
+      "name": "dots",
+      "input": "14.10.2026",
+      "date": null
+    },
+    {
+      "name": "empty",
+      "input": "",
+      "date": null
+    },
+    {
+      "name": "quoted",
+      "input": "\"2026-10-14\"",
+      "date": null
+    },
+    {
+      "name": "five-digit year",
+      "input": "12026-10-14",
+      "date": null
+    },
+    {
+      "name": "sign",
+      "input": "+2026-10-14",
+      "date": null
+    },
+    {
+      "name": "fullwidth digits",
+      "input": "２０２６-１０-１４",
+      "date": null
+    },
+    {
+      "name": "Arabic-Indic digits",
+      "input": "٢٠٢٦-١٠-١٤",
+      "date": null
+    },
+    {
+      "name": "combining mark after a digit (NFD-style)",
+      "input": "2026-10-14́",
+      "date": null
+    },
+    {
+      "name": "NFD combining mark inside",
+      "input": "2026-1́0-14",
+      "date": null
+    },
+    {
+      "name": "Unicode hyphen",
+      "input": "2026‐10‐14",
+      "date": null
+    },
+    {
+      "name": "Czech word",
+      "input": "dnes",
+      "date": null
+    }
+  ]
+}
