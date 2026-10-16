@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.49, for review                                             |
+| **Document status** | Draft v1.50, for review                                             |
 | **Date**            | 2026-10-15                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -65,6 +65,7 @@
 | v1.47   | 2026-10-15 | Owner feedback on the preview, decisions D-312…D-317: Aliases as one comma-separated text field; no description subtitle on objects; `Other properties` hidden when empty; no breadcrumb on the note page; per-type hidden properties (new FR-TYP-17); link chips while a text value is being edited (supersedes the edit-mode part of D-257, built separately) |
 | v1.48   | 2026-10-15 | Slice 4B daily-note decisions D-318…D-320 (AP-240…AP-242): one Daily Note per day, newest wins when two share a date (notice and Duplicate titles), fixed `YYYY-MM-DD` title. |
 | v1.49   | 2026-10-15 | Slice 4B daily-note decisions D-321…D-338 (AP-243…AP-260): daily route, virtual note and first write, template, context sections, navigation, review control, @ date rows, date-link rules, title mismatch, tie-breaks, invalid daily-format. |
+| v1.50   | 2026-10-16 | D-339: the Create offer acts on the clicked link after edits made while it is open; `createLink.rewriteFailed` when it can't (QA review of PR #36). |
 
 ---
 
@@ -446,6 +447,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-336 | Invalid `daily-format` (FR-FMT-09) (AP-258, owner, 2026-10-15) | A format giving a D-52 character, an empty stem or no `DD` falls back to `YYYY-MM-DD` with a once-per-session message; no subfolders from the format |
 | D-337 | Daily header (D-320) (AP-259, owner, 2026-10-15) | Read-only title `YYYY-MM-DD` plus a localized long-date subtitle (not stored); the sidebar Today's description uses the same string |
 | D-338 | Emptied Daily Note (FR-DLY-02) (AP-260, owner, 2026-10-15) | Never deleted automatically; FR-DLY-02 only prevents creating empty files |
+| D-339 | Create offer and edits made while it is open (D-287) | The offer is non-modal: `Create` rewrites the clicked link at its current place (followed through every edit). If that link was deleted, nothing is written; if the note was created but the link can't be changed, the note stays. Both show `createLink.rewriteFailed`: `The link couldn’t be changed to point to "{stem}". Edit it, then try again.` (owner, 2026-10-16; backlinks.md FR-LNK-04 AC-13) |
 
 ---
 

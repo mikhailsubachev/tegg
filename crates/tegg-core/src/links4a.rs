@@ -1,10 +1,5 @@
 //! MS4 slice 4A: backlinks panel, broken links, duplicate titles, create from a link (docs/contracts/ms4-links.md §3;
 //! FR-LNK-01, -02, -04, -14; D-276…D-291).
-//!
-//! STUB (red tests, TS-I1): the types are the contract's; every query returns a deliberately wrong result (empty
-//! panel, no broken links, no duplicate groups, an `Exists` plan with an empty path, `NotImplemented`) until 4A is
-//! built. The new error kinds `PlanChanged { now }` and `Exists { path }` (§3) are added to `CoreError` with the
-//! implementation; the AC tests read them through `Debug`.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -14,7 +9,7 @@ use tegg_format::excerpt::{window, RSeg, Segment, TargetKind};
 use tegg_format::{nfc, sanitize_file_stem, type_key};
 use tegg_index::{LinkRecord, NoteLinks};
 
-use crate::{lock, Core, CoreError, CoreEvent, SwitcherItem, SwitcherKind, VaultError};
+use crate::{lock, Core, CoreError, SwitcherItem, SwitcherKind, VaultError};
 pub use tegg_format::excerpt::{At, Excerpt};
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -564,14 +559,11 @@ impl Core {
             LinkCreatePlan::Create { path, rewrite, .. } if now == *expect => (nfc(path), rewrite.clone()),
             _ => return Err(CoreError::PlanChanged { now }),
         };
-        let v = match self.shared.vault.create_exact(&path, bytes) {
-            Ok(v) => v,
-            Err(VaultError::NameTaken) => return Err(CoreError::Exists { path }),
-            Err(e) => return Err(e.into()),
-        };
-        self.index().upsert(&path, bytes, &v)?;
-        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path.clone()] });
-        Ok(LinkCreated { path, rewrite })
+        match self.create_exact(&path, bytes) {
+            Ok(_) => Ok(LinkCreated { path, rewrite }),
+            Err(CoreError::Vault(VaultError::NameTaken)) => Err(CoreError::Exists { path }),
+            Err(e) => Err(e),
+        }
     }
 
     /// Whether a relation of `from` holds a link to `target` and allows `type_key` (its `to`).

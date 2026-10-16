@@ -671,7 +671,8 @@ fn plan_dto(p: tegg_core::LinkCreatePlan) -> LinkCreatePlanDto {
     match p {
         Create { path, title, type_key, rewrite } => LinkCreatePlanDto::Create { path, title, type_key, rewrite },
         Exists { path } => LinkCreatePlanDto::Exists { path },
-        Forbidden { .. } => LinkCreatePlanDto::Forbidden { reason: "folder".into() },
+        Forbidden { reason: tegg_core::CreateRefusal::Folder } => LinkCreatePlanDto::Forbidden { reason: "folder".into() },
+        Forbidden { reason: tegg_core::CreateRefusal::NeedsEdit } => LinkCreatePlanDto::Forbidden { reason: "needsEdit".into() },
     }
 }
 
@@ -679,7 +680,9 @@ fn plan_from(p: LinkCreatePlanDto) -> tegg_core::LinkCreatePlan {
     match p {
         LinkCreatePlanDto::Create { path, title, type_key, rewrite } => tegg_core::LinkCreatePlan::Create { path, title, type_key, rewrite },
         LinkCreatePlanDto::Exists { path } => tegg_core::LinkCreatePlan::Exists { path },
-        LinkCreatePlanDto::Forbidden { .. } => tegg_core::LinkCreatePlan::Forbidden { reason: tegg_core::CreateRefusal::Folder },
+        LinkCreatePlanDto::Forbidden { reason } => tegg_core::LinkCreatePlan::Forbidden {
+            reason: if reason == "needsEdit" { tegg_core::CreateRefusal::NeedsEdit } else { tegg_core::CreateRefusal::Folder },
+        },
     }
 }
 

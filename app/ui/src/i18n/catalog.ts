@@ -714,6 +714,7 @@ export const en: Catalog = {
   'createLink.needsEdit': "This link can't point to a file name. Edit the link first.",
   'createLink.folder': "Notes can't be created in this folder.",
   'createLink.exists': '"{title}" exists now.',
+  'createLink.rewriteFailed': 'The link couldn’t be changed to point to "{stem}". Edit it, then try again.',
   'createLink.planChanged': 'The note would now be created differently. Check the offer and try again.',
   'ctl.typePickerLink': 'Type picker',
   'commands.showBacklinks': 'Show backlinks',

@@ -13,6 +13,8 @@ export type OfferRequest = {
   /** The editor holding the chip, for a plan with a rewrite (D-287); absent in read-only views. */
   editor?: OfferEditor;
   chipPos?: number;
+  /** The chip's position now (the note can change while the offer is open), or null when it's gone. */
+  chipAt?: () => number | null;
 };
 
 let handler: ((r: OfferRequest) => void) | null = null;
