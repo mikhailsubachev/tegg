@@ -21,3 +21,13 @@ test('bug_38_fr_dly_01_crlf_is_kept', () => {
   const missing = ['---', 'type: daily-note', 'date: 2026-10-09', '---', 'Text.', ''].join('\r\n')
   assert.equal(fixDailyTitle(missing), ['---', 'type: daily-note', 'title: "2026-10-09"', 'date: 2026-10-09', '---', 'Text.', ''].join('\r\n'))
 })
+
+// QA re-review of PR #38: an empty `title:` may be followed by a column-0 sequence (`- Pátek`), its YAML value.
+// Replacing the key line would orphan the list line, so an empty `title:` value is left alone.
+test('bug_38_fr_dly_01_empty_title_value_is_left_alone', () => {
+  for (const title of ['title:\n- Pátek', 'title:', 'title:   ']) {
+    const t = fm(title)
+    assert.equal(fixDailyTitle(t), t, `left alone: ${JSON.stringify(title)}`)
+    assert.ok(parse(fixDailyTitle(t)).frontmatter?.data, 'the frontmatter still parses')
+  }
+})
