@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Inbox</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--embed:#F7F7F5;--pop:#FFFFFF;--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--danger-bg:#FCECEB}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--accent-bg:#17332E;--embed:#232326;--pop:#262629;--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--danger-bg:#3A1C1B}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z"></path></svg>
+Inbox
+</button>
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Left sidebar -->
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; text-align: left">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<span style="flex: 1">Search or jump to…</span>
+<span style="font-size: 12px">⌘O</span>
+</button>
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{n.bg}}; font-weight: {{n.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{n.meta}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 10px 6px">Tags</div>
+<sc-for list="{{sideTags}}" as="g" hint-placeholder-count="3">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
+<span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 5px; background: {{g.color}}; margin: 0 3px"></span>
+<span style="flex: 1">{{g.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{g.count}}</span>
+</a>
+</sc-for>
+</div>
+<!-- Logo (bottom left) -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px">
+<button aria-haspopup="menu" aria-label="Tegg: About and Settings" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; border-radius: 8px"><svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg><span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .05em; color: var(--brand)">TEGG</span></button>
+</div>
+</nav>
+
+<!-- Inbox (FR-INB-01…05) -->
+<main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 64px; box-sizing: border-box">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div style="flex: 1; min-width: 240px">
+<h1 style="margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">Inbox</h1>
+<div style="font-size: 13px; color: var(--muted); margin-top: 2px">{{subtitle}}</div>
+</div>
+<sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px">Mark all reviewed</button>
+</div>
+</sc-if>
+</header>
+
+<sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}">
+<!-- Filters -->
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<div role="group" aria-label="Filter by type" style="display: flex; gap: 6px; flex-wrap: wrap; flex: 1">
+<sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+<button aria-pressed="{{f.pressed}}" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid {{f.border}}; background: {{f.bg}}; font-size: 13px; font-weight: {{f.weight}}">{{f.label}} <span style="color: var(--muted); font-weight: 400">{{f.count}}</span></button>
+</sc-for>
+</div>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"></path></svg>Newest first</button>
+</div>
+
+<!-- Bulk bar (FR-INB-02 bulk) -->
+<sc-if value="{{bulk}}" hint-placeholder-val="{{ false }}">
+<div role="toolbar" aria-label="2 selected" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 10px 8px 14px; border-radius: 10px; background: var(--btn); color: var(--btn-fg); font-size: 13px">
+<span style="font-weight: 600; flex: 1">2 selected</span>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; color: inherit">Mark reviewed</button>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; color: inherit">Convert to…</button>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; color: inherit">Merge into…</button>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; color: inherit">Link to…</button>
+<button style="height: 30px; padding: 0 10px; border-radius: 6px; color: inherit">Move to trash</button>
+<button aria-label="Clear selection" style="width: 30px; height: 30px; border-radius: 6px; color: inherit; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-if>
+
+<!-- Cards (universal object card, triage on the card itself) -->
+<div style="display: flex; flex-direction: column; gap: 22px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<section aria-label="{{g.label}}" style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">{{g.label}}</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="2">
+<article aria-label="{{i.title}}" style="position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: {{i.ring}}; display: flex; flex-direction: column; gap: 8px; opacity: {{i.opacity}}; z-index: {{i.z}}">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)">
+<sc-if value="{{bulk}}" hint-placeholder-val="{{ false }}"><input type="checkbox" checked="{{i.checked}}" aria-label="Select “{{i.title}}”" style="width: 15px; height: 15px; margin: 0 4px 0 0; accent-color: var(--link); flex: none"></sc-if>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{i.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg><span style="flex: 1">{{i.type}}</span>
+<button onClick="{{i.toggleMenu}}" aria-label="Triage actions for “{{i.title}}”" aria-haspopup="menu" aria-expanded="{{i.menuAttr}}" title="Triage actions" style="width: 28px; height: 28px; margin: -6px -8px -6px 0; border-radius: 7px; background: {{i.menuBg}}; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+</div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 650; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"><a href="#">{{i.title}}</a></h3>
+<sc-if value="{{i.hasTags}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{i.tags}}" as="t" hint-placeholder-count="2"><span style="height: 22px; padding: 0 8px; border-radius: 11px; background: {{t.bg}}; color: {{t.fg}}; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">{{t.label}}</span></sc-for>
+</div>
+</sc-if>
+<p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">{{i.snippet}}</p>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; min-height: 28px">
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{i.footer}}</span>
+<button role="checkbox" onClick="{{i.toggleReview}}" aria-checked="{{i.reviewedAttr}}" title="{{i.reviewTitle}}" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; margin-right: -8px; border-radius: 7px; color: {{i.revFg}}; font-size: 12px; font-weight: 500"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid {{i.boxBorder}}; background: {{i.boxBg}}; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{i.tickOpacity}}"><path d="M5 12l5 5 9-10"></path></svg></span>Reviewed</button>
+</div>
+<sc-if value="{{i.menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Triage actions" style="position: absolute; top: 40px; right: 8px; width: 236px; padding: 6px; border-radius: 10px; background: var(--pop); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.16); display: flex; flex-direction: column; font-size: 13px">
+<div style="padding: 4px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Convert to <span style="text-transform: none; letter-spacing: 0; font-weight: 400">· keeps content, id, links and the file’s folder (D-372)</span></div>
+<sc-for list="{{convertTo}}" as="c" hint-placeholder-count="5">
+<button role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{c.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg><span style="flex: 1">{{c.label}}</span><span style="font-size: 11px; color: var(--muted)">{{c.key}}</span></button>
+</sc-for>
+<div aria-hidden="true" style="height: 1px; background: var(--border); margin: 5px 2px"></div>
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="4">
+<button role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; text-align: left; color: {{a.fg}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg><span style="flex: 1">{{a.label}}</span><span style="font-size: 11px; color: var(--muted); min-width: 16px; text-align: center; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px">{{a.key}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+<div style="font-size: 12px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap">
+<span><b style="color: var(--text); font-weight: 600">←↑↓→</b> move</span>
+<span><b style="color: var(--text); font-weight: 600">R</b> reviewed</span>
+<span><b style="color: var(--text); font-weight: 600">C</b> convert</span>
+<span><b style="color: var(--text); font-weight: 600">M</b> merge</span>
+<span><b style="color: var(--text); font-weight: 600">L</b> link</span>
+<span><b style="color: var(--text); font-weight: 600">#</b> tags</span>
+<span><b style="color: var(--text); font-weight: 600">⌫</b> trash</span>
+<span><b style="color: var(--text); font-weight: 600">↩</b> open</span>
+</div>
+</div>
+</sc-if>
+
+<!-- Empty state (FR-UX-06) -->
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 80px 20px; border: 1px dashed var(--border); border-radius: 16px">
+<span aria-hidden="true" style="width: 56px; height: 56px; border-radius: 16px; background: var(--t-bg); display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span>
+<div style="font-size: 20px; font-weight: 700">Inbox zero</div>
+<p style="margin: 0; max-width: 420px; color: var(--muted); font-size: 14px">Everything you captured has been reviewed. New Quick Notes and daily notes land here until you mark them reviewed.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center">
+<button style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px">Quick capture <span style="color: var(--muted)">⌃⌥Space</span></button>
+<button style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px">Open today’s note <span style="color: var(--muted)">⌘D</span></button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"state":{"editor":"enum","options":["items","bulk selection","empty"],"default":"items"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? false;
+const state = this.props.state ?? 'items';
+const bulk = state === 'bulk selection', empty = state === 'empty';
+const I = {
+home: 'M4 11l8-7 8 7M6 10v10h12V10',
+inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z',
+cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5',
+task: 'M5 5h14v14H5zM9 12l2 2 4-4',
+bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z',
+person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z'
+};
+const T = {
+page: [I.page, 'var(--muted)', 'var(--hover)', 'Page'],
+task: [I.task, 'var(--link)', 'var(--link-bg)', 'Task'],
+quick: [I.bolt, 'var(--o)', 'var(--o-bg)', 'Quick Note'],
+daily: [I.cal, 'var(--muted)', 'var(--hover)', 'Daily Note'],
+meet: [I.meet, 'var(--accent)', 'var(--accent-bg)', 'Meeting'],
+proj: [I.proj, 'var(--o)', 'var(--o-bg)', 'Project'],
+person: [I.person, 'var(--p)', 'var(--p-bg)', 'Person'],
+idea: [I.idea, 'var(--idea)', 'var(--idea-bg)', 'Idea']
+};
+const count = empty ? 0 : 4;
+const nav = [
+{ label: 'Home', d: I.home, meta: '' },
+{ label: 'Inbox', d: I.inbox, meta: count ? String(count) : '', active: true },
+{ label: 'Today', d: I.cal, meta: '⌘D' },
+{ label: 'Tasks', d: I.task, meta: '3' }
+].map((n) => ({ ...n, bg: n.active ? 'var(--hover)' : 'transparent', weight: n.active ? '600' : '400' }));
+const types = [
+['Pages', 'page', '128'], ['Tasks', 'task', '46'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
+['Ideas', 'idea', '10'], ['Meetings', 'meet', '58'], ['Projects', 'proj', '9'], ['People', 'person', '31']
+].map(([label, k, c]) => ({ label, count: c, d: T[k][0], color: T[k][1] }));
+const sideTags = [
+{ label: 'finance', color: 'var(--o)', count: '14' },
+{ label: 'q4', color: 'var(--p)', count: '8' },
+{ label: 'offsite', color: 'var(--t)', count: '5' }
+];
+const filters = [['All', '4', true], ['Quick Notes', '3'], ['Daily Notes', '1']].map(([label, c, on]) => ({
+label, count: c, pressed: on ? 'true' : 'false', bg: on ? 'var(--hover)' : 'transparent', border: on ? 'var(--faint)' : 'var(--border)', weight: on ? '600' : '400'
+}));
+const st = this.state || {};
+const rev = st.rev || {};
+const menu = bulk ? null : (st.menu === undefined ? 'a' : st.menu);
+const tag = (label, c) => ({ label, bg: 'var(--' + c + '-bg)', fg: 'var(--' + c + ')' });
+const item = (id, k, title, snippet, footer, tags, checked) => {
+const done = !!rev[id], open = menu === id;
+return {
+title, snippet, footer, tags, hasTags: tags.length > 0, type: T[k][3], d: T[k][0], color: T[k][1],
+checked: !!checked, ring: checked ? '0 0 0 2px var(--link)' : (open ? '0 0 0 2px var(--link), 0 1px 2px rgba(0,0,0,.05)' : '0 1px 2px rgba(0,0,0,.05)'),
+opacity: done ? '0.5' : '1', z: open ? '5' : 'auto',
+menuOpen: open, menuAttr: open ? 'true' : 'false', menuBg: open ? 'var(--hover)' : 'transparent',
+toggleMenu: () => this.setState({ menu: open ? null : id }),
+reviewedAttr: done ? 'true' : 'false', revFg: done ? 'var(--t)' : 'var(--muted)',
+boxBorder: done ? 'var(--t)' : 'var(--faint)', boxBg: done ? 'var(--t)' : 'var(--bg)', tickOpacity: done ? '1' : '0',
+reviewTitle: done ? 'Mark unreviewed · keeps it in the Inbox (R)' : 'Mark reviewed · leaves the Inbox (R)',
+toggleReview: () => this.setState({ rev: { ...rev, [id]: !done } })
+};
+};
+const groups = [
+{ label: 'Today', items: [
+item('a', 'quick', 'Podcast idea: local-first sync explained', 'An episode on why plain files plus Dropbox can beat custom sync engines. Ask Petr if he’d join, link to Files outlive apps.', 'Quick Capture · ⌃⌥Space', [tag('podcast', 'p')], bulk)
+] },
+{ label: 'Yesterday', items: [
+item('b', 'quick', 'Check flight prices LIS', 'https://example.com/flights/prg-lis', 'Share sheet · Safari', [tag('offsite', 't')], bulk),
+item('c', 'daily', '2026-10-10', '09:05 standup notes, 13:30 lunch with Jana, 17:00 call with the venue about the November dates…', 'Daily note · 3 entries', [])
+] },
+{ label: 'Earlier this week', items: [
+item('d', 'quick', 'Book tip from Petr', '“The Organized Mind”, he says chapter 3 is the one.', 'Quick Capture', [tag('reading', 'o')])
+] }
+];
+const left = 4 - Object.values(rev).filter(Boolean).length;
+const convertTo = [['idea', '1'], ['task', '2'], ['page', '3'], ['meet', '4'], ['proj', '5']].map(([k, key]) => ({ label: T[k][3], d: T[k][0], color: T[k][1], key }));
+const actions = [
+{ label: 'Merge into / append to…', key: 'M', fg: 'var(--text)', d: 'M6 4v6a4 4 0 0 0 4 4h8M14 10l4 4-4 4' },
+{ label: 'Link to…', key: 'L', fg: 'var(--text)', d: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1' },
+{ label: 'Add tags…', key: '#', fg: 'var(--text)', d: 'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16' },
+{ label: 'Move to trash', key: '⌫', fg: 'var(--danger)', d: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13' }
+];
+return {
+themeClass: dark ? 'dark' : '', nav, types, sideTags, filters, groups, convertTo, actions,
+bulk, empty, hasItems: !empty,
+subtitle: empty ? 'Nothing to review' : left + ' to review · Quick Notes and daily notes stay here until you tick Reviewed'
+};
+}
+}
+</script>
+</body>
+</html>

@@ -122,8 +122,7 @@ Saved
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
 Meeting
 </span>
-<button style="font-size: 12px; color: var(--muted); height: 24px; padding: 0 6px; border-radius: 6px">Add icon</button>
-<button style="font-size: 12px; color: var(--muted); height: 24px; padding: 0 6px; border-radius: 6px">Add cover</button>
+<!-- Add icon / Add cover removed: objects show their type's icon (D-217) -->
 </div>
 <h1 style="margin: 0 0 20px; font-size: 34px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">2026-10-07 Weekly Sync</h1>
 
@@ -301,7 +300,7 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 </div>
 <div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px; border-radius: 8px">
 <span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg></span>
-<span style="flex: 1">Mindmap from template…</span>
+<span style="flex: 1">Mindmap from template…</span><span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-TPL</span>
 </div>
 <div style="font-size: 12px; color: var(--muted); padding: 8px 8px 4px; border-top: 1px solid var(--border); margin-top: 4px">Also: paste a Mermaid <code>mindmap</code> code block</div>
 </div>
@@ -343,9 +342,10 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 <span><b style="color: var(--text); font-weight: 600">Tab</b> child</span>
 <span><b style="color: var(--text); font-weight: 600">↩</b> sibling</span>
 <span><b style="color: var(--text); font-weight: 600">[[</b> link</span>
-<span><b style="color: var(--text); font-weight: 600">⌘.</b> collapse</span>
-<span>Drag to re-parent</span>
-<span><b style="color: var(--text); font-weight: 600">⌘⇧O</b> turn node into object</span>
+<span><b style="color: var(--text); font-weight: 600">⇧Tab</b> outdent</span>
+<span style="opacity: .55"><b style="color: var(--text); font-weight: 600">⌘.</b> collapse<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0</span></span>
+<span style="opacity: .55">Drag to re-parent<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0</span></span>
+<span style="opacity: .55"><b style="color: var(--text); font-weight: 600">⌘⇧O</b> turn node into object<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-MMP-03</span></span>
 </div>
 </sc-if>
 
@@ -389,27 +389,23 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 <aside aria-label="Context panel" style="flex: 1 1 288px; max-width: 100%; background: var(--panel); border-left: 1px solid var(--border); padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
 <div role="tablist" style="display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--hover)">
 <button role="tab" aria-selected="true" style="flex: 1; height: 28px; border-radius: 7px; background: var(--bg); font-size: 12px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08)">Backlinks</button>
-<button role="tab" aria-selected="false" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--muted)">Outline</button>
-<button role="tab" aria-selected="false" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--muted)">Graph</button>
+<button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-EDT-11, D-376)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Outline</button>
+<button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-GRP)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Graph</button>
 </div>
 <div style="font-size: 13px; color: var(--muted)">3 objects link here</div>
+<!-- Chips only, grouped by type (D-368): no excerpts, no attribute labels -->
 <sc-for list="{{backlinks}}" as="b" hint-placeholder-count="3">
 <div style="display: flex; flex-direction: column; gap: 6px">
 <div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">{{b.group}}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
 <sc-for list="{{b.items}}" as="i" hint-placeholder-count="1">
-<a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); text-decoration: none">
-<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{b.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.d}}"></path></svg>
-<span style="flex: 1">{{i.title}}</span>
-<span style="font-size: 11px; font-weight: 500; color: var(--muted)">{{i.via}}</span>
-</span>
-<span style="font-size: 12px; line-height: 1.45; color: var(--muted)">{{i.ctx}}</span>
-</a>
+<a href="#" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 13px; background: var(--bg); border: 1px solid var(--border); font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{b.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.d}}"></path></svg><span>{{i.title}}</span></a>
 </sc-for>
 </div>
+</div>
 </sc-for>
-<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 14px">
-<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Unlinked mentions</div>
+<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 14px; opacity: .55">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Unlinked mentions<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.x · FR-LNK-05</span></div>
 <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--border); font-size: 12px">
 <span style="flex: 1; color: var(--muted)"><b style="color: var(--text); font-weight: 600">2026-10-08</b> · “…follow-ups from the weekly sync…”</span>
 <button style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; font-weight: 500">Link</button>
@@ -524,13 +520,13 @@ const slash = [
 ].map((s) => ({ head: !!s.head, item: !!s.item, label: s.label, d: s.d || '', color: s.color || '', key: s.key || '', sel: s.selected ? 'true' : 'false', bg: s.selected ? 'var(--hover)' : 'transparent' }));
 const backlinks = [
 { group: 'Projects', d: I.proj, color: 'var(--o)', items: [
-{ title: 'Q4 Budget', via: 'Meetings', ctx: '…decisions from 2026-10-07 Weekly Sync feed into the draft…' }
+{ title: 'Q4 Budget' }
 ] },
 { group: 'Tasks', d: I.task, color: 'var(--link)', items: [
-{ title: 'Send budget draft to finance', via: 'source', ctx: 'Created from this note' }
+{ title: 'Send budget draft to finance' }
 ] },
 { group: 'Daily Notes', d: I.cal, color: 'var(--muted)', items: [
-{ title: '2026-10-07', via: '', ctx: '…prep for 2026-10-07 Weekly Sync, bring the travel numbers…' }
+{ title: '2026-10-07' }
 ] }
 ];
 return {

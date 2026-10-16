@@ -71,6 +71,30 @@
       "w": 1680,
       "x": 0,
       "y": 3520
+    },
+    "Inbox.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "Inbox",
+      "w": 1440,
+      "x": 1760,
+      "y": 3380
+    },
+    "CardAnatomy.dc.html": {
+      "h": 1160,
+      "title": "Universal object card · proposal",
+      "w": 1680,
+      "x": 3280,
+      "y": 3500,
+      "is_interactive": true
+    },
+    "TypeCards.dc.html": {
+      "expand": "fill",
+      "h": 1200,
+      "title": "Object cards · system types + Idea",
+      "w": 1680,
+      "x": 5040,
+      "y": 3500
     }
   },
   "createdOnFiles": {
@@ -91,7 +115,10 @@
     "Home.dc.html",
     "VaultSwitcher.dc.html",
     "Artboard-z6er.dc.html",
-    "FolderLogos.dc.html"
+    "FolderLogos.dc.html",
+    "Inbox.dc.html",
+    "CardAnatomy.dc.html",
+    "TypeCards.dc.html"
   ],
   "pages": [
     {

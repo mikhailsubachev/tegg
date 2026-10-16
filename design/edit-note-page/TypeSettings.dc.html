@@ -127,7 +127,7 @@ Ideas · Type settings
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Folder in the vault
 <input type="text" value="Ideas/" style="height: 36px; padding: 0 10px; font-weight: 400; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px">
-<span style="font-weight: 400; font-size: 12px; color: var(--muted)">Changing it moves all 10 files and updates their links.</span>
+<span style="font-weight: 400; font-size: 12px; color: var(--muted)">Applies to new ideas. Moving the 10 existing files comes in v1.0 (D-372).</span>
 </label>
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Description
 <textarea rows="2" style="padding: 8px 10px; font-weight: 400; resize: vertical">Atomic notes, one idea each, linked to each other.</textarea>
@@ -158,11 +158,11 @@ Ideas · Type settings
 <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Name<input type="text" value="Status" style="height: 34px; padding: 0 10px; font-weight: 400"></label>
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Key in frontmatter<input type="text" value="status" style="height: 34px; padding: 0 10px; font-weight: 400; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px"></label>
-<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Type<select style="height: 34px; padding: 0 8px; font-weight: 400"><option>Select</option><option>Multi-select</option><option>Text</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Type<select disabled title="Changing a property’s type is v1.0 (D-227, D-372)" style="height: 34px; padding: 0 8px; font-weight: 400"><option>Select</option></select></label>
 </div>
 <div role="note" style="display: flex; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); border: 1px solid var(--warn-b); font-size: 12px">
 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 3l9 16H3zM12 10v4M12 17h.01"></path></svg>
-<span>Renaming the key rewrites the frontmatter of all 10 ideas. You’ll confirm first, and a restore point is created.</span>
+<span>Renaming the key changes the definition only; existing ideas keep the old key under “Other properties”. Rewriting their files comes in v1.0 (D-372).</span>
 </div>
 <div style="display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 13px; font-weight: 500">Options</span>
@@ -185,7 +185,7 @@ Ideas · Type settings
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Description<input type="text" value="How far the idea has matured" style="height: 34px; padding: 0 10px; font-weight: 400"></label>
 <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 4px">
 <button style="height: 32px; padding: 0 12px; border-radius: 7px; color: var(--danger); font-size: 13px; font-weight: 500">Delete property…</button>
-<span style="font-size: 12px; color: var(--muted)">Deleting asks whether to remove the values from the files or keep them under “Other properties”.</span>
+<span style="font-size: 12px; color: var(--muted)">Deleting removes the property from the type; existing values stay under “Other properties” (D-372).</span>
 </div>
 </div>
 </sc-if>
@@ -232,7 +232,7 @@ Built in on every type
 <!-- Templates (FR-TPL) -->
 <section id="templates" aria-labelledby="h-tpl" style="display: flex; flex-direction: column; gap: 12px">
 <div style="display: flex; align-items: center; gap: 12px">
-<h2 id="h-tpl" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Templates</h2>
+<h2 id="h-tpl" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Templates<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-TPL</span></h2>
 <button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">New template</button>
 </div>
 <div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
@@ -251,7 +251,7 @@ Built in on every type
 <!-- Views (FR-QRY-07) -->
 <section id="views" aria-labelledby="h-views" style="display: flex; flex-direction: column; gap: 12px">
 <div style="display: flex; align-items: center; gap: 12px">
-<h2 id="h-views" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Views</h2>
+<h2 id="h-views" style="margin: 0; font-size: 18px; font-weight: 650; flex: 1">Views<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-QRY-07</span></h2>
 <button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">Add view</button>
 </div>
 <div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
@@ -271,7 +271,7 @@ Built in on every type
 <section id="danger" aria-labelledby="h-danger" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 16px; border-radius: 10px; border: 1px solid var(--danger); background: var(--danger-bg)">
 <div style="flex: 1; min-width: 240px">
 <h2 id="h-danger" style="margin: 0 0 4px; font-size: 16px; font-weight: 650; color: var(--danger)">Delete type</h2>
-<p style="margin: 0; font-size: 13px">You’ll choose a type to move the 10 ideas to, or move them to the trash. A restore point is created first.</p>
+<p style="margin: 0; font-size: 13px">A type with objects can’t be deleted yet: move or trash its 10 ideas first. Choosing a target type for them comes in v1.0 (D-225, D-372).</p>
 </div>
 <button style="height: 34px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--danger); color: var(--danger); background: var(--bg); font-size: 13px; font-weight: 600">Delete Idea type…</button>
 </section>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg folder logo variants</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDECE8}
+</style>
+</helmet>
+<div style="width: 1680px; height: 1180px; box-sizing: border-box; padding: 56px 64px; background: #EDECE8; color: #1C1C1E; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; align-items: flex-end; gap: 24px">
+<div style="flex: 1">
+<div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #6A6A70">Brand exploration · folder direction</div>
+<h1 style="margin: 6px 0 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 44px; line-height: 1.1; font-weight: 800; color: #1F2433">Folder + T, four takes</h1>
+</div>
+<p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.5; color: #4A4A50">Built on your reference: stacked, slanted folders with a T inside, in blue and navy, over a heavy geometric “Tegg”. The folders say “plain files in your own folder”. Each take shows the stacked lockup, the horizontal lockup and the app icon at 32, 20 and 16 px.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; flex: 1">
+<sc-for list="{{concepts}}" as="c" hint-placeholder-count="4">
+<section aria-label="{{c.name}}" style="background: #FFFFFF; border-radius: 18px; padding: 26px 30px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 800; color: #9A9AA0">{{c.num}}</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 650">{{c.name}}</h2>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55555B">{{c.idea}}</p>
+
+<div style="display: flex; align-items: center; gap: 40px; flex: 1">
+<!-- Stacked lockup -->
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none">
+<svg width="150" height="150" viewBox="0 0 100 100" role="img" aria-label="{{c.name}} mark">
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="4">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="{{s.join}}"></path>
+</sc-for>
+</svg>
+<span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 58px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: #1F2433">Tegg</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 22px; flex: 1; min-width: 0">
+<!-- Horizontal lockup -->
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="52" height="52" viewBox="0 0 100 100" aria-hidden="true">
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="4">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="{{s.join}}"></path>
+</sc-for>
+</svg>
+<span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: #1F2433">Tegg</span>
+</div>
+<!-- App icon sizes -->
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; align-items: center; justify-content: center; gap: 16px; height: 64px; border-radius: 10px; background: #F4F4F2">
+<sc-for list="{{sizes}}" as="z" hint-placeholder-count="3">
+<svg width="{{z}}" height="{{z}}" viewBox="-14 -14 128 128" aria-hidden="true">
+<path d="M14 -14 H86 C104 -14 114 -4 114 14 V86 C114 104 104 114 86 114 H14 C-4 114 -14 104 -14 86 V14 C-14 -4 -4 -14 14 -14 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="4">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="{{s.join}}"></path>
+</sc-for>
+</svg>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: center; gap: 16px; height: 64px; border-radius: 10px; background: #1C1C1E">
+<sc-for list="{{sizes}}" as="z" hint-placeholder-count="3">
+<svg width="{{z}}" height="{{z}}" viewBox="-14 -14 128 128" aria-hidden="true">
+<path d="M14 -14 H86 C104 -14 114 -4 114 14 V86 C114 104 104 114 86 114 H14 C-4 114 -14 104 -14 86 V14 C-14 -4 -4 -14 14 -14 Z" fill="#FFFFFF"></path>
+<sc-for list="{{c.shapes}}" as="s" hint-placeholder-count="4">
+<path d="{{s.d}}" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="{{s.sw}}" stroke-linecap="{{s.cap}}" stroke-linejoin="{{s.join}}"></path>
+</sc-for>
+</svg>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</section>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1680,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+const BLUE = '#3B5BDB', NAVY = '#2E3A59', WHITE = '#FFFFFF';
+const line = (d, s, w) => ({ d, fill: 'none', stroke: s, sw: String(w), cap: 'butt', join: 'miter' });
+const fill = (d, f) => ({ d, fill: f, stroke: 'none', sw: '0', cap: 'butt', join: 'miter' });
+const circle = (cx, cy, r) => 'M' + (cx - r) + ' ' + cy + ' a' + r + ' ' + r + ' 0 1 0 ' + (2 * r) + ' 0 a' + r + ' ' + r + ' 0 1 0 ' + (-2 * r) + ' 0 Z';
+// Shared geometry: an upright back folder with a tab, a slanted middle sheet, a slanted front folder.
+const back = 'M14 82 V14 H34 L42 23 H66 V32';
+const middle = 'M22 74 L32 34 H80';
+const front = 'M28 84 L40 44 H90 L78 84 Z';
+const tStroke = 'M48 55 H72 M61 55 L55 76';
+const concepts = [
+{
+num: '13', name: 'Folder stack T',
+idea: 'Closest to your reference: three outlined folders, blue in front and back with a navy sheet between, and a slanted navy T inside the front folder.',
+shapes: [line(back, BLUE, 6), line(middle, NAVY, 6), line(front, BLUE, 6), line(tStroke, NAVY, 7)]
+},
+{
+num: '14', name: 'Solid front folder',
+idea: 'The same stack, but the front folder is solid blue with the T cut out in white. More weight, so it holds up better in the Dock and at 16 px.',
+shapes: [line(back, NAVY, 6), line(middle, NAVY, 6), fill(front, BLUE), line(tStroke, WHITE, 8)]
+},
+{
+num: '15', name: 'Single folder',
+idea: 'Reduced to one folder: a navy back with its tab and a solid blue slanted front with a white T. The cleanest at small sizes.',
+shapes: [fill('M14 84 V18 Q14 14 18 14 H36 L44 23 H74 Q78 23 78 27 V44 H40 L28 84 Z', NAVY), fill(front, BLUE), line(tStroke, WHITE, 8)]
+},
+{
+num: '16', name: 'Folder stack + node',
+idea: 'The outlined stack from 13, with the T’s stem ending in a node. It links the folder (plain files) with the linked-notes idea of the earlier T-node mark.',
+shapes: [line(back, BLUE, 6), line(middle, NAVY, 6), line(front, BLUE, 6), line('M48 54 H72 M61 54 L57 68', NAVY, 7), fill(circle(55.5, 73.5, 5.5), NAVY)]
+}
+];
+return { concepts, sizes: [32, 20, 16] };
+}
+}
+</script>
+</body>
+</html>
