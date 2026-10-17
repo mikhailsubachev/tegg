@@ -57,10 +57,11 @@ L1 tests: `packages/doc/test/embeds.ac.test.ts` (FR-EMB-02 AC-3 sections, AC-1 m
 
 ## 3. Types and the type file (`tegg-schema`, `tegg-core`)
 
-- `TypeDef` gains `embed: Option<String>`: the raw value of the top-level key `embed` (trimmed), `None` when absent.
+- `tegg_schema::Parsed` gains `embed_raw: Option<String>`: the raw value of the top-level key `embed` (trimmed), `None` when absent. `TypeFile` is unchanged (an existing AC test builds it literally).
 - `pub enum EmbedMode { Full, Card, Link }` with `EmbedMode::parse(&str) -> Option<EmbedMode>` (case-insensitive, trimmed) and `as_str()` (`full`, `card`, `link`).
 - `pub fn default_embed(key: &str) -> EmbedMode`: R31 (`page`, `quick-note`, `daily-note` → `Full`; everything else `Card`).
-- `TypeDef::effective_embed(&self) -> EmbedMode`: `parse(raw)` else `default_embed(key)`. A type key without a definition (D-121) uses `default_embed(key)`, which is `Card` for every non-system key.
+- `pub fn effective_embed(key: &str, raw: Option<&str>) -> EmbedMode`: `parse(raw)` else `default_embed(key)`. A type key without a definition (D-121) uses `default_embed(key)`, which is `Card` for every non-system key.
+- `tegg_core::TypeInfo` gains `embed: EmbedMode` (effective) and `embed_raw: Option<String>`.
 - `TypeOp::SetEmbed(EmbedMode)` writes `embed: <mode>` (lower case). Placement by `TOP_ORDER`, which gains `"embed"` after `"hidden"` (so after `hidden` when present, else after `preview`, D-417). The key is replaced in place when present (also when its value was unknown). Setting the value the file already has (same lower-case text) is no write (`TypeOp` returns unchanged, the core's `type_patch` returns the type without writing). A system type without a file is materialised from its built-in text first (D-90), as for every other `TypeOp`.
 - Reading never rewrites a file (D-417). An unknown value isn't an error: the file's `state` stays `ok`.
 - **DTO:** `TypeDto` gains `embed: string` (the effective mode) and `embedRaw: string | null` (the raw value). `TypeOpDto` gains `{ "op": "embed", mode: "full" | "card" | "link" }`.
@@ -223,7 +224,7 @@ export interface TeggEditor {
 ## 8. Fake core additions (ms3-shell §5, ms4-links §6)
 
 - `embed_load` over the in-memory files: `linkTargets` from the app module and the §11.1 resolution from each file's path; `missing` for absent paths and for `_templates/` / `.trash/`; recorded in `calls()`; never touches recency, `writes()` or `vault_last`.
-- `TypeDto.embed` / `embedRaw` and the `embed` op through `@tegg/schema` (the fake core's type path, ms3-shell §14.8). `@tegg/schema` gains the same `effectiveEmbed(def)` / `defaultEmbed(key)` rules and the `embed` op, with the Rust bytes (shared corpus `tests/fixtures/types/embed/cases.json`).
+- `TypeDto.embed` / `embedRaw` and the `embed` op in `app/ui/test/fake-schema.ts` (the fake core's type path, ms3-shell §14.8), with the same R31 rules and the same bytes as `tegg-schema` (§3).
 - `writeControl` gains `path?: string`: when set, `delayMs`, `fail` and `hold` apply only to writes (`note_write`, `note_create`, `note_create_exact`, `link_create`, `daily_create`, `type_patch`) whose path is that path; without it they apply to every write as before. `FakeCoreHandle.writeControl({ path, ... })` — same method, new optional field (FR-EMB-03 AC-3, AC-13).
 - `calls()` records `embed_load` with its `paths` (FR-EMB-02 AC-12 counts).
 

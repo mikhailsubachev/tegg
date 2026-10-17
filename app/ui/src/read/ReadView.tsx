@@ -7,6 +7,7 @@ import { requestOffer } from '../links/offer';
 import { markdownTree, parse, wikilinks } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
+import type { EmbedTree } from '../embeds/tree';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
 import { InNotePlaceholder } from './InNotePlaceholder';
@@ -20,6 +21,9 @@ export type ReadViewProps = {
   onTag: (key: string) => void;
   onExternal: (url: string) => void;
   onScrollInNote: (fragment: string) => void;
+  /** 4F (ms4-embeds §6): the note's embed tree and the renderer of one embed; without it, embeds render as before. */
+  embeds?: EmbedTree;
+  renderEmbed?: (value: string, line: number, inline: boolean) => ReactNode;
 };
 
 // mdast nodes of `@tegg/doc` (with its wikiLink, tag, highlight and comment nodes), read structurally.

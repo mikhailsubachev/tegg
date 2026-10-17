@@ -247,7 +247,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       }
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => [] /* 4F stub (ms4-embeds §9) */ };
     syncHead();
     requestAnimationFrame(() => {
       placeFocus.current(); // D-247: the caret goes in once the editor is ready

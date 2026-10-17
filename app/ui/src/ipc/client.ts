@@ -6,7 +6,7 @@ import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
-  LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto,
+  LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
 } from './types';
 
 export const ipc = {
@@ -65,6 +65,8 @@ export const ipc = {
   dailyCreate: (date: string, text: string) => invoke<DailyCreatedDto>('daily_create', { date, text }),
   dailyBacklinks: (date: string) => invoke<BacklinksPanelDto>('daily_backlinks', { date }),
   dailyContext: (date: string, start: string, end: string, limit: number) => invoke<DailyContextDto>('daily_context', { date, start, end, limit }),
+  // 4F (ms4-embeds §4): one call per nesting level; records no recency.
+  embedLoad: (paths: string[]) => invoke<EmbedNoteDto[]>('embed_load', { paths }),
 };
 
 export const events = {

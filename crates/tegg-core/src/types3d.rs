@@ -32,6 +32,9 @@ pub struct TypeInfo {
     pub readability: Readability,
     pub def: TypeFile,
     pub preview_ignored: Vec<String>,
+    /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
+    pub embed: tegg_schema::EmbedMode,
+    pub embed_raw: Option<String>,
 }
 
 /// One row of a type page (FR-TYP-09 AC-2, ms3-shell §14.2.4).
@@ -106,6 +109,8 @@ fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>) -> TypeInf
         readability: parsed.readability.clone(),
         def: parsed.def.clone(),
         preview_ignored: parsed.preview_ignored.clone(),
+        embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
+        embed_raw: parsed.embed_raw.clone(),
     }
 }
 

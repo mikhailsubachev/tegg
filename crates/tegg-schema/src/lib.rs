@@ -183,6 +183,40 @@ pub struct Parsed {
     pub readability: Readability,
     /// Preview keys that are neither attributes nor universal (FR-TYP-11 AC-2).
     pub preview_ignored: Vec<String>,
+    /// Raw value of the top-level `embed` key, trimmed; None when absent (D-417, ms4-embeds §3).
+    pub embed_raw: Option<String>,
+}
+
+/// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmbedMode {
+    Full,
+    Card,
+    Link,
+}
+
+impl EmbedMode {
+    /// Case-insensitive, trimmed; None for anything else.
+    pub fn parse(_s: &str) -> Option<EmbedMode> {
+        None // 4F stub
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EmbedMode::Full => "full",
+            EmbedMode::Card => "card",
+            EmbedMode::Link => "link",
+        }
+    }
+}
+
+/// R31: the built-in default embed mode of a type key.
+pub fn default_embed(_key: &str) -> EmbedMode {
+    EmbedMode::Card // 4F stub
+}
+
+/// The `embed` value if it is a mode, else the R31 default of `key` (D-417).
+pub fn effective_embed(_key: &str, _raw: Option<&str>) -> EmbedMode {
+    EmbedMode::Card // 4F stub
 }
 
 pub const SYSTEM_KEYS: [&str; 7] = ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"];
@@ -275,9 +309,9 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 .filter(|p| !def.attributes.iter().any(|a| &a.key == *p) && !UNIVERSAL_KEYS.contains(&p.as_str()))
                 .cloned()
                 .collect();
-            Parsed { def, readability, preview_ignored }
+            Parsed { def, readability, preview_ignored, embed_raw: None /* 4F stub */ }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new() },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None },
     }
 }
 
@@ -923,6 +957,8 @@ pub enum TypeOp {
     SetPreview(Vec<String>),
     /// FR-TYP-17, D-316.
     SetHidden(Vec<String>),
+    /// D-417 (ms4-embeds §3): the type's default embed mode.
+    SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
     UpdateAttribute { key: String, change: AttrChange },
     RemoveAttribute(String),
@@ -1090,6 +1126,9 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.hidden = out;
                 set_top(lines, "hidden", render_top("hidden", def));
             }
+        }
+        TypeOp::SetEmbed(_mode) => {
+            // 4F stub (ms4-embeds §3): not written yet.
         }
         TypeOp::AddAttribute(a) => {
             let mut a = a.clone();

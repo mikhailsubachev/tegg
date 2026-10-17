@@ -40,7 +40,7 @@ export function typeOfValue(types: TypeDto[], value: unknown): { type: TypeDto |
 export function pageFallback(types: TypeDto[]): TypeDto {
   return types.find((x) => x.key === 'page') ?? {
     key: 'page', name: 'Page', plural: 'Pages', folder: 'Pages', icon: 'file-text', color: COLORS[0], system: true, invalid: false, exists: false,
-    version: null, state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], template: null, attributes: [],
+    version: null, state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], embed: 'full', embedRaw: null, template: null, attributes: [],
   };
 }
 

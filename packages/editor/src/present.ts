@@ -27,6 +27,17 @@ export interface EditorUi {
   onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }): void
   onTag(value: string): void
   onExternal(href: string): void
+  /** 4F (ms4-embeds §7): renders a block embed (`rawBlock` kind `embed`); null keeps the 3C placeholder. */
+  embed?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null
+  /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
+  embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string } | undefined
+}
+
+/** 4F (ms4-embeds §7): the app's handle on a rendered block embed. */
+export interface EmbedHandle {
+  update(source: string): void
+  selected(on: boolean): void
+  destroy(): void
 }
 
 export const uiRefresh = new PluginKey('teggUi')

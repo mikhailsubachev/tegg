@@ -37,8 +37,9 @@ export type FakeCoreHandle = {
    *  `sameBytesTouch`: new mtime, same bytes (AC-16). A `Uint8Array` may hold invalid UTF-8 (NFR-REL-03 AC-7). */
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
   renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
-  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. */
-  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean }): Promise<void>;
+  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. 4F (ms4-embeds §8): with `path`, only
+   *  writes to that path are affected. */
+  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null }): Promise<void>;
   release(): Promise<void>;
   /** Paths of successful writes (`note_write` written, `note_create`, `note_create_exact`), in order. */
   writesTo(): Promise<string[]>;
@@ -175,7 +176,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     mtimes: {} as Record<string, number>,
     clock: 1,
     invalid: {} as Record<string, number[]>,
-    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean },
+    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null },
     held: [] as (() => void)[],
     writtenPaths: [] as string[],
     conflicts: null as ConflictRowDto[] | null,
@@ -613,6 +614,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null;
     },
     perf_mark: () => null,
+    // 4F (ms4-embeds §8): one call per nesting level, no recency.
+    embed_load: () => [], // 4F stub
     // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
     link_resolve: async (a) => {
       const from = String(a.from ?? '').normalize('NFC');

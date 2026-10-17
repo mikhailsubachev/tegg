@@ -9,7 +9,7 @@ import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Tran
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
-import { renderBlock } from '@tegg/doc'
+import { renderBlock, type EmbedMode } from '@tegg/doc'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
@@ -37,6 +37,13 @@ export interface EditorOptions {
   extensions?: import('@tiptap/core').AnyExtension[]
   /** Presentation and interaction of chips, source blocks, checkboxes and the hint (the app's strings). */
   ui?: EditorUi
+  /** 4F (D-421, D-422; ms4-embeds §7): show and edit only this part of the body. `null` = whole body; a heading
+   *  text = that section without its heading line, recomputed after each `markSaved`. */
+  section?: string | null
+  /** 4F (D-428): ↑ on the first line / ↓ on the last line of a nested editor, and Esc. Return true when handled. */
+  onLeave?(how: 'up' | 'down' | 'escape'): boolean
+  /** 4F (D-428): ⏎ / ⌘↩ / `Display embed as…` on a selected block embed at `pos`. Return true when handled. */
+  onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean
 }
 
 export interface TeggEditor {
@@ -68,6 +75,8 @@ export interface TeggEditor {
   refreshUi(): void
   /** Markdown source of the selected blocks, or null without a block selection (FR-EDT-13 AC-5). */
   selectedSource(): string | null
+  /** 4F (ms4-embeds §7): the block embed at the selection (one selected embed block, or a node selection), or null. */
+  selectedEmbed(): { pos: number; index: number; source: string } | null
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
@@ -82,6 +91,13 @@ export interface TeggEditor {
     insertTag(spelling: string): boolean
     /** ms4-links §5.3 (D-299): replaces the wikilink node at `pos` with `[[linkText]]` (no brackets given) as one step. */
     replaceLink(pos: number, linkText: string): boolean
+    /** 4F (D-416): rewrites the block embed at `pos` with `withEmbedMode`, as one undo step. */
+    setEmbedMode(pos: number, mode: EmbedMode | null): boolean
+    /** 4F (D-426): replaces `from…to` with a block embed `![[linkText]]` (after the caret's block when it has other
+     *  text, FR-EDT-03 AC-4), as one undo step. */
+    insertEmbed(from: number, to: number, linkText: string): boolean
+    /** 4F (D-428): selects the top-level block at `index` as a block. */
+    selectBlockAt(index: number): boolean
     setUrlLink(href: string): boolean
     removeLink(): boolean
     pasteText(text: string, plain?: boolean): boolean
@@ -553,6 +569,15 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       dispatch(tr.scrollIntoView())
       return true
     },
+    setEmbedMode(_pos, _mode) {
+      return false // 4F stub (ms4-embeds §7)
+    },
+    insertEmbed(_from, _to, _linkText) {
+      return false // 4F stub
+    },
+    selectBlockAt(_index) {
+      return false // 4F stub
+    },
     replaceLink(pos, text) {
       const node = editor.state.doc.nodeAt(pos)
       if (!node || node.type.name !== 'wikiLink') return false
@@ -885,6 +910,7 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       view.dispatch(editor.state.tr.setMeta(uiRefresh, true).setMeta('addToHistory', false))
     },
     selectedSource,
+    selectedEmbed: () => null, // 4F stub (ms4-embeds §7)
     commands,
     destroy() {
       editor.destroy()

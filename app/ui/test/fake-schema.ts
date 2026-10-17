@@ -56,7 +56,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const system = SYSTEM.includes(key);
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
-    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], template: null, attributes: [],
+    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], embed: 'card', embedRaw: null /* 4F stub */, template: null, attributes: [],
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
