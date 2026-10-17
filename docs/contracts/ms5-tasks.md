@@ -1,6 +1,6 @@
 # MS5 Tasks Interface Contract (slice 5A-1; 5A-2 conversion in §11)
 
-- **Status:** draft, 2026-10-17. Written before the 5A-1 red tests (D-487, as D-295 and D-430). Follows D-470…D-500 (BRD v1.66).
+- **Status:** accepted, 2026-10-17 (red-test clarifications AP-430…AP-443 → D-501…D-514, §10). Written before the 5A-1 red tests (D-487, as D-295 and D-430). Follows D-470…D-500 (BRD v1.66).
 - **ACs:** [docs/acceptance/tasks.md](../acceptance/tasks.md) (FR-TSK-01 AC-1…AC-7, FR-TSK-02 AC-1…AC-13, FR-TSK-03 AC-1…AC-3, FR-TSK-04 AC-1…AC-14, FR-TSK-05 AC-1…AC-13, FR-TSK-08 AC-1…AC-3, FR-TSK-09 AC-1…AC-3, FR-TSK-10 AC-1…AC-8, FR-TSK-11 AC-1…AC-4, FR-DLY-04 AC-8…AC-14, FR-SYN-06 AC-20…AC-22) and its tables R40…R46. Where this contract and the ACs disagree, the ACs win, and this contract is corrected before the red tests.
 - **Builds on** [ms4-daily.md](ms4-daily.md) (§1 dates and the day window, §7 daily UI), [ms4-links.md](ms4-links.md) (§1 resolution, §3.1 free stem, §6 fake core), [ms3-shell.md](ms3-shell.md) (§5 fake core, §13.2 `note_read` / `note_write`, §14 types: `tegg-schema`, `type_patch`, the creation path §14.2.3) and [ms4-jobs.md](ms4-jobs.md). Everything in those contracts stays valid unless this one changes it.
 - **No job.** Every 5A-1 write is a single-file save with a base version: a task file through `note_write`, a type file through `type_patch`, a new task through `note_create`. 5A-1 adds no `tegg-jobs` planner and no restore point (tasks.md intro).
@@ -214,9 +214,23 @@ Pure; scans back from the end while the last word is a token (FR-TSK-10 AC-2 tab
 3. Status options keep `state` in `OptionDef.extra`, so type files Tegg wrote earlier read unchanged; one op per type-settings action keeps type-file writes to one line.
 4. `daily_tasks` is a separate command, and the D-328 exclusion is done in the core, so the two daily calls can't disagree.
 
-## 10. Points for the owner
+## 10. Clarifications from the red tests (accepted 2026-10-17: AP-430…AP-443 → D-501…D-514)
 
-None yet. Points the red tests raise go here as AP-430 onward.
+These override the sections above where they differ.
+
+1. **D-501, D-502:** `PatchContext` is unchanged. `tegg_schema::patch_with_usage(key, text, ops, ctx, used: &[(&str, usize)])` does the `optionUsed` check; `Core::type_patch` computes `used` from `type_usage` and calls it. The `type_patch` IPC is unchanged.
+2. **D-503:** `newObject`'s `type.attributes[]` gain `options?: { label: string; color: string | null; state: string | null }[]`; a new Task without a `status` value or template entry gets the first option whose state is Open.
+3. **D-504:** with `TEGG_TEST=1`, `TEGG_NOW=<ISO 8601 with offset>` fixes the clock: the Rust side reads it for `now`, and the UI gets `window.__TEGG_NOW__` (the `__TEGG_TZ__` mechanism) and offsets `Date.now()` from it. L6 tests set it to the ACs' test clock.
+4. **D-505:** `tasks.summary` is `{open} · {overdue} · {today}`, built from the plural messages `tasks.summary.open` (`{count} open`), `tasks.summary.overdue` (`{count} overdue`), `tasks.summary.today` (`{count} due today`).
+5. **D-506:** `TaskChange` stays without `now` for priority, due and tags; `write.ts` applies `touchModified(before, after, now)` after every change, the status change included.
+6. **D-507:** the FR-DLY-04 AC-9 order is the core's; no TypeScript daily order function.
+7. **D-508:** Kanban tag columns: `id = '#' + key`, `label = '#' + spelling`.
+8. **D-509 DOM hooks (§6.2):** card `data-status` (raw value), `data-priority` (raw value); due chip `data-due` (the raw value) and `data-tone` (`overdue` | `today` | `plain` | `invalid` | `done`); column dot `data-color`; the attribute panel's Due row `data-overdue`; an overdue chip's accessible name ends with `, overdue`; the 30 s day check re-reads `__TEGG_TZ__` (the test hook for a zone change).
+9. **D-510:** fake core `writeControl({ delayMs?, fail?, hold?, path? })` applies to `note_write`, `note_create` (both paths) and `type_patch`; with `path`, only writes to that path are affected.
+10. **D-511 (T2):** `app/src-tauri` maps `OptionDto.state` to `OptionDef.extra` `state` and back, so `updateAttribute { options }` keeps every option's `state`. Regression test `bug_5a_fr_tsk_02_option_state_kept` in the build.
+11. **D-512:** `app/test/fake_schema_ops.test.ts` checks `fake-schema.ts` against `ops-5a.json`.
+12. **D-513:** mark `task-moved` (`perf_mark`, once per Kanban move after the card shows in its target column); `perf_tasks.ts` reports it. 60 fps scrolling is a manual check in MS8.
+13. **D-514:** FR-TSK-11 AC-4's test is in the 5A-2 red commit.
 
 ## 11. Slice 5A-2: conversion and the Task card (D-490…D-499)
 

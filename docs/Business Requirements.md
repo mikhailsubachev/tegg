@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.66, for review                                             |
+| **Document status** | Draft v1.67, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -80,6 +80,7 @@
 | v1.62   | 2026-10-17 | D-414: FR-FMT-08 AC-5 no longer requires the inode to stay while typing (atomic autosave, FR-SYN-02). |
 | v1.64   | 2026-10-17 | D-433: undo/redo, Retry and Finish never move links to a name the note isn't at (PR #45 review). v1.63 is slice 4F's (D-415…D-432, on its branch). |
 | v1.66   | 2026-10-17 | Slice 5A decisions D-470…D-499 (AP-400…AP-429) and the 5A-1 / 5A-2 split (D-500). v1.65 and D-434…D-469 are left to slice 4F. |
+| v1.67   | 2026-10-17 | Slice 5A-1 red-test decisions D-501…D-514 (AP-430…AP-443). |
 
 ---
 
@@ -569,6 +570,20 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-498 | Crash between the two conversion writes (AP-428, owner, 2026-10-17) | The new object is created first, then the source saved. A kill in between leaves an object with `source` but no embed while its text stays in the source (duplicated, nothing lost); accepted without a journal |
 | D-499 | AC changes from 5A conversion (AP-429, owner, 2026-10-17) | The 5A-2 build commit updates editor.md R6, R3 and FR-EDT-01 AC-6, and embeds.md FR-EMB-02 AC-4 and R31's note, with `AC-Test-Change: 5A builds conversion and the Task card (D-74); approved-by: owner`. New numbers: FR-FMT-07 AC-20, FR-SYN-06 AC-23, R50…R54 |
 | D-500 | Slice 5A is split (owner, 2026-10-17) | **5A-1 Tasks**: FR-TSK-01…05, -08…11, the Tasks page (Schedule and Kanban by status or tag), quick-add, the card, the Daily Note's Tasks due (D-470…D-489). **5A-2 Conversion**: FR-CNV-01…06, -08 and the D-74 Task embed card (D-490…D-499); it starts once 4F is on `main`. FR-CNV-07 and -09 stay v1.0 (D-87) |
+| D-501 | Usage counts for schema patches (AP-430, owner, 2026-10-17) | `PatchContext` stays as it is; `tegg_schema::patch_with_usage(key, text, ops, ctx, used)` takes the option usage counts for the `optionUsed` refusal (keeps existing AC tests unchanged) |
+| D-502 | Who counts option usage (AP-431, owner, 2026-10-17) | The core computes the counts from `type_usage` inside `type_patch`; the IPC call is unchanged |
+| D-503 | `newObject` and the first Open status (AP-432, owner, 2026-10-17) | `newObject`'s attribute type carries `options?: {label, color, state}[]`, so it finds the first Open-state status itself (D-470) |
+| D-504 | Test clock in the built app (AP-433, owner, 2026-10-17) | With `TEGG_TEST=1`, `TEGG_NOW=<ISO 8601>` fixes the app's clock (Rust and UI, mirrored like `__TEGG_TZ__`); L6 tests run on the ACs' test clock |
+| D-505 | Summary with three counts (AP-434, owner, 2026-10-17) | `tasks.summary` joins three plural messages `tasks.summary.open`, `tasks.summary.overdue`, `tasks.summary.today` (D-133: one count per plural message) |
+| D-506 | `modified` on task changes (AP-435, owner, 2026-10-17) | `applyTaskChange` for priority, due and tags doesn't take `now`; the caller applies `touchModified` (idempotent), as for status |
+| D-507 | Daily Tasks due order (AP-436, owner, 2026-10-17) | The order of FR-DLY-04 AC-9 is the core's (`daily_tasks`); the AC's L1 layer is dropped, L4 and L5 cover it |
+| D-508 | Tag column id and label (AP-437, owner, 2026-10-17) | Kanban tag columns: `id = '#' + key`, `label = '#' + spelling` (D-185) |
+| D-509 | Task DOM hooks (AP-438, owner, 2026-10-17) | Cards and chips carry `data-priority`, `data-status`, `data-due`, `data-tone`; column dots `data-color`; the panel's Due row `data-overdue`; an overdue chip's accessible name ends with `, overdue`; the 30 s day check re-reads `__TEGG_TZ__` |
+| D-510 | Fake-core write control (AP-439, owner, 2026-10-17) | `writeControl` applies to `note_create` (also the typed path) and takes an optional `path` so a failure hits one file only |
+| D-511 | Option `state` kept by the UI (T2) (AP-440, owner, 2026-10-17) | `OptionDto.state` maps to and from `OptionDef.extra`, so an `updateAttribute { options }` from the UI never drops a status's `state`; fixed in the 5A-1 build with a regression test |
+| D-512 | Fake schema checked (AP-441, owner, 2026-10-17) | A TS test checks `fake-schema.ts` against `tests/fixtures/types/ops-5a.json`, the corpus the Rust tests read |
+| D-513 | Drag probe (AP-442, owner, 2026-10-17) | The app emits the mark `task-moved` once per Kanban move, when the card is shown in the target column after the write's success; FR-TSK-04 AC-14 measures it (report-only until MS8); 60 fps scrolling is checked manually |
+| D-514 | FR-TSK-11 AC-4 in 5A-2 (AP-443, owner, 2026-10-17) | Its test goes in the 5A-2 red commit with the conversion tests |
 
 ---
 
