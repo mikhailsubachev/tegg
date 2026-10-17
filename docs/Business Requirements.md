@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.62, for review                                             |
+| **Document status** | Draft v1.64, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -78,6 +78,7 @@
 | v1.60   | 2026-10-17 | Slice 4C rename-engine decisions D-383…D-399 (AP-288…AP-303 and the D-294 offer, `docs/acceptance/rename.md`): link forms kept, free-name rule, undo as a job, live-editor rewrite, job journal, frontmatter links, templates rewritten and trash untouched, merge with 4D-lite, one job at a time, zip engine in 4C with restore UI in 4D-lite. |
 | v1.61   | 2026-10-17 | Slice 4C red-test decisions D-400…D-413 (AP-304…AP-317): coverage headings, test IDs, case-only renames, unquoted frontmatter links, job points, contract gaps, skip texts, AC wording fixes. |
 | v1.62   | 2026-10-17 | D-414: FR-FMT-08 AC-5 no longer requires the inode to stay while typing (atomic autosave, FR-SYN-02). |
+| v1.64   | 2026-10-17 | D-433: undo/redo, Retry and Finish never move links to a name the note isn't at (PR #45 review). v1.63 is slice 4F's (D-415…D-432, on its branch). |
 
 ---
 
@@ -535,6 +536,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-412 | Skipped file at L6 (AP-316, owner, 2026-10-17) | FR-LNK-03 AC-16's L6 case produces its skipped file by making a folder read-only (reason `io`); the external-edit case stays at L4/L5. |
 | D-413 | Markdown-link URLs gaining spaces; `sanitize` at L1 (AP-317, owner, 2026-10-17) | A Markdown-link URL that was neither percent-encoded nor in `<…>` and gains a space is written percent-encoded (`%20`). `sanitize` is tested through the Rust `sanitize_file_stem` (no TS twin). |
 | D-414 | FR-FMT-08 AC-5 without the inode (owner, 2026-10-17) | While the title is typed, `Pages/Alfa.md` keeps its path, not its inode: the autosave of `title:` (D-394) is an atomic temp-file write and rename (FR-SYN-02), which always gives a new inode. The L6 test checks the path only (AC-Test-Change approved in PR #45). |
+| D-433 | Links never move to a name the note isn't at (owner, 2026-10-17; PR #45 review M1–M3) | (1) Undo and Redo move the renamed note first; if it can't move (changed since, or another note took the target name) no linking file is changed and all are listed as not updated. An interrupted Undo follows the same rule. (2) Retry accepts only rows the job skipped, never after the rename was undone or when its note is no longer at the new name; an undo removes that rename's rows from the list. (3) After a rename takes a free stem (`Gama (2)`), the crash journal's target follows it, so Finish moves pending links there, never to the planned name. (Numbered after 4F's D-415…D-432.) |
 
 ---
 

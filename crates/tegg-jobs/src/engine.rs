@@ -77,6 +77,8 @@ struct JobState {
     report: Option<JobReport>,
     cancel: bool,
     undo: Option<UndoRecord>,
+    /// An undo of this rename has run (and no redo since): its rows can't be retried (D-433).
+    undone: bool,
     progress: JobProgress,
 }
 
@@ -219,6 +221,7 @@ impl Jobs {
                 report: None,
                 cancel: false,
                 undo: None,
+                undone: false,
                 progress,
             },
         );
@@ -299,6 +302,14 @@ impl Jobs {
             let s = lock(&self.inner.state);
             let j = s.jobs.get(&job).ok_or(JobError::NotFound)?;
             let plan = j.plan.as_ref().ok_or(JobError::NotFound)?;
+            // D-433: only a row the job skipped, of a job not undone since, whose note is still where it moved.
+            let skipped = j.report.as_ref().is_some_and(|r| r.skipped.iter().any(|k| nfc(&k.path) == path));
+            if !skipped {
+                return Err(JobError::NotFound);
+            }
+            if j.undone || plan.renames.iter().any(|(_, to)| host.version(to).is_none()) {
+                return Ok(RetryOutcome::Skipped(SkipReason::Changed));
+            }
             // The renamed note itself is never retried in place: that would give the old file the new title and a
             // self-link to a name that doesn't exist (PR #45 review). Its row is answered "changed".
             if plan.renames.iter().any(|(a, b)| nfc(a) == path || nfc(b) == path) {
@@ -553,6 +564,14 @@ impl Inner {
             let mut s = lock(&self.state);
             // Every finished rename has an undo record, an empty one for a commit that wrote nothing (undo is then a
             // no-op); only one that wrote something is offered as `Undo rename`.
+            if phase == Phase::Done {
+                if let JobOp::Undo { job } | JobOp::Redo { job } = &op {
+                    let undone = matches!(op, JobOp::Undo { .. });
+                    if let Some(o) = s.jobs.get_mut(job) {
+                        o.undone = undone;
+                    }
+                }
+            }
             let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. });
             if undoable && !run.undo.files.is_empty() {
                 s.last_undoable = Some(id);
@@ -834,6 +853,8 @@ impl Inner {
             r.1 = path.clone();
         }
         run.undo.op = Some(ops[1].clone());
+        // D-433: a crash from here on finishes with the stem the rename really took, not the planned one.
+        crate::journal::retarget(host.as_ref(), id, &ops[1], &note.path, &path);
         if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
             j.plan = Some(plan.clone());
         }
@@ -1009,8 +1030,16 @@ impl Inner {
             })
             .collect();
         crate::journal::begin_entries(host.as_ref(), run.id, if undo { "undo" } else { "redo" }, op.as_ref(), &entries);
+        // D-433: the note moves first; if it can't, no link moves (they would point where the note isn't).
+        let mut note_stuck = false;
         for (i, w) in rec.files.iter().enumerate() {
             let (at, to, bytes, base) = if undo { (&w.after, &w.before, &w.pre, &w.post_v) } else { (&w.before, &w.after, &w.post, &w.pre_v) };
+            if note_stuck {
+                run.skip(at, SkipReason::Changed);
+                crate::journal::progress_none(host.as_ref(), run.id, at);
+                self.step(run.id, i + 1);
+                continue;
+            }
             self.point(run.id, JobPoint::AfterRead { path: at.clone() });
             if host.is_placeholder(at) {
                 run.skip(at, SkipReason::Placeholder);
@@ -1028,11 +1057,12 @@ impl Inner {
                 }
             } else {
                 let r = if at != to {
-                    let mut target = to.clone();
-                    if host.version(&target).is_some() && key(&target) != key(at) {
-                        target = join(&folder_of(to), &host.free_stem(&folder_of(to), &stem_of(to)));
+                    // Another note took the old name: the links can't follow the note back to it (D-433).
+                    if host.version(to).is_some() && key(to) != key(at) {
+                        Err(WriteError::NameTaken)
+                    } else {
+                        host.rename(at, to, bytes, base).map(|v| (to.clone(), Some(v)))
                     }
-                    host.rename(at, &target, bytes, base).map(|v| (target, Some(v)))
                 } else {
                     host.write(at, bytes, base).map(|w| match w {
                         Wrote::Written(v) => (at.clone(), Some(v)),
@@ -1048,7 +1078,10 @@ impl Inner {
                         run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false });
                     }
                     Ok((path, None)) => run.unchanged.push(path),
-                    Err(e) => run.skip(at, write_reason(&e)),
+                    Err(e) => {
+                        run.skip(at, write_reason(&e));
+                        note_stuck = at != to;
+                    }
                 }
             }
             match run.undo.files.get(before) {

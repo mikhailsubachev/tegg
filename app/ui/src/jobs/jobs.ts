@@ -62,7 +62,9 @@ async function onProgress(p: JobProgressDto) {
 
 function finished(jobId: number, t: Tracked, r: JobReportDto | null, others: number) {
   if (!r) return;
-  const rows = state.rows.filter((x) => !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
+  // D-433: an undo of a rename takes that rename's rows away: retrying them would move links to a note that is gone.
+  const undid = t.kind === 'undo' && r.phase === 'done' ? t.of : undefined;
+  const rows = state.rows.filter((x) => x.jobId !== undid && !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
   for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason });
   const patch: Partial<State> = { rows };
   if (t.kind === 'rename') {

@@ -281,3 +281,96 @@ fn bug_45_fr_fmt_08_a_note_without_frontmatter_is_renamed() {
     let t = read_text(&root, "Pages/Oblečená.md").unwrap_or_default();
     assert!(t.starts_with("---\n") && t.contains("\ntitle: Oblečená\n") && t.ends_with("Jen text, žádná hlavička.\n"), "frontmatter added with the title, body kept: {t}");
 }
+
+// ------------------------------------------------------------------------------------------------ re-review majors (D-433)
+
+#[test]
+fn bug_45_d433_undo_writes_no_link_when_the_note_cannot_move_back() {
+    let sb = sandbox();
+    let root = rename_vault(&sb);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (job, _) = ok!(rename(&core, ALFA, "Gama"), "rename");
+    // The user typed in the renamed note after the rename: its undo is skipped.
+    let edited = format!("{}Psáno po přejmenování.\n", read_text(&root, GAMA).unwrap_or_default());
+    write_raw(&root, GAMA, edited.as_bytes());
+    let before = snapshot(&root);
+    let (_, undo) = ok!(run_job(&core, JobOp::Undo { job }), "undo");
+    assert_eq!(changed(&before, &snapshot(&root)), std::collections::BTreeSet::new(), "no file changes: links stay with the note at Gama");
+    for p in [GAMA, ODKAZY, VLASTNOSTI] {
+        assert!(undo.skipped.iter().any(|s| nfc(&s.path) == p), "{p} listed as not updated: {undo:?}");
+    }
+}
+
+#[test]
+fn bug_45_d433_undo_never_moves_links_to_a_name_another_note_took() {
+    let sb = sandbox();
+    let root = rename_vault(&sb);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (job, _) = ok!(rename(&core, ALFA, "Gama"), "rename");
+    write_raw(&root, ALFA, "---\ntitle: Jiná Alfa\n---\nJiná poznámka.\n".as_bytes());
+    let odkazy = read_text(&root, ODKAZY);
+    let (_, undo) = ok!(run_job(&core, JobOp::Undo { job }), "undo");
+    assert_eq!(read_text(&root, ODKAZY), odkazy, "Odkazy keeps [[Gama]]: [[Alfa]] would now mean the other note");
+    assert!(root.join(GAMA).exists(), "the note stays at Gama: {undo:?}");
+}
+
+#[test]
+fn bug_45_d433_retry_after_the_rename_was_undone_writes_nothing() {
+    let sb = sandbox();
+    let root = rename_vault(&sb);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    let once = Arc::new(AtomicUsize::new(0));
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        if matches!(p, JobPoint::AfterRead { path } if nfc(path) == ODKAZY) && once.fetch_add(1, Ordering::SeqCst) == 0 {
+            std::fs::write(r2.join(ODKAZY), format!("{}Externí.\n", fixture_text(ODKAZY))).expect("external edit");
+        }
+    })));
+    let (job, report) = ok!(rename(&core, ALFA, "Gama"), "rename");
+    core.jobs().set_point_hook(None);
+    assert!(report.skipped.iter().any(|s| nfc(&s.path) == ODKAZY), "setup: Odkazy skipped");
+    ok!(run_job(&core, JobOp::Undo { job }), "undo");
+    assert!(root.join(ALFA).exists(), "setup: undone");
+    let before = read_text(&root, ODKAZY);
+    let r = core.jobs().retry(job, ODKAZY);
+    assert!(!matches!(r, Ok(RetryOutcome::Written)), "no retry of an undone rename: {r:?}");
+    assert_eq!(read_text(&root, ODKAZY), before, "Odkazy keeps [[Alfa]]; Gama.md is gone");
+}
+
+#[test]
+fn bug_45_d433_retry_accepts_only_skipped_rows() {
+    let sb = sandbox();
+    let root = rename_vault(&sb);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (job, _) = ok!(rename(&core, ALFA, "Gama"), "rename");
+    write_raw(&root, VLASTNOSTI, fixture(VLASTNOSTI).as_slice()); // another app put the old text back
+    let r = core.jobs().retry(job, VLASTNOSTI);
+    assert!(!matches!(r, Ok(RetryOutcome::Written)), "Vlastnosti wasn't skipped, so it isn't retried: {r:?}");
+    assert_eq!(read_bytes(&root, VLASTNOSTI), Some(fixture(VLASTNOSTI)), "untouched");
+}
+
+#[test]
+fn bug_45_d433_finish_uses_the_free_stem_the_rename_really_took() {
+    let sb = sandbox();
+    let root = rename_vault(&sb);
+    {
+        let core = ok!(open_core(&root, &sb.dirs, false), "open");
+        let r2 = root.clone();
+        let reads = Arc::new(AtomicUsize::new(0));
+        core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| match p {
+            JobPoint::AfterPlanning => std::fs::write(r2.join(GAMA), "Cizí Gama.\n").expect("external create"),
+            JobPoint::AfterRead { .. } if reads.fetch_add(1, Ordering::SeqCst) + 1 == 3 => panic!("simulated crash at read 3"),
+            _ => {}
+        })));
+        let _ = core.jobs().start(JobOp::NoteRename { path: ALFA.into(), title: "Gama".into() });
+        settle();
+    }
+    assert!(root.join("Pages/Gama (2).md").exists(), "setup: the rename took Gama (2)");
+    let core = ok!(open_core(&root, &sb.dirs, false), "reopen");
+    let i = core.jobs().interrupted();
+    assert_eq!(i.len(), 1, "setup: interrupted: {i:?}");
+    ok!(core.jobs().resolve_interrupted(i[0].job, ResolveChoice::Finish), "Finish");
+    let den = read_text(&root, DEN).unwrap_or_default();
+    assert!(den.contains("[[Gama (2)]]") && !den.contains("[[Gama]]"), "the pending links follow the note to Gama (2), never the other Gama: {den}");
+    assert_eq!(read_text(&root, GAMA).as_deref(), Some("Cizí Gama.\n"), "the other note is untouched");
+}

@@ -99,6 +99,20 @@ pub(crate) fn progress_none(host: &dyn Host, job: JobId, at: &str) {
     append(host, job, format!("N\t{at}"));
 }
 
+/// The note's rename took `to` (a free stem after a clash, FR-FMT-08 AC-10): the journal's op and the note's target
+/// follow it, so Finish never moves links to the planned name another note took (D-433).
+pub(crate) fn retarget(host: &dyn Host, job: JobId, op: &TextOp, note: &str, to: &str) {
+    let path = dir(host).join(format!("{job}.json"));
+    let Some(mut v) = host.local_read(&path).and_then(|b| serde_json::from_slice::<Value>(&b).ok()) else { return };
+    v["op"] = op_json(op);
+    if let Some(files) = v["files"].as_array_mut() {
+        for f in files.iter_mut().filter(|f| f["at"].as_str() == Some(note)) {
+            f["to"] = json!(to);
+        }
+    }
+    let _ = host.local_write(&path, v.to_string().as_bytes());
+}
+
 pub(crate) fn finish(host: &dyn Host, job: JobId) {
     let d = dir(host);
     host.local_remove(&d.join(format!("{job}.json")));
@@ -167,14 +181,30 @@ pub(crate) fn resolve(host: &dyn Host, transformer: &dyn Transformer, job: JobId
     let l = load(host, job).ok_or(JobError::NotFound)?;
     match choice {
         ResolveChoice::Undo => {
-            for (at, to, size, hash) in &l.written {
+            // The note first (D-433): if it can't move back, no link is changed.
+            let mut written = l.written.clone();
+            written.sort_by_key(|(at, to, _, _)| nfc(at) == nfc(to));
+            for (at, to, size, hash) in &written {
                 let Some(e) = l.entries.iter().find(|e| nfc(&e.at) == nfc(at)) else { continue };
-                let Ok((_, cur)) = host.read(to) else { continue };
+                let is_note = nfc(to) != nfc(at);
+                let Ok((_, cur)) = host.read(to) else {
+                    if is_note {
+                        break;
+                    }
+                    continue;
+                };
                 if cur.size != *size || cur.hash != *hash {
-                    continue; // changed since the crash: never overwritten (NFR-REL-02)
+                    // Changed since the crash: never overwritten (NFR-REL-02); the note staying means its links stay.
+                    if is_note {
+                        break;
+                    }
+                    continue;
                 }
                 if nfc(to) != nfc(at) {
-                    let _ = host.rename(to, at, &e.pre, &cur);
+                    let taken = host.version(at).is_some() && nfc(at).to_lowercase() != nfc(to).to_lowercase();
+                    if taken || host.rename(to, at, &e.pre, &cur).is_err() {
+                        break;
+                    }
                 } else {
                     let _ = host.write(at, &e.pre, &cur);
                 }

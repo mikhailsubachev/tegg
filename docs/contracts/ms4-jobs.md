@@ -126,9 +126,9 @@ export function rewriteLinks(source: string, text: string, op: Extract<TextOp, {
 ## 3. File operations
 
 - **Note rename write (D-389, FR-SYN-06 AC-11).** One atomic step: the new bytes are written to a temp file in the folder, then renamed to the new path with `RENAME_EXCL`, then the old path is removed after a base check. The index sees one `rename(from, to)`; `Pages/Gama.md` never holds the old title. A taken name at that moment (external create) → the planner's next free stem is used (`Gama (2)`), never an overwrite (FR-FMT-08 AC-10).
-- **Case-only rename** on case-insensitive APFS goes through a temp name in the same folder (`.<stem>.tegg-tmp`), so the directory listing shows the new case.
+- **Case-only rename**: the new bytes replace the file atomically under its old spelling, then `VaultFs::rename_case` changes only the case, so the note always exists under one of its two names.
 - **Files that aren't valid UTF-8** are never transformed or written by a job (D-180, NFR-REL-03): skipped `readOnly`, also on Retry and Finish.
-- **Retry** never rewrites the renamed note in place (it would get the new title under its old name); its row answers `changed`. Retry after an undo or redo reverses or re-applies only the link.
+- **Retry** never rewrites the renamed note in place (it would get the new title under its old name); its row answers `changed`. Retry after an undo or redo reverses or re-applies only the link. Retry accepts only a row the job skipped (else `NotFound`), and answers `changed` without writing when the rename has been undone or its note is no longer at the new name; an undo removes that rename's rows from the list (D-433).
 - **Other files** are written with `Vault::write(path, bytes, base)` (ms3-shell §13.1): `Unchanged` is counted `unchanged` (FR-SYN-06 AC-10); `Conflict`/`Gone` are skips (§5). Exactly one write per affected file.
 - **Delete** (later kinds) moves to `.trash/` keeping the relative path. **Moves** use the free-stem rule in the target folder.
 - New `tegg-vault` method: `Vault::rename_with(from, to, bytes, base) -> Result<FileVersion, VaultError>` (the atomic step above); errors `NameTaken`, `Conflict { disk }`, `Gone`.
@@ -213,7 +213,8 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 ## 7. Undo and redo (D-385, D-395)
 
 - The undo record of a `note-rename` holds the rename pair, and for every written file its pre-job bytes and post-job version. It lives in memory until quit or a vault switch. Only `note-rename` is undoable in the MVP.
-- **Undo is a job** (`JobOp::Undo`, kind `note-rename`, no zip): for each written file whose current version equals its post-job version, write the pre-job bytes (renamed note: rename back with §3's atomic step, free stem if the old name was taken meanwhile); any other file is skipped with `changed` and listed (FR-LNK-03 AC-14). Redo re-applies the same bytes under the same checks.
+- **The note first (D-433):** undo and redo move the renamed note before any linking file; if it can't move (changed since, or its old name taken by another note) no linking file is changed and all are listed as not updated.
+- **Undo is a job** (`JobOp::Undo`, kind `note-rename`, no zip): for each written file whose current version equals its post-job version, write the pre-job bytes (renamed note: rename back with §3's atomic step; if the old name was taken meanwhile, nothing moves, D-433); any other file is skipped with `changed` and listed (FR-LNK-03 AC-14). Redo re-applies the same bytes under the same checks.
 - UI entry points: ⌘Z / ⇧⌘Z in the renamed note (title or body) right after the rename, undo or redo, before any other edit; palette `Undo rename` (last undoable job); the status toast's `Undo` for 5 s.
 - A linking note open in an editor is undone and redone through the editor with the reversed (or forward) retarget op, like §9; the renamed note itself is moved back on disk and its page follows (§9).
 
@@ -270,4 +271,4 @@ skipOnWrite(path: string, reason: SkipReason): Promise<void>;           // the n
 2. `RetargetLinks` carries the vault's path list so the TS side can apply the D-291 rule per link without calling back into the core; the core and `@tegg/doc` resolution are kept equal by the ms4-links shared corpus.
 3. A same-stem title commit runs as a one-file job, so there is one path for every title commit and undo works the same way.
 4. Open notes are rewritten through their editors (D-386) and counted when their save lands; a job therefore can finish after a short wait on autosave (≤ the autosave debounce).
-5. Journals hold pre-job bytes as base64 JSON: small for a rename, and readable without the app for support.
+5. Journals hold pre-job bytes as hex in JSON: small for a rename, and readable without the app for support.
