@@ -655,7 +655,7 @@ function OptionsEditor({ attr: a, type, usage, off, locked, w, update }: {
     if (!l) { setError(t('typeRule.optionEmpty')); return false; }
     if (dup(l, old)) { setError(t('typeRule.optionDuplicate')); return false; }
     setError(null);
-    const options: OptionDto[] = old === null ? [...a.options, { label: l, color: null }] : a.options.map((o) => (o.label === old ? { ...o, label: l } : o));
+    const options: OptionDto[] = old === null ? [...a.options, { label: l, color: null, state: null }] : a.options.map((o) => (o.label === old ? { ...o, label: l } : o));
     void update({ options }, t('ts.optionLabel'));
     return true;
   };

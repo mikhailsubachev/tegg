@@ -208,6 +208,8 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
         RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
         RuleError::PreviewFull => ("previewFull", None, None, None),
+        RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
+        RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };
     IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
@@ -831,6 +833,26 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
     })
 }
 
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
+
+/// `task_list` (R44): read-only. Stub until 5A-1 is built: the core's task query is empty.
+#[tauri::command]
+async fn task_list(state: State<'_, AppState>) -> Result<TaskListDto, IpcError> {
+    let core = core(&state)?;
+    let _ = core.tasks();
+    Ok(TaskListDto { tasks: Vec::new(), defs: TaskDefsDto { statuses: Vec::new(), priorities: Vec::new(), unknown_states: Vec::new() } })
+}
+
+/// `daily_tasks` (FR-DLY-04 AC-9, D-485): read-only. Stub until 5A-1 is built.
+#[tauri::command]
+async fn daily_tasks(state: State<'_, AppState>, date: String, start: String, end: String, today: String, limit: u32) -> Result<DailyTasksDto, IpcError> {
+    let core = core(&state)?;
+    let t = |s: &str| chrono::DateTime::parse_from_rfc3339(s).map_err(|_| err("Io", format!("not an instant: {s}")));
+    let w = tegg_core::DayWindow { date: parse_day(&date)?, start: t(&start)?, end: t(&end)? };
+    let _ = core.daily_tasks(&w, parse_day(&today)?, limit as usize);
+    Ok(DailyTasksDto { overdue: Vec::new(), due: Vec::new(), completed: Vec::new(), total: 0 })
+}
+
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
 
 use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
@@ -1057,7 +1079,7 @@ fn attribute_dto(a: AttrDef) -> AttributeDto {
         read_only_reason: read_only_reason.map(str::to_string),
         default: a.default,
         required: a.required,
-        options: a.options.into_iter().map(|o| OptionDto { label: o.label, color: o.color }).collect(),
+        options: a.options.into_iter().map(|o| OptionDto { label: o.label, color: o.color, state: None }).collect(),
         to: a.to,
         multiple: a.multiple,
         description: a.description,
@@ -1117,6 +1139,13 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         },
         TypeOpDto::RemoveAttribute { key } => TypeOp::RemoveAttribute(key),
         TypeOpDto::MoveAttribute { key, to } => TypeOp::MoveAttribute { key, to: to as usize },
+        // ms5-tasks §2.2 (5A-1).
+        TypeOpDto::SetOptionState { attr, label, state } => TypeOp::SetOptionState { attr, label, state },
+        TypeOpDto::AddOption { attr, option } => TypeOp::AddOption { attr, option: option_def(option) },
+        TypeOpDto::SetOptionColor { attr, label, color } => TypeOp::SetOptionColor { attr, label, color },
+        TypeOpDto::MoveOption { attr, label, to } => TypeOp::MoveOption { attr, label, to: to as usize },
+        TypeOpDto::RemoveOption { attr, label } => TypeOp::RemoveOption { attr, label },
+        TypeOpDto::RenameOption { attr, from, to } => TypeOp::RenameOption { attr, from, to },
     })
 }
 
@@ -1383,7 +1412,8 @@ pub fn run() {
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
-            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close
+            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
+            task_list, daily_tasks
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

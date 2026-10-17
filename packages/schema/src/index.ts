@@ -8,7 +8,8 @@ import { formatScalar, typeKey as docTypeKey, typeMatch as docTypeMatch, type Va
 export type { Value };
 
 /** Structural copies of the IPC shapes (`app/ui/src/ipc/types.ts`, §14.3). */
-export type OptionDto = { label: string; color: string | null };
+/** `state`: ms5-tasks §2.2 (D-473), a Task status option's `state` as written. */
+export type OptionDto = { label: string; color: string | null; state?: string | null };
 export type AttributeDto = {
   key: string; name: string; type: string; supported: boolean;
   readOnlyReason: 'file' | 'color' | 'recurrence' | 'unsupported' | null;
@@ -351,4 +352,19 @@ export function parseDateRange(start: string | null, end: string | null): Parsed
   if (s === undefined || e === undefined) return fail('value.notDate');
   if (s && e && (e as { date: string }).date < (s as { date: string }).date) return fail('value.endBeforeStart');
   return { ok: true, value: [s, e] };
+}
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1 (ms5-tasks §2.2)
+// Stubs until 5A-1 is built: deliberately wrong results so the red tests fail on their assertions (TS-I1).
+
+export type TaskState = 'open' | 'in-progress' | 'done' | 'cancelled';
+
+/** D-471: an option's semantic state; absent or unknown `state` is Open. Stub: always 'open'. */
+export function taskState(_option: OptionDto): TaskState {
+  return 'open';
+}
+
+/** D-473: `needOpen` / `needDone` when no status option with state Open / Done remains. Stub: never refuses. */
+export function checkStatusOptions(_options: OptionDto[]): RuleError | null {
+  return null;
 }

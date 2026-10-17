@@ -241,3 +241,16 @@ export function dailyOrder(a: { path: string; created?: unknown; modified?: unkn
   const cmp = (x: Uint8Array, y: Uint8Array) => { for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]; return x.length - y.length }
   return by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
 }
+
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §1). Stubs until 5A-1 is built.
+
+/** The region's first weekday, 1 = Monday … 7 = Sunday (D-329). Stub: 0 (no weekday). */
+export function firstWeekday(_region: string): number {
+  return 0
+}
+
+/** A `completed` value as epoch milliseconds (R44, D-365): with offset as written, without offset in `timeZone`, a date
+ *  alone at local midnight; null when it isn't a date or date-time. Stub: null. */
+export function parseInstant(_s: string, _timeZone?: string): number | null {
+  return null
+}

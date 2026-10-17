@@ -83,11 +83,13 @@ export { setValue, setRange } from './edit.js'
  *  `review`, `created`, `modified`); `review: unreviewed` when review is on or locked; `created`, `modified`; the
  *  template's body verbatim. A template with invalid frontmatter contributes only its body (§14.10 item 9). */
 export function newObject(opts: {
-  type: { key: string; attributes: { key: string; type: string; default?: unknown }[]; review: 'off' | 'on' | 'locked' }
+  type: { key: string; attributes: { key: string; type: string; default?: unknown; options?: { label: string; color?: string | null; state?: string | null }[] }[]; review: 'off' | 'on' | 'locked' }
   title: string
   template: string | null
   now: string
   newId: () => string
+  /** ms5-tasks §5 (D-470): explicit values that win over template and default. Not used yet (5A-1 stub). */
+  values?: [string, Value][]
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
   const tplEntries = new Map<string, string>()
@@ -154,8 +156,12 @@ export function typeMatch(value: unknown): { key: string; single: boolean } {
 
 // ---------------------------------------------------------------- slice 4B (ms4-daily §1, §5, §6)
 
-export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder } from './daily.js'
+export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder, firstWeekday, parseInstant } from './daily.js'
 
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §2.3)
 
 export { transform, rewriteLinks, resolveFrom, type TextOp, type Transformed } from './transform.js'
+
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §5)
+
+export { applyTaskChange, completeTask, type TaskChange, type TaskState, type TaskDefsLike } from './task.js'

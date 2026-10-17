@@ -8,6 +8,7 @@ import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
 import { handle as handleLinks } from './fake-links';
 import { handle as handleJobs } from './fake-jobs';
+import { handle as handleTasks } from './fake-tasks';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -17,6 +18,8 @@ export type UiStateDto = {
   rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
   /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
   propertiesOpen?: boolean;
+  /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
+  tasks?: { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean };
 };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
@@ -38,8 +41,9 @@ export type FakeCoreHandle = {
    *  `sameBytesTouch`: new mtime, same bytes (AC-16). A `Uint8Array` may hold invalid UTF-8 (NFR-REL-03 AC-7). */
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
   renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
-  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. */
-  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean }): Promise<void>;
+  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. ms5-tasks §7: `path` limits the control to
+   *  writes of that one file (task writes and `note_create` too). Not implemented yet (5A-1 stub: `path` is ignored). */
+  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null }): Promise<void>;
   release(): Promise<void>;
   /** Paths of successful writes (`note_write` written, `note_create`, `note_create_exact`), in order. */
   writesTo(): Promise<string[]>;
@@ -135,6 +139,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleLinks(cmd, args, files, vers as any)).catch(() => {});
   // 4C (ms4-jobs §11): rename plans and text changes in Node with the real @tegg/doc.
   await page.exposeFunction('__teggJobs', (cmd: string, args: unknown, files: Record<string, string>) => handleJobs(cmd, args, files)).catch(() => {});
+  // 5A-1 (ms5-tasks §7): the task queries in Node (fake-tasks.ts) with the real @tegg/doc and @tegg/schema.
+  await page.exposeFunction('__teggTasks', (cmd: string, args: unknown, files: Record<string, string>) => handleTasks(cmd, args, files)).catch(() => {});
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
@@ -183,6 +189,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
+    'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -200,7 +207,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     mtimes: {} as Record<string, number>,
     clock: 1,
     invalid: {} as Record<string, number[]>,
-    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean },
+    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null },
     held: [] as (() => void)[],
     writtenPaths: [] as string[],
     conflicts: null as ConflictRowDto[] | null,
@@ -532,6 +539,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     daily_backlinks: viaNode('daily_backlinks', '__teggLinks'),
     daily_context: viaNode('daily_context', '__teggLinks'),
+    // 5A-1 (ms5-tasks §7): read-only task queries in Node (fake-tasks.ts).
+    task_list: viaNode('task_list', '__teggTasks'),
+    daily_tasks: viaNode('daily_tasks', '__teggTasks'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;

@@ -487,6 +487,9 @@ pub enum RuleError {
     OptionUsed { label: String },
     /// More than 4 preview keys (FR-TYP-11 AC-1).
     PreviewFull,
+    /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
+    NeedOpen,
+    NeedDone,
 }
 
 const FORBIDDEN: &str = "/:\\*?\"<>|#^[]";
@@ -927,6 +930,14 @@ pub enum TypeOp {
     UpdateAttribute { key: String, change: AttrChange },
     RemoveAttribute(String),
     MoveAttribute { key: String, to: usize },
+    // Slice 5A-1 (docs/contracts/ms5-tasks.md §2.2): one op per type-settings action on an option, each one line.
+    SetOptionState { attr: String, label: String, state: String },
+    /// Appends after the last option (FR-TSK-02 AC-3).
+    AddOption { attr: String, option: OptionDef },
+    SetOptionColor { attr: String, label: String, color: String },
+    MoveOption { attr: String, label: String, to: usize },
+    RemoveOption { attr: String, label: String },
+    RenameOption { attr: String, from: String, to: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1211,6 +1222,13 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.attributes.insert(to, a);
             }
         }
+        // Slice 5A-1 stubs (ms5-tasks §2.2): not implemented yet, nothing changes (TS-I1).
+        TypeOp::SetOptionState { .. }
+        | TypeOp::AddOption { .. }
+        | TypeOp::SetOptionColor { .. }
+        | TypeOp::MoveOption { .. }
+        | TypeOp::RemoveOption { .. }
+        | TypeOp::RenameOption { .. } => {}
     }
     Ok(())
 }
@@ -1524,4 +1542,35 @@ mod tests {
         let got = ctx_patch("a", text, vec![TypeOp::SetColor("blue".into()), TypeOp::SetDescription(Some("D".into()))]);
         assert_eq!(got, Ok(Some("# h\nversion: 1\ncolor: blue\ndescription: D\n# why red\nreview: false\n".into())));
     }
+}
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1: task states
+// docs/contracts/ms5-tasks.md §2.2 (D-471, D-473). Stubs until 5A-1 is built: they return deliberately wrong results so
+// the red tests fail on their assertions (TS-I1).
+
+/// The semantic state of a Task status option (`state` in the option's flow map).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TaskState {
+    Open,
+    InProgress,
+    Done,
+    Cancelled,
+}
+
+impl TaskState {
+    /// `open`, `in-progress`, `done`, `cancelled`; anything else is None. Stub: always None.
+    pub fn parse(_s: &str) -> Option<TaskState> {
+        None
+    }
+}
+
+/// The raw `state` of an option (from `OptionDef.extra`). Stub: always None.
+pub fn option_state(_o: &OptionDef) -> Option<&str> {
+    None
+}
+
+/// `patch` with the option usage counts the `optionUsed` refusal needs (label, number of objects using it). Stub: the
+/// counts are ignored.
+pub fn patch_with_usage(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, _used: &[(&str, usize)]) -> Result<Option<String>, SchemaError> {
+    patch(key, text, ops, ctx)
 }
