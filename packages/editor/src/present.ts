@@ -22,7 +22,7 @@ export interface EditorUi {
   /** The type icon shown in a link chip (the read view's chip, D-217: the type's icon), or null for none. */
   chipIcon?: (type: string | null) => Element | null
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
-  placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string }
+  placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
   /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */
   onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }): void
   onTag(value: string): void
@@ -66,6 +66,12 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'link', class: 'chip tag-chip' }))
       return false
     }
+    if (node.type.name === 'rawBlock' && node.attrs.kind === 'embed') {
+      // D-310: the note embed's chip shows its target's resolution; a change re-renders the placeholder.
+      const { target } = linkTarget(String(node.attrs.source).replace(/^!\[\[|\]\]$/g, ''))
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { 'data-embed-kind': ui.resolve(target)?.kind ?? 'unresolved' }))
+      return false
+    }
     return true
   })
   // The hint of an empty note: a widget, never part of the text or a copy (FR-EDT-01 AC-9).
@@ -84,18 +90,25 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
 
 class RawBlockView implements NodeView {
   dom: HTMLElement
-  constructor(node: PMNode, ui: EditorUi) {
-    const kind = String(node.attrs.kind)
-    const source = String(node.attrs.source)
+  constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined) {
     this.dom = document.createElement('div')
     this.dom.contentEditable = 'false'
     this.dom.setAttribute('draggable', 'false')
+    this.render()
+  }
+  private render() {
+    const { node, ui } = this
+    const kind = String(node.attrs.kind)
+    const source = String(node.attrs.source)
+    this.dom.replaceChildren()
     if (kind === 'embed' || kind === 'query' || kind === 'mindmap') {
       const ph = ui.placeholder(kind as 'embed', source)
       this.dom.setAttribute('role', 'region')
       this.dom.setAttribute('aria-label', ph.name)
+      if (ph.id) this.dom.setAttribute('data-placeholder', ph.id)
       this.dom.className = 'in-note-placeholder'
-      this.dom.textContent = ph.text
+      if (kind === 'embed' && ph.note) this.noteChip(ph.name, source)
+      else this.dom.textContent = ph.text
     } else {
       this.dom.setAttribute('role', 'group')
       this.dom.setAttribute('aria-label', ui.sourceBlock)
@@ -105,8 +118,40 @@ class RawBlockView implements NodeView {
       this.dom.appendChild(pre)
     }
   }
+  /** D-310: `Embedded note: <chip>`; the chip opens its note, or the Create offer when it doesn't resolve. */
+  private noteChip(name: string, source: string) {
+    const value = source.replace(/^!\[\[|\]\]$/g, '')
+    const { target, fragment } = linkTarget(value)
+    const info = this.ui.resolve(target)
+    const kind = info?.kind ?? 'unresolved'
+    this.dom.appendChild(document.createTextNode(`${name}: `))
+    const chip = document.createElement('span')
+    chip.setAttribute('role', 'link')
+    chip.className = `chip link-chip kind-${kind}`
+    chip.setAttribute('data-link-kind', kind)
+    if (kind === 'unresolved') chip.setAttribute('aria-description', this.ui.unresolved(target))
+    const icon = info && (info.kind === 'note' || info.kind === 'daily') ? this.ui.chipIcon?.(info.type ?? 'page') : null
+    if (icon) chip.appendChild(icon)
+    const label = document.createElement('span')
+    label.setAttribute('data-user-content', '')
+    label.textContent = chipLabel(value, info)
+    chip.appendChild(label)
+    chip.addEventListener('click', (e) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+      this.ui.onLink(target, fragment, { pos: this.getPos() ?? 0, dom: chip })
+    })
+    this.dom.appendChild(chip)
+  }
+  update(node: PMNode) {
+    if (node.type !== this.node.type) return false
+    this.node = node
+    this.render()
+    return true
+  }
   stopEvent(e: Event) {
-    return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste'
+    return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste' || (e.type === 'click' && !!(e.target as HTMLElement | null)?.closest?.('.link-chip'))
   }
   ignoreMutation() {
     return true
@@ -229,7 +274,7 @@ export function presentation(ui: EditorUi) {
               return uiRefresh.getState(state) as DecorationSet
             },
             nodeViews: {
-              rawBlock: (node) => new RawBlockView(node, ui),
+              rawBlock: (node, _view, getPos) => new RawBlockView(node, ui, getPos as () => number | undefined),
               wikiLink: (node) => new WikiLinkView(node, ui),
               listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
             },

@@ -136,7 +136,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
         const name = kind === 'query' ? t('ph.query') : kind === 'mindmap' ? t('ph.mindmap') : /\.(png|jpe?g|gif|webp|svg|heic|avif|bmp|tiff?)(\||#|$)/i.test(v) ? t('ph.embedImage') : /\.pdf(\||#|$)/i.test(v) ? t('ph.embedPdf') : t('ph.embedNote');
-        return { name, text: kind === 'embed' ? `${name}: ${v}` : name };
+        const id = kind !== 'embed' ? kind : name === t('ph.embedImage') ? 'embed-image' : name === t('ph.embedPdf') ? 'embed-pdf' : 'embed-note';
+        return { name, text: kind === 'embed' ? `${name}: ${v}` : name, id, note: id === 'embed-note' };
       },
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
