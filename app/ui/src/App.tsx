@@ -40,6 +40,10 @@ import { Calendar } from './daily/Calendar';
 import { DailyPage } from './daily/DailyPage';
 import type { DailyInfo } from './daily/DailyHeader';
 import { setDateHandler } from './daily/open';
+import { resetJobs, showList, startJobs, undoLast } from './jobs/jobs';
+import { startBridge } from './jobs/bridge';
+import { NotUpdatedList } from './jobs/notUpdated';
+import type { InterruptedDto } from './ipc/types';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
@@ -75,6 +79,7 @@ export function App() {
   const [width, setWidth] = useState(window.innerWidth);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [interrupted, setInterrupted] = useState<InterruptedDto[]>([]);
   // 4A: the Create offer of a broken link (FR-LNK-04 AC-4) and `Show backlinks` (R16).
   const [offer, setOffer] = useState<OfferRequest | null>(null);
   const [focusBacklinks, setFocusBacklinks] = useState(0);
@@ -160,6 +165,8 @@ export function App() {
   const liveVault = useRef<VaultInfo | null>(null);
   liveVault.current = vault ?? null;
   const opened = useCallback((v: VaultInfo) => {
+    resetJobs(); // D-385, D-398: undo and the list don't outlive the vault
+    setInterrupted(v.interrupted ?? []); // D-387: renames a crash interrupted, from the vault info (no extra call)
     setVault(v);
     setChooser(null);
     setRoute(null);
@@ -176,6 +183,8 @@ export function App() {
     void flushNote().then(() => ipc.vaultOpen(path)).then(opened, () => setChooser({ form: false }));
   }, [opened]);
 
+  // 4C (ms4-jobs §2.2, §10): job progress and the worker bridge for the whole session.
+  useEffect(() => { startJobs(); return startBridge(); }, []);
   useEffect(() => {
     ipc.vaultCurrent().then((v) => (v ? opened(v) : setVault(null)), () => setVault(null));
     const un = [
@@ -273,7 +282,11 @@ export function App() {
   shownRoute.current = routeKey;
   // The route a Back/Forward step is restoring the scroll position of (not re-scrolled to its fragment, AC-4).
   const restoreFor = pendingScroll.current !== null ? routeKey : null;
+  const keepMeta = useRef<string | null>(null);
   useEffect(() => {
+    const kept = keepMeta.current !== null && route?.id === 'note/<path>' && route.param === keepMeta.current;
+    keepMeta.current = null;
+    if (kept) { void ipc.navOpened(route!.param!).catch(() => {}); return; }
     setMeta(null);
     setNoteShown(false);
     setNoteDaily(null);
@@ -351,6 +364,8 @@ export function App() {
       setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); void go({ id: DAILY, param: d }); } });
     },
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
+    undoRename: () => { void undoLast(); },
+    showNotUpdated: () => showList(true),
     showBacklinks: () => {
       if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
       updateUi((u) => ({ ...u, rightPanel: { open: true, tab: 'backlinks' } }));
@@ -573,6 +588,7 @@ export function App() {
         onTag={openTag}
         onRenamed={(p) => {
           if (route?.id === DAILY) return;
+          keepMeta.current = p.normalize('NFC'); // the same page goes on showing the note (FR-FMT-08 AC-5)
           const r: Route = { id: 'note/<path>', param: p.normalize('NFC') };
           history.current.replace(r);
           setRoute(r);
@@ -687,6 +703,14 @@ export function App() {
               {t('banner.placeholders', { count: vault.placeholders })}
             </div>
           )}
+          {interrupted.map((i) => (
+            <div key={i.jobId} className="banner" role="status">
+              <span>{t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
+              <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'finish').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.finish')}</button>
+              <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'undo').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.undo')}</button>
+            </div>
+          ))}
+          <NotUpdatedList onOpen={(p) => openNote(p)} />
           {message && (
             <div className="banner" role="status">
               <span>{message}</span>

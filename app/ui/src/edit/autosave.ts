@@ -22,6 +22,10 @@ export class Saver {
   private running: Promise<void> | null = null;
   private blocked = false;
   private disposed = false;
+  /** Bumped when a rename moved the note (4C, ms4-jobs §9): a write started before it is stale. */
+  private generation = 0;
+  /** A rename of this note is running: writes wait for it (its `moved`, or `release` when it renamed nothing). */
+  private holding = false;
   state: SaveState = 'saved';
   failure: Failure = null;
   /** 4B (ms4-daily §4.1): while a Daily Note is virtual, its first save is this call instead of `note_write`;
@@ -102,7 +106,7 @@ export class Saver {
   }
 
   private async writeOnce(): Promise<void> {
-    if (this.blocked || this.disposed) return;
+    if (this.blocked || this.disposed || this.holding) return;
     // A composition (dead keys, IME) isn't text yet: wait until it ends (FR-EDT-08 AC-12). The same for an open
     // slash menu, whose `/query` is a command being typed (FR-EDT-03 AC-5).
     if (this.ed.view.composing || this.paused()) {
@@ -133,6 +137,7 @@ export class Saver {
       if (fixed !== text) { this.ed.applyFrontmatter(fixed); text = fixed; }
     }
     const path = this.path;
+    const gen = this.generation;
     try {
       let r: { version: VersionDto };
       if (this.create) {
@@ -143,6 +148,7 @@ export class Saver {
       } else {
         r = await ipc.noteWrite(path, text, this.base);
       }
+      if (gen !== this.generation) { this.schedule(); return; }
       this.base = r.version;
       this.ed.markSaved(text);
       this.on.written(text, r.version);
@@ -150,6 +156,8 @@ export class Saver {
       else this.schedule();
     } catch (err) {
       const e = err as { kind?: string; theirs?: string; theirsVersion?: VersionDto };
+      // The note moved while this write was on its way (a rename, its undo or redo): write again at the new path.
+      if (gen !== this.generation) { this.schedule(); return; }
       if (e.kind === 'Conflict' && e.theirsVersion) {
         this.blocked = true;
         this.set('conflict');
@@ -168,6 +176,27 @@ export class Saver {
         }
       }
     }
+  }
+
+  /** A job moved the note to `path` with `base` as its version there (4C, ms4-jobs §9, FR-FMT-08 AC-5). */
+  moved(path: string, base: VersionDto) {
+    this.generation++;
+    this.path = path;
+    this.base = base;
+    this.release();
+  }
+
+  /** A rename of this note starts: a write already on its way is stale, the next ones wait (ms4-jobs §9). */
+  hold() {
+    this.holding = true;
+    this.generation++;
+  }
+
+  /** The rename finished: saving goes on. */
+  release() {
+    if (!this.holding) return;
+    this.holding = false;
+    if (this.state === 'saving' || this.state === 'failed') this.schedule();
   }
 
   /** Try again now (the alert's button). */

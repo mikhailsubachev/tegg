@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isAcTestFile, type Config } from './config.ts';
 import { parseJunitDir, type TestCase } from './junit.ts';
+import { gatePortBase } from './port.ts';
 import {
   AC_TEST_CHANGE_TRAILER,
   FIXTURE_CHANGE_TRAILER,
@@ -236,6 +237,8 @@ export function checkRed(root: string, cfg: Config, sha: string): RedResult {
   const messages: string[] = [];
   try {
     messages.push(...provideNodeModules(root, wt.dir, cfg.acRunners.map((r) => r.dir)));
+    // D-343: runners under a gate need their own dev-server port, as gate steps do (CONTRACT §3.2.1).
+    const port = String(gatePortBase(wt.dir));
     for (const file of files) {
       const runner = cfg.acRunners.find((r) => r.match.test(file));
       if (!runner) {
@@ -247,7 +250,7 @@ export function checkRed(root: string, cfg: Config, sha: string): RedResult {
         const junit = path.join(outDir, 'report.xml');
         const rel = path.relative(runner.dir, file);
         const cmd = runner.run.replaceAll('{files}', sq(rel)).replaceAll('{junit}', sq(junit));
-        exec('sh', ['-c', cmd], { cwd: path.join(wt.dir, runner.dir), env: strippedEnv({ VERIFY_GATE: 'check-red' }) });
+        exec('sh', ['-c', cmd], { cwd: path.join(wt.dir, runner.dir), env: strippedEnv({ VERIFY_GATE: 'check-red', VERIFY_PORT_BASE: port }) });
         const cases = parseJunitDir(outDir);
         if (cases.length === 0) messages.push(`${file}: no testcases in the report (load or compile error?)`);
         else {
