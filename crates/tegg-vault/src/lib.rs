@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
-pub use local::{create_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
+pub use local::{create_local_dir, list_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
 pub use mem::MemFs;
 pub use types::TypeDef;
 
@@ -54,6 +54,11 @@ pub trait VaultFs: Send + Sync {
     /// Atomic create that fails with `AlreadyExists` instead of replacing.
     fn create_new(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion>;
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()>;
+    /// Changes only the letter case of a file's name (`from` and `to` equal case-folded). Default: as
+    /// `rename_no_replace`; a case-insensitive file system overrides it (4C, FR-FMT-08 AC-8).
+    fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
+        self.rename_no_replace(from, to)
+    }
     fn create_dir_all(&self, path: &str) -> io::Result<()>;
     /// Only for leftover temporary files (FR-SYN-02 AC-4); notes are never deleted, they go to `.trash/`.
     fn remove_file(&self, path: &str) -> io::Result<()>;
@@ -104,6 +109,9 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     }
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
         (**self).rename_no_replace(from, to)
+    }
+    fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
+        (**self).rename_case(from, to)
     }
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
         (**self).create_dir_all(path)
@@ -402,6 +410,57 @@ impl Vault {
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Err(VaultError::NameTaken),
             Err(e) => Err(VaultError::Io(e)),
         }
+    }
+
+    /// ms4-jobs §3 (D-389, FR-SYN-06 AC-11): a note rename as one atomic step: `bytes` go to a temp file in `to`'s
+    /// folder, which is renamed onto `to` without replacing (`RENAME_EXCL`), then `from` is removed after a base check.
+    /// A case-only rename (same name folded) replaces the bytes in place, then renames only the letter case. Errors: `NameTaken` (`to` exists), `Conflict { disk }` (`from`
+    /// changed since `base`), `Gone`.
+    pub fn rename_with(&self, from: &str, to: &str, bytes: &[u8], base: &FileVersion) -> Result<FileVersion, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let (from, to) = (nfc(from), nfc(to));
+        let check = |fs: &dyn VaultFs| -> Result<(), VaultError> {
+            match fs.version(&from)? {
+                None => Err(VaultError::Gone),
+                Some(disk) if !disk.same_content(base) => Err(VaultError::Conflict { disk }),
+                Some(_) => Ok(()),
+            }
+        };
+        check(self.fs.as_ref())?;
+        let same_name = fold(&from) == fold(&to);
+        let (dir, name) = to.rsplit_once('/').unwrap_or(("", &to));
+        if !same_name && self.names_in(dir)?.contains(&fold(name)) {
+            return Err(VaultError::NameTaken);
+        }
+        if !dir.is_empty() {
+            self.fs.create_dir_all(dir)?;
+        }
+        if same_name {
+            // A case-only change: the new bytes replace the file atomically under its old spelling, then only the
+            // case of the name changes. The note always exists under one of its two names (PR #45 review).
+            self.fs.replace(&from, bytes)?;
+            if from != to {
+                self.fs.rename_case(&from, &to)?;
+            }
+            return self.fs.version(&to)?.ok_or_else(|| VaultError::Io(io::Error::other("renamed file vanished")));
+        }
+        let tmp = join(dir, &format!(".{name}.rename.tegg-tmp"));
+        if self.fs.version(&tmp)?.is_some() {
+            self.fs.remove_file(&tmp)?;
+        }
+        self.fs.create_new(&tmp, bytes)?;
+        let undo_tmp = |e: VaultError| {
+            let _ = self.fs.remove_file(&tmp);
+            e
+        };
+        check(self.fs.as_ref()).map_err(undo_tmp)?;
+        match self.fs.rename_no_replace(&tmp, &to) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => return Err(undo_tmp(VaultError::NameTaken)),
+            Err(e) => return Err(undo_tmp(VaultError::Io(e))),
+        }
+        self.fs.remove_file(&from)?;
+        self.fs.version(&to)?.ok_or_else(|| VaultError::Io(io::Error::other("renamed file vanished")))
     }
 
     /// Trash only if the file is still `base` (D-195); else `Conflict`.

@@ -674,6 +674,7 @@ dependencies = [
  "tegg-core",
  "tegg-format",
  "tegg-index",
+ "tegg-jobs",
  "tegg-schema",
  "tegg-vault",
  "tempfile",
@@ -709,6 +710,19 @@ dependencies = [
  "tegg-vault",
  "tempfile",
  "unicode-normalization",
+]
+
+[[package]]
+name = "tegg-jobs"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "serde_json",
+ "tegg-core",
+ "tegg-format",
+ "tegg-index",
+ "tegg-vault",
+ "tempfile",
 ]
 
 [[package]]

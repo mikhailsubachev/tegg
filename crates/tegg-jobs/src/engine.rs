@@ -1,0 +1,1235 @@
+//! The job engine (ms4-jobs §1–§9): one job thread per vault runs a FIFO queue (D-393); each job is
+//! plan → (confirm) → (backup) → write → report. Note rename is the only client in 4C.
+
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
+use std::time::{Duration, Instant};
+
+use tegg_format::{extract, nfc, sanitize_file_stem};
+
+use crate::host::{Host, ReadError, WriteError, Wrote};
+use crate::{
+    Counts, FileVersion, Interrupted, JobError, JobId, JobKind, JobOp, JobPlan, JobPoint,
+    JobProgress, JobReport, Phase, PlanCounts, PlannedFile, PointHook, ResolveChoice, RetryOutcome,
+    SkipReason, Skipped, TextOp, TransformError, Transformed, Transformer,
+};
+
+/// How long a `job:transform` request may wait for the UI's worker (§2.2).
+const TRANSFORM_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a live (open in an editor) file may wait for the editor's save (§9, D-386).
+const LIVE_TIMEOUT: Duration = Duration::from_secs(30);
+/// Progress is re-sent at least this often while a job runs (FR-UX-07 AC-8: at least every 500 ms).
+const HEARTBEAT: Duration = Duration::from_millis(200);
+/// Backups kept per vault (D-57, data-safety AC-3).
+const KEEP_BACKUPS: usize = 10;
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+fn stem_of(path: &str) -> String {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name.strip_suffix(".md").unwrap_or(name).to_string()
+}
+fn folder_of(path: &str) -> String {
+    path.rsplit_once('/')
+        .map(|(d, _)| d.to_string())
+        .unwrap_or_default()
+}
+fn join(folder: &str, stem: &str) -> String {
+    if folder.is_empty() {
+        format!("{stem}.md")
+    } else {
+        format!("{folder}/{stem}.md")
+    }
+}
+fn key(s: &str) -> String {
+    nfc(s.trim()).to_lowercase()
+}
+
+/// One file a job wrote: what it was before and after, for undo and redo (§7).
+#[derive(Debug, Clone)]
+struct Written {
+    /// Path before and after the job (different only for the renamed note).
+    before: String,
+    after: String,
+    pre: Vec<u8>,
+    pre_v: FileVersion,
+    post: Vec<u8>,
+    post_v: FileVersion,
+    /// Written through its editor (D-386): undo and redo apply the link op to its current text, never bytes.
+    via_op: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct UndoRecord {
+    files: Vec<Written>,
+    /// The final forward retarget op: notes open in an editor are undone and redone through it (D-386).
+    op: Option<TextOp>,
+}
+
+struct JobState {
+    kind: JobKind,
+    phase: Phase,
+    plan: Option<JobPlan>,
+    report: Option<JobReport>,
+    cancel: bool,
+    undo: Option<UndoRecord>,
+    /// An undo of this rename has run (and no redo since): its rows can't be retried (D-433).
+    undone: bool,
+    progress: JobProgress,
+}
+
+#[derive(Default)]
+struct State {
+    next: JobId,
+    jobs: HashMap<JobId, JobState>,
+    queue: VecDeque<(JobId, JobOp, Option<String>)>,
+    last_undoable: Option<JobId>,
+    running: bool,
+}
+
+pub(crate) struct Inner {
+    host: Option<Arc<dyn Host>>,
+    state: Mutex<State>,
+    changed: Condvar,
+    transformer: Mutex<Option<Arc<dyn Transformer>>>,
+    hook: Mutex<Option<PointHook>>,
+    editors: Mutex<HashSet<String>>,
+    replies: Mutex<HashMap<u64, Result<Transformed, TransformError>>>,
+    replied: Condvar,
+    next_request: Mutex<u64>,
+    stop: AtomicBool,
+}
+
+/// The job engine of one open vault. Owned by `tegg_core::Core` (`Core::jobs()`).
+pub struct Jobs {
+    inner: Arc<Inner>,
+}
+
+impl Default for Jobs {
+    fn default() -> Self {
+        Jobs::new()
+    }
+}
+
+impl Drop for Jobs {
+    fn drop(&mut self) {
+        self.inner.stop.store(true, Ordering::SeqCst);
+        self.inner.changed.notify_all();
+    }
+}
+
+impl Jobs {
+    /// An engine without a vault: every job fails (`NotImplemented`). The core builds its engine with `with_host`.
+    pub fn new() -> Jobs {
+        Jobs::make(None)
+    }
+
+    pub fn with_host(host: Arc<dyn Host>) -> Jobs {
+        // Ids are never reused while a journal of an earlier run is on disk (D-387).
+        let first = crate::journal::max_id(host.as_ref()) + 1;
+        let j = Jobs::make(Some(host));
+        lock(&j.inner.state).next = first;
+        j
+    }
+
+    fn make(host: Option<Arc<dyn Host>>) -> Jobs {
+        Jobs {
+            inner: Arc::new(Inner {
+                host,
+                state: Mutex::new(State {
+                    next: 1,
+                    ..State::default()
+                }),
+                changed: Condvar::new(),
+                transformer: Mutex::new(None),
+                hook: Mutex::new(None),
+                editors: Mutex::new(HashSet::new()),
+                replies: Mutex::new(HashMap::new()),
+                replied: Condvar::new(),
+                next_request: Mutex::new(1),
+                stop: AtomicBool::new(false),
+            }),
+        }
+    }
+
+    pub fn set_transformer(&self, t: Arc<dyn Transformer>) {
+        *lock(&self.inner.transformer) = Some(t);
+    }
+
+    /// Queued; planning starts when the FIFO queue reaches it (D-393).
+    pub fn start(&self, op: JobOp) -> Result<JobId, JobError> {
+        self.enqueue(op, None)
+    }
+
+    /// The IPC path: `from_title` is the title when the edit started (D-394); `JobOp::NoteRename` uses the stored title.
+    pub fn start_note_rename(
+        &self,
+        path: &str,
+        title: &str,
+        from_title: &str,
+    ) -> Result<JobId, JobError> {
+        self.enqueue(
+            JobOp::NoteRename {
+                path: path.into(),
+                title: title.into(),
+            },
+            Some(from_title.to_string()),
+        )
+    }
+
+    fn enqueue(&self, op: JobOp, from_title: Option<String>) -> Result<JobId, JobError> {
+        let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
+        let kind = match &op {
+            JobOp::NoteRename { path, .. } => {
+                let p = nfc(path);
+                if p.starts_with("_templates/") || p.starts_with(".trash/") || !host.renamable(&p) {
+                    return Err(JobError::NotRenamable);
+                }
+                JobKind::NoteRename
+            }
+            JobOp::Undo { job } | JobOp::Redo { job } => {
+                let s = lock(&self.inner.state);
+                match s.jobs.get(job) {
+                    Some(j) if j.undo.is_some() => JobKind::NoteRename,
+                    _ => return Err(JobError::NotFound),
+                }
+            }
+            JobOp::TestBackup { .. } => JobKind::TestBackup,
+            _ => return Err(JobError::NotImplemented),
+        };
+        let mut s = lock(&self.inner.state);
+        let id = s.next;
+        s.next += 1;
+        let progress = JobProgress {
+            job: id,
+            kind,
+            phase: Phase::Queued,
+            done: 0,
+            total: 0,
+            counts: None,
+        };
+        s.jobs.insert(
+            id,
+            JobState {
+                kind,
+                phase: Phase::Queued,
+                plan: None,
+                report: None,
+                cancel: false,
+                undo: None,
+                undone: false,
+                progress,
+            },
+        );
+        s.queue.push_back((id, op, from_title));
+        if !s.running {
+            s.running = true;
+            let weak = Arc::downgrade(&self.inner);
+            std::thread::Builder::new()
+                .name("tegg-jobs".into())
+                .spawn(move || worker(weak))
+                .map_err(|e| JobError::Core(e.to_string()))?;
+        }
+        self.inner.changed.notify_all();
+        Ok(id)
+    }
+
+    pub fn plan(&self, job: JobId) -> Option<JobPlan> {
+        lock(&self.inner.state)
+            .jobs
+            .get(&job)
+            .and_then(|j| j.plan.clone())
+    }
+
+    /// No 4C kind needs confirmation (§1).
+    pub fn confirm(&self, job: JobId) -> Result<(), JobError> {
+        if lock(&self.inner.state).jobs.contains_key(&job) {
+            Err(JobError::NotImplemented)
+        } else {
+            Err(JobError::NotFound)
+        }
+    }
+
+    /// `NotCancellable` outside the kind's cancellable phases.
+    pub fn cancel(&self, job: JobId) -> Result<(), JobError> {
+        let mut s = lock(&self.inner.state);
+        let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
+        if j.phase == Phase::Queued || j.kind.flags().cancellable.contains(&j.phase) {
+            j.cancel = true;
+            drop(s);
+            self.inner.changed.notify_all();
+            Ok(())
+        } else {
+            Err(JobError::NotCancellable)
+        }
+    }
+
+    pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
+        let end = Instant::now() + timeout;
+        let mut s = lock(&self.inner.state);
+        loop {
+            match s.jobs.get(&job) {
+                None => return None,
+                Some(j) if j.report.is_some() => return j.report.clone(),
+                _ => {}
+            }
+            let left = end.checked_duration_since(Instant::now())?;
+            s = self
+                .inner
+                .changed
+                .wait_timeout(s, left.min(Duration::from_millis(100)))
+                .unwrap_or_else(|p| p.into_inner())
+                .0;
+        }
+    }
+
+    pub fn report(&self, job: JobId) -> Option<JobReport> {
+        lock(&self.inner.state)
+            .jobs
+            .get(&job)
+            .and_then(|j| j.report.clone())
+    }
+
+    /// Re-reads the file's current bytes and version and transforms them (D-398); never uses the job's old base.
+    pub fn retry(&self, job: JobId, path: &str) -> Result<RetryOutcome, JobError> {
+        let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
+        let path = nfc(path);
+        let ops = {
+            let s = lock(&self.inner.state);
+            let j = s.jobs.get(&job).ok_or(JobError::NotFound)?;
+            let plan = j.plan.as_ref().ok_or(JobError::NotFound)?;
+            // D-433: only a row the job skipped, of a job not undone since, whose note is still where it moved.
+            let skipped = j.report.as_ref().is_some_and(|r| r.skipped.iter().any(|k| nfc(&k.path) == path));
+            if !skipped {
+                return Err(JobError::NotFound);
+            }
+            if j.undone || plan.renames.iter().any(|(_, to)| host.version(to).is_none()) {
+                return Ok(RetryOutcome::Skipped(SkipReason::Changed));
+            }
+            // The renamed note itself is never retried in place: that would give the old file the new title and a
+            // self-link to a name that doesn't exist (PR #45 review). Its row is answered "changed".
+            if plan.renames.iter().any(|(a, b)| nfc(a) == path || nfc(b) == path) {
+                return Ok(RetryOutcome::Skipped(SkipReason::Changed));
+            }
+            plan.files
+                .iter()
+                .find(|f| nfc(&f.path) == path)
+                .map(|f| f.ops.clone())
+                .ok_or(JobError::NotFound)?
+        };
+        if host.is_placeholder(&path) {
+            return Ok(RetryOutcome::Skipped(SkipReason::Placeholder));
+        }
+        let (bytes, v) = match host.read(&path) {
+            Ok(x) => x,
+            Err(e) => return Ok(RetryOutcome::Skipped(read_reason(&e))),
+        };
+        if std::str::from_utf8(&bytes).is_err() {
+            return Ok(RetryOutcome::Skipped(SkipReason::ReadOnly));
+        }
+        let out = match self.inner.transform(&path, &bytes, &ops) {
+            Ok(Transformed::Bytes(b, _)) => b,
+            Ok(Transformed::Unchanged) => return Ok(RetryOutcome::Unchanged),
+            Err(_) => return Ok(RetryOutcome::Skipped(SkipReason::Io)),
+        };
+        let r = match host.write(&path, &out, &v) {
+            Ok(Wrote::Written(_)) => RetryOutcome::Written,
+            Ok(Wrote::Unchanged) => RetryOutcome::Unchanged,
+            Err(e) => RetryOutcome::Skipped(write_reason(&e)),
+        };
+        if r == RetryOutcome::Written {
+            let mut s = lock(&self.inner.state);
+            if let Some(rep) = s.jobs.get_mut(&job).and_then(|j| j.report.as_mut()) {
+                rep.skipped.retain(|k| nfc(&k.path) != path);
+                rep.written.push(path);
+            }
+        }
+        Ok(r)
+    }
+
+    pub fn last_undoable(&self) -> Option<JobId> {
+        lock(&self.inner.state).last_undoable
+    }
+
+    pub fn interrupted(&self) -> Vec<Interrupted> {
+        match &self.inner.host {
+            Some(h) => crate::journal::interrupted(h.as_ref()),
+            None => Vec::new(),
+        }
+    }
+
+    pub fn resolve_interrupted(
+        &self,
+        job: JobId,
+        choice: ResolveChoice,
+    ) -> Result<JobId, JobError> {
+        let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
+        crate::journal::resolve(host.as_ref(), &InnerTransformer(&self.inner), job, choice)?;
+        Ok(job)
+    }
+
+    /// §9 (D-386): the UI has `path` open in an editor; the job sends its transformation there instead of writing.
+    pub fn editor_open(&self, path: &str) {
+        lock(&self.inner.editors).insert(nfc(path));
+    }
+    pub fn editor_close(&self, path: &str) {
+        lock(&self.inner.editors).remove(&nfc(path));
+        self.inner.changed.notify_all();
+    }
+
+    /// Answer to a `JobTransform` event that isn't `live` (`job_transform_result`).
+    pub fn transform_result(&self, request: u64, result: Result<Transformed, TransformError>) {
+        lock(&self.inner.replies).insert(request, result);
+        self.inner.replied.notify_all();
+    }
+
+    /// Test-only (L4 sync simulator): called at every [`JobPoint`] of every job, on the job's thread.
+    #[doc(hidden)]
+    pub fn set_point_hook(&self, hook: Option<PointHook>) {
+        *lock(&self.inner.hook) = hook;
+    }
+}
+
+fn read_reason(e: &ReadError) -> SkipReason {
+    match e {
+        ReadError::Missing => SkipReason::Missing,
+        ReadError::Placeholder => SkipReason::Placeholder,
+        ReadError::Io(_) => SkipReason::Io,
+    }
+}
+fn write_reason(e: &WriteError) -> SkipReason {
+    match e {
+        WriteError::Changed | WriteError::NameTaken => SkipReason::Changed,
+        WriteError::Missing => SkipReason::Missing,
+        WriteError::Placeholder => SkipReason::Placeholder,
+        WriteError::Io(_) => SkipReason::Io,
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ the job thread
+
+fn worker(weak: Weak<Inner>) {
+    loop {
+        let Some(inner) = weak.upgrade() else { return };
+        let next = {
+            let mut s = lock(&inner.state);
+            loop {
+                if inner.stop.load(Ordering::SeqCst) {
+                    s.running = false;
+                    return;
+                }
+                if let Some(n) = s.queue.pop_front() {
+                    break Some(n);
+                }
+                let (g, t) = inner
+                    .changed
+                    .wait_timeout(s, Duration::from_millis(250))
+                    .unwrap_or_else(|p| p.into_inner());
+                s = g;
+                if t.timed_out() && Arc::weak_count(&inner) == 0 {
+                    s.running = false;
+                    return;
+                }
+                if t.timed_out() {
+                    break None;
+                }
+            }
+        };
+        if let Some((id, op, from_title)) = next {
+            inner.run(id, op, from_title);
+        }
+    }
+}
+
+/// What a running job tracks while it writes.
+struct Run {
+    id: JobId,
+    kind: JobKind,
+    written: Vec<String>,
+    unchanged: Vec<String>,
+    skipped: Vec<Skipped>,
+    renamed: Option<(String, String)>,
+    undo: UndoRecord,
+}
+
+impl Run {
+    fn counts(&self) -> Counts {
+        Counts {
+            written: self.written.len(),
+            unchanged: self.unchanged.len(),
+            skipped: self.skipped.len(),
+        }
+    }
+    fn skip(&mut self, path: &str, reason: SkipReason) {
+        self.skipped.push(Skipped {
+            path: path.to_string(),
+            reason,
+        });
+    }
+}
+
+impl Inner {
+    fn host(&self) -> &Arc<dyn Host> {
+        self.host.as_ref().expect("a job runs only with a host")
+    }
+
+    fn point(&self, id: JobId, p: JobPoint) {
+        let hook = lock(&self.hook).clone();
+        if let Some(h) = hook {
+            h(id, &p);
+        }
+    }
+
+    fn set_phase(&self, id: JobId, phase: Phase, done: usize, total: usize) {
+        let p = {
+            let mut s = lock(&self.state);
+            let Some(j) = s.jobs.get_mut(&id) else { return };
+            j.phase = phase;
+            j.progress.phase = phase;
+            j.progress.done = j.progress.done.max(done);
+            j.progress.total = total;
+            j.progress.clone()
+        };
+        self.host().progress(p);
+        self.changed.notify_all();
+    }
+
+    fn step(&self, id: JobId, done: usize) {
+        let mut s = lock(&self.state);
+        if let Some(j) = s.jobs.get_mut(&id) {
+            j.progress.done = j.progress.done.max(done);
+        }
+    }
+
+    fn cancelled(&self, id: JobId) -> bool {
+        lock(&self.state).jobs.get(&id).is_some_and(|j| j.cancel)
+    }
+
+    fn run(self: &Arc<Self>, id: JobId, op: JobOp, from_title: Option<String>) {
+        let stop = Arc::new(AtomicBool::new(false));
+        let beat = {
+            let (me, stop) = (Arc::downgrade(self), stop.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    std::thread::sleep(HEARTBEAT);
+                    if stop.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    let Some(me) = me.upgrade() else { break };
+                    let p = lock(&me.state).jobs.get(&id).map(|j| j.progress.clone());
+                    if let Some(p) = p.filter(|p| !p.phase.is_final() && p.phase != Phase::Queued) {
+                        me.host().progress(p);
+                    }
+                }
+            })
+        };
+        let kind = lock(&self.state)
+            .jobs
+            .get(&id)
+            .map(|j| j.kind)
+            .unwrap_or(JobKind::NoteRename);
+        let mut run = Run {
+            id,
+            kind,
+            written: Vec::new(),
+            unchanged: Vec::new(),
+            skipped: Vec::new(),
+            renamed: None,
+            undo: UndoRecord::default(),
+        };
+        let result = self.execute(&mut run, &op, from_title);
+        stop.store(true, Ordering::SeqCst);
+        let _ = beat.join();
+        let (phase, error) = match result {
+            Ok(Phase::Cancelled) => (Phase::Cancelled, None),
+            Ok(_) => (Phase::Done, None),
+            Err(e) => (Phase::Failed, Some(e)),
+        };
+        let counts = run.counts();
+        let report = JobReport {
+            job: id,
+            kind,
+            phase,
+            renamed: run.renamed.clone(),
+            written: run.written.clone(),
+            unchanged: run.unchanged.clone(),
+            skipped: run.skipped.clone(),
+            error,
+        };
+        let progress = {
+            let mut s = lock(&self.state);
+            // Every finished rename has an undo record, an empty one for a commit that wrote nothing (undo is then a
+            // no-op); only one that wrote something is offered as `Undo rename`.
+            if phase == Phase::Done {
+                if let JobOp::Undo { job } | JobOp::Redo { job } = &op {
+                    let undone = matches!(op, JobOp::Undo { .. });
+                    if let Some(o) = s.jobs.get_mut(job) {
+                        o.undone = undone;
+                    }
+                }
+            }
+            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. });
+            if undoable && !run.undo.files.is_empty() {
+                s.last_undoable = Some(id);
+            }
+            let j = s.jobs.get_mut(&id).expect("job state");
+            j.phase = phase;
+            if undoable {
+                j.undo = Some(run.undo.clone());
+            }
+            j.report = Some(report);
+            let total = j
+                .progress
+                .total
+                .max(counts.written + counts.unchanged + counts.skipped);
+            j.progress = JobProgress {
+                job: id,
+                kind,
+                phase,
+                done: total,
+                total,
+                counts: Some(counts),
+            };
+            j.progress.clone()
+        };
+        crate::journal::finish(self.host().as_ref(), id);
+        self.host().progress(progress);
+        self.changed.notify_all();
+    }
+
+    /// Plan, back up, write. `Ok(Cancelled)` when cancelled before writing; `Err(message)` for a failed job.
+    fn execute(
+        &self,
+        run: &mut Run,
+        op: &JobOp,
+        from_title: Option<String>,
+    ) -> Result<Phase, String> {
+        let id = run.id;
+        self.set_phase(id, Phase::Planning, 0, 0);
+        let plan = match op {
+            JobOp::NoteRename { path, title } => self.plan_rename(id, path, title, from_title)?,
+            JobOp::Undo { job } | JobOp::Redo { job } => {
+                self.plan_undo(id, *job, matches!(op, JobOp::Undo { .. }))?
+            }
+            JobOp::TestBackup { paths } => JobPlan {
+                job: id,
+                kind: JobKind::TestBackup,
+                files: Vec::new(),
+                renames: Vec::new(),
+                creates: Vec::new(),
+                trashes: Vec::new(),
+                counts: PlanCounts {
+                    files: paths.len(),
+                    links: 0,
+                },
+            },
+            _ => return Err("NotImplemented".into()),
+        };
+        let total = plan.files.len();
+        if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
+            j.plan = Some(plan.clone());
+            j.progress.total = total;
+        }
+        self.point(id, JobPoint::AfterPlanning);
+        if self.cancelled(id) {
+            return Ok(Phase::Cancelled);
+        }
+        if run.kind.flags().backup {
+            self.set_phase(id, Phase::Backup, 0, total);
+            self.backup(run.kind)
+                .map_err(|e| format!("BackupFailed: {e}"))?;
+            if self.cancelled(id) {
+                return Ok(Phase::Cancelled);
+            }
+        }
+        self.set_phase(id, Phase::Writing, 0, total);
+        match op {
+            JobOp::NoteRename { .. } => self.write_rename(run, plan),
+            JobOp::Undo { job } => self.write_undo(run, *job, true),
+            JobOp::Redo { job } => self.write_undo(run, *job, false),
+            _ => {}
+        }
+        Ok(Phase::Done)
+    }
+
+    // -------------------------------------------------------------------------------------------- note rename
+
+    fn plan_rename(
+        &self,
+        id: JobId,
+        path: &str,
+        title: &str,
+        from_title: Option<String>,
+    ) -> Result<JobPlan, String> {
+        let host = self.host();
+        let path = nfc(path);
+        let (bytes, version) = host.read(&path).map_err(|e| format!("{e:?}"))?;
+        let stem = stem_of(&path);
+        let folder = folder_of(&path);
+        let stored = extract(&bytes, &stem).title;
+        let title = nfc(title.trim());
+        let empty = |files| JobPlan {
+            job: id,
+            kind: JobKind::NoteRename,
+            files,
+            renames: Vec::new(),
+            creates: Vec::new(),
+            trashes: Vec::new(),
+            counts: PlanCounts::default(),
+        };
+        let from_title = from_title
+            .map(|t| nfc(t.trim()))
+            .filter(|t| !t.is_empty())
+            .unwrap_or_else(|| nfc(stored.trim()));
+        // FR-FMT-08 AC-7: equal after NFC and trim, or only spaces: nothing to do. The autosave may have written the
+        // new title already while typing (D-394), so "equal" means equal to the title when the edit started too.
+        if title.is_empty() || (title == nfc(stored.trim()) && title == from_title) {
+            return Ok(empty(Vec::new()));
+        }
+        let wanted = nfc(&sanitize_file_stem(&title));
+        // D-402: a stem with the note's own stem key is never a collision.
+        let to_stem = if key(&wanted) == key(&stem) {
+            wanted.clone()
+        } else {
+            host.free_stem(&folder, &wanted)
+        };
+        let to_path = join(&folder, &to_stem);
+        let paths = host.note_paths();
+        let retarget = TextOp::RetargetLinks {
+            from_path: path.clone(),
+            from_stem: stem.clone(),
+            from_title,
+            to_path: to_path.clone(),
+            to_stem,
+            to_title: title.clone(),
+            paths,
+        };
+        let mut files = vec![PlannedFile {
+            path: path.clone(),
+            version,
+            ops: vec![
+                TextOp::SetTitle {
+                    title,
+                    now: host.now(),
+                },
+                retarget.clone(),
+            ],
+        }];
+        let mut linking = host.linking(&path);
+        linking.sort();
+        for p in linking {
+            if let Some(v) = host.version(&p) {
+                files.push(PlannedFile {
+                    path: p,
+                    version: v,
+                    ops: vec![retarget.clone()],
+                });
+            }
+        }
+        let renames = if to_path != path {
+            vec![(path.clone(), to_path)]
+        } else {
+            Vec::new()
+        };
+        let n = files.len();
+        Ok(JobPlan {
+            job: id,
+            kind: JobKind::NoteRename,
+            files,
+            renames,
+            creates: Vec::new(),
+            trashes: Vec::new(),
+            counts: PlanCounts { files: n, links: 0 },
+        })
+    }
+
+    fn write_rename(&self, run: &mut Run, mut plan: JobPlan) {
+        let host = self.host().clone();
+        if plan.files.is_empty() {
+            return;
+        }
+        let id = run.id;
+        let note = plan.files[0].clone();
+        let mut ops = note.ops.clone();
+        crate::journal::begin(host.as_ref(), id, &plan);
+        // The note first: the final stem is known only after its rename (FR-FMT-08 AC-10).
+        self.point(
+            id,
+            JobPoint::AfterRead {
+                path: note.path.clone(),
+            },
+        );
+        let (pre, pre_v) = match host.read(&note.path) {
+            Ok(x) => x,
+            Err(e) => {
+                run.skip(&note.path, read_reason(&e));
+                return;
+            }
+        };
+        if std::str::from_utf8(&pre).is_err() {
+            run.skip(&note.path, SkipReason::ReadOnly); // D-180: never written
+            return;
+        }
+        let mut to = plan.renames.first().map(|(_, t)| t.clone());
+        let mut tries = 0;
+        let outcome = loop {
+            let out = match self.transform(&note.path, &pre, &ops) {
+                Ok(Transformed::Bytes(b, _)) => b,
+                Ok(Transformed::Unchanged) => pre.clone(),
+                Err(_) => break Err(SkipReason::Io),
+            };
+            let r = match &to {
+                Some(t) => host
+                    .rename(&note.path, t, &out, &pre_v)
+                    .map(|v| (t.clone(), v, out)),
+                None => match host.write(&note.path, &out, &pre_v) {
+                    Ok(Wrote::Written(v)) => Ok((note.path.clone(), v, out)),
+                    Ok(Wrote::Unchanged) => break Ok(None),
+                    Err(e) => Err(e),
+                },
+            };
+            match r {
+                Ok(x) => break Ok(Some(x)),
+                Err(WriteError::NameTaken) if tries < 50 => {
+                    tries += 1;
+                    // Taken since planning: the next free stem, and every op follows it.
+                    let TextOp::RetargetLinks { to_title, .. } = &ops[1] else {
+                        break Err(SkipReason::Io);
+                    };
+                    let wanted = nfc(&sanitize_file_stem(to_title));
+                    let stem = host.free_stem(&folder_of(&note.path), &wanted);
+                    let path = join(&folder_of(&note.path), &stem);
+                    ops = ops
+                        .into_iter()
+                        .map(|o| retarget_to(o, &stem, &path))
+                        .collect();
+                    to = Some(path);
+                }
+                Err(e) => break Err(write_reason(&e)),
+            }
+        };
+        match outcome {
+            Ok(Some((path, post_v, post))) => {
+                if path != note.path {
+                    run.renamed = Some((note.path.clone(), path.clone()));
+                }
+                run.written.push(path.clone());
+                crate::journal::progress(host.as_ref(), id, &note.path, &path, &post_v);
+                run.undo.files.push(Written {
+                    before: note.path.clone(),
+                    after: path,
+                    pre,
+                    pre_v,
+                    post,
+                    post_v,
+                    via_op: false,
+                });
+            }
+            Ok(None) => run.unchanged.push(note.path.clone()),
+            Err(reason) => {
+                // The renamed note itself couldn't be written: no link may move to a name that doesn't exist.
+                run.skip(&note.path, reason);
+                return;
+            }
+        }
+        // The plan records the final target for every file (and for Retry).
+        let (stem, path) = match &ops[1] {
+            TextOp::RetargetLinks {
+                to_stem, to_path, ..
+            } => (to_stem.clone(), to_path.clone()),
+            _ => unreachable!("rename ops"),
+        };
+        for f in plan.files.iter_mut() {
+            f.ops = std::mem::take(&mut f.ops)
+                .into_iter()
+                .map(|o| retarget_to(o, &stem, &path))
+                .collect();
+        }
+        if let Some(r) = plan.renames.first_mut() {
+            r.1 = path.clone();
+        }
+        run.undo.op = Some(ops[1].clone());
+        // D-433: a crash from here on finishes with the stem the rename really took, not the planned one.
+        crate::journal::retarget(host.as_ref(), id, &ops[1], &note.path, &path);
+        if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
+            j.plan = Some(plan.clone());
+        }
+        self.step(id, 1);
+        for (i, f) in plan.files.iter().enumerate().skip(1) {
+            let n = run.undo.files.len();
+            self.write_one(run, f);
+            match run.undo.files.get(n) {
+                Some(w) => crate::journal::progress(host.as_ref(), id, &w.before, &w.after, &w.post_v),
+                None => crate::journal::progress_none(host.as_ref(), id, &f.path),
+            }
+            self.step(id, i + 1);
+        }
+    }
+
+    /// One linking file (§5): never written unless it is still the planned version.
+    fn write_one(&self, run: &mut Run, f: &PlannedFile) {
+        let host = self.host();
+        let path = &f.path;
+        if host.is_placeholder(path) {
+            return run.skip(path, SkipReason::Placeholder);
+        }
+        let (bytes, v) = match host.read(path) {
+            Ok(x) => x,
+            Err(e) => return run.skip(path, read_reason(&e)),
+        };
+        if !v.same_content(&f.version) {
+            return run.skip(path, SkipReason::Changed);
+        }
+        // D-180, NFR-REL-03: a file that isn't valid UTF-8 is read-only; a lossy round trip would replace its bytes.
+        if std::str::from_utf8(&bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
+        }
+        self.point(run.id, JobPoint::AfterRead { path: path.clone() });
+        if lock(&self.editors).contains(&nfc(path)) {
+            return self.write_live(run, path, &bytes, &v, &f.ops);
+        }
+        let out = match self.transform(path, &bytes, &f.ops) {
+            Ok(Transformed::Bytes(b, _)) => b,
+            Ok(Transformed::Unchanged) => return run.unchanged.push(path.clone()),
+            Err(_) => return run.skip(path, SkipReason::Io),
+        };
+        if out == bytes {
+            return run.unchanged.push(path.clone());
+        }
+        self.point(run.id, JobPoint::TempWritten { path: path.clone() });
+        if host.is_placeholder(path) {
+            return run.skip(path, SkipReason::Placeholder);
+        }
+        match host.write(path, &out, &v) {
+            Ok(Wrote::Written(post_v)) => {
+                run.written.push(path.clone());
+                run.undo.files.push(Written {
+                    before: path.clone(),
+                    after: path.clone(),
+                    pre: bytes,
+                    pre_v: v,
+                    post: out,
+                    post_v,
+                    via_op: false,
+                });
+            }
+            Ok(Wrote::Unchanged) => run.unchanged.push(path.clone()),
+            Err(e) => run.skip(path, write_reason(&e)),
+        }
+    }
+
+    /// D-386: the open note's editor applies the change to its live document and saves it; the job waits for that save.
+    fn write_live(&self, run: &mut Run, path: &str, bytes: &[u8], v: &FileVersion, ops: &[TextOp]) {
+        let host = self.host();
+        if std::str::from_utf8(bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
+        }
+        let request = self.request_id();
+        host.transform_request(request, path, &String::from_utf8_lossy(bytes), ops, true);
+        let end = Instant::now() + LIVE_TIMEOUT;
+        loop {
+            if let Some(now) = host.version(path) {
+                if !now.same_content(v) {
+                    run.written.push(path.to_string());
+                    // Undo and redo go through the link op: the saved text also holds the user's own edits.
+                    let post = host.read(path).map(|(b, _)| b).unwrap_or_default();
+                    run.undo.files.push(Written {
+                        before: path.to_string(),
+                        after: path.to_string(),
+                        pre: bytes.to_vec(),
+                        pre_v: v.clone(),
+                        post,
+                        post_v: now,
+                        via_op: true,
+                    });
+                    return;
+                }
+            } else {
+                return run.skip(path, SkipReason::Missing);
+            }
+            if !lock(&self.editors).contains(&nfc(path))
+                || Instant::now() > end
+                || self.stop.load(Ordering::SeqCst)
+            {
+                return run.skip(path, SkipReason::Changed);
+            }
+            let s = lock(&self.state);
+            let _ = self.changed.wait_timeout(s, Duration::from_millis(50));
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------- undo and redo
+
+    fn plan_undo(&self, id: JobId, job: JobId, undo: bool) -> Result<JobPlan, String> {
+        let rec = lock(&self.state)
+            .jobs
+            .get(&job)
+            .and_then(|j| j.undo.clone())
+            .ok_or("NotFound")?;
+        let files = rec
+            .files
+            .iter()
+            .map(|w| PlannedFile {
+                path: if undo {
+                    w.after.clone()
+                } else {
+                    w.before.clone()
+                },
+                version: if undo {
+                    w.post_v.clone()
+                } else {
+                    w.pre_v.clone()
+                },
+                // Retry of a skipped row reverses (undo) or re-applies (redo) only the link (D-385).
+                ops: rec.op.as_ref().map(|op| vec![if undo { reversed(op) } else { op.clone() }]).unwrap_or_default(),
+            })
+            .collect::<Vec<_>>();
+        let renames = rec
+            .files
+            .iter()
+            .filter(|w| w.before != w.after)
+            .map(|w| {
+                if undo {
+                    (w.after.clone(), w.before.clone())
+                } else {
+                    (w.before.clone(), w.after.clone())
+                }
+            })
+            .collect();
+        let n = files.len();
+        Ok(JobPlan {
+            job: id,
+            kind: JobKind::NoteRename,
+            files,
+            renames,
+            creates: Vec::new(),
+            trashes: Vec::new(),
+            counts: PlanCounts { files: n, links: 0 },
+        })
+    }
+
+    /// Undo writes each file's pre-job bytes where the file is still what the job wrote; redo the reverse (§7).
+    /// Files written through an editor get the link op instead (D-386). Journaled like the rename (D-387).
+    fn write_undo(&self, run: &mut Run, job: JobId, undo: bool) {
+        let host = self.host();
+        let Some(rec) = lock(&self.state).jobs.get(&job).and_then(|j| j.undo.clone()) else {
+            return;
+        };
+        let op = rec.op.as_ref().map(|op| if undo { reversed(op) } else { op.clone() });
+        let entries: Vec<crate::journal::Entry> = rec
+            .files
+            .iter()
+            .map(|w| {
+                let (at, to, bytes) = if undo { (&w.after, &w.before, &w.pre) } else { (&w.before, &w.after, &w.post) };
+                let current = host.read(at).map(|(b, _)| b).unwrap_or_default();
+                crate::journal::Entry { at: at.clone(), to: to.clone(), pre: current, target: if w.via_op { None } else { Some(bytes.clone()) } }
+            })
+            .collect();
+        crate::journal::begin_entries(host.as_ref(), run.id, if undo { "undo" } else { "redo" }, op.as_ref(), &entries);
+        // D-433: the note moves first; if it can't, no link moves (they would point where the note isn't).
+        let mut note_stuck = false;
+        for (i, w) in rec.files.iter().enumerate() {
+            let (at, to, bytes, base) = if undo { (&w.after, &w.before, &w.pre, &w.post_v) } else { (&w.before, &w.after, &w.post, &w.pre_v) };
+            if note_stuck {
+                run.skip(at, SkipReason::Changed);
+                crate::journal::progress_none(host.as_ref(), run.id, at);
+                self.step(run.id, i + 1);
+                continue;
+            }
+            self.point(run.id, JobPoint::AfterRead { path: at.clone() });
+            if host.is_placeholder(at) {
+                run.skip(at, SkipReason::Placeholder);
+                crate::journal::progress_none(host.as_ref(), run.id, at);
+                continue;
+            }
+            let before = run.undo.files.len();
+            if w.via_op || (at == to && lock(&self.editors).contains(&nfc(at))) {
+                // Through the link op: the editor if the note is open, else the current text on disk.
+                match (op.as_ref(), host.read(at)) {
+                    (Some(op), Ok((cur, v))) if lock(&self.editors).contains(&nfc(at)) => self.write_live(run, at, &cur, &v, std::slice::from_ref(op)),
+                    (Some(op), Ok((cur, v))) => self.write_op(run, at, &cur, &v, op),
+                    (_, Err(e)) => run.skip(at, read_reason(&e)),
+                    (None, _) => run.skip(at, SkipReason::Io),
+                }
+            } else {
+                let r = if at != to {
+                    // Another note took the old name: the links can't follow the note back to it (D-433).
+                    if host.version(to).is_some() && key(to) != key(at) {
+                        Err(WriteError::NameTaken)
+                    } else {
+                        host.rename(at, to, bytes, base).map(|v| (to.clone(), Some(v)))
+                    }
+                } else {
+                    host.write(at, bytes, base).map(|w| match w {
+                        Wrote::Written(v) => (at.clone(), Some(v)),
+                        Wrote::Unchanged => (at.clone(), None),
+                    })
+                };
+                match r {
+                    Ok((path, Some(v))) => {
+                        if path != *at {
+                            run.renamed = Some((at.clone(), path.clone()));
+                        }
+                        run.written.push(path.clone());
+                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false });
+                    }
+                    Ok((path, None)) => run.unchanged.push(path),
+                    Err(e) => {
+                        run.skip(at, write_reason(&e));
+                        note_stuck = at != to;
+                    }
+                }
+            }
+            match run.undo.files.get(before) {
+                Some(x) => crate::journal::progress(host.as_ref(), run.id, at, &x.after, &x.post_v),
+                None => crate::journal::progress_none(host.as_ref(), run.id, at),
+            }
+            self.step(run.id, i + 1);
+        }
+    }
+
+    /// A link op on a file's current text, written with that text's version as base (undo / redo of a file that was
+    /// written through its editor).
+    fn write_op(&self, run: &mut Run, path: &str, bytes: &[u8], v: &FileVersion, op: &TextOp) {
+        let host = self.host();
+        if std::str::from_utf8(bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
+        }
+        let out = match self.transform(path, bytes, std::slice::from_ref(op)) {
+            Ok(Transformed::Bytes(b, _)) => b,
+            Ok(Transformed::Unchanged) => return run.unchanged.push(path.to_string()),
+            Err(_) => return run.skip(path, SkipReason::Io),
+        };
+        match host.write(path, &out, v) {
+            Ok(Wrote::Written(post_v)) => {
+                run.written.push(path.to_string());
+                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true });
+            }
+            Ok(Wrote::Unchanged) => run.unchanged.push(path.to_string()),
+            Err(e) => run.skip(path, write_reason(&e)),
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------- transform
+
+    fn request_id(&self) -> u64 {
+        let mut n = lock(&self.next_request);
+        *n += 1;
+        *n
+    }
+
+    pub(crate) fn transform(
+        &self,
+        source: &str,
+        bytes: &[u8],
+        ops: &[TextOp],
+    ) -> Result<Transformed, TransformError> {
+        if let Some(t) = lock(&self.transformer).clone() {
+            return t.transform(source, bytes, ops);
+        }
+        // The app: the UI's worker answers `job:transform` through `job_transform_result` (§2.2).
+        let request = self.request_id();
+        self.host()
+            .transform_request(request, source, &String::from_utf8_lossy(bytes), ops, false);
+        let end = Instant::now() + TRANSFORM_TIMEOUT;
+        let mut r = lock(&self.replies);
+        loop {
+            if let Some(x) = r.remove(&request) {
+                return x;
+            }
+            let left = end
+                .checked_duration_since(Instant::now())
+                .ok_or(TransformError::Timeout)?;
+            r = self
+                .replied
+                .wait_timeout(r, left)
+                .unwrap_or_else(|p| p.into_inner())
+                .0;
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------- backup (§6)
+
+    fn backup(&self, kind: JobKind) -> Result<PathBuf, String> {
+        let host = self.host();
+        let dir = host.app_dir().join("backups").join(host.vault_key());
+        let mut entries = Vec::new();
+        for p in host.backup_files() {
+            match host.read(&p) {
+                Ok((b, _)) => entries.push((nfc(&p), b)),
+                Err(ReadError::Placeholder) => {}
+                Err(e) => return Err(format!("{p}: {e:?}")),
+            }
+        }
+        let mut zip = Vec::new();
+        crate::zip::write_zip(&mut zip, &entries).map_err(|e| e.to_string())?;
+        let name = format!("{}-{}.zip", chrono::Utc::now().format("%Y%m%d-%H%M%S"), kind.as_str());
+        let path = dir.join(&name);
+        // Atomic, through tegg-vault (AR-04 AC-1); a read-only backups folder fails here and nothing is written.
+        host.local_write(&path, &zip).map_err(|e| e.to_string())?;
+        // Keep the newest ten (names start with the UTC time).
+        let mut zips: Vec<PathBuf> = host.local_list(&dir).into_iter().filter(|p| p.extension().is_some_and(|x| x == "zip")).collect();
+        zips.sort();
+        while zips.len() > KEEP_BACKUPS {
+            host.local_remove(&zips.remove(0));
+        }
+        Ok(path)
+    }
+}
+
+/// The retarget op of an undo: from the new name back to the old one.
+fn reversed(op: &TextOp) -> TextOp {
+    match op {
+        TextOp::RetargetLinks { from_path, from_stem, from_title, to_path, to_stem, to_title, paths } => TextOp::RetargetLinks {
+            from_path: to_path.clone(),
+            from_stem: to_stem.clone(),
+            from_title: to_title.clone(),
+            to_path: from_path.clone(),
+            to_stem: from_stem.clone(),
+            to_title: from_title.clone(),
+            paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
+        },
+        other => other.clone(),
+    }
+}
+
+/// The op with its target moved to `stem` / `path` (a rename that had to take the next free stem).
+fn retarget_to(op: TextOp, stem: &str, path: &str) -> TextOp {
+    match op {
+        TextOp::RetargetLinks {
+            from_path,
+            from_stem,
+            from_title,
+            to_title,
+            paths,
+            ..
+        } => TextOp::RetargetLinks {
+            from_path,
+            from_stem,
+            from_title,
+            to_path: path.to_string(),
+            to_stem: stem.to_string(),
+            to_title,
+            paths,
+        },
+        other => other,
+    }
+}
+
+/// The engine's own transform path (test transformer or the UI's worker) as a `Transformer`.
+struct InnerTransformer<'a>(&'a Inner);
+
+impl Transformer for InnerTransformer<'_> {
+    fn transform(
+        &self,
+        source: &str,
+        bytes: &[u8],
+        ops: &[TextOp],
+    ) -> Result<Transformed, TransformError> {
+        self.0.transform(source, bytes, ops)
+    }
+}

@@ -346,7 +346,7 @@ impl Core {
         let attrs: Vec<AttrDef> = def.as_ref().map(|d| d.attributes.clone()).unwrap_or_default();
         let preview: Vec<String> = def.map(|d| d.preview).unwrap_or_default();
         let all = self.index().objects();
-        let resolver = crate::Resolver::new(&all, self);
+        let resolver = crate::Resolver::new(&all, &self.shared);
         all.iter()
             .filter(|o| o.r#type == key)
             .map(|o| {

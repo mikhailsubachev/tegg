@@ -556,3 +556,19 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .chip-wrap.warn { outline: 1px dashed var(--danger); }
 .chips-field .chip-wrap > .link-chip, .chip-wrap > a.link-chip { display: inline-flex; }
 .linked-line { display: block; white-space: inherit; overflow: hidden; }
+
+/* 4C (ms4-jobs §10): job status in the title bar and the non-modal "Links not updated" list. */
+.job-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.not-updated-entry { font-size: 13px; }
+.link-button { background: none; border: 0; padding: 0 2px; color: var(--accent, var(--text)); text-decoration: underline; cursor: pointer; font: inherit; }
+.not-updated.popover { position: fixed; top: 52px; right: 16px; z-index: 40; width: min(520px, calc(100vw - 32px)); max-height: 60vh; overflow: auto;
+  padding: 12px 14px; background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); }
+.not-updated header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.not-updated header h2 { flex: 1; margin: 0; font-size: 15px; }
+.not-updated ul { list-style: none; margin: 0; padding: 0; }
+.not-updated li { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+.not-updated li .title { grid-column: 1; font-weight: 600; }
+.not-updated li .path { grid-column: 1; font-size: 12px; color: var(--muted, var(--text)); overflow-wrap: anywhere; }
+.not-updated li .reason { grid-column: 1; font-size: 12px; }
+.not-updated li button { grid-row: 1 / span 3; }

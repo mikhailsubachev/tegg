@@ -22,6 +22,7 @@ pub use tegg_index::{
     SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
+pub use tegg_jobs;
 use tegg_vault::{FsChange, WatchGuard};
 
 #[derive(Default, Clone)]
@@ -45,6 +46,11 @@ pub enum CoreEvent {
     VaultChanged { paths: Vec<String> },
     NoteConflict { path: String, mine: Vec<u8>, theirs: Vec<u8>, disk: FileVersion },
     Placeholders { count: usize },
+    /// ms4-jobs §4: `job:progress` (FR-UX-07 AC-8).
+    JobProgress(tegg_jobs::JobProgress),
+    /// ms4-jobs §2.2, §9: a file for the UI's `@tegg/doc` worker; `live` when the file is open in an editor (D-386),
+    /// whose transaction and autosave then write it.
+    JobTransform { request: u64, source: String, text: String, ops: Vec<tegg_jobs::TextOp>, live: bool },
 }
 
 #[derive(Debug)]
@@ -210,6 +216,8 @@ pub struct Core {
     worker: Option<JoinHandle<()>>,
     /// Mutex only so `Core` is `Sync` (the shell shares it between IPC threads).
     watch: Mutex<Option<WatchGuard>>,
+    /// ms4-jobs §4: the job engine of this vault (stub until slice 4C is built).
+    jobs_engine: tegg_jobs::Jobs,
 }
 
 impl Core {
@@ -277,11 +285,17 @@ impl Core {
         let adapter: Arc<dyn SyncAdapter> = opts.sync.unwrap_or_else(|| Arc::new(FolderSync));
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
-        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch) })
+        let jobs_engine = tegg_jobs::Jobs::with_host(Arc::new(jobs4c::CoreHost { shared: shared.clone() }));
+        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine })
     }
 
     pub fn vault(&self) -> &Vault {
         &self.shared.vault
+    }
+
+    /// ms4-jobs §4: the job engine (note rename in 4C).
+    pub fn jobs(&self) -> &tegg_jobs::Jobs {
+        &self.jobs_engine
     }
 
     /// Every receiver gets all events since `open` (buffered), then live ones.
@@ -795,21 +809,21 @@ impl Core {
     /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
         let objs = self.objects();
-        Resolver::new(&objs, self).resolve(from, targets)
+        Resolver::new(&objs, &self.shared).resolve(from, targets)
     }
 }
 
 /// The link lookup tables of `resolve_links`, built once so a type page resolves every row in one pass (D-233).
 pub(crate) struct Resolver<'a> {
     objs: &'a [ObjectInfo],
-    core: &'a Core,
+    shared: &'a Shared,
     by_path: HashMap<String, usize>,
     by_id: HashMap<&'a str, usize>,
     by_stem: HashMap<String, Vec<usize>>,
 }
 
 impl<'a> Resolver<'a> {
-    pub(crate) fn new(objs: &'a [ObjectInfo], core: &'a Core) -> Resolver<'a> {
+    pub(crate) fn new(objs: &'a [ObjectInfo], shared: &'a Shared) -> Resolver<'a> {
         let mut by_path: HashMap<String, usize> = HashMap::new();
         let mut by_id: HashMap<&str, usize> = HashMap::new();
         let mut by_stem: HashMap<String, Vec<usize>> = HashMap::new();
@@ -823,7 +837,7 @@ impl<'a> Resolver<'a> {
             }
             by_stem.entry(stem).or_default().push(i);
         }
-        Resolver { objs, core, by_path, by_id, by_stem }
+        Resolver { objs, shared, by_path, by_id, by_stem }
     }
 
     pub(crate) fn resolve(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
@@ -856,7 +870,7 @@ impl<'a> Resolver<'a> {
                 // D-162: a date is a Daily Note link first.
                 if t.len() == 10 {
                     if let Ok(date) = NaiveDate::parse_from_str(&t, "%Y-%m-%d") {
-                        return match self.core.daily_note(date).and_then(|p| objs.iter().position(|o| o.path == p)) {
+                        return match lock(&self.shared.index).daily_note(date).and_then(|p| objs.iter().position(|o| o.path == p)) {
                             Some(i) => found(target, i, LinkKind::Daily),
                             None => none(target, LinkKind::DateMissing),
                         };
@@ -903,6 +917,7 @@ pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};
 // ------------------------------------------------------------------------------------------------ slice 4A
 // docs/contracts/ms4-links.md §3: backlinks panel, broken links, duplicate titles, create from a link (`links4a.rs`).
 mod links4a;
+mod jobs4c;
 pub use links4a::{
     BacklinkEntry, BacklinkGroup, BacklinksPanel, BrokenGroup, BrokenLinks, CreateRefusal, DuplicateGroup,
     DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,

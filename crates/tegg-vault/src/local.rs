@@ -119,6 +119,19 @@ impl VaultFs for LocalFs {
         Ok(())
     }
 
+    /// APFS is case-insensitive: renaming a file to another spelling of its own name is a plain rename of that file.
+    fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
+        let (f, t) = (self.abs(from), self.abs(to));
+        use std::os::unix::fs::MetadataExt;
+        let ino = fs::metadata(&f)?.ino();
+        if fs::metadata(&t).map(|m| m.ino()).unwrap_or(ino) != ino {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, to.to_string()));
+        }
+        fs::rename(&f, &t)?;
+        Self::sync_dir(&t);
+        Ok(())
+    }
+
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
         fs::create_dir_all(self.abs(path))
     }
@@ -227,6 +240,13 @@ pub fn remove_local_path(path: &Path) -> io::Result<()> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+/// The entries of a machine-local folder (Application Support), sorted; empty when it doesn't exist.
+pub fn list_local_dir(path: &Path) -> Vec<std::path::PathBuf> {
+    let mut v: Vec<std::path::PathBuf> = fs::read_dir(path).map(|rd| rd.flatten().map(|e| e.path()).collect()).unwrap_or_default();
+    v.sort();
+    v
 }
 
 /// Creates a machine-local folder (Application Support).

@@ -6,7 +6,9 @@ import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, us
 import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
-import { fixDailyTitle, parse, parseDate, setValue } from '@tegg/doc';
+import { fixDailyTitle, parse, parseDate, setValue, transform, type TextOp } from '@tegg/doc';
+import { lastRenameOf, onMoved, redoLast, renameNote, undoLast } from '../jobs/jobs';
+import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
@@ -142,6 +144,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const edRef = useRef<TeggEditor | null>(null);
   const saver = useRef<Saver | null>(null);
   const savedTitle = useRef('');
+  /** The title when the current title edit started (D-394); null when no edit is open. */
+  const titleFrom = useRef<string | null>(null);
+  const fresh = useRef(false);
+  /** The editor's history depth when the note last moved: deeper means it was edited since. */
+  const freshDepth = useRef(0);
   const live = useRef({ path, loaded, merge, deleted, daily });
   live.current = { path, loaded, merge, deleted, daily };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
@@ -471,19 +478,103 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
 
   // ------------------------------------------------------------------ title (FR-EDT-01 AC-10, D-173)
   const onTitle = (v: string) => {
+    // D-394: links compare with this title. Only once the note has loaded: an input event while it opens (a key of
+    // the navigation landing in the field) must not start an edit from an empty title (PR #45 gate run).
+    if (titleFrom.current === null && live.current.loaded && savedTitle.current.trim() !== '') titleFrom.current = savedTitle.current;
+    fresh.current = false;
     setTitle(v);
     const ed = edRef.current;
     if (!ed) return;
     const tt = v.normalize('NFC');
-    ed.setTitle(tt.trim() === '' ? null : tt);
+    ed.setTitle(tt.trim() === '' ? null : tt.trim()); // FR-FMT-08 AC-7: the title is stored trimmed
     if (tt.trim() !== '') saver.current?.changed();
   };
   const onTitleBlur = () => {
+    const from = titleFrom.current;
+    titleFrom.current = null;
     if (title.trim() === '') {
       setTitle(savedTitle.current);
       edRef.current?.setTitle(null);
+      return;
     }
+    // D-268: the commit (↩, Tab, leaving the field) renames the file and moves the links; typing only autosaves
+    // `title:` (D-394). Templates and trashed notes keep their file name (D-391); a Daily Note's title is read-only.
+    const next = title.trim().normalize('NFC');
+    if (from === null || from.trim() === '' || next === from.trim().normalize('NFC')) return;
+    const p = live.current.path;
+    if (live.current.daily || live.current.loaded?.mode !== 'edit' || p.startsWith('_templates/') || p.startsWith('.trash/')) return;
+    const sv = saver.current;
+    sv?.hold(); // ms4-jobs §9: no write to the old path while the job moves the note
+    void renameNote(p, next, from, (r) => { if (!r?.renamed) sv?.release(); }).catch(() => sv?.release());
   };
+
+  // ------------------------------------------------------------------ rename (4C, ms4-jobs §9, §10)
+  /** True from a rename, undo or redo of this note until the next edit: ⌘Z / ⇧⌘Z then undo / redo it (FR-LNK-03 AC-14). */
+  const onRenameKey = (e: React.KeyboardEvent) => {
+    if (!e.metaKey || e.key.toLowerCase() !== 'z' || !fresh.current || (edRef.current?.historyDepth() ?? 0) > freshDepth.current) return;
+    const l = lastRenameOf(live.current.path);
+    if (!l) return;
+    if (!e.shiftKey && !l.undone) { e.preventDefault(); e.stopPropagation(); void undoLast(); }
+    else if (e.shiftKey && l.undone) { e.preventDefault(); e.stopPropagation(); void redoLast(); }
+  };
+  // A job moved this note (rename, undo, redo): the page stays, its editor saves at the new path; unsaved text gets
+  // the same title and self-link change (FR-FMT-08 AC-5, FR-LNK-03 AC-18).
+  useEffect(() => onMoved((m) => {
+    const here = live.current.path.normalize('NFC');
+    // The page may have followed the file by its id already (FR-SYN-03 AC-18 path); the editor still needs the move.
+    if (m.from !== here && m.to !== here) return;
+    void (async () => {
+      const n = await ipc.noteRead(m.to).catch(() => null);
+      if (!n) return;
+      const ed = edRef.current;
+      const s = saver.current;
+      if (ed && s) {
+        const dirty = ed.dirty() || s.pending;
+        s.moved(m.to, n.version);
+        if (dirty) {
+          const toTitle = noteMeta(m.to, n.text).title;
+          const stemOf = (x: string) => x.split('/').pop()!.replace(/\.md$/i, '');
+          const ops: TextOp[] = [
+            { op: 'set-title', title: toTitle, now: localIso(Date.now()) },
+            { op: 'retarget-links', fromPath: m.from, fromStem: stemOf(m.from), fromTitle: savedTitle.current, toPath: m.to, toStem: stemOf(m.to), toTitle, paths: [m.from] },
+          ];
+          const r = transform(m.to, ed.text(), ops);
+          ed.reload(r.kind === 'bytes' ? r.text : ed.text());
+          ed.markSaved(n.text);
+          s.changed();
+        } else {
+          ed.reload(n.text);
+        }
+      }
+      setDiskText(n.text);
+      const meta = noteMeta(m.to, n.text);
+      setTitle(meta.title);
+      savedTitle.current = meta.title;
+      titleFrom.current = null;
+      fresh.current = true;
+      freshDepth.current = edRef.current?.historyDepth() ?? 0;
+      onRenamed(m.to);
+      onMeta(meta);
+    })();
+  }), []);
+  // D-386: while this note is open, a job changes it through this editor, never on disk behind it.
+  const editing = loaded?.mode === 'edit' && !daily?.virtual;
+  useEffect(() => {
+    if (!editing) return;
+    const p = path;
+    void ipc.editorOpen(p).catch(() => {});
+    const un = registerLive(p, (ops) => {
+      const ed = edRef.current;
+      const s = saver.current;
+      if (!ed || !s) return;
+      const r = transform(p, ed.text(), ops as TextOp[]);
+      if (r.kind !== 'bytes') return;
+      ed.reload(r.text);
+      ed.markSaved(diskTextRef.current);
+      s.changed();
+    });
+    return () => { un(); void ipc.editorClose(p).catch(() => {}); };
+  }, [path, editing]);
 
   // ------------------------------------------------------------------ note-ready and the first focus
   const readyFor = useRef<string | null>(null);
@@ -590,7 +681,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
 
   return (
-    <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined}>
+    <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
       {!focusMode && (
         <div className="note-toolbar" role="toolbar" aria-label={t('note.toolbar')}>
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
@@ -628,7 +719,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             </span>
           </h1>
         ) : editable && !showSource ? (
-          <h1 className="note-title">
+          <h1 className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
               elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
@@ -735,10 +826,22 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   return (
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
-      id={id} role="textbox" aria-label={label} aria-level={1} tabIndex={-1} className="title-field" data-user-content
+      id={id} role="textbox" aria-label={label} tabIndex={-1} className="title-field" data-user-content
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onBlur={onLeave}
+      // An accessibility press (VoiceOver, UI automation) clicks without focusing the field: focus it, caret at the end.
+      onClick={(e) => {
+        const el = e.currentTarget;
+        if (document.activeElement === el) return;
+        el.focus();
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(r);
+      }}
       onPaste={(e) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain').replace(/\s*\n\s*/g, ' ');
