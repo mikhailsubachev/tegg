@@ -395,7 +395,7 @@ test.describe('strings and themes (Europe/Prague)', () => {
     const menu = await page.getByRole('menu').allInnerTexts();
     if (menu.some((t) => t.replace(/⟦[^⟦⟧]*⟧/g, '').match(/\p{L}/u))) fails.push(`menu: ${menu.join(' | ')}`);
     await page.keyboard.press('Escape');
-    await (await must(views(page).getByRole('tab', { name: '⟦Kanban⟧' }), 'tab ⟦Kanban⟧')).click();
+    await (await must(main(page).getByRole('tablist', { name: '⟦Task views⟧', exact: true }).getByRole('tab', { name: '⟦Kanban⟧' }), 'tab ⟦Kanban⟧')).click();
     await sleep(300);
     const u2 = await unmarked(page);
     if (u2.length) fails.push(`kanban: ${u2.join(' ')}`);

@@ -124,8 +124,9 @@ test('fr_tsk_02_ac12_a_failed_write_and_try_again', async ({ page }) => {
 
 test('fr_tsk_02_ac12_a_read_only_task_is_never_written', async ({ page }) => {
   const core = await startTasks(page);
+  // The invalid byte is in the body, so the frontmatter (and the task) still reads (NFR-REL-03).
   const bytes = new TextEncoder().encode(original(T.t03).replace('Zalít květiny', 'Zalít kytky'));
-  const bad = new Uint8Array([...bytes.slice(0, bytes.length - 1), 0xff, 0x0a]);
+  const bad = new Uint8Array([...bytes, 0x78, 0xff, 0x0a]);
   await core.setFile('Tasks/Zalít kytky.md', bad);
   await gotoTasks(page);
   const c = await must(card(page, 'Zalít kytky'), 'the invalid-UTF-8 copy');

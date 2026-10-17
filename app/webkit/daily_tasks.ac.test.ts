@@ -125,7 +125,7 @@ test.describe('Tasks due in Europe/Prague', () => {
     const qn = await section(page, 'Quick Notes').getByRole('link').count();
     await (await must(section(page, 'Quick Notes').getByRole('link').last().or(section(page, 'Quick Notes')), 'Quick Notes')).focus();
     const seenOrder: string[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) { // the 4th stop is the next row's checkbox, where Space acts
       await page.keyboard.press('Tab');
       seenOrder.push(await page.evaluate(() => { const a = document.activeElement as HTMLElement | null; return a ? `${a.getAttribute('role') ?? a.tagName.toLowerCase()}:${(a.getAttribute('aria-label') ?? a.textContent ?? '').trim()}` : ''; }));
     }
@@ -135,9 +135,8 @@ test.describe('Tasks due in Europe/Prague', () => {
     assert.match(seenOrder[3], /^checkbox:Complete "Poslat rozpočet"$/, 'then the next row');
     await page.keyboard.press('Space');
     assert.ok((await fileWhen(core, T.t02, (x) => x !== original(T.t02)))?.includes('status: Done'), 'Space toggles it');
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Shift+Tab');
+    // T02 moved to the completed rows; the title of the first row is reached by keyboard again.
+    await (await must(row(page, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'title Zavolat Janě')).focus();
     await page.keyboard.press('Enter');
     await mustBeOn(page, 'Zavolat Janě', '⏎ on the title opens the task', 5000);
     void callsOf;

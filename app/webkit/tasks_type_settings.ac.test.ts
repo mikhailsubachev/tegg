@@ -260,7 +260,7 @@ test('fr_tsk_01_ac6_own_attributes_on_task', async ({ page }) => {
   const vault = tasksVault((f) => { f[YML] = `${f[YML]}  - key: projekt\n    name: Projekt\n    type: relation\n    to: [projekt]\n`; });
   const core = await startTasks(page, { vault, at: T.t01 });
   await mustBeOn(page, 'Zavolat Janě', 'T01', 5000);
-  await click(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('combobox', { name: 'Projekt', exact: true }).or(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('button', { name: 'Projekt', exact: true })), 'Projekt relation');
+  await click(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('button', { name: 'Add Projekt', exact: true }), 'Projekt relation (Add Projekt, FR-TYP-02)');
   await page.keyboard.type('Web');
   await sleep(200);
   await page.keyboard.press('Enter');

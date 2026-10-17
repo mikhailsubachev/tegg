@@ -226,13 +226,19 @@ export async function cardsWhen(scope: Locator, want: string[], ms = 2000): Prom
 
 /** Drags `from` onto `to` with pointer events (D-479); `alt` holds Alt during the drag. `during` runs before the drop. */
 export async function drag(page: Page, from: Locator, to: Locator, o: { alt?: boolean; during?: () => Promise<void> } = {}) {
-  const a = await (await must(from, 'drag source')).boundingBox();
-  const b = await (await must(to, 'drop target')).boundingBox();
-  assert.ok(a && b, 'drag source and target are on screen');
+  // The board scrolls sideways (FR-TSK-05 AC-12): bring each end into view before using its box.
+  const src = await must(from, 'drag source');
+  await src.scrollIntoViewIfNeeded();
+  const a = await src.boundingBox();
+  assert.ok(a, 'drag source is on screen');
   if (o.alt) await page.keyboard.down('Alt');
   await page.mouse.move(a!.x + a!.width / 2, a!.y + Math.min(20, a!.height / 2));
   await page.mouse.down();
   await page.mouse.move(a!.x + a!.width / 2 + 10, a!.y + 30, { steps: 4 });
+  const dst = await must(to, 'drop target');
+  await dst.scrollIntoViewIfNeeded();
+  const b = await dst.boundingBox();
+  assert.ok(b, 'drop target is on screen');
   await page.mouse.move(b!.x + b!.width / 2, b!.y + Math.min(b!.height / 2, 120), { steps: 12 });
   if (o.during) await o.during();
   await page.mouse.up();
