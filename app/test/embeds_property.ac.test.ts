@@ -6,9 +6,10 @@
 // number of expanded frames is bounded by the product of embeds per level; the same vault gives the same tree after a
 // rebuild (AR-01). The tree is built in TypeScript only (contract §11.3), so there is no Rust twin.
 // docs/acceptance/embeds.md FR-EMB-04 AC-7. Written from the ACs and the contract only (D-61). Seeds: a fixed seed
-// plus QA_SEED (TS-L2); more runs with EMBEDS_PROPERTY_RUNS. The app package has no fast-check, so cases come from a
-// seeded PRNG (mulberry32); a failure reports its seed and case number.
+// plus QA_SEED (TS-L2); more runs with EMBEDS_PROPERTY_RUNS. fast-check drives the runs (D-438); each case's vault comes
+// from a seeded PRNG (mulberry32) whose seed fast-check generates and reports on failure.
 import { test } from 'vitest';
+import fc from 'fast-check';
 import assert from 'node:assert/strict';
 import { memLoader, resolveIn, hostOf, treeModule, typeDto } from './embeds-helpers';
 
@@ -119,8 +120,11 @@ test('fr_emb_04_ac7_property_embed_trees_terminate_and_follow_the_depth_and_cycl
   const types = [typeDto('page'), typeDto('osoba')];
   const failures: string[] = [];
   for (const seed of SEEDS) {
-    const rnd = mulberry32(seed);
-    for (let run = 0; run < RUNS && failures.length === 0; run++) {
+    let run = 0;
+    await fc.assert(fc.asyncProperty(fc.integer({ min: 0, max: 0x7fffffff }), async (caseSeed) => {
+      run++;
+      const rnd = mulberry32(caseSeed);
+      const before = failures.length;
       const notes = randomVault(rnd);
       const n = notes.length;
       const objs = notes.map((x, i) => ({ path: pathOf(i), id: null, title: title(i), type: x.osoba ? 'osoba' : 'page' }));
@@ -157,11 +161,12 @@ test('fr_emb_04_ac7_property_embed_trees_terminate_and_follow_the_depth_and_cycl
           if (JSON.stringify(actual(again.tree.embeds)) !== JSON.stringify(got)) problems.push('a rebuild gives another tree (AR-01)');
         }
         if (problems.length) {
-          failures.push(`seed ${seed} case ${run} host ${h} of ${JSON.stringify(notes.map((_, i) => textOf(notes, i).split('---\n')[2]))}:\n${problems.join('\n')}`);
+          failures.push(`seed ${seed} case ${run} (case seed ${caseSeed}) host ${h} of ${JSON.stringify(notes.map((_, i) => textOf(notes, i).split('---\n')[2]))}:\n${problems.join('\n')}`);
           break;
         }
       }
-    }
+      return failures.length === before;
+    }), { seed, numRuns: RUNS, endOnFailure: true }).catch((e) => { if (!failures.length) failures.push(String(e).split('\n').slice(0, 4).join('\n')); });
   }
   assert.deepEqual(failures.slice(0, 3), [], `${failures.length} failures`);
 });

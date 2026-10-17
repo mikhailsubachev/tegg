@@ -261,7 +261,8 @@ export async function blockTexts(loc: Locator): Promise<string[]> {
   return loc.first().evaluate((root) =>
     [...root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li')]
       .filter((e) => !e.closest('[data-embed-message]') && !(e.parentElement && e.parentElement.closest('p, li') && e.tagName === 'P' && e.parentElement.closest('li')))
-      .map((e) => ((e as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'))
+      // D-453: WebKit's innerText puts a space after an inline-flex chip; whitespace before punctuation is dropped.
+      .map((e) => ((e as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').replace(/ ([.,;:!?])/g, '$1').trim().normalize('NFC'))
       .filter(Boolean));
 }
 /** Occurrences of `text` in the visible DOM of `scope` (text nodes, NFC). */
@@ -355,7 +356,8 @@ export async function writes(core: FakeCoreHandle, path?: string): Promise<CallR
 }
 /** Paths of every write command (note_write, note_create, …, type_patch) in call order. */
 export async function writePaths(core: FakeCoreHandle): Promise<string[]> {
-  return (await writeCalls(core)).map((c) => (c.cmd === 'type_patch' ? `type:${String((c.args as any)?.key ?? '')}` : pathOf(c)));
+  // D-454: `note_create` has no path argument; the created path is its result.
+  return (await writeCalls(core)).map((c) => (c.cmd === 'type_patch' ? `type:${String((c.args as any)?.key ?? '')}` : c.cmd === 'note_create' ? nfc(String(c.result ?? '')) : pathOf(c)));
 }
 /** The `paths` of every `embed_load` call (ms4-embeds §8). */
 export async function embedLoads(core: FakeCoreHandle): Promise<string[][]> {

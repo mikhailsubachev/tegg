@@ -14,14 +14,19 @@ import { cleanup, render, fireEvent } from '@testing-library/react';
 import { parse } from '@tegg/doc';
 import { computeAccessibleDescription, computeAccessibleName } from 'dom-accessibility-api';
 import { catalog, need } from './read-helpers';
-import { fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
+import { TYPES, fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
 
 const nfc = (s: string) => s.normalize('NFC');
 const name = (e: Element) => nfc(computeAccessibleName(e).trim());
 const desc = (e: Element) => nfc(computeAccessibleDescription(e).trim());
 const text = (e: Element | null) => nfc(e?.textContent ?? '');
 
-beforeEach(async () => { await catalog().catch(() => {}); });
+beforeEach(async () => {
+  await catalog().catch(() => {});
+  // D-451 (AP-353): `Embed` reads type names, preview keys and icons from the app's type store, as the app fills it.
+  const icons = await need('../ui/src/links/icons.ts', 'setChipTypes');
+  icons.setChipTypes(TYPES());
+});
 afterEach(() => cleanup());
 
 // ------------------------------------------------------------------------------------------------ the read view

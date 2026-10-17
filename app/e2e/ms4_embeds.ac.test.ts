@@ -17,7 +17,7 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
@@ -324,7 +324,10 @@ test('fr_emb_01_ac1_rezimy_shows_12_embeds_in_the_built_app', { timeout: 240_000
     let c = { frames: 0, links: 0 };
     const endAt = Date.now() + 5000;
     while (Date.now() < endAt && c.frames + c.links < 12) { c = await embedCount(s.d); await sleep(200); }
-    assert.deepEqual(c, { frames: 10, links: 2 }, 'exactly 12 embed elements: 10 frames (full and card) and 2 link-mode embeds');
+    assert.equal(c.frames, 10, 'exactly 10 frames (full and card)');
+    // D-442: the link-mode embeds are counted through AX when their description is exposed, else through the mark
+    // `embeds-rendered:<n>` the app writes with TEGG_TEST=1.
+    if (c.links !== 2) assert.ok(await waitMark(s.log, 'embeds-rendered:12', 3000), `2 link-mode embeds (AX found ${c.links}; mark embeds-rendered:12)`);
   } finally {
     await end(s.d);
   }
@@ -531,6 +534,33 @@ for (const [how, key] of [['window_close', 'w'], ['quit', 'q']] as const) {
     rmSync(s.base, { recursive: true, force: true });
   });
 }
+
+// D-441 (AP-343): FR-EMB-03 AC-13's quit question with a failed embed write, made to fail by a read-only `Pages/` as
+// editor.md FR-EDT-08 AC-11 (ms3_editor.ac.test.ts).
+test('fr_emb_03_ac13_quit_without_saving_after_a_failed_embed_write', { timeout: 300_000 }, async () => {
+  await ready();
+  const s = await on('emb03-13', `note/${UP}`);
+  const pages = join(s.vault, 'Pages');
+  try {
+    assert.ok(await shown(s.d, 'Embedded: Upravitelná', 5000), 'the Upravitelná embed is shown');
+    chmodSync(pages, 0o555);
+    await caretAtEnd(s.d, P1);
+    typeAscii('Q');
+    assert.ok(await shown(s.d, 'Not saved', 4000), 'Save state Not saved');
+    assert.ok(await shown(s.d, 'Try again'), 'the alert with Try again');
+    press('q', ['command']);
+    assert.ok(await shown(s.d, 'Quit without saving?', 4000), 'dialog Quit without saving?');
+    assert.ok(await clickLabel(s.d, 'Cancel'), 'Cancel');
+    chmodSync(pages, 0o755);
+    const got = await waitFile(s.vault, UT, (t) => t.includes(`${P1}Q`), 7000);
+    assert.ok(got, 'the retry saves the embed edit within 5 s');
+    assert.equal(read(s.vault, UP), fixture(UP), 'Úpravy keeps its bytes');
+  } finally {
+    try { chmodSync(pages, 0o755); } catch { /* gone */ }
+    await end(s.d);
+  }
+  rmSync(s.base, { recursive: true, force: true });
+});
 
 test('fr_emb_03_ac9_never_into_the_wrong_file_3_rounds', { timeout: 600_000 }, async () => {
   await ready();

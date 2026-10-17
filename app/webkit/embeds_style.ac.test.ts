@@ -63,7 +63,8 @@ for (const theme of ['light', 'dark'] as const) {
         if (b.icon !== want) bad.push(`${what}: data-icon ${b.icon} ≠ ${want}`);
         const title = e.label.replace(/^Embedded: /, '');
         if (!(await headerText(el)).includes(title)) bad.push(`${what}: title "${title}" not in the header`);
-        if (!(await seen(openButton(el, title), 300))) bad.push(`${what}: no Open ${title}`);
+        const note = title.split(' › ')[0]; // D-452: `Open <note title>`, without the heading
+        if (!(await seen(openButton(el, note), 300))) bad.push(`${what}: no Open ${note}`);
       }
     }
     assert.deepEqual(bad, [], 'every full and card frame is a bordered block with the embed tokens, icon, title and Open');

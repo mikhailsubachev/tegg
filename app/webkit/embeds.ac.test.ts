@@ -400,7 +400,8 @@ test('fr_emb_01_ac9_typed_embed_becomes_an_embed', async ({ page }) => {
   await page.keyboard.press('Enter');
   await page.keyboard.type('![[obrázek.png]]');
   await must(editorBody(page).locator('[data-placeholder="embed-image"]'), 'embed-image placeholder', 3000);
-  assert.equal((await core.calls()).filter((c) => c.cmd !== 'link_resolve' && c.cmd !== 'note_write' && JSON.stringify(c.args ?? '').includes('obrázek')).length, 0, 'no file read for the image');
+  // D-455: file reads are embed_load and note_read; the `![[` autocomplete's switcher search reads no file.
+  assert.equal((await core.calls()).filter((c) => (c.cmd === 'embed_load' || c.cmd === 'note_read') && JSON.stringify(c.args ?? '').includes('obrázek')).length, 0, 'no file read for the image');
 });
 
 test('fr_emb_01_ac9_bang_brackets_suggestions_write_an_embed', async ({ page }) => {
@@ -902,9 +903,12 @@ test('fr_emb_02_ac9_cmd_enter_on_a_selected_embed_and_back_keeps_scroll', async 
     while (s && !(s.scrollHeight > s.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(s).overflowY))) s = s.parentElement;
     return s ? s.scrollTop : -1;
   });
-  const before = await scrollTop();
+  const openLast = await must(openButton(last, 'Cíl'), 'Open Cíl on the last embed');
+  // D-457: Back restores what was on screen when the click landed (Playwright may scroll the button first).
+  await page.evaluate(() => { const w = window as any; w.__atClick = null; window.addEventListener('mousedown', () => { let s: Element | null = document.querySelector('main [data-embed-mode]'); while (s && !(s.scrollHeight > s.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(s).overflowY))) s = s.parentElement; w.__atClick = s ? s.scrollTop : -1; }, { capture: true, once: true }); });
+  await openLast.click();
+  const before = await page.evaluate(() => (window as any).__atClick as number);
   assert.ok(before > 0, 'Režimy is scrolled');
-  await (await must(openButton(last, 'Cíl'), 'Open Cíl on the last embed')).click();
   await mustBeOn(page, 'Cíl', 'opens Cíl');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
@@ -937,7 +941,11 @@ async function scrolled(page: Page): Promise<number> {
 async function midScroll(page: Page) {
   await page.setViewportSize({ width: 1440, height: 600 });
   await (await needTop(main(page), 5, 'a middle embed')).scrollIntoViewIfNeeded();
-  return scrolled(page);
+  return onScreen(page);
+}
+/** D-456: where the middle embed is on screen (WebKit's scroll anchoring keeps it there when content above grows). */
+async function onScreen(page: Page): Promise<number> {
+  return topEmbed(main(page), 5).evaluate((e) => e.getBoundingClientRect().top);
 }
 
 test('fr_emb_02_ac10_live_update_appended_paragraph', async ({ page }) => {
@@ -949,7 +957,7 @@ test('fr_emb_02_ac10_live_update_appended_paragraph', async ({ page }) => {
     const last = await eventually(async () => (await blockTexts(embedBody(topEmbed(main(page), i))).catch(() => [] as string[])).pop(), (x) => x === 'Nový odstavec.', 2000);
     assert.equal(last, 'Nový odstavec.', `full Cíl frame ${i + 1} ends with the new paragraph within 2 s`);
   }
-  assert.ok(Math.abs((await scrolled(page)) - s0) <= 2, 'scroll position kept');
+  assert.ok(Math.abs((await onScreen(page)) - s0) <= 2, 'scroll position kept (the content on screen stays put, D-456)');
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });
 
@@ -999,7 +1007,7 @@ test('fr_emb_02_ac10_live_update_type_default', async ({ page }) => {
   await core.setFile(M.receptYml, swap(original(M.receptYml), 'embed: full\n', 'embed: card\n'));
   const l = await eventually(() => topEmbeds(main(page)), (x) => x[3]?.mode === 'card', 2000);
   assert.equal(l[3]?.mode, 'card', 'Svíčková re-renders as a card within 2 s');
-  assert.ok(Math.abs((await scrolled(page)) - s0) <= 2, 'scroll position kept');
+  assert.ok(Math.abs((await onScreen(page)) - s0) <= 2, 'scroll position kept (the content on screen stays put, D-456)');
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });
 
@@ -1176,7 +1184,8 @@ async function leaks(page: Page): Promise<string[]> {
       };
       walk(root);
       const label = root.getAttribute('aria-label');
-      if (label && root.getAttribute('data-embed-mode') !== 'link' && !/⟦/.test(label)) out.push(`aria-label ${label}`);
+      // D-458: a broken frame is named by its target as written (R30), user content.
+      if (label && root.getAttribute('data-embed-mode') !== 'link' && root.getAttribute('data-embed-state') !== 'broken' && !/⟦/.test(label)) out.push(`aria-label ${label}`);
     }
     return out;
   }, [...USER]);

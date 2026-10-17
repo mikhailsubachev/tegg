@@ -77,8 +77,15 @@ export class EmbedStore {
       return;
     }
     if (gen !== this.building) return;
+    // D-456: what is on screen stays put while the embeds above it change size.
+    const keep = keepOnScreen();
     this.snap = { tree, version: this.snap.version + 1 };
     for (const f of [...this.listeners]) f();
+    keep();
+    // D-442: with TEGG_TEST=1 the real-app tests count the open note's embeds through this mark.
+    if ((window as { __TEGG_TEST_MODE__?: boolean }).__TEGG_TEST_MODE__) {
+      requestAnimationFrame(() => void ipc.perfMark(`embeds-rendered:${tree.embeds.length}`).catch(() => {}));
+    }
     if (!this.painted) {
       this.painted = true;
       // D-429: every depth-1 embed's content has painted (report-only in MS4).
@@ -158,4 +165,24 @@ export class EmbedStore {
   stateChanged() {
     for (const f of [...this.stateListeners]) f();
   }
+}
+
+/** Notes the first body block on screen and, once the change has painted, scrolls so it is where it was (D-456). */
+function keepOnScreen(): () => void {
+  const main = typeof document !== 'undefined' ? document.querySelector('main') : null;
+  if (!main || main.scrollTop === 0) return () => {};
+  const top = main.getBoundingClientRect().top;
+  const blocks = [...main.querySelectorAll<HTMLElement>('.editor-host .ProseMirror > *, article.read-view > *')];
+  // The first block that starts on screen: a block cut by the top edge may itself be the one changing size.
+  const anchor = blocks.find((b) => b.getBoundingClientRect().top >= top - 1) ?? blocks.find((b) => b.getBoundingClientRect().bottom > top + 1);
+  if (!anchor) return () => {};
+  const before = anchor.getBoundingClientRect().top;
+  return () => {
+    const fix = () => {
+      if (!anchor.isConnected) return;
+      const d = anchor.getBoundingClientRect().top - before;
+      if (Math.abs(d) > 1) main.scrollTop += d;
+    };
+    requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); setTimeout(fix, 150); });
+  };
 }
