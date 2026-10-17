@@ -110,6 +110,9 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
         (**self).rename_no_replace(from, to)
     }
+    fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
+        (**self).rename_case(from, to)
+    }
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
         (**self).create_dir_all(path)
     }
