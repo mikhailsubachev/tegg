@@ -284,7 +284,7 @@ function main(argv: string[]): number {
     }
     case 'coverage': {
       const results = option(args, '--results') ?? path.join(root, '.verify', 'last-results');
-      console.log(`verify: wrote ${path.relative(root, writeReport(root, path.resolve(results)))}`);
+      console.log(`verify: wrote ${path.relative(root, writeReport(root, path.resolve(results), cfg.realAppTests))}`);
       return 0;
     }
     case 'check-red': {

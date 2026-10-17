@@ -154,4 +154,4 @@ export function typeMatch(value: unknown): { key: string; single: boolean } {
 
 // ---------------------------------------------------------------- slice 4B (ms4-daily §1, §5, §6)
 
-export { parseDate, localDate, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder } from './daily.js'
+export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder } from './daily.js'

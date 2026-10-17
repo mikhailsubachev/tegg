@@ -227,6 +227,8 @@ It implements every command of ms2-shell §2 and §2 above with `@tauri-apps/api
 
 The 3A real-app suite uses the test build with `TEGG_TEST=1`, `TEGG_APP_SUPPORT` in a temp dir, `TEGG_VAULT` set to a temp copy of the fixture (or unset for chooser cases), `TEGG_TEST_PICK_DIR` for folder choices, and `TEGG_THEME` where a case needs a theme without the stored one. It waits on `route-ready:` marks. Vault immutability (FR-SYN-06 AC-5) is checked by bytes, mtime and inode of every file before and after.
 
+- **`TZ` (D-382 run):** WebKit's content process doesn't inherit the app's environment, so with `TEGG_TEST=1` the core passes `TZ` to the UI before the first paint (`window.__TEGG_TZ__`); every local date and stamp in the UI is computed in that zone (`ui/src/zone.ts`), else in the Mac's zone.
+
 ## 7. Fixtures
 
 - `tests/fixtures/vaults/shell/` (synthetic, D-50), with `tests/fixtures/vaults/new-empty/.tegg/` copied in. Contents: `app-shell.md` fixture table.

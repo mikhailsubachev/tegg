@@ -15,6 +15,8 @@ export type Config = {
   acTestPatterns: RegExp[];
   acRunners: AcRunner[];
   budgets: Partial<Record<Gate, number>>;
+  /** Directory prefixes of real-app (L6) test sources for the l6-coverage check (CONTRACT §9.5, D-382). */
+  realAppTests: string[];
 };
 
 export const DEFAULT_AC_TEST_PATTERNS = ['\\.ac\\.test\\.tsx?$', '(^|/)tests/ac_[^/]+\\.rs$'];
@@ -58,7 +60,9 @@ export function loadConfig(root: string): Config {
     if (typeof r?.run !== 'string') throw new UsageError(`qa.config.json: acRunners[${i}] needs "run"`);
     return { dir: r.dir ?? '.', match: regex(r.match, `acRunners[${i}].match`), run: r.run };
   });
-  return { steps, acTestPatterns, acRunners, budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) } };
+  const realAppTests = raw.realAppTests ?? [];
+  if (!Array.isArray(realAppTests) || realAppTests.some((p: unknown) => typeof p !== 'string')) throw new UsageError('qa.config.json: realAppTests must be an array of strings');
+  return { steps, acTestPatterns, acRunners, budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) }, realAppTests };
 }
 
 export function isAcTestFile(cfg: Config, repoPath: string): boolean {

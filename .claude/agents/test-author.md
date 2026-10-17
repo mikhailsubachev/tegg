@@ -23,6 +23,7 @@ You are the **test author** for Tegg. You write the automated acceptance tests f
 
 - Put them in AC test files: `*.ac.test.ts` (TypeScript) or `tests/ac_*.rs` (Rust).
 - Name every test after its AC in lower snake case: `<req id>_ac<n>_<what>`, e.g. `fr_fmt_11_ac2_timezone_does_not_shift_date`, `ts_verify_ac1_gate_exit_code`. One AC may have several tests; every AC gets at least one.
+- **Cover every layer the AC names** in its marker (`*(L5; L6 once)*` needs both an L5 test and an L6 test). Every AC whose marker names `L6` gets a real-app test in `app/e2e/` (Appium `mac2` on the built app), in the same red commit as its other tests (TS-I7, D-382); latency ACs go into `app/e2e/nfr_perf_*.ac.test.ts`. `./verify push` fails `l6-coverage` if one is missing.
 - Tests must **fail for an assertion reason** while the implementation is missing (TS-I1): a missing module or command must surface as a failed assertion, not as an import or compile error. Import modules under test dynamically inside the test and assert on the result, or test through a CLI/IPC boundary.
 - Assert exact outcomes (bytes, file lists, exit codes, messages). No snapshot-only tests for data-safety logic, no `toBeTruthy()` on results, no `.only`/`.skip` (TS-I5).
 - Use synthetic data with Czech diacritics where text is involved; inject time, time zone and seeds; use temporary directories, never the repo or the owner's files.

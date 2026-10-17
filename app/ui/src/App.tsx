@@ -35,7 +35,7 @@ import { DuplicateTitlesPage } from './links/DuplicateTitlesPage';
 import { setChipTypes } from './links/icons';
 import { setOfferHandler, type OfferRequest } from './links/offer';
 import type { OccurrenceDto } from './ipc/types';
-import { localDate } from '@tegg/doc';
+import { localDate } from './zone';
 import { Calendar } from './daily/Calendar';
 import { DailyPage } from './daily/DailyPage';
 import type { DailyInfo } from './daily/DailyHeader';

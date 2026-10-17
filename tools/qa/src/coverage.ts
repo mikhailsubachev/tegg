@@ -10,8 +10,15 @@ export type Ac = {
   manual: boolean;
   /** D-94: milestone that verifies this AC (`[MS2]` after the label), if deferred. */
   milestone?: string;
+  /** D-382: a layer marker `*(…)*` on the criterion line names L6 (CONTRACT §9.5). */
+  realApp: boolean;
   file: string; // repository-relative acceptance file
 };
+
+/** A layer marker `*(L5; L6 once)*` naming L6 makes the AC a real-app AC (CONTRACT §9.5). */
+function realApp(line: string): boolean {
+  return [...line.matchAll(/\*\(([^)]*)\)\*/g)].some((m) => /\bL6\b/.test(m[1]));
+}
 
 /** Markers directly after an AC label: `[manual]` and/or `[MS<n>]`, in any order (CONTRACT §9.1). */
 const MARKERS = String.raw`((?:\s*\[(?:manual|MS\d+)\])*)`;
@@ -63,18 +70,18 @@ export function parseAcs(root: string): Ac[] {
       // The marker follows the AC label directly: `- **AC-5** [manual] …` (a mention elsewhere in the text doesn't count).
       const ac = new RegExp(String.raw`^- \*\*AC-(\d+)\*\*` + MARKERS).exec(line);
       if (ac && ids.length > 0) {
-        acs.push({ id: `${ids[0]}/AC-${ac[1]}`, aliases: ids.slice(1).map((i) => `${i}/AC-${ac[1]}`), ...markers(ac[2]), file });
+        acs.push({ id: `${ids[0]}/AC-${ac[1]}`, aliases: ids.slice(1).map((i) => `${i}/AC-${ac[1]}`), ...markers(ac[2]), realApp: realApp(line), file });
         continue;
       }
       // Table criterion: a row whose first cell is exactly a requirement ID (performance.md targets).
       const row = /^\|\s*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s*\|/.exec(line);
       if (row && !acs.some((a) => a.id === `${row[1]}/AC-1`)) {
-        acs.push({ id: `${row[1]}/AC-1`, aliases: [], manual: false, file });
+        acs.push({ id: `${row[1]}/AC-1`, aliases: [], manual: false, realApp: false, file });
         continue;
       }
       // Explicit form used outside headings, e.g. `- **NFR-PERF-02/AC-2** …` in performance.md.
       const explicit = new RegExp(String.raw`^- \*\*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\/AC-(\d+)\*\*` + MARKERS).exec(line);
-      if (explicit) acs.push({ id: `${explicit[1]}/AC-${explicit[2]}`, aliases: [], ...markers(explicit[3]), file });
+      if (explicit) acs.push({ id: `${explicit[1]}/AC-${explicit[2]}`, aliases: [], ...markers(explicit[3]), realApp: realApp(line), file });
     }
   }
   return acs;
@@ -149,9 +156,14 @@ export type AcStatus = {
   text: string;
 };
 
-export type Coverage = { statuses: AcStatus[]; orphans: Array<{ key: string; file: string }> };
+export type Coverage = {
+  statuses: AcStatus[];
+  orphans: Array<{ key: string; file: string }>;
+  /** Real-app ACs tested elsewhere but not under a `realAppTests` prefix (CONTRACT §9.5). */
+  l6Missing: string[];
+};
 
-export function computeCoverage(root: string, resultsDir: string): Coverage {
+export function computeCoverage(root: string, resultsDir: string, realAppTests: string[] = []): Coverage {
   const acs = parseAcs(root);
   const keyToAc = new Map<string, Ac>();
   for (const ac of acs) for (const id of [ac.id, ...ac.aliases]) keyToAc.set(acKey(id), ac);
@@ -194,7 +206,16 @@ export function computeCoverage(root: string, resultsDir: string): Coverage {
     else status = 'not run';
     return { ac, sources, status, text: status };
   });
-  return { statuses, orphans };
+  const l6Missing = realAppTests.length === 0 ? [] : statuses
+    .filter((s) => s.ac.realApp && s.sources.length > 0 && !s.sources.some((f) => realAppTests.some((p) => f.startsWith(p))))
+    .map((s) => s.ac.id)
+    .sort();
+  return { statuses, orphans, l6Missing };
+}
+
+/** The l6-coverage check's messages (CONTRACT §9.5, D-382). */
+export function l6Problems(root: string, realAppTests: string[]): string[] {
+  return computeCoverage(root, '', realAppTests).l6Missing.map((id) => `${id}: no real-app test in ${realAppTests.join(', ')}`);
 }
 
 export function renderReport(cov: Coverage): string {
@@ -207,15 +228,17 @@ export function renderReport(cov: Coverage): string {
   for (const s of cov.statuses.filter((x) => x.status === 'untested')) lines.push(`- ${s.ac.id}`);
   lines.push('', '## Orphan tests', '');
   for (const o of cov.orphans) lines.push(`- ${o.key} in ${o.file}`);
+  lines.push('', '## Real-app ACs without an L6 test', '');
+  for (const id of cov.l6Missing) lines.push(`- ${id}`);
   lines.push('', '## Manual ACs', '');
   for (const s of cov.statuses.filter((x) => x.ac.manual)) lines.push(`- ${s.ac.id}: ${s.text}`);
   return lines.join('\n') + '\n';
 }
 
-export function writeReport(root: string, resultsDir: string): string {
+export function writeReport(root: string, resultsDir: string, realAppTests: string[] = []): string {
   const out = path.join(root, 'qa', 'coverage', 'ac-matrix.md');
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, renderReport(computeCoverage(root, resultsDir)));
+  fs.writeFileSync(out, renderReport(computeCoverage(root, resultsDir, realAppTests)));
   return out;
 }
 

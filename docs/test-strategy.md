@@ -140,6 +140,7 @@ Core services against **temporary vaults on APFS** (`$TMPDIR`), never mocks of t
   - quit flushes pending edits (FR-EDT-08/AC-3);
   - online-only warning;
   - window and tab restore.
+- **Every slice adds to the suite (TS-I7, D-382):** an AC with `L6` in its layer marker gets an `app/e2e/` test in the slice's red commit, next to its L4/L5 tests; the push gate's `l6-coverage` check enforces it.
 - **Network check (NFR-SEC-01):** during every L6 run, a monitor samples `lsof -i -a -p <app pids>` and fails on any socket other than local IPC.
 - **Feasibility is unproven:** driving content inside a WKWebView through accessibility may be limited. **Spike S3 must prove** hotkey, menu bar and capture-window automation, and a basic in-webview interaction, before we rely on L6 (exit criterion in §10.1).
 
@@ -222,6 +223,7 @@ Defined as Claude Code subagents in `.claude/agents/`. Each runs in its **own co
 | TS-I4 | **Mutation testing** (Stryker for TS, `cargo-mutants` for Rust) on T1/T2 modules catches tests that pass whatever the code does. Thresholds in §11 (D-61).                                         |
 | TS-I5 | **No weak assertions.** The reviewer flags snapshot-only tests for T1 logic, `expect(...).toBeTruthy()` on results, skipped/`only` tests, and broadened tolerances.                                               |
 | TS-I6 | **Coverage by AC, not by line.** Line coverage is reported but not a gate; the gate is "every AC of the milestone has a passing test" (§7).                                                                     |
+| TS-I7 | **Every slice ships its real-app tests** (D-382). The red AC tests of a slice include an `app/e2e/` (L6) test for every AC whose layer marker names L6; `./verify push` fails `l6-coverage` when such an AC is tested only at lower layers (TS-COV AC-6). |
 
 ---
 
@@ -232,6 +234,7 @@ Defined as Claude Code subagents in `.claude/agents/`. Each runs in its **own co
   - **untested** ACs;
   - tests pointing at ACs that no longer exist;
   - `[manual]` ACs and their latest session record.
+  - L6 ACs that have tests at lower layers but no real-app test (TS-I7).
 - `[manual]` ACs count as covered only with a session record (L7) or a manual checklist entry (L8) for the current milestone.
 - Commit messages, PR descriptions and issues cite requirement IDs (CLAUDE.md). The reviewer checks that changed code paths have the relevant IDs.
 

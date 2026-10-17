@@ -177,7 +177,8 @@ function embedPlaceholder(c: Ctx, value: string, inline: boolean): ReactNode {
       {info?.path ? (
         <Chip kind={info.kind} name={name} type={info.type} onActivate={() => c.onOpen(info.path!, subpath ?? undefined)} />
       ) : (
-        <Chip kind="unresolved" name={name} type={null} description={t('link.noNote', { target })} />
+        <Chip kind="unresolved" name={name} type={null} description={t('link.noNote', { target })}
+          onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} /> // D-310
       )}
     </InNotePlaceholder>
   );

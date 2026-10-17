@@ -27,6 +27,35 @@ export function localDate(nowMs: number, timeZone?: string): string {
   return iso(get('year'), get('month'), get('day'))
 }
 
+function wall(nowMs: number, timeZone?: string): number[] {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(nowMs))
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+  return [get('year'), get('month'), get('day'), get('hour'), get('minute'), get('second')]
+}
+
+/** Offset of `timeZone` at `nowMs`, in minutes east of UTC. */
+function offsetMinutes(nowMs: number, timeZone?: string): number {
+  const [y, mo, d, h, mi, s] = wall(nowMs, timeZone)
+  return Math.round((Date.UTC(y, mo - 1, d, h, mi, s) - Math.floor(nowMs / 1000) * 1000) / 60_000)
+}
+
+const offsetText = (off: number) => `${off >= 0 ? '+' : '-'}${pad(Math.trunc(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`
+
+/** FR-FMT-11: `nowMs` as ISO 8601 local time with the offset of `timeZone` (default: the current `Intl` zone). */
+export function localIso(nowMs: number, timeZone?: string): string {
+  const [y, mo, d, h, mi, s] = wall(nowMs, timeZone)
+  return `${iso(y, mo, d)}T${pad(h)}:${pad(mi)}:${pad(s)}${offsetText(offsetMinutes(nowMs, timeZone))}`
+}
+
+/** Local midnight of `date` in `timeZone` as RFC 3339 with that instant's offset (a DST day is 23 or 25 h). */
+export function localMidnight(date: string, timeZone?: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const utc = Date.UTC(y, m - 1, d)
+  let off = offsetMinutes(utc, timeZone)
+  off = offsetMinutes(utc - off * 60_000, timeZone)
+  return `${date}T00:00:00${offsetText(off)}`
+}
+
 /** §1: calendar-day arithmetic, no time involved (FR-DLY-03 AC-1). */
 export function addDays(date: string, n: number): string {
   const [y, m, d] = date.split('-').map(Number)

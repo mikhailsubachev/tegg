@@ -84,5 +84,6 @@
     { "dir": "app", "match": "^app/e2e/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],
+  "realAppTests": ["app/e2e/"],
   "budgets": { "commit": 60, "push": 600, "nightly": 5400 }
 }

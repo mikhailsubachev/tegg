@@ -3,6 +3,7 @@
 // and a time in the machine's zone, written with that moment's offset; a time that doesn't exist is refused. A date
 // range is one row with two date fields, committed together (FR-TYP-02 AC-3).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { localDate } from '../../zone';
 import { parseDate, parseDateRange, parseDateTime } from '@tegg/schema';
 import { t } from '../../i18n/catalog';
 import { dateText, dateTimeParts, locale, rawText } from '../util';
@@ -13,7 +14,7 @@ const isYmd = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2
 
 /** The `Choose date` dialog: a month grid; ←/→/↑/↓ move, ⏎ chooses, Esc closes (focus back to the opener). */
 export function DatePicker({ value, onPick, onClose, anchor }: { value: string | null; onPick: (ymd: string) => void; onClose: () => void; anchor: HTMLElement | null }) {
-  const start = isYmd(value) ? value : (() => { const d = new Date(Date.now()); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
+  const start = isYmd(value) ? value : localDate(Date.now());
   const [month, setMonth] = useState(() => ({ y: +start.slice(0, 4), m: +start.slice(5, 7) }));
   const [day, setDay] = useState(+start.slice(8, 10));
   const ref = useRef<HTMLDivElement | null>(null);

@@ -1131,7 +1131,7 @@ fn region_locale() -> Option<String> {
 }
 
 /// Set before the UI's first paint (ms3-shell §3.5, §3.6, §10): the stored theme, the region locale, and in the
-/// test environment the start route.
+/// test environment the start route and the time zone (`TZ`).
 fn init_script(dirs: &AppDirs) -> String {
     let mut ui = load_ui_state(dirs);
     if let Some(theme) = test_var("TEGG_THEME").filter(|t| ["system", "light", "dark"].contains(&t.as_str())) {
@@ -1139,11 +1139,13 @@ fn init_script(dirs: &AppDirs) -> String {
     }
     let route = test_var("TEGG_ROUTE");
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {};",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
         std::env::var("TEGG_TEST").as_deref() == Ok("1"),
+        // L6 time-zone runs: WebKit's content process doesn't inherit TZ, so the UI gets the zone here (D-382 run).
+        serde_json::to_string(&test_var("TZ")).unwrap_or_else(|_| "null".into()),
     )
 }
 

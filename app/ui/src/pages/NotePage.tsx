@@ -3,6 +3,9 @@
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
+import { restampDraft } from '../daily/stamp';
+import { noteReady } from '../readiness';
+import { localIso } from '../zone';
 import { fixDailyTitle, parse, parseDate, setValue } from '@tegg/doc';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
@@ -77,9 +80,8 @@ const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
 const reviewOf = (fm: unknown): boolean => String((fm as Record<string, unknown> | null)?.review ?? '').trim() === 'reviewed';
 
 function stamp(): string {
-  const d = new Date(Date.now());
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}`;
+  const t = localIso(Date.now()); // the app's zone (zone.ts)
+  return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
 export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
@@ -237,7 +239,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     const d = live.current.daily;
     if (d) {
       s.transform = fixDailyTitle; // D-334
-      if (d.virtual) s.create = (text) => live.current.daily!.onCreate(text);
+      if (d.virtual) {
+        const stamp = d.virtual.stamp;
+        s.create = (text) => live.current.daily!.onCreate(text);
+        // ms4-daily §3: the first write carries the write time, not the time the virtual note opened.
+        s.transform = (text) => fixDailyTitle(s.create ? restampDraft(text, stamp, localIso(Date.now())) : text);
+      }
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() } };
@@ -245,6 +252,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     requestAnimationFrame(() => {
       placeFocus.current(); // D-247: the caret goes in once the editor is ready
       void ipc.perfMark('note-ready').catch(() => {}); // NFR-PERF-05 AC-4: mounted, editable, caret placed
+      noteReady();
     });
   }, [path]);
 
@@ -491,7 +499,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       onRestored?.();
       placeFocus.current();
       // NFR-PERF-05 AC-4 (D-247): an editable note is ready once the editor is mounted and the caret placed (onEditor).
-      if (loaded.mode !== 'edit') void ipc.perfMark('note-ready').catch(() => {});
+      if (loaded.mode !== 'edit') {
+        void ipc.perfMark('note-ready').catch(() => {});
+        noteReady();
+      }
     });
   }, [loaded, fragment, path]);
 

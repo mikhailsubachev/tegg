@@ -15,15 +15,15 @@ let warnedBy: object | null = null;
 
 type State = {
   path: string;
-  virtual: { text: string; raw: string } | null;
+  virtual: { text: string; raw: string; stamp: string } | null;
   duplicates: string[];
   messages: string[];
   /** Remounts the note page: a different note (or a new draft) is shown. */
   gen: number;
 };
 
-/** The draft's placeholders filled when the virtual note opens (§4, D-324). */
-const fill = (d: DailyDraftDto) => d.text.replace('{{id}}', ulid(Date.now())).split('{{now}}').join(localIso(new Date(Date.now())));
+/** The draft's placeholders filled when the virtual note opens (§4, D-324); the first write restamps (stamp.ts). */
+const fill = (d: DailyDraftDto, stamp: string) => d.text.replace('{{id}}', ulid(Date.now())).split('{{now}}').join(stamp);
 
 export function DailyPage({ date, refresh, apiRef, render, nav }: {
   date: string;
@@ -71,7 +71,8 @@ export function DailyPage({ date, refresh, apiRef, render, nav }: {
       if (cur.messages.join() !== messages.join()) setS({ ...cur, messages });
       return;
     }
-    setS({ path: d.path, virtual: { text: fill(d), raw: d.text }, duplicates: [], messages, gen: (cur?.gen ?? 0) + 1 });
+    const stamp = localIso(new Date(Date.now()));
+    setS({ path: d.path, virtual: { text: fill(d, stamp), raw: d.text, stamp }, duplicates: [], messages, gen: (cur?.gen ?? 0) + 1 });
   };
   const updateRef = useRef(update);
   updateRef.current = update;

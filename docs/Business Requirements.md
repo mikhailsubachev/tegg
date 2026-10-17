@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.58, for review                                             |
+| **Document status** | Draft v1.59, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -74,6 +74,7 @@
 | v1.56   | 2026-10-16 | Daily-use MVP plan, decisions D-370…D-377 (AP-a…AP-h, `docs/plans/mvp-daily-use-plan.md`): tag colour, task board/calendar, type moves and schema rewrites (4E), Obsidian import, responsive layout and six Should items move to v1.0; mindmaps move in; the importer follows the daily-use point. §11 and §11.2 updated. |
 | v1.57   | 2026-10-16 | D-378: the task board (FR-TSK-05) is back in the MVP, in slice 5A, with the owner's Schedule and Kanban designs (`design/edit-note-page/Tasks.dc.html`, `TasksBoard.dc.html`); supersedes the board part of D-371. Open points from the designs: AP-i…AP-k (`docs/plans/mvp-design-review.md` §5). |
 | v1.58   | 2026-10-16 | D-379…D-381 (AP-i…AP-k, the owner's Tasks boards): Schedule sections replace the FR-TSK-04 view list, quick-add tokens in FR-TSK-10, recurrence badge stays v1.0. |
+| v1.59   | 2026-10-16 | D-382: every slice ships the real-app (L6) tests of its ACs; `./verify push` enforces it with the `l6-coverage` check (TS-I7, TS-COV AC-6). |
 
 ---
 
@@ -498,6 +499,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-379 | Schedule sections replace the task view list (AP-i, owner, 2026-10-16) | FR-TSK-04's Schedule view has the sections **Today & overdue** (overdue first, red), **This week** (one group per remaining day), **Later**, **Not scheduled** (open tasks without `due`) and **Done** (collapsed; newest first). Filters **All / Today / This week** and a tag filter apply to the Schedule and the Kanban (D-378). *All open* is the Schedule with the All filter; *By source* is the source chip on every card and the Kanban's columns; *Upcoming* is This week + Later. Each view is still a saved query underneath (edit and duplicate with FR-QRY, v1.0) |
 | D-380 | Quick-add tokens (AP-j, owner, 2026-10-16) | The quick-add row (FR-TSK-10) parses, at the end of the title only: `#tag` (existing or new tag, FR-TAG-03), `!high` / `!medium` / `!low` (priority labels as defined on the Task type, FR-TSK-03, matched case-insensitively), and one date word: `today`, `tomorrow` or a weekday name (the next such day). Tokens are removed from the title; anything else stays in the title verbatim. The row shows the parsed due date and priority before ↩. The section the row sits in presets the due date (Today & overdue → today, This week → the last shown day, Not scheduled → none) |
 | D-381 | Recurrence badge stays v1.0 (AP-k, owner, 2026-10-16) | The `monthly` / `weekly` badges on task cards and the Done hint about recurring instances belong to FR-TSK-07 (v1.0) and stay on the boards dimmed as a v1.0 marker; slice 5A shows no recurrence and writes no `recurrence` key |
+| D-382 | Real-app tests in every slice (TS-I7; owner, 2026-10-16) | Slices 4A and 4B and the D-369 feedback shipped without the L6 part of five ACs (FR-LNK-04 AC-5, AC-12, FR-DLY-02 AC-2, FR-DLY-04 AC-6, FR-TYP-07 AC-11), because the coverage report counted an AC as tested when any layer referenced it. From now on the red AC tests of a slice include an `app/e2e/` test for every AC whose layer marker names L6, and `./verify push` fails the `l6-coverage` check when an L6 AC is tested elsewhere but not in `app/e2e/` (`tools/qa/CONTRACT.md` §9.5). L6 ACs with no test yet (deferred, e.g. `[MS8]` benchmarks) don't fail it. The five missing tests were added with owner approval (`AC-Test-Change`). |
 
 ---
 
