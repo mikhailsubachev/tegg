@@ -1,0 +1,4 @@
+---
+title: Šablona
+---
+Šablonový text.

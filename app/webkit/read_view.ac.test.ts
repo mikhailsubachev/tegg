@@ -401,15 +401,17 @@ test('fr_edt_02_ac13_placeholders_send_nothing_and_note_embed_opens', async ({ p
   await sleep(300);
   const sent = await cmds(core);
   const allowed = new Set(['vault_current', 'vault_last', 'vault_types', 'index_type_counts', 'index_list', 'ui_state_get', 'nav_opened', 'perf_mark', 'note_read', 'link_resolve', 'index_switcher',
-    'index_conflicts']); // 3C: the sidebar's Conflicts count, read when the vault opens (D-177)
+    'index_conflicts', // 3C: the sidebar's Conflicts count, read when the vault opens (D-177)
+    'embed_load']); // 4F (D-431): note embeds load their content; attachments still read nothing
   assert.deepEqual(sent.filter((c) => !allowed.has(c)), [], 'no other IPC command while rendering placeholders');
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));
   assert.deepEqual(reads, [R.odkazy], 'no attachment or embedded note is read');
-  const ph = art.locator('[data-placeholder="embed-note"]');
-  assert.equal(await ph.count(), 2, 'two note embed placeholders');
-  const chip = await must(ph.first().getByRole('link', { name: 'Cíl', exact: true }), 'note embed chip');
-  await chip.click();
-  await mustBeOn(page, 'Cíl', 'the note embed chip opens the note');
+  // 4F (D-431): the two note embeds are embeds (embeds.md); `Open Cíl` opens the note.
+  const ph = art.locator('[data-embed-target="Pages/Cíl.md"]:not([data-embed-target="Pages/Cíl.md"] *)');
+  assert.equal(await ph.count(), 2, 'two note embeds');
+  const open = await must(ph.first().getByRole('button', { name: 'Open Cíl', exact: true }), 'Open Cíl');
+  await open.click();
+  await mustBeOn(page, 'Cíl', 'Open Cíl opens the note');
 });
 
 test('fr_edt_02_ac14_formatted_view_is_read_only_with_disabled_edit', async ({ page }) => {

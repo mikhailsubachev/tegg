@@ -108,7 +108,10 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     const isRaw = node.type.name === 'rawBlock'
     const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
-    items.push({ base: fit(md, eol), text: fit(md, eol), src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
+    // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
+    // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). Rendered blocks are written in NFC.
+    const written = isRaw ? fitEol(md, eol) : fit(md, eol)
+    items.push({ base: written, text: written, src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
   })
 
   const changedBlocks = items.filter((i) => !i.unchanged).length
@@ -355,8 +358,11 @@ export function withoutSeparators<T extends string | { raw: string }>(blocks: T[
 }
 
 function fit(s: string, eol: string): string {
-  const nfc = s.normalize('NFC')
-  return eol === '\r\n' ? nfc.replace(/\r?\n/g, '\r\n') : nfc
+  return fitEol(s.normalize('NFC'), eol)
+}
+
+function fitEol(s: string, eol: string): string {
+  return eol === '\r\n' ? s.replace(/\r?\n/g, '\r\n') : s
 }
 
 /**

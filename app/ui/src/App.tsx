@@ -725,7 +725,7 @@ export function App() {
           backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
-            onCreated={(p) => { justCreated.current = p.normalize('NFC'); openNote(p); }}
+            onCreated={(p) => { if (offer.stay) return; justCreated.current = p.normalize('NFC'); openNote(p); }}
             onExists={(p, title) => { setMessage(t('createLink.exists', { title })); openNote(p); }} />
         )}
       </div>

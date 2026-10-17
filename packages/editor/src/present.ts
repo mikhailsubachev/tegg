@@ -6,6 +6,7 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
+import { isAttachmentTarget } from '@tegg/doc'
 import { wikiLabel } from './schema'
 
 export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null; title?: string | null }
@@ -27,7 +28,23 @@ export interface EditorUi {
   onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }): void
   onTag(value: string): void
   onExternal(href: string): void
+  /** 4F (ms4-embeds §7): renders a block embed (`rawBlock` kind `embed`); null keeps the 3C placeholder. */
+  embed?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null
+  /** 4F (FR-EMB-02 AC-2): hide trailing ` ^id` block ids (an embedded note shows its content as the read view does). */
+  hideBlockIds?: boolean
+  /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
+  embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string; target?: string } | undefined
 }
+
+/** 4F (ms4-embeds §7): the app's handle on a rendered block embed. */
+export interface EmbedHandle {
+  update(source: string): void
+  selected(on: boolean): void
+  destroy(): void
+}
+
+/** A block embed whose view was built while a text was loading; the app's embed is mounted on its next render. */
+export const PENDING_EMBED: EmbedHandle = { update() {}, selected() {}, destroy() {} }
 
 export const uiRefresh = new PluginKey('teggUi')
 
@@ -48,6 +65,17 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       const value = String(node.attrs.value)
       const { target } = linkTarget(value)
       if (node.attrs.embed) {
+        // 4F (D-419): an inline note embed is a link-mode embed; attachments keep their placeholder (R5).
+        const chip = !isAttachmentTarget(target) ? ui.embedChip?.(value) : undefined
+        if (chip) {
+          const icon = chip.state !== 'broken' ? ui.chipIcon?.(chip.type ?? 'page')?.getAttribute('data-icon') ?? null : null
+          decos.push(Decoration.node(pos, pos + node.nodeSize, {
+            role: 'link', class: `embed-chip embed-link${chip.state === 'broken' ? ' kind-unresolved' : ''}`, 'data-embed': '', 'data-embed-mode': 'link',
+            'data-embed-state': chip.state, 'aria-label': chip.title, 'aria-description': chip.description,
+            ...(icon ? { 'data-icon': icon } : {}), ...(chip.state === 'broken' ? { 'data-link-kind': 'unresolved' } : {}), ...(chip.target ? { 'data-embed-target': chip.target } : {}),
+          }))
+          return false
+        }
         const ph = ui.placeholder(EMBED_KIND(value), value)
         decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'region', 'aria-label': ph.name, class: 'embed-chip', 'data-embed': '' }))
         return false
@@ -56,6 +84,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       const broken = info && info.kind === 'unresolved' // a date without a note is never broken (D-142, FR-DLY-08 AC-5)
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
+        'data-command': 'edit.openOrToggle',
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
         'data-link-kind': info?.kind ?? 'unresolved', // FR-LNK-07 (D-306): the same attribute in every context
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
@@ -74,6 +103,15 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
     }
     return true
   })
+  if (ui.hideBlockIds) {
+    doc.descendants((node, pos) => {
+      if (!node.isTextblock) return true
+      const text = node.textContent
+      const m = /[ \t]\^[A-Za-z0-9-]+[ \t]*$/.exec(text)
+      if (m && node.lastChild?.isText) decos.push(Decoration.inline(pos + 1 + m.index, pos + 1 + text.length, { class: 'block-id-hidden', style: 'display: none' }))
+      return false
+    })
+  }
   // The hint of an empty note: a widget, never part of the text or a copy (FR-EDT-01 AC-9).
   if (doc.childCount === 1 && doc.firstChild!.type.name === 'paragraph' && doc.firstChild!.content.size === 0) {
     decos.push(Decoration.widget(1, () => {
@@ -88,8 +126,15 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
   return DecorationSet.create(doc, decos)
 }
 
+/** A block embed's inner text, or null for an attachment (which keeps its R5 placeholder). */
+function noteEmbed(source: string): string | null {
+  const inner = source.trim().replace(/^!\[\[|\]\]$/g, '')
+  return isAttachmentTarget(linkTarget(inner).target) ? null : inner
+}
+
 class RawBlockView implements NodeView {
   dom: HTMLElement
+  private handle: EmbedHandle | null = null
   constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined) {
     this.dom = document.createElement('div')
     this.dom.contentEditable = 'false'
@@ -100,6 +145,24 @@ class RawBlockView implements NodeView {
     const { node, ui } = this
     const kind = String(node.attrs.kind)
     const source = String(node.attrs.source)
+    // 4F (ms4-embeds §7): a note embed is rendered by the app.
+    if (kind === 'embed' && ui.embed && noteEmbed(source) !== null) {
+      if (this.handle && this.handle !== PENDING_EMBED) {
+        this.handle.update(source)
+        return
+      }
+      this.dom.className = 'embed-block'
+      this.dom.removeAttribute('role')
+      this.dom.removeAttribute('aria-label')
+      this.dom.removeAttribute('data-placeholder')
+      this.dom.replaceChildren()
+      this.handle = ui.embed(source, this.dom, this.getPos)
+      if (this.handle) return
+    }
+    if (this.handle) {
+      this.handle.destroy()
+      this.handle = null
+    }
     this.dom.replaceChildren()
     if (kind === 'embed' || kind === 'query' || kind === 'mindmap') {
       const ph = ui.placeholder(kind as 'embed', source)
@@ -146,11 +209,30 @@ class RawBlockView implements NodeView {
   }
   update(node: PMNode) {
     if (node.type !== this.node.type) return false
+    if (this.handle && String(node.attrs.kind) !== 'embed') return false
     this.node = node
     this.render()
     return true
   }
+  selectNode() {
+    this.dom.classList.add('ProseMirror-selectednode')
+    this.handle?.selected(true)
+  }
+  deselectNode() {
+    this.dom.classList.remove('ProseMirror-selectednode')
+    this.handle?.selected(false)
+  }
+  destroy() {
+    this.handle?.destroy()
+    this.handle = null
+  }
   stopEvent(e: Event) {
+    if (this.handle) {
+      // The embed's own controls and its nested editor handle their events (AP-349: a click elsewhere selects it).
+      const el = e.target as HTMLElement | null
+      if (el === this.dom) return false
+      return e.type.startsWith('key') || !!el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')
+    }
     return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste' || (e.type === 'click' && !!(e.target as HTMLElement | null)?.closest?.('.link-chip'))
   }
   ignoreMutation() {
@@ -188,9 +270,15 @@ class WikiLinkView implements NodeView {
       const icon = info && (info.kind === 'note' || info.kind === 'daily') ? this.ui.chipIcon?.(info.type ?? 'page') : null
       if (icon) this.dom.appendChild(icon)
     }
+    const chip = this.node.attrs.embed && !isAttachmentTarget(linkTarget(v).target) ? this.ui.embedChip?.(v) : undefined
+    if (chip) {
+      // 4F (D-418): an inline embed as a link-mode embed with the target type's icon.
+      const icon = chip.state !== 'broken' ? this.ui.chipIcon?.(chip.type ?? 'page') : null
+      if (icon) this.dom.appendChild(icon)
+    }
     const label = document.createElement('span')
     label.setAttribute('data-user-content', '')
-    label.textContent = this.node.attrs.embed ? wikiLabel(v, true) : chipLabel(v, this.ui.resolve(linkTarget(v).target))
+    label.textContent = chip ? chip.title : this.node.attrs.embed ? wikiLabel(v, true) : chipLabel(v, this.ui.resolve(linkTarget(v).target))
     this.dom.appendChild(label)
   }
   update(node: PMNode, decos: readonly Decoration[]) {
@@ -280,7 +368,8 @@ export function presentation(ui: EditorUi) {
             },
             handleClickOn(view, _pos, node, nodePos, event) {
               if (event.button !== 0) return false
-              if (node.type.name === 'wikiLink' && !node.attrs.embed) {
+              if (node.type.name === 'wikiLink' && (!node.attrs.embed || (ui.embedChip && !isAttachmentTarget(linkTarget(String(node.attrs.value)).target)))) {
+                // Links, and inline embeds (link mode, D-423), open their target.
                 const { target, fragment } = linkTarget(String(node.attrs.value))
                 ui.onLink(target, fragment, { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null })
                 return true

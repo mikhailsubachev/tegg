@@ -12,10 +12,11 @@ test.use({ timezoneId: 'Europe/Prague' });
 const TARGET = nfc('Chybí');
 const FILE = nfc('Quick Notes/Chybí.md');
 
-/** The `embed-note` placeholder region for `![[Chybí]]` inside `scope` (R5). */
+/** The broken embed frame for `![[Chybí]]` inside `scope`: 4F replaced the R5 placeholder, its header keeps D-310's
+ *  chip (D-424, D-431). */
 async function placeholder(scope: Locator): Promise<Locator> {
-  const ph = scope.locator('[data-placeholder="embed-note"]').filter({ hasText: TARGET });
-  return must(ph.first(), 'embed-note placeholder of ![[Chybí]]', 5000);
+  const ph = scope.locator(`[data-embed-state="broken"][data-embed-target="${TARGET}"]`);
+  return must(ph.first(), 'broken embed frame of ![[Chybí]]', 5000);
 }
 /** The unresolved link chip `Chybí` inside the placeholder (D-310). */
 async function embedChip(scope: Locator): Promise<Locator> {

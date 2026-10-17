@@ -6,7 +6,7 @@ import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
-  LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto,
+  LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto,
 } from './types';
 
@@ -78,6 +78,8 @@ export const ipc = {
   jobResolveInterrupted: (jobId: number, choice: 'finish' | 'undo') => invoke<JobIdDto>('job_resolve_interrupted', { jobId, choice }),
   editorOpen: (path: string) => invoke<void>('editor_open', { path }),
   editorClose: (path: string) => invoke<void>('editor_close', { path }),
+  // 4F (ms4-embeds §4): one call per nesting level; records no recency.
+  embedLoad: (paths: string[]) => invoke<EmbedNoteDto[]>('embed_load', { paths }),
 };
 
 /** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */

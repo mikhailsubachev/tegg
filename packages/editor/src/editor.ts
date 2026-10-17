@@ -9,11 +9,11 @@ import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Tran
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
-import { renderBlock } from '@tegg/doc'
+import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { presentation, uiRefresh, type EditorUi } from './present'
+import { PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
 import { attach, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -37,6 +37,13 @@ export interface EditorOptions {
   extensions?: import('@tiptap/core').AnyExtension[]
   /** Presentation and interaction of chips, source blocks, checkboxes and the hint (the app's strings). */
   ui?: EditorUi
+  /** 4F (D-421, D-422; ms4-embeds §7): show and edit only this part of the body. `null` = whole body; a heading
+   *  text = that section without its heading line, recomputed after each `markSaved`. */
+  section?: string | null
+  /** 4F (D-428): ↑ on the first line / ↓ on the last line of a nested editor, and Esc. Return true when handled. */
+  onLeave?(how: 'up' | 'down' | 'escape'): boolean
+  /** 4F (D-428): ⏎ / ⌘↩ / `Display embed as…` on a selected block embed at `pos`. Return true when handled. */
+  onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean
 }
 
 export interface TeggEditor {
@@ -68,6 +75,8 @@ export interface TeggEditor {
   refreshUi(): void
   /** Markdown source of the selected blocks, or null without a block selection (FR-EDT-13 AC-5). */
   selectedSource(): string | null
+  /** 4F (ms4-embeds §7): the block embed at the selection (one selected embed block, or a node selection), or null. */
+  selectedEmbed(): { pos: number; index: number; source: string } | null
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
@@ -82,6 +91,13 @@ export interface TeggEditor {
     insertTag(spelling: string): boolean
     /** ms4-links §5.3 (D-299): replaces the wikilink node at `pos` with `[[linkText]]` (no brackets given) as one step. */
     replaceLink(pos: number, linkText: string): boolean
+    /** 4F (D-416): rewrites the block embed at `pos` with `withEmbedMode`, as one undo step. */
+    setEmbedMode(pos: number, mode: EmbedMode | null): boolean
+    /** 4F (D-426): replaces `from…to` with a block embed `![[linkText]]` (after the caret's block when it has other
+     *  text, FR-EDT-03 AC-4), as one undo step. */
+    insertEmbed(from: number, to: number, linkText: string): boolean
+    /** 4F (D-428): selects the top-level block at `index` as a block. */
+    selectBlockAt(index: number): boolean
     setUrlLink(href: string): boolean
     removeLink(): boolean
     pasteText(text: string, plain?: boolean): boolean
@@ -221,16 +237,71 @@ function joinAdjacentLists(tr: Transaction): void {
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart)
 
 export function createEditor(opts: EditorOptions): TeggEditor {
+  if (typeof opts.section === 'string') return createSectionEditor(opts, opts.section)
+  return createNoteEditor(opts)
+}
+
+/** 4F (D-421, D-422; ms4-embeds §7): an editor on one `#Heading` section of a file. It edits the file's frontmatter
+ *  plus the section text with the note editor's own save path (source-preserving, D-54, D-55), and splices the result
+ *  back between the untouched text before and after the section. */
+function createSectionEditor(opts: EditorOptions, heading: string): TeggEditor {
+  let full = opts.text
+  const view = (text: string): { inner: string; before: string; after: string } => {
+    const head = headOf(text)
+    const s = embedSection(text, heading)
+    const [from, to] = s.kind === 'heading' ? [s.from, s.to] : [head.length, text.length]
+    return { inner: head + text.slice(from, to), before: text.slice(head.length, from), after: text.slice(to) }
+  }
+  let parts = view(full)
+  const ed = createNoteEditor({ ...opts, section: null, text: parts.inner })
+  const outer = (inner: string): string => {
+    const head = headOf(inner)
+    return head + parts.before + inner.slice(head.length) + parts.after
+  }
+  let lastInner: string | null = null
+  return {
+    ...ed,
+    async save() {
+      const out = await ed.save()
+      lastInner = out
+      return out === null ? null : outer(out)
+    },
+    text: () => outer(ed.text()),
+    markSaved(text) {
+      full = text
+      const next = view(full)
+      const computed = lastInner
+      parts = next
+      lastInner = null
+      // A heading typed into the section ends it (D-422): the editor then shows the shorter section.
+      if (computed !== null && computed !== next.inner) ed.reload(next.inner)
+      else ed.markSaved(next.inner)
+    },
+    reload(text) {
+      full = text
+      parts = view(full)
+      ed.reload(parts.inner)
+    },
+  }
+}
+
+function createNoteEditor(opts: EditorOptions): TeggEditor {
   if (faults().editorLoad) throw new Error('editor load failed (test fault, NFR-REL-03 AC-8)')
   let dirty = false
   let loading = false
   let pendingTitle: string | null = null
   let loaded: Loaded
   let lastSaved = opts.text
+  // 4F: while a text is loaded the views are built twice (attach, then the fresh state); embeds mount only on the
+  // second build, so the app's embed (and its nested editor) is created once per block.
+  const ui: EditorUi | undefined = opts.ui && {
+    ...opts.ui,
+    embed: opts.ui.embed && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.embed!(source, dom, getPos))),
+  }
 
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([TeggRules, BlockSelection, ...(opts.ui ? [presentation(opts.ui)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     enableInputRules: false,
     enablePasteRules: false,
@@ -238,6 +309,7 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     editorProps: {
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': opts.label ?? 'Note body', spellcheck: 'true' },
       handlePaste: (view, event) => {
+        if (inEmbedDom(view)) return true // 4F: a read-only embed's content takes no input (FR-EMB-03 AC-11)
         const dt = event.clipboardData
         if (!dt) return false
         const files = [...(dt.files ?? [])]
@@ -258,10 +330,23 @@ export function createEditor(opts: EditorOptions): TeggEditor {
         if (plain) return commands.pasteText(plain) || true
         return false
       },
-      handleTextInput: (view) => inSourceBlock(view.state),
+      handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
+      // 4F (AP-349): a click on a block embed's frame (outside its controls and content) selects it as a block.
+      handleClickOn: (view, _pos, node, nodePos, event, direct) => {
+        if (!direct || node.type.name !== 'rawBlock' || node.attrs.kind !== 'embed' || !opts.onEmbedKey) return false
+        const el = event.target as HTMLElement | null
+        if (el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')) return false
+        const k = view.state.doc.resolve(nodePos).index(0)
+        view.dispatch(view.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+        return true
+      },
+      // 4F (FR-EMB-03 AC-11): with the DOM selection inside an embed's own content (a read-only embed, or another
+      // editor's), keys that would edit this document do nothing here.
+      handleKeyDown: (view, event) => inEmbedDom(view) && (event.key.length === 1 || ['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) && !event.metaKey && !event.ctrlKey,
       handleDOMEvents: {
         copy: (_v, event) => copyBlocks(event, false),
-        cut: (_v, event) => copyBlocks(event, true),
+        cut: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : copyBlocks(event, true)),
+        beforeinput: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : false),
       },
     },
     onTransaction: ({ transaction }) => {
@@ -275,6 +360,29 @@ export function createEditor(opts: EditorOptions): TeggEditor {
   })
   let plainNext = false
   const view = editor.view
+  // 4F (FR-EMB-01 AC-9, D-419): a top-level paragraph that becomes a sole note embed is a block embed.
+  editor.registerPlugin(new Plugin({
+    appendTransaction: (trs, _old, state) => {
+      if (loading || !trs.some((tr) => tr.docChanged) || trs.some((tr) => tr.getMeta('teggLoad'))) return null
+      let tr: Transaction | null = null
+      let pos = 0
+      state.doc.forEach((n) => {
+        const only = n.type.name === 'paragraph' && n.childCount === 1 ? n.firstChild! : null
+        if (only && only.type.name === 'wikiLink' && only.attrs.embed && !only.marks.length) {
+          tr ??= state.tr
+          const at = tr.mapping.map(pos)
+          const embed = state.schema.nodes.rawBlock.create({ source: `![[${String(only.attrs.value)}]]`, kind: 'embed' })
+          tr.replaceWith(at, at + n.nodeSize, embed)
+          const after = at + embed.nodeSize
+          // Typing goes on below the embed: at the end of the note in a new empty paragraph (never written).
+          if (after >= tr.doc.content.size) tr.insert(after, state.schema.nodes.paragraph.create())
+          tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)))
+        }
+        pos += n.nodeSize
+      })
+      return tr
+    },
+  }))
   const tracked = new Set<{ pos: number | null }>()
   editor.registerPlugin(new Plugin({
     state: {
@@ -766,6 +874,44 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       dispatch(tr.scrollIntoView())
       return true
     },
+    setEmbedMode(pos, mode) {
+      const node = editor.state.doc.nodeAt(pos)
+      if (!node || node.type.name !== 'rawBlock' || node.attrs.kind !== 'embed') return false
+      const source = String(node.attrs.source)
+      const m = /^(\s*!\[\[)([\s\S]*)(\]\]\s*)$/.exec(source)
+      if (!m) return false
+      const next = m[1] + withEmbedMode(m[2], mode) + m[3]
+      if (next === source) return true
+      dispatch(closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, source: next })))
+      return true
+    },
+    insertEmbed(from, to, linkText) {
+      const value = linkText.replace(/^\[\[|\]\]$/g, '').normalize('NFC')
+      if (!value) return false
+      const tr = editor.state.tr.delete(from, to)
+      const k = topIndex(editor.state.apply(tr), tr.mapping.map(from))
+      const node = tr.doc.child(k)
+      const at = blockPos(tr.doc, k)
+      const embed = editor.schema.nodes.rawBlock.create({ source: `![[${value}]]`, kind: 'embed' })
+      let embedAt: number
+      if (node.type.name === 'paragraph' && node.textContent.trim() === '' && !hasInline(node)) {
+        tr.replaceWith(at, at + node.nodeSize, embed)
+        embedAt = at
+      } else {
+        embedAt = at + node.nodeSize
+        tr.insert(embedAt, embed)
+      }
+      const after = embedAt + embed.nodeSize
+      tr.setSelection(after < tr.doc.content.size ? TextSelection.near(tr.doc.resolve(after)) : NodeSelection.create(tr.doc, embedAt))
+      tr.setMeta(blockSelKey, null)
+      dispatch(closeHistory(tr).scrollIntoView())
+      return true
+    },
+    selectBlockAt(index) {
+      if (index < 0 || index >= editor.state.doc.childCount) return false
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: index, head: index }))
+      return true
+    },
     slashInsert(from, to, kind, o = {}) {
       dispatch(editor.state.tr.delete(from, to))
       return commands.insertBlock(kind, o)
@@ -781,7 +927,68 @@ export function createEditor(opts: EditorOptions): TeggEditor {
     },
   }
 
-  return {
+  /** 4F: the selected block embed (one selected block, or a node selection), or null. */
+  function selectedEmbed(): { pos: number; index: number; source: string } | null {
+    const doc = editor.state.doc
+    let index: number | null = null
+    const s = blockSel()
+    if (s && s.anchor === s.head) index = s.anchor
+    else if (!s && editor.state.selection instanceof NodeSelection && editor.state.selection.$from.depth === 0) index = editor.state.selection.$from.index(0)
+    if (index === null || index >= doc.childCount) return null
+    const n = doc.child(index)
+    if (n.type.name !== 'rawBlock' || n.attrs.kind !== 'embed') return null
+    const source = String(n.attrs.source)
+    if (isAttachmentTarget(linkTargetOf(source.trim().replace(/^!\[\[|\]\]$/g, '')))) return null
+    return { pos: blockPos(doc, index), index, source }
+  }
+
+  /** ↑ on the first line of the first block / ↓ on the last line of the last block (D-428). */
+  function atEdge(dir: 'up' | 'down'): boolean {
+    if (blockSel()) return false
+    const k = topIndex(editor.state)
+    if (dir === 'up' ? k !== 0 : k !== editor.state.doc.childCount - 1) return false
+    try {
+      return view.endOfTextblock(dir)
+    } catch {
+      return false
+    }
+  }
+
+  /** D-428: ↓ at the end of a block before a block embed (↑ at the start of one after it) selects that embed. */
+  function intoEmbed(dir: 'up' | 'down'): boolean {
+    const s = blockSel()
+    const doc = editor.state.doc
+    let k: number
+    if (s) {
+      if (s.anchor !== s.head) return false
+      k = s.head + (dir === 'down' ? 1 : -1)
+    } else {
+      const sel = editor.state.selection
+      if (!sel.empty || sel.$from.depth === 0) return false
+      let edge = false
+      try { edge = view.endOfTextblock(dir) } catch { edge = false }
+      if (!edge) return false
+      k = topIndex(editor.state) + (dir === 'down' ? 1 : -1)
+    }
+    if (k < 0 || k >= doc.childCount) return false
+    const n = doc.child(k)
+    if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+      return true
+    }
+    if (!s) return false
+    // From a selected embed to the neighbouring block's text.
+    const at = blockPos(doc, k)
+    dispatch(editor.state.tr.setSelection(dir === 'down' ? TextSelection.near(doc.resolve(at + 1)) : TextSelection.near(doc.resolve(at + n.nodeSize - 1), -1)).setMeta(blockSelKey, null))
+    return true
+  }
+
+  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; opts: EditorOptions } = {
+    opts,
+    atEdge,
+    intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
+    hasBlockSel: () => !!blockSel(),
+    selectedEmbed,
     view,
     editor,
     async save() {
@@ -890,4 +1097,58 @@ export function createEditor(opts: EditorOptions): TeggEditor {
       editor.destroy()
     },
   }
+  return api
+}
+
+/** The DOM selection is inside the app-rendered content of a block embed (not this editor's own text). */
+function inEmbedDom(view: EditorView): boolean {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null
+  const node = sel?.anchorNode ?? null
+  const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null
+  const block = el?.closest?.('.embed-block')
+  return !!block && view.dom.contains(block) && block !== view.dom
+}
+
+/** The target part of an embed's inner text. */
+function linkTargetOf(value: string): string {
+  const left = value.split(/\\?\|/)[0]
+  const hash = left.indexOf('#')
+  return (hash >= 0 ? left.slice(0, hash) : left).trim()
+}
+
+function hasInline(node: PMNode): boolean {
+  let found = false
+  node.descendants((n) => { if (n.isInline && !n.isText) found = true; return !found })
+  return found
+}
+
+/** 4F (D-428): keys on a selected block embed, and leaving a nested editor. Runs before every other keymap. */
+function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {
+  return Extension.create({
+    name: 'teggEmbedKeys',
+    priority: 1000,
+    addKeyboardShortcuts() {
+      const key = (k: 'enter' | 'open') => () => {
+        const a = get()
+        const e = a.selectedEmbed()
+        return !!e && !!a.opts.onEmbedKey?.(e.pos, k)
+      }
+      const leave = (how: 'up' | 'down') => () => {
+        const a = get()
+        if (a.intoEmbed(how)) return true
+        return !!a.opts.onLeave && a.atEdge(how) && a.opts.onLeave(how)
+      }
+      return {
+        Enter: key('enter'),
+        'Mod-Enter': key('open'),
+        'Meta-Enter': key('open'),
+        Escape: () => {
+          const a = get()
+          return !!a.opts.onLeave && !a.hasBlockSel() && a.opts.onLeave('escape')
+        },
+        ArrowUp: leave('up'),
+        ArrowDown: leave('down'),
+      }
+    },
+  })
 }
