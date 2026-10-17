@@ -12,3 +12,10 @@ export function linkText(c: LinkChoice): string {
   const shown = (c.viaAlias ?? c.title).normalize('NFC')
   return shown && shown !== target ? `${target}|${shown}` : target
 }
+
+/** 4F (D-426, ms4-embeds §6): the embed target written for a chosen object: the D-184 target (stem when it resolves
+ *  to that file from the current note, else the vault path without `.md`), never `|title` or `|alias` (`|` holds
+ *  the embed mode, D-416). */
+export function embedTarget(_c: LinkChoice): string {
+  return '' // 4F stub
+}
