@@ -309,6 +309,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     editorProps: {
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': opts.label ?? 'Note body', spellcheck: 'true' },
       handlePaste: (view, event) => {
+        if (inEmbedDom(view)) return true // 4F: a read-only embed's content takes no input (FR-EMB-03 AC-11)
         const dt = event.clipboardData
         if (!dt) return false
         const files = [...(dt.files ?? [])]
@@ -329,10 +330,14 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         if (plain) return commands.pasteText(plain) || true
         return false
       },
-      handleTextInput: (view) => inSourceBlock(view.state),
+      handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
+      // 4F (FR-EMB-03 AC-11): with the DOM selection inside an embed's own content (a read-only embed, or another
+      // editor's), keys that would edit this document do nothing here.
+      handleKeyDown: (view, event) => inEmbedDom(view) && (event.key.length === 1 || ['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) && !event.metaKey && !event.ctrlKey,
       handleDOMEvents: {
         copy: (_v, event) => copyBlocks(event, false),
-        cut: (_v, event) => copyBlocks(event, true),
+        cut: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : copyBlocks(event, true)),
+        beforeinput: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : false),
       },
     },
     onTransaction: ({ transaction }) => {
@@ -1052,6 +1057,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
   }
   return api
+}
+
+/** The DOM selection is inside the app-rendered content of a block embed (not this editor's own text). */
+function inEmbedDom(view: EditorView): boolean {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null
+  const node = sel?.anchorNode ?? null
+  const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null
+  const block = el?.closest?.('.embed-block')
+  return !!block && view.dom.contains(block) && block !== view.dom
 }
 
 /** The target part of an embed's inner text. */

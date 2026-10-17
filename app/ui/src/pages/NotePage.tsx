@@ -2,7 +2,9 @@
 // (FR-EDT-01, FR-EDT-08), the title is editable (D-173), external changes reload a clean note and open the merge
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
-import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
+import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Ref } from 'react';
+import { EmbedStore } from '../embeds/store';
+import { Embed } from '../embeds/Embed';
 import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
@@ -54,7 +56,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string) {
 /** What the page shows: the editor, or a read-only view with the reason (R9 "Read-only"). */
 type Mode = 'edit' | 'invalidFrontmatter' | 'utf8' | 'editorFailed' | 'readView';
 type Loaded = { text: string; version: VersionDto; mode: Mode; links: Map<string, LinkTargetDto> };
-type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean };
+export type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean };
 
 export type NotePageApi = {
   flush: () => Promise<void>;
@@ -124,6 +126,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   onDaily?: (date: string) => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
+  const embeds = useMemo(() => new EmbedStore(path, true), []);
+  embeds.path = path;
+  embeds.types = types;
+  useSyncExternalStore(embeds.subscribe, embeds.getSnapshot);
+  const [, setEmbedTick] = useState(0);
+  useEffect(() => embeds.onState(() => setEmbedTick((n) => n + 1)), []);
   const [gone, setGone] = useState(false);
   const [source, setSource] = useState<boolean | null>(null);
   const [save, setSave] = useState<{ state: SaveState; failure: Failure }>({ state: 'saved', failure: null });
@@ -254,7 +263,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       }
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => [] /* 4F stub (ms4-embeds §9) */ };
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
     syncHead();
     requestAnimationFrame(() => {
       placeFocus.current(); // D-247: the caret goes in once the editor is ready
@@ -294,7 +303,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
 
   const flush = useCallback(async () => {
     const s = saver.current;
-    if (s) await s.flush();
+    // D-421: leaving the page saves every file it edits (FR-EMB-03 AC-7).
+    await Promise.all([s ? s.flush() : Promise.resolve(), embeds.flush()]);
   }, []);
 
   useImperativeHandle(apiRef, () => ({
@@ -303,7 +313,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       if (a === 'saveNow') { void flush(); return; }
       pane.current?.run(a);
     },
-    pending: () => !!saver.current?.pending || !!live.current.merge || live.current.deleted,
+    pending: () => !!saver.current?.pending || !!live.current.merge || live.current.deleted || embeds.pending(),
     mergeOpen: () => !!live.current.merge,
     keepBoth: () => keepBothRef.current(),
     changeType: () => chipApi.current?.open(),
@@ -375,6 +385,33 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     setTitle(meta.title);
     onMeta(meta);
   }, [diskText, knownId]);
+  /** Rebuilds the embed tree: the editor re-resolves its embed targets; the read view resolves its links again. */
+  const refreshEmbedsRef = useRef<() => void>(() => {});
+  refreshEmbedsRef.current = () => {
+    const l = live.current.loaded;
+    if (!l) return;
+    if (l.mode === 'edit') { embeds.refresh?.(); return; }
+    void (async () => {
+      const targets = linkTargets(l.text);
+      const resolved = targets.length ? await ipc.linkResolve(live.current.path, targets).catch(() => [] as LinkTargetDto[]) : [];
+      const links = new Map(resolved.map((r) => [r.target, r]));
+      setLoaded((x) => (x && x.text === l.text ? { ...x, links } : x));
+      void embeds.build(l.text, links);
+    })();
+  };
+  // The read view's tree: its links are resolved in one batch with the embeds (load()).
+  useEffect(() => {
+    if (!loaded) return;
+    embeds.editable = loaded.mode === 'edit';
+    if (loaded.mode !== 'edit') void embeds.build(loaded.text, loaded.links);
+  }, [loaded]);
+  // A type's default changed (FR-EMB-02 AC-7, AC-10).
+  const typesSig = types.map((x) => `${x.key}:${(x as { embed?: string }).embed ?? ''}:${x.icon}:${x.preview.join(',')}`).join('|');
+  const firstTypes = useRef(true);
+  useEffect(() => {
+    if (firstTypes.current) { firstTypes.current = false; return; }
+    refreshEmbedsRef.current();
+  }, [typesSig]);
   const diskTextRef = useRef(diskText);
   diskTextRef.current = diskText;
   const externalRef = useRef(external);
@@ -382,6 +419,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   useEffect(() => {
     const un = events.changed((c) => {
       if (c.paths.some((p) => nfc(p) === nfc(live.current.path))) void externalRef.current();
+      // 4F (FR-EMB-02 AC-10): embedded notes, created targets and type files change what the embeds show.
+      if (c.paths.some((p) => nfc(p) !== nfc(live.current.path))) refreshEmbedsRef.current();
     });
     return () => void un.then((f) => f());
   }, []);
@@ -672,7 +711,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const meta = noteMeta(path, diskText || loaded.text);
   const editable = loaded.mode === 'edit';
   const warning = loaded.mode === 'invalidFrontmatter' ? frontmatterWarning(parse(loaded.text.replace(/^﻿/, ''))) : null;
-  const saveText = t(`save.${save.state}`);
+  // D-421: the Save state covers every file of the page (host and editable embeds).
+  const embedState = embeds.saveState();
+  const RANK: Record<string, number> = { saved: 0, saving: 1, failed: 2, conflict: 3 };
+  const shownState = save.state === 'readOnly' ? save.state : (RANK[embedState] ?? 0) > (RANK[save.state] ?? 0) ? embedState : save.state;
+  const saveText = t(`save.${shownState}`);
   // 3D: the type in effect (FR-TYP-13): the panel's frontmatter in the editor, else the file.
   const fmData = parse(editable ? head : (diskText || loaded.text)).frontmatter?.data ?? {};
   const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
@@ -687,8 +730,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
             <Icon name="source" />
           </button>
-          <span role="status" aria-live="polite" aria-label={t('save.label')} className={`save-state ${save.state}`}>
-            {save.state === 'saved' && <Icon name="check" size={14} />}
+          <span role="status" aria-live="polite" aria-label={t('save.label')} className={`save-state ${shownState}`}>
+            {shownState === 'saved' && <Icon name="check" size={14} />}
             <span>{saveText}</span>
           </span>
           <span className="spacer" />
@@ -766,7 +809,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             {warning && <WarningBanner warning={warning} />}
             <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
             <ReadView text={loaded.text} path={path} links={loaded.links} onOpen={onOpen} onTag={onTag}
-              onExternal={(url) => void ipc.openExternal(url).catch(() => {})} onScrollInNote={(f) => scrollToFragment(root.current, f)} />
+              onExternal={(url) => void ipc.openExternal(url).catch(() => {})} onScrollInNote={(f) => scrollToFragment(root.current, f)}
+              renderEmbed={(value, line, inline) => {
+                const n = embeds.getSnapshot().tree?.embeds.find((x) => x.line === line && x.inline === inline && nfc(x.value) === nfc(value));
+                return n ? <Embed node={n} host={path} editable={false} modeDisabled={t('embed.cantEdit')} onOpen={(p, f) => onOpen(p, f)} onTag={onTag}
+                  onExternal={(url) => void ipc.openExternal(url).catch(() => {})} /> : null;
+              }} />
           </>
         )}
         {editable && (
@@ -777,6 +825,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />
             <EditorPane
+              embeds={embeds}
               apiRef={pane}
               text={loaded.text}
               path={path}
@@ -855,14 +904,15 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   );
 }
 
-function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth }: { merge: Merge; onCompare: () => void; onMine: () => void; onTheirs: () => void; onBoth: () => void }) {
+/** The merge dialog (FR-SYN-03 AC-13); an embed's dialog names its note as the description (FR-EMB-03 AC-3). */
+export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, description }: { merge: Merge; onCompare: () => void; onMine: () => void; onTheirs: () => void; onBoth: () => void; description?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     ref.current?.querySelector<HTMLElement>('button')?.focus();
   }, []);
   return (
     <div className="dialog-backdrop">
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('merge.title')} className="dialog merge-dialog"
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('merge.title')} aria-description={description} className="dialog merge-dialog"
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === 'Escape') e.preventDefault(); // Esc doesn't close it (D-176)

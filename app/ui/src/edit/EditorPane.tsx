@@ -3,14 +3,18 @@
 // `[[` and `#` autocomplete (FR-EDT-06, -15), block selection (FR-EDT-13) and paste notices (FR-EDT-14). The editor
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { createEditor, linkTarget, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { createEditor, embedTarget, linkTarget, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { isAttachmentTarget } from '@tegg/doc';
+import type { EmbedStore } from '../embeds/store';
+import { mountEmbed } from '../embeds/slot';
+import { EmbedPicker } from '../embeds/EmbedPicker';
 import { extract } from '@tegg/doc';
 import { requestOffer } from '../links/offer';
 import { DuplicateDetails } from '../links/DuplicateDetails';
 import { chipIcon } from '../links/icons';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
+import type { LinkTargetDto, SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
 import { localIso, ulid } from '../newNote';
 import { openDate } from '../daily/open';
 import { Calendar } from '../daily/Calendar';
@@ -79,7 +83,9 @@ function Due({ due }: { due: SlashDef['due'] }) {
   return due ? <span className="due">{t('due.coming', { milestone: showDue(due) })}</span> : null;
 }
 
-export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy }: {
+export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy, embeds }: {
+  /** 4F (ms4-embeds §6): the page's embeds; block embeds render through it. */
+  embeds?: EmbedStore;
   onSaveNow?: () => void;
   /** A note just created: the caret goes into the body at once (AP-135). */
   autoFocus?: boolean;
@@ -147,6 +153,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       },
       onTag: (v) => cb.current.onTag(v.normalize('NFC').toLowerCase()),
       onExternal: (url) => cb.current.onExternal(url),
+      // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
+      embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
+      embedChip: embeds ? (value) => {
+        const n = embeds.inlineNode(value);
+        if (!n) return undefined;
+        const broken = n.state === 'broken';
+        return { title: broken ? n.target.target : n.target.title ?? n.target.target, type: n.target.type, state: broken ? 'broken' : n.state === 'too-deep' ? 'too-deep' : 'ok', description: broken ? t('link.noNote', { target: n.target.target }) : t('embed.chip'), target: n.target.path ?? n.target.target };
+      } : undefined,
     };
     let ed: TeggEditor;
     try {
@@ -161,6 +175,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         onUpdate: () => { rerender(); probeApplied(); },
         onSelection: () => setHover(null),
         onImagePaste: () => cb.current.onImagePaste(),
+        onEmbedKey: (pos, key) => embedKey(pos, key),
       });
     } catch {
       onFailedLoad();
@@ -185,13 +200,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!ed || resolving.current) return;
     const targets = new Set<string>();
     ed.view.state.doc.descendants((n) => {
-      if (n.type.name === 'wikiLink' && !n.attrs.embed) {
+      if (n.type.name === 'wikiLink' && (!n.attrs.embed || embeds)) {
         const tg = linkTarget(String(n.attrs.value)).target.normalize('NFC');
-        if (tg && !links.current.has(tg)) targets.add(tg);
+        if (tg && !links.current.has(tg) && !(n.attrs.embed && isAttachmentTarget(tg))) targets.add(tg);
+      }
+      // 4F: block embeds resolve in the same batch as the links (FR-EMB-01 AC-2, NFR-PERF-05 AC-3).
+      if (embeds && n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
+        const tg = linkTarget(String(n.attrs.source).trim().replace(/^!\[\[|\]\]$/g, '')).target.normalize('NFC');
+        if (tg && !links.current.has(tg) && !isAttachmentTarget(tg)) targets.add(tg);
       }
       return true;
     });
-    if (!targets.size) return;
+    if (!targets.size) { buildEmbeds(false); return; }
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
@@ -200,7 +220,98 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
     }
+    buildEmbeds(false);
   }, []);
+
+  // ------------------------------------------------------------------ 4F embeds (ms4-embeds §6)
+  const embedSig = useRef<string | null>(null);
+  /** The embed sources of the document; the tree is rebuilt when they change. */
+  const embedSources = (): string[] => {
+    const ed = edRef.current;
+    const out: string[] = [];
+    ed?.view.state.doc.descendants((n) => {
+      if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed') out.push(`b:${String(n.attrs.source)}`);
+      if (n.type.name === 'wikiLink' && n.attrs.embed) out.push(`i:${String(n.attrs.value)}`);
+      return true;
+    });
+    return out;
+  };
+  function buildEmbeds(force: boolean) {
+    const ed = edRef.current;
+    if (!ed || !embeds) return;
+    const sig = embedSources().join('\n');
+    if (!force && sig === embedSig.current) return;
+    embedSig.current = sig;
+    const map = new Map<string, LinkTargetDto>();
+    for (const [k, v] of links.current) {
+      const dto = { target: k, kind: v.kind, path: v.path ?? null, title: v.title ?? null, type: v.type ?? null } as LinkTargetDto;
+      map.set(k, dto);
+    }
+    void embeds.build(ed.text(), map);
+  }
+  /** A file changed (vault:changed): resolve the embed targets again and rebuild (FR-EMB-02 AC-10). */
+  const refreshEmbeds = useCallback(async () => {
+    const ed = edRef.current;
+    if (!ed || !embeds) return;
+    const targets = new Set<string>();
+    for (const s of embedSources()) {
+      const v = s.slice(2).trim().replace(/^!\[\[|\]\]$/g, '');
+      const tg = linkTarget(v).target.normalize('NFC');
+      if (tg && !isAttachmentTarget(tg)) targets.add(tg);
+    }
+    if (targets.size) {
+      const res = await ipc.linkResolve(pathRef.current, [...targets]).catch(() => [] as LinkTargetDto[]);
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title });
+    }
+    buildEmbeds(true);
+    edRef.current?.refreshUi();
+  }, []);
+  useEffect(() => {
+    if (!embeds) return;
+    embeds.refresh = () => void refreshEmbeds();
+    const un = embeds.subscribe(() => edRef.current?.refreshUi());
+    embeds.host = {
+      setMode: (pos, mode) => { edRef.current?.commands.setEmbedMode(pos, mode); },
+      leave: (pos, how) => {
+        const e = edRef.current;
+        if (!e) return;
+        const doc = e.view.state.doc;
+        let k = 0;
+        for (let p = 0; k < doc.childCount && p + doc.child(k).nodeSize <= pos; k++) p += doc.child(k).nodeSize;
+        (e.view.dom as HTMLElement).focus({ preventScroll: true });
+        if (how === 'escape') { e.commands.selectBlockAt(k); return; }
+        const next = how === 'up' ? k - 1 : k + 1;
+        if (next < 0 || next >= doc.childCount) { e.commands.selectBlockAt(k); return; }
+        const node = doc.child(next);
+        if (node.type.name === 'rawBlock') { e.commands.selectBlockAt(next); return; }
+        let at = 0;
+        for (let i = 0; i < next; i++) at += doc.child(i).nodeSize;
+        e.editor.commands.setTextSelection(how === 'up' ? at + node.nodeSize - 1 : at + 1);
+      },
+      onOpen: (p, f) => cb.current.onOpen(p, f ? `#${f.replace(/^#/, '')}` : undefined),
+      onTag: (k) => cb.current.onTag(k),
+      onExternal: (u) => cb.current.onExternal(u),
+    };
+    return () => { un(); embeds.host = null; embeds.refresh = null; };
+  }, []);
+
+  /** D-428: ⏎ / ⌘↩ / `Display embed as…` on a selected block embed. */
+  function embedKey(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean {
+    const e = edRef.current;
+    if (!e || !embeds) return false;
+    const dom = e.view.nodeDOM(pos) as HTMLElement | null;
+    if (!dom) return false;
+    const click = (sel: string) => {
+      const b = [...dom.querySelectorAll<HTMLElement>(sel)].find((x) => !x.closest('[data-embed-body]'));
+      b?.click();
+      return !!b;
+    };
+    if (key === 'open') return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link');
+    if (key === 'displayAs') return click('.embed-header button[aria-haspopup="menu"]');
+    const nested = embeds.nested().find((x) => { const el = x.el(); return !!el && dom.contains(el); });
+    if (nested) { nested.focusStart(); return true; }
+    return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link');
+  }
 
   // ------------------------------------------------------------------ typing-latency probe (NFR-PERF-06 AC-3)
   // One record per keystroke: frames are counted from the keydown to the first frame after the editor applied it.
@@ -432,10 +543,44 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     else e.editor.commands.setTextSelection(pos + 1);
   };
 
+  /** 4F (D-426): the `Embed object` picker, inserting at `from…to` (the typed `/emb`, or the caret). */
+  const [picker, setPicker] = useState<{ from: number; to: number; at: { left: number; top: number } } | null>(null);
+  const openPicker = (from: number, to: number) => {
+    const e = edRef.current;
+    if (!e) return;
+    const c = e.view.coordsAtPos(Math.min(from, e.view.state.doc.content.size));
+    setPicker({ from, to, at: { left: c.left, top: c.bottom + 4 } });
+  };
+  const insertEmbedAt = (target: string) => {
+    const e = edRef.current;
+    const p = picker;
+    setPicker(null);
+    if (!e || !p) return;
+    const map = e.trackPos(p.from);
+    void map;
+    e.commands.insertEmbed(p.from, Math.min(p.to, e.view.state.doc.content.size), target);
+    focusEditor();
+  };
+  const cancelPicker = () => {
+    const e = edRef.current;
+    const p = picker;
+    setPicker(null);
+    if (!e || !p) return;
+    // Esc removes the typed `/emb` and leaves the paragraph as it was (FR-EMB-01 AC-8).
+    if (p.to > p.from) e.view.dispatch(e.view.state.tr.delete(p.from, Math.min(p.to, e.view.state.doc.content.size)).setMeta('addToHistory', false));
+    focusEditor();
+  };
+
   const chooseSlash = (item: SlashDef) => {
     const e = edRef.current;
     const s = live.current.slash;
     if (!e || !s || !item.status.built) return;
+    if (item.id === 'embedObject') {
+      setSlash(null);
+      dismissed.current = `s${s.from}`;
+      openPicker(s.from, e.view.state.selection.from);
+      return;
+    }
     const b = SLASH_BLOCK[item.id];
     setSlash(null);
     e.commands.slashInsert(s.from, e.view.state.selection.from, b.kind, { level: b.level });
@@ -484,6 +629,13 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const r = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
     const stemResolves = r[0]?.path?.normalize('NFC') === path.normalize('NFC');
     links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: item.type });
+    // 4F (FR-EMB-01 AC-9, D-426): `![[` writes an embed with the D-184 target, never an alias.
+    const bang = !s.at && s.from > 0 && e.view.state.doc.textBetween(s.from - 1, s.from) === '!';
+    if (bang && embeds) {
+      e.commands.insertEmbed(s.from - 1, e.view.state.selection.from, embedTarget({ path, title, fromPath: pathRef.current, stemResolves }));
+      focusEditor();
+      return;
+    }
     e.commands.replaceWithLink(s.from, e.view.state.selection.from, { path, title, viaAlias: item.matched_alias ?? undefined, fromPath: pathRef.current, stemResolves });
     focusEditor();
   };
@@ -544,6 +696,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         break;
       }
       case 'saveNow': cbSave.current?.(); break; // the note page flushes (FR-EDT-08 AC-9)
+      // 4F (R32, D-428).
+      case 'embedObject': {
+        if (!embeds) break;
+        const at = e.view.state.selection.from;
+        openPicker(at, at);
+        break;
+      }
+      case 'openEmbed': case 'displayEmbedAs': {
+        const s = e.selectedEmbed();
+        if (s) embedKey(s.pos, a === 'openEmbed' ? 'open' : 'displayAs');
+        break;
+      }
     }
   }, [openMenu]);
 
@@ -758,6 +922,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       )}
       {suggest && e2 && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
+      )}
+      {picker && (
+        <EmbedPicker from={path} types={types} at={picker.at} onChoose={insertEmbedAt} onCancel={cancelPicker} />
       )}
       {pick && suggest && (
         <Calendar selected={localDate(Date.now())} anchor={null} at={pick.at} onChoose={insertDate}

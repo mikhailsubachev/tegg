@@ -220,7 +220,8 @@ export const R11: R11Row[] = [
 ];
 
 /** R12: type settings sections in order (section navigation links and region names). */
-export const R12_SECTIONS = ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Review workflow', 'Templates', 'Views', 'Delete type'];
+/** 4F (D-431, R32): `Embeds` between `Hidden properties` and `Review workflow`. */
+export const R12_SECTIONS = ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Embeds', 'Review workflow', 'Templates', 'Views', 'Delete type'];
 export const R12_BUILT_IN = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
 
 /** R13 (with ms3-shell §14.7.2 ids and sections): palette title, id, section, routes it is present on. */

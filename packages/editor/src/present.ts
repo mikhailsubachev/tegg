@@ -31,7 +31,7 @@ export interface EditorUi {
   /** 4F (ms4-embeds §7): renders a block embed (`rawBlock` kind `embed`); null keeps the 3C placeholder. */
   embed?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null
   /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
-  embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string } | undefined
+  embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string; target?: string } | undefined
 }
 
 /** 4F (ms4-embeds §7): the app's handle on a rendered block embed. */
@@ -66,9 +66,11 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
         // 4F (D-419): an inline note embed is a link-mode embed; attachments keep their placeholder (R5).
         const chip = !isAttachmentTarget(target) ? ui.embedChip?.(value) : undefined
         if (chip) {
+          const icon = chip.state !== 'broken' ? ui.chipIcon?.(chip.type ?? 'page')?.getAttribute('data-icon') ?? null : null
           decos.push(Decoration.node(pos, pos + node.nodeSize, {
             role: 'link', class: `embed-chip embed-link${chip.state === 'broken' ? ' kind-unresolved' : ''}`, 'data-embed': '', 'data-embed-mode': 'link',
             'data-embed-state': chip.state, 'aria-label': chip.title, 'aria-description': chip.description,
+            ...(icon ? { 'data-icon': icon } : {}), ...(chip.state === 'broken' ? { 'data-link-kind': 'unresolved' } : {}), ...(chip.target ? { 'data-embed-target': chip.target } : {}),
           }))
           return false
         }

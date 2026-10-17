@@ -64,7 +64,7 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   const act = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: e.currentTarget as HTMLElement });
+    if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: e.currentTarget as HTMLElement, stay: true });
     else open(node, onOpen);
   };
   return (
@@ -143,7 +143,8 @@ function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: strin
 
 function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
   const { node } = props;
-  const name = titleOf(node);
+  // `Open <title>` names the note, without the heading (R30).
+  const name = node.target.title ?? node.target.target;
   return (
     <div className="embed-header">
       {showIcon && <TypeIcon type={typeOf(node)} />}
@@ -152,7 +153,7 @@ function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNod
         <span className="embed-readonly">{t('embed.readOnly')}</span>
       )}
       <button type="button" className="embed-btn" aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
-        <Icon name="open" size={13} />
+        <Icon name="external" size={13} />
       </button>
       {node.state !== 'date-missing' && <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />}
     </div>
@@ -270,7 +271,7 @@ export function Embed(props: EmbedProps): ReactNode {
               e.preventDefault();
               e.stopPropagation();
               if (props.onCreate) props.onCreate(e.currentTarget);
-              else requestOffer({ from: props.host, target, relationTo: null, anchor: e.currentTarget });
+              else requestOffer({ from: props.host, target, relationTo: null, anchor: e.currentTarget, stay: true });
             }}
           >
             <span data-user-content>{target}</span>
