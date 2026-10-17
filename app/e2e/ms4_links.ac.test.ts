@@ -399,9 +399,8 @@ test('fr_lnk_04_ac12_opening_and_closing_offers_writes_nothing', { timeout: 600_
   const log = join(base, 'perf.jsonl');
   const source = 'note/Pages/Rozbité odkazy.md';
   const before = tree(vault);
-  // Every broken chip of Rozbité odkazy, as the L5 part of this AC. The R5 embed placeholder's chip (D-310) isn't in
-  // the editor yet; it joins this list when it lands.
-  const chips = [...BROKEN];
+  // Every broken chip of Rozbité odkazy, the R5 embed placeholder's `Chybí` chip included (D-310).
+  const chips = [...BROKEN, 'Chybí'];
   let d: Driver | undefined;
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: source }));
