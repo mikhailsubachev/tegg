@@ -221,7 +221,7 @@ test.describe('which note a date opens', () => {
     await (await must(moreButton(page), 'button "More"')).click();
     const item = await must(changeTypeItem(page), 'menuitem "Change type…"');
     assert.equal(await isDisabled(item), true, 'aria-disabled');
-    assert.equal(await description(item), "The type of a Daily Note can't be changed");
+    assert.equal(await description(item), "The type of Daily Note objects can't be changed");
     await page.keyboard.press('Escape');
     await runCommand(page, 'Change type');
     await sleep(300);

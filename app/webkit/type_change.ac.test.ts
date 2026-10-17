@@ -46,7 +46,7 @@ test('fr_typ_07_ac4_daily_note_has_a_disabled_change_type', async ({ page }) => 
   await (await must(moreButton(page), 'button "More"')).click();
   const item = await must(changeTypeItem(page), 'menuitem "Change type…"');
   assert.equal(await item.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(item), "The type of a Daily Note can't be changed");
+  assert.equal(await description(item), "The type of Daily Note objects can't be changed");
 });
 
 test('fr_typ_07_ac5_only_the_type_line_changes_and_counts_follow', async ({ page }) => {

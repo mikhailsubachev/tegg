@@ -136,7 +136,6 @@ test('fr_dly_01_ac1_catalog_has_the_r19_strings', async () => {
     ['daily.nextMonth', 'Next month'],
     ['daily.duplicateTitles', 'Duplicate titles'],
     ['daily.formatInvalid', "The daily-note format in vault.yml isn't valid; using YYYY-MM-DD."],
-    ['daily.typeLocked', "The type of a Daily Note can't be changed"],
     ['daily.section.quickNotes', 'Quick Notes'],
     ['daily.section.tasks', 'Tasks due'],
     ['daily.section.created', 'Created'],

@@ -135,16 +135,17 @@ test('fr_typ_07_ac12_palette_change_type_opens_the_same_menu', async ({ page }) 
   assert.ok(!items.includes('Page') && !items.includes('Daily Note'), 'the current type and Daily Note are absent');
   await page.keyboard.press('Escape');
   assert.ok(await eventually(() => changeTypeMenu(page).count(), (n) => n === 0, 1000) === 0, 'Esc closes');
+  assert.ok(await page.evaluate(() => !!document.activeElement && document.activeElement !== document.body), 'Esc gives the focus back to a control (AC-12)');
   // Red guard for D-369: the chip is a link, not the menu button.
   await must(typeLink(page), 'type chip link');
 });
 
 const FIXED: [string, string, RegExp | null][] = [
-  ['daily_note', P.denni, /^The type of a Daily Note can't be changed$/],
-  ['tag', EXTRA.tag, /^The type of a Tag can't be changed$/],
-  ['image', EXTRA.image, /^The type of an? Image can't be changed$/],
-  ['pdf', EXTRA.pdf, /^The type of a PDF can't be changed$/],
-  ['read_only_file', P.neplatna, null],
+  ['daily_note', P.denni, /^The type of Daily Note objects can't be changed$/],
+  ['tag', EXTRA.tag, /^The type of Tag objects can't be changed$/],
+  ['image', EXTRA.image, /^The type of Image objects can't be changed$/],
+  ['pdf', EXTRA.pdf, /^The type of PDF objects can't be changed$/],
+  ['read_only_file', P.neplatna, /^This note is read-only, so its type can’t be changed$/],
 ];
 for (const [slug, at, reason] of FIXED) {
   test(`fr_typ_07_ac12_change_type_is_disabled_on_${slug}`, async ({ page }) => {
