@@ -6,7 +6,7 @@
 //! Rows, counts and option use come from the index and the current definitions at query time; a type-file change
 //! never reindexes or rewrites a note (AR-07 AC-7, FR-TYP-04 AC-5).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Map, Value};
 use tegg_format::{nfc, sanitize_file_stem, type_key};
@@ -157,7 +157,7 @@ impl Shared {
         *lock(&self.type_defs) = defs;
     }
 
-    fn type_defs(&self) -> BTreeMap<String, TypeFile> {
+    pub(crate) fn type_defs(&self) -> BTreeMap<String, TypeFile> {
         lock(&self.type_defs).clone()
     }
 }
@@ -183,7 +183,7 @@ fn attrs_of(o: &ObjectInfo) -> Map<String, Value> {
 }
 
 /// `[[target]]`, `[[target|alias]]` → `target|alias` (the link text the resolver takes).
-fn link_inner(v: &Value) -> Option<String> {
+pub(crate) fn link_inner(v: &Value) -> Option<String> {
     let s = v.as_str()?.trim();
     s.strip_prefix("[[").and_then(|r| r.strip_suffix("]]")).map(str::to_string).filter(|s| !s.trim().is_empty())
 }
@@ -249,7 +249,17 @@ impl Core {
         let types = self.types();
         let names = names_of(&types, &key);
         let others = as_names(&names);
-        if let Some(new) = tegg_schema::patch(&key, &text, ops, &PatchContext { others: &others }).map_err(schema)? {
+        // D-501, D-502: option usage of the attributes a rename touches, counted here (FR-TSK-02 AC-5).
+        let mut counts: Vec<(String, usize)> = Vec::new();
+        let renamed: BTreeSet<String> = ops.iter().filter_map(|o| if let TypeOp::RenameOption { attr, .. } = o { Some(nfc(attr)) } else { None }).collect();
+        if !renamed.is_empty() {
+            let usage = self.type_usage(&key);
+            for a in &renamed {
+                counts.extend(usage.options.get(a).into_iter().flatten().map(|(l, n)| (l.clone(), *n)));
+            }
+        }
+        let used: Vec<(&str, usize)> = counts.iter().map(|(l, n)| (l.as_str(), *n)).collect();
+        if let Some(new) = tegg_schema::patch_with_usage(&key, &text, ops, &PatchContext { others: &others }, &used).map_err(schema)? {
             self.shared.vault.write(&path, new.as_bytes(), base)?;
             self.after_type_write(vec![path]);
         }
