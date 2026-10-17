@@ -197,8 +197,13 @@ pub enum EmbedMode {
 
 impl EmbedMode {
     /// Case-insensitive, trimmed; None for anything else.
-    pub fn parse(_s: &str) -> Option<EmbedMode> {
-        None // 4F stub
+    pub fn parse(s: &str) -> Option<EmbedMode> {
+        match s.trim().to_lowercase().as_str() {
+            "full" => Some(EmbedMode::Full),
+            "card" => Some(EmbedMode::Card),
+            "link" => Some(EmbedMode::Link),
+            _ => None,
+        }
     }
     pub fn as_str(self) -> &'static str {
         match self {
@@ -210,13 +215,24 @@ impl EmbedMode {
 }
 
 /// R31: the built-in default embed mode of a type key.
-pub fn default_embed(_key: &str) -> EmbedMode {
-    EmbedMode::Card // 4F stub
+pub fn default_embed(key: &str) -> EmbedMode {
+    match nfc(key).as_str() {
+        "page" | "quick-note" | "daily-note" => EmbedMode::Full,
+        _ => EmbedMode::Card,
+    }
 }
 
 /// The `embed` value if it is a mode, else the R31 default of `key` (D-417).
-pub fn effective_embed(_key: &str, _raw: Option<&str>) -> EmbedMode {
-    EmbedMode::Card // 4F stub
+pub fn effective_embed(key: &str, raw: Option<&str>) -> EmbedMode {
+    raw.and_then(EmbedMode::parse).unwrap_or_else(|| default_embed(key))
+}
+
+/// The trimmed raw value of the top-level `embed` key, as written (D-417); None when absent or empty.
+fn embed_raw(text: &str) -> Option<String> {
+    match tegg_format::parse_yaml_value(text) {
+        Ok(Some(Value::Object(top))) => top.get("embed").and_then(scalar_text).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+        _ => None,
+    }
 }
 
 pub const SYSTEM_KEYS: [&str; 7] = ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"];
@@ -309,7 +325,7 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 .filter(|p| !def.attributes.iter().any(|a| &a.key == *p) && !UNIVERSAL_KEYS.contains(&p.as_str()))
                 .cloned()
                 .collect();
-            Parsed { def, readability, preview_ignored, embed_raw: None /* 4F stub */ }
+            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text) }
         }
         Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None },
     }
@@ -820,7 +836,7 @@ fn option_text(o: &OptionDef) -> String {
 // ------------------------------------------------------------------------------------------------ writing: whole files
 
 /// Canonical top-level order (§14.1.4, from the approved fixtures).
-const TOP_ORDER: [&str; 13] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "template", "attributes"];
+const TOP_ORDER: [&str; 14] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "embed", "template", "attributes"];
 /// Canonical attribute item order.
 const ITEM_ORDER: [&str; 9] = ["key", "name", "type", "default", "required", "options", "to", "multiple", "description"];
 const ITEM_INDENT: usize = 2;
@@ -1127,8 +1143,13 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_top(lines, "hidden", render_top("hidden", def));
             }
         }
-        TypeOp::SetEmbed(_mode) => {
-            // 4F stub (ms4-embeds §3): not written yet.
+        TypeOp::SetEmbed(mode) => {
+            // D-417: the same value (any case) is no write; otherwise the line is replaced in place or inserted
+            // after `hidden` / `preview` (TOP_ORDER).
+            let current = embed_raw(&join_lines(lines, true));
+            if current.map(|c| c.to_lowercase()).as_deref() != Some(mode.as_str()) {
+                set_top(lines, "embed", Some(vec![format!("embed: {}", mode.as_str())]));
+            }
         }
         TypeOp::AddAttribute(a) => {
             let mut a = a.clone();
