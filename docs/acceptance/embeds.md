@@ -2,7 +2,7 @@
 
 See [README](README.md) for conventions. Milestone MS4 (BRD §11.2), slice **4F "Embeds"** (D-267; plans `docs/plans/ms4-implementation-plan.md` §3, §4 and `docs/plans/mvp-daily-use-plan.md`, row 2). The `embed-note` placeholder of 3B (R5, D-144) is replaced in the editor and the read view: `![[Note]]` and `![[Note#Heading]]` are shown as **full** (the note's content, editable in place, D-273), **card** (header and preview properties) or **link** (an inline embed chip), with a default per type set in type settings. Embeds are inserted with the slash menu (`Embed object`), stop at circular embeds and at depth 3, and look clearly different from links (FR-LNK-07). 4F writes only the note the user inserts an embed into or changes an embed's mode in, the embedded note the user types into, and the type file whose default the user changes. Exit goal: the owner composes notes from other notes (conversion in 5A builds on it).
 
-**Status: draft, awaiting owner decisions.** Writing these criteria raised AP-318…AP-335 (end of this file). The criteria follow the recommendations; a criterion that cites an AP changes if the owner decides otherwise.
+**Status: accepted, 2026-10-17.** AP-318…AP-335 (end of this file) were accepted as recommended: D-415…D-432 (BRD v1.63). D-415 moves FR-EMB-03 to MS4 for note embeds; D-432 moves dragging from the sidebar or search to v1.0.
 
 **Scope.** FR-EMB-01 (`![[ ]]` and the slash menu), FR-EMB-02 (full, card, link; per-type default), FR-EMB-03 (full mode editable in place, D-273; its milestone is AP-318), FR-EMB-04 (circular embeds, depth 3), FR-LNK-07 (the embed part: framed block, header with icon, title and open button, broken-embed style), and the 4F checks of FR-FMT-07 and FR-SYN-06. **Out of scope:** dragging from the sidebar or search (FR-EMB-01 part: v1.0 per the daily-use plan, AP-335); image, PDF and other attachment embeds (FR-EMB-05, FR-ATT: MS6; they stay R5 placeholders); the Task header row with checkbox, status, priority and due, and the task body in its card (D-74, FR-CNV-05: MS5); previews of embeds and links (FR-LNK-08…13 including FR-LNK-09: v1.0 per `docs/requirements-coverage.md`, AP-326); generating block ids and inserting block embeds (FR-LNK-06: v1.0, AP-329); renames and link rewrites, also of embeds (FR-LNK-03: 4C, PR #45, not relied on here); conversion of blocks into embedded objects (FR-CNV-03: 5A); query and mindmap blocks (R5, v1.0).
 
@@ -198,7 +198,7 @@ The type file key is `embed: full | card | link` (read case-insensitively and tr
 
 ---
 
-## Points raised by these criteria (AP-318…AP-335, pending the owner)
+## Points raised by these criteria (AP-318…AP-335, accepted as recommended: D-415…D-432)
 
 | # | Issue | Recommendation | Alternatives | Affects |
 | --- | --- | --- | --- | --- |
@@ -221,4 +221,4 @@ The type file key is `embed: full | card | link` (read case-insensitively and tr
 | AP-334 | **Existing criteria changed by 4F.** read-view R5 (`embed-note` row) and FR-EDT-02 AC-13; editor.md FR-EDT-02 AC-21 and R6 (`Embed object`, `Block embed`); D-310's "stays an R5 placeholder" (backlinks.md FR-LNK-04 AC-6 wording, R16's R5 line); types.md R12; app-shell R4. New AC numbers FR-FMT-07 AC-13…AC-15 and FR-SYN-06 AC-10 may collide with slice 4C (PR #45, in review). | Update those texts in the 4F build commit; the test changes carry `AC-Test-Change: 4F replaces the embed-note placeholder (D-144, D-310); approved-by: owner`. Renumber this file's FR-FMT-07 and FR-SYN-06 criteria if 4C merges first. | — | read-view.md, editor.md, backlinks.md, types.md, app-shell.md |
 | AP-335 | **Drag from the sidebar or search (FR-EMB-01) has no recorded decision.** The daily-use plan moves it to v1.0, but §11.2 still lists FR-EMB-01 whole in MS4 and no D-xx records the split. | Record a decision: FR-EMB-01's drag part moves to v1.0; until then dropping a sidebar or search item on a note does nothing and writes nothing (no disabled control, as there is no visible control to disable). | (b) Build drag in 4F as the MS4 plan first said. | FR-EMB-01, §11.2, `docs/plans/mvp-daily-use-plan.md` |
 
-Next: the owner decides AP-318…AP-335; then the contract `docs/contracts/ms4-embeds.md` (AP-333), the fixture files from `tests/fixtures/vaults/embeds/README.md`, and the red tests (D-61).
+Next: the contract `docs/contracts/ms4-embeds.md` (AP-333), the fixture files from `tests/fixtures/vaults/embeds/README.md`, and the red tests (D-61).
