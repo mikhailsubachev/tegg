@@ -481,6 +481,9 @@ export function App() {
       if (c) L.run(c);
     };
     window.addEventListener('keydown', onKey);
+    const w = window as { __teggEarlyKeys?: KeyboardEvent[]; __teggKeysReady?: boolean };
+    w.__teggKeysReady = true;
+    for (const e of w.__teggEarlyKeys?.splice(0) ?? []) onKey(e);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
