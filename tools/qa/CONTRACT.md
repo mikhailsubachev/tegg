@@ -179,7 +179,7 @@ For every commit in the range: if it modifies, deletes or renames an existing AC
 
 1. Lists the AC test files **added** by `<commit>` (status `A` against its first parent). If there are none, exit 1 with a message containing `no AC tests added`.
 2. Creates a fresh worktree of `<commit>` (with `node_modules` provided as in §3.2 for each runner `dir`).
-3. For **each** added file, picks the first `acRunners` entry whose `match` matches it (no runner → the check fails for that file) and runs it for that file alone, reading the JUnit report at `{junit}`.
+3. For **each** added file, picks the first `acRunners` entry whose `match` matches it (no runner → the check fails for that file) and runs it for that file alone, reading the JUnit report at `{junit}`. Runners get `VERIFY_GATE=check-red` and their own free dev-server port in `VERIFY_PORT_BASE` (§3.2.1), as gate steps do.
 4. A file passes if the report has **at least one** `<testcase>` and **every** testcase has a `<failure>` or `<error>` whose `type` attribute, `message` attribute or text contains `AssertionError`. A missing report, zero testcases, a passing testcase or a non-assertion failure (syntax error, missing module, missing fixture) fails the file.
 5. Exit 0 if every added file passes, else 1, listing each failing file and why.
 
