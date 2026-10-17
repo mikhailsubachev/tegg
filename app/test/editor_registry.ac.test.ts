@@ -31,7 +31,7 @@ const d = (milestone: string): Due => ({ milestone });
 export const R6: [string, string, Due | null, string][] = [
   ['objects', 'Task', d('MS5'), 'FR-TSK-01, FR-CNV-01'],
   ['objects', 'Turn into object…', d('MS5'), 'FR-CNV-01'],
-  ['objects', 'Embed object', d('MS4'), 'FR-EMB-01'],
+  ['objects', 'Embed object', null, 'FR-EMB-01'], // built in 4F (R32, D-431)
   ['blocks', 'Text', null, 'FR-EDT-02'],
   ['blocks', 'Heading 1', null, 'FR-EDT-02'],
   ['blocks', 'Heading 2', null, 'FR-EDT-02'],
@@ -46,7 +46,7 @@ export const R6: [string, string, Due | null, string][] = [
   ['blocks', 'Table', null, 'FR-EDT-02'],
   ['media', 'Image', d('MS6'), 'FR-ATT-01, FR-ATT-03'],
   ['media', 'PDF', d('MS6'), 'FR-ATT-02'],
-  ['advanced', 'Block embed', d('MS4'), 'FR-EMB-04'],
+  ['advanced', 'Block embed', d('v1.0'), 'FR-EMB-01, FR-LNK-06'], // D-426, D-431
   ['advanced', 'Query', d('v1.0'), 'FR-QRY-06, FR-FMT-06'],
   ['advanced', 'Mindmap', d('v1.0'), 'FR-MMP-01'],
 ];

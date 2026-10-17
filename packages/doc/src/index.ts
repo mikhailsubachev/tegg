@@ -24,6 +24,7 @@ export function wikilinks(doc: Doc): WikiLink[] {
   return scanLinks(doc).map(({ embed, range, target, subpath, alias, escapedPipe, inFrontmatter }) => ({ embed, range, target, subpath, alias, escapedPipe, inFrontmatter }))
 }
 export { extract, type Extracted } from './extract.js'
+export { embedParts, withEmbedMode, embedSection, embedsIn, embedsInDoc, isAttachmentTarget, type EmbedMode, type Section } from './embed.js'
 export { excerptWindow, atOf, type At, type BlockText, type Excerpt, type ExcerptSeg, type Mark, type Segment, type LinkTarget } from './excerpt.js'
 
 /** FR-FMT-07: a Doc is the original text plus ranges, so serializing never regenerates anything. */

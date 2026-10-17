@@ -38,8 +38,9 @@ export type FakeCoreHandle = {
    *  `sameBytesTouch`: new mtime, same bytes (AC-16). A `Uint8Array` may hold invalid UTF-8 (NFR-REL-03 AC-7). */
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
   renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
-  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. */
-  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean }): Promise<void>;
+  /** Delay or fail every `note_write`; `hold` queues writes until `release()`. 4F (ms4-embeds §8): with `path`, only
+   *  writes to that path are affected. */
+  writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null }): Promise<void>;
   release(): Promise<void>;
   /** Paths of successful writes (`note_write` written, `note_create`, `note_create_exact`), in order. */
   writesTo(): Promise<string[]>;
@@ -200,7 +201,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     mtimes: {} as Record<string, number>,
     clock: 1,
     invalid: {} as Record<string, number[]>,
-    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean },
+    control: { delayMs: 0, fail: null, hold: false } as { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null },
     held: [] as (() => void)[],
     writtenPaths: [] as string[],
     conflicts: null as ConflictRowDto[] | null,
@@ -338,9 +339,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     }
     return v;
   };
+  // 4F (ms4-embeds §8): `writeControl({ path })` limits delay, failure and hold to writes to that path.
+  const ctlOn = (a: any) => !state.control.path || String(a?.path ?? '').normalize('NFC') === String(state.control.path).normalize('NFC');
   const viaNode = (cmd: string, fn = '__teggTypes') => async (a: any) => {
     if (!state.vault) throw err('NoVault', 'fake: no vault');
-    if (fn === '__teggLinks' && cmd === 'link_create' && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
+    if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
     for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
@@ -524,9 +527,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     daily_draft: viaNode('daily_draft', '__teggLinks'),
     daily_create: async (a) => {
       // D-363: writeControl applies as to note_write.
-      if (state.control.hold) await new Promise<void>((r) => state.held.push(r));
-      if (state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
-      if (state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      if (ctlOn(a) && state.control.hold) await new Promise<void>((r) => state.held.push(r));
+      if (ctlOn(a) && state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
+      if (ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
       const r: any = await viaNode('daily_create', '__teggLinks')(a);
       return { ...r, version: state.ver(r.path) };
     },
@@ -628,9 +631,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const p = String(a.path).normalize('NFC');
       const text = String(a.text);
       const base = (a.base ?? null) as VersionDto | null;
-      if (state.control.hold) await new Promise<void>((r) => state.held.push(r));
-      if (state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
-      if (state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      if (ctlOn(a) && state.control.hold) await new Promise<void>((r) => state.held.push(r));
+      if (ctlOn(a) && state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
+      if (ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
       if (!state.vault) throw err('NoVault', 'fake: no vault');
       if (p in state.invalid) throw err('NotUtf8', `fake: ${p} isn't valid UTF-8`);
       const disk = state.vault.files[p];
@@ -753,6 +756,26 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null;
     },
     perf_mark: () => null,
+    // 4F (ms4-embeds §8): one call per nesting level, no recency.
+    embed_load: async (a) => {
+      const out: any[] = [];
+      const seen = new Set<string>();
+      for (const p0 of (a.paths ?? []) as string[]) {
+        const p = String(p0).normalize('NFC');
+        if (seen.has(p)) continue;
+        seen.add(p);
+        const key = state.vault ? Object.keys(state.vault.files).find((k) => k.normalize('NFC') === p) : undefined;
+        const text = key === undefined ? undefined : state.vault!.files[key];
+        if (text === undefined || /^(_templates|\.trash)\//.test(p)) {
+          out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
+          continue;
+        }
+        const targets = ((await w.__teggLinks('link_targets', { text }, {}, {})).result ?? []) as string[];
+        const links = targets.length ? await (handlers.link_resolve as any)({ from: p, targets }) : [];
+        out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links });
+      }
+      return out;
+    },
     // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
     link_resolve: async (a) => {
       const from = String(a.from ?? '').normalize('NFC');

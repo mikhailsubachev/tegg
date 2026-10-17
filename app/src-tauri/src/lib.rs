@@ -623,6 +623,29 @@ async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<Str
     Ok(core.resolve_links(&from, &targets).into_iter().map(link_dto).collect())
 }
 
+/// `embed_load` (ms4-embeds §4, D-429): one call per nesting level; read-only, records no recency.
+#[tauri::command]
+async fn embed_load(state: State<'_, AppState>, paths: Vec<String>) -> Result<Vec<EmbedNoteDto>, IpcError> {
+    let core = core(&state)?;
+    Ok(core
+        .embed_load(&paths)
+        .into_iter()
+        .map(|n| EmbedNoteDto {
+            path: n.path,
+            state: match n.state {
+                tegg_core::EmbedLoadState::Ok => "ok",
+                tegg_core::EmbedLoadState::Missing => "missing",
+                tegg_core::EmbedLoadState::Io => "io",
+            }
+            .into(),
+            text: n.text,
+            version: n.version.as_ref().map(version_dto),
+            utf8: n.utf8,
+            links: n.links.into_iter().map(link_dto).collect(),
+        })
+        .collect())
+}
+
 // ---------------------------------------------------------------- MS4 slice 4A (ms4-links §4)
 
 fn mark_name(m: &tegg_core::Mark) -> String {
@@ -1036,6 +1059,8 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         preview: d.preview,
         preview_ignored: t.preview_ignored,
         hidden: d.hidden,
+        embed: t.embed.as_str().into(),
+        embed_raw: t.embed_raw,
         template: d.template,
         attributes: d.attributes.into_iter().map(attribute_dto).collect(),
     }
@@ -1101,6 +1126,10 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         TypeOpDto::Review { on } => TypeOp::SetReview(on),
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
+        TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
+            Some(m) => m,
+            None => return Err(err("Io", format!("unknown embed mode {mode}"))),
+        }),
         TypeOpDto::AddAttribute { attribute } => TypeOp::AddAttribute(attr_def(attribute)),
         TypeOpDto::UpdateAttribute { key, change } => TypeOp::UpdateAttribute {
             key,
@@ -1378,7 +1407,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
+            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,

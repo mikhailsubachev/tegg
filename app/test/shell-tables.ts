@@ -187,9 +187,9 @@ export const showDue = (due: Due) => (due.slice ? `${due.milestone} (${due.slice
 export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
 
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
-export type R5Row = { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
+/** 4F (D-431, R32): the `embed-note` row is built and removed. */
+export type R5Row = { id: 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
 export const R5: R5Row[] = [
-  { id: 'embed-note', due: d('MS4', '4F'), reqs: 'FR-EMB-01, -02, -04' },
   { id: 'embed-image', due: d('MS6'), reqs: 'FR-ATT-03, FR-ATT-07' },
   { id: 'embed-pdf', due: d('MS6'), reqs: 'FR-ATT-02' },
   { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },
@@ -220,7 +220,8 @@ export const R11: R11Row[] = [
 ];
 
 /** R12: type settings sections in order (section navigation links and region names). */
-export const R12_SECTIONS = ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Review workflow', 'Templates', 'Views', 'Delete type'];
+/** 4F (D-431, R32): `Embeds` between `Hidden properties` and `Review workflow`. */
+export const R12_SECTIONS = ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Embeds', 'Review workflow', 'Templates', 'Views', 'Delete type'];
 export const R12_BUILT_IN = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
 
 /** R13 (with ms3-shell §14.7.2 ids and sections): palette title, id, section, routes it is present on. */

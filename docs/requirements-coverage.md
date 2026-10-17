@@ -289,7 +289,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-VLT-05 | M | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | §11 MVP lists "default type"; capture (MS5) and ⌘N need it | MS5 |
 | FR-EMB-01 | M | Any object (or block of it) can be embedded in any note via `![[ ]]`, the slash menu, or drag from the sidebar… | Converted blocks become embeds (FR-CNV-05, MS5) and images are embedded (FR-ATT-07, MS6); §11 doesn't name embeds | MS4 |
 | FR-EMB-02 | M | Embed display modes: full (inline editable content), card (title + key attributes), link (inline chip). Defaul… | as FR-EMB-01 | MS4 |
-| FR-EMB-03 | M | Embedded content is editable in place (FR-CNV-05). | FR-CNV-05 (MS5) edits converted blocks in place | MS5 |
+| FR-EMB-03 | M | Embedded content is editable in place (FR-CNV-05). | Full mode is editable in place (D-273); note embeds in MS4 (D-415), FR-CNV-05 stays MS5 | MS4 |
 | FR-EMB-04 | M | Recursive embeds are detected and stopped (show "circular embed"). Maximum nesting depth is 3. | as FR-EMB-01 | MS4 |
 | FR-SET-01 | M | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | Default type and folders must be settable in the MVP | MS5 |
 | FR-SET-02 | M | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | Theme (FR-UX-05) | MS3 |

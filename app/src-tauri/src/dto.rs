@@ -100,6 +100,20 @@ pub struct NoteDto {
     pub utf8: bool,
 }
 
+/// One embedded file as `embed_load` returns it (ms4-embeds §4, D-429).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct EmbedNoteDto {
+    pub path: String,
+    /// `ok`, `missing` or `io`.
+    pub state: String,
+    /// Decoded with U+FFFD for invalid bytes (D-180).
+    pub text: Option<String>,
+    pub version: Option<VersionDto>,
+    pub utf8: bool,
+    /// Resolution of the file's link targets from its own path, in `linkTargets` order.
+    pub links: Vec<LinkTargetDto>,
+}
+
 /// A file version (ms3-shell §13.2): equality is `size` + `hash` (D-175).
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -233,6 +247,10 @@ pub struct TypeDto {
     pub preview_ignored: Vec<String>,
     /// Properties left out of the attribute panel's rows (FR-TYP-17, D-316).
     pub hidden: Vec<String>,
+    /// The effective default embed mode: `full`, `card` or `link` (D-417, ms4-embeds §3).
+    pub embed: String,
+    /// The raw `embed` value of the type file, or null when absent.
+    pub embed_raw: Option<String>,
     pub template: Option<String>,
     pub attributes: Vec<AttributeDto>,
 }
@@ -344,6 +362,8 @@ pub enum TypeOpDto {
     Preview { keys: Vec<String> },
     /// FR-TYP-17, D-316.
     Hidden { keys: Vec<String> },
+    /// D-417 (ms4-embeds §3): `full`, `card` or `link`.
+    Embed { mode: String },
     AddAttribute { attribute: AttributeInputDto },
     UpdateAttribute { key: String, change: AttributeChangeDto },
     RemoveAttribute { key: String },
@@ -845,6 +865,7 @@ pub fn typescript() -> String {
         ContextRowDto::decl(),
         DailyContextDto::decl(),
         DailyCreatedDto::decl(),
+        EmbedNoteDto::decl(),
         NoteRenameDto::decl(),
         JobIdDto::decl(),
         JobCountsDto::decl(),

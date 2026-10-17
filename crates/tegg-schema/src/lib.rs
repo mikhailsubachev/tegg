@@ -183,6 +183,56 @@ pub struct Parsed {
     pub readability: Readability,
     /// Preview keys that are neither attributes nor universal (FR-TYP-11 AC-2).
     pub preview_ignored: Vec<String>,
+    /// Raw value of the top-level `embed` key, trimmed; None when absent (D-417, ms4-embeds §3).
+    pub embed_raw: Option<String>,
+}
+
+/// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmbedMode {
+    Full,
+    Card,
+    Link,
+}
+
+impl EmbedMode {
+    /// Case-insensitive, trimmed; None for anything else.
+    pub fn parse(s: &str) -> Option<EmbedMode> {
+        match s.trim().to_lowercase().as_str() {
+            "full" => Some(EmbedMode::Full),
+            "card" => Some(EmbedMode::Card),
+            "link" => Some(EmbedMode::Link),
+            _ => None,
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EmbedMode::Full => "full",
+            EmbedMode::Card => "card",
+            EmbedMode::Link => "link",
+        }
+    }
+}
+
+/// R31: the built-in default embed mode of a type key.
+pub fn default_embed(key: &str) -> EmbedMode {
+    match nfc(key).as_str() {
+        "page" | "quick-note" | "daily-note" => EmbedMode::Full,
+        _ => EmbedMode::Card,
+    }
+}
+
+/// The `embed` value if it is a mode, else the R31 default of `key` (D-417).
+pub fn effective_embed(key: &str, raw: Option<&str>) -> EmbedMode {
+    raw.and_then(EmbedMode::parse).unwrap_or_else(|| default_embed(key))
+}
+
+/// The trimmed raw value of the top-level `embed` key, as written (D-417); None when absent or empty.
+fn embed_raw(text: &str) -> Option<String> {
+    match tegg_format::parse_yaml_value(text) {
+        Ok(Some(Value::Object(top))) => top.get("embed").and_then(scalar_text).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+        _ => None,
+    }
 }
 
 pub const SYSTEM_KEYS: [&str; 7] = ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"];
@@ -275,9 +325,9 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 .filter(|p| !def.attributes.iter().any(|a| &a.key == *p) && !UNIVERSAL_KEYS.contains(&p.as_str()))
                 .cloned()
                 .collect();
-            Parsed { def, readability, preview_ignored }
+            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text) }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new() },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None },
     }
 }
 
@@ -786,7 +836,7 @@ fn option_text(o: &OptionDef) -> String {
 // ------------------------------------------------------------------------------------------------ writing: whole files
 
 /// Canonical top-level order (§14.1.4, from the approved fixtures).
-const TOP_ORDER: [&str; 13] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "template", "attributes"];
+const TOP_ORDER: [&str; 14] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "embed", "template", "attributes"];
 /// Canonical attribute item order.
 const ITEM_ORDER: [&str; 9] = ["key", "name", "type", "default", "required", "options", "to", "multiple", "description"];
 const ITEM_INDENT: usize = 2;
@@ -923,6 +973,8 @@ pub enum TypeOp {
     SetPreview(Vec<String>),
     /// FR-TYP-17, D-316.
     SetHidden(Vec<String>),
+    /// D-417 (ms4-embeds §3): the type's default embed mode.
+    SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
     UpdateAttribute { key: String, change: AttrChange },
     RemoveAttribute(String),
@@ -1089,6 +1141,14 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             if def.hidden != out {
                 def.hidden = out;
                 set_top(lines, "hidden", render_top("hidden", def));
+            }
+        }
+        TypeOp::SetEmbed(mode) => {
+            // D-417: the same value (any case) is no write; otherwise the line is replaced in place or inserted
+            // after `hidden` / `preview` (TOP_ORDER).
+            let current = embed_raw(&join_lines(lines, true));
+            if current.map(|c| c.to_lowercase()).as_deref() != Some(mode.as_str()) {
+                set_top(lines, "embed", Some(vec![format!("embed: {}", mode.as_str())]));
             }
         }
         TypeOp::AddAttribute(a) => {

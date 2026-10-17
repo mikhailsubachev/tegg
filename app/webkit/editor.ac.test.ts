@@ -199,8 +199,10 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
+  // 4F (D-431): a note embed is an embed now (embeds.md), image embeds, queries and mindmaps stay R5 placeholders.
   const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 4, 'note embed, image embed, query and mindmap are R5 placeholders');
+  assert.ok((await regions.count()) >= 3, 'image embed, query and mindmap are R5 placeholders');
+  assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();
   await page.keyboard.type('xyz');
@@ -423,14 +425,14 @@ test('fr_edt_02_ac21_embeds_typed_by_hand', async ({ page }) => {
   const core = await openEditor(page, E.prazdna);
   await editorBody(page).first().click();
   await page.keyboard.type('![[Cíl]]');
-  await must(editorBody(page).getByRole('region'), 'embed-note placeholder after ]]');
+  await must(editorBody(page).locator('[data-embed-mode]'), 'the note embed after ]] (4F, D-431)');
   let t = await savedText(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '![[Cíl]]\n', 'saves ![[Cíl]]');
   await page.keyboard.press('Enter');
   await page.keyboard.type('![[obrázek.png]]');
   t = await savedText(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '![[Cíl]]\n\n![[obrázek.png]]\n', 'image embed saved');
-  assert.equal((await editorBody(page).getByRole('region').count()) >= 2, true, 'embed-image placeholder');
+  assert.equal((await editorBody(page).locator('[data-placeholder="embed-image"]').count()) >= 1, true, 'embed-image placeholder (the note embed is an embed now, 4F D-431)');
   assert.equal((await core.calls()).filter((c) => /attachment|image|read_file/.test(c.cmd)).length, 0, 'no image file read');
 });
 
@@ -516,7 +518,7 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
   await page.keyboard.type('/');
   const menu = await must(slashMenu(page), 'menu');
   const n0 = (await core.calls()).length;
-  for (const [name, ms] of [['Task', 'MS5'], ['Image', 'MS6'], ['Query', 'v1.0'], ['Block embed', 'MS4']]) {
+  for (const [name, ms] of [['Task', 'MS5'], ['Image', 'MS6'], ['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);

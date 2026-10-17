@@ -19,9 +19,9 @@ import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
 const UNIVERSAL_PREVIEW: [string, string][] = [['tags', 'attr.tags'], ['source', 'attr.source'], ['aliases', 'attr.aliases'], ['created', 'attr.created'], ['modified', 'attr.modified']];
-const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'review', 'templates', 'views', 'delete'] as const;
+const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'embeds', 'review', 'templates', 'views', 'delete'] as const;
 const SECTION_LABEL: Record<(typeof SECTIONS)[number], string> = {
-  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'ts.preview', hidden: 'ts.hidden', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
+  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'ts.preview', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
 };
 const NO_OPTIONS = new Set(['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'url', 'email', 'relation']);
 
@@ -290,6 +290,8 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
           <PreviewSection type={type} ro={ro} w={w} setType={setType} />
 
           <HiddenSection type={type} ro={ro} w={w} setType={setType} />
+
+          <EmbedsSection type={type} ro={ro} w={w} setType={setType} />
 
           <section id="ts-review" aria-label={t('ts.review')} className="ts-section">
             <h2>{t('ts.review')}</h2>
@@ -744,6 +746,49 @@ function OptionLabel({ label, disabled, desc, autoFocus, onCommit, onCancel }: {
         if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
         else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setV(label); onCancel?.(); }
       }} />
+  );
+}
+
+// ------------------------------------------------------------------------------------------------ embeds
+
+const EMBED_MODES = ['full', 'card', 'link'] as const;
+
+/** 4F (FR-EMB-02 AC-6, AC-7, D-417; R12): the type's default embed mode. An unknown value in the file is shown with a
+ *  warning and never rewritten until the user chooses; choosing the checked mode writes nothing. */
+function EmbedsSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w: ReturnType<typeof useTypeWriter>; setType: (t: TypeDto) => void }) {
+  const mode = (EMBED_MODES as readonly string[]).includes(type.embed) ? (type.embed as (typeof EMBED_MODES)[number]) : 'card';
+  const raw = type.embedRaw;
+  const unknown = raw !== null && !(EMBED_MODES as readonly string[]).includes(raw.trim().toLowerCase());
+  const refs = useRef<(HTMLElement | null)[]>([]);
+  const choose = (m: (typeof EMBED_MODES)[number], focus = false) => {
+    if (focus) refs.current[EMBED_MODES.indexOf(m)]?.focus();
+    if (ro || (m === mode && !unknown && (raw ?? '').toLowerCase() === m) || (m === mode && raw === null)) return;
+    if (m === mode && unknown) { /* choosing the shown default replaces the unknown value */ }
+    setType({ ...type, embed: m, embedRaw: m });
+    void w.send([{ op: 'embed', mode: m }], t('typeSettings.embeds'), 'embed');
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    const i = EMBED_MODES.indexOf(mode);
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    choose(EMBED_MODES[(i + step + EMBED_MODES.length) % EMBED_MODES.length], true);
+  };
+  return (
+    <section id="ts-embeds" aria-label={t('typeSettings.embeds')} className="ts-section">
+      <h2>{t('typeSettings.embeds')}</h2>
+      <div role="radiogroup" aria-label={t('typeSettings.embedMode')} className="ts-field row" onKeyDown={onKey}>
+        {EMBED_MODES.map((m, i) => (
+          <span key={m} ref={(el) => { refs.current[i] = el; }} role="radio" aria-checked={m === mode} tabIndex={m === mode ? 0 : -1}
+            aria-disabled={ro || undefined} className={`ts-radio ${m === mode ? 'on' : ''}`} data-command="typeSettings.embedMode"
+            onClick={() => choose(m)}>
+            {t(`embed.mode.${m}`)}
+          </span>
+        ))}
+      </div>
+      <p className="hint">{t('typeSettings.embedHint', { plural: type.plural })}</p>
+      {unknown && <p role="status" className="hint warn">{t('typeSettings.embedUnknown', { value: raw!, mode: t(`embed.mode.${mode}`) })}</p>}
+    </section>
   );
 }
 

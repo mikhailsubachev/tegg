@@ -385,7 +385,8 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
   const odkazy = await view(F.odkazy);
   const od = [...odkazy.article.querySelectorAll('[data-placeholder]')] as HTMLElement[];
   assert.deepEqual(blIds, ['mindmap', 'query', 'embed-image'], 'Bloky: mindmap, query, remote image');
-  assert.deepEqual(od.map((p) => p.dataset.placeholder), ['embed-note', 'embed-note', 'embed-image', 'embed-image', 'embed-pdf', 'embed-other'], 'Odkazy: two note embeds, two images, a PDF, another attachment');
+  // 4F (D-431): note embeds are no longer placeholders; without the embed renderer they are link-mode embeds.
+  assert.deepEqual(od.map((p) => p.dataset.placeholder), ['embed-image', 'embed-image', 'embed-pdf', 'embed-other'], 'Odkazy: two images, a PDF, another attachment');
   for (const p of od) {
     const row = R5.find((r) => r.id === p.dataset.placeholder)!;
     const def = defs.find((x) => x.id === row.id);
@@ -396,11 +397,12 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
     assert.ok(tx.includes(`Coming in ${showDue(row.due)}`), `${row.id}: "Coming in ${showDue(row.due)}"`);
     for (const id of expandReqs(row.reqs)) assert.ok(tx.includes(id) || tx.includes(`-${id.split('-').pop()}`), `${row.id}: requirement ${id}`);
   }
-  const [n1, n2, i1, i2, pdf, other] = od;
+  const [i1, i2, pdf, other] = od;
+  const [n1, n2] = [...odkazy.article.querySelectorAll('[data-embed-mode="link"]')] as HTMLElement[];
   const embeds: [HTMLElement, string | undefined][] = [[n1, undefined], [n2, 'Druhá kapitola']];
-  for (const [p, frag] of embeds) {
-    const l = oneLink(p, 'note embed chip');
-    assert.equal(name(l), 'Cíl', 'note embed shows its target as a chip');
+  for (const [l, frag] of embeds) {
+    assert.ok(l, 'a link-mode embed for each note embed');
+    assert.ok(name(l).startsWith('Cíl'), 'note embed shows its target');
     odkazy.calls.open.length = 0;
     fireEvent.click(l);
     assert.deepEqual(odkazy.calls.open.map(([x, f]) => [nfc(x), f === undefined ? undefined : nfc(f)]), [[F.cil, frag]], 'the chip opens the note');

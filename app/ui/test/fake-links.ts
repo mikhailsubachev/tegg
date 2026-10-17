@@ -454,7 +454,31 @@ function duplicates(ctx: Ctx) {
 
 const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 
+/** 4F (ms4-embeds §4, §8): the targets `linkTargets` (read/ReadView.tsx) sends for a note text, in order. */
+async function linkTargets(text: string): Promise<string[]> {
+  const d = await doc();
+  const out: string[] = [];
+  const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
+  const add = (x: string) => { if (x !== '' && !attachment(x) && !out.includes(x)) out.push(x); };
+  const parsed = d.parse(text);
+  for (const l of d.wikilinks(parsed)) add(String(l.target).trim());
+  const walk = (n: any) => {
+    if (n.type === 'link') {
+      const url = String(n.url ?? '');
+      if (url && !url.startsWith('#') && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(url) && !url.startsWith('//')) {
+        let path = url.split('#')[0];
+        try { path = decodeURIComponent(path); } catch { /* keep */ }
+        if (path) add(path);
+      }
+    }
+    for (const c of n.children ?? []) walk(c);
+  };
+  walk(d.markdownTree(text.slice(parsed.bodyStart)));
+  return out;
+}
+
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
+  if (cmd === 'link_targets') return { result: await linkTargets(String(a.text ?? '')) };
   const ctx = await context(files, vers);
   if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {

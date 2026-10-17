@@ -15,6 +15,8 @@ export type OfferRequest = {
   chipPos?: number;
   /** The chip's position now (the note can change while the offer is open), or null when it's gone. */
   chipAt?: () => number | null;
+  /** 4F (D-424): from a broken embed frame: after Create the page stays and the embed shows the new note. */
+  stay?: boolean;
 };
 
 let handler: ((r: OfferRequest) => void) | null = null;

@@ -12,7 +12,10 @@ const REPO = resolve(import.meta.dirname, '../../..');
 const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'];
 const UNIVERSAL_PREVIEW = ['tags', 'source', 'aliases', 'created', 'modified'];
-const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'template', 'attributes'];
+const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'embed', 'template', 'attributes'];
+/** R31 (D-417): the built-in default embed mode of a type key. */
+const defaultEmbed = (key: string) => (['page', 'quick-note', 'daily-note'].includes(key) ? 'full' : 'card');
+const embedMode = (raw: unknown): string | null => { const m = typeof raw === 'string' ? raw.trim().toLowerCase() : ''; return ['full', 'card', 'link'].includes(m) ? m : null; };
 const ITEM = ['key', 'name', 'type', 'default', 'required', 'options', 'to', 'multiple', 'description'];
 const HEADER = "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\n";
 
@@ -56,7 +59,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const system = SYSTEM.includes(key);
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
-    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], template: null, attributes: [],
+    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -101,6 +104,8 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     review: y.review === 'locked' ? 'locked' : y.review === true ? 'on' : 'off', preview,
     previewIgnored: preview.filter((p) => !attributes.some((a: any) => a.key === p) && !UNIVERSAL_PREVIEW.includes(p)),
     hidden: Array.isArray(y.hidden) ? y.hidden.map((x: unknown) => String(x).normalize('NFC')) : [],
+    // 4F (D-417, ms4-embeds §3): the raw value and the effective mode.
+    embed: embedMode(y.embed) ?? defaultEmbed(key), embedRaw: y.embed === undefined || y.embed === null || String(y.embed).trim() === '' ? null : String(y.embed).trim(),
     template: y.template ?? null, attributes,
   };
 }
@@ -246,6 +251,10 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.keys.length > 4) return rule({ reason: 'previewFull' });
       if (JSON.stringify(op.keys) === JSON.stringify(t.preview)) continue;
       setTop(es, 'preview', `preview: ${flow(op.keys)}\n`);
+    } else if (op.op === 'embed') {
+      // D-417: the same value (any case) is no write; otherwise the line is replaced or inserted after hidden/preview.
+      if (String(t.embedRaw ?? '').toLowerCase() === op.mode) continue;
+      setTop(es, 'embed', `embed: ${op.mode}\n`);
     } else if (op.op === 'hidden') {
       // FR-TYP-17, D-316: a flow list after `preview`.
       const keys: string[] = [...new Set<string>(op.keys.map((k: string) => k.normalize('NFC')))];

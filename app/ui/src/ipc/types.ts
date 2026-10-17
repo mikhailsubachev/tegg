@@ -140,7 +140,15 @@ review: string, preview: Array<string>, previewIgnored: Array<string>,
 /**
  * Properties left out of the attribute panel's rows (FR-TYP-17, D-316).
  */
-hidden: Array<string>, template: string | null, attributes: Array<AttributeDto>, };
+hidden: Array<string>, 
+/**
+ * The effective default embed mode: `full`, `card` or `link` (D-417, ms4-embeds §3).
+ */
+embed: string, 
+/**
+ * The raw `embed` value of the type file, or null when absent.
+ */
+embedRaw: string | null, template: string | null, attributes: Array<AttributeDto>, };
 export type TypeFileErrorDto = { message: string, line: number, };
 export type OptionDto = { label: string, color: string | null, };
 export type AttributeDto = { key: string, name: string, 
@@ -158,7 +166,7 @@ supported: boolean,
 readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
 export type TypeTemplateDto = { path: string, text: string, };
@@ -246,6 +254,19 @@ body: string, templateInvalid: string | null, path: string, formatFallback: bool
 export type ContextRowDto = { path: string, title: string, type: string, at: string, };
 export type DailyContextDto = { quickNotes: Array<ContextRowDto>, created: Array<ContextRowDto>, modified: Array<ContextRowDto>, totals: [number, number, number], };
 export type DailyCreatedDto = { path: string, version: VersionDto, duplicates: Array<string>, };
+export type EmbedNoteDto = { path: string, 
+/**
+ * `ok`, `missing` or `io`.
+ */
+state: string, 
+/**
+ * Decoded with U+FFFD for invalid bytes (D-180).
+ */
+text: string | null, version: VersionDto | null, utf8: boolean, 
+/**
+ * Resolution of the file's link targets from its own path, in `linkTargets` order.
+ */
+links: Array<LinkTargetDto>, };
 export type NoteRenameDto = { jobId: number, 
 /**
  * The planned path; the final one is in the report.

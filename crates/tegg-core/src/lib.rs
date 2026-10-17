@@ -927,4 +927,8 @@ pub use tegg_format::excerpt::{At, Excerpt, LinkTargetInfo, Mark, RSeg, TargetKi
 // ------------------------------------------------------------------------------------------------ slice 4B
 // docs/contracts/ms4-daily.md §3: Daily Notes (`daily.rs`).
 pub mod daily;
+
+// MS4 slice 4F (docs/contracts/ms4-embeds.md §4).
+mod embeds4f;
+pub use embeds4f::{EmbedLoadState, EmbedNote};
 pub use daily::{ContextRow, DailyContext, DailyContextPage, DailyCreated, DailyDraft, DailyView, DayWindow};

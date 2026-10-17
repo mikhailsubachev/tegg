@@ -7,6 +7,7 @@ import { requestOffer } from '../links/offer';
 import { markdownTree, parse, wikilinks } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
+import type { EmbedTree } from '../embeds/tree';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
 import { InNotePlaceholder } from './InNotePlaceholder';
@@ -20,6 +21,13 @@ export type ReadViewProps = {
   onTag: (key: string) => void;
   onExternal: (url: string) => void;
   onScrollInNote: (fragment: string) => void;
+  /** 4F (ms4-embeds §6): the note's embed tree and the renderer of one embed; without it, embeds render as before. */
+  embeds?: EmbedTree;
+  renderEmbed?: (value: string, line: number, inline: boolean) => ReactNode;
+  /** 4F: lines of the file before `text` (an embedded section), so embed lines are file lines. */
+  lineBase?: number;
+  /** 4F: inside an embed frame: a plain container instead of the note's `article`. */
+  bare?: boolean;
 };
 
 // mdast nodes of `@tegg/doc` (with its wikiLink, tag, highlight and comment nodes), read structurally.
@@ -106,7 +114,7 @@ function plainText(n: Any): string {
   return '';
 }
 
-type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean };
+type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object> };
 
 function Chip({ kind, name, type, description, disabled, onActivate }: {
   kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
@@ -156,7 +164,7 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
     onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} />;
 }
 
-function embedPlaceholder(c: Ctx, value: string, inline: boolean): ReactNode {
+function embedPlaceholder(c: Ctx, value: string, inline: boolean, line = 0): ReactNode {
   const { target, subpath } = splitWikilink(value);
   const file = target.split('/').pop() ?? target;
   if (IMAGE_EXT.test(target)) return <InNotePlaceholder id="embed-image" inline={inline}><span data-user-content>{file}</span></InNotePlaceholder>;
@@ -170,17 +178,32 @@ function embedPlaceholder(c: Ctx, value: string, inline: boolean): ReactNode {
     );
   }
   if (isAttachment(target)) return <InNotePlaceholder id="embed-other" inline={inline}><span data-user-content>{file}</span></InNotePlaceholder>;
+  // 4F (ms4-embeds §6): note embeds are rendered by the embed renderer; without one, as a link-mode embed.
+  if (c.renderEmbed) return c.renderEmbed(value, line, inline);
+  return <LinkModeEmbed c={c} value={value} />;
+}
+
+/** A note embed without the embed renderer (L1 of 3B, previews): a link-mode embed of its resolution (D-418). */
+function LinkModeEmbed({ c, value }: { c: Ctx; value: string }) {
+  const { target, subpath } = splitWikilink(value);
   const info = linkInfo(c, target);
-  const name = info?.title ?? target;
+  const ok = info && info.path && (info.kind === 'note' || info.kind === 'daily');
+  const title = ok ? (info!.title ?? target) : target;
+  const name = subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title;
+  const icon = chipIcon(ok ? info!.type : info?.kind === 'date-missing' ? 'daily-note' : null);
+  const act = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (ok) c.onOpen(info!.path!, subpath ?? undefined);
+    else if (info?.kind === 'date-missing') void openDate(target);
+    else requestOffer({ from: c.path, target, relationTo: null, anchor: e.currentTarget as HTMLElement });
+  };
   return (
-    <InNotePlaceholder id="embed-note" inline={inline}>
-      {info?.path ? (
-        <Chip kind={info.kind} name={name} type={info.type} onActivate={() => c.onOpen(info.path!, subpath ?? undefined)} />
-      ) : (
-        <Chip kind="unresolved" name={name} type={null} description={t('link.noNote', { target })}
-          onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} /> // D-310
-      )}
-    </InNotePlaceholder>
+    <a href="#" role="link" className={`embed-chip embed-link${ok || info?.kind === 'date-missing' ? '' : ' kind-unresolved'}`} data-embed-mode="link"
+      data-embed-state={ok || info?.kind === 'date-missing' ? 'ok' : 'broken'} data-embed-target={info?.path ?? target} data-icon={ok ? icon.def : undefined}
+      aria-label={name} aria-description={ok ? t('embed.chip') : t('link.noNote', { target })} onClick={act} onKeyDown={(e) => e.key === 'Enter' && act(e)}>
+      {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      <span data-user-content>{name}</span>
+    </a>
   );
 }
 
@@ -257,7 +280,7 @@ function inline(c: Ctx, n: Any): ReactNode {
     }
     case 'wikiLink': {
       const w = splitWikilink(n.value);
-      if (n.embed) return embedPlaceholder(c, n.value, true);
+      if (n.embed) return embedPlaceholder(c, n.value, true, c.lineOffset + (n.position?.start.line ?? 0));
       if (c.inLink) return w.alias ?? w.target;
       return <NoteLink c={c} target={w.target} subpath={w.subpath} shown={w.alias} />;
     }
@@ -382,8 +405,9 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       const raw = src(c, n).trim();
       if (/^%%[\s\S]*%%$/.test(raw)) return null; // comment block (dialect §4)
       const sole = soleEmbed(n);
-      if (sole) {
-        const ph = sole.type === 'image' ? imagePlaceholder(sole, false) : embedPlaceholder(c, sole.value, false);
+      // D-419: only a top-level sole-embed paragraph is a block embed; elsewhere the embed stays in its paragraph.
+      if (sole && (sole.type === 'image' || !c.renderEmbed || c.tops.has(n))) {
+        const ph = sole.type === 'image' ? imagePlaceholder(sole, false) : embedPlaceholder(c, sole.value, false, c.lineOffset + (sole.position?.start.line ?? 0));
         return isValidElement(ph) ? cloneElement(ph, { key }) : ph;
       }
       const id = takeBlockId(n);
@@ -503,6 +527,7 @@ function blocks(c: Ctx, nodes: Any[]): ReactNode[] {
 /** Top-level blocks carry their 1-based file line (`data-src-line`), so the view can keep the reading position when
  *  the source view is toggled (D-146). Components take it as the `line` prop. */
 function topBlocks(c: Ctx, nodes: Any[], lineOffset: number): ReactNode[] {
+  for (const n of nodes) c.tops.add(n);
   return nodes.map((n, i) => {
     const el = block(c, n, i);
     if (!isValidElement(el)) return el;
@@ -522,10 +547,12 @@ export function ReadView(props: ReadViewProps) {
   const doc = parse(text);
   const body = text.slice(doc.bodyStart);
   const tree = markdownTree(body) as unknown as Any;
-  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false };
+  const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
+  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet() };
+  if (props.bare) return <div className="read-view embed-read" data-user-content>{topBlocks(c, tree.children as Any[], lineOffset)}</div>;
   return (
     <article className="read-view" aria-label={noteTitle(doc, props.path)} data-user-content>
-      {topBlocks(c, tree.children as Any[], text.slice(0, doc.bodyStart).split('\n').length - 1)}
+      {topBlocks(c, tree.children as Any[], lineOffset)}
     </article>
   );
 }
