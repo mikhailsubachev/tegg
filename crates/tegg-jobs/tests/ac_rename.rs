@@ -453,7 +453,7 @@ fn fr_fmt_08_ac8_same_stem_different_title_writes_title_and_auto_aliases_only() 
     let (_, report) = ok!(rename(&core, "Pages/Q3 plan budget.md", "Q3 plan budget?"), "commit Q3 plan budget?");
     assert_eq!(report.renamed, None, "same stem: no file is renamed: {report:?}");
     let t = read_text(&root, "Pages/Q3 plan budget.md").unwrap_or_default();
-    assert!(t.contains("\ntitle: \"Q3 plan budget?\"\n"), "title: written: {t}");
+    assert!(t.contains("\ntitle: Q3 plan budget?\n"), "title: written plain, quoted only when YAML requires it (dialect §3): {t}");
     assert_eq!(
         read_text(&root, "Pages/Plánování.md"),
         Some(linking.replace("[[Q3 plan budget|Q3: plan/budget]]", "[[Q3 plan budget|Q3 plan budget?]]")),

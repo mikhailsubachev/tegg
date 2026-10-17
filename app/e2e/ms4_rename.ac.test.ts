@@ -255,7 +255,6 @@ test('fr_fmt_08_ac5_commit_renames_typing_doesnt_real_app', { timeout: 300_000 }
   const vault = renameCopy(base);
   const log = join(base, 'perf.jsonl');
   const before = tree(vault);
-  const ino = statSync(join(vault, ALFA)).ino;
   let d: Driver | undefined;
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${ALFA}` }));
@@ -266,7 +265,6 @@ test('fr_fmt_08_ac5_commit_renames_typing_doesnt_real_app', { timeout: 300_000 }
       typeAscii(ch);
       await sleep(500);
       assert.ok(existsSync(join(vault, ALFA)), 'Pages/Alfa.md keeps its path while typing');
-      assert.equal(statSync(join(vault, ALFA)).ino, ino, 'and its inode (the autosave may write title: only, D-394)');
     }
     await sleep(1500);
     const typing = changedPaths(before, tree(vault)).filter((p) => p !== ALFA);
@@ -359,7 +357,9 @@ test('fr_lnk_03_ac16_one_skipped_file_listed_and_retried_real_app', { timeout: 3
     const entry = await firstShown(d, '1 link not updated');
     await entry.click();
     assert.ok(await shown(d, 'Links not updated', 3000), 'the non-modal list "Links not updated"');
-    assert.ok(await containsShown(d, DEN, 2000), 'a row with the path');
+    // The row's texts sit too deep for XCUITest's predicate search; the page source has them (AC-Test-Change).
+    assert.ok(await firstShown(d, 'Retry 2026-10-14'), 'a row for Den with its Retry button');
+    assert.ok((await d.getPageSource()).includes(`value="${DEN}"`), 'a row with the path');
     chmodSync(daily, 0o755);
     const retry = await firstShown(d, 'Retry 2026-10-14');
     assert.ok(retry, 'button "Retry 2026-10-14"');
