@@ -194,6 +194,57 @@ async function need(d: Driver, label: string, ms = 3000): Promise<any> {
   assert.ok(e, `"${label}" is shown`);
   return e;
 }
+/** Every displayed element with `label` (any type), in tree order. */
+async function allShown(d: Driver, label: string): Promise<any[]> {
+  const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const out: any[] = [];
+  for (const e of await d.$$(`-ios predicate string:(label == "${l}" OR title == "${l}" OR value == "${l}")`).catch(() => [] as any[])) {
+    if (await e.isDisplayed().catch(() => false)) out.push(e);
+  }
+  return out;
+}
+/** `label` inside the element labelled `parent` (e.g. a filter button in the `Filter` group, not the sidebar entry). */
+async function needIn(d: Driver, parent: string, label: string, ms = 3000): Promise<any> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    for (const g of await allShown(d, parent)) {
+      const l = label.replace(/"/g, '\\"');
+      for (const e of await g.$$(`-ios predicate string:(label == "${l}" OR title == "${l}")`).catch(() => [] as any[])) {
+        if (await e.isDisplayed().catch(() => false)) return e;
+      }
+    }
+    await sleep(100);
+  }
+  assert.fail(`"${label}" is shown in "${parent}"`);
+}
+/** A Kanban column (the largest displayed element with its name; the tag filter's button of the same name is small). */
+async function needColumn(d: Driver, label: string, ms = 3000): Promise<any> {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    let best: any = null;
+    let area = 0;
+    for (const e of await allShown(d, label)) {
+      const z = await e.getSize().catch(() => ({ width: 0, height: 0 }));
+      if (z.width * z.height > area) { area = z.width * z.height; best = e; }
+    }
+    if (best) return best;
+    await sleep(100);
+  }
+  assert.fail(`column "${label}" is shown`);
+}
+/** The element named `label` that appears after `open()` (a popup's choice, not a same-named control already shown). */
+async function needNew(d: Driver, label: string, open: () => Promise<void>, ms = 3000): Promise<any> {
+  const before = new Set((await allShown(d, label)).map((e) => e.elementId));
+  await open();
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    const fresh = (await allShown(d, label)).find((e) => !before.has(e.elementId));
+    if (fresh) return fresh;
+    await sleep(100);
+  }
+  assert.fail(`a new "${label}" is shown`);
+}
+
 /** A pointer drag from one element to another (mac2 `macos: clickAndDrag`, real mouse events, D-479). */
 async function dragTo(d: Driver, from: any, to: any) {
   await d.execute('macos: clickAndDrag', { sourceElementId: from.elementId, destinationElementId: to.elementId, duration: 1 });
@@ -251,7 +302,8 @@ test('fr_tsk_04_ac1_the_tasks_page_in_the_built_app', { timeout: 300_000 }, asyn
     assert.ok(await waitMark(log, 'route-ready:note/Pages/Porada.md'), 'Porada shown');
     palette('Go to Tasks');
     assert.ok(await waitMark(log, 'route-ready:tasks', 5000), 'Go to Tasks opens tasks');
-    for (const l of ['Tasks', 'Schedule', 'Kanban', 'Add a task…', 'All', 'Today', 'This week']) assert.ok(await shown(d, l, 3000), `"${l}" shown (R40)`);
+    for (const l of ['Tasks', 'Schedule', 'Kanban', 'Add a task…']) assert.ok(await shown(d, l, 3000), `"${l}" shown (R40)`);
+    for (const l of ['All', 'Today', 'This week']) assert.ok(await needIn(d, 'Filter', l), `"${l}" shown in the Filter group (R40)`);
     assert.ok(await shown(d, 'Task: Zavolat Janě', 3000), 'T01 card');
   } finally {
     await end(d);
@@ -306,7 +358,7 @@ test('fr_tsk_05_ac13_two_drags_write_exactly_two_files', { timeout: 300_000 }, a
     assert.ok(await waitFile(join(vault, T03), (x) => !!x?.includes('status: In progress'), 3000), 'T03 written');
     await (await need(d, 'Tag')).click();
     await sleep(500);
-    await dragTo(d, await need(d, 'Task: Koupit dárek'), await need(d, '#práce'));
+    await dragTo(d, await need(d, 'Task: Koupit dárek'), await needColumn(d, '#práce'));
     assert.ok(await waitFile(join(vault, T04), (x) => !!x?.includes('tags: [práce]'), 3000), 'T04 written');
     await sleep(500);
   } finally {
@@ -389,7 +441,7 @@ test('fr_tsk_04_ac13_switching_views_filters_and_menus_writes_nothing_in_the_bui
     await (await need(d, 'Tag')).click();
     await (await need(d, 'Status')).click();
     await (await need(d, 'Schedule')).click();
-    for (const f of ['Today', 'This week', 'All']) { await (await need(d, f)).click(); await sleep(150); }
+    for (const f of ['Today', 'This week', 'All']) { await (await needIn(d, 'Filter', f)).click(); await sleep(150); }
     await (await need(d, 'More actions for "Zavolat Janě"')).click();
     await sleep(200);
     press('escape');
@@ -466,7 +518,7 @@ test('fr_syn_06_ac21_each_action_writes_one_file', { timeout: 600_000 }, async (
     await step('status drag', T04, async () => { await dragTo(d!, await need(d!, 'Task: Koupit dárek'), await need(d!, 'In progress')); });
     palette('Group Kanban by tag');
     await sleep(600);
-    await step('tag drag', 'Tasks/Přečíst knihu.md', async () => { await dragTo(d!, await need(d!, 'Task: Přečíst knihu'), await need(d!, '#doma')); });
+    await step('tag drag', 'Tasks/Přečíst knihu.md', async () => { await dragTo(d!, await need(d!, 'Task: Přečíst knihu'), await needColumn(d!, '#doma')); });
     palette('Show Schedule');
     await sleep(600);
     await step('quick-add', 'Tasks/Nový úkol.md', async () => { await (await need(d!, 'Add a task…')).click(); paste('Nový úkol'); press('enter'); });
@@ -476,7 +528,7 @@ test('fr_syn_06_ac21_each_action_writes_one_file', { timeout: 600_000 }, async (
     await sleep(600);
     const edit = await firstShown(d, 'Edit Status');
     if (edit) await edit.click();
-    await step('status colour', TASK_YML, async () => { await (await need(d!, 'Change color of Waiting')).click(); await (await need(d!, 'Purple')).click(); });
+    await step('status colour', TASK_YML, async () => { await (await needNew(d!, 'Purple', async () => { await (await need(d!, 'Change color of Waiting')).click(); })).click(); });
     press('d', ['command']);
     await sleep(800);
     await step('daily checkbox', T01, async () => { await (await need(d!, 'Complete "Zavolat Janě"')).click(); });
