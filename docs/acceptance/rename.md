@@ -1,0 +1,141 @@
+# Acceptance Criteria: Rename engine (MS4 slice 4C)
+
+See [README](README.md) for conventions. Milestone MS4 (BRD §11.2), slice **4C "Rename engine"** (D-267; plan `docs/plans/ms4-implementation-plan.md` §3; daily-use order D-375). 4C builds `tegg-jobs` (architecture §5.6): Rust selects the affected files from the index, reads each with its `FileVersion`, sends the bytes to `@tegg/doc` in the Web Worker for the transformation (one text engine, D-82), writes atomically with the base version (FR-SYN-02, NFR-REL-02), reports progress, supports cancel, and lists "link not updated" files with retry. Its first and only client in 4C: **committing a note's title renames the file and rewrites every link to it** (D-268), undoable as one action, with no backup zip (D-269). From 4C the app rewrites files the user didn't open (plan §5 quality bar): the property test and the explorer run on the generated 5,000-note vault pass before a preview reaches the owner.
+
+**Status: accepted, 2026-10-17.** The owner accepted every recommendation: AP-288…AP-303 are D-383…D-398, and the D-294 offer is not in 4C (D-399).
+
+**Scope.** FR-FMT-08 (file name follows the title), FR-LNK-03 (links follow a rename), FR-HIS-04 / NFR-REL-04 (the job engine's restore point step, used by every client except note rename, D-269), FR-UX-07 AC-4 (`job:progress`), FR-SYN-06 AC-3 (bulk writes only changed files), and the existing `[MS4]` criteria this slice owns (listed below). **Out of scope:** tag rename and delete (4D-lite, D-370), key rename, value removal, type and folder moves, type delete (4E, v1.0, D-372) — their **contract** is written in 4C (§ "What `ms4-jobs.md` must define"), not their UI; merge of duplicate titles (D-290) unless AP-297 puts it in 4C; renaming a Daily Note (never, D-320); version history (FR-HIS-03, v1.0).
+
+**Existing criteria this slice verifies** (not repeated, tests named after them): links.md FR-FMT-08 / FR-LNK-03 AC-1, AC-2, AC-3, AC-4, AC-5, AC-6; data-safety.md FR-SYN-06 AC-2 (rename part), AC-3; search-navigation.md FR-UX-07 AC-3 (job part), AC-4 (note-rename part; tag/attribute/type parts stay with their slices); data-safety.md NFR-REL-04 / FR-HIS-04 AC-1…AC-3 (engine part only: no 4C client makes a zip, so they are tested at L4 on a test-only job, see FR-HIS-04 AC-1 below). **Changed by 4C:** editor.md FR-EDT-01 AC-10 (D-173: "the file name and every link stay unchanged") becomes FR-LNK-03 AC-7 below; its test changes carry `AC-Test-Change: 4C replaces D-173's title-only write with a rename; approved-by: owner`. daily-notes.md FR-DLY-08 AC-10 ("not offered by any rename command (4C)") is verified by FR-FMT-08 AC-9 below.
+
+**Test layers** as in [daily-notes.md](daily-notes.md):
+
+| Tag | Layer |
+| --- | --- |
+| L1 | Vitest: `@tegg/doc` link rewriting (`rewriteLinks`) and UI modules, real `@tegg/doc` (never mocked) |
+| L2 | Property test (proptest / fast-check): fixed seed plus one random seed per push, 10 × 1,000 runs nightly (TS-L2) |
+| L4 | Rust: `tegg-jobs`, `tegg-vault`, `tegg-index` on a temporary copy of the fixture on APFS (`crates/*/tests/ac_*.rs`); the worker transform is the real `@tegg/doc` bundle run under the test's JS host (no Rust reimplementation, D-82); the **sync simulator** (test-strategy, L4) injects external writes at named job points |
+| L5 | Playwright on WebKit with the fake core over mocked IPC (real `@tegg/doc`; records every call) |
+| L6 | Appium `mac2` on the built app with `TEGG_TEST=1`, a temporary Application Support and a temporary copy of the fixture; vault checks by bytes, mtime and inode. Every L6 AC has an `app/e2e/` test in the red-test commit (D-382) |
+| manual | Owner or explorer session, recorded in `qa/manual/` or `qa/sessions/` |
+
+**Fixture:** `tests/fixtures/vaults/rename/` (synthetic, D-50; to be written byte-exact with `tests/fixtures/vaults/rename/README.md` mapping each file to the criteria; test-author drafts it from this table). Objects (ids `01JB4C…`):
+
+| Short name | Path | What it holds |
+| --- | --- | --- |
+| Alfa | `Pages/Alfa.md` | `title: Alfa`, headings `## Úvod`, block `^b1`; a self-link `[[Alfa#Úvod]]` |
+| Odkazy | `Pages/Odkazy.md` | every link form to Alfa, one per line: `[[Alfa]]`, `[[Alfa\|vlastní text]]`, `[[Alfa#Úvod]]`, `[[Alfa#^b1]]`, `![[Alfa]]`, `![[Alfa#Úvod]]`, `[[Pages/Alfa]]`, `[[Alfa.md]]`, `[Alfa](Alfa.md)`, `[jinak](../Pages/Alfa.md)`; plus `[[Alfa ]]`-free near misses: `[[Alfabet]]`, `[[Alfa (2)]]`, `#Alfa` (a tag), `Alfa` as plain text |
+| Kód | `Pages/Kód.md` | `[[Alfa]]` in a fenced block, an indented block and a code span only (links.md AC-3) |
+| Vlastnosti | `Books/Vlastnosti.md` | relation `autor: "[[Alfa]]"`, list `zdroje: ["[[Alfa]]", "[[Beta]]"]`, Text value `poznámka: viz [[Alfa]]`, unknown key `x-extra: [[Alfa]]` |
+| NFD | `Pages/NFD odkaz.md` | the line `[[Čaj o páté]]` with `Č`/`á`/`é` written in NFD; body otherwise ASCII |
+| Čaj o páté | `Pages/Čaj o páté.md` | NFC file name, `title: Čaj o páté` |
+| Bez odkazu ×40 | `Pages/Výplň 01.md` … `Výplň 40.md` | no link to Alfa (must stay untouched) |
+| Dvojník | `Pages/Alfa (2).md` | `title: Alfa` (duplicate title, D-290) |
+| Jinde | `Projekty/Alfa.md` | `type: page`, `title: Alfa`, outside `Pages/`; `Projekty/Místní.md` links `[[Alfa]]` (resolves to `Projekty/Alfa.md` by the same-folder rule, D-291) |
+| Šablona | `_templates/Page/Page.md` | `[[Alfa]]` |
+| Koš | `.trash/Pages/Starý.md` | `[[Alfa]]` |
+| Den | `Daily/2026-10-14.md` | Daily Note linking `[[Alfa]]` |
+| CRLF | `Pages/Windows.md` | CRLF line endings, `[[Alfa]]`, no final newline |
+| Beta | `Pages/Beta.md` | target taken by the AC-5 collision cases |
+
+**Created at runtime by the tests:** the generated 5,000-note vault (`tools/gen-vault --seed 1 --small-images`), random vaults of the property test, a 500-backlink hub note, external edits named in the criteria.
+
+**Shared definitions.**
+- **Commit** of a title: ↩, Tab, or focus leaving the `Title` field (D-268). Typing alone never renames.
+- **Rename job** for note N from title T to T′: (1) write N's frontmatter `title:` and rename N's file to `sanitize(T′)` (FR-FMT-08, D-51, D-52) with a free stem (AC-5); (2) rewrite every link that **resolves to N** under the D-291 rule from its own source note.
+- **Untouched**: bytes, mtime and inode unchanged.
+
+---
+
+## FR-FMT-08 File name follows the title
+
+- **AC-5** **Commit renames, typing doesn't (D-268).** In the built app, open Alfa and type `Gama` replacing the title over 2 s: during typing `Pages/Alfa.md` keeps its path and inode (the autosave may write `title:` only, AP-299) and no other file is written. Pressing ↩ (also: Tab; also: clicking the body) renames the file to `Pages/Gama.md` within 1 s, with `title: Gama`, the same `id`, and the body bytes unchanged; the route becomes `note/Pages/Gama.md`; Back returns to it, not to a dead `Pages/Alfa.md` entry. *(L6; L5 for the three commit gestures)*
+- **AC-6** **Sanitized stem, full title kept (links.md AC-4).** Committing `Q3: plan/budget` writes `title: "Q3: plan/budget"` and file `Pages/Q3 plan budget.md`; committing `Čaj: ř/ž` written in NFD gives the NFC stem `Čaj ř ž`; a 250-byte Czech title gives a stem of ≤ 200 UTF-8 bytes cut at a character boundary (FR-FMT-08 AC-1…AC-3 rules). *(L1 for `sanitize`; L4)*
+- **AC-7** **No-op commits write nothing.** Committing a title equal to the saved one, or equal after NFC and trim, writes nothing. Committing a title made only of spaces restores the saved title and writes nothing (editor AC-10). *(L5 zero write calls; L4)*
+- **AC-8** **Same stem, different title.** Committing `Q3 plan budget?` when the file is `Q3 plan budget.md` (sanitizes to the same stem) writes only `title:` (+ `modified`) in N; no file is renamed; links are handled per AP-288 (auto-aliases equal to the old title are updated, others kept). Case-only change `alfa` → `Alfa` renames the file on case-insensitive APFS (the directory listing shows `Alfa.md`) and rewrites links per AC-1 below. *(L4)*
+- **AC-9** **Never renamed.** A Daily Note's title is read-only (D-320), so no rename job can start for it; files the editor opens read-only (NFR-REL-03 AC-6…AC-8) offer no rename; `_templates/` and `.trash/` notes are not renamed by title edits (AP-296). *(L5)*
+- **AC-10** **Stem chosen at the job's start, not the keystroke.** If `Pages/Gama.md` is created externally between typing and the commit, the commit renames to `Pages/Gama (2).md` (AC-5 below rule), never over the new file (`RENAME_EXCL`). *(L4 with the sync simulator)*
+
+## FR-LNK-03 Links follow a rename (adds to links.md AC-1…AC-6)
+
+- **AC-7** **Every link form rewritten exactly (replaces editor AC-10's "links unchanged").** Renaming Alfa → `Gama` changes Odkazy to, line by line: `[[Gama]]`, `[[Gama|vlastní text]]`, `[[Gama#Úvod]]`, `[[Gama#^b1]]`, `![[Gama]]`, `![[Gama#Úvod]]`, `[[Pages/Gama]]`, `[[Gama.md]]`, `[Alfa](Gama.md)`, `[jinak](../Pages/Gama.md)` (form kept, AP-288); `[[Alfabet]]`, `[[Alfa (2)]]`, `#Alfa` and plain `Alfa` are unchanged; every other byte of Odkazy is identical. Alfa's own self-link becomes `[[Gama#Úvod]]` in the same write as its title. *(L1 table test of `rewriteLinks`; L4 end to end)*
+- **AC-8** **Frontmatter links.** In Vlastnosti, `autor: "[[Gama]]"`, `zdroje: ["[[Gama]]", "[[Beta]]"]`, `poznámka: viz [[Gama]]` and `x-extra: [[Gama]]` (AP-293); quoting style, key order, flow/block list style and every other frontmatter byte are unchanged (FR-FMT-07 AC-5). *(L1; L4)*
+- **AC-9** **Links needing an alias.** Renaming Alfa → `Q3: plan/budget` writes `[[Q3 plan budget|Q3: plan/budget]]` for `[[Alfa]]`, `[[Q3 plan budget|vlastní text]]` for the aliased form, and `[[Q3 plan budget#Úvod|Q3: plan/budget]]` for the heading form (links.md AC-4; AP-288 for the heading/embed cases); embeds stay `![[Q3 plan budget]]` with no alias. *(L1)*
+- **AC-10** **Resolution, not text, decides (D-291).** Renaming `Pages/Alfa.md` leaves `[[Alfa]]` in `Projekty/Místní.md` untouched (it resolves to `Projekty/Alfa.md`); renaming `Projekty/Alfa.md` rewrites only that link. Links that resolved to Dvojník (`Pages/Alfa (2).md`) are untouched by either. A link that resolved to N only through an alias in N's `aliases:` is unchanged (it still resolves after the rename). *(L4)*
+- **AC-11** **NFC (FR-FMT-12).** Renaming `Čaj o páté` → `Čaj o šesté` rewrites the NFD `[[Čaj o páté]]` in NFD odkaz to `[[Čaj o šesté]]` in NFC; only the bytes of that link change. CRLF in Windows.md: only the link bytes change, CRLF and the missing final newline are kept. *(L1; L4 byte diff)*
+- **AC-12** **Where links are not rewritten.** Kód (links.md AC-3) is untouched; `.trash/Pages/Starý.md` is untouched; `_templates/Page/Page.md` is rewritten (AP-296); the Daily Note Den is rewritten (only its link bytes; D-320's title rules don't apply to links in it). *(L4)*
+- **AC-13** **Only linking files change (links.md AC-2, FR-SYN-06 AC-3).** After AC-7's rename, the set of vault paths whose bytes changed is exactly {Alfa (renamed), Odkazy, Vlastnosti, Den, `_templates/Page/Page.md`, Windows.md}; the 40 Výplň files and all others are untouched; no file is created except via rename; no `.tegg-tmp` remains. *(L4; L6 on the same fixture)*
+- **AC-14** **Undo as one action (links.md AC-5).** Right after AC-7's rename, ⌘Z in Gama's title field or the editor (one history entry), the palette `Undo rename`, or the progress toast's `Undo` restores: file path `Pages/Alfa.md`, and for every file the job wrote, bytes equal to the pre-rename bytes (sha256 match). Redo (⇧⌘Z) re-applies the rename to the same bytes. Undo is itself a job with base versions: a file changed since the rename (by the user or externally) is not reverted and is listed per AC-16 (AP-290). *(L4 bytes; L5 the gestures; L6 one round trip)*
+- **AC-15** **External edit during the job (links.md AC-6, NFR-REL-02).** With the sync simulator, for each injection point {after planning, after reading file k and before its write, between the temp write and the rename}: an external write to Odkazy makes the job skip Odkazy, whose bytes afterwards equal the external version exactly; every other affected file is rewritten; the report lists Odkazy under `Link not updated` with reason `changed by another app`. `Retry` re-plans Odkazy against its current bytes and, when unchanged since, rewrites only the link bytes (the external edit is kept). The same holds when Odkazy is deleted (reason `missing`; Retry disabled) or turns into an online-only placeholder (reason `not downloaded`). *(L4 sync simulator; L5 the list and Retry)*
+- **AC-16** **The "link not updated" list.** After a job with skipped files, the status area shows `<n> links not updated` (plural catalog key); activating it opens a non-modal list with one row per file: title, path, reason, `Open`, `Retry`; and `Retry all`. A successful retry removes the row; the list survives navigation but not app quit (AP-303). Retry writes with the current base version, never with the job's old one. *(L5; L6 for one skipped file)*
+- **AC-17** **Crash during the job.** In 20 nightly cycles on the 500-backlink hub of the generated vault, `SIGKILL` the app at a random time during the rename: afterwards every vault file is either its pre-job or its fully rewritten version (FR-SYN-02 AC-3), no `.tegg-tmp` survives the next open (data-safety AC-4), and the index after reopening resolves every link (no link to the hub is broken or resolves elsewhere: links not yet rewritten point to the old stem only if the file still has it — see AP-292 for the recovery shown). *(L6 nightly)*
+- **AC-18** **Open notes and editors.** A linking note open in the editor with unsaved edits is rewritten through the editor (as an external change it reloads per FR-SYN-03 rules, or by applying the transformation to the live document, AP-291), never by overwriting the unsaved text; after the job, its file has both the user's edit and the new link. *(L5; L4 for the conflict path)*
+
+## FR-HIS-04 / NFR-REL-04 Restore point step of the job engine
+
+- **AC-4** **Note rename makes no zip (D-269).** A note rename creates no file in `~/Library/Application Support/Tegg/backups/` (directory listing unchanged). *(L4)*
+- **AC-5** **Every other job kind backs up first (engine).** A test-only job kind registered with `backup: true` (the flag every 4D/4E/merge planner sets) writes the zip before the first vault write; when the zip fails (Application Support made read-only), the job ends with `BackupFailed`, writes nothing, and the vault is byte-identical (data-safety AC-1). The zip holds every `.md` and `.tegg/` file of the vault, NFC names, and the 11th zip deletes the oldest (data-safety AC-2, AC-3). *(L4)*
+- **AC-6** **Restore from Settings.** [MS4] (with the first zip-backed client, AP-301) Settings › Backups lists each zip with its job name and time; `Restore…` restores every file in the zip to its zipped bytes after its own confirmation and makes a backup of the current state first. *(L5; L6)*
+
+## FR-UX-07 Job progress and cancel (verifies search-navigation AC-3, AC-4)
+
+- **AC-8** **`job:progress` rules.** A rename on the 500-backlink hub emits `job:progress` with `jobId`, `kind: 'note-rename'`, `phase` ∈ {`planning`, `backup`, `writing`, `done`, `cancelled`, `failed`}, `done`/`total`: `done` never decreases, `total` fixed once `writing` starts, at least one event per 500 ms, the last event `done == total` with counts `written`, `unchanged`, `skipped` where `written + unchanged + skipped = total`. *(L4)*
+- **AC-9** **Non-blocking (D-268).** A rename that rewrites ≥ 1 other file shows the status element `Updating links in <n> notes` (no dialog, no `aria-modal`), then `Updated links in <n> notes` with `Undo` for 5 s; the user can type in the open note while it runs and that typing is saved. A rename that rewrites no other file shows nothing. *(L5; L6 on the hub)*
+- **AC-10** **Cancel.** Cancel is offered during `planning` and `backup` and stops within 1 s with the vault byte-identical (search-navigation AC-3). Note rename has no cancel during `writing` (AP-298); its remedy is Undo. *(L4)*
+- **AC-11** **Benchmark.** On the generated vault, renaming a note with 500 backlinks: time to `done` is reported (report only, D-152; `app/e2e/perf_rename.ts`, AP-302). *(L6 benchmark)*
+
+## FR-SYN-06 Minimal writes in jobs (verifies data-safety AC-3)
+
+- **AC-10** **Unchanged bytes are not written.** A file that the planner selected but whose transformed bytes equal its current bytes (e.g. its only match is in a code span, or the index was stale) is counted `unchanged` and untouched. *(L4)*
+- **AC-11** **One write per affected file.** In AC-7's rename every affected file is written exactly once (write counter), and N's title change plus file rename is one atomic step (no intermediate state where `Pages/Gama.md` holds `title: Alfa`). *(L4)*
+
+## Property test (L2)
+
+- **FR-LNK-03 AC-19** **Rename sequences round-trip.** Generator: a random vault of 5–60 notes in 1–4 folders, titles drawn from a pool with Czech diacritics (NFC and NFD spellings), forbidden characters, case variants and duplicate titles; bodies mixing every link form of AC-7, links in code, frontmatter relations, CRLF/LF, missing final newline. Run a random sequence of 1–8 renames (including renames back to a previous title and to colliding titles), then undo all of them in reverse. Properties: (a) after each rename, the set of changed files ⊆ {renamed note} ∪ {files containing a link resolving to it before the rename}; (b) after each rename every link that resolved to the renamed note still resolves to it (`link_resolve`) and no other link's resolution changes; (c) no two notes share a stem case-insensitively after NFC in one folder; (d) after the full undo, every file's path and bytes equal the original exactly. Fixed seed + one random seed per push; 10 × 1,000 nightly. *(L2, through the real `@tegg/doc` and an in-memory `VaultFs`)*
+- **FR-LNK-03 AC-20** **Rewrite is local.** For random Markdown documents and random (old, new) targets, `rewriteLinks` changes only bytes inside link nodes it reports; outside them the output equals the input; applying it twice equals once. *(L2)*
+
+---
+
+## What `docs/contracts/ms4-jobs.md` must define (for every client)
+
+One job model: **plan → confirm (if required) → backup (if required) → write → report**, used by note rename (4C), tag rename and tag delete (4D-lite), key rename and value removal, type move and folder move, type delete (4E, v1.0), merge of duplicate titles (D-290), and later import (MS7). The contract must define:
+
+1. **Job kinds and their flags**: per kind, `needsConfirm`, `backup` (false only for note rename, D-269), `undoable` (note rename yes; merge no, D-290; others per AP-300), cancellable phases.
+2. **Planner interface** (Rust): input op → `JobPlan { jobId, kind, files: [{ path, version, reason }], creates, renames, moves, deletes, counts }`; how files are selected from the index (link resolution per D-291, tag occurrences, key occurrences, type membership), and that the plan is re-validated per file by base version at write time.
+3. **Transform protocol** (Rust ↔ UI worker, D-82): message shapes `transform(bytes, op) → { bytes | unchanged, edits: [{ start, end }] }`; op union: `retarget-link {from: target-spec, to: {stem, path, title}}`, `rename-tag`, `remove-tag`, `rename-key`, `remove-value`, `set-type`, `merge-into`; byte offsets (UTF-8), NFC rules, how frontmatter and body are both covered; worker unavailable / timeout behaviour.
+4. **File operations**: rename/move with `RENAME_EXCL` and the free-stem rule (D-291, vault-wide, NFC, case-insensitive), title + rename as one atomic step, delete to `.trash/` keeping the relative path, folder creation.
+5. **Base versions and conflicts**: `FileVersion` check before each write; skip reasons (`changed`, `missing`, `placeholder`, `readOnly`, `io`); no retries without a new read.
+6. **Backup**: zip location and name scheme, contents (all `.md` + `.tegg/`, attachments when touched), rotation (10), failure → `BackupFailed` and no write; restore API.
+7. **Progress and cancel**: `job:progress` event shape (FR-UX-07 AC-8), phases, cancel command and its allowed phases, one job at a time or a queue (AP-298), quit during a job.
+8. **Report**: `JobReport { written, unchanged, skipped: [{ path, reason }] }`, the "link not updated" list, `job_retry(jobId, path)` semantics.
+9. **Undo**: the undo record (pre-job bytes and post-job versions of every written file, the rename pairs), its lifetime, undo as a job with base versions, redo.
+10. **Crash recovery**: what is persisted during a job (AP-292) and what the app shows on the next launch.
+11. **Interaction with the open editor and autosave** (AP-291), with the watcher (own-write echo suppression), and with the index (incremental update per written file; link records re-resolved).
+12. **Per-client specifics**: note rename (title commit trigger, D-268; self-links; aliases, AP-288); tag rename/delete (inline `#tag` and `tags:` entries, `Tags/<name>.md` rename, `#reading-list` not matched; delete's two choices); key rename (only that key, FR-FMT-07 AC-5); value removal; type move / folder move (FR-STO-04, D-226, suffixes, links rewritten); type delete with objects (D-225); merge (D-290: keep choice, `## <title> (merged)` append, attribute union with conflicts listed, link retargeting, merged file to `.trash/`, no undo).
+13. **IPC commands, errors (`CoreError` variants), catalog keys** (`job.*`, plural `count`), and fake-core `writeControl` coverage of job writes (as D-309, D-363).
+
+---
+
+## Points raised by these criteria (decided: AP-288…AP-303 → D-383…D-398, D-294 offer → D-399)
+
+Next free AP number after this list: AP-304.
+
+| # | Issue | Proposal (recommended answer) | Affects |
+| --- | --- | --- | --- |
+| AP-288 | **Form of the rewritten link.** The BRD says links are updated but not in which form: path-qualified `[[Pages/Alfa]]`, `[[Alfa.md]]`, Markdown links `[Alfa](Alfa.md)` (label equals the old title), and aliases that equal the old title (the auto-alias of `[[Q3 plan budget\|Q3: plan/budget]]`). | Keep each link's form: path stays path-qualified, `.md` stays, Markdown links get the new percent-encoded relative URL and keep their label text; an alias exactly equal to the old title is replaced by the new title (or dropped when the new title equals the new stem); every other alias is kept. A heading/block link to a title that needs an alias gets the alias too (`[[stem#Úvod\|title]]`); embeds never get one. | FR-LNK-03 AC-7, AC-9; FR-FMT-08 AC-8 |
+| AP-289 | **Target stem taken.** D-291 (2) names creation paths and 4E moves, not renames. | A rename uses the same vault-wide free-stem rule: `Gama (2)`, `(3)`…; a case-only change of the note's own stem is not a collision. | FR-FMT-08 AC-10; FR-LNK-03 AC-19 (c) |
+| AP-290 | **Undo after later changes.** links.md AC-5 says undo restores everything; but a linking file may have changed since. | Undo is a job with base versions: files unchanged since the rename get their pre-rename bytes; changed ones are skipped and listed (`Link not updated`, Retry reverses only the link). Undo is available until the app quits or the vault switches; one undo entry per rename in the renamed note's history plus `Undo rename` in the palette for the last one. | FR-LNK-03 AC-14 |
+| AP-291 | **Linking note open with unsaved edits.** | The job sends the transformation for the open note to its editor (applied as a transaction to the live document, saved by the next autosave, one undo step in that note), instead of writing the file directly. | FR-LNK-03 AC-18 |
+| AP-292 | **Crash mid-rename without a zip (D-269).** A crash leaves half the links on the old stem, now broken, with no restore point and no undo record. | Persist a small job journal in Application Support (op, file list, pre-job bytes of affected files; not a zip, not in the 10-zip rotation, deleted when the job ends). On the next launch show `Renaming "<old>" was interrupted: <k> of <n> links updated` with `Finish` (rewrite the rest) and `Undo`. | FR-LNK-03 AC-17; FR-HIS-04 |
+| AP-293 | **Links in non-relation frontmatter values** (Text values, D-249; unknown keys). FR-FMT-07 preserves unknown keys; rewriting them changes user data the app doesn't model. | Rewrite `[[…]]` in every frontmatter string value the index extracts links from (schema keys and unknown keys alike), touching only the link bytes. | FR-LNK-03 AC-8 |
+| AP-294 | **Self-links and the renamed note's own write.** | The note's `title:` change, its self-links and the file rename are one atomic step (write new bytes to the new name with `RENAME_EXCL`, then remove the old name); the index never sees both files as notes. | FR-SYN-06 AC-11 |
+| AP-295 | **Notes whose stem never matched their title** (`Alfa (2).md`, external or imported files). Committing a title edit renames such a file to the sanitized new title. | Yes, always rename to `sanitize(new title)` with the free-stem rule; the `(2)` suffix disappears when the name is free. | FR-FMT-08 AC-5 |
+| AP-296 | **Templates and trash.** Should links in `_templates/` and `.trash/` be rewritten, and can template/trash notes be renamed by title edits? | Rewrite links in `_templates/` (they produce future notes); never touch `.trash/`; a title edit in a template or trashed note writes only `title:` (no rename). | FR-LNK-03 AC-12; FR-FMT-08 AC-9 |
+| AP-297 | **Does merge (D-290) ship in 4C?** D-290 calls it a 4C job and backlinks.md FR-LNK-14 AC-9 says its criteria are written with 4C, but the plan's 4C scope and the daily-use plan list only note rename. | Merge's contract is in `ms4-jobs.md` now; its UI and ACs ship with 4D-lite (the first zip-backed client), and the `Merge…` button is relabelled `Coming in MS4 (4D)`. | backlinks.md FR-LNK-14 AC-9; D-290 |
+| AP-298 | **Cancel and concurrency for a rename without confirmation.** FR-UX-07 AC-3 allows cancel only before writing; a note rename has no confirm step, so there is almost nothing to cancel. A second rename may be committed while the first runs. | Note rename: cancel only during `planning`; Undo is the remedy. Jobs run one at a time in a FIFO queue; a second rename of a note that is in a running job waits for it. | FR-UX-07 AC-10; contract §7 |
+| AP-299 | **Autosave of the title while typing.** D-173/editor AC-10 autosave `title:` while typing; D-268 renames on commit. Between them the file holds the new title under the old stem, and links show the new title via resolution. | Keep autosaving `title:` while typing (no data loss on crash); the commit then renames and rewrites links. Links/aliases are compared against the title at the start of the edit, not the autosaved intermediate. | FR-FMT-08 AC-5; FR-LNK-03 AC-9 |
+| AP-300 | **Undo for zip-backed jobs.** D-269 says the zip is their restore; links.md / data-safety give no undo for tag/key renames. | Only note rename has undo in the MVP; all zip-backed jobs restore from the zip (Settings › Backups); merge has no undo (D-290). | contract §1, §9 |
+| AP-301 | **When the restore UI ships.** data-safety NFR-REL-04 AC-2 needs "restore from Settings in one action", but no 4C client makes a zip. | Build the zip engine in 4C (tested at L4 with a test-only job) and the Settings › Backups restore UI with the first zip-backed client (4D-lite tag rename). | FR-HIS-04 AC-5, AC-6 |
+| AP-302 | **No performance target for jobs.** NFR-PERF has none for renames. | Report-only benchmark in 4C (500 backlinks on the generated vault, D-152); the owner sets a target at the MS4 gate. | FR-UX-07 AC-11 |
+| AP-303 | **Where the "link not updated" list lives and how long.** | In-memory, per vault, until quit: a status-area entry `<n> links not updated` opening a non-modal list with Open/Retry/Retry all, plus the palette `Show links not updated`. Not written to the vault or Application Support. | FR-LNK-03 AC-15, AC-16 |
+| — | **D-294 "Update links to the renamed note" after an external rename** (4C "may offer"). | Not in 4C; the planner supports it (`retarget-link` from a stale stem), and the offer is added with Broken links in v1.0 unless the owner wants it now. Listed for decision as part of AP-297's scope review. | D-294 |

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.59, for review                                             |
+| **Document status** | Draft v1.60, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -75,6 +75,7 @@
 | v1.57   | 2026-10-16 | D-378: the task board (FR-TSK-05) is back in the MVP, in slice 5A, with the owner's Schedule and Kanban designs (`design/edit-note-page/Tasks.dc.html`, `TasksBoard.dc.html`); supersedes the board part of D-371. Open points from the designs: AP-i…AP-k (`docs/plans/mvp-design-review.md` §5). |
 | v1.58   | 2026-10-16 | D-379…D-381 (AP-i…AP-k, the owner's Tasks boards): Schedule sections replace the FR-TSK-04 view list, quick-add tokens in FR-TSK-10, recurrence badge stays v1.0. |
 | v1.59   | 2026-10-16 | D-382: every slice ships the real-app (L6) tests of its ACs; `./verify push` enforces it with the `l6-coverage` check (TS-I7, TS-COV AC-6). |
+| v1.60   | 2026-10-17 | Slice 4C rename-engine decisions D-383…D-399 (AP-288…AP-303 and the D-294 offer, `docs/acceptance/rename.md`): link forms kept, free-name rule, undo as a job, live-editor rewrite, job journal, frontmatter links, templates rewritten and trash untouched, merge with 4D-lite, one job at a time, zip engine in 4C with restore UI in 4D-lite. |
 
 ---
 
@@ -500,6 +501,23 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-380 | Quick-add tokens (AP-j, owner, 2026-10-16) | The quick-add row (FR-TSK-10) parses, at the end of the title only: `#tag` (existing or new tag, FR-TAG-03), `!high` / `!medium` / `!low` (priority labels as defined on the Task type, FR-TSK-03, matched case-insensitively), and one date word: `today`, `tomorrow` or a weekday name (the next such day). Tokens are removed from the title; anything else stays in the title verbatim. The row shows the parsed due date and priority before ↩. The section the row sits in presets the due date (Today & overdue → today, This week → the last shown day, Not scheduled → none) |
 | D-381 | Recurrence badge stays v1.0 (AP-k, owner, 2026-10-16) | The `monthly` / `weekly` badges on task cards and the Done hint about recurring instances belong to FR-TSK-07 (v1.0) and stay on the boards dimmed as a v1.0 marker; slice 5A shows no recurrence and writes no `recurrence` key |
 | D-382 | Real-app tests in every slice (TS-I7; owner, 2026-10-16) | Slices 4A and 4B and the D-369 feedback shipped without the L6 part of five ACs (FR-LNK-04 AC-5, AC-12, FR-DLY-02 AC-2, FR-DLY-04 AC-6, FR-TYP-07 AC-11), because the coverage report counted an AC as tested when any layer referenced it. From now on the red AC tests of a slice include an `app/e2e/` test for every AC whose layer marker names L6, and `./verify push` fails the `l6-coverage` check when an L6 AC is tested elsewhere but not in `app/e2e/` (`tools/qa/CONTRACT.md` §9.5). L6 ACs with no test yet (deferred, e.g. `[MS8]` benchmarks) don't fail it. The five missing tests were added with owner approval (`AC-Test-Change`). |
+| D-383 | Form of the rewritten link (AP-288, owner, 2026-10-17) | Keep each link's form: path stays path-qualified, `.md` stays, Markdown links get the new percent-encoded relative URL and keep their label text; an alias exactly equal to the old title is replaced by the new title (or dropped when the new title equals the new stem); every other alias is kept. A heading/block link to a title that needs an alias gets the alias too (`[[stem#Úvod\|title]]`); embeds never get one. |
+| D-384 | Target stem taken (AP-289, owner, 2026-10-17) | A rename uses the same vault-wide free-stem rule: `Gama (2)`, `(3)`…; a case-only change of the note's own stem is not a collision. |
+| D-385 | Undo after later changes (AP-290, owner, 2026-10-17) | Undo is a job with base versions: files unchanged since the rename get their pre-rename bytes; changed ones are skipped and listed (`Link not updated`, Retry reverses only the link). Undo is available until the app quits or the vault switches; one undo entry per rename in the renamed note's history plus `Undo rename` in the palette for the last one. |
+| D-386 | Linking note open with unsaved edits (AP-291, owner, 2026-10-17) | The job sends the transformation for the open note to its editor (applied as a transaction to the live document, saved by the next autosave, one undo step in that note), instead of writing the file directly. |
+| D-387 | Crash mid-rename without a zip (D-269) (AP-292, owner, 2026-10-17) | Persist a small job journal in Application Support (op, file list, pre-job bytes of affected files; not a zip, not in the 10-zip rotation, deleted when the job ends). On the next launch show `Renaming "<old>" was interrupted: <k> of <n> links updated` with `Finish` (rewrite the rest) and `Undo`. |
+| D-388 | Links in non-relation frontmatter values (AP-293, owner, 2026-10-17) | Rewrite `[[…]]` in every frontmatter string value the index extracts links from (schema keys and unknown keys alike), touching only the link bytes. |
+| D-389 | Self-links and the renamed note's own write (AP-294, owner, 2026-10-17) | The note's `title:` change, its self-links and the file rename are one atomic step (write new bytes to the new name with `RENAME_EXCL`, then remove the old name); the index never sees both files as notes. |
+| D-390 | Notes whose stem never matched their title (AP-295, owner, 2026-10-17) | Yes, always rename to `sanitize(new title)` with the free-stem rule; the `(2)` suffix disappears when the name is free. |
+| D-391 | Templates and trash (AP-296, owner, 2026-10-17) | Rewrite links in `_templates/` (they produce future notes); never touch `.trash/`; a title edit in a template or trashed note writes only `title:` (no rename). |
+| D-392 | Does merge (D-290) ship in 4C (AP-297, owner, 2026-10-17) | Merge's contract is in `ms4-jobs.md` now; its UI and ACs ship with 4D-lite (the first zip-backed client), and the `Merge…` button is relabelled `Coming in MS4 (4D)`. |
+| D-393 | Cancel and concurrency for a rename without confirmation (AP-298, owner, 2026-10-17) | Note rename: cancel only during `planning`; Undo is the remedy. Jobs run one at a time in a FIFO queue; a second rename of a note that is in a running job waits for it. |
+| D-394 | Autosave of the title while typing (AP-299, owner, 2026-10-17) | Keep autosaving `title:` while typing (no data loss on crash); the commit then renames and rewrites links. Links/aliases are compared against the title at the start of the edit, not the autosaved intermediate. |
+| D-395 | Undo for zip-backed jobs (AP-300, owner, 2026-10-17) | Only note rename has undo in the MVP; all zip-backed jobs restore from the zip (Settings › Backups); merge has no undo (D-290). |
+| D-396 | When the restore UI ships (AP-301, owner, 2026-10-17) | Build the zip engine in 4C (tested at L4 with a test-only job) and the Settings › Backups restore UI with the first zip-backed client (4D-lite tag rename). |
+| D-397 | No performance target for jobs (AP-302, owner, 2026-10-17) | Report-only benchmark in 4C (500 backlinks on the generated vault, D-152); the owner sets a target at the MS4 gate. |
+| D-398 | Where the "link not updated" list lives and how long (AP-303, owner, 2026-10-17) | In-memory, per vault, until quit: a status-area entry `<n> links not updated` opening a non-modal list with Open/Retry/Retry all, plus the palette `Show links not updated`. Not written to the vault or Application Support. |
+| D-399 | No external-rename link offer in 4C (owner, 2026-10-17) | D-294's "Update links to the renamed note" after an external rename is not built in 4C; the planner supports retargeting from a stale stem, and the offer comes with Broken links in v1.0 |
 
 ---
 
