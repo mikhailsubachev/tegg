@@ -1,0 +1,21 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Book
+plural: Books
+system: false
+folder: Books
+icon: book
+color: orange
+review: false
+preview: [autor]
+attributes:
+  - key: autor
+    name: Autor
+    type: relation
+  - key: zdroje
+    name: Zdroje
+    type: relation
+    multiple: true
+  - key: poznámka
+    name: Poznámka
+    type: text
