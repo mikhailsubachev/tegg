@@ -26,12 +26,12 @@ test('fr_edt_06_ac3_link_text_for_each_chosen_object', async () => {
 });
 
 const R6: [string, string, string | null][] = [
-  ['objects', 'Task', 'MS5'], ['objects', 'Turn into object…', 'MS5'], ['objects', 'Embed object', 'MS4'],
+  ['objects', 'Task', 'MS5'], ['objects', 'Turn into object…', 'MS5'], ['objects', 'Embed object', null],
   ['blocks', 'Text', null], ['blocks', 'Heading 1', null], ['blocks', 'Heading 2', null], ['blocks', 'Heading 3', null],
   ['blocks', 'Bulleted list', null], ['blocks', 'Numbered list', null], ['blocks', 'Checklist', null], ['blocks', 'Quote', null],
   ['blocks', 'Callout', null], ['blocks', 'Code block', null], ['blocks', 'Divider', null], ['blocks', 'Table', null],
   ['media', 'Image', 'MS6'], ['media', 'PDF', 'MS6'],
-  ['advanced', 'Block embed', 'MS4'], ['advanced', 'Query', 'v1.0'], ['advanced', 'Mindmap', 'v1.0'],
+  ['advanced', 'Block embed', 'v1.0'], ['advanced', 'Query', 'v1.0'], ['advanced', 'Mindmap', 'v1.0'],
 ];
 
 test('fr_edt_03_ac5_slash_items_are_r6_with_milestones', async () => {

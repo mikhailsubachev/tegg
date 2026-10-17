@@ -1,6 +1,15 @@
-// One embed of R30 (docs/contracts/ms4-embeds.md §6; FR-EMB-02, FR-LNK-07, D-418, D-424, D-427). 4F stub.
-import type { ReactNode } from 'react';
-import type { EmbedMode } from '@tegg/doc';
+// One embed of R30 (docs/contracts/ms4-embeds.md §6; FR-EMB-02, FR-LNK-07, D-418, D-423…D-425, D-427): a framed full
+// embed, a card, a link-mode embed, or a frame for a state that can't show content (R30a). Strings from R33.
+import { useState, type ReactNode } from 'react';
+import { parse, type EmbedMode } from '@tegg/doc';
+import { t } from '../i18n/catalog';
+import type { LinkTargetDto, TypeDto } from '../ipc/types';
+import { chipIcon, chipTypes } from '../links/icons';
+import { requestOffer } from '../links/offer';
+import { openDate } from '../daily/open';
+import { Icon } from '../shell/Icon';
+import { ReadView } from '../read/ReadView';
+import { TypeCell, type TypeColumn } from '../types/cell';
 import type { EmbedNode } from './tree';
 
 export type EmbedProps = {
@@ -11,8 +20,288 @@ export type EmbedProps = {
   onMode?: (mode: EmbedMode) => void;
   onEnter?: () => void;
   onCreate?: (el: HTMLElement) => void;
+  /** The nested editor of an editable full embed (EmbedEditor), shown instead of the read-only body. */
+  body?: ReactNode;
+  /** Why `Display as` is unavailable (the read view, D-215), or null. */
+  modeDisabled?: string | null;
+  onTag?: (key: string) => void;
+  onExternal?: (url: string) => void;
 };
 
-export function Embed(_props: EmbedProps): ReactNode {
-  return null; // 4F stub
+const nfc = (s: string) => s.normalize('NFC');
+const UNIVERSAL: Record<string, string> = { tags: 'attr.tags', aliases: 'attr.aliases', source: 'attr.source', created: 'attr.created', modified: 'attr.modified', review: 'attr.review' };
+
+/** The title an embed shows: the target's title, `<title> › <heading>` for a heading subpath (D-156). */
+function titleOf(node: EmbedNode): string {
+  const base = node.target.title ?? node.target.target;
+  const sub = node.subpath;
+  return sub && !sub.startsWith('^') ? `${base} › ${sub}` : base;
+}
+
+function typeOf(node: EmbedNode): string {
+  if (node.state === 'date-missing') return 'daily-note';
+  return node.target.type ?? 'page';
+}
+
+function TypeIcon({ type }: { type: string }) {
+  const icon = chipIcon(type);
+  return <Icon name={icon.glyph} dataIcon={icon.def} size={14} />;
+}
+
+function open(node: EmbedNode, onOpen: EmbedProps['onOpen']) {
+  if (node.target.kind === 'daily' || node.target.kind === 'date-missing') {
+    if (openDate(node.target.target)) return;
+  }
+  if (node.target.path) onOpen(node.target.path, node.subpath && !node.subpath.startsWith('^') ? node.subpath : undefined);
+}
+
+/** D-418: a link-mode embed: an inline chip with the embed look. */
+function LinkEmbed({ node, onOpen, host }: EmbedProps) {
+  const broken = node.state === 'broken';
+  const type = typeOf(node);
+  const icon = chipIcon(type);
+  const description = broken ? t('link.noNote', { target: node.target.target }) : node.state === 'too-deep' ? t('embed.tooDeep') : t('embed.chip');
+  const act = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: e.currentTarget as HTMLElement });
+    else open(node, onOpen);
+  };
+  return (
+    <a
+      href="#"
+      role="link"
+      className={`embed-chip embed-link${broken ? ' kind-unresolved' : ''}`}
+      data-embed-mode="link"
+      data-embed-state={node.state}
+      data-embed-depth={Math.min(node.depth, 3)}
+      data-embed-target={node.target.path ?? node.target.target}
+      data-icon={broken ? undefined : icon.def}
+      data-link-kind={broken ? 'unresolved' : undefined}
+      aria-label={broken ? node.target.target : titleOf(node)}
+      aria-description={description}
+      onClick={act}
+      onKeyDown={(e) => e.key === 'Enter' && act(e)}
+    >
+      {!broken && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      <span data-user-content>{broken ? node.target.target : titleOf(node)}</span>
+    </a>
+  );
+}
+
+function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const modes: EmbedMode[] = ['full', 'card', 'link'];
+  const choose = (m: EmbedMode) => {
+    setOpen(false);
+    if (m !== mode) onMode?.(m);
+  };
+  return (
+    <span className="embed-mode">
+      <button
+        type="button"
+        className="embed-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-disabled={disabled ? 'true' : undefined}
+        aria-description={disabled ?? undefined}
+        onClick={(e) => { e.stopPropagation(); if (!disabled) setOpen(!open); }}
+      >
+        {t('embed.displayAs')}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label={t('embed.displayAs')}
+          className="menu embed-menu"
+          onKeyDown={(e) => {
+            const items = [...(e.currentTarget.querySelectorAll('[role="menuitemradio"]') as NodeListOf<HTMLElement>)];
+            const i = items.indexOf(document.activeElement as HTMLElement);
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
+          }}
+        >
+          {modes.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="menuitemradio"
+              aria-checked={m === mode}
+              ref={(el) => { if (el && m === mode) el.focus(); }}
+              onClick={(e) => { e.stopPropagation(); choose(m); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); choose(m); } }}
+            >
+              {t(`embed.mode.${m}`)}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
+  const { node } = props;
+  const name = titleOf(node);
+  return (
+    <div className="embed-header">
+      {showIcon && <TypeIcon type={typeOf(node)} />}
+      <span className="embed-title" data-user-content>{title}</span>
+      {node.mode === 'full' && node.readOnly && node.state === 'ok' && props.editable === false && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) && (
+        <span className="embed-readonly">{t('embed.readOnly')}</span>
+      )}
+      <button type="button" className="embed-btn" aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
+        <Icon name="open" size={13} />
+      </button>
+      {node.state !== 'date-missing' && <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />}
+    </div>
+  );
+}
+
+function badFrontmatter(text: string): boolean {
+  const d = parse(text);
+  return !!d.frontmatterError || (!!d.frontmatter && d.frontmatter.data === null);
+}
+
+/** D-427: the type's preview properties that are set, in preview order, formatted as on the type page. */
+function CardStrip({ node, onOpen, onTag }: { node: EmbedNode; onOpen: EmbedProps['onOpen']; onTag?: (k: string) => void }) {
+  const text = node.note?.text;
+  if (!text) return null;
+  const data = (parse(text).frontmatter?.data ?? {}) as Record<string, unknown>;
+  const types: TypeDto[] = chipTypes() as TypeDto[];
+  const type = types.find((x) => nfc(x.key) === nfc(node.target.type ?? ''));
+  const cols: TypeColumn[] = [];
+  for (const k of type?.preview ?? []) {
+    const a = type?.attributes.find((x) => nfc(x.key) === nfc(k));
+    if (a) cols.push({ key: a.key, label: a.name, attr: a, userNamed: true });
+    else if (UNIVERSAL[k]) cols.push({ key: k, label: t(UNIVERSAL[k]), attr: null, userNamed: false });
+  }
+  const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+  const shown = cols.filter((c) => (c.attr?.type === 'date-range' ? !empty(data[`${c.key}-start`]) : !empty(data[c.key])));
+  if (shown.length === 0) return null;
+  const links: LinkTargetDto[] = node.note?.links ?? [];
+  const row = { path: node.note!.path, id: null, title: titleOf(node), created: null, modified: null, values: data, links, typeSingle: true };
+  return (
+    <ul className="embed-props" aria-label={t('embed.properties')}>
+      {shown.map((c) => (
+        <li key={c.key}>
+          <span className="embed-prop-name" data-user-content>{c.label}</span>{' '}
+          <span className="embed-prop-value">
+            <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen(p)} onTag={onTag ?? (() => {})} typeKey={node.target.type ?? 'page'} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function lineBefore(text: string, at: number): number {
+  let n = 0;
+  for (let i = text.indexOf('\n'); i >= 0 && i < at; i = text.indexOf('\n', i + 1)) n++;
+  return n;
+}
+
+/** The read-only body of a full embed: the shown section through the read view, nested embeds as their nodes. */
+export function EmbedBody(props: EmbedProps) {
+  const { node } = props;
+  const note = node.note!;
+  const text = note.text ?? '';
+  const sec = node.section;
+  const from = sec && sec.kind !== 'missing' ? sec.from : parse(text).bodyStart;
+  const to = sec && sec.kind !== 'missing' ? sec.to : text.length;
+  const slice = text.slice(from, to);
+  if (slice.trim() === '') return <p className="embed-message" data-embed-message>{t('embed.empty')}</p>;
+  const links = new Map<string, LinkTargetDto>();
+  for (const l of note.links) {
+    links.set(l.target, l);
+    links.set(nfc(l.target), l);
+  }
+  const used = new Set<EmbedNode>();
+  const renderEmbed = (value: string, line: number, inline: boolean): ReactNode => {
+    const child = node.children.find((c) => !used.has(c) && c.line === line && nfc(c.value) === nfc(value) && c.inline === inline)
+      ?? node.children.find((c) => !used.has(c) && nfc(c.value) === nfc(value));
+    if (!child) return null;
+    used.add(child);
+    return <Embed {...props} node={child} body={undefined} editable={false} modeDisabled={t('embed.cantEdit')} />;
+  };
+  return (
+    <ReadView
+      text={slice}
+      path={note.path}
+      links={links}
+      lineBase={lineBefore(text, from)}
+      bare
+      onOpen={props.onOpen}
+      onTag={props.onTag ?? (() => {})}
+      onExternal={props.onExternal ?? (() => {})}
+      onScrollInNote={(f) => props.onOpen(note.path, f)}
+      renderEmbed={renderEmbed}
+    />
+  );
+}
+
+export function Embed(props: EmbedProps): ReactNode {
+  const { node } = props;
+  if (node.inline || node.mode === 'link' || node.state === 'too-deep') {
+    return <LinkEmbed {...props} />;
+  }
+  const depth = Math.min(node.depth, 3);
+  const base = {
+    role: 'group',
+    'data-embed-mode': node.mode,
+    'data-embed-depth': depth,
+    onClick: (e: React.MouseEvent) => {
+      // D-423: a click on a card (outside its buttons) opens the note.
+      if (node.mode === 'card' && node.state === 'ok' && !(e.target as HTMLElement).closest('button, a, [role="menu"]')) open(node, props.onOpen);
+    },
+  };
+  if (node.state === 'broken') {
+    const target = node.target.target;
+    return (
+      <section {...base} className="embed embed-broken" aria-label={target} data-embed-state="broken" data-embed-target={target}>
+        <div className="embed-header">
+          <a
+            href="#"
+            className="chip link-chip kind-unresolved"
+            data-link-kind="unresolved"
+            aria-description={t('link.noNote', { target })}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (props.onCreate) props.onCreate(e.currentTarget);
+              else requestOffer({ from: props.host, target, relationTo: null, anchor: e.currentTarget });
+            }}
+          >
+            <span data-user-content>{target}</span>
+          </a>
+        </div>
+      </section>
+    );
+  }
+  const title = titleOf(node);
+  const state = node.state === 'ok' && node.mode === 'full' && node.readOnly && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) ? 'read-only' : node.state;
+  const common = { ...base, className: `embed embed-${node.mode}`, 'aria-label': t('embed.name', { title }), 'data-embed-state': state, 'data-embed-target': node.target.path ?? node.target.target };
+  let content: ReactNode = null;
+  if (node.state === 'circular') content = <p className="embed-message" data-embed-message>{t('embed.circular', { title: node.target.title ?? node.target.target })}</p>;
+  else if (node.state === 'missing-section') {
+    const sub = node.subpath ?? '';
+    const msg = sub.startsWith('^') ? t('embed.noBlock', { id: sub.slice(1), title: node.target.title ?? node.target.target }) : t('embed.noHeading', { heading: sub, title: node.target.title ?? node.target.target });
+    content = <p className="embed-message" data-embed-message>{msg}</p>;
+  } else if (node.state === 'date-missing') content = <p className="embed-message" data-embed-message>{t('embed.noDay')}</p>;
+  else if (node.mode === 'card') content = <CardStrip node={node} onOpen={props.onOpen} onTag={props.onTag} />;
+  else if (node.note) {
+    const editable = props.editable && !node.readOnly && !!props.body;
+    content = (
+      <div className="embed-body" data-embed-body data-embed-editable={editable ? 'true' : 'false'}>
+        {editable ? props.body : <EmbedBody {...props} />}
+      </div>
+    );
+  }
+  return (
+    <section {...common}>
+      <Header props={props} title={title} showIcon />
+      {content}
+    </section>
+  );
 }

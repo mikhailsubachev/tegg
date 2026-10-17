@@ -48,7 +48,7 @@ export type ShellActions = {
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
-  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow';
+  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -200,6 +200,9 @@ export function commands(ctx: ShellContext): Command[] {
     ['edit.blockMenu', 'blockMenu', 'cmd.edit.blockMenu'], ['edit.selectBlock', 'selectBlock', 'cmd.edit.selectBlock'],
     ['edit.openOrToggle', 'openOrToggle', 'cmd.edit.openOrToggle'], ['edit.pastePlain', 'pastePlain', 'cmd.edit.pastePlain'],
     ['edit.saveNow', 'saveNow', 'cmd.edit.saveNow'],
+    // 4F (R32, D-428): no shortcuts.
+    ['edit.embedObject', 'embedObject', 'commands.embedObject'], ['edit.openEmbed', 'openEmbed', 'commands.openEmbed'],
+    ['edit.displayEmbedAs', 'displayEmbedAs', 'commands.displayEmbedAs'],
   ];
   for (const [id, action, title] of EDIT) {
     list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action) });

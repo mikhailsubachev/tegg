@@ -51,6 +51,9 @@ export const light: Tokens = {
   focus: '#1D5CCB',
   'accent-bg': '#E3F3EF',
   sel: '#D3E3FF',
+  // 4F (FR-LNK-07, D-418): the embed frame; text tokens keep 4.5:1 on embed-bg.
+  'embed-border': '#D2D2CC',
+  'embed-bg': '#FAFAF7',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -71,6 +74,8 @@ export const dark: Tokens = {
   focus: '#86AEFF',
   'accent-bg': '#17332E',
   sel: '#2A4677',
+  'embed-border': '#3C3C41',
+  'embed-bg': '#212124',
   ...typeTokens(TYPE_DARK),
 };
 

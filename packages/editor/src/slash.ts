@@ -7,7 +7,7 @@ export type SlashItem = { id: string; group: 'objects' | 'blocks' | 'media' | 'a
 const ITEMS: SlashItem[] = [
   { id: 'task', group: 'objects', label: 'Task', due: { milestone: 'MS5' } },
   { id: 'turnIntoObject', group: 'objects', label: 'Turn into object…', due: { milestone: 'MS5' } },
-  { id: 'embedObject', group: 'objects', label: 'Embed object', due: { milestone: 'MS4' } },
+  { id: 'embedObject', group: 'objects', label: 'Embed object', aliases: ['embed'] },
   { id: 'text', group: 'blocks', label: 'Text', aliases: ['paragraph'] },
   { id: 'heading1', group: 'blocks', label: 'Heading 1', aliases: ['h1'] },
   { id: 'heading2', group: 'blocks', label: 'Heading 2', aliases: ['h2'] },
@@ -22,7 +22,7 @@ const ITEMS: SlashItem[] = [
   { id: 'table', group: 'blocks', label: 'Table' },
   { id: 'image', group: 'media', label: 'Image', due: { milestone: 'MS6' } },
   { id: 'pdf', group: 'media', label: 'PDF', due: { milestone: 'MS6' } },
-  { id: 'blockEmbed', group: 'advanced', label: 'Block embed', due: { milestone: 'MS4' } },
+  { id: 'blockEmbed', group: 'advanced', label: 'Block embed', due: { milestone: 'v1.0' } },
   { id: 'query', group: 'advanced', label: 'Query', due: { milestone: 'v1.0' } },
   { id: 'mindmap', group: 'advanced', label: 'Mindmap', due: { milestone: 'v1.0' } },
 ]

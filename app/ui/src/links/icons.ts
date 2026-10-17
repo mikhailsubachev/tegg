@@ -5,8 +5,15 @@ import { SYSTEM_DEFAULT, typeIconName } from '../shell/Icon';
 
 let defs = new Map<string, string>();
 let names = new Map<string, string>();
+let all: TypeDefDto[] = [];
+
+/** The vault's types as last loaded (embed cards and modes read them, ms4-embeds §6). */
+export function chipTypes(): TypeDefDto[] {
+  return all;
+}
 
 export function setChipTypes(types: TypeDefDto[]): void {
+  all = types;
   defs = new Map(types.map((t) => [t.key.normalize('NFC'), t.icon]));
   names = new Map(types.map((t) => [t.key.normalize('NFC'), t.name]));
 }

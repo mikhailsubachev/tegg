@@ -74,8 +74,8 @@ test('fr_lnk_14_ac9_ms4_slices_show_and_count_as_ms4', async () => {
   assert.ok(ms4.includes('Merge…') || ms4.includes('duplicates.merge'), `overdue('MS4') lists Merge… (MS4 (4C) counts as MS4):\n${ms4}`);
   const ms3 = (reg.overdue('MS3') as string[]).join('\n');
   assert.ok(!ms3.includes('Merge…') && !ms3.includes('duplicates.merge'), `overdue('MS3') doesn't list Merge…:\n${ms3}`);
-  const embed = (reg.IN_NOTE_PLACEHOLDERS as any[]).find((p) => p.id === 'embed-note');
-  assert.equal(embed && reg.showDue(embed.due), 'MS4 (4F)', 'R5 embed-note shows Coming in MS4 (4F) (AP-220)');
+  // 4F built the note embed: R5 has no embed-note row any more (R32, D-431).
+  assert.equal((reg.IN_NOTE_PLACEHOLDERS as any[]).find((p) => p.id === 'embed-note'), undefined, 'R5 embed-note is gone (4F)');
 });
 
 test('fr_lnk_01_ac14_palette_commands_of_r16', async () => {
