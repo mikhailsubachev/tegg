@@ -10,10 +10,12 @@ pub use tegg_vault::FileVersion;
 mod engine;
 pub mod host;
 mod journal;
+mod ops;
 pub mod testing;
 mod zip;
 
 pub use engine::Jobs;
+pub use ops::{op_from_json, op_json};
 
 pub type JobId = u64;
 

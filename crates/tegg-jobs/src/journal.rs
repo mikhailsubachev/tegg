@@ -1,6 +1,8 @@
-//! Crash recovery for note renames (§8, D-387): while a rename writes, `<app>/jobs/<vault>/<job>.json` holds the
-//! rename, the planned files with their pre-job bytes, and `<job>.log` lists each file once it is done. Both are
-//! removed when the job ends. A journal left behind is offered on the next open as Finish or Undo.
+//! Crash recovery (§8, D-387): while a note rename, its undo or its redo writes, `<app>/jobs/<vault>/<job>.json`
+//! holds the job's entries (path, target path, the bytes before, and the bytes to write when known in advance), and
+//! `<job>.log` gets one line per entry once it is done: `W` with the version written (the base for a later Undo) or
+//! `N` when nothing was written. Both are removed when the job ends. A journal left behind is offered on the next
+//! open as Finish or Undo; both check every file before writing it (NFR-REL-02).
 
 use std::path::PathBuf;
 
@@ -8,61 +10,93 @@ use serde_json::{json, Value};
 use tegg_format::nfc;
 
 use crate::host::{Host, Wrote};
-use crate::{
-    Interrupted, JobError, JobId, JobPlan, ResolveChoice, TextOp, Transformed, Transformer,
-};
+use crate::ops::{op_from_json, op_json};
+use crate::{FileVersion, Interrupted, JobError, JobId, JobPlan, ResolveChoice, TextOp, Transformed, Transformer};
+
+/// One file of a journaled job.
+pub(crate) struct Entry {
+    /// Where the file is when the job starts, and where it ends (they differ only for the renamed note).
+    pub at: String,
+    pub to: String,
+    /// Its bytes when the job started.
+    pub pre: Vec<u8>,
+    /// The bytes the job writes, when known in advance (undo, redo); `None`: computed by the job's op.
+    pub target: Option<Vec<u8>>,
+}
 
 fn dir(host: &dyn Host) -> PathBuf {
     host.app_dir().join("jobs").join(host.vault_key())
 }
-
 fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 fn unhex(s: &str) -> Vec<u8> {
-    (0..s.len() / 2)
-        .filter_map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).ok())
-        .collect()
+    (0..s.len() / 2).filter_map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).ok()).collect()
 }
 
-/// Called before the first write of a note rename.
+/// The highest job id with a journal on disk (0 when none): new ids start above it.
+pub(crate) fn max_id(host: &dyn Host) -> JobId {
+    host.local_list(&dir(host))
+        .into_iter()
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .filter_map(|p| p.file_stem()?.to_str()?.parse::<JobId>().ok())
+        .max()
+        .unwrap_or(0)
+}
+
+/// A note rename, before its first write.
 pub(crate) fn begin(host: &dyn Host, job: JobId, plan: &JobPlan) {
-    let Some(TextOp::RetargetLinks {
-        from_path,
-        from_stem,
-        from_title,
-        to_path,
-        to_stem,
-        to_title,
-        ..
-    }) = plan.files.first().and_then(|f| f.ops.get(1))
-    else {
-        return;
-    };
-    let files: Vec<Value> = plan
+    let Some(note) = plan.files.first() else { return };
+    let to = plan.renames.first().map(|(_, t)| t.clone()).unwrap_or_else(|| note.path.clone());
+    let title = note.ops.iter().find_map(|o| match o {
+        TextOp::SetTitle { title, .. } => Some(title.clone()),
+        _ => None,
+    });
+    let op = note.ops.iter().find(|o| matches!(o, TextOp::RetargetLinks { .. }));
+    let entries: Vec<Entry> = plan
         .files
         .iter()
         .filter_map(|f| {
-            host.read(&f.path)
-                .ok()
-                .map(|(b, _)| json!({ "path": f.path, "pre": hex(&b) }))
+            let pre = host.read(&f.path).ok()?.0;
+            let target = if f.path == note.path { to.clone() } else { f.path.clone() };
+            Some(Entry { at: f.path.clone(), to: target, pre, target: None })
         })
         .collect();
-    let v = json!({
-        "job": job, "fromPath": from_path, "fromStem": from_stem, "fromTitle": from_title,
-        "toPath": to_path, "toStem": to_stem, "toTitle": to_title, "files": files,
-    });
+    write_header(host, job, "rename", op, title, &entries);
+}
+
+/// An undo or redo (`kind`), before its first write.
+pub(crate) fn begin_entries(host: &dyn Host, job: JobId, kind: &str, op: Option<&TextOp>, entries: &[Entry]) {
+    write_header(host, job, kind, op, None, entries);
+}
+
+fn write_header(host: &dyn Host, job: JobId, kind: &str, op: Option<&TextOp>, title: Option<String>, entries: &[Entry]) {
+    let files: Vec<Value> = entries
+        .iter()
+        .map(|e| json!({ "at": e.at, "to": e.to, "pre": hex(&e.pre), "target": e.target.as_ref().map(|t| hex(t)) }))
+        .collect();
+    let v = json!({ "job": job, "kind": kind, "op": op.map(op_json), "title": title, "files": files });
     let d = dir(host);
     let _ = host.local_write(&d.join(format!("{job}.json")), v.to_string().as_bytes());
     let _ = host.local_write(&d.join(format!("{job}.log")), b"");
 }
 
-pub(crate) fn progress(host: &dyn Host, job: JobId, path: &str) {
+fn append(host: &dyn Host, job: JobId, line: String) {
     let log = dir(host).join(format!("{job}.log"));
     let mut b = host.local_read(&log).unwrap_or_default();
-    b.extend_from_slice(path.as_bytes());
+    b.extend_from_slice(line.as_bytes());
     b.push(b'\n');
     let _ = host.local_write(&log, &b);
+}
+
+/// The entry at `at` was written; it is now at `to` with version `v`.
+pub(crate) fn progress(host: &dyn Host, job: JobId, at: &str, to: &str, v: &FileVersion) {
+    append(host, job, format!("W\t{at}\t{to}\t{}\t{}", v.size, hex(&v.hash)));
+}
+
+/// The entry at `at` is done without a write (unchanged or skipped).
+pub(crate) fn progress_none(host: &dyn Host, job: JobId, at: &str) {
+    append(host, job, format!("N\t{at}"));
 }
 
 pub(crate) fn finish(host: &dyn Host, job: JobId) {
@@ -71,11 +105,42 @@ pub(crate) fn finish(host: &dyn Host, job: JobId) {
     host.local_remove(&d.join(format!("{job}.log")));
 }
 
-fn load(host: &dyn Host, job: JobId) -> Option<(Value, Vec<String>)> {
+struct Loaded {
+    kind: String,
+    op: Option<TextOp>,
+    title: Option<String>,
+    entries: Vec<Entry>,
+    /// at → (to, size, hash) for written entries.
+    written: Vec<(String, String, u64, [u8; 32])>,
+    done: Vec<String>,
+}
+
+fn load(host: &dyn Host, job: JobId) -> Option<Loaded> {
     let d = dir(host);
     let v: Value = serde_json::from_slice(&host.local_read(&d.join(format!("{job}.json")))?).ok()?;
     let log = String::from_utf8(host.local_read(&d.join(format!("{job}.log"))).unwrap_or_default()).unwrap_or_default();
-    Some((v, log.lines().map(str::to_string).collect()))
+    let s = |x: &Value| x.as_str().unwrap_or_default().to_string();
+    let entries = v["files"]
+        .as_array()?
+        .iter()
+        .map(|f| Entry { at: s(&f["at"]), to: s(&f["to"]), pre: unhex(&s(&f["pre"])), target: f["target"].as_str().map(unhex) })
+        .collect();
+    let mut written = Vec::new();
+    let mut done = Vec::new();
+    for line in log.lines() {
+        let p: Vec<&str> = line.split('\t').collect();
+        match p.as_slice() {
+            ["W", at, to, size, hash] => {
+                let mut h = [0u8; 32];
+                h.copy_from_slice(&unhex(hash).into_iter().chain(std::iter::repeat(0)).take(32).collect::<Vec<_>>());
+                written.push((at.to_string(), to.to_string(), size.parse().unwrap_or(0), h));
+                done.push(at.to_string());
+            }
+            ["N", at] => done.push(at.to_string()),
+            _ => {}
+        }
+    }
+    Some(Loaded { kind: s(&v["kind"]), op: v.get("op").and_then(op_from_json), title: v["title"].as_str().map(str::to_string), entries, written, done })
 }
 
 pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
@@ -85,84 +150,93 @@ pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .filter_map(|p| p.file_stem()?.to_str()?.parse::<JobId>().ok())
         .filter_map(|job| {
-            let (v, log) = load(host, job)?;
-            let total = v["files"].as_array().map(|a| a.len()).unwrap_or(0);
-            Some(Interrupted { job, from: v["fromPath"].as_str()?.to_string(), to: v["toPath"].as_str()?.to_string(), done: (log.len() + 1).min(total), total })
+            let l = load(host, job)?;
+            let moved = l.entries.iter().find(|e| e.at != e.to).or(l.entries.first())?;
+            Some(Interrupted { job, from: moved.at.clone(), to: moved.to.clone(), done: l.done.len().min(l.entries.len()), total: l.entries.len() })
         })
         .collect();
     out.sort_by_key(|i| i.job);
     out
 }
 
-/// Finish: rewrite the links of the files not done yet (from their current bytes). Undo: every file back to its
-/// pre-job bytes, the note back to its old name. Removes the journal.
-pub(crate) fn resolve(
-    host: &dyn Host,
-    transformer: &dyn Transformer,
-    job: JobId,
-    choice: ResolveChoice,
-) -> Result<(), JobError> {
-    let (v, log) = load(host, job).ok_or(JobError::NotFound)?;
-    let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
-    let (from, to) = (s("fromPath"), s("toPath"));
-    let files: Vec<(String, Vec<u8>)> = v["files"]
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .map(|f| {
-                    (
-                        f["path"].as_str().unwrap_or_default().to_string(),
-                        unhex(f["pre"].as_str().unwrap_or_default()),
-                    )
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let renamed = from != to && host.version(&to).is_some() && host.version(&from).is_none();
+/// Undo: every file the job wrote and that is still exactly what it wrote gets its bytes from before the job (the
+/// renamed note its old name too); anything changed since is left alone. Finish: the files not done yet get the job's
+/// change from their current bytes, if they are still what the job found; a rename whose note wasn't renamed yet
+/// renames it first. Removes the journal.
+pub(crate) fn resolve(host: &dyn Host, transformer: &dyn Transformer, job: JobId, choice: ResolveChoice) -> Result<(), JobError> {
+    let l = load(host, job).ok_or(JobError::NotFound)?;
     match choice {
         ResolveChoice::Undo => {
-            for (path, pre) in &files {
-                let at = if *path == from && renamed {
-                    to.clone()
+            for (at, to, size, hash) in &l.written {
+                let Some(e) = l.entries.iter().find(|e| nfc(&e.at) == nfc(at)) else { continue };
+                let Ok((_, cur)) = host.read(to) else { continue };
+                if cur.size != *size || cur.hash != *hash {
+                    continue; // changed since the crash: never overwritten (NFR-REL-02)
+                }
+                if nfc(to) != nfc(at) {
+                    let _ = host.rename(to, at, &e.pre, &cur);
                 } else {
-                    path.clone()
-                };
-                let Ok((_, cur)) = host.read(&at) else {
-                    continue;
-                };
-                if at != *path {
-                    let _ = host.rename(&at, path, pre, &cur);
-                } else {
-                    let _ = host.write(path, pre, &cur);
+                    let _ = host.write(at, &e.pre, &cur);
                 }
             }
         }
-        ResolveChoice::Finish => {
-            let mut paths = host.note_paths();
-            if !paths.iter().any(|p| nfc(p) == nfc(&from)) {
-                paths.push(from.clone());
-            }
-            let op = TextOp::RetargetLinks {
-                from_path: from.clone(),
-                from_stem: s("fromStem"),
-                from_title: s("fromTitle"),
-                to_path: to.clone(),
-                to_stem: s("toStem"),
-                to_title: s("toTitle"),
-                paths,
-            };
-            for (path, _) in files.iter().skip(1).filter(|(p, _)| !log.contains(p)) {
-                let Ok((bytes, cur)) = host.read(path) else {
-                    continue;
-                };
-                if let Ok(Transformed::Bytes(out, _)) =
-                    transformer.transform(path, &bytes, std::slice::from_ref(&op))
-                {
-                    let _ = matches!(host.write(path, &out, &cur), Ok(Wrote::Written(_)));
-                }
-            }
-        }
+        ResolveChoice::Finish => finish_rest(host, transformer, &l),
     }
     finish(host, job);
     Ok(())
+}
+
+fn finish_rest(host: &dyn Host, transformer: &dyn Transformer, l: &Loaded) {
+    let pending = |e: &Entry| !l.done.iter().any(|d| nfc(d) == nfc(&e.at));
+    // The current bytes of a pending entry, if still what the job found and valid UTF-8 (D-180).
+    let unchanged = |e: &Entry| -> Option<(Vec<u8>, FileVersion)> {
+        let (b, v) = host.read(&e.at).ok()?;
+        (b == e.pre && std::str::from_utf8(&b).is_ok()).then_some((b, v))
+    };
+    let apply = |path: &str, bytes: &[u8], ops: &[TextOp]| match transformer.transform(path, bytes, ops) {
+        Ok(Transformed::Bytes(out, _)) => Some(out),
+        _ => None,
+    };
+    if l.kind == "rename" {
+        let Some(op) = l.op.clone() else { return };
+        // The note first: links may only move to a name that exists.
+        if let Some(note) = l.entries.iter().find(|e| e.at != e.to) {
+            if pending(note) {
+                let Some((b, v)) = unchanged(note) else { return };
+                let mut ops = Vec::new();
+                if let Some(t) = &l.title {
+                    ops.push(TextOp::SetTitle { title: t.clone(), now: host.now() });
+                }
+                ops.push(op.clone());
+                let Some(out) = apply(&note.at, &b, &ops) else { return };
+                if host.rename(&note.at, &note.to, &out, &v).is_err() {
+                    return; // the links stay with the note where it is
+                }
+            }
+        }
+        for e in l.entries.iter().filter(|e| e.at == e.to && pending(e)) {
+            if let Some((b, v)) = unchanged(e) {
+                if let Some(out) = apply(&e.at, &b, std::slice::from_ref(&op)) {
+                    let _ = matches!(host.write(&e.at, &out, &v), Ok(Wrote::Written(_)));
+                }
+            }
+        }
+    } else {
+        for e in l.entries.iter().filter(|e| pending(e)) {
+            let Some((b, v)) = unchanged(e) else { continue };
+            let out = match (&e.target, &l.op) {
+                (Some(t), _) => t.clone(),
+                (None, Some(op)) => match apply(&e.at, &b, std::slice::from_ref(op)) {
+                    Some(o) => o,
+                    None => continue,
+                },
+                (None, None) => continue,
+            };
+            if e.at != e.to {
+                let _ = host.rename(&e.at, &e.to, &out, &v);
+            } else {
+                let _ = host.write(&e.at, &out, &v);
+            }
+        }
+    }
 }

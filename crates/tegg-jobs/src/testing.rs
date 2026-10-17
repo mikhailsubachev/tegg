@@ -53,16 +53,7 @@ impl Drop for NodeTransformer {
     }
 }
 
-/// The TypeScript shape of a `TextOp` (`@tegg/doc` `TextOp`, ms4-jobs §2.3).
-pub fn op_json(op: &TextOp) -> Value {
-    match op {
-        TextOp::RetargetLinks { from_path, from_stem, from_title, to_path, to_stem, to_title, paths } => json!({
-            "op": "retarget-links", "fromPath": from_path, "fromStem": from_stem, "fromTitle": from_title,
-            "toPath": to_path, "toStem": to_stem, "toTitle": to_title, "paths": paths,
-        }),
-        TextOp::SetTitle { title, now } => json!({ "op": "set-title", "title": title, "now": now }),
-    }
-}
+pub use crate::ops::op_json;
 
 /// A `Transformed` from its JSON shape (`{ kind: 'bytes', text, edits } | { kind: 'unchanged' }`).
 pub fn transformed_from_json(v: &Value) -> Result<Transformed, TransformError> {

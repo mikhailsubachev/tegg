@@ -166,6 +166,21 @@ impl VaultFs for MemFs {
         }
     }
 
+    fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
+        let (to_name, f, t) = (spelled(to), fold(from), fold(to));
+        if f != t {
+            return self.rename_no_replace(from, to);
+        }
+        let mut nodes = self.nodes.lock().expect("nodes");
+        match nodes.remove(&f) {
+            Some((_, n)) => {
+                nodes.insert(t, (to_name, n));
+                Ok(())
+            }
+            None => Err(io::Error::new(io::ErrorKind::NotFound, from.to_string())),
+        }
+    }
+
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
         let name = spelled(path);
         let mut nodes = self.nodes.lock().expect("nodes");

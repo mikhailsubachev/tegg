@@ -127,6 +127,8 @@ export function rewriteLinks(source: string, text: string, op: Extract<TextOp, {
 
 - **Note rename write (D-389, FR-SYN-06 AC-11).** One atomic step: the new bytes are written to a temp file in the folder, then renamed to the new path with `RENAME_EXCL`, then the old path is removed after a base check. The index sees one `rename(from, to)`; `Pages/Gama.md` never holds the old title. A taken name at that moment (external create) → the planner's next free stem is used (`Gama (2)`), never an overwrite (FR-FMT-08 AC-10).
 - **Case-only rename** on case-insensitive APFS goes through a temp name in the same folder (`.<stem>.tegg-tmp`), so the directory listing shows the new case.
+- **Files that aren't valid UTF-8** are never transformed or written by a job (D-180, NFR-REL-03): skipped `readOnly`, also on Retry and Finish.
+- **Retry** never rewrites the renamed note in place (it would get the new title under its old name); its row answers `changed`. Retry after an undo or redo reverses or re-applies only the link.
 - **Other files** are written with `Vault::write(path, bytes, base)` (ms3-shell §13.1): `Unchanged` is counted `unchanged` (FR-SYN-06 AC-10); `Conflict`/`Gone` are skips (§5). Exactly one write per affected file.
 - **Delete** (later kinds) moves to `.trash/` keeping the relative path. **Moves** use the free-stem rule in the target folder.
 - New `tegg-vault` method: `Vault::rename_with(from, to, bytes, base) -> Result<FileVersion, VaultError>` (the atomic step above); errors `NameTaken`, `Conflict { disk }`, `Gone`.
@@ -217,8 +219,11 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 
 ## 8. Crash recovery (D-387)
 
-- While a `note-rename` (or its undo) is in `writing`, the core keeps a journal at `~/Library/Application Support/Tegg/jobs/<vault-hash>/<jobId>.json`: op, the rename pair, the planned file list with versions, and the pre-job bytes of each file (base64). It is not a zip and not in the backup rotation; it is deleted when the job reaches a final phase.
-- On open, a journal left behind gives `job_interrupted()` → `[{ jobId, from, to, done, total }]`; the UI shows `Renaming "<old>" was interrupted: <done> of <total> links updated` with `Finish` (re-plan from the current index and rewrite the rest) and `Undo` (restore the pre-job bytes of files still at their written version). `.tegg-tmp` leftovers are removed by the vault open (data-safety AC-4).
+- While a `note-rename`, its undo or its redo writes, the core keeps a journal at `~/Library/Application Support/Tegg/jobs/<vault-key>/<jobId>.json`: the kind, the link op and the new title, and one entry per file (path, target path, its bytes when the job started, and for undo/redo the bytes to write). `<jobId>.log` gets one line per entry when it is done: the version written (`W`, size and hash) or nothing written (`N`). Bytes are stored as hex. Both files go when the job reaches a final phase. Job ids start above the highest id with a journal on disk, so a new job never overwrites an unresolved journal.
+- On open, `VaultInfo.interrupted` lists them; the UI shows `Renaming "<old>" was interrupted: <done> of <total> links updated` with `Finish` and `Undo`.
+  - **Undo**: each file the job wrote that is still exactly the logged version gets its bytes from before the job (the note its old name too); a file changed since is left alone (NFR-REL-02).
+  - **Finish**: files not done yet get the job's change from their current bytes, only if they are still what the job found and valid UTF-8; for a rename whose note wasn't renamed yet, the note is renamed first, and if that fails nothing else is changed.
+- `.tegg-tmp` leftovers are removed by the vault open (data-safety AC-4). A case-only rename never leaves the note only in a temp file: its bytes are replaced in place, then only the case of the name changes (§3).
 
 ## 9. Editor, watcher and index
 

@@ -59,6 +59,8 @@ struct Written {
     pre_v: FileVersion,
     post: Vec<u8>,
     post_v: FileVersion,
+    /// Written through its editor (D-386): undo and redo apply the link op to its current text, never bytes.
+    via_op: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -125,7 +127,11 @@ impl Jobs {
     }
 
     pub fn with_host(host: Arc<dyn Host>) -> Jobs {
-        Jobs::make(Some(host))
+        // Ids are never reused while a journal of an earlier run is on disk (D-387).
+        let first = crate::journal::max_id(host.as_ref()) + 1;
+        let j = Jobs::make(Some(host));
+        lock(&j.inner.state).next = first;
+        j
     }
 
     fn make(host: Option<Arc<dyn Host>>) -> Jobs {
@@ -293,6 +299,11 @@ impl Jobs {
             let s = lock(&self.inner.state);
             let j = s.jobs.get(&job).ok_or(JobError::NotFound)?;
             let plan = j.plan.as_ref().ok_or(JobError::NotFound)?;
+            // The renamed note itself is never retried in place: that would give the old file the new title and a
+            // self-link to a name that doesn't exist (PR #45 review). Its row is answered "changed".
+            if plan.renames.iter().any(|(a, b)| nfc(a) == path || nfc(b) == path) {
+                return Ok(RetryOutcome::Skipped(SkipReason::Changed));
+            }
             plan.files
                 .iter()
                 .find(|f| nfc(&f.path) == path)
@@ -306,6 +317,9 @@ impl Jobs {
             Ok(x) => x,
             Err(e) => return Ok(RetryOutcome::Skipped(read_reason(&e))),
         };
+        if std::str::from_utf8(&bytes).is_err() {
+            return Ok(RetryOutcome::Skipped(SkipReason::ReadOnly));
+        }
         let out = match self.inner.transform(&path, &bytes, &ops) {
             Ok(Transformed::Bytes(b, _)) => b,
             Ok(Transformed::Unchanged) => return Ok(RetryOutcome::Unchanged),
@@ -737,6 +751,10 @@ impl Inner {
                 return;
             }
         };
+        if std::str::from_utf8(&pre).is_err() {
+            run.skip(&note.path, SkipReason::ReadOnly); // D-180: never written
+            return;
+        }
         let mut to = plan.renames.first().map(|(_, t)| t.clone());
         let mut tries = 0;
         let outcome = loop {
@@ -781,6 +799,7 @@ impl Inner {
                     run.renamed = Some((note.path.clone(), path.clone()));
                 }
                 run.written.push(path.clone());
+                crate::journal::progress(host.as_ref(), id, &note.path, &path, &post_v);
                 run.undo.files.push(Written {
                     before: note.path.clone(),
                     after: path,
@@ -788,6 +807,7 @@ impl Inner {
                     pre_v,
                     post,
                     post_v,
+                    via_op: false,
                 });
             }
             Ok(None) => run.unchanged.push(note.path.clone()),
@@ -819,8 +839,12 @@ impl Inner {
         }
         self.step(id, 1);
         for (i, f) in plan.files.iter().enumerate().skip(1) {
+            let n = run.undo.files.len();
             self.write_one(run, f);
-            crate::journal::progress(host.as_ref(), id, &f.path);
+            match run.undo.files.get(n) {
+                Some(w) => crate::journal::progress(host.as_ref(), id, &w.before, &w.after, &w.post_v),
+                None => crate::journal::progress_none(host.as_ref(), id, &f.path),
+            }
             self.step(id, i + 1);
         }
     }
@@ -838,6 +862,10 @@ impl Inner {
         };
         if !v.same_content(&f.version) {
             return run.skip(path, SkipReason::Changed);
+        }
+        // D-180, NFR-REL-03: a file that isn't valid UTF-8 is read-only; a lossy round trip would replace its bytes.
+        if std::str::from_utf8(&bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
         }
         self.point(run.id, JobPoint::AfterRead { path: path.clone() });
         if lock(&self.editors).contains(&nfc(path)) {
@@ -865,6 +893,7 @@ impl Inner {
                     pre_v: v,
                     post: out,
                     post_v,
+                    via_op: false,
                 });
             }
             Ok(Wrote::Unchanged) => run.unchanged.push(path.clone()),
@@ -875,6 +904,9 @@ impl Inner {
     /// D-386: the open note's editor applies the change to its live document and saves it; the job waits for that save.
     fn write_live(&self, run: &mut Run, path: &str, bytes: &[u8], v: &FileVersion, ops: &[TextOp]) {
         let host = self.host();
+        if std::str::from_utf8(bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
+        }
         let request = self.request_id();
         host.transform_request(request, path, &String::from_utf8_lossy(bytes), ops, true);
         let end = Instant::now() + LIVE_TIMEOUT;
@@ -882,6 +914,17 @@ impl Inner {
             if let Some(now) = host.version(path) {
                 if !now.same_content(v) {
                     run.written.push(path.to_string());
+                    // Undo and redo go through the link op: the saved text also holds the user's own edits.
+                    let post = host.read(path).map(|(b, _)| b).unwrap_or_default();
+                    run.undo.files.push(Written {
+                        before: path.to_string(),
+                        after: path.to_string(),
+                        pre: bytes.to_vec(),
+                        pre_v: v.clone(),
+                        post,
+                        post_v: now,
+                        via_op: true,
+                    });
                     return;
                 }
             } else {
@@ -920,7 +963,8 @@ impl Inner {
                 } else {
                     w.pre_v.clone()
                 },
-                ops: Vec::new(),
+                // Retry of a skipped row reverses (undo) or re-applies (redo) only the link (D-385).
+                ops: rec.op.as_ref().map(|op| vec![if undo { reversed(op) } else { op.clone() }]).unwrap_or_default(),
             })
             .collect::<Vec<_>>();
         let renames = rec
@@ -948,62 +992,92 @@ impl Inner {
     }
 
     /// Undo writes each file's pre-job bytes where the file is still what the job wrote; redo the reverse (§7).
+    /// Files written through an editor get the link op instead (D-386). Journaled like the rename (D-387).
     fn write_undo(&self, run: &mut Run, job: JobId, undo: bool) {
         let host = self.host();
-        let Some(rec) = lock(&self.state)
-            .jobs
-            .get(&job)
-            .and_then(|j| j.undo.clone())
-        else {
+        let Some(rec) = lock(&self.state).jobs.get(&job).and_then(|j| j.undo.clone()) else {
             return;
         };
+        let op = rec.op.as_ref().map(|op| if undo { reversed(op) } else { op.clone() });
+        let entries: Vec<crate::journal::Entry> = rec
+            .files
+            .iter()
+            .map(|w| {
+                let (at, to, bytes) = if undo { (&w.after, &w.before, &w.pre) } else { (&w.before, &w.after, &w.post) };
+                let current = host.read(at).map(|(b, _)| b).unwrap_or_default();
+                crate::journal::Entry { at: at.clone(), to: to.clone(), pre: current, target: if w.via_op { None } else { Some(bytes.clone()) } }
+            })
+            .collect();
+        crate::journal::begin_entries(host.as_ref(), run.id, if undo { "undo" } else { "redo" }, op.as_ref(), &entries);
         for (i, w) in rec.files.iter().enumerate() {
-            let (at, to, bytes, base) = if undo {
-                (&w.after, &w.before, &w.pre, &w.post_v)
-            } else {
-                (&w.before, &w.after, &w.post, &w.pre_v)
-            };
+            let (at, to, bytes, base) = if undo { (&w.after, &w.before, &w.pre, &w.post_v) } else { (&w.before, &w.after, &w.post, &w.pre_v) };
             self.point(run.id, JobPoint::AfterRead { path: at.clone() });
             if host.is_placeholder(at) {
                 run.skip(at, SkipReason::Placeholder);
+                crate::journal::progress_none(host.as_ref(), run.id, at);
                 continue;
             }
-            // A linking note open in an editor is changed through the editor, never overwritten (D-386).
-            if at == to && lock(&self.editors).contains(&nfc(at)) {
-                if let (Some(op), Ok((cur, v))) = (rec.op.as_ref(), host.read(at)) {
-                    let op = if undo { reversed(op) } else { op.clone() };
-                    self.write_live(run, at, &cur, &v, std::slice::from_ref(&op));
-                    self.step(run.id, i + 1);
-                    continue;
+            let before = run.undo.files.len();
+            if w.via_op || (at == to && lock(&self.editors).contains(&nfc(at))) {
+                // Through the link op: the editor if the note is open, else the current text on disk.
+                match (op.as_ref(), host.read(at)) {
+                    (Some(op), Ok((cur, v))) if lock(&self.editors).contains(&nfc(at)) => self.write_live(run, at, &cur, &v, std::slice::from_ref(op)),
+                    (Some(op), Ok((cur, v))) => self.write_op(run, at, &cur, &v, op),
+                    (_, Err(e)) => run.skip(at, read_reason(&e)),
+                    (None, _) => run.skip(at, SkipReason::Io),
+                }
+            } else {
+                let r = if at != to {
+                    let mut target = to.clone();
+                    if host.version(&target).is_some() && key(&target) != key(at) {
+                        target = join(&folder_of(to), &host.free_stem(&folder_of(to), &stem_of(to)));
+                    }
+                    host.rename(at, &target, bytes, base).map(|v| (target, Some(v)))
+                } else {
+                    host.write(at, bytes, base).map(|w| match w {
+                        Wrote::Written(v) => (at.clone(), Some(v)),
+                        Wrote::Unchanged => (at.clone(), None),
+                    })
+                };
+                match r {
+                    Ok((path, Some(v))) => {
+                        if path != *at {
+                            run.renamed = Some((at.clone(), path.clone()));
+                        }
+                        run.written.push(path.clone());
+                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false });
+                    }
+                    Ok((path, None)) => run.unchanged.push(path),
+                    Err(e) => run.skip(at, write_reason(&e)),
                 }
             }
-            let r = if at != to {
-                let mut target = to.clone();
-                if host.version(&target).is_some() && key(&target) != key(at) {
-                    target = join(
-                        &folder_of(to),
-                        &host.free_stem(&folder_of(to), &stem_of(to)),
-                    );
-                }
-                host.rename(at, &target, bytes, base)
-                    .map(|v| (target, Some(v)))
-            } else {
-                host.write(at, bytes, base).map(|w| match w {
-                    Wrote::Written(v) => (at.clone(), Some(v)),
-                    Wrote::Unchanged => (at.clone(), None),
-                })
-            };
-            match r {
-                Ok((path, Some(_))) => {
-                    if path != *at {
-                        run.renamed = Some((at.clone(), path.clone()));
-                    }
-                    run.written.push(path);
-                }
-                Ok((path, None)) => run.unchanged.push(path),
-                Err(e) => run.skip(at, write_reason(&e)),
+            match run.undo.files.get(before) {
+                Some(x) => crate::journal::progress(host.as_ref(), run.id, at, &x.after, &x.post_v),
+                None => crate::journal::progress_none(host.as_ref(), run.id, at),
             }
             self.step(run.id, i + 1);
+        }
+    }
+
+    /// A link op on a file's current text, written with that text's version as base (undo / redo of a file that was
+    /// written through its editor).
+    fn write_op(&self, run: &mut Run, path: &str, bytes: &[u8], v: &FileVersion, op: &TextOp) {
+        let host = self.host();
+        if std::str::from_utf8(bytes).is_err() {
+            return run.skip(path, SkipReason::ReadOnly);
+        }
+        let out = match self.transform(path, bytes, std::slice::from_ref(op)) {
+            Ok(Transformed::Bytes(b, _)) => b,
+            Ok(Transformed::Unchanged) => return run.unchanged.push(path.to_string()),
+            Err(_) => return run.skip(path, SkipReason::Io),
+        };
+        match host.write(path, &out, v) {
+            Ok(Wrote::Written(post_v)) => {
+                run.written.push(path.to_string());
+                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true });
+            }
+            Ok(Wrote::Unchanged) => run.unchanged.push(path.to_string()),
+            Err(e) => run.skip(path, write_reason(&e)),
         }
     }
 

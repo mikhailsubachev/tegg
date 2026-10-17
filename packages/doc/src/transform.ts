@@ -41,6 +41,12 @@ export function rewriteLinks(source: string, text: string, op: Retarget): Transf
 
 function titlePatches(doc: Doc, title: string, now: string): Patch[] {
   const fm = doc.frontmatter
+  // A note without frontmatter (common in Obsidian vaults, D-05) gets one with the title, as editor AC-10 does.
+  if (!fm && !doc.frontmatterError) {
+    const at = doc.bom ? 1 : 0
+    const head = fit(doc, `---\n${formatEntry('title', title)}${formatEntry('modified', { datetime: now })}---\n`)
+    return [{ range: [at, at], text: head }]
+  }
   if (!fm || fm.error) throw new Error('No valid frontmatter to set the title in (NFR-REL-03)')
   const out: Patch[] = []
   const missing: string[] = []

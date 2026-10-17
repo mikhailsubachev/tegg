@@ -298,7 +298,7 @@ fn forward_events(app: AppHandle, core: &Core) {
                     let _ = app.emit("job:progress", progress_dto(&p));
                 }
                 CoreEvent::JobTransform { request, source, text, ops, live } => {
-                    let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::testing::op_json).collect();
+                    let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::op_json).collect();
                     let _ = app.emit("job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
                 }
             }
