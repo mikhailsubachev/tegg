@@ -459,6 +459,13 @@ async fn note_trash(state: State<'_, AppState>, path: String, base: VersionDto) 
     core.trash_note(&path, &version_from(&base)?).map_err(core_err)
 }
 
+/// ms5-tasks §11.6 (D-492): delete a just-created file after a version check (conversion undo).
+#[tauri::command]
+async fn note_discard(state: State<'_, AppState>, path: String, base: VersionDto) -> Result<(), IpcError> {
+    let core = core(&state)?;
+    core.discard_note(&path, &version_from(&base)?).map_err(core_err)
+}
+
 /// D-185.
 #[tauri::command]
 async fn index_tags(state: State<'_, AppState>) -> Result<Vec<TagDto>, IpcError> {
@@ -1507,7 +1514,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
+            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,

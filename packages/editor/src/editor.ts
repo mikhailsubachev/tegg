@@ -10,6 +10,7 @@ import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
+import type { ConvertUnit } from '@tegg/doc'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
@@ -44,7 +45,19 @@ export interface EditorOptions {
   onLeave?(how: 'up' | 'down' | 'escape'): boolean
   /** 4F (D-428): ⏎ / ⌘↩ / `Display embed as…` on a selected block embed at `pos`. Return true when handled. */
   onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean
+  /** 5A-2 (ms5-tasks §11.3, D-494): false in `_templates/` notes and nested embed editors; `conversionUnit()` is then
+   *  null. Default true. Not built yet (stub). */
+  convertible?: boolean
+  /** 5A-2 (D-492): undo / redo of a conversion step. Not built yet (stub). */
+  conversion?: { afterUndo(r: ConversionRecord): void; beforeRedo(r: ConversionRecord): Promise<string | false> }
+  /** 5A-2 (D-496): called before a user action removes block embeds. Not built yet (stub). */
+  guardEmbedRemoval?(embeds: { pos: number; source: string }[]): Promise<boolean> | null
+  /** 5A-2 (ms5-tasks §11.5): hint shown in an empty first paragraph, never saved. Not built yet (stub). */
+  emptyHint?: string
 }
+
+/** 5A-2 (ms5-tasks §11.3): what a conversion step remembers for undo / redo. */
+export type ConversionRecord = { path: string; created: string; type: string; title: string }
 
 export interface TeggEditor {
   view: EditorView
@@ -77,6 +90,8 @@ export interface TeggEditor {
   selectedSource(): string | null
   /** 4F (ms4-embeds §7): the block embed at the selection (one selected embed block, or a node selection), or null. */
   selectedEmbed(): { pos: number; index: number; source: string } | null
+  /** 5A-2 (ms5-tasks §11.3): the conversion unit of the current selection, or null. */
+  conversionUnit(): ConvertUnit | null
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
@@ -98,6 +113,8 @@ export interface TeggEditor {
     insertEmbed(from: number, to: number, linkText: string): boolean
     /** 4F (D-428): selects the top-level block at `index` as a block. */
     selectBlockAt(index: number): boolean
+    /** 5A-2 (ms5-tasks §11.3, D-490, D-492): replaces `unit` by its embed as one undo step; the embed's pos or false. */
+    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord): number | false
     setUrlLink(href: string): boolean
     removeLink(): boolean
     pasteText(text: string, plain?: boolean): boolean
@@ -907,6 +924,10 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       dispatch(closeHistory(tr).scrollIntoView())
       return true
     },
+    // STUB (TS-I1, 5A-2): not built; changes nothing.
+    convertUnit(_unit, _target, _record) {
+      return false
+    },
     selectBlockAt(index) {
       if (index < 0 || index >= editor.state.doc.childCount) return false
       dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: index, head: index }))
@@ -989,6 +1010,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
     hasBlockSel: () => !!blockSel(),
     selectedEmbed,
+    // STUB (TS-I1, 5A-2): not built.
+    conversionUnit: () => null,
     view,
     editor,
     async save() {

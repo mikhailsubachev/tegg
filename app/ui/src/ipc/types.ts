@@ -213,7 +213,11 @@ otherPropertiesOpen: boolean,
 /**
  * ms5-tasks §6.3 (D-481): the Tasks page's remembered state; missing reads as the defaults.
  */
-tasks?: TasksUiDto, };
+tasks?: TasksUiDto, 
+/**
+ * ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again"; missing reads as the defaults.
+ */
+convert?: ConvertUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -312,6 +316,15 @@ groupBy: string,
  * `all`, `today` or `week`.
  */
 dateFilter: string, tags: Array<string>, doneExpanded: boolean, };
+export type ConvertUiDto = { 
+/**
+ * Type key of the last conversion on this machine; null before the first (preselection Task, D-493).
+ */
+lastType: string | null, 
+/**
+ * FR-CNV-08 AC-2 `Don't ask again`.
+ */
+skipRemoveConfirm: boolean, };
 export type TaskRowDto = { path: string, id: string | null, title: string, status: string | null, state: string, statusKnown: boolean, priority: string | null, priorityRank: number, dueRaw: string | null, 
 /**
  * `YYYY-MM-DD` when valid (D-484).

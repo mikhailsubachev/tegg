@@ -20,6 +20,8 @@ export type UiStateDto = {
   propertiesOpen?: boolean;
   /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
   tasks?: { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean };
+  /** ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again". */
+  convert?: { lastType: string | null; skipRemoveConfirm: boolean };
 };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
@@ -689,6 +691,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.writtenPaths.push(t);
       void state.emit('vault:changed', { paths: [p, t] });
       return t;
+    },
+    // ms5-tasks §11.6, §11.7 (D-492): STUB (TS-I1, 5A-2): not built; refuses every discard.
+    note_discard: () => {
+      throw err('NotImplemented', 'fake: note_discard is not built yet (5A-2)');
     },
     index_tags: () => {
       const forms: Record<string, Record<string, number>> = {};

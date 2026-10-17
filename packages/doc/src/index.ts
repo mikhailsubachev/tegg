@@ -92,6 +92,8 @@ export function newObject(opts: {
   /** ms5-tasks §5 (D-470): explicit values that win over template and default. Values for keys that aren't schema
    *  attributes are written after the template's keys, `tags` then `source` first; lists in flow style. */
   values?: [string, Value][]
+  /** ms5-tasks §11.2 (5A-2, AP-452): the body after the frontmatter instead of the template's body. Not built yet. */
+  body?: string
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
   const tplEntries = new Map<string, string>()
@@ -189,3 +191,7 @@ export { transform, rewriteLinks, resolveFrom, type TextOp, type Transformed } f
 // ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §5)
 
 export { applyTaskChange, completeTask, type TaskChange, type TaskState, type TaskDefsLike } from './task.js'
+
+// ---------------------------------------------------------------- slice 5A-2 (ms5-tasks §11.1)
+
+export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit } from './convert.js'

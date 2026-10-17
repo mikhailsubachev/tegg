@@ -426,6 +426,12 @@ impl Core {
         Ok(to)
     }
 
+    /// ms5-tasks §11.6 (D-492): deletes `path` (no trash) only when its current version equals `base`; `Conflict`
+    /// otherwise, `NotFound` when absent. STUB (TS-I1, 5A-2): not built; refuses with `NotImplemented`.
+    pub fn discard_note(&self, _path: &str, _base: &FileVersion) -> Result<(), CoreError> {
+        Err(CoreError::NotImplemented)
+    }
+
     /// The one write path (MS1 `Vault::write`), then the index is updated directly (architecture §5.3).
     /// A version mismatch emits `NoteConflict`, writes nothing and returns `Conflict` (FR-SYN-03 AC-7/AC-8).
     pub fn write_note(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, CoreError> {
