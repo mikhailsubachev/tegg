@@ -478,7 +478,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
 
   // ------------------------------------------------------------------ title (FR-EDT-01 AC-10, D-173)
   const onTitle = (v: string) => {
-    if (titleFrom.current === null) titleFrom.current = savedTitle.current; // D-394: links compare with this title
+    // D-394: links compare with this title. Only once the note has loaded: an input event while it opens (a key of
+    // the navigation landing in the field) must not start an edit from an empty title (PR #45 gate run).
+    if (titleFrom.current === null && live.current.loaded && savedTitle.current.trim() !== '') titleFrom.current = savedTitle.current;
     fresh.current = false;
     setTitle(v);
     const ed = edRef.current;
@@ -498,7 +500,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     // D-268: the commit (↩, Tab, leaving the field) renames the file and moves the links; typing only autosaves
     // `title:` (D-394). Templates and trashed notes keep their file name (D-391); a Daily Note's title is read-only.
     const next = title.trim().normalize('NFC');
-    if (from === null || next === from.trim().normalize('NFC')) return;
+    if (from === null || from.trim() === '' || next === from.trim().normalize('NFC')) return;
     const p = live.current.path;
     if (live.current.daily || live.current.loaded?.mode !== 'edit' || p.startsWith('_templates/') || p.startsWith('.trash/')) return;
     const sv = saver.current;
