@@ -140,7 +140,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // 4C (ms4-jobs §11): rename plans and text changes in Node with the real @tegg/doc.
   await page.exposeFunction('__teggJobs', (cmd: string, args: unknown, files: Record<string, string>) => handleJobs(cmd, args, files)).catch(() => {});
   // 5A-1 (ms5-tasks §7): the task queries in Node (fake-tasks.ts) with the real @tegg/doc and @tegg/schema.
-  await page.exposeFunction('__teggTasks', (cmd: string, args: unknown, files: Record<string, string>) => handleTasks(cmd, args, files)).catch(() => {});
+  await page.exposeFunction('__teggTasks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>, ro: string[]) =>
+    handleTasks(cmd, args, files, vers as any, ro)).catch(() => {});
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
@@ -352,8 +353,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
-    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
-    const r = await w[fn](cmd, a ?? {}, files, vers);
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || fn === '__teggTasks') vers[p] = state.ver(p)!;
+    // 5A-1 (ms5-tasks §7): task rows carry each file's version and whether the editor would open it read-only.
+    const r = await w[fn](cmd, a ?? {}, files, vers, Object.keys(state.invalid));
     if (r.writes) {
       const paths: string[] = [];
       for (const [p, t] of Object.entries(r.writes as Record<string, string | null>)) {
@@ -745,6 +747,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.writes++;
       if (!state.vault) throw err('NoVault', 'fake: no vault');
       if (a.type !== undefined && String(a.type).normalize('NFC') === 'daily-note') throw err('UseDailyNote', 'fake: a Daily Note is created by typing in it'); // D-318
+      // 5A-1 (D-510): `writeControl({ fail })` applies to the typed create too.
+      if (a.type !== undefined && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: create failed (Io)');
       if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)

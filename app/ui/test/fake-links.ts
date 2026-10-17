@@ -284,8 +284,17 @@ async function daily(cmd: string, a: any, files: Files, ctx: Ctx): Promise<Answe
       const start = Date.parse(String(a.start)), end = Date.parse(String(a.end)), limit = Number(a.limit ?? 50);
       const own = of(date)[0]?.path ?? null;
       const q: [number, any][] = [], c: [number, any][] = [], m: [number, any][] = [];
+      // 5A-1 (D-328, FR-DLY-04 AC-11): what Tasks due lists for the day (due on it, or completed in it) isn't repeated.
+      const statusOpts: any[] = (ctx.types as any[]).find((x) => x.key === 'task')?.attributes?.find((a: any) => a.key === 'status')?.options ?? [];
+      const stateOf = (v: unknown) => { const o = statusOpts.find((x) => x.label === (typeof v === 'string' ? nfc(v) : null)); return ['open', 'in-progress', 'done', 'cancelled'].includes(o?.state) ? o.state : 'open'; };
+      const listed = (o: Obj) => {
+        if (o.type !== 'task') return false;
+        const st = stateOf(o.attributes.status);
+        if ((st === 'open' || st === 'in-progress') && typeof o.attributes.due === 'string' && o.attributes.due.trim() === date) return true;
+        return st === 'done' && inWindow(o.attributes.completed, date, start, end) !== null;
+      };
       for (const o of ctx.objs) {
-        if (o.path === own) continue;
+        if (o.path === own || listed(o)) continue;
         const row = (v: unknown) => ({ path: o.path, title: o.title, type: o.type, at: String(v) });
         const cr = inWindow(o.attributes.created, date, start, end), mo = inWindow(o.attributes.modified, date, start, end);
         if (o.type === 'quick-note' && cr !== null) q.push([cr, row(o.attributes.created)]);

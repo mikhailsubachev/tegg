@@ -602,7 +602,8 @@ test('fr_typ_06_ac2_built_in_attributes_are_locked', async ({ page }) => {
   }
   const status = await must(property(page, 'Status'), 'Status');
   const label = status.getByRole('textbox', { name: 'Option label' }).first();
-  assert.equal(await description(label), 'Coming in MS5', 'Task status labels (FR-TSK-02)');
+  // D-489: Task status options are editable since 5A-1 (tasks.md FR-TSK-02 AC-2); a used label says why it is read-only.
+  assert.notEqual(await description(label), 'Coming in MS5', 'Task status labels are no longer Coming in MS5 (FR-TSK-02)');
 });
 
 test('fr_typ_06_ac3_what_system_types_allow', async ({ page }) => {

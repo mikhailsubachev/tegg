@@ -2,12 +2,12 @@
 // switcher's create item, `[[` create in the editor, the type page's `New <Name>` and the relation picker's `Create`.
 // type_get → type_template → @tegg/doc newObject → note_create(type, title, text). The bytes come from @tegg/doc
 // (D-82); the core picks the folder (re-read at the call, FR-TYP-01 AC-5), the file name and indexes it.
-import { newObject } from '@tegg/doc';
+import { newObject, type Value } from '@tegg/doc';
 import { ipc } from '../ipc/client';
 import { localIso, ulid } from '../newNote';
 
 /** A type read for creating objects: `create(title)` renders the bytes and sends `note_create` at once. */
-export type Prepared = { key: string; create: (title: string) => Promise<string /* path */> };
+export type Prepared = { key: string; create: (title: string, values?: [string, Value][]) => Promise<string /* path */> };
 
 /** The first two steps of the path (type_get, type_template), for an entry point that knows its type in advance. */
 export async function prepareObject(typeKey: string): Promise<Prepared> {
@@ -18,22 +18,23 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
   const k = type?.key ?? key;
   return {
     key: k,
-    create: (title: string) => {
+    create: (title: string, values?: [string, Value][]) => {
       const clean = title.normalize('NFC').trim();
       const text = newObject({
-        type: { key: k, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined })), review },
+        type: { key: k, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined, options: a.options })), review },
         title: clean,
         template: tpl ? tpl.text : null,
         now: localIso(new Date(Date.now())),
         newId: () => ulid(Date.now()),
+        values,
       });
       return ipc.noteCreate(k, clean, text);
     },
   };
 }
 
-export async function createObject(typeKey: string, title: string): Promise<string /* path */> {
-  return (await prepareObject(typeKey)).create(title);
+export async function createObject(typeKey: string, title: string, values?: [string, Value][]): Promise<string /* path */> {
+  return (await prepareObject(typeKey)).create(title, values);
 }
 
 /** ms4-links §5.3 (D-286, D-287): creates the note a broken link names, by the plan the Create offer showed. Bytes as

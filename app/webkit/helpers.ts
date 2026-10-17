@@ -177,6 +177,7 @@ export const READ_COMMANDS = new Set([
   'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
   'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
   'embed_load', // 4F (ms4-embeds §4): read-only, records no recency
+  'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only (the sidebar's Tasks count reads on every route)
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

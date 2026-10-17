@@ -26,7 +26,9 @@ export const R1: R1Row[] = [
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
   { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
   { id: 'daily/YYYY-MM-DD', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
-  { id: 'tasks', page: 'Tasks', built: false, due: d('MS5'), reqs: 'FR-TSK-04…06', design: 'Home', goto: 'Go to Tasks' },
+  // Built in 5A-1 (tasks.md R45, D-489): the Schedule and the Kanban.
+  { id: 'tasks', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'Tasks', goto: 'Go to Tasks' },
+  { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
   { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
@@ -81,7 +83,10 @@ export const R3: R3Control[] = [
   { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   { label: 'file', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07', route: 'note/<path>' },
   { label: 'color', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05', route: 'note/<path>' },
-  { label: 'recurrence', where: 'attribute panel row', due: d('MS5'), req: 'FR-TSK-01', route: 'note/<path>' },
+  { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
+  // 5A-1 (tasks.md R45 R3).
+  { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
+  { label: 'Move to trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01', route: 'tasks' },
   { label: 'Font', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Font size', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Editor width', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },

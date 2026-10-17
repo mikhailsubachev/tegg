@@ -54,6 +54,9 @@ export const light: Tokens = {
   // 4F (FR-LNK-07, D-418): the embed frame; text tokens keep 4.5:1 on embed-bg.
   'embed-border': '#D2D2CC',
   'embed-bg': '#FAFAF7',
+  // 5A-1 (FR-TSK-09 AC-2, AC-3): due chips on the Tasks boards; danger / link keep 4.5:1 on them.
+  'danger-bg': '#FCEBEA',
+  'link-bg': '#E8EFFC',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -76,6 +79,8 @@ export const dark: Tokens = {
   sel: '#2A4677',
   'embed-border': '#3C3C41',
   'embed-bg': '#212124',
+  'danger-bg': '#3A2020',
+  'link-bg': '#1E2A44',
   ...typeTokens(TYPE_DARK),
 };
 

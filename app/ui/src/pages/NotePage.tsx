@@ -89,7 +89,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -97,6 +97,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   at?: { line: number; byte: number };
   /** ms4-links §5.4: the focus on this property's value control. */
   attr?: string;
+  /** 5A-1 (D-486, FR-TSK-08 AC-2): select the first block embed of this path, at the top of the pane. */
+  selectEmbedOf?: string;
+  /** 5A-1 (FR-TSK-08 AC-3): open a note with this note's embed selected. */
+  onOpenSource?: (path: string) => void;
   restoreScroll?: number;
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
@@ -691,6 +695,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         return;
       }
     }
+    if (selectEmbedOf && edit && pane.current) {
+      const p = pane.current;
+      const blocks = p.embedBlocks();
+      setFocusTarget('body');
+      if (!blocks.length) { p.caretToStart(); return; }
+      void ipc.linkResolve(path, blocks.map((b) => b.target)).then((rs) => {
+        const i = rs.findIndex((r) => (r.path ?? '').normalize('NFC') === selectEmbedOf.normalize('NFC'));
+        if (i < 0 || !p.selectBlockAtTop(blocks[i].index)) p.caretToStart();
+      }, () => p.caretToStart());
+      return;
+    }
     if (at && !edit) {
       const line = root.current?.querySelector<HTMLElement>(`[data-line="${at.line}"]`);
       if (line) line.scrollIntoView({ block: 'center' });
@@ -840,7 +855,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
             <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
               open={propertiesOpen} onToggle={onToggleProperties}
-              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
+              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />
             <EditorPane
               embeds={embeds}

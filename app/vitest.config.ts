@@ -13,5 +13,6 @@ export default defineConfig({
       { find: /^\/packages\//, replacement: `${resolve(__dirname, '../packages')}/` },
     ],
   },
-  test: { include: ['test/**/*.ac.test.ts'], environment: 'node' },
+  // `*.contract.test.ts`: checks that a fake follows a shared corpus (D-512), not AC tests.
+  test: { include: ['test/**/*.ac.test.ts', 'test/**/*.contract.test.ts'], environment: 'node' },
 });

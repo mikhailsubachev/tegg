@@ -46,7 +46,8 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `inbox` | Inbox | TBD | MS5 | FR-INB-01…04 | Home | sidebar, ⌘⇧I (AP-70), palette |
 | `today` | Today | built (4B; redirects to `daily/<today>`, D-321) | MS4 | FR-DLY-01…06 | Home | sidebar, ⌘D, palette |
 | `daily/YYYY-MM-DD` | Daily Note for a date | built (4B, D-321) | MS4 | FR-DLY-01…06 | Home | Today, previous/next day, calendar, date links |
-| `tasks` | Tasks | TBD | MS5 | FR-TSK-04…06 | Home | sidebar, palette |
+| `tasks` | Tasks | built (5A-1) | MS5 | FR-TSK-04, FR-TSK-05 | Tasks | sidebar, palette |
+| `tasks/kanban` | Tasks | built (5A-1) | MS5 | FR-TSK-04, FR-TSK-05 | TasksBoard | Tasks page tab, palette |
 | `search` | Search | built (MS2 content) | MS2 | FR-SRC-01…04 | — | ⌘⇧F, palette (AP-69) |
 | `type/<type>` | Type page | built, minimal list (AP-67) | MS3 | FR-TYP-09 | Ideas | sidebar Types list, note breadcrumb, palette "Go to type: <plural>" |
 | `type-settings/<type>` | Type settings | TBD | MS3 (3D) | FR-TYP-01…03, -05, -11, -12 | TypeSettings | type page "Type settings" control, palette |

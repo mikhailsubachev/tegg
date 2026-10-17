@@ -190,7 +190,10 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0 }: {
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, onTasks }: {
+  /** 5A-1 (R45 R1, D-481): overdue + due today, hidden at 0; the entry opens the last task view. */
+  taskCount?: number;
+  onTasks?: () => void;
   onAbout: () => void;
   /** 3D: the New type dialog (FR-TYP-01 AC-1). */
   onNewType: () => void;
@@ -215,16 +218,22 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   const link = (e: Entry) => {
     // 4B (R17): Today is current on today's daily route, with the long date as its description (D-337).
     const isToday = e.id === 'today';
-    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : route.id === e.id;
-    const go = (ev: React.MouseEvent) => { ev.preventDefault(); onGo({ id: e.id }); };
+    const isTasks = e.id === 'tasks';
+    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : isTasks ? route.id === 'tasks' || route.id === 'tasks/kanban' : route.id === e.id;
+    const go = (ev: React.MouseEvent) => { ev.preventDefault(); if (isTasks && onTasks) onTasks(); else onGo({ id: e.id }); };
     return (
-      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : `goto.${e.id}`} onClick={go}
+      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : isTasks ? 'tasks.go' : `goto.${e.id}`} onClick={go}
         {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}>
         <Icon name={e.icon} />
         {e.kbd ? (
           <>
             <span className="entry-label">{t(e.label)}</span>
             <kbd>{keysOf(e.kbd)}</kbd>
+          </>
+        ) : isTasks && taskCount > 0 ? (
+          <>
+            <span className="entry-label">{t(e.label)}</span>
+            <span className="count">{taskCount}</span>
           </>
         ) : (
           t(e.label)

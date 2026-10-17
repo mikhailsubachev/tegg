@@ -9,6 +9,8 @@ export type Route = {
   /** ms4-links §5.4: open a note with the caret at a link (`?at=<line>:<byte>`, ms3-shell §15.2) or with the focus on a
    *  property's value control (`?attr=<key>`); not part of the route string, so Back/Forward compare notes only. */
   at?: { line: number; byte: number }; attr?: string;
+  /** 5A-1 (D-486): the note opens with the first block embed of this path selected at the top. */
+  selectEmbedOf?: string;
 };
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note'];

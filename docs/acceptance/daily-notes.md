@@ -72,7 +72,7 @@ Decided in D-321, D-329, D-330, D-337.
 | Virtual marker | `status` | `Not saved yet. Start typing to create this note.` (virtual only) |
 | Review control | `button`, `aria-pressed` | `Reviewed` (pressed) / `Mark reviewed` (D-330); absent while virtual |
 | Duplicate notice | `region` named `Other notes for this date` | `<n> other notes have this date:` with one `link` per other note (its path), and a `link` `Duplicate titles` |
-| Context sections | `region` each, after the body | `Quick Notes`, `Tasks due`, `Created`, `Modified` (D-328); empty text `Nothing yet`; `Tasks due` shows only `Coming in MS5` (`data-placeholder="daily-tasks"`) |
+| Context sections | `region` each, after the body | `Quick Notes`, `Tasks due`, `Created`, `Modified` (D-328); empty text `Nothing yet`; `Tasks due` lists the day's tasks (tasks.md FR-DLY-04 AC-9, D-485) |
 
 ---
 
@@ -112,7 +112,7 @@ Decided in D-321, D-329, D-330, D-337.
 
 ### FR-DLY-04 Context sections
 
-- **AC-1** **Sections shown, in order (D-271, D-328).** On `daily/2026-10-14`, virtual or written, after the body: `Quick Notes`, `Tasks due`, `Created`, `Modified` (R19). Each row is the object's type icon and title (a link that opens it, D-255); rows are sorted by the attribute's instant, newest first. `Tasks due` shows only `Coming in MS5` with `data-placeholder="daily-tasks"`. *(L5)*
+- **AC-1** **Sections shown, in order (D-271, D-328).** On `daily/2026-10-14`, virtual or written, after the body: `Quick Notes`, `Tasks due`, `Created`, `Modified` (R19). Each row is the object's type icon and title (a link that opens it, D-255); rows are sorted by the attribute's instant, newest first. `Tasks due` lists tasks since 5A-1 (tasks.md FR-DLY-04 AC-8…AC-14, D-489). *(L5)*
 - **AC-2** **Contents in Europe/Prague.** For 14 Oct: Quick Notes = Nápad z rána; Created = Nová stránka dne; Modified = Upravená stránka. Nápad z rána is not repeated in Created and an object in Created is not repeated in Modified (D-328). Bez data is in no section (no `created`/`modified`, D-271); templates, `.trash/` and the Daily Note itself are never listed; other Daily Notes created or modified that day are listed in Created / Modified (D-328). For 15 Oct: Quick Notes = Pozdní nápad. For 7 Oct the note itself (created that day) is excluded, so every section shows `Nothing yet` except the placeholder. *(L4 for the query; L5)*
 - **AC-3** **Contents in America/Los_Angeles (TZ, T2).** For 14 Oct: Quick Notes = Pozdní nápad (15:30 local); Created = Nová stránka dne (exactly 00:00:00 local: the start is inclusive); Modified = Upravená stránka. For 13 Oct: Quick Notes = Nápad z rána (22:30 local). The day of an instant is taken in the current zone, not from the offset written in the file (D-328). A `created` without an offset is read as local time (D-328). *(L4; L5)*
 - **AC-4** **Live, never saved (T1).** With 14 Oct open: another program creating a Quick Note with `created: 2026-10-14T11:00:00+02:00` adds it to Quick Notes within 2 s; editing Nová stránka dne (its `modified` becomes today) keeps it only in Created; deleting Upravená stránka removes its row within 2 s. The Daily Note's file (when written) never contains section text: after typing, every autosave writes only the user's body and frontmatter, and the file's body equals the editor's body. On a virtual note the sections change and still nothing is written. *(L4; L5; L6 once for the file bytes)*

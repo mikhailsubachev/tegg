@@ -1431,8 +1431,17 @@ fn init_script(dirs: &AppDirs) -> String {
         ui.theme = theme;
     }
     let route = test_var("TEGG_ROUTE");
+    // D-504: with TEGG_TEST=1, `TEGG_NOW=<ISO 8601>` fixes the UI's clock (it starts there and runs on), so L6 tests run
+    // on the criteria's test clock. Only a valid date-time with offset is used.
+    let now_ms = test_var("TEGG_NOW").and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|t| t.timestamp_millis());
+    let clock = match now_ms {
+        Some(ms) => format!(
+            " (() => {{ const off = {ms} - Date.now(); const R = Date; class D extends R {{ constructor(...a) {{ if (a.length === 0) super(R.now() + off); else super(...a); }} static now() {{ return R.now() + off; }} }} window.Date = D; window.__TEGG_NOW__ = {ms}; }})();"
+        ),
+        None => String::new(),
+    };
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};{clock}",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),

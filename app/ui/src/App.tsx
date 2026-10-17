@@ -43,6 +43,9 @@ import { setDateHandler } from './daily/open';
 import { resetJobs, showList, startJobs, undoLast } from './jobs/jobs';
 import { startBridge } from './jobs/bridge';
 import { NotUpdatedList } from './jobs/notUpdated';
+import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
+import { useTaskBadge } from './tasks/useTasks';
+import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
 
 const DAILY = 'daily/YYYY-MM-DD';
@@ -118,8 +121,12 @@ export function App() {
   const pendingFocus = useRef(false);
   const pendingReturn = useRef<HTMLElement | null>(null);
   const uiLoaded = useRef(false);
+  // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
+  const taskCommand = useRef<((id: string) => void) | null>(null);
+  const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
+  uiRef.current = ui;
   useLayoutEffect(() => applyTheme(ui.theme as ThemeChoice), [ui.theme]);
   useEffect(() => {
     if ((window as { __TEGG_UI_STATE__?: unknown }).__TEGG_UI_STATE__) {
@@ -260,6 +267,10 @@ export function App() {
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
+  useEffect(() => {
+    setSourceHandler((src, task) => { void go({ id: 'note/<path>', param: src.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); });
+    return () => setSourceHandler(null);
+  }, [go]);
   /** A note route that shows a Daily Note (D-321): the winner opens as its daily route; another note keeps its route
    *  and shows the notice naming the others (D-319). */
   const onNoteDaily = useCallback((path: string, date: string) => {
@@ -322,6 +333,7 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ layout
+  const taskBadge = useTaskBadge(refresh, !!vault);
   const isDaily = route?.id === DAILY;
   const isObject = route?.id === 'note/<path>' || isDaily;
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -364,6 +376,8 @@ export function App() {
       setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); void go({ id: DAILY, param: d }); } });
     },
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
+    goTasks: () => { void go({ id: uiRef.current?.tasks?.view === 'kanban' ? 'tasks/kanban' : 'tasks' }); },
+    taskCommand: (id: string) => taskCommand.current?.(id),
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
@@ -550,7 +564,8 @@ export function App() {
         if (m) m.scrollTop = pendingScroll.current;
         pendingScroll.current = null;
       }
-      void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
+      // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
+      if (route.id !== 'tasks' && route.id !== 'tasks/kanban') void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
@@ -576,6 +591,8 @@ export function App() {
         fragment={daily ? undefined : route?.fragment}
         at={daily ? undefined : route?.at}
         attr={daily ? undefined : route?.attr}
+        selectEmbedOf={daily ? undefined : route?.selectEmbedOf}
+        onOpenSource={(p) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: path.normalize('NFC') }); }}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
         onRestored={() => { pendingScroll.current = null; }}
         knownId={knownIds.current.get(path)}
@@ -659,6 +676,25 @@ export function App() {
         onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
       />
     );
+  } else if ((route?.id === 'tasks' || route?.id === 'tasks/kanban') && vault) {
+    const tui: TasksUi = { ...DEFAULT_TASKS_UI, ...(ui.tasks ?? {}) };
+    body = (
+      <TasksPage
+        key={route.id}
+        view={route.id === 'tasks' ? 'schedule' : 'kanban'}
+        refresh={refresh}
+        heading={heading}
+        ui={tui}
+        onUi={(f) => updateUi((u) => ({ ...u, tasks: f({ ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}) }) }))}
+        nav={{
+          openNote: (p) => openNote(p),
+          openSource: (p, task) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); },
+          openDay,
+        }}
+        go={(id) => { void go({ id }); }}
+        commandRef={taskCommand}
+      />
+    );
   } else if (route?.id === 'broken-links') {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
@@ -695,6 +731,8 @@ export function App() {
             onNewType={() => actions.newType?.()}
             onAbout={actions.about}
             conflicts={conflicts}
+            taskCount={taskBadge}
+            onTasks={actions.goTasks}
           />
         )}
         <div className="centre">

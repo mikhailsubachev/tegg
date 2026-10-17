@@ -7,7 +7,7 @@ import type {
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
-  NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto,
+  NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
 } from './types';
 
 export const ipc = {
@@ -66,6 +66,9 @@ export const ipc = {
   dailyCreate: (date: string, text: string) => invoke<DailyCreatedDto>('daily_create', { date, text }),
   dailyBacklinks: (date: string) => invoke<BacklinksPanelDto>('daily_backlinks', { date }),
   dailyContext: (date: string, start: string, end: string, limit: number) => invoke<DailyContextDto>('daily_context', { date, start, end, limit }),
+  // 5A-1 (ms5-tasks §3).
+  taskList: () => invoke<TaskListDto>('task_list'),
+  dailyTasks: (date: string, start: string, end: string, today: string, limit: number) => invoke<DailyTasksDto>('daily_tasks', { date, start, end, today, limit }),
   // 4C (ms4-jobs §4).
   noteRename: (path: string, title: string, fromTitle: string) => invoke<NoteRenameDto>('note_rename', { path, title, fromTitle }),
   jobReport: (jobId: number) => invoke<JobReportDto | null>('job_report', { jobId }),

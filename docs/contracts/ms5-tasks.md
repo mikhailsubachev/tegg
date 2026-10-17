@@ -228,9 +228,18 @@ These override the sections above where they differ.
 8. **D-509 DOM hooks (§6.2):** card `data-status` (raw value), `data-priority` (raw value); due chip `data-due` (the raw value) and `data-tone` (`overdue` | `today` | `plain` | `invalid` | `done`); column dot `data-color`; the attribute panel's Due row `data-overdue`; an overdue chip's accessible name ends with `, overdue`; the 30 s day check re-reads `__TEGG_TZ__` (the test hook for a zone change).
 9. **D-510:** fake core `writeControl({ delayMs?, fail?, hold?, path? })` applies to `note_write`, `note_create` (both paths) and `type_patch`; with `path`, only writes to that path are affected.
 10. **D-511 (T2):** `app/src-tauri` maps `OptionDto.state` to `OptionDef.extra` `state` and back, so `updateAttribute { options }` keeps every option's `state`. Regression test `bug_5a_fr_tsk_02_option_state_kept` in the build.
-11. **D-512:** `app/test/fake_schema_ops.test.ts` checks `fake-schema.ts` against `ops-5a.json`.
+11. **D-512:** `app/test/fake_schema_ops.contract.test.ts` (run by vitest, not an AC test) checks `fake-schema.ts` against `ops-5a.json`.
 12. **D-513:** mark `task-moved` (`perf_mark`, once per Kanban move after the card shows in its target column); `perf_tasks.ts` reports it. 60 fps scrolling is a manual check in MS8.
 13. **D-514:** FR-TSK-11 AC-4's test is in the 5A-2 red commit.
+
+## 10a. Interface details settled while building 5A-1 (no owner decision needed)
+
+1. **D-328 exclusion** (§2.3): `daily_context` leaves out of Created and Modified the tasks `daily_tasks` lists as due on the date or completed in the window; overdue rows depend on today, which `daily_context` doesn't receive, and stay in Created/Modified.
+2. **Index** (§2.1): `tegg-index` stores the content hash and a UTF-8 flag per note (index schema 5, a rebuild) and answers `note_state(path)` with the version, the flag and the plain-text excerpt, so `tasks()` reads no file.
+3. **Opening a source at the embed** (D-486): the route option `selectEmbedOf: <task path>` on `note/<path>`; `NotePage` resolves the top-level block embeds of the note and selects the first one resolving to that path (`EditorPaneApi.embedBlocks`, `selectBlockAtTop`), else places the caret at the top. The Tasks page, the Daily Note rows (`tasks/sourceNav.ts`) and the properties panel's Source chip use it.
+4. **Schedule stays put**: a task completed or changed from the Schedule keeps its place (with its new values) until the page is left, so the focus and a second click stay on it (FR-TSK-02 AC-10, FR-TSK-04 AC-10). The Kanban and the Daily Note move cards at once.
+5. **Palette vs sidebar** (D-481): `Go to Tasks` opens `tasks`; the sidebar entry opens the last view.
+6. **Module name**: the quick-add component is `tasks/QuickAddRow.tsx` (`quickAdd.ts` is the parser; the two can't differ only in case on macOS).
 
 ## 11. Slice 5A-2: conversion and the Task card (D-490…D-499)
 

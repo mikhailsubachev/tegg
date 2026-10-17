@@ -1,4 +1,4 @@
-// The live context sections of a Daily Note (FR-DLY-04, D-271, D-328, R19): Quick Notes, Tasks due (Coming in MS5),
+// The live context sections of a Daily Note (FR-DLY-04, D-271, D-328, R19): Quick Notes, Tasks due (5A-1, DailyTasks),
 // Created and Modified of that day, after the body, never saved into it. The day window is the UI's (ms4-daily §1).
 import { useEffect, useRef, useState } from 'react';
 import { afterNoteReady, noteReadyCount } from '../readiness';
@@ -9,6 +9,7 @@ import { events, ipc } from '../ipc/client';
 import type { ContextRowDto, DailyContextDto } from '../ipc/types';
 import { chipIcon } from '../links/icons';
 import { Icon } from '../shell/Icon';
+import { DailyTasks } from './DailyTasks';
 
 const LIMIT = 50;
 
@@ -80,10 +81,7 @@ export function ContextSections({ date, onOpen }: { date: string; onOpen: (path:
   return (
     <div className="daily-sections">
       {section(0, t('daily.section.quickNotes'), data?.quickNotes ?? [], data?.totals[0] ?? 0)}
-      <section role="region" aria-label={t('daily.section.tasks')} className="daily-section">
-        <h2 className="daily-section-title">{t('daily.section.tasks')}</h2>
-        <p className="daily-empty" data-placeholder="daily-tasks">{t('due.comingIn', { due: 'MS5' })}</p>
-      </section>
+      <DailyTasks date={date} onOpen={onOpen} />
       {section(1, t('daily.section.created'), data?.created ?? [], data?.totals[1] ?? 0)}
       {section(2, t('daily.section.modified'), data?.modified ?? [], data?.totals[2] ?? 0)}
     </div>
