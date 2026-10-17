@@ -374,7 +374,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
           const embed = state.schema.nodes.rawBlock.create({ source: `![[${String(only.attrs.value)}]]`, kind: 'embed' })
           tr.replaceWith(at, at + n.nodeSize, embed)
           const after = at + embed.nodeSize
-          tr.setSelection(after < tr.doc.content.size ? TextSelection.near(tr.doc.resolve(after)) : NodeSelection.create(tr.doc, at))
+          // Typing goes on below the embed: at the end of the note in a new empty paragraph (never written).
+          if (after >= tr.doc.content.size) tr.insert(after, state.schema.nodes.paragraph.create())
+          tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)))
         }
         pos += n.nodeSize
       })
