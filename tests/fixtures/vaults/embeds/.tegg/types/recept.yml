@@ -1,0 +1,18 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Recept
+plural: Recepty
+system: false
+folder: Recepty
+icon: utensils
+color: orange
+review: false
+preview: [porce, čas]
+embed: full
+attributes:
+  - key: porce
+    name: Porce
+    type: number
+  - key: čas
+    name: Čas
+    type: text
