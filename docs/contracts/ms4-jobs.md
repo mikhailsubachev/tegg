@@ -61,7 +61,7 @@ pub struct PlannedFile { pub path: String, pub version: FileVersion, pub ops: Ve
 
 ### 2.1 Planners
 
-- **Note rename.** Input `{path, title}`. Refused with `JobError::NotRenamable` for a Daily Note (D-320), for `_templates/` and `.trash/` paths (D-391: the caller writes only `title:` there), and for a path whose last read was not UTF-8 (D-180). New stem `s′ = free_stem(folder(path), sanitize(title))` (ms4-links §3.1, D-384) where the note's own current stem is treated as free, so a case-only change keeps the same stem key (FR-FMT-08 AC-8). The stem is chosen when the job starts, never at the keystroke (FR-FMT-08 AC-10). Files: the note itself (title + self-links, D-389) and every note `S ≠ N` outside `.trash/` with at least one link that **resolves to N under D-291 from S** (index link records), including `_templates/` (D-391) and Daily Notes. Links in code (links.md AC-3) are never extracted and so never planned.
+- **Note rename.** Input `{path, title}` (and `from_title` through `start_note_rename`). A commit is a no-op (empty plan, nothing written) when the title, NFC and trimmed, is empty or equals both the stored title and the title when the edit started; the autosave may already have written the new title while typing (D-394), so equality with the stored title alone isn't enough. Refused with `JobError::NotRenamable` for a Daily Note (D-320), for `_templates/` and `.trash/` paths (D-391: the caller writes only `title:` there), and for a path whose last read was not UTF-8 (D-180). New stem `s′ = free_stem(folder(path), sanitize(title))` (ms4-links §3.1, D-384) where the note's own current stem is treated as free, so a case-only change keeps the same stem key (FR-FMT-08 AC-8). The stem is chosen when the job starts, never at the keystroke (FR-FMT-08 AC-10). Files: the note itself (title + self-links, D-389) and every note `S ≠ N` outside `.trash/` with at least one link that **resolves to N under D-291 from S** (index link records), including `_templates/` (D-391) and Daily Notes. Links in code (links.md AC-3) are never extracted and so never planned.
 - **Undo / redo** (§7) plan from the undo record, not the index.
 - **Case-only and same-key renames (D-402).** A new stem whose key (NFC, case-folded) equals the note's own current stem key is never a collision, whatever other files share that stem elsewhere in the vault.
 - **The plan is a hint.** Every file is re-read at write time and checked against `version` (§5).
@@ -173,7 +173,7 @@ impl Jobs {
 | `job_undo` | `jobId` | `{ jobId }` | Starts the undo job (§7). `NotFound` after quit or a vault switch. |
 | `job_redo` | `jobId` | `{ jobId }` | |
 | `job_transform_result` | `requestId`, `result: TransformedDto \| { error }` | — | Answer to `job:transform`. |
-| `job_interrupted` | — | `InterruptedDto[]` | §8. |
+| `job_interrupted` | — | `InterruptedDto[]` | §8. The app reads them from `VaultInfo.interrupted` (`vault_current`, `vault_open`), so opening a vault sends no extra call. |
 | `job_resolve_interrupted` | `jobId`, `choice: 'finish' \| 'undo'` | `{ jobId }` | §8. |
 | `backups_list` | — | `BackupDto[]` | FR-HIS-04 AC-6; UI ships with 4D-lite (D-396). |
 | `backup_restore` | `name` | `{ jobId }` | Backs up the current state first. |
@@ -197,7 +197,7 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 - At write time each file is read again. If its version is not `same_content` as the planned one, or the plan predates an own write to it, the file is **skipped** with `changed` and nothing is written to it (NFR-REL-02, FR-LNK-03 AC-15). `missing`: the file is gone. `placeholder`: an online-only file (ms2-core placeholders). `readOnly`: a file the editor opens read-only (not UTF-8, NFR-REL-03). `io`: any other error, including a transformer error or timeout.
 ### 5.1 Job points (D-404, tests only)
 
-`JobPoint::{AfterPlanning, AfterRead { path }, TempWritten { path }}` are reported to the hook set by `Jobs::set_point_hook` on the job thread (it may block). `AfterPlanning` is still in `planning`; `AfterRead` and `TempWritten` are in `writing`. To have a `TempWritten` point, the job writes the temp file and renames it itself rather than calling `VaultFs::replace` once; the base check is repeated right before the rename.
+`JobPoint::{AfterPlanning, AfterRead { path }, TempWritten { path }}` are reported to the hook set by `Jobs::set_point_hook` on the job thread (it may block). `AfterPlanning` is still in `planning`; `AfterRead` and `TempWritten` are in `writing`. `TempWritten` is reported when the new bytes are ready and right before the base-checked write (`Vault::write`, which makes its own temp file and rename under the vault lock), so an external change at that point is caught by that check (the renamed note's own rename re-checks its base after its temp file, §3).
 
 - No automatic retries. `job_retry` is the only retry, per file, from the current bytes.
 - The skipped files form the **"link not updated" list** (D-398): kept in memory per vault until quit, never written to disk; a successful retry removes the row.
@@ -212,7 +212,8 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 
 - The undo record of a `note-rename` holds the rename pair, and for every written file its pre-job bytes and post-job version. It lives in memory until quit or a vault switch. Only `note-rename` is undoable in the MVP.
 - **Undo is a job** (`JobOp::Undo`, kind `note-rename`, no zip): for each written file whose current version equals its post-job version, write the pre-job bytes (renamed note: rename back with §3's atomic step, free stem if the old name was taken meanwhile); any other file is skipped with `changed` and listed (FR-LNK-03 AC-14). Redo re-applies the same bytes under the same checks.
-- UI entry points: one history entry in the renamed note's editor (⌘Z / ⇧⌘Z), palette `Undo rename` (last undoable job), the status toast's `Undo` for 5 s.
+- UI entry points: ⌘Z / ⇧⌘Z in the renamed note (title or body) right after the rename, undo or redo, before any other edit; palette `Undo rename` (last undoable job); the status toast's `Undo` for 5 s.
+- A linking note open in an editor is undone and redone through the editor with the reversed (or forward) retarget op, like §9; the renamed note itself is moved back on disk and its page follows (§9).
 
 ## 8. Crash recovery (D-387)
 
@@ -222,7 +223,7 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 ## 9. Editor, watcher and index
 
 - **Open notes (D-386).** For a planned file open in an editor (the UI registers open paths with `editor_open(path)` / `editor_close(path)`, new commands), the core does not write it. It emits `job:transform` with `live: true` in the payload; the UI applies the returned edits as one transaction to the live document (one undo step in that note), and its autosave writes the file through `note_write` as usual. The job counts it `written` when that save lands, or `skipped: changed` if the editor is closed first without saving.
-- **The renamed note while open.** The title commit (`EditorPane`, ms3-shell §13) calls `note_rename` instead of the title-only write. The editor keeps its document; when the job reports `renamed`, the route is replaced (not pushed) with the new path, and history entries for the old path are rewritten (FR-FMT-08 AC-5). Autosave of `title:` while typing stays (D-394).
+- **The renamed note while open.** The title commit (`NotePage`, ms3-shell §13) calls `note_rename`; until the job has moved the note (or finished without moving it) the autosave holds its writes, and a write already on its way to the old path is treated as stale and redone at the new path. The editor keeps its document; when the job reports `renamed`, the route is replaced (not pushed) with the new path, and history entries for the old path are rewritten (FR-FMT-08 AC-5). Autosave of `title:` while typing stays (D-394).
 - **Watcher.** Own writes and renames are registered as own events and not re-processed (echo suppression, ms2-core §3).
 - **Index.** Updated per written file inside the job, links re-resolved before `vault:changed` (ms4-links §1).
 
