@@ -229,6 +229,13 @@ pub fn remove_local_path(path: &Path) -> io::Result<()> {
     }
 }
 
+/// The entries of a machine-local folder (Application Support), sorted; empty when it doesn't exist.
+pub fn list_local_dir(path: &Path) -> Vec<std::path::PathBuf> {
+    let mut v: Vec<std::path::PathBuf> = fs::read_dir(path).map(|rd| rd.flatten().map(|e| e.path()).collect()).unwrap_or_default();
+    v.sort();
+    v
+}
+
 /// Creates a machine-local folder (Application Support).
 pub fn create_local_dir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)

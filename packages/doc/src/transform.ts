@@ -73,7 +73,10 @@ function linkPatches(doc: Doc, source: string, op: Retarget): Patch[] {
   const toStem = nfc(op.toStem)
   const toTitle = nfc(op.toTitle)
   const stemChanges = key(op.fromStem) !== key(toStem) || nfc(op.fromStem) !== toStem
-  const needsAlias = toTitle !== toStem
+  // The title needs an alias only when sanitizing changed it, not for a duplicate's ` (2)` suffix (D-383, FR-FMT-08 AC-10).
+  const needsAlias = toTitle !== toStem && toTitle !== toStem.replace(/ \(\d+\)$/, '')
+  // An alias can't hold `[`, `]`, `|` or a line break without ending the link; such a title is shown from the file name.
+  const aliasOk = !/[[\]|\r\n]/.test(toTitle)
   for (const l of wikilinks(doc)) {
     if (!resolvesTo(source, l.target, false, op)) continue
     const [s, e] = l.range
@@ -87,9 +90,9 @@ function linkPatches(doc: Doc, source: string, op: Retarget): Patch[] {
       if (l.alias !== null) {
         if (key(l.alias) === key(op.fromTitle)) {
           const at = tail.lastIndexOf(sep + l.alias)
-          tail = tail.slice(0, at) + (needsAlias ? sep + toTitle : '')
+          tail = tail.slice(0, at) + (needsAlias && aliasOk ? sep + toTitle : '')
         }
-      } else if (needsAlias && stemChanges) {
+      } else if (needsAlias && aliasOk && stemChanges) {
         tail = tail + '|' + toTitle
       }
     }

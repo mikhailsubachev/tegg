@@ -1,16 +1,19 @@
 //! Tegg job engine (docs/contracts/ms4-jobs.md, architecture §5.6): plan → confirm → backup → write → report for
 //! every bulk rewrite. 4C ships the engine and note rename (D-267…D-269, D-383…D-399).
 //!
-//! **Stub (slice 4C red tests).** Every type and signature follows the contract; the engine itself is not built yet,
-//! so `Jobs` returns `Err(NotImplemented)`, `None` or empty lists, and a test fails on its assertion, never on a build
-//! error (TS-I1). Platform-neutral (AR-03): no Tauri, no desktop APIs.
+//! Platform-neutral (AR-03): no Tauri, no desktop APIs. The core implements [`host::Host`] over its vault and index.
 
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::Arc;
 
 pub use tegg_vault::FileVersion;
 
+mod engine;
+pub mod host;
+mod journal;
 pub mod testing;
+mod zip;
+
+pub use engine::Jobs;
 
 pub type JobId = u64;
 
@@ -48,9 +51,13 @@ impl JobKind {
         }
     }
 
-    /// ms4-jobs §1 table. Stub: no flags set.
+    /// ms4-jobs §1 table.
     pub fn flags(self) -> KindFlags {
-        KindFlags { needs_confirm: false, backup: false, undoable: false, cancellable: Vec::new() }
+        match self {
+            JobKind::NoteRename => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning] },
+            JobKind::TestBackup => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
+            _ => KindFlags { needs_confirm: true, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup] },
+        }
     }
 }
 
@@ -305,71 +312,3 @@ pub enum JobPoint {
 pub type PointHook = Arc<dyn Fn(JobId, &JobPoint) + Send + Sync>;
 
 // ------------------------------------------------------------------------------------------------ §4 engine API
-
-/// The job engine of one open vault. Owned by `tegg_core::Core` (`Core::jobs()`).
-pub struct Jobs {
-    transformer: Mutex<Option<Arc<dyn Transformer>>>,
-    hook: Mutex<Option<PointHook>>,
-}
-
-impl Default for Jobs {
-    fn default() -> Self {
-        Jobs::new()
-    }
-}
-
-impl Jobs {
-    /// Stub: an engine without a vault; the real one is built by the core with its vault and index.
-    pub fn new() -> Jobs {
-        Jobs { transformer: Mutex::new(None), hook: Mutex::new(None) }
-    }
-
-    pub fn set_transformer(&self, t: Arc<dyn Transformer>) {
-        *self.transformer.lock().unwrap_or_else(|p| p.into_inner()) = Some(t);
-    }
-
-    /// Queued; planning starts when the FIFO queue reaches it (D-393).
-    pub fn start(&self, _op: JobOp) -> Result<JobId, JobError> {
-        Err(JobError::NotImplemented)
-    }
-    pub fn plan(&self, _job: JobId) -> Option<JobPlan> {
-        None
-    }
-    pub fn confirm(&self, _job: JobId) -> Result<(), JobError> {
-        Err(JobError::NotImplemented)
-    }
-    /// `NotCancellable` outside the kind's cancellable phases.
-    pub fn cancel(&self, _job: JobId) -> Result<(), JobError> {
-        Err(JobError::NotImplemented)
-    }
-    pub fn wait(&self, _job: JobId, _timeout: Duration) -> Option<JobReport> {
-        None
-    }
-    pub fn report(&self, _job: JobId) -> Option<JobReport> {
-        None
-    }
-    /// Re-reads the file's current bytes and version and transforms them (D-398).
-    pub fn retry(&self, _job: JobId, _path: &str) -> Result<RetryOutcome, JobError> {
-        Err(JobError::NotImplemented)
-    }
-    pub fn last_undoable(&self) -> Option<JobId> {
-        None
-    }
-    pub fn interrupted(&self) -> Vec<Interrupted> {
-        Vec::new()
-    }
-    pub fn resolve_interrupted(&self, _job: JobId, _choice: ResolveChoice) -> Result<JobId, JobError> {
-        Err(JobError::NotImplemented)
-    }
-    /// §9 (D-386): the UI has `path` open in an editor; the job sends its transformation there instead of writing.
-    pub fn editor_open(&self, _path: &str) {}
-    pub fn editor_close(&self, _path: &str) {}
-    /// Answer to a `JobTransform` event that isn't `live` (`job_transform_result`).
-    pub fn transform_result(&self, _request: u64, _result: Result<Transformed, TransformError>) {}
-
-    /// Test-only (L4 sync simulator): called at every [`JobPoint`] of every job, on the job's thread.
-    #[doc(hidden)]
-    pub fn set_point_hook(&self, hook: Option<PointHook>) {
-        *self.hook.lock().unwrap_or_else(|p| p.into_inner()) = hook;
-    }
-}

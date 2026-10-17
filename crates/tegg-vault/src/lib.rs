@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
-pub use local::{create_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
+pub use local::{create_local_dir, list_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
 pub use mem::MemFs;
 pub use types::TypeDef;
 
@@ -406,10 +406,50 @@ impl Vault {
 
     /// ms4-jobs §3 (D-389, FR-SYN-06 AC-11): a note rename as one atomic step: `bytes` go to a temp file in `to`'s
     /// folder, which is renamed onto `to` without replacing (`RENAME_EXCL`), then `from` is removed after a base check.
-    /// Errors: `NameTaken` (`to` exists), `Conflict { disk }` (`from` changed since `base`), `Gone`.
-    /// Stub (slice 4C red tests): not implemented.
-    pub fn rename_with(&self, _from: &str, _to: &str, _bytes: &[u8], _base: &FileVersion) -> Result<FileVersion, VaultError> {
-        Err(VaultError::NotImplemented)
+    /// A case-only rename (same name folded) removes `from` before the temp file takes its place, so the listing shows
+    /// the new spelling on a case-insensitive volume. Errors: `NameTaken` (`to` exists), `Conflict { disk }` (`from`
+    /// changed since `base`), `Gone`.
+    pub fn rename_with(&self, from: &str, to: &str, bytes: &[u8], base: &FileVersion) -> Result<FileVersion, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let (from, to) = (nfc(from), nfc(to));
+        let check = |fs: &dyn VaultFs| -> Result<(), VaultError> {
+            match fs.version(&from)? {
+                None => Err(VaultError::Gone),
+                Some(disk) if !disk.same_content(base) => Err(VaultError::Conflict { disk }),
+                Some(_) => Ok(()),
+            }
+        };
+        check(self.fs.as_ref())?;
+        let same_name = fold(&from) == fold(&to);
+        let (dir, name) = to.rsplit_once('/').unwrap_or(("", &to));
+        if !same_name && self.names_in(dir)?.contains(&fold(name)) {
+            return Err(VaultError::NameTaken);
+        }
+        if !dir.is_empty() {
+            self.fs.create_dir_all(dir)?;
+        }
+        let tmp = join(dir, &format!(".{name}.rename.tegg-tmp"));
+        if self.fs.version(&tmp)?.is_some() {
+            self.fs.remove_file(&tmp)?;
+        }
+        self.fs.create_new(&tmp, bytes)?;
+        let undo_tmp = |e: VaultError| {
+            let _ = self.fs.remove_file(&tmp);
+            e
+        };
+        check(self.fs.as_ref()).map_err(undo_tmp)?;
+        if same_name {
+            self.fs.remove_file(&from).map_err(|e| undo_tmp(VaultError::Io(e)))?;
+            self.fs.rename_no_replace(&tmp, &to)?;
+        } else {
+            match self.fs.rename_no_replace(&tmp, &to) {
+                Ok(()) => {}
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => return Err(undo_tmp(VaultError::NameTaken)),
+                Err(e) => return Err(undo_tmp(VaultError::Io(e))),
+            }
+            self.fs.remove_file(&from)?;
+        }
+        self.fs.version(&to)?.ok_or_else(|| VaultError::Io(io::Error::other("renamed file vanished")))
     }
 
     /// Trash only if the file is still `base` (D-195); else `Conflict`.

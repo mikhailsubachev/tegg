@@ -716,6 +716,8 @@ dependencies = [
 name = "tegg-jobs"
 version = "0.0.0"
 dependencies = [
+ "chrono",
+ "serde_json",
  "tegg-core",
  "tegg-format",
  "tegg-index",

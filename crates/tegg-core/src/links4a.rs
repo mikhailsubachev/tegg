@@ -597,25 +597,29 @@ impl Core {
     }
 
     pub fn free_stem(&self, folder: &str, stem: &str) -> String {
-        let taken = self.index().stem_keys();
-        let folder = nfc(folder.trim_matches('/'));
-        let in_folder: HashSet<String> = self
-            .shared
-            .vault
-            .list_files()
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|p| p.rsplit_once('/').map(|(d, _)| nfc(d) == folder).unwrap_or(folder.is_empty()))
-            .filter_map(|p| p.rsplit('/').next().and_then(|n| n.strip_suffix(".md")).map(|n| nfc(n).to_lowercase()))
-            .collect();
-        tegg_format::unique_file_name(stem, "", &|n: &str| {
-            let k = nfc(n).to_lowercase();
-            taken.contains(&k) || in_folder.contains(&k)
-        })
+        free_stem_in(&self.shared, folder, stem)
     }
 }
 
 /// D-290: NFC, trimmed, Unicode case folding, no diacritic folding.
 fn title_key(t: &str) -> String {
     nfc(t.trim()).to_lowercase()
+}
+
+/// D-291 part 2: a free stem in `folder`, vault-wide (ms4-links §3.1; also the job engine's, D-384).
+pub(crate) fn free_stem_in(shared: &crate::Shared, folder: &str, stem: &str) -> String {
+    let taken = crate::lock(&shared.index).stem_keys();
+    let folder = nfc(folder.trim_matches('/'));
+    let in_folder: HashSet<String> = shared
+        .vault
+        .list_files()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|p| p.rsplit_once('/').map(|(d, _)| nfc(d) == folder).unwrap_or(folder.is_empty()))
+        .filter_map(|p| p.rsplit('/').next().and_then(|n| n.strip_suffix(".md")).map(|n| nfc(n).to_lowercase()))
+        .collect();
+    tegg_format::unique_file_name(stem, "", &|n: &str| {
+        let k = nfc(n).to_lowercase();
+        taken.contains(&k) || in_folder.contains(&k)
+    })
 }
