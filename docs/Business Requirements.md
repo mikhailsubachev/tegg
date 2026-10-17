@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.64, for review                                             |
+| **Document status** | Draft v1.65, for review                                             |
 | **Date**            | 2026-10-17                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -80,6 +80,7 @@
 | v1.62   | 2026-10-17 | D-414: FR-FMT-08 AC-5 no longer requires the inode to stay while typing (atomic autosave, FR-SYN-02). |
 | v1.63   | 2026-10-17 | Slice 4F embed decisions D-415…D-432 (AP-318…AP-335, `docs/acceptance/embeds.md`): FR-EMB-03 moves to MS4 for note embeds, per-embed mode in the alias slot, `embed:` type key, where embeds expand, depth and circularity, editing in place, heading sections, missing targets, embed insertion and keyboard, drag to v1.0. (v1.60…v1.62 are slice 4C, PR #45.) |
 | v1.64   | 2026-10-17 | D-433: undo/redo, Retry and Finish never move links to a name the note isn't at (PR #45 review). v1.63 is slice 4F's (D-415…D-432, on its branch). |
+| v1.65   | 2026-10-17 | Slice 4F red-test and build decisions D-434…D-459 (AP-336…AP-361, `docs/contracts/ms4-embeds.md` §12): embed bytes kept on copies, section and depth edge cases, untyped notes embed full, keyboard and selection rules, L6 checks without a clock, and the test changes they bring. |
 
 ---
 
@@ -556,6 +557,32 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-431 | Criteria changed by 4F (AP-334, owner, 2026-10-17) | read-view R5 (`embed-note`) and FR-EDT-02 AC-13, editor FR-EDT-02 AC-21 and R6, backlinks FR-LNK-04 AC-6 wording and R16, types R12 and app-shell R4 are updated in the 4F build; test changes carry `AC-Test-Change: 4F replaces the embed-note placeholder (D-144, D-310); approved-by: owner`. embeds.md's FR-FMT-07 and FR-SYN-06 criteria are renumbered if 4C merges first |
 | D-432 | Embed drag moves to v1.0 (AP-335, owner, 2026-10-17) | FR-EMB-01's drag from the sidebar or search moves to v1.0 (as the daily-use plan). Until then a drop on a note does nothing and writes nothing |
 | D-433 | Links never move to a name the note isn't at (owner, 2026-10-17; PR #45 review M1–M3) | (1) Undo and Redo move the renamed note first; if it can't move (changed since, or another note took the target name) no linking file is changed and all are listed as not updated. An interrupted Undo follows the same rule. (2) Retry accepts only rows the job skipped, never after the rename was undone or when its note is no longer at the new name; an undo removes that rename's rows from the list. (3) After a rename takes a free stem (`Gama (2)`), the crash journal's target follows it, so Finish moves pending links there, never to the planned name. (Numbered after 4F's D-415…D-432.) |
+| D-434 | Duplicated embed lines keep their bytes (AP-336, owner, 2026-10-17) | Duplicating, moving or changing the mode of an embed block keeps the bytes the file had (NFD included): raw blocks are never re-normalized. FR-FMT-12's NFC rule applies to targets the app writes (FR-EMB-01 AC-13, FR-FMT-07 AC-15) |
+| D-435 | Missing heading in a card or link embed (AP-337, owner, 2026-10-17) | Only full mode shows a section, so only full mode checks it; a card or link-mode embed of `Note#Missing` is `ok` |
+| D-436 | Unresolved target at depth 4 (AP-338, owner, 2026-10-17) | An unresolved target is `broken` at any depth; `too-deep` is only for targets that resolve (FR-EMB-04 AC-5) |
+| D-437 | Embed mode of an untyped note (AP-339, owner, 2026-10-17) | A note without a type (no or invalid frontmatter) embeds with the Page default, `full` (D-103, R31) |
+| D-438 | fast-check in the app package (AP-340, owner, 2026-10-17) | `app/` uses fast-check for its property tests like `packages/editor`, so FR-EMB-04 AC-7 runs with the TS-L2 seeds and nightly counts |
+| D-439 | Typing a mode keyword (AP-341, owner, 2026-10-17) | FR-EMB-02 AC-8's hand-typed case is an embed typed as `![[Svíčková{P}link]]` in a new paragraph (FR-EMB-01 AC-9); the source view stays read-only (D-146) |
+| D-440 | One window for the type-default change (AP-342, owner, 2026-10-17) | FR-EMB-02 AC-7: after choosing `Full` on `type-settings/osoba`, going Back to Režimy shows Jana full within 2 s; an open Režimy updates on `vault:changed` |
+| D-441 | Quit with a failed embed write is L6 (AP-343, owner, 2026-10-17) | FR-EMB-03 AC-13's ⌘Q `Quit without saving?` is checked on the built app (D-213), with the write made to fail by a read-only `Pages/` as editor.md FR-EDT-08 AC-11 |
+| D-442 | Counting embeds on the built app (AP-344, owner, 2026-10-17) | L6 counts embeds through the AX tree; with `TEGG_TEST=1` the app also writes the perf mark `embeds-rendered:<n>` for the open note, used when the AX description isn't exposed |
+| D-443 | No clock in L6 (AP-345, owner, 2026-10-17) | L6 checks a written body byte for byte, the frontmatter except `modified`, and `modified` as ISO 8601 with offset; the exact `modified` value stays L5. No `TEGG_NOW` |
+| D-444 | Kill test cadence (AP-346, owner, 2026-10-17) | FR-EMB-03 AC-14 runs 10 cycles (`TEGG_KILL_CYCLES`) in the milestone gate, as `fr_syn_02_ac7` |
+| D-445 | Embed benchmark scope (AP-347, owner, 2026-10-17) | `embeds-painted` covers the note embeds of the benchmark note (5 of its 10 embeds); opening is measured `switcher-enter` → `note-ready` as NFR-PERF-05 AC-4 |
+| D-446 | Esc after an inline `/emb` (AP-348, owner, 2026-10-17) | Esc removes only the typed `/emb`; text typed before `/` is ordinary typing and saved as such. "Nothing is written" applies to the `Add block below` case |
+| D-447 | Selecting an embed block (AP-349, owner, 2026-10-17) | A click on a frame outside its buttons and body selects the embed as a block; ↓ / ↑ from the neighbouring text, or from a selected embed, select the next embed (D-428) |
+| D-448 | ⏎ on a card (AP-350, owner, 2026-10-17) | ⏎ on a selected card or link-mode embed opens it, on a full embed enters it (D-428); a focused card frame opens on ⏎; cards are no extra Tab stop |
+| D-449 | User content in embed headers (AP-351, owner, 2026-10-17) | Titles, headings, attribute names and values in headers and card strips carry `data-user-content` (FR-EMB-02 AC-15) |
+| D-450 | Points past the 4F range (AP-352, AP-361, owner, 2026-10-17) | AP-350…AP-361 keep their numbers; the 4F decisions are D-415…D-432 and D-434…D-459 |
+| D-451 | Card tests and the type store (AP-353, owner, 2026-10-17) | `Embed` reads names, preview keys and icons from the app's type store (`setChipTypes`); the L1 card tests fill it in their setup |
+| D-452 | `Open <title>` names the note (AP-354, owner, 2026-10-17) | An embed's `Open` button is `Open <note title>`, without the heading (FR-EMB-02 AC-9, FR-LNK-07 AC-7, R30) |
+| D-453 | Chip spacing in text checks (AP-355, owner, 2026-10-17) | WebKit's `innerText` puts a space after an inline-flex chip; L5 block-text checks drop whitespace before punctuation; chips keep D-73's style |
+| D-454 | Path of a created note in L5 (AP-356, owner, 2026-10-17) | `note_create` has no path argument (the core picks it); L5 takes the created path from the call's result |
+| D-455 | What counts as a file read (AP-357, owner, 2026-10-17) | For FR-EMB-01 AC-9, file reads are `embed_load` and `note_read`; the `![[` autocomplete's switcher search reads no file |
+| D-456 | Scroll position kept (AP-358, owner, 2026-10-17) | "Scroll position kept" (FR-EMB-02 AC-10) means the content on screen stays put (WebKit's scroll anchoring adjusts `scrollTop` for growth above the view) |
+| D-457 | Back after `Open` (AP-359, owner, 2026-10-17) | Back restores what was on screen when the note was left; L5 measures it after the `Open` button was scrolled into view |
+| D-458 | Broken frames in the pseudo-locale check (AP-360, owner, 2026-10-17) | A broken frame keeps its R30 name, the target as written (user content); FR-EMB-02 AC-15 allows it |
+| D-459 | Test changes for D-434…D-458 (owner, 2026-10-17) | The 4F AC tests change as these decisions say, with `AC-Test-Change: 4F red-test and build decisions D-434…D-458; approved-by: owner` |
 
 ---
 

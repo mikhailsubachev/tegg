@@ -1,6 +1,6 @@
 # MS4 Embeds Interface Contract (slice 4F)
 
-- **Status:** draft, 2026-10-17. Written per D-430 before the 4F red tests, as ms4-links.md was for 4A (D-295). Follows D-415…D-432 (BRD v1.63).
+- **Status:** accepted, 2026-10-17. Written per D-430 before the 4F red tests, as ms4-links.md was for 4A (D-295). Follows D-415…D-432 (BRD v1.63); §12 points accepted as D-434…D-459 (BRD v1.65).
 - **ACs:** [docs/acceptance/embeds.md](../acceptance/embeds.md) (FR-EMB-01 AC-1…AC-14, FR-EMB-02 AC-1…AC-15, FR-EMB-03 AC-1…AC-14, FR-EMB-04 AC-1…AC-9, FR-LNK-07 AC-4…AC-8, FR-FMT-07 AC-13…AC-15, FR-SYN-06 AC-10) and its tables R30…R33. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Builds on** [ms4-links.md](ms4-links.md) (§1 resolution, §5.2 chips, §5.3 Create offer, §6 fake core), [ms4-daily.md](ms4-daily.md) (§4.1 virtual Daily Note), [ms3-shell.md](ms3-shell.md) (§5 fake core, §11 read view, §13 editor and autosave, §14 types and type files), [ms2-core.md](ms2-core.md) and [ms1-core.md](ms1-core.md). Everything there stays valid unless this contract changes it.
 - **Not relied on:** slice 4C (`tegg-jobs`, renames; PR #45). Numbers D-383…D-414 and AP-288…AP-317 belong to it.
@@ -251,7 +251,7 @@ export interface TeggEditor {
 4. `embed_load` never uses `read_note` because that records recency (ms3-shell §11.1, D-138).
 5. Live updates rebuild the whole tree on a relevant `vault:changed`; editable embeds with unsaved edits follow the note editor's conflict rules instead of reloading (FR-EMB-03 AC-3, AC-4).
 
-## 12. Points from the red tests and the build (AP-336…AP-361, pending the owner)
+## 12. Points from the red tests and the build (AP-336…AP-361, accepted as recommended: D-434…D-459)
 
 Raised by the two test-author runs (red commit `237ddab`). The red tests follow the recommendation where they assert anything; where a point is open they accept either answer.
 
