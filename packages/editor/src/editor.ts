@@ -331,6 +331,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         return false
       },
       handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
+      // 4F (AP-349): a click on a block embed's frame (outside its controls and content) selects it as a block.
+      handleClickOn: (view, _pos, node, nodePos, event, direct) => {
+        if (!direct || node.type.name !== 'rawBlock' || node.attrs.kind !== 'embed' || !opts.onEmbedKey) return false
+        const el = event.target as HTMLElement | null
+        if (el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')) return false
+        const k = view.state.doc.resolve(nodePos).index(0)
+        view.dispatch(view.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+        return true
+      },
       // 4F (FR-EMB-03 AC-11): with the DOM selection inside an embed's own content (a read-only embed, or another
       // editor's), keys that would edit this document do nothing here.
       handleKeyDown: (view, event) => inEmbedDom(view) && (event.key.length === 1 || ['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) && !event.metaKey && !event.ctrlKey,
@@ -359,7 +368,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       let pos = 0
       state.doc.forEach((n) => {
         const only = n.type.name === 'paragraph' && n.childCount === 1 ? n.firstChild! : null
-        if (only && only.type.name === 'wikiLink' && only.attrs.embed && !only.marks.length && !isAttachmentTarget(linkTargetOf(String(only.attrs.value)))) {
+        if (only && only.type.name === 'wikiLink' && only.attrs.embed && !only.marks.length) {
           tr ??= state.tr
           const at = tr.mapping.map(pos)
           const embed = state.schema.nodes.rawBlock.create({ source: `![[${String(only.attrs.value)}]]`, kind: 'embed' })
@@ -943,9 +952,39 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     }
   }
 
-  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; opts: EditorOptions } = {
+  /** D-428: ↓ at the end of a block before a block embed (↑ at the start of one after it) selects that embed. */
+  function intoEmbed(dir: 'up' | 'down'): boolean {
+    const s = blockSel()
+    const doc = editor.state.doc
+    let k: number
+    if (s) {
+      if (s.anchor !== s.head) return false
+      k = s.head + (dir === 'down' ? 1 : -1)
+    } else {
+      const sel = editor.state.selection
+      if (!sel.empty || sel.$from.depth === 0) return false
+      let edge = false
+      try { edge = view.endOfTextblock(dir) } catch { edge = false }
+      if (!edge) return false
+      k = topIndex(editor.state) + (dir === 'down' ? 1 : -1)
+    }
+    if (k < 0 || k >= doc.childCount) return false
+    const n = doc.child(k)
+    if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+      return true
+    }
+    if (!s) return false
+    // From a selected embed to the neighbouring block's text.
+    const at = blockPos(doc, k)
+    dispatch(editor.state.tr.setSelection(dir === 'down' ? TextSelection.near(doc.resolve(at + 1)) : TextSelection.near(doc.resolve(at + n.nodeSize - 1), -1)).setMeta(blockSelKey, null))
+    return true
+  }
+
+  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; opts: EditorOptions } = {
     opts,
     atEdge,
+    intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
     hasBlockSel: () => !!blockSel(),
     selectedEmbed,
     view,
@@ -1082,7 +1121,7 @@ function hasInline(node: PMNode): boolean {
 }
 
 /** 4F (D-428): keys on a selected block embed, and leaving a nested editor. Runs before every other keymap. */
-function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean }) {
+function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {
   return Extension.create({
     name: 'teggEmbedKeys',
     priority: 1000,
@@ -1094,6 +1133,7 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
       }
       const leave = (how: 'up' | 'down') => () => {
         const a = get()
+        if (a.intoEmbed(how)) return true
         return !!a.opts.onLeave && a.atEdge(how) && a.opts.onLeave(how)
       }
       return {

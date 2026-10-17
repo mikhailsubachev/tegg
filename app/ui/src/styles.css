@@ -587,7 +587,7 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .embed-menu { position: absolute; right: 0; top: 100%; z-index: 30; display: flex; flex-direction: column; min-width: 120px; padding: 4px; background: var(--pop); border: 1px solid var(--border); border-radius: 6px; }
 .embed-menu button { text-align: left; border: none; background: none; color: var(--text); font: inherit; padding: 4px 8px; border-radius: 4px; }
 .embed-menu button:focus, .embed-menu button:hover { background: var(--hover); }
-.embed-menu button[aria-checked="true"]::before { content: '✓ '; }
+.embed-menu button[aria-checked="true"] { font-weight: 600; background: var(--sel); }
 .embed-body { padding: 4px 12px 8px; }
 .embed-body .read-view { margin: 0; }
 .embed-props { list-style: none; margin: 0; padding: 4px 12px 8px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; }

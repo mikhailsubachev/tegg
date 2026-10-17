@@ -45,7 +45,8 @@ const nfc = (s: string) => s.normalize('NFC');
 export function scrollToFragment(root: HTMLElement | null, fragment: string) {
   if (!root) return;
   const f = nfc(fragment.replace(/^#/, ''));
-  const art = root.querySelector('article, [aria-label][contenteditable]');
+  // The note body: the read view's article, else the editor (not the title field, which comes first).
+  const art = root.querySelector('article') ?? root.querySelector('.editor-host [contenteditable]');
   if (!art) return;
   const el = f.startsWith('^')
     ? art.querySelector(`[id="${CSS.escape(f)}"]`)
@@ -158,6 +159,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const fresh = useRef(false);
   /** The editor's history depth when the note last moved: deeper means it was edited since. */
   const freshDepth = useRef(0);
+  const liveFragment = useRef(fragment);
+  liveFragment.current = fragment;
+  const liveRestore = useRef(restoreScroll);
+  liveRestore.current = restoreScroll;
   const live = useRef({ path, loaded, merge, deleted, daily });
   live.current = { path, loaded, merge, deleted, daily };
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
@@ -266,6 +271,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
     syncHead();
     requestAnimationFrame(() => {
+      // D-140: `#Heading` scrolls once the editor's content exists (the link or embed `Open` that opened it).
+      if (liveFragment.current && liveRestore.current === undefined) scrollToFragment(root.current, liveFragment.current);
       placeFocus.current(); // D-247: the caret goes in once the editor is ready
       void ipc.perfMark('note-ready').catch(() => {}); // NFR-PERF-05 AC-4: mounted, editable, caret placed
       noteReady();
@@ -405,6 +412,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     embeds.editable = loaded.mode === 'edit';
     if (loaded.mode !== 'edit') void embeds.build(loaded.text, loaded.links);
   }, [loaded]);
+  // Back restores the scroll position again once the embeds have their height (FR-EMB-02 AC-9).
+  const embedSnap = embeds.getSnapshot();
+  const restoredAfterEmbeds = useRef(false);
+  const restoreAtOpen = useRef(restoreScroll); // the App clears its value once restored the first time
+  useEffect(() => {
+    const target = restoreAtOpen.current;
+    if (restoredAfterEmbeds.current || target === undefined || !embedSnap.tree) return;
+    restoredAfterEmbeds.current = true;
+    const apply = () => { const main = root.current?.closest('main'); if (main && Math.abs(main.scrollTop - target) > 1) main.scrollTop = target; };
+    requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); for (const ms of [100, 300, 600]) setTimeout(apply, ms); });
+  }, [embedSnap.version]);
   // A type's default changed (FR-EMB-02 AC-7, AC-10).
   const typesSig = types.map((x) => `${x.key}:${(x as { embed?: string }).embed ?? ''}:${x.icon}:${x.preview.join(',')}`).join('|');
   const firstTypes = useRef(true);

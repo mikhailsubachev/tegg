@@ -1,6 +1,6 @@
 // One embed of R30 (docs/contracts/ms4-embeds.md §6; FR-EMB-02, FR-LNK-07, D-418, D-423…D-425, D-427): a framed full
 // embed, a card, a link-mode embed, or a frame for a state that can't show content (R30a). Strings from R33.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { parse, type EmbedMode } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../ipc/types';
@@ -9,6 +9,7 @@ import { requestOffer } from '../links/offer';
 import { openDate } from '../daily/open';
 import { Icon } from '../shell/Icon';
 import { ReadView } from '../read/ReadView';
+import { formatDate } from '../read/PropertiesStrip';
 import { TypeCell, type TypeColumn } from '../types/cell';
 import type { EmbedNode } from './tree';
 
@@ -70,7 +71,9 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   return (
     <a
       href="#"
+      tabIndex={0}
       role="link"
+      data-command={broken ? 'link.createOffer' : 'edit.openEmbed'}
       className={`embed-chip embed-link${broken ? ' kind-unresolved' : ''}`}
       data-embed-mode="link"
       data-embed-state={node.state}
@@ -80,6 +83,7 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
       data-link-kind={broken ? 'unresolved' : undefined}
       aria-label={broken ? node.target.target : titleOf(node)}
       aria-description={description}
+      onMouseDown={(e) => e.preventDefault()}
       onClick={act}
       onKeyDown={(e) => e.key === 'Enter' && act(e)}
     >
@@ -91,46 +95,68 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
 
 function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
   const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement | null>(null);
   const modes: EmbedMode[] = ['full', 'card', 'link'];
   const choose = (m: EmbedMode) => {
     setOpen(false);
     if (m !== mode) onMode?.(m);
   };
+  useEffect(() => {
+    if (open) menu.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+  }, [open]);
+  // The menu takes the keys while open, wherever the focus is (the palette may have run `Display embed as…`).
+  useEffect(() => {
+    if (!open) return;
+    const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+    const onKey = (e: KeyboardEvent) => {
+      const list = items();
+      const i = list.indexOf(document.activeElement as HTMLElement);
+      const stop = () => { e.preventDefault(); e.stopPropagation(); };
+      if (e.key === 'Escape') { stop(); setOpen(false); }
+      else if (e.key === 'ArrowDown') { stop(); list[i < 0 ? Math.max(0, list.findIndex((x) => x.getAttribute('aria-checked') === 'true')) : (i + 1) % list.length]?.focus(); }
+      else if (e.key === 'ArrowUp') { stop(); list[i < 0 ? 0 : (i - 1 + list.length) % list.length]?.focus(); }
+      else if (e.key === 'Enter' && i >= 0) { stop(); choose(modes[i]); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open, mode]);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!menu.current?.parentElement?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', away, true);
+    return () => document.removeEventListener('mousedown', away, true);
+  }, [open]);
   return (
     <span className="embed-mode">
       <button
         type="button"
+        tabIndex={0}
         className="embed-btn"
+        data-command="edit.displayEmbedAs"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-disabled={disabled ? 'true' : undefined}
         aria-description={disabled ?? undefined}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => { e.stopPropagation(); if (!disabled) setOpen(!open); }}
       >
         {t('embed.displayAs')}
       </button>
       {open && (
         <div
+          ref={menu}
           role="menu"
           aria-label={t('embed.displayAs')}
           className="menu embed-menu"
-          onKeyDown={(e) => {
-            const items = [...(e.currentTarget.querySelectorAll('[role="menuitemradio"]') as NodeListOf<HTMLElement>)];
-            const i = items.indexOf(document.activeElement as HTMLElement);
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); }
-            else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
-          }}
         >
           {modes.map((m) => (
             <button
               key={m}
               type="button"
+              data-command="edit.displayEmbedAs"
               role="menuitemradio"
               aria-checked={m === mode}
-              ref={(el) => { if (el && m === mode) el.focus(); }}
               onClick={(e) => { e.stopPropagation(); choose(m); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); choose(m); } }}
             >
               {t(`embed.mode.${m}`)}
             </button>
@@ -152,7 +178,7 @@ function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNod
       {node.mode === 'full' && node.readOnly && node.state === 'ok' && props.editable === false && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) && (
         <span className="embed-readonly">{t('embed.readOnly')}</span>
       )}
-      <button type="button" className="embed-btn" aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
+      <button type="button" tabIndex={0} className="embed-btn" data-command="edit.openEmbed" onMouseDown={(e) => e.preventDefault()} aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
         <Icon name="external" size={13} />
       </button>
       {node.state !== 'date-missing' && <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />}
@@ -189,7 +215,9 @@ function CardStrip({ node, onOpen, onTag }: { node: EmbedNode; onOpen: EmbedProp
         <li key={c.key}>
           <span className="embed-prop-name" data-user-content>{c.label}</span>{' '}
           <span className="embed-prop-value">
-            <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen(p)} onTag={onTag ?? (() => {})} typeKey={node.target.type ?? 'page'} />
+            {c.attr?.type === 'date' && typeof data[c.key] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(String(data[c.key]).trim())
+              ? <span data-user-content>{formatDate(String(data[c.key]).trim())}</span> // D-160 medium date (FR-EMB-02 AC-4)
+              : <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen(p)} onTag={onTag ?? (() => {})} typeKey={node.target.type ?? 'page'} />}
           </span>
         </li>
       ))}
@@ -248,13 +276,18 @@ export function Embed(props: EmbedProps): ReactNode {
     return <LinkEmbed {...props} />;
   }
   const depth = Math.min(node.depth, 3);
+  const card = node.mode === 'card' && node.state === 'ok';
   const base = {
     role: 'group',
     'data-embed-mode': node.mode,
     'data-embed-depth': depth,
+    // D-423: a click or ⏎ on a card (outside its buttons) opens the note; the card isn't a Tab stop (AP-350).
+    ...(card ? { tabIndex: -1 } : {}),
     onClick: (e: React.MouseEvent) => {
-      // D-423: a click on a card (outside its buttons) opens the note.
-      if (node.mode === 'card' && node.state === 'ok' && !(e.target as HTMLElement).closest('button, a, [role="menu"]')) open(node, props.onOpen);
+      if (card && !(e.target as HTMLElement).closest('button, a, [role="menu"]')) open(node, props.onOpen);
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (card && e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); open(node, props.onOpen); }
     },
   };
   if (node.state === 'broken') {
@@ -264,6 +297,7 @@ export function Embed(props: EmbedProps): ReactNode {
         <div className="embed-header">
           <a
             href="#"
+            data-command="link.createOffer"
             className="chip link-chip kind-unresolved"
             data-link-kind="unresolved"
             aria-description={t('link.noNote', { target })}

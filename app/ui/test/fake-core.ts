@@ -764,7 +764,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         const p = String(p0).normalize('NFC');
         if (seen.has(p)) continue;
         seen.add(p);
-        const text = state.vault?.files[p];
+        const key = state.vault ? Object.keys(state.vault.files).find((k) => k.normalize('NFC') === p) : undefined;
+        const text = key === undefined ? undefined : state.vault!.files[key];
         if (text === undefined || /^(_templates|\.trash)\//.test(p)) {
           out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
           continue;

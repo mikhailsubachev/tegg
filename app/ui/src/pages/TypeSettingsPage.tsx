@@ -786,8 +786,8 @@ function EmbedsSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
           </span>
         ))}
       </div>
-      <p className="hint">{withUser('typeSettings.embedHint', 'plural', type.plural)}</p>
-      {unknown && <p role="status" className="hint warn">{withUser('typeSettings.embedUnknown', 'value', raw!, { mode: t(`embed.mode.${mode}`) })}</p>}
+      <p className="hint">{t('typeSettings.embedHint', { plural: type.plural })}</p>
+      {unknown && <p role="status" className="hint warn">{t('typeSettings.embedUnknown', { value: raw!, mode: t(`embed.mode.${mode}`) })}</p>}
     </section>
   );
 }

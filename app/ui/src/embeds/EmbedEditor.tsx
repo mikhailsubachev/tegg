@@ -55,6 +55,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false }: { node
         return iconElement(i.glyph, 13, i.def);
       },
       hint: t('embed.empty'),
+      hideBlockIds: true,
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
         const name = kind === 'query' ? t('ph.query') : kind === 'mindmap' ? t('ph.mindmap') : /\.pdf(\||#|$)/i.test(v) ? t('ph.embedPdf') : /\.[A-Za-z0-9]{1,6}(\||#|$)/.test(v) && !/\.md(\||#|$)/i.test(v) && !/\.(png|jpe?g|gif|webp|svg|heic|avif|bmp|tiff?)(\||#|$)/i.test(v) ? t('ph.embedOther') : t('ph.embedImage');

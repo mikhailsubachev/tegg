@@ -279,11 +279,13 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         let k = 0;
         for (let p = 0; k < doc.childCount && p + doc.child(k).nodeSize <= pos; k++) p += doc.child(k).nodeSize;
         (e.view.dom as HTMLElement).focus({ preventScroll: true });
-        if (how === 'escape') { e.commands.selectBlockAt(k); return; }
+        // After the focus moved (its selection change would clear a block selection made before it).
+        const select = (i: number) => requestAnimationFrame(() => edRef.current?.commands.selectBlockAt(i));
+        if (how === 'escape') { select(k); return; }
         const next = how === 'up' ? k - 1 : k + 1;
-        if (next < 0 || next >= doc.childCount) { e.commands.selectBlockAt(k); return; }
+        if (next < 0 || next >= doc.childCount) { select(k); return; }
         const node = doc.child(next);
-        if (node.type.name === 'rawBlock') { e.commands.selectBlockAt(next); return; }
+        if (node.type.name === 'rawBlock') { select(next); return; }
         let at = 0;
         for (let i = 0; i < next; i++) at += doc.child(i).nodeSize;
         e.editor.commands.setTextSelection(how === 'up' ? at + node.nodeSize - 1 : at + 1);
@@ -544,21 +546,37 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   };
 
   /** 4F (D-426): the `Embed object` picker, inserting at `from…to` (the typed `/emb`, or the caret). */
-  const [picker, setPicker] = useState<{ from: number; to: number; at: { left: number; top: number } } | null>(null);
+  const [picker, setPicker] = useState<{ at: { left: number; top: number }; pos: () => number | null; typed: string } | null>(null);
+  // Saving waits while the picker is open: the typed `/emb` is a command, not text (FR-EMB-01 AC-8).
+  const pickerOpen = useRef(false);
+  pickerOpen.current = !!picker;
   const openPicker = (from: number, to: number) => {
     const e = edRef.current;
     if (!e) return;
     const c = e.view.coordsAtPos(Math.min(from, e.view.state.doc.content.size));
-    setPicker({ from, to, at: { left: c.left, top: c.bottom + 4 } });
+    // The typed `/query` is followed through every edit while the picker is open (its text is checked before use).
+    const typed = to > from ? e.view.state.doc.textBetween(from, to) : '';
+    setPicker({ at: { left: c.left, top: c.bottom + 4 }, pos: e.trackPos(from), typed });
+  };
+  /** The typed `/query`'s range now, or the caret when nothing was typed (palette). */
+  const pickerRange = (p: NonNullable<typeof picker>, e: TeggEditor): [number, number] | null => {
+    const from = p.pos();
+    if (from === null) return null;
+    if (!p.typed) return [from, from];
+    const to = from + p.typed.length;
+    if (to > e.view.state.doc.content.size || e.view.state.doc.textBetween(from, to) !== p.typed) return null;
+    return [from, to];
   };
   const insertEmbedAt = (target: string) => {
     const e = edRef.current;
     const p = picker;
     setPicker(null);
     if (!e || !p) return;
-    const map = e.trackPos(p.from);
-    void map;
-    e.commands.insertEmbed(p.from, Math.min(p.to, e.view.state.doc.content.size), target);
+    const r = pickerRange(p, e);
+    // The typed `/emb` goes first, outside the history, so ⌘Z removes only the embed (FR-EMB-01 AC-8).
+    if (r && r[1] > r[0]) e.view.dispatch(e.view.state.tr.delete(r[0], r[1]).setMeta('addToHistory', false));
+    const at = r ? r[0] : e.view.state.selection.from;
+    e.commands.insertEmbed(at, at, target);
     focusEditor();
   };
   const cancelPicker = () => {
@@ -567,7 +585,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     setPicker(null);
     if (!e || !p) return;
     // Esc removes the typed `/emb` and leaves the paragraph as it was (FR-EMB-01 AC-8).
-    if (p.to > p.from) e.view.dispatch(e.view.state.tr.delete(p.from, Math.min(p.to, e.view.state.doc.content.size)).setMeta('addToHistory', false));
+    const r = pickerRange(p, e);
+    if (r && r[1] > r[0]) e.view.dispatch(e.view.state.tr.delete(r[0], r[1]).setMeta('addToHistory', false));
     focusEditor();
   };
 
@@ -673,6 +692,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       case 'blockMenu': openMenu(e.blockSelection()?.from ?? e.caretBlock()); break;
       case 'selectBlock': c.selectBlock(); break;
       case 'openOrToggle': {
+        // D-209, D-428: ⌘↩ on a selected block embed opens its target.
+        const sel = e.selectedEmbed();
+        if (sel) { embedKey(sel.pos, 'open'); break; }
         const $f = e.view.state.selection.$from;
         const n = [$f.nodeBefore, $f.nodeAfter].find((x) => x?.type.name === 'wikiLink');
         if (n) {
@@ -711,12 +733,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash, caretToStart, caretAtLink, caretToEnd }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
     const ed = edRef.current;
     if (!ed || !host.current?.contains(e.target as Node)) return; // menus and fields handle their own keys
+    // 4F: keys inside an embed (its nested editor, its menu) are the embed's own (D-428).
+    if ((e.target as HTMLElement).closest?.('.embed-block') && host.current?.contains((e.target as HTMLElement).closest('.embed-block'))) return;
     const L = live.current;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
     if (L.slash) {

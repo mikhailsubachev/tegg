@@ -30,6 +30,8 @@ export interface EditorUi {
   onExternal(href: string): void
   /** 4F (ms4-embeds §7): renders a block embed (`rawBlock` kind `embed`); null keeps the 3C placeholder. */
   embed?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null
+  /** 4F (FR-EMB-02 AC-2): hide trailing ` ^id` block ids (an embedded note shows its content as the read view does). */
+  hideBlockIds?: boolean
   /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
   embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string; target?: string } | undefined
 }
@@ -82,6 +84,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       const broken = info && info.kind === 'unresolved' // a date without a note is never broken (D-142, FR-DLY-08 AC-5)
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
+        'data-command': 'edit.openOrToggle',
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
         'data-link-kind': info?.kind ?? 'unresolved', // FR-LNK-07 (D-306): the same attribute in every context
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
@@ -100,6 +103,15 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
     }
     return true
   })
+  if (ui.hideBlockIds) {
+    doc.descendants((node, pos) => {
+      if (!node.isTextblock) return true
+      const text = node.textContent
+      const m = /[ \t]\^[A-Za-z0-9-]+[ \t]*$/.exec(text)
+      if (m && node.lastChild?.isText) decos.push(Decoration.inline(pos + 1 + m.index, pos + 1 + text.length, { class: 'block-id-hidden', style: 'display: none' }))
+      return false
+    })
+  }
   // The hint of an empty note: a widget, never part of the text or a copy (FR-EDT-01 AC-9).
   if (doc.childCount === 1 && doc.firstChild!.type.name === 'paragraph' && doc.firstChild!.content.size === 0) {
     decos.push(Decoration.widget(1, () => {
@@ -218,7 +230,8 @@ class RawBlockView implements NodeView {
     if (this.handle) {
       // The embed's own controls and its nested editor handle their events (AP-349: a click elsewhere selects it).
       const el = e.target as HTMLElement | null
-      return el !== this.dom && !!el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')
+      if (el === this.dom) return false
+      return e.type.startsWith('key') || !!el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')
     }
     return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste' || (e.type === 'click' && !!(e.target as HTMLElement | null)?.closest?.('.link-chip'))
   }
