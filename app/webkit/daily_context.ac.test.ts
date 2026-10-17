@@ -38,8 +38,9 @@ test.describe('sections in Europe/Prague', () => {
     const body = (await editorBody(page).first().boundingBox())?.y ?? Infinity;
     assert.ok(tops.every((y, i) => y > body && (i === 0 || y > tops[i - 1])), `after the body, in order Quick Notes, Tasks due, Created, Modified: ${tops.join(', ')}`);
     const tasks = section(page, 'Tasks due');
-    assert.equal(flat(await tasks.innerText()).replace(/^Tasks due\s*/, ''), 'Coming in MS5', 'Tasks due shows only Coming in MS5');
-    assert.equal(await tasks.locator('[data-placeholder="daily-tasks"]').count(), 1, 'data-placeholder="daily-tasks"');
+    // D-489: since 5A-1 Tasks due lists the day's tasks (tasks.md FR-DLY-04 AC-8…AC-14); here it is no longer the placeholder.
+    assert.ok(!flat(await tasks.innerText()).includes('Coming in MS5'), 'Tasks due is no longer the Coming in MS5 placeholder');
+    assert.equal(await tasks.locator('[data-placeholder="daily-tasks"]').count(), 0, 'no data-placeholder="daily-tasks" since 5A-1 (D-489)');
     const link = await must(section(page, 'Quick Notes').getByRole('link', { name: /Nápad z rána/ }), 'row Nápad z rána');
     assert.ok(await link.locator('[data-icon], svg').count() > 0, 'the row has the type icon');
     await link.click();
