@@ -290,12 +290,13 @@ pub enum JobError {
 }
 
 /// Named points of a running job where the L4 sync simulator injects external changes (rename.md "Test layers",
-/// FR-LNK-03 AC-15). Test-only: the hook is never set in the app.
+/// FR-LNK-03 AC-15). Test-only: the hook is never set in the app; it runs on the job thread and may block it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobPoint {
-    /// The plan is made; no file has been read for writing yet.
+    /// The plan is made and the job is still in `planning` (cancellable for every kind); no zip has been written and no
+    /// file has been read for writing yet.
     AfterPlanning,
-    /// `path` was read for its write (its base version taken); its write hasn't started.
+    /// `writing`: `path` was read for its write (its base version taken); its write hasn't started.
     AfterRead { path: String },
     /// `path`'s new bytes are in the temp file; the rename onto `path` hasn't happened.
     TempWritten { path: String },
