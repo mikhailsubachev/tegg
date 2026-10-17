@@ -1,0 +1,20 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Projekt
+plural: Projekty
+system: false
+folder: Projekty
+icon: folder
+color: orange
+review: false
+preview: [status, due]
+attributes:
+  - key: status
+    name: Status
+    type: select
+    options:
+      - { label: To do, color: gray }
+      - { label: Done, color: green }
+  - key: due
+    name: Due date
+    type: date
