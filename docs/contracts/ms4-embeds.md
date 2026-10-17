@@ -251,7 +251,7 @@ export interface TeggEditor {
 4. `embed_load` never uses `read_note` because that records recency (ms3-shell §11.1, D-138).
 5. Live updates rebuild the whole tree on a relevant `vault:changed`; editable embeds with unsaved edits follow the note editor's conflict rules instead of reloading (FR-EMB-03 AC-3, AC-4).
 
-## 12. Points from the red tests (AP-336…AP-352, pending the owner)
+## 12. Points from the red tests and the build (AP-336…AP-361, pending the owner)
 
 Raised by the two test-author runs (red commit `237ddab`). The red tests follow the recommendation where they assert anything; where a point is open they accept either answer.
 
@@ -275,6 +275,16 @@ Raised by the two test-author runs (red commit `237ddab`). The red tests follow 
 | AP-351 | **User content in embed headers and card strips** isn't marked, so the pseudo-locale test (FR-EMB-02 AC-15) uses an allow-list of fixture texts. | Titles, headings, attribute names and values in headers and strips carry `data-user-content` like other components; the test checks that marker. | FR-EMB-02 AC-15 |
 | AP-352 | **Numbering.** 4F reserved AP-318…AP-349; these points end at AP-352 now that 4C is merged and its range is closed (4C used up to AP-317, D-433). | Keep AP-350…AP-352; record the decisions as D-434 onward. | — |
 
+| AP-353 | **Two L1 card tests can't see the vault's types** (`embeds_render` FR-EMB-02 AC-4, AC-15): `Embed` takes the attribute names, preview keys and icons from the app's type store (`links/icons.ts` `setChipTypes`, which the app fills when types load), and the tests never fill it. | The tests call `setChipTypes(TYPES())` in their setup (`AC-Test-Change`); no new `Embed` prop. | FR-EMB-02 AC-4, AC-15 (L1) |
+| AP-354 | **`Open <title>` on a `#Heading` embed.** FR-EMB-02 AC-9 and FR-LNK-07 AC-7 say `Open Cíl` on `![[Cíl#Úvod]]`; the style test FR-LNK-07 AC-4 expects `Open Cíl › Úvod` (it takes the frame's title). | `Open <note title>` as the two ACs say; the style test takes the button name from the note title (`AC-Test-Change`). | FR-LNK-07 AC-4 (L5), R30 |
+| AP-355 | **WebKit's `innerText` puts a space after an inline-flex chip** (`…Jana Nováková .`), the same in the host read view; the body checks of FR-EMB-02 AC-2 and AC-3 compare exact block text. | `blockTexts` in `embeds-helpers.ts` drops whitespace before punctuation (`AC-Test-Change`); chips keep their D-73 style. | FR-EMB-02 AC-2, AC-3 (L5) |
+| AP-356 | **`note_create` has no `path` argument** (the core picks it, ms3-shell §14.3), so FR-EMB-01 AC-7's "exactly two files" sees `''` for the new note. | The test takes the created path from the call's result (`AC-Test-Change`). | FR-EMB-01 AC-7 (L5) |
+| AP-357 | **FR-EMB-01 AC-9 counts the `![[` autocomplete's `index_switcher` search as a file read** for `obrázek.png`. | Count only `embed_load` and `note_read` (file reads); the switcher search reads no file (`AC-Test-Change`). | FR-EMB-01 AC-9 (L5) |
+| AP-358 | **"Scroll position kept" (FR-EMB-02 AC-10)**: when an embed above the view grows, WebKit's scroll anchoring keeps the visible content in place, so `scrollTop` grows by the inserted height. | "Kept" means what is on screen stays put: the test checks that a middle embed's position in the viewport moves by ≤ 2 px (`AC-Test-Change`). | FR-EMB-02 AC-10 (L5) |
+| AP-359 | **Back after `Open` (FR-EMB-02 AC-9)**: Playwright's click scrolls the `Open` button of a frame taller than the view into view before clicking, so the position Back restores is not the one measured before the click. | The test measures the position after the button is scrolled into view (`AC-Test-Change`); Back restores what was shown when leaving. | FR-EMB-02 AC-9 (L5) |
+| AP-360 | **Broken frames in the pseudo-locale test (FR-EMB-02 AC-15)**: R30 names an unresolved frame by its target as written (user content); the test wants a catalog label on every non-link frame. | Keep R30; the test allows the target as written for `data-embed-state="broken"` frames (`AC-Test-Change`). | FR-EMB-02 AC-15 (L5), R30 |
+| AP-361 | **Numbering.** Points AP-350…AP-361 go past the range 4F reserved (AP-318…AP-349); 4C is merged and used up to AP-317. | Keep them; decisions continue at D-434. | — |
+
 **Contract choices from the red tests (no owner decision needed):**
 - `embedSection(text, '^chybí')` returns `{ kind: 'missing', subpath: '^chybí', block: true }` (the subpath as written); a `block` section's `to` excludes the trailing newline.
 - `readOnly` is `true` for every node that isn't an editable full embed (§1), cards and link mode included.
@@ -286,3 +296,14 @@ Raised by the two test-author runs (red commit `237ddab`). The red tests follow 
 - `embed_load`'s "reads every path once" is checked as one `VaultFs::read` per distinct path per call.
 
 **Existing AC tests changed by the 4F build (D-431, `AC-Test-Change` trailer):** `app/test/shell-tables.ts` (R5 `embed-note`, R12 `Embeds`), `app/test/in_note_placeholders.ac.test.ts`, `app/test/read_view.ac.test.ts` (`fr_edt_02_ac13_…`), `app/test/links_registry.ac.test.ts`, `app/test/editor_registry.ac.test.ts`, `packages/editor/test/links.ac.test.ts`, `app/webkit/embed_chip.ac.test.ts`, `app/webkit/editor.ac.test.ts` (`fr_edt_03_ac5_…`, `fr_edt_02_ac21_…`), `app/webkit/read_view.ac.test.ts` (`fr_edt_02_ac13_…`), `app/webkit/type_settings.ac.test.ts` (R12), `app/e2e/ms4_links.ac.test.ts` (`fr_lnk_04_ac12…` label lookup).
+
+## 13. Interface changes made while building 4F (contract choices)
+
+- `EditorUi.embedChip` also returns `target` (the resolved path, else the target as written) for `data-embed-target`; `EditorUi.hideBlockIds` hides trailing ` ^id` text in nested editors (FR-EMB-02 AC-2). `@tegg/editor` exports `embedTarget(choice)` (D-426) and `PENDING_EMBED` is internal.
+- ProseMirror rebuilds every node view when the document's attributes change (the host's frontmatter after each save). A destroyed block embed is parked for one task and moved into the next node view with the same source, so nested editors keep their text, pending saves and undo history (FR-EMB-03 AC-6).
+- The host editor ignores editing input (keys, paste, cut, `beforeinput`) while the DOM selection is inside an embed's own content, and the note page's key handler leaves keys inside an embed to the embed (FR-EMB-03 AC-11, D-428).
+- ↓ at the end of a block before a block embed (↑ after it) selects the embed as a block; a click on a frame outside its controls selects it (AP-349).
+- `OfferRequest.stay`: Create from a broken embed frame keeps the host page open; the embed shows the new note (D-424 (1), FR-LNK-07 AC-6).
+- `MergeDialog` takes an optional `description` (the embedded note's title, FR-EMB-03 AC-3).
+- `tegg_schema::Parsed.embed_raw` and `tegg_core::TypeInfo.embed` / `embed_raw` (§3), because an existing AC test builds `TypeFile` literally.
+- Fixed while building (pre-4F gaps the embed tests exposed): a note opened with `#Heading` scrolls there in the editor too (`scrollToFragment` picked the title field), and the type-page cell renderer moved to `types/cell.tsx` so cards format values like the type page.
