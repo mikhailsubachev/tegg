@@ -114,6 +114,14 @@
       "x": 1520,
       "y": 4640,
       "is_interactive": true
+    },
+    "QuickCapture.dc.html": {
+      "h": 1180,
+      "title": "Quick Capture",
+      "w": 1680,
+      "x": 3040,
+      "y": 4640,
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -139,7 +147,8 @@
     "CardAnatomy.dc.html",
     "TypeCards.dc.html",
     "Tasks.dc.html",
-    "TasksBoard.dc.html"
+    "TasksBoard.dc.html",
+    "QuickCapture.dc.html"
   ],
   "pages": [
     {
