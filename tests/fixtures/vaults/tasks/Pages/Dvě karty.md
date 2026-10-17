@@ -1,0 +1,12 @@
+---
+id: 01JB5A0000000000000000E109
+type: page
+title: Dvě karty
+created: 2026-10-01T09:00:00+02:00
+modified: 2026-10-01T09:00:00+02:00
+---
+![[Zavolat Janě]]
+
+Mezi kartami.
+
+![[Zavolat Janě]]

@@ -61,3 +61,22 @@ Test clock `2026-10-14T12:00:00+02:00` (Wednesday), Europe/Prague, region `cs` (
 - **Overdue** (FR-TSK-09 AC-1): exactly T01 and T02. At `2026-10-14T22:30:00Z` also T03 and T14 in Europe/Prague, not in America/Los_Angeles.
 - **Daily `Tasks due`** (FR-DLY-04 AC-9): 14 Oct: T01, T02, T03, T14, then T10; 9 Oct: T01; 15 Oct: T04, T19; 5 Oct: T11.
 - **Usage**: `To do` is used by 10 tasks (T01, T03, T05, T06, T07, T08, T16, T17, T18, T19); `Waiting` by 1 (T04); `Cancelled` by 1 (T13).
+
+## Conversion notes (slice 5A-2, `docs/acceptance/conversion.md`)
+
+Added for FR-CNV-01…08, FR-FMT-07 AC-20 and FR-SYN-06 AC-23; interface `docs/contracts/ms5-tasks.md` §11. None of them is a task, so the expected results above don't change. Ids `01JB5A0000000000000000E1<nn>`; `created`/`modified` `2026-10-01T09:00:00+02:00`; key order `id, type, title, <keys>, created, modified`. Same byte rules as above, **except** `Pages/NFD host.md` (the paragraph `Úkol v NFD` in **NFD** bytes: `U` U+0301) and `Pages/CRLF host.md` (CRLF on every line, frontmatter included, **no final newline**).
+
+| Short | Path | id | Content |
+| --- | --- | --- | --- |
+| Bloky | `Pages/Bloky.md` | E101 | `type: page`; body, line by line: `Úvodní odstavec.` · blank · `Zavolat do servisu kvůli kolu` · `a domluvit termín.` · blank · `## Připravit podklady` · blank · `Odstavec pod nadpisem.` · blank · `- [ ] Koupit lepidlo` · `- [x] Vrátit nářadí` · `- [ ] Objednat **nový** projektor pro [[Zasedačka]] #práce` · `  - zjistit cenu` · `  - porovnat nabídky` · `- [ ] Rezervovat sál` · blank · `1. První bod` · `2. Druhý bod` · `3. Třetí bod` · blank · `> Citace k převedení.` · blank · ```` ```js ```` · `kód();` · ```` ``` ```` · blank · `![[Zasedačka]]` · blank · `Q3: rozpočet/plán` · blank · `Závěrečný odstavec.` (final newline) |
+| Zasedačka | `Pages/Zasedačka.md` | E102 | `type: page`; body `Velká zasedačka.` |
+| Lepidlo | `Pages/Koupit lepidlo.md` | E103 | `type: page`, `title: Koupit lepidlo`; empty body (stem collision for FR-CNV-03 AC-5) |
+| NFD host | `Pages/NFD host.md` | E104 | `type: page`; paragraphs `Před.`, `Úkol v NFD` (NFD), `Po.` |
+| CRLF host | `Pages/CRLF host.md` | E105 | `type: page`; paragraphs `První.`, `Úkol s CRLF`, `Poslední.`; CRLF, no final newline |
+| Bez hlavičky host | `Pages/Bez hlavičky host.md` | — | no frontmatter; paragraphs `Úkol bez hlavičky`, `Konec.` |
+| Dvojník (Pages) | `Pages/Dvojník.md` | E106 | `type: page`; paragraph `Úkol z dvojníka` |
+| Dvojník (Quick Notes) | `Quick Notes/Dvojník.md` | E107 | `type: quick-note`, `review: unreviewed`; paragraph `Úkol z dvojníka` |
+| C tips | `Pages/C tips.md` | E108 | `type: page`, `title: C# tips` (plain YAML scalar); paragraph `Úkol z tipů` |
+| Dvě karty | `Pages/Dvě karty.md` | E109 | `type: page`; `![[Zavolat Janě]]` · blank · `Mezi kartami.` · blank · `![[Zavolat Janě]]` |
+| Obal | `Pages/Obal.md` | E110 | `type: page`; `![[Porada|full]]` (T01's card at depth 2) |
+| Šablona stránky | `_templates/Page/Page.md` | — | frontmatter `type: page` only; paragraph `Úkol v šabloně` |
