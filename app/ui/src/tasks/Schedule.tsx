@@ -9,7 +9,7 @@ import { QuickAdd } from './QuickAddRow';
 import { shortDate, weekOf, type Schedule as Buckets } from './views';
 
 export type SectionId = 'today' | 'week' | 'later' | 'none' | 'done';
-type Group = { key: string; heading: string | null; danger?: boolean; rows: TaskRowDto[] };
+type Group = { key: string; heading: string | null; danger?: boolean; date?: boolean; rows: TaskRowDto[] };
 
 export function ScheduleView({ s, filter, today, region, firstWeekday, priorities, renderCard, doneExpanded, onToggleDone, onCreate }: {
   s: Buckets;
@@ -42,7 +42,8 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
         )}
         {groups.map((g) => (
           <div key={g.key} className="task-group">
-            {g.heading && <h3 className={g.danger ? 'danger' : undefined}>{g.heading}</h3>}
+            {/* A day group's heading is the region's date (Intl), not catalog text (NFR-OTH-02). */}
+            {g.heading && <h3 className={g.danger ? 'danger' : undefined}>{g.date ? <span data-user-content>{g.heading}</span> : g.heading}</h3>}
             <div className="task-list">{g.rows.map(renderCard)}</div>
           </div>
         ))}
@@ -56,7 +57,7 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
   ];
   out.push(section('today', t('tasks.section.today'), todayGroups, t('tasks.hint.today'), { label: t('tasks.add.today'), due: today }));
   if (filter !== 'today' && s.weekRange) {
-    out.push(section('week', t('tasks.section.week'), s.week.map((g) => ({ key: g.date, heading: date(g.date), rows: g.tasks })),
+    out.push(section('week', t('tasks.section.week'), s.week.map((g) => ({ key: g.date, heading: date(g.date), date: true, rows: g.tasks })),
       t('tasks.hint.week', { from: date(s.weekRange.from), to: date(s.weekRange.to) }), { label: t('tasks.add.week'), due: last }));
   }
   if (filter === 'all') {
