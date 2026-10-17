@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { gateRank, type Config, type Gate, type Step } from './config.ts';
 import {
   acTestProtection,
@@ -48,6 +48,25 @@ function printCheck(c: CheckResult): void {
 /** The shared Cargo build cache of tree gates (CONTRACT §3.2.1, D-343): machine-local, under .verify/. */
 export function cargoCacheDir(root: string): string {
   return path.join(root, '.verify', 'cargo-target');
+}
+
+// Probes a TCP port: exit 0 when a listener could bind it on every interface, 1 otherwise.
+const PROBE = `const s=require('net').createServer();s.once('error',()=>process.exit(1));s.listen(Number(process.argv[1]),()=>s.close(()=>process.exit(0)))`;
+
+/**
+ * The port a tree gate's steps bind their dev servers to (CONTRACT §3.2.1, D-343): derived from the worktree
+ * path, so two gates of the same repository (stable path and fall-back temporary path) start from different
+ * candidates, then moved up past any port that is already taken. Never the developer ports (5177, 5174).
+ */
+export function gatePortBase(worktree: string, isFree: (port: number) => boolean = portFree): number {
+  const hash = createHash('sha256').update(worktree).digest();
+  let port = 20000 + (hash.readUInt16BE(0) % 10000);
+  while (!isFree(port)) port = port >= 29999 ? 20000 : port + 1;
+  return port;
+}
+
+function portFree(port: number): boolean {
+  return exec(process.execPath, ['-e', PROBE, String(port)], { cwd: process.cwd() }).status === 0;
 }
 
 function runStep(step: Step, checkout: string, env: NodeJS.ProcessEnv): StepResult {
@@ -205,7 +224,9 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
     }
     const gateSteps = cfg.steps.filter((s) => gateRank(s.level) <= gateRank(gate));
     for (const p of provideNodeModules(root, wt.dir, gateSteps.map((s) => s.dir))) log(`⚠ ${p}`);
-    const env = stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined);
+    const port = gatePortBase(wt.dir);
+    log(`dev-server port for this run: ${port} (VERIFY_PORT_BASE)`);
+    const env = { ...stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined), VERIFY_PORT_BASE: String(port) };
     const cached = { ...env, CARGO_TARGET_DIR: cargoCacheDir(root) };
     for (const step of gateSteps) steps.push(runStep(step, wt.dir, step.cargoCache ? cached : env));
   } finally {

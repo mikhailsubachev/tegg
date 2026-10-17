@@ -1,10 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // L5 (test-strategy §4): the real UI on WebKit (the engine of Tauri's WKWebView) with the fake core over mocked IPC
-// (ui/test/fake-core.ts, docs/contracts/ms3-shell.md §5). Under ./verify (VERIFY_GATE set) a separate port is used
+// (ui/test/fake-core.ts, docs/contracts/ms3-shell.md §5). Under ./verify (VERIFY_GATE set) a per-run port is used
 // and a running dev server is never reused, so the gate tests the checkout's code.
 const gate = !!process.env.VERIFY_GATE;
-const port = gate ? 5197 : 5177;
+// Under the gate the port comes from the runner (VERIFY_PORT_BASE, CONTRACT §3.2.1), one per run, so two gates of the
+// same repository can run at the same time (D-343).
+const port = gate ? Number(process.env.VERIFY_PORT_BASE) : 5177;
+if (gate && !Number.isInteger(port)) throw new Error('VERIFY_GATE is set but VERIFY_PORT_BASE is not a port');
 
 export default defineConfig({
   testDir: 'webkit',

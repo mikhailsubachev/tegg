@@ -59,6 +59,7 @@ Also found: **no nightly job is installed** (`launchctl` has no verify job; last
 - `keyboard.ac.test.ts`: four tests sweep every route × every command × every control. Split the sweeps into one test per route (same assertions, parallelizable), or keep a sample in push and the full matrix nightly. Without this the file alone stays ≥ 288 s and caps the gain.
 - `editor_save.ac.test.ts` (221 s) uses real waits around the autosave timer (`sleep(150)`, `saved(…, 3000)`); it already uses `page.clock` in places and could everywhere.
 - Expected: `app-webkit` 348 s → ~120 s.
+- Follow-up (2026-10-16): with the stable worktree path two gates of one repository often run at once; the gate's Vite port must then be per run (`VERIFY_PORT_BASE`, CONTRACT §3.2.1), not the fixed 5197, or the second gate's `app-webkit` fails at start.
 
 ### Item 4: spike tests only when spikes change (≈ −1.5 min after item 2)
 
