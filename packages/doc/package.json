@@ -10,6 +10,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "build": "node scripts/build-transform-cli.mjs",
     "make:obsidian-check": "node --import ./scripts/ts-resolve.mjs scripts/make-obsidian-check.ts ../../tests/fixtures/vaults/obsidian-check"
   },
   "devDependencies": {

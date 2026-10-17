@@ -404,6 +404,14 @@ impl Vault {
         }
     }
 
+    /// ms4-jobs §3 (D-389, FR-SYN-06 AC-11): a note rename as one atomic step: `bytes` go to a temp file in `to`'s
+    /// folder, which is renamed onto `to` without replacing (`RENAME_EXCL`), then `from` is removed after a base check.
+    /// Errors: `NameTaken` (`to` exists), `Conflict { disk }` (`from` changed since `base`), `Gone`.
+    /// Stub (slice 4C red tests): not implemented.
+    pub fn rename_with(&self, _from: &str, _to: &str, _bytes: &[u8], _base: &FileVersion) -> Result<FileVersion, VaultError> {
+        Err(VaultError::NotImplemented)
+    }
+
     /// Trash only if the file is still `base` (D-195); else `Conflict`.
     pub fn trash_checked(&self, path: &str, base: &FileVersion) -> Result<String, VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());

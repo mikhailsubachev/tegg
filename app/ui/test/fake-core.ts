@@ -51,6 +51,20 @@ export type FakeCoreHandle = {
   uiState(): Promise<UiStateDto | null>;
   /** URLs passed to `open_external` that the fake accepted (http, https, mailto; ms3-shell §11.1). */
   externalOpened(): Promise<string[]>;
+  /** ms4-jobs §11 (4C): the reports of every job the fake ran, in start order. */
+  jobs(): Promise<JobReportDto[]>;
+  /** Pauses the next job before `phase`; the returned function releases it. */
+  holdJob(phase: 'planning' | 'writing'): Promise<() => Promise<void>>;
+  /** The next job write to `path` is skipped with `reason`. */
+  skipOnWrite(path: string, reason: SkipReason): Promise<void>;
+};
+/** ms4-jobs §4 (4C). */
+export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
+export type JobReportDto = {
+  jobId: number; kind: string; phase: 'done' | 'cancelled' | 'failed';
+  renamed?: { from: string; to: string };
+  written: string[]; unchanged: string[];
+  skipped: { path: string; reason: SkipReason }[]; error?: string;
 };
 /** ms3-shell §12.5 (D-219). */
 export type RecentVaultDto = { name: string; path: string; exists: boolean };
@@ -142,6 +156,13 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     files: () => ev(() => ({ ...(window as any).__teggFake.vault?.files }) as Record<string, string>),
     uiState: () => ev(() => (window as any).__teggFake.uiState as UiStateDto | null),
     externalOpened: () => ev(() => [...(window as any).__teggFake.external] as string[]),
+    // 4C (ms4-jobs §11). Stub until 4C is built: no job runs, so the list stays empty.
+    jobs: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.jobs)) as JobReportDto[]),
+    holdJob: async (phase) => {
+      await page.evaluate((ph) => { (window as any).__teggFake.jobHold = ph; }, phase);
+      return async () => { await page.evaluate(() => { const f = (window as any).__teggFake; f.jobHold = null; for (const r of f.jobHeld.splice(0)) r(); }); };
+    },
+    skipOnWrite: (path, reason) => page.evaluate(([p, r]) => { (window as any).__teggFake.jobSkips[p.normalize('NFC')] = r; }, [path, reason] as const),
   };
 }
 
@@ -158,6 +179,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
+    'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
   ]);
   const opts = init.opts;
   const state = {
@@ -179,6 +201,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     held: [] as (() => void)[],
     writtenPaths: [] as string[],
     conflicts: null as ConflictRowDto[] | null,
+    // 4C (ms4-jobs §11): job reports, hold and skip control.
+    jobs: [] as unknown[],
+    jobHold: null as 'planning' | 'writing' | null,
+    jobHeld: [] as (() => void)[],
+    jobSkips: {} as Record<string, string>,
     release: () => { const h = state.held.splice(0); for (const f of h) f(); state.control.hold = false; },
     ver: (path: string): VersionDto | null => {
       const p = path.normalize('NFC');
@@ -646,6 +673,21 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
       });
     },
+    // 4C (ms4-jobs §4, §11). Stubs until 4C is built: writes fail with Io, reads answer empty.
+    note_rename: () => { throw err('Io', 'fake: note_rename is not implemented (4C stub)'); },
+    job_cancel: () => { throw err('Io', 'fake: job_cancel is not implemented (4C stub)'); },
+    job_confirm: () => { throw err('Io', 'fake: job_confirm is not implemented (4C stub)'); },
+    job_report: () => null,
+    job_retry: () => { throw err('Io', 'fake: job_retry is not implemented (4C stub)'); },
+    job_undo: () => { throw err('Io', 'fake: job_undo is not implemented (4C stub)'); },
+    job_redo: () => { throw err('Io', 'fake: job_redo is not implemented (4C stub)'); },
+    job_transform_result: () => null,
+    job_interrupted: () => [],
+    job_resolve_interrupted: () => { throw err('Io', 'fake: job_resolve_interrupted is not implemented (4C stub)'); },
+    backups_list: () => [],
+    backup_restore: () => { throw err('Io', 'fake: backup_restore is not implemented (4C stub)'); },
+    editor_open: () => null,
+    editor_close: () => null,
     open_external: (a) => {
       const url = String(a.url);
       if (!/^(https?:|mailto:)/i.test(url)) throw err('Unsupported', `fake: scheme not allowed: ${url}`);

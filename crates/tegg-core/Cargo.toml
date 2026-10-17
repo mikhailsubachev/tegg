@@ -10,6 +10,7 @@ tegg-format = { path = "../tegg-format" }
 tegg-vault = { path = "../tegg-vault" }
 tegg-index = { path = "../tegg-index" }
 tegg-schema = { path = "../tegg-schema" }
+tegg-jobs = { path = "../tegg-jobs" }
 chrono.workspace = true
 chrono-tz.workspace = true
 serde_json.workspace = true

@@ -653,6 +653,127 @@ pub struct DailyCreatedDto {
     pub duplicates: Vec<String>,
 }
 
+// ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct NoteRenameDto {
+    pub job_id: u32,
+    /// The planned path; the final one is in the report.
+    pub to_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobIdDto {
+    pub job_id: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct JobCountsDto {
+    pub written: u32,
+    pub unchanged: u32,
+    pub skipped: u32,
+}
+
+/// `job:progress` (FR-UX-07 AC-8). `kind`: `note-rename` | …; `phase`: `queued` | `planning` | `confirm` | `backup` |
+/// `writing` | `done` | `cancelled` | `failed`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobProgressDto {
+    pub job_id: u32,
+    pub kind: String,
+    pub phase: String,
+    pub done: u32,
+    pub total: u32,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counts: Option<JobCountsDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RenamedDto {
+    pub from: String,
+    pub to: String,
+}
+
+/// `reason`: `changed` | `missing` | `placeholder` | `readOnly` | `io`.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct SkippedDto {
+    pub path: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobReportDto {
+    pub job_id: u32,
+    pub kind: String,
+    /// `done` | `cancelled` | `failed`.
+    pub phase: String,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub renamed: Option<RenamedDto>,
+    pub written: Vec<String>,
+    pub unchanged: Vec<String>,
+    pub skipped: Vec<SkippedDto>,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// `outcome`: `written` | `unchanged` | `skipped`.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RetryDto {
+    pub outcome: String,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct EditDto {
+    pub start: u32,
+    pub end: u32,
+}
+
+/// Answer to `job:transform`: `{ kind: 'bytes', text, edits }`, `{ kind: 'unchanged' }` or `{ error }`.
+#[derive(Debug, Clone, Deserialize, TS)]
+pub struct TransformedDto {
+    #[ts(optional)]
+    pub kind: Option<String>,
+    #[ts(optional)]
+    pub text: Option<String>,
+    #[ts(optional)]
+    pub edits: Option<Vec<EditDto>>,
+    #[ts(optional)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct InterruptedDto {
+    pub job_id: u32,
+    pub from: String,
+    pub to: String,
+    pub done: u32,
+    pub total: u32,
+}
+
+/// Settings › Backups (FR-HIS-04 AC-6; UI with 4D-lite, D-396).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BackupDto {
+    pub name: String,
+    pub kind: String,
+    /// ISO 8601 with offset.
+    pub time: String,
+}
+
 fn yes() -> bool {
     true
 }
@@ -720,6 +841,18 @@ pub fn typescript() -> String {
         ContextRowDto::decl(),
         DailyContextDto::decl(),
         DailyCreatedDto::decl(),
+        NoteRenameDto::decl(),
+        JobIdDto::decl(),
+        JobCountsDto::decl(),
+        JobProgressDto::decl(),
+        RenamedDto::decl(),
+        SkippedDto::decl(),
+        JobReportDto::decl(),
+        RetryDto::decl(),
+        EditDto::decl(),
+        TransformedDto::decl(),
+        InterruptedDto::decl(),
+        BackupDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

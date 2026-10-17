@@ -284,6 +284,8 @@ fn forward_events(app: AppHandle, core: &Core) {
                     let _ = app.emit("note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
+                // ms4-jobs §4 (4C): `job:progress` and `job:transform` are forwarded once the engine is built.
+                CoreEvent::JobProgress(_) | CoreEvent::JobTransform { .. } => {}
             }
         }
     });
@@ -814,6 +816,98 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
     })
 }
 
+// ---------------------------------------------------------------- slice 4C (ms4-jobs §4): stubs until 4C is built
+
+fn not_built() -> IpcError {
+    err("Io", "not implemented (slice 4C)")
+}
+
+/// `note_rename` (FR-FMT-08, FR-LNK-03, D-268): starts a `note-rename` job.
+#[tauri::command]
+async fn note_rename(state: State<'_, AppState>, path: String, title: String, from_title: String) -> Result<NoteRenameDto, IpcError> {
+    let _ = (core(&state)?, path, title, from_title);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_cancel(state: State<'_, AppState>, job_id: u32) -> Result<(), IpcError> {
+    let _ = (core(&state)?, job_id);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_confirm(state: State<'_, AppState>, job_id: u32) -> Result<(), IpcError> {
+    let _ = (core(&state)?, job_id);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_report(state: State<'_, AppState>, job_id: u32) -> Result<Option<JobReportDto>, IpcError> {
+    let _ = (core(&state)?, job_id);
+    Ok(None)
+}
+
+#[tauri::command]
+async fn job_retry(state: State<'_, AppState>, job_id: u32, path: String) -> Result<RetryDto, IpcError> {
+    let _ = (core(&state)?, job_id, path);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_undo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
+    let _ = (core(&state)?, job_id);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_redo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
+    let _ = (core(&state)?, job_id);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn job_transform_result(state: State<'_, AppState>, request_id: u32, result: TransformedDto) -> Result<(), IpcError> {
+    let _ = (core(&state)?, request_id, result);
+    Ok(())
+}
+
+#[tauri::command]
+async fn job_interrupted(state: State<'_, AppState>) -> Result<Vec<InterruptedDto>, IpcError> {
+    let _ = core(&state)?;
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+async fn job_resolve_interrupted(state: State<'_, AppState>, job_id: u32, choice: String) -> Result<JobIdDto, IpcError> {
+    let _ = (core(&state)?, job_id, choice);
+    Err(not_built())
+}
+
+#[tauri::command]
+async fn backups_list(state: State<'_, AppState>) -> Result<Vec<BackupDto>, IpcError> {
+    let _ = core(&state)?;
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+async fn backup_restore(state: State<'_, AppState>, name: String) -> Result<JobIdDto, IpcError> {
+    let _ = (core(&state)?, name);
+    Err(not_built())
+}
+
+/// ms4-jobs §9 (D-386): the UI opened / closed `path` in an editor.
+#[tauri::command]
+async fn editor_open(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
+    core(&state)?.jobs().editor_open(&path);
+    Ok(())
+}
+
+#[tauri::command]
+async fn editor_close(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
+    core(&state)?.jobs().editor_close(&path);
+    Ok(())
+}
+
 /// `link_create_plan` (FR-LNK-04, D-286…D-288): read-only, when the Create offer opens.
 #[tauri::command]
 async fn link_create_plan(state: State<'_, AppState>, from: String, target: String, relation_to: Option<Vec<String>>) -> Result<LinkCreatePlanDto, IpcError> {
@@ -1208,7 +1302,9 @@ pub fn run() {
             link_resolve, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
-            daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks
+            daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
+            note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
+            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

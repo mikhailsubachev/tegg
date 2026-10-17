@@ -242,4 +242,28 @@ body: string, templateInvalid: string | null, path: string, formatFallback: bool
 export type ContextRowDto = { path: string, title: string, type: string, at: string, };
 export type DailyContextDto = { quickNotes: Array<ContextRowDto>, created: Array<ContextRowDto>, modified: Array<ContextRowDto>, totals: [number, number, number], };
 export type DailyCreatedDto = { path: string, version: VersionDto, duplicates: Array<string>, };
+export type NoteRenameDto = { jobId: number, 
+/**
+ * The planned path; the final one is in the report.
+ */
+toPath: string, };
+export type JobIdDto = { jobId: number, };
+export type JobCountsDto = { written: number, unchanged: number, skipped: number, };
+export type JobProgressDto = { jobId: number, kind: string, phase: string, done: number, total: number, counts?: JobCountsDto, };
+export type RenamedDto = { from: string, to: string, };
+export type SkippedDto = { path: string, reason: string, };
+export type JobReportDto = { jobId: number, kind: string, 
+/**
+ * `done` | `cancelled` | `failed`.
+ */
+phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<string>, skipped: Array<SkippedDto>, error?: string, };
+export type RetryDto = { outcome: string, reason?: string, };
+export type EditDto = { start: number, end: number, };
+export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
+export type InterruptedDto = { jobId: number, from: string, to: string, done: number, total: number, };
+export type BackupDto = { name: string, kind: string, 
+/**
+ * ISO 8601 with offset.
+ */
+time: string, };
 export type TypeDefDto = TypeDto;

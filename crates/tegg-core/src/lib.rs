@@ -22,6 +22,7 @@ pub use tegg_index::{
     SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
+pub use tegg_jobs;
 use tegg_vault::{FsChange, WatchGuard};
 
 #[derive(Default, Clone)]
@@ -45,6 +46,11 @@ pub enum CoreEvent {
     VaultChanged { paths: Vec<String> },
     NoteConflict { path: String, mine: Vec<u8>, theirs: Vec<u8>, disk: FileVersion },
     Placeholders { count: usize },
+    /// ms4-jobs §4: `job:progress` (FR-UX-07 AC-8).
+    JobProgress(tegg_jobs::JobProgress),
+    /// ms4-jobs §2.2, §9: a file for the UI's `@tegg/doc` worker; `live` when the file is open in an editor (D-386),
+    /// whose transaction and autosave then write it.
+    JobTransform { request: u64, source: String, text: String, ops: Vec<tegg_jobs::TextOp>, live: bool },
 }
 
 #[derive(Debug)]
@@ -210,6 +216,8 @@ pub struct Core {
     worker: Option<JoinHandle<()>>,
     /// Mutex only so `Core` is `Sync` (the shell shares it between IPC threads).
     watch: Mutex<Option<WatchGuard>>,
+    /// ms4-jobs §4: the job engine of this vault (stub until slice 4C is built).
+    jobs_engine: tegg_jobs::Jobs,
 }
 
 impl Core {
@@ -277,11 +285,16 @@ impl Core {
         let adapter: Arc<dyn SyncAdapter> = opts.sync.unwrap_or_else(|| Arc::new(FolderSync));
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
-        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch) })
+        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine: tegg_jobs::Jobs::new() })
     }
 
     pub fn vault(&self) -> &Vault {
         &self.shared.vault
+    }
+
+    /// ms4-jobs §4: the job engine (note rename in 4C).
+    pub fn jobs(&self) -> &tegg_jobs::Jobs {
+        &self.jobs_engine
     }
 
     /// Every receiver gets all events since `open` (buffered), then live ones.

@@ -1,0 +1,19 @@
+[package]
+name = "tegg-jobs"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+description = "Tegg core: the job engine for bulk rewrites (note rename, later tag/key/type jobs), docs/contracts/ms4-jobs.md"
+
+# Platform-neutral (AR-03): no Tauri, no desktop APIs. tegg-core owns a `Jobs` instance (ms4-jobs §2, §4).
+[dependencies]
+tegg-format = { path = "../tegg-format" }
+tegg-vault = { path = "../tegg-vault" }
+tegg-index = { path = "../tegg-index" }
+
+[dev-dependencies]
+tegg-core = { path = "../tegg-core", features = ["test-hooks"] }
+tegg-vault = { path = "../tegg-vault" }
+tegg-format = { path = "../tegg-format" }
+tegg-index = { path = "../tegg-index" }
+tempfile.workspace = true
