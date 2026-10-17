@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.60, for review                                             |
+| **Document status** | Draft v1.61, for review                                             |
 | **Date**            | 2026-10-16                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -76,6 +76,7 @@
 | v1.58   | 2026-10-16 | D-379…D-381 (AP-i…AP-k, the owner's Tasks boards): Schedule sections replace the FR-TSK-04 view list, quick-add tokens in FR-TSK-10, recurrence badge stays v1.0. |
 | v1.59   | 2026-10-16 | D-382: every slice ships the real-app (L6) tests of its ACs; `./verify push` enforces it with the `l6-coverage` check (TS-I7, TS-COV AC-6). |
 | v1.60   | 2026-10-17 | Slice 4C rename-engine decisions D-383…D-399 (AP-288…AP-303 and the D-294 offer, `docs/acceptance/rename.md`): link forms kept, free-name rule, undo as a job, live-editor rewrite, job journal, frontmatter links, templates rewritten and trash untouched, merge with 4D-lite, one job at a time, zip engine in 4C with restore UI in 4D-lite. |
+| v1.61   | 2026-10-17 | Slice 4C red-test decisions D-400…D-413 (AP-304…AP-317): coverage headings, test IDs, case-only renames, unquoted frontmatter links, job points, contract gaps, skip texts, AC wording fixes. |
 
 ---
 
@@ -518,6 +519,20 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-397 | No performance target for jobs (AP-302, owner, 2026-10-17) | Report-only benchmark in 4C (500 backlinks on the generated vault, D-152); the owner sets a target at the MS4 gate. |
 | D-398 | Where the "link not updated" list lives and how long (AP-303, owner, 2026-10-17) | In-memory, per vault, until quit: a status-area entry `<n> links not updated` opening a non-modal list with Open/Retry/Retry all, plus the palette `Show links not updated`. Not written to the vault or Application Support. |
 | D-399 | No external-rename link offer in 4C (owner, 2026-10-17) | D-294's "Update links to the renamed note" after an external rename is not built in 4C; the planner supports retargeting from a stale stem, and the offer comes with Broken links in v1.0 |
+| D-400 | Requirement headings in rename.md (AP-304, owner, 2026-10-17) | rename.md's requirement headings become `###`, so `verify coverage`, `l6-coverage` and `milestone-acs` track its criteria. |
+| D-401 | AC numbering clash with links.md (AP-305, owner, 2026-10-17) | rename.md's FR-FMT-08 AC-5…AC-10 keep their numbers; links.md's FR-LNK-03 AC-1…AC-6 keep theirs. Tests name rename.md's criteria `fr_fmt_08_ac5…` and links.md's `fr_lnk_03_ac1…ac6`, so no two tests share an ID. |
+| D-402 | Case-only rename and free stems (AP-306, owner, 2026-10-17) | A rename whose new stem has the same key (NFC, case-folded) as the note's own current stem is never a collision: `alfa` → `Alfa` keeps the stem, only its case changes, even when other files share the stem elsewhere in the vault. |
+| D-403 | Unquoted wikilinks in frontmatter (AP-307, owner, 2026-10-17) | An unquoted `key: [[Alfa]]` (YAML reads it as a nested list) is rewritten like a string value: only the target bytes change, the YAML form stays (FR-LNK-03 AC-8). |
+| D-404 | Sync-simulator job points (AP-308, owner, 2026-10-17) | The engine exposes named points `AfterPlanning`, `AfterRead`, `TempWritten` with a test hook (`Jobs::set_point_hook`, test builds and Rust tests only). For the `TempWritten` point the job writes the temp file and renames it itself instead of using the single `VaultFs::replace` call. |
+| D-405 | Contract gaps filled by the stubs (AP-309, owner, 2026-10-17) | The stubs' choices become the contract: no `to: N` in `RetargetLinks`; Rust `SetTitle` carries `now`; `JobError::Core(String)` (no crate cycle); the IPC's `fromTitle` reaches the planner through `Jobs::start_note_rename(path, title, from_title)`, while `JobOp::NoteRename` uses the stored title; `JobTransform` carries `live`; `editor_open`/`editor_close`/`job_transform_result` names; `NodeTransformer::start(script)`/`from_repo(root)` with JSON lines `{id, source, text, ops}` → `{id, result | error}`. |
+| D-406 | Skip-reason texts (AP-310, owner, 2026-10-17) | Catalog texts: `job.skip.missing` = `missing`, `job.skip.readOnly` = `read-only`, `job.skip.io` = `could not be written`, `job.rename.cancel` = `Cancel`. |
+| D-407 | Self-link and "body unchanged" (AP-311, owner, 2026-10-17) | FR-FMT-08 AC-5's "body bytes unchanged" excludes the note's self-links, which the same write rewrites (FR-LNK-03 AC-7). |
+| D-408 | Links "resolved through an alias" (AP-312, owner, 2026-10-17) | Links never resolve by alias (D-291). FR-LNK-03 AC-10's alias case means: a `[[<alias>]]` link in another note is not rewritten, and its resolution is the same before and after the rename. |
+| D-409 | `queued` phase in progress events (AP-313, owner, 2026-10-17) | FR-UX-07 AC-8's phase list is extended with `queued`; the 500 ms rule is measured at the receiver with 100 ms slack. |
+| D-410 | "Index was stale" in FR-SYN-06 AC-10 (AP-314, owner, 2026-10-17) | A file whose bytes changed since planning is skipped as `changed` (§5); FR-SYN-06 AC-10 covers only files whose rewritten bytes equal their current bytes (counted `unchanged`). Its "stale index" example is removed. |
+| D-411 | Temp-file guard and banner count in FR-LNK-03 AC-17 (AP-315, owner, 2026-10-17) | The crash test ages leftover temp files past FR-SYN-02 AC-4's one-minute guard before reopening (as D-344). `<done> of <total>` in the interrupted banner counts files, and its text says `notes`. |
+| D-412 | Skipped file at L6 (AP-316, owner, 2026-10-17) | FR-LNK-03 AC-16's L6 case produces its skipped file by making a folder read-only (reason `io`); the external-edit case stays at L4/L5. |
+| D-413 | Markdown-link URLs gaining spaces; `sanitize` at L1 (AP-317, owner, 2026-10-17) | A Markdown-link URL that was neither percent-encoded nor in `<…>` and gains a space is written percent-encoded (`%20`). `sanitize` is tested through the Rust `sanitize_file_stem` (no TS twin). |
 
 ---
 

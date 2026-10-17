@@ -1,6 +1,6 @@
 # MS4 Jobs Interface Contract (slice 4C)
 
-- **Status:** draft, 2026-10-17. Written before the 4C red tests. Follows D-267…D-269, D-290, D-291, D-382 and the 4C decisions D-383…D-399 (BRD v1.60).
+- **Status:** draft, 2026-10-17. Written before the 4C red tests. Follows D-267…D-269, D-290, D-291, D-382 and the 4C decisions D-383…D-399 (BRD v1.60); corrected after the red tests by D-400…D-413 (BRD v1.61).
 - **ACs:** [docs/acceptance/rename.md](../acceptance/rename.md) (FR-FMT-08 AC-5…AC-10, FR-LNK-03 AC-7…AC-20, FR-HIS-04 AC-4…AC-6, FR-UX-07 AC-8…AC-11, FR-SYN-06 AC-10, AC-11) and the existing criteria it lists. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Builds on** [ms4-links.md](ms4-links.md) (§1 one resolution rule, §3.1 free stems), [ms3-shell.md](ms3-shell.md) (§5 fake core, §13 editor and autosave), [ms1-core.md](ms1-core.md) (`Vault`, `FileVersion`), [architecture.md](../architecture.md) §5.6. Everything there stays valid unless this contract changes it.
 - **Clients.** One job model for every bulk operation. 4C ships the engine and **note rename** only. Tag rename/delete and merge (D-290, D-392) ship with 4D-lite; key rename, value removal, type/folder move and type delete with 4E (v1.0, D-372); import with MS7. Their op shapes and flags are defined here so later slices only add planners (§9).
@@ -63,6 +63,7 @@ pub struct PlannedFile { pub path: String, pub version: FileVersion, pub ops: Ve
 
 - **Note rename.** Input `{path, title}`. Refused with `JobError::NotRenamable` for a Daily Note (D-320), for `_templates/` and `.trash/` paths (D-391: the caller writes only `title:` there), and for a path whose last read was not UTF-8 (D-180). New stem `s′ = free_stem(folder(path), sanitize(title))` (ms4-links §3.1, D-384) where the note's own current stem is treated as free, so a case-only change keeps the same stem key (FR-FMT-08 AC-8). The stem is chosen when the job starts, never at the keystroke (FR-FMT-08 AC-10). Files: the note itself (title + self-links, D-389) and every note `S ≠ N` outside `.trash/` with at least one link that **resolves to N under D-291 from S** (index link records), including `_templates/` (D-391) and Daily Notes. Links in code (links.md AC-3) are never extracted and so never planned.
 - **Undo / redo** (§7) plan from the undo record, not the index.
+- **Case-only and same-key renames (D-402).** A new stem whose key (NFC, case-folded) equals the note's own current stem key is never a collision, whatever other files share that stem elsewhere in the vault.
 - **The plan is a hint.** Every file is re-read at write time and checked against `version` (§5).
 
 ### 2.2 Text ops and the transformer (D-82)
@@ -71,9 +72,9 @@ Rust never edits Markdown (architecture §3). Each planned file's new bytes come
 
 ```rust
 pub enum TextOp {
-    RetargetLinks { to: N, from_stem: String, from_path: String, from_title: String,
-                    to_stem: String, to_path: String, to_title: String },
-    SetTitle { title: String },     // the renamed note only; also touches `modified` (FR-FMT-11)
+    RetargetLinks { from_stem: String, from_path: String, from_title: String,
+                    to_stem: String, to_path: String, to_title: String, paths: Vec<String> },
+    SetTitle { title: String, now: String },  // the renamed note only; also touches `modified` (FR-FMT-11)
     // later: RenameTag, RemoveTag, RenameKey, RemoveValue, SetType, MergeInto
 }
 pub enum Transformed { Bytes(Vec<u8>, Vec<Edit>), Unchanged }
@@ -87,8 +88,8 @@ pub enum TransformError { Unavailable, Timeout, Engine(String) }
 ```
 
 - **In the app** the transformer is the UI's `@tegg/doc` worker: the core emits `job:transform { requestId, source, text, ops }`; the UI answers `job_transform_result(requestId, result)` (§4). Timeout 10 s per file → that file is skipped with reason `io` (§5); the job continues.
-- **In Rust tests** `tegg_jobs::testing::NodeTransformer` runs one persistent `node packages/doc/dist/transform-cli.js` process (JSON lines on stdin/stdout, built by `npm run build -w packages/doc`), so L4 and L2 bytes come from the real engine. `tegg_jobs::testing::FailingTransformer` covers the error paths.
-- Which links `RetargetLinks` rewrites: in the source document, every link node (wikilink, embed, Markdown link; body and every frontmatter string value, D-388) whose target **resolves to the old path** from `source` (the same D-291 rule, implemented in `@tegg/doc` `resolve` with the vault path list the op carries in `paths`). The op therefore also carries `paths: Vec<String>` (the vault's note paths before the rename); the TS side does not query the core.
+- **In Rust tests** `tegg_jobs::testing::NodeTransformer::start(script)` / `from_repo(root)` runs one persistent `node packages/doc/dist/transform-cli.js` process (JSON lines: `{id, source, text, ops}` → `{id, result | error}`, D-405; built by `npm run build` in `packages/doc`), so L4 and L2 bytes come from the real engine. `tegg_jobs::testing::FailingTransformer` covers the error paths.
+- Which links `RetargetLinks` rewrites: in the source document, every link node (wikilink, embed, Markdown link; body and every frontmatter string value, D-388) whose target **resolves to the old path** from `source` (the same D-291 rule, implemented in `@tegg/doc` `resolve` with the vault path list the op carries in `paths`). The op therefore carries `paths: Vec<String>` (the vault's note paths before the rename); the TS side does not query the core.
 
 ### 2.3 `@tegg/doc` additions
 
@@ -149,10 +150,18 @@ impl Jobs {
     pub fn interrupted(&self) -> Vec<Interrupted>;                       // §8
     pub fn resolve_interrupted(&self, job: JobId, choice: Finish | Undo) -> Result<JobId, JobError>;
 }
-pub enum JobError { NotRenamable, Busy, NotCancellable, NotFound, NotImplemented, BackupFailed(String), Core(CoreError) }
+pub enum JobError { NotRenamable, Busy, NotCancellable, NotFound, NotImplemented, BackupFailed(String), Core(String) }  // String: no crate cycle (D-405)
+impl Jobs {
+    /// The IPC path: `from_title` is the title when the edit started (D-394); `JobOp::NoteRename` uses the stored title.
+    pub fn start_note_rename(&self, path: &str, title: &str, from_title: &str) -> Result<JobId, JobError>;
+    pub fn editor_open(&self, path: &str);                              // §9
+    pub fn editor_close(&self, path: &str);
+    pub fn transform_result(&self, request: u64, result: Result<Transformed, TransformError>);
+    #[doc(hidden)] pub fn set_point_hook(&self, hook: Option<PointHook>); // §5.1, tests only
+}
 ```
 
-`CoreEvent` gains `JobProgress(JobProgress)` and `JobTransform { request: u64, source: String, text: String, ops: Vec<TextOp> }`.
+`CoreEvent` gains `JobProgress(JobProgress)` and `JobTransform { request: u64, source: String, text: String, ops: Vec<TextOp>, live: bool }`.
 
 | Command | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
@@ -186,6 +195,10 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 ## 5. Base versions and skips
 
 - At write time each file is read again. If its version is not `same_content` as the planned one, or the plan predates an own write to it, the file is **skipped** with `changed` and nothing is written to it (NFR-REL-02, FR-LNK-03 AC-15). `missing`: the file is gone. `placeholder`: an online-only file (ms2-core placeholders). `readOnly`: a file the editor opens read-only (not UTF-8, NFR-REL-03). `io`: any other error, including a transformer error or timeout.
+### 5.1 Job points (D-404, tests only)
+
+`JobPoint::{AfterPlanning, AfterRead { path }, TempWritten { path }}` are reported to the hook set by `Jobs::set_point_hook` on the job thread (it may block). `AfterPlanning` is still in `planning`; `AfterRead` and `TempWritten` are in `writing`. To have a `TempWritten` point, the job writes the temp file and renames it itself rather than calling `VaultFs::replace` once; the base check is repeated right before the rename.
+
 - No automatic retries. `job_retry` is the only retry, per file, from the current bytes.
 - The skipped files form the **"link not updated" list** (D-398): kept in memory per vault until quit, never written to disk; a successful retry removes the row.
 
@@ -216,8 +229,8 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 ## 10. UI
 
 - `app/ui/src/jobs/`: `worker.ts`, `bridge.ts` (§2.3), `status.tsx` (status element), `notUpdated.tsx` (the list), `jobs.ts` (`renameNote(path, title, fromTitle)`, `undoLast()`, `subscribe(onProgress)`).
-- **Status element** (FR-UX-07 AC-9): `role="status"`, no dialog. Text keys `job.rename.running` (`Updating links in {count} notes`), `job.rename.done` (`Updated links in {count} notes`) with `Undo` (`job.undo`) for 5 s, `job.rename.cancel`. Nothing is shown when no other file is rewritten.
-- **List** (FR-LNK-03 AC-16): status entry `job.notUpdated.count` (`{count} links not updated`, plural); rows with title, path, reason (`job.skip.changed` `changed by another app`, `job.skip.missing`, `job.skip.placeholder` `not downloaded`, `job.skip.readOnly`, `job.skip.io`), `Open`, `Retry`; `Retry all`. Accessible names: list `Links not updated`, buttons `Retry <title>`, `Retry all`.
+- **Status element** (FR-UX-07 AC-9): `role="status"`, no dialog. Text keys `job.rename.running` (`Updating links in {count} notes`), `job.rename.done` (`Updated links in {count} notes`) with `Undo` (`job.undo`) for 5 s, `job.rename.cancel` (`Cancel`). Nothing is shown when no other file is rewritten.
+- **List** (FR-LNK-03 AC-16): status entry `job.notUpdated.count` (`{count} links not updated`, plural); rows with title, path, reason (`job.skip.changed` `changed by another app`, `job.skip.missing` `missing`, `job.skip.placeholder` `not downloaded`, `job.skip.readOnly` `read-only`, `job.skip.io` `could not be written`; D-406), `Open`, `Retry`; `Retry all`. Accessible names: list `Links not updated`, buttons `Retry <title>`, `Retry all`.
 - **Commands** (FR-UX-03): `job.undoRename` (`Undo rename`), `job.showNotUpdated` (`Show links not updated`).
 - **Interrupted job** banner: `job.interrupted` with `job.finish`, `job.undo`.
 - **Merge button** (D-392): relabelled `Coming in MS4 (4D)`.
