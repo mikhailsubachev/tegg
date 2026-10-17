@@ -717,7 +717,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             </span>
           </h1>
         ) : editable && !showSource ? (
-          <h1 className="note-title">
+          <h1 className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
               elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
@@ -824,10 +824,22 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   return (
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
-      id={id} role="textbox" aria-label={label} aria-level={1} tabIndex={-1} className="title-field" data-user-content
+      id={id} role="textbox" aria-label={label} tabIndex={-1} className="title-field" data-user-content
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onBlur={onLeave}
+      // An accessibility press (VoiceOver, UI automation) clicks without focusing the field: focus it, caret at the end.
+      onClick={(e) => {
+        const el = e.currentTarget;
+        if (document.activeElement === el) return;
+        el.focus();
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(r);
+      }}
       onPaste={(e) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain').replace(/\s*\n\s*/g, ' ');
