@@ -64,6 +64,8 @@ struct Written {
 #[derive(Debug, Clone, Default)]
 struct UndoRecord {
     files: Vec<Written>,
+    /// The final forward retarget op: notes open in an editor are undone and redone through it (D-386).
+    op: Option<TextOp>,
 }
 
 struct JobState {
@@ -646,14 +648,15 @@ impl Inner {
             trashes: Vec::new(),
             counts: PlanCounts::default(),
         };
-        // FR-FMT-08 AC-7: equal after NFC and trim, or only spaces: nothing to do.
-        if title.is_empty() || title == nfc(stored.trim()) {
-            return Ok(empty(Vec::new()));
-        }
         let from_title = from_title
             .map(|t| nfc(t.trim()))
             .filter(|t| !t.is_empty())
-            .unwrap_or_else(|| nfc(&stored));
+            .unwrap_or_else(|| nfc(stored.trim()));
+        // FR-FMT-08 AC-7: equal after NFC and trim, or only spaces: nothing to do. The autosave may have written the
+        // new title already while typing (D-394), so "equal" means equal to the title when the edit started too.
+        if title.is_empty() || (title == nfc(stored.trim()) && title == from_title) {
+            return Ok(empty(Vec::new()));
+        }
         let wanted = nfc(&sanitize_file_stem(&title));
         // D-402: a stem with the note's own stem key is never a collision.
         let to_stem = if key(&wanted) == key(&stem) {
@@ -810,6 +813,7 @@ impl Inner {
         if let Some(r) = plan.renames.first_mut() {
             r.1 = path.clone();
         }
+        run.undo.op = Some(ops[1].clone());
         if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
             j.plan = Some(plan.clone());
         }
@@ -964,6 +968,15 @@ impl Inner {
                 run.skip(at, SkipReason::Placeholder);
                 continue;
             }
+            // A linking note open in an editor is changed through the editor, never overwritten (D-386).
+            if at == to && lock(&self.editors).contains(&nfc(at)) {
+                if let (Some(op), Ok((cur, v))) = (rec.op.as_ref(), host.read(at)) {
+                    let op = if undo { reversed(op) } else { op.clone() };
+                    self.write_live(run, at, &cur, &v, std::slice::from_ref(&op));
+                    self.step(run.id, i + 1);
+                    continue;
+                }
+            }
             let r = if at != to {
                 let mut target = to.clone();
                 if host.version(&target).is_some() && key(&target) != key(at) {
@@ -1058,6 +1071,22 @@ impl Inner {
             host.local_remove(&zips.remove(0));
         }
         Ok(path)
+    }
+}
+
+/// The retarget op of an undo: from the new name back to the old one.
+fn reversed(op: &TextOp) -> TextOp {
+    match op {
+        TextOp::RetargetLinks { from_path, from_stem, from_title, to_path, to_stem, to_title, paths } => TextOp::RetargetLinks {
+            from_path: to_path.clone(),
+            from_stem: to_stem.clone(),
+            from_title: to_title.clone(),
+            to_path: from_path.clone(),
+            to_stem: from_stem.clone(),
+            to_title: from_title.clone(),
+            paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
+        },
+        other => other.clone(),
     }
 }
 

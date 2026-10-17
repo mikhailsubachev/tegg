@@ -229,6 +229,15 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
         name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         path: core.vault().root().to_string_lossy().into_owned(),
         placeholders: core.placeholders().len() as u32,
+        interrupted: {
+            let i: Vec<InterruptedDto> = core
+                .jobs()
+                .interrupted()
+                .into_iter()
+                .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+                .collect();
+            (!i.is_empty()).then_some(i)
+        },
     };
     forward_events(app.clone(), &core);
     {
@@ -284,8 +293,14 @@ fn forward_events(app: AppHandle, core: &Core) {
                     let _ = app.emit("note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
-                // ms4-jobs §4 (4C): `job:progress` and `job:transform` are forwarded once the engine is built.
-                CoreEvent::JobProgress(_) | CoreEvent::JobTransform { .. } => {}
+                // ms4-jobs §4 (4C).
+                CoreEvent::JobProgress(p) => {
+                    let _ = app.emit("job:progress", progress_dto(&p));
+                }
+                CoreEvent::JobTransform { request, source, text, ops, live } => {
+                    let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::testing::op_json).collect();
+                    let _ = app.emit("job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
+                }
             }
         }
     });
@@ -816,73 +831,137 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
     })
 }
 
-// ---------------------------------------------------------------- slice 4C (ms4-jobs §4): stubs until 4C is built
+// ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
 
-fn not_built() -> IpcError {
-    err("Io", "not implemented (slice 4C)")
+use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
+
+fn job_err(e: JobError) -> IpcError {
+    match e {
+        JobError::NotRenamable => err("NotRenamable", "this note can't be renamed"),
+        JobError::Busy => err("Busy", "another job is running"),
+        JobError::NotCancellable => err("NotCancellable", "the job can't be cancelled now"),
+        JobError::NotFound => err("NotFound", "no such job"),
+        JobError::NotImplemented => err("NotImplemented", "not available"),
+        JobError::BackupFailed(m) => err("BackupFailed", m),
+        JobError::Core(m) => err("Io", m),
+    }
 }
 
-/// `note_rename` (FR-FMT-08, FR-LNK-03, D-268): starts a `note-rename` job.
+fn progress_dto(p: &JobProgress) -> JobProgressDto {
+    JobProgressDto {
+        job_id: p.job as u32,
+        kind: p.kind.as_str().into(),
+        phase: p.phase.as_str().into(),
+        done: p.done as u32,
+        total: p.total as u32,
+        counts: p.counts.map(|c| JobCountsDto { written: c.written as u32, unchanged: c.unchanged as u32, skipped: c.skipped as u32 }),
+    }
+}
+
+fn report_dto(r: &JobReport) -> JobReportDto {
+    JobReportDto {
+        job_id: r.job as u32,
+        kind: r.kind.as_str().into(),
+        phase: r.phase.as_str().into(),
+        renamed: r.renamed.as_ref().map(|(from, to)| RenamedDto { from: from.clone(), to: to.clone() }),
+        written: r.written.clone(),
+        unchanged: r.unchanged.clone(),
+        skipped: r.skipped.iter().map(|s| SkippedDto { path: s.path.clone(), reason: s.reason.as_str().into() }).collect(),
+        error: r.error.clone(),
+    }
+}
+
+/// `note_rename` (FR-FMT-08, FR-LNK-03, D-268): starts a `note-rename` job; `toPath` is the planned path.
 #[tauri::command]
 async fn note_rename(state: State<'_, AppState>, path: String, title: String, from_title: String) -> Result<NoteRenameDto, IpcError> {
-    let _ = (core(&state)?, path, title, from_title);
-    Err(not_built())
+    let core = core(&state)?;
+    let job = core.jobs().start_note_rename(&path, &title, &from_title).map_err(job_err)?;
+    // The plan is made on the job thread at once (one job at a time, D-393); wait for it briefly for `toPath`.
+    let t0 = std::time::Instant::now();
+    let mut to = path.clone();
+    while t0.elapsed() < Duration::from_secs(2) {
+        if let Some(p) = core.jobs().plan(job) {
+            to = p.renames.first().map(|(_, t)| t.clone()).unwrap_or(path.clone());
+            break;
+        }
+        if core.jobs().report(job).is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(NoteRenameDto { job_id: job as u32, to_path: to })
 }
 
 #[tauri::command]
 async fn job_cancel(state: State<'_, AppState>, job_id: u32) -> Result<(), IpcError> {
-    let _ = (core(&state)?, job_id);
-    Err(not_built())
+    core(&state)?.jobs().cancel(job_id as u64).map_err(job_err)
 }
 
 #[tauri::command]
 async fn job_confirm(state: State<'_, AppState>, job_id: u32) -> Result<(), IpcError> {
-    let _ = (core(&state)?, job_id);
-    Err(not_built())
+    core(&state)?.jobs().confirm(job_id as u64).map_err(job_err)
 }
 
 #[tauri::command]
 async fn job_report(state: State<'_, AppState>, job_id: u32) -> Result<Option<JobReportDto>, IpcError> {
-    let _ = (core(&state)?, job_id);
-    Ok(None)
+    Ok(core(&state)?.jobs().report(job_id as u64).as_ref().map(report_dto))
 }
 
 #[tauri::command]
 async fn job_retry(state: State<'_, AppState>, job_id: u32, path: String) -> Result<RetryDto, IpcError> {
-    let _ = (core(&state)?, job_id, path);
-    Err(not_built())
+    Ok(match core(&state)?.jobs().retry(job_id as u64, &path).map_err(job_err)? {
+        RetryOutcome::Written => RetryDto { outcome: "written".into(), reason: None },
+        RetryOutcome::Unchanged => RetryDto { outcome: "unchanged".into(), reason: None },
+        RetryOutcome::Skipped(r) => RetryDto { outcome: "skipped".into(), reason: Some(r.as_str().into()) },
+    })
 }
 
 #[tauri::command]
 async fn job_undo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
-    let _ = (core(&state)?, job_id);
-    Err(not_built())
+    let id = core(&state)?.jobs().start(JobOp::Undo { job: job_id as u64 }).map_err(job_err)?;
+    Ok(JobIdDto { job_id: id as u32 })
 }
 
 #[tauri::command]
 async fn job_redo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
-    let _ = (core(&state)?, job_id);
-    Err(not_built())
+    let id = core(&state)?.jobs().start(JobOp::Redo { job: job_id as u64 }).map_err(job_err)?;
+    Ok(JobIdDto { job_id: id as u32 })
 }
 
+/// The UI's worker answers a `job:transform` (ms4-jobs §2.2).
 #[tauri::command]
 async fn job_transform_result(state: State<'_, AppState>, request_id: u32, result: TransformedDto) -> Result<(), IpcError> {
-    let _ = (core(&state)?, request_id, result);
+    let r = match (result.error, result.kind.as_deref()) {
+        (Some(e), _) => Err(TransformError::Engine(e)),
+        (None, Some("unchanged")) => Ok(Transformed::Unchanged),
+        (None, Some("bytes")) => Ok(Transformed::Bytes(
+            result.text.unwrap_or_default().into_bytes(),
+            result.edits.unwrap_or_default().into_iter().map(|e| tegg_core::tegg_jobs::Edit { start: e.start as usize, end: e.end as usize }).collect(),
+        )),
+        _ => Err(TransformError::Engine("unknown answer".into())),
+    };
+    core(&state)?.jobs().transform_result(request_id as u64, r);
     Ok(())
 }
 
 #[tauri::command]
 async fn job_interrupted(state: State<'_, AppState>) -> Result<Vec<InterruptedDto>, IpcError> {
-    let _ = core(&state)?;
-    Ok(Vec::new())
+    Ok(core(&state)?
+        .jobs()
+        .interrupted()
+        .into_iter()
+        .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+        .collect())
 }
 
 #[tauri::command]
 async fn job_resolve_interrupted(state: State<'_, AppState>, job_id: u32, choice: String) -> Result<JobIdDto, IpcError> {
-    let _ = (core(&state)?, job_id, choice);
-    Err(not_built())
+    let c = if choice == "undo" { ResolveChoice::Undo } else { ResolveChoice::Finish };
+    let id = core(&state)?.jobs().resolve_interrupted(job_id as u64, c).map_err(job_err)?;
+    Ok(JobIdDto { job_id: id as u32 })
 }
 
+/// Settings › Backups ships with 4D-lite (D-396); 4C makes no zip for a note rename (D-269).
 #[tauri::command]
 async fn backups_list(state: State<'_, AppState>) -> Result<Vec<BackupDto>, IpcError> {
     let _ = core(&state)?;
@@ -892,7 +971,7 @@ async fn backups_list(state: State<'_, AppState>) -> Result<Vec<BackupDto>, IpcE
 #[tauri::command]
 async fn backup_restore(state: State<'_, AppState>, name: String) -> Result<JobIdDto, IpcError> {
     let _ = (core(&state)?, name);
-    Err(not_built())
+    Err(err("NotImplemented", "restoring a backup comes with 4D-lite (D-396)"))
 }
 
 /// ms4-jobs §9 (D-386): the UI opened / closed `path` in an editor.

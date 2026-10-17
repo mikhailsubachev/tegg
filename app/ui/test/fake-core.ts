@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
 import { handle as handleLinks } from './fake-links';
+import { handle as handleJobs } from './fake-jobs';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -132,6 +133,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // 4A (ms4-links §6): link commands in Node with the real @tegg/doc extraction and excerpt window.
   await page.exposeFunction('__teggLinks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleLinks(cmd, args, files, vers as any)).catch(() => {});
+  // 4C (ms4-jobs §11): rename plans and text changes in Node with the real @tegg/doc.
+  await page.exposeFunction('__teggJobs', (cmd: string, args: unknown, files: Record<string, string>) => handleJobs(cmd, args, files)).catch(() => {});
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
@@ -206,6 +209,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     jobHold: null as 'planning' | 'writing' | null,
     jobHeld: [] as (() => void)[],
     jobSkips: {} as Record<string, string>,
+    jobSeq: 0,
+    editors: new Set<string>(),
+    reports: {} as Record<number, any>,
+    plans: {} as Record<number, { op: any; files: Record<string, any[]> }>,
+    undo: {} as Record<number, { op: any; files: { before: string; after: string; pre: string; post: string }[] }>,
     release: () => { const h = state.held.splice(0); for (const f of h) f(); state.control.hold = false; },
     ver: (path: string): VersionDto | null => {
       const p = path.normalize('NFC');
@@ -347,6 +355,111 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     }
     if (r.error) throw r.error.disk ? { ...r.error, disk: withVersions(r.error.disk) } : r.error;
     return withVersions(r.result);
+  };
+
+  // 4C (ms4-jobs §11): the in-page job runner.
+  const jobs = {
+    progress: (jobId: number, phase: string, done: number, total: number, counts?: unknown) =>
+      state.emit('job:progress', { jobId, kind: 'note-rename', phase, done, total, ...(counts ? { counts } : {}) }),
+    hold: async (phase: 'planning' | 'writing') => {
+      if (state.jobHold === phase) await new Promise<void>((r) => state.jobHeld.push(r));
+    },
+    write: (p: string, text: string) => {
+      state.vault!.files[p] = text;
+      state.touch(p);
+      state.writtenPaths.push(p);
+      void state.emit('vault:changed', { paths: [p] });
+    },
+    move: (from: string, to: string, text: string) => {
+      const files = state.vault!.files;
+      delete files[from];
+      delete state.mtimes[from];
+      files[to] = text;
+      state.touch(to);
+      state.writtenPaths.push(to);
+      void state.emit('vault:changed', { paths: [from, to] });
+    },
+    /** D-386: an open note is changed by its editor; counted written when its save lands. */
+    live: async (p: string, ops: unknown[]): Promise<'written' | 'changed'> => {
+      const before = state.ver(p);
+      void state.emit('job:transform', { requestId: ++state.jobSeq, source: p, text: state.vault!.files[p], ops, live: true });
+      for (let i = 0; i < 400; i++) {
+        await new Promise((r) => setTimeout(r, 25));
+        const now = state.ver(p);
+        if (now && before && (now.size !== before.size || now.hash !== before.hash)) return 'written';
+        if (!state.editors.has(p)) return 'changed';
+      }
+      return 'changed';
+    },
+    finish: (jobId: number, report: any, total: number) => {
+      state.reports[jobId] = report;
+      state.jobs.push(report);
+      const counts = { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length };
+      return jobs.progress(jobId, report.phase, total, total, counts);
+    },
+    rename: async (jobId: number, path: string, plan: any) => {
+      const report: any = { jobId, kind: 'note-rename', phase: 'done', written: [], unchanged: [], skipped: [] };
+      if (plan.noop) { await jobs.finish(jobId, report, 0); return; }
+      const total = 1 + plan.linking.length;
+      await jobs.progress(jobId, 'planning', 0, total);
+      await jobs.hold('planning');
+      await jobs.progress(jobId, 'writing', 0, total);
+      await jobs.hold('writing');
+      const files = state.vault!.files;
+      const undo: { before: string; after: string; pre: string; post: string }[] = [];
+      const noteOps = [{ op: 'set-title', title: plan.title, now: new Date().toISOString().replace(/\.\d+Z$/, '+00:00') }, plan.op];
+      const pre = files[path];
+      const post = await w.__teggJobs('transform', { source: path, text: pre, ops: noteOps }, files) ?? pre;
+      if (plan.toPath !== path) { jobs.move(path, plan.toPath, post); report.renamed = { from: path, to: plan.toPath }; } else jobs.write(path, post);
+      report.written.push(plan.toPath);
+      undo.push({ before: path, after: plan.toPath, pre, post });
+      state.plans[jobId] = { op: plan.op, files: { [plan.toPath]: noteOps } };
+      let done = 1;
+      for (const p of plan.linking as string[]) {
+        state.plans[jobId].files[p] = [plan.op];
+        const skip = state.jobSkips[p];
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+        else if (state.editors.has(p)) {
+          const r = await jobs.live(p, [plan.op]);
+          if (r === 'written') report.written.push(p); else report.skipped.push({ path: p, reason: 'changed' });
+        } else {
+          const cur = files[p];
+          const out = cur === undefined ? null : await w.__teggJobs('transform', { source: p, text: cur, ops: [plan.op] }, files);
+          if (cur === undefined) report.skipped.push({ path: p, reason: 'missing' });
+          else if (out === null || out === cur) report.unchanged.push(p);
+          else { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out }); }
+        }
+        await jobs.progress(jobId, 'writing', ++done, total);
+      }
+      state.undo[jobId] = { op: plan.op, files: undo };
+      await jobs.finish(jobId, report, total);
+    },
+    undo: (of: number, back: boolean) => {
+      const rec = state.undo[of];
+      if (!rec) throw err('NotFound', 'fake: nothing to undo');
+      const jobId = ++state.jobSeq;
+      const rev = (o: any) => ({ ...o, fromPath: o.toPath, fromStem: o.toStem, fromTitle: o.toTitle, toPath: o.fromPath, toStem: o.fromStem, toTitle: o.fromTitle, paths: o.paths.map((x: string) => (x === o.fromPath ? o.toPath : x)) });
+      void (async () => {
+        const report: any = { jobId, kind: 'note-rename', phase: 'done', written: [], unchanged: [], skipped: [] };
+        const total = rec.files.length;
+        await jobs.progress(jobId, 'planning', 0, total);
+        await jobs.progress(jobId, 'writing', 0, total);
+        const files = state.vault!.files;
+        let done = 0;
+        for (const f of rec.files) {
+          const [at, to, want, put] = back ? [f.after, f.before, f.post, f.pre] : [f.before, f.after, f.pre, f.post];
+          if (at === to && state.editors.has(at)) {
+            const r = await jobs.live(at, [back ? rev(rec.op) : rec.op]);
+            if (r === 'written') report.written.push(at); else report.skipped.push({ path: at, reason: 'changed' });
+          } else if (files[at] !== want) report.skipped.push({ path: at, reason: files[at] === undefined ? 'missing' : 'changed' });
+          else if (at !== to) { jobs.move(at, to, put); report.renamed = { from: at, to }; report.written.push(to); }
+          else { jobs.write(at, put); report.written.push(at); }
+          await jobs.progress(jobId, 'writing', ++done, total);
+        }
+        await jobs.finish(jobId, report, total);
+      })();
+      return { jobId };
+    },
   };
 
   const handlers: Record<string, (a: any) => unknown> = {
@@ -673,21 +786,40 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
       });
     },
-    // 4C (ms4-jobs §4, §11). Stubs until 4C is built: writes fail with Io, reads answer empty.
-    note_rename: () => { throw err('Io', 'fake: note_rename is not implemented (4C stub)'); },
-    job_cancel: () => { throw err('Io', 'fake: job_cancel is not implemented (4C stub)'); },
-    job_confirm: () => { throw err('Io', 'fake: job_confirm is not implemented (4C stub)'); },
-    job_report: () => null,
-    job_retry: () => { throw err('Io', 'fake: job_retry is not implemented (4C stub)'); },
-    job_undo: () => { throw err('Io', 'fake: job_undo is not implemented (4C stub)'); },
-    job_redo: () => { throw err('Io', 'fake: job_redo is not implemented (4C stub)'); },
+    // 4C (ms4-jobs §4, §11): the job engine over the in-memory files; plans and bytes from Node (fake-jobs.ts).
+    note_rename: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const plan = await w.__teggJobs('plan_rename', { path: a.path, title: a.title, fromTitle: a.fromTitle }, state.vault.files);
+      if (plan.error) throw err(plan.error, `fake: ${plan.error}`);
+      const jobId = ++state.jobSeq;
+      void jobs.rename(jobId, String(a.path).normalize('NFC'), plan);
+      return { jobId, toPath: plan.toPath ?? String(a.path).normalize('NFC') };
+    },
+    job_cancel: () => { throw err('NotCancellable', 'fake: nothing to cancel'); },
+    job_confirm: () => { throw err('NotImplemented', 'fake: no job needs confirming in 4C'); },
+    job_report: (a) => state.reports[a.jobId] ?? null,
+    job_retry: async (a) => {
+      const p = String(a.path).normalize('NFC');
+      const ops = state.plans[a.jobId]?.files[p];
+      if (!ops || !state.vault) throw err('NotFound', 'fake: no such planned file');
+      const cur = state.vault.files[p];
+      if (cur === undefined) return { outcome: 'skipped', reason: 'missing' };
+      const out = await w.__teggJobs('transform', { source: p, text: cur, ops }, state.vault.files);
+      if (out === null || out === cur) return { outcome: 'unchanged' };
+      jobs.write(p, out);
+      const r = state.reports[a.jobId];
+      if (r) { r.skipped = r.skipped.filter((x: any) => x.path !== p); r.written.push(p); }
+      return { outcome: 'written' };
+    },
+    job_undo: (a) => jobs.undo(a.jobId, true),
+    job_redo: (a) => jobs.undo(a.jobId, false),
     job_transform_result: () => null,
     job_interrupted: () => [],
-    job_resolve_interrupted: () => { throw err('Io', 'fake: job_resolve_interrupted is not implemented (4C stub)'); },
+    job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
     backups_list: () => [],
-    backup_restore: () => { throw err('Io', 'fake: backup_restore is not implemented (4C stub)'); },
-    editor_open: () => null,
-    editor_close: () => null,
+    backup_restore: () => { throw err('NotImplemented', 'fake: restore comes with 4D-lite'); },
+    editor_open: (a) => { state.editors.add(String(a.path).normalize('NFC')); return null; },
+    editor_close: (a) => { state.editors.delete(String(a.path).normalize('NFC')); return null; },
     open_external: (a) => {
       const url = String(a.url);
       if (!/^(https?:|mailto:)/i.test(url)) throw err('Unsupported', `fake: scheme not allowed: ${url}`);

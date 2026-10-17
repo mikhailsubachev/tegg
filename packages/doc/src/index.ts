@@ -158,4 +158,4 @@ export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dai
 
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §2.3)
 
-export { transform, rewriteLinks, type TextOp, type Transformed } from './transform.js'
+export { transform, rewriteLinks, resolveFrom, type TextOp, type Transformed } from './transform.js'

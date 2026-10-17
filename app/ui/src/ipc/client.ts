@@ -7,6 +7,7 @@ import type {
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto,
+  NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto,
 } from './types';
 
 export const ipc = {
@@ -65,7 +66,22 @@ export const ipc = {
   dailyCreate: (date: string, text: string) => invoke<DailyCreatedDto>('daily_create', { date, text }),
   dailyBacklinks: (date: string) => invoke<BacklinksPanelDto>('daily_backlinks', { date }),
   dailyContext: (date: string, start: string, end: string, limit: number) => invoke<DailyContextDto>('daily_context', { date, start, end, limit }),
+  // 4C (ms4-jobs §4).
+  noteRename: (path: string, title: string, fromTitle: string) => invoke<NoteRenameDto>('note_rename', { path, title, fromTitle }),
+  jobReport: (jobId: number) => invoke<JobReportDto | null>('job_report', { jobId }),
+  jobRetry: (jobId: number, path: string) => invoke<RetryDto>('job_retry', { jobId, path }),
+  jobUndo: (jobId: number) => invoke<JobIdDto>('job_undo', { jobId }),
+  jobRedo: (jobId: number) => invoke<JobIdDto>('job_redo', { jobId }),
+  jobCancel: (jobId: number) => invoke<void>('job_cancel', { jobId }),
+  jobTransformResult: (requestId: number, result: unknown) => invoke<void>('job_transform_result', { requestId, result }),
+  jobInterrupted: () => invoke<InterruptedDto[]>('job_interrupted'),
+  jobResolveInterrupted: (jobId: number, choice: 'finish' | 'undo') => invoke<JobIdDto>('job_resolve_interrupted', { jobId, choice }),
+  editorOpen: (path: string) => invoke<void>('editor_open', { path }),
+  editorClose: (path: string) => invoke<void>('editor_close', { path }),
 };
+
+/** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */
+export type JobTransformEvent = { requestId: number; source: string; text: string; ops: unknown[]; live: boolean };
 
 export const events = {
   progress: (f: (p: ProgressDto) => void): Promise<UnlistenFn> => listen<ProgressDto>('index:progress', (e) => f(e.payload)),
@@ -75,6 +91,8 @@ export const events = {
   navMouse: (f: (dir: 'back' | 'forward') => void): Promise<UnlistenFn> => listen<'back' | 'forward'>('nav:mouse', (e) => f(e.payload)),
   /** ⌘Q, the Quit Apple Event or closing the window: flush first (FR-EDT-08 AC-7). */
   quitRequested: (f: () => void): Promise<UnlistenFn> => listen('app:quit-requested', () => f()),
+  jobProgress: (f: (p: JobProgressDto) => void): Promise<UnlistenFn> => listen<JobProgressDto>('job:progress', (e) => f(e.payload)),
+  jobTransform: (f: (t: JobTransformEvent) => void): Promise<UnlistenFn> => listen<JobTransformEvent>('job:transform', (e) => f(e.payload)),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */

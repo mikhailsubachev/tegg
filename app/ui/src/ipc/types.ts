@@ -1,7 +1,11 @@
 // Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run
 // `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.
 
-export type VaultInfo = { name: string, path: string, placeholders: number, };
+export type VaultInfo = { name: string, path: string, placeholders: number, 
+/**
+ * ms4-jobs §8 (D-387): renames a crash interrupted, offered as Finish or Undo; absent when there are none.
+ */
+interrupted?: Array<InterruptedDto>, };
 export type DateRangeDto = { 
 /**
  * `YYYY-MM-DD`, inclusive.

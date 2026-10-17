@@ -10,6 +10,8 @@ import type { ProgressDto, RecentVaultDto, TypeDefDto, VaultInfo } from '../ipc/
 import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
+import { JobStatus } from '../jobs/status';
+import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
@@ -124,6 +126,8 @@ export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canFo
         <Disabled control="ctl.newTab" ariaLabel={t('ctl.newTab')} className="icon-button"><Icon name="plus" /></Disabled>
       </div>
       <div className="titlebar-status" data-tauri-drag-region>
+        <JobStatus />
+        <NotUpdatedEntry />
         {progress && progress.state === 'running' && (
           <span className="progress" role="status" aria-label={t('progress.label')}>
             <progress max={progress.total || 1} value={progress.done} />

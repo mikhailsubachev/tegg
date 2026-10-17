@@ -41,6 +41,9 @@ export type ShellActions = {
   /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
   pickDate?: () => void;
   setReviewed?: (reviewed: boolean) => void;
+  /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
+  undoRename?: () => void;
+  showNotUpdated?: () => void;
 };
 
 export type EditAction =
@@ -133,6 +136,11 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'theme.system', title: 'cmd.theme.system', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('system') },
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
+  );
+  // 4C (ms4-jobs §10, FR-UX-03).
+  list.push(
+    { id: 'job.undoRename', title: 'cmd.undoRename', section: 'edit', needsVault: true, run: (c) => a(c)?.undoRename?.() },
+    { id: 'job.showNotUpdated', title: 'cmd.showNotUpdated', section: 'view', needsVault: true, run: (c) => a(c)?.showNotUpdated?.() },
   );
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(

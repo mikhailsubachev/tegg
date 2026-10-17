@@ -10,6 +10,10 @@ pub struct VaultInfo {
     pub name: String,
     pub path: String,
     pub placeholders: u32,
+    /// ms4-jobs §8 (D-387): renames a crash interrupted, offered as Finish or Undo; absent when there are none.
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interrupted: Option<Vec<InterruptedDto>>,
 }
 
 #[derive(Debug, Clone, Deserialize, TS)]
