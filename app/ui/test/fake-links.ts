@@ -18,16 +18,21 @@ let schemaMod: any = null;
 const doc = async () => (docMod ??= await import('@tegg/doc'));
 const schema = async () => (schemaMod ??= await import('@tegg/schema'));
 
-type Obj = {
+export type Obj = {
   path: string; stem: string; folder: string; title: string; id: string | null; type: string; raw: string | null;
   attributes: Record<string, any>; frontmatterError: boolean; links: any[]; blocks: any[];
   /** ms4-daily §2: a Daily Note's valid date (its displayed title, D-320) and its stored title when different. */
   daily: string | null; storedTitle: string | null;
+  /** Tag keys, frontmatter and inline (D-185). */
+  tags?: string[];
 };
 
-async function objects(files: Files): Promise<Obj[]> {
-  const d = await doc();
-  const s = await schema();
+export async function objects(files: Files): Promise<Obj[]> {
+  return objectsWith(files, await doc(), await schema());
+}
+
+/** `objects` with the modules already loaded (5A-1 fake-tasks.ts, ms5-tasks §7). */
+export function objectsWith(files: Files, d: any, s: any): Obj[] {
   return Object.entries(files).filter(([p]) => !excluded(p)).map(([path, text]) => {
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const x = d.extract(text, stem);
@@ -36,13 +41,13 @@ async function objects(files: Files): Promise<Obj[]> {
     const raw = typeof attributes.type === 'string' && attributes.type.trim() ? nfc(attributes.type.trim()) : null;
     const daily = m.key === 'daily-note' && attributes.date != null ? d.parseDate(String(attributes.date).trim().slice(0, 10)) : null;
     const storedTitle = daily && nfc(String(x.title).trim()) !== daily ? x.title : null;
-    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: daily ?? x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks, daily, storedTitle };
+    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: daily ?? x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks, daily, storedTitle, tags: x.tags };
   });
 }
 
 type Res = { kind: 'note' | 'daily' | 'date-missing' | 'unresolved' | 'ignored'; path: string | null };
 
-function resolver(objs: Obj[]) {
+export function resolver(objs: Obj[]) {
   const byPath = new Map<string, Obj>();
   const byId = new Map<string, Obj>();
   const byStem = new Map<string, Obj[]>();
@@ -223,7 +228,7 @@ function dailyFolder(ctx: Ctx): string {
 }
 
 /** D-339: `created`/`modified` in the day window: instants by [start, end), offset-less values by their local date. */
-function inWindow(v: unknown, date: string, start: number, end: number): number | null {
+export function inWindow(v: unknown, date: string, start: number, end: number): number | null {
   if (typeof v !== 'string') return null;
   const s = v.trim();
   if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(s)) { const t = Date.parse(s); return t >= start && t < end ? t : null; }

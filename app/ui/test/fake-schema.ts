@@ -91,7 +91,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     key: nfc(a.key), name: a.name ?? a.key, type: a.type, supported: R10.includes(a.type),
     readOnlyReason: R10.includes(a.type) ? null : ['file', 'color', 'recurrence'].includes(a.type) ? a.type : 'unsupported',
     default: a.default ?? null, required: a.required === true,
-    options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null })),
+    options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null, state: o.state ?? null })),
     to: Array.isArray(a.to) ? a.to : null, multiple: a.multiple === true, description: a.description ?? null, builtIn: builtinKeys.includes(a.key),
   }));
   const preview: string[] = Array.isArray(y.preview) ? y.preview.map(String) : [];

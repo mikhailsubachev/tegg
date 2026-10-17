@@ -355,16 +355,21 @@ export function parseDateRange(start: string | null, end: string | null): Parsed
 }
 
 // ------------------------------------------------------------------------------------------------ slice 5A-1 (ms5-tasks §2.2)
-// Stubs until 5A-1 is built: deliberately wrong results so the red tests fail on their assertions (TS-I1).
 
 export type TaskState = 'open' | 'in-progress' | 'done' | 'cancelled';
 
-/** D-471: an option's semantic state; absent or unknown `state` is Open. Stub: always 'open'. */
-export function taskState(_option: OptionDto): TaskState {
-  return 'open';
+const STATES: readonly TaskState[] = ['open', 'in-progress', 'done', 'cancelled'];
+
+/** D-471: an option's semantic state; absent or unknown `state` is Open. */
+export function taskState(option: OptionDto): TaskState {
+  const s = (option.state ?? '').trim() as TaskState;
+  return STATES.includes(s) ? s : 'open';
 }
 
-/** D-473: `needOpen` / `needDone` when no status option with state Open / Done remains. Stub: never refuses. */
-export function checkStatusOptions(_options: OptionDto[]): RuleError | null {
+/** D-473: `needOpen` / `needDone` when no status option with state Open / Done remains. */
+export function checkStatusOptions(options: OptionDto[]): RuleError | null {
+  const states = options.map(taskState);
+  if (!states.includes('open')) return { reason: 'needOpen', field: 'optionLabel' };
+  if (!states.includes('done')) return { reason: 'needDone', field: 'optionLabel' };
   return null;
 }

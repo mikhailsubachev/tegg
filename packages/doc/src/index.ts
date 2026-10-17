@@ -2,7 +2,7 @@
 // Public interface: docs/contracts/ms1-core.md §4. Ported from spike S1 (D-83).
 
 import { parse, type Doc } from './parse.js'
-import { formatEntry, setAttribute, type Value } from './edit.js'
+import { flowList, formatEntry, formatKey, setAttribute, type Value } from './edit.js'
 
 export type { Range, BlockKind, Block, FrontmatterEntry, Frontmatter, Doc } from './parse.js'
 export { decode, encode, parse, markdownTree } from './parse.js'
@@ -77,7 +77,7 @@ export function touchModified(before: string, after: string, now: string): strin
 
 // ---------------------------------------------------------------- slice 3D (ms3-shell §14.5)
 
-export { setValue, setRange } from './edit.js'
+export { setValue, setRange, setFlowList, flowList } from './edit.js'
 
 /** D-232, FR-TYP-03 AC-12: the bytes of a new object. Order: `id`, `type`, `title`; each schema attribute (the
  *  template's entry verbatim, else its default, else omitted); the template's other entries verbatim (minus identity,
@@ -89,7 +89,8 @@ export function newObject(opts: {
   template: string | null
   now: string
   newId: () => string
-  /** ms5-tasks §5 (D-470): explicit values that win over template and default. Not used yet (5A-1 stub). */
+  /** ms5-tasks §5 (D-470): explicit values that win over template and default. Values for keys that aren't schema
+   *  attributes are written after the template's keys, `tags` then `source` first; lists in flow style. */
   values?: [string, Value][]
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
@@ -103,6 +104,8 @@ export function newObject(opts: {
   }
   let out = '---\n' + formatEntry('id', opts.newId()) + formatEntry('type', opts.type.key.normalize('NFC')) + formatEntry('title', opts.title.normalize('NFC'))
   const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified'])
+  const values = new Map<string, Value>((opts.values ?? []).map(([k, v]) => [k.normalize('NFC'), v]))
+  const entry = (k: string, v: Value) => (Array.isArray(v) ? `${formatKey(k)}: ${flowList(v)}\n` : formatEntry(k, v))
   for (const a of opts.type.attributes) {
     const key = a.key.normalize('NFC')
     if (a.type === 'date-range') {
@@ -115,17 +118,37 @@ export function newObject(opts: {
     }
     used.add(key)
     const t = tplEntries.get(key)
-    if (t !== undefined) out += t
-    else {
+    const given = values.get(key)
+    if (given !== undefined) {
+      if (given !== null && !(Array.isArray(given) && given.length === 0)) out += entry(key, given)
+    } else if (t !== undefined) out += t
+    else if (opts.type.key === 'task' && key === 'status' && a.options?.length) {
+      // D-470, D-503: a new Task gets the first status whose state is Open (absent or unknown state counts as Open).
+      const known = ['open', 'in-progress', 'done', 'cancelled']
+      const first = a.options.find((o) => !o.state || !known.includes(o.state) || o.state === 'open')
+      if (first) out += formatEntry(key, first.label)
+    } else {
       const v = defaultValue(a.type, a.default)
       if (v !== null) out += formatEntry(key, v)
     }
   }
-  for (const [k, raw] of tplEntries) if (!used.has(k)) out += raw
+  for (const [k, raw] of tplEntries) if (!used.has(k) && !values.has(k)) out += raw
+  const rest = [...values.keys()].filter((k) => !used.has(k))
+  rest.sort((x, y) => rank(x) - rank(y))
+  for (const k of rest) {
+    const v = values.get(k)!
+    if (v !== null && !(Array.isArray(v) && v.length === 0)) out += entry(k, v)
+  }
   if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
   if (tpl) out += tpl.text.slice(tpl.bodyStart)
   return out
+}
+
+/** D-470: universal keys Tegg writes, in this order, before other given keys. */
+function rank(k: string): number {
+  const i = ['tags', 'source'].indexOf(k)
+  return i < 0 ? 2 : i
 }
 
 /** A schema default as the Value written for its attribute type (null = nothing written). */
