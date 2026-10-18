@@ -92,7 +92,8 @@ export function newObject(opts: {
   /** ms5-tasks §5 (D-470): explicit values that win over template and default. Values for keys that aren't schema
    *  attributes are written after the template's keys, `tags` then `source` first; lists in flow style. */
   values?: [string, Value][]
-  /** ms5-tasks §11.2 (5A-2, AP-452): the body after the frontmatter instead of the template's body. Not built yet. */
+  /** ms5-tasks §11.2 (5A-2, D-524): the body after the frontmatter instead of the template's body (the template's
+   *  frontmatter entries still apply). */
   body?: string
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
@@ -143,7 +144,10 @@ export function newObject(opts: {
   }
   if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
-  if (tpl) out += tpl.text.slice(tpl.bodyStart)
+  if (opts.body !== undefined) {
+    const body = opts.body.normalize('NFC')
+    if (body !== '') out += body.endsWith('\n') ? body : body + '\n'
+  } else if (tpl) out += tpl.text.slice(tpl.bodyStart)
   return out
 }
 
