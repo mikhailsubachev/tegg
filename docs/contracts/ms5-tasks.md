@@ -77,7 +77,7 @@ impl Core {
   - `AddOption { attr: String, option: OptionDef }` appends after the last option (FR-TSK-02 AC-3);
   - `SetOptionColor { attr, label, color }`, `MoveOption { attr, label, to: usize }`, `RemoveOption { attr, label }`, `RenameOption { attr, from, to }`.
   - `UpdateAttribute { change.options }` keeps working; the new ops exist so each type-settings action writes exactly one line (AR-07 AC-5).
-- **Refusals** (`SchemaError::Rule`), checked on the Task type's `status` only: `needOpen` / `needDone` when no option with state Open / Done would remain (D-473); `optionUsed` for `RenameOption` of a label `type_usage` counts as used (the UI passes the count in `PatchContext.used: &[(&str, usize)]`, new field, default empty). `BuiltInChanged` stays for removing `status` / `priority` or changing their key or type.
+- **Refusals** (`SchemaError::Rule`), checked on the Task type's `status` only: `needOpen` / `needDone` when the patch removes the last option with state Open / Done (D-473: "must remain" applies to a status the file has; a hand-written `task.yml` without a Done-state status still accepts other changes, and an option without a known state counts as Open, D-471); `optionUsed` for `RenameOption` of a label `type_usage` counts as used (the UI passes the count in `PatchContext.used: &[(&str, usize)]`, new field, default empty). `BuiltInChanged` stays for removing `status` / `priority` or changing their key or type.
 - **TypeScript twin** in `@tegg/schema`: `OptionDto` gains `state: string | null`; `taskState(option): 'open' | 'in-progress' | 'done' | 'cancelled'`; `checkStatusOptions(options): RuleError | null` (the same `needOpen` / `needDone`). `fake-schema.ts` applies the new ops with the same line edits (checked against the shared corpus `tests/fixtures/types/ops-5a.json`, which the Rust tests read too).
 
 ### 2.3 Daily `Tasks due` (D-485)
@@ -239,6 +239,9 @@ These override the sections above where they differ.
 3. **Opening a source at the embed** (D-486): the route option `selectEmbedOf: <task path>` on `note/<path>`; `NotePage` resolves the top-level block embeds of the note and selects the first one resolving to that path (`EditorPaneApi.embedBlocks`, `selectBlockAtTop`), else places the caret at the top. The Tasks page, the Daily Note rows (`tasks/sourceNav.ts`) and the properties panel's Source chip use it.
 4. **Schedule stays put**: a task completed or changed from the Schedule keeps its place (with its new values) until the page is left, so the focus and a second click stay on it (FR-TSK-02 AC-10, FR-TSK-04 AC-10). The Kanban and the Daily Note move cards at once.
 5. **Palette vs sidebar** (D-481): `Go to Tasks` opens `tasks`; the sidebar entry opens the last view.
+6a. **Panel Status on a Task** (D-472): picking a status in the properties panel goes through `applyTaskChange` (sets or removes `completed`); the Status list of a Task has no `Clear` (a missing status counts as Open, D-471, and would keep `completed`).
+6b. **Queued writes** (§5): `write.ts` keeps, per file, the chain of versions this window's own writes went through; a queued action whose row is any version of the chain, while the file is at its end, is based on them. An outside write breaks the chain, so it is still a conflict (NFR-REL-02).
+6c. **Tag moves** (D-478): the `tags:` entry is edited in place (untouched items keep their bytes) only when the result reads back as the intended tags; otherwise the entry is re-rendered.
 6. **Module name**: the quick-add component is `tasks/QuickAddRow.tsx` (`quickAdd.ts` is the parser; the two can't differ only in case on macOS).
 
 ## 11. Slice 5A-2: conversion and the Task card (D-490…D-499)
