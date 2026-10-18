@@ -15,7 +15,7 @@ import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
+import { hintElement, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -173,7 +173,9 @@ const BlockSelection = Extension.create({
             const meta = tr.getMeta(blockSelKey) as BlockSel | undefined
             if (meta !== undefined) return meta
             if (!value) return null
-            if (tr.docChanged || tr.selectionSet) return null
+            // Load bookkeeping (the saved frontmatter attribute) keeps it: a conversion's flushed save leaves the new embed
+            // selected (FR-CNV-01 AC-7).
+            if ((tr.docChanged && !tr.getMeta('teggLoad')) || tr.selectionSet) return null
             return value
           },
         },
@@ -378,11 +380,12 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       },
       // 4F (FR-EMB-03 AC-11): with the DOM selection inside an embed's own content (a read-only embed, or another
       // editor's), keys that would edit this document do nothing here.
-      handleKeyDown: (view, event) => inEmbedDom(view) && (event.key.length === 1 || ['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) && !event.metaKey && !event.ctrlKey,
+      handleKeyDown: (view, event) => !formField(event) && inEmbedDom(view) && (event.key.length === 1 || ['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) && !event.metaKey && !event.ctrlKey,
       handleDOMEvents: {
         copy: (_v, event) => copyBlocks(event, false),
         cut: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : copyBlocks(event, true)),
-        beforeinput: (v, event) => (inEmbedDom(v) ? (event.preventDefault(), true) : false),
+        // A form field inside an embed (the Task card's date field, 5A-2) types normally.
+        beforeinput: (v, event) => (formField(event) ? true : inEmbedDom(v) ? (event.preventDefault(), true) : false),
       },
     },
     onTransaction: ({ transaction }) => {
@@ -1332,6 +1335,12 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   return api
 }
 
+/** The event comes from a form field (input, textarea, select) the app rendered inside the document (an embed). */
+function formField(event: Event): boolean {
+  const el = event.target as HTMLElement | null
+  return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)
+}
+
 /** The DOM selection is inside the app-rendered content of a block embed (not this editor's own text). */
 function inEmbedDom(view: EditorView): boolean {
   const sel = typeof window !== 'undefined' ? window.getSelection() : null
@@ -1396,14 +1405,7 @@ function emptyHint(text: string) {
           decorations(state) {
             const doc = state.doc
             if (!(doc.childCount === 1 && doc.firstChild!.type.name === 'paragraph' && doc.firstChild!.content.size === 0)) return null
-            return DecorationSet.create(doc, [Decoration.widget(1, () => {
-              const s = document.createElement('span')
-              s.className = 'editor-hint'
-              s.contentEditable = 'false'
-              s.setAttribute('aria-hidden', 'true')
-              s.textContent = text
-              return s
-            }, { side: 1, ignoreSelection: true, key: 'hint' })])
+            return DecorationSet.create(doc, [Decoration.widget(1, (view) => hintElement(view, text), { side: 1, ignoreSelection: true, key: 'hint' })])
           },
         },
       })]

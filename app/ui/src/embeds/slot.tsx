@@ -14,6 +14,13 @@ import { Embed } from './Embed';
 import { EmbedEditor } from './EmbedEditor';
 import type { EmbedStore } from './store';
 import { embedModeFor, type EmbedNode } from './tree';
+import { isTaskCard } from './TaskEmbed';
+import { parse } from '@tegg/doc';
+
+function badFrontmatter(text: string): boolean {
+  const d = parse(text);
+  return !!d.frontmatterError || (!!d.frontmatter && d.frontmatter.data === null);
+}
 
 const nfc = (s: string) => s.normalize('NFC');
 const innerOf = (source: string) => source.trim().replace(/^!\[\[|\]\]$/g, '');
@@ -42,7 +49,10 @@ function Slot({ store, container, props, pick }: { store: EmbedStore; container:
   }
   if (!node) return null;
   if (!gone && node.state === 'ok' && node.mode === 'full' && node.note) last.current = node;
-  const editable = store.editable && node.depth === 1 && node.mode === 'full' && node.state === 'ok' && !node.readOnly && !!node.note;
+  // D-497: a Task card's body is edited in place too (at depth 1, in the editor, for a UTF-8 file with valid frontmatter).
+  const task = isTaskCard(node);
+  const editable = store.editable && node.depth === 1 && node.state === 'ok' && !!node.note
+    && (task ? node.note.utf8 && !badFrontmatter(node.note.text ?? '') : node.mode === 'full' && !node.readOnly);
   const title = node.target.title ?? node.target.target;
   const onMode = (m: EmbedMode) => {
     const pos = getPos();
@@ -62,7 +72,7 @@ function Slot({ store, container, props, pick }: { store: EmbedStore; container:
         onTag={(k2) => store.host?.onTag(k2)}
         onExternal={(u) => store.host?.onExternal(u)}
         onMode={onMode}
-        body={editable ? <EmbedEditor key={`${node.note!.path}#${node.subpath ?? ''}`} node={node} store={store} getPos={getPos} title={title} gone={gone} /> : undefined}
+        body={editable ? <EmbedEditor key={`${node.note!.path}#${task ? '' : node.subpath ?? ''}`} node={task ? { ...node, subpath: null, section: null } : node} store={store} getPos={getPos} title={title} gone={gone} taskCard={task} /> : undefined}
       />
     </div>
   );

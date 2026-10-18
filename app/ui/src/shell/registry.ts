@@ -83,7 +83,6 @@ const d = (milestone: Milestone, slice?: Slice): Due => (slice ? { milestone, sl
 
 export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.newTab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06' },
-  { label: 'ctl.turnIntoObject', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01' },
   { label: 'ctl.copyBlockLink', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06' },
   // 3D (types.md R3 changes): the type page's Filter, Sort, Views and New <Type>, New type and Starter vault are built.
   { label: 'ctl.filter', where: 'type page', due: d('v1.0'), req: 'FR-QRY-01' },
@@ -159,6 +158,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘↩', command: 'edit.openOrToggle' },
   { keys: '⇧⌘V', command: 'edit.pastePlain' },
   { keys: '⌘S', command: 'edit.saveNow' },
+  // 5A-2 (conversion.md R53).
+  { keys: '⇧⌘T', command: 'edit.turnIntoTask' },
+  { keys: '⇧⌘O', command: 'edit.turnIntoObject' },
 ];
 
 /** R6 (editor.md, D-189): the slash menu. Labels are catalog keys; later items are disabled with their milestone. */
@@ -166,8 +168,8 @@ export type SlashDef = { id: string; group: 'objects' | 'blocks' | 'media' | 'ad
 const slash = (id: string, group: SlashDef['group'], reqs: string[], due?: Due): SlashDef =>
   ({ id, group, label: `slash.${id}`, status: due ? { built: false, due } : built, ...(due ? { due } : {}), reqs });
 export const SLASH_ITEMS: SlashDef[] = [
-  slash('task', 'objects', ['FR-TSK-01', 'FR-CNV-01'], d('MS5')),
-  slash('turnIntoObject', 'objects', ['FR-CNV-01'], d('MS5')),
+  slash('task', 'objects', ['FR-TSK-01', 'FR-CNV-01']), // built in 5A-2 (R53)
+  slash('turnIntoObject', 'objects', ['FR-CNV-01']),
   slash('embedObject', 'objects', ['FR-EMB-01']),
   slash('text', 'blocks', ['FR-EDT-02']),
   slash('heading1', 'blocks', ['FR-EDT-02']),

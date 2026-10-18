@@ -7,6 +7,7 @@ import { createEditor, embedTarget, linkTarget, type EditorUi, type LinkInfo, ty
 import { isAttachmentTarget } from '@tegg/doc';
 import type { EmbedStore } from '../embeds/store';
 import { mountEmbed } from '../embeds/slot';
+import { taskWrites } from '../embeds/TaskEmbed';
 import { EmbedPicker } from '../embeds/EmbedPicker';
 import { extract } from '@tegg/doc';
 import { requestOffer } from '../links/offer';
@@ -27,10 +28,15 @@ import { rank } from '../shell/commands';
 import { Icon, iconElement, typeIconName } from '../shell/Icon';
 import { eventKeys } from '../shell/keys';
 import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
+import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
+import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
+import { conversionHooks, convert as runConvert, type ConvertHost } from '../convert/flow';
+import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
-  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs';
+  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
+  | 'turnIntoTask' | 'turnIntoObject';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -45,6 +51,8 @@ export type EditorPaneApi = {
   embedBlocks: () => { index: number; target: string }[];
   /** Selects block `index` as a block and scrolls it to the top of the centre pane. */
   selectBlockAtTop: (index: number) => boolean;
+  /** 5A-2 (FR-CNV-01 AC-5, D-494): why `Turn into object` can't run now (a nested editor, a template, read-only), or null. */
+  convertBlocked: () => string | null;
 };
 
 /** A chip's icon element with the type's icon name as `data-icon` (FR-LNK-07 AC-1). */
@@ -87,7 +95,11 @@ function Due({ due }: { due: SlashDef['due'] }) {
   return due ? <span className="due">{t('due.coming', { milestone: showDue(due) })}</span> : null;
 }
 
-export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy, embeds }: {
+export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy, embeds, flush, daily }: {
+  /** 5A-2: flushes the note's save now (a conversion's source save, FR-CNV-03 AC-6). */
+  flush?: () => Promise<void>;
+  /** 5A-2: the date when the note is a Daily Note (its `source` link is the date, D-162). */
+  daily?: string | null;
   /** 4F (ms4-embeds §6): the page's embeds; block embeds render through it. */
   embeds?: EmbedStore;
   onSaveNow?: () => void;
@@ -122,6 +134,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   cbSave.current = onSaveNow;
   const cb = useRef({ onChange, onOpen, onTag, onExternal, onImagePaste });
   cb.current = { onChange, onOpen, onTag, onExternal, onImagePaste };
+  const conv = useRef({ flush, daily, types });
+  conv.current = { flush, daily, types };
 
   const [hover, setHover] = useState<number | null>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
@@ -180,6 +194,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         onSelection: () => setHover(null),
         onImagePaste: () => cb.current.onImagePaste(),
         onEmbedKey: (pos, key) => embedKey(pos, key),
+        // 5A-2 (D-492, D-494, D-496).
+        convertible: !pathRef.current.startsWith('_templates/'),
+        conversion: conversionHooks(convertHost),
+        guardEmbedRemoval: (list) => guardRemoval(list),
       });
     } catch {
       onFailedLoad();
@@ -299,6 +317,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       onExternal: (u) => cb.current.onExternal(u),
     };
     return () => { un(); embeds.host = null; embeds.refresh = null; };
+  }, []);
+
+  // 5A-2 (D-497): a Task card wrote its task, or found it changed: the nested editors of that file take the new text
+  // and the tree is rebuilt (the core's own writes don't come back as vault:changed).
+  useEffect(() => {
+    if (!embeds) return;
+    const on = (p: string, w: { text: string; version: unknown } | null) => {
+      if (w) embeds.wrote(-1, p, w.text, w.version);
+      void refreshEmbeds();
+    };
+    taskWrites.add(on);
+    return () => { taskWrites.delete(on); };
   }, []);
 
   /** D-428: ⏎ / ⌘↩ / `Display embed as…` on a selected block embed. */
@@ -604,6 +634,16 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       openPicker(s.from, e.view.state.selection.from);
       return;
     }
+    if (item.id === 'task' || item.id === 'turnIntoObject') {
+      if (convertBlocked()) return;
+      // FR-CNV-01 AC-2: the typed `/turn` or `/task` goes (outside the history), then R50 opens for the block.
+      setSlash(null);
+      dismissed.current = `s${s.from}`;
+      e.view.dispatch(e.view.state.tr.delete(s.from, e.view.state.selection.from).setMeta('addToHistory', false));
+      focusArea.current = 'body';
+      openConvert(item.id === 'task' ? 'task' : 'last');
+      return;
+    }
     const b = SLASH_BLOCK[item.id];
     setSlash(null);
     e.commands.slashInsert(s.from, e.view.state.selection.from, b.kind, { level: b.level });
@@ -682,11 +722,82 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     setLinkField({ query: '', items: [], sel: 0, error: false, onLink });
   };
 
+  // ------------------------------------------------------------------ 5A-2 block → object conversion (ms5-tasks §11.4)
+  /** Where the focus last was: the note body, a nested embed editor, or elsewhere (the title, the panel). */
+  const focusArea = useRef<'body' | 'embed' | 'other'>('other');
+  useEffect(() => {
+    const on = (ev: FocusEvent) => {
+      const el = ev.target as HTMLElement | null;
+      if (!el || el.closest?.('[role="dialog"], [role="alertdialog"], [role="menu"]')) return; // the palette, menus: unchanged
+      if (host.current?.contains(el)) focusArea.current = el.closest('.embed-block') ? 'embed' : 'body';
+      else focusArea.current = 'other';
+    };
+    document.addEventListener('focusin', on, true);
+    return () => document.removeEventListener('focusin', on, true);
+  }, []);
+  const convertBlocked = (): string | null => {
+    const e = edRef.current;
+    if (!e || !e.editor.isEditable) return t('convert.readOnly');
+    if (pathRef.current.startsWith('_templates/')) return t('convert.inTemplate');
+    if (focusArea.current === 'embed') return t('convert.inEmbed');
+    return null;
+  };
+  function convertHost(): ConvertHost | null {
+    const e = edRef.current;
+    if (!e) return null;
+    return {
+      ed: e,
+      source: pathRef.current,
+      daily: conv.current.daily ?? null,
+      linkTitle: (tg) => links.current.get(tg.normalize('NFC'))?.title ?? null,
+      flush: () => conv.current.flush?.() ?? Promise.resolve(),
+    };
+  }
+  type Conv = { unit: ConvertUnit | null; title: string; type: string; count: number; at: { left: number; top: number } };
+  const [convertOpen, setConvertOpen] = useState<Conv | null>(null);
+  const openConvert = (preselect: 'task' | 'last') => {
+    const e = edRef.current;
+    if (!e || convertBlocked() || focusArea.current !== 'body') return;
+    const unit = e.conversionUnit();
+    const $f = e.view.state.selection.$from;
+    // `/task` in an empty paragraph: a new empty object takes its place (FR-CNV-01 AC-2).
+    if (!unit && !($f.depth === 1 && $f.parent.type.name === 'paragraph' && $f.parent.content.size === 0)) return;
+    const title = unit ? objectFromUnit(e.text(), unit, (tg) => links.current.get(tg.normalize('NFC'))?.title ?? null).title : '';
+    const bs = e.blockSelection();
+    const k = bs ? bs.from : e.caretBlock();
+    const el = blockEl(k);
+    const r = wrap.current?.getBoundingClientRect();
+    const b = el?.getBoundingClientRect();
+    const at = r && b ? { left: b.left - r.left, top: b.bottom - r.top + 4 } : { left: 0, top: 0 };
+    setConvertOpen({ unit, title, type: preselect === 'task' ? 'task' : convertPrefs().lastType ?? 'task', count: unit?.count ?? 1, at });
+  };
+  const [removeAsk, setRemoveAsk] = useState<{ items: { title: string; plural: string }[]; resolve: (ok: boolean) => void } | null>(null);
+  /** D-496: only embeds of objects converted from this note ask before they are removed. */
+  function guardRemoval(list: { pos: number; source: string }[]): Promise<boolean> | null {
+    if (convertPrefs().skipRemoveConfirm || !embeds) return null;
+    const host = pathRef.current.normalize('NFC');
+    const names = new Set([host.replace(/\.md$/i, ''), host.replace(/\.md$/i, '').split('/').pop()!, ...(conv.current.daily ? [conv.current.daily] : [])]);
+    const items: { title: string; plural: string }[] = [];
+    for (const x of list) {
+      const node = embeds.blockNodes(x.source.trim().replace(/^!\[\[|\]\]$/g, ''))[0];
+      const text = node?.note?.text;
+      if (!node || !text) continue;
+      const src = parse(text).frontmatter?.data?.source;
+      const m = typeof src === 'string' ? /^\[\[([^\]|#]*)/.exec(src.trim()) : null;
+      if (!m || !names.has(m[1].trim().normalize('NFC'))) continue;
+      items.push({ title: node.target.title ?? node.target.target, plural: conv.current.types.find((ty) => ty.key === node.target.type)?.plural ?? '' });
+    }
+    if (!items.length) return null;
+    return new Promise((resolve) => setRemoveAsk({ items, resolve }));
+  }
+
   const run = useCallback((a: EditAction) => {
     const e = edRef.current;
     if (!e) return;
     const c = e.commands;
     switch (a) {
+      case 'turnIntoTask': openConvert('task'); break;
+      case 'turnIntoObject': openConvert('last'); break;
       case 'undo': c.undo(); break;
       case 'redo': c.redo(); break;
       case 'bold': case 'italic': case 'strike': case 'code': case 'highlight': c.toggleMark(a === 'strike' ? 'strike' : a); focusEditor(); break;
@@ -750,20 +861,31 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   };
   const selectBlockAtTop = (index: number): boolean => {
     const e = edRef.current;
-    if (!e) return false;
-    (e.view.dom as HTMLElement).focus({ preventScroll: true });
-    if (!e.commands.selectBlockAt(index)) return false;
-    const dom = e.view.nodeDOM(posOfBlock(e, index)) as HTMLElement | null;
-    const main = (e.view.dom as HTMLElement).closest('main');
-    if (dom && main) {
+    if (!e || index < 0 || index >= e.view.state.doc.childCount) return false;
+    const align = () => {
+      const ed = edRef.current;
+      if (!ed) return;
+      const dom = ed.view.nodeDOM(posOfBlock(ed, index)) as HTMLElement | null;
+      const main = (ed.view.dom as HTMLElement).closest('main');
+      if (!dom || !main) return;
       // Room below, so the block can sit at the top of a short note (FR-TSK-08 AC-2).
-      const host = (e.view.dom as HTMLElement).closest<HTMLElement>('.editor-host') ?? (e.view.dom as HTMLElement);
+      const host = (ed.view.dom as HTMLElement).closest<HTMLElement>('.editor-host') ?? (ed.view.dom as HTMLElement);
       host.style.paddingBottom = `${main.clientHeight}px`;
       main.scrollTop += dom.getBoundingClientRect().top - main.getBoundingClientRect().top;
-    }
+    };
+    // After the page settled (the previous note's panel and the embeds' first layout), so the block shows selected
+    // where it stays (FR-CNV-04 AC-2).
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const ed = edRef.current;
+      if (!ed) return;
+      (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+      if (!ed.commands.selectBlockAt(index)) return;
+      align();
+      requestAnimationFrame(align);
+    }));
     return true;
   };
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop, convertBlocked }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -837,7 +959,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (bs) {
       if (e.shiftKey && !e.metaKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { stop(); ed.commands.extendBlockSelection(e.key === 'ArrowDown' ? 'down' : 'up'); return; }
       if (e.key === 'Backspace' || e.key === 'Delete') { stop(); ed.commands.deleteBlocks(); return; }
+      // Typing over a block selection replaces it (D-496: the removal guard asks for converted objects' embeds).
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { stop(); ed.commands.pasteText(e.key, true); return; }
     }
+    // FR-CNV-05 AC-4: Tab on a selected Task card goes to its header controls (checkbox, Status, …, Display as).
+    const se = e.key === 'Tab' && !e.shiftKey && !e.metaKey ? ed.selectedEmbed() : null;
+    const card = se ? (ed.view.nodeDOM(se.pos) as HTMLElement | null)?.querySelector<HTMLElement>('[data-task-card]') : null;
+    const first = card ? [...card.querySelectorAll<HTMLElement>('button, [role="checkbox"], a[href]')].find((x) => !x.closest('[data-embed-body]')) : null;
+    if (first) { stop(); first.focus(); return; }
     if (e.key === 'Tab' && !e.metaKey) {
       // Lists nest and un-nest; elsewhere Tab stays in the editor.
       const c = ed.editor.can();
@@ -966,16 +1095,38 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
             onMouseDown={(ev) => ev.preventDefault()} onClick={() => openLinkField()}>
             <Icon name="link" />
           </button>
-          <button type="button" tabIndex={-1} aria-label={t('ctl.turnIntoObject')} aria-disabled="true" aria-description={t('due.coming', { milestone: 'MS5' })} title={t('due.coming', { milestone: 'MS5' })} onMouseDown={(ev) => ev.preventDefault()}>
+          <button type="button" tabIndex={-1} data-command="edit.turnIntoObject" aria-label={t('ctl.turnIntoObject')} title={t('ctl.turnIntoObject')}
+            aria-disabled={convertBlocked() ? 'true' : undefined} aria-description={convertBlocked() ?? undefined}
+            onMouseDown={(ev) => ev.preventDefault()} onClick={() => { focusArea.current = 'body'; run('turnIntoObject'); }}>
             <Icon name="object" />
           </button>
         </div>
       )}
       {slash && e2 && (
-        <SlashMenu slash={slash} pos={caretPos(slash.from)} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+        <SlashMenu slash={slash} pos={caretPos(slash.from)} blocked={convertBlocked()} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
       )}
       {suggest && e2 && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
+      )}
+      {convertOpen && (
+        <ConvertPopover at={convertOpen.at} types={types} title={convertOpen.title} type={convertOpen.type} count={convertOpen.count}
+          onCancel={() => { setConvertOpen(null); edRef.current?.clearBlockSelection(); focusEditor(); }}
+          onConvert={(choice) => {
+            const c = convertOpen;
+            setConvertOpen(null);
+            focusEditor();
+            const h = convertHost();
+            if (h) void runConvert(h, c.unit, choice.title, choice.type);
+          }} />
+      )}
+      {removeAsk && (
+        <RemoveEmbedDialog items={removeAsk.items} onAnswer={(remove, dontAsk) => {
+          const r = removeAsk;
+          setRemoveAsk(null);
+          if (remove && dontAsk) setConvertPrefs({ skipRemoveConfirm: true });
+          r.resolve(remove);
+          focusEditor();
+        }} />
       )}
       {picker && (
         <EmbedPicker from={path} types={types} at={picker.at} onChoose={insertEmbedAt} onCancel={cancelPicker} />
@@ -985,7 +1136,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           onClose={() => { setPick(null); focusEditor(); }} />
       )}
       {menu && e2 && (
-        <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect}
+        <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect} convertWhy={convertBlocked()}
+          onConvert={() => { setMenu(null); focusEditor(); focusArea.current = 'body'; openConvert('last'); }}
           onSub={(sub) => setMenu({ ...menu, sub })}
           onClose={() => { setMenu(null); focusEditor(); }} />
       )}
@@ -1027,7 +1179,10 @@ function slashMatches(query: string): SlashDef[] {
   return query ? rank(query, items) : items;
 }
 
-function SlashMenu({ slash, pos, onPick, onSel }: { slash: Slash; pos: { left: number; top: number }; onPick: (i: SlashDef) => void; onSel: (i: number) => void }) {
+/** 5A-2: the conversion items, unavailable with a reason (D-494). */
+const CONVERT_ITEMS = new Set(['task', 'turnIntoObject']);
+
+function SlashMenu({ slash, pos, blocked, onPick, onSel }: { slash: Slash; pos: { left: number; top: number }; blocked: string | null; onPick: (i: SlashDef) => void; onSel: (i: number) => void }) {
   const items = slashMatches(slash.query);
   let lastGroup = '';
   return (
@@ -1037,18 +1192,19 @@ function SlashMenu({ slash, pos, onPick, onSel }: { slash: Slash; pos: { left: n
         {items.map((it, i) => {
           const header = !slash.query && it.group !== lastGroup ? t(`slash.group.${it.group}`) : null;
           lastGroup = it.group;
-          const disabled = !it.status.built;
+          const why = blocked && CONVERT_ITEMS.has(it.id) ? blocked : null;
+          const disabled = !it.status.built || !!why;
           return (
             <div key={it.id} role="presentation">
               {header && <div className="group-header" role="presentation">{header}</div>}
               <div role="option" aria-label={t(it.label)} aria-selected={i === slash.sel} aria-disabled={disabled || undefined}
-                aria-description={disabled && it.due ? t('due.coming', { milestone: showDue(it.due) }) : undefined}
+                aria-description={why ?? (disabled && it.due ? t('due.coming', { milestone: showDue(it.due) }) : undefined)}
                 className={`option ${i === slash.sel ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseMove={() => !disabled && i !== slash.sel && onSel(i)}
                 onClick={() => !disabled && onPick(it)}>
                 <span>{t(it.label)}</span>
-                {disabled && <Due due={it.due} />}
+                {why ? <span className="due">{why}</span> : disabled && <Due due={it.due} />}
               </div>
             </div>
           );
@@ -1125,7 +1281,7 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
 
 // ------------------------------------------------------------------------------------------------ block menu
 
-function BlockMenu({ menu, ed, wrapRect, onSub, onClose }: { menu: NonNullable<Menu>; ed: TeggEditor; wrapRect: DOMRect | undefined; onSub: (s: NonNullable<Menu>['sub']) => void; onClose: () => void }) {
+function BlockMenu({ menu, ed, wrapRect, convertWhy, onConvert, onSub, onClose }: { menu: NonNullable<Menu>; ed: TeggEditor; wrapRect: DOMRect | undefined; convertWhy: string | null; onConvert: () => void; onSub: (s: NonNullable<Menu>['sub']) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const state = ed.view.state;
   const range = ed.blockSelection() ?? { from: ed.caretBlock(), to: ed.caretBlock() };
@@ -1187,7 +1343,7 @@ function BlockMenu({ menu, ed, wrapRect, onSub, onClose }: { menu: NonNullable<M
             {inTable && item(t('blockMenu.deleteRow'), act(() => ed.commands.tableAction('deleteRow')))}
             {inTable && item(t('blockMenu.deleteColumn'), act(() => ed.commands.tableAction('deleteColumn')))}
             {item(t('ctl.copyBlockLink'), null, { disabled: true, description: t('due.coming', { milestone: 'v1.0' }) })}
-            {item(t('ctl.turnIntoObject'), null, { disabled: true, description: t('due.coming', { milestone: 'MS5' }) })}
+            {item(t('ctl.turnIntoObject'), onConvert, { disabled: !!convertWhy, description: convertWhy ?? undefined })}
           </>
         )}
         {menu.sub === 'turnInto' && (

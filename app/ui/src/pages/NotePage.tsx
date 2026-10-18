@@ -20,6 +20,7 @@ import { Saver, type ConflictInfo, type Failure, type SaveState } from '../edit/
 import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
+import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
 import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
@@ -79,6 +80,8 @@ export type NotePageApi = {
   touched: () => boolean;
   /** 4B (D-330): the review toggle, also from the palette. */
   setReviewed: (reviewed: boolean) => void;
+  /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run now, or null. */
+  convertBlocked: () => string | null;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
@@ -342,6 +345,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     await Promise.all([s ? s.flush() : Promise.resolve(), embeds.flush()]);
   }, []);
 
+  useEffect(() => () => clearAlerts(), [path]);
+
   useImperativeHandle(apiRef, () => ({
     flush,
     edit: (a) => {
@@ -359,6 +364,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
     touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
+    // D-494: only the note's own editor converts; the read view, the source view and read-only files don't.
+    convertBlocked: () => (pane.current && live.current.loaded?.mode === 'edit' ? pane.current.convertBlocked() : t('convert.readOnly')),
   }), [flush, propertiesOpen, onToggleProperties]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
@@ -843,6 +850,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <div role="alert" className="fm-warning"><strong>{t('readOnly.utf8')}</strong> {t('readOnly.utf8Body')}</div>
         )}
         {loaded.mode === 'editorFailed' && <div role="alert" className="fm-warning">{t('readOnly.editorFailed')}</div>}
+        <PageAlerts />
         {save.state === 'failed' && save.failure === 'io' && (
           <div role="alert" className="save-alert">
             <span>{t('save.ioFailed')}</span>
@@ -893,6 +901,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               labelBody={t('editor.body')}
               onReady={onEditor}
               onSaveNow={() => void flush()}
+              flush={flush}
+              daily={daily?.date ?? null}
               describedBy={titleId}
               onChange={() => {
                 if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false;
@@ -999,5 +1009,21 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
         </div>
       </div>
     </div>
+  );
+}
+
+/** 5A-2: the conversion's and Task cards' alerts (FR-CNV-03 AC-6, FR-CNV-06 AC-3, FR-CNV-05 AC-7). */
+function PageAlerts() {
+  const alerts = usePageAlerts();
+  return (
+    <>
+      {alerts.map((a) => (
+        <div key={a.id} role="alert" className="save-alert">
+          <span>{a.text}</span>
+          {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { dismissAlert(a.id); a.retry!(); }}>{t('task.tryAgain')}</button>}
+          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}>×</button>
+        </div>
+      ))}
+    </>
   );
 }

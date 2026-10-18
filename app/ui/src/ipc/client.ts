@@ -36,6 +36,8 @@ export const ipc = {
   noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),
   noteCreateExact: (path: string, text: string) => invoke<VersionDto>('note_create_exact', { path, text }),
   noteTrash: (path: string, base: VersionDto) => invoke<string>('note_trash', { path, base }),
+  /** ms5-tasks §11.6 (D-492): deletes a note only while it is still `base` (a conversion's undo). */
+  noteDiscard: (path: string, base: VersionDto) => invoke<void>('note_discard', { path, base }),
   tags: () => invoke<TagDto[]>('index_tags'),
   conflicts: () => invoke<ConflictRowDto[]>('index_conflicts'),
   /** The open note is saved, or the user chose to quit anyway (D-196). */
