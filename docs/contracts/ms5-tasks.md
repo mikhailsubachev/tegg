@@ -181,7 +181,7 @@ function completeTask(text: string, defs: TaskDefsDto, done: boolean, now: strin
 
 ### 6.3 Remembered state (D-481)
 
-`UiStateDto.tasks = { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean }`, written with `ui_state_set` on change (machine-local, never in the vault).
+`UiStateDto.tasks = { view: 'schedule' | 'kanban' | 'all' /* D-516 */; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean }`, written with `ui_state_set` on change (machine-local, never in the vault).
 
 ### 6.4 Quick-add parsing (`app/ui/src/tasks/quickAdd.ts`, D-483)
 
@@ -254,7 +254,7 @@ Written before the 5A-2 red tests, once 4F is on `main` and its embed contract (
 ### 12.1 Tasks views, header, tag filter, Type settings (D-516…D-519)
 
 - `type/task` renders `tasks/AllTasks.tsx`: `TypePage` with a `header` prop (the Tasks header, `tasks/TasksHeader.tsx`); with a header the type page shows no view tab of its own. Every other `type/<key>` is unchanged.
-- `TasksUiDto.view` takes `schedule` | `kanban` | `all`; the sidebar entry `Tasks` opens the route of the stored view. The sidebar receives `typeEntries(…)` without `task`; `typeEntries` itself (and so `Go to type: Tasks`) is unchanged.
+- `TasksUiDto.view` takes `schedule` | `kanban` | `all`; the sidebar entry `Tasks` opens the route of the stored view. Kanban by tag orders its columns by tag name (R42, D-122) in both cases, not by the filter's counts; with a selection, one column per selected key. The sidebar receives `typeEntries(…)` without `task`; `typeEntries` itself (and so `Go to type: Tasks`) is unchanged.
 - The tablist's tabs carry `data-command` `tasks.schedule`, `tasks.kanban`, `goto.type:task`.
 - `Type settings` is `shell/TypeSettingsButton.tsx` (`data-command="type.openSettings"`, `aria-label` and `title` `Type settings`, icon `sliders`).
 - The tag filter is `tasks/TagFilter.tsx`: the `combobox` is the text field (`role="combobox"`, `aria-controls` the listbox, `aria-activedescendant` the highlighted option); options are named `#<label>` with the count as `aria-describedby`; chips and options carry `data-tag`. Bucketing rules: §4.
@@ -275,4 +275,4 @@ Written before the 5A-2 red tests, once 4F is on `main` and its embed contract (
 
 - L1: `app/test/tasks_views.ac.test.ts` (all-of filter, `counts.tags`), `app/test/history.ac.test.ts` (draft entries).
 - L5: `app/webkit/tasks_all_view.ac.test.ts` (FR-TSK-04 AC-15), `tasks_header.ac.test.ts` (AC-16), `tasks_schedule.ac.test.ts` (AC-5), and the D-520 changes of `create_object`, `caret_on_create`, `type_page`, `keyboard` and the other tests that used the `New object` dialog.
-- L6: `app/e2e/ms3_shell.ac.test.ts` FR-UX-02 AC-13 (a) and (b) through the draft.
+- L6: `app/e2e/ms3_shell.ac.test.ts` FR-NAV-01 AC-13 (a) and (b) through the draft.
