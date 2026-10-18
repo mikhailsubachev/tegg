@@ -1044,12 +1044,13 @@ fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: 
     let mut def = parsed.def;
     let (mut lines, final_nl) = split_lines(text);
     let original = lines.clone();
+    let before = def.clone();
     let system = SYSTEM_KEYS.contains(&key.as_str());
     for op in ops {
         apply(&mut def, &mut lines, op, system, ctx, used)?;
     }
     if key == "task" {
-        check_task_states(&def)?;
+        check_task_states(&before, &def)?;
     }
     if lines == original {
         return Ok(None);
@@ -1419,9 +1420,15 @@ fn option_op(def: &mut TypeFile, lines: &mut Vec<String>, attr: &str, f: impl Fn
             lines.insert(at, line(a.options.last().expect("added")));
         }
         OptEdit::Moved(from, to) => {
-            let l = lines.remove(e[from].0);
-            let first = e[0].0;
-            lines.insert(first + to, l);
+            // The entry's own line moves to just before (moving up) or after (moving down) the entry it passes; lines
+            // between entries (comments, blanks) stay where they are (PR #47 review).
+            let (s0, s1) = e[from];
+            let moved: Vec<String> = lines.drain(s0..s1).collect();
+            let n = s1 - s0;
+            let at = if to > from { e[to].1 - n } else { e[to].0 };
+            for (k, l) in moved.into_iter().enumerate() {
+                lines.insert(at + k, l);
+            }
         }
         OptEdit::Removed(o) => {
             lines.remove(e[o].0);
@@ -1445,15 +1452,17 @@ fn option_entries(lines: &[String], i: usize) -> Option<(usize, Vec<(usize, usiz
     Some((ind, spans))
 }
 
-/// D-473: the Task type keeps at least one `status` option with state Open and one with state Done. An option
-/// without a known state counts as Open (D-471).
-fn check_task_states(def: &TypeFile) -> Result<(), SchemaError> {
-    let Some(st) = def.attributes.iter().find(|a| a.key == "status") else { return Ok(()) };
-    let states: Vec<TaskState> = st.options.iter().map(|o| option_state(o).and_then(TaskState::parse).unwrap_or(TaskState::Open)).collect();
-    if !states.contains(&TaskState::Open) {
+/// D-473: a change never removes the Task type's last `status` option with state Open or with state Done. An option
+/// without a known state counts as Open (D-471). A file that never had one (hand-written) still accepts other changes.
+fn check_task_states(before: &TypeFile, after: &TypeFile) -> Result<(), SchemaError> {
+    let states = |def: &TypeFile| -> Vec<TaskState> {
+        def.attributes.iter().find(|a| a.key == "status").map(|st| st.options.iter().map(|o| option_state(o).and_then(TaskState::parse).unwrap_or(TaskState::Open)).collect()).unwrap_or_default()
+    };
+    let (b, a) = (states(before), states(after));
+    if b.contains(&TaskState::Open) && !a.contains(&TaskState::Open) {
         return Err(RuleError::NeedOpen.into());
     }
-    if !states.contains(&TaskState::Done) {
+    if b.contains(&TaskState::Done) && !a.contains(&TaskState::Done) {
         return Err(RuleError::NeedDone.into());
     }
     Ok(())

@@ -347,8 +347,12 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
     }
   }
   if (key === 'task' && working.status) {
-    const r = s.checkStatusOptions(working.status);
-    if (r) return rule(r);
+    // Only a change that removes the last Open / Done status is refused (tegg-schema check_task_states, PR #47 review).
+    const states = (o: any[]) => o.map((x) => s.taskState(x));
+    const before = states(t.attributes.find((a: any) => a.key === 'status')?.options ?? []);
+    const after = states(working.status);
+    if (before.includes('open') && !after.includes('open')) return rule({ reason: 'needOpen', field: 'optionLabel' });
+    if (before.includes('done') && !after.includes('done')) return rule({ reason: 'needDone', field: 'optionLabel' });
   }
   let out = join_(es);
   if (out !== text && t.declaredVersion === null) {
