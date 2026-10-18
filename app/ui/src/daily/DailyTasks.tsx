@@ -39,13 +39,27 @@ export function DailyTasks({ date, onOpen }: { date: string; onOpen: (path: stri
   useEffect(load, [date, refresh, all, today, zone]);
   const nav: TaskNav = { openNote: onOpen, openSource: openSourceAt, openDay: (d) => { openDate(d); } };
   const list = rows ? [...rows.overdue, ...rows.due, ...rows.completed] : [];
-  const toggle = (row: TaskRowDto, done: boolean) => {
+  const [alerts, setAlerts] = useState<{ id: number; text: string; retry?: () => void }[]>([]);
+  const alert = (text: string, retry?: () => void) => setAlerts((a) => [...a.filter((x) => x.text !== text), { id: Date.now() + Math.random(), text, retry }]);
+  /** FR-TSK-02 AC-10…AC-12 (PR #47 review): a refused or failed write is shown, never silent (NFR-REL-02). */
+  const toggle = (row: TaskRowDto, done: boolean, base: 'row' | 'current' = 'row') => {
     if (!defs) return;
-    void writeTask(row, defs, { kind: 'complete', done }).then(() => setRefresh((n) => n + 1));
+    void writeTask(row, defs, { kind: 'complete', done }, base).then((r) => {
+      if (r.outcome === 'conflict') alert(t('task.changedOutside', { title: row.title }));
+      else if (r.outcome === 'failed') alert(t('task.saveFailed', { title: row.title }), () => toggle(row, done, 'current'));
+      setRefresh((n) => n + 1);
+    });
   };
   return (
     <section role="region" aria-label={t('daily.section.tasks')} className="daily-section">
       <h2 className="daily-section-title">{t('daily.section.tasks')}</h2>
+      {alerts.map((a) => (
+        <div key={a.id} role="alert" className="task-alert">
+          <span>{a.text}</span>
+          {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { setAlerts((x) => x.filter((y) => y.id !== a.id)); a.retry!(); }}>{t('task.tryAgain')}</button>}
+          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => setAlerts((x) => x.filter((y) => y.id !== a.id))}>×</button>
+        </div>
+      ))}
       {list.length === 0 ? <p className="daily-empty">{t('daily.section.empty')}</p> : (
         <ul className="daily-rows daily-tasks">
           {list.map((r) => {
