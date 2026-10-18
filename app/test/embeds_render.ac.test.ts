@@ -210,16 +210,16 @@ test('fr_emb_02_ac4_cards_show_the_header_and_the_preview_strip', async () => {
   assert.equal(text(sf).replace(/\s+/g, ' ').trim().replace(/Open Šárka Malá|Display as/g, '').trim(), 'Šárka Malá', 'the header only, no empty-state text');
   cleanup();
 
+  // 5A-2 (conversion.md FR-CNV-05 AC-1, R52; D-499): a Task in card mode is the D-74 card, not the generic card.
   const task = await loaded('Tasks/Zavolat Janě.md');
   const t = await show(node('Zavolat Janě', { mode: 'card', note: task }));
   const tf = frameOf(t.container);
-  assert.ok(tf.firstElementChild?.querySelector('[data-icon="check-square"]'), 'Task icon');
-  const tl = ([...tf.querySelectorAll('[role="list"], ul, ol')] as HTMLElement[]).find((l) => name(l) === 'Properties');
-  const ti = [...(tl?.querySelectorAll('[role="listitem"], li') ?? [])].map((li) => text(li).replace(/\s+/g, ' ').trim());
-  assert.equal(ti.length, 3, `Status, Priority, Due date: ${ti.join(' | ')}`);
-  assert.ok(/^Status\s*To do$/.test(ti[0]) && /^Priority\s*High$/.test(ti[1]) && /^Due date\s*Oct 9, 2026$/.test(ti[2]), ti.join(' | '));
-  assert.equal(tf.querySelector('[role="checkbox"], input[type="checkbox"]'), null, 'no checkbox until MS5 (D-74)');
-  assert.ok(!text(tf).includes('Domluvit schůzku.'), 'no task body');
+  assert.ok(tf.hasAttribute('data-task-card'), 'the D-74 Task card (R52)');
+  assert.ok(tf.querySelector('[role="checkbox"][aria-label="Complete \\"Zavolat Janě\\""]'), 'the checkbox');
+  assert.ok(button(tf, 'Status: To do') && button(tf, 'Priority: High'), 'Status and Priority buttons');
+  assert.ok([...tf.querySelectorAll('button')].some((b) => name(b).startsWith('Due: ')), 'a Due button');
+  assert.equal(([...tf.querySelectorAll('[role="list"], ul, ol')] as HTMLElement[]).find((l) => name(l) === 'Properties'), undefined, 'no preview strip on a Task card');
+  assert.ok(text(tf).includes('Domluvit schůzku.'), 'the task body below the header');
   cleanup();
 
   const cil = await loaded('Pages/Cíl.md');

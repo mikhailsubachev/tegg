@@ -20,6 +20,8 @@ export type UiStateDto = {
   propertiesOpen?: boolean;
   /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
   tasks?: { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean };
+  /** ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again". */
+  convert?: { lastType: string | null; skipRemoveConfirm: boolean };
 };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
@@ -690,6 +692,23 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       void state.emit('vault:changed', { paths: [p, t] });
       return t;
     },
+    // ms5-tasks §11.6, §11.7 (D-492): a conversion's undo deletes the new file only while it is still `base`; counted
+    // as a write of that path; `writeControl({ fail })` applies (D-510).
+    note_discard: (a) => {
+      const p = String(a.path).normalize('NFC');
+      const top = p.split('/')[0];
+      if (['.tegg', '_templates', '.trash'].includes(top) || !/\.md$/i.test(p)) throw err('Protected', `fake: ${p} can't be discarded`);
+      if (!state.vault || state.vault.files[p] === undefined) throw err('NotFound', `fake: ${p} is gone`);
+      if (ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      const now = state.ver(p)!;
+      const base = a.base as VersionDto;
+      if (!base || base.size !== now.size || base.hash !== now.hash) throw { ...err('Conflict', `fake: ${p} changed`), path: p, mine: '', theirs: state.vault.files[p], theirsVersion: now };
+      delete state.vault.files[p];
+      delete state.mtimes[p];
+      state.writtenPaths.push(p);
+      void state.emit('vault:changed', { paths: [p] });
+      return null;
+    },
     index_tags: () => {
       const forms: Record<string, Record<string, number>> = {};
       const add = (name: string) => {
@@ -748,7 +767,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       if (!state.vault) throw err('NoVault', 'fake: no vault');
       if (a.type !== undefined && String(a.type).normalize('NFC') === 'daily-note') throw err('UseDailyNote', 'fake: a Daily Note is created by typing in it'); // D-318
       // 5A-1 (D-510): `writeControl({ fail })` applies to the typed create too.
-      if (a.type !== undefined && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: create failed (Io)');
+      // With `path`, the typed create the core would name that path fails (its stem is the sanitized title).
+      const planned = (title: string) => String(title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim();
+      const ctlCreate = !state.control.path || String(state.control.path).normalize('NFC').replace(/\.md$/i, '').split('/').pop()!.replace(/ \(\d+\)$/, '') === planned(a.title);
+      if (a.type !== undefined && ctlCreate && state.control.fail === 'Io') throw err('Io', 'fake: create failed (Io)');
       if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)

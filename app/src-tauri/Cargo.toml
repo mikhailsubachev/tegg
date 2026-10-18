@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 tegg-core = { path = "../../crates/tegg-core" }
 tegg-vault = { path = "../../crates/tegg-vault" }
 tegg-schema = { path = "../../crates/tegg-schema" }
+tegg-format = { path = "../../crates/tegg-format" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

@@ -1,6 +1,7 @@
 // The MS3 slice 3A shell (architecture §12, docs/contracts/ms3-shell.md): the frame with every designed page,
 // TBD placeholders for later phases (D-116), the command palette and shortcuts (FR-UX-03), themes (FR-UX-05),
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
+import { registerConvertPrefs } from './convert/prefs';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
@@ -154,6 +155,8 @@ export function App() {
       return next;
     });
   }, []);
+  // 5A-2 (ms5-tasks §11.4): the conversion's preferences live in the same machine-local state.
+  useEffect(() => registerConvertPrefs({ get: () => uiRef.current?.convert ?? undefined, set: (c) => updateUi((u) => ({ ...u, convert: c })) }), [updateUi]);
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
@@ -456,6 +459,7 @@ export function App() {
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
     edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
+    convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route;

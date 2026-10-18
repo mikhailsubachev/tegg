@@ -709,3 +709,33 @@ button.toggle .count { margin-left: 0; }
 button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .attr-value[data-overdue="true"] { color: var(--danger); }
 .attr-value[data-overdue="true"] input { color: var(--danger); font-weight: 600; }
+
+/* 5A-2: the conversion popover (R50), the remove-embed dialog (FR-CNV-08) and the Task card (R52, D-74). */
+.convert-popover { width: 320px; max-width: 360px; max-height: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.convert-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.convert-field input { height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+.convert-types { display: flex; flex-wrap: wrap; gap: 4px; }
+.convert-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.convert-type.selected { border-color: var(--accent); background: var(--hover); }
+.convert-summary { margin: 0; font-size: 12px; color: var(--muted); }
+.convert-buttons { display: flex; gap: 6px; justify-content: flex-end; }
+.convert-buttons button, .remove-embed .dialog-buttons button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.convert-buttons .primary, .remove-embed .dialog-buttons .primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.convert-buttons .primary[aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--text) 24%, transparent); }
+.remove-embed { width: min(440px, 92vw); padding: 16px 20px; background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 10px; }
+.remove-embed h2 { margin: 0 0 8px; font-size: 16px; }
+.remove-embed p { margin: 0 0 12px; font-size: 14px; }
+.remove-embed-check { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 12px; }
+.remove-embed .dialog-buttons { display: flex; gap: 6px; justify-content: flex-end; }
+.task-embed-header { flex-wrap: wrap; }
+.task-embed-title.done { text-decoration: line-through; color: var(--muted); }
+.task-card-btn { display: inline-flex; align-items: center; gap: 4px; border: none; border-radius: 5px; padding: 1px 6px; background: var(--hover); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.task-card-btn[aria-disabled="true"] { cursor: default; }
+.task-card-btn[data-tone="overdue"] { color: var(--danger); }
+.task-card-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.task-embed-body { padding: 6px 10px; }
+.task-embed-text p { margin: 0 0 6px; }
+.task-due-pop { position: fixed; z-index: 40; display: flex; gap: 6px; align-items: center; padding: 8px; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; }
+
+.task-embed-body .ProseMirror .editor-hint { pointer-events: auto; cursor: text; } /* FR-CNV-05 AC-6: a click on Add details… starts typing there */

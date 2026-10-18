@@ -483,6 +483,21 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tasks: Option<TasksUiDto>,
+    /// ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again"; missing reads as the defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub convert: Option<ConvertUiDto>,
+}
+
+/// ms5-tasks §11.4: machine-local conversion state (D-128).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct ConvertUiDto {
+    /// Type key of the last conversion on this machine; null before the first (preselection Task, D-493).
+    pub last_type: Option<String>,
+    /// FR-CNV-08 AC-2 `Don't ask again`.
+    pub skip_remove_confirm: bool,
 }
 
 /// ms5-tasks §6.3 (D-481).
@@ -900,7 +915,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None }
     }
 }
 
@@ -975,6 +990,7 @@ pub fn typescript() -> String {
         InterruptedDto::decl(),
         BackupDto::decl(),
         TasksUiDto::decl(),
+        ConvertUiDto::decl(),
         TaskRowDto::decl(),
         StatusOptionDto::decl(),
         UnknownStateDto::decl(),

@@ -5,8 +5,8 @@ export type Due = { milestone: string; slice?: string }
 export type SlashItem = { id: string; group: 'objects' | 'blocks' | 'media' | 'advanced'; label: string; due?: Due; aliases?: string[] }
 
 const ITEMS: SlashItem[] = [
-  { id: 'task', group: 'objects', label: 'Task', due: { milestone: 'MS5' } },
-  { id: 'turnIntoObject', group: 'objects', label: 'Turn into object…', due: { milestone: 'MS5' } },
+  { id: 'task', group: 'objects', label: 'Task' },
+  { id: 'turnIntoObject', group: 'objects', label: 'Turn into object…' },
   { id: 'embedObject', group: 'objects', label: 'Embed object', aliases: ['embed'] },
   { id: 'text', group: 'blocks', label: 'Text', aliases: ['paragraph'] },
   { id: 'heading1', group: 'blocks', label: 'Heading 1', aliases: ['h1'] },

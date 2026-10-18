@@ -14,6 +14,9 @@ export type Prepared = {
   create: (title: string, values?: [string, Value][]) => Promise<string /* path */>;
   /** The bytes `create` would send, stamped `now` (a draft's text, D-520; ms5-tasks §12.2). */
   render: (title: string, now: string) => string;
+  /** 5A-2 (ms5-tasks §11.2, D-524): the conversion's create: `body` replaces the template's body; returns the bytes
+   *  written too (the conversion's undo deletes the file only while it still has them, D-492). */
+  createWithBody: (title: string, values: [string, Value][], body: string) => Promise<{ path: string; text: string }>;
 };
 
 /** The first two steps of the path (type_get, type_template), for an entry point that knows its type in advance. */
@@ -23,13 +26,14 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
   const tpl = await ipc.typeTemplate(key).catch(() => null);
   const review = (type?.review === 'on' || type?.review === 'locked' ? type.review : 'off') as 'off' | 'on' | 'locked';
   const k = type?.key ?? key;
-  const render = (title: string, now: string, values?: [string, Value][]) => newObject({
+  const render = (title: string, now: string, values?: [string, Value][], body?: string) => newObject({
     type: { key: k, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined, options: a.options })), review },
     title: title.normalize('NFC').trim(),
     template: tpl ? tpl.text : null,
     now,
     newId: () => ulid(Date.now()),
     values,
+    body,
   });
   return {
     key: k,
@@ -39,6 +43,11 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
       return ipc.noteCreate(k, clean, render(clean, localIso(new Date(Date.now())), values));
     },
     render: (title: string, now: string) => render(title, now),
+    createWithBody: async (title: string, values: [string, Value][], body: string) => {
+      const clean = title.normalize('NFC').trim();
+      const text = render(clean, localIso(new Date(Date.now())), values, body);
+      return { path: await ipc.noteCreate(k, clean, text), text };
+    },
   };
 }
 

@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
-pub use local::{create_local_dir, list_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs};
+pub use local::{create_local_dir, list_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs, BEFORE_RENAME};
 pub use mem::MemFs;
 pub use types::TypeDef;
 
@@ -471,6 +471,18 @@ impl Vault {
             None => Err(VaultError::Gone),
             Some(disk) if !disk.same_content(base) => Err(VaultError::Conflict { disk }),
             Some(_) => self.move_free(&path, &join(TRASH, &path)),
+        }
+    }
+
+    /// ms5-tasks §11.6 (D-492): deletes `path` (no trash) only while it is still `base`; `Conflict` otherwise,
+    /// `NotFound` when absent. Used only to undo a conversion that created the file.
+    pub fn discard_checked(&self, path: &str, base: &FileVersion) -> Result<(), VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let path = nfc(path);
+        match self.fs.version(&path)? {
+            None => Err(VaultError::NotFound),
+            Some(disk) if !disk.same_content(base) => Err(VaultError::Conflict { disk }),
+            Some(_) => Ok(self.fs.remove_file(&path)?),
         }
     }
 

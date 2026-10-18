@@ -12,6 +12,7 @@ import { ReadView } from '../read/ReadView';
 import { formatDate } from '../read/PropertiesStrip';
 import { TypeCell, type TypeColumn } from '../types/cell';
 import type { EmbedNode } from './tree';
+import { isTaskCard, TaskEmbed } from './TaskEmbed';
 
 export type EmbedProps = {
   node: EmbedNode;
@@ -167,10 +168,19 @@ function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: strin
   );
 }
 
-function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
+function OpenButton({ props }: { props: EmbedProps }) {
   const { node } = props;
   // `Open <title>` names the note, without the heading (R30).
   const name = node.target.title ?? node.target.target;
+  return (
+    <button type="button" tabIndex={0} className="embed-btn" data-command="edit.openEmbed" onMouseDown={(e) => e.preventDefault()} aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
+      <Icon name="external" size={13} />
+    </button>
+  );
+}
+
+function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
+  const { node } = props;
   return (
     <div className="embed-header">
       {showIcon && <TypeIcon type={typeOf(node)} />}
@@ -178,9 +188,7 @@ function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNod
       {node.mode === 'full' && node.readOnly && node.state === 'ok' && props.editable === false && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) && (
         <span className="embed-readonly">{t('embed.readOnly')}</span>
       )}
-      <button type="button" tabIndex={0} className="embed-btn" data-command="edit.openEmbed" onMouseDown={(e) => e.preventDefault()} aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
-        <Icon name="external" size={13} />
-      </button>
+      <OpenButton props={props} />
       {node.state !== 'date-missing' && <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />}
     </div>
   );
@@ -315,6 +323,16 @@ export function Embed(props: EmbedProps): ReactNode {
     );
   }
   const title = titleOf(node);
+  if (isTaskCard(node)) {
+    // D-74, D-497: the Task card (R52) in the 4F card frame; no preview strip.
+    return (
+      <section {...base} onClick={undefined} onKeyDown={undefined} className="embed embed-card embed-task" aria-label={t('embed.name', { title })} data-embed-state="ok" data-embed-target={node.target.path ?? node.target.target} data-task-card="">
+        <TaskEmbed node={node} editable={props.editable} title={title} body={props.body} onOpen={() => open(node, props.onOpen)}
+          openButton={<OpenButton props={props} />}
+          modeMenu={<ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />} />
+      </section>
+    );
+  }
   const state = node.state === 'ok' && node.mode === 'full' && node.readOnly && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) ? 'read-only' : node.state;
   const common = { ...base, className: `embed embed-${node.mode}`, 'aria-label': t('embed.name', { title }), 'data-embed-state': state, 'data-embed-target': node.target.path ?? node.target.target };
   let content: ReactNode = null;

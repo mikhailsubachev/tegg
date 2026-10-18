@@ -73,6 +73,8 @@ pub enum CoreError {
     UseDailyNote,
     /// ms4-daily §3: `daily_create` bytes don't have `type: daily-note`, the date and the date as title.
     DailyMismatch,
+    /// ms5-tasks §11.6: `note_discard` of a file that isn't a note (`.tegg/`, `_templates/`, `.trash/`, not `.md`).
+    Protected,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -424,6 +426,20 @@ impl Core {
         self.index().remove(&path)?;
         self.shared.emit(CoreEvent::VaultChanged { paths: vec![path, to.clone()] });
         Ok(to)
+    }
+
+    /// ms5-tasks §11.6 (D-492): deletes `path` (no trash) only when its current version equals `base`; `Conflict`
+    /// otherwise, `NotFound` when absent. Only Markdown notes outside `.tegg/`, `_templates/` and `.trash/` (`Protected`).
+    pub fn discard_note(&self, path: &str, base: &FileVersion) -> Result<(), CoreError> {
+        let path = nfc(path);
+        let top = path.split('/').next().unwrap_or("");
+        if [".tegg", "_templates", ".trash"].contains(&top) || !path.to_lowercase().ends_with(".md") {
+            return Err(CoreError::Protected);
+        }
+        self.shared.vault.discard_checked(&path, base)?;
+        self.index().remove(&path)?;
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path] });
+        Ok(())
     }
 
     /// The one write path (MS1 `Vault::write`), then the index is updated directly (architecture §5.3).

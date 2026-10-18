@@ -29,6 +29,9 @@ export type ShellActions = {
   setTheme: (t: ThemeChoice) => void;
   /** Runs an R8 editor action on the note route's editor; a no-op elsewhere (editor.md R8). */
   edit?: (action: EditAction) => void;
+  /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run on the note now (read view, read-only, a nested editor,
+   *  a template), or null. */
+  convertBlocked?: () => string | null;
   // 3D (R13, ms3-shell §14.7.2).
   newType?: () => void;
   openTypeSettings?: () => void;
@@ -51,7 +54,8 @@ export type ShellActions = {
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
-  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs';
+  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
+  | 'turnIntoTask' | 'turnIntoObject';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -69,6 +73,8 @@ export type Command = {
   section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit';
   shortcut?: string;
   due?: Due;
+  /** 5A-2 (FR-CNV-01 AC-5): why the command can't run here now, or null; listed disabled with the reason. */
+  disabled?: () => string | null;
   needsVault: boolean;
   run: (ctx: ShellContext) => void | Promise<void>;
 };
@@ -78,7 +84,6 @@ const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys
 /** Command ids of the R3 controls (D-130), in registry order. */
 export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
-  'ctl.turnIntoObject': 'edit.turnIntoObject',
   'ctl.copyBlockLink': 'edit.copyBlockLink',
   'ctl.filter': 'typePage.filter',
   'ctl.group': 'typePage.group',
@@ -219,9 +224,13 @@ export function commands(ctx: ShellContext): Command[] {
     // 4F (R32, D-428): no shortcuts.
     ['edit.embedObject', 'embedObject', 'commands.embedObject'], ['edit.openEmbed', 'openEmbed', 'commands.openEmbed'],
     ['edit.displayEmbedAs', 'displayEmbedAs', 'commands.displayEmbedAs'],
+    // 5A-2 (R53): ⇧⌘T, ⇧⌘O.
+    ['edit.turnIntoTask', 'turnIntoTask', 'cmd.edit.turnIntoTask'], ['edit.turnIntoObject', 'turnIntoObject', 'cmd.edit.turnIntoObject'],
   ];
   for (const [id, action, title] of EDIT) {
-    list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action) });
+    const convert = action === 'turnIntoTask' || action === 'turnIntoObject';
+    list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
+      ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];

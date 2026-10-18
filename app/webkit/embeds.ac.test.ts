@@ -620,15 +620,17 @@ test('fr_emb_02_ac4_card_mode', async ({ page }) => {
   const task = await needTop(main(page), 5, 'Zavolat Janě card');
   assert.equal(await task.evaluate((e) => e.firstElementChild?.querySelector('[data-icon]')?.getAttribute('data-icon') ?? null), 'check-square', 'Task icon');
   await must(openButton(task, 'Zavolat Janě'), 'Open Zavolat Janě');
-  assert.deepEqual(await stripItems(task), ['Status To do', 'Priority High', 'Due date Oct 9, 2026'], 'the task strip (D-160 medium date)');
-  assert.equal(await task.getByRole('checkbox').count(), 0, 'no checkbox until MS5');
-  assert.ok(!flat(await task.innerText()).includes('Domluvit schůzku.'), 'no task body');
+  // 5A-2 (conversion.md FR-CNV-05 AC-1, R52; D-499): the Task card replaces the generic card: no strip, the
+  // checkbox and header buttons, and the task's body below.
+  assert.deepEqual(await stripItems(task), [], 'no preview strip on a Task card');
+  assert.equal(await task.getByRole('checkbox', { name: 'Complete "Zavolat Janě"', exact: true }).count(), 1, 'the checkbox');
+  await must(task.getByRole('button', { name: 'Status: To do', exact: true }), 'Status: To do');
+  assert.ok(flat(await task.innerText()).includes('Domluvit schůzku.'), 'the task body');
   const cilCard = await needTop(main(page), 8, '![[Cíl|card]]');
   assert.equal(await cardStrip(cilCard).count(), 0, 'Cíl|card: header only');
   assert.equal(await embedBody(cilCard).count(), 0, 'Cíl|card: no body');
-  for (const f of [jana, task]) {
-    assert.equal(await f.locator('[contenteditable="true"], input, textarea, [role="textbox"]').count(), 0, 'card values are never editable');
-  }
+  assert.equal(await jana.locator('[contenteditable="true"], input, textarea, [role="textbox"]').count(), 0, 'card values are never editable');
+  assert.equal(await task.locator('.task-embed-header [contenteditable="true"], .task-embed-header input, .task-embed-header [role="textbox"]').count(), 0, 'the Task card header has no editable field (AP-427)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EMB-02 AC-5

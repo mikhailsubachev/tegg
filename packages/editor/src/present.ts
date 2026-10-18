@@ -4,7 +4,7 @@
 
 import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
 import { isAttachmentTarget } from '@tegg/doc'
 import { wikiLabel } from './schema'
@@ -114,14 +114,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
   }
   // The hint of an empty note: a widget, never part of the text or a copy (FR-EDT-01 AC-9).
   if (doc.childCount === 1 && doc.firstChild!.type.name === 'paragraph' && doc.firstChild!.content.size === 0) {
-    decos.push(Decoration.widget(1, () => {
-      const s = document.createElement('span')
-      s.className = 'editor-hint'
-      s.contentEditable = 'false'
-      s.setAttribute('aria-hidden', 'true')
-      s.textContent = ui.hint
-      return s
-    }, { side: 1, ignoreSelection: true, key: 'hint' }))
+    decos.push(Decoration.widget(1, (view) => hintElement(view, ui.hint), { side: 1, ignoreSelection: true, key: 'hint' }))
   }
   return DecorationSet.create(doc, decos)
 }
@@ -395,4 +388,20 @@ export function presentation(ui: EditorUi) {
       ]
     },
   })
+}
+
+/** The hint of an empty body (FR-EDT-01 AC-9; 5A-2 `emptyHint`): never part of the text; a click on it puts the caret
+ *  in the empty paragraph (the Task card's `Add details…`, FR-CNV-05 AC-6). */
+export function hintElement(view: EditorView, text: string): HTMLElement {
+  const s = document.createElement('span')
+  s.className = 'editor-hint'
+  s.contentEditable = 'false'
+  s.setAttribute('aria-hidden', 'true')
+  s.textContent = text
+  s.addEventListener('mousedown', (e) => {
+    e.preventDefault()
+    view.focus()
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(1))))
+  })
+  return s
 }

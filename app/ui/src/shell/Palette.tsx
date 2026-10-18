@@ -13,8 +13,9 @@ export function Palette({ list, onRun, onClose }: { list: Command[]; onRun: (c: 
   const shown = useMemo(() => rank(q, list, (c) => t(c.title, c.vars)), [q, list]);
   useEffect(() => setSel(0), [q]);
 
+  const why = (c: Command) => c.disabled?.() ?? null;
   const choose = (c: Command | undefined) => {
-    if (!c || c.due) return;
+    if (!c || c.due || why(c)) return;
     onRun(c);
   };
 
@@ -57,13 +58,14 @@ export function Palette({ list, onRun, onClose }: { list: Command[]; onRun: (c: 
               key={c.id}
               role="option"
               aria-selected={n === sel}
-              aria-disabled={c.due ? 'true' : undefined}
-              className={`${n === sel ? 'selected' : ''} ${c.due ? 'dim' : ''}`}
+              aria-disabled={c.due || why(c) ? 'true' : undefined}
+              aria-description={why(c) ?? undefined}
+              className={`${n === sel ? 'selected' : ''} ${c.due || why(c) ? 'dim' : ''}`}
               onMouseEnter={() => setSel(n)}
               onClick={() => choose(c)}
             >
               <div className="cmd-title">{t(c.title, c.vars)}</div>
-              <div className="cmd-meta">{c.due ? t('due.comingIn', { due: showDue(c.due) }) : c.shortcut ? t('shortcut.keys', { keys: c.shortcut }) : ''}</div>
+              <div className="cmd-meta">{c.due ? t('due.comingIn', { due: showDue(c.due) }) : why(c) ? why(c) : c.shortcut ? t('shortcut.keys', { keys: c.shortcut }) : ''}</div>
             </li>
           ))}
           {shown.length === 0 && <li className="empty" role="presentation">{t('palette.empty')}</li>}

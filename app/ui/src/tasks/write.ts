@@ -7,7 +7,7 @@ import type { TaskDefsDto, TaskRowDto, VersionDto } from '../ipc/types';
 import { localIso } from '../newNote';
 
 export type TaskAction = { kind: 'complete'; done: boolean } | { kind: 'change'; change: TaskChange };
-export type WriteResult = { outcome: 'written' | 'unchanged'; inlineKept: boolean } | { outcome: 'conflict' | 'gone' | 'failed' };
+export type WriteResult = { outcome: 'written' | 'unchanged'; inlineKept: boolean; text?: string; version?: VersionDto } | { outcome: 'conflict' | 'gone' | 'failed' };
 
 const sameVersion = (a: VersionDto | null | undefined, b: VersionDto | null | undefined) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
 
@@ -60,7 +60,7 @@ async function doWrite(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, b
     const w = await ipc.noteWrite(row.path, text, note.version);
     const prev = chains.get(key);
     chains.set(key, prev && sameVersion(prev[prev.length - 1], note.version) ? [...prev.slice(-15), w.version] : [note.version, w.version]);
-    return { outcome: 'written', inlineKept };
+    return { outcome: 'written', inlineKept, text, version: w.version };
   } catch (e) {
     const kind = (e as { kind?: string })?.kind;
     return { outcome: kind === 'Conflict' ? 'conflict' : kind === 'Gone' || kind === 'NotFound' ? 'gone' : 'failed' };

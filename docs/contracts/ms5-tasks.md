@@ -1,4 +1,4 @@
-# MS5 Tasks Interface Contract (slice 5A-1; 5A-2 conversion in §11)
+# MS5 Tasks Interface Contract (slice 5A-1; 5A-2 conversion and the Task card in §11)
 
 - **Status:** accepted, 2026-10-17 (red-test clarifications AP-430…AP-443 → D-501…D-514, §10). Written before the 5A-1 red tests (D-487, as D-295 and D-430). Follows D-470…D-500 (BRD v1.66).
 - **ACs:** [docs/acceptance/tasks.md](../acceptance/tasks.md) (FR-TSK-01 AC-1…AC-7, FR-TSK-02 AC-1…AC-13, FR-TSK-03 AC-1…AC-3, FR-TSK-04 AC-1…AC-14, FR-TSK-05 AC-1…AC-13, FR-TSK-08 AC-1…AC-3, FR-TSK-09 AC-1…AC-3, FR-TSK-10 AC-1…AC-8, FR-TSK-11 AC-1…AC-4, FR-DLY-04 AC-8…AC-14, FR-SYN-06 AC-20…AC-22) and its tables R40…R46. Where this contract and the ACs disagree, the ACs win, and this contract is corrected before the red tests.
@@ -247,7 +247,173 @@ These override the sections above where they differ.
 
 ## 11. Slice 5A-2: conversion and the Task card (D-490…D-499)
 
-Written before the 5A-2 red tests, once 4F is on `main` and its embed contract (`ms4-embeds.md`) is final. It will cover: the `@tegg/doc` split and embed helpers (D-490, D-491), the editor conversion command and popover (D-493, D-494), the D-74 card node (D-497), the undo exception (D-492), the create-then-save order and its kill points (D-498), and the fake-core support.
+- **Status:** accepted, 2026-10-18. Written for the 5A-2 red tests; 4F is on `main` (PR #46) and `ms4-embeds.md` is final. The points of §11.10 are decided as D-524…D-538 (BRD v1.71) and override the text above them where they differ. §12 (5A-1 preview feedback, D-516…D-523) applies to 5A-2 too.
+- **ACs:** [docs/acceptance/conversion.md](../acceptance/conversion.md) (FR-CNV-01 AC-1…AC-8, FR-CNV-02 AC-1…AC-7, FR-CNV-03 AC-1…AC-11, FR-CNV-04 AC-1…AC-3, FR-CNV-05 AC-1…AC-10, FR-CNV-06 AC-1…AC-5, FR-CNV-08 AC-1…AC-6, FR-FMT-07 AC-20, FR-SYN-06 AC-23) with tables R50…R54, and tasks.md FR-TSK-11 AC-4 (D-514). Where this section and the ACs disagree, the ACs win.
+- **Builds on** §1…§10 above, [ms4-embeds.md](ms4-embeds.md) (§2 helpers, §5 tree, §6 rendering, §7 editor, §8 fake core), [ms4-links.md](ms4-links.md) (§1 resolution, D-184 link text) and ms3-shell §13 (editor, autosave, conflicts) and §14.7.1 (the one creation path).
+- **No job, no restore point** (conversion.md intro): a conversion is `note_create` for the new object, then the source note's ordinary save. Undo adds at most one delete or trash of that new file (D-492).
+- Stubs as in the intro (TS-I1): every new function exists, compiles and returns a wrong result until built.
+
+### 11.1 Text helpers (`@tegg/doc`, new `packages/doc/src/convert.ts`, exported from the index; D-490, D-491, D-495)
+
+All offsets are UTF-16 indexes into the whole file text (frontmatter included), as `embedSection`.
+
+```ts
+/** The unit a selection converts (R51, D-490, D-493). `selFrom`/`selTo` are offsets into `text` (a caret: equal).
+ *  Extends to whole blocks; inside a quote or callout to the whole quote or callout; inside a top-level list to the
+ *  whole top-level items it touches (with their nested items); a selection inside one nested item only → that item
+ *  (with its own children). Null: in the frontmatter, or no block (blank lines only). */
+export type ConvertUnit = {
+  kind: 'blocks' | 'items' | 'nested-item'
+  from: number                // start of the unit's first line
+  to: number                  // end of its last line, without the line break
+  count: number               // R50 summary: top-level blocks, or items of the run (nested children not counted)
+  first: 'paragraph' | 'heading' | 'item' | 'quote' | 'callout' | 'other'
+  checked: boolean | null     // the first item's `[x]` / `[ ]`; null when it isn't a checklist item
+}
+export function conversionUnit(text: string, selFrom: number, selTo: number): ConvertUnit | null
+
+/** R51 and D-491: the new object's title, tags and body from the unit. `linkTitle(target)` gives the title of a
+ *  wikilink target as resolved from the host (null: unresolved, then the target as written is used). */
+export function objectFromUnit(text: string, unit: ConvertUnit, linkTitle: (target: string) => string | null): {
+  title: string               // plain text of the first line, NFC, trimmed; '' when the first block has no text
+  tags: string[]              // trailing `#tag` tokens of the first line, without `#`, NFC, in order, unique by tagKey
+  body: string                // canonical: `\n` line ends, NFC, ends with one `\n` or is ''
+  checked: boolean | null     // = unit.checked
+}
+
+/** R51 "Embed in the source" (D-490): the host text with the unit replaced by the embed paragraph `![[target]]`
+ *  (or `<indent>- ![[target]]` for a nested item), blank-line separated, lists split around it (numbers kept). The
+ *  host's line ending (CRLF when the file uses CRLF), BOM and final-newline state are kept; other bytes unchanged.
+ *  `embedFrom` / `embedTo`: the offsets of the inserted embed line in the result. */
+export function replaceUnitWithEmbed(text: string, unit: ConvertUnit, target: string): { text: string; embedFrom: number; embedTo: number }
+```
+
+- `objectFromUnit` doesn't know the title the user typed in R50: the app passes R50's title to `newObject`; the body is the same either way (FR-CNV-02 AC-6).
+- These three functions are the only place that decides R51; the editor (§11.3), the L1 tests and the L2 property use them.
+
+### 11.2 New object bytes (D-232, D-495)
+
+- `newObject` gains `body?: string`: when given, it is the body after the frontmatter and the template's body is **not** used (the template's frontmatter entries still apply; D-524).
+- The app builds the conversion's values (`newObject` `values`, §5): `tags` (when `objectFromUnit` gave any) and `source: { link: <source link text> }`; for a Task from a checked item, `status` = the first Done-state option and `completed` = `localIso(now)` (D-495); for an unchecked item or no item, the D-503 default. Other types never get a check state.
+- **Source link text** (FR-CNV-04 AC-1, D-527: with `|title` when the title differs from the written target, e.g. `"[[Quick Notes/Dvojník|Dvojník]]"`): `linkText({ path: source, title: sourceTitle, fromPath: <type folder>/<planned stem>.md, stemResolves })`, `stemResolves` from `link_resolve(<that from path>, [sourceStem])` returning the source. A Daily Note source is `[[YYYY-MM-DD]]` (D-162). The from path is a planned path (the type's folder from `type_get` and the sanitized title); `link_resolve` doesn't need it to exist.
+- **Embed target** (FR-CNV-03 AC-5, AC-11): after `note_create` returns the path actually written, `embedTarget({ path, title, fromPath: source, stemResolves })` with `stemResolves` from `link_resolve(source, [newStem])` returning that path. The planned stem is never used for the embed.
+
+### 11.3 `@tegg/editor` additions
+
+```ts
+export interface TeggEditor {
+  // …existing
+  /** §11.1 `conversionUnit` for the current caret, text selection or block selection, or null. Null as well inside
+   *  an embed's own content, in the title field, and when the editor is read-only or `options.convertible` is false. */
+  conversionUnit(): ConvertUnit | null
+  commands: {
+    // …existing
+    /** D-490, D-492: replaces `unit` (as computed on the current text) by `replaceUnitWithEmbed(text, unit, target)`
+     *  as ONE undo step tagged with `record`, selects the new embed as a block (FR-CNV-01 AC-7), and returns its pos.
+     *  Afterwards `text()` equals the helper's result byte for byte. False (nothing changed) if the text moved on. */
+    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord): number | false
+  }
+}
+export type ConversionRecord = { path: string; created: string /* the bytes note_create wrote */; type: string; title: string }
+
+export interface EditorOptions {
+  // …existing
+  /** D-494: false in `_templates/` notes and nested embed editors; `conversionUnit()` is then null. Default true. */
+  convertible?: boolean
+  /** D-492: undo / redo of a conversion step. `afterUndo` runs after the undo applied (the app flushes the save,
+   *  then deletes or trashes the file). `beforeRedo` runs before the redo applies: the app recreates the file and
+   *  returns the embed target to write (it may differ, FR-CNV-06 AC-2), or false to cancel the redo (nothing changes).
+   *  Only the step `convertUnit` made is a conversion step; the rewrite of the target joins the redo step. */
+  conversion?: { afterUndo(r: ConversionRecord): void; beforeRedo(r: ConversionRecord): Promise<string | false> }
+  /** D-496: called before a user action removes block embeds (⌫, Delete, block menu Delete, ⌘X, typing or pasting over
+   *  a selection). Never for moves, undo, redo or `convertUnit`. Return null to remove at once; a promise defers the
+   *  removal, which then happens (as one undo step, the typed or pasted text included) only if it resolves true. */
+  guardEmbedRemoval?(embeds: { pos: number; source: string }[]): Promise<boolean> | null
+}
+```
+
+- Undo scope stays D-178: the history belongs to the editor instance; leaving the note or an external reload drops it, so no conversion record survives (FR-CNV-06 AC-4).
+- `slash.ts`: `task` and `turnIntoObject` built (no `due`), matched like the other items (`/turn`, `/task`).
+
+### 11.4 The flow (`app/ui/src/convert/`)
+
+| Module | What it is |
+| --- | --- |
+| `ConvertPopover.tsx` | R50: `dialog` `Turn into object`, Title textbox (selected), `Type` radiogroup (Page, Task, Quick Note, user types in D-122 order; ↑/↓ and first letter), summary (plural messages), `Convert` / `Cancel`. Esc and Cancel return focus to where it was; a typed `/turn` or `/task` is removed on close either way. |
+| `convert.ts` | `convertSelection(editor, page, opts: { preselect: 'task' \| 'last' })`: unit → `link_resolve` for link titles → popover → `prepareObject(type).create(title, values)` with `body` (§11.2; one creation path, D-245) → on success `link_resolve` for the embed target → `editor.commands.convertUnit` → `page.flushSave()` at once (not the 1 s autosave, AC-6). On a failed create: the `convert.failed` alert, nothing else. A source save failure or `Conflict` follows editor.md's rules; the new file stays. A virtual Daily Note's flush is its first write (`daily_create`). Writes `UiStateDto.convert.lastType`. |
+| `undo.ts` | `afterUndo`: flush the source save, then `note_read(path)`: missing → nothing (AC-5); text equal to `created` → `note_discard(path, version)`; else (or `Conflict` from discard) → `note_trash(path, version)` and the `convert.trashedOnUndo` alert. `beforeRedo`: `note_create_exact(path, created)`; `Exists` → `note_create(type, title, created)` (next free stem, same `id`); then the embed target as in §11.2. |
+| `removeGuard.ts` | `guardEmbedRemoval`: null when `convert.skipRemoveConfirm` is set or none of the embeds is a converted object; a converted object is a resolved target whose frontmatter `source` resolves (`link_resolve` from the target) to the host path. Else the `alertdialog` (one for several, plural message); `Don't ask again` sets `convert.skipRemoveConfirm`. |
+
+- **Availability (D-494):** the commands and menu items are enabled only when the note page's editor has focus and `conversionUnit()` isn't null; otherwise aria-disabled with `convert.readOnly` (read view, read-only file), `convert.inEmbed` (focus in a nested editor), `convert.inTemplate` (`_templates/`). Off note routes they aren't run.
+- **Commands** (R53, section `edit`, `needsVault: true`): `edit.turnIntoTask` (⇧⌘T, `Turn into task`) and `edit.turnIntoObject` (⇧⌘O, `Turn into object…`). The block menu and the formatting toolbar's `Turn into object` call `edit.turnIntoObject`.
+- **Registry:** R6 `task` and `turnIntoObject` built (`FR-TSK-01, FR-CNV-01`, `FR-CNV-01`); R3 `ctl.turnIntoObject` built. The `AC-Test-Change` of D-499 goes in the 5A-2 build commit.
+- **Strings:** R54 keys in `app/ui/src/i18n/en.json`; summary and removal messages use plural forms.
+- **Remembered state:** `UiStateDto.convert = { lastType: string | null; skipRemoveConfirm: boolean }` (machine-local, D-128; default `{ null, false }`, first-time preselection Task).
+- **Source chip** (FR-CNV-04 AC-2): unchanged from §10a item 3 (`selectEmbedOf`).
+
+### 11.5 The Task card (`app/ui/src/embeds/TaskEmbed.tsx`, D-497)
+
+- `Embed.tsx` renders `TaskEmbed` for a block embed with mode `card` whose target's matched type is `task`; `|full` and `|link` keep the 4F frames. The frame is R30's with `data-embed-mode="card"` and `data-task-card`; no preview strip.
+- **Header** (D-531: `Embed` keeps its 4F props; the defs come from `task_list`, cached per page): derived by `taskHeader(text, defs)` (new `app/ui/src/tasks/header.ts`, pure: the §2.1 fields `title`, `status`, `state`, `statusKnown`, `priority`, `dueRaw`, `due`, `completed` from the file text, the same rules as `fake-tasks.ts`, which reuses it) with `defs` from `task_list` (cached per page, refreshed on `vault:changed` of a type file). Controls: the R43 checkbox, title text (no `contenteditable`), `Status: …`, `Priority: …`, `Due: …` (the panel's date control: textbox `Due date` and `Clear`, D-537; the name ends with `, overdue` when overdue), `Open …`, `Display as`. DOM hooks as D-509 (`data-status`, `data-priority`, `data-due`, `data-tone`).
+- **Writes:** through `tasks/write.ts` (§5) with the card's version as the row version; one write per change; equal values write nothing. The page's `EmbedStore` keeps one version per path: after a write every card and nested editor of that path gets the new text and version (`peerWrote`), so a second card writes with the first write's result as base (FR-CNV-05 AC-8). `Conflict` → reload the card and the tasks.md FR-TSK-02 AC-11 alert.
+- **Body:** a nested editor (`EmbedEditor`) on the whole task file, `section: null`, `convertible: false`, with `emptyHint: 'task.addDetails'` (new `EditorOptions.emptyHint?: string`: shown in an empty first paragraph, never saved, no write on focus).
+- **Read-only** (R52): read view, depth ≥ 2, and `readOnly` targets (not UTF-8, invalid frontmatter): controls aria-disabled with `This task can't be edited here.`, body `data-embed-editable="false"`.
+- `embeds/tree.ts` is unchanged: a Task card is a card node; only rendering differs.
+
+### 11.6 Core and IPC
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `note_discard` | `path`, `base` | `void` | New (D-492). Deletes the file (no trash) only when its current version equals `base`; `Conflict` otherwise, `NotFound` when absent. Only Markdown files outside `.tegg/`, `_templates/` and `.trash/`. Core: `Core::discard_note(path, &FileVersion)`. |
+| `note_create` | unchanged | | Refuses `daily-note` with `UseDailyNote` (exists, D-318; FR-CNV-01 AC-6). |
+| `note_create_exact`, `note_trash`, `note_read`, `note_write`, `link_resolve`, `daily_create` | unchanged | | Composed by §11.4. |
+| `ui_state_get` / `ui_state_set` | unchanged | | `UiStateDto.convert` added. |
+
+- **Kill points (FR-CNV-03 AC-7)**, only with `TEGG_TEST=1`: `TEGG_TEST_HOLD=after-create` makes the next `note_create` write and index its file, emit the perf mark `hold:after-create`, and then block forever; `TEGG_TEST_HOLD=during-source-save:<vault path>` makes the next atomic write of that path write its temp file, emit `hold:during-source-save`, and block before the rename. The L6 test waits for the mark and sends `SIGKILL`.
+
+### 11.7 Fake core additions
+
+- `note_discard` over the in-memory files with the same version check; counted by `writes()` as a write of that path (kind `discard`), and `note_trash` likewise (kind `trash`).
+- `UiStateDto.convert` kept in memory. `writeControl` (D-510) applies to `note_discard` too.
+- `link_resolve` from a path that doesn't exist resolves from its folder as the core does (§11.2).
+
+### 11.8 Test layout
+
+- **L1:** `packages/doc/test/convert.ac.test.ts` (§11.1, §11.2 bytes: R51, FR-CNV-02 AC-1…AC-5, AC-7, FR-CNV-03 AC-1 bytes, AC-2…AC-4, AC-9, FR-CNV-04 AC-1 text); `packages/editor/test/convert.ac.test.ts` (§11.3: units from selections FR-CNV-01 AC-4, `convertUnit` bytes and one undo step FR-CNV-06 AC-1 transaction, `convertible`, `guardEmbedRemoval` calls FR-CNV-08 AC-5, the slash items); `app/test/convert_registry.ac.test.ts` (R53, R54, FR-CNV-01 AC-8 L1); `app/test/task_embed.ac.test.ts` (R52 roles and names, FR-CNV-05 AC-1 L1, AC-3 bytes, `taskHeader`).
+- **L2:** `app/test/convert_property.ac.test.ts` (fast-check, FR-FMT-07 AC-20, on `@tegg/doc`, `@tegg/editor` and the fake core).
+- **L4:** `crates/tegg-core/tests/ac_convert.rs`: FR-CNV-01 AC-6 refusal, FR-CNV-02 AC-7 file name, FR-CNV-03 AC-1 write, AC-5, AC-6 create failure, AC-10 daily create, AC-11; FR-CNV-04 AC-1 resolution, AC-3; FR-CNV-05 AC-7 base check; FR-CNV-06 AC-2 create exact, AC-3 trash; `note_discard`.
+- **L5:** `app/webkit/convert.ac.test.ts` (FR-CNV-01, FR-CNV-02, FR-CNV-03 AC-1…AC-6, AC-9…AC-11, FR-CNV-04 AC-2, AC-3, tasks.md FR-TSK-11 AC-4), `convert_undo.ac.test.ts` (FR-CNV-06), `convert_remove.ac.test.ts` (FR-CNV-08 AC-1…AC-5), `task_embed_card.ac.test.ts` (FR-CNV-05), `convert_writes.ac.test.ts` (FR-SYN-06 AC-23), with `app/webkit/convert-helpers.ts`. FR-CNV-08 AC-6 is `[MS6]`: written with 6A, not now. FR-CNV-01 AC-6's refusal, FR-CNV-03 AC-6's failed create and FR-CNV-05 AC-7's base check have no new L4 test (D-529: already built; `ac_daily.rs`, `ac_tasks.rs` and L5 cover them). The L2 property counts writes as the record's create plus the host's saves (D-530); per-path IPC counts are L5.
+- **L6:** `app/e2e/ms5_convert.ac.test.ts`: FR-CNV-03 AC-7 (kill cycles, milestone gate, `TEGG_KILL_CYCLES`), AC-8; FR-CNV-05 AC-2 (once), AC-5; FR-CNV-08 AC-2 (relaunch), AC-4 (once); FR-SYN-06 AC-23. Exact `modified` stays L5 (AP-345 rule, D-504 `TEGG_NOW` where set).
+- **Fixture:** the conversion.md notes added to `tests/fixtures/vaults/tasks/` byte-exact (NFD host in NFD, CRLF host with CRLF and no final newline), README updated, in its own commit before the tests. tasks.md's expected views don't change (the new files hold no task).
+
+### 11.9 Contract choices (no owner decision needed)
+
+1. One text engine (D-82): the editor applies the result of `replaceUnitWithEmbed`, so the bytes are decided in `@tegg/doc` and tested without an editor.
+2. Create, then save the source; undo saves the source, then deletes; redo creates, then changes the source. In every order a crash leaves at worst an orphan object, never an embed of a missing file (D-498).
+3. A hard delete exists only as `note_discard` with a base: a file whose bytes changed since its creation is never deleted, only trashed (D-492, NFR-REL-02).
+4. The Task card's header is computed in TypeScript from the file text the embed already loaded, so a card needs no extra IPC per embed (FR-EMB-02 AC-12's one `embed_load` per level).
+
+### 11.10 Points for the owner (AP-452…AP-466, accepted as recommended 2026-10-18: D-524…D-538)
+
+AP-452…AP-454 came with this contract, AP-455…AP-460 from the L1/L2/L4 red run, AP-461…AP-466 from the L5/L6 red run. Each is decided as its recommendation (AP-452 → D-524 … AP-466 → D-538).
+
+| # | Issue | Recommendation | Alternatives | Affects |
+| --- | --- | --- | --- | --- |
+| AP-452 → D-524 | **The target type's template.** R51 defines the body from the blocks; conversion.md doesn't say what happens when the chosen type has a template (FR-TYP-11) with its own body and attributes. | The template's frontmatter entries apply as for any new object; its body is not used (the converted blocks are the body). | (b) Template body first, then the converted blocks. (c) Ignore the template entirely. | §11.2, FR-CNV-03 AC-1 |
+| AP-453 → D-525 | **Summary count for list items.** R50's `<n> blocks` for a run of list items (and for a nested item). | Each top-level item of the run counts as one block (nested children not counted); a nested item alone is `1 block`. | (b) Count the list as one block. | R50, FR-CNV-01 AC-4 |
+| AP-454 → D-526 | **Tags from the first line when the user edits the title.** D-491 moves trailing `#tags` to `tags:`; FR-CNV-02 AC-6 lets the user change the title. | Tags come from the first line regardless of the edited title (shown nowhere in R50; they are in the new object's `tags:`). | (b) Drop them when the title was edited. | FR-CNV-02 AC-3, AC-6 |
+| AP-455 → D-527 | **Dvojník (Quick Notes) source text.** FR-CNV-04 AC-1 wrote `"[[Quick Notes/Dvojník]]"`; §11.2 uses `linkText`, which adds `|Dvojník` to a path target. | Follow `linkText` (D-184): `"[[Quick Notes/Dvojník|Dvojník]]"`; the AC and its L1 test change (`AC-Test-Change`). | (b) A source-link rule without the alias. | FR-CNV-04 AC-1, §11.2 |
+| AP-456 → D-528 | **Selections mixing blocks and list items.** | Whole top-level blocks: the whole list (kind `blocks`). | (b) The blocks plus only the touched items, splitting the list. | §11.1, FR-CNV-01 AC-4 |
+| AP-457 → D-529 | **L4 checks of behaviour already built can't be red** (FR-CNV-01 AC-6, FR-CNV-03 AC-6, FR-CNV-05 AC-7). | No new L4 test; existing `ac_daily.rs`, `ac_tasks.rs` `fr_tsk_02_ac11` and the L5 tests cover them. | (b) A check-red exemption. (c) Tests in existing AC files. | §11.8 |
+| AP-458 → D-530 | **L2 "with the fake core"**: `installFakeCore` needs a page. | The property counts the record's create plus the host's saves; per-path IPC counts at L5. | (b) Fake-core handlers in a Node-loadable module. | FR-FMT-07 AC-20 |
+| AP-459 → D-531 | **Task card data at L1.** | `Embed` props unchanged; defs via `task_list` (page cache); `taskHeader` returns TaskRowDto-named fields. | — | §11.5 |
+| AP-460 → D-532 | **Small R51 details**: nested-item embed range, a callout's custom title, `emptyHint` rendering. | The range covers `<indent>- ![[…]]`; the callout body starts with its `> [!type]` line verbatim (a custom title stays there); `emptyHint` is a muted placeholder, never in the text. | — | §11.1, §11.5, R51 |
+| AP-461 → D-533 | **`/turn` right after `.`**: the slash menu opens only at block start or after a space (FR-EDT-03 AC-1). | FR-CNV-01 AC-2 types ` /turn`; Esc removes `/turn` only (AP-348 rule). | (b) Open after punctuation. (c) Esc removes the space too. | FR-CNV-01 AC-2 |
+| AP-462 → D-534 | **Task card of a T01 copy with invalid frontmatter**: its type may be unknown. | The invalid-UTF-8 copy is the strict read-only check; for invalid frontmatter a Task card, if shown, is read-only and never written. | (b) Read `type` line by line. (c) Drop the variant. | FR-CNV-05 AC-9 |
+| AP-463 → D-535 | **Opening a `_templates/` note at L5.** | The note route opens template files in the editor with `convertible: false`; L5 uses the route hook. | (b) Test only at L1. | FR-CNV-01 AC-5, D-494 |
+| AP-464 → D-536 | **Temp-file cleanup after a kill** only removes files older than 1 minute (FR-SYN-02 AC-4). | The L6 test backdates leftovers by 2 minutes before restarting. | (b) Wait 61 s per cycle. (c) A test-only cleanup age. | FR-CNV-03 AC-7 |
+| AP-465 → D-537 | **Card Due control names.** | Textbox `Due date` and `Clear` (the panel's date control); the `Due: …` name may end with `, overdue` (D-509). | (b) A dedicated popover. | §11.5, FR-CNV-05 AC-1, AC-3 |
+| AP-466 → D-538 | **R50 and FR-UX-03 AC-8; the summary's `{type}`.** | R50's buttons and radios carry `data-command`; `{type}` is the type's Name as written. | (b) Exempt dialog controls. (c) Lower-case type name. | R50, R54, FR-CNV-01 AC-4, AC-7 |
 
 ## 12. Slice 5A-1 preview feedback (D-516…D-523)
 

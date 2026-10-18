@@ -24,7 +24,7 @@ function stamp(): string {
   return `${x.slice(0, 10)} ${x.slice(11, 13)}-${x.slice(14, 16)}`;
 }
 
-export function EmbedEditor({ node, store, getPos, title, gone = false }: { node: EmbedNode; store: EmbedStore; getPos: () => number | undefined; title: string; gone?: boolean }) {
+export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard = false }: { node: EmbedNode; store: EmbedStore; getPos: () => number | undefined; title: string; gone?: boolean; taskCard?: boolean }) {
   const host = useRef<HTMLDivElement | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
   const saverRef = useRef<Saver | null>(null);
@@ -87,6 +87,8 @@ export function EmbedEditor({ node, store, getPos, title, gone = false }: { node
         label: title,
         ui,
         section: sub,
+        convertible: false, // D-494: open the embedded note to convert its blocks
+        ...(taskCard ? { emptyHint: t('task.addDetails') } : {}),
         onChange: (dirty) => { if (dirty) saverRef.current?.changed(); },
         onLeave: (how) => {
           const pos = getPos();
