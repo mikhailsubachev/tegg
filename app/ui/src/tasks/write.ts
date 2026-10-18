@@ -12,9 +12,10 @@ export type WriteResult = { outcome: 'written' | 'unchanged'; inlineKept: boolea
 const sameVersion = (a: VersionDto | null | undefined, b: VersionDto | null | undefined) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
 
 const inFlight = new Map<string, Promise<unknown>>();
-/** Per path, the last write this window made: the version it replaced and the one it wrote. A queued action holding
- *  the row from before that write is based on it, not reported as an outside change (PR #47 review). */
-const lastWrite = new Map<string, { from: VersionDto; to: VersionDto }>();
+/** Per path, the unbroken chain of versions this window's own writes went through (the first one replaced, then each
+ *  one written). A queued action whose row is any version in the chain, while the file is at its end, is based on this
+ *  window's own writes, not reported as an outside change (PR #47 reviews). Any outside write breaks the chain. */
+const chains = new Map<string, VersionDto[]>();
 
 /** Runs one task write. `base: 'current'` (Try again) bases it on the file as it is now. */
 export function writeTask(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, base: 'row' | 'current' = 'row'): Promise<WriteResult> {
@@ -35,8 +36,8 @@ async function doWrite(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, b
     return { outcome: (e as { kind?: string })?.kind === 'NotFound' ? 'gone' : 'failed' };
   }
   const key = row.path.normalize('NFC');
-  const own = lastWrite.get(key);
-  const ours = !!own && sameVersion(own.from, row.version) && sameVersion(own.to, note.version);
+  const chain = chains.get(key) ?? [];
+  const ours = chain.length > 1 && sameVersion(chain[chain.length - 1], note.version) && chain.some((v) => sameVersion(v, row.version));
   if (base === 'row' && !sameVersion(note.version, row.version) && !ours) return { outcome: 'conflict' };
   if (!note.utf8) return { outcome: 'unchanged', inlineKept: false };
   const now = localIso(new Date(Date.now()));
@@ -57,7 +58,8 @@ async function doWrite(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, b
   const text = touchModified(note.text, after, now);
   try {
     const w = await ipc.noteWrite(row.path, text, note.version);
-    lastWrite.set(key, { from: note.version, to: w.version });
+    const prev = chains.get(key);
+    chains.set(key, prev && sameVersion(prev[prev.length - 1], note.version) ? [...prev.slice(-15), w.version] : [note.version, w.version]);
     return { outcome: 'written', inlineKept };
   } catch (e) {
     const kind = (e as { kind?: string })?.kind;

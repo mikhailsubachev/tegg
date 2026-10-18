@@ -52,3 +52,24 @@ test('bug_47_fr_tsk_02_try_again_reads_the_current_status', async () => {
   assert.equal(r.outcome, 'written');
   assert.ok(files.get(P)!.text.includes('completed: 2026-10-02T08:00:00+02:00\n'), 'Done → Done keeps completed (D-472)');
 });
+
+test('bug_47_fr_tsk_02_three_queued_actions_are_all_based_on_this_windows_writes', async () => {
+  const { writeTask } = await import('../../ui/src/tasks/write');
+  files.set(P, { text: TEXT, version: ver() });
+  const r = row(files.get(P)!.version);
+  const a = writeTask(r, DEFS, { kind: 'complete', done: true });
+  const b = writeTask(r, DEFS, { kind: 'change', change: { kind: 'priority', to: 'High' } });
+  const c = writeTask(r, DEFS, { kind: 'change', change: { kind: 'due', to: '2026-10-20' } });
+  assert.deepEqual([(await a).outcome, (await b).outcome, (await c).outcome], ['written', 'written', 'written'], 'none is reported as changed outside Tegg');
+  assert.ok(files.get(P)!.text.includes('due: 2026-10-20'), 'the third change is in the file');
+});
+
+test('bug_47_fr_tsk_02_an_outside_change_between_queued_actions_is_still_a_conflict', async () => {
+  const { writeTask } = await import('../../ui/src/tasks/write');
+  files.set(P, { text: TEXT, version: ver() });
+  const r = row(files.get(P)!.version);
+  assert.equal((await writeTask(r, DEFS, { kind: 'complete', done: true })).outcome, 'written');
+  const f = files.get(P)!;
+  f.text = f.text.replace('priority: Low', 'priority: High'); f.version = ver(); // another program
+  assert.equal((await writeTask(r, DEFS, { kind: 'change', change: { kind: 'due', to: '2026-10-20' } })).outcome, 'conflict', 'never accepted as ours (NFR-REL-02)');
+});
