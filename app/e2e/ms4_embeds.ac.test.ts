@@ -350,7 +350,9 @@ test('fr_emb_01_ac7_create_from_the_picker_writes_two_files', { timeout: 300_000
     await sleep(1500);
     t1 = tree(s.vault);
     assert.deepEqual(changedPaths(t0, t1), ['Pages/Vkládání.md', 'Quick Notes/Nová kapitola.md'].map((p) => p.normalize('NFC')).sort(), 'exactly two files written');
-    assert.ok(await shown(s.d, 'Empty note', 2000), 'the new embed shows Empty note');
+    // `Empty note` is an aria-hidden hint (FR-EDT-01 AC-9), checked in L5; here the new embed's frame is shown and its note is empty.
+    assert.ok(await shown(s.d, 'Embedded: Nová kapitola', 2000), 'the new embed is shown');
+    assert.equal(bodyOf(a!.text).trim(), '', 'the new note has an empty body');
     await caretAtEnd(s.d, 'Odstavec po.');
     press('enter');
     typeAscii('/emb');
@@ -379,8 +381,7 @@ test('fr_emb_01_ac12_insert_by_keyboard_is_atomic', { timeout: 300_000 }, async 
   let at = 0;
   let got: { text: string; at: number } | null = null;
   try {
-    // Keyboard only: the note opens with the focus on the title (D-130); ↓ enters the body, End ends the first line.
-    press('down');
+    // Keyboard only: the note opens with the caret at the start of the first body block (D-247, D-255); End ends it.
     press('end');
     press('enter');
     typeAscii('/emb');
@@ -637,15 +638,16 @@ test('fr_emb_03_ac14_killed_while_typing_in_an_embed_cycles', { timeout: 60 * 60
 
 test('fr_emb_04_ac8_no_hang_on_cycles_and_depth', { timeout: 300_000 }, async () => {
   await ready();
-  const s = await on('emb04-8', `note/${VK}`);
-  const before = tree(s.vault);
-  try {
-    assert.ok(await waitMark(s.log, 'note-ready'), 'Vkládání ready');
-    for (const t of ['Sama sebe', 'Kruh A', 'Obsah', 'Řetěz 1']) {
-      const n = countMark(s.log, 'note-ready');
+  // A mark is written at most once per process (ms2-shell §1): one launch per note, on a route without a note, so
+  // the switcher's open writes that launch's first `note-ready`.
+  for (const t of ['Sama sebe', 'Kruh A', 'Obsah', 'Řetěz 1']) {
+    const s = await on(`emb04-8-${t}`, 'home');
+    const before = tree(s.vault);
+    try {
+      assert.equal(countMark(s.log, 'note-ready'), 0, `${t}: no note open before the switcher`);
       const t0 = Date.now();
       await openBySwitcher(s.d, t);
-      assert.ok(await waitMarkCount(s.log, 'note-ready', n + 1, 2000 - (Date.now() - t0) + 600), `${t}: note-ready within 2 s`);
+      assert.ok(await waitMark(s.log, 'note-ready', 2000 - (Date.now() - t0) + 600), `${t}: note-ready within 2 s`);
       assert.ok(await firstShown(s.d, t === 'Řetěz 1' ? 'Embedded: Řetěz 2' : `Embedded: ${t === 'Kruh A' ? 'Kruh B' : t}`), `${t}: its embed frame is shown`);
       const k0 = Date.now();
       press('k', ['command']);
@@ -653,13 +655,13 @@ test('fr_emb_04_ac8_no_hang_on_cycles_and_depth', { timeout: 300_000 }, async ()
       assert.ok(Date.now() - k0 <= 1500, `${t}: palette in ${Date.now() - k0} ms`);
       press('escape');
       assert.ok(await gone(s.d, 'Command palette', 1000), `${t}: Esc closes it`);
+      await sleep(1500);
+    } finally {
+      await end(s.d);
     }
-    await sleep(1500);
-  } finally {
-    await end(s.d);
+    assert.deepEqual(changedPaths(before, tree(s.vault)), [], `${t}: no vault file changes bytes, mtime or inode`);
+    rmSync(s.base, { recursive: true, force: true });
   }
-  assert.deepEqual(changedPaths(before, tree(s.vault)), [], 'no vault file changes bytes, mtime or inode');
-  rmSync(s.base, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------- FR-FMT-07 AC-13 and FR-SYN-06 AC-10
