@@ -29,8 +29,8 @@ beforeEach(async () => {
 const d = (milestone: string): Due => ({ milestone });
 /** R6 of editor.md: group, catalog label, milestone (null = built), requirement IDs. */
 export const R6: [string, string, Due | null, string][] = [
-  ['objects', 'Task', d('MS5'), 'FR-TSK-01, FR-CNV-01'],
-  ['objects', 'Turn into object…', d('MS5'), 'FR-CNV-01'],
+  ['objects', 'Task', null, 'FR-TSK-01, FR-CNV-01'], // built in 5A-2 (R53, D-499)
+  ['objects', 'Turn into object…', null, 'FR-CNV-01'],
   ['objects', 'Embed object', null, 'FR-EMB-01'], // built in 4F (R32, D-431)
   ['blocks', 'Text', null, 'FR-EDT-02'],
   ['blocks', 'Heading 1', null, 'FR-EDT-02'],

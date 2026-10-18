@@ -67,8 +67,8 @@ export type R3Control = { label: string; where: string; due: Due; req: string; r
 export const R3: R3Control[] = [
   { label: 'New tab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06', route: null },
   // 3D (types.md R3 changes): `New type` and `Starter vault` are built.
-  // 3C (editor.md R3): `Edit` removed (the body is the editor); two controls added.
-  { label: 'Turn into object', where: 'formatting toolbar and block menu', due: d('MS5'), req: 'FR-CNV-01', route: null },
+  // 3C (editor.md R3): `Edit` removed (the body is the editor); two controls added. 5A-2 (R53, D-499): `Turn into
+  // object` is built.
   { label: 'Copy link to block', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06', route: null },
   // 3D (types.md R3 changes): Filter, Sort, Views and New <Type> of the type page are built; these are added.
   { label: 'Filter', where: 'type page', due: d('v1.0'), req: 'FR-QRY-01', route: 'type/<type>' },
@@ -147,6 +147,9 @@ export const R4: R4Row[] = [
   { keys: '⌘↩', press: 'Meta+Enter', command: 'Open link or toggle checklist item', enabled: true },
   { keys: '⇧⌘V', press: 'Meta+Shift+v', command: 'Paste as plain text', enabled: true },
   { keys: '⌘S', press: 'Meta+s', command: 'Save now', enabled: true },
+  // 5A-2 (conversion.md R53, D-499).
+  { keys: '⇧⌘T', press: 'Meta+Shift+t', command: 'Turn into task', enabled: true },
+  { keys: '⇧⌘O', press: 'Meta+Shift+o', command: 'Turn into object…', enabled: true },
 ];
 
 /** Shortcuts macOS reserves (FR-UX-03 AC-7). */
