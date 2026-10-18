@@ -4,7 +4,8 @@
 // with @tegg/doc (setValue / setRange) and hands it to the editor's save path (applyFrontmatter, D-240). The panel
 // never adds or removes properties (D-72).
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { localDate, parse, parseDate, setRange, setValue, type Doc } from '@tegg/doc';
+import { applyTaskChange, localDate, parse, parseDate, setRange, setValue, type Doc } from '@tegg/doc';
+import { localIso } from '../newNote';
 import { taskState } from '@tegg/schema';
 import { appZone } from '../zone';
 import { t } from '../i18n/catalog';
@@ -96,7 +97,15 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
   };
   useImperativeHandle(apiRef, () => ({ focusFirst: () => focusRow(0) }));
 
-  const set = (key: string, v: Value) => onCommit((d) => setValue(d, key, v));
+  const set = (key: string, v: Value) => onCommit((d) => (type.key === 'task' && key === 'status' && typeof v === 'string' ? taskStatus(d, v) : setValue(d, key, v)));
+  /** FR-TSK-01 AC-4, D-472: on a task, Status follows the task rules (`completed` set into Done, removed out of it). */
+  const taskStatus = (d: Doc, to: string): string => {
+    const opts = type.attributes.find((x) => x.key === 'status')?.options ?? [];
+    const stateOf = (label: unknown) => { const o = opts.find((x) => x.label === (typeof label === 'string' ? label.normalize('NFC') : null)); return o ? taskState(o) : 'open'; };
+    const firstOpen = opts.find((o) => taskState(o) === 'open')?.label ?? to;
+    const r = applyTaskChange(d.text, { kind: 'status', to, toState: stateOf(to), fromState: stateOf(d.frontmatter?.data?.status), firstOpen, now: localIso(new Date(Date.now())) });
+    return r ? r.text : d.text;
+  };
   // FR-TSK-09 AC-2: an open task's Due row shows the overdue highlight (R44).
   const overdue = useMemo(() => {
     if (type.key !== 'task') return false;
