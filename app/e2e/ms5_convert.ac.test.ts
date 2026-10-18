@@ -192,7 +192,8 @@ async function end(d: Driver | undefined) {
   await d?.execute('macos: terminateApp', { bundleId: BUNDLE_ID }).catch(() => {});
   await d?.deleteSession().catch(() => {});
 }
-const q = (label: string) => label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+// A predicate string literal can't hold a raw line break (mac2 refuses to parse it): written as `\n`.
+const q = (label: string) => label.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n');
 async function allShown(d: Driver, predicate: string): Promise<any[]> {
   const out: any[] = [];
   for (const e of await d.$$(`-ios predicate string:${predicate}`).catch(() => [] as any[])) if (await e.isDisplayed().catch(() => false)) out.push(e);
@@ -246,12 +247,14 @@ async function openBySwitcher(d: Driver, title: string) {
 }
 const ZAVOLAT_LABELS = [ZAVOLAT, 'a domluvit termín.', `${ZAVOLAT}\na domluvit termín.`, `${ZAVOLAT} a domluvit termín.`];
 /** ⇧⌘T on the Zavolat paragraph of Bloky, then ⏎ in R50 (FR-CNV-01 AC-3). Returns when ⏎ was sent. */
-async function convertZavolat(d: Driver) {
+/** Converts the paragraph with ⇧⌘T ⏎; returns when ⏎ was pressed (FR-CNV-03 AC-8 times the conversion from there). */
+async function convertZavolat(d: Driver): Promise<number> {
   assert.ok(await shown(d, 'Note body', 5000), 'the editor');
   await caretAtEnd(d, ...ZAVOLAT_LABELS);
   press('t', ['command', 'shift']);
   assert.ok(await shown(d, 'Turn into object', 2000), 'R50 (dialog "Turn into object")');
   press('enter');
+  return Date.now();
 }
 
 // ---------------------------------------------------------------- preflight (fails fast on an assertion)
@@ -362,8 +365,7 @@ test('fr_cnv_03_ac8_shift_cmd_t_writes_exactly_two_files_in_the_built_app', { ti
   const before = tree(s.vault);
   let took = Infinity;
   try {
-    const t0 = Date.now();
-    await convertZavolat(s.d);
+    const t0 = await convertZavolat(s.d);
     const a = await waitFile(join(s.vault, TASK), (t) => t !== null, 3000);
     const b = await waitFile(join(s.vault, BLOKY), (t) => !!t?.includes(`![[${ZAVOLAT}]]`), 3000);
     took = Date.now() - t0;
