@@ -1,22 +1,18 @@
 # Open items for the next slices
 
-State on 2026-10-18, after PR #48 (L6 fixes on main) and the merge of main into `ms5/5a-tasks` (PR #47). Each item names
+State on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
 ## Before PR #47 (5A-1 tasks) merges
 
 1. **Merge commit not pushed.** `ms5/5a-tasks` holds the merge of main (84ea504) locally. Next: rerun the L6 failures
    below on a quiet machine, then `./verify push`, push.
-2. **fr_syn_02_ac7 (killed while typing) fails, possible T1.** Since about 12:00 it loses more keys than the 1.2 s
-   allowance in some cycles, and in one run "other bytes changed" from cycle 10 on. It fails the same way with PR #48's
-   autosave change reverted, and it passed on this branch earlier today. The suspected cause is machine state:
-   WindowServer at ~50 % CPU, QuickTime Player open, the display had turned off during the run. Not proven. Next:
-   rerun with the display on and nothing else recording. If it still fails, treat it as a data-loss bug (D-62: it stops
-   feature work) and start with a `bug_…_fr_syn_02_…` regression test.
+2. **fr_syn_02_ac7 (killed while typing): passed** in the full L6 run after the D-516…D-523 build (display on, nothing
+   recording), which supports the machine-state explanation. Next: keep an eye on it; if it fails again on a quiet
+   machine, treat it as a data-loss bug (D-62) and start with a `bug_…_fr_syn_02_…` regression test.
 3. **fr_emb_01_ac1 (Režimy shows 12 embeds) finds 0 frames.** Same pattern and the same A/B result as item 2. Next:
    rerun together with item 2.
-4. **The installed `Tegg.app` is an A/B build** without the PR #48 autosave fix. Next: `npm run app:build` before any
-   L6 run.
 5. **fr_tsk_05_ac13 (two Kanban drags) depends on the window width.** The `#práce` column sits partly beyond the
    1280-pt window, and the test failed once on that. It passed in the last full run. The proposed test change (scroll the
    target column into view before the drag) is not approved yet. Next: ask the owner if it fails again.
@@ -35,6 +31,14 @@ what is open and the next step. Remove an item once it is done or decided.
 9. **4F property test strictness.** Seed 873028052 exposed the list-marker bug (fixed in the editor). The property
    test's strict model check can still fail on adjacent lists, which is a test-strictness issue never raised with the
    owner. Next: raise it as an AP point if it recurs.
+
+13. **Nightly and perf L6 tests fail (not in the push gate).** A full `npm run test:e2e` (which, unlike the gate's
+    `app-e2e` step, includes `nightly_*` and `nfr_perf_*`) failed four of them on 2026-10-18:
+    `fr_lnk_03_ac17` (SIGKILL during the hub rename: "the old hub file holds other bytes" in 19 of 20 cycles, a
+    possible T1 or a test-expectation gap), `fr_ux_07_ac11` (the 500-backlink rename didn't reach done in 120 s),
+    `fr_lnk_01_ac16` (backlinks warm-up mark not reached) and `fr_tsk_04_ac14` (the generated reference vault has 0
+    tasks). Not checked against a build before D-516…D-523. Next: run `./verify nightly` on `main` to see whether they
+    fail there too; investigate `fr_lnk_03_ac17` first (rename crash safety, FR-SYN-02).
 
 ## Product and accessibility
 
