@@ -1201,7 +1201,7 @@ for (const [at, slug] of [[M.rezimy, 'rezimy'], [M.sekce, 'sekce'], [M.rozbita, 
 test('fr_emb_02_ac15_pseudo_locale_type_settings_osoba', async ({ page }) => {
   await openEmbeds(page, M.rezimy, { prelude: PSEUDO });
   await runCommand(page, 'Go to type Osoby');
-  await (await must(main(page).locator('[data-command]').filter({ hasText: /Type settings/ }), 'Type settings control', 5000)).click();
+  await (await must(main(page).getByRole('button', { name: /^⟦?Type settings⟧?$/ }), 'Type settings control', 5000)).click(); // D-519: an icon button
   const sec = await must(main(page).getByRole('region', { name: /^⟦Embeds⟧$/ }), 'section ⟦Embeds⟧', 5000);
   const out = await sec.evaluate((root) => {
     const res: string[] = [];
