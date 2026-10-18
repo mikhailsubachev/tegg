@@ -113,6 +113,9 @@ export class Saver {
       this.timer = setTimeout(() => { this.timer = null; void this.run(); }, 150);
       return;
     }
+    // This write saves everything changed so far: a debounce armed meanwhile (a flush's second write after the first
+    // write's `transform` reported a change) has nothing left to do and would keep `pending` true (bug_l6_fr_edt_08).
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     this.firstAt = null;
     const mark = this.changes;
     let text: string | null;
