@@ -467,7 +467,12 @@ test('fr_syn_06_ac20_a_browsing_tour_writes_nothing', { timeout: 600_000 }, asyn
       palette(c);
       await sleep(400);
     }
-    for (const tag of ['#čtení', '#doma', '#finance', '#práce', '#rodina']) { await (await need(d, tag)).click(); await sleep(150); await (await need(d, tag)).click(); }
+    // D-518: the tag filter is a combobox; each tag is added from its list, then removed by its chip.
+    for (const tag of ['#čtení', '#doma', '#finance', '#práce', '#rodina']) {
+      await (await need(d, 'Filter by tag')).click(); await sleep(150);
+      await (await need(d, tag)).click(); await sleep(150);
+      await (await need(d, `Remove ${tag}`)).click(); await sleep(150);
+    }
     await (await need(d, 'Done')).click(); await sleep(200); await (await need(d, 'Done')).click();
     for (const t of ['Zavolat Janě', 'Zalít květiny', 'Koupit dárek']) {
       await (await need(d, `More actions for "${t}"`)).click();
