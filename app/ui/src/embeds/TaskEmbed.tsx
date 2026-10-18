@@ -10,6 +10,7 @@ import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { pushAlert } from '../convert/alerts';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import { Icon } from '../shell/Icon';
+import { chipIcon } from '../links/icons';
 import { DateControl } from '../types/controls/DateControls';
 import { taskHeader, type TaskHeader } from '../tasks/header';
 import { currentRegion, useToday } from '../tasks/useTasks';
@@ -165,6 +166,7 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
   return (
     <>
       <div className="embed-header task-embed-header" onClick={(e) => e.stopPropagation()}>
+        <Icon name={chipIcon('task').glyph} dataIcon={chipIcon('task').def} size={14} />
         <Checkbox row={row} onToggle={(v) => void act({ kind: 'complete', done: v })} />
         <span className={`embed-title task-embed-title${done ? ' done' : ''}`} data-user-content>{name}</span>
         {button({ ref: statusBtn, which: 'status', name: t('task.statusButton', { label: h.status ?? t('task.none') }), command: 'task.setStatus', attrs: { 'data-status': h.status ?? '' },
