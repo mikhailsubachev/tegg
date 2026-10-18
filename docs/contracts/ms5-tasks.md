@@ -140,7 +140,8 @@ function dueLabel(t: TaskRowDto, today: string, region: string): { text: string;
 ```
 
 - One implementation of R41, R42, R44 and D-474…D-477; the L1 table tests, the L2 property (FR-SYN-06 AC-22), the page and the daily section all use it. The sort orders are R41's and R42's, with `collator` = `Intl.Collator(region)` (D-122) and the path byte order last.
-- `counts.tags` lists the tags of open tasks within the date filter (D-476); `kanban` by tag uses the same set, plus `no-tag` when `tagFilter` is empty.
+- `tagFilter` keeps a task only when it has **every** key in it (D-518; was any of them, D-476).
+- `counts.tags` lists the tags of open tasks within the date filter (D-476), each selected key too (count 0 when no task has it); a tag's `count` is the number of open tasks within the date filter that have it and every selected key, i.e. the tasks the views would show with it added (D-518). Order: `count` descending, then `collator` on the label, then key byte order. `kanban` by tag has one column per selected key when `tagFilter` is set, else one per listed tag plus `no-tag`.
 - The Kanban Done column holds Done-state tasks whose completed instant (else `modified`) is in `[today − 6, today]` (D-475).
 
 ## 5. Task writes (`@tegg/doc` `packages/doc/src/task.ts`, D-82)
