@@ -14,5 +14,5 @@ export default defineConfig({
     ],
   },
   // `*.contract.test.ts`: checks that a fake follows a shared corpus (D-512), not AC tests.
-  test: { include: ['test/**/*.ac.test.ts', 'test/**/*.contract.test.ts'], environment: 'node' },
+  test: { include: ['test/**/*.ac.test.ts', 'test/**/*.contract.test.ts', 'test/regress/**/*.test.ts'], environment: 'node' },
 });
