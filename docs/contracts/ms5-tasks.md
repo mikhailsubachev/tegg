@@ -248,3 +248,31 @@ These override the sections above where they differ.
 ## 11. Slice 5A-2: conversion and the Task card (D-490…D-499)
 
 Written before the 5A-2 red tests, once 4F is on `main` and its embed contract (`ms4-embeds.md`) is final. It will cover: the `@tegg/doc` split and embed helpers (D-490, D-491), the editor conversion command and popover (D-493, D-494), the D-74 card node (D-497), the undo exception (D-492), the create-then-save order and its kill points (D-498), and the fake-core support.
+
+## 12. Slice 5A-1 preview feedback (D-516…D-523)
+
+### 12.1 Tasks views, header, tag filter, Type settings (D-516…D-519)
+
+- `type/task` renders `tasks/AllTasks.tsx`: `TypePage` with a `header` prop (the Tasks header, `tasks/TasksHeader.tsx`); with a header the type page shows no view tab of its own. Every other `type/<key>` is unchanged.
+- `TasksUiDto.view` takes `schedule` | `kanban` | `all`; the sidebar entry `Tasks` opens the route of the stored view. The sidebar receives `typeEntries(…)` without `task`; `typeEntries` itself (and so `Go to type: Tasks`) is unchanged.
+- The tablist's tabs carry `data-command` `tasks.schedule`, `tasks.kanban`, `goto.type:task`.
+- `Type settings` is `shell/TypeSettingsButton.tsx` (`data-command="type.openSettings"`, `aria-label` and `title` `Type settings`, icon `sliders`).
+- The tag filter is `tasks/TagFilter.tsx`: the `combobox` is the text field (`role="combobox"`, `aria-controls` the listbox, `aria-activedescendant` the highlighted option); options are named `#<label>` with the count as `aria-describedby`; chips and options carry `data-tag`. Bucketing rules: §4.
+
+### 12.2 New objects open unsaved (D-520…D-523)
+
+**Decisions.** AP-449 → D-521, AP-450 → D-522, AP-451 → D-523 (owner, 2026-10-18; BRD v1.70).
+
+- **Entry points.** ⌘N / `New object` (the vault's default type, D-131), a type page's `New <Name>` and the palette's `New <Name>` open the draft route `new/<type>` (param: the type key, NFC). Exceptions: Daily Note → `createToday()` (D-318, D-353, unchanged); Task → `tasks` or `tasks/kanban` (the last of the two shown, else `tasks`) with the caret in the quick-add field `Add a task…` and nothing else focused or written. The switcher's create item, a broken link's Create offer, `[[`/`@` and relation-picker creates keep their typed title and write at once (D-367). The `New object` dialog (`shell/NewObjectDialog.tsx`) is removed.
+- **Opening a draft.** The route calls `prepareObject(key)` (§ms3-shell 14.7.1) and renders the bytes with `@tegg/doc` `newObject` and the title `""` (template, defaults and `review` as D-232), stamped with the open time. The note page opens on these bytes as on a virtual Daily Note (ms4-daily §4.1): no read, no write, the editor's original is the draft so it isn't dirty, the `Title` field is empty and in edit mode with the caret in it (D-367), and the status `Not saved yet` (`newObject.notSaved`) shows under the title. The page's `path` is the planned `<folder>/<sanitized "Untitled">.md`; it is never read or written while the note is a draft, and `vault:changed` for it is ignored (D-326 rule).
+- **When the first write happens (D-522).** Typing in the title writes nothing. The first write is sent on the title's commit (↩, Tab, ↓ or leaving the field) with a non-empty title, or on the first body or property change (autosave's debounce, ms3-shell §13), or on a flush (leaving the route, quitting, ⌘S). A draft left without any change writes nothing; a title typed and then cleared writes nothing.
+- **The first write.** Autosave's `create` hook (as a virtual Daily Note) sends `note_create(type, title, text)` through the one creation path (D-232, D-245): `text` is the editor's current text with `created:` and `modified:` restamped to the write time (`restampDraft`, ms4-daily §3) and, when the title is empty, `title: Untitled` (`newObject.untitled`, D-523); the editor and the title field take that title. The core names the file from the title (` (2)`… suffixes, FR-LNK-14). The UI then reads the new file's version (`note_read`) and later saves use `note_write`. The page stays mounted: the route becomes `note/<path>` the way a rename keeps the page (FR-FMT-08 AC-5), and the caret stays where it was. An `Io` failure keeps the draft with its text, shows the save alert, and the next change retries (as FR-DLY-02 AC-8).
+- **History (D-521).** A draft is a history entry only while it is shown: after its first write the entry becomes `note/<path>` (`history.replace`); a navigation away from an unwritten draft replaces its entry, and Back from it removes the entry, so Back/Forward never return to `new/<type>`.
+- **Registry.** `new/<type>` is a built route (FR-UX-02 R1 change) with no sidebar entry and no `Go to` command; its tab shows the type icon and `New <Name>` until the first write.
+- **Fake core.** No new command: `note_create` and `note_read` exist.
+
+### 12.3 Tests
+
+- L1: `app/test/tasks_views.ac.test.ts` (all-of filter, `counts.tags`), `app/test/history.ac.test.ts` (draft entries).
+- L5: `app/webkit/tasks_all_view.ac.test.ts` (FR-TSK-04 AC-15), `tasks_header.ac.test.ts` (AC-16), `tasks_schedule.ac.test.ts` (AC-5), and the D-520 changes of `create_object`, `caret_on_create`, `type_page`, `keyboard` and the other tests that used the `New object` dialog.
+- L6: `app/e2e/ms3_shell.ac.test.ts` FR-UX-02 AC-13 (a) and (b) through the draft.

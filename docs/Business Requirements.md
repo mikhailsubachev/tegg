@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.69, for review                                             |
+| **Document status** | Draft v1.70, for review                                             |
 | **Date**            | 2026-10-17                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -85,6 +85,7 @@
 | v1.67   | 2026-10-17 | Slice 5A-1 red-test decisions D-501…D-514 (AP-430…AP-443). |
 | v1.68   | 2026-10-17 | D-515: Home (FR-HOM-01) leaves the MVP for v1.0; slice 5B is capture and Inbox. |
 | v1.69   | 2026-10-18 | Preview feedback on slice 5A-1, decisions D-516…D-520 (AP-444…AP-448, `docs/feedback/ms5-5a1.md`): the Task type page becomes the Tasks page's `All tasks` view, the view switch moves into the header, a searchable tag filter that matches all selected tags, an icon `Type settings` button, and new objects open unsaved with the caret in the title. |
+| v1.70   | 2026-10-18 | D-521…D-523 (AP-449…AP-451, `docs/contracts/ms5-tasks.md` §12.2): an unsaved new object's history entry, when its first write happens, and `Untitled` for an empty title. |
 
 ---
 
@@ -638,6 +639,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-518 | Searchable tag filter, all tags must match (AP-446, preview feedback F3, owner, 2026-10-18) | The Schedule and Kanban tag filter is a `combobox` `Filter by tag` with a `listbox` `Tags`: the selected tags are chips `#<tag>` with a `Remove #<tag>` button, typing filters the options (case, diacritics and NFC/NFD folded, as the switcher), the options are the tags of open tasks within the date filter, most tasks first then D-122 order, each with the number of tasks it would show; ↑/↓ move, ⏎ adds the highlighted option (the first match while typing), ⌫ in the empty field removes the last chip, Esc closes, `Clear tags` removes all. Several selected tags match tasks that have **all** of them; with two or more the hint is `Tasks with all selected tags`. Supersedes the toggle buttons and the any-of rule of D-476. |
 | D-519 | Type settings button (AP-447, preview feedback F4, owner, 2026-10-18) | Wherever `Type settings` is offered in a page header (every type page, the three Tasks views) it is a 36 × 36 pt icon button with the sliders icon and a 1 px border, accessible name and tooltip `Type settings`, the same command (`type.openSettings`) and target. |
 | D-520 | New objects open unsaved (AP-448, preview feedback F5, owner, 2026-10-18) | ⌘N / `New object`, a type page's `New <Name>` and the palette's `New <Name>` no longer ask for a title: they open a new, unsaved note of that type with the `Title` field empty in edit mode and the caret in it. Nothing is written until the first change (as a virtual Daily Note, D-323); leaving it unchanged writes nothing. Exceptions: `New Task` opens the Tasks page (its last Schedule or Kanban view) with the caret in the quick-add row; a Daily Note opens today's note (D-318, D-367). The switcher's create item and a broken link's Create offer keep their typed title (D-367). The route, the first write (file name while the title is empty, the rename after it) and the tests are planned in a contract section before building. Supersedes D-131's dialog. |
+| D-521 | History of an unsaved new object (AP-449, owner, 2026-10-18) | `new/<type>` is a history entry only while shown: after the first write it becomes `note/<path>`; leaving an unwritten draft drops its entry, so Back and Forward never return to an empty draft. |
+| D-522 | When a new object is first written (AP-450, owner, 2026-10-18) | Typing the title writes nothing; the first write is on the title's commit (↩, Tab, ↓, leaving the field) with a non-empty title, on the first body or property change, or on a flush (leaving, quitting, ⌘S). The file is created once with its final name (no create-then-rename). |
+| D-523 | Empty title on the first write (AP-451, owner, 2026-10-18) | A new object first written with an empty title gets `title: Untitled` and the file `Untitled.md` (` (2)`… suffixes, FR-LNK-14); the title field shows it and renaming works as usual. |
 
 ---
 
