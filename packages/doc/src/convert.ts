@@ -40,12 +40,13 @@ function firstKind(b: Block): ConvertUnit['first'] {
 const checkedOf = (i: ListItem): boolean | null => (i.checked === true || i.checked === false ? i.checked : null)
 
 /** The deepest list item containing `from…to`, with its depth (1 = top level), or null. */
-function deepestItem(list: List, from: number, to: number, depth = 1): { item: ListItem; depth: number } | null {
+function deepestItem(text: string, list: List, from: number, to: number, depth = 1): { item: ListItem; depth: number } | null {
   for (const item of list.children) {
-    if (start(item) <= from && to <= end(item)) {
+    // From the item's line start, so a unit (which starts there) gives itself back.
+    if (lineStartOf(text, start(item)) <= from && to <= end(item)) {
       for (const child of item.children) {
         if (child.type === 'list') {
-          const inner = deepestItem(child, from, to, depth + 1)
+          const inner = deepestItem(text, child, from, to, depth + 1)
           if (inner) return inner
         }
       }
@@ -66,7 +67,7 @@ export function conversionUnit(text: string, selFrom: number, selTo: number): Co
   const first = hit[0]
   if (hit.length === 1 && (first.kind === 'list' || first.kind === 'checklist')) {
     const list = first.node as List
-    const deep = deepestItem(list, from, to)
+    const deep = deepestItem(text, list, from, to)
     if (deep && deep.depth > 1) {
       return { kind: 'nested-item', from: lineStartOf(text, start(deep.item)), to: end(deep.item), count: 1, first: 'item', checked: checkedOf(deep.item) }
     }

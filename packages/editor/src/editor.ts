@@ -10,14 +10,15 @@ import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
-import type { ConvertUnit } from '@tegg/doc'
+import { conversionUnit as unitOf, replaceUnitWithEmbed, type ConvertUnit, type Doc } from '@tegg/doc'
+import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
 import { PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
-import { attach, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
+import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
 
 export type Now = () => string
 
@@ -46,13 +47,15 @@ export interface EditorOptions {
   /** 4F (D-428): ⏎ / ⌘↩ / `Display embed as…` on a selected block embed at `pos`. Return true when handled. */
   onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean
   /** 5A-2 (ms5-tasks §11.3, D-494): false in `_templates/` notes and nested embed editors; `conversionUnit()` is then
-   *  null. Default true. Not built yet (stub). */
+   *  null. Default true. */
   convertible?: boolean
-  /** 5A-2 (D-492): undo / redo of a conversion step. Not built yet (stub). */
+  /** 5A-2 (D-492): undo / redo of a conversion step. `afterUndo` runs after the undo applied; `beforeRedo` runs before
+   *  the redo applies and returns the embed target to write, or false to cancel the redo. */
   conversion?: { afterUndo(r: ConversionRecord): void; beforeRedo(r: ConversionRecord): Promise<string | false> }
-  /** 5A-2 (D-496): called before a user action removes block embeds. Not built yet (stub). */
+  /** 5A-2 (D-496): called before a user action removes block embeds (never for moves, undo, redo or conversions).
+   *  Null removes at once; a promise defers the removal, which happens as one undo step only if it resolves true. */
   guardEmbedRemoval?(embeds: { pos: number; source: string }[]): Promise<boolean> | null
-  /** 5A-2 (ms5-tasks §11.5): hint shown in an empty first paragraph, never saved. Not built yet (stub). */
+  /** 5A-2 (ms5-tasks §11.5): hint shown in an empty body, never saved (the Task card's `Add details…`). */
   emptyHint?: string
 }
 
@@ -137,6 +140,21 @@ export interface TeggEditor {
 
 type Faults = { editorLoad?: boolean; verify?: boolean }
 const faults = (): Faults => ((globalThis as { __TEGG_TEST__?: { faults?: Faults } }).__TEGG_TEST__?.faults ?? {})
+
+/** prosemirror-history's meta key (`{ redo }` on undo and redo transactions). */
+const HISTORY = 'history$'
+
+/** 5A-2 (D-492): a conversion step: the documents and source models on both sides, for undo and redo. */
+type Conversion = {
+  record: ConversionRecord
+  target: string
+  before: PMNode
+  after: PMNode
+  loadedBefore: Loaded
+  loadedAfter: Loaded
+  state: 'done' | 'undone'
+  pending: boolean
+}
 
 // ------------------------------------------------------------------------------------------------ block selection
 
@@ -313,12 +331,13 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   // second build, so the app's embed (and its nested editor) is created once per block.
   const ui: EditorUi | undefined = opts.ui && {
     ...opts.ui,
+    ...(opts.emptyHint !== undefined ? { hint: opts.emptyHint } : {}),
     embed: opts.ui.embed && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.embed!(source, dom, getPos))),
   }
 
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([embedKeys(() => api), TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     enableInputRules: false,
     enablePasteRules: false,
@@ -367,6 +386,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       },
     },
     onTransaction: ({ transaction }) => {
+      followConversions(transaction)
       if (transaction.docChanged && !loading && !transaction.getMeta('teggLoad')) {
         dirty = true
         opts.onChange?.(true)
@@ -415,6 +435,153 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
   }))
 
+  // 5A-2 (D-492, D-496): a conversion's redo waits for the app (it recreates the file first); user actions that remove
+  // block embeds wait for the app's removal guard.
+  let conversions: Conversion[] = []
+  let allowRedo: Conversion | null = null
+  editor.registerPlugin(new Plugin({
+    filterTransaction: (tr, state) => {
+      if (loading || tr.getMeta('teggLoad')) return true
+      const h = tr.getMeta(HISTORY) as { redo: boolean } | undefined
+      if (h?.redo && opts.conversion) {
+        const c = conversions.find((x) => x.state === 'undone' && x.before.content.eq(state.doc.content) && x.after.content.eq(tr.doc.content))
+        if (c) {
+          if (allowRedo === c) { allowRedo = null; return true }
+          if (!c.pending) {
+            c.pending = true
+            void opts.conversion.beforeRedo(c.record).then((target) => {
+              c.pending = false
+              if (target === false || !editor.state.doc.content.eq(c.before.content)) return
+              allowRedo = c
+              editor.commands.redo()
+              if (target !== c.target) retarget(c, target)
+            }, () => { c.pending = false })
+          }
+          return false
+        }
+      }
+      if (h || !tr.docChanged || !opts.guardEmbedRemoval || tr.getMeta('teggConvert') || tr.getMeta('teggGuardOk') || tr.getMeta('teggEmbedMode')) return true
+      const removed = removedEmbeds(state.doc, tr)
+      if (!removed.length) return true
+      const ask = opts.guardEmbedRemoval(removed)
+      if (!ask) return true
+      void ask.then((ok) => {
+        if (ok && editor.state.doc.eq(tr.before)) view.dispatch(tr.setMeta('teggGuardOk', true))
+      }, () => {})
+      return false
+    },
+  }))
+
+  /** Undo / redo of a conversion step switches the source model, so unchanged blocks keep their bytes (D-492). */
+  function followConversions(tr: Transaction) {
+    const h = tr.getMeta(HISTORY) as { redo: boolean } | undefined
+    if (!h || !conversions.length) return
+    const doc = editor.state.doc
+    if (!h.redo) {
+      const c = conversions.find((x) => x.state === 'done' && x.before.content.eq(doc.content))
+      if (!c) return
+      c.state = 'undone'
+      loaded = c.loadedBefore
+      opts.conversion?.afterUndo(c.record)
+    } else {
+      const c = conversions.find((x) => x.state === 'undone' && x.after.content.eq(doc.content))
+      if (!c) return
+      c.state = 'done'
+      loaded = c.loadedAfter
+    }
+  }
+
+  /** FR-CNV-06 AC-2: after a redo, the embed names the file the app actually recreated (outside the history). */
+  function retarget(c: Conversion, target: string) {
+    const from = `![[${c.target}]]`
+    const value = target.normalize('NFC')
+    const tr = editor.state.tr
+    editor.state.doc.descendants((n, pos) => {
+      if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed' && n.attrs.source === from) tr.setNodeMarkup(pos, undefined, { ...n.attrs, source: `![[${value}]]` })
+      else if (n.type.name === 'wikiLink' && n.attrs.embed && n.attrs.value === c.target) tr.setNodeMarkup(pos, undefined, { ...n.attrs, value })
+      return true
+    })
+    if (tr.docChanged) view.dispatch(tr.setMeta('addToHistory', false).setMeta('teggConvert', true))
+  }
+
+  /** D-496: the top-level block embeds `tr` deletes that don't reappear elsewhere (a move keeps them). */
+  function removedEmbeds(doc: PMNode, tr: Transaction): { pos: number; source: string }[] {
+    const left = new Map<string, number>()
+    tr.doc.forEach((n) => {
+      if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed') left.set(String(n.attrs.source), (left.get(String(n.attrs.source)) ?? 0) + 1)
+    })
+    const out: { pos: number; source: string }[] = []
+    let pos = 0
+    doc.forEach((n) => {
+      if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
+        const source = String(n.attrs.source)
+        const r = tr.mapping.mapResult(pos, 1)
+        const kept = left.get(source) ?? 0
+        if (r.deletedAfter && kept === 0) out.push({ pos, source })
+        else if (kept > 0) left.set(source, kept - 1)
+      }
+      pos += n.nodeSize
+    })
+    return out
+  }
+
+  /** The parsed block behind each top-level node of the current text (null for nodes a save skips: empty lines). */
+  function sourceBlocks(text: string): { doc: Doc; at: (Doc['blocks'][number] | null)[] } {
+    const d = parse(text)
+    const at: (Doc['blocks'][number] | null)[] = []
+    let j = 0
+    editor.state.doc.forEach((n) => {
+      if (n.type.name === 'paragraph' && n.textContent.trim() === '' && !hasInline(n)) { at.push(null); return }
+      while (j < d.blocks.length && d.blocks[j].raw === END_LIST && !(n.type.name === 'rawBlock' && n.attrs.source === END_LIST)) j++
+      at.push(d.blocks[j++] ?? null)
+    })
+    return { doc: d, at }
+  }
+
+  /** The text offset of a document position: a list item's start inside lists, else its block's start. */
+  function offsetAt(map: ReturnType<typeof sourceBlocks>, pos: number): number | null {
+    const $p = editor.state.doc.resolve(pos)
+    const k = $p.depth === 0 ? Math.min($p.index(0), editor.state.doc.childCount - 1) : $p.index(0)
+    const b = map.at[k]
+    if (!b) return null
+    if (b.node.type !== 'list' || $p.depth < 2) return b.range[0]
+    let md: List | ListItem = b.node as List
+    let item: ListItem | null = null
+    for (let d = 2; d <= $p.depth; d++) {
+      const child = (md.children as unknown[])[$p.index(d - 1)] as List | ListItem | undefined
+      const n = $p.node(d)
+      if (!child) break
+      if (n.type.name === 'listItem' && child.type === 'listItem') { item = child; md = child }
+      else if (/List$/.test(n.type.name) && child.type === 'list') md = child
+      else break
+    }
+    return item ? item.position!.start.offset! : b.range[0]
+  }
+
+  /** §11.3: the unit the caret, text selection or block selection converts (R51, D-490, D-493, D-494). */
+  function conversionUnit(): ConvertUnit | null {
+    if (opts.convertible === false || !editor.isEditable || inEmbedDom(view)) return null
+    let text: string
+    try { text = candidate() } catch { return null }
+    const map = sourceBlocks(text)
+    const s = blockSel()
+    let from: number | null
+    let to: number | null
+    if (s) {
+      const a = Math.min(s.anchor, s.head)
+      const b = Math.max(s.anchor, s.head)
+      const hit = map.at.slice(a, b + 1).filter((x) => x !== null)
+      if (!hit.length) return null
+      from = hit[0]!.range[0]
+      to = hit[hit.length - 1]!.range[1]
+    } else {
+      from = offsetAt(map, editor.state.selection.from)
+      to = offsetAt(map, editor.state.selection.to)
+    }
+    if (from === null || to === null) return null
+    return unitOf(text, from, to)
+  }
+
   function copyBlocks(event: ClipboardEvent, cut: boolean): boolean {
     const src = selectedSource()
     if (src === null || !event.clipboardData) return false
@@ -442,6 +609,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     loading = true
     loaded = loadDoc(text, editor.schema)
     try { attach(editor, loaded) } finally { loading = false }
+    conversions = [] // D-178: the history starts empty, and with it every conversion step
     // A fresh state: the load is never an undo step and the history starts empty (AP-122, D-178).
     const d = editor.state.doc
     const withHead = d.type.create({ ...d.attrs, frontmatter: headOf(text) }, d.content, d.marks)
@@ -732,6 +900,23 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       const state = editor.state
       if (inSourceBlock(state)) return false
       const norm = text.replace(/\r\n?/g, '\n').normalize('NFC')
+      // Pasting over a block selection replaces those blocks (D-496: the removal guard sees the embeds it removes).
+      const bs = blockSel()
+      if (bs) {
+        const a = Math.min(bs.anchor, bs.head)
+        const b = Math.max(bs.anchor, bs.head)
+        const nodes = plain
+          ? norm.split('\n').map((l) => state.schema.nodes.paragraph.create(null, l ? state.schema.text(l) : null))
+          : markdownToNodes(norm, state.schema)
+        if (!nodes.length) return false
+        const start = blockPos(state.doc, a)
+        const tr = state.tr.replaceWith(start, blockPos(state.doc, b) + state.doc.child(b).nodeSize, nodes)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(start + nodes.reduce((n, x) => n + x.nodeSize, 0)), -1)).setMeta(blockSelKey, null)
+        if (plain) tr.setMeta('tagRules', true)
+        joinAdjacentLists(tr)
+        dispatch(tr.scrollIntoView())
+        return true
+      }
       const { $from, empty } = state.selection
       if ($from.parent.type.spec.code) {
         dispatch(state.tr.insertText(norm).scrollIntoView())
@@ -899,7 +1084,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       if (!m) return false
       const next = m[1] + withEmbedMode(m[2], mode) + m[3]
       if (next === source) return true
-      dispatch(closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, source: next })))
+      dispatch(closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, source: next })).setMeta('teggEmbedMode', true))
       return true
     },
     insertEmbed(from, to, linkText) {
@@ -924,9 +1109,34 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       dispatch(closeHistory(tr).scrollIntoView())
       return true
     },
-    // STUB (TS-I1, 5A-2): not built; changes nothing.
-    convertUnit(_unit, _target, _record) {
-      return false
+    convertUnit(unit, target, record) {
+      // D-82: the bytes come from @tegg/doc; the editor then shows the result's blocks as one undo step, with the
+      // result as its source model, so every unchanged block is written back byte for byte (D-490, D-492).
+      let text: string
+      try { text = candidate() } catch { return false }
+      const now = unitOf(text, unit.from, unit.to)
+      if (!now || JSON.stringify(now) !== JSON.stringify(unit)) return false
+      const value = target.normalize('NFC')
+      const r = replaceUnitWithEmbed(text, unit, value)
+      const next = loadDoc(r.text, editor.schema)
+      const content = editor.schema.nodeFromJSON(next.json).content
+      const before = editor.state.doc
+      const tr = closeHistory(editor.state.tr).replaceWith(0, before.content.size, content)
+      // The embed: a block embed paragraph, or (a nested item) the list holding it.
+      const at = next.doc.blocks.findIndex((b) => b.range[0] <= r.embedFrom && r.embedFrom < Math.max(b.range[1], b.range[0] + 1))
+      let k = 0
+      let pos = 0
+      tr.doc.forEach((n, p, i) => { if (n.attrs.srcIndex === at) { k = i; pos = p } })
+      const block = unit.kind !== 'nested-item'
+      if (block) tr.setMeta(blockSelKey, { anchor: k, head: k })
+      tr.setSelection(block ? NodeSelection.create(tr.doc, pos) : TextSelection.near(tr.doc.resolve(pos + 1)))
+      const loadedBefore = loaded
+      loaded = next
+      conversions = conversions.filter((c) => c.state === 'done')
+      conversions.push({ record, target: value, before, after: tr.doc, loadedBefore, loadedAfter: next, state: 'done', pending: false })
+      dispatch(tr.setMeta('teggConvert', true).scrollIntoView())
+      dispatch(closeHistory(editor.state.tr))
+      return pos
     },
     selectBlockAt(index) {
       if (index < 0 || index >= editor.state.doc.childCount) return false
@@ -1010,8 +1220,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
     hasBlockSel: () => !!blockSel(),
     selectedEmbed,
-    // STUB (TS-I1, 5A-2): not built.
-    conversionUnit: () => null,
+    conversionUnit,
     view,
     editor,
     async save() {
@@ -1172,6 +1381,32 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
         ArrowUp: leave('up'),
         ArrowDown: leave('down'),
       }
+    },
+  })
+}
+
+/** 5A-2 (ms5-tasks §11.5): the hint of an empty body without the app's presentation (`emptyHint`): a widget, never
+ *  part of the text. */
+function emptyHint(text: string) {
+  return Extension.create({
+    name: 'teggEmptyHint',
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        props: {
+          decorations(state) {
+            const doc = state.doc
+            if (!(doc.childCount === 1 && doc.firstChild!.type.name === 'paragraph' && doc.firstChild!.content.size === 0)) return null
+            return DecorationSet.create(doc, [Decoration.widget(1, () => {
+              const s = document.createElement('span')
+              s.className = 'editor-hint'
+              s.contentEditable = 'false'
+              s.setAttribute('aria-hidden', 'true')
+              s.textContent = text
+              return s
+            }, { side: 1, ignoreSelection: true, key: 'hint' })])
+          },
+        },
+      })]
     },
   })
 }
