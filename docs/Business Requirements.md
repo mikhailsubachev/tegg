@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.70, for review                                             |
+| **Document status** | Draft v1.71, for review                                             |
 | **Date**            | 2026-10-17                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -86,6 +86,7 @@
 | v1.68   | 2026-10-17 | D-515: Home (FR-HOM-01) leaves the MVP for v1.0; slice 5B is capture and Inbox. |
 | v1.69   | 2026-10-18 | Preview feedback on slice 5A-1, decisions D-516…D-520 (AP-444…AP-448, `docs/feedback/ms5-5a1.md`): the Task type page becomes the Tasks page's `All tasks` view, the view switch moves into the header, a searchable tag filter that matches all selected tags, an icon `Type settings` button, and new objects open unsaved with the caret in the title. |
 | v1.70   | 2026-10-18 | D-521…D-523 (AP-449…AP-451, `docs/contracts/ms5-tasks.md` §12.2): an unsaved new object's history entry, when its first write happens, and `Untitled` for an empty title. |
+| v1.71   | 2026-10-18 | Slice 5A-2 contract and red-test decisions D-524…D-538 (AP-452…AP-466, `docs/contracts/ms5-tasks.md` §11.10). |
 
 ---
 
@@ -642,6 +643,21 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-521 | History of an unsaved new object (AP-449, owner, 2026-10-18) | `new/<type>` is a history entry only while shown: after the first write it becomes `note/<path>`; leaving an unwritten draft drops its entry, so Back and Forward never return to an empty draft. |
 | D-522 | When a new object is first written (AP-450, owner, 2026-10-18) | Typing the title writes nothing; the first write is on the title's commit (↩, Tab, ↓, leaving the field) with a non-empty title, on the first body or property change, or on a flush (leaving, quitting, ⌘S). The file is created once with its final name (no create-then-rename). |
 | D-523 | Empty title on the first write (AP-451, owner, 2026-10-18) | A new object first written with an empty title gets `title: Untitled` and the file `Untitled.md` (` (2)`… suffixes, FR-LNK-14); the title field shows it and renaming works as usual. |
+| D-524 | Target type's template in a conversion (AP-452, owner, 2026-10-18) | The template's frontmatter entries apply as for any new object; its body is not used: the converted blocks are the body (`newObject` `body`, ms5-tasks §11.2) |
+| D-525 | Conversion summary count (AP-453, owner, 2026-10-18) | In R50's `<n> blocks`, each top-level list item of the run counts as one block (nested children not counted); a nested item alone is 1 block |
+| D-526 | Tags of the first line (AP-454, owner, 2026-10-18) | Trailing `#tags` of the first line go to the new object's `tags:` whether or not the user edited the title in R50 (D-491) |
+| D-527 | `source` link text (AP-455, owner, 2026-10-18) | `source` is written with the D-184 `linkText`, so a path target gets `|title` when the title differs from the written target: from Dvojník (Quick Notes) `"[[Quick Notes/Dvojník|Dvojník]]"`. Amends FR-CNV-04 AC-1 |
+| D-528 | Selections mixing blocks and list items (AP-456, owner, 2026-10-18) | A selection spanning a top-level block and part of a list converts whole top-level blocks: the whole list (unit kind `blocks`) |
+| D-529 | Already-built core checks of 5A-2 (AP-457, owner, 2026-10-18) | FR-CNV-01 AC-6 (refusal of `daily-note`), FR-CNV-03 AC-6 (failed create) and FR-CNV-05 AC-7 (stale base) have no new L4 test: `ac_daily.rs` and `ac_tasks.rs` `fr_tsk_02_ac11` cover the core, the L5 tests cover the flow |
+| D-530 | FR-FMT-07 AC-20 write count (AP-458, owner, 2026-10-18) | The L2 property counts writes as the create of the record's path plus the host's saves; IPC write counts per path are checked at L5 (FR-SYN-06 AC-23) |
+| D-531 | Task card data (AP-459, owner, 2026-10-18) | `Embed` keeps its 4F props; `TaskEmbed` reads the task definitions through `task_list` (cached per page); `taskHeader` returns the TaskRowDto-named fields `title, status, state, statusKnown, priority, dueRaw, due, completed` |
+| D-532 | Small R51 details (AP-460, owner, 2026-10-18) | `embedFrom`/`embedTo` of a nested item cover the whole inserted line `<indent>- ![[…]]`; the rest of a callout starts with its `> [!type]` line verbatim, a custom title on that line included (it stays in the body; the title is the first line of the callout's text, R51); `emptyHint` is a muted placeholder in the empty paragraph, never in the text |
+| D-533 | Slash menu after text (AP-461, owner, 2026-10-18) | FR-CNV-01 AC-2 types ` /turn` after a space (FR-EDT-03 AC-1 opens the menu at block start or after a space); Esc removes `/turn` only, the typed space stays (AP-348 rule). Amends FR-CNV-01 AC-2 |
+| D-534 | Task card of a file with invalid frontmatter (AP-462, owner, 2026-10-18) | The strict read-only check of FR-CNV-05 AC-9 uses the invalid-UTF-8 copy; for invalid frontmatter, a Task card that shows is read-only and never written, and a plain (non-Task) frame is also accepted |
+| D-535 | Template notes in the editor (AP-463, owner, 2026-10-18) | The note route opens `_templates/` files in the editor (as the type settings' template link does), with `convertible: false`; L5 reaches them through the route hook |
+| D-536 | Temp-file cleanup in the kill test (AP-464, owner, 2026-10-18) | The FR-CNV-03 AC-7 L6 test backdates leftover `.tegg-tmp` files by 2 minutes before the restart, so the FR-SYN-02 AC-4 one-minute rule removes them |
+| D-537 | Task card Due control (AP-465, owner, 2026-10-18) | The card's `Due` opens the attribute panel's date control: textbox `Due date` (region input) and `Clear`; the `Due: …` button's name ends with `, overdue` when overdue (D-509) |
+| D-538 | R50 commands and summary (AP-466, owner, 2026-10-18) | R50's buttons and radios carry `data-command` (FR-UX-03 AC-8); `{type}` in `convert.summary` is the type's Name as written (`Task`, `Quick Note`) |
 
 ---
 

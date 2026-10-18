@@ -422,7 +422,7 @@ test('fr_cnv_04_ac1_source_link_text_from_the_new_files_folder', async () => {
     [{ path: 'Pages/Bloky.md', title: 'Bloky', fromPath: 'Tasks/Zavolat do servisu kvůli kolu.md', stemResolves: true }, '"[[Bloky]]"', 'Bloky'],
     [{ path: 'Pages/C tips.md', title: 'C# tips', fromPath: 'Tasks/Úkol z tipů.md', stemResolves: true }, '"[[C tips|C# tips]]"', 'C tips: |title'],
     [{ path: 'Pages/Dvojník.md', title: 'Dvojník', fromPath: 'Tasks/Úkol z dvojníka.md', stemResolves: true }, '"[[Dvojník]]"', 'Dvojník (Pages): the stem resolves to the shorter path'],
-    [{ path: 'Quick Notes/Dvojník.md', title: 'Dvojník', fromPath: 'Tasks/Úkol z dvojníka (2).md', stemResolves: false }, '"[[Quick Notes/Dvojník]]"', 'Dvojník (Quick Notes): the vault path (AP-455)'],
+    [{ path: 'Quick Notes/Dvojník.md', title: 'Dvojník', fromPath: 'Tasks/Úkol z dvojníka (2).md', stemResolves: false }, '"[[Quick Notes/Dvojník|Dvojník]]"', 'Dvojník (Quick Notes): the vault path with |title (D-527)'],
     [{ path: 'Daily/2026-10-14.md', title: '2026-10-14', fromPath: 'Tasks/Zavolat zubaři.md', stemResolves: true }, '"[[2026-10-14]]"', 'a Daily Note: the date (D-162)'],
   ];
   for (const [c, want, what] of cases) {
