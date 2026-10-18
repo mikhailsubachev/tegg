@@ -19,3 +19,13 @@ test('bug_47_fr_tsk_01_panel_status_done_sets_completed_and_back_removes_it', as
   await click(page.getByRole('option', { name: 'To do', exact: true }), 'To do');
   assert.equal(await fileWhen(core, T.t03, (x) => !!x?.includes('status: To do'), 3000), touched(original(T.t03)), 'leaving Done removes completed');
 });
+
+// Second review: on a Task, Status can't be cleared from the panel (a missing status would count as Open while
+// `completed` stayed, D-471 vs D-472); the list offers the statuses only.
+test('bug_47_fr_tsk_01_panel_status_of_a_task_is_not_clearable', async ({ page }) => {
+  await startTasks(page, { at: T.t10 });
+  await mustBeOn(page, 'Zaplatit fakturu', 'T10', 5000);
+  await click(props(page).getByRole('combobox', { name: 'Status', exact: true }), 'Status');
+  const opts = (await page.getByRole('option').allInnerTexts()).map((x) => x.trim());
+  assert.deepEqual(opts, ['To do', 'In progress', 'Waiting', 'Done', 'Cancelled'], 'the statuses, no Clear');
+});

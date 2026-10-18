@@ -173,7 +173,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       case 'date-range':
         return <DateRangeControl {...common} invalid={invalidWhole} onNext={next} onRange={(s, e) => onCommit((d) => setRange(d, a.key, s, e))} />;
       case 'select':
-        return <SelectControl {...common} invalid={invalidWhole} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))} onValue={(v) => set(a.key, v)} />;
+        // A Task's Status isn't cleared from the panel (D-471, D-472: it would count as Open with `completed` left).
+        return <SelectControl {...common} invalid={invalidWhole} clearable={!(type.key === 'task' && a.key === 'status')} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))} onValue={(v) => set(a.key, v)} />;
       case 'multi-select':
         return <MultiSelectControl {...common} invalidItems={invalidWhole ? [] : invalidItems} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))}
           onValue={(v) => set(a.key, v)} />;
