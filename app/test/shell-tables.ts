@@ -157,9 +157,10 @@ export const STATIC_COMMANDS = [
   'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
 ];
 
-/** FR-UX-02 AC-4 (fixture, collation cs): label and count of each Types entry, in order. */
+/** FR-UX-02 AC-4 (fixture, collation cs): label and count of each Types entry, in order. D-516: Task is not in the
+ *  list (the sidebar's `Tasks` entry covers it, tasks.md FR-TSK-04 AC-15). */
 export const TYPES_CS: [string, number][] = [
-  ['Pages', 2], ['Tasks', 1], ['Quick Notes', 2], ['Daily Notes', 0], ['Cesty', 0], ['Čajovny', 0], ['Schůzky', 1],
+  ['Pages', 2], ['Quick Notes', 2], ['Daily Notes', 0], ['Cesty', 0], ['Čajovny', 0], ['Schůzky', 1],
   ['Images', 0], ['PDFs', 0], ['recept', 1],
 ];
 export const TYPE_KEYS: Record<string, string> = {

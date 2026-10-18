@@ -344,7 +344,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     await page.keyboard.press('Enter');
     await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date
   }
-  for (const t of TYPE_PLURALS) {
+  for (const t of TYPE_PLURALS.filter((p) => p !== 'Tasks')) { // D-516: Task is not in the Types list
     await tabTo(new RegExp(`^${t}\\b`), `Types entry ${t}`);
     await page.keyboard.press('Enter');
     await mustBeOn(page, t, `keyboard: Types ${t}`);

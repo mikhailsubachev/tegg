@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { cmdD, gotoDaily, section } from './daily-helpers';
 import {
   O, T, card, checkbox, click, column, eventually, fileWhen, filterBtn, gotoKanban, gotoTasks, main, moreBtn, must, mustBeOn, nfc, original, quickAdd,
-  runCommand, sectionOf, seen, sleep, startTasks, tagBtn, writeCalls, writtenSince, groupBy, viewTab,
+  runCommand, sectionOf, seen, sleep, startTasks, addTag, clearTagsBtn, removeTagBtn, writeCalls, writtenSince, groupBy, viewTab,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -32,7 +32,10 @@ test('fr_tsk_04_ac13_opening_and_browsing_write_nothing', async ({ page }) => {
   await click(groupBy(page).getByRole('tab', { name: 'Status', exact: true }), 'Group by Status');
   await click(viewTab(page, 'Schedule'), 'tab Schedule');
   for (const f of ['Today', 'This week', 'All'] as const) await click(filterBtn(page, f), f);
-  for (const t of ['čtení', 'doma', 'finance', 'práce', 'rodina']) { await click(tagBtn(page, t), `#${t}`); await click(tagBtn(page, t), `#${t} again`); }
+  // D-518: the tag filter is a combobox; add each tag, remove it with its chip button, then ⌫ and Clear tags.
+  for (const t of ['čtení', 'doma', 'finance', 'práce', 'rodina']) { await addTag(page, t); await click(removeTagBtn(page, t), `Remove #${t}`); }
+  await addTag(page, 'doma'); await addTag(page, 'práce'); await page.keyboard.press('Backspace'); await page.keyboard.press('Escape');
+  await click(clearTagsBtn(page), 'Clear tags');
   const done = sectionOf(page, 'done').getByRole('button', { name: /^Done\b/ });
   await click(done, 'Done'); await click(done, 'Done again');
   assert.ok((await everyMenu(page)) >= 15, 'every card menu opened and closed');

@@ -10,8 +10,8 @@ import { pseudoLocale } from './helpers';
 import {
   NOW, O, T, ZONES, absent, card, cardPaths, cardsWhen, checkbox, dateFilter, description, eventually, fileText, filterBtn, flat, gotoKanban, gotoTasks,
   groupsOf, heading, isDisabled, main, mainName, moreBtn, must, mustBeOn, navs, nfc, paths, pressed, quickAdd, runCommand, sectionIds, sectionOf, seen,
-  shortDate, sidebarTasks, sleep, sortBtn, startTasks, swap, tagBtn, tagFilter, taskText, tasksVault, titleOf, tzTag, viewTab, views, writeCalls, writesOf,
-  allCards, original, attr, click, textOf,
+  shortDate, sidebarTasks, sleep, sortBtn, startTasks, swap, tagFilter, taskText, tasksVault, titleOf, tzTag, viewTab, views, writeCalls, writesOf,
+  allCards, original, attr, click, textOf, activeTag, addTag, clearTagsBtn, openTagList, removeTagBtn, tagChips, tagFieldValue, tagInput, tagList, tagOption, tagOptions,
 } from './tasks-helpers';
 
 const SUMMARY = '15 open · 2 overdue · 2 due today';
@@ -44,6 +44,8 @@ test.describe('the page (Europe/Prague, cs)', () => {
     assert.ok((await summaryText(page)).includes(SUMMARY), `summary "${SUMMARY}"`);
     assert.equal(await attr(viewTab(page, 'Schedule'), 'aria-selected'), 'true', 'Schedule selected');
     assert.equal(await attr(viewTab(page, 'Kanban'), 'aria-selected'), 'false');
+    assert.equal(await attr(viewTab(page, 'All tasks'), 'aria-selected'), 'false', 'the third view All tasks (D-516)');
+    await must(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings in the header (D-517)');
     await must(quickAdd(page), 'quick-add row');
     assert.equal(await pressed(filterBtn(page, 'All')), 'true', 'All pressed');
     const sort = await must(sortBtn(page, 'Priority, then due'), 'Sort "Priority, then due"');
@@ -175,25 +177,125 @@ test.describe('Done and filters (Europe/Prague, cs)', () => {
   });
 
   test('fr_tsk_04_ac5_tag_filter', async ({ page }) => {
+    // D-518: a searchable combobox with chips; the selected tags must all match.
     const core = await startTasks(page);
     await gotoTasks(page);
-    const tf = await must(tagFilter(page), 'group Filter by tag');
-    const names = (await tf.getByRole('button').allInnerTexts()).map(flat).filter((n) => n.startsWith('#'));
-    assert.deepEqual(names.map((n) => n.replace(/\s*\d+$/, '')), ['#čtení', '#doma', '#finance', '#práce', '#rodina'], 'D-122 order');
-    const counts = await Promise.all(['čtení', 'doma', 'finance', 'práce', 'rodina'].map((t) => description(tagBtn(page, t))));
-    assert.deepEqual(counts, ['1', '4', '1', '4', '1'], 'counts of open tasks (Doma, NFD doma and inline #rodina count; T10 not)');
-    await click(tagBtn(page, 'doma'), 'button doma');
-    assert.equal(await pressed(tagBtn(page, 'doma')), 'true');
-    assert.deepEqual((await allCards(page)).sort(), paths('t03', 't04', 't19', 't05').sort(), 'only T03, T04, T19, T05');
-    await click(tagBtn(page, 'finance'), 'button finance');
-    assert.ok((await allCards(page)).includes(T.t02), 'T02 added');
-    assert.ok(await seen(main(page).getByText('Showing tasks with any of the selected tags', { exact: true })), 'the any-of note');
-    await (await must(tf.getByRole('button', { name: 'Clear', exact: true }), 'Clear')).click();
-    assert.equal(await pressed(tagBtn(page, 'doma')), 'false', 'Clear releases the tags');
-    await click(tagBtn(page, 'čtení'), 'button čtení');
+    const cb = await must(tagFilter(page), 'combobox Filter by tag');
+    assert.equal(await cb.getAttribute('aria-haspopup'), 'listbox', 'aria-haspopup listbox');
+    assert.equal(await cb.getAttribute('aria-expanded'), 'false', 'closed at first');
+    assert.ok(await seen(main(page).getByPlaceholder('Search 5 tags…', { exact: true })), 'placeholder "Search 5 tags…"');
+    await cb.click();
+    await must(tagList(page), 'listbox Tags (click)');
+    assert.equal(await cb.getAttribute('aria-expanded'), 'true', 'aria-expanded when open');
+    assert.equal(await attr(tagList(page), 'aria-multiselectable'), 'true', 'aria-multiselectable');
+    const ALL: [string, string, boolean][] = [['doma', '4', false], ['práce', '4', false], ['čtení', '1', false], ['finance', '1', false], ['rodina', '1', false]];
+    assert.deepEqual(await tagOptions(page), ALL, 'most tasks first, ties in D-122 order; Doma, NFD doma and inline #rodina count; T10 not');
+    assert.deepEqual(await Promise.all(ALL.map(([t]) => textOf(tagOption(page, t)).then((x) => x.startsWith(`#${t}`)))), ALL.map(() => true), 'options show #<tag>');
+    assert.ok(await seen(page.getByText('5 tags · most used first · type to search', { exact: true })), 'the list line');
+    assert.ok(await seen(page.getByText('↑↓ move · ↩ add · ⌫ removes the last chip · Esc closes', { exact: true })), 'the key hint');
+    await page.keyboard.press('Escape');
+    assert.ok(await absent(tagList(page)), 'Esc closes the list');
+    await (await must(tagInput(page), 'the tag field')).focus();
+    await page.keyboard.press('ArrowDown');
+    assert.ok(await seen(tagList(page)), '↓ with the field focused opens the list');
+    // Search: folded case and diacritics, NFC/NFD.
+    const search = async (text: string) => {
+      await tagInput(page).fill('');
+      await tagInput(page).focus();
+      await page.keyboard.insertText(text);
+      return eventually(() => tagOptions(page).then((o) => o.map(([t]) => t)), (o) => o.length === 1, 2000);
+    };
+    assert.deepEqual(await search('fin'), ['finance'], '"fin" leaves #finance');
+    assert.ok(await seen(page.getByText('1 of 5 tags match "fin" · ↩ adds the first', { exact: true })), 'the match line');
+    assert.deepEqual(await search('CTE'), ['čtení'], '"CTE" leaves #čtení');
+    assert.deepEqual(await search('čte'.normalize('NFD')), ['čtení'], 'NFD "čte" leaves #čtení');
+    await tagInput(page).fill('');
+    await tagInput(page).focus();
+    await page.keyboard.insertText('prá');
+    await sleep(100);
+    await page.keyboard.press('Enter');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 1), ['práce'], '⏎ adds the chip #práce');
+    assert.equal(await tagFieldValue(page), '', 'the field empties');
+    assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 4), paths('t01', 't02', 't06', 't18'), 'only T01, T02, T06, T18');
+    assert.ok(await seen(main(page).getByPlaceholder('Add tag…', { exact: true })), 'placeholder "Add tag…" once a tag is selected');
+    if (!(await seen(tagList(page), 300))) await page.keyboard.press('ArrowDown');
+    assert.deepEqual(await eventually(() => tagOptions(page), (o) => o[0]?.[2] === true),
+      [['práce', '4', true], ['finance', '1', false], ['rodina', '1', false], ['čtení', '0', false], ['doma', '0', false]], 'counts of what each tag would leave');
+    for (let i = 0; i < 8 && (await activeTag(page)) !== 'finance'; i++) await page.keyboard.press('ArrowDown');
+    assert.equal(await activeTag(page), 'finance', '↓ reaches #finance');
+    await page.keyboard.press('Enter');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 2), ['práce', 'finance'], 'chips #práce, #finance');
+    assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t02'), 'only T02 has both');
+    assert.ok(await seen(main(page).getByText('Tasks with all selected tags', { exact: true })), 'the all-of hint with two tags');
+    await tagInput(page).focus();
+    await page.keyboard.press('Backspace');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 1), ['práce'], '⌫ in the empty field removes the last chip');
+    assert.ok(await absent(main(page).getByText('Tasks with all selected tags', { exact: true })), 'no hint with one tag');
+    await click(removeTagBtn(page, 'práce'), 'Remove #práce');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 0), [], 'Remove #práce removes it');
+    assert.ok(await absent(clearTagsBtn(page)), 'no Clear tags while none is selected');
+    await addTag(page, 'doma');
+    await addTag(page, 'práce');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 2), ['doma', 'práce'], 'two chips');
+    assert.deepEqual(await allCards(page), [], 'no task has both #doma and #práce');
+    await click(clearTagsBtn(page), 'Clear tags');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 0), [], 'Clear tags removes all');
+    assert.equal((await allCards(page)).length, 15, 'every open task again');
+    await addTag(page, 'rodina');
+    if (!(await seen(tagList(page), 300))) await page.keyboard.press('ArrowDown');
+    assert.ok(await seen(tagList(page)), 'the list is open');
+    await page.keyboard.press('Escape');
+    assert.ok(await absent(tagList(page)), 'Esc closes the list');
+    assert.deepEqual(await tagChips(page), ['rodina'], 'and keeps the selection');
+    assert.deepEqual(await writeCalls(core), [], 'selecting and removing tags writes nothing');
+  });
+
+  test('fr_tsk_04_ac5_a_selected_tag_without_tasks_stays_at_0', async ({ page }) => {
+    const core = await startTasks(page);
+    await gotoTasks(page);
+    await addTag(page, 'čtení');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 1), ['čtení'], 'chip #čtení');
     await core.setFile(T.t08, swap(original(T.t08), 'tags: [čtení]\n', ''));
-    assert.equal(await eventually(() => description(tagBtn(page, 'čtení')), (d) => d === '0'), '0', 'a selected tag without tasks stays with count 0');
-    assert.equal(await pressed(tagBtn(page, 'čtení')), 'true', 'and stays pressed');
+    await openTagList(page);
+    const opt = await eventually(() => tagOptions(page).then((o) => o.find(([t]) => t === 'čtení') ?? null), (o) => o?.[1] === '0', 2000);
+    assert.deepEqual(opt, ['čtení', '0', true], 'the selected tag stays with count 0');
+    assert.deepEqual(await tagChips(page), ['čtení'], 'and stays as a chip');
+    assert.deepEqual(await writeCalls(core), [], 'nothing written');
+  });
+
+  test('fr_tsk_04_ac5_the_selection_is_remembered_per_machine', async ({ page, browser }) => {
+    const core = await startTasks(page);
+    await gotoTasks(page);
+    await addTag(page, 'práce');
+    await addTag(page, 'finance');
+    assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 2), ['práce', 'finance']);
+    const st = await eventually(() => core.uiState(), (u) => (u?.tasks?.tags ?? []).length === 2, 2000);
+    assert.deepEqual(st?.tasks?.tags, ['práce', 'finance'], 'ui_state_set stores the selection (D-481, machine-local)');
+    const p2 = await browser.newPage({ timezoneId: 'Europe/Prague' });
+    const core2 = await startTasks(p2, { tasksUi: st!.tasks });
+    await gotoTasks(p2);
+    assert.deepEqual(await eventually(() => tagChips(p2), (c) => c.length === 2), ['práce', 'finance'], 'chips restored');
+    assert.deepEqual(await eventually(() => allCards(p2), (c) => c.length === 1), paths('t02'), 'and the filter applies');
+    assert.deepEqual(await writeCalls(core2), [], 'nothing written');
+    await p2.close();
+  });
+
+  test('fr_tsk_04_ac5_at_most_12_options', async ({ page }) => {
+    const extra = ['jaro', 'léto', 'podzim', 'zima', 'ráno', 'večer', 'účty', 'škola', 'auto', 'zahrada'];
+    const vault = tasksVault((f) => {
+      extra.forEach((t, i) => { f[`Tasks/Štítek ${i + 1}.md`] = taskText(i + 1, `Štítek ${i + 1}`, `status: To do\ntags: [${t}]\n`); });
+    });
+    await startTasks(page, { vault });
+    await gotoTasks(page);
+    assert.ok(await seen(main(page).getByPlaceholder('Search 15 tags…', { exact: true })), 'placeholder counts all 15 tags');
+    await openTagList(page);
+    const opts = await tagOptions(page);
+    assert.equal(opts.length, 12, `at most 12 options: ${opts.map(([t]) => t).join(', ')}`);
+    assert.deepEqual(opts.slice(0, 2).map(([t]) => t), ['doma', 'práce'], 'most used first');
+    assert.ok(await seen(page.getByText('15 tags · most used first · type to search', { exact: true })), 'the list line names all 15');
+    await tagInput(page).focus();
+    await page.keyboard.insertText('zah');
+    assert.deepEqual(await eventually(() => tagOptions(page).then((o) => o.map(([t]) => t)), (o) => o.length === 1), ['zahrada'], 'search reaches tags beyond the first 12');
   });
 });
 

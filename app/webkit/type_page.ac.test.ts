@@ -5,7 +5,7 @@ import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { focused, mainName, newObjectDialog } from './helpers';
 import {
-  P, callsOf, description, eventually, fileText, gotoTypePage, isDisabled, main, must, nonReadCalls, openTypes, rowTitles,
+  P, callsOf, description, eventually, fileText, gotoTypePage, iconButtonLook, isDisabled, main, must, nonReadCalls, openTypes, rowTitles,
   runCommand, seen, settingsHeading, sleep, typeTable, typesVault,
 } from './types-helpers';
 
@@ -20,8 +20,16 @@ test('fr_typ_09_ac1_header_icon_plural_description_count_and_buttons', async ({ 
   assert.ok(await seen(main(page).getByText('3 objects', { exact: true })), 'count');
   const icon = main(page).locator('[data-icon="users"]');
   assert.ok(await seen(icon), 'type icon users (R14)');
-  await must(main(page).getByRole('button', { name: 'New Schůzka', exact: true }), 'New Schůzka');
-  await (await must(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings')).click();
+  const create = await must(main(page).getByRole('button', { name: 'New Schůzka', exact: true }), 'New Schůzka');
+  const settings = await must(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings');
+  // D-519: an icon button named and titled `Type settings`, 36 × 36 pt with a border, before `New Schůzka`.
+  const look = await iconButtonLook(settings);
+  assert.equal(look.text, '', `Type settings shows no text (icon only): "${look.text}"`);
+  assert.equal(look.title, 'Type settings', 'tooltip Type settings');
+  assert.ok(Math.abs(look.width - 36) <= 1 && Math.abs(look.height - 36) <= 1, `36 × 36 pt: ${look.width} × ${look.height}`);
+  assert.ok(look.borders.every((b) => { const [w, st] = b.split(' '); return parseFloat(w) > 0 && st !== 'none' && st !== 'hidden'; }), `a border on every side: ${look.borders.join(', ')}`);
+  assert.ok(await settings.evaluate((s, c) => !!(s.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING), await create.elementHandle()), 'Type settings comes before New Schůzka');
+  await settings.click();
   await must(settingsHeading(page, 'Schůzka'), '→ type-settings/schůzka');
 });
 

@@ -6,7 +6,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   NOW, T, attr, callsOf, card, cardPaths, click, column, columnIds, columns, description, drag, eventually, fileText, fileWhen, filterBtn, gotoKanban,
-  groupBy, isDisabled, liveTexts, main, must, nfc, original, paths, quickAdd, runCommand, seen, sleep, sortBtn, startTasks, swap, tagBtn, taskText,
+  groupBy, isDisabled, liveTexts, main, must, nfc, original, paths, quickAdd, runCommand, seen, sleep, sortBtn, startTasks, swap, addTag, tagChips, taskText,
   tasksVault, textOf, titleOf, touched, viewTab, writeCalls, writesOf, mustBeOn,
 } from './tasks-helpers';
 
@@ -82,7 +82,7 @@ test('fr_tsk_05_ac3_kanban_by_tag', async ({ page }) => {
   assert.ok((await textOf(cardIn(page, '#finance', 'Poslat rozpočet'))).includes('also in #práce'), 'T02 in finance: also in #práce');
   assert.ok((await textOf(cardIn(page, '#práce', 'Poslat rozpočet'))).includes('also in #finance'), 'T02 in práce: also in #finance');
   assert.ok((await textOf(main(page))).includes('Grouped by tag: a task with several tags shows in each tag’s column.'), 'the tag hint');
-  await click(tagBtn(page, 'doma'), 'tag #doma');
+  await addTag(page, 'doma'); // D-518: the tag filter is a combobox
   assert.deepEqual(await eventually(() => columnIds(page), (v) => v.length === 1), ['#doma'], 'only doma, no No tag');
 });
 
@@ -183,6 +183,24 @@ test('fr_tsk_05_ac9_filters_apply_to_every_column', async ({ page }) => {
   const sort = await must(sortBtn(page, 'Due date'), 'Sort "Due date"');
   assert.equal(await isDisabled(sort), true, 'aria-disabled (AP-407)');
   assert.equal(await description(sort), 'Coming in v1.0');
+});
+
+test('fr_tsk_05_ac9_all_selected_tags_restrict_every_column', async ({ page }) => {
+  // D-518: the tag filter of FR-TSK-04 AC-5 keeps only tasks with every selected tag, in every column.
+  const core = await startTasks(page);
+  await gotoKanban(page, 'Status');
+  await addTag(page, 'práce');
+  assert.deepEqual(await eventually(() => tagChips(page), (c) => c.length === 1), ['práce'], 'chip #práce');
+  const one = await eventually(() => columns(page), (c) => c['To do']?.length === 3);
+  assert.deepEqual([one['To do'], one['In progress'], one.Waiting, one.Done], [paths('t01', 't06', 't18'), paths('t02'), [], []], '#práce per column');
+  await addTag(page, 'finance');
+  const both = await eventually(() => columns(page), (c) => Object.values(c).flat().length === 1);
+  assert.deepEqual(Object.values(both).flat(), paths('t02'), '#práce and #finance: only T02');
+  assert.deepEqual(both['In progress'], paths('t02'), 'in In progress');
+  await click(groupBy(page).getByRole('tab', { name: 'Tag', exact: true }), 'Group by Tag');
+  assert.deepEqual([...(await eventually(() => columnIds(page), (v) => v.length === 2))].sort(), ['#finance', '#práce'], 'one column per selected tag, no No tag');
+  for (const id of ['#finance', '#práce']) assert.deepEqual(await cardPaths(column(page, id)), paths('t02'), `${id}: only T02`);
+  assert.deepEqual(await writeCalls(core), [], 'filtering writes nothing');
 });
 
 test('fr_tsk_05_ac10_an_external_change_during_a_drag', async ({ page }) => {

@@ -107,13 +107,14 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
 async function typesOrder(page: Page, prelude: string | undefined) {
   await start(page, { prelude });
   await must(typesList(page), 'Types list');
-  return eventually(() => typeEntries(page), (v) => v.length >= 10);
+  return eventually(() => typeEntries(page), (v) => v.length >= 9); // D-516: 9 entries, Task is not listed
 }
 
 test('fr_ux_02_ac4_types_list_cs_order_and_counts', async ({ page }) => {
   const entries = await typesOrder(page, collation('cs'));
   assert.deepEqual(entries.map(([l, c]) => [TYPES_CS.find(([x]) => String(l).startsWith(x))?.[0] ?? l, c]), TYPES_CS);
   assert.ok(!entries.some(([l]) => /^Tags?\b/.test(l)), 'Tag is not in the Types list');
+  assert.ok(!entries.some(([l]) => /^Tasks?\b/.test(l)), 'Task is not in the Types list (D-516)');
   // recept is marked as having no type definition.
   const recept = typesList(page).getByRole('listitem').filter({ hasText: 'recept' }).first();
   const mark = await recept.evaluate((e) => {

@@ -54,8 +54,9 @@ test('fr_vlt_01_ac10_new_vault_form_and_create', async ({ page }) => {
   const creates = (await core.calls()).filter((c) => c.cmd === 'vault_create');
   assert.deepEqual(creates.map((c) => c.args), [{ parent: PARENT, name: 'Můj trezor', kind: 'empty' }], 'one create command, kind empty');
   await mustBeOn(page, 'Home', 'new vault lands on the home placeholder');
-  const want = TYPES_CS.filter(([l]) => ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
-  assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 6), want, 'Types list of a new vault');
+  // D-516 (amends D-121, FR-UX-02 AC-4): Task is no longer in the Types list.
+  const want = TYPES_CS.filter(([l]) => ['Pages', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
+  assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 5), want, 'Types list of a new vault');
 });
 
 test('fr_vlt_01_ac12_create_errors_stay_in_the_form', async ({ browser }) => {

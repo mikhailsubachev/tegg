@@ -124,16 +124,46 @@ test('fr_tsk_04_ac4_date_filters_en_us', async () => {
 });
 
 test('fr_tsk_04_ac5_tag_filter_lists_and_restricts', async () => {
+  // D-518 (AC-5 rewritten, contract §4): most tasks first, ties in D-122 order; several tags must all match.
   const v = await views();
   const c = v.counts(input());
-  assert.deepEqual(c.tags.map((t: any) => [t.key, t.label, t.count]), [['čtení', 'čtení', 1], ['doma', 'doma', 4], ['finance', 'finance', 1], ['práce', 'práce', 4], ['rodina', 'rodina', 1]],
-    'D-122 order; Doma and NFD doma count as doma; inline #rodina counts; T10 (Done) not for finance');
+  assert.deepEqual(c.tags.map((t: any) => [t.key, t.label, t.count]), [['doma', 'doma', 4], ['práce', 'práce', 4], ['čtení', 'čtení', 1], ['finance', 'finance', 1], ['rodina', 'rodina', 1]],
+    'count descending, ties by collation (D-122); Doma and NFD doma count as doma; inline #rodina counts; T10 (Done) not for finance');
   const doma = sched(v.schedule(input({ tagFilter: ['doma'] })));
   assert.deepEqual([...doma.overdue, ...doma.today, ...doma.week.flatMap((g: any) => g[1]), ...doma.later, ...doma.none], ps('T03', 'T04', 'T19', 'T05'), '#doma: T03, T04, T19, T05');
-  const any = sched(v.schedule(input({ tagFilter: ['doma', 'finance'] })));
-  assert.deepEqual(any.overdue, ps('T02'), '#doma or #finance adds T02');
   const today = v.counts(input({ dateFilter: 'today' }));
-  assert.deepEqual(today.tags.map((t: any) => [t.key, t.count]), [['doma', 1], ['finance', 1], ['práce', 2]], 'counts within the date filter');
+  assert.deepEqual(today.tags.map((t: any) => [t.key, t.count]), [['práce', 2], ['doma', 1], ['finance', 1]], 'counts within the date filter, most first');
+});
+
+test('fr_tsk_04_ac5_selected_tags_must_all_match', async () => {
+  const v = await views();
+  const open = (s: ReturnType<typeof sched>) => [...s.overdue, ...s.today, ...s.week.flatMap((g: any) => g[1]), ...s.later, ...s.none];
+  const prace = sched(v.schedule(input({ tagFilter: ['práce'] })));
+  assert.deepEqual(open(prace), ps('T01', 'T02', 'T06', 'T18'), '#práce: T01, T02 (Overdue), T06 (Later), T18 (Not scheduled)');
+  assert.deepEqual(prace.done, [], 'Done: no Done task has #práce');
+  const both = sched(v.schedule(input({ tagFilter: ['práce', 'finance'] })));
+  assert.deepEqual(open(both), ps('T02'), '#práce and #finance: only T02 (all of them, D-518)');
+  assert.deepEqual(both.done, [], 'T10 has #finance but not #práce');
+  const none = sched(v.schedule(input({ tagFilter: ['doma', 'finance'] })));
+  assert.deepEqual([...open(none), ...none.done], [], 'no task has both #doma and #finance (was any of them, D-476)');
+});
+
+test('fr_tsk_04_ac5_counts_tell_what_each_tag_would_leave', async () => {
+  // Contract §4 (D-518): each listed tag counts the open tasks within the date filter that have it and every selected
+  // key; selected keys are listed even at 0; order count descending, then collator, then key bytes.
+  const v = await views();
+  const one = v.counts(input({ tagFilter: ['práce'] }));
+  assert.deepEqual(one.tags.map((t: any) => [t.key, t.count]), [['práce', 4], ['finance', 1], ['rodina', 1], ['čtení', 0], ['doma', 0]],
+    'with #práce: práce 4, finance 1, rodina 1, čtení 0, doma 0');
+  const two = v.counts(input({ tagFilter: ['práce', 'finance'] }));
+  assert.deepEqual(two.tags.map((t: any) => [t.key, t.count]), [['finance', 1], ['práce', 1], ['čtení', 0], ['doma', 0], ['rodina', 0]],
+    'with #práce and #finance: only T02 is left for either');
+  const gone = v.counts(input({ tagFilter: ['zahrádka'] }));
+  assert.deepEqual(gone.tags.map((t: any) => [t.key, t.count]), [['čtení', 0], ['doma', 0], ['finance', 0], ['práce', 0], ['rodina', 0], ['zahrádka', 0]],
+    'a selected key no task has is listed with 0; nothing else is left either');
+  const todayPrace = v.counts(input({ dateFilter: 'today', tagFilter: ['práce'] }));
+  assert.deepEqual(todayPrace.tags.map((t: any) => [t.key, t.count]), [['práce', 2], ['finance', 1], ['doma', 0]], 'within the date filter (Today: T01, T02, T03, T14)');
+  assert.deepEqual([one.all, one.today, one.week], [4, 2, 2], 'the date filter counts under the tag filter (AC-4): All 4, Today 2, This week 2 (T01, T02)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-05 (R42)
@@ -171,6 +201,21 @@ test('fr_tsk_05_ac9_filters_restrict_every_column', async () => {
   const k = v.kanban(input({ dateFilter: 'today' }), 'status', SPELLING);
   const by = Object.fromEntries(k.columns.map((c: any) => [c.id, paths(c.tasks)]));
   assert.deepEqual(by, { 'To do': ps('T01', 'T03'), 'In progress': ps('T02'), Waiting: [], Done: ps('T10'), 'no-status': ps('T14') }, 'Today filter per column (D-476)');
+});
+
+test('fr_tsk_05_ac9_all_selected_tags_restrict_every_column', async () => {
+  // D-518: the tag filter of AC-5 (every selected key) restricts every column, by status and by tag.
+  const v = await views();
+  const flatCols = (k: any) => Object.fromEntries(k.columns.map((c: any) => [c.id, paths(c.tasks)]));
+  const prace = flatCols(v.kanban(input({ tagFilter: ['práce'] }), 'status', SPELLING));
+  assert.deepEqual([prace['To do'], prace['In progress'], prace.Waiting, prace.Done], [ps('T01', 'T06', 'T18'), ps('T02'), [], []], '#práce by status');
+  assert.deepEqual(prace['no-status'] ?? [], [], 'No status: no #práce task');
+  const both = v.kanban(input({ tagFilter: ['práce', 'finance'] }), 'status', SPELLING);
+  assert.deepEqual(both.columns.flatMap((c: any) => paths(c.tasks)), ps('T02'), '#práce and #finance by status: only T02, in In progress');
+  assert.deepEqual(flatCols(both)['In progress'], ps('T02'));
+  const byTag = v.kanban(input({ tagFilter: ['práce', 'finance'] }), 'tag', SPELLING);
+  assert.deepEqual(byTag.columns.map((c: any) => c.id).sort(), ['#finance', '#práce'], 'one column per selected key, no No tag (contract §4)');
+  for (const c of byTag.columns) assert.deepEqual(paths(c.tasks), ps('T02'), `${c.id}: only T02`);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-09 AC-1, FR-TSK-01 AC-5

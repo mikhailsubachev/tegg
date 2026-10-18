@@ -106,13 +106,19 @@ export async function startTasks(page: Page, o: TasksStart = {}): Promise<FakeCo
 export const main = (page: Page) => page.getByRole('main');
 export const heading = (page: Page) => main(page).getByRole('heading', { level: 1, name: /^⟦?Tasks⟧?$/ });
 export const views = (page: Page) => main(page).getByRole('tablist', { name: 'Task views', exact: true });
-export const viewTab = (page: Page, name: 'Schedule' | 'Kanban') => views(page).getByRole('tab', { name, exact: true });
+export const viewTab = (page: Page, name: 'Schedule' | 'Kanban' | 'All tasks') => views(page).getByRole('tab', { name, exact: true });
 export const groupBy = (page: Page) => main(page).getByRole('tablist', { name: 'Group by', exact: true });
 export const quickAdd = (page: Page) => main(page).getByRole('textbox', { name: 'Add a task…', exact: true });
 export const dateFilter = (page: Page) => main(page).getByRole('group', { name: 'Filter', exact: true });
 export const filterBtn = (page: Page, name: 'All' | 'Today' | 'This week') => dateFilter(page).getByRole('button', { name, exact: true });
-export const tagFilter = (page: Page) => main(page).getByRole('group', { name: 'Filter by tag', exact: true });
-export const tagBtn = (page: Page, tag: string) => tagFilter(page).getByRole('button', { name: `#${tag}`, exact: true });
+/** The tag filter (R40, D-518): a `combobox` `Filter by tag` with chips, a text field and a `listbox` `Tags`. */
+export const tagFilter = (page: Page) => main(page).getByRole('combobox', { name: 'Filter by tag', exact: true });
+/** The text field of the tag filter: the combobox itself when it is the input, else the input inside it. */
+export const tagInput = (page: Page) => tagFilter(page).locator('xpath=self::input | .//input').first();
+export const tagList = (page: Page) => page.getByRole('listbox', { name: 'Tags', exact: true });
+export const tagOption = (page: Page, tag: string) => tagList(page).locator(`[role="option"][data-tag="${nfc(tag)}"]`);
+export const removeTagBtn = (page: Page, tag: string) => main(page).getByRole('button', { name: `Remove #${tag}`, exact: true });
+export const clearTagsBtn = (page: Page) => main(page).getByRole('button', { name: 'Clear tags', exact: true });
 export const sortBtn = (page: Page, name: string) => main(page).getByRole('button', { name, exact: true });
 export const sectionOf = (page: Page, id: 'today' | 'week' | 'later' | 'none' | 'done') => main(page).locator(`[data-section="${id}"]`);
 export const column = (page: Page, id: string) => main(page).locator(`[data-column="${id}"]`);
@@ -202,6 +208,59 @@ export async function liveTexts(page: Page): Promise<string[]> {
 export function shortDate(date: string, region: string): string {
   const [y, m, d] = date.split('-').map(Number);
   return new Intl.DateTimeFormat(region, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
+}
+
+// ------------------------------------------------------------------------------------------------ the tag filter (R40, D-518)
+
+/** The selected tags shown as chips (`data-tag`, not options, not on cards or in columns), in order. */
+export async function tagChips(page: Page): Promise<string[]> {
+  return main(page).evaluate((m) =>
+    ([...m.querySelectorAll('[data-tag]')] as HTMLElement[])
+      .filter((e) => e.getAttribute('role') !== 'option' && !e.closest('[role="listbox"], article, [role="article"], [data-column], [data-section]'))
+      .map((e) => (e.getAttribute('data-tag') ?? '').normalize('NFC')));
+}
+/** The open list's options as `[tag key, count (description), selected]`, in order. */
+export async function tagOptions(page: Page): Promise<[string, string, boolean][]> {
+  if (!(await seen(tagList(page), 1000))) return [];
+  return tagList(page).first().evaluate((l) =>
+    ([...l.querySelectorAll('[role="option"]')] as HTMLElement[]).map((o) => {
+      const ids = (o.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+      const d = (o.getAttribute('aria-description') ?? ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim();
+      return [(o.getAttribute('data-tag') ?? '').normalize('NFC'), d, o.getAttribute('aria-selected') === 'true'] as [string, string, boolean];
+    }));
+}
+/** The tag key of the active option (`aria-activedescendant` of the combobox or its input, else a focused option). */
+export async function activeTag(page: Page): Promise<string | null> {
+  if (!(await seen(tagFilter(page), 1000))) return null;
+  return tagFilter(page).first().evaluate((cb) => {
+    const holders = [cb, cb.querySelector('input'), document.activeElement].filter(Boolean) as Element[];
+    for (const h of holders) {
+      const id = h.getAttribute('aria-activedescendant');
+      if (id) return (document.getElementById(id)?.getAttribute('data-tag') ?? '').normalize('NFC') || null;
+    }
+    const a = document.activeElement;
+    return a?.getAttribute('role') === 'option' ? (a.getAttribute('data-tag') ?? '').normalize('NFC') : null;
+  });
+}
+/** The text in the tag filter's field. */
+export async function tagFieldValue(page: Page): Promise<string | null> {
+  if (!(await seen(tagInput(page), 1000))) return null;
+  return nfc(await tagInput(page).inputValue());
+}
+/** Opens the list by clicking the combobox; asserts the listbox `Tags` appears. */
+export async function openTagList(page: Page) {
+  if (await seen(tagList(page), 200)) return;
+  await (await must(tagFilter(page), 'combobox "Filter by tag"')).click();
+  await must(tagList(page), 'listbox "Tags"');
+}
+/** Adds a tag the way a user does: focus the field, type the tag, ⏎ (adds the first match, R40). */
+export async function addTag(page: Page, tag: string) {
+  await (await must(tagFilter(page), 'combobox "Filter by tag"')).click();
+  await (await must(tagInput(page), 'the tag filter field')).focus();
+  await page.keyboard.insertText(tag);
+  await sleep(100);
+  await page.keyboard.press('Enter');
+  await sleep(100);
 }
 
 // ------------------------------------------------------------------------------------------------ navigation

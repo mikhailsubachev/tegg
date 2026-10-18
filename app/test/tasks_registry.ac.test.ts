@@ -107,7 +107,7 @@ test('fr_dly_04_ac8_the_daily_tasks_placeholder_is_gone', async () => {
 test('fr_tsk_04_ac11_r46_strings_are_catalog_keys_with_the_exact_english', async () => {
   const { cat } = await mods();
   const pairs = r46();
-  assert.equal(pairs.length, 80, `R46 has ${pairs.length} keys`);
+  assert.equal(pairs.length, 87, `R46 has ${pairs.length} keys`); // D-518, D-516: +8 keys, tasks.tagAny removed
   const bad: string[] = [];
   for (const [key, text] of pairs) {
     if (key === 'tasks.summary') continue; // composed of plural parts, below
@@ -119,6 +119,7 @@ test('fr_tsk_04_ac11_r46_strings_are_catalog_keys_with_the_exact_english', async
     if (got !== want) bad.push(`${key}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, [], 'every R46 key with its English text');
+  assert.ok(!('tasks.tagAny' in cat.en), 'tasks.tagAny is removed (D-518: selected tags must all match)');
   assert.equal(typeof cat.en['task.due.overdue'], 'object', 'task.due.overdue has plural forms (D-133)');
 });
 
