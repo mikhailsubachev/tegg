@@ -648,7 +648,9 @@ test('fr_emb_04_ac8_no_hang_on_cycles_and_depth', { timeout: 300_000 }, async ()
       const t0 = Date.now();
       await openBySwitcher(s.d, t);
       assert.ok(await waitMark(s.log, 'note-ready', 2000 - (Date.now() - t0) + 600), `${t}: note-ready within 2 s`);
-      assert.ok(await firstShown(s.d, t === 'Řetěz 1' ? 'Embedded: Řetěz 2' : `Embedded: ${t === 'Kruh A' ? 'Kruh B' : t}`), `${t}: its embed frame is shown`);
+      // Obsah embeds its own section: the frame is named after the note and the heading (AC-3).
+      const frame = { 'Řetěz 1': 'Řetěz 2', 'Kruh A': 'Kruh B', 'Obsah': 'Obsah › Kapitola jedna' }[t] ?? t;
+      assert.ok(await firstShown(s.d, `Embedded: ${frame}`), `${t}: its embed frame is shown`);
       const k0 = Date.now();
       press('k', ['command']);
       assert.ok(await shown(s.d, 'Command palette', 500), `${t}: ⌘K opens the palette within 500 ms`);
