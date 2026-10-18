@@ -2,16 +2,16 @@
 
 - **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in).
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: now 178 in, 101 outside.
 
 ## Summary
 
 | Where | Requirements |
 | --- | ---: |
-| MVP milestones MS1–MS8 | 179 |
+| MVP milestones MS1–MS8 | 178 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 72 |
+| v1.0 "complete desktop" (§11) | 73 |
 | v1.x (§11) | 9 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
@@ -175,9 +175,9 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-TAG-08 | Delete a tag: asks whether to remove it from all objects (rewrite, with restore point) or only delete the Tag … | no ACs yet |
 | NFR-REL-04 | All destructive bulk operations are preceded by a restore point (FR-HIS-04). | 3 ACs |
 
-### MS5: Tasks, capture, inbox, home, mindmaps
+### MS5: Tasks, capture, inbox, mindmaps
 
-38 requirements (D-371, D-376 moved 4 to v1.0; D-377 added FR-MMP-01, -02, -04; D-378 kept FR-TSK-05) · 1 with ACs · 0 with spike evidence · 0 implemented
+37 requirements (D-371, D-376 moved 4 to v1.0; D-515 moved FR-HOM-01; D-377 added FR-MMP-01, -02, -04; D-378 kept FR-TSK-05) · 1 with ACs · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -193,7 +193,6 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-CNV-06 | Conversion is a single undoable action that restores the original blocks and deletes the new file. | no ACs yet |
 | FR-CNV-08 | Removing the embed from the source note does not delete the object (D-27). The first time, the app asks for co… | no ACs yet |
 | FR-EMB-03 | Embedded content is editable in place (FR-CNV-05). | no ACs yet |
-| FR-HOM-01 | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | no ACs yet |
 | FR-INB-01 | Inbox view lists all objects with `review: unreviewed`: Quick Notes, Daily Notes, captured items, and objects … | no ACs yet |
 | FR-INB-02 | Inbox actions per item (keyboard-first): mark reviewed, convert to type (changes the type and moves the file),… | no ACs yet |
 | FR-INB-03 | Review status is an attribute (`review: unreviewed \| reviewed`). It is mandatory on Quick Notes and Daily Not… | no ACs yet |
@@ -321,7 +320,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (72)
+### v1.0 "complete desktop" (73)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
@@ -389,6 +388,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TYP-07 | M | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | D-372: the file-move part to v1.0; the type change itself stays MS3 (D-224) |
 | FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
 | FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries |
+| FR-HOM-01 | M | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | D-515: Home out of the MVP |
 | FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 |
 | FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-376: the D-71 hotkey-failure display stays in MS5 with FR-CAP-05 |
 | FR-ATT-03 | M | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | D-376 |
@@ -465,7 +465,7 @@ Could requirements listed in BRD §11 as an explicit backlog.
 
 ## 6. Daily-use re-plan (owner, 2026-10-16, D-370…D-377)
 
-The owner starts daily use from an empty vault, so the Capacities importer and everything that reshapes existing data left the critical path. Moved from MVP milestones to v1.0: FR-TAG-05 (D-370), FR-STO-04, FR-TYP-04, the file-move part of FR-TYP-07 (D-372), FR-TSK-06 (D-371; the board FR-TSK-05 stays, D-378), FR-HOM-02, FR-EDT-11, FR-SET-04, FR-ATT-03, -09, FR-HIS-02 (D-376), FR-IMP-01, FR-STO-10 (D-373), FR-UX-04 (D-374). Moved in: FR-MMP-01, -02 (render + outline editing), -04 (D-377). Order of the remaining slices: `docs/plans/mvp-daily-use-plan.md` (D-375). The MS1–MS3 tables are unchanged; FR-TYP-07 stays in MS3 for the type change that writes only `type:`.
+The owner starts daily use from an empty vault, so the Capacities importer and everything that reshapes existing data left the critical path. Moved from MVP milestones to v1.0: FR-TAG-05 (D-370), FR-STO-04, FR-TYP-04, the file-move part of FR-TYP-07 (D-372), FR-TSK-06 (D-371; the board FR-TSK-05 stays, D-378), FR-HOM-02, FR-EDT-11, FR-SET-04, FR-ATT-03, -09, FR-HIS-02 (D-376), FR-IMP-01, FR-STO-10 (D-373), FR-UX-04 (D-374), FR-HOM-01 (D-515, 2026-10-17). Moved in: FR-MMP-01, -02 (render + outline editing), -04 (D-377). Order of the remaining slices: `docs/plans/mvp-daily-use-plan.md` (D-375). The MS1–MS3 tables are unchanged; FR-TYP-07 stays in MS3 for the type change that writes only `type:`.
 
 ## 7. Other findings
 

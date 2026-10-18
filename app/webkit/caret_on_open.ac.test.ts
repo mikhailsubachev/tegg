@@ -2,10 +2,11 @@
 // (existing note: caret in the first editable body block), AC-12 (new note: title in edit mode, caret at its end).
 // docs/acceptance/editor.md; interface docs/contracts/ms3-shell.md §15.2 (`data-focus-target` on the NotePage root,
 // the body's `aria-describedby` → title). Written from the ACs and the contract only (D-61). Missing elements fail
-// through `must`/node:assert (TS-I1).
+// through `must`/node:assert (TS-I1). D-520: ⌘N and `New <Name>` open an unsaved draft with an empty title in edit mode
+// (types.md FR-TYP-09 AC-17); the title is typed there and ↩ creates the note and moves the caret to the body.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { focused, mustBeOn, newObjectDialog, openNote, sidebar, switcherDialog, typesList } from './helpers';
+import { eventually, focused, mustBeDraft, mustBeOn, openNote, sidebar, switcherDialog, typesList } from './helpers';
 import {
   E, TITLES, bodyOf, editorBody, editorVault, fileText, must, mustBeSaved, noModified, openEditor, original, sleep, titleField, writes,
   type FakeCoreHandle,
@@ -176,20 +177,16 @@ async function titleCaretAtEnd(page: Page): Promise<{ inTitle: boolean; atEnd: b
 test('fr_edt_01_ac12_new_object_opens_with_the_title_in_edit_mode', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await page.keyboard.press('Meta+n');
-  await (await must(newObjectDialog(page), 'New object')).getByRole('textbox', { name: 'Title' }).fill('Nový zápis');
-  await page.keyboard.press('Enter');
-  await mustBeOn(page, 'Nový zápis', 'new note opens');
-  await must(titleField(page), 'textbox "Title"');
+  await mustBeDraft(page, '⌘N');
   await sleep(300);
-  assert.equal(await focusTarget(page), 'title', 'data-focus-target="title"');
-  assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, 'title in edit mode, caret at the end, nothing selected');
-  const path = 'Quick Notes/Nový zápis.md';
-  assert.deepEqual(await core.writesTo(), [path], 'focusing the title writes nothing: the creation write is the only write');
-  await page.keyboard.type(' 2');
-  const t = await saved(page, core, path);
-  assert.match(t, /^title: Nový zápis 2$/m, 'typing " 2" saves the title');
+  assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, 'the empty title in edit mode, caret in it, nothing selected');
+  assert.deepEqual(await core.writesTo(), [], 'focusing the title writes nothing (D-520: the draft is unsaved)');
+  await page.keyboard.type('Nový zápis');
   await page.keyboard.press('Enter');
-  assert.ok(await caretInBody(page), '⏎ moves the caret to the body');
+  await mustBeOn(page, 'Nový zápis', 'the new note after ↩', 5000);
+  const path = 'Quick Notes/Nový zápis.md';
+  assert.deepEqual(await eventually(() => core.writesTo(), (w) => w.length > 0, 2000), [path], 'the creation write is the only write');
+  assert.ok(await eventually(() => caretInBody(page), (x) => x, 1000), '⏎ moves the caret to the body');
 });
 
 test('fr_edt_01_ac12_switcher_create_item_opens_with_the_title_focused', async ({ page }) => {
@@ -210,12 +207,12 @@ test('fr_edt_01_ac12_type_page_new_opens_with_the_title_focused', async ({ page 
   await (await must(typesList(page).getByRole('link', { name: /^Pages/ }).or(typesList(page).getByRole('button', { name: /^Pages/ })).first(), 'sidebar entry Pages')).click();
   await mustBeOn(page, 'Pages', 'type page Pages');
   await page.getByRole('main').getByRole('button', { name: 'New Page', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Nová stránka z typu');
-  await page.keyboard.press('Enter');
-  await mustBeOn(page, 'Nová stránka z typu', 'new note opens');
+  await mustBeDraft(page, 'New Page');
   await sleep(300);
-  assert.equal(await focusTarget(page), 'title', 'data-focus-target="title"');
-  assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, 'caret at the end of the title');
+  assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, 'caret in the empty title, nothing selected');
+  await page.keyboard.type('Nová stránka z typu');
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Nová stránka z typu', 'the new note after ↩', 5000);
 });
 
 test('fr_edt_01_ac12_link_create_moves_no_focus', async ({ page }) => {

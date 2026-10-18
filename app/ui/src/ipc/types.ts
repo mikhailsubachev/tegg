@@ -150,7 +150,11 @@ embed: string,
  */
 embedRaw: string | null, template: string | null, attributes: Array<AttributeDto>, };
 export type TypeFileErrorDto = { message: string, line: number, };
-export type OptionDto = { label: string, color: string | null, };
+export type OptionDto = { label: string, color: string | null, 
+/**
+ * ms5-tasks §2.2 (D-473): a Task status option's `state` as written; null when absent.
+ */
+state: string | null, };
 export type AttributeDto = { key: string, name: string, 
 /**
  * R10 string, or the raw string of another type.
@@ -166,7 +170,7 @@ supported: boolean,
 readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
 export type TypeTemplateDto = { path: string, text: string, };
@@ -205,7 +209,11 @@ typeSort: { [key in string]?: TypeSortDto },
 /**
  * "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
  */
-otherPropertiesOpen: boolean, };
+otherPropertiesOpen: boolean, 
+/**
+ * ms5-tasks §6.3 (D-481): the Tasks page's remembered state; missing reads as the defaults.
+ */
+tasks?: TasksUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -291,4 +299,27 @@ export type BackupDto = { name: string, kind: string,
  * ISO 8601 with offset.
  */
 time: string, };
+export type TasksUiDto = { 
+/**
+ * `schedule` or `kanban`.
+ */
+view: string, 
+/**
+ * `status` or `tag`.
+ */
+groupBy: string, 
+/**
+ * `all`, `today` or `week`.
+ */
+dateFilter: string, tags: Array<string>, doneExpanded: boolean, };
+export type TaskRowDto = { path: string, id: string | null, title: string, status: string | null, state: string, statusKnown: boolean, priority: string | null, priorityRank: number, dueRaw: string | null, 
+/**
+ * `YYYY-MM-DD` when valid (D-484).
+ */
+due: string | null, completed: string | null, tags: Array<string>, fmTags: Array<string>, source: LinkTargetDto | null, excerpt: string, created: string | null, modified: string | null, version: VersionDto, readOnly: boolean, };
+export type StatusOptionDto = { label: string, color: string | null, state: string, stateRaw: string | null, };
+export type UnknownStateDto = { label: string, state: string | null, };
+export type TaskDefsDto = { statuses: Array<StatusOptionDto>, priorities: Array<OptionDto>, unknownStates: Array<UnknownStateDto>, };
+export type TaskListDto = { tasks: Array<TaskRowDto>, defs: TaskDefsDto, };
+export type DailyTasksDto = { overdue: Array<TaskRowDto>, due: Array<TaskRowDto>, completed: Array<TaskRowDto>, total: number, };
 export type TypeDefDto = TypeDto;

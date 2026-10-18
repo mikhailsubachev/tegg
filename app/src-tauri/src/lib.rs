@@ -208,6 +208,8 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
         RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
         RuleError::PreviewFull => ("previewFull", None, None, None),
+        RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
+        RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };
     IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
@@ -854,6 +856,32 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
     })
 }
 
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
+
+/// `task_list` (R44): read-only, one call for the rows and the Task type's options.
+#[tauri::command]
+async fn task_list(state: State<'_, AppState>) -> Result<TaskListDto, IpcError> {
+    let core = core(&state)?;
+    let d = core.task_defs();
+    let defs = TaskDefsDto {
+        statuses: d.statuses.into_iter().map(|s| StatusOptionDto { label: s.label, color: s.color, state: task_state(s.state), state_raw: s.state_raw }).collect(),
+        priorities: d.priorities.into_iter().map(option_dto).collect(),
+        unknown_states: d.unknown_states.into_iter().map(|(label, state)| UnknownStateDto { label, state }).collect(),
+    };
+    Ok(TaskListDto { tasks: core.tasks().into_iter().map(task_dto).collect(), defs })
+}
+
+/// `daily_tasks` (FR-DLY-04 AC-9, D-485): read-only.
+#[tauri::command]
+async fn daily_tasks(state: State<'_, AppState>, date: String, start: String, end: String, today: String, limit: u32) -> Result<DailyTasksDto, IpcError> {
+    let core = core(&state)?;
+    let t = |s: &str| chrono::DateTime::parse_from_rfc3339(s).map_err(|_| err("Io", format!("not an instant: {s}")));
+    let w = tegg_core::DayWindow { date: parse_day(&date)?, start: t(&start)?, end: t(&end)? };
+    let d = core.daily_tasks(&w, parse_day(&today)?, limit as usize);
+    let rows = |v: Vec<tegg_core::TaskRow>| v.into_iter().map(task_dto).collect();
+    Ok(DailyTasksDto { overdue: rows(d.overdue), due: rows(d.due), completed: rows(d.completed), total: d.total as u32 })
+}
+
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
 
 use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
@@ -1082,7 +1110,7 @@ fn attribute_dto(a: AttrDef) -> AttributeDto {
         read_only_reason: read_only_reason.map(str::to_string),
         default: a.default,
         required: a.required,
-        options: a.options.into_iter().map(|o| OptionDto { label: o.label, color: o.color }).collect(),
+        options: a.options.into_iter().map(option_dto).collect(),
         to: a.to,
         multiple: a.multiple,
         description: a.description,
@@ -1090,8 +1118,43 @@ fn attribute_dto(a: AttrDef) -> AttributeDto {
     }
 }
 
+/// D-511: a status option's `state` travels both ways, so an options edit from the UI never drops it.
+fn option_dto(o: OptionDef) -> OptionDto {
+    let state = tegg_schema::option_state(&o).map(str::to_string);
+    OptionDto { label: o.label, color: o.color, state }
+}
+
 fn option_def(o: OptionDto) -> OptionDef {
-    OptionDef { label: o.label, color: o.color, extra: Vec::new() }
+    let extra = o.state.filter(|s| !s.trim().is_empty()).map(|s| vec![("state".to_string(), serde_json::Value::String(s))]).unwrap_or_default();
+    OptionDef { label: o.label, color: o.color, extra }
+}
+
+fn task_state(s: tegg_core::TaskState) -> String {
+    s.as_str().to_string()
+}
+
+fn task_dto(r: tegg_core::TaskRow) -> TaskRowDto {
+    TaskRowDto {
+        path: r.path,
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        state: task_state(r.state),
+        status_known: r.status_known,
+        priority: r.priority,
+        priority_rank: r.priority_rank as u32,
+        due_raw: r.due_raw,
+        due: r.due.map(|d| d.format("%Y-%m-%d").to_string()),
+        completed: r.completed,
+        tags: r.tags,
+        fm_tags: r.fm_tags,
+        source: r.source.map(link_dto),
+        excerpt: r.excerpt,
+        created: r.created,
+        modified: r.modified,
+        version: version_dto(&r.version),
+        read_only: r.read_only,
+    }
 }
 
 fn attr_def(a: AttributeInputDto) -> AttrDef {
@@ -1146,6 +1209,13 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         },
         TypeOpDto::RemoveAttribute { key } => TypeOp::RemoveAttribute(key),
         TypeOpDto::MoveAttribute { key, to } => TypeOp::MoveAttribute { key, to: to as usize },
+        // ms5-tasks §2.2 (5A-1).
+        TypeOpDto::SetOptionState { attr, label, state } => TypeOp::SetOptionState { attr, label, state },
+        TypeOpDto::AddOption { attr, option } => TypeOp::AddOption { attr, option: option_def(option) },
+        TypeOpDto::SetOptionColor { attr, label, color } => TypeOp::SetOptionColor { attr, label, color },
+        TypeOpDto::MoveOption { attr, label, to } => TypeOp::MoveOption { attr, label, to: to as usize },
+        TypeOpDto::RemoveOption { attr, label } => TypeOp::RemoveOption { attr, label },
+        TypeOpDto::RenameOption { attr, from, to } => TypeOp::RenameOption { attr, from, to },
     })
 }
 
@@ -1303,6 +1373,27 @@ mod external_tests {
     }
 }
 
+/// D-511 (T2, AP-440): an options edit from the UI keeps each option's `state`, also for a renamed label.
+#[cfg(test)]
+mod bug_5a_fr_tsk_02_option_state_kept {
+    use super::{option_def, option_dto, OptionDef};
+    use tegg_schema::{patch, AttrChange, PatchContext, TypeOp};
+
+    #[test]
+    fn bug_5a_fr_tsk_02_option_state_kept() {
+        let o = OptionDef { label: "Waiting".into(), color: Some("yellow".into()), extra: vec![("state".into(), serde_json::json!("open"))] };
+        let back = option_def(option_dto(o.clone()));
+        assert_eq!(back, o, "state survives the IPC round trip");
+        let text = "version: 1\nname: Projekt\nplural: Projekty\nattributes:\n  - key: faze\n    name: Fáze\n    type: select\n    options:\n      - { label: Nápad, state: open, color: gray }\n      - { label: Hotovo, state: done, color: green }\n";
+        let mut dtos: Vec<_> = tegg_schema::parse("projekt", text).def.attributes[0].options.clone().into_iter().map(option_dto).collect();
+        dtos[0].label = "Myšlenka".into(); // a rename: the old label's extra can't be found by label
+        let change = AttrChange { options: Some(dtos.into_iter().map(option_def).collect()), ..Default::default() };
+        let out = patch("projekt", text, &[TypeOp::UpdateAttribute { key: "faze".into(), change }], &PatchContext { others: &[] });
+        let out = out.expect("patch").expect("a change");
+        assert!(out.contains("- { label: Myšlenka, state: open, color: gray }"), "the renamed option keeps its state:\n{out}");
+    }
+}
+
 const UI_STATE_FILE: &str = "ui-state.json";
 
 fn load_ui_state(dirs: &AppDirs) -> UiStateDto {
@@ -1340,8 +1431,17 @@ fn init_script(dirs: &AppDirs) -> String {
         ui.theme = theme;
     }
     let route = test_var("TEGG_ROUTE");
+    // D-504: with TEGG_TEST=1, `TEGG_NOW=<ISO 8601>` fixes the UI's clock (it starts there and runs on), so L6 tests run
+    // on the criteria's test clock. Only a valid date-time with offset is used.
+    let now_ms = test_var("TEGG_NOW").and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|t| t.timestamp_millis());
+    let clock = match now_ms {
+        Some(ms) => format!(
+            " (() => {{ const off = {ms} - Date.now(); const R = Date; class D extends R {{ constructor(...a) {{ if (a.length === 0) super(R.now() + off); else super(...a); }} static now() {{ return R.now() + off; }} }} window.Date = D; window.__TEGG_NOW__ = {ms}; }})();"
+        ),
+        None => String::new(),
+    };
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};{clock}",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
@@ -1412,7 +1512,8 @@ pub fn run() {
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
-            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close
+            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
+            task_list, daily_tasks
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

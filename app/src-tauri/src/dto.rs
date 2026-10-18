@@ -267,6 +267,9 @@ pub struct OptionDto {
     pub label: String,
     #[serde(default)]
     pub color: Option<String>,
+    /// ms5-tasks §2.2 (D-473): a Task status option's `state` as written; null when absent.
+    #[serde(default)]
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -368,6 +371,13 @@ pub enum TypeOpDto {
     UpdateAttribute { key: String, change: AttributeChangeDto },
     RemoveAttribute { key: String },
     MoveAttribute { key: String, to: u32 },
+    // ms5-tasks §2.2, §3 (D-473): option ops, one line each.
+    SetOptionState { attr: String, label: String, state: String },
+    AddOption { attr: String, option: OptionDto },
+    SetOptionColor { attr: String, label: String, color: String },
+    MoveOption { attr: String, label: String, to: u32 },
+    RemoveOption { attr: String, label: String },
+    RenameOption { attr: String, from: String, to: String },
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -469,6 +479,25 @@ pub struct UiStateDto {
     /// "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
     #[serde(default)]
     pub other_properties_open: bool,
+    /// ms5-tasks §6.3 (D-481): the Tasks page's remembered state; missing reads as the defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tasks: Option<TasksUiDto>,
+}
+
+/// ms5-tasks §6.3 (D-481).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TasksUiDto {
+    /// `schedule` or `kanban`.
+    pub view: String,
+    /// `status` or `tag`.
+    pub group_by: String,
+    /// `all`, `today` or `week`.
+    pub date_filter: String,
+    pub tags: Vec<String>,
+    pub done_expanded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -797,6 +826,73 @@ pub struct BackupDto {
     /// ISO 8601 with offset.
     pub time: String,
 }
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
+
+/// One task (R44). `state`: `open`, `in-progress`, `done` or `cancelled`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TaskRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub status: Option<String>,
+    pub state: String,
+    pub status_known: bool,
+    pub priority: Option<String>,
+    pub priority_rank: u32,
+    pub due_raw: Option<String>,
+    /// `YYYY-MM-DD` when valid (D-484).
+    pub due: Option<String>,
+    pub completed: Option<String>,
+    pub tags: Vec<String>,
+    pub fm_tags: Vec<String>,
+    pub source: Option<LinkTargetDto>,
+    pub excerpt: String,
+    pub created: Option<String>,
+    pub modified: Option<String>,
+    pub version: VersionDto,
+    pub read_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct StatusOptionDto {
+    pub label: String,
+    pub color: Option<String>,
+    pub state: String,
+    pub state_raw: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct UnknownStateDto {
+    pub label: String,
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TaskDefsDto {
+    pub statuses: Vec<StatusOptionDto>,
+    pub priorities: Vec<OptionDto>,
+    pub unknown_states: Vec<UnknownStateDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TaskListDto {
+    pub tasks: Vec<TaskRowDto>,
+    pub defs: TaskDefsDto,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct DailyTasksDto {
+    pub overdue: Vec<TaskRowDto>,
+    pub due: Vec<TaskRowDto>,
+    pub completed: Vec<TaskRowDto>,
+    pub total: u32,
+}
 
 fn yes() -> bool {
     true
@@ -804,7 +900,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None }
     }
 }
 
@@ -878,6 +974,13 @@ pub fn typescript() -> String {
         TransformedDto::decl(),
         InterruptedDto::decl(),
         BackupDto::decl(),
+        TasksUiDto::decl(),
+        TaskRowDto::decl(),
+        StatusOptionDto::decl(),
+        UnknownStateDto::decl(),
+        TaskDefsDto::decl(),
+        TaskListDto::decl(),
+        DailyTasksDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

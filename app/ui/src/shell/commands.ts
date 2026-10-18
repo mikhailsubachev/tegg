@@ -41,6 +41,9 @@ export type ShellActions = {
   /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
   pickDate?: () => void;
   setReviewed?: (reviewed: boolean) => void;
+  /** 5A-1 (tasks.md R45): open the Tasks page at its last view (D-481); run a Tasks page or card command. */
+  goTasks?: () => void;
+  taskCommand?: (id: string) => void;
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
   showNotUpdated?: () => void;
@@ -96,13 +99,14 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
-  'ctl.typePicker': 'object.typePicker',
   'ctl.typePickerLink': 'createLink.typePicker',
   'duplicates.merge': 'duplicates.merge',
   'backlinks.unlinked': 'panel.unlinkedMentions',
+  'tasks.sort': 'tasks.sort',
+  'task.trash': 'task.trash',
 };
 
-const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -142,6 +146,18 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'job.undoRename', title: 'cmd.undoRename', section: 'edit', needsVault: true, run: (c) => a(c)?.undoRename?.() },
     { id: 'job.showNotUpdated', title: 'cmd.showNotUpdated', section: 'view', needsVault: true, run: (c) => a(c)?.showNotUpdated?.() },
   );
+  // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
+  const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);
+  list.push(
+    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
+    { id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
+    { id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks/kanban' }) },
+    ...([
+      ['tasks.groupStatus', 'cmd.tasks.groupStatus'], ['tasks.groupTag', 'cmd.tasks.groupTag'], ['tasks.filterAll', 'cmd.tasks.filterAll'],
+      ['tasks.filterToday', 'cmd.tasks.filterToday'], ['tasks.filterWeek', 'cmd.tasks.filterWeek'], ['tasks.add', 'cmd.tasks.add'],
+      ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
+    ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
+  );
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(
     { id: 'goto.brokenLinks', title: 'commands.gotoBrokenLinks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'broken-links' }) },
@@ -167,7 +183,7 @@ export function commands(ctx: ShellContext): Command[] {
       { id: 'daily.markUnreviewed', title: 'daily.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setReviewed?.(false) },
     );
   }
-  if (ctx.route?.id === 'note/<path>' || dailyDate) {
+  if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'new/<type>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
   }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
@@ -178,7 +194,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'type.new', title: 'cmd.newType', section: 'create', needsVault: true, run: (c) => a(c)?.newType?.() },
     { id: 'vault.addStarterTypes', title: 'cmd.addStarterTypes', section: 'vault', needsVault: true, run: (c) => a(c)?.addStarterTypes?.() },
   );
-  const onNote = route?.id === 'note/<path>' || route?.id === 'daily/YYYY-MM-DD';
+  const onNote = route?.id === 'note/<path>' || route?.id === 'new/<type>' || route?.id === 'daily/YYYY-MM-DD';
   if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
   }

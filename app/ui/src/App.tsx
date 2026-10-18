@@ -7,12 +7,12 @@ import { events, ipc } from './ipc/client';
 import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
 import { Chooser } from './pages/Chooser';
 import { ConflictsPage } from './pages/ConflictsPage';
-import { NotePage, type NoteMeta, type NotePageApi } from './pages/NotePage';
+import { NotePage, type DraftInfo, type NoteMeta, type NotePageApi } from './pages/NotePage';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TypePage, type TypeSort } from './pages/TypePage';
 import { TypeSettingsPage } from './pages/TypeSettingsPage';
-import { createObject, type Prepared } from './types/create';
+import { createObject, prepareObject, type Prepared } from './types/create';
 import { NewTypeDialog } from './types/NewTypeDialog';
 import { StarterTypesDialog } from './types/StarterTypesDialog';
 import { commands, type Command, type ShellActions, type ShellContext, type ThemeChoice } from './shell/commands';
@@ -20,7 +20,6 @@ import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
 import { eventKeys } from './shell/keys';
 import { createHistory } from './shell/history';
-import { NewObjectDialog } from './shell/NewObjectDialog';
 import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
 import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
@@ -36,6 +35,8 @@ import { setChipTypes } from './links/icons';
 import { setOfferHandler, type OfferRequest } from './links/offer';
 import type { OccurrenceDto } from './ipc/types';
 import { localDate } from './zone';
+import { localIso } from './newNote';
+import { parse as parseDoc } from '@tegg/doc';
 import { Calendar } from './daily/Calendar';
 import { DailyPage } from './daily/DailyPage';
 import type { DailyInfo } from './daily/DailyHeader';
@@ -43,17 +44,26 @@ import { setDateHandler } from './daily/open';
 import { resetJobs, showList, startJobs, undoLast } from './jobs/jobs';
 import { startBridge } from './jobs/bridge';
 import { NotUpdatedList } from './jobs/notUpdated';
+import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
+import { AllTasks } from './tasks/AllTasks';
+import type { TasksView } from './tasks/TasksHeader';
+import { useTaskBadge } from './tasks/useTasks';
+import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
 const todayRoute = (): Route => ({ id: DAILY, param: localDate(Date.now()) });
+/** A route that shows a note page: a note, a Daily Note or an unsaved new object (D-520). */
+const isNoteRoute = (r: Route | null | undefined) => r?.id === 'note/<path>' || r?.id === DAILY || r?.id === 'new/<type>';
+/** The route of a Tasks view (D-516). */
+const tasksRoute = (v: TasksView): Route => (v === 'kanban' ? { id: 'tasks/kanban' } : v === 'all' ? { id: 'type/<type>', param: 'task' } : { id: 'tasks' });
 
 const SIDEBAR_W = 232;
 const PANEL_W = 288;
 const MIN_CENTRE = 400; // D-136
 
-type Dialog = 'palette' | 'switcher' | 'newObject' | 'newType' | 'starter' | null;
+type Dialog = 'palette' | 'switcher' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
@@ -74,7 +84,12 @@ export function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [defineValue, setDefineValue] = useState<string | null>(null); // D-251: New type for an undefined value
   const [ui, setUi] = useState<UiState>(initialUi);
-  const [newOfType, setNewOfType] = useState<string | null>(null);
+  /** D-520 (ms5-tasks §12.2): the unsaved new object shown on `new/<type>` (`route`: its route string). */
+  const [draft, setDraft] = useState<{ route: string; path: string; info: DraftInfo } | null>(null);
+  /** D-520: New Task lands on the Tasks page with the caret in the quick-add row. */
+  const focusQuickAdd = useRef(false);
+  /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
+  const lastBoard = useRef<'tasks' | 'tasks/kanban' | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [width, setWidth] = useState(window.innerWidth);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
@@ -118,8 +133,12 @@ export function App() {
   const pendingFocus = useRef(false);
   const pendingReturn = useRef<HTMLElement | null>(null);
   const uiLoaded = useRef(false);
+  // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
+  const taskCommand = useRef<((id: string) => void) | null>(null);
+  const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
+  uiRef.current = ui;
   useLayoutEffect(() => applyTheme(ui.theme as ThemeChoice), [ui.theme]);
   useEffect(() => {
     if ((window as { __TEGG_UI_STATE__?: unknown }).__TEGG_UI_STATE__) {
@@ -260,6 +279,10 @@ export function App() {
   const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
+  useEffect(() => {
+    setSourceHandler((src, task) => { void go({ id: 'note/<path>', param: src.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); });
+    return () => setSourceHandler(null);
+  }, [go]);
   /** A note route that shows a Daily Note (D-321): the winner opens as its daily route; another note keeps its route
    *  and shows the notice naming the others (D-319). */
   const onNoteDaily = useCallback((path: string, date: string) => {
@@ -297,7 +320,6 @@ export function App() {
   /** The one creation path (D-232, FR-TYP-03 AC-12): ⌘N, the switcher's create item and the type page's New <Name>. */
   const createOf = useCallback(async (typeKey: string, rawTitle: string, prepared: Prepared | null = null) => {
     setDialog(null);
-    setNewOfType(null);
     if (typeKey === 'daily-note') { createToday(); return; } // D-318, D-353: never a second Daily Note
     const title = rawTitle.normalize('NFC');
     if (noteApi.current?.pending()) await flushNote(); // FR-EDT-08 AC-7: the open note is saved before the new object is written
@@ -306,6 +328,48 @@ export function App() {
     made.then((p) => { justCreated.current = p.normalize('NFC'); openNote(p, undefined, true); }, () => setMessage(t('error.io')));
   }, [openNote, createToday]);
   const createFrom = useCallback((item: SwitcherItemDto, prepared?: Prepared | null) => createOf(item.type, item.title, prepared ?? null), [createOf]);
+
+  /** D-520: where `New <Name>` goes: today's Daily Note, the Tasks quick-add row, or an unsaved draft. */
+  const newOf = useCallback((key0: string) => {
+    const key = key0.normalize('NFC');
+    if (key === 'daily-note') { createToday(); return; }
+    if (key === 'task') {
+      focusQuickAdd.current = true;
+      void go({ id: lastBoard.current ?? (uiRef.current?.tasks?.view === 'kanban' ? 'tasks/kanban' : 'tasks') }).then(() => setTimeout(() => {
+        // Already on that view: no new route to focus, so focus the row here.
+        const quick = focusQuickAdd.current ? document.querySelector<HTMLInputElement>('main [data-quick-add] input') : null;
+        if (quick) { focusQuickAdd.current = false; quick.focus({ preventScroll: true }); }
+      }, 100));
+      return;
+    }
+    void go({ id: 'new/<type>', param: key });
+  }, [go, createToday]);
+
+  // D-520: a draft's bytes come from the creation path (D-232) with an empty title; its first write creates the file
+  // and the route becomes the note's without remounting the page (as a rename, FR-FMT-08 AC-5).
+  useEffect(() => {
+    if (route?.id !== 'new/<type>' || !route.param) return;
+    const key = route.param;
+    const at = `${routeKey}\n${navKey}`; // each visit is a new draft
+    let live = true;
+    void prepareObject(key).then((p) => {
+      if (!live) return;
+      const stamp = localIso(new Date(Date.now()));
+      const onCreate = async (text: string) => {
+        const title = String(parseDoc(text).frontmatter?.data?.title ?? '').trim();
+        const made = await ipc.noteCreate(p.key, title, text);
+        const n = await ipc.noteRead(made);
+        const path = made.normalize('NFC');
+        keepMeta.current = path;
+        const r: Route = { id: 'note/<path>', param: path };
+        history.current.replace(r);
+        setRoute(r);
+        return { path: made, version: n.version };
+      };
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render('', stamp), stamp, onCreate } });
+    }, () => setMessage(t('error.io')));
+    return () => { live = false; };
+  }, [routeKey, navKey]);
 
   // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
   useEffect(() => {
@@ -322,8 +386,9 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ layout
+  const taskBadge = useTaskBadge(refresh, !!vault);
   const isDaily = route?.id === DAILY;
-  const isObject = route?.id === 'note/<path>' || isDaily;
+  const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
   const panelFits = available - PANEL_W >= MIN_CENTRE;
   const showSidebar = ui.sidebarOpen && !focusMode;
@@ -333,27 +398,24 @@ export function App() {
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
     openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
+    // D-520: New object opens an unsaved object of the vault's default type (D-131); a Daily Note opens today's
+    // (D-353), a Task the quick-add row.
     newObject: () => {
-      // D-353: with `default-type: Daily Note`, New object opens today's Daily Note instead of the dialog.
-      // The dialog opens at once so typing isn't lost; it gives way to today's note when that is the default type.
-      returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(null); setDialog('newObject');
-      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => {
-        if (key === 'daily-note') createToday();
-      });
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => newOf(key ?? 'page'));
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
-    newObjectOfType: (key: string) => { if (key === 'daily-note') { createToday(); return; } returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setNewOfType(key); setDialog('newObject'); },
+    newObjectOfType: (key: string) => newOf(key),
     openTypeSettings: () => {
-      const key = route?.id === 'type/<type>' ? route.param : route?.id === 'note/<path>' || route?.id === DAILY ? (metaRef.current?.type ?? 'page') : undefined;
+      const key = route?.id === 'type/<type>' ? route.param : isNoteRoute(route) ? (metaRef.current?.type ?? 'page') : undefined;
       if (key) void go({ id: 'type-settings/<type>', param: key });
     },
     // After the palette has closed and given the focus back (D-139), the menu or the first control takes it.
-    changeType: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setTimeout(() => noteApi.current?.changeType(), 0); },
-    editProperties: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setTimeout(() => noteApi.current?.editProperties(), 0); },
+    changeType: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.changeType(), 0); },
+    editProperties: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
     toggleRightPanel: () => {
-      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
+      if (!isNoteRoute(route)) return;
       // Closing the panel with the focus in it gives the focus back to the note (FR-LNK-01 AC-14).
       if (document.activeElement?.closest('.context-panel')) noteApi.current?.placeFocus();
       updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: !u.rightPanel.open } }));
@@ -364,22 +426,24 @@ export function App() {
       setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); void go({ id: DAILY, param: d }); } });
     },
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
+    goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
+    taskCommand: (id: string) => taskCommand.current?.(id),
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
-      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
+      if (!isNoteRoute(route)) return;
       updateUi((u) => ({ ...u, rightPanel: { open: true, tab: 'backlinks' } }));
       setFocusBacklinks((n) => n + 1);
     },
     toggleFocus: () => {
-      if (route?.id !== 'note/<path>' && route?.id !== DAILY) return;
+      if (!isNoteRoute(route)) return;
       setFocusMode((f) => !f);
       requestAnimationFrame(() => heading.current?.focus());
     },
-    toggleSource: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) setSourceToggle((n) => n + 1); },
+    toggleSource: () => { if (isNoteRoute(route)) setSourceToggle((n) => n + 1); },
     back: () => { void step('back'); },
     forward: () => { void step('forward'); },
-    toggleProperties: () => { if (route?.id === 'note/<path>' || route?.id === DAILY) updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
+    toggleProperties: () => { if (isNoteRoute(route)) updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
     openRecent: (n: number) => {
       void ipc.vaultRecent().then((list) => {
@@ -391,7 +455,7 @@ export function App() {
     openFolder: () => { void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
-    edit: (a) => { if (route?.id === 'note/<path>' || route?.id === DAILY) noteApi.current?.edit(a); },
+    edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route;
@@ -467,6 +531,9 @@ export function App() {
       if (c) L.run(c);
     };
     window.addEventListener('keydown', onKey);
+    const w = window as { __teggEarlyKeys?: KeyboardEvent[]; __teggKeysReady?: boolean };
+    w.__teggKeysReady = true;
+    for (const e of w.__teggEarlyKeys?.splice(0) ?? []) onKey(e);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
@@ -533,14 +600,18 @@ export function App() {
     const tick = () => {
       if (shownRoute.current !== routeKey) return; // a tick of a page that was left before it was ready
       const h = heading.current;
-      const ready = !!h && ((route.id !== 'note/<path>' && route.id !== DAILY) || meta !== null);
-      if (!ready) { if (tries++ < 60) requestAnimationFrame(tick); return; }
+      const isNote = route.id === 'note/<path>' || route.id === 'new/<type>';
+      const ready = !!h && ((!isNote && route.id !== DAILY) || meta !== null);
+      // A draft (D-520) reads its type before its page exists: give it longer than a page that renders at once.
+      if (!ready) { if (tries++ < (route.id === 'new/<type>' ? 300 : 60)) requestAnimationFrame(tick); return; }
       // A daily route mounts its note page after its view is known: wait for it rather than focusing the heading.
       if (route.id === DAILY && !noteApi.current && tries++ < 60) { requestAnimationFrame(tick); return; }
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
         // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
-        if ((route.id === 'note/<path>' || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
+        const quick = focusQuickAdd.current ? document.querySelector<HTMLInputElement>('main [data-quick-add] input') : null;
+        if (quick) { focusQuickAdd.current = false; quick.focus({ preventScroll: true }); } // D-520: New Task
+        else if ((isNote || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         else h!.focus({ preventScroll: true });
@@ -550,7 +621,8 @@ export function App() {
         if (m) m.scrollTop = pendingScroll.current;
         pendingScroll.current = null;
       }
-      void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
+      // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
+      if (route.id !== 'tasks' && route.id !== 'tasks/kanban') void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
@@ -567,15 +639,17 @@ export function App() {
   }
 
   let body: React.ReactNode = null;
-  const notePage = (path: string, key: string | number, daily?: DailyInfo) => (
+  const notePage = (path: string, key: string | number, daily?: DailyInfo, draftInfo?: DraftInfo) => (
       <NotePage
         key={key}
         apiRef={noteApi}
-        created={justCreated.current === path || (!!daily && justCreated.current === `daily:${daily.date}`)}
+        created={!!draftInfo || justCreated.current === path || (!!daily && justCreated.current === `daily:${daily.date}`)}
         path={path}
         fragment={daily ? undefined : route?.fragment}
         at={daily ? undefined : route?.at}
         attr={daily ? undefined : route?.attr}
+        selectEmbedOf={daily ? undefined : route?.selectEmbedOf}
+        onOpenSource={(p) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: path.normalize('NFC') }); }}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
         onRestored={() => { pendingScroll.current = null; }}
         knownId={knownIds.current.get(path)}
@@ -603,6 +677,7 @@ export function App() {
         onToggleOther={() => updateUi((u) => ({ ...u, otherPropertiesOpen: !u.otherPropertiesOpen }))}
         onTypeSaved={loadTypes}
         daily={daily}
+        draft={draftInfo}
         onDaily={(date) => onNoteDaily(path, date)}
       />
   );
@@ -627,26 +702,30 @@ export function App() {
       onToday: dailyNav.today, onPickDate: dailyNav.pickDate, onOpenPath: dailyNav.openPath, onDuplicateTitles: dailyNav.duplicateTitles,
     } : undefined;
     body = notePage(route.param, navKey, info);
+  } else if (route?.id === 'new/<type>' && route.param) {
+    body = draft && draft.route === `${routeKey}\n${navKey}` ? notePage(draft.path, navKey, undefined, draft.info) : null;
   } else if (route?.id === 'type/<type>' && route.param) {
     const key = route.param;
-    body = (
-      <TypePage
-        key={key}
-        typeKey={key}
-        type={types.find((x) => x.key.normalize('NFC') === key.normalize('NFC'))}
-        types={types}
-        plural={pageName}
-        refresh={refresh}
-        heading={heading}
-        sort={ui.typeSort?.[key]}
-        onSort={(s) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } }))}
-        onOpen={openNote}
-        onTag={openTag}
-        onSettings={() => go({ id: 'type-settings/<type>', param: key })}
-        onNew={() => actions.newObjectOfType?.(key)}
-        onDefine={(v) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(v); setDialog('newType'); }}
-      />
-    );
+    const page = {
+      typeKey: key,
+      type: types.find((x) => x.key.normalize('NFC') === key.normalize('NFC')),
+      types,
+      plural: pageName,
+      refresh,
+      heading,
+      sort: ui.typeSort?.[key],
+      onSort: (s: TypeSort) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } })),
+      onOpen: openNote,
+      onTag: openTag,
+      onSettings: () => go({ id: 'type-settings/<type>', param: key }),
+      onNew: () => actions.newObjectOfType?.(key),
+      onDefine: (v: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(v); setDialog('newType'); },
+    };
+    // D-516: the Task type's page is the Tasks page's `All tasks` view.
+    body = key.normalize('NFC') === 'task'
+      ? <AllTasks key={key} {...page} go={(v) => { void go(tasksRoute(v)); }}
+          onShown={() => updateUi((u) => (u.tasks?.view === 'all' ? u : { ...u, tasks: { ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}), view: 'all' } }))} />
+      : <TypePage key={key} {...page} />;
   } else if (route?.id === 'type-settings/<type>' && route.param) {
     const key = route.param;
     body = (
@@ -657,6 +736,27 @@ export function App() {
         refresh={refresh}
         heading={heading}
         onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
+      />
+    );
+  } else if ((route?.id === 'tasks' || route?.id === 'tasks/kanban') && vault) {
+    lastBoard.current = route.id;
+    const tui: TasksUi = { ...DEFAULT_TASKS_UI, ...(ui.tasks ?? {}) };
+    body = (
+      <TasksPage
+        key={route.id}
+        view={route.id === 'tasks' ? 'schedule' : 'kanban'}
+        refresh={refresh}
+        heading={heading}
+        ui={tui}
+        onUi={(f) => updateUi((u) => ({ ...u, tasks: f({ ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}) }) }))}
+        nav={{
+          openNote: (p) => openNote(p),
+          openSource: (p, task) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); },
+          openDay,
+        }}
+        go={(v) => { void go(tasksRoute(v)); }}
+        onSettings={() => go({ id: 'type-settings/<type>', param: 'task' })}
+        commandRef={taskCommand}
       />
     );
   } else if (route?.id === 'broken-links') {
@@ -688,13 +788,15 @@ export function App() {
         {showSidebar && (
           <Sidebar
             route={route ?? { id: 'home' }}
-            types={typeEntries(types, counts)}
+            types={typeEntries(types, counts).filter((e) => e.key !== 'task') /* D-516: the Tasks entry covers it */}
             onGo={go}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
             onNewType={() => actions.newType?.()}
             onAbout={actions.about}
             conflicts={conflicts}
+            taskCount={taskBadge}
+            onTasks={actions.goTasks}
           />
         )}
         <div className="centre">
@@ -751,7 +853,6 @@ export function App() {
         </div>
       )}
       {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
-      {dialog === 'newObject' && <NewObjectDialog key={newOfType ?? ''} types={types} typeKey={newOfType ?? undefined} onCreate={(k, title, p) => void createOf(k, title, p)} onClose={closeDialog} />}
       {dialog === 'newType' && (
         <NewTypeDialog key={defineValue ?? ''} fromValue={defineValue ?? undefined} types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
           onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />

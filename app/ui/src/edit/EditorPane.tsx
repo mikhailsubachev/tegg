@@ -41,6 +41,10 @@ export type EditorPaneApi = {
   caretAtLink: (at: { line: number; byte: number }, text: string) => boolean;
   /** D-322: the caret at the end of the last editable block (a virtual Daily Note). */
   caretToEnd: () => boolean;
+  /** 5A-1 (D-486): the targets of the top-level block embeds, by block index. */
+  embedBlocks: () => { index: number; target: string }[];
+  /** Selects block `index` as a block and scrolls it to the top of the centre pane. */
+  selectBlockAtTop: (index: number) => boolean;
 };
 
 /** A chip's icon element with the type's icon name as `data-icon` (FR-LNK-07 AC-1). */
@@ -733,7 +737,33 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
   }, [openMenu]);
 
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd }), [run, edRef.current]);
+  const embedBlocks = (): { index: number; target: string }[] => {
+    const e = edRef.current;
+    if (!e) return [];
+    const out: { index: number; target: string }[] = [];
+    e.view.state.doc.forEach((n, _o, i) => {
+      if (n.type.name !== 'rawBlock' || n.attrs.kind !== 'embed') return;
+      const m = /^!\[\[([^\]|#]*)/.exec(String(n.attrs.source ?? '').trim());
+      if (m && m[1].trim()) out.push({ index: i, target: m[1].trim() });
+    });
+    return out;
+  };
+  const selectBlockAtTop = (index: number): boolean => {
+    const e = edRef.current;
+    if (!e) return false;
+    (e.view.dom as HTMLElement).focus({ preventScroll: true });
+    if (!e.commands.selectBlockAt(index)) return false;
+    const dom = e.view.nodeDOM(posOfBlock(e, index)) as HTMLElement | null;
+    const main = (e.view.dom as HTMLElement).closest('main');
+    if (dom && main) {
+      // Room below, so the block can sit at the top of a short note (FR-TSK-08 AC-2).
+      const host = (e.view.dom as HTMLElement).closest<HTMLElement>('.editor-host') ?? (e.view.dom as HTMLElement);
+      host.style.paddingBottom = `${main.clientHeight}px`;
+      main.scrollTop += dom.getBoundingClientRect().top - main.getBoundingClientRect().top;
+    }
+    return true;
+  };
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -1233,3 +1263,9 @@ function LinkFieldView({ field, pos, onChange, onClose, onPickNote, onUrl, onRem
 
 /** ISO 8601 date-time with the local offset, from `Date.now()` (the injected clock in tests, ms3-shell §13.6). */
 export const localNow = () => localIso(new Date(Date.now()));
+
+function posOfBlock(e: { view: { state: { doc: { childCount: number; child: (i: number) => { nodeSize: number } } } } }, index: number): number {
+  let p = 0;
+  for (let i = 0; i < index; i++) p += e.view.state.doc.child(i).nodeSize;
+  return p;
+}

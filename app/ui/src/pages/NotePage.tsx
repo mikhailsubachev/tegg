@@ -8,7 +8,7 @@ import { Embed } from '../embeds/Embed';
 import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
-import { fixDailyTitle, parse, parseDate, setValue, transform, type TextOp } from '@tegg/doc';
+import { fixDailyTitle, parse, parseDate, setAttribute, setValue, transform, type TextOp } from '@tegg/doc';
 import { lastRenameOf, onMoved, redoLast, renameNote, undoLast } from '../jobs/jobs';
 import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
@@ -31,6 +31,8 @@ import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
 import { ContextSections } from '../daily/ContextSections';
 
 export type NoteMeta = { title: string; type: string };
+/** D-520 (ms5-tasks §12.2): an unsaved new object. */
+export type DraftInfo = { text: string; stamp: string; onCreate: (text: string) => Promise<{ path: string; version: VersionDto }> };
 
 /** Title and type from the frontmatter (untyped files are Pages, D-103), else the file name. */
 export function noteMeta(path: string, text: string): NoteMeta {
@@ -89,7 +91,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily, draft }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -97,6 +99,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   at?: { line: number; byte: number };
   /** ms4-links §5.4: the focus on this property's value control. */
   attr?: string;
+  /** 5A-1 (D-486, FR-TSK-08 AC-2): select the first block embed of this path, at the top of the pane. */
+  selectEmbedOf?: string;
+  /** 5A-1 (FR-TSK-08 AC-3): open a note with this note's embed selected. */
+  onOpenSource?: (path: string) => void;
   restoreScroll?: number;
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
@@ -125,6 +131,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   daily?: DailyInfo;
   /** 4B: a note route opened a Daily Note (type daily-note with a valid date). */
   onDaily?: (date: string) => void;
+  /** D-520 (ms5-tasks §12.2): an unsaved new object, opened on `text` (stamped `stamp`) and written by `onCreate`. */
+  draft?: DraftInfo;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
@@ -163,8 +171,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   liveFragment.current = fragment;
   const liveRestore = useRef(restoreScroll);
   liveRestore.current = restoreScroll;
-  const live = useRef({ path, loaded, merge, deleted, daily });
-  live.current = { path, loaded, merge, deleted, daily };
+  const live = useRef({ path, loaded, merge, deleted, daily, draft });
+  live.current = { path, loaded, merge, deleted, daily, draft };
+  /** D-522: still an unwritten draft (typing its title writes nothing until the commit). */
+  const isDraft = () => !!(live.current.draft && saver.current?.create);
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
   const panelApi = useRef<PanelApi | null>(null);
@@ -181,7 +191,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const load = useCallback(async () => {
     try {
       // 4B (ms4-daily §4.1): a virtual Daily Note opens on its draft; nothing is read or written.
-      const v = live.current.daily?.virtual;
+      const v = live.current.daily?.virtual ?? live.current.draft;
       const n = v ? { text: v.text, version: null as unknown as VersionDto, utf8: true } : await ipc.noteRead(path);
       const doc = parse(n.text.replace(/^﻿/, ''));
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
@@ -198,8 +208,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       setLoaded({ text: n.text, version: n.version, mode, links });
       setDiskText(n.text);
       const meta = noteMeta(path, n.text);
-      setTitle(meta.title);
-      savedTitle.current = meta.title;
+      // D-520: a draft's title starts empty (its planned file name is no title).
+      const shownTitle = live.current.draft ? '' : meta.title;
+      setTitle(shownTitle);
+      savedTitle.current = shownTitle;
       const id = doc.frontmatter?.data?.id;
       if (typeof id === 'string' && id) onId?.(id);
       const day = meta.type === 'daily-note' ? parseDate(String(doc.frontmatter?.data?.date ?? '').trim().slice(0, 10)) : null;
@@ -243,6 +255,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     edRef.current = ed;
     const l = live.current.loaded!;
     saver.current?.dispose();
+    const fromDraft = !!live.current.draft; // the route may drop the draft before the first write's result arrives
     const s = new Saver(path, ed, l.version, {
       state: (state, failure) => setSave({ state, failure }),
       conflict: (c: ConflictInfo) => setMerge({ mine: c.mine, theirs: c.theirs, theirsVersion: c.theirsVersion, compare: false }),
@@ -253,6 +266,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         syncHead();
         if (noteMeta(live.current.path, text).type !== before) onTypeSaved?.();
         savedTitle.current = noteMeta(live.current.path, text).title;
+        const written = savedTitle.current;
+        setTitle((cur) => (cur.trim() === '' ? written : cur)); // D-523: an empty title was written as `Untitled`
+        if (fromDraft) onMeta(noteMeta(s.path, text)); // D-520: the page now shows this note (its name, its type)
         void ipc.perfMark('note-saved').catch(() => {});
       },
     }, () => !!pane.current?.slashOpen());
@@ -266,6 +282,18 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         // ms4-daily §3: the first write carries the write time, not the time the virtual note opened.
         s.transform = (text) => fixDailyTitle(s.create ? restampDraft(text, stamp, localIso(Date.now())) : text);
       }
+    }
+    const dr = live.current.draft;
+    if (dr) {
+      // D-520, D-523: the first write goes through the creation path, stamped at the write time, `Untitled` when the
+      // title is still empty.
+      s.create = (text) => live.current.draft!.onCreate(text);
+      s.transform = (text) => {
+        if (!s.create) return text;
+        const out = restampDraft(text, dr.stamp, localIso(Date.now()));
+        const tt = parse(out).frontmatter?.data?.title;
+        return typeof tt === 'string' && tt.trim() !== '' ? out : setAttribute(parse(out), 'title', t('newObject.untitled'));
+      };
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
@@ -329,7 +357,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       else panelApi.current?.focusFirst();
     },
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
-    touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && live.current.daily?.virtual),
+    touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
   }), [flush, propertiesOpen, onToggleProperties]);
 
@@ -544,7 +572,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     if (!ed) return;
     const tt = v.normalize('NFC');
     ed.setTitle(tt.trim() === '' ? null : tt.trim()); // FR-FMT-08 AC-7: the title is stored trimmed
-    if (tt.trim() !== '') saver.current?.changed();
+    if (tt.trim() !== '' && !isDraft()) saver.current?.changed(); // D-522: a draft's title is written on its commit
   };
   const onTitleBlur = () => {
     const from = titleFrom.current;
@@ -554,6 +582,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       edRef.current?.setTitle(null);
       return;
     }
+    // D-522: committing a draft's title is its first write.
+    if (isDraft()) { saver.current!.changed(); void saver.current!.flush(); return; }
     // D-268: the commit (↩, Tab, leaving the field) renames the file and moves the links; typing only autosaves
     // `title:` (D-394). Templates and trashed notes keep their file name (D-391); a Daily Note's title is read-only.
     const next = title.trim().normalize('NFC');
@@ -691,6 +721,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         return;
       }
     }
+    if (selectEmbedOf && edit && pane.current) {
+      const p = pane.current;
+      const blocks = p.embedBlocks();
+      setFocusTarget('body');
+      if (!blocks.length) { p.caretToStart(); return; }
+      void ipc.linkResolve(path, blocks.map((b) => b.target)).then((rs) => {
+        const i = rs.findIndex((r) => (r.path ?? '').normalize('NFC') === selectEmbedOf.normalize('NFC'));
+        if (i < 0 || !p.selectBlockAtTop(blocks[i].index)) p.caretToStart();
+      }, () => p.caretToStart());
+      return;
+    }
     if (at && !edit) {
       const line = root.current?.querySelector<HTMLElement>(`[data-line="${at.line}"]`);
       if (line) line.scrollIntoView({ block: 'center' });
@@ -797,6 +838,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             <span data-user-content>{meta.title}</span>
           </h1>
         )}
+        {draft && saver.current?.create !== null && !daily && <p role="status" className="daily-virtual">{t('newObject.notSaved')}</p>}
         {loaded.mode === 'utf8' && (
           <div role="alert" className="fm-warning"><strong>{t('readOnly.utf8')}</strong> {t('readOnly.utf8Body')}</div>
         )}
@@ -840,7 +882,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
             <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
               open={propertiesOpen} onToggle={onToggleProperties}
-              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
+              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />
             <EditorPane
               embeds={embeds}
@@ -852,7 +894,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               onReady={onEditor}
               onSaveNow={() => void flush()}
               describedBy={titleId}
-              onChange={() => { if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false; saver.current?.changed(); syncHead(); }}
+              onChange={() => {
+                if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false;
+                if (!(isDraft() && document.activeElement === heading.current)) saver.current?.changed(); // D-522
+                syncHead();
+              }}
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
@@ -894,6 +940,7 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
       id={id} role="textbox" aria-label={label} tabIndex={-1} className="title-field" data-user-content
+      data-placeholder={t('newObject.untitled')} aria-placeholder={t('newObject.untitled')}
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onBlur={onLeave}

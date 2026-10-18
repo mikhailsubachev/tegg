@@ -932,3 +932,8 @@ pub mod daily;
 mod embeds4f;
 pub use embeds4f::{EmbedLoadState, EmbedNote};
 pub use daily::{ContextRow, DailyContext, DailyContextPage, DailyCreated, DailyDraft, DailyView, DayWindow};
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1
+// docs/contracts/ms5-tasks.md §2: the task query and the Daily Note's Tasks due (`tasks5a.rs`).
+mod tasks5a;
+pub use tasks5a::{DailyTaskRows, StatusOption, TaskDefs, TaskRow, TaskState};

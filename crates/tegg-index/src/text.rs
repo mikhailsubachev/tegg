@@ -3,6 +3,9 @@
 //! SQLite tokenizer see the same words.
 
 use std::ops::Range;
+use std::sync::LazyLock;
+
+use regex::Regex;
 
 use unicode_normalization::char::is_combining_mark;
 use unicode_normalization::UnicodeNormalization;
@@ -277,6 +280,49 @@ pub fn lead(body: &str) -> Option<SnippetParts> {
         return Some(SnippetParts { text, highlights: Vec::new(), body_line: line_no, byte_in_line: cut });
     }
     None
+}
+
+/// 5A-1 card content (D-482, R43): the start of the body as plain text. Headings, embeds, fences, tables and
+/// comments are skipped; block markers and inline marks are removed; links become their alias or target text. Lines
+/// join with a space; at most 300 characters.
+pub fn excerpt(body: &str) -> String {
+    static LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!?\[\[([^\]|]*)(?:\|([^\]]*))?\]\]").expect("regex"));
+    static MDLINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!?\[([^\]]*)\]\([^)]*\)").expect("regex"));
+    static MARKS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\*\*|__|~~|==|`)").expect("regex"));
+    static BLOCK_ID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s\^[A-Za-z0-9-]+\s*$").expect("regex"));
+    let mut out = String::new();
+    let mut fence = false;
+    for line in body.split('\n') {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let t = line.trim_start();
+        if t.starts_with("```") || t.starts_with("~~~") {
+            fence = !fence;
+            continue;
+        }
+        if fence || t.starts_with('#') && t.trim_start_matches('#').starts_with([' ', '\t']) || t.starts_with('|') || t.starts_with("<!--") {
+            continue;
+        }
+        let t = &line[marker_len(line)..];
+        if LINK.find(t.trim()).is_some_and(|m| m.as_str().starts_with('!') && m.len() == t.trim().len()) {
+            continue; // an embed alone on its line
+        }
+        let t = LINK.replace_all(t, |c: &regex::Captures| if c[0].starts_with('!') { String::new() } else { c.get(2).map(|a| a.as_str()).unwrap_or(&c[1]).to_string() });
+        let t = MDLINK.replace_all(&t, |c: &regex::Captures| if c[0].starts_with('!') { String::new() } else { c[1].to_string() });
+        let t = MARKS.replace_all(&t, "");
+        let t = BLOCK_ID.replace(&t, "");
+        let t = t.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(t);
+        if out.chars().count() >= 300 {
+            break;
+        }
+    }
+    out.chars().take(300).collect()
 }
 
 #[cfg(test)]

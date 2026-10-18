@@ -4,7 +4,10 @@
 // with @tegg/doc (setValue / setRange) and hands it to the editor's save path (applyFrontmatter, D-240). The panel
 // never adds or removes properties (D-72).
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { parse, setRange, setValue, type Doc } from '@tegg/doc';
+import { applyTaskChange, localDate, parse, parseDate, setRange, setValue, type Doc } from '@tegg/doc';
+import { localIso } from '../newNote';
+import { taskState } from '@tegg/schema';
+import { appZone } from '../zone';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { LinkTargetDto, TypeDto } from '../ipc/types';
@@ -58,7 +61,9 @@ export function useLinks(path: string, text: string): Map<string, LinkTargetDto>
   return links;
 }
 
-export function AttributePanel({ apiRef, text, type, types, path, editable, open = true, onToggle, otherOpen, onToggleOther, onCommit, onOpen, onTag, onLeaveLast }: {
+export function AttributePanel({ apiRef, text, type, types, path, editable, open = true, onToggle, otherOpen, onToggleOther, onCommit, onOpen, onOpenSource, onTag, onLeaveLast }: {
+  /** 5A-1 (FR-TSK-08 AC-3, D-486): the Source chip opens its note at this note's embed. */
+  onOpenSource?: (path: string) => void;
   apiRef?: Ref<PanelApi>;
   /** The note text whose frontmatter is in effect (saved or committed, not yet saved). */
   text: string;
@@ -92,7 +97,25 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
   };
   useImperativeHandle(apiRef, () => ({ focusFirst: () => focusRow(0) }));
 
-  const set = (key: string, v: Value) => onCommit((d) => setValue(d, key, v));
+  const set = (key: string, v: Value) => onCommit((d) => (type.key === 'task' && key === 'status' && typeof v === 'string' ? taskStatus(d, v) : setValue(d, key, v)));
+  /** FR-TSK-01 AC-4, D-472: on a task, Status follows the task rules (`completed` set into Done, removed out of it). */
+  const taskStatus = (d: Doc, to: string): string => {
+    const opts = type.attributes.find((x) => x.key === 'status')?.options ?? [];
+    const stateOf = (label: unknown) => { const o = opts.find((x) => x.label === (typeof label === 'string' ? label.normalize('NFC') : null)); return o ? taskState(o) : 'open'; };
+    const firstOpen = opts.find((o) => taskState(o) === 'open')?.label ?? to;
+    const r = applyTaskChange(d.text, { kind: 'status', to, toState: stateOf(to), fromState: stateOf(d.frontmatter?.data?.status), firstOpen, now: localIso(new Date(Date.now())) });
+    return r ? r.text : d.text;
+  };
+  // FR-TSK-09 AC-2: an open task's Due row shows the overdue highlight (R44).
+  const overdue = useMemo(() => {
+    if (type.key !== 'task') return false;
+    const data = doc.frontmatter?.data ?? {};
+    const due = typeof data.due === 'string' ? data.due.trim() : null;
+    if (!due || !parseDate(due)) return false;
+    const opt = type.attributes.find((x) => x.key === 'status')?.options.find((o) => o.label === (typeof data.status === 'string' ? data.status.normalize('NFC') : null));
+    const state = opt ? taskState(opt) : 'open';
+    return (state === 'open' || state === 'in-progress') && due < localDate(Date.now(), appZone());
+  }, [doc, type]);
   const rowControl = (row: PanelRow, i: number) => {
     const ref = (el: HTMLElement | null) => { firstRefs.current[i] = el; };
     const next = () => focusRow(i + 1);
@@ -103,6 +126,16 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     const validityMsg = invalidWhole ? (a?.type === 'select' || row.key === 'review' ? t('panel.notOption') : t('panel.invalid', { type: label })) : null;
     const desc = joinDesc(a?.description, row.required ? t('panel.required') : null, validityMsg);
     const disabled = !editable || !row.editable;
+    // 5A-1: on a Task, `completed` is set by completing (D-472) and `recurrence` is v1.0 (D-381): both read-only.
+    if (type.key === 'task' && a && (a.key === 'completed' || a.key === 'recurrence')) {
+      const shown = a.key === 'completed' && typeof row.raw === 'string' ? formatDateTime(row.raw) : rawText(row.raw);
+      return (
+        <button type="button" className="raw-value" tabIndex={0} data-command="panel.editRecurrence" aria-disabled="true" aria-label={a.name} ref={ref}
+          aria-description={a.key === 'completed' ? t('task.completedAuto') : t('due.comingIn', { due: 'v1.0' })}>
+          <span data-user-content>{shown}</span>
+        </button>
+      );
+    }
     if (row.key === 'created' || row.key === 'modified') {
       return <span className="value-text">{typeof row.raw === 'string' ? formatDateTime(row.raw) : rawText(row.raw)}</span>;
     }
@@ -115,7 +148,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       if (row.key === 'aliases') return <AliasesControl raw={row.raw} desc={desc} disabled={disabled} inputRef={ref} onNext={next} onValue={(v) => set('aliases', v)} />;
       if (row.key === 'source') {
         // D-248, D-256: free text on every type, with links (D-257).
-        return <TextControl name={row.label} desc={desc} raw={row.raw} kind="text" disabled={disabled} inputRef={ref} onNext={next} linked={linked}
+        const toSource = onOpenSource ? { ...linked, onOpen: (p: string) => onOpenSource(p) } : linked;
+        return <TextControl name={row.label} desc={desc} raw={row.raw} kind="text" disabled={disabled} inputRef={ref} onNext={next} linked={toSource}
           onValue={(v) => set('source', v)} />;
       }
       if (row.key === 'review') {
@@ -139,7 +173,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       case 'date-range':
         return <DateRangeControl {...common} invalid={invalidWhole} onNext={next} onRange={(s, e) => onCommit((d) => setRange(d, a.key, s, e))} />;
       case 'select':
-        return <SelectControl {...common} invalid={invalidWhole} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))} onValue={(v) => set(a.key, v)} />;
+        // A Task's Status isn't cleared from the panel (D-471, D-472: it would count as Open with `completed` left).
+        return <SelectControl {...common} invalid={invalidWhole} clearable={!(type.key === 'task' && a.key === 'status')} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))} onValue={(v) => set(a.key, v)} />;
       case 'multi-select':
         return <MultiSelectControl {...common} invalidItems={invalidWhole ? [] : invalidItems} choices={a.options.map((o) => ({ value: nfc(o.label), label: o.label, color: o.color }))}
           onValue={(v) => set(a.key, v)} />;
@@ -166,7 +201,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
           return (
             <div key={row.key} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key}>
               <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={userNamed ? '' : undefined}>{row.label}</span>
-              <span className="attr-value">
+              <span className="attr-value" data-overdue={row.key === 'due' && overdue ? 'true' : undefined}>
                 {rowControl(row, i)}
                 {emptyRequired && editable && <span className="required-warning"><WarnIcon />{t('panel.required')}</span>}
               </span>

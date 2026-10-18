@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { R1, TYPES_CS } from '../test/shell-tables';
 import { loadFixtureVault, newEmptyVault } from '../ui/test/fake-core';
 import {
-  P, absent, eventually, focused, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote,
-  paletteDialog, runCommand, seen, shellVault, sidebar, sleep, start, switcherDialog, typeEntries, typesList,
+  P, absent, eventually, focused, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote,
+  paletteDialog, runCommand, seen, shellVault, sidebar, sleep, start, switcherDialog, titleState, typeEntries, typesList,
 } from './helpers';
 
 const chooser = (page: Page) => page.getByRole('main', { name: 'Choose a vault' });
@@ -54,8 +54,9 @@ test('fr_vlt_01_ac10_new_vault_form_and_create', async ({ page }) => {
   const creates = (await core.calls()).filter((c) => c.cmd === 'vault_create');
   assert.deepEqual(creates.map((c) => c.args), [{ parent: PARENT, name: 'Můj trezor', kind: 'empty' }], 'one create command, kind empty');
   await mustBeOn(page, 'Home', 'new vault lands on the home placeholder');
-  const want = TYPES_CS.filter(([l]) => ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
-  assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 6), want, 'Types list of a new vault');
+  // D-516 (amends D-121, FR-UX-02 AC-4): Task is no longer in the Types list.
+  const want = TYPES_CS.filter(([l]) => ['Pages', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
+  assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 5), want, 'Types list of a new vault');
 });
 
 test('fr_vlt_01_ac12_create_errors_stay_in_the_form', async ({ browser }) => {
@@ -167,8 +168,8 @@ test('fr_ux_07_ac7_indexing_progress_without_modal', async ({ page }) => {
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await mustBeOn(page, 'Inbox', 'sidebar works while indexing');
   await sidebar(page).getByRole('button', { name: 'New object' }).click();
-  assert.ok(await seen(newObjectDialog(page)), 'New object works while indexing');
-  await page.keyboard.press('Escape');
+  assert.ok(await isDraft(page), 'New object works while indexing (D-520: it opens an unsaved draft)');
+  await sidebar(page).getByText('Inbox', { exact: true }).click();
   await core.emit('index:progress', { done: 500, total: 500, state: 'done' });
   assert.ok(await absent(status, 1000), 'indicator disappears within 1 s after done');
   await core.emit('index:progress', { done: 200, total: 500, state: 'cancelled' });
@@ -199,35 +200,68 @@ test('fr_nav_01_ac12_sidebar_search_field_opens_the_switcher', async ({ page }) 
 
 const mask = (s: string) => s.replace(/^(id|created|modified):.*$/gm, '$1: *');
 
-test('fr_nav_01_ac13_new_object_dialog_creates_like_the_switcher', async ({ page, browser }) => {
+// FR-NAV-01 AC-13 (changed by D-520…D-523): ⌘N and the sidebar's `New object` open the unsaved draft `new/quick-note`.
+const QN_NEW = 'Quick Notes/Nový nápad.md';
+/** Writes are checked twice: no `note_create`/`note_write` reached the fake vault, and no non-read command was sent. */
+async function noWrites(core: Awaited<ReturnType<typeof start>>, how: string) {
+  assert.deepEqual(await core.writesTo(), [], `${how}: no file written`);
+  assert.deepEqual(await nonReadCalls(core), [], `${how}: no write command sent`);
+}
+async function caretInBody(page: Page): Promise<boolean> {
+  return page.evaluate(() => !!document.activeElement?.closest('[aria-label="Note body"]'));
+}
+
+test('fr_nav_01_ac13_cmd_n_and_sidebar_open_an_unsaved_draft_and_leaving_it_writes_nothing', async ({ page }) => {
   const core = await start(page);
   for (const open of ['shortcut', 'button'] as const) {
     if (open === 'shortcut') await page.keyboard.press('Meta+n');
     else await sidebar(page).getByRole('button', { name: 'New object' }).click();
-    await must(newObjectDialog(page), `New object (${open})`);
-    assert.equal((await focused(page)).label, 'Title', `${open}: cursor in Title`);
-    assert.match(await newObjectDialog(page).innerText(), /Quick Note/, 'default type shown');
-    assert.equal(await newObjectDialog(page).locator('[aria-disabled="true"]').filter({ hasText: /Quick Note/ }).or(newObjectDialog(page).locator('[aria-disabled="true"][aria-label="Type picker"]')).count() > 0, true, 'type picker disabled (R3)');
-    await page.keyboard.press('Escape');
+    await mustBeDraft(page, `${open}`);
+    assert.ok(await absent(newObjectDialog(page), 300), `${open}: no New object dialog`);
+    await sleep(500);
+    await noWrites(core, `${open}: opening the draft`);
+    // (c) Leaving the draft unchanged through the sidebar's Inbox writes nothing.
+    await sidebar(page).getByText('Inbox', { exact: true }).click();
+    await mustBeOn(page, 'Inbox', `${open}: (c) the sidebar's Inbox leaves the draft`);
+    await sleep(1500);
+    await noWrites(core, `${open}: (c) leaving an unchanged draft`);
   }
-  // (d) Esc writes nothing; (c) empty or whitespace title: Create disabled and ⏎ does nothing.
-  assert.equal(await core.writes(), 0, '(d) Esc wrote nothing');
+});
+
+test('fr_nav_01_ac13_d_typing_a_title_deleting_it_and_leaving_writes_nothing', async ({ page }) => {
+  const core = await start(page);
   await page.keyboard.press('Meta+n');
-  for (const t of ['', '   ']) {
-    await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill(t);
-    const dis = await newObjectDialog(page).getByRole('button', { name: 'Create' }).evaluate((b) => (b as HTMLButtonElement).disabled || b.getAttribute('aria-disabled') === 'true');
-    assert.equal(dis, true, `(c) Create disabled for ${JSON.stringify(t)}`);
-    await page.keyboard.press('Enter');
-    assert.equal(await core.writes(), 0, `(c) ⏎ wrote nothing for ${JSON.stringify(t)}`);
-  }
-  // (a) NFD title → one NFC file, same bytes as the switcher's create item, and it opens.
+  await mustBeDraft(page, '⌘N');
+  await page.keyboard.type('Smazaný nápad');
+  await sleep(300);
+  for (let i = 0; i < 'Smazaný nápad'.length; i++) await page.keyboard.press('Backspace');
+  assert.equal((await eventually(() => titleState(page), (v) => v.text === '', 1000)).text, '', 'setup: the title is empty again');
+  await sidebar(page).getByText('Inbox', { exact: true }).click();
+  await mustBeOn(page, 'Inbox', '(d) leave');
+  await sleep(1500);
+  await noWrites(core, '(d) a title typed, deleted and left');
+});
+
+test('fr_nav_01_ac13_a_nfd_title_writes_nothing_until_enter_then_one_nfc_file_like_the_switcher', async ({ page, browser }) => {
+  const core = await start(page);
   const before = await core.files();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Nový nápad'.normalize('NFD'));
+  await page.keyboard.press('Meta+n');
+  await mustBeDraft(page, '⌘N');
+  await page.evaluate(() => { (window as any).__teggSamePage = 'kept'; });
+  await page.keyboard.insertText('Nový nápad'.normalize('NFD'));
+  await sleep(2000);
+  await noWrites(core, '(a) 2 s after typing the title');
   await page.keyboard.press('Enter');
-  await mustBeOn(page, 'Nový nápad', '(a) opens the new note');
-  const after = await core.files();
+  await mustBeOn(page, 'Nový nápad', '(a) the note after ↩', 5000);
+  const after = await eventually(() => core.files(), (f) => QN_NEW in f, 2000);
   const added = Object.keys(after).filter((p) => !(p in before));
-  assert.deepEqual(added, ['Quick Notes/Nový nápad.md'], '(a) exactly one NFC file');
+  assert.deepEqual(added, [QN_NEW], '(a) exactly one NFC file');
+  assert.deepEqual(await core.writesTo(), [QN_NEW], '(a) one write: the creation');
+  const nav = await eventually(async () => (await core.calls()).filter((c) => c.cmd === 'nav_opened').map((c) => String((c.args as any)?.path ?? '').normalize('NFC')), (x) => x.includes(QN_NEW), 2000);
+  assert.ok(nav.includes(QN_NEW), `(a) the route becomes note/${QN_NEW}: ${JSON.stringify(nav)}`);
+  assert.equal(await page.evaluate(() => (window as any).__teggSamePage ?? null), 'kept', '(a) without reloading the page');
+  assert.ok(await eventually(() => caretInBody(page), (x) => x, 1000), '(a) the caret is in the body');
+  // The switcher's create item for the same title and type, on a second app (FR-NAV-01 AC-7).
   const p2 = await browser.newPage();
   const core2 = await start(p2);
   await p2.keyboard.press('Meta+o');
@@ -235,18 +269,22 @@ test('fr_nav_01_ac13_new_object_dialog_creates_like_the_switcher', async ({ page
   await sleep(150);
   // No object matches, so the Create item is the only one (D-106).
   await p2.keyboard.press('Enter');
-  const viaSwitcher = Object.entries(await core2.files()).find(([p]) => p === 'Quick Notes/Nový nápad.md')?.[1];
+  const viaSwitcher = (await eventually(() => core2.files(), (f) => QN_NEW in f, 3000))[QN_NEW];
   assert.ok(viaSwitcher !== undefined, 'switcher create wrote the reference file');
-  assert.equal(mask(after['Quick Notes/Nový nápad.md']), mask(viaSwitcher), '(a) same bytes as the switcher apart from id and timestamps');
+  assert.equal(mask(after[QN_NEW]), mask(viaSwitcher), '(a) same bytes as the switcher apart from id and timestamps');
   await p2.close();
-  // (b) duplicate title → " (2)", the existing note untouched.
+});
+
+test('fr_nav_01_ac13_b_a_title_in_use_gets_a_suffix_and_leaves_ctvrtek_untouched', async ({ page }) => {
+  const core = await start(page);
   await page.keyboard.press('Meta+n');
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Nápad na čtvrtek');
+  await mustBeDraft(page, '⌘N');
+  await page.keyboard.type('Nápad na čtvrtek');
   await page.keyboard.press('Enter');
-  const after2 = await core.files();
-  assert.ok('Quick Notes/Nápad na čtvrtek (2).md' in after2, '(b) creates "Nápad na čtvrtek (2).md"');
-  assert.equal(after2[P.ctvrtek], shellVault().files[P.ctvrtek], '(b) Čtvrtek byte-identical');
-  assert.equal(await core.writes(), 2, 'exactly two create commands');
+  const after = await eventually(() => core.files(), (f) => 'Quick Notes/Nápad na čtvrtek (2).md' in f, 3000);
+  assert.ok('Quick Notes/Nápad na čtvrtek (2).md' in after, '(b) creates "Nápad na čtvrtek (2).md"');
+  assert.equal(after[P.ctvrtek], shellVault().files[P.ctvrtek], '(b) Čtvrtek byte-identical');
+  assert.deepEqual(await core.writesTo(), ['Quick Notes/Nápad na čtvrtek (2).md'], 'exactly one create');
 });
 
 test('fr_syn_06_ac5_frame_tour_sends_no_write_commands', async ({ page }) => {

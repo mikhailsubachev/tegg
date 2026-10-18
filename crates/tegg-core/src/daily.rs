@@ -81,7 +81,7 @@ const DEFAULT_FORMAT: &str = "YYYY-MM-DD";
 
 /// A value of `created`/`modified` in a day window (§1, D-339): an instant by `[start, end)`; an offset-less
 /// date-time or a date by its local date text.
-fn in_window(v: &Value, w: &DayWindow) -> Option<(i64, String)> {
+pub(crate) fn in_window(v: &Value, w: &DayWindow) -> Option<(i64, String)> {
     let s = v.as_str()?.trim();
     if let Ok(t) = DateTime::parse_from_rfc3339(s) {
         return (t >= w.start && t < w.end).then(|| (t.timestamp(), s.to_string()));
@@ -258,9 +258,10 @@ impl Core {
             let idx = self.index();
             (idx.objects(), idx.daily_note(w.date))
         };
+        let listed = self.daily_task_paths(w); // D-328: listed in Tasks due, not repeated (FR-DLY-04 AC-11)
         let row = |o: &crate::ObjectInfo, at: String| ContextRow { path: o.path.clone(), title: o.title.clone(), r#type: o.r#type.clone(), at };
         let (mut q, mut c, mut m): (Vec<(i64, ContextRow)>, Vec<(i64, ContextRow)>, Vec<(i64, ContextRow)>) = (vec![], vec![], vec![]);
-        for o in objects.iter().filter(|o| Some(&o.path) != own.as_ref()) {
+        for o in objects.iter().filter(|o| Some(&o.path) != own.as_ref() && !listed.contains(&nfc(&o.path))) {
             let created = o.attributes.get("created").and_then(|v| in_window(v, w));
             let modified = o.attributes.get("modified").and_then(|v| in_window(v, w));
             match (o.r#type.as_str(), created, modified) {

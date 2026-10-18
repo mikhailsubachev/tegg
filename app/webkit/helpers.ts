@@ -76,8 +76,52 @@ export const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Sid
 export const panel = (page: Page) => page.getByRole('complementary', { name: 'Context panel' });
 export const paletteDialog = (page: Page) => page.getByRole('dialog', { name: 'Command palette' });
 export const switcherDialog = (page: Page) => page.getByRole('dialog', { name: 'Quick switcher' });
+/** The `New object` dialog, removed by D-520 (ms5-tasks §12.2): tests only assert that it is absent. */
 export const newObjectDialog = (page: Page) => page.getByRole('dialog', { name: 'New object' });
 export const typesList = (page: Page) => page.getByRole('list', { name: 'Types' });
+
+// ------------------------------------------------------------------------------------------------ unsaved drafts (D-520)
+
+/** The status under the title of an unsaved new object (`newObject.notSaved`, app-shell FR-NAV-01 AC-13). */
+export const NOT_SAVED = 'Not saved yet. Start typing to create this note.';
+export const draftStatus = (page: Page) => page.getByRole('status').filter({ hasText: NOT_SAVED }).or(page.getByText(NOT_SAVED, { exact: true }));
+
+/** The visible `Title` field: its text (value or text content) and whether it holds `document.activeElement`. */
+export async function titleState(page: Page): Promise<{ text: string | null; focused: boolean }> {
+  return page.evaluate(() => {
+    const all = [...document.querySelectorAll('[aria-label="Title"]')] as HTMLElement[];
+    const t = all.find((e) => (e.getAttribute('role') === 'textbox' || e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e.isContentEditable) && e.getClientRects().length > 0);
+    if (!t) return { text: null, focused: false };
+    const a = document.activeElement;
+    const text = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ? t.value : (t.textContent ?? '');
+    return { text, focused: !!a && (a === t || t.contains(a)) };
+  });
+}
+
+/** True when an unsaved draft is shown: the status, and an empty `Title` field holding the caret (D-520). */
+export async function isDraft(page: Page, ms = 3000): Promise<boolean> {
+  if (!(await seen(draftStatus(page), ms))) return false;
+  const s = await eventually(() => titleState(page), (x) => x.text === '' && x.focused, 1000);
+  return s.text === '' && s.focused;
+}
+
+/** Asserts an unsaved draft is shown (FR-NAV-01 AC-13, FR-TYP-09 AC-17): no dialog, the `Not saved yet…` status, and
+ *  an empty `Title` field in edit mode with the caret (`document.activeElement`). */
+export async function mustBeDraft(page: Page, how: string, ms = 3000) {
+  await must(page.getByRole('textbox', { name: 'Title', exact: true }), `${how}: textbox "Title" of the new draft`, ms);
+  const s = await eventually(() => titleState(page), (x) => x.text === '' && x.focused, ms);
+  assert.deepEqual(s, { text: '', focused: true }, `${how}: an empty Title field holds the caret (D-520)`);
+  assert.ok(await seen(draftStatus(page), 1000), `${how}: the status "${NOT_SAVED}" is shown`);
+  assert.equal(await page.getByRole('dialog').count(), 0, `${how}: no dialog opens (D-520 removes the New object dialog)`);
+}
+
+/** From a just-opened draft: types `title` in the Title field and commits it with ↩ (D-522); waits for the note. */
+export async function createFromDraft(page: Page, title: string, how: string) {
+  await mustBeDraft(page, how);
+  await page.keyboard.type(title);
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, title.normalize('NFC'), `${how}: the new note "${title}" after ↩`, 5000);
+}
 
 /** The accessible name of the centre pane (`main`): the current page name or note title (§3.7). */
 export async function mainName(page: Page): Promise<string | null> {
@@ -177,6 +221,7 @@ export const READ_COMMANDS = new Set([
   'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
   'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
   'embed_load', // 4F (ms4-embeds §4): read-only, records no recency
+  'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only (the sidebar's Tasks count reads on every route)
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

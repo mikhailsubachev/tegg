@@ -4,7 +4,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { R1, R2 } from '../test/shell-tables';
 import {
-  absent, must, newObjectDialog, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, sidebar, sleep, start,
+  absent, must, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, sidebar, sleep, start,
   switcherDialog,
 } from './helpers';
 
@@ -49,9 +49,15 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
     if (row.id === 'chooser') { await go(page, 'Open vault'); await check('chooser'); await page.keyboard.press('Escape'); continue; }
     if (row.id === 'type/<type>') { await go(page, 'Go to type Quick Notes'); await check('type page'); continue; }
     if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada').catch(() => failures.push('note: not opened')); await check('note page'); continue; }
+    if (row.id === 'new/<type>') { // D-520: New object (⌘N) opens an unsaved draft instead of a dialog
+      await page.keyboard.press('Meta+n');
+      if (await seen(page.getByRole('textbox', { name: /^⟦?Title⟧?$/ }), 1500)) { await sleep(300); await check('New object draft'); } else failures.push('new/<type>: no draft');
+      continue;
+    }
     if (row.id === 'type-settings/<type>') {
       await go(page, 'Go to type Quick Notes');
-      await page.getByRole('main').locator('[data-command]').filter({ hasText: /Type settings/ }).first().click().catch(() => failures.push('type-settings: control missing'));
+      // D-519: an icon-only button, found by its accessible name (aria-label/title), wrapped in the pseudo-locale.
+      await page.getByRole('main').getByRole('button', { name: /^⟦?Type settings⟧?$/ }).first().click().catch(() => failures.push('type-settings: control missing'));
       await check('type settings');
       continue;
     }
@@ -71,10 +77,6 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
   await page.keyboard.press('Meta+o');
   if (await seen(switcherDialog(page), 1000)) await check('switcher'); else failures.push('switcher missing');
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+n');
-  if (await seen(newObjectDialog(page), 1000)) await check('New object'); else failures.push('New object missing');
-  await page.keyboard.press('Escape');
-  assert.ok(await absent(newObjectDialog(page)));
   assert.deepEqual(failures, []);
 });
 

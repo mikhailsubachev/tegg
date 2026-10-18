@@ -154,3 +154,66 @@ test('fr_nav_03_ac7_back_and_forward_add_no_entries', async () => {
   assert.equal(str(hist.back()), HOME);
   assert.equal(hist.canBack(), false);
 });
+
+// ------------------------------------------------------------------------------------------------ D-521 (5A-1 feedback)
+// types.md FR-TYP-09 AC-17 (e), docs/contracts/ms5-tasks.md §12.2 "History": a `new/<type>` draft is a history entry only
+// while it is shown. Leaving it by a navigation (`push`) or by Back drops its entry; `replace` (its first write) turns
+// it into `note/<path>`. Forward can't leave a draft (a draft is reached by a push, which drops every forward entry),
+// so Back and Forward afterwards must never return `new/<type>`.
+
+const NAPADY = 'type/nápad';
+const DRAFT = 'new/nápad';
+const PLANOVANI = 'note/Nápady/Plánování.md';
+
+async function setupDraft() {
+  const s = await setup();
+  assert.equal(typeof (s.hist as any).replace, 'function', 'history.replace is missing (ms5-tasks §12.2)');
+  s.route(DRAFT); // parseRoute must know the draft route `new/<type>` (R1)
+  return { ...s, replace: (r: unknown) => (s.hist as any).replace(r) as void };
+}
+/** Walks every entry with Back to the start and then Forward to the end; returns the routes seen, in order. */
+function walk(hist: Hist, str: (e: { route: unknown } | null) => string | null): string[] {
+  const seen: string[] = [];
+  for (let e = hist.back(); e; e = hist.back()) seen.push(str(e)!);
+  for (let e = hist.forward(); e; e = hist.forward()) seen.push(str(e)!);
+  return seen;
+}
+
+test('fr_typ_09_ac17_history_back_from_an_unwritten_draft_drops_it', async () => {
+  const { hist, route, str } = await setupDraft();
+  for (const s of [HOME, NAPADY, DRAFT]) hist.push(route(s));
+  assert.equal(str(hist.back()), NAPADY, 'Back from the draft shows type/nápad');
+  assert.equal(hist.canForward(), false, 'Forward is disabled: the draft entry is gone');
+  assert.equal(hist.forward(), null, 'Forward returns nothing');
+  assert.equal(str(hist.back()), HOME);
+  assert.equal(hist.canBack(), false);
+  assert.ok(!walk(hist, str).includes(DRAFT), 'new/nápad is never shown again by Back or Forward');
+});
+
+test('fr_typ_09_ac17_history_a_navigation_away_from_an_unwritten_draft_drops_it', async () => {
+  const { hist, route, str } = await setupDraft();
+  for (const s of [HOME, NAPADY, DRAFT, 'inbox']) hist.push(route(s));
+  assert.equal(str(hist.back()), NAPADY, 'Back from inbox skips the left draft and shows type/nápad');
+  assert.equal(str(hist.back()), HOME);
+  assert.equal(hist.canBack(), false, 'nothing before home');
+  assert.equal(str(hist.forward()), NAPADY);
+  assert.equal(str(hist.forward()), 'inbox', 'Forward from type/nápad shows inbox, not the draft');
+  assert.equal(hist.canForward(), false);
+  assert.ok(!walk(hist, str).includes(DRAFT), 'new/nápad is never shown again by Back or Forward');
+});
+
+test('fr_typ_09_ac17_history_replace_turns_the_draft_into_the_note', async () => {
+  const { hist, route, str, replace } = await setupDraft();
+  for (const s of [HOME, NAPADY, DRAFT]) hist.push(route(s));
+  replace(route(PLANOVANI)); // the first write (D-521)
+  assert.deepEqual([hist.canBack(), hist.canForward()], [true, false], 'replace adds no entry and drops nothing behind');
+  assert.equal(str(hist.back()), NAPADY, 'Back from the written note shows type/nápad');
+  assert.equal(str(hist.forward()), PLANOVANI, 'Forward shows the new note');
+  assert.equal(hist.canForward(), false, 'the note is the last entry');
+  hist.push(route('inbox'));
+  assert.equal(str(hist.back()), PLANOVANI, 'a written note is kept when left (it is no draft any more)');
+  assert.equal(str(hist.back()), NAPADY);
+  assert.equal(str(hist.back()), HOME);
+  assert.ok(!walk(hist, str).includes(DRAFT), 'new/nápad is never shown again by Back or Forward');
+});
+

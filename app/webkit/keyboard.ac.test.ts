@@ -4,16 +4,24 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
-  absent, eventually, focused, gotoType, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
-  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme,
+  absent, draftStatus, eventually, focused, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
+  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState,
 } from './helpers';
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
 const query = (page: Page) => page.getByRole('combobox', { name: 'Command query' });
 
-/** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name. */
+/** Stands for the unsaved draft `new/<type>` (D-520), which is recognised by `isDraft`, not by a page name. */
+const DRAFT = '\u0000new-object-draft';
+/** Whether the route `goRoute` returned for is shown: the centre-pane name, or the draft for `new/<type>`. */
+async function reached(page: Page, name: string, ms: number): Promise<boolean> {
+  return name === DRAFT ? isDraft(page, ms) : onPage(page, name, ms);
+}
+
+/** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
 async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'chooser') { await runCommand(page, 'Open vault…'); return 'Choose a vault'; }
+  if (row.id === 'new/<type>') { await page.keyboard.press('Meta+n'); return DRAFT; } // D-520: New object (⌘N)
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
   if (row.id === 'type-settings/<type>') {
@@ -39,7 +47,8 @@ for (const row of R1) {
   test(`fr_ux_03_ac1_palette_opens_from_every_route_and_focus: ${row.id}`, async ({ page }) => {
     await start(page);
     const name = await goRoute(page, row);
-    await mustBeOn(page, name, `route ${row.id}`);
+    if (name === DRAFT) await mustBeDraft(page, `route ${row.id}`);
+    else await mustBeOn(page, name, `route ${row.id}`);
     for (const keys of ['Meta+k', 'Meta+Shift+p']) {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       await paletteOpensWithCursor(page, keys, `${row.id}, focus on body`);
@@ -59,7 +68,8 @@ for (const row of R1) {
 
 test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the switcher and New object', async ({ page }) => {
   await start(page);
-  // Over the switcher and the New object dialog the palette replaces them.
+  // Over the switcher the palette replaces it. D-520: New object opens an unsaved draft (no dialog); the palette opens
+  // over it with the caret in the draft's title.
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'Quick switcher');
   await page.keyboard.press('Meta+k');
@@ -67,10 +77,11 @@ test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the switcher a
   assert.ok(await absent(switcherDialog(page)), 'palette replaces the switcher');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+n');
-  await must(newObjectDialog(page), 'New object dialog');
+  await mustBeDraft(page, 'New object');
   await page.keyboard.press('Meta+Shift+p');
-  assert.ok(await seen(paletteDialog(page)), 'palette over New object');
-  assert.ok(await absent(newObjectDialog(page)), 'palette replaces New object');
+  assert.ok(await seen(paletteDialog(page)), 'palette over the New object draft');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? ''), 'Command query', 'cursor in Command query');
+  assert.ok(await absent(newObjectDialog(page), 300), 'no New object dialog');
 });
 
 /** The effect a command title should have (FR-UX-03 AC-2). */
@@ -98,7 +109,8 @@ async function checkEffect(page: Page, title: string, before: { main: string | n
     case 'Create new vault…':
       return (await seen(page.getByRole('main', { name: 'Choose a vault' }), 1500)) || (await seen(page.getByRole('form', { name: 'New vault' }), 300)) ? null : `${title}: no chooser`;
     case 'Open quick switcher': return (await seen(switcherDialog(page), 1500)) ? null : `${title}: no switcher`;
-    case 'New object': return (await seen(newObjectDialog(page), 1500)) ? null : `${title}: no dialog`;
+    // D-520: an unsaved draft with an empty title (the caret is checked in fr_nav_01_ac13 and fr_ux_03_ac1).
+    case 'New object': return (await seen(draftStatus(page), 1500)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
     case 'Toggle sidebar': return (await seen(sidebar(page), 800)) !== before.sidebar ? null : `${title}: sidebar unchanged`;
     case 'Toggle right panel': return (await seen(panel(page), 800)) !== before.panel ? null : `${title}: panel unchanged`;
     case 'Toggle focus mode': return (await absent(sidebar(page), 800)) ? null : `${title}: sidebar still shown`;
@@ -255,7 +267,7 @@ for (const row of R1) {
     await start(page);
     const failures: string[] = [];
     const name = await goRoute(page, row);
-    assert.ok(await onPage(page, name, 2000), `${row.id}: not reached`);
+    assert.ok(await reached(page, name, 2000), `${row.id}: not reached`);
     for (const p of await controlsWithoutCommand(page)) failures.push(`${row.id}: ${p}`);
     if (row.id === 'note/<path>') {
       await page.keyboard.press('Meta+Backslash');
@@ -279,7 +291,7 @@ for (const row of R1.filter((r) => r.id !== 'chooser')) {
       if (r4.command.startsWith('Open recent vault')) continue; // switches the vault: from every route in vault_switcher.ac.test.ts (FR-VLT-01 AC-17)
       await reset();
       const name = await goRoute(page, row);
-      if (!(await onPage(page, name, 2000))) { failures.push(`${row.id}: not reached`); break; }
+      if (!(await reached(page, name, 2000))) { failures.push(`${row.id}: not reached (before ${r4.keys}; main ${await mainName(page)}, title ${JSON.stringify(await titleState(page))})`); break; }
       await page.getByRole('main').getByRole('heading', { level: 1 }).first().focus().catch(() => {});
       const before = { sidebar: await seen(sidebar(page), 200), panel: await seen(panel(page), 200) };
       await page.keyboard.press(r4.press);
@@ -300,7 +312,7 @@ test('fr_ux_03_ac9_global_shortcuts_from_every_route: dialogs and unbound keys',
   // While a dialog is open only its keys act.
   await reset();
   await runCommand(page, 'Go to Inbox');
-  for (const open of ['Meta+k', 'Meta+o', 'Meta+n']) {
+  for (const open of ['Meta+k', 'Meta+o']) { // D-520: ⌘N opens no dialog any more (it navigates to an unsaved draft)
     await page.keyboard.press(open);
     await page.keyboard.press('Meta+d');
     if ((await mainName(page)) !== 'Inbox') failures.push(`${open} dialog open: ⌘D navigated`);
@@ -344,7 +356,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     await page.keyboard.press('Enter');
     await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date
   }
-  for (const t of TYPE_PLURALS) {
+  for (const t of TYPE_PLURALS.filter((p) => p !== 'Tasks')) { // D-516: Task is not in the Types list
     await tabTo(new RegExp(`^${t}\\b`), `Types entry ${t}`);
     await page.keyboard.press('Enter');
     await mustBeOn(page, t, `keyboard: Types ${t}`);
@@ -372,7 +384,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     if (want) assert.equal(await eventually(() => theme(page), (v) => v === want, 500), want, `keyboard: theme ${name}`);
   }
   await page.keyboard.press('Meta+n');
-  await must(newObjectDialog(page), 'New object');
+  await mustBeDraft(page, 'keyboard: New object');
   await page.keyboard.insertText('Klávesnicový nápad');
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Klávesnicový nápad', 'keyboard: New object');

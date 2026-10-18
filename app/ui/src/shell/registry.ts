@@ -44,7 +44,9 @@ export const ROUTES: RouteDef[] = [
   // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
   { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
   { id: 'daily/YYYY-MM-DD', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
-  { id: 'tasks', name: 'route.tasks', purpose: 'purpose.tasks', status: tbd('MS5'), reqs: ['FR-TSK-04…06'], design: 'Home' },
+  // 5A-1 (tasks.md R45): the Schedule and the Kanban (D-378, D-379, D-481).
+  { id: 'tasks', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'Tasks' },
+  { id: 'tasks/kanban', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'TasksBoard' },
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
   { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
@@ -52,6 +54,8 @@ export const ROUTES: RouteDef[] = [
   { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('MS5'), reqs: ['FR-HOM-02'], design: null },
   { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
+  // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
+  { id: 'new/<type>', name: 'route.new', purpose: 'purpose.new', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TYP-09', 'FR-EDT-01'], design: 'Main' },
   { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: tbd('MS6'), reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null },
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
@@ -96,12 +100,14 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.editView', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
   { label: 'ctl.rowFile', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07' },
   { label: 'ctl.rowColor', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05' },
-  { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('MS5'), req: 'FR-TSK-01' },
+  { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01' }, // D-381
+  // 5A-1 (tasks.md R45 R3).
+  { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },
+  { label: 'task.trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01' },
   { label: 'ctl.font', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  { label: 'ctl.typePicker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05' },
   // 4A (backlinks.md R16).
   { label: 'ctl.typePickerLink', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05' },
   { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },

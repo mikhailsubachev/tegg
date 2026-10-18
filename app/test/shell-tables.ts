@@ -26,7 +26,9 @@ export const R1: R1Row[] = [
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
   { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
   { id: 'daily/YYYY-MM-DD', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
-  { id: 'tasks', page: 'Tasks', built: false, due: d('MS5'), reqs: 'FR-TSK-04…06', design: 'Home', goto: 'Go to Tasks' },
+  // Built in 5A-1 (tasks.md R45, D-489): the Schedule and the Kanban.
+  { id: 'tasks', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'Tasks', goto: 'Go to Tasks' },
+  { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
   { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
@@ -34,6 +36,8 @@ export const R1: R1Row[] = [
   { id: 'pinned', page: 'Pinned', built: false, due: d('MS5'), reqs: 'FR-HOM-02', design: null, goto: 'Go to Pinned' },
   { id: 'saved-queries', page: 'Saved queries', built: false, due: d('v1.0'), reqs: 'FR-QRY-06', design: null, goto: 'Go to Saved queries' },
   { id: 'note/<path>', page: 'Edit note', built: true, due: d('MS3'), reqs: '', design: 'Main', goto: null },
+  // D-520 (5A-1 feedback, ms5-tasks §12.2): the unsaved draft of a new object; no sidebar entry, no Go to command.
+  { id: 'new/<type>', page: 'New object', built: true, due: d('MS5'), reqs: 'FR-TYP-09, FR-EDT-01', design: 'Main', goto: null },
   { id: 'graph', page: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: 'Go to Graph' },
   { id: 'trash', page: 'Trash', built: false, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' },
   { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
@@ -81,12 +85,14 @@ export const R3: R3Control[] = [
   { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   { label: 'file', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07', route: 'note/<path>' },
   { label: 'color', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05', route: 'note/<path>' },
-  { label: 'recurrence', where: 'attribute panel row', due: d('MS5'), req: 'FR-TSK-01', route: 'note/<path>' },
+  { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
+  // 5A-1 (tasks.md R45 R3).
+  { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
+  { label: 'Move to trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01', route: 'tasks' },
   { label: 'Font', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Font size', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Editor width', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Accent color', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02', route: 'settings/appearance' },
-  { label: 'Type picker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05', route: null },
   // 4A (backlinks.md R16).
   { label: 'Type picker', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05', route: null },
   { label: 'Merge…', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14', route: 'duplicate-titles' },
@@ -152,9 +158,10 @@ export const STATIC_COMMANDS = [
   'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
 ];
 
-/** FR-UX-02 AC-4 (fixture, collation cs): label and count of each Types entry, in order. */
+/** FR-UX-02 AC-4 (fixture, collation cs): label and count of each Types entry, in order. D-516: Task is not in the
+ *  list (the sidebar's `Tasks` entry covers it, tasks.md FR-TSK-04 AC-15). */
 export const TYPES_CS: [string, number][] = [
-  ['Pages', 2], ['Tasks', 1], ['Quick Notes', 2], ['Daily Notes', 0], ['Cesty', 0], ['Čajovny', 0], ['Schůzky', 1],
+  ['Pages', 2], ['Quick Notes', 2], ['Daily Notes', 0], ['Cesty', 0], ['Čajovny', 0], ['Schůzky', 1],
   ['Images', 0], ['PDFs', 0], ['recept', 1],
 ];
 export const TYPE_KEYS: Record<string, string> = {

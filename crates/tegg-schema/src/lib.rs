@@ -537,6 +537,9 @@ pub enum RuleError {
     OptionUsed { label: String },
     /// More than 4 preview keys (FR-TYP-11 AC-1).
     PreviewFull,
+    /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
+    NeedOpen,
+    NeedDone,
 }
 
 const FORBIDDEN: &str = "/:\\*?\"<>|#^[]";
@@ -979,6 +982,14 @@ pub enum TypeOp {
     UpdateAttribute { key: String, change: AttrChange },
     RemoveAttribute(String),
     MoveAttribute { key: String, to: usize },
+    // Slice 5A-1 (docs/contracts/ms5-tasks.md §2.2): one op per type-settings action on an option, each one line.
+    SetOptionState { attr: String, label: String, state: String },
+    /// Appends after the last option (FR-TSK-02 AC-3).
+    AddOption { attr: String, option: OptionDef },
+    SetOptionColor { attr: String, label: String, color: String },
+    MoveOption { attr: String, label: String, to: usize },
+    RemoveOption { attr: String, label: String },
+    RenameOption { attr: String, from: String, to: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1016,6 +1027,10 @@ impl From<RuleError> for SchemaError {
 /// Applies `ops` in order, all or nothing, as line edits of `text` (§14.1.4). `Ok(None)`: every op leaves its value
 /// equal, nothing to write (FR-SYN-06). The returned text always reads back as `Readability::Ok`.
 pub fn patch(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext) -> Result<Option<String>, SchemaError> {
+    patch_inner(key, text, ops, ctx, &[])
+}
+
+fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: &[(&str, usize)]) -> Result<Option<String>, SchemaError> {
     let key = nfc(key);
     if ops.is_empty() {
         return Ok(None); // nothing asked, nothing written (also for newer and invalid files)
@@ -1029,9 +1044,13 @@ pub fn patch(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext) -> Resul
     let mut def = parsed.def;
     let (mut lines, final_nl) = split_lines(text);
     let original = lines.clone();
+    let before = def.clone();
     let system = SYSTEM_KEYS.contains(&key.as_str());
     for op in ops {
-        apply(&mut def, &mut lines, op, system, ctx)?;
+        apply(&mut def, &mut lines, op, system, ctx, used)?;
+    }
+    if key == "task" {
+        check_task_states(&before, &def)?;
     }
     if lines == original {
         return Ok(None);
@@ -1048,7 +1067,7 @@ pub fn patch(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext) -> Resul
     Ok(Some(out))
 }
 
-fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool, ctx: &PatchContext) -> Result<(), SchemaError> {
+fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool, ctx: &PatchContext, used: &[(&str, usize)]) -> Result<(), SchemaError> {
     match op {
         TypeOp::SetName(n) => {
             if system {
@@ -1271,6 +1290,180 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.attributes.insert(to, a);
             }
         }
+        TypeOp::SetOptionState { attr, label, state } => {
+            option_op(def, lines, attr, |opts| {
+                let Some(o) = find_option(opts, label) else { return Ok(OptEdit::None) };
+                let state = nfc(state.trim());
+                if option_state(&opts[o]) == Some(state.as_str()) {
+                    return Ok(OptEdit::None);
+                }
+                let v = Value::String(state);
+                match opts[o].extra.iter_mut().find(|(k, _)| k == "state") {
+                    Some(e) => e.1 = v,
+                    None => opts[o].extra.insert(0, ("state".to_string(), v)),
+                }
+                Ok(OptEdit::Line(o))
+            })?;
+        }
+        TypeOp::SetOptionColor { attr, label, color } => {
+            option_op(def, lines, attr, |opts| {
+                let Some(o) = find_option(opts, label) else { return Ok(OptEdit::None) };
+                let c = Some(nfc(color.trim())).filter(|c| !c.is_empty());
+                if opts[o].color == c {
+                    return Ok(OptEdit::None);
+                }
+                opts[o].color = c;
+                Ok(OptEdit::Line(o))
+            })?;
+        }
+        TypeOp::RenameOption { attr, from, to } => {
+            option_op(def, lines, attr, |opts| {
+                let Some(o) = find_option(opts, from) else { return Ok(OptEdit::None) };
+                let to = nfc(to.trim());
+                if to.is_empty() {
+                    return Err(RuleError::OptionEmpty.into());
+                }
+                if opts[o].label == to {
+                    return Ok(OptEdit::None);
+                }
+                if used.iter().any(|(l, n)| *n > 0 && nfc(l) == opts[o].label) {
+                    return Err(RuleError::OptionUsed { label: opts[o].label.clone() }.into()); // D-473
+                }
+                if opts.iter().enumerate().any(|(j, x)| j != o && x.label.to_lowercase() == to.to_lowercase()) {
+                    return Err(RuleError::OptionDuplicate.into());
+                }
+                opts[o].label = to;
+                Ok(OptEdit::Line(o))
+            })?;
+        }
+        TypeOp::AddOption { attr, option } => {
+            option_op(def, lines, attr, |opts| {
+                let label = nfc(option.label.trim());
+                if label.is_empty() {
+                    return Err(RuleError::OptionEmpty.into());
+                }
+                if opts.iter().any(|x| x.label.to_lowercase() == label.to_lowercase()) {
+                    return Err(RuleError::OptionDuplicate.into());
+                }
+                opts.push(OptionDef { label, color: option.color.as_ref().map(|c| nfc(c.trim())).filter(|c| !c.is_empty()), extra: option.extra.clone() });
+                Ok(OptEdit::Added)
+            })?;
+        }
+        TypeOp::MoveOption { attr, label, to } => {
+            option_op(def, lines, attr, |opts| {
+                let Some(o) = find_option(opts, label) else { return Ok(OptEdit::None) };
+                let to = (*to).min(opts.len().saturating_sub(1));
+                if o == to {
+                    return Ok(OptEdit::None);
+                }
+                let x = opts.remove(o);
+                opts.insert(to, x);
+                Ok(OptEdit::Moved(o, to))
+            })?;
+        }
+        TypeOp::RemoveOption { attr, label } => {
+            option_op(def, lines, attr, |opts| {
+                let Some(o) = find_option(opts, label) else { return Ok(OptEdit::None) };
+                opts.remove(o);
+                Ok(OptEdit::Removed(o))
+            })?;
+        }
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------ option ops (5A-1)
+
+/// What an option op changed in the option list (ms5-tasks §2.2): each is one line of a flow-style list.
+enum OptEdit {
+    None,
+    Line(usize),
+    Added,
+    Moved(usize, usize),
+    Removed(usize),
+}
+
+fn find_option(opts: &[OptionDef], label: &str) -> Option<usize> {
+    let l = nfc(label.trim());
+    opts.iter().position(|o| o.label == l)
+}
+
+/// Applies `f` to the options of `attr` and edits only the lines it changed. Built-in attributes allow these ops
+/// (their options are user content, FR-TSK-02, FR-TSK-03); a list that isn't one entry per line is re-rendered whole.
+fn option_op(def: &mut TypeFile, lines: &mut Vec<String>, attr: &str, f: impl FnOnce(&mut Vec<OptionDef>) -> Result<OptEdit, SchemaError>) -> Result<(), SchemaError> {
+    let key = nfc(attr);
+    let Some(i) = def.attributes.iter().position(|a| a.key == key) else { return Ok(()) };
+    if !def.attributes[i].r#type.has_options() {
+        return Ok(());
+    }
+    let mut opts = def.attributes[i].options.clone();
+    let edit = f(&mut opts)?;
+    if matches!(edit, OptEdit::None) {
+        return Ok(());
+    }
+    let old_len = def.attributes[i].options.len();
+    def.attributes[i].options = opts;
+    let a = def.attributes[i].clone();
+    let entries = option_entries(lines, i);
+    let one_per_line = entries.as_ref().is_some_and(|(_, e)| e.len() == old_len && e.iter().all(|(s, t)| t - s == 1) && !e.is_empty());
+    if !one_per_line || a.options.is_empty() {
+        set_item_field(lines, i, "options", &a);
+        return Ok(());
+    }
+    let (ind, e) = entries.unwrap();
+    let line = |o: &OptionDef| format!("{}- {}", " ".repeat(ind), option_text(o));
+    match edit {
+        OptEdit::None => {}
+        OptEdit::Line(o) => lines[e[o].0] = line(&a.options[o]),
+        OptEdit::Added => {
+            let at = e.last().map(|x| x.1).unwrap_or(0);
+            lines.insert(at, line(a.options.last().expect("added")));
+        }
+        OptEdit::Moved(from, to) => {
+            // The entry's own line moves to just before (moving up) or after (moving down) the entry it passes; lines
+            // between entries (comments, blanks) stay where they are (PR #47 review).
+            let (s0, s1) = e[from];
+            let moved: Vec<String> = lines.drain(s0..s1).collect();
+            let n = s1 - s0;
+            let at = if to > from { e[to].1 - n } else { e[to].0 };
+            for (k, l) in moved.into_iter().enumerate() {
+                lines.insert(at + k, l);
+            }
+        }
+        OptEdit::Removed(o) => {
+            lines.remove(e[o].0);
+        }
+    }
+    Ok(())
+}
+
+/// Indent and `[start, end)` of each entry of item `i`'s `options` block (None: no block list).
+fn option_entries(lines: &[String], i: usize) -> Option<(usize, Vec<(usize, usize)>)> {
+    let (fs, fe) = item_fields(lines, i).into_iter().find(|f| f.0 == "options").map(|f| (f.1, f.2))?;
+    let first = (fs + 1..fe).find(|&j| is_dash(&lines[j]))?;
+    let ind = indent_of(&lines[first]);
+    let starts: Vec<usize> = (first..fe).filter(|&j| indent_of(&lines[j]) == ind && is_dash(&lines[j])).collect();
+    let mut spans = Vec::new();
+    for (n, &st) in starts.iter().enumerate() {
+        let next = starts.get(n + 1).copied().unwrap_or(fe);
+        let end = (st + 1..next).rev().find(|&j| !is_blank_or_comment(&lines[j])).map(|j| j + 1).unwrap_or(st + 1);
+        spans.push((st, end));
+    }
+    Some((ind, spans))
+}
+
+/// D-473: a change never removes the Task type's last `status` option with state Open or with state Done. An option
+/// without a known state counts as Open (D-471). A file that never had one (hand-written) still accepts other changes.
+fn check_task_states(before: &TypeFile, after: &TypeFile) -> Result<(), SchemaError> {
+    let states = |def: &TypeFile| -> Vec<TaskState> {
+        def.attributes.iter().find(|a| a.key == "status").map(|st| st.options.iter().map(|o| option_state(o).and_then(TaskState::parse).unwrap_or(TaskState::Open)).collect()).unwrap_or_default()
+    };
+    let (b, a) = (states(before), states(after));
+    if b.contains(&TaskState::Open) && !a.contains(&TaskState::Open) {
+        return Err(RuleError::NeedOpen.into());
+    }
+    if b.contains(&TaskState::Done) && !a.contains(&TaskState::Done) {
+        return Err(RuleError::NeedDone.into());
     }
     Ok(())
 }
@@ -1584,4 +1777,49 @@ mod tests {
         let got = ctx_patch("a", text, vec![TypeOp::SetColor("blue".into()), TypeOp::SetDescription(Some("D".into()))]);
         assert_eq!(got, Ok(Some("# h\nversion: 1\ncolor: blue\ndescription: D\n# why red\nreview: false\n".into())));
     }
+}
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1: task states
+// docs/contracts/ms5-tasks.md §2.2 (D-471, D-473). Stubs until 5A-1 is built: they return deliberately wrong results so
+// the red tests fail on their assertions (TS-I1).
+
+/// The semantic state of a Task status option (`state` in the option's flow map).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TaskState {
+    Open,
+    InProgress,
+    Done,
+    Cancelled,
+}
+
+impl TaskState {
+    /// `open`, `in-progress`, `done`, `cancelled`; anything else is None (the caller uses Open, D-471).
+    pub fn parse(s: &str) -> Option<TaskState> {
+        match s.trim() {
+            "open" => Some(TaskState::Open),
+            "in-progress" => Some(TaskState::InProgress),
+            "done" => Some(TaskState::Done),
+            "cancelled" => Some(TaskState::Cancelled),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TaskState::Open => "open",
+            TaskState::InProgress => "in-progress",
+            TaskState::Done => "done",
+            TaskState::Cancelled => "cancelled",
+        }
+    }
+}
+
+/// The raw `state` of an option (from `OptionDef.extra`), when it is a string.
+pub fn option_state(o: &OptionDef) -> Option<&str> {
+    o.extra.iter().find(|(k, _)| k == "state").and_then(|(_, v)| v.as_str())
+}
+
+/// `patch` with the option usage counts the `optionUsed` refusal needs (label, number of objects using it; D-501).
+pub fn patch_with_usage(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: &[(&str, usize)]) -> Result<Option<String>, SchemaError> {
+    patch_inner(key, text, ops, ctx, used)
 }

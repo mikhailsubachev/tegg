@@ -8,6 +8,7 @@ import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
 import { handle as handleLinks } from './fake-links';
 import { handle as handleJobs } from './fake-jobs';
+import { handle as handleTasks } from './fake-tasks';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -17,6 +18,8 @@ export type UiStateDto = {
   rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
   /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
   propertiesOpen?: boolean;
+  /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
+  tasks?: { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean };
 };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
@@ -39,7 +42,7 @@ export type FakeCoreHandle = {
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
   renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
   /** Delay or fail every `note_write`; `hold` queues writes until `release()`. 4F (ms4-embeds §8): with `path`, only
-   *  writes to that path are affected. */
+   *  writes to that path are affected (task writes and `note_create` too, D-510). */
   writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null }): Promise<void>;
   release(): Promise<void>;
   /** Paths of successful writes (`note_write` written, `note_create`, `note_create_exact`), in order. */
@@ -136,6 +139,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleLinks(cmd, args, files, vers as any)).catch(() => {});
   // 4C (ms4-jobs §11): rename plans and text changes in Node with the real @tegg/doc.
   await page.exposeFunction('__teggJobs', (cmd: string, args: unknown, files: Record<string, string>) => handleJobs(cmd, args, files)).catch(() => {});
+  // 5A-1 (ms5-tasks §7): the task queries in Node (fake-tasks.ts) with the real @tegg/doc and @tegg/schema.
+  await page.exposeFunction('__teggTasks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>, ro: string[]) =>
+    handleTasks(cmd, args, files, vers as any, ro)).catch(() => {});
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
@@ -184,6 +190,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
+    'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -346,8 +353,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
-    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
-    const r = await w[fn](cmd, a ?? {}, files, vers);
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || fn === '__teggTasks') vers[p] = state.ver(p)!;
+    // 5A-1 (ms5-tasks §7): task rows carry each file's version and whether the editor would open it read-only.
+    const r = await w[fn](cmd, a ?? {}, files, vers, Object.keys(state.invalid));
     if (r.writes) {
       const paths: string[] = [];
       for (const [p, t] of Object.entries(r.writes as Record<string, string | null>)) {
@@ -535,6 +543,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     daily_backlinks: viaNode('daily_backlinks', '__teggLinks'),
     daily_context: viaNode('daily_context', '__teggLinks'),
+    // 5A-1 (ms5-tasks §7): read-only task queries in Node (fake-tasks.ts).
+    task_list: viaNode('task_list', '__teggTasks'),
+    daily_tasks: viaNode('daily_tasks', '__teggTasks'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
@@ -736,6 +747,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.writes++;
       if (!state.vault) throw err('NoVault', 'fake: no vault');
       if (a.type !== undefined && String(a.type).normalize('NFC') === 'daily-note') throw err('UseDailyNote', 'fake: a Daily Note is created by typing in it'); // D-318
+      // 5A-1 (D-510): `writeControl({ fail })` applies to the typed create too.
+      if (a.type !== undefined && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: create failed (Io)');
       if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)

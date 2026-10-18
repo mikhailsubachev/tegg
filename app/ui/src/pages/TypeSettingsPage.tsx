@@ -3,7 +3,8 @@
 // `Conflict` reloads the disk version and says which change wasn't saved (NFR-REL-02); newer-version and invalid
 // files are read-only. Nothing here writes a note (FR-TYP-04 AC-5).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { checkFolder, checkTypeName, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES } from '@tegg/schema';
+import { createPortal } from 'react-dom';
+import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES } from '@tegg/schema';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { AttributeChangeDto, AttributeDto, AttributeInputDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
@@ -222,8 +223,8 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
       {type.state === 'newer' && <p role="status" className="ts-notice">{t('ts.newer')}</p>}
       {type.state === 'invalid' && type.error && <p role="status" className="ts-notice">{t('ts.invalidLine', { line: type.error.line, message: type.error.message })}</p>}
       {w.conflict && (
-        <div role="alert" className="ts-notice alert">
-          <span>{t('ts.conflict', { field: w.conflict })}</span>
+        <div className="ts-notice alert">
+          <span role="alert">{t('ts.conflict', { field: w.conflict })}</span>
           <button data-command="typeSettings.button0" type="button" className="text-button" onClick={() => w.setConflict(null)}>{t('ts.dismiss')}</button>
         </div>
       )}
@@ -630,26 +631,55 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
   );
 }
 
-/** Select and Multi-select options (FR-TYP-03 AC-5, D-227): add, reorder (drag, ⌥↑/⌥↓), rename unused, remove. */
-function OptionsEditor({ attr: a, type, usage, off, locked, w, update }: {
+/** Select and Multi-select options (FR-TYP-03 AC-5, D-227): add, reorder (drag, ⌥↑/⌥↓), rename unused, remove.
+ *  5A-1 (FR-TSK-02, FR-TSK-03, D-473): the Task type's built-in `status` and `priority` options are editable too, each
+ *  action one option op (one line of the file); `status` options have a State, and one Open and one Done must stay. */
+const STATES = ['open', 'in-progress', 'done', 'cancelled'] as const;
+
+/** A layer for popups at the start of the document, ahead of the page in reading order (its choices are found first). */
+function popupLayer(): HTMLElement {
+  let el = document.getElementById('popup-layer');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'popup-layer';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  return el;
+}
+const STATE_LABEL: Record<string, string> = { open: 'state.open', 'in-progress': 'state.inProgress', done: 'state.done', cancelled: 'state.cancelled' };
+
+function OptionsEditor({ attr: a, type, usage, off: offAttr, locked, w, update }: {
   attr: AttributeDto; type: TypeDto; usage: TypeUsageDto | null; off: boolean; locked: boolean; w: ReturnType<typeof useTypeWriter>;
   update: (c: AttributeChangeDto, label: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(false);
+  const [draft, setDraft] = useState<{ state: string; color: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<{ label: string; count: number } | null>(null);
-  const [colorFor, setColorFor] = useState<{ label: string; anchor: HTMLElement } | null>(null);
+  const [colorFor, setColorFor] = useState<{ label: string | null; anchor: HTMLElement } | null>(null);
+  const [stateFor, setStateFor] = useState<{ label: string | null; anchor: HTMLElement } | null>(null);
   const focusLabel = useRef<string | null>(null);
   const errId = useErrorId();
   const used = (label: string) => usage?.options?.[a.key]?.[nfc(label)] ?? usage?.options?.[a.key]?.[label] ?? 0;
-  const isStatus = locked && type.key === 'task' && a.key === 'status';
-  const lockDesc = isStatus ? t('due.comingIn', { due: 'MS5' }) : locked ? t('ts.builtInLocked') : undefined;
+  const taskOpts = locked && type.key === 'task' && (a.key === 'status' || a.key === 'priority');
+  const isStatus = taskOpts && a.key === 'status';
+  const off = taskOpts ? offAttr && !locked : offAttr;
+  const lockDesc = taskOpts ? undefined : locked ? t('ts.builtInLocked') : undefined;
+  const renameUsed = taskOpts ? t('typeSettings.renameUsed') : t('ts.renameUsed');
   useLayoutEffect(() => {
     const k = focusLabel.current;
     if (!k) return;
     focusLabel.current = null;
     (document.querySelector(`[data-option-handle="${CSS.escape(`${a.key}:${k}`)}"]`) as HTMLElement | null)?.focus();
   });
+  const send = (op: TypeOpDto) => w.send([op], t('ts.options'));
+  /** D-473: refuse what would leave no Open or no Done status. */
+  const statesOk = (options: OptionDto[]): boolean => {
+    if (!isStatus) return true;
+    const r = checkStatusOptions(options);
+    if (r) { setError(t(r.reason === 'needOpen' ? 'typeSettings.needOpen' : 'typeSettings.needDone')); return false; }
+    setError(null);
+    return true;
+  };
   const dup = (label: string, except: string | null) => a.options.some((o) => o.label !== except && nfc(o.label).toLowerCase() === nfc(label).toLowerCase());
   const commitLabel = (old: string | null, label: string): boolean => {
     const l = label.normalize('NFC').trim();
@@ -657,7 +687,12 @@ function OptionsEditor({ attr: a, type, usage, off, locked, w, update }: {
     if (!l) { setError(t('typeRule.optionEmpty')); return false; }
     if (dup(l, old)) { setError(t('typeRule.optionDuplicate')); return false; }
     setError(null);
-    const options: OptionDto[] = old === null ? [...a.options, { label: l, color: null }] : a.options.map((o) => (o.label === old ? { ...o, label: l } : o));
+    if (taskOpts) {
+      if (old === null) void send({ op: 'addOption', attr: a.key, option: { label: l, color: draft?.color ?? null, state: isStatus ? (draft?.state ?? 'open') : null } });
+      else void send({ op: 'renameOption', attr: a.key, from: old, to: l });
+      return true;
+    }
+    const options: OptionDto[] = old === null ? [...a.options, { label: l, color: draft?.color ?? null, state: null }] : a.options.map((o) => (o.label === old ? { ...o, label: l } : o));
     void update({ options }, t('ts.optionLabel'));
     return true;
   };
@@ -666,32 +701,62 @@ function OptionsEditor({ attr: a, type, usage, off, locked, w, update }: {
     const i = opts.findIndex((o) => o.label === label);
     const j = i + d;
     if (i < 0 || j < 0 || j >= opts.length) return;
-    [opts[i], opts[j]] = [opts[j], opts[i]];
     focusLabel.current = label;
+    if (taskOpts) { void send({ op: 'moveOption', attr: a.key, label, to: j }); return; }
+    [opts[i], opts[j]] = [opts[j], opts[i]];
     void update({ options: opts }, t('ts.options'));
   };
+  const remove = (label: string) => {
+    const rest = a.options.filter((x) => x.label !== label);
+    if (!statesOk(rest)) return;
+    if (taskOpts) void send({ op: 'removeOption', attr: a.key, label });
+    else void update({ options: rest }, t('ts.options'));
+  };
+  const setColor = (label: string, color: string) => {
+    if (taskOpts) void send({ op: 'setOptionColor', attr: a.key, label, color });
+    else void update({ options: a.options.map((o) => (o.label === label ? { ...o, color } : o)) }, t('ts.options'));
+  };
+  const setState = (label: string, state: string) => {
+    const next = a.options.map((o) => (o.label === label ? { ...o, state } : o));
+    if (!statesOk(next)) return;
+    void send({ op: 'setOptionState', attr: a.key, label, state });
+  };
+  const stateOf = (o: OptionDto) => (STATES as readonly string[]).includes(o.state ?? '') ? (o.state as string) : 'open';
+  const stateButton = (label: string | null, value: string) => (
+    <button type="button" role="combobox" tabIndex={0} className="option-state" aria-haspopup="listbox" aria-expanded={!!stateFor && stateFor.label === label}
+      aria-label={`${t('typeSettings.state')} ${t(STATE_LABEL[value])}`} disabled={off}
+      onClick={(e) => setStateFor({ label, anchor: e.currentTarget })}>
+      {t(STATE_LABEL[value])}
+    </button>
+  );
+  const colorButton = (label: string | null, color: string | null, name: string) => (
+    <button data-command="typeSettings.button19" type="button" tabIndex={0} className="option-color" aria-label={t('ts.optionColor', { label: name })} disabled={off}
+      style={{ ['--type' as string]: `var(--type-${colorName(color)})` }}
+      onClick={(e) => setColorFor({ label, anchor: e.currentTarget })} />
+  );
   return (
     <div className="ts-field options-editor">
       <span className="ts-label">{t('ts.options')}</span>
       <ul aria-label={t('ts.options')} className="option-list">
         {a.options.map((o) => {
           const n = used(o.label);
+          const unknown = isStatus && !(STATES as readonly string[]).includes(o.state ?? '') ;
           return (
             <li key={o.label} className="option-row">
-              <button data-command="typeSettings.button18" type="button" className="icon-button small handle" aria-label={t('ts.dragOption', { label: o.label })} data-option-handle={`${a.key}:${o.label}`} disabled={off}
+              <button data-command="typeSettings.button18" type="button" tabIndex={0} className="icon-button small handle" aria-label={t('ts.dragOption', { label: o.label })} data-option-handle={`${a.key}:${o.label}`} disabled={off}
                 onKeyDown={(e) => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); e.stopPropagation(); moveOpt(o.label, e.key === 'ArrowUp' ? -1 : 1); } }}>
                 <Icon name="grip" size={12} />
                 <span className="sr-only" data-user-content>{o.label}</span>
               </button>
-              <button data-command="typeSettings.button19" type="button" className="option-color" aria-label={t('ts.optionColor', { label: o.label })} disabled={off}
-                style={{ ['--type' as string]: `var(--type-${colorName(o.color)})` }}
-                onClick={(e) => setColorFor({ label: o.label, anchor: e.currentTarget })} />
-              <OptionLabel label={o.label} disabled={off || n > 0} desc={lockDesc ?? (n > 0 ? t('ts.renameUsed') : undefined)} onCommit={(v) => commitLabel(o.label, v)} />
+              {colorButton(o.label, o.color, o.label)}
+              <OptionLabel label={o.label} disabled={off || n > 0} desc={lockDesc ?? (n > 0 ? renameUsed : undefined)} onCommit={(v) => commitLabel(o.label, v)} />
+              {isStatus && stateButton(o.label, stateOf(o))}
+              {unknown && o.state && <span role="status" className="hint warn">{t('typeSettings.unknownState', { value: o.state })}</span>}
               <span className="hint">{t('ts.usedBy', { count: n })}</span>
-              <button data-command="typeSettings.button20" type="button" className="icon-button small" aria-label={t('ts.removeOption', { label: o.label })} disabled={off}
+              <button data-command="typeSettings.button20" type="button" tabIndex={0} className="icon-button small" aria-label={t('ts.removeOption', { label: o.label })} disabled={off}
                 onClick={() => {
                   if (n > 0) { setRemoving({ label: o.label, count: n }); return; }
-                  void update({ options: a.options.filter((x) => x.label !== o.label) }, t('ts.options'));
+                  remove(o.label);
                 }}>
                 <Icon name="x" size={12} />
               </button>
@@ -700,26 +765,50 @@ function OptionsEditor({ attr: a, type, usage, off, locked, w, update }: {
         })}
         {draft && (
           <li className="option-row">
-            <OptionLabel label="" autoFocus onCancel={() => setDraft(false)} onCommit={(v) => { if (v.trim() === '') { setDraft(false); return true; } const ok = commitLabel(null, v); if (ok) setDraft(false); return ok; }} />
+            {colorButton(null, draft.color, '')}
+            <OptionLabel label="" autoFocus onCancel={() => setDraft(null)} onCommit={(v) => { if (v.trim() === '') { setDraft(null); return true; } const ok = commitLabel(null, v); if (ok) setDraft(null); return ok; }} />
+            {isStatus && stateButton(null, draft.state)}
           </li>
         )}
       </ul>
       <FieldError id={errId} text={error} />
-      <button data-command="typeSettings.button21" type="button" className="text-button small" disabled={off} onClick={() => setDraft(true)}><Icon name="plus" size={12} />{t('ts.addOption')}</button>
-      {colorFor && (
-        <OptionsPopup label={t('ts.optionColors', { label: colorFor.label })} anchor={colorFor.anchor}
-          choices={COLORS.map((c) => ({ value: c, label: t(`color.${c}`), color: c }))}
-          current={colorName(a.options.find((o) => o.label === colorFor.label)?.color)}
-          onClose={(r) => { if (r) colorFor.anchor.focus(); setColorFor(null); }}
-          onChoose={(c) => { const l = colorFor.label; colorFor.anchor.focus(); setColorFor(null); void update({ options: a.options.map((o) => (o.label === l ? { ...o, color: c.value } : o)) }, t('ts.options')); }} />
+      <button data-command="typeSettings.button21" type="button" className="text-button small" disabled={off} onClick={() => setDraft({ state: 'open', color: null })}><Icon name="plus" size={12} />{t('ts.addOption')}</button>
+      {colorFor && createPortal(
+        <PopupMenu label={t('ts.optionColors', { label: colorFor.label ?? '' })} anchor={colorFor.anchor}
+          entries={COLORS.map((c) => ({
+            kind: 'radio' as const, key: c, label: t(`color.${c}`), checked: colorName(colorFor.label === null ? draft?.color : a.options.find((o) => o.label === colorFor.label)?.color) === c,
+            content: <><span className="option-dot" aria-hidden="true" style={{ background: `var(--type-${c})` }} />{t(`color.${c}`)}</>,
+            onChoose: () => {
+              const l = colorFor.label;
+              colorFor.anchor.focus();
+              setColorFor(null);
+              if (l === null) setDraft((d) => (d ? { ...d, color: c } : d));
+              else setColor(l, c);
+            },
+          }))}
+          onClose={() => setColorFor(null)} />,
+        popupLayer(),
+      )}
+      {stateFor && (
+        <OptionsPopup label={t('typeSettings.state')} anchor={stateFor.anchor}
+          choices={STATES.map((s) => ({ value: s, label: t(STATE_LABEL[s]) }))}
+          current={stateFor.label === null ? draft?.state : stateOf(a.options.find((o) => o.label === stateFor.label) ?? { label: '', color: null, state: null })}
+          onClose={(r) => { if (r) stateFor.anchor.focus(); setStateFor(null); }}
+          onChoose={(c) => {
+            const l = stateFor.label;
+            stateFor.anchor.focus();
+            setStateFor(null);
+            if (l === null) setDraft((d) => (d ? { ...d, state: c.value } : d));
+            else setState(l, c.value);
+          }} />
       )}
       {removing && (
         <Dialog label={t('removeOption.title', { label: removing.label })} onCancel={() => setRemoving(null)}>
           <h2>{withUser('removeOption.title', 'label', removing.label)}</h2>
-          <p>{t('removeOption.body', { count: removing.count, label: removing.label })}</p>
+          <p>{t(taskOpts ? 'task.removeOption.body' : 'removeOption.body', { count: removing.count, label: removing.label })}</p>
           <div className="dialog-buttons">
             <button data-command="typeSettings.button22" type="button" autoFocus onClick={() => setRemoving(null)}>{t('removeOption.cancel')}</button>
-            <button data-command="typeSettings.button23" type="button" className="primary" onClick={() => { const l = removing.label; setRemoving(null); void update({ options: a.options.filter((x) => x.label !== l) }, t('ts.options')); }}>{t('removeOption.ok')}</button>
+            <button data-command="typeSettings.button23" type="button" className="primary" onClick={() => { const l = removing.label; setRemoving(null); remove(l); }}>{t('removeOption.ok')}</button>
           </div>
         </Dialog>
       )}

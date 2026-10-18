@@ -19,21 +19,31 @@ export function createHistory(): {
   let at = -1;
   const key = (r: Route) => routeString(r).normalize('NFC');
   const copy = (e: HistoryEntry): HistoryEntry => ({ route: { ...e.route }, scrollTop: e.scrollTop });
+  // D-521: an unsaved new object (`new/<type>`) is an entry only while it is shown; once left, it is dropped.
+  const draft = (e: HistoryEntry | undefined) => e?.route.id === 'new/<type>';
+  const dropLeftDrafts = () => {
+    const cur = entries[at];
+    entries = entries.filter((e, i) => i === at || !draft(e));
+    at = entries.indexOf(cur);
+  };
   return {
     push(r) {
       if (at >= 0 && key(entries[at].route) === key(r)) return;
       entries = entries.slice(0, at + 1);
+      if (draft(entries[at])) { entries.pop(); at--; }
       entries.push({ route: { ...r }, scrollTop: 0 });
       at = entries.length - 1;
     },
     back() {
       if (at <= 0) return null;
       at--;
+      dropLeftDrafts();
       return copy(entries[at]);
     },
     forward() {
       if (at < 0 || at >= entries.length - 1) return null;
       at++;
+      dropLeftDrafts();
       return copy(entries[at]);
     },
     canBack: () => at > 0,

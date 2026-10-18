@@ -306,6 +306,20 @@ export function setValue(doc: Doc, key: string, value: Value): string {
   return appendEntries(doc, fit(doc, formatEntry(key, value)))
 }
 
+/** 5A-1 (ms5-tasks §5, D-478): set a list value keeping its flow or block style; a new entry is written in flow style
+ *  (`tags: [a, b]`, FR-TSK-05 AC-4) after the last entry. An empty list removes the entry. */
+export function setFlowList(doc: Doc, key: string, items: Value[]): string {
+  checkWritable(doc)
+  if (doc.frontmatter?.entries.some((x) => x.key === key)) return setValue(doc, key, items)
+  if (items.length === 0) return doc.text
+  return appendEntries(doc, fit(doc, `${formatKey(key)}: [${items.map(flowItem).join(', ')}]\n`))
+}
+
+/** The flow form of a list value, as `setFlowList` writes it. */
+export function flowList(items: Value[]): string {
+  return `[${items.map(flowItem).join(', ')}]`
+}
+
 /** Date range: both halves in one edit, consecutive lines; null clears that half (FR-TYP-02, D-230). */
 export function setRange(doc: Doc, key: string, start: string | null, end: string | null): string {
   checkWritable(doc)

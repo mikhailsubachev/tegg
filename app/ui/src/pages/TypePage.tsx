@@ -13,6 +13,7 @@ import { ipc } from '../ipc/client';
 import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
 import { Icon, typeIconName } from '../shell/Icon';
+import { TypeSettingsButton } from '../shell/TypeSettingsButton';
 import { NewPropertyDialog } from './TypeSettingsPage';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import type { TypeOpDto } from '../ipc/types';
@@ -47,7 +48,7 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag, onDefine }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag, onDefine, header }: {
   typeKey: string;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
@@ -63,6 +64,8 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   onTag: (key: string) => void;
   /** D-251: open `New type` for this undefined value, as written. */
   onDefine?: (value: string) => void;
+  /** D-516: a page header in place of the type's (the Tasks header on `type/task`), whose tablist replaces the view tab. */
+  header?: React.ReactNode;
 }) {
   const [rows, setRows] = useState<TypeRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
@@ -170,7 +173,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
 
   return (
     <div className="page-column type-page">
-      <header className="page-header type-header">
+      {header ?? <header className="page-header type-header">
         <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${colorName(type?.color)})` }}>
           <Icon name={typeIconName(typeKey, type?.icon)} size={20} />
         </span>
@@ -181,13 +184,13 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         </div>
         {type && (
           <div className="page-actions">
-            <button tabIndex={0} type="button" className="text-button" data-command="type.openSettings" onClick={onSettings}>{t('cmd.typeSettings')}</button>
+            <TypeSettingsButton onClick={onSettings} />
             <button tabIndex={0} type="button" className="text-button primary" data-command="type.newObject" onClick={onNew}>
               {t('cmd.newOfType', { name: '\u0000' }).split('\u0000')[0]}<span data-user-content>{name}</span>{t('cmd.newOfType', { name: '\u0000' }).split('\u0000')[1]}
             </button>
           </div>
         )}
-      </header>
+      </header>}
       {!type && <p role="note" className="type-note">{t('typePage.noDefinition', { value: plural })}</p>}
       {!type && onDefine && (() => {
         // The value as written, once a row is read; until then its key (the route has only the key).
@@ -205,9 +208,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         );
       })()}
       <div className="page-toolbar type-toolbar">
-        <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
+        {!header && <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
           <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('typePage.allView', { plural: pluralName })}</span>
-        </div></aside>
+        </div></aside>}
         <span className="spacer" />
         <input type="search" role="searchbox" className="type-filter" aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
           value={filter} spellCheck={false} autoComplete="off" onChange={(e) => setFilter(e.target.value)}

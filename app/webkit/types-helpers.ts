@@ -157,6 +157,15 @@ export async function stateIs(page: Page, want: string, ms = 2000): Promise<bool
   const got = await eventually(async () => ((await seen(saveState(page), 200)) ? (await saveState(page).first().innerText()).trim() : null), (t) => t === want, ms);
   return got === want;
 }
+/** How an icon button looks (D-519): shown text, tooltip (`title`), box size and border widths/styles of its four sides. */
+export async function iconButtonLook(loc: Locator): Promise<{ text: string; title: string | null; width: number; height: number; borders: string[] }> {
+  return loc.first().evaluate((e) => {
+    const r = e.getBoundingClientRect();
+    const s = getComputedStyle(e);
+    const borders = (['Top', 'Right', 'Bottom', 'Left'] as const).map((k) => `${(s as any)[`border${k}Width`]} ${(s as any)[`border${k}Style`]}`);
+    return { text: ((e as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim(), title: e.getAttribute('title'), width: r.width, height: r.height, borders };
+  });
+}
 /** Visible rows of a type table as their first cell's text. */
 export async function rowTitles(page: Page, plural: string): Promise<string[]> {
   // One DOM read, so a table update between reads can't mix old and new rows.
