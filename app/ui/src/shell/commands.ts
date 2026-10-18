@@ -99,7 +99,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
-  'ctl.typePicker': 'object.typePicker',
   'ctl.typePickerLink': 'createLink.typePicker',
   'duplicates.merge': 'duplicates.merge',
   'backlinks.unlinked': 'panel.unlinkedMentions',
@@ -107,7 +106,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'task.trash': 'task.trash',
 };
 
-const NO_GOTO = new Set(['tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -184,7 +183,7 @@ export function commands(ctx: ShellContext): Command[] {
       { id: 'daily.markUnreviewed', title: 'daily.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setReviewed?.(false) },
     );
   }
-  if (ctx.route?.id === 'note/<path>' || dailyDate) {
+  if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'new/<type>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
   }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
@@ -195,7 +194,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'type.new', title: 'cmd.newType', section: 'create', needsVault: true, run: (c) => a(c)?.newType?.() },
     { id: 'vault.addStarterTypes', title: 'cmd.addStarterTypes', section: 'vault', needsVault: true, run: (c) => a(c)?.addStarterTypes?.() },
   );
-  const onNote = route?.id === 'note/<path>' || route?.id === 'daily/YYYY-MM-DD';
+  const onNote = route?.id === 'note/<path>' || route?.id === 'new/<type>' || route?.id === 'daily/YYYY-MM-DD';
   if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
   }

@@ -219,7 +219,7 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
     // 4B (R17): Today is current on today's daily route, with the long date as its description (D-337).
     const isToday = e.id === 'today';
     const isTasks = e.id === 'tasks';
-    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : isTasks ? route.id === 'tasks' || route.id === 'tasks/kanban' : route.id === e.id;
+    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : isTasks ? route.id === 'tasks' || route.id === 'tasks/kanban' || (route.id === 'type/<type>' && route.param?.normalize('NFC') === 'task') : route.id === e.id;
     const go = (ev: React.MouseEvent) => { ev.preventDefault(); if (isTasks && onTasks) onTasks(); else onGo({ id: e.id }); };
     return (
       <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : isTasks ? 'tasks.go' : `goto.${e.id}`} onClick={go}

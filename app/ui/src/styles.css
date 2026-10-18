@@ -332,6 +332,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .save-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .save-state.failed, .save-state.conflict { color: var(--danger); }
 .title-field { display: block; font: inherit; color: var(--text); background: none; border: 0; padding: 0; margin: 0; width: 100%; outline: none; white-space: pre-wrap; }
+.title-field:empty::before { content: attr(data-placeholder); color: var(--faint); } /* D-520: a new object's empty title */
 .save-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 6px; color: var(--text); background: var(--bg); font-size: 14px; }
 .paste-notice { margin: 8px 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; }
@@ -610,7 +611,15 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 
 /* 5A-1: the Tasks page (tasks.md R40…R43; Tasks and TasksBoard boards). */
 .tasks-page { max-width: none; }
-.tasks-summary { color: var(--muted); margin: -8px 0 16px; }
+.tasks-header { align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+.tasks-header h1 { margin: 0; }
+.tasks-header .page-actions { margin-left: auto; }
+.tasks-header .tabs { margin: 0; }
+.tasks-summary { color: var(--muted); margin: 2px 0 0; font-size: 13px; }
+/* D-519: Type settings, an icon button in page headers. */
+.type-settings-button { width: 36px; height: 36px; box-sizing: border-box; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.type-settings-button:hover { background: var(--hover); color: var(--text); }
+.type-settings-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); margin: 0 12px 12px 0; }
 .tabs [role="tab"] { border: none; background: none; color: var(--muted); font: inherit; padding: 4px 10px; border-radius: 5px; cursor: pointer; }
 .tabs [role="tab"][aria-selected="true"] { background: var(--bg); color: var(--text); font-weight: 600; }
@@ -622,9 +631,30 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .quick-chip .icon-button { width: 18px; height: 18px; }
 .quick-hint { font-size: 12px; color: var(--muted); }
 .quick-error { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--danger); }
-.tasks-toolbar, .tasks-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
-.tasks-tags .label { color: var(--muted); font-size: 12px; margin-right: 4px; }
-.tasks-tags .hint { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; }
+.tasks-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.tasks-toolbar .tabs { margin: 0; }
+.tasks-sort { margin-left: auto; }
+/* D-518: the searchable tag filter. */
+.tag-filter { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--border); }
+.tag-filter .label { color: var(--muted); font-size: 13px; }
+.tag-filter .hint { font-size: 12px; color: var(--muted); }
+.tag-box { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 240px; max-width: 380px; min-height: 32px; box-sizing: border-box; padding: 3px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); cursor: text; }
+.tag-box.open, .tag-box:focus-within { border-color: var(--focus); }
+.tag-chip { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border-radius: 12px; background: var(--sel); color: var(--link, var(--text)); font-size: 12px; font-weight: 600; }
+.tag-chip-remove, .tag-clear { width: 20px; height: 20px; padding: 0; border: none; border-radius: 10px; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
+.tag-chip-remove:hover, .tag-clear:hover { background: var(--hover); }
+.tag-input { flex: 1 1 90px; min-width: 90px; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: 13px; }
+.tag-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.tag-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: 300px; padding: 6px; border-radius: 10px; background: var(--pop, var(--bg)); border: 1px solid var(--border); box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent); font-size: 13px; }
+.tag-menu-hint { padding: 4px 8px 6px; font-size: 11px; color: var(--muted); }
+.tag-options { max-height: 220px; overflow-y: auto; }
+.tag-option { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; cursor: pointer; }
+.tag-option.active { background: var(--hover); }
+.tag-option[aria-selected="true"] { background: var(--sel); }
+.tag-option .tick { width: 14px; font-weight: 700; color: var(--focus); }
+.tag-option .tag-name { flex: 1; }
+.tag-option .count { font-size: 12px; color: var(--muted); }
+.tag-menu-keys { border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--muted); }
 .tasks-filter { display: inline-flex; gap: 4px; }
 button.toggle { font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 button.toggle[aria-pressed="true"] { background: var(--sel); border-color: var(--focus); }

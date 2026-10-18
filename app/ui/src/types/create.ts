@@ -7,7 +7,14 @@ import { ipc } from '../ipc/client';
 import { localIso, ulid } from '../newNote';
 
 /** A type read for creating objects: `create(title)` renders the bytes and sends `note_create` at once. */
-export type Prepared = { key: string; create: (title: string, values?: [string, Value][]) => Promise<string /* path */> };
+export type Prepared = {
+  key: string;
+  /** The type's folder when it was read (the planned folder of a draft, D-520). */
+  folder: string;
+  create: (title: string, values?: [string, Value][]) => Promise<string /* path */>;
+  /** The bytes `create` would send, stamped `now` (a draft's text, D-520; ms5-tasks §12.2). */
+  render: (title: string, now: string) => string;
+};
 
 /** The first two steps of the path (type_get, type_template), for an entry point that knows its type in advance. */
 export async function prepareObject(typeKey: string): Promise<Prepared> {
@@ -16,20 +23,22 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
   const tpl = await ipc.typeTemplate(key).catch(() => null);
   const review = (type?.review === 'on' || type?.review === 'locked' ? type.review : 'off') as 'off' | 'on' | 'locked';
   const k = type?.key ?? key;
+  const render = (title: string, now: string, values?: [string, Value][]) => newObject({
+    type: { key: k, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined, options: a.options })), review },
+    title: title.normalize('NFC').trim(),
+    template: tpl ? tpl.text : null,
+    now,
+    newId: () => ulid(Date.now()),
+    values,
+  });
   return {
     key: k,
+    folder: type?.folder ?? '',
     create: (title: string, values?: [string, Value][]) => {
       const clean = title.normalize('NFC').trim();
-      const text = newObject({
-        type: { key: k, attributes: (type?.attributes ?? []).map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined, options: a.options })), review },
-        title: clean,
-        template: tpl ? tpl.text : null,
-        now: localIso(new Date(Date.now())),
-        newId: () => ulid(Date.now()),
-        values,
-      });
-      return ipc.noteCreate(k, clean, text);
+      return ipc.noteCreate(k, clean, render(clean, localIso(new Date(Date.now())), values));
     },
+    render: (title: string, now: string) => render(title, now),
   };
 }
 

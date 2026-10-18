@@ -13,7 +13,7 @@ export type Route = {
   selectEmbedOf?: string;
 };
 
-const PARAM_ROUTES = ['type', 'type-settings', 'note'];
+const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new'];
 
 export function parseRoute(s: string): Route | null {
   const str = s.normalize('NFC');

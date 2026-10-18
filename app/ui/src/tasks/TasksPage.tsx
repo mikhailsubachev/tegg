@@ -12,7 +12,9 @@ import { CardMenu, type MenuTarget } from './CardMenu';
 import { KanbanView } from './Kanban';
 import { QuickAdd } from './QuickAddRow';
 import { ScheduleView } from './Schedule';
+import { TagFilter } from './TagFilter';
 import { TaskCard, type TaskNav } from './TaskCard';
+import { TasksHeader, tasksSummary, type TasksView } from './TasksHeader';
 import { useTasks } from './useTasks';
 import { counts as countsOf, kanban, schedule, tagSpellings, type KanbanColumn, type ViewInput } from './views';
 import { writeTask, type TaskAction } from './write';
@@ -26,14 +28,16 @@ type Alert = { id: number; text: string; retry?: () => void };
 /** A task completed or changed on the Schedule stays where it was shown until the page is left. */
 type Stay = { section: 'today' | 'week' | 'later' | 'none'; group: string; index: number };
 
-export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, commandRef }: {
+export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSettings, commandRef }: {
   view: 'schedule' | 'kanban';
   refresh: number;
   heading: RefObject<HTMLHeadingElement | null>;
   ui: TasksUi;
   onUi: (f: (u: TasksUi) => TasksUi) => void;
   nav: TaskNav;
-  go: (id: 'tasks' | 'tasks/kanban') => void;
+  go: (view: TasksView) => void;
+  /** `Type settings` in the header (D-517, D-519). */
+  onSettings: () => void;
   commandRef: { current: ((id: string) => void) | null };
 }) {
   const data = useTasks(refresh);
@@ -202,22 +206,10 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, commandRe
       {label} <span id={`tf-${id}`} className="count">{count}</span>
     </button>
   );
-  const pressedTags = new Set(ui.tags);
 
   return (
     <div className="page-column tasks-page">
-      <h1 ref={heading} tabIndex={-1}>{t('tasks.title')}</h1>
-      <p className="tasks-summary">{t('tasks.summary', {
-        open: t('tasks.summary.open', { count: c.open }), overdue: t('tasks.summary.overdue', { count: c.overdue }), today: t('tasks.summary.today', { count: c.dueToday }),
-      })}</p>
-      <div role="tablist" aria-label={t('tasks.views')} className="tabs">
-        {(['schedule', 'kanban'] as const).map((v) => (
-          <button key={v} type="button" role="tab" data-command={v === 'schedule' ? 'tasks.schedule' : 'tasks.kanban'} aria-selected={view === v} tabIndex={view === v ? 0 : -1}
-            onClick={() => { if (view !== v) go(v === 'schedule' ? 'tasks' : 'tasks/kanban'); }}>
-            {t(v === 'schedule' ? 'tasks.view.schedule' : 'tasks.view.kanban')}
-          </button>
-        ))}
-      </div>
+      <TasksHeader view={view} heading={heading} summary={tasksSummary(c)} go={go} onSettings={onSettings} />
       <QuickAdd hint presets={{ due: view === 'schedule' ? today : null }} today={today} region={region} priorities={defs.priorities.map((p) => p.label)} onCreate={create} />
       <div className="tasks-toolbar">
         {view === 'kanban' && (
@@ -234,20 +226,10 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, commandRe
           {filterButton('today', t('tasks.filter.today'), c.today)}
           {filterButton('week', t('tasks.filter.week'), c.week)}
         </div>
-        <button type="button" className="toggle" aria-disabled="true" aria-description={t('due.comingIn', { due: 'v1.0' })} data-command="tasks.sort">
+        <TagFilter tags={c.tags.map((x) => ({ key: x.key, label: x.label, count: x.count }))} selected={ui.tags} onChange={(tags) => onUi((u) => ({ ...u, tags }))} />
+        <button type="button" className="toggle tasks-sort" aria-disabled="true" aria-description={t('due.comingIn', { due: 'v1.0' })} data-command="tasks.sort">
           {t(view === 'schedule' ? 'tasks.sort.schedule' : 'tasks.sort.kanban')}
         </button>
-      </div>
-      <div role="group" aria-label={t('tasks.tagFilter')} className="tasks-tags">
-        <span className="label">{t('tasks.tags')}</span>
-        {c.tags.map((x) => (
-          <button key={x.key} type="button" className="toggle" data-command="tasks.tagFilter" aria-pressed={pressedTags.has(x.key)} aria-label={`#${x.label}`} aria-describedby={`tt-${x.key}`}
-            onClick={() => onUi((u) => ({ ...u, tags: pressedTags.has(x.key) ? u.tags.filter((k) => k !== x.key) : [...u.tags, x.key] }))}>
-            <span data-user-content>#{x.label}</span> <span id={`tt-${x.key}`} className="count">{x.count}</span>
-          </button>
-        ))}
-        {ui.tags.length > 0 && <button type="button" className="text-button" data-command="tasks.tagClear" onClick={() => onUi((u) => ({ ...u, tags: [] }))}>{t('tasks.tagClear')}</button>}
-        {ui.tags.length > 1 && <p className="hint">{t('tasks.tagAny')}</p>}
       </div>
       {view === 'kanban' && <p className="hint">{t(tagMode ? 'tasks.board.hintTag' : 'tasks.board.hintStatus')}</p>}
       {alerts.length > 0 && (

@@ -97,7 +97,8 @@ function sorter(i: ViewInput, ...keys: ('priority' | 'due' | 'dueLast' | 'title'
   };
 }
 
-const hasTag = (r: TaskRowDto, keys: string[]) => keys.length === 0 || r.tags.some((x) => keys.includes(x));
+/** A task passes the tag filter when it has every selected tag (D-518). */
+const hasTag = (r: TaskRowDto, keys: string[]) => keys.every((k) => r.tags.includes(k));
 
 /** The open tasks a date filter keeps (D-476): Today = Today & overdue; This week adds This week. */
 function inDateFilter(r: TaskRowDto, i: ViewInput): boolean {
@@ -187,11 +188,14 @@ export function counts(i: ViewInput): Counts {
   const { last } = weekOf(i.today, i.firstWeekday);
   const dated = open.filter((r) => inDateFilter(r, i));
   const spell = tagSpellings(i.tasks);
+  // The tags of open tasks within the date filter, plus the selected ones; each counts the tasks the views would show
+  // with it added (D-518), most first.
   const n = new Map<string, number>();
-  for (const r of dated) for (const k of r.tags) n.set(k, (n.get(k) ?? 0) + 1);
+  for (const r of dated) for (const k of r.tags) if (!n.has(k)) n.set(k, 0);
   for (const k of i.tagFilter) if (!n.has(k)) n.set(k, 0);
+  for (const r of dated) if (hasTag(r, i.tagFilter)) for (const k of r.tags) n.set(k, (n.get(k) ?? 0) + 1);
   const tags = [...n].map(([key, count]) => ({ key, label: spell.get(key) ?? key, count }));
-  tags.sort((a, b) => i.collator.compare(a.label, b.label) || byteOrder(a.key, b.key));
+  tags.sort((a, b) => b.count - a.count || i.collator.compare(a.label, b.label) || byteOrder(a.key, b.key));
   return {
     open: open.length,
     overdue: open.filter((r) => isOverdue(r, i.today)).length,

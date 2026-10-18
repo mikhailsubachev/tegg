@@ -54,6 +54,8 @@ export const ROUTES: RouteDef[] = [
   { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('MS5'), reqs: ['FR-HOM-02'], design: null },
   { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
+  // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
+  { id: 'new/<type>', name: 'route.new', purpose: 'purpose.new', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TYP-09', 'FR-EDT-01'], design: 'Main' },
   { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: tbd('MS6'), reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null },
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
@@ -106,7 +108,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
   { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  { label: 'ctl.typePicker', where: 'New object dialog', due: d('MS5'), req: 'FR-VLT-05' },
   // 4A (backlinks.md R16).
   { label: 'ctl.typePickerLink', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05' },
   { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },

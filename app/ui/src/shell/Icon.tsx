@@ -19,6 +19,7 @@ const PATHS: Record<string, string> = {
   focus: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   back: 'M15 5l-7 7 7 7',
   forward: 'M9 5l7 7-7 7',
+  sliders: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6',
   gear: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2',
   graph: 'M6 6a2 2 0 1 1 0 .1zM18 8a2 2 0 1 1 0 .1zM12 18a2 2 0 1 1 0 .1zM7.5 7l9 1M7 8l4 8M17 10l-4 7',
   type: 'M5 5h14v4M12 5v14M9 19h6',
