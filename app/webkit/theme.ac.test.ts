@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import type { UiStateDto } from '../ui/test/fake-core';
 import {
-  absent, eventually, gotoType, mainName, must, mustBeOn, newObjectDialog, openNote, paletteDialog, runCommand, seen, sleep,
+  absent, eventually, gotoType, mainName, must, mustBeDraft, mustBeOn, openNote, paletteDialog, runCommand, seen, sleep,
   start, switcherDialog, theme,
 } from './helpers';
 
@@ -41,7 +41,7 @@ test('fr_ux_05_ac4_axe_color_contrast_has_no_violations', async ({ browser }) =>
     for (const [name, go] of VIEWS) { await go(page); await sleep(100); await axe(`${t} ${name}`); }
     await page.keyboard.press('Meta+k'); await must(paletteDialog(page), 'palette'); await axe(`${t} palette`); await page.keyboard.press('Escape');
     await page.keyboard.press('Meta+o'); await must(switcherDialog(page), 'switcher'); await axe(`${t} switcher`); await page.keyboard.press('Escape');
-    await page.keyboard.press('Meta+n'); await must(newObjectDialog(page), 'New object'); await axe(`${t} New object`); await page.keyboard.press('Escape');
+    await page.keyboard.press('Meta+n'); await mustBeDraft(page, 'New object'); await axe(`${t} New object draft`); // D-520: no dialog
     await page.close();
     page = await browser.newPage();
     await start(page, { vault: null, uiState: ui(t) });

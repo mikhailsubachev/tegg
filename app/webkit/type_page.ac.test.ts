@@ -3,7 +3,7 @@
 // is injected (`__TEGG_REGION__`) for the date cells; the sort state goes to the machine-local UI state.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { focused, mainName, newObjectDialog } from './helpers';
+import { focused, mainName } from './helpers';
 import {
   P, callsOf, description, eventually, fileText, gotoTypePage, iconButtonLook, isDisabled, main, must, nonReadCalls, openTypes, rowTitles,
   runCommand, seen, settingsHeading, sleep, typeTable, typesVault,
@@ -107,27 +107,8 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
   assert.equal(await mainBName(page), 'Prázdná schůzka');
 });
 
-test('fr_typ_09_ac6_new_object_from_the_type_page', async ({ page }) => {
-  const core = await openTypes(page);
-  await gotoTypePage(page, S);
-  for (const how of ['palette', 'button'] as const) { // palette first: the button step opens the new note, where `New Schůzka` isn't offered (R13)
-    if (how === 'button') await main(page).getByRole('button', { name: 'New Schůzka', exact: true }).click();
-    else await runCommand(page, 'New Schůzka');
-    const d = await must(newObjectDialog(page), `New object (${how})`);
-    assert.ok((await d.innerText()).includes('Schůzka'), 'type shown');
-    const create = d.getByRole('button', { name: 'Create', exact: true });
-    await d.getByRole('textbox', { name: 'Title' }).fill('  ');
-    assert.equal(await isDisabled(create), true, 'an empty title can\'t be created');
-    if (how === 'palette') { await page.keyboard.press('Escape'); continue; }
-    await d.getByRole('textbox', { name: 'Title' }).fill('Plánování');
-    await page.keyboard.press('Enter');
-  }
-  assert.equal(await mainBName(page), 'Plánování', 'opens it');
-  const created = await callsOf(core, 'note_create');
-  assert.equal(created.length, 1);
-  assert.equal((created[0].args as any).type, 'schůzka', 'note_create(type, title, text)');
-  assert.ok((await fileText(core, 'Schůzky/Plánování.md'))?.startsWith('---\nid: '), 'Schůzky/Plánování.md');
-});
+// FR-TYP-09 AC-6 (the New object dialog) is superseded by D-520…D-523: `New <Name>` opens an unsaved draft, tested as
+// AC-17 in new_object_draft.ac.test.ts.
 
 test('fr_typ_09_ac8_later_controls_are_disabled_and_cells_not_editable', async ({ page }) => {
   await openTypes(page);

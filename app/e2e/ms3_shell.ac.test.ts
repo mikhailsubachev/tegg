@@ -93,7 +93,7 @@ async function waitExit(child: ChildProcess, ms = 10_000) {
 // System Events key codes.
 const KEY: Record<string, number> = {
   a: 0, s: 1, d: 2, f: 3, i: 34, k: 40, n: 45, o: 31, p: 35, t: 17, v: 9, comma: 43, backslash: 42, lbracket: 33,
-  rbracket: 30, enter: 36, escape: 53, tab: 48, space: 49, down: 125, up: 126,
+  rbracket: 30, enter: 36, escape: 53, tab: 48, space: 49, down: 125, up: 126, q: 12,
 };
 const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
 function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
@@ -520,18 +520,26 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
   const log = join(base, 'perf.jsonl');
   let d: Driver | undefined;
   try {
-    // (a) and (b) through New object.
+    // (a) and (b) through New object: an unsaved draft (D-520…D-523); the title is typed in it and ↩ writes it once.
     d = await session(testEnv(join(base, 'support-a'), log, { TEGG_VAULT: vaultA }));
     assert.ok(await waitMark(log, 'ui-ready'), 'ui-ready');
-    const files0 = Object.keys(tree(vaultA));
+    const tree0 = tree(vaultA);
+    const files0 = Object.keys(tree0);
     press('n', ['command']);
-    assert.ok(await shown(d, 'New object'), 'New object dialog');
+    assert.ok(await shown(d, 'Title'), 'the draft\'s Title field');
+    await sleep(500);
     paste('Nový nápad'.normalize('NFD'));
+    await sleep(2000);
+    assert.deepEqual(tree(vaultA), tree0, '(a) typing the title writes nothing for 2 s');
     press('enter');
-    await sleep(1500);
+    const end1 = Date.now() + 5000;
+    while (Date.now() < end1 && !existsSync(join(vaultA, 'Quick Notes/Nový nápad.md'))) await sleep(100);
+    assert.ok(existsSync(join(vaultA, 'Quick Notes/Nový nápad.md')), '(a) ↩ writes the note');
     press('n', ['command']);
-    assert.ok(await shown(d, 'New object'), 'New object dialog again');
+    assert.ok(await shown(d, 'Title'), 'the second draft\'s Title field');
+    await sleep(500);
     paste('Nápad na čtvrtek');
+    await sleep(300);
     press('enter');
     await sleep(1500);
     const added = Object.keys(tree(vaultA)).filter((p) => !files0.includes(p)).sort();
@@ -551,9 +559,39 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
     await sleep(500);
     press('enter');
     await sleep(1500);
-    const viaDialog = readFileSync(join(vaultA, 'Quick Notes/Nový nápad.md'), 'utf8');
+    const viaDraft = readFileSync(join(vaultA, 'Quick Notes/Nový nápad.md'), 'utf8');
     const viaSwitcher = readFileSync(join(vaultB, 'Quick Notes/Nový nápad.md'), 'utf8');
-    assert.equal(maskIds(viaDialog), maskIds(viaSwitcher), '(a) same bytes as the switcher create item, apart from id and timestamps');
+    assert.equal(maskIds(viaDraft), maskIds(viaSwitcher), '(a) same bytes as the switcher create item, apart from id and timestamps');
+  } finally {
+    await end(d);
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// types.md FR-TYP-09 AC-17 (d), ⌘Q part (L6 only, D-213): quitting flushes a draft whose title was typed but not
+// committed, and writes it once (D-522).
+test('fr_typ_09_ac17_d_cmd_q_writes_an_uncommitted_draft_title_once', { timeout: 180_000 }, async () => {
+  await ready();
+  const base = tmp('typ09-17q');
+  const vault = shellCopy(base);
+  const log = join(base, 'perf.jsonl');
+  const NEW = 'Quick Notes/Rozepsaný nápad.md';
+  let d: Driver | undefined;
+  try {
+    d = await session(testEnv(join(base, 'support'), log, { TEGG_VAULT: vault }));
+    assert.ok(await waitMark(log, 'ui-ready'), 'ui-ready');
+    const files0 = Object.keys(tree(vault));
+    press('n', ['command']);
+    assert.ok(await shown(d, 'Title'), 'the draft\'s Title field');
+    await sleep(500);
+    paste('Rozepsaný nápad');
+    await sleep(500);
+    assert.deepEqual(Object.keys(tree(vault)).filter((p) => !files0.includes(p)), [], 'setup: the typed title is not written yet');
+    press('q', ['command']);
+    await sleep(3000);
+    const added = Object.keys(tree(vault)).filter((p) => !files0.includes(p));
+    assert.deepEqual(added, [NEW], '(d) ⌘Q wrote exactly one new file, named by the typed title');
+    assert.match(readFileSync(join(vault, NEW), 'utf8'), /^title: Rozepsaný nápad$/m, '(d) with that title');
   } finally {
     await end(d);
     rmSync(base, { recursive: true, force: true });

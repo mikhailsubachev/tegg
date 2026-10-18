@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { newEmptyVault } from '../ui/test/fake-core';
 import {
-  P, eventually, focused, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, paletteDialog,
+  P, eventually, focused, mainName, must, mustBeOn, nonReadCalls, onPage, openNote, paletteDialog,
   runCommand, seen, sidebar, sleep, start, switcherDialog, theme, typesList,
 } from './helpers';
 import { IDS, R, article, firstVisibleBlockText, headingFn, placement, readVault, scrollToTop, ui, watchNetwork } from './read-helpers';
@@ -242,8 +242,9 @@ test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ p
 
 // ------------------------------------------------------------------------------------------------ AC-6
 
+// D-520: ⌘N no longer opens a dialog (it navigates to an unsaved draft), so the New object case is gone.
 for (const [dialog, key, loc] of [
-  ['palette', 'Meta+k', paletteDialog], ['switcher', 'Meta+o', switcherDialog], ['new_object', 'Meta+n', newObjectDialog],
+  ['palette', 'Meta+k', paletteDialog], ['switcher', 'Meta+o', switcherDialog],
 ] as const) {
   test(`fr_nav_03_ac6_no_navigation_while_${dialog}_is_open`, async ({ page }) => {
     await start(page);
