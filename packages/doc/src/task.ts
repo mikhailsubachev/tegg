@@ -61,10 +61,14 @@ export function applyTaskChange(text: string, change: TaskChange): { text: strin
       const drops = from !== null && list.some((t) => key(t) === from && from !== key(to))
       if (has && !drops) return null
       // Edit the entry's own text: untouched items keep their bytes (PR #47 review, D-230, D-478).
-      const surgical = editTagsRaw(doc, from, has ? null : to)
-      if (surgical !== null) return surgical === text ? null : { text: surgical, inlineKept }
       const kept = from === null ? list : list.filter((t) => key(t) !== from)
       const next: Value[] = has ? kept : [...kept, to]
+      // Used only when it reads back as exactly the intended tags; anything the splitter can't read (an apostrophe in
+      // a word, `\\` before a quote, booleans) falls back to a re-render (PR #47 second review).
+      const surgical = editTagsRaw(doc, from, has ? null : to)
+      const rawItems: unknown[] = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw]
+      const want = [...rawItems.filter((v) => from === null || scalar(v) === null || key(scalar(v)!) !== from), ...(has ? [] : [to])]
+      if (surgical !== null && sameTags(surgical, want)) return surgical === text ? null : { text: surgical, inlineKept }
       const out = Array.isArray(raw) || raw === undefined || raw === null ? setFlowList(doc, 'tags', next) : setValue(doc, 'tags', next)
       return out === text ? null : { text: out, inlineKept }
     }
@@ -82,6 +86,15 @@ export function completeTask(text: string, defs: TaskDefsLike, done: boolean, no
   const firstOpen = defs.statuses.find((s) => s.state === 'open')?.label ?? 'To do'
   if (!target) return null
   return applyTaskChange(text, { kind: 'status', to: target.label, toState: target.state, fromState, firstOpen, now })?.text ?? null
+}
+
+function sameTags(text: string, want: unknown[]): boolean {
+  const d = parse(text)
+  if (d.frontmatter?.error) return false
+  const got = d.frontmatter?.data?.tags
+  const list = Array.isArray(got) ? got : got === undefined || got === null ? [] : [got]
+  const k = (v: unknown) => (v === null || typeof v === 'object' ? '\u0000' : key(String(v)))
+  return list.length === want.length && list.every((v, i) => k(v) === k(want[i]) && (typeof v === 'string' || typeof v === 'number' || v === want[i]))
 }
 
 /** A `tags:` entry in flow (`[a, b]` on its line) or block (`- a` lines) style, edited in place: items whose key is
