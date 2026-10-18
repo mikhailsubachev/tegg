@@ -65,44 +65,44 @@ export function TagFilter({ tags, selected, onChange }: {
   return (
     <div className="tag-filter" ref={wrap} onBlur={(e) => { if (!wrap.current?.contains(e.relatedTarget as Node | null)) close(); }}>
       <span className="label">{t('tasks.tags')}</span>
-      <div className={`tag-box ${open ? 'open' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); input.current?.focus(); if (open) close(); else show(); } }}>
+      <div className={`tf-box ${open ? 'open' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); input.current?.focus(); if (open) close(); else show(); } }}>
         <Icon name="search" size={13} />
         {selected.map((k) => (
-          <span key={k} className="tag-chip" data-tag={k}>
+          <span key={k} className="tf-chip" data-tag={k}>
             <span data-user-content>#{labelOf(k)}</span>
-            <button type="button" className="tag-chip-remove" data-command="tasks.tagFilter" aria-label={t('tasks.tagRemove', { tag: labelOf(k) })}
+            <button type="button" className="tf-chip-remove" data-command="tasks.tagFilter" aria-label={t('tasks.tagRemove', { tag: labelOf(k) })}
               onClick={() => { onChange(selected.filter((x) => x !== k)); input.current?.focus(); }}>×</button>
           </span>
         ))}
-        <input ref={input} type="text" role="combobox" className="tag-input" aria-label={t('tasks.tagFilter')} aria-haspopup="listbox" aria-expanded={open}
+        <input ref={input} type="text" role="combobox" className="tf-input" aria-label={t('tasks.tagFilter')} aria-haspopup="listbox" aria-expanded={open}
           aria-controls={listId} aria-autocomplete="list" aria-activedescendant={open && options.length ? optionId(at) : undefined}
           placeholder={selected.length ? t('tasks.tagAdd') : t('tasks.tagSearch', { count: tags.length })}
           spellCheck={false} autoComplete="off" autoCorrect="off" autoCapitalize="off" value={query}
           onChange={(e) => { setQuery(e.target.value); show(); }} onClick={() => { if (!open) show(); }} onKeyDown={onKey} />
         {selected.length > 0 && (
-          <button type="button" className="tag-clear" data-command="tasks.tagClear" aria-label={t('tasks.tagClear')} title={t('tasks.tagClear')}
+          <button type="button" className="tf-clear" data-command="tasks.tagClear" aria-label={t('tasks.tagClear')} title={t('tasks.tagClear')}
             onClick={() => { onChange([]); close(); input.current?.focus(); }}>×</button>
         )}
       </div>
       {open && (
-        <div className="tag-menu">
-          <div className="tag-menu-hint">
+        <div className="tf-menu">
+          <div className="tf-menu-hint">
             {q ? t('tasks.tagMatches', { matches: matches.length, count: tags.length, text: query.trim() }) : t('tasks.tagListHint', { count: tags.length })}
           </div>
-          <div role="listbox" id={listId} aria-label={t('tasks.tags')} aria-multiselectable="true" className="tag-options">
+          <div role="listbox" id={listId} aria-label={t('tasks.tags')} aria-multiselectable="true" className="tf-options">
             {options.map((x, i) => {
               const on = selected.includes(x.key);
               return (
                 <div key={x.key} id={optionId(i)} role="option" aria-selected={on} aria-label={`#${x.label}`} aria-describedby={`${optionId(i)}-n`} data-tag={x.key}
-                  className={`tag-option ${i === at ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => toggle(x.key)}>
+                  className={`tf-option ${i === at ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => toggle(x.key)}>
                   <span className="tick" aria-hidden="true">{on ? '✓' : ''}</span>
-                  <span className="tag-name" data-user-content>#{x.label}</span>
+                  <span className="tf-name" data-user-content>#{x.label}</span>
                   <span id={`${optionId(i)}-n`} className="count">{x.count}</span>
                 </div>
               );
             })}
           </div>
-          <div className="tag-menu-keys">{t('tasks.tagKeys')}</div>
+          <div className="tf-menu-keys">{t('tasks.tagKeys')}</div>
         </div>
       )}
       {selected.length > 1 && <span className="hint">{t('tasks.tagAll')}</span>}

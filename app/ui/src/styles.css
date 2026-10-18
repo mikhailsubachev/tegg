@@ -638,23 +638,23 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .tag-filter { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--border); }
 .tag-filter .label { color: var(--muted); font-size: 13px; }
 .tag-filter .hint { font-size: 12px; color: var(--muted); }
-.tag-box { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 240px; max-width: 380px; min-height: 32px; box-sizing: border-box; padding: 3px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); cursor: text; }
-.tag-box.open, .tag-box:focus-within { border-color: var(--focus); }
-.tag-chip { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border-radius: 12px; background: var(--sel); color: var(--link, var(--text)); font-size: 12px; font-weight: 600; }
-.tag-chip-remove, .tag-clear { width: 20px; height: 20px; padding: 0; border: none; border-radius: 10px; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
-.tag-chip-remove:hover, .tag-clear:hover { background: var(--hover); }
-.tag-input { flex: 1 1 90px; min-width: 90px; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: 13px; }
-.tag-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-.tag-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: 300px; padding: 6px; border-radius: 10px; background: var(--pop, var(--bg)); border: 1px solid var(--border); box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent); font-size: 13px; }
-.tag-menu-hint { padding: 4px 8px 6px; font-size: 11px; color: var(--muted); }
-.tag-options { max-height: 220px; overflow-y: auto; }
-.tag-option { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; cursor: pointer; }
-.tag-option.active { background: var(--hover); }
-.tag-option[aria-selected="true"] { background: var(--sel); }
-.tag-option .tick { width: 14px; font-weight: 700; color: var(--focus); }
-.tag-option .tag-name { flex: 1; }
-.tag-option .count { font-size: 12px; color: var(--muted); }
-.tag-menu-keys { border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--muted); }
+.tf-box { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 240px; max-width: 380px; min-height: 32px; box-sizing: border-box; padding: 3px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); cursor: text; }
+.tf-box.open, .tf-box:focus-within { border-color: var(--focus); }
+.tf-chip { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border-radius: 12px; background: var(--sel); color: var(--link, var(--text)); font-size: 12px; font-weight: 600; }
+.tf-chip-remove, .tf-clear { width: 20px; height: 20px; padding: 0; border: none; border-radius: 10px; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
+.tf-chip-remove:hover, .tf-clear:hover { background: var(--hover); }
+.tf-input { flex: 1 1 90px; min-width: 90px; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: 13px; }
+.tf-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.tf-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: 300px; padding: 6px; border-radius: 10px; background: var(--pop, var(--bg)); border: 1px solid var(--border); box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent); font-size: 13px; }
+.tf-menu-hint { padding: 4px 8px 6px; font-size: 11px; color: var(--muted); }
+.tf-options { max-height: 220px; overflow-y: auto; }
+.tf-option { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; cursor: pointer; }
+.tf-option.active { background: var(--hover); }
+.tf-option[aria-selected="true"] { background: var(--sel); }
+.tf-option .tick { width: 14px; font-weight: 700; color: var(--focus); }
+.tf-option .tf-name { flex: 1; }
+.tf-option .count { font-size: 12px; color: var(--muted); }
+.tf-menu-keys { border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--muted); }
 .tasks-filter { display: inline-flex; gap: 4px; }
 button.toggle { font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 button.toggle[aria-pressed="true"] { background: var(--sel); border-color: var(--focus); }
