@@ -8,6 +8,10 @@ use std::path::{Path, PathBuf};
 
 use crate::{version_of, ChangeSink, FileVersion, FsChange, FsEntry, VaultFs, WatchGuard};
 
+/// Test hook (ms5-tasks §11.6, FR-CNV-03 AC-7): called with the vault path after a replacing write's temp file is
+/// written and before the rename. Only the app's test build installs it (`TEGG_TEST=1`); it may block forever.
+pub static BEFORE_RENAME: std::sync::OnceLock<Box<dyn Fn(&str) + Send + Sync>> = std::sync::OnceLock::new();
+
 pub struct LocalFs {
     root: PathBuf,
 }
@@ -93,6 +97,9 @@ impl VaultFs for LocalFs {
     fn replace(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
         let abs = self.abs(path);
         let tmp = Self::write_temp(&abs, bytes)?;
+        if let Some(hook) = BEFORE_RENAME.get() {
+            hook(path);
+        }
         if let Err(e) = fs::rename(&tmp, &abs) {
             let _ = fs::remove_file(&tmp);
             return Err(e);

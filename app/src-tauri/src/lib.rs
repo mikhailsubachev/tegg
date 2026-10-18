@@ -176,6 +176,8 @@ fn core_err(e: CoreError) -> IpcError {
         // ms4-daily §3 (4B).
         CoreError::UseDailyNote => err("UseDailyNote", "a Daily Note is created by typing in it"),
         CoreError::DailyMismatch => err("DailyMismatch", "the bytes aren't this date's Daily Note"),
+        // ms5-tasks §11.6 (5A-2).
+        CoreError::Protected => err("Protected", "only notes can be discarded"),
         other => err("Io", format!("{other:?}")),
     }
 }
@@ -505,7 +507,20 @@ async fn index_conflicts(state: State<'_, AppState>) -> Result<Vec<ConflictRowDt
 #[tauri::command]
 async fn note_create(state: State<'_, AppState>, r#type: String, title: String, text: String) -> Result<String, IpcError> {
     let core = core(&state)?;
-    core.create_object(&r#type, &title, text.as_bytes()).map_err(core_err)
+    let path = core.create_object(&r#type, &title, text.as_bytes()).map_err(core_err)?;
+    if test_var("TEGG_TEST_HOLD").as_deref() == Some("after-create") {
+        hold("after-create"); // FR-CNV-03 AC-7: the new file is written and indexed, the source not yet saved
+    }
+    Ok(path)
+}
+
+/// ms5-tasks §11.6 (test build only): marks `hold:<point>` and blocks this thread forever, so the L6 test can kill
+/// the app at that point (FR-CNV-03 AC-7).
+fn hold(point: &str) {
+    mark_repeat(&format!("hold:{point}"));
+    loop {
+        std::thread::sleep(Duration::from_secs(3600));
+    }
 }
 
 /// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
@@ -1465,6 +1480,15 @@ pub fn run() {
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
         .setup(|app| {
             let handle = app.handle().clone();
+            // FR-CNV-03 AC-7 (test build): `TEGG_TEST_HOLD=during-source-save:<vault path>` holds that file's next
+            // replacing write after its temp file is written, before the rename.
+            if let Some(target) = test_var("TEGG_TEST_HOLD").and_then(|v| v.strip_prefix("during-source-save:").map(tegg_format::nfc)) {
+                let _ = tegg_vault::BEFORE_RENAME.set(Box::new(move |path: &str| {
+                    if tegg_format::nfc(path) == target {
+                        hold("during-source-save");
+                    }
+                }));
+            }
             watch_mouse_buttons(handle.clone());
             // The default menu, with Quit replaced by an item that lets the UI save first (FR-EDT-08 AC-7, D-196).
             {
