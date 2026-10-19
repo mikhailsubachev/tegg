@@ -124,7 +124,7 @@ Decided in D-321, D-329, D-330, D-337.
 
 - **AC-1** **Unreviewed on the first write (D-272).** The FR-DLY-02 AC-2 file has `review: unreviewed`, also when the template has a `review:` key (the system value wins, D-325). A virtual note shows no review control and stores no state. *(L4; L5)*
 - **AC-2** **The control (D-330).** On 7 Oct the review control is `Mark reviewed` (not pressed); activating it (or the palette `Mark reviewed`) changes only the line `review: unreviewed` to `review: reviewed` and `modified` (FR-FMT-07 AC-5, one atomic write) and shows `Reviewed` (pressed); `Mark unreviewed` reverts it the same way. On 1 Oct it starts as `Reviewed`. An external change of `review:` updates the control within 2 s. *(L5; L4 for the bytes)*
-- **AC-3** **No Inbox yet.** No Inbox route or sidebar entry is built by 4B; app-shell R1 `inbox` stays TBD `Coming in MS5`. *(L5)*
+- ~~**AC-3** **No Inbox yet.**~~ Retired by slice 5B (D-576): the Inbox is built; replaced by [inbox.md](inbox.md) FR-DLY-05 AC-5.
 - **AC-4** **Missing or unknown value.** A Daily Note without `review:` (e.g. Archiv) or with `review: maybe` shows `Mark reviewed`; opening it writes nothing; only activating the control writes `review: reviewed`. *(L5)*
 
 ### FR-DLY-06 Daily template

@@ -2,6 +2,7 @@
 // block menu (FR-EDT-01 AC-3…AC-6), the slash menu (FR-EDT-03), the formatting toolbar and link field (FR-EDT-05),
 // `[[` and `#` autocomplete (FR-EDT-06, -15), block selection (FR-EDT-13) and paste notices (FR-EDT-14). The editor
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
+import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { createEditor, embedTarget, linkTarget, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
 import { isAttachmentTarget } from '@tegg/doc';
@@ -140,6 +141,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const [hover, setHover] = useState<number | null>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
   const [suggest, setSuggest] = useState<Suggest | null>(null);
+  /** FR-VLT-05 AC-3: the `Create "<q>" as…` row whose type the `Type` menu is choosing. */
+  const [asType, setAsType] = useState<{ row: Row; at: { left: number; top: number } } | null>(null);
   const [menu, setMenu] = useState<Menu>(null);
   const [linkField, setLinkField] = useState<LinkField>(null);
   const [toolbarHidden, setToolbarHidden] = useState<string | null>(null);
@@ -412,7 +415,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (am && !lm0) {
       const from = $f.pos - am[1].length - 1;
       const cur = live.current.suggest;
-      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create' || x.kind === 'pickDate')) {
+      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create' || x.kind === 'create-as' || x.kind === 'pickDate')) {
         dismissed.current = `a${from}`;
         setSuggest(null);
       }
@@ -427,7 +430,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           const at = !lm0;
           setSuggest((s) => ({ kind: 'link', from, to: $f.pos, query: q, items: s?.kind === 'link' ? s.items : [], sel: 0, at }));
           void ipc.switcher(q, 20).then((found) => {
-            const items: Row[] = at ? withDates(q, found) : found;
+            // FR-VLT-05 AC-3 (D-550): `Create "<q>" as…` right after the create row.
+            const withAs = found.flatMap((x) => (x.kind === 'create' ? [x, { ...x, kind: 'create-as' }] : [x]));
+            const items: Row[] = at ? withDates(q, withAs) : withAs;
             // The create row's type is read ahead (D-232), so choosing it sends note_create at once.
             const c = found.find((x) => x.kind === 'create');
             if (c && prepared.current?.key !== c.type) {
@@ -664,10 +669,16 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     e.commands.replaceWithLink(s.from, e.view.state.selection.from, { path: date, title: date, fromPath: pathRef.current, stemResolves: true });
     focusEditor();
   };
-  const chooseLink = async (row: Row) => {
+  const chooseLink = async (row: Row, asType?: string) => {
     const e = edRef.current;
     const s = live.current.suggest;
     if (!e || !s || s.kind !== 'link') return;
+    if (row.kind === 'create-as' && !asType) {
+      // FR-VLT-05 AC-3: the `Type` menu chooses the type, then the row creates as the create row does.
+      const c = e.view.coordsAtPos(s.from);
+      setAsType({ row, at: { left: c.left, top: c.bottom + 4 } });
+      return;
+    }
     if (row.kind === 'date') { insertDate((row as { date: string }).date); return; }
     if (row.kind === 'pickDate') {
       const c = e.view.coordsAtPos(s.from);
@@ -679,10 +690,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     dismissed.current = `${s.at ? 'a' : 'l'}${s.from}`; // ⌘Z restores the typed query as text; it doesn't reopen the list
     let path = item.path;
     let title = item.title.normalize('NFC');
-    if (item.kind === 'create') {
+    if (item.kind === 'create' || item.kind === 'create-as') {
+      const type = asType ?? item.type;
       try {
-        const ready = prepared.current?.key === item.type ? prepared.current.p : null;
-        path = await (ready ? ready.create(title) : createObject(item.type, title));
+        const ready = prepared.current?.key === type ? prepared.current.p : null;
+        path = await (ready ? ready.create(title) : createObject(type, title));
       } catch {
         return;
       }
@@ -691,7 +703,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const r = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
     const stemResolves = r[0]?.path?.normalize('NFC') === path.normalize('NFC');
-    links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: item.type });
+    links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: asType ?? item.type });
     // 4F (FR-EMB-01 AC-9, D-426): `![[` writes an embed with the D-184 target, never an alias.
     const bang = !s.at && s.from > 0 && e.view.state.doc.textBetween(s.from - 1, s.from) === '!';
     if (bang && embeds) {
@@ -1108,6 +1120,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       {suggest && e2 && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
       )}
+      {asType && (
+        <TypeMenu at={asType.at} onClose={() => { setAsType(null); focusEditor(); }}
+          onChoose={(ty) => { const row = asType.row; setAsType(null); void chooseLink(row, ty.key); }} />
+      )}
       {convertOpen && (
         <ConvertPopover at={convertOpen.at} types={types} title={convertOpen.title} type={convertOpen.type} count={convertOpen.count}
           onCancel={() => { setConvertOpen(null); edRef.current?.clearBlockSelection(); focusEditor(); }}
@@ -1221,7 +1237,8 @@ function withDates(q: string, found: SwitcherItemDto[]): Row[] {
   const dates: Row[] = dateRows(q, localDate(Date.now()), region() ?? navigator.language)
     .map((r) => ({ kind: 'date' as const, title: r.label, date: r.date, path: null, type: 'daily-note' as const, matched_alias: null, duplicate: null }));
   const pickRow: Row = { kind: 'pickDate', title: t('mention.pickDate'), path: null, type: '', matched_alias: null, duplicate: null };
-  return [...dates, ...found.filter((x) => x.kind !== 'create'), pickRow, ...found.filter((x) => x.kind === 'create')];
+  const isCreate = (x: SwitcherItemDto) => x.kind === 'create' || x.kind === 'create-as';
+  return [...dates, ...found.filter((x) => !isCreate(x)), pickRow, ...found.filter(isCreate)];
 }
 
 function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: TypeDefDto[]; pos: { left: number; top: number }; onLink: (i: Row) => void; onTag: (spelling: string) => void }) {
@@ -1241,8 +1258,8 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
             }
             const it = row;
             const typeName = types.find((x) => x.key === it.type)?.name ?? it.type;
-            const create = it.kind === 'create';
-            const label = create ? t('suggest.create', { query: it.title }) : undefined;
+            const create = it.kind === 'create' || it.kind === 'create-as';
+            const label = it.kind === 'create-as' ? t('create.as', { query: it.title }) : create ? t('suggest.create', { query: it.title }) : undefined;
             return (
               <div key={`${it.kind}:${it.path ?? it.title}`} role="option" aria-selected={i === s.sel} aria-label={label}
                 className={`option ${i === s.sel ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => onLink(it)}>

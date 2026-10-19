@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-job-interrupted"
+description = "Enables the job_interrupted command without any pre-configured scope."
+commands.allow = ["job_interrupted"]
+
+[[permission]]
+identifier = "deny-job-interrupted"
+description = "Denies the job_interrupted command without any pre-configured scope."
+commands.deny = ["job_interrupted"]

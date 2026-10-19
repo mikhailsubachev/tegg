@@ -95,6 +95,10 @@ export function newObject(opts: {
   /** ms5-tasks §11.2 (5A-2, D-524): the body after the frontmatter instead of the template's body (the template's
    *  frontmatter entries still apply). */
   body?: string
+  /** ms5-capture §3.2 (5B, D-540): a capture's time stamp. With it: `review: unreviewed` whatever `type.review`, then
+   *  `captured`, then `created`, `modified`; the template's `id, type, title, tags, review, captured, created,
+   *  modified` are ignored and its body is never used (D-540, D-567). */
+  captured?: string
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
   const tplEntries = new Map<string, string>()
@@ -106,7 +110,8 @@ export function newObject(opts: {
     }
   }
   let out = '---\n' + formatEntry('id', opts.newId()) + formatEntry('type', opts.type.key.normalize('NFC')) + formatEntry('title', opts.title.normalize('NFC'))
-  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified'])
+  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified', 'captured'])
+  if (opts.captured !== undefined) for (const k of ['tags', 'captured']) tplEntries.delete(k)
   const values = new Map<string, Value>((opts.values ?? []).map(([k, v]) => [k.normalize('NFC'), v]))
   const entry = (k: string, v: Value) => (Array.isArray(v) ? `${formatKey(k)}: ${flowList(v)}\n` : formatEntry(k, v))
   for (const a of opts.type.attributes) {
@@ -142,12 +147,13 @@ export function newObject(opts: {
     const v = values.get(k)!
     if (v !== null && !(Array.isArray(v) && v.length === 0)) out += entry(k, v)
   }
-  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
+  if (opts.type.review !== 'off' || opts.captured !== undefined) out += formatEntry('review', 'unreviewed')
+  if (opts.captured !== undefined) out += formatEntry('captured', { datetime: opts.captured })
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
   if (opts.body !== undefined) {
     const body = opts.body.normalize('NFC')
     if (body !== '') out += body.endsWith('\n') ? body : body + '\n'
-  } else if (tpl) out += tpl.text.slice(tpl.bodyStart)
+  } else if (tpl && opts.captured === undefined) out += tpl.text.slice(tpl.bodyStart)
   return out
 }
 
@@ -190,7 +196,7 @@ export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dai
 
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §2.3)
 
-export { transform, rewriteLinks, resolveFrom, type TextOp, type Transformed } from './transform.js'
+export { transform, rewriteLinks, resolveFrom, d184Text, type TextOp, type Transformed } from './transform.js'
 
 // ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §5)
 
@@ -199,3 +205,8 @@ export { applyTaskChange, completeTask, type TaskChange, type TaskState, type Ta
 // ---------------------------------------------------------------- slice 5A-2 (ms5-tasks §11.1)
 
 export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit } from './convert.js'
+
+// ---------------------------------------------------------------- slice 5B (ms5-capture §3.1, §7.3)
+
+export { captureParts, type CaptureParts } from './capture.js'
+export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'

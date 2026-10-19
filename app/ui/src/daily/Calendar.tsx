@@ -1,5 +1,6 @@
 // The calendar popover (FR-DLY-03 AC-3…AC-6, daily-notes.md R18, D-329): a WAI-ARIA date-picker grid of one month,
 // days with a Daily Note marked from `daily_dates`, live on every vault change. Region formats come from Intl (D-133).
+import { dateTimeSetting } from '../i18n/dates';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addDays } from '@tegg/doc';
 import { localDate } from '../zone';
@@ -17,8 +18,11 @@ export function longDate(date: string, loc = region() ?? undefined): string {
   return new Intl.DateTimeFormat(loc, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(utc(date));
 }
 
-/** First day of the week from the region (D-329): 0 Sunday … 6 Saturday. */
+/** First day of the week (D-329, D-566): the Date & time choice, else the region; 0 Sunday … 6 Saturday. */
 function weekStart(loc: string | undefined): number {
+  const w0 = dateTimeSetting()?.week;
+  if (w0 === 'monday') return 1;
+  if (w0 === 'sunday') return 0;
   try {
     const l = new Intl.Locale(loc ?? navigator.language) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
     const w = l.getWeekInfo?.() ?? l.weekInfo;

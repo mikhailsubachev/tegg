@@ -94,9 +94,8 @@ test('fr_ux_02_ac13_placeholders_cannot_outlive_their_milestone', async () => {
   // overdue(): every TBD route/tab and disabled control due at or before the milestone, "MS3 (3D)" counting as MS3.
   assert.deepEqual(reg.overdue('MS2'), [], 'nothing is TBD at MS2');
   const ms3 = (reg.overdue('MS3') as string[]).join('\n');
-  for (const id of ['settings/date-time']) { // conflicts and Edit: done in 3C; type-settings, New type, Starter vault: 3D (types.md R1, R3)
-    assert.ok(ms3.includes(id), `overdue('MS3') must list ${id}:\n${ms3}`);
-  }
+  // 5B (inbox.md R62, D-565): settings/date-time is built and the Appearance extras are v1.0, so nothing is left at MS3.
+  assert.equal(ms3, '', `overdue('MS3') is empty after 5B:\n${ms3}`);
   for (const id of ['inbox', 'today', 'pinned', 'Type picker', 'New tab']) {
     assert.ok(!ms3.includes(id), `overdue('MS3') must not list ${id} (due later):\n${ms3}`);
   }

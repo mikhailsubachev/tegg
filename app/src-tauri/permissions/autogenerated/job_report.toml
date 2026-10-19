@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-job-report"
+description = "Enables the job_report command without any pre-configured scope."
+commands.allow = ["job_report"]
+
+[[permission]]
+identifier = "deny-job-report"
+description = "Denies the job_report command without any pre-configured scope."
+commands.deny = ["job_report"]

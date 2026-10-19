@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inbox-bulk"
+description = "Enables the inbox_bulk command without any pre-configured scope."
+commands.allow = ["inbox_bulk"]
+
+[[permission]]
+identifier = "deny-inbox-bulk"
+description = "Denies the inbox_bulk command without any pre-configured scope."
+commands.deny = ["inbox_bulk"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-broken-links"
+description = "Enables the index_broken_links command without any pre-configured scope."
+commands.allow = ["index_broken_links"]
+
+[[permission]]
+identifier = "deny-index-broken-links"
+description = "Denies the index_broken_links command without any pre-configured scope."
+commands.deny = ["index_broken_links"]

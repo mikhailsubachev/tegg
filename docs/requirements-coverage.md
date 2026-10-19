@@ -291,7 +291,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-EMB-03 | M | Embedded content is editable in place (FR-CNV-05). | Full mode is editable in place (D-273); note embeds in MS4 (D-415), FR-CNV-05 stays MS5 | MS4 |
 | FR-EMB-04 | M | Recursive embeds are detected and stopped (show "circular embed"). Maximum nesting depth is 3. | as FR-EMB-01 | MS4 |
 | FR-SET-01 | M | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | Default type and folders must be settable in the MVP | MS5 |
-| FR-SET-02 | M | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | Theme (FR-UX-05) | MS3 |
+| FR-SET-02 | M | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | Theme (FR-UX-05); font, size, width and accent → v1.0 (D-565) | MS3 |
 | FR-SET-03 | M | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | Date formats are shown from MS3 | MS3 |
 | FR-SET-05 | M | Menu bar icon on/off; launch at login. | Menu bar on/off, launch at login | MS5 |
 | FR-UX-01 | M | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | Cross-cutting UI rule; no milestone checks it | MS3 |

@@ -1,5 +1,7 @@
 // Shared helpers of the 3D type UI (ms3-shell §14.7): error messages, attribute-type labels, value display in the
 // region format (D-160, FR-FMT-11: dates are never shifted by a time zone) and type lookup by matched key (D-239).
+import { dateTimeSetting, formatDateTime as formatDateTimeWith } from '../i18n/dates';
+import { appZone } from '../zone';
 import { COLORS, typeMatch } from '@tegg/schema';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
@@ -51,6 +53,7 @@ export function dateText(v: unknown): string {
   if (typeof v !== 'string') return v === null || v === undefined ? '' : String(v);
   const m = ymd.exec(v.trim());
   if (!m) return v;
+  if (dateTimeSetting()?.date === 'iso') return `${m[1]}-${m[2]}-${m[3]}`; // FR-SET-03: ISO reads back as a date (D-566)
   return new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(+m[1], +m[2] - 1, +m[3]));
 }
 
@@ -69,6 +72,8 @@ export function dateTimeText(v: unknown): string {
   if (typeof v !== 'string') return v === null || v === undefined ? '' : String(v);
   const d = new Date(v);
   if (!/^\d{4}-\d{2}-\d{2}T/.test(v) || Number.isNaN(d.getTime())) return v;
+  const s = dateTimeSetting(); // FR-SET-03 (D-566)
+  if (s && (s.date !== 'region' || s.time !== 'region')) return formatDateTimeWith(v, s, appZone());
   return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
 }
 

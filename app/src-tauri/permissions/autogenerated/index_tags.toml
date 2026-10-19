@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-tags"
+description = "Enables the index_tags command without any pre-configured scope."
+commands.allow = ["index_tags"]
+
+[[permission]]
+identifier = "deny-index-tags"
+description = "Denies the index_tags command without any pre-configured scope."
+commands.deny = ["index_tags"]

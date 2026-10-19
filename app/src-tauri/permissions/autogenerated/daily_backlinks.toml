@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-backlinks"
+description = "Enables the daily_backlinks command without any pre-configured scope."
+commands.allow = ["daily_backlinks"]
+
+[[permission]]
+identifier = "deny-daily-backlinks"
+description = "Denies the daily_backlinks command without any pre-configured scope."
+commands.deny = ["daily_backlinks"]

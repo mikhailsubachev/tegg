@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-create"
+description = "Enables the capture_create command without any pre-configured scope."
+commands.allow = ["capture_create"]
+
+[[permission]]
+identifier = "deny-capture-create"
+description = "Denies the capture_create command without any pre-configured scope."
+commands.deny = ["capture_create"]

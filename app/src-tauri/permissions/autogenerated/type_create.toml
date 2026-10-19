@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-create"
+description = "Enables the type_create command without any pre-configured scope."
+commands.allow = ["type_create"]
+
+[[permission]]
+identifier = "deny-type-create"
+description = "Denies the type_create command without any pre-configured scope."
+commands.deny = ["type_create"]

@@ -102,7 +102,7 @@ test('fr_edt_01_ac13_switcher_create_item_puts_the_caret_at_the_end_of_the_title
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option').last().click();
+  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await expectTitleCaretThenType(page, core, 'Úplně nový', 'Quick Notes/Úplně nový.md', 'switcher create item');
 });
 
@@ -136,7 +136,7 @@ test('fr_edt_01_ac13_link_create_does_not_navigate_or_move_the_focus', async ({ 
   await editorBody(page).first().click();
   await page.keyboard.type('[[Nový cíl');
   const before = await page.evaluate(() => document.activeElement?.closest('[aria-label="Note body"]') !== null);
-  await (await must(page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"' }), 'Create option')).click();
+  await (await must(page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"', exact: true }), 'Create option')).click();
   await sleep(300);
   assert.ok(before, 'setup: the caret is in the body');
   assert.equal(await page.evaluate(() => document.activeElement?.closest('[aria-label="Note body"]') !== null), true, 'document.activeElement unchanged (still the body)');

@@ -3,6 +3,10 @@
 //! files; the perf log and the UI state are machine-local (docs/contracts/ms2-shell.md §1, ms3-shell.md §1, §2).
 
 mod dto;
+mod shell5b;
+mod strings;
+
+pub use shell5b::{acl_probe, AclProbe};
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -19,14 +23,14 @@ use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
 
-struct AppState {
-    dirs: AppDirs,
-    core: Mutex<Option<Arc<Core>>>,
-    vault: Mutex<Option<VaultInfo>>,
+pub(crate) struct AppState {
+    pub(crate) dirs: AppDirs,
+    pub(crate) core: Mutex<Option<Arc<Core>>>,
+    pub(crate) vault: Mutex<Option<VaultInfo>>,
 }
 
 /// The test environment (contract §1): honoured only with `TEGG_TEST=1`.
-fn test_var(name: &str) -> Option<String> {
+pub(crate) fn test_var(name: &str) -> Option<String> {
     if std::env::var("TEGG_TEST").as_deref() != Ok("1") {
         return None;
     }
@@ -34,7 +38,9 @@ fn test_var(name: &str) -> Option<String> {
 }
 
 /// The app name: window title and Application Support folder (D-118: the preview keeps its own data).
-const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+pub(crate) const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549).
+pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
 fn app_dirs() -> AppDirs {
     let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
@@ -70,6 +76,9 @@ fn ms_since_process_start() -> f64 {
 
 static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// Bumped each time a vault opens: the capture window's vault token (ms5-capture §2.2, FR-CAP-01 AC-11).
+pub(crate) static VAULT_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
 static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -84,8 +93,8 @@ fn watch_mouse_buttons(app: AppHandle) {
         // SAFETY: AppKit passes a valid event for the duration of the handler.
         let n = unsafe { e.as_ref() }.buttonNumber();
         match n {
-            3 => { let _ = app.emit("nav:mouse", "back"); }
-            4 => { let _ = app.emit("nav:mouse", "forward"); }
+            3 => { let _ = app.emit_to("main", "nav:mouse", "back"); }
+            4 => { let _ = app.emit_to("main", "nav:mouse", "forward"); }
             _ => {}
         }
         e.as_ptr()
@@ -126,15 +135,15 @@ fn mark(app: &AppHandle, name: &str) {
 
 // ---------------------------------------------------------------- vault and events
 
-fn err(kind: &str, message: impl ToString) -> IpcError {
+pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
     IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None }
 }
 
-fn version_dto(v: &FileVersion) -> VersionDto {
+pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
     VersionDto { mtime_ns: v.mtime_ns.to_string(), size: v.size, hash: v.hash.iter().map(|b| format!("{b:02x}")).collect() }
 }
 
-fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
+pub(crate) fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
     let bad = || err("Io", "malformed version");
     if d.hash.len() != 64 {
         return Err(bad());
@@ -155,7 +164,7 @@ fn mark_repeat(name: &str) {
     }
 }
 
-fn core_err(e: CoreError) -> IpcError {
+pub(crate) fn core_err(e: CoreError) -> IpcError {
     match e {
         CoreError::Vault(VaultError::Conflict { .. }) => err("Conflict", "the file changed on disk"),
         CoreError::Vault(VaultError::Gone) => err("Gone", "the file was deleted"),
@@ -264,6 +273,9 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     }
     *state.core.lock().unwrap_or_else(|p| p.into_inner()) = Some(core);
     *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
+    VAULT_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
+    shell5b::inbox_count_changed(app);
     Ok(info)
 }
 
@@ -279,13 +291,16 @@ fn forward_events(app: AppHandle, core: &Core) {
                         ProgressState::Done => "done",
                         ProgressState::Cancelled => "cancelled",
                     };
-                    let _ = app.emit("index:progress", ProgressDto { done: done as u32, total: total as u32, state: s.into() });
+                    let _ = app.emit_to("main", "index:progress", ProgressDto { done: done as u32, total: total as u32, state: s.into() });
                     if state == ProgressState::Done {
                         mark(&app, "index-ready");
                     }
                 }
                 CoreEvent::VaultChanged { paths } => {
-                    let _ = app.emit("vault:changed", ChangedDto { paths });
+                    // The capture window gets no paths (NFR-SEC-03): only a hint to re-read its context (§2.2).
+                    shell5b::context_maybe_changed(&app, &paths);
+                    let _ = app.emit_to("main", "vault:changed", ChangedDto { paths });
+                    shell5b::inbox_count_changed(&app);
                 }
                 CoreEvent::NoteConflict { path, mine, theirs, disk } => {
                     let c = ConflictDto {
@@ -294,23 +309,23 @@ fn forward_events(app: AppHandle, core: &Core) {
                         theirs: String::from_utf8_lossy(&theirs).into_owned(),
                         theirs_version: version_dto(&disk),
                     };
-                    let _ = app.emit("note:conflict", c);
+                    let _ = app.emit_to("main", "note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
                 // ms4-jobs §4 (4C).
                 CoreEvent::JobProgress(p) => {
-                    let _ = app.emit("job:progress", progress_dto(&p));
+                    let _ = app.emit_to("main", "job:progress", progress_dto(&p));
                 }
                 CoreEvent::JobTransform { request, source, text, ops, live } => {
                     let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::op_json).collect();
-                    let _ = app.emit("job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
+                    let _ = app.emit_to("main", "job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
                 }
             }
         }
     });
 }
 
-fn core(state: &State<AppState>) -> Result<Arc<Core>, IpcError> {
+pub(crate) fn core(state: &State<AppState>) -> Result<Arc<Core>, IpcError> {
     state.core.lock().unwrap_or_else(|p| p.into_inner()).clone().ok_or_else(|| err("NoVault", "no vault is open"))
 }
 
@@ -908,7 +923,7 @@ async fn daily_tasks(state: State<'_, AppState>, date: String, start: String, en
 
 use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
 
-fn job_err(e: JobError) -> IpcError {
+pub(crate) fn job_err(e: JobError) -> IpcError {
     match e {
         JobError::NotRenamable => err("NotRenamable", "this note can't be renamed"),
         JobError::Busy => err("Busy", "another job is running"),
@@ -1069,9 +1084,10 @@ async fn link_create_plan(state: State<'_, AppState>, from: String, target: Stri
 
 /// `link_create` (FR-LNK-04 AC-5, AC-11): the one write of the Create offer; re-plans first.
 #[tauri::command]
-async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String) -> Result<LinkCreatedDto, IpcError> {
+async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String, as_type: Option<String>) -> Result<LinkCreatedDto, IpcError> {
     let core = core(&state)?;
-    let made = core.link_create(&from, &target, &plan_from(expect), text.as_bytes()).map_err(core_err)?;
+    // `asType`: the type picked in the offer's `Type` control (FR-VLT-05 AC-3, D-550).
+    let made = core.link_create_as(&from, &target, &plan_from(expect), text.as_bytes(), as_type.as_deref()).map_err(core_err)?;
     Ok(LinkCreatedDto { path: made.path, rewrite: made.rewrite })
 }
 
@@ -1116,7 +1132,7 @@ fn type_dto(t: TypeInfo) -> TypeDto {
     }
 }
 
-fn attribute_dto(a: AttrDef) -> AttributeDto {
+pub(crate) fn attribute_dto(a: AttrDef) -> AttributeDto {
     let read_only_reason = match &a.r#type {
         AttrType::File => Some("file"),
         AttrType::Color => Some("color"),
@@ -1428,9 +1444,16 @@ fn ui_state_get(state: State<AppState>) -> UiStateDto {
 }
 
 #[tauri::command]
-fn ui_state_set(app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
+fn ui_state_set(app: AppHandle, app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
     let bytes = serde_json::to_vec_pretty(&state).map_err(|e| err("Io", e))?;
-    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))
+    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))?;
+    // ms5-capture §4 (FR-CAP-01 AC-14): the pre-warmed capture windows re-apply the theme and the date format; they get
+    // these two choices only, never the rest of the state.
+    let ui = serde_json::json!({ "theme": state.theme, "dateTime": state.date_time });
+    for w in [shell5b::CAPTURE, shell5b::SAVED] {
+        let _ = app.emit_to(w, "ui:state", ui.clone());
+    }
+    Ok(())
 }
 
 /// The collation locale of this Mac (D-122): the explicit collation order if set, else the region locale.
@@ -1447,7 +1470,7 @@ fn region_locale() -> Option<String> {
 
 /// Set before the UI's first paint (ms3-shell §3.5, §3.6, §10): the stored theme, the region locale, and in the
 /// test environment the start route and the time zone (`TZ`).
-fn init_script(dirs: &AppDirs) -> String {
+pub(crate) fn init_script(dirs: &AppDirs) -> String {
     let mut ui = load_ui_state(dirs);
     if let Some(theme) = test_var("TEGG_THEME").filter(|t| ["system", "light", "dark"].contains(&t.as_str())) {
         ui.theme = theme;
@@ -1473,8 +1496,25 @@ fn init_script(dirs: &AppDirs) -> String {
     )
 }
 
+
+/// ⌘Q, the status menu's `Quit Tegg` and the Quit Apple Event: the UI saves first and answers `app_quit` (D-196).
+pub(crate) fn request_quit(app: &AppHandle) {
+    if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
+        app.exit(0);
+    } else {
+        let _ = app.emit_to("main", "app:quit-requested", ());
+    }
+}
+
+/// The app's context (config, assets, capabilities, command manifest), for the real runtime and the ACL probe (D-570).
+pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 pub fn run() {
     let dirs = app_dirs();
+    // D-71: one instance per app bundle (FR-CAP-05 AC-4, AC-9); a second launch shows the first one's window.
+    shell5b::single_instance(BUNDLE_ID);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
@@ -1508,24 +1548,26 @@ pub fn run() {
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, e| {
                     if e.id() == "tegg-quit" {
-                        if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
-                            app.exit(0);
-                        } else {
-                            let _ = app.emit("app:quit-requested", ());
-                        }
+                        request_quit(app);
                     }
                 });
             }
             let dirs = app.state::<AppState>().dirs.clone();
-            // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
+            // The main window is built here so the init script runs before the UI (no flash of the wrong theme). A
+            // login launch starts with it hidden: menu bar and hotkeys only (D-547).
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title(APP_NAME)
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(800.0, 500.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true)
+                .visible(!shell5b::launched_at_login())
                 .initialization_script(&init_script(&dirs))
                 .build()?;
+            // ms5-capture §1: the pre-warmed capture window and panel, the status item, the global hotkeys.
+            shell5b::build_windows(&handle)?;
+            shell5b::setup_hotkeys(&handle);
+            shell5b::set_status_item(&handle, shell5b::load_shell(&dirs.root).show_status_item)?;
             let path = test_var("TEGG_VAULT").map(PathBuf::from).or_else(|| Vault::last_opened(&dirs).filter(|(_, exists)| *exists).map(|(p, _)| p));
             if let Some(path) = path {
                 // FR-VLT-01 AC-7: a vault that can't be opened leaves the app on its "open a vault" screen.
@@ -1544,23 +1586,33 @@ pub fn run() {
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
             job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
-            task_list, daily_tasks
+            task_list, daily_tasks,
+            shell5b::capture_context, shell5b::capture_create, shell5b::capture_ready, shell5b::capture_hide, shell5b::capture_resize,
+            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show,
+            shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
+            shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
+            shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions
         ])
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("error while building Tegg")
         .run(|app, event| {
-            // ⌘Q, the Quit Apple Event and closing the window first let the UI flush the open note (FR-EDT-08 AC-7):
-            // the UI answers with `app_quit` when the note is saved or the user chose to quit anyway (D-196).
+            // ⌘Q and the Quit Apple Event first let the UI flush the open note (FR-EDT-08 AC-7): the UI answers with
+            // `app_quit` when the note is saved or the user chose to quit anyway (D-196). Closing a window only hides
+            // it: the app keeps running in the menu bar (FR-CAP-03 AC-1).
             let allowed = ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst);
             match event {
                 tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() && !allowed => {
                     api.prevent_exit();
-                    let _ = app.emit("app:quit-requested", ());
+                    let _ = app.emit_to("main", "app:quit-requested", ());
                 }
-                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
+                tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
                     api.prevent_close();
-                    let _ = app.emit("app:quit-requested", ());
+                    if let Some(w) = app.get_webview_window(&label) {
+                        let _ = w.hide();
+                    }
                 }
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => shell5b::show_main(app),
                 _ => {}
             }
         });

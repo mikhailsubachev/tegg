@@ -1,0 +1,23 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "capture",
+  "description": "The capture window and its Saved panel: only create a capture (NFR-SEC-03, D-552, D-553; ms5-capture §2.1)",
+  "windows": [
+    "capture",
+    "capture-saved"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "allow-capture-context",
+    "allow-capture-create",
+    "allow-capture-ready",
+    "allow-capture-hide",
+    "allow-capture-resize",
+    "allow-capture-open-main",
+    "allow-capture-draft-get",
+    "allow-capture-draft-set",
+    "allow-capture-saved-show"
+  ]
+}

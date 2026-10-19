@@ -75,6 +75,8 @@
   "acRunners": [
     { "dir": ".", "match": "^crates/[^/]+/tests/ac_[^/]+\\.rs$",
       "run": "node tools/qa/src/cargo-junit.ts --junit {junit} {files}" },
+    { "dir": "app/src-tauri", "match": "^app/src-tauri/tests/ac_[^/]+\\.rs$",
+      "run": "node ../../tools/qa/src/cargo-junit.ts --junit {junit} {files}" },
     { "dir": "packages/doc", "match": "^packages/doc/test/.*\\.ac\\.test\\.ts$",
       "run": "npx vitest run --reporter=junit --outputFile.junit={junit} {files}" },
     { "dir": "packages/schema", "match": "^packages/schema/test/.*\\.ac\\.test\\.ts$",

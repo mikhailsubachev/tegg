@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inbox-count"
+description = "Enables the inbox_count command without any pre-configured scope."
+commands.allow = ["inbox_count"]
+
+[[permission]]
+identifier = "deny-inbox-count"
+description = "Denies the inbox_count command without any pre-configured scope."
+commands.deny = ["inbox_count"]

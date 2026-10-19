@@ -21,7 +21,8 @@ tegg-core = { path = "../../crates/tegg-core" }
 tegg-vault = { path = "../../crates/tegg-vault" }
 tegg-schema = { path = "../../crates/tegg-schema" }
 tegg-format = { path = "../../crates/tegg-format" }
-tauri = { version = "2", features = [] }
+# `test`: the mock runtime of `acl_probe` (D-570, NFR-SEC-03 AC-2); `tray-icon`, `image-png`: the status item (§1.4).
+tauri = { version = "2", features = ["tray-icon", "image-png", "test"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

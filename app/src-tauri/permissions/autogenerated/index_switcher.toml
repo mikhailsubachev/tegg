@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-switcher"
+description = "Enables the index_switcher command without any pre-configured scope."
+commands.allow = ["index_switcher"]
+
+[[permission]]
+identifier = "deny-index-switcher"
+description = "Denies the index_switcher command without any pre-configured scope."
+commands.deny = ["index_switcher"]

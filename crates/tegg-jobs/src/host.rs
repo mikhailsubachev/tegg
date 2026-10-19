@@ -33,6 +33,11 @@ pub trait Host: Send + Sync {
     /// The file's bytes and version; a placeholder is never read (ms2-core).
     fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), ReadError>;
     fn version(&self, path: &str) -> Option<FileVersion>;
+    /// The version the index last read (5B `inbox` plans against it, ms5-capture §7.3): a change on disk that the
+    /// index hasn't seen yet makes the file `changed`. Defaults to the disk version.
+    fn indexed_version(&self, path: &str) -> Option<FileVersion> {
+        self.version(path)
+    }
     fn is_placeholder(&self, path: &str) -> bool;
     /// Writes only if the file is still `base` (content), then updates the index and reports `vault:changed`. Never
     /// emits a conflict to the editor: a job skips the file instead (§5).

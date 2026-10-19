@@ -507,7 +507,10 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
     case 'link_create': {
       const from = String(a.from ?? ''), target = String(a.target ?? ''), expect = a.expect;
       if (expect?.state === 'create' && files[nfc(expect.path)] !== undefined) return { error: err('Exists', 'fake: the file appeared', { path: nfc(expect.path) }) };
-      const typed = expect?.state === 'create' && relationAllows(ctx, from, target, expect.type) ? plan(files, ctx, from, target, [expect.type]) : plan(files, ctx, from, target, null);
+      // 5B (FR-VLT-05 AC-3, D-550): a type picked in the offer's `Type` control is planned again with that type, as the
+      // core does for any type a capture can make.
+      const picked = expect?.state === 'create' && typeof a.asType === 'string' && a.asType === expect.type && !['daily-note', 'tag', 'image', 'pdf'].includes(String(expect.type));
+      const typed = expect?.state === 'create' && (relationAllows(ctx, from, target, expect.type) || picked) ? plan(files, ctx, from, target, [expect.type]) : plan(files, ctx, from, target, null);
       const now = same(typed, expect) ? typed : plan(files, ctx, from, target, null);
       if (now.state === 'exists') return { error: err('Exists', 'fake: exists now', { path: now.path }) };
       if (!same(now, expect) || now.state !== 'create') return { error: err('PlanChanged', 'fake: the plan changed', { now }) };

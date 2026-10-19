@@ -53,7 +53,7 @@ for (const row of R1) {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       await paletteOpensWithCursor(page, keys, `${row.id}, focus on body`);
       if (row.id !== 'chooser') {
-        await sidebar(page).getByText('Inbox', { exact: true }).focus();
+        await sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */.focus();
         await paletteOpensWithCursor(page, keys, `${row.id}, focus on a sidebar entry`);
         await sidebar(page).getByRole('button', { name: 'New type' }).focus();
         await paletteOpensWithCursor(page, keys, `${row.id}, focus on a disabled control`);
@@ -188,7 +188,7 @@ test('fr_ux_03_ac4_palette_matching_folds_case_diacritics_and_nfd', async ({ pag
 
 test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
   await start(page);
-  const entry = sidebar(page).getByText('Inbox', { exact: true });
+  const entry = sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */;
   await entry.focus();
   const before = await focused(page);
   await page.keyboard.press('Meta+k');
@@ -209,7 +209,7 @@ test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
   assert.ok(await absent(paletteDialog(page)), '⏎ closes the palette');
   const target = opts[2].replace(/^Go to (type: )?/, '');
   await mustBeOn(page, target === 'Settings' ? 'Settings: Appearance' : target, '⏎ runs the selected command');
-  await sidebar(page).getByText('Inbox', { exact: true }).focus();
+  await sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */.focus();
   await page.keyboard.press('Meta+k');
   await page.keyboard.press('Escape');
   assert.ok(await absent(paletteDialog(page)), 'Esc closes');
@@ -416,7 +416,7 @@ test('fr_ux_03_ac11_focus_moves_to_the_page_heading_after_navigation', async ({ 
     await page.keyboard.press('Tab');
     assert.ok((await focused(page)).inMain, `${how}: next Tab starts in the page`);
   };
-  await sidebar(page).getByText('Inbox', { exact: true }).click();
+  await sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */.click();
   await check('sidebar', 'Inbox');
   await runCommand(page, 'Go to Tasks');
   await check('palette', 'Tasks');

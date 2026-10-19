@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-duplicate-titles"
+description = "Enables the index_duplicate_titles command without any pre-configured scope."
+commands.allow = ["index_duplicate_titles"]
+
+[[permission]]
+identifier = "deny-index-duplicate-titles"
+description = "Denies the index_duplicate_titles command without any pre-configured scope."
+commands.deny = ["index_duplicate_titles"]

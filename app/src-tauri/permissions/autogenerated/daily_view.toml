@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-view"
+description = "Enables the daily_view command without any pre-configured scope."
+commands.allow = ["daily_view"]
+
+[[permission]]
+identifier = "deny-daily-view"
+description = "Denies the daily_view command without any pre-configured scope."
+commands.deny = ["daily_view"]

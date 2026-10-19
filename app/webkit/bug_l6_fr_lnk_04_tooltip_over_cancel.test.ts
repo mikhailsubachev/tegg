@@ -12,8 +12,8 @@ test('bug_l6_fr_lnk_04_cancel_works_while_the_type_picker_tooltip_shows', async 
   await openLinks(page, B.rozbite);
   await (await must(chips(editorBody(page), 'Neexistuje').and(page.locator('[data-link-kind="unresolved"]')), 'chip', 5000)).click();
   const offer = await must(createOffer(page), 'dialog "Create note"');
-  await (await must(offer.getByRole('button', { name: 'Type picker' }), 'type picker')).hover();
-  await must(page.getByRole('tooltip'), 'the Coming in MS5 tooltip shows');
+  // 5B (FR-VLT-05 AC-3): the type picker is the enabled combobox `Type` now; Cancel still works with it focused.
+  await (await must(offer.getByRole('combobox', { name: 'Type', exact: true }), 'type picker')).focus();
   const cancel = await must(offer.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel');
   const box = (await cancel.boundingBox())!;
   // A real pointer click at Cancel's centre (no actionability shortcut), as Appium does it.

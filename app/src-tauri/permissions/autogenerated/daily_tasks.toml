@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-tasks"
+description = "Enables the daily_tasks command without any pre-configured scope."
+commands.allow = ["daily_tasks"]
+
+[[permission]]
+identifier = "deny-daily-tasks"
+description = "Denies the daily_tasks command without any pre-configured scope."
+commands.deny = ["daily_tasks"]

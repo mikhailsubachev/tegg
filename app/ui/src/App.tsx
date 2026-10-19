@@ -49,6 +49,11 @@ import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
 import { AllTasks } from './tasks/AllTasks';
 import type { TasksView } from './tasks/TasksHeader';
 import { useTaskBadge } from './tasks/useTasks';
+import { InboxPage } from './inbox/InboxPage';
+import { TypeMenu } from './shell/TypeMenu';
+import { setDateTimeSetting } from './i18n/dates';
+import { HotkeyNotice } from './pages/HotkeyNotice';
+import { useInboxCount } from './inbox/useInboxCount';
 import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
 
@@ -87,6 +92,9 @@ export function App() {
   const [ui, setUi] = useState<UiState>(initialUi);
   /** D-520 (ms5-tasks §12.2): the unsaved new object shown on `new/<type>` (`route`: its route string). */
   const [draft, setDraft] = useState<{ route: string; path: string; info: DraftInfo } | null>(null);
+  /** FR-VLT-05 AC-4: the `Type` menu of an unwritten draft, and the title it carries to the new type. */
+  const [draftType, setDraftType] = useState<{ at: { left: number; top: number } } | null>(null);
+  const carryTitle = useRef<string | null>(null);
   /** D-520: New Task lands on the Tasks page with the caret in the quick-add row. */
   const focusQuickAdd = useRef(false);
   /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
@@ -136,6 +144,7 @@ export function App() {
   const uiLoaded = useRef(false);
   // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
   const taskCommand = useRef<((id: string) => void) | null>(null);
+  const inboxCommand = useRef<((id: string) => void) | null>(null);
   const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
@@ -208,12 +217,17 @@ export function App() {
   // 4C (ms4-jobs §2.2, §10): job progress and the worker bridge for the whole session.
   useEffect(() => { startJobs(); return startBridge(); }, []);
   useEffect(() => {
-    ipc.vaultCurrent().then((v) => (v ? opened(v) : setVault(null)), () => setVault(null));
+    // A result after the cleanup is dropped: StrictMode runs this effect twice, and two `opened` calls would load the
+    // landing page twice (NFR-PERF-05 AC-3: one link_resolve, one note_read).
+    let live = true;
+    ipc.vaultCurrent().then((v) => { if (live) (v ? opened(v) : setVault(null)); }, () => { if (live) setVault(null); });
     const un = [
       events.progress(setProgress),
       events.changed(() => { setRefresh((n) => n + 1); }),
+      // 5B (ms5-capture §1.4, §2.2): `Settings…` in the status menu and the Saved panel's `Open`.
+      events.shellRoute((r) => { const parsed = parseRoute(r); if (parsed) void goRef.current?.(parsed); }),
     ];
-    return () => un.forEach((p) => p.then((f) => f()));
+    return () => { live = false; un.forEach((p) => p.then((f) => f())); };
   }, []);
 
   useEffect(() => {
@@ -246,6 +260,8 @@ export function App() {
     justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
     setRoute(r);
   }, []);
+  const goRef = useRef(go);
+  goRef.current = go;
   const step = useCallback(async (dir: 'back' | 'forward') => {
     if (dir === 'back' ? !history.current.canBack() : !history.current.canForward()) return;
     await flushNote();
@@ -369,7 +385,9 @@ export function App() {
         setRoute(r);
         return { path: made, version: n.version };
       };
-      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render('', stamp), stamp, onCreate } });
+      const carried = carryTitle.current ?? '';
+      carryTitle.current = null;
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp), stamp, onCreate } });
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
@@ -390,6 +408,7 @@ export function App() {
 
   // ------------------------------------------------------------------ layout
   const taskBadge = useTaskBadge(refresh, !!vault);
+  const inboxCount = useInboxCount(refresh, !!vault);
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -414,7 +433,11 @@ export function App() {
       if (key) void go({ id: 'type-settings/<type>', param: key });
     },
     // After the palette has closed and given the focus back (D-139), the menu or the first control takes it.
-    changeType: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.changeType(), 0); },
+    // FR-VLT-05 AC-4 (D-550): on an unwritten draft, `Change type…` picks the draft's type and writes nothing.
+    changeType: () => {
+      if (route?.id === 'new/<type>') { setTimeout(() => setDraftType({ at: { left: 240, top: 120 } }), 0); return; }
+      if (isNoteRoute(route)) setTimeout(() => noteApi.current?.changeType(), 0);
+    },
     editProperties: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
     toggleRightPanel: () => {
@@ -431,6 +454,10 @@ export function App() {
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
     taskCommand: (id: string) => taskCommand.current?.(id),
+    // 5B (inbox.md R62; D-562, D-578).
+    inboxCommand: (id: string) => inboxCommand.current?.(id),
+    capture: (kind: 'default' | 'task') => { void ipc.captureOpen(kind).catch(() => {}); },
+    setNoteReviewed: (r: boolean) => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
@@ -462,9 +489,11 @@ export function App() {
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
-  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route;
+  // D-562: a note route carries its object's type, so the review commands follow its Review row.
+  setDateTimeSetting(ui.dateTime);
+  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type } : route;
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -594,6 +623,8 @@ export function App() {
     route?.id === DAILY ? (route.param ?? '')
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
+        // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
+        : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
   const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY;
 
@@ -763,6 +794,19 @@ export function App() {
         commandRef={taskCommand}
       />
     );
+  } else if (route?.id === 'inbox' && vault) {
+    body = (
+      <InboxPage
+        refresh={refresh}
+        heading={heading}
+        types={types}
+        filter={ui.inbox?.filter ?? 'all'}
+        onFilter={(f) => updateUi((u) => ({ ...u, inbox: { filter: f } }))}
+        dateTime={ui.dateTime}
+        nav={{ openNote: (p) => openNote(p), openDay, capture: (k) => actions.capture?.(k), today: () => { void go({ id: 'today' }); } }}
+        commandRef={inboxCommand}
+      />
+    );
   } else if (route?.id === 'broken-links') {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
@@ -772,7 +816,10 @@ export function App() {
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
-    body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme} />;
+    body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
+      vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}
+      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder}
+      commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (def) {
     body = (
       <div className="page-column">
@@ -800,10 +847,12 @@ export function App() {
             onAbout={actions.about}
             conflicts={conflicts}
             taskCount={taskBadge}
+            inboxCount={inboxCount}
             onTasks={actions.goTasks}
           />
         )}
         <div className="centre">
+          <HotkeyNotice onSettings={() => { void go({ id: 'settings/shortcuts' }); }} />
           {vault.placeholders > 0 && (
             <div className="banner" role="region" aria-label={t('banner.offline')}>
               {t('banner.placeholders', { count: vault.placeholders })}
@@ -860,6 +909,11 @@ export function App() {
       {dialog === 'newType' && (
         <NewTypeDialog key={defineValue ?? ''} fromValue={defineValue ?? undefined} types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
           onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />
+      )}
+      {draftType && (
+        <TypeMenu at={draftType.at} current={route?.id === 'new/<type>' ? route.param : undefined}
+          onClose={() => { setDraftType(null); noteApi.current?.placeFocus(); }}
+          onChoose={(ty) => { setDraftType(null); carryTitle.current = noteApi.current?.title() ?? null; noteApi.current?.discardDraft(); void go({ id: 'new/<type>', param: ty.key }); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
     </div>

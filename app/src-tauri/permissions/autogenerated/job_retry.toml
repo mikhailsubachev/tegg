@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-job-retry"
+description = "Enables the job_retry command without any pre-configured scope."
+commands.allow = ["job_retry"]
+
+[[permission]]
+identifier = "deny-job-retry"
+description = "Denies the job_retry command without any pre-configured scope."
+commands.deny = ["job_retry"]

@@ -22,7 +22,11 @@ export type ConvertUnit = {
 
 const start = (n: Nodes) => n.position!.start.offset!
 const end = (n: Nodes) => n.position!.end.offset!
-const lineStartOf = (text: string, i: number) => text.lastIndexOf('\n', i - 1) + 1
+/** The start of the line holding `i`; on the first line, after a BOM (the BOM is never part of a unit, FR-FMT-07). */
+const lineStartOf = (text: string, i: number) => {
+  const s = text.lastIndexOf('\n', i - 1) + 1
+  return s === 0 && text.startsWith('\ufeff') ? 1 : s
+}
 /** Caret semantics: a position touches a range when it lies in it or at either end. */
 const touches = (s: number, e: number, from: number, to: number) => s <= to && e >= from
 const MARKER = /^([ \t]*)([-*+]|\d+[.)])([ \t]+)(\[[ xX]\][ \t]+)?/
@@ -90,7 +94,7 @@ const lines = (s: string) => s.replace(/\r\n/g, '\n').split('\n')
 const TRAILING_TAG = /(^|[ \t])#([^\s#]+)[ \t]*$/u
 
 /** D-491: the plain text of one line of inline Markdown; links as their alias, else their target's title. */
-function plain(line: string, linkTitle: (t: string) => string | null): { text: string; link: boolean } {
+export function plain(line: string, linkTitle: (t: string) => string | null): { text: string; link: boolean } {
   let link = false
   const walk = (n: Nodes): string => {
     switch (n.type) {
@@ -116,7 +120,7 @@ function plain(line: string, linkTitle: (t: string) => string | null): { text: s
 }
 
 /** D-491: trailing `#tags` of a line, in order and unique by key (first spelling), and the line without them. */
-function trailingTags(line: string): { rest: string; tags: string[] } {
+export function trailingTags(line: string): { rest: string; tags: string[] } {
   const found: string[] = []
   let rest = line.trimEnd()
   for (let m = TRAILING_TAG.exec(rest); m; m = TRAILING_TAG.exec(rest)) {

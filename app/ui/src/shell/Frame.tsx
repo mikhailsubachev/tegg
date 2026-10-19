@@ -3,7 +3,7 @@ import logoDark from '../assets/logo-dark.svg';
 import logoLight from '../assets/logo-light.svg';
 import { PopupMenu, type MenuEntry } from './Menu';
 import { vaultColor } from './vaultColor';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { ProgressDto, RecentVaultDto, TypeDefDto, VaultInfo } from '../ipc/types';
@@ -15,7 +15,7 @@ import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
-import { PANEL_TABS, SHORTCUTS } from './registry';
+import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
 
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
 import type { Route } from './routes';
@@ -190,9 +190,11 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, onTasks }: {
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks }: {
   /** 5A-1 (R45 R1, D-481): overdue + due today, hidden at 0; the entry opens the last task view. */
   taskCount?: number;
+  /** 5B (FR-NAV-04 AC-2): the Inbox query's count; none at 0. */
+  inboxCount?: number;
   onTasks?: () => void;
   onAbout: () => void;
   /** 3D: the New type dialog (FR-TYP-01 AC-1). */
@@ -221,25 +223,36 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
     const isTasks = e.id === 'tasks';
     const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : isTasks ? route.id === 'tasks' || route.id === 'tasks/kanban' || (route.id === 'type/<type>' && route.param?.normalize('NFC') === 'task') : route.id === e.id;
     const go = (ev: React.MouseEvent) => { ev.preventDefault(); if (isTasks && onTasks) onTasks(); else onGo({ id: e.id }); };
-    return (
+    // R62: the Inbox count's description is also hidden text after the entry, so the macOS accessibility tree (L6)
+    // carries `13 items to review`; WebKit exposes `aria-description` to VoiceOver only.
+    const described = e.id === 'inbox' && inboxCount > 0;
+    const a = (
       <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : isTasks ? 'tasks.go' : `goto.${e.id}`} onClick={go}
-        {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}>
+        {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}
+        {...(e.id === 'inbox' && inboxCount > 0 ? { 'aria-label': t(e.label), 'aria-description': t('sidebar.inboxCount', { count: inboxCount }) } : {})}
+        {...(() => { const d = ROUTES.find((r) => r.id === e.id); return d && !d.status.built && d.status.due ? { 'aria-description': t('due.comingIn', { due: showDue(d.status.due) }) } : {}; })()}>
         <Icon name={e.icon} />
         {e.kbd ? (
           <>
             <span className="entry-label">{t(e.label)}</span>
             <kbd>{keysOf(e.kbd)}</kbd>
           </>
-        ) : isTasks && taskCount > 0 ? (
+        ) : (isTasks && taskCount > 0) || (e.id === 'inbox' && inboxCount > 0) ? (
           <>
             <span className="entry-label">{t(e.label)}</span>
-            <span className="count">{taskCount}</span>
+            <span className="count">{isTasks ? taskCount : inboxCount}</span>
           </>
         ) : (
           t(e.label)
         )}
       </a>
     );
+    return described ? (
+      <Fragment key={e.id}>
+        {a}
+        <span className="sr-only">{t('sidebar.inboxCount', { count: inboxCount })}</span>
+      </Fragment>
+    ) : a;
   };
   return (
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
@@ -323,7 +336,7 @@ export function ContextPanel({ tab, onTab, backlinks }: {
             role="tab"
             aria-selected={p.id === current.id}
             aria-label={t(p.name)}
-            aria-description={p.id === 'backlinks' && count > 0 ? t('backlinks.count', { count }) : undefined}
+            aria-description={p.id === 'backlinks' && count > 0 ? t('backlinks.count', { count }) : !p.status.built && p.status.due ? t('due.comingIn', { due: showDue(p.status.due) }) : undefined}
             className={p.id === current.id ? 'on' : ''}
             data-command={`panel.${p.id}`}
             onClick={(e) => { e.currentTarget.focus(); onTab(p.id); }}

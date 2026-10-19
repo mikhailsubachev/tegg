@@ -11,6 +11,7 @@ use tegg_format::{extract, nfc, sanitize_file_stem};
 
 use crate::host::{Host, ReadError, WriteError, Wrote};
 use crate::{
+    InboxJobChange,
     Counts, FileVersion, Interrupted, JobError, JobId, JobKind, JobOp, JobPlan, JobPoint,
     JobProgress, JobReport, Phase, PlanCounts, PlannedFile, PointHook, ResolveChoice, RetryOutcome,
     SkipReason, Skipped, TextOp, TransformError, Transformed, Transformer,
@@ -199,6 +200,7 @@ impl Jobs {
                 }
             }
             JobOp::TestBackup { .. } => JobKind::TestBackup,
+            JobOp::Inbox { .. } => JobKind::Inbox,
             _ => return Err(JobError::NotImplemented),
         };
         let mut s = lock(&self.inner.state);
@@ -627,6 +629,7 @@ impl Inner {
                     links: 0,
                 },
             },
+            JobOp::Inbox { paths, change } => self.plan_inbox(id, run, paths, change),
             _ => return Err("NotImplemented".into()),
         };
         let total = plan.files.len();
@@ -638,7 +641,9 @@ impl Inner {
         if self.cancelled(id) {
             return Ok(Phase::Cancelled);
         }
-        if run.kind.flags().backup {
+        // D-561: of the Inbox actions only a bulk convert makes a backup zip first.
+        let inbox_backup = matches!(op, JobOp::Inbox { change: InboxJobChange::SetType { .. }, .. });
+        if run.kind.flags().backup || inbox_backup {
             self.set_phase(id, Phase::Backup, 0, total);
             self.backup(run.kind)
                 .map_err(|e| format!("BackupFailed: {e}"))?;
@@ -651,9 +656,43 @@ impl Inner {
             JobOp::NoteRename { .. } => self.write_rename(run, plan),
             JobOp::Undo { job } => self.write_undo(run, *job, true),
             JobOp::Redo { job } => self.write_undo(run, *job, false),
+            JobOp::Inbox { .. } => {
+                for (i, f) in plan.files.iter().enumerate() {
+                    self.write_one(run, f);
+                    self.step(id, i + 1);
+                }
+            }
             _ => {}
         }
         Ok(Phase::Done)
+    }
+
+    // -------------------------------------------------------------------------------------------- inbox (5B)
+
+    /// ms5-capture §7.3: the given paths at their index versions, each with the change's text op; a path the index
+    /// doesn't know is skipped as missing.
+    fn plan_inbox(&self, id: JobId, run: &mut Run, paths: &[String], change: &InboxJobChange) -> JobPlan {
+        let host = self.host();
+        let op = match change.clone() {
+            InboxJobChange::SetReview { value, now } => TextOp::SetReview { value, now },
+            InboxJobChange::SetType { r#type, now } => TextOp::SetType { r#type, now },
+            InboxJobChange::AddTags { tags, now } => TextOp::AddTags { tags, now },
+            InboxJobChange::AppendLink { target, now } => TextOp::AppendLink { target, now },
+            InboxJobChange::AppendLinkTo { path, title, now } => TextOp::AppendLinkTo { to_path: nfc(&path), to_title: nfc(&title), paths: host.note_paths(), now },
+        };
+        let mut files = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for p in paths.iter().map(|p| nfc(p)) {
+            if !seen.insert(p.clone()) {
+                continue;
+            }
+            match host.indexed_version(&p) {
+                Some(version) => files.push(PlannedFile { path: p, version, ops: vec![op.clone()] }),
+                None => run.skip(&p, SkipReason::Missing),
+            }
+        }
+        let n = files.len();
+        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 } }
     }
 
     // -------------------------------------------------------------------------------------------- note rename

@@ -83,7 +83,7 @@ test('fr_typ_03_ac12_switcher_create_item_uses_the_same_path', async ({ page }) 
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option').last().click();
+  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Úplně nový')}review: unreviewed\n${tail}`);
@@ -96,7 +96,7 @@ test('fr_typ_03_ac12_link_create_in_the_editor_uses_the_same_path', async ({ pag
   await page.keyboard.press('End');
   await page.keyboard.type(' [[Odkazovaná');
   const lb = await must(page.getByRole('listbox', { name: 'Link suggestions' }), 'Link suggestions');
-  await lb.getByRole('option', { name: 'Create "Odkazovaná"' }).click();
+  await lb.getByRole('option', { name: 'Create "Odkazovaná"', exact: true }).click();
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Odkazovaná')}review: unreviewed\n${tail}`);
@@ -110,7 +110,7 @@ test('fr_typ_03_ac12_relation_create_uses_the_first_allowed_type', async ({ page
   const pick = await must(dialog(page, 'Choose Projekt'), 'picker');
   await pick.getByRole('combobox', { name: 'Search' }).fill('Nová stavba');
   await sleep(150);
-  await pick.getByRole('option', { name: 'Create "Nová stavba"' }).click();
+  await pick.getByRole('option', { name: 'Create "Nová stavba"', exact: true }).click();
   const c = await created(core);
   await onePathCalls(core, 'projekt');
   assert.equal(mask(c.text), `${head('projekt', 'Nová stavba')}stav: Plánovaný\n${tail}`);
