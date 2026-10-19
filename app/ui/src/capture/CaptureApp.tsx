@@ -45,6 +45,7 @@ export function CaptureApp() {
   const typeRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const saving = useRef(false);
+  const lastDefault = useRef<string | null>(null);
   /** The vault the window showed when it opened (D-546). */
   const shownVault = useRef<{ id: string; name: string } | null>(null);
   const state = useRef({ text, type, chips, due, priority });
@@ -58,9 +59,13 @@ export function CaptureApp() {
   const loadContext = useCallback(async () => {
     const c = await captureIpc.context().catch(() => null);
     if (!c) return null;
+    const before = lastDefault.current;
+    lastDefault.current = c.defaultType;
     setCtx(c);
-    // A type deleted outside Tegg falls back to the default type (FR-CAP-04 AC-8).
-    setType((cur) => (c.types.length === 0 || c.types.some((x) => x.key === cur) ? cur : c.defaultType));
+    // A type deleted outside Tegg falls back to the default type (FR-CAP-04 AC-8); an untouched window follows a new
+    // default at once (FR-VLT-05 AC-5).
+    const untouched = state.current.text === '' && state.current.chips.length === 0;
+    setType((cur) => (untouched && before !== null && cur === before ? c.defaultType : c.types.length === 0 || c.types.some((x) => x.key === cur) ? cur : c.defaultType));
     return c;
   }, []);
 

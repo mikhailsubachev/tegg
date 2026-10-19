@@ -35,6 +35,9 @@ export class Saver {
   transform: ((text: string) => string) | null = null;
   /** FR-DLY-05 AC-2 (PR #38 review): the next save holds only the review toggle, so it skips `transform`. */
   skipTransform = false;
+  /** D-522: the draft's title was committed, so its first write happens even when the document is as it opened (a
+   *  title carried over from a draft of another type, FR-VLT-05 AC-4). */
+  forceFirst = false;
   /** The document as opened (a virtual note's first write needs a changed document, D-323). */
   private openedDoc: TeggEditor['editor']['state']['doc'];
 
@@ -128,7 +131,7 @@ export class Saver {
     }
     // FR-DLY-02 AC-3: on a virtual Daily Note any change of the document counts (Enter adds an empty block that
     // serializes to the same bytes); a change undone before the save leaves the editor clean and writes nothing (D-323).
-    if (text === null && this.create && !this.ed.editor.state.doc.eq(this.openedDoc)) text = this.ed.text();
+    if (text === null && this.create && (this.forceFirst || !this.ed.editor.state.doc.eq(this.openedDoc))) text = this.ed.text();
     if (text === null) {
       if (this.changes === mark) this.set('saved');
       return;
@@ -225,6 +228,13 @@ export class Saver {
 
   isBlocked() {
     return this.blocked;
+  }
+
+  /** FR-VLT-05 AC-4 (D-550): an unwritten draft replaced by a draft of another type is never written. */
+  discard() {
+    this.blocked = true;
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (this.retry) { clearTimeout(this.retry); this.retry = null; }
   }
 
   dispose() {

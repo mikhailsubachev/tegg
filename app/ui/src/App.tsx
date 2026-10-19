@@ -50,6 +50,9 @@ import { AllTasks } from './tasks/AllTasks';
 import type { TasksView } from './tasks/TasksHeader';
 import { useTaskBadge } from './tasks/useTasks';
 import { InboxPage } from './inbox/InboxPage';
+import { TypeMenu } from './shell/TypeMenu';
+import { setDateTimeSetting } from './i18n/dates';
+import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
 import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
@@ -89,6 +92,9 @@ export function App() {
   const [ui, setUi] = useState<UiState>(initialUi);
   /** D-520 (ms5-tasks §12.2): the unsaved new object shown on `new/<type>` (`route`: its route string). */
   const [draft, setDraft] = useState<{ route: string; path: string; info: DraftInfo } | null>(null);
+  /** FR-VLT-05 AC-4: the `Type` menu of an unwritten draft, and the title it carries to the new type. */
+  const [draftType, setDraftType] = useState<{ at: { left: number; top: number } } | null>(null);
+  const carryTitle = useRef<string | null>(null);
   /** D-520: New Task lands on the Tasks page with the caret in the quick-add row. */
   const focusQuickAdd = useRef(false);
   /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
@@ -376,7 +382,9 @@ export function App() {
         setRoute(r);
         return { path: made, version: n.version };
       };
-      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render('', stamp), stamp, onCreate } });
+      const carried = carryTitle.current ?? '';
+      carryTitle.current = null;
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp), stamp, onCreate } });
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
@@ -422,7 +430,11 @@ export function App() {
       if (key) void go({ id: 'type-settings/<type>', param: key });
     },
     // After the palette has closed and given the focus back (D-139), the menu or the first control takes it.
-    changeType: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.changeType(), 0); },
+    // FR-VLT-05 AC-4 (D-550): on an unwritten draft, `Change type…` picks the draft's type and writes nothing.
+    changeType: () => {
+      if (route?.id === 'new/<type>') { setTimeout(() => setDraftType({ at: { left: 240, top: 120 } }), 0); return; }
+      if (isNoteRoute(route)) setTimeout(() => noteApi.current?.changeType(), 0);
+    },
     editProperties: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.editProperties(), 0); },
     toggleSidebar: () => updateUi((u) => ({ ...u, sidebarOpen: !u.sidebarOpen })),
     toggleRightPanel: () => {
@@ -475,6 +487,7 @@ export function App() {
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
   // D-562: a note route carries its object's type, so the review commands follow its Review row.
+  setDateTimeSetting(ui.dateTime);
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type } : route;
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
   const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type]);
@@ -607,6 +620,8 @@ export function App() {
     route?.id === DAILY ? (route.param ?? '')
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
+        // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
+        : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
   const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY;
 
@@ -798,7 +813,10 @@ export function App() {
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
-    body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme} />;
+    body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
+      vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}
+      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder}
+      commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (def) {
     body = (
       <div className="page-column">
@@ -831,6 +849,7 @@ export function App() {
           />
         )}
         <div className="centre">
+          <HotkeyNotice onSettings={() => { void go({ id: 'settings/shortcuts' }); }} />
           {vault.placeholders > 0 && (
             <div className="banner" role="region" aria-label={t('banner.offline')}>
               {t('banner.placeholders', { count: vault.placeholders })}
@@ -887,6 +906,11 @@ export function App() {
       {dialog === 'newType' && (
         <NewTypeDialog key={defineValue ?? ''} fromValue={defineValue ?? undefined} types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
           onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />
+      )}
+      {draftType && (
+        <TypeMenu at={draftType.at} current={route?.id === 'new/<type>' ? route.param : undefined}
+          onClose={() => { setDraftType(null); noteApi.current?.placeFocus(); }}
+          onChoose={(ty) => { setDraftType(null); carryTitle.current = noteApi.current?.title() ?? null; noteApi.current?.discardDraft(); void go({ id: 'new/<type>', param: ty.key }); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
     </div>

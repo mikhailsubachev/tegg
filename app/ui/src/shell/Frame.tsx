@@ -226,7 +226,7 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
     return (
       <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : isTasks ? 'tasks.go' : `goto.${e.id}`} onClick={go}
         {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}
-        {...(e.id === 'inbox' && inboxCount > 0 ? { 'aria-description': t('sidebar.inboxCount', { count: inboxCount }) } : {})}
+        {...(e.id === 'inbox' && inboxCount > 0 ? { 'aria-label': t(e.label), 'aria-description': t('sidebar.inboxCount', { count: inboxCount }) } : {})}
         {...(() => { const d = ROUTES.find((r) => r.id === e.id); return d && !d.status.built && d.status.due ? { 'aria-description': t('due.comingIn', { due: showDue(d.status.due) }) } : {}; })()}>
         <Icon name={e.icon} />
         {e.kbd ? (

@@ -237,6 +237,11 @@ export function commands(ctx: ShellContext): Command[] {
   if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
   }
+  // FR-TSK-04 AC-17 (D-520): `New Task` from anywhere opens the Tasks page's quick-add row (on `type/task` the type's
+  // own `New Task` is that command).
+  if (!(definedType && definedType.key === 'task') && ctx.types.some((x) => x.key === 'task')) {
+    list.push({ id: 'task.new', title: 'cmd.newOfType', vars: { name: ctx.types.find((x) => x.key === 'task')!.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.('task') });
+  }
   if (definedType) {
     const key = definedType.key;
     list.push({ id: 'type.newObject', title: 'cmd.newOfType', vars: { name: definedType.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.(key) });

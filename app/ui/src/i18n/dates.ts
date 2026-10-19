@@ -58,3 +58,12 @@ export function firstDay(setting: DateTimeSetting | undefined, regionTag: string
   if (setting?.week === 'sunday') return 7;
   return firstWeekday(regionTag);
 }
+
+/** The machine's Date & time choices (UiStateDto.dateTime), set by the app on every render (D-566). */
+let current: DateTimeSetting | undefined;
+export function setDateTimeSetting(s: DateTimeSetting | undefined): void {
+  current = s;
+}
+export function dateTimeSetting(): DateTimeSetting | undefined {
+  return current;
+}

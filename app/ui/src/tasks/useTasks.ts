@@ -1,9 +1,10 @@
 // Slice 5A-1: the task list for a page (docs/contracts/ms5-tasks.md §1, §6.2): `task_list` on open and on every
 // `vault:changed` (NFR-PERF-08), and "today" re-derived every 30 s from the clock and the current zone (D-327 timer),
 // so midnight and a zone change recompute the views without a restart (FR-TSK-04 AC-8).
-import { firstWeekday, localDate } from '@tegg/doc';
+import { localDate } from '@tegg/doc';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { region as regionOf } from '../i18n/collate';
+import { dateTimeSetting, firstDay } from '../i18n/dates';
 import { ipc } from '../ipc/client';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { appZone } from '../zone';
@@ -42,7 +43,7 @@ export function useTasks(refresh: number): TaskData & { loaded: boolean; reload:
   useEffect(() => { void reload(); }, [refresh, reload]);
   const { today, zone } = useToday();
   const region = currentRegion();
-  return { ...data, loaded, reload, today, zone, region, firstWeekday: firstWeekday(region) };
+  return { ...data, loaded, reload, today, zone, region, firstWeekday: firstDay(dateTimeSetting(), region) };
 }
 
 /** The sidebar's Tasks count (R45 R1, D-481): open tasks overdue or due today. */

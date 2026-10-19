@@ -8,6 +8,8 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
 import { openDate } from '../daily/open';
+import { dateTimeSetting, formatDate as formatDateWith, formatDateTime as formatDateTimeWith } from '../i18n/dates';
+import { appZone } from '../zone';
 import { attributeRows, type AttrRow } from './properties';
 
 const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
@@ -16,6 +18,8 @@ const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.l
 export function formatDate(date: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
   if (!m) return date;
+  const s = dateTimeSetting(); // FR-SET-03 (D-566): ISO and Long when chosen
+  if (s && s.date !== 'region') return formatDateWith(m[0], s);
   return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium' }).format(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
 }
 
@@ -23,6 +27,8 @@ export function formatDate(date: string): string {
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  const s = dateTimeSetting();
+  if (s && (s.date !== 'region' || s.time !== 'region')) return formatDateTimeWith(iso, s, appZone());
   return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
 }
 

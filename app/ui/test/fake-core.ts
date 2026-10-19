@@ -491,10 +491,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     const p = path.normalize('NFC');
     state.recent = [{ name: name.normalize('NFC'), path: p, exists: true }, ...state.recent.filter((r) => r.path.normalize('NFC') !== p)].slice(0, 9);
   };
+  // D-239, D-541 (5B): `default-type` is matched as a key (NFC, lower case, spaces as `-`); a value that names no type
+  // gives Quick Note, as the core does.
   const defaultType = () => {
     const v = yaml(state.vault?.files['.tegg/vault.yml'] ?? '');
-    const name = v['default-type'] ?? 'Page';
-    return types().find((t) => t.name === name) ?? { key: 'page', folder: 'Pages' };
+    const raw = typeof v['default-type'] === 'string' ? String(v['default-type']) : '';
+    const key = raw.normalize('NFC').trim().toLowerCase().replace(/\s+/g, '-');
+    const all = types();
+    return all.find((t) => t.key.normalize('NFC') === key) ?? all.find((t) => t.key === 'quick-note') ?? { key: 'page', folder: 'Pages' };
   };
 
   // 3D (ms3-shell §14.8): forwards a command to the Node side with the current files and type-file versions, applies
@@ -515,7 +519,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
-    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || p === '.tegg/vault.yml' || fn === '__teggTasks' || fn === '__teggInbox') vers[p] = state.indexVer[p] ?? state.ver(p)!;
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || p === '.tegg/vault.yml' || fn === '__teggTasks' || fn === '__teggInbox') vers[p] = (fn === '__teggInbox' ? state.indexVer[p] : undefined) ?? state.ver(p)!;
     // 5A-1 (ms5-tasks §7): task rows carry each file's version and whether the editor would open it read-only.
     const r = await w[fn](cmd, a ?? {}, files, vers, Object.keys(state.invalid));
     if (r.writes) {

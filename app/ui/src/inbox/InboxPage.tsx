@@ -318,15 +318,15 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         onFocus={(e) => { if (e.target === e.currentTarget) focused.current = p; }} onKeyDown={(e) => onCardKey(e, r)}>
         <div className="inbox-card-head">
           {selection.length > 0 && (
-            <input type="checkbox" aria-label={t('inbox.select', { title: r.title })} checked={selected}
+            <input type="checkbox" data-command="inbox.select" aria-label={t('inbox.select', { title: r.title })} checked={selected}
               onChange={() => setSelection((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]))} />
           )}
           <Icon name={typeIconName(r.type, typeOf(r.type)?.icon)} size={14} />
           <span className="inbox-card-type" data-user-content>{typeName(r.type)}</span>
-          <button type="button" tabIndex={0} className="icon-button inbox-triage" aria-haspopup="menu" aria-label={t('inbox.triage', { title: r.title })}
+          <button type="button" tabIndex={0} className="icon-button inbox-triage" aria-haspopup="menu" data-command="inbox.triage" aria-label={t('inbox.triage', { title: r.title })}
             onClick={() => setMenu({ path: p, convert: false })}><Icon name="more-horizontal" size={14} /></button>
         </div>
-        <a href="#" className="inbox-card-title" onClick={(e) => { e.preventDefault(); open(r); }} data-user-content>{r.title}</a>
+        <a href="#" className="inbox-card-title" data-command="inbox.open" onClick={(e) => { e.preventDefault(); open(r); }} data-user-content>{r.title}</a>
         {(tags.shown.length > 0 || tags.more > 0) && (
           <div className="inbox-card-tags">
             {tags.shown.map((x) => <span key={x} className="tag-chip" data-user-content>#{x}</span>)}
@@ -337,7 +337,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         <div className="inbox-card-foot">
           {footer && <span className="muted">{footer}</span>}
           <label className="inbox-reviewed">
-            <input type="checkbox" checked={reviewed} aria-label={t('inbox.reviewed')}
+            <input type="checkbox" checked={reviewed} data-command="inbox.markReviewed" aria-label={t('inbox.reviewed')}
               aria-disabled={r.readOnly || undefined} aria-description={r.readOnly ? t('inbox.readOnly') : undefined}
               onChange={() => { if (!r.readOnly) void setReviewed(r, reviewed ? 'unreviewed' : 'reviewed'); }} />
             <span>{t('inbox.reviewed')}</span>
@@ -354,7 +354,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         {rows && members.length + kept.size > 0 && (
           <>
             <p className="inbox-summary">{summary}</p>
-            <button type="button" tabIndex={0} className="inbox-mark-all" onClick={() => setConfirmAll(true)}>{t('inbox.markAll')}</button>
+            <button type="button" tabIndex={0} className="inbox-mark-all" data-command="inbox.markAll" onClick={() => setConfirmAll(true)}>{t('inbox.markAll')}</button>
           </>
         )}
       </div>
@@ -363,8 +363,8 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           <h2>{t('inbox.zero')}</h2>
           <p>{t('inbox.zeroText')}</p>
           <div className="inbox-zero-actions">
-            <button type="button" tabIndex={0} aria-label={t('inbox.zeroCapture')} aria-keyshortcuts="Control+Alt+Space" onClick={() => nav.capture('default')}>{t('inbox.zeroCapture')} <kbd aria-hidden="true">⌃⌥Space</kbd></button>
-            <button type="button" tabIndex={0} aria-label={t('inbox.zeroToday')} aria-keyshortcuts="Meta+D" onClick={nav.today}>{t('inbox.zeroToday')} <kbd aria-hidden="true">⌘D</kbd></button>
+            <button type="button" tabIndex={0} data-command="capture.quick" aria-label={t('inbox.zeroCapture')} aria-keyshortcuts="Control+Alt+Space" onClick={() => nav.capture('default')}>{t('inbox.zeroCapture')} <kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌃⌥Space' })}</kbd></button>
+            <button type="button" tabIndex={0} data-command="daily.today" aria-label={t('inbox.zeroToday')} aria-keyshortcuts="Meta+D" onClick={nav.today}>{t('inbox.zeroToday')} <kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌘D' })}</kbd></button>
           </div>
         </section>
       ) : rows && (
@@ -372,7 +372,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           <div className="inbox-toolbar">
             <div role="group" aria-label={t('inbox.filter')} className="inbox-filter">
               {['all', ...filterKeys].map((k) => (
-                <button key={k} type="button" tabIndex={0} data-type={k} aria-pressed={active === k} className={`toggle${active === k ? ' on' : ''}`}
+                <button key={k} type="button" tabIndex={0} data-type={k} aria-pressed={active === k} data-command="inbox.filter" className={`toggle${active === k ? ' on' : ''}`}
                   aria-description={String(k === 'all' ? members.length : counts.get(k) ?? 0)} onClick={() => setFilter(k)}>
                   {k === 'all' ? t('inbox.filter.all') : <span data-user-content>{typeOf(k)?.plural ?? k}</span>} <span className="count">{k === 'all' ? members.length : counts.get(k) ?? 0}</span>
                 </button>
@@ -385,18 +385,18 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
               {alerts.map((a) => (
                 <div key={a.id} role="alert" className="task-alert">
                   <span>{a.text}</span>
-                  {a.retry && <button type="button" tabIndex={0} onClick={() => { dismiss(a.id); a.retry!(); }}>{t('capture.tryAgain')}</button>}
-                  <button type="button" tabIndex={0} className="icon-button" aria-label={t('dialog.close')} onClick={() => dismiss(a.id)}>×</button>
+                  {a.retry && <button type="button" tabIndex={0} data-command="inbox.tryAgain" onClick={() => { dismiss(a.id); a.retry!(); }}>{t('capture.tryAgain')}</button>}
+                  <button type="button" tabIndex={0} className="icon-button" data-command="inbox.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismiss(a.id)}>×</button>
                 </div>
               ))}
             </div>
           )}
           {selection.length > 0 && (
             <div role="toolbar" aria-label={t('inbox.selected', { count: selection.length })} className="inbox-selection">
-              <button type="button" tabIndex={0} onClick={() => bulkReview(selection, 'reviewed')}>{t('inbox.markReviewed')}</button>
-              <button type="button" tabIndex={0} onClick={() => bulkReview(selection, 'unreviewed')}>{t('inbox.markUnreviewed')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.markReviewed" onClick={() => bulkReview(selection, 'reviewed')}>{t('inbox.markReviewed')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.markUnreviewed" onClick={() => bulkReview(selection, 'unreviewed')}>{t('inbox.markUnreviewed')}</button>
               <span className="inbox-bulk-convert">
-                <button type="button" tabIndex={0} aria-haspopup="menu" onClick={() => setBulkConvert((v) => !v)}>{t('cmd.inbox.convert')}</button>
+                <button type="button" tabIndex={0} aria-haspopup="menu" data-command="inbox.convert" onClick={() => setBulkConvert((v) => !v)}>{t('cmd.inbox.convert')}</button>
                 {bulkConvert && (
                   <div role="menu" aria-label={t('inbox.convertTo')} className="capture-menu">
                     {targets(null).map((x) => (
@@ -408,17 +408,17 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
                   </div>
                 )}
               </span>
-              <button type="button" tabIndex={0} onClick={() => setPicker({ verb: 'append', paths: selection })}>{t('inbox.append')}</button>
-              <button type="button" tabIndex={0} onClick={() => setPicker({ verb: 'link', paths: selection })}>{t('inbox.link')}</button>
-              <button type="button" tabIndex={0} onClick={() => setTagging(selection)}>{t('inbox.addTags')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.append" onClick={() => setPicker({ verb: 'append', paths: selection })}>{t('inbox.append')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.link" onClick={() => setPicker({ verb: 'link', paths: selection })}>{t('inbox.link')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.tags" onClick={() => setTagging(selection)}>{t('inbox.addTags')}</button>
               <button type="button" tabIndex={0} aria-disabled="true" aria-description={t('due.coming', { milestone: 'MS6' })} data-command="inbox.trash">{t('inbox.trash')}</button>
-              <button type="button" tabIndex={0} onClick={() => setSelection([])}>{t('inbox.clearSelection')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.clearSelection" onClick={() => setSelection([])}>{t('inbox.clearSelection')}</button>
             </div>
           )}
           {filtered ? (
             <p className="inbox-filtered-empty">
               <span>{t('inbox.filteredEmpty', { plural: typeOf(active)?.plural ?? active })}</span>
-              <button type="button" tabIndex={0} onClick={() => setFilter('all')}>{t('inbox.showAll')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.showAll" onClick={() => setFilter('all')}>{t('inbox.showAll')}</button>
             </p>
           ) : (
             <div ref={listRef} className="inbox-groups">
@@ -438,7 +438,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         <div role="status" className="job-status inbox-job">
           <span>{t('inbox.job.running', { count: job.count })}</span>
           {(job.phase === 'queued' || job.phase === 'planning' || job.phase === 'backup') && (
-            <button type="button" tabIndex={0} onClick={() => void ipc.jobCancel(job.id)}>{t('job.rename.cancel')}</button>
+            <button type="button" tabIndex={0} data-command="job.cancel" onClick={() => void ipc.jobCancel(job.id)}>{t('job.rename.cancel')}</button>
           )}
         </div>
       )}
@@ -464,8 +464,8 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setConfirmAll(false); } }}>
             <p>{t('inbox.markAllConfirm', { count: shownMembers.length })}</p>
             <div className="dialog-buttons">
-              <button type="button" tabIndex={0} className="primary" autoFocus onClick={() => { setConfirmAll(false); bulkReview(shownMembers.map((r) => nfc(r.path)), 'reviewed'); }}>{t('inbox.markAllOk')}</button>
-              <button type="button" tabIndex={0} onClick={() => setConfirmAll(false)}>{t('conflicts.cancel')}</button>
+              <button type="button" tabIndex={0} className="primary" autoFocus data-command="inbox.markAll" onClick={() => { setConfirmAll(false); bulkReview(shownMembers.map((r) => nfc(r.path)), 'reviewed'); }}>{t('inbox.markAllOk')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.cancel" onClick={() => setConfirmAll(false)}>{t('conflicts.cancel')}</button>
             </div>
           </div>
         </div>

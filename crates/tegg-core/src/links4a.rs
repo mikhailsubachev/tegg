@@ -561,9 +561,11 @@ impl Core {
                 return Err(CoreError::Exists { path: nfc(path) });
             }
         }
-        // The offer may have planned with a relation's first allowed type (D-243): only when `from` has that relation.
+        // The offer may have planned with a relation's first allowed type (D-243), or with a type the user picked in
+        // its `Type` control (FR-VLT-05 AC-3, D-550): any type a capture can make.
+        let picked = |k: &str| !matches!(k, "daily-note" | "tag" | "image" | "pdf") && self.type_get(k).is_some();
         let typed = match expect {
-            LinkCreatePlan::Create { type_key, .. } if self.relation_allows(from, target, type_key) => {
+            LinkCreatePlan::Create { type_key, .. } if self.relation_allows(from, target, type_key) || picked(type_key) => {
                 self.link_create_plan(from, target, Some(std::slice::from_ref(type_key)))
             }
             _ => self.link_create_plan(from, target, None),

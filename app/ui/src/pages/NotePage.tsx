@@ -82,6 +82,10 @@ export type NotePageApi = {
   setReviewed: (reviewed: boolean) => void;
   /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run now, or null. */
   convertBlocked: () => string | null;
+  /** 5B (FR-VLT-05 AC-4): the title as typed (an unwritten draft keeps it when its type changes). */
+  title: () => string;
+  /** 5B (FR-VLT-05 AC-4): drop an unwritten draft without writing it (its type changes). */
+  discardDraft: () => void;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
@@ -152,6 +156,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const [deleted, setDeleted] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('');
+  const titleRef = useRef('');
+  titleRef.current = title;
   const [diskText, setDiskText] = useState<string>('');
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
@@ -211,10 +217,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       setLoaded({ text: n.text, version: n.version, mode, links });
       setDiskText(n.text);
       const meta = noteMeta(path, n.text);
-      // D-520: a draft's title starts empty (its planned file name is no title).
-      const shownTitle = live.current.draft ? '' : meta.title;
+      // D-520: a draft's title starts empty (its planned file name is no title), unless the draft carries the title typed
+      // before its type changed (FR-VLT-05 AC-4).
+      const carried = live.current.draft ? String(doc.frontmatter?.data?.title ?? '').normalize('NFC') : '';
+      const shownTitle = live.current.draft ? carried : meta.title;
       setTitle(shownTitle);
-      savedTitle.current = shownTitle;
+      savedTitle.current = live.current.draft ? '' : shownTitle;
       const id = doc.frontmatter?.data?.id;
       if (typeof id === 'string' && id) onId?.(id);
       const day = meta.type === 'daily-note' ? parseDate(String(doc.frontmatter?.data?.date ?? '').trim().slice(0, 10)) : null;
@@ -365,6 +373,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
     touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
+    title: () => titleRef.current,
+    discardDraft: () => { if (isDraft()) saver.current?.discard(); },
     // D-494: only the note's own editor converts; the read view, the source view and read-only files don't.
     convertBlocked: () => (pane.current && live.current.loaded?.mode === 'edit' ? pane.current.convertBlocked() : t('convert.readOnly')),
   }), [flush, propertiesOpen, onToggleProperties]);
@@ -582,7 +592,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     ed.setTitle(tt.trim() === '' ? null : tt.trim()); // FR-FMT-08 AC-7: the title is stored trimmed
     if (tt.trim() !== '' && !isDraft()) saver.current?.changed(); // D-522: a draft's title is written on its commit
   };
-  const onTitleBlur = () => {
+  const onTitleBlur = (to?: HTMLElement | null) => {
+    // FR-VLT-05 AC-4 (D-550): a draft's title isn't committed by the palette or a menu taking the focus for a moment
+    // (`Change type…` writes nothing); leaving the draft still flushes it (D-522).
+    if (isDraft() && to?.closest('.palette, [role="menu"], .type-menu')) return;
     const from = titleFrom.current;
     titleFrom.current = null;
     if (title.trim() === '') {
@@ -591,7 +604,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       return;
     }
     // D-522: committing a draft's title is its first write.
-    if (isDraft()) { saver.current!.changed(); void saver.current!.flush(); return; }
+    if (isDraft()) { saver.current!.forceFirst = true; saver.current!.changed(); void saver.current!.flush(); return; }
     // D-268: the commit (↩, Tab, leaving the field) renames the file and moves the links; typing only autosaves
     // `title:` (D-394). Templates and trashed notes keep their file name (D-391); a Daily Note's title is read-only.
     const next = title.trim().normalize('NFC');
@@ -937,7 +950,7 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   value: string;
   label: string;
   onChange: (v: string) => void;
-  onLeave: () => void;
+  onLeave: (to?: HTMLElement | null) => void;
   onDown: () => void;
   /** Tab: the first property, else the body (FR-EDT-07 AC-10; no description subtitle, D-313). */
   onTab?: () => void;
@@ -954,7 +967,7 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
       data-placeholder={t('newObject.untitled')} aria-placeholder={t('newObject.untitled')}
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
-      onBlur={onLeave}
+      onBlur={(e) => onLeave(e.relatedTarget as HTMLElement | null)}
       // An accessibility press (VoiceOver, UI automation) clicks without focusing the field: focus it, caret at the end.
       onClick={(e) => {
         const el = e.currentTarget;
