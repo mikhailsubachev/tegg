@@ -1025,6 +1025,8 @@ export const en: Catalog = {
   'create.as': 'Create "{query}" as…',
   'draft.changeType': 'Change type…',
   'inbox.title': 'Inbox',
+  'card.image': '[image]',
+  'card.embed': '[embed: {name}]',
   'inbox.summary': { one: '{count} to review', other: '{count} to review' },
   'inbox.summaryFiltered': '{shown} of {count} to review',
   'inbox.markAll': 'Mark all reviewed',

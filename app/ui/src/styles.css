@@ -792,7 +792,12 @@ button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .inbox-triage { margin-left: auto; }
 .inbox-card-title { font-weight: 600; color: var(--text); text-decoration: none; }
 .inbox-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-.inbox-card-text { margin: 0; color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.inbox-card-text { margin: 0; color: var(--text); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; }
+.inbox-card-text p, .inbox-card-text ul, .inbox-card-text ol { margin: 0; }
+.inbox-card-text ul, .inbox-card-text ol { padding-left: 18px; }
+.inbox-card-text li.check { list-style: none; margin-left: -18px; }
+.inbox-card-text li input { margin: 0 6px 0 0; vertical-align: -1px; }
+.inbox-card-text code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--hover); border-radius: 3px; padding: 0 3px; }
 .inbox-card-foot { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .inbox-reviewed { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
 .inbox-selection { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
