@@ -1,8 +1,8 @@
-# Fixture `inbox/` (MS5 slice 5B) — DRAFT
+# Fixture `inbox/` (MS5 slice 5B)
 
-Synthetic vault for `docs/acceptance/inbox.md` (FR-INB-01…04, FR-NAV-04, FR-DLY-05 AC-5, FR-FMT-07 AC-21, FR-SYN-06 AC-26…AC-28) and `docs/acceptance/capture.md` (FR-CAP-01, -03…-05, FR-TSK-10 AC-9…AC-12, FR-VLT-05, FR-SET-01, -05, NFR-SEC-03, NFR-PERF-10, FR-SYN-06 AC-24, AC-25). Hand-written from the fixture table of `inbox.md` (D-50); no real content. Interface: `docs/contracts/ms5-capture.md` (to be written, capture.md AP-480).
+Synthetic vault for `docs/acceptance/inbox.md` (FR-INB-01…04, FR-NAV-04, FR-DLY-05 AC-5, FR-FMT-07 AC-21, FR-SYN-06 AC-26…AC-28) and `docs/acceptance/capture.md` (FR-CAP-01, -03…-05, FR-TSK-10 AC-9…AC-12, FR-VLT-05, FR-SET-01, -05, NFR-SEC-03, NFR-PERF-10, FR-SYN-06 AC-24, AC-25). Hand-written from the fixture table of `inbox.md` (D-50); no real content. Interface: `docs/contracts/ms5-capture.md` (D-552, D-567).
 
-**Status: draft.** Only this README exists. The vault files are written byte-exact by a script in their own commit after the owner decides AP-467…AP-493 (the expected results below follow the recommendations). Don't create them with an editor.
+**Status: written, 2026-10-19,** byte-exact by a script, following D-539…D-567. Don't open and re-save these files in an editor.
 
 The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (`vault.yml` with `default-type: Quick Note`, `attachments: _attachments`, `daily-format: YYYY-MM-DD`; Quick Note and Daily Note `review: locked`; Page and Task `review: false`) next to the two type files below. No file names clash. This README is not a vault file and is never copied.
 

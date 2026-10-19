@@ -1,6 +1,6 @@
 # MS5 Capture and Inbox Interface Contract (slice 5B)
 
-- **Status:** draft, 2026-10-19. Written before the 5B red tests (D-552, as D-487). Follows D-539…D-566 (BRD v1.72). Points for the owner: §13 (AP-495).
+- **Status:** accepted, 2026-10-19. Written before the 5B red tests (D-552, as D-487). Follows D-539…D-567 (BRD v1.72); §13's AP-495 is decided as D-567.
 - **ACs:** [docs/acceptance/capture.md](../acceptance/capture.md) (FR-CAP-01 AC-1…AC-14, FR-CAP-03 AC-1…AC-5, FR-CAP-04 AC-1…AC-8, FR-CAP-05 AC-1…AC-9, FR-TSK-10 AC-9…AC-12, FR-VLT-05 AC-1…AC-7, FR-SET-01 AC-1…AC-10, FR-SET-03 AC-1…AC-5, FR-SET-05 AC-1…AC-6, NFR-SEC-03 AC-1…AC-5, NFR-PERF-10 AC-2…AC-5, FR-SYN-06 AC-24, AC-25; tables R55…R59) and [docs/acceptance/inbox.md](../acceptance/inbox.md) (FR-INB-01 AC-1…AC-11, FR-INB-02 AC-1…AC-15, FR-INB-03 AC-1…AC-6, FR-INB-04 AC-1…AC-3, FR-NAV-02 AC-1, FR-NAV-04 AC-1…AC-5, FR-NAV-05 AC-1, FR-DLY-05 AC-5, FR-FMT-07 AC-21, FR-SYN-06 AC-26…AC-28; tables R60…R63). Where this contract and the ACs disagree, the ACs win, and this contract is corrected before the red tests.
 - **Builds on** [ms3-shell.md](ms3-shell.md) (§1 launching and test hooks, §5 fake core, §13.2 `note_read` / `note_write`, §14 types and the creation path §14.2.3), [ms4-links.md](ms4-links.md) (§1 resolution, §3.1 free stem, D-184 link text), [ms4-daily.md](ms4-daily.md) (§1 dates, `daily_create`), [ms4-jobs.md](ms4-jobs.md) (job engine, transformer, backups) and [ms5-tasks.md](ms5-tasks.md) (§1 clock and first weekday, §6.4 quick-add parsing). Everything in those contracts stays valid unless this one changes it.
 - **Writes.** A capture is one create-exclusive file (`capture_create`). A single Inbox action is one `note_write` with a base version (Append to: two, target first). A settings change is one file (`vault_settings_patch` or `type_patch`). An Inbox action on more than one file is a `tegg-jobs` job of the new kind `inbox` (§7.3); only a bulk convert makes a backup zip (D-561).
@@ -97,7 +97,7 @@ type CaptureTypeDto = {
   key: string; name: string; icon: string; color: string; folder: string;
   review: 'off' | 'on' | 'locked';
   attributes: { key: string; type: string; default?: unknown; options?: { label: string; color?: string | null; state?: string | null }[] }[];
-  templateHead: string | null;   // the default template's frontmatter block only, `---` lines included, no body (§13 AP-495)
+  templateHead: string | null;   // the default template's frontmatter block only, `---` lines included, no body (D-567)
 };
 type CaptureDraftDto = { text: string; type: string; tags: string[]; due: string | null; priority: string | null; savedAt: string };
 ```
@@ -311,4 +311,4 @@ The fixture `tests/fixtures/vaults/inbox/` is written byte-exact from its README
 
 | # | Issue | Recommendation | Alternatives | Affects |
 | --- | --- | --- | --- | --- |
-| AP-495 | **The template's frontmatter in the capture window.** D-540 applies a type's template frontmatter to captures, and D-552 builds the bytes in the capture window; D-553 lets the window read only type definitions, the default type, tag names and the vault name. The template is a vault file. | Count the default template's **frontmatter block** as part of the type definition: `capture_context` sends it as `templateHead` (no body, never shown in the DOM); the template body never reaches the capture window. | (b) The core merges the template frontmatter into the capture's bytes in `capture_create` (Rust editing YAML of a note: against D-82). (c) Captures ignore the template entirely (amends D-540; FR-CAP-04 AC-2's `hodnocení: 3`, `oblast: osobní` become the default `1` and nothing). | §2.2, §3.2; FR-CAP-04 AC-2; NFR-SEC-03 AC-4 |
+| AP-495 | **The template's frontmatter in the capture window.** D-540 applies a type's template frontmatter to captures, and D-552 builds the bytes in the capture window; D-553 lets the window read only type definitions, the default type, tag names and the vault name. The template is a vault file. | Count the default template's **frontmatter block** as part of the type definition: `capture_context` sends it as `templateHead` (no body, never shown in the DOM); the template body never reaches the capture window. **Accepted: D-567.** | (b) The core merges the template frontmatter into the capture's bytes in `capture_create` (Rust editing YAML of a note: against D-82). (c) Captures ignore the template entirely (amends D-540; FR-CAP-04 AC-2's `hodnocení: 3`, `oblast: osobní` become the default `1` and nothing). | §2.2, §3.2; FR-CAP-04 AC-2; NFR-SEC-03 AC-4 |
