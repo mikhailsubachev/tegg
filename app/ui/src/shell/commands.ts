@@ -50,6 +50,12 @@ export type ShellActions = {
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
   showNotUpdated?: () => void;
+  /** 5B (inbox.md R62, D-578): open the capture window (`default` or `task`). */
+  capture?: (kind: 'default' | 'task') => void;
+  /** 5B (R62): run an Inbox command on the focused card or the selection; nothing without either. */
+  inboxCommand?: (id: string) => void;
+  /** 5B (D-562): mark the open note reviewed or unreviewed. */
+  setNoteReviewed?: (reviewed: boolean) => void;
 };
 
 export type EditAction =
@@ -104,7 +110,9 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
-  'ctl.typePickerLink': 'createLink.typePicker',
+  'inbox.trash': 'inbox.trash',
+  'capture.drop': 'capture.addMedia',
+  'settings.shortcuts.change': 'settings.changeShortcut',
   'duplicates.merge': 'duplicates.merge',
   'backlinks.unlinked': 'panel.unlinkedMentions',
   'tasks.sort': 'tasks.sort',
@@ -163,6 +171,32 @@ export function commands(ctx: ShellContext): Command[] {
       ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
     ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
   );
+  // 5B (inbox.md R62): capture from the palette (D-578); Inbox commands on `inbox` (D-561); review on notes (D-562).
+  list.push(
+    { id: 'capture.quick', title: 'cmd.quickCapture', section: 'create', needsVault: true, run: (c) => a(c)?.capture?.('default') },
+    { id: 'capture.task', title: 'cmd.captureTask', section: 'create', needsVault: true, run: (c) => a(c)?.capture?.('task') },
+  );
+  if (ctx.route?.id === 'inbox') {
+    const ic = (id: string) => (c: ShellContext) => a(c)?.inboxCommand?.(id);
+    list.push(
+      ...([
+        ['inbox.markReviewed', 'cmd.markReviewed'], ['inbox.markUnreviewed', 'cmd.markUnreviewed'], ['inbox.convert', 'cmd.inbox.convert'],
+        ['inbox.append', 'cmd.inbox.append'], ['inbox.link', 'cmd.inbox.link'], ['inbox.tags', 'cmd.inbox.tags'],
+        ['inbox.selectAll', 'cmd.inbox.selectAll'], ['inbox.clearSelection', 'cmd.inbox.clearSelection'],
+        ['inbox.markAll', 'cmd.inbox.markAll'], ['inbox.showAll', 'cmd.inbox.showAll'],
+      ] as const).map(([id, title]): Command => ({ id, title, section: 'edit', needsVault: true, run: ic(id) })),
+    );
+  }
+  if (ctx.route?.id === 'note/<path>') {
+    const key = (ctx.route.type ?? '').normalize('NFC');
+    const review = ctx.types.find((x) => x.key.normalize('NFC') === key)?.review;
+    if (key === 'quick-note' || key === 'daily-note' || review === 'on' || review === 'locked') {
+      list.push(
+        { id: 'note.markReviewed', title: 'cmd.markReviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(true) },
+        { id: 'note.markUnreviewed', title: 'cmd.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(false) },
+      );
+    }
+  }
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(
     { id: 'goto.brokenLinks', title: 'commands.gotoBrokenLinks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'broken-links' }) },

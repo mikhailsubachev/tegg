@@ -39,8 +39,9 @@ export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
 
 export const ROUTES: RouteDef[] = [
   { id: 'chooser', name: 'route.chooser', purpose: 'purpose.chooser', status: built, reqs: ['FR-VLT-01', 'FR-VLT-02'], design: null },
-  { id: 'home', name: 'route.home', purpose: 'purpose.home', status: tbd('MS5'), reqs: ['FR-HOM-01', 'FR-HOM-02'], design: 'Home' },
-  { id: 'inbox', name: 'route.inbox', purpose: 'purpose.inbox', status: tbd('MS5'), reqs: ['FR-INB-01…04'], design: 'Home' },
+  // 5B (inbox.md R62, D-515): Home stays TBD until v1.0; the Inbox is built.
+  { id: 'home', name: 'route.home', purpose: 'purpose.home', status: tbd('v1.0'), reqs: ['FR-HOM-01', 'FR-HOM-02'], design: 'Home' },
+  { id: 'inbox', name: 'route.inbox', purpose: 'purpose.inbox', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-INB-01…04'], design: 'Inbox' },
   // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
   { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
   { id: 'daily/YYYY-MM-DD', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
@@ -51,7 +52,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
   { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: tbd('MS4'), reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'Main' },
-  { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('MS5'), reqs: ['FR-HOM-02'], design: null },
+  { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('v1.0'), reqs: ['FR-HOM-02'], design: null }, // 5B R62 (D-376)
   { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
   // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
@@ -63,19 +64,19 @@ export const ROUTES: RouteDef[] = [
   { id: 'broken-links', name: 'route.brokenLinks', purpose: 'purpose.brokenLinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-04'], design: null },
   { id: 'duplicate-titles', name: 'route.duplicateTitles', purpose: 'purpose.duplicateTitles', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-14'], design: null },
   { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: built, reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
-  { id: 'capture', name: 'route.capture', purpose: 'purpose.capture', status: tbd('MS5'), reqs: ['FR-CAP-01…05'], design: 'Home' },
+  // 5B R62 (D-563): `capture` is a window, not a route.
   { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: null },
-  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: tbd('MS3', '3E'), reqs: ['FR-SET-03'], design: null },
-  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: tbd('MS5'), reqs: ['FR-SET-01'], design: null },
-  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: tbd('MS5'), reqs: ['FR-SET-04'], design: null },
-  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: tbd('MS5'), reqs: ['FR-SET-05'], design: null },
+  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-03'], design: null },
+  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: null },
+  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: null },
+  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: null },
   { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
   { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: tbd('v1.0'), reqs: ['FR-SET-07'], design: null },
 ];
 
 export const PANEL_TABS: TabDef[] = [
   { id: 'backlinks', name: 'tab.backlinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-01', 'FR-LNK-02'] }, // built in 4A (D-293)
-  { id: 'outline', name: 'tab.outline', status: tbd('MS5'), reqs: ['FR-EDT-11'] },
+  { id: 'outline', name: 'tab.outline', status: tbd('v1.0'), reqs: ['FR-EDT-11'] }, // 5B R62 (D-376)
   { id: 'graph', name: 'tab.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01'] },
 ];
 
@@ -103,12 +104,16 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   // 5A-1 (tasks.md R45 R3).
   { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },
   { label: 'task.trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01' },
-  { label: 'ctl.font', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('MS3', '3E'), req: 'FR-SET-02' },
-  // 4A (backlinks.md R16).
-  { label: 'ctl.typePickerLink', where: 'Create note popover', due: d('MS5'), req: 'FR-VLT-05' },
+  // 5B R62 (D-565): the four Appearance extras are v1.0.
+  { label: 'ctl.font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
+  { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
+  { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
+  { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
+  // 5B R62: Inbox trash (D-560), the capture drop zone (D-545), shortcut editing (D-548).
+  { label: 'inbox.trash', where: 'Inbox triage menu and selection toolbar', due: d('MS6'), req: 'FR-HIS-01' },
+  { label: 'capture.drop', where: 'capture window', due: d('MS6'), req: 'FR-ATT-01' },
+  { label: 'settings.shortcuts.change', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04' },
+  // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05).
   { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },
   { label: 'backlinks.unlinked', where: 'Backlinks panel', due: d('v1.x'), req: 'FR-LNK-05' },
 ];

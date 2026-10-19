@@ -206,7 +206,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
-    await page.route(/\/src\/main\.tsx(\?.*)?$/, async (route) => {
+    await page.route(/\/src\/(capture\/)?main\.tsx(\?.*)?$/, async (route) => {
       const res = await route.fetch();
       await route.fulfill({ response: res, body: `${prelude}\n${await res.text()}` });
     });

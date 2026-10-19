@@ -739,3 +739,33 @@ button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .task-due-pop { position: fixed; z-index: 40; display: flex; gap: 6px; align-items: center; padding: 8px; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; }
 
 .task-embed-body .ProseMirror .editor-hint { pointer-events: auto; cursor: text; } /* FR-CNV-05 AC-6: a click on Add details… starts typing there */
+
+/* ---------------------------------------------------------------- slice 5B: the capture window (capture.md R55) */
+.capture-body { margin: 0; background: var(--pop); }
+.capture { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; color: var(--text); background: var(--pop); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+.capture-head { display: flex; align-items: center; gap: 8px; }
+.capture-type { position: relative; }
+.capture-type-btn { display: inline-flex; align-items: center; gap: 6px; }
+.capture-vault { flex: 1; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.capture-vault-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.capture-text { min-height: 72px; resize: none; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.capture-fields { display: flex; gap: 8px; }
+.capture-field { position: relative; }
+.capture-menu { position: absolute; z-index: 10; top: 100%; left: 0; display: flex; flex-direction: column; min-width: 180px; padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--pop); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
+.capture-menu-item { display: flex; align-items: center; gap: 6px; text-align: left; border: 0; background: transparent; padding: 4px 6px; color: var(--text); }
+.capture-menu-item[aria-checked="true"] { font-weight: 600; }
+.capture-menu-desc { margin-left: auto; }
+.capture-due { flex-direction: row; gap: 6px; }
+.capture-drop { align-self: flex-start; }
+.capture-foot { display: flex; align-items: center; gap: 10px; }
+.capture-save { margin-left: auto; }
+.capture-status { min-height: 1em; display: flex; gap: 8px; align-items: center; }
+.capture-saved { display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: var(--text); background: var(--bg); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+.capture-saved-text { flex: 1; display: flex; flex-direction: column; }
+.tag-field { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tag-field-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: 10px; background: var(--hover); }
+.tag-field-remove { border: 0; background: transparent; color: var(--muted); padding: 0 2px; }
+.tag-field input { flex: 1; min-width: 120px; border: 0; background: transparent; color: var(--text); font: inherit; outline: none; }
+.tag-field-list { position: absolute; z-index: 10; top: 100%; left: 0; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.tag-field-list li { padding: 2px 6px; }
+.tag-field-list li.active { background: var(--hover); }

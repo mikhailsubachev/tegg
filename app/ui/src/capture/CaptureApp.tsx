@@ -1,0 +1,374 @@
+// The capture window (docs/acceptance/capture.md R55, R57; docs/contracts/ms5-capture.md §3, §4; FR-CAP-01, -04, -05,
+// FR-TSK-10 AC-9…AC-12; D-539…D-546): Type, vault, Discard, the text, Due and Priority for a Task, tags, the drop zone
+// (MS6), Save and the status. ⌘↩ saves from any control, ⏎ is a new line (D-69); Esc hides and keeps a draft (D-542).
+// The bytes come from `@tegg/doc` `newObject` (D-552); the only write is `capture_create`.
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { captureParts, newObject, tagKey, type Value } from '@tegg/doc';
+import { parseDate as parseRegionDate } from '@tegg/schema';
+import { collator, region } from '../i18n/collate';
+import { t } from '../i18n/catalog';
+import { captureEvents, captureIpc, type CaptureOpen } from '../ipc/capture';
+import type { CaptureContextDto, CaptureTypeDto } from '../ipc/types';
+import { Icon, typeIconName } from '../shell/Icon';
+import { parseQuickAdd } from '../tasks/quickAdd';
+import { localDate, localIso } from '../zone';
+import { TagField } from './TagField';
+import { dueLabelOf, ulid } from './util';
+
+type Status = { kind: 'nothing' } | { kind: 'failed' } | { kind: 'vaultGone'; vault: string } | { kind: 'media' } | null;
+
+const FIRST = ['page', 'task', 'quick-note'];
+
+/** R55 order: Page, Task, Quick Note, then user types by D-122. */
+function ordered(types: CaptureTypeDto[]): CaptureTypeDto[] {
+  const first = FIRST.map((k) => types.find((x) => x.key === k)).filter((x): x is CaptureTypeDto => !!x);
+  const rest = types.filter((x) => !FIRST.includes(x.key)).sort((a, b) => collator().compare(a.name, b.name));
+  return [...first, ...rest];
+}
+
+const priorityOptions = (task: CaptureTypeDto | undefined): string[] =>
+  ((task?.attributes ?? []).find((a) => a.key === 'priority')?.options ?? []).map((o) => o.label);
+
+export function CaptureApp() {
+  const [ctx, setCtx] = useState<CaptureContextDto | null>(null);
+  const [text, setText] = useState('');
+  const [type, setType] = useState('quick-note');
+  const [chips, setChips] = useState<string[]>([]);
+  const [due, setDue] = useState<string | null>(null);
+  const [priority, setPriority] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+  const [menu, setMenu] = useState<'type' | 'priority' | 'due' | null>(null);
+  const [dueText, setDueText] = useState('');
+  /** Quick-add words moved out of the text (D-544), put back by `Clear`. */
+  const [moved, setMoved] = useState<{ due?: string; priority?: string }>({});
+  const textRef = useRef<HTMLTextAreaElement | null>(null);
+  const typeRef = useRef<HTMLButtonElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const saving = useRef(false);
+  /** The vault the window showed when it opened (D-546). */
+  const shownVault = useRef<{ id: string; name: string } | null>(null);
+  const state = useRef({ text, type, chips, due, priority });
+  state.current = { text, type, chips, due, priority };
+
+  const types = ordered(ctx?.types ?? []);
+  const typeDef = types.find((x) => x.key === type);
+  const isTask = type === 'task';
+  const vault = ctx?.vault ?? null;
+
+  const loadContext = useCallback(async () => {
+    const c = await captureIpc.context().catch(() => null);
+    if (!c) return null;
+    setCtx(c);
+    // A type deleted outside Tegg falls back to the default type (FR-CAP-04 AC-8).
+    setType((cur) => (c.types.length === 0 || c.types.some((x) => x.key === cur) ? cur : c.defaultType));
+    return c;
+  }, []);
+
+  const reset = (c: CaptureContextDto | null) => {
+    setText('');
+    setChips([]);
+    setDue(null);
+    setPriority(null);
+    setMoved({});
+    setStatus(null);
+    setMenu(null);
+    setType(c?.defaultType ?? 'quick-note');
+  };
+
+  const focusText = () => {
+    const el = textRef.current;
+    if (!el) return;
+    el.focus();
+    const n = el.value.length;
+    el.setSelectionRange(n, n);
+  };
+
+  const onOpen = useCallback(async (o: CaptureOpen) => {
+    // ⌃⌥T sets Task at once, also on an open window or a restored draft (D-542).
+    if (o.kind === 'task') setType('task');
+    const c = (await loadContext()) ?? ctx;
+    const empty = state.current.text === '' && state.current.chips.length === 0;
+    if (empty) {
+      const d = await captureIpc.draftGet().catch(() => null);
+      if (d) {
+        setText(d.text);
+        setChips(d.tags);
+        setDue(d.due);
+        setPriority(d.priority);
+        if (o.kind !== 'task') setType(c && c.types.some((x) => x.key === d.type) ? d.type : (c?.defaultType ?? 'quick-note'));
+      } else if (o.kind !== 'task') setType(c?.defaultType ?? 'quick-note');
+    }
+    setStatus(null);
+    shownVault.current = c?.vault ? { id: c.vault.id, name: c.vault.name } : null;
+    requestAnimationFrame(() => {
+      focusText();
+      requestAnimationFrame(() => requestAnimationFrame(() => void captureIpc.ready(o.seq)));
+    });
+  }, [ctx, loadContext]);
+
+  const openRef = useRef(onOpen);
+  openRef.current = onOpen;
+  useEffect(() => {
+    void loadContext();
+    const offs = [captureEvents.open((o) => void openRef.current(o)), captureEvents.contextChanged(() => void loadContext())];
+    return () => { for (const off of offs) void off.then((f) => f()); };
+  }, [loadContext]);
+
+  // The window's height follows its content (§2.2 capture_resize).
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => void captureIpc.resize(Math.ceil(el.getBoundingClientRect().height)).catch(() => {}));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // A dropped file is prevented (D-545): images and PDFs come with MS6.
+  useEffect(() => {
+    const stop = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files') || (e.dataTransfer?.files.length ?? 0) > 0) e.preventDefault(); };
+    const drop = (e: DragEvent) => e.preventDefault();
+    document.addEventListener('dragover', stop);
+    document.addEventListener('drop', drop);
+    return () => { document.removeEventListener('dragover', stop); document.removeEventListener('drop', drop); };
+  }, []);
+
+  /** D-544: with type Task, quick-add tokens at the end of the first line move into Due, Priority and chips. */
+  const onText = (value: string) => {
+    if (state.current.type !== 'task') return setText(value);
+    const nl = value.indexOf('\n');
+    const first = nl < 0 ? value : value.slice(0, nl);
+    const q = parseQuickAdd(first, { today: localDate(Date.now()), priorities: priorityOptions(types.find((x) => x.key === 'task')) });
+    if (q.tokens.length === 0) return setText(value);
+    // Remove the token words from the end of the first line.
+    let line = first.trimEnd();
+    for (let i = q.tokens.length - 1; i >= 0; i--) line = line.slice(0, line.length - q.tokens[i].word.length).trimEnd();
+    setText(line + (nl < 0 ? '' : value.slice(nl)));
+    const m = { ...moved };
+    for (const tok of q.tokens) {
+      if (tok.kind === 'due') m.due = tok.word;
+      if (tok.kind === 'priority') m.priority = tok.word;
+    }
+    setMoved(m);
+    if (q.due) setDue(q.due);
+    if (q.priority) setPriority(q.priority);
+    if (q.tags.length) setChips((cs) => q.tags.reduce((acc, tag) => (acc.some((c) => c.normalize('NFC').toLowerCase() === tag.normalize('NFC').toLowerCase()) ? acc : [...acc, tag.normalize('NFC')]), cs));
+  };
+
+  const putBack = (word: string | undefined) => {
+    if (!word) return;
+    setText((v) => {
+      const nl = v.indexOf('\n');
+      const first = nl < 0 ? v : v.slice(0, nl);
+      return `${first.trimEnd()} ${word}` + (nl < 0 ? '' : v.slice(nl));
+    });
+  };
+
+  const hide = () => void captureIpc.hide();
+
+  const keepDraft = async () => {
+    const s = state.current;
+    if (s.text.trim() === '' && s.chips.length === 0) {
+      await captureIpc.draftSet(null).catch(() => {});
+      return;
+    }
+    await captureIpc.draftSet({ text: s.text, type: s.type, tags: s.chips, due: s.type === 'task' ? s.due : null, priority: s.type === 'task' ? s.priority : null, savedAt: localIso(Date.now()) }).catch(() => {});
+  };
+
+  const escape = async () => {
+    if (menu) { setMenu(null); typeRef.current?.focus(); return; }
+    await keepDraft();
+    hide();
+  };
+
+  const discard = async () => {
+    await captureIpc.draftSet(null).catch(() => {});
+    reset(ctx);
+    hide();
+  };
+
+  const save = async () => {
+    if (saving.current || !vault) return;
+    const s = state.current;
+    if (s.text.trim() === '') { setStatus({ kind: 'nothing' }); return; }
+    const def = types.find((x) => x.key === s.type);
+    if (!def) return;
+    saving.current = true;
+    try {
+      const parts = captureParts(s.text, () => null);
+      const title = parts.title === '' ? 'Untitled' : parts.title;
+      const seen = new Set<string>();
+      const tags: string[] = [];
+      for (const tag of [...s.chips, ...parts.tags]) {
+        const k = tagKey(tag.normalize('NFC'));
+        if (!seen.has(k)) { seen.add(k); tags.push(tag.normalize('NFC')); }
+      }
+      const values: [string, Value][] = [];
+      if (s.type === 'task' && s.priority) values.push(['priority', s.priority]);
+      if (s.type === 'task' && s.due) values.push(['due', { date: s.due }]);
+      if (tags.length) values.push(['tags', tags]);
+      const now = localIso(Date.now());
+      const bytes = newObject({
+        type: { key: def.key, attributes: def.attributes.map((a) => ({ key: a.key, type: a.type, default: a.default ?? undefined, options: a.options })), review: def.review as 'off' | 'on' | 'locked' },
+        title,
+        template: def.templateHead,
+        now,
+        captured: now,
+        newId: () => ulid(Date.now()),
+        values,
+        body: parts.body,
+      });
+      const vaultId = shownVault.current?.id ?? vault.id;
+      const made = await captureIpc.create(vaultId, def.key, title, bytes);
+      await captureIpc.draftSet(null).catch(() => {});
+      reset(ctx);
+      void captureIpc.savedShow(made.typeName, made.title, made.path).catch(() => {});
+      hide();
+    } catch (e) {
+      const kind = (e as { kind?: string } | null)?.kind;
+      if (kind === 'VaultChanged') setStatus({ kind: 'vaultGone', vault: shownVault.current?.name ?? '' });
+      else setStatus({ kind: 'failed' });
+    } finally {
+      saving.current = false;
+    }
+  };
+
+  // ⌘↩ and Esc work wherever the focus is in the window (FR-CAP-01 AC-4), also after a menu closed.
+  const keys = useRef<(e: KeyboardEvent) => void>(() => {});
+  keys.current = (e: KeyboardEvent) => {
+    if (e.defaultPrevented) return;
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void save();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      void escape();
+    }
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => keys.current(e);
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  const onPaste = (e: React.ClipboardEvent) => {
+    const files = [...(e.clipboardData?.items ?? [])].some((i) => i.kind === 'file');
+    if (files) {
+      e.preventDefault();
+      setStatus({ kind: 'media' });
+    }
+  };
+
+  const statusText = status?.kind === 'nothing' ? t('capture.nothing') : status?.kind === 'failed' ? t('capture.failed')
+    : status?.kind === 'vaultGone' ? t('capture.vaultGone', { vault: status.vault }) : status?.kind === 'media' ? t('capture.mediaLater') : '';
+
+  const pickType = (key: string) => {
+    setType(key);
+    if (key !== 'task') { setDue(null); setPriority(null); }
+    setMenu(null);
+    requestAnimationFrame(() => typeRef.current?.focus());
+  };
+
+  const typeMenuKeys = (e: React.KeyboardEvent) => {
+    const items = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMenu(null); typeRef.current?.focus(); }
+  };
+
+  const today = localDate(Date.now());
+  const dueText0 = due ? dueLabelOf(due, today, region() ?? navigator.language) : t('capture.none');
+  const commitDue = () => {
+    const p = parseRegionDate(dueText, region() ?? navigator.language);
+    const v = p.ok ? p.value : null;
+    if (v && typeof v === 'object' && 'date' in v) {
+      setDue(v.date);
+      setMoved((m) => ({ ...m, due: undefined }));
+      setMenu(null);
+      requestAnimationFrame(focusText);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="capture">
+      <div className="capture-head" data-tauri-drag-region>
+        <div className="capture-type">
+          <button ref={typeRef} type="button" tabIndex={0} className="capture-type-btn" aria-haspopup="menu" aria-expanded={menu === 'type'}
+            aria-label={t('capture.type', { name: typeDef?.name ?? '' })} onClick={() => setMenu(menu === 'type' ? null : 'type')}>
+            <Icon name={typeIconName(type)} size={14} />
+            <span>{t('capture.type', { name: typeDef?.name ?? '' })}</span>
+          </button>
+          {menu === 'type' && (
+            <div role="menu" aria-label={t('capture.typeMenu')} className="capture-menu" onKeyDown={typeMenuKeys}
+              ref={(el) => { if (el && !el.contains(document.activeElement)) el.querySelector<HTMLElement>('[aria-checked="true"]')?.focus(); }}>
+              {types.map((x) => {
+                const desc = x.key === ctx?.defaultType ? t('capture.vaultDefault') : x.key === 'task' ? '⌃⌥T' : undefined;
+                return (
+                  <button key={x.key} type="button" role="menuitemradio" aria-checked={x.key === type} aria-label={x.name} aria-description={desc}
+                    tabIndex={-1} className="capture-menu-item" onClick={() => pickType(x.key)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); pickType(x.key); } }}>
+                    <Icon name={typeIconName(x.key)} size={14} />
+                    <span data-user-content>{x.name}</span>
+                    {desc && <span className="muted capture-menu-desc">{desc}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {vault && <span className="capture-vault"><span className="capture-vault-dot" aria-hidden="true" />{t('capture.saves', { vault: vault.name })}</span>}
+        <button type="button" tabIndex={0} className="capture-discard" aria-description={t('capture.discardHint')} title={t('capture.discardHint')} onClick={() => void discard()}>{t('capture.discard')}</button>
+      </div>
+      <textarea ref={textRef} className="capture-text" aria-label={t('capture.text')} placeholder={t('capture.placeholder')} value={text}
+        spellCheck rows={4} onChange={(e) => onText(e.target.value)} onPaste={onPaste} data-user-content />
+      {isTask && (
+        <div className="capture-fields">
+          <div className="capture-field">
+            <button type="button" tabIndex={0} aria-haspopup="dialog" onClick={() => { setDueText(due ?? ''); setMenu(menu === 'due' ? null : 'due'); }}>{t('capture.due', { label: dueText0 })}</button>
+            {menu === 'due' && (
+              <div className="capture-menu capture-due" role="group">
+                <input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMenu(null); } }} />
+                <button type="button" onClick={() => { putBack(moved.due); setMoved((m) => ({ ...m, due: undefined })); setDue(null); setMenu(null); requestAnimationFrame(focusText); }}>{t('task.clearDue')}</button>
+              </div>
+            )}
+          </div>
+          <div className="capture-field">
+            <button type="button" tabIndex={0} aria-haspopup="menu" onClick={() => setMenu(menu === 'priority' ? null : 'priority')}>{t('capture.priority', { label: priority ?? t('capture.none') })}</button>
+            {menu === 'priority' && (
+              <div role="menu" aria-label={t('task.priority')} className="capture-menu">
+                {[...priorityOptions(types.find((x) => x.key === 'task')), null].map((p) => (
+                  <button key={p ?? '-'} type="button" role="menuitemradio" aria-checked={p === priority} className="capture-menu-item"
+                    onClick={() => { if (p === null) putBack(moved.priority); setMoved((m) => ({ ...m, priority: undefined })); setPriority(p); setMenu(null); requestAnimationFrame(focusText); }}>
+                    {p === null ? t('capture.noPriority') : <span data-user-content>{p}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <TagField chips={chips} onChange={setChips} tags={ctx?.tags ?? []} />
+      <button type="button" tabIndex={0} className="capture-drop" aria-disabled="true" aria-description={t('due.coming', { milestone: 'MS6' })} title={t('due.coming', { milestone: 'MS6' })}>{t('capture.drop')}</button>
+      <div className="capture-foot">
+        <span className="muted">{t('capture.hint')}</span>
+        <span className="muted">{t('capture.newLine')}</span>
+        <button type="button" tabIndex={0} className="primary capture-save" aria-label={t('capture.save')} aria-disabled={!vault || undefined}
+          onClick={() => void save()}>{t('capture.saveShort')} <kbd>⌘↩</kbd></button>
+      </div>
+      <div role="status" aria-live="polite" aria-label={t('capture.status')} className="capture-status">
+        {!vault ? (
+          <>
+            <span>{t('capture.noVault')}</span>
+            <button type="button" tabIndex={0} onClick={() => void captureIpc.openMain(null)}>{t('capture.openTegg')}</button>
+          </>
+        ) : (
+          <>
+            {statusText && <span>{statusText}</span>}
+            {status?.kind === 'failed' && <button type="button" tabIndex={0} onClick={() => void save()}>{t('capture.tryAgain')}</button>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
