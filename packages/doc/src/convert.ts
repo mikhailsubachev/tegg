@@ -90,7 +90,7 @@ const lines = (s: string) => s.replace(/\r\n/g, '\n').split('\n')
 const TRAILING_TAG = /(^|[ \t])#([^\s#]+)[ \t]*$/u
 
 /** D-491: the plain text of one line of inline Markdown; links as their alias, else their target's title. */
-function plain(line: string, linkTitle: (t: string) => string | null): { text: string; link: boolean } {
+export function plain(line: string, linkTitle: (t: string) => string | null): { text: string; link: boolean } {
   let link = false
   const walk = (n: Nodes): string => {
     switch (n.type) {
@@ -116,7 +116,7 @@ function plain(line: string, linkTitle: (t: string) => string | null): { text: s
 }
 
 /** D-491: trailing `#tags` of a line, in order and unique by key (first spelling), and the line without them. */
-function trailingTags(line: string): { rest: string; tags: string[] } {
+export function trailingTags(line: string): { rest: string; tags: string[] } {
   const found: string[] = []
   let rest = line.trimEnd()
   for (let m = TRAILING_TAG.exec(rest); m; m = TRAILING_TAG.exec(rest)) {

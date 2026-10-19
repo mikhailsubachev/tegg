@@ -1,10 +1,13 @@
 //! Slice 5B: the Inbox query (docs/contracts/ms5-capture.md §7.1; R61, D-554). Members from the index's stored
 //! frontmatter: `review` exactly `unreviewed` (NFC, trimmed, plain or quoted) on any type, or a Quick Note / Daily Note
 //! whose `review` is missing or anything but `reviewed`; never `_templates/`, `.trash/`, files without frontmatter or
-//! virtual Daily Notes. The core never decides "today" or a group (§7.2 is TypeScript).
-//! STUB (TS-I1): not built yet; the Inbox is empty.
+//! virtual Daily Notes. The core never decides "today" or a group (§7.2 is TypeScript). Every field comes from the
+//! indexed file (AR-01), so a rebuilt index gives the same rows (FR-INB-01 AC-8).
 
-use crate::Core;
+use serde_json::Value;
+use tegg_format::nfc;
+
+use crate::{Core, ObjectInfo};
 
 /// One Inbox member (R61).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,14 +33,60 @@ pub struct InboxRow {
     pub read_only: bool,
 }
 
+/// A string value as written (NFC, trimmed); other values are none.
+fn text(v: Option<&Value>) -> Option<String> {
+    v.and_then(Value::as_str).map(|s| nfc(s.trim()))
+}
+
+/// R61 (D-554).
+fn member(o: &ObjectInfo) -> bool {
+    let p = nfc(&o.path);
+    if p.starts_with("_templates/") || p.starts_with(".trash/") {
+        return false;
+    }
+    let Some(fm) = o.attributes.as_object() else { return false };
+    let review = text(fm.get("review"));
+    review.as_deref() == Some("unreviewed") || (matches!(o.r#type.as_str(), "quick-note" | "daily-note") && review.as_deref() != Some("reviewed"))
+}
+
 impl Core {
-    /// Members only, in path order. STUB: empty.
+    /// Members only, in path order.
     pub fn inbox_list(&self) -> Vec<InboxRow> {
-        Vec::new()
+        let all = self.objects(); // before the index lock: `objects` takes it too
+        let idx = self.index();
+        let mut rows: Vec<InboxRow> = all
+            .iter()
+            .filter(|o| member(o))
+            .filter_map(|o| {
+                let st = idx.note_state(&o.path)?;
+                let fm = o.attributes.as_object()?;
+                let mut tags: Vec<String> = Vec::new();
+                for t in &o.tags {
+                    let t = nfc(t);
+                    if !t.is_empty() && !tags.iter().any(|x| x.to_lowercase() == t.to_lowercase()) {
+                        tags.push(t);
+                    }
+                }
+                Some(InboxRow {
+                    path: nfc(&o.path),
+                    id: o.id.clone(),
+                    title: nfc(&o.title),
+                    r#type: o.r#type.clone(),
+                    review_raw: text(fm.get("review")),
+                    captured: text(fm.get("captured")),
+                    created: text(fm.get("created")),
+                    modified: text(fm.get("modified")),
+                    tags,
+                    excerpt: st.excerpt,
+                    read_only: !st.utf8,
+                })
+            })
+            .collect();
+        rows.sort_by(|a, b| a.path.as_bytes().cmp(b.path.as_bytes()));
+        rows
     }
 
-    /// STUB: 0.
     pub fn inbox_count(&self) -> usize {
-        0
+        self.objects().iter().filter(|o| member(o)).count()
     }
 }

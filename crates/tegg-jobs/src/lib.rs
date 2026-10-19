@@ -34,7 +34,7 @@ pub enum JobKind {
     TypeDelete,
     /// FR-HIS-04 AC-5 only: with `TEGG_TEST=1` and in Rust tests.
     TestBackup,
-    /// ms5-capture §7.3 (5B, D-561): an Inbox action on more than one file. STUB (TS-I1): no planner until 5B is built.
+    /// ms5-capture §7.3 (5B, D-561): an Inbox action on more than one file.
     Inbox,
 }
 
@@ -61,6 +61,8 @@ impl JobKind {
         match self {
             JobKind::NoteRename => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning] },
             JobKind::TestBackup => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // ms5-capture §7.3 (D-561): the page confirms `Mark all reviewed` itself; only `SetType` makes a backup.
+            JobKind::Inbox => KindFlags { needs_confirm: false, backup: false, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
             _ => KindFlags { needs_confirm: true, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup] },
         }
     }
@@ -134,7 +136,6 @@ pub enum JobOp {
     TypeDelete { r#type: String, objects: TypeDeleteChoice },
     /// ms5-capture §7.3 (5B, D-561): the same change applied to each of `paths` (vault paths, NFC), each against its
     /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).
-    /// STUB (TS-I1): `start` refuses it with `NotImplemented` until 5B is built.
     Inbox { paths: Vec<String>, change: InboxJobChange },
 }
 

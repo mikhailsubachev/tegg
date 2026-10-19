@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-usage"
+description = "Enables the type_usage command without any pre-configured scope."
+commands.allow = ["type_usage"]
+
+[[permission]]
+identifier = "deny-type-usage"
+description = "Denies the type_usage command without any pre-configured scope."
+commands.deny = ["type_usage"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-conflicts"
+description = "Enables the index_conflicts command without any pre-configured scope."
+commands.allow = ["index_conflicts"]
+
+[[permission]]
+identifier = "deny-index-conflicts"
+description = "Denies the index_conflicts command without any pre-configured scope."
+commands.deny = ["index_conflicts"]

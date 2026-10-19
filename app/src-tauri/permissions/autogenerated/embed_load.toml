@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-embed-load"
+description = "Enables the embed_load command without any pre-configured scope."
+commands.allow = ["embed_load"]
+
+[[permission]]
+identifier = "deny-embed-load"
+description = "Denies the embed_load command without any pre-configured scope."
+commands.deny = ["embed_load"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-last"
+description = "Enables the vault_last command without any pre-configured scope."
+commands.allow = ["vault_last"]
+
+[[permission]]
+identifier = "deny-vault-last"
+description = "Denies the vault_last command without any pre-configured scope."
+commands.deny = ["vault_last"]

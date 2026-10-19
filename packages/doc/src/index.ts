@@ -96,8 +96,8 @@ export function newObject(opts: {
    *  frontmatter entries still apply). */
   body?: string
   /** ms5-capture §3.2 (5B, D-540): a capture's time stamp. With it: `review: unreviewed` whatever `type.review`, then
-   *  `captured`, then `created`, `modified`; template identity/review/stamp keys ignored; `body` required.
-   *  STUB (TS-I1): not built yet, ignored. */
+   *  `captured`, then `created`, `modified`; the template's `id, type, title, tags, review, captured, created,
+   *  modified` are ignored and its body is never used (D-540, D-567). */
   captured?: string
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
@@ -110,7 +110,8 @@ export function newObject(opts: {
     }
   }
   let out = '---\n' + formatEntry('id', opts.newId()) + formatEntry('type', opts.type.key.normalize('NFC')) + formatEntry('title', opts.title.normalize('NFC'))
-  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified'])
+  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified', 'captured'])
+  if (opts.captured !== undefined) for (const k of ['tags', 'captured']) tplEntries.delete(k)
   const values = new Map<string, Value>((opts.values ?? []).map(([k, v]) => [k.normalize('NFC'), v]))
   const entry = (k: string, v: Value) => (Array.isArray(v) ? `${formatKey(k)}: ${flowList(v)}\n` : formatEntry(k, v))
   for (const a of opts.type.attributes) {
@@ -146,12 +147,13 @@ export function newObject(opts: {
     const v = values.get(k)!
     if (v !== null && !(Array.isArray(v) && v.length === 0)) out += entry(k, v)
   }
-  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
+  if (opts.type.review !== 'off' || opts.captured !== undefined) out += formatEntry('review', 'unreviewed')
+  if (opts.captured !== undefined) out += formatEntry('captured', { datetime: opts.captured })
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
   if (opts.body !== undefined) {
     const body = opts.body.normalize('NFC')
     if (body !== '') out += body.endsWith('\n') ? body : body + '\n'
-  } else if (tpl) out += tpl.text.slice(tpl.bodyStart)
+  } else if (tpl && opts.captured === undefined) out += tpl.text.slice(tpl.bodyStart)
   return out
 }
 

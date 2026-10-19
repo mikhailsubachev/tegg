@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-context"
+description = "Enables the daily_context command without any pre-configured scope."
+commands.allow = ["daily_context"]
+
+[[permission]]
+identifier = "deny-daily-context"
+description = "Denies the daily_context command without any pre-configured scope."
+commands.deny = ["daily_context"]

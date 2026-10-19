@@ -197,9 +197,13 @@ impl Shared {
 
     fn load_default_type(&self) {
         let read = |p: &str| self.vault.read(p).ok().map(|(b, _)| String::from_utf8_lossy(&b).into_owned());
-        let name = read(".tegg/vault.yml").and_then(|t| yaml_str(&t, "default-type")).unwrap_or_else(|| "Quick Note".into());
-        let key = name.trim().to_lowercase().replace(' ', "-");
-        let folder = read(&format!(".tegg/types/{key}.yml")).and_then(|t| yaml_str(&t, "folder")).unwrap_or_else(|| default_folder(&name));
+        let exists = |k: &str| tegg_schema::builtin(k).is_some() || self.vault.read(&format!(".tegg/types/{k}.yml")).is_ok();
+        // D-541: the matched key of `default-type` (D-239), Quick Note when it names no type.
+        let key = settings5b::default_type_of(read(".tegg/vault.yml").as_deref(), exists).key;
+        let folder = read(&format!(".tegg/types/{key}.yml"))
+            .or_else(|| tegg_schema::builtin(&key).map(str::to_string))
+            .and_then(|t| yaml_str(&t, "folder"))
+            .unwrap_or_else(|| default_folder(&key));
         *lock(&self.default_type) = DefaultType { key, folder };
     }
 }

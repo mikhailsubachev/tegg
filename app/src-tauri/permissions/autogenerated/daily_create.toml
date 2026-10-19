@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-create"
+description = "Enables the daily_create command without any pre-configured scope."
+commands.allow = ["daily_create"]
+
+[[permission]]
+identifier = "deny-daily-create"
+description = "Denies the daily_create command without any pre-configured scope."
+commands.deny = ["daily_create"]
