@@ -87,7 +87,7 @@
 | v1.69   | 2026-10-18 | Preview feedback on slice 5A-1, decisions D-516…D-520 (AP-444…AP-448, `docs/feedback/ms5-5a1.md`): the Task type page becomes the Tasks page's `All tasks` view, the view switch moves into the header, a searchable tag filter that matches all selected tags, an icon `Type settings` button, and new objects open unsaved with the caret in the title. |
 | v1.70   | 2026-10-18 | D-521…D-523 (AP-449…AP-451, `docs/contracts/ms5-tasks.md` §12.2): an unsaved new object's history entry, when its first write happens, and `Untitled` for an empty title. |
 | v1.71   | 2026-10-18 | Slice 5A-2 contract and red-test decisions D-524…D-538 (AP-452…AP-466, `docs/contracts/ms5-tasks.md` §11.10). |
-| v1.72   | 2026-10-19 | Slice 5B acceptance decisions D-539…D-565 (AP-467…AP-493, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
+| v1.72   | 2026-10-19 | Slice 5B acceptance decisions D-539…D-566 (AP-467…AP-494, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
 
 ---
 
@@ -686,6 +686,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-563 | Capture route and v1.0 placeholders (AP-491, owner, 2026-10-19) | The TBD route `capture` is removed (palette `Quick Capture` and `Capture a task` open the window); `home`, `pinned` and the Outline tab are relabelled v1.0 (D-515, D-376); the other inbox.md R62 changes as listed |
 | D-564 | FR-NAV-02 and FR-NAV-05 criteria (AP-492, owner, 2026-10-19) | Each gets one criterion in inbox.md before the red tests: FR-NAV-02 AC-1 (every registered command listed and runnable from the palette) and FR-NAV-05 AC-1 (the right panel's tabs equal app-shell R2, Outline `Coming in v1.0`) |
 | D-565 | Overdue MS3 (3E) placeholders (AP-493, owner, 2026-10-19) | `settings/date-time` (FR-SET-03) is built in 5B with the other Settings pages; the Appearance extras Font, Font size, Editor width and Accent color (FR-SET-02) move to v1.0 and are relabelled |
+| D-566 | Settings: Date & time (AP-494, owner, 2026-10-19) | Per machine (as D-128): `Date format` Region / ISO / Long, `Time format` Region / 24-hour / 12-hour, `First day of week` Region / Monday / Sunday, all defaulting to Region. Display only: files keep `YYYY-MM-DD` and ISO date-times (FR-FMT-11); date inputs accept the region format and ISO whatever the setting |
 
 ---
 
