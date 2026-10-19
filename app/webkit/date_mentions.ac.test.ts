@@ -93,7 +93,7 @@ test.describe('@ in Czech and dates', () => {
     const o = await mention(page, '2026-10-20');
     assert.equal(o[0], '2026-10-20', 'the date row first');
     assert.equal(o[o.length - 1].startsWith('Create'), true, 'Create is last');
-    assert.equal(o[o.length - 2], 'Pick a date…', 'Pick a date… before Create');
+    assert.equal(o[o.length - 3], 'Pick a date…', 'Pick a date… before Create (then Create … as…)'); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
     await page.keyboard.press('Escape');
     const z = await mention(page, 'Zm');
     const iz = z.findIndex((x) => x.startsWith('Zmínky')), ip = z.indexOf('Pick a date…'), ic = z.findIndex((x) => x.startsWith('Create'));

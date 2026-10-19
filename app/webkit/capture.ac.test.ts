@@ -301,7 +301,11 @@ test('fr_cap_01_ac13_the_confirmation_panel', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-14
 
 test('fr_cap_01_ac14_pseudo_locale_marks_every_ui_text', async ({ page }) => {
-  await startCapture(page, { prelude: pseudoLocale });
+  // Opened by hand: startCapture waits for the English name `Capture text`, which the pseudo-locale wraps.
+  const core = await startCapture(page, { prelude: pseudoLocale, open: false });
+  await sleep(300);
+  await core.openCapture({ trigger: 'hotkey', kind: 'default' });
+  await must(page.getByRole('textbox', { name: '⟦Capture text⟧' }), 'the pseudo-localized Capture text', 5000);
   const leaks = await page.evaluate(() => {
     const out: string[] = [];
     const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

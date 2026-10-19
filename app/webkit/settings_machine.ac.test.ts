@@ -66,6 +66,7 @@ test('fr_cap_05_ac5_a_taken_hotkey_on_the_shortcuts_page_and_the_notice', async 
   assert.ok(after.some((x) => x.includes('Quick Capture') && x.includes('Active')), 'Active within 1 s');
   await page.reload();
   await sleep(500);
+  await runCommand(page, 'Go to Settings: Shortcuts'); // a reload starts on the landing route, not the last page
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');
   const app = await must(main(page).getByRole('table', { name: 'App shortcuts', exact: true }).or(page.getByRole('table', { name: 'App shortcuts', exact: true })), 'table App shortcuts (R4, read-only)');
   assert.ok(flat(await app.innerText()).includes('⌘K'), 'lists R4');
@@ -106,15 +107,15 @@ test('fr_set_03_ac2_dates_follow_the_setting_and_files_do_not_change', async ({ 
   await choose(page, 'Time format', '24-hour');
   const st = await core.uiState();
   assert.deepEqual(st?.dateTime, { date: 'iso', time: '24', week: 'region' }, 'stored in UiStateDto.dateTime');
-  await page.goBack();
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   assert.ok(await seen(main(page).getByText('2026-10-15', { exact: true }), 3000), 'the attribute panel shows due as 2026-10-15');
   await gotoInbox(page);
   const q1 = await must(cardAt(page, 'Quick Notes/Koupit mléko.md'), 'Q1 card');
   assert.ok(flat(await q1.innerText()).includes('Captured 2026-10-14 08:15'), 'the Inbox footer in ISO with 24-hour time');
   await runCommand(page, 'Go to Settings: Date & time');
   await choose(page, 'Date format', 'Long (14 October 2026)');
-  await page.goBack();
-  await page.goBack();
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   assert.ok(await seen(main(page).getByText('15 October 2026', { exact: true }), 3000), 'Long: 15 October 2026');
   assert.deepEqual(await vaultWrites(core), [], 'no vault file is written by the change or by showing');
 });

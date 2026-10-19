@@ -85,7 +85,7 @@ function graph(entry: string): { files: string[]; bare: string[] } {
 }
 
 test('nfr_sec_03_ac4_the_capture_page_imports_no_main_window_client_or_editor', () => {
-  assert.ok(existsSync(resolve(APP, 'capture.html')), 'app/capture.html (a second Vite input, §4)');
+  assert.ok(existsSync(resolve(APP, 'ui/capture.html')), 'app/ui/capture.html (a second Vite input beside ui/index.html, §4)');
   assert.match(read('vite.config.ts') ?? '', /capture\s*:\s*[^,}]*capture\.html/, 'vite.config.ts: rollupOptions.input has capture: capture.html');
   assert.ok(existsSync(ENTRY), 'ui/src/capture/main.tsx');
   const g = graph(ENTRY);

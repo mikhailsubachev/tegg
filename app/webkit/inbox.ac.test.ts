@@ -160,7 +160,9 @@ test('fr_inb_01_ac7_inbox_zero', async ({ page }) => {
   await click(z.getByRole('button', { name: 'Quick Capture', exact: true }), 'Quick Capture');
   assert.deepEqual((await core.captureLog()).opens, ['default'], 'opens the capture window with the default type');
   await click(z.getByRole('button', { name: "Open today's note", exact: true }), "Open today's note");
-  await must(main(page).getByRole('button', { name: /^(Reviewed|Mark reviewed)$/ }), 'daily/2026-10-14', 3000);
+  // Today's note is virtual here, and a virtual Daily Note shows no review control (FR-DLY-05 AC-1): its header's
+  // `Pick date` shows the daily route.
+  await must(main(page).getByRole('button', { name: 'Pick date', exact: true }), 'daily/2026-10-14', 3000);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-INB-01 AC-8
@@ -236,7 +238,7 @@ test('fr_inb_03_ac1_the_review_row_matches_the_card', async ({ page }) => {
   await click(main(page).getByRole('link', { name: 'Divná hodnota', exact: true }), 'Q5');
   const row = await must(main(page).getByRole('region', { name: 'Properties' }).getByText(/Review/).first(), 'the Review row');
   assert.ok(flat(await row.evaluate((e) => e.closest('[role="row"], li, div')?.textContent ?? '')).includes('maybe'), 'Q5 shows the raw value as invalid');
-  await page.goBack();
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   await click(main(page).getByRole('link', { name: 'Koupit mléko', exact: true }), 'Q1');
   const control = await must(main(page).getByRole('region', { name: 'Properties' }).getByRole('checkbox', { name: /Review/ }).or(main(page).getByRole('button', { name: /^(Reviewed|Unreviewed|Mark reviewed)$/ })), 'Q1 Review control');
   assert.equal(await control.getAttribute('aria-checked') ?? await control.getAttribute('aria-pressed'), 'false', 'same state as the card (unreviewed)');
@@ -283,7 +285,7 @@ test('fr_inb_03_ac4_reading_never_writes', async ({ page }) => {
   for (const t of ['Bez stavu', 'Divná hodnota', 'Bez data']) {
     await click(main(page).getByRole('link', { name: t, exact: true }), t);
     await sleep(300);
-    await page.goBack();
+    await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
     await must(inboxHeading(page), 'back');
   }
   assert.deepEqual(await vaultWrites(core), [], 'no write command (a missing or unknown value is never fixed by reading, D-330)');

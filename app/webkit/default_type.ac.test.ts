@@ -76,7 +76,7 @@ test('fr_vlt_05_ac2_quick_note_is_preselected_everywhere', async ({ page }) => {
   const core = await startMain(page, { vault: vault(), at: ROZBITA });
   await newDraft(page);
   assert.ok(await seen(tab(page, 'New Quick Note'), 2000), '⌘N opens new/quick-note (D-520)');
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+BracketLeft'); // Back to Rozbitá (Esc doesn't leave a draft)
   const offer = await openOffer(page);
   assert.ok(await seen(offer.getByText('Type: Quick Note', { exact: true }).or(offer.getByRole('combobox', { name: 'Type', exact: true }).filter({ hasText: 'Quick Note' })), 1000), 'the Create offer: Type Quick Note');
   await page.keyboard.press('Escape');
@@ -99,7 +99,7 @@ test('fr_vlt_05_ac2_with_default_napad_every_path_creates_a_napad', async ({ pag
   for (const line of ['type: nápad', 'hodnocení: 3', 'oblast: osobní', 'review: unreviewed']) assert.ok(t.includes(`\n${line}\n`), `${line} (FR-TYP-12, D-232)`);
   assert.ok((await core.writesTo()).includes('Nápady/Nový nápad.md'), 'written in Nápady/');
   // `[[` in the editor.
-  await page.goBack();
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   await (await must(editorBody(page), 'Note body', 5000)).click();
   await page.keyboard.press('End');
   await page.keyboard.type(' [[Druhý nápad');

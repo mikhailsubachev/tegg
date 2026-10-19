@@ -61,7 +61,7 @@ test('fr_nav_04_ac2_the_inbox_count_follows_the_query', async ({ browser }) => {
 test('fr_nav_04_ac2_no_count_at_zero', async ({ page }) => {
   const v = inboxVault((f) => {
     for (const [p, t] of Object.entries(f)) {
-      if (!p.endsWith('.md') || p.startsWith('_templates/') || p.startsWith('.trash/') || !t.startsWith('---\n')) continue;
+      if (!p.endsWith('.md') || p.startsWith('_templates/') || p.startsWith('.trash/') || !/^---\r?\n/.test(t)) continue; // CRLF notes (Q5) too
       f[p] = /^review: /m.test(t) ? t.replace(/^review: .*$/m, 'review: reviewed') : t.replace(/^title: (.*)$/m, (l) => `${l}\nreview: reviewed`);
     }
   });

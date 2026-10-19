@@ -109,9 +109,6 @@ fn fr_cap_04_ac1_capture_create_writes_exactly_one_file_indexed_at_once() {
 
 #[test]
 fn fr_cap_04_ac2_every_capture_type_writes_into_its_folder() {
-    let sb = sandbox();
-    let root = inbox_vault(&sb);
-    let core = open(&root, &sb);
     let body = "Něco do 500 Kč, viz [[Plán webu]].\n";
     let cases = [
         ("page", "Pages/Koupit dárek pro Janu.md", capture_bytes("page", "Koupit dárek pro Janu", "tags: [nákup]\n", body)),
@@ -120,6 +117,10 @@ fn fr_cap_04_ac2_every_capture_type_writes_into_its_folder() {
         ("task", "Tasks/Zavolat kominíkovi.md", capture_bytes("task", "Zavolat kominíkovi", "status: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n", "")),
     ];
     for (key, want, bytes) in cases {
+        // A fresh vault per type: stems are free vault-wide (D-291), so the same title twice in one vault gets ` (2)`.
+        let sb = sandbox();
+        let root = inbox_vault(&sb);
+        let core = open(&root, &sb);
         let before = snapshot(&root);
         let title = if key == "task" { "Zavolat kominíkovi" } else { "Koupit dárek pro Janu" };
         let path = ok!(core.capture_create(key, title, bytes.as_bytes()), format!("capture_create({key})"));

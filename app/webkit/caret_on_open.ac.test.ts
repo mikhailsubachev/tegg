@@ -195,7 +195,7 @@ test('fr_edt_01_ac12_switcher_create_item_opens_with_the_title_focused', async (
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option').last().click();
+  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await mustBeOn(page, 'Úplně nový', 'new note opens');
   await sleep(300);
   assert.equal(await focusTarget(page), 'title', 'data-focus-target="title"');
@@ -219,7 +219,7 @@ test('fr_edt_01_ac12_link_create_moves_no_focus', async ({ page }) => {
   await openEditor(page, E.prazdna);
   await editorBody(page).first().click();
   await page.keyboard.type('[[Nový cíl');
-  await page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"' }).click();
+  await page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"', exact: true }).click();
   await sleep(300);
   assert.ok(await caretInBody(page), 'the caret stays in the body');
   assert.equal(await focusTarget(page), 'body', 'no navigation, the focus target is still the body (§15.2)');

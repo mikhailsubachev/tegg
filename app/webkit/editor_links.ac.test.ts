@@ -124,7 +124,7 @@ for (const [q, file, link] of [
     const o = await options(page, 'link');
     // 5B (FR-VLT-05 AC-3 (b), D-550): `Create "<q>"` is followed by the row `Create "<q>" as…`.
     assert.deepEqual(o.slice(-2), [`Create "${q}"`, `Create "${q}" as…`], `the last rows: ${o.join(' | ')}`);
-    await linkSuggestions(page).getByRole('option', { name: `Create "${q}"` }).click();
+    await linkSuggestions(page).getByRole('option', { name: `Create "${q}"`, exact: true }).click();
     await page.keyboard.type(' konec');
     const t = await saved(page, core, E.prazdna);
     assert.equal(await bodyOf(t), `${link} konec\n`, `${q}: link saved, caret after it`);
@@ -173,7 +173,7 @@ test('fr_edt_06_ac6_undo_after_choose_and_after_create', async ({ page }) => {
   assert.equal(flat(await tree(await bodyOf(t))).trim(), '[[Cíl', '⌘Z restores [[Cíl as text');
   await page.keyboard.press('Enter');
   await page.keyboard.type('[[Úplně nová');
-  await linkSuggestions(page).getByRole('option', { name: 'Create "Úplně nová"' }).click();
+  await linkSuggestions(page).getByRole('option', { name: 'Create "Úplně nová"', exact: true }).click();
   await mustBeSaved(page);
   await page.keyboard.press('Meta+z');
   t = await saved(page, core, E.prazdna);

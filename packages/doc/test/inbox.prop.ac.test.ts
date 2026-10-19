@@ -91,7 +91,7 @@ function gen(r: R): string {
 function envelope(r: R, t: string): string {
   let out = t
   if (r.chance(30)) out = out.replace(/\r?\n/g, '\r\n')
-  if (r.chance(20)) out = '﻿' + out
+  if (r.chance(20) && !out.startsWith('﻿')) out = '﻿' + out // one BOM at most, as in a real file
   if (r.chance(25)) out = out.replace(/(\r?\n)+$/, '')
   return out
 }
