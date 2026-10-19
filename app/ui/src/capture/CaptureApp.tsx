@@ -70,7 +70,16 @@ export function CaptureApp() {
     return c;
   }, []);
 
+  // D-585 (FR-CAP-01 AC-15): the draft is stored 500 ms after the last change while the window is open, so a quit, a
+  // crash or a relaunch keeps what was typed. Armed once the window has opened (a fresh page never stores over a draft
+  // it hasn't restored yet); a save or Discard disarms it and drops a pending store.
+  const draftArmed = useRef(false);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelDraftStore = () => { if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; } };
+
   const reset = (c: CaptureContextDto | null) => {
+    draftArmed.current = false;
+    cancelDraftStore();
     setText('');
     setChips([]);
     setDue(null);
@@ -106,6 +115,7 @@ export function CaptureApp() {
     }
     setStatus(null);
     shownVault.current = c?.vault ? { id: c.vault.id, name: c.vault.name } : null;
+    draftArmed.current = true;
     requestAnimationFrame(() => {
       focusText();
       requestAnimationFrame(() => requestAnimationFrame(() => void captureIpc.ready(o.seq)));
@@ -182,13 +192,23 @@ export function CaptureApp() {
     await captureIpc.draftSet({ text: s.text, type: s.type, tags: s.chips, due: s.type === 'task' ? s.due : null, priority: s.type === 'task' ? s.priority : null, savedAt: localIso(Date.now()) }).catch(() => {});
   };
 
+  useEffect(() => {
+    if (!draftArmed.current) return;
+    cancelDraftStore();
+    draftTimer.current = setTimeout(() => { draftTimer.current = null; if (draftArmed.current) void keepDraft(); }, 500);
+  }, [text, type, chips, due, priority]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => cancelDraftStore, []);
+
   const escape = async () => {
     if (menu) { setMenu(null); typeRef.current?.focus(); return; }
+    cancelDraftStore();
     await keepDraft();
     hide();
   };
 
   const discard = async () => {
+    draftArmed.current = false;
+    cancelDraftStore();
     await captureIpc.draftSet(null).catch(() => {});
     reset(ctx);
     hide();
@@ -227,6 +247,8 @@ export function CaptureApp() {
       });
       const vaultId = shownVault.current?.id ?? vault.id;
       const made = await captureIpc.create(vaultId, def.key, title, bytes);
+      draftArmed.current = false;
+      cancelDraftStore();
       await captureIpc.draftSet(null).catch(() => {});
       reset(ctx);
       void captureIpc.savedShow(made.typeName, made.title, made.path).catch(() => {});
