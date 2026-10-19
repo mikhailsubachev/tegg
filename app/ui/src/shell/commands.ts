@@ -1,6 +1,7 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
+import { reviewable } from '../review';
 import { DISABLED_CONTROLS, ROUTES, SHORTCUTS, type Due } from './registry';
 import type { Route } from './routes';
 import { typeEntries } from './types';
@@ -69,7 +70,7 @@ export type ShellContext = {
   counts: Record<string, number>;
   actions?: ShellActions;
   /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
-  route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null } | null;
+  route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null; review?: unknown; hasFrontmatter?: boolean } | null;
 };
 
 export type Command = {
@@ -189,8 +190,9 @@ export function commands(ctx: ShellContext): Command[] {
   }
   if (ctx.route?.id === 'note/<path>') {
     const key = (ctx.route.type ?? '').normalize('NFC');
-    const review = ctx.types.find((x) => x.key.normalize('NFC') === key)?.review;
-    if (key === 'quick-note' || key === 'daily-note' || review === 'on' || review === 'locked') {
+    const typeReview = ctx.types.find((x) => x.key.normalize('NFC') === key)?.review;
+    // D-591: the objects with the review toggle (before the note is read, the type decides).
+    if (reviewable({ path: ctx.route.path ?? '', type: key, hasFrontmatter: ctx.route.hasFrontmatter ?? true, review: ctx.route.review, typeReview })) {
       list.push(
         { id: 'note.markReviewed', title: 'cmd.markReviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(true) },
         { id: 'note.markUnreviewed', title: 'cmd.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(false) },

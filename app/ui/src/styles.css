@@ -123,6 +123,9 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .note-column { max-width: 760px; margin: 0 auto; padding: 8px 40px 64px; }
 .note-header-controls { display: flex; gap: 8px; margin: 12px 0 4px; }
 .note-title { font-size: 34px; line-height: 1.2; font-weight: 700; margin: 8px 0 16px; }
+.note-title-row { display: flex; align-items: flex-start; gap: 12px; }
+.note-title-row .note-title { flex: 1; min-width: 0; }
+.note-title-row .note-review { flex: none; margin-top: 16px; }
 
 /* settings */
 .settings-sections { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 20px; }
