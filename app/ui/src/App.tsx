@@ -217,14 +217,17 @@ export function App() {
   // 4C (ms4-jobs §2.2, §10): job progress and the worker bridge for the whole session.
   useEffect(() => { startJobs(); return startBridge(); }, []);
   useEffect(() => {
-    ipc.vaultCurrent().then((v) => (v ? opened(v) : setVault(null)), () => setVault(null));
+    // A result after the cleanup is dropped: StrictMode runs this effect twice, and two `opened` calls would load the
+    // landing page twice (NFR-PERF-05 AC-3: one link_resolve, one note_read).
+    let live = true;
+    ipc.vaultCurrent().then((v) => { if (live) (v ? opened(v) : setVault(null)); }, () => { if (live) setVault(null); });
     const un = [
       events.progress(setProgress),
       events.changed(() => { setRefresh((n) => n + 1); }),
       // 5B (ms5-capture §1.4, §2.2): `Settings…` in the status menu and the Saved panel's `Open`.
       events.shellRoute((r) => { const parsed = parseRoute(r); if (parsed) void goRef.current?.(parsed); }),
     ];
-    return () => un.forEach((p) => p.then((f) => f()));
+    return () => { live = false; un.forEach((p) => p.then((f) => f())); };
   }, []);
 
   useEffect(() => {

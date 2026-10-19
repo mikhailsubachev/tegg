@@ -266,11 +266,18 @@ export function CaptureApp() {
   const statusText = status?.kind === 'nothing' ? t('capture.nothing') : status?.kind === 'failed' ? t('capture.failed')
     : status?.kind === 'vaultGone' ? t('capture.vaultGone', { vault: status.vault }) : status?.kind === 'media' ? t('capture.mediaLater') : '';
 
+  /** After a menu closes, the next frame returns focus to `to`, unless the user has already focused something else
+   *  (the closed menu leaves focus on the body). */
+  const refocus = (to: () => void) => requestAnimationFrame(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) to();
+  });
+
   const pickType = (key: string) => {
     setType(key);
     if (key !== 'task') { setDue(null); setPriority(null); }
     setMenu(null);
-    requestAnimationFrame(() => typeRef.current?.focus());
+    refocus(() => typeRef.current?.focus());
   };
 
   const typeMenuKeys = (e: React.KeyboardEvent) => {
@@ -290,7 +297,7 @@ export function CaptureApp() {
       setDue(v.date);
       setMoved((m) => ({ ...m, due: undefined }));
       setMenu(null);
-      requestAnimationFrame(focusText);
+      refocus(focusText);
     }
   };
 
@@ -334,7 +341,7 @@ export function CaptureApp() {
               <div className="capture-menu capture-due" role="group">
                 <input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMenu(null); } }} />
-                <button type="button" onClick={() => { putBack(moved.due); setMoved((m) => ({ ...m, due: undefined })); setDue(null); setMenu(null); requestAnimationFrame(focusText); }}>{t('task.clearDue')}</button>
+                <button type="button" onClick={() => { putBack(moved.due); setMoved((m) => ({ ...m, due: undefined })); setDue(null); setMenu(null); refocus(focusText); }}>{t('task.clearDue')}</button>
               </div>
             )}
           </div>
@@ -344,7 +351,7 @@ export function CaptureApp() {
               <div role="menu" aria-label={t('task.priority')} className="capture-menu">
                 {[...priorityOptions(types.find((x) => x.key === 'task')), null].map((p) => (
                   <button key={p ?? '-'} type="button" role="menuitemradio" aria-checked={p === priority} className="capture-menu-item"
-                    onClick={() => { if (p === null) putBack(moved.priority); setMoved((m) => ({ ...m, priority: undefined })); setPriority(p); setMenu(null); requestAnimationFrame(focusText); }}>
+                    onClick={() => { if (p === null) putBack(moved.priority); setMoved((m) => ({ ...m, priority: undefined })); setPriority(p); setMenu(null); refocus(focusText); }}>
                     {p === null ? t('capture.noPriority') : <span data-user-content>{p}</span>}
                   </button>
                 ))}
