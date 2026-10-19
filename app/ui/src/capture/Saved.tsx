@@ -12,11 +12,17 @@ export function Saved() {
   if (!s) return null;
   return (
     <div className="capture-saved" role="status" aria-live="polite">
+      {/* The app mark (D-164), as on the board's notification. */}
+      <svg className="capture-saved-logo" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" strokeWidth="3" />
+        <path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" strokeWidth="15" />
+        <path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0" />
+      </svg>
       <div className="capture-saved-text">
-        <strong>{t('capture.saved')}</strong>
-        <span>{t('capture.savedLine', { type: s.typeName, title: s.title })}</span>
+        <div className="capture-saved-head"><strong>{t('capture.saved')}</strong><span className="capture-saved-when">{t('capture.now')}</span></div>
+        <span className="capture-saved-line" data-user-content>{t('capture.savedLine', { type: s.typeName, title: s.title })}</span>
+        <button type="button" className="capture-saved-open" onClick={() => void captureIpc.openMain(s.path)}>{t('capture.open')}</button>
       </div>
-      <button type="button" onClick={() => void captureIpc.openMain(s.path)}>{t('capture.open')}</button>
     </div>
   );
 }

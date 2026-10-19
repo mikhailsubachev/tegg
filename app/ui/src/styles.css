@@ -745,27 +745,63 @@ button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .task-embed-body .ProseMirror .editor-hint { pointer-events: auto; cursor: text; } /* FR-CNV-05 AC-6: a click on Add details… starts typing there */
 
 /* ---------------------------------------------------------------- slice 5B: the capture window (capture.md R55) */
-.capture-body { margin: 0; background: var(--pop); }
-.capture { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; color: var(--text); background: var(--pop); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
-.capture-head { display: flex; align-items: center; gap: 8px; }
+/* F9, D-592: the QuickCapture board's look. The window is transparent with the native popover material; the page
+   draws a light tint of the theme on it with the window's 14 px corners. */
+html:has(body.capture-body), body.capture-body { background: transparent; }
+.capture-body #root { height: auto; }
+.capture { display: flex; flex-direction: column; color: var(--text); background: color-mix(in srgb, var(--bg) 94%, transparent); border-radius: 14px; font: 13px/1.4 -apple-system, system-ui, sans-serif; overflow: hidden; }
+.capture .muted { color: var(--muted); }
+.capture-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 0; }
+.capture-spacer { flex: 1; }
 .capture-type { position: relative; }
-.capture-type-btn { display: inline-flex; align-items: center; gap: 6px; }
-.capture-vault { flex: 1; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.capture-vault-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-.capture-text { min-height: 72px; resize: none; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
-.capture-fields { display: flex; gap: 8px; }
+.capture-type-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 9px; border: 0; border-radius: 7px; background: var(--hover); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; }
+.capture-type-btn .icon:last-child { color: var(--muted); }
+.capture-vault { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.capture-vault-dot { width: 7px; height: 7px; border-radius: 4px; background: var(--link); }
+.capture-discard { width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.capture-text-wrap { position: relative; }
+.capture-text, .capture-mirror { box-sizing: border-box; width: 100%; margin: 0; padding: 10px 16px 4px; font: 15px/1.55 -apple-system, system-ui, sans-serif; letter-spacing: normal; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4; }
+.capture-text { display: block; position: relative; min-height: 120px; resize: none; border: none; outline: none; box-shadow: none; background: transparent; color: transparent; caret-color: var(--text); scrollbar-width: none; }
+.capture-text::-webkit-scrollbar { display: none; }
+.capture-text:focus, .capture-text:focus-visible { outline: none; box-shadow: none; }
+.capture-text::placeholder { color: var(--faint); }
+.capture-text::selection { color: transparent; background: var(--sel); }
+.capture-mirror { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--text); }
+.capture-mirror-title { font-weight: 650; }
+.capture-fields { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 16px 2px; }
 .capture-field { position: relative; }
-.capture-menu { position: absolute; z-index: 10; top: 100%; left: 0; display: flex; flex-direction: column; min-width: 180px; padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--pop); box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 18%, transparent); }
-.capture-menu-item { display: flex; align-items: center; gap: 6px; text-align: left; border: 0; background: transparent; padding: 4px 6px; color: var(--text); }
-.capture-menu-item[aria-checked="true"] { font-weight: 600; }
-.capture-menu-desc { margin-left: auto; }
+.capture-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.capture-chip-icon { display: inline-flex; }
+.capture-chip-icon.due { color: var(--link); }
+.capture-chip-icon.priority { color: var(--danger); }
+.capture-menu { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; display: flex; flex-direction: column; min-width: 220px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); box-shadow: 0 12px 32px rgba(0, 0, 0, .18); font-size: 13px; }
+.capture-menu-item { display: flex; align-items: center; gap: 10px; height: 30px; text-align: left; border: 0; border-radius: 6px; background: transparent; padding: 0 8px; color: var(--text); font: inherit; }
+.capture-menu-item:hover, .capture-menu-item:focus-visible { background: var(--hover); }
+.capture-menu-item[aria-checked="true"] { font-weight: 600; background: var(--hover); }
+.capture-menu-desc { margin-left: auto; font-size: 11px; }
 .capture-due { flex-direction: row; gap: 6px; }
-.capture-drop { align-self: flex-start; }
-.capture-foot { display: flex; align-items: center; gap: 10px; }
-.capture-save { margin-left: auto; }
-.capture-status { min-height: 1em; display: flex; gap: 8px; align-items: center; }
-.capture-saved { display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: var(--text); background: var(--bg); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
-.capture-saved-text { flex: 1; display: flex; flex-direction: column; }
+.capture .tag-field { padding: 8px 16px 0; gap: 6px; }
+.capture .tag-field-icon { display: inline-flex; color: var(--muted); }
+.capture .tag-field-chip { height: 22px; padding: 0 4px 0 8px; border-radius: 11px; background: var(--hover); color: var(--muted); font-size: 12px; }
+.capture .tag-field input { font-size: 13px; }
+.capture .tag-field input::placeholder { color: var(--faint); }
+.capture-drop-row { padding: 10px 16px 0; }
+.capture-drop { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; height: 40px; border-radius: 10px; border: 1.5px dashed var(--border); background: transparent; color: var(--muted); font: inherit; font-size: 12px; }
+.capture-drop[aria-disabled="true"] { opacity: .6; cursor: default; }
+.capture-foot { display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 16px; margin-top: 12px; border-top: 1px solid var(--border); font-size: 12px; }
+.capture-hint { flex: 1; }
+.capture-save, .capture-save.primary:not(:disabled) { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--btn); color: var(--btn-fg); font: inherit; font-size: 13px; font-weight: 600; }
+.capture-save kbd { font: inherit; font-weight: 400; opacity: .65; background: none; border: 0; padding: 0; color: inherit; }
+.capture-status { min-height: 1px; display: flex; gap: 8px; align-items: center; padding: 0 16px; }
+.capture-status:not(:empty) { padding: 0 16px 10px; }
+.capture-saved { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; color: var(--text); background: color-mix(in srgb, var(--bg) 94%, transparent); border-radius: 14px; font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+.capture-saved-logo { flex: none; width: 34px; height: 34px; }
+.capture-saved-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.capture-saved-head { display: flex; align-items: baseline; gap: 8px; }
+.capture-saved-head strong { flex: 1; }
+.capture-saved-when { font-size: 11px; color: var(--muted); }
+.capture-saved-line { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capture-saved-open { align-self: flex-start; margin-top: 6px; height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--hover); color: var(--text); font: inherit; font-size: 12px; font-weight: 600; }
 .tag-field { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .tag-field-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: 10px; background: var(--hover); }
 .tag-field-remove { border: 0; background: transparent; color: var(--muted); padding: 0 2px; }

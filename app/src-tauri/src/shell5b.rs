@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
+use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::dto::*;
@@ -41,7 +42,8 @@ fn save_shell(app: &AppHandle, s: &ShellSettingsDto) -> Result<(), IpcError> {
 
 // ------------------------------------------------------------------------------------------------ windows (§1.2, §1.3)
 
-/// Creates the hidden capture window and the hidden saved panel (pre-warmed, FR-CAP-03).
+/// Creates the hidden capture window and the hidden saved panel (pre-warmed, FR-CAP-03). Both are transparent windows
+/// with the native popover material, 14 px corners and the system shadow (D-592, capture.md R55 look).
 pub(crate) fn build_windows(app: &AppHandle) -> tauri::Result<()> {
     let _ = APP.set(app.clone());
     let script = init_script(&app.state::<AppState>().dirs);
@@ -50,6 +52,9 @@ pub(crate) fn build_windows(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(WIDTH, 260.0)
         .resizable(false)
         .decorations(false)
+        .transparent(true)
+        .shadow(true)
+        .effects(EffectsBuilder::new().effect(Effect::Popover).state(EffectState::Active).radius(14.0).build())
         .always_on_top(true)
         .skip_taskbar(true)
         .visible_on_all_workspaces(true)
@@ -60,9 +65,12 @@ pub(crate) fn build_windows(app: &AppHandle) -> tauri::Result<()> {
         .build()?;
     WebviewWindowBuilder::new(app, SAVED, WebviewUrl::App("capture.html#saved".into()))
         .title("Saved to Inbox")
-        .inner_size(320.0, 64.0)
+        .inner_size(360.0, 96.0)
         .resizable(false)
         .decorations(false)
+        .transparent(true)
+        .shadow(true)
+        .effects(EffectsBuilder::new().effect(Effect::Popover).state(EffectState::Active).radius(14.0).build())
         .always_on_top(true)
         .skip_taskbar(true)
         .visible_on_all_workspaces(true)

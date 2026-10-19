@@ -29,10 +29,19 @@ function ordered(types: CaptureTypeDto[]): CaptureTypeDto[] {
 const priorityOptions = (task: CaptureTypeDto | undefined): string[] =>
   ((task?.attributes ?? []).find((a) => a.key === 'priority')?.options ?? []).map((o) => o.label);
 
+/** The mirror's content: the text with its first non-empty line (the title, AP-467) in bold; a final space keeps a
+ *  trailing empty line's height, as the textarea has it. */
+function mirror(text: string) {
+  const m = /^((?:[ \t]*\n)*)([^\n]*)([\s\S]*)$/.exec(text);
+  if (!m || !m[2].trim()) return <>{text}{' '}</>;
+  return <>{m[1]}<span className="capture-mirror-title">{m[2]}</span>{m[3]}{' '}</>;
+}
+
 export function CaptureApp() {
   const [, setUiTick] = useState(0);
   const [ctx, setCtx] = useState<CaptureContextDto | null>(null);
   const [text, setText] = useState('');
+  const [scroll, setScroll] = useState(0);
   const [type, setType] = useState('quick-note');
   const [chips, setChips] = useState<string[]>([]);
   const [due, setDue] = useState<string | null>(null);
@@ -332,8 +341,9 @@ export function CaptureApp() {
         <div className="capture-type">
           <button ref={typeRef} type="button" tabIndex={0} className="capture-type-btn" aria-haspopup="menu" aria-expanded={menu === 'type'}
             aria-label={t('capture.type', { name: typeDef?.name ?? '' })} onClick={() => setMenu(menu === 'type' ? null : 'type')}>
-            <Icon name={typeIconName(type)} size={14} />
-            <span>{t('capture.type', { name: typeDef?.name ?? '' })}</span>
+            <span className="capture-type-icon" style={typeDef?.color ? { color: `var(--type-${typeDef.color})` } : undefined}><Icon name={typeIconName(type)} size={14} /></span>
+            <span data-user-content>{typeDef?.name ?? ''}</span>
+            <Icon name="chevron-down" size={11} />
           </button>
           {menu === 'type' && (
             <div role="menu" aria-label={t('capture.typeMenu')} className="capture-menu" onKeyDown={typeMenuKeys}
@@ -353,15 +363,31 @@ export function CaptureApp() {
             </div>
           )}
         </div>
-        {vault && <span className="capture-vault"><span className="capture-vault-dot" aria-hidden="true" />{t('capture.saves', { vault: vault.name })}</span>}
-        <button type="button" tabIndex={0} className="capture-discard" aria-description={t('capture.discardHint')} title={t('capture.discardHint')} onClick={() => void discard()}>{t('capture.discard')}</button>
+        <span className="capture-spacer" />
+        {vault && (
+          <span className="capture-vault" title={t('capture.saves', { vault: vault.name })}>
+            <span className="capture-vault-dot" aria-hidden="true" /><span className="sr-only">{t('capture.saves', { vault: vault.name })}</span><span aria-hidden="true" data-user-content>{vault.name}</span>
+          </span>
+        )}
+        <button type="button" tabIndex={0} className="icon-button capture-discard" aria-label={t('capture.discard')} aria-description={t('capture.discardHint')} title={t('capture.discardHint')} onClick={() => void discard()}>
+          <Icon name="x" size={13} />
+        </button>
       </div>
-      <textarea ref={textRef} className="capture-text" aria-label={t('capture.text')} placeholder={t('capture.placeholder')} value={text}
-        spellCheck rows={4} onChange={(e) => onText(e.target.value)} onPaste={onPaste} data-user-content />
+      {/* D-592: the first non-empty line (the title, AP-467) is drawn bold by a mirror behind the transparent textarea,
+          which stays the plain-text field (selection, IME, undo, accessibility). */}
+      <div className="capture-text-wrap">
+        <div className="capture-mirror" aria-hidden="true" data-user-content>
+          <div style={{ transform: `translateY(${-scroll}px)` }}>{mirror(text)}</div>
+        </div>
+        <textarea ref={textRef} className="capture-text" aria-label={t('capture.text')} placeholder={t('capture.placeholder')} value={text}
+          spellCheck rows={4} onChange={(e) => onText(e.target.value)} onPaste={onPaste} onScroll={(e) => setScroll(e.currentTarget.scrollTop)} data-user-content />
+      </div>
       {isTask && (
         <div className="capture-fields">
           <div className="capture-field">
-            <button type="button" tabIndex={0} aria-haspopup="dialog" onClick={() => { setDueText(due ?? ''); setMenu(menu === 'due' ? null : 'due'); }}>{t('capture.due', { label: dueText0 })}</button>
+            <button type="button" tabIndex={0} className="capture-chip" aria-haspopup="dialog" aria-label={t('capture.due', { label: dueText0 })} onClick={() => { setDueText(due ?? ''); setMenu(menu === 'due' ? null : 'due'); }}>
+              <span className="capture-chip-icon due"><Icon name="calendar" size={13} /></span><span className="muted">{t('capture.dueLabel')}</span> <span data-user-content>{dueText0}</span>
+            </button>
             {menu === 'due' && (
               <div className="capture-menu capture-due" role="group">
                 <input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
@@ -371,7 +397,9 @@ export function CaptureApp() {
             )}
           </div>
           <div className="capture-field">
-            <button type="button" tabIndex={0} aria-haspopup="menu" onClick={() => setMenu(menu === 'priority' ? null : 'priority')}>{t('capture.priority', { label: priority ?? t('capture.none') })}</button>
+            <button type="button" tabIndex={0} className="capture-chip" aria-haspopup="menu" aria-label={t('capture.priority', { label: priority ?? t('capture.none') })} onClick={() => setMenu(menu === 'priority' ? null : 'priority')}>
+              <span className="capture-chip-icon priority"><Icon name="flag" size={13} /></span><span className="muted">{t('capture.priorityLabel')}</span> <span data-user-content>{priority ?? t('capture.none')}</span>
+            </button>
             {menu === 'priority' && (
               <div role="menu" aria-label={t('task.priority')} className="capture-menu">
                 {[...priorityOptions(types.find((x) => x.key === 'task')), null].map((p) => (
@@ -386,12 +414,16 @@ export function CaptureApp() {
         </div>
       )}
       <TagField chips={chips} onChange={setChips} tags={ctx?.tags ?? []} />
-      <button type="button" tabIndex={0} className="capture-drop" aria-disabled="true" aria-description={t('due.coming', { milestone: 'MS6' })} title={t('due.coming', { milestone: 'MS6' })}>{t('capture.drop')}</button>
+      <div className="capture-drop-row">
+        <button type="button" tabIndex={0} className="capture-drop" aria-disabled="true" aria-label={t('capture.drop')} aria-description={t('due.coming', { milestone: 'MS6' })} title={t('due.coming', { milestone: 'MS6' })}>
+          <Icon name="upload" size={14} /><span>{t('capture.drop')}</span>
+        </button>
+      </div>
       <div className="capture-foot">
-        <span className="muted">{t('capture.hint')}</span>
+        <span className="muted capture-hint">{t('capture.hint')}</span>
         <span className="muted">{t('capture.newLine')}</span>
         <button type="button" tabIndex={0} className="primary capture-save" aria-label={t('capture.save')} aria-disabled={!vault || undefined}
-          onClick={() => void save()}>{t('capture.saveShort')} <kbd>⌘↩</kbd></button>
+          onClick={() => void save()}>{t('capture.saveShort')} <kbd aria-hidden="true">⌘↩</kbd></button>
       </div>
       <div role="status" aria-live="polite" aria-label={t('capture.status')} className="capture-status">
         {!vault ? (
