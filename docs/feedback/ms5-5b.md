@@ -7,7 +7,7 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
 |---|---|---|
 | F1 | The mouse's Back button (Logi Options+) doesn't go back; it should behave like the touchpad's back swipe | bug: FR-NAV-03, D-165 |
 | F2 | No calendar icon when setting a task's due date | change: D-587 (AP-515) |
-| F3 | Back (`<`) must return to the Tasks view the user left | bug: tasks.md AC-9, AC-15 |
+| F3 | Back (`<`) must return to the Tasks view the user left | bug: tasks.md AC-9, AC-15; not reproduced, steps asked |
 | F4 | The sidebar's `Tasks` entry shows a number of tasks | change: D-588 (AP-516) |
 | F5 | A Kanban card can't be dropped below the last card of a short column: only the cards' height is a drop zone | bug: tasks.md R42 |
 | F6 | The Kanban doesn't need the status chip on cards | change: D-589 (AP-517) |
@@ -22,7 +22,7 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
   which neither path sees. Fix: the native monitor also turns a horizontal swipe event into `nav:mouse`
   (`back` for a swipe to the right, as Safari does). A Logi mouse can't be simulated in L6, so the regression test drives a
   synthetic swipe event; the owner checks the real mouse in the next preview. Test: `bug_ms5b_fr_nav_03_swipe_goes_back` (the native event → `nav:mouse` mapping, L4 in the shell crate).
-- **F3.** Back already returned to the Kanban and to All tasks with their state. The miss was the palette: `Go to Tasks` always opened the Schedule, while the sidebar entry opens the last view (D-516). It now opens the last view too. Test: `bug_ms5b_fr_tsk_04_back_keeps_the_view` (L5: Kanban grouped by tag with the This week filter → open a card → Back gives `tasks/kanban`, `Kanban` selected, grouping and filter kept; the same from `type/task`).
+- **F3.** Not reproduced: Back returns to the Kanban (by status and by tag, with its filters) and to All tasks, from a card's title, ⏎ on a card, a table row, the Inbox and the title bar's Back. `Go to Tasks` always opens the Schedule, as FR-TSK-04 AC-1 says, while the sidebar entry opens the last view (D-516); that may be what was seen, but changing it contradicts AC-1. Waiting for the owner's steps. Tests: `bug_ms5b_fr_tsk_04_back_keeps_the_view` (pass, kept as guards).
 - **F5.** `.task-board` aligns columns to the top (`align-items: flex-start`), so a column is as tall as its cards.
   Fix: columns stretch to the board's height, which fills the page below the toolbar. Test: `bug_ms5b_fr_tsk_05_column_is_a_drop_zone` (L5: dropping a card on the empty part of a short column, below its last card, changes the status).
 

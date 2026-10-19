@@ -8,6 +8,7 @@ import { dateTimeSetting, firstDay } from '../i18n/dates';
 import { ipc } from '../ipc/client';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { appZone } from '../zone';
+import { TASKS_WRITTEN } from './write';
 
 export type TaskData = { tasks: TaskRowDto[]; defs: TaskDefsDto };
 const EMPTY: TaskData = { tasks: [], defs: { statuses: [], priorities: [], unknownStates: [] } };
@@ -46,17 +47,22 @@ export function useTasks(refresh: number): TaskData & { loaded: boolean; reload:
   return { ...data, loaded, reload, today, zone, region, firstWeekday: firstDay(dateTimeSetting(), region) };
 }
 
-/** The sidebar's Tasks count (R45 R1, D-481): open tasks overdue or due today. */
+/** The sidebar's Tasks count (R45 R1, D-588): the open tasks (state Open or In progress). */
 export function useTaskBadge(refresh: number, on: boolean): number {
   const [n, setN] = useState(0);
-  const { today } = useToday();
+  const [own, setOwn] = useState(0);
+  useEffect(() => {
+    const bump = () => setOwn((x) => x + 1);
+    window.addEventListener(TASKS_WRITTEN, bump);
+    return () => window.removeEventListener(TASKS_WRITTEN, bump);
+  }, []);
   useEffect(() => {
     if (!on) { setN(0); return; }
     let live = true;
     ipc.taskList().then((d) => {
-      if (live) setN(d.tasks.filter((r) => (r.state === 'open' || r.state === 'in-progress') && r.due !== null && r.due <= today).length);
+      if (live) setN(d.tasks.filter((r) => r.state === 'open' || r.state === 'in-progress').length); // D-588: the open tasks
     }, () => {});
     return () => { live = false; };
-  }, [refresh, on, today]);
+  }, [refresh, on, own]);
   return n;
 }

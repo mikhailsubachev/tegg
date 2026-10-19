@@ -17,7 +17,7 @@ import { TaskCard, type TaskNav } from './TaskCard';
 import { TasksHeader, tasksSummary, type TasksView } from './TasksHeader';
 import { useTasks } from './useTasks';
 import { counts as countsOf, kanban, schedule, tagSpellings, type KanbanColumn, type ViewInput } from './views';
-import { writeTask, type TaskAction } from './write';
+import { tasksWritten, writeTask, type TaskAction } from './write';
 import type { TaskChange } from '@tegg/doc';
 
 export type TasksUi = NonNullable<UiStateDto['tasks']>;
@@ -138,6 +138,7 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const create = useCallback(async (title: string, values: [string, Value][]) => {
     try {
       await createObject('task', title, values);
+      tasksWritten();
       setLive(t('tasks.created', { title }));
       await reload();
       return true;
@@ -196,6 +197,7 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const card = (row: TaskRowDto, column?: KanbanColumn, drag?: Record<string, unknown>) => (
     <TaskCard key={`${column?.id ?? ''}:${row.path}`} row={row} defs={defs} today={today} region={region} zone={zone} nav={nav}
       alsoIn={column && tagMode ? row.tags.filter((k) => `#${k}` !== column.id).map((k) => spell.get(k) ?? k) : undefined}
+      hideStatus={!!column && !tagMode}
       onToggle={toggle} onMenu={(r, anchor, opener) => setMenu({ row: r, anchor, opener: anchor ?? opener, column: column?.id })}
       onKey={onKey(column)} dragProps={drag} />
   );

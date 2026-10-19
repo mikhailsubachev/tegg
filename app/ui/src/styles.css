@@ -704,7 +704,7 @@ button.toggle .count { margin-left: 0; }
 .task-column .task-list { flex-direction: column; margin-top: 8px; }
 .task-column .empty, .drop-label { color: var(--muted); font-size: 12px; margin: 6px 0; }
 .task-board.dragging, .task-board.dragging * { cursor: grabbing; user-select: none; }
-.task-due-pop { padding: 6px; }
+.task-due-pop { padding: 6px; display: flex; align-items: center; gap: 4px; }
 .task-due-pop input { font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); }
 .task-due-pop input[aria-invalid="true"] { border-color: var(--danger); }
 button.toggle[aria-pressed="true"] .count { color: var(--text); }

@@ -1077,6 +1077,7 @@ export const en: Catalog = {
   'inbox.saveFailed': 'Couldn’t save "{title}". Try again.',
   'inbox.readOnly': 'This note can\'t be edited here.',
   'sidebar.inboxCount': { one: '{count} item to review', other: '{count} items to review' },
+  'sidebar.tasksCount': { one: '{count} open task', other: '{count} open tasks' },
   'backup.convert': { one: 'Convert {count} item to {type}', other: 'Convert {count} items to {type}' },
   'settings.dt.date': 'Date format',
   'settings.dt.time': 'Time format',

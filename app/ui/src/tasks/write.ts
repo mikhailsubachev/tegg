@@ -18,6 +18,10 @@ const inFlight = new Map<string, Promise<unknown>>();
 const chains = new Map<string, VersionDto[]>();
 
 /** Runs one task write. `base: 'current'` (Try again) bases it on the file as it is now. */
+/** Tells the sidebar's Tasks count (D-588) that a task changed: the app's own writes send no `vault:changed`. */
+export const TASKS_WRITTEN = 'tegg:tasks-written';
+export function tasksWritten() { window.dispatchEvent(new Event(TASKS_WRITTEN)); }
+
 export function writeTask(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, base: 'row' | 'current' = 'row'): Promise<WriteResult> {
   const key = row.path.normalize('NFC');
   const prev = inFlight.get(key) ?? Promise.resolve();
@@ -60,6 +64,7 @@ async function doWrite(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, b
     const w = await ipc.noteWrite(row.path, text, note.version);
     const prev = chains.get(key);
     chains.set(key, prev && sameVersion(prev[prev.length - 1], note.version) ? [...prev.slice(-15), w.version] : [note.version, w.version]);
+    tasksWritten();
     return { outcome: 'written', inlineKept, text, version: w.version };
   } catch (e) {
     const kind = (e as { kind?: string })?.kind;
