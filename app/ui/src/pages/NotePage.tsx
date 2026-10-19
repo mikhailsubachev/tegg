@@ -720,8 +720,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const edit = loaded.mode === 'edit' && !showSource;
     // A new note: the title in edit mode, caret at its end, nothing selected (D-255). The title field exists before the
     // editor mounts, so it takes the focus at once: what is typed right after ⌘N lands in it (D-520).
-    const titleFirst = edit && createdAtOpen.current && !live.current.daily && !!heading.current;
-    if (edit && !edRef.current && !titleFirst) return; // again when the editor is ready
+    if (edit && !edRef.current) return; // again when the editor is ready
     wantFocus.current = false;
     // D-367: a new object whose title is fixed (a Daily Note, D-320) gets the caret at the start of its first block.
     if (edit && createdAtOpen.current && live.current.daily && pane.current?.caretToStart()) {
