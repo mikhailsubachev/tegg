@@ -90,7 +90,7 @@
 | v1.72   | 2026-10-19 | Slice 5B acceptance and contract decisions D-539…D-567 (AP-467…AP-495, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
 | v1.73   | 2026-10-19 | Slice 5B red-test decisions D-568…D-584 (AP-496…AP-512, `docs/contracts/ms5-capture.md` §14). |
 | v1.74   | 2026-10-19 | QA review of PR #50: D-585 (the capture draft is stored while typing, AP-513) and D-586 (virtualized Inbox cards in 5B, AP-514). |
-| v1.75   | 2026-10-19 | 5B preview feedback D-587…D-591 (AP-515…AP-519, `docs/feedback/ms5-5b.md`): a calendar button in `Due date…`, the open-tasks count in the sidebar, no status chip on the Kanban by status, simplified Markdown on Inbox cards, the review toggle on every reviewable object. |
+| v1.75   | 2026-10-19 | 5B preview feedback D-587…D-591 (AP-515…AP-519, `docs/feedback/ms5-5b.md`): a calendar button in `Due date…`, the open-tasks count in the sidebar, no status chip on the Kanban by status, simplified Markdown on Inbox cards, the review toggle on every reviewable object; D-592 (AP-520): the capture window as a translucent popover with a bold first line. |
 
 ---
 
@@ -715,6 +715,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-589 | Status on Kanban cards (AP-517, owner, 2026-10-19) | No status chip on the Kanban grouped by status, except a non-status value in `No status` (`Not a status`); the board by tag, the Schedule and the Daily Note keep it (tasks.md R44) |
 | D-590 | Inbox card text (AP-518, owner, 2026-10-19) | The card shows the body's first blocks as simplified Markdown: paragraphs and line breaks, list bullets, numbers and read-only checkboxes, headings as bold lines, bold/italic/strike/code inline, links and wikilinks as their text, images and embeds as a placeholder, tables and code blocks as their first line; clamped at the card height with `…`; built from the `@tegg/doc` parse (D-82), never HTML from the file (inbox.md R60) |
 | D-591 | Review toggle on objects (AP-519, owner, 2026-10-19) | D-330's `Mark reviewed` / `Reviewed` toggle at the top of the note page, right of the title row, on every object whose `review` is `unreviewed` or `reviewed`, whose type is Quick Note or Daily Note, or whose type has the review workflow on (even without a value); not in templates. It writes only `review` and `modified` (D-562), and only when clicked (inbox.md R61, FR-INB-02) |
+| D-592 | Capture window chrome (AP-520, owner, 2026-10-19) | The capture window and the saved panel are transparent Tauri windows (`macOSPrivateApi`) with the native popover material, 14 px corners and the system shadow, no arrow; the capture text's first line (the title) is 650 weight through a mirror layer behind a transparent `textarea`, which stays the plain-text field (capture.md R55) |
 
 ---
 

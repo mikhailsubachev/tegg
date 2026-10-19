@@ -13,7 +13,7 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
 | F6 | The Kanban doesn't need the status chip on cards | change: D-589 (AP-517) |
 | F7 | An object card (Inbox) shows its text as one run without line breaks; it should show simplified formatting | change: D-590 (AP-518) |
 | F8 | A `Review` button at the top of every reviewable object, as on its Inbox card | change: D-591 (AP-519) |
-| F9 | The quick capture window doesn't look like the QuickCapture board | bug: capture.md R55 (the board); the window chrome and the title line: AP-520 |
+| F9 | The quick capture window doesn't look like the QuickCapture board | bug: capture.md R55 (the board); the window chrome and the title line: D-592 (AP-520) |
 
 ## Bugs
 
@@ -21,10 +21,10 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
   horizontal scroll. Logi Options+ maps the Back button to the system's navigation **swipe** (`NSEventTypeSwipe`),
   which neither path sees. Fix: the native monitor also turns a horizontal swipe event into `nav:mouse`
   (`back` for a swipe to the right, as Safari does). A Logi mouse can't be simulated in L6, so the regression test drives a
-  synthetic swipe event; the owner checks the real mouse in the next preview.
-- **F3.** To be reproduced from AC-9/AC-15 (Kanban → open a card → Back); the `bug_*` test comes first.
+  synthetic swipe event; the owner checks the real mouse in the next preview. Test: `bug_ms5b_fr_nav_03_swipe_goes_back` (the native event → `nav:mouse` mapping, L4 in the shell crate).
+- **F3.** To be reproduced from AC-9/AC-15 (Kanban → open a card → Back); the `bug_*` test comes first: `bug_ms5b_fr_tsk_04_back_keeps_the_view` (L5: Kanban grouped by tag with the This week filter → open a card → Back gives `tasks/kanban`, `Kanban` selected, grouping and filter kept; the same from `type/task`).
 - **F5.** `.task-board` aligns columns to the top (`align-items: flex-start`), so a column is as tall as its cards.
-  Fix: columns stretch to the board's height, which fills the page below the toolbar.
+  Fix: columns stretch to the board's height, which fills the page below the toolbar. Test: `bug_ms5b_fr_tsk_05_column_is_a_drop_zone` (L5: dropping a card on the empty part of a short column, below its last card, changes the status).
 
 - **F9.** The capture page (`capture-*` rules in `styles.css`) has the board's structure and names but almost none of its look. Compared with
   `design/edit-note-page/QuickCapture.dc.html` (light and dark, rendered with the fake core at 420 pt):
@@ -43,9 +43,9 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
   - The saved panel: to be checked against the board's notification (logo, bold `Saved to Inbox`, muted `now`, the
     `<Type> · <title>` line, an `Open` button on `--hover`), without `Undo` / `Capture again` (D-543).
 
-## Points for the owner (AP-515…AP-520; AP-515…AP-519 decided as D-587…D-591)
+## Points for the owner (AP-515…AP-520, decided as D-587…D-592)
 
-Decided by the owner on 2026-10-19: AP-516, AP-517 and AP-518 as recommended; AP-515 as (b), the card menu only; AP-519 as (b), also on review-on types.
+Decided by the owner on 2026-10-19: AP-516, AP-517 and AP-518 as recommended; AP-515 as (b), the card menu only; AP-519 as (b), also on review-on types; AP-520 as recommended.
 
 | AP | Point | Recommendation | Alternatives | Affects |
 |---|---|---|---|---|
@@ -54,4 +54,4 @@ Decided by the owner on 2026-10-19: AP-516, AP-517 and AP-518 as recommended; AP
 | AP-517 | **Status on Kanban cards.** The card shows its status unless it's the first status; on the board by status the column already says it. | Hide the status chip on the Kanban **by status**, except a non-status value in `No status` (`Rozpracováno` · `Not a status`, AC-9). Keep it on the board by tag, the Schedule and the Daily Note. **Accepted: D-589.** | (b) Hide it on both Kanban groupings. | tasks.md R44, AC-9 |
 | AP-518 | **Card text.** The Inbox card's excerpt is plain text with whitespace collapsed (≤ 300 chars). | The card shows the body's first blocks as **simplified Markdown**: paragraphs and line breaks kept, list items with bullets / numbers / checkboxes (read-only), headings as bold lines, bold/italic/strike/code inline, links and wikilinks as their text, embeds and images as `[image]`/the embed's title, tables and code blocks as their first line; clamped at the card's fixed height (D-586) with `…`. Rendered from the same `@tegg/doc` parse (D-82), never HTML from the file. **Accepted: D-590.** | (b) Only keep line breaks and list bullets, no inline styling. (c) Render the full read view inside the card. | inbox.md R60, FR-INB-01; the Backlinks excerpts stay as they are |
 | AP-519 | **A review button on every reviewable object.** Only the Daily Note header has the `Mark reviewed` / `Reviewed` toggle (D-330); other objects are reviewed from the Inbox or the properties. | The same toggle (`aria-pressed`, palette `Mark reviewed` / `Mark unreviewed`, D-330) at the top of the note page, right of the title row, on every object that is an Inbox member or was reviewed: `review` is `unreviewed` or `reviewed`, or the type is Quick Note or Daily Note (R61, D-554). It writes only `review` and `modified` (D-562), and nothing until clicked. Not shown on other objects or in templates. | (b) Also on every object of a type with the review workflow on, even without a value. **Chosen: D-591.** (c) Only on Inbox members (hidden once reviewed). | inbox.md R61, FR-INB-02; daily-notes.md D-330 |
-| AP-520 | **Two parts of the capture board that need a platform choice (F9).** (1) The window is a rounded (14 px), translucent, blurred panel with a shadow (and an arrow under the status item). Tauri draws that only in a transparent window, which on macOS needs `macOSPrivateApi` (App Store-incompatible, fine for direct download, D-19) plus the native `HudWindow`/`Popover` effect. (2) The first line, which becomes the title, is bold. A `textarea` can't style one line, so this needs a styled overlay or a small contenteditable field. | (1) Transparent window with the native popover material, 14 px corners and the system shadow. No arrow: the window is centred when opened by a hotkey, and only anchored under the icon otherwise. (2) A mirror layer behind a transparent `textarea`, which keeps the plain-text field (selection, IME, undo, accessibility) and makes the first line 650 weight. | (1b) An opaque window with square native corners, styled inside only. (2b) Skip the bold first line. (2c) A contenteditable field. | capture.md R55, FR-CAP-01; NFR-PERF capture < 300 ms (S3) |
+| AP-520 | **Two parts of the capture board that need a platform choice (F9).** (1) The window is a rounded (14 px), translucent, blurred panel with a shadow (and an arrow under the status item). Tauri draws that only in a transparent window, which on macOS needs `macOSPrivateApi` (App Store-incompatible, fine for direct download, D-19) plus the native `HudWindow`/`Popover` effect. (2) The first line, which becomes the title, is bold. A `textarea` can't style one line, so this needs a styled overlay or a small contenteditable field. | (1) Transparent window with the native popover material, 14 px corners and the system shadow. No arrow: the window is centred when opened by a hotkey, and only anchored under the icon otherwise. (2) A mirror layer behind a transparent `textarea`, which keeps the plain-text field (selection, IME, undo, accessibility) and makes the first line 650 weight. **Accepted: D-592.** | (1b) An opaque window with square native corners, styled inside only. (2b) Skip the bold first line. (2c) A contenteditable field. | capture.md R55, FR-CAP-01; NFR-PERF capture < 300 ms (S3) |
