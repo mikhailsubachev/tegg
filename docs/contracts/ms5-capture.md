@@ -28,8 +28,8 @@ No other plugin. No `fs`, `shell`, `clipboard-manager`, `opener` or `http` plugi
 | Label | Page | Created | Properties |
 | --- | --- | --- | --- |
 | `main` | `index.html` | at startup (as today) | **hidden** at startup when launched at login (§1.5); otherwise shown |
-| `capture` | `capture.html` | at startup, hidden (pre-warmed, FR-CAP-03) | 420 pt wide, height set by the page (`capture_resize(height)`), not resizable, no title bar (`decorations: false`, rounded transparent background), `always_on_top`, `skip_taskbar`, `visible_on_all_workspaces` (current Space, also over full-screen apps), the same `initialization_script` as `main` (UI state, region, test mode, TZ, clock) |
-| `capture-saved` | `capture.html#saved` | at startup, hidden | the confirmation panel (R55 "After saving"): 320 × 64 pt, no title bar, `always_on_top`, `focused(false)`; shown with `orderFrontRegardless` without making it key, hidden after 4 s |
+| `capture` | `capture.html` | at startup, hidden (pre-warmed, FR-CAP-03) | 420 pt wide, height set by the page (`capture_resize(height)`), not resizable, no title bar (`decorations: false`; transparent with the popover effect, 14 px corners and the shadow, `macOSPrivateApi`, D-592), `always_on_top`, `skip_taskbar`, `visible_on_all_workspaces` (current Space, also over full-screen apps), the same `initialization_script` as `main` (UI state, region, test mode, TZ, clock) |
+| `capture-saved` | `capture.html#saved` | at startup, hidden | the confirmation panel (R55 "After saving"): 360 pt wide, height following its content, transparent with the popover effect (D-592), no title bar, `always_on_top`, `focused(false)`; shown with `orderFrontRegardless` without making it key, hidden after 4 s |
 
 - **Closing the main window hides it** (close button, ⌘W): `CloseRequested` → `prevent_close` and `hide()`; the app keeps running (FR-CAP-03 AC-1). The current D-196 save-before-exit flow moves from `CloseRequested` to quitting only (⌘Q, `Quit Tegg`, the Quit Apple Event).
 - **Dock click** (`RunEvent::Reopen`) shows and focuses `main` on its current route. The activation policy stays `Regular` (Dock icon always; FR-SET-05 AC-3).
