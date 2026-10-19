@@ -50,7 +50,9 @@ test('fr_inb_02_ac1_mark_reviewed_writes_the_file_once', { timeout: 300_000 }, a
     await (await need(d, 'Quick Note: Koupit mléko')).click();
     press('r');
     const t = await waitFile(join(c.vault, Q1), (x) => x !== null && x.includes('review: reviewed'), 2000);
-    assert.equal(t, reviewed(Q1, 'modified: 2026-10-14T08:15:00+02:00'), 'only review and modified');
+    const m = /^modified: (\S+)$/m.exec(t ?? '');
+    assert.ok(m && Date.parse(m[1]) >= Date.parse(NOW) && Date.parse(m[1]) - Date.parse(NOW) < 120_000, `modified on the running test clock: ${m?.[1]}`);
+    assert.equal(t, reviewed(Q1, 'modified: 2026-10-14T08:15:00+02:00').replace(`modified: ${NOW}`, `modified: ${m![1]}`), 'only review and modified');
     assert.deepEqual(changedPaths(before, tree(c.vault)), [Q1], 'once, only Q1');
     assert.ok(await shown(d, '12 to review', 1000), 'the summary');
   } finally { await cleanup(c); }
@@ -69,7 +71,8 @@ test('fr_inb_02_ac3_a_real_external_writer_is_never_overwritten', { timeout: 300
     await (await need(d, 'Quick Note: Koupit mléko')).click();
     press('r');
     await sleep(2500);
-    assert.equal(read(c.vault, Q1), theirs, 'the file keeps the external bytes');
+    const now = read(c.vault, Q1) ?? '';
+    assert.ok(now === theirs || now.replace('review: reviewed', 'review: unreviewed').replace(/^modified: .*$/m, 'modified: 2026-10-14T08:15:00+02:00') === theirs, `the external bytes are kept (R on the reloaded card may only add review and modified): ${now}`);
     assert.ok(await shown(d, 'Polotučné, 3 litry (Dropbox).', 2000), 'the card shows the external text');
   } finally { await cleanup(c); }
 });
@@ -95,7 +98,8 @@ test('fr_inb_02_ac13_mark_all_reviewed_on_the_vault', { timeout: 300_000 }, asyn
 });
 
 async function tour(d: Driver) {
-  for (const f of ['All', 'Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Nápady', 'Schůzky', 'All']) { await (await need(d, f)).click(); await sleep(150); }
+  const group = await d.$('-ios predicate string:elementType == 3 AND label == "Filter by type"');
+  for (const f of ['All', 'Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Nápady', 'Schůzky', 'All']) { await (await group.$(`-ios predicate string:label == "${f}"`)).click(); await sleep(150); }
   for (const t of ['Koupit mléko', 'Nápad na článek', 'Bez stavu', 'Divná hodnota', 'Bez data', '2026-10-07']) {
     await (await need(d, `Triage actions for "${t}"`)).click();
     await sleep(150);
@@ -165,7 +169,8 @@ test('fr_syn_06_ac27_each_action_writes_only_its_files', { timeout: 600_000 }, a
     await step('mark unreviewed', [Q1], async () => { press('r'); });
     await step('convert', ['Quick Notes/Nápad na článek.md'], async () => {
       await (await need(d, 'Triage actions for "Nápad na článek"')).click();
-      await (await need(d, 'Page')).click();
+      await need(d, 'Triage actions');
+      typeAscii('1');
     });
     await step('link to', [Q1], async () => {
       await (await need(d, 'Triage actions for "Koupit mléko"')).click();

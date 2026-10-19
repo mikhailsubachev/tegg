@@ -152,6 +152,9 @@ export function setPasteboard(text: string) {
   execFileSync('pbcopy', { input: text, env: { ...process.env, LANG: 'en_US.UTF-8' } });
 }
 export function palette(command: string) {
+  // ⌘K goes to the frontmost app: after a capture, focus is back in the app the capture came from (FR-CAP-01 AC-4).
+  osa(`tell application id "${BUNDLE_ID}" to activate`);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
   press('k', ['command']);
   paste(command);
   press('enter');

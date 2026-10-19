@@ -25,6 +25,8 @@ before(() => { net.start(); });
 after(appiumDown);
 process.on('exit', appiumDown);
 
+// D-504: the test clock starts at TEGG_NOW and runs on, so a stamp a few seconds later is the same test minute.
+const clk = (t: string | null) => t?.replace(/^(captured|created|modified): (\d{4}-\d\d-\d\dT\d\d:\d\d):\d\d([+-]\d\d:\d\d)$/gm, (_m, k, hm, o) => `${k}: ${hm}:00${o}`) ?? null;
 const stamps = (now = NOW) => `review: unreviewed\ncaptured: ${now}\ncreated: ${now}\nmodified: ${now}\n`;
 type Ctx = { base: string; vault: string; sup: string; log: string; d?: Driver };
 function fresh(name: string, o: { shell?: { showStatusItem: boolean; openAtLogin: boolean }; ui?: Record<string, unknown> } = {}): Ctx {
@@ -262,7 +264,7 @@ test('fr_cap_03_ac1_captures_with_the_main_window_closed', { timeout: 300_000 },
       assert.ok(await waitFile(join(c.vault, folder, `${text}.md`), (t) => t !== null, 3000), `${how}: writes ${folder}/${text}.md`);
       assert.equal(await mainOpen(d), false, `${how}: the main window stays closed`);
     }
-    await d.execute('macos: activateApp', { bundleId: 'app.tegg.desktop' });
+    execFileSync('osascript', ['-e', 'tell application id "app.tegg.desktop" to reopen']);
     assert.ok(await waitFor(() => mainOpen(d), 3000), 'a Dock click (reopen) shows the main window');
     assert.ok(await waitMark(c.log, 'route-ready:settings/appearance', 1000), 'on the route it had');
   } finally { await cleanup(c); }
@@ -326,9 +328,9 @@ test('fr_cap_03_ac4_capture_while_the_initial_index_runs', { timeout: 1_800_000 
     await openByHotkey(d);
     await typeCapture('Za běhu indexu');
     press('enter', ['command']);
-    assert.ok(await waitFile(join(out, 'Quick Notes/Za běhu indexu.md'), (t) => t !== null, 5000), 'written while the index runs');
+    assert.ok(await waitFile(join(out, 'Pages/Za běhu indexu.md'), (t) => t !== null, 5000), 'written while the index runs (the vault default type is Page)');
     palette('Go to Inbox');
-    assert.ok(await shown(d, 'Quick Note: Za běhu indexu', 120_000), 'in the Inbox when indexing has finished');
+    assert.ok(await shown(d, 'Page: Za běhu indexu', 120_000), 'in the Inbox when indexing has finished');
   } finally { await end(d); rmSync(base, { recursive: true, force: true }); }
 });
 
@@ -348,7 +350,7 @@ test('fr_cap_04_ac1_the_file_on_disk', { timeout: 300_000 }, async () => {
     press('enter');
     press('enter', ['command']);
     const t = await waitFile(join(c.vault, 'Quick Notes/Koupit dárek pro Janu.md'), (x) => x !== null, 3000);
-    assert.equal(maskId(t), `---\nid: <ULID>\ntype: quick-note\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${stamps()}---\nNěco do 500 Kč, viz [[Plán webu]].\n`, 'FR-CAP-04 AC-1 bytes');
+    assert.equal(clk(maskId(t)), `---\nid: <ULID>\ntype: quick-note\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${stamps()}---\nNěco do 500 Kč, viz [[Plán webu]].\n`, 'FR-CAP-04 AC-1 bytes');
     assert.deepEqual(changedPaths(before, tree(c.vault)), ['Quick Notes/Koupit dárek pro Janu.md'], 'exactly one file');
   } finally { await cleanup(c); }
 });
@@ -362,7 +364,7 @@ test('fr_cap_04_ac3_stamps_with_tegg_now_in_los_angeles', { timeout: 300_000 }, 
     await typeCapture('Čas zachycení');
     press('enter', ['command']);
     const t = await waitFile(join(c.vault, 'Quick Notes/Čas zachycení.md'), (x) => x !== null, 3000);
-    assert.ok(t?.includes(stamps('2026-10-14T03:00:00-07:00')), `captured = created = modified = 2026-10-14T03:00:00-07:00:\n${t}`);
+    assert.ok(clk(t)?.includes(stamps('2026-10-14T03:00:00-07:00')), `captured = created = modified = 2026-10-14T03:00:00-07:00:\n${t}`);
   } finally { await cleanup(c); }
 });
 
@@ -380,7 +382,7 @@ test('fr_cap_04_ac7_a_capture_lands_in_the_inbox', { timeout: 300_000 }, async (
     await typeCapture('Se zavřeným oknem');
     press('enter', ['command']);
     await waitFile(join(c.vault, 'Quick Notes/Se zavřeným oknem.md'), (x) => x !== null, 3000);
-    await d.execute('macos: activateApp', { bundleId: 'app.tegg.desktop' });
+    execFileSync('osascript', ['-e', 'tell application id "app.tegg.desktop" to reopen']);
     assert.ok(await shown(d, 'Quick Note: Se zavřeným oknem', 3000), 'there when the main window is opened');
   } finally { await cleanup(c); }
 });
@@ -517,7 +519,7 @@ test('fr_tsk_10_ac9_the_task_bytes_on_disk', { timeout: 300_000 }, async () => {
     await typeCapture('Zavolat kominíkovi tomorrow !high #doma');
     press('enter', ['command']);
     const t = await waitFile(join(c.vault, 'Tasks/Zavolat kominíkovi.md'), (x) => x !== null, 3000);
-    assert.equal(maskId(t), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps()}---\n`, 'FR-TSK-10 AC-9 bytes');
+    assert.equal(clk(maskId(t)), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps()}---\n`, 'FR-TSK-10 AC-9 bytes');
   } finally { await cleanup(c); }
 });
 
@@ -588,7 +590,8 @@ test('fr_set_03_ac4_date_time_choices_survive_a_relaunch', { timeout: 300_000 },
   try {
     let d = await launch(c, {}, 'settings/date-time');
     await (await need(d, 'First day of week')).click();
-    await (await need(d, 'Sunday')).click();
+    typeAscii('Sunday');
+    press('enter');
     await sleep(500);
     await end(d);
     const st = JSON.parse(readFileSync(join(c.sup, 'ui-state.json'), 'utf8'));
@@ -650,7 +653,7 @@ test('fr_set_05_ac3_icon_off_and_window_closed', { timeout: 300_000 }, async () 
       press('enter', ['command']);
       assert.ok(await waitFile(join(c.vault, folder, `${text}.md`), (t) => t !== null, 3000), `${k}: saved`);
     }
-    await d.execute('macos: activateApp', { bundleId: 'app.tegg.desktop' });
+    execFileSync('osascript', ['-e', 'tell application id "app.tegg.desktop" to reopen']);
     assert.ok(await waitFor(() => mainOpen(d), 3000), 'a Dock click shows the main window');
   } finally { await cleanup(c); }
 });
@@ -687,7 +690,7 @@ test('fr_set_05_ac5_started_as_a_login_item', { timeout: 300_000 }, async () => 
     await openByHotkey(d);
     assert.ok(await shown(d, 'Saves to Doručené', 1000), 'the capture window works at once on the last vault');
     press('escape');
-    await d.execute('macos: activateApp', { bundleId: 'app.tegg.desktop' });
+    execFileSync('osascript', ['-e', 'tell application id "app.tegg.desktop" to reopen']);
     assert.ok(await waitFor(() => mainOpen(d), 3000), 'a Dock click shows the main window');
   } finally { await cleanup(c); }
 });
