@@ -200,10 +200,10 @@ impl Shared {
         let exists = |k: &str| tegg_schema::builtin(k).is_some() || self.vault.read(&format!(".tegg/types/{k}.yml")).is_ok();
         // D-541: the matched key of `default-type` (D-239), Quick Note when it names no type.
         let key = settings5b::default_type_of(read(".tegg/vault.yml").as_deref(), exists).key;
-        let folder = read(&format!(".tegg/types/{key}.yml"))
-            .or_else(|| tegg_schema::builtin(&key).map(str::to_string))
-            .and_then(|t| yaml_str(&t, "folder"))
-            .unwrap_or_else(|| default_folder(&key));
+        let def = read(&format!(".tegg/types/{key}.yml")).or_else(|| tegg_schema::builtin(&key).map(str::to_string));
+        // The fallback folder is the plural of the type's name, not its key (`Quick Notes`, not `quick-notes`).
+        let name = def.as_deref().and_then(|t| yaml_str(t, "name")).unwrap_or_else(|| key.clone());
+        let folder = def.as_deref().and_then(|t| yaml_str(t, "folder")).unwrap_or_else(|| default_folder(&name));
         *lock(&self.default_type) = DefaultType { key, folder };
     }
 }
@@ -966,7 +966,7 @@ pub use tasks5a::{DailyTaskRows, StatusOption, TaskDefs, TaskRow, TaskState};
 
 // ------------------------------------------------------------------------------------------------ slice 5B
 // docs/contracts/ms5-capture.md §3.3, §5.1, §7.1: capture, vault settings and the Inbox query.
-mod capture5b;
+pub mod capture5b;
 mod inbox5b;
 mod settings5b;
 pub use inbox5b::InboxRow;

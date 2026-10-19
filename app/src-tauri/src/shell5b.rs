@@ -285,9 +285,32 @@ fn set_login_item(on: bool) -> Result<(), IpcError> {
 
 // ------------------------------------------------------------------------------------------------ capture IPC (§2.2)
 
+/// §2.2: an opaque token of the open vault (D-553: the capture window never learns the vault's path); a new one after
+/// every vault switch, so a capture typed for another vault is refused.
 fn vault_token(state: &AppState) -> Option<CaptureVaultDto> {
+    use std::hash::{Hash, Hasher};
     let info = state.vault.lock().unwrap_or_else(|p| p.into_inner()).clone()?;
-    Some(CaptureVaultDto { id: format!("{}#{}", info.path, crate::VAULT_GEN.load(Ordering::SeqCst)), name: info.name, color: None })
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    (info.path.as_str(), crate::VAULT_GEN.load(Ordering::SeqCst)).hash(&mut h);
+    Some(CaptureVaultDto { id: format!("v{:016x}", h.finish()), name: info.name, color: None })
+}
+
+/// §2.2: `capture:context-changed` only when the capture context can have changed: a `.tegg/` file (types, vault
+/// settings, templates' types) or the vault's tag list; not on every autosave.
+pub(crate) fn context_maybe_changed(app: &AppHandle, paths: &[String]) {
+    use std::hash::{Hash, Hasher};
+    static TAGS: Mutex<Option<u64>> = Mutex::new(None);
+    let state = app.state::<AppState>();
+    let Ok(core) = core(&state) else { return };
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for t in core.tags() {
+        t.spelling.hash(&mut h);
+    }
+    let sig = h.finish();
+    let tags_changed = TAGS.lock().unwrap_or_else(|p| p.into_inner()).replace(sig) != Some(sig);
+    if tags_changed || paths.iter().any(|p| p.starts_with(".tegg/") || p.starts_with("_templates/")) {
+        let _ = app.emit_to(CAPTURE, "capture:context-changed", ());
+    }
 }
 
 /// The frontmatter block of a template, `---` lines included (D-567).
@@ -347,8 +370,9 @@ pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#
         return Err(err("VaultChanged", "the vault isn't open any more"));
     }
     let core = core(&state)?;
-    if test_var("TEGG_TEST_FAIL_CAPTURE").as_deref() == Some("io") {
-        std::env::remove_var("TEGG_TEST_FAIL_CAPTURE");
+    // Test-only, once per launch (no env mutation from an async command).
+    static FAILED_ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if test_var("TEGG_TEST_FAIL_CAPTURE").as_deref() == Some("io") && !FAILED_ONCE.swap(true, Ordering::SeqCst) {
         return Err(err("Io", "test: the capture write failed"));
     }
     let path = core.capture_create(&r#type, &title, text.as_bytes()).map_err(core_err)?;
@@ -607,9 +631,21 @@ pub(crate) async fn inbox_bulk(state: State<'_, AppState>, paths: Vec<String>, c
         Some("set-type") => InboxJobChange::SetType { r#type: s("type")?, now },
         Some("add-tags") => InboxJobChange::AddTags { tags: change["tags"].as_array().map(|a| a.iter().filter_map(|t| t.as_str().map(str::to_string)).collect()).unwrap_or_default(), now },
         Some("append-link") => InboxJobChange::AppendLink { target: s("target")?, now },
+        Some("append-link-to") => InboxJobChange::AppendLinkTo { path: s("path")?, title: s("title")?, now },
         _ => return Err(err("Invalid", "unknown change")),
     };
-    let job = core(&state)?.jobs().start(JobOp::Inbox { paths, change: c }).map_err(job_err)?;
+    let core = core(&state)?;
+    // Defence in depth (D-557, R60): a type change only to a capture target, and never of a Daily Note (D-320).
+    if let InboxJobChange::SetType { r#type, .. } = &c {
+        let key = tegg_format::type_key(r#type);
+        if tegg_core::capture5b::NOT_CAPTURABLE.contains(&key.as_str()) || !core.type_get(&key).is_some_and(|t| !t.invalid) {
+            return Err(err("UnsupportedType", "not a capture target"));
+        }
+        if paths.iter().any(|p| core.object(p).is_some_and(|o| o.r#type == "daily-note")) {
+            return Err(err("Invalid", "daily notes can't change type"));
+        }
+    }
+    let job = core.jobs().start(JobOp::Inbox { paths, change: c }).map_err(job_err)?;
     Ok(JobIdDto { job_id: job as u32 })
 }
 

@@ -10,6 +10,9 @@ import { ulid } from '../newNote';
 
 export type Outcome = { ok: true; text: string; version: VersionDto } | { ok: true; unchanged: true } | { ok: false; reason: 'conflict' | 'failed' | 'readOnly' };
 
+/** Frontmatter the text engine can't parse is never rewritten (`applyInboxChange` leaves it unchanged), so the action
+ *  is reported as not possible instead of a success that wrote nothing. */
+const editable = (text: string) => { const d = parse(text); return !(d.frontmatter?.error || d.frontmatterError); };
 const same = (a: VersionDto | null | undefined, b: VersionDto | null | undefined) => !!a && !!b && a.size === b.size && a.hash === b.hash;
 const nfc = (s: string) => s.normalize('NFC');
 const stemOf = (p: string) => nfc(p).replace(/\.md$/i, '').split('/').pop()!;
@@ -22,7 +25,7 @@ export async function changeItem(path: string, base: VersionDto | 'current', cha
   } catch {
     return { ok: false, reason: 'failed' };
   }
-  if (!note.utf8) return { ok: false, reason: 'readOnly' };
+  if (!note.utf8 || !editable(note.text)) return { ok: false, reason: 'readOnly' };
   if (base !== 'current' && !same(note.version, base)) return { ok: false, reason: 'conflict' };
   const r = applyInboxChange(note.text, change);
   if (r.kind === 'unchanged') return { ok: true, unchanged: true };
@@ -69,9 +72,14 @@ export async function appendItem(item: InboxRowDto, target: AppendTarget, now: s
     return { ok: false, reason: 'itemFailed', target: target.kind === 'note' ? target.title : target.date };
   }
   const body = note.text.slice(parse(note.text).bodyStart);
+  if (!note.utf8 || !editable(note.text)) return { ok: false, reason: 'itemFailed', target: target.kind === 'note' ? target.title : target.date };
   if (target.kind === 'today') {
-    const draft = await ipc.dailyDraft(target.date);
-    const view = await ipc.dailyView(target.date);
+    let draft, view;
+    try {
+      [draft, view] = await Promise.all([ipc.dailyDraft(target.date), ipc.dailyView(target.date)]);
+    } catch {
+      return { ok: false, reason: 'targetFailed', target: target.date };
+    }
     if (view.path) return appendItem(item, { kind: 'note', path: view.path, title: target.date }, now);
     const text = draft.text.replace('{{id}}', ulid(Date.now())).split('{{now}}').join(now);
     const re = await retargets(item.path, body, draft.path);

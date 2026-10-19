@@ -67,7 +67,11 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
       return { result: (await inboxList(files, ro)).length };
     case 'apply': {
       const d = await doc();
-      const r = d.applyInboxChange(String(a.text), a.change);
+      // D-573: the bulk Link to carries the target's path; the text is the D-184 text from this file's folder.
+      const change = a.change?.op === 'append-link-to'
+        ? { op: 'append-link', target: d.d184Text(String(a.path), String(a.change.path), String(a.change.title), Object.keys(files)), now: a.change.now }
+        : a.change;
+      const r = d.applyInboxChange(String(a.text), change);
       return { result: r.kind === 'bytes' ? r.text : null };
     }
     default:

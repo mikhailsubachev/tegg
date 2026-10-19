@@ -51,8 +51,19 @@ export function applyInboxChange(text: string, change: InboxChange): { kind: 'by
   return { kind: 'bytes', text: setValue(parse(out), 'modified', { datetime: change.now }) }
 }
 
-/** D-558: `## <title>` + the item's body appended to `target`, links rewritten by `retarget` (the link's target as
- *  written → the whole new inner text, or null to keep it; D-572), `modified` set to `now`. */
+/** The new inner text of link `l` when its file part is rewritten to `inner` (the D-184 text `path` or `path|title`):
+ *  the `#heading` / `#^block` and the user's alias (or an embed's size) are kept; a plain link takes the D-184 title as
+ *  its alias; an embed never gets one (it would read as a size). The table form `\|` is kept. */
+function rewrittenInner(l: { embed: boolean; subpath: string | null; alias: string | null; escapedPipe: boolean }, inner: string): string {
+  const bar = inner.indexOf('|')
+  const file = bar < 0 ? inner : inner.slice(0, bar)
+  const d184 = bar < 0 ? null : inner.slice(bar + 1)
+  const alias = l.alias ?? (l.embed ? null : d184)
+  return file + (l.subpath ? `#${l.subpath}` : '') + (alias === null ? '' : `${l.escapedPipe ? '\\|' : '|'}${alias}`)
+}
+
+/** D-558: `## <title>` + the item's body appended to `target`, links rewritten by `retarget` (the link's file part as
+ *  written → its D-184 text from the target's folder, or null to keep it; D-572), `modified` set to `now`. */
 export function appendSection(target: string, title: string, itemBody: string, retarget: (link: string) => string | null, now: string): string {
   const tdoc = parse(target)
   let body = itemBody.normalize('NFC').replace(/\r\n/g, '\n')
@@ -60,7 +71,7 @@ export function appendSection(target: string, title: string, itemBody: string, r
   for (const l of [...links].sort((a, b) => b.range[0] - a.range[0])) {
     const inner = retarget(l.target)
     if (inner === null) continue
-    body = body.slice(0, l.range[0]) + (l.embed ? '![[' : '[[') + inner + ']]' + body.slice(l.range[1])
+    body = body.slice(0, l.range[0]) + (l.embed ? '![[' : '[[') + rewrittenInner(l, inner) + ']]' + body.slice(l.range[1])
   }
   body = body.replace(/\s+$/, '')
   const section = `## ${title.normalize('NFC').trim()}` + (body === '' ? '' : `\n\n${body}`)

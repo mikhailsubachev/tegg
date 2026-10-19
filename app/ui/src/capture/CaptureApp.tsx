@@ -30,6 +30,7 @@ const priorityOptions = (task: CaptureTypeDto | undefined): string[] =>
   ((task?.attributes ?? []).find((a) => a.key === 'priority')?.options ?? []).map((o) => o.label);
 
 export function CaptureApp() {
+  const [, setUiTick] = useState(0);
   const [ctx, setCtx] = useState<CaptureContextDto | null>(null);
   const [text, setText] = useState('');
   const [type, setType] = useState('quick-note');
@@ -115,7 +116,9 @@ export function CaptureApp() {
   openRef.current = onOpen;
   useEffect(() => {
     void loadContext();
-    const offs = [captureEvents.open((o) => void openRef.current(o)), captureEvents.contextChanged(() => void loadContext())];
+    const offs = [captureEvents.open((o) => void openRef.current(o)), captureEvents.contextChanged(() => void loadContext()),
+      // §4: a new Date & time choice re-renders the due label (main.tsx stores it first).
+      captureEvents.uiState(() => setUiTick((n) => n + 1))];
     return () => { for (const off of offs) void off.then((f) => f()); };
   }, [loadContext]);
 

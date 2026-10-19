@@ -16,6 +16,8 @@ export type TextOp =
   | { op: 'set-type'; type: string; now: string }
   | { op: 'add-tags'; tags: string[]; now: string }
   | { op: 'append-link'; target: string; now: string }
+  // D-573: a bulk `Link to…`; each file gets the D-184 text of `toPath` from its own folder (D-291 over `paths`).
+  | { op: 'append-link-to'; toPath: string; toTitle: string; paths: string[]; now: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -24,9 +26,10 @@ type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
   // 5B Inbox ops (ms5-capture §7.3) are whole-text changes of `applyInboxChange`; the edit is the changed span.
-  if (ops.length > 0 && ops.every((o) => o.op === 'set-review' || o.op === 'set-type' || o.op === 'add-tags' || o.op === 'append-link')) {
+  if (ops.length > 0 && ops.every((o) => o.op === 'set-review' || o.op === 'set-type' || o.op === 'add-tags' || o.op === 'append-link' || o.op === 'append-link-to')) {
     let out = text
-    for (const op of ops as InboxChange[]) {
+    const changes = ops.map((o): InboxChange => (o.op === 'append-link-to' ? { op: 'append-link', target: d184Text(source, o.toPath, o.toTitle, o.paths), now: o.now } : (o as InboxChange)))
+    for (const op of changes) {
       const r = applyInboxChange(out, op)
       if (r.kind === 'bytes') out = r.text
     }
@@ -51,6 +54,17 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   const bytes = byteOffsets(text)
   const edits = [...changed].sort((a, b) => a.range[0] - b.range[0]).map((p) => ({ start: bytes(p.range[0]), end: bytes(p.range[1]) }))
   return { kind: 'bytes', text: out, edits }
+}
+
+/** D-184: the link text for the note at `toPath` written in `source`: its stem when the stem resolves to it from there
+ *  (D-291), else its vault path without `.md`; `|title` when the title differs from that. */
+export function d184Text(source: string, toPath: string, toTitle: string, paths: string[]): string {
+  const path = nfc(toPath).replace(/\.md$/i, '')
+  const stem = path.slice(path.lastIndexOf('/') + 1)
+  const hit = resolveFrom(source, stem, false, paths.includes(toPath) ? paths : [...paths, toPath])
+  const target = hit !== null && key(hit) === key(toPath) ? stem : path
+  const shown = nfc(toTitle).trim()
+  return shown && shown !== target ? `${target}|${shown}` : target
 }
 
 /** The link rewrite alone (FR-LNK-03 AC-7, AC-9, AC-20). Same edit rules as `transform`. */

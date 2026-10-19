@@ -76,7 +76,11 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
       if (kind === 'Conflict') {
         setAlert(t('settings.vault.changedOutside', { field: label(key) }));
         void load();
-      } else setErrors((x) => ({ ...x, [key]: (e as { reason?: string; message?: string })?.reason ?? (e as { message?: string })?.message ?? t('typeRule.folderInvalid') }));
+      } else {
+        // NFR-OTH-02: the core's reason is English text; the field shows the catalog's rule for it instead.
+        const msg = key === 'attachments' ? t('typeRule.folderInvalid') : key === 'daily-format' ? t('settings.vault.badFormat') : t('settings.vault.saveFailed');
+        setErrors((x) => ({ ...x, [key]: msg }));
+      }
     }
   };
   const today = localDate(Date.now(), appZone());

@@ -147,8 +147,10 @@ pub enum InboxJobChange {
     /// Writes `type`, `review: reviewed` and `modified` (D-557).
     SetType { r#type: String, now: String },
     AddTags { tags: Vec<String>, now: String },
-    /// `target`: the link text written as `[[target]]` (D-559).
+    /// `target`: the link text written as `[[target]]` (D-559), the same in every file.
     AppendLink { target: String, now: String },
+    /// D-573: a link to the note at vault path `path`; each file gets its D-184 text from its own folder.
+    AppendLinkTo { path: String, title: String, now: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -199,6 +201,9 @@ pub enum TextOp {
     SetType { r#type: String, now: String },
     AddTags { tags: Vec<String>, now: String },
     AppendLink { target: String, now: String },
+    /// D-573: `[[<D-184 text of to_path from the source>]]`; `paths` are the vault's note paths (D-291 resolution in
+    /// `@tegg/doc`, as `RetargetLinks`).
+    AppendLinkTo { to_path: String, to_title: String, paths: Vec<String>, now: String },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).

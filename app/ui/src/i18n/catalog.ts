@@ -1002,6 +1002,7 @@ export const en: Catalog = {
   'settings.vault.reveal': 'Reveal in Finder',
   'settings.vault.openOther': 'Open another vault…',
   'settings.vault.defaultType': 'Default type for new notes',
+  'settings.vault.saveFailed': 'Couldn’t save this setting. Try again.',
   'settings.vault.badDefault': 'The default type "{value}" doesn\'t exist. Using Quick Note.',
   'settings.vault.dailyFolder': 'Daily notes folder',
   'settings.vault.dailyFolderNote': 'Applies to new daily notes. Existing ones stay where they are.',

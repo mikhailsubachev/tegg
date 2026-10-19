@@ -298,7 +298,7 @@ fn forward_events(app: AppHandle, core: &Core) {
                 }
                 CoreEvent::VaultChanged { paths } => {
                     // The capture window gets no paths (NFR-SEC-03): only a hint to re-read its context (§2.2).
-                    let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
+                    shell5b::context_maybe_changed(&app, &paths);
                     let _ = app.emit_to("main", "vault:changed", ChangedDto { paths });
                     shell5b::inbox_count_changed(&app);
                 }
@@ -1444,9 +1444,16 @@ fn ui_state_get(state: State<AppState>) -> UiStateDto {
 }
 
 #[tauri::command]
-fn ui_state_set(app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
+fn ui_state_set(app: AppHandle, app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
     let bytes = serde_json::to_vec_pretty(&state).map_err(|e| err("Io", e))?;
-    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))
+    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))?;
+    // ms5-capture §4 (FR-CAP-01 AC-14): the pre-warmed capture windows re-apply the theme and the date format; they get
+    // these two choices only, never the rest of the state.
+    let ui = serde_json::json!({ "theme": state.theme, "dateTime": state.date_time });
+    for w in [shell5b::CAPTURE, shell5b::SAVED] {
+        let _ = app.emit_to(w, "ui:state", ui.clone());
+    }
+    Ok(())
 }
 
 /// The collation locale of this Mac (D-122): the explicit collation order if set, else the region locale.

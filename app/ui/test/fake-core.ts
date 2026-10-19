@@ -361,6 +361,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         state.refreshCount();
       } else if (m.kind === 'capture-open' && opts.window === 'capture') state.openCapture(m.trigger, m.captureKind);
       else if (m.kind === 'saved' && opts.window === 'capture') void state.emit('capture:saved', m.payload);
+      else if (m.kind === 'ui-state' && opts.window === 'capture') void state.emit('ui:state', m.payload);
       else if (m.kind === 'route' && opts.window !== 'capture') void state.emit('shell:route', { route: m.route });
       return null;
     },
@@ -953,7 +954,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       return path;
     },
     ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
-    ui_state_set: (a) => { state.uiState = a.state; return null; },
+    ui_state_set: (a) => {
+      state.uiState = a.state;
+      // ms5-capture §4 (as the shell): the capture windows get the theme and the Date & time choice as `ui:state`.
+      state.sync({ kind: 'ui-state', payload: { theme: a.state?.theme, dateTime: a.state?.dateTime ?? null } });
+      return null;
+    },
     nav_opened: (a) => {
       // D-349: a daily route is recorded as the route, so the landing can reopen it.
       if (typeof a.route === 'string' && a.route.startsWith('daily/')) { state.last = { path: a.route, id: null }; return null; }
@@ -1115,7 +1121,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
           else if (state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
           else if (ctlOn({ path: p }) && state.control.fail === 'Io') report.skipped.push({ path: p, reason: 'io' });
           else {
-            const r = await w.__teggInbox('apply', { text: files[p], change }, files, {}, []);
+            const r = await w.__teggInbox('apply', { path: p, text: files[p], change }, files, {}, []);
             const out = r?.result ?? null;
             if (out === null || out === files[p]) report.unchanged.push(p);
             else { jobs.write(p, out); report.written.push(p); }

@@ -9,13 +9,14 @@ use tegg_format::type_key;
 use crate::{Core, CoreError};
 
 /// System types a capture never creates (R55, D-541).
-const NOT_CAPTURABLE: [&str; 4] = ["daily-note", "tag", "image", "pdf"];
+pub const NOT_CAPTURABLE: [&str; 4] = ["daily-note", "tag", "image", "pdf"];
 
 impl Core {
     /// Returns the vault path written (NFC).
     pub fn capture_create(&self, type_key_: &str, title: &str, bytes: &[u8]) -> Result<String, CoreError> {
         let key = type_key(type_key_);
-        if NOT_CAPTURABLE.contains(&key.as_str()) || self.type_get(&key).is_none() {
+        // An invalid type file has no folder rule to trust (FR-TYP-14); the capture window never offers it.
+        if NOT_CAPTURABLE.contains(&key.as_str()) || !self.type_get(&key).is_some_and(|t| !t.invalid) {
             return Err(CoreError::UnsupportedType);
         }
         let fm = match tegg_format::extract(bytes, "x").attributes {

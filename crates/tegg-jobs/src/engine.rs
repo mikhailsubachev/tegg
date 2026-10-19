@@ -678,6 +678,7 @@ impl Inner {
             InboxJobChange::SetType { r#type, now } => TextOp::SetType { r#type, now },
             InboxJobChange::AddTags { tags, now } => TextOp::AddTags { tags, now },
             InboxJobChange::AppendLink { target, now } => TextOp::AppendLink { target, now },
+            InboxJobChange::AppendLinkTo { path, title, now } => TextOp::AppendLinkTo { to_path: nfc(&path), to_title: nfc(&title), paths: host.note_paths(), now },
         };
         let mut files = Vec::new();
         let mut seen = std::collections::BTreeSet::new();

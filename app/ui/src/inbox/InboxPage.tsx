@@ -184,12 +184,12 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     return () => { void off.then((f) => f()); };
   }, [job?.id, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // `keep` false (Mark all reviewed, FR-INB-02 AC-13): the confirmed items leave when the job ends, so the empty state
-  // shows; D-556's dimmed-in-place card is for the actions on chosen cards.
+  // `keep` false (Mark all reviewed, FR-INB-02 AC-13): the confirmed items and the cards already dimmed on this page
+  // leave when the job ends, so the empty state shows; D-556's dimmed-in-place card is for actions on chosen cards.
   const bulkReview = (paths: string[], value: 'reviewed' | 'unreviewed', keep = true) => {
     const now = localIso(Date.now());
     if (keep) for (const p of paths) { const r = rowOf(p); if (r && !r.readOnly) setKept((m) => new Map(m).set(nfc(p), { ...r, reviewRaw: value })); }
-    else setKept((m) => { const n = new Map(m); for (const p of paths) n.delete(nfc(p)); return n; });
+    else setKept(new Map());
     void runBulk(paths, { op: 'set-review', value, now }, String(paths.length));
   };
 
@@ -216,11 +216,9 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   const link = async (paths: string[], target: { path: string; title: string }) => {
     setPicker(null);
     const now = localIso(Date.now());
+    // D-573: several items are one `inbox` job; each file gets the D-184 text of the target from its own folder.
+    if (paths.length > 1) return void runBulk(paths, { op: 'append-link-to', path: target.path, title: target.title, now }, target.title);
     const texts = await Promise.all(paths.map((p) => linkTextFrom(p, target)));
-    if (paths.length > 1 && texts.every((x) => x === texts[0])) {
-      void runBulk(paths, { op: 'append-link', target: texts[0], now }, target.title);
-      return;
-    }
     for (let i = 0; i < paths.length; i++) {
       const r = rowOf(paths[i]);
       if (!r || r.readOnly) continue;
@@ -536,6 +534,16 @@ function ObjectPicker({ verb, title, exclude, today, typeLabel, onClose, onPick 
   const [q, setQ] = useState('');
   const [items, setItems] = useState<{ path: string; title: string; type: string }[]>([]);
   const [active, setActive] = useState(0);
+  /** The query the shown options belong to; ↩ before the current query's results arrive waits for them, so it never
+   *  picks a row of an older query (an Append can't be undone, AC-15). */
+  const [shownFor, setShownFor] = useState<string | null>(null);
+  const enterPending = useRef(false);
+  type Option = { kind: 'today' } | { kind: 'note'; path: string; title: string; type: string };
+  const optionsOf = (found: { path: string; title: string; type: string }[]): Option[] => [
+    ...(verb === 'append' ? [{ kind: 'today' as const }] : []),
+    ...found.map((x) => ({ kind: 'note' as const, ...x })),
+  ];
+  const choose = (o: Option) => onPick(o.kind === 'today' ? { kind: 'today', date: today } : { kind: 'note', path: o.path, title: o.title });
   useEffect(() => {
     let live = true;
     void ipc.switcher(q, 30).then((rs) => {
@@ -544,16 +552,19 @@ function ObjectPicker({ verb, title, exclude, today, typeLabel, onClose, onPick 
       const found = rs.filter((r) => r.kind === 'object' && r.path && !ex.has(nfc(r.path)) && !r.path.startsWith('_templates/') && !r.path.startsWith('.trash/'))
         .map((r) => ({ path: r.path!, title: r.title, type: r.type }));
       setItems(found);
+      setShownFor(q);
       // Append lists Today's note first (R60); with a query, ↩ takes the best match, so the highlight starts on it.
-      setActive(verb === 'append' && q.trim() !== '' && found.length > 0 ? 1 : 0);
+      const first = verb === 'append' && q.trim() !== '' && found.length > 0 ? 1 : 0;
+      setActive(first);
+      if (enterPending.current) {
+        enterPending.current = false;
+        const o = optionsOf(found)[first];
+        if (o) choose(o);
+      }
     }, () => {});
     return () => { live = false; };
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
-  const options: ({ kind: 'today' } | { kind: 'note'; path: string; title: string; type: string })[] = [
-    ...(verb === 'append' ? [{ kind: 'today' as const }] : []),
-    ...items.map((x) => ({ kind: 'note' as const, ...x })),
-  ];
-  const choose = (o: (typeof options)[number]) => onPick(o.kind === 'today' ? { kind: 'today', date: today } : { kind: 'note', path: o.path, title: o.title });
+  const options = optionsOf(items);
   const name = t(verb === 'append' ? 'inbox.appendTitle' : 'inbox.linkTitle', { title });
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -562,7 +573,11 @@ function ObjectPicker({ verb, title, exclude, today, typeLabel, onClose, onPick 
           if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
           else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, options.length - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-          else if (e.key === 'Enter' && options[active]) { e.preventDefault(); choose(options[active]); }
+          else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (shownFor !== q) enterPending.current = true;
+            else if (options[active]) choose(options[active]);
+          }
         }}>
         <h2>{name}</h2>
         <input type="text" role="combobox" aria-label={t('inbox.find')} aria-expanded="true" aria-controls="inbox-picker-list" autoFocus
