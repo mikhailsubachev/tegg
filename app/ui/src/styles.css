@@ -694,7 +694,8 @@ button.toggle .count { margin-left: 0; }
 .task-chip.due.tone-overdue { font-weight: 600; color: var(--danger); background: var(--danger-bg); }
 .task-chip.due.tone-today { font-weight: 600; color: var(--link); background: var(--link-bg); }
 .task-also { margin: 0; font-size: 12px; color: var(--muted); }
-.task-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+/* Columns stretch to the board, which fills the page: a column is a drop target over its whole height (5B feedback F5). */
+.task-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: stretch; min-height: calc(100vh - 260px); }
 .task-column { flex: none; width: 288px; padding: 8px; border-radius: 10px; background: var(--side); }
 .task-column.drop-over { outline: 2px dashed var(--focus); }
 .task-column-head { display: flex; align-items: center; gap: 6px; }

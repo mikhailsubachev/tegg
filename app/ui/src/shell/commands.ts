@@ -162,7 +162,8 @@ export function commands(ctx: ShellContext): Command[] {
   // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
   const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);
   list.push(
-    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
+    // The last of the three views, as the sidebar entry (D-516; 5B feedback F3).
+    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => { const x = a(c); if (x?.goTasks) x.goTasks(); else x?.go({ id: 'tasks' }); } },
     { id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
     { id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks/kanban' }) },
     ...([

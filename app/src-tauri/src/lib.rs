@@ -96,27 +96,32 @@ pub(crate) fn nav_of(input: NavInput) -> Option<&'static str> {
     match input {
         NavInput::OtherMouseUp(3) => Some("back"),
         NavInput::OtherMouseUp(4) => Some("forward"),
+        // AppKit: deltaX > 0 is a swipe to the left of the content, which browsers treat as Back.
+        NavInput::Swipe(dx) if dx > 0.0 => Some("back"),
+        NavInput::Swipe(dx) if dx < 0.0 => Some("forward"),
         _ => None,
     }
 }
 
 /// The mouse's back and forward buttons (FR-NAV-03, D-165): WKWebView doesn't pass them to the page, so a local
-/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI.
+/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI. Mouse utilities such as Logi
+/// Options+ send them as the system's navigation swipe instead (5B feedback F1), which the monitor also maps.
 #[cfg(target_os = "macos")]
 fn watch_mouse_buttons(app: AppHandle) {
     use block2::RcBlock;
-    use objc2_app_kit::{NSEvent, NSEventMask};
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
     use std::ptr::NonNull;
     let block = RcBlock::new(move |e: NonNull<NSEvent>| -> *mut NSEvent {
         // SAFETY: AppKit passes a valid event for the duration of the handler.
-        let n = unsafe { e.as_ref() }.buttonNumber();
-        if let Some(dir) = nav_of(NavInput::OtherMouseUp(n)) {
+        let ev = unsafe { e.as_ref() };
+        let input = if ev.r#type() == NSEventType::Swipe { NavInput::Swipe(ev.deltaX()) } else { NavInput::OtherMouseUp(ev.buttonNumber()) };
+        if let Some(dir) = nav_of(input) {
             let _ = app.emit_to("main", "nav:mouse", dir);
         }
         e.as_ptr()
     });
     // SAFETY: called on the main thread during setup; the monitor lives as long as the app.
-    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp, &block) };
+    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp | NSEventMask::Swipe, &block) };
     std::mem::forget(monitor);
 }
 

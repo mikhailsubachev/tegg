@@ -22,7 +22,7 @@ first; **change** = new behaviour, needs an AP point and a D-xx before work.
   which neither path sees. Fix: the native monitor also turns a horizontal swipe event into `nav:mouse`
   (`back` for a swipe to the right, as Safari does). A Logi mouse can't be simulated in L6, so the regression test drives a
   synthetic swipe event; the owner checks the real mouse in the next preview. Test: `bug_ms5b_fr_nav_03_swipe_goes_back` (the native event → `nav:mouse` mapping, L4 in the shell crate).
-- **F3.** To be reproduced from AC-9/AC-15 (Kanban → open a card → Back); the `bug_*` test comes first: `bug_ms5b_fr_tsk_04_back_keeps_the_view` (L5: Kanban grouped by tag with the This week filter → open a card → Back gives `tasks/kanban`, `Kanban` selected, grouping and filter kept; the same from `type/task`).
+- **F3.** Back already returned to the Kanban and to All tasks with their state. The miss was the palette: `Go to Tasks` always opened the Schedule, while the sidebar entry opens the last view (D-516). It now opens the last view too. Test: `bug_ms5b_fr_tsk_04_back_keeps_the_view` (L5: Kanban grouped by tag with the This week filter → open a card → Back gives `tasks/kanban`, `Kanban` selected, grouping and filter kept; the same from `type/task`).
 - **F5.** `.task-board` aligns columns to the top (`align-items: flex-start`), so a column is as tall as its cards.
   Fix: columns stretch to the board's height, which fills the page below the toolbar. Test: `bug_ms5b_fr_tsk_05_column_is_a_drop_zone` (L5: dropping a card on the empty part of a short column, below its last card, changes the status).
 

@@ -14,9 +14,11 @@ test('bug_ms5b_fr_tsk_05_drop_below_the_last_card', async ({ page }) => {
   const target = (await (await must(column(page, 'In progress'), 'column In progress')).boundingBox())!;
   const from = await must(column(page, 'To do').getByRole('article', { name: 'Task: Zalít květiny', exact: true }), 'T03 in To do');
   const a = (await from.boundingBox())!;
-  // Low on the board, under In progress's few cards: inside the column's lane, below its last card.
-  const y = boardBox.y + boardBox.height - 30;
-  assert.ok(y > target.y + 40, 'the drop point is below the column head');
+  // Low in the window, under In progress's few cards: inside the column's lane, below its last card.
+  const cards = column(page, 'In progress').getByRole('article');
+  const last = (await cards.nth((await cards.count()) - 1).boundingBox())!;
+  const y = Math.min(boardBox.y + boardBox.height, page.viewportSize()!.height) - 30;
+  assert.ok(y > last.y + last.height + 20, `the drop point (${y}) is below the column's last card (${last.y + last.height})`);
   await page.mouse.move(a.x + a.width / 2, a.y + 15);
   await page.mouse.down();
   await page.mouse.move(a.x + a.width / 2 + 10, a.y + 40, { steps: 4 });
