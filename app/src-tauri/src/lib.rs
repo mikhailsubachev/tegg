@@ -82,6 +82,24 @@ pub(crate) static VAULT_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::A
 /// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
 static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// A native event the navigation monitor sees (FR-NAV-03).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum NavInput {
+    /// `OtherMouseUp` with AppKit's button number (3 = back, 4 = forward).
+    OtherMouseUp(isize),
+    /// A navigation swipe (`NSEventTypeSwipe`) with its `deltaX`.
+    Swipe(f64),
+}
+
+/// The `nav:mouse` direction for a native event, if any.
+pub(crate) fn nav_of(input: NavInput) -> Option<&'static str> {
+    match input {
+        NavInput::OtherMouseUp(3) => Some("back"),
+        NavInput::OtherMouseUp(4) => Some("forward"),
+        _ => None,
+    }
+}
+
 /// The mouse's back and forward buttons (FR-NAV-03, D-165): WKWebView doesn't pass them to the page, so a local
 /// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI.
 #[cfg(target_os = "macos")]
@@ -92,10 +110,8 @@ fn watch_mouse_buttons(app: AppHandle) {
     let block = RcBlock::new(move |e: NonNull<NSEvent>| -> *mut NSEvent {
         // SAFETY: AppKit passes a valid event for the duration of the handler.
         let n = unsafe { e.as_ref() }.buttonNumber();
-        match n {
-            3 => { let _ = app.emit_to("main", "nav:mouse", "back"); }
-            4 => { let _ = app.emit_to("main", "nav:mouse", "forward"); }
-            _ => {}
+        if let Some(dir) = nav_of(NavInput::OtherMouseUp(n)) {
+            let _ = app.emit_to("main", "nav:mouse", dir);
         }
         e.as_ptr()
     });
@@ -1616,4 +1632,21 @@ pub fn run() {
                 _ => {}
             }
         });
+}
+
+/// 5B preview feedback F1 (docs/feedback/ms5-5b.md): Logi Options+ sends the mouse's Back and Forward buttons as the
+/// system's navigation swipe, not as buttons 4/5; they navigate as the touchpad's back swipe does (FR-NAV-03, D-165).
+#[cfg(test)]
+mod bug_ms5b_fr_nav_03_swipe_goes_back {
+    use super::{nav_of, NavInput};
+
+    #[test]
+    fn bug_ms5b_fr_nav_03_swipe_goes_back() {
+        assert_eq!(nav_of(NavInput::OtherMouseUp(3)), Some("back"));
+        assert_eq!(nav_of(NavInput::OtherMouseUp(4)), Some("forward"));
+        assert_eq!(nav_of(NavInput::OtherMouseUp(2)), None, "the middle button isn't navigation");
+        assert_eq!(nav_of(NavInput::Swipe(1.0)), Some("back"), "a swipe with deltaX > 0 goes back, as in Safari and Chromium");
+        assert_eq!(nav_of(NavInput::Swipe(-1.0)), Some("forward"));
+        assert_eq!(nav_of(NavInput::Swipe(0.0)), None, "a vertical swipe isn't navigation");
+    }
 }
