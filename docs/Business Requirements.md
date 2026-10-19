@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.74, for review                                             |
+| **Document status** | Draft v1.75, for review                                             |
 | **Date**            | 2026-10-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -90,6 +90,7 @@
 | v1.72   | 2026-10-19 | Slice 5B acceptance and contract decisions D-539…D-567 (AP-467…AP-495, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
 | v1.73   | 2026-10-19 | Slice 5B red-test decisions D-568…D-584 (AP-496…AP-512, `docs/contracts/ms5-capture.md` §14). |
 | v1.74   | 2026-10-19 | QA review of PR #50: D-585 (the capture draft is stored while typing, AP-513) and D-586 (virtualized Inbox cards in 5B, AP-514). |
+| v1.75   | 2026-10-19 | 5B preview feedback D-587…D-591 (AP-515…AP-519, `docs/feedback/ms5-5b.md`): a calendar button in `Due date…`, the open-tasks count in the sidebar, no status chip on the Kanban by status, simplified Markdown on Inbox cards, the review toggle on every reviewable object. |
 
 ---
 
@@ -709,6 +710,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-584 | Capture benchmarks' closed main window (AP-512, owner, 2026-10-19) | The benchmarks launch as a login item (`TEGG_TEST_LAUNCHED_AT_LOGIN=1`), so `main` is hidden from the start; NFR-PERF-10 AC-4's idle time is `TEGG_IDLE_MS` (default 10 minutes) |
 | D-585 | Capture text on quit (AP-513, owner, 2026-10-19) | The capture draft is stored while typing (about 500 ms after the last change), as the Esc draft (D-542); quitting, a crash or a relaunch keeps it; ⌘↩ success and `Discard` clear it; nothing goes into the vault (FR-CAP-01 AC-15) |
 | D-586 | Virtualized Inbox cards (AP-514, owner, 2026-10-19) | Built in 5B: only the cards in view plus a buffer are in the page; keyboard, selection, ⌘A and focus restore work across the whole list (FR-INB-01 AC-12) |
+| D-587 | Picking a due date (AP-515, owner, 2026-10-19) | The card menu's `Due date…` gets a calendar button `Choose date` next to its field that opens the `Choose date` month grid (R10 keys); typing keeps working. The quick-add `Due` chip stays token-only (tasks.md R43) |
+| D-588 | The sidebar's `Tasks` count (AP-516, owner, 2026-10-19) | The open tasks count (state Open or In progress, the header's `open`); none at 0. Replaces overdue + due today (tasks.md R1) |
+| D-589 | Status on Kanban cards (AP-517, owner, 2026-10-19) | No status chip on the Kanban grouped by status, except a non-status value in `No status` (`Not a status`); the board by tag, the Schedule and the Daily Note keep it (tasks.md R44) |
+| D-590 | Inbox card text (AP-518, owner, 2026-10-19) | The card shows the body's first blocks as simplified Markdown: paragraphs and line breaks, list bullets, numbers and read-only checkboxes, headings as bold lines, bold/italic/strike/code inline, links and wikilinks as their text, images and embeds as a placeholder, tables and code blocks as their first line; clamped at the card height with `…`; built from the `@tegg/doc` parse (D-82), never HTML from the file (inbox.md R60) |
+| D-591 | Review toggle on objects (AP-519, owner, 2026-10-19) | D-330's `Mark reviewed` / `Reviewed` toggle at the top of the note page, right of the title row, on every object whose `review` is `unreviewed` or `reviewed`, whose type is Quick Note or Daily Note, or whose type has the review workflow on (even without a value); not in templates. It writes only `review` and `modified` (D-562), and only when clicked (inbox.md R61, FR-INB-02) |
 
 ---
 
