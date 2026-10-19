@@ -184,9 +184,12 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     return () => { void off.then((f) => f()); };
   }, [job?.id, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bulkReview = (paths: string[], value: 'reviewed' | 'unreviewed') => {
+  // `keep` false (Mark all reviewed, FR-INB-02 AC-13): the confirmed items leave when the job ends, so the empty state
+  // shows; D-556's dimmed-in-place card is for the actions on chosen cards.
+  const bulkReview = (paths: string[], value: 'reviewed' | 'unreviewed', keep = true) => {
     const now = localIso(Date.now());
-    for (const p of paths) { const r = rowOf(p); if (r && !r.readOnly) setKept((m) => new Map(m).set(nfc(p), { ...r, reviewRaw: value })); }
+    if (keep) for (const p of paths) { const r = rowOf(p); if (r && !r.readOnly) setKept((m) => new Map(m).set(nfc(p), { ...r, reviewRaw: value })); }
+    else setKept((m) => { const n = new Map(m); for (const p of paths) n.delete(nfc(p)); return n; });
     void runBulk(paths, { op: 'set-review', value, now }, String(paths.length));
   };
 
@@ -322,7 +325,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
               onChange={() => setSelection((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]))} />
           )}
           <Icon name={typeIconName(r.type, typeOf(r.type)?.icon)} size={14} />
-          <span className="inbox-card-type" data-user-content>{typeName(r.type)}</span>
+          <span className="inbox-card-type" aria-hidden="true" data-user-content>{typeName(r.type)}</span>
           <button type="button" tabIndex={0} className="icon-button inbox-triage" aria-haspopup="menu" data-command="inbox.triage" aria-label={t('inbox.triage', { title: r.title })}
             onClick={() => setMenu({ path: p, convert: false })}><Icon name="more-horizontal" size={14} /></button>
         </div>
@@ -373,6 +376,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             <div role="group" aria-label={t('inbox.filter')} className="inbox-filter">
               {['all', ...filterKeys].map((k) => (
                 <button key={k} type="button" tabIndex={0} data-type={k} aria-pressed={active === k} data-command="inbox.filter" className={`toggle${active === k ? ' on' : ''}`}
+                  aria-label={k === 'all' ? t('inbox.filter.all') : typeOf(k)?.plural ?? k}
                   aria-description={String(k === 'all' ? members.length : counts.get(k) ?? 0)} onClick={() => setFilter(k)}>
                   {k === 'all' ? t('inbox.filter.all') : <span data-user-content>{typeOf(k)?.plural ?? k}</span>} <span className="count">{k === 'all' ? members.length : counts.get(k) ?? 0}</span>
                 </button>
@@ -464,7 +468,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setConfirmAll(false); } }}>
             <p>{t('inbox.markAllConfirm', { count: shownMembers.length })}</p>
             <div className="dialog-buttons">
-              <button type="button" tabIndex={0} className="primary" autoFocus data-command="inbox.markAll" onClick={() => { setConfirmAll(false); bulkReview(shownMembers.map((r) => nfc(r.path)), 'reviewed'); }}>{t('inbox.markAllOk')}</button>
+              <button type="button" tabIndex={0} className="primary" autoFocus data-command="inbox.markAll" onClick={() => { setConfirmAll(false); bulkReview(shownMembers.map((r) => nfc(r.path)), 'reviewed', false); }}>{t('inbox.markAllOk')}</button>
               <button type="button" tabIndex={0} data-command="inbox.cancel" onClick={() => setConfirmAll(false)}>{t('conflicts.cancel')}</button>
             </div>
           </div>
@@ -507,10 +511,10 @@ function TriageMenu({ row, convertFirst, targets, onClose, onConvert, onAppend, 
       <div ref={ref} role="menu" aria-label={t('inbox.triageMenu')} className="capture-menu inbox-menu" onKeyDown={keys}>
         <div role="group" aria-label={t('inbox.convertTo')}>
           {targets.map((x, i) => (
-            <button key={x.key} type="button" role="menuitem" tabIndex={-1} className="capture-menu-item"
+            <button key={x.key} type="button" role="menuitem" tabIndex={-1} className="capture-menu-item" aria-keyshortcuts={String(i + 1)}
               aria-disabled={daily || off ? true : undefined} aria-description={daily ? t('inbox.dailyNoType') : off ? t('inbox.readOnly') : undefined}
               onClick={() => { if (!daily && !off) onConvert(x.key); }}>
-              <span data-user-content>{x.name}</span><kbd>{i + 1}</kbd>
+              <span data-user-content>{x.name}</span><kbd aria-hidden="true">{i + 1}</kbd>
             </button>
           ))}
         </div>
@@ -537,9 +541,11 @@ function ObjectPicker({ verb, title, exclude, today, typeLabel, onClose, onPick 
     void ipc.switcher(q, 30).then((rs) => {
       if (!live) return;
       const ex = new Set(exclude.map(nfc));
-      setItems(rs.filter((r) => r.kind === 'object' && r.path && !ex.has(nfc(r.path)) && !r.path.startsWith('_templates/') && !r.path.startsWith('.trash/'))
-        .map((r) => ({ path: r.path!, title: r.title, type: r.type })));
-      setActive(0);
+      const found = rs.filter((r) => r.kind === 'object' && r.path && !ex.has(nfc(r.path)) && !r.path.startsWith('_templates/') && !r.path.startsWith('.trash/'))
+        .map((r) => ({ path: r.path!, title: r.title, type: r.type }));
+      setItems(found);
+      // Append lists Today's note first (R60); with a query, ↩ takes the best match, so the highlight starts on it.
+      setActive(verb === 'append' && q.trim() !== '' && found.length > 0 ? 1 : 0);
     }, () => {});
     return () => { live = false; };
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps

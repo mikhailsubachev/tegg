@@ -797,6 +797,9 @@ button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .inbox-zero { padding: 24px 0; }
 .inbox-zero-actions { display: flex; gap: 8px; }
 .inbox-menu { position: fixed; top: 30%; left: 50%; transform: translateX(-50%); }
+/* The Convert to group stretches its items to the menu's width like the other items, the number at the end. */
+.inbox-menu [role="group"] { display: flex; flex-direction: column; }
+.inbox-menu [role="group"] .capture-menu-item kbd { margin-left: auto; }
 .modal-backdrop.transparent { background: transparent; }
 .inbox-picker-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 260px; overflow: auto; }
 .inbox-picker-list li { padding: 4px 6px; border-radius: 4px; }

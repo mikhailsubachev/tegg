@@ -103,7 +103,7 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
         </div>
       </div>
       <div className="setting">
-        <label className="setting-label" htmlFor="default-type">{t('settings.vault.defaultType')}</label>
+        <label className="setting-label" aria-hidden="true" htmlFor="default-type">{t('settings.vault.defaultType')}</label>
         <select id="default-type" aria-label={t('settings.vault.defaultType')} value={s.defaultType.key}
           onChange={(e) => { if (e.target.value !== s.defaultType.key) void patch('default-type', e.target.value); }}>
           {options.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
@@ -226,7 +226,8 @@ export function DateTimeSettings({ value, onChange }: { value: DateTimeUiDto | u
   const region = regionOf() ?? navigator.language;
   const sel = (label: string, key: keyof DateTimeUiDto, opts: [string, string][], example: string) => (
     <div className="setting">
-      <label className="setting-label" htmlFor={`dt-${key}`}>{label}</label>
+      {/* The select carries the name; the visible label stays out of the accessibility tree (one element per name). */}
+      <label className="setting-label" aria-hidden="true" htmlFor={`dt-${key}`}>{label}</label>
       <select id={`dt-${key}`} aria-label={label} value={v[key]} onChange={(e) => onChange({ ...v, [key]: e.target.value })}
         onKeyDown={(e) => {
           // FR-SET-03 AC-5: ↑/↓ change the choice (WebKit opens the menu on a closed select instead).

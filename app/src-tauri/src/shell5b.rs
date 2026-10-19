@@ -124,10 +124,11 @@ fn position(app: &AppHandle, win: &tauri::WebviewWindow, trigger: &str) {
 }
 
 fn hide_capture(app: &AppHandle) {
+    // Before the hide: once the capture window is gone, AppKit makes the main window key, which isn't the user's choice.
+    let main_key = app.get_webview_window("main").is_some_and(|m| m.is_visible().unwrap_or(false) && m.is_focused().unwrap_or(false));
     if let Some(w) = app.get_webview_window(CAPTURE) {
         let _ = w.hide();
     }
-    let main_key = app.get_webview_window("main").is_some_and(|m| m.is_visible().unwrap_or(false) && m.is_focused().unwrap_or(false));
     let previous = PREVIOUS_APP.lock().unwrap_or_else(|p| p.into_inner()).take();
     if let (Some(pid), false) = (previous, main_key) {
         macos::activate(pid);
@@ -231,19 +232,17 @@ pub(crate) fn setup_hotkeys(app: &AppHandle) {
 
 // ------------------------------------------------------------------------------------------------ single instance (D-71)
 
-fn instance_socket(root: &std::path::Path) -> PathBuf {
-    use std::hash::{Hash, Hasher};
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    root.hash(&mut h);
-    std::env::temp_dir().join(format!("tegg-{:016x}.sock", h.finish()))
+/// The per-user temp folder keeps one socket per bundle, whatever Application Support folder a launch uses.
+fn instance_socket(bundle_id: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("{bundle_id}.instance.sock"))
 }
 
-/// Before the app starts: when another instance of this app (same Application Support folder) runs, it is asked to
-/// show its main window and this process exits. Otherwise a listener is set up for later launches.
-pub(crate) fn single_instance(root: &std::path::Path) {
+/// Before the app starts: when another instance of this app bundle runs, it is asked to show its main window and this
+/// process exits. Otherwise a listener is set up for later launches.
+pub(crate) fn single_instance(bundle_id: &str) {
     use std::io::{BufRead, Write};
     use std::os::unix::net::{UnixListener, UnixStream};
-    let sock = instance_socket(root);
+    let sock = instance_socket(bundle_id);
     if let Ok(mut s) = UnixStream::connect(&sock) {
         let _ = s.write_all(b"show\n");
         std::process::exit(0);

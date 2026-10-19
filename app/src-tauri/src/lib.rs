@@ -39,6 +39,8 @@ pub(crate) fn test_var(name: &str) -> Option<String> {
 
 /// The app name: window title and Application Support folder (D-118: the preview keeps its own data).
 pub(crate) const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549).
+pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
 fn app_dirs() -> AppDirs {
     let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
@@ -1504,8 +1506,8 @@ pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 pub fn run() {
     let dirs = app_dirs();
-    // D-71: one instance per app (per Application Support folder); a second launch shows the first one's window.
-    shell5b::single_instance(&dirs.root);
+    // D-71: one instance per app bundle (FR-CAP-05 AC-4, AC-9); a second launch shows the first one's window.
+    shell5b::single_instance(BUNDLE_ID);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
