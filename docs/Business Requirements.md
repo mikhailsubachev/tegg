@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.73, for review                                             |
+| **Document status** | Draft v1.74, for review                                             |
 | **Date**            | 2026-10-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -89,6 +89,7 @@
 | v1.71   | 2026-10-18 | Slice 5A-2 contract and red-test decisions D-524…D-538 (AP-452…AP-466, `docs/contracts/ms5-tasks.md` §11.10). |
 | v1.72   | 2026-10-19 | Slice 5B acceptance and contract decisions D-539…D-567 (AP-467…AP-495, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
 | v1.73   | 2026-10-19 | Slice 5B red-test decisions D-568…D-584 (AP-496…AP-512, `docs/contracts/ms5-capture.md` §14). |
+| v1.74   | 2026-10-19 | QA review of PR #50: D-585 (the capture draft is stored while typing, AP-513) and D-586 (virtualized Inbox cards in 5B, AP-514). |
 
 ---
 
@@ -706,6 +707,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-582 | Cancelling a bulk convert (AP-510, owner, 2026-10-19) | The job status element shows `Cancel` while an `inbox` job is in planning or backup, as for a rename |
 | D-583 | FR-CAP-05 AC-9 marker (AP-511, owner, 2026-10-19) | `[manual]` moves directly after the label so coverage reads it as manual |
 | D-584 | Capture benchmarks' closed main window (AP-512, owner, 2026-10-19) | The benchmarks launch as a login item (`TEGG_TEST_LAUNCHED_AT_LOGIN=1`), so `main` is hidden from the start; NFR-PERF-10 AC-4's idle time is `TEGG_IDLE_MS` (default 10 minutes) |
+| D-585 | Capture text on quit (AP-513, owner, 2026-10-19) | The capture draft is stored while typing (about 500 ms after the last change), as the Esc draft (D-542); quitting, a crash or a relaunch keeps it; ⌘↩ success and `Discard` clear it; nothing goes into the vault (FR-CAP-01 AC-15) |
+| D-586 | Virtualized Inbox cards (AP-514, owner, 2026-10-19) | Built in 5B: only the cards in view plus a buffer are in the page; keyboard, selection, ⌘A and focus restore work across the whole list (FR-INB-01 AC-12) |
 
 ---
 
