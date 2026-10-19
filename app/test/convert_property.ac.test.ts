@@ -196,7 +196,8 @@ test('fr_fmt_07_ac20_property_conversion_keeps_host_bytes_moves_blocks_and_undoe
         const r = doc.replaceUnitWithEmbed(h.text, unit, target);
 
         // (1) bytes outside the run, line endings, BOM, final newline.
-        const lineStart = r.text.lastIndexOf('\n', r.embedFrom - 1) + 1;
+        // The first line starts after a BOM, as the host's lines do; the BOM state is checked below.
+        const lineStart = Math.max(r.text.lastIndexOf('\n', r.embedFrom - 1) + 1, r.text.startsWith('\ufeff') ? 1 : 0);
         const nl = r.text.indexOf('\n', r.embedTo);
         const lineEnd = nl < 0 ? r.text.length : r.text[nl - 1] === '\r' ? nl - 1 : nl;
         const line = r.text.slice(lineStart, lineEnd);
