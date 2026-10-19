@@ -685,6 +685,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   }, [path, editing]);
 
   // ------------------------------------------------------------------ note-ready and the first focus
+  // D-520, D-255: a new note's title holds the caret before it is painted, so keys typed right after ⌘N land in it.
+  // The App's own placeFocus call comes frames later (after the meta); until then nothing else has the focus.
+  useLayoutEffect(() => {
+    if (!loaded || loaded.mode !== 'edit' || showSource || !createdAtOpen.current || live.current.daily || !heading.current) return;
+    const a = document.activeElement;
+    if ((a && a !== document.body) || document.querySelector('[role="dialog"]')) return;
+    wantFocus.current = true;
+    placeFocus.current();
+  }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const readyFor = useRef<string | null>(null);
   useEffect(() => {
     if (!loaded) return;
@@ -709,7 +718,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     if (!wantFocus.current || !loaded) return;
     if (document.querySelector('[role="dialog"]')) { wantFocus.current = false; return; }
     const edit = loaded.mode === 'edit' && !showSource;
-    if (edit && !edRef.current) return; // again when the editor is ready
+    // A new note: the title in edit mode, caret at its end, nothing selected (D-255). The title field exists before the
+    // editor mounts, so it takes the focus at once: what is typed right after ⌘N lands in it (D-520).
+    const titleFirst = edit && createdAtOpen.current && !live.current.daily && !!heading.current;
+    if (edit && !edRef.current && !titleFirst) return; // again when the editor is ready
     wantFocus.current = false;
     // D-367: a new object whose title is fixed (a Daily Note, D-320) gets the caret at the start of its first block.
     if (edit && createdAtOpen.current && live.current.daily && pane.current?.caretToStart()) {
@@ -717,7 +729,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       return;
     }
     if (edit && createdAtOpen.current) {
-      // A new note: the title in edit mode, caret at its end, nothing selected (D-255).
       const el = heading.current;
       if (el) {
         el.focus({ preventScroll: true });
