@@ -37,9 +37,10 @@ test('fr_lnk_04_ac4_the_offer_from_an_editor_chip', async ({ page }) => {
   assert.notEqual(await offer.getAttribute('aria-modal'), 'true', 'non-modal');
   assert.ok(await seen(offer.getByText('No note named "Neexistuje"', { exact: true }), 1000), 'No note named "Neexistuje"');
   assert.ok(await seen(offer.getByText('Type: Quick Note', { exact: true }), 1000), 'Type: Quick Note');
-  const picker = await must(offer.getByRole('button', { name: 'Type picker' }).or(offer.getByRole('combobox', { name: 'Type picker' })), 'type picker');
-  assert.equal(await isDisabled(picker), true, 'type picker aria-disabled');
-  assert.equal(await description(picker), 'Coming in MS5');
+  // 5B (FR-VLT-05 AC-3, D-550): the type picker is enabled, a `combobox` `Type` (no longer `Coming in MS5`).
+  const picker = await must(offer.getByRole('combobox', { name: 'Type', exact: true }), 'combobox "Type"');
+  assert.equal(await isDisabled(picker), false, 'the type picker is enabled');
+  assert.notEqual(await description(picker), 'Coming in MS5', 'no Coming in MS5');
   const create = await createButton(offer, 'Neexistuje');
   assert.equal((await focus(page)).name, flat(await create.innerText()), 'Create is focused');
   await must(offer.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel');

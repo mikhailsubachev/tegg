@@ -8,6 +8,7 @@ import {
   P, absent, box, catalogText, collation, eventually, focused, gotoType, mainName, must, mustBeOn, nonReadCalls,
   onPage, openNote, panel, routeDefs, runCommand, seen, shellVault, sidebar, sleep, start, typeEntries, typesList,
 } from './helpers';
+import { inboxList } from '../ui/test/fake-inbox';
 
 const near = (a: number, b: number, tol = 1) => Math.abs(a - b) <= tol;
 
@@ -79,10 +80,20 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   assert.match(sw, /⌘O/);
   assert.match(await sb.getByRole('button', { name: 'New object' }).innerText(), /⌘N/);
   // TBD entries show no count; Today shows ⌘D.
-  for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) {
+  // 5B (inbox.md R62, FR-NAV-04 AC-2, D-515): the Inbox shows its count; Home and Pinned are labelled v1.0.
+  for (const e of ['Home', 'Today', 'Tasks', 'Pinned', 'Saved queries']) {
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const text = (await row.innerText()).replace(e, '').replace('⌘D', '');
     assert.ok(!/\d/.test(text), `${e} shows a count: ${text}`);
+  }
+  const members = (await inboxList(shellVault().files)).length;
+  const inboxRow = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Inbox', { exact: true }) }).first();
+  const inboxText = (await inboxRow.innerText()).replace('Inbox', '').trim();
+  assert.equal(inboxText.replace(/\D/g, ''), members > 0 ? String(members) : '', `Inbox shows its count (${members}): ${inboxText}`);
+  for (const e of ['Home', 'Pinned']) {
+    const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
+    const label = await row.evaluate((el) => [el.getAttribute('aria-description'), ...(el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent ?? ''), el.getAttribute('title')].filter(Boolean).join(' '));
+    assert.match(label, /Coming in v1\.0/, `${e} is labelled Coming in v1.0: ${label}`);
   }
   assert.match(await sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Today', { exact: true }) }).first().innerText(), /⌘D/);
   // D-220: the logo is a button at the bottom left, no longer a link home.

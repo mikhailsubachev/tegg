@@ -128,7 +128,62 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
     }
     case 'capture_default':
       return { result: captureDefault(files) };
+    case 'capture_context':
+      return { result: captureContext(files) };
+    case 'capture_plan':
+      return { result: capturePlan(files, a) };
     default:
       return { error: { kind: 'Io', message: `fake-settings: unknown command ${cmd}` } };
   }
+}
+
+// ------------------------------------------------------------------------------------------------ capture window (§2.2, §3.3)
+
+const NOT_CAPTURE_TARGETS = ['daily-note', 'tag', 'image', 'pdf'];
+const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+export type CaptureTypeDto = {
+  key: string; name: string; icon: string; color: string; folder: string; review: 'off' | 'on' | 'locked';
+  attributes: unknown[]; templateHead: string | null;
+};
+
+/** `capture_context` minus the vault and tags (the in-page part adds them): the capture targets in R55 order (Page, Task,
+ *  Quick Note, then user types; the UI sorts user types with its collator) and the capture default (D-541). */
+export function captureContext(files: Files): { types: CaptureTypeDto[]; defaultType: string } {
+  const all = listTypes(files, {}).filter((t: any) => !NOT_CAPTURE_TARGETS.includes(t.key) && !t.invalid);
+  const rank = (k: string) => { const i = ['page', 'task', 'quick-note'].indexOf(k); return i < 0 ? 3 : i; };
+  all.sort((a: any, b: any) => rank(a.key) - rank(b.key) || (a.key < b.key ? -1 : 1));
+  const types = all.map((t: any) => {
+    const tpl = typeof t.template === 'string' ? files[nfc(t.template)] : undefined;
+    const head = tpl ? (/^﻿?---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(tpl)?.[0] ?? null) : null;
+    return { key: t.key, name: t.name, icon: t.icon, color: t.color, folder: t.folder, review: t.review, attributes: t.attributes ?? [], templateHead: head };
+  });
+  return { types, defaultType: captureDefault(files) };
+}
+
+/** D-51, D-52, D-68, D-80: the file stem of a title (as the core's `sanitize_file_stem`, simplified). */
+export function stemOf(title: string): string {
+  let s = nfc(title).replace(/[\\/:*?"<>|#^[\]\p{Cc}]/gu, ' ').replace(/ {2,}/g, ' ').trim().replace(/^[ .]+|[ .]+$/g, '');
+  if (s === '') s = 'Untitled';
+  if (RESERVED.test(s)) s = `${s}_`;
+  const enc = new TextEncoder();
+  while (enc.encode(s).length > 200) s = [...s].slice(0, -1).join('');
+  return s.replace(/[ .]+$/, '');
+}
+
+/** `capture_create`'s checks and plan (§3.3): the path it would write, or the error. */
+export function capturePlan(files: Files, a: { type: string; title: string; text: string }): { path: string; typeName: string } | { error: { kind: string; message: string } } {
+  const key = matchKey(String(a.type));
+  const t = listTypes(files, {}).find((x: any) => x.key === key) as any;
+  if (!t || NOT_CAPTURE_TARGETS.includes(key)) return { error: { kind: 'UnsupportedType', message: `fake: ${key} can't be captured` } };
+  const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/.exec(String(a.text));
+  const y = m ? readYml(m[1]) : {};
+  const ok = typeof y.type === 'string' && matchKey(y.type) === key && y.review === 'unreviewed' && typeof y.captured === 'string' && y.captured !== '';
+  if (!ok) return { error: { kind: 'NotACapture', message: 'fake: not a capture' } };
+  const folder = String(t.folder ?? key).replace(/\/+$/, '');
+  const stem = stemOf(a.title);
+  const taken = new Set(Object.keys(files).filter((p) => p.endsWith('.md')).map((p) => p.split('/').pop()!.replace(/\.md$/, '').toLowerCase()));
+  let s = stem;
+  for (let n = 2; taken.has(s.toLowerCase()); n++) s = `${stem} (${n})`;
+  return { path: `${folder}/${s}.md`, typeName: t.name };
 }

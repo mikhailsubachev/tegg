@@ -516,13 +516,7 @@ test.describe('review', () => {
     assert.equal(await b.getAttribute('aria-pressed'), 'true');
   });
 
-  test('fr_dly_05_ac3_no_inbox_yet', async ({ page }) => {
-    await startDaily(page);
-    await cmdD(page, '2026-10-14');
-    await runCommand(page, 'Go to Inbox');
-    await sleep(300);
-    assert.ok(await seen(page.getByText(/Coming in MS5/), 1000), 'Inbox stays TBD Coming in MS5');
-  });
+  // FR-DLY-05 AC-3 (no Inbox yet) is retired by 5B: inbox.md FR-DLY-05 AC-5 replaces it (D-272, D-515).
 
   test('fr_dly_05_ac4_missing_or_unknown_review_value', async ({ page }) => {
     const v = dailyVault((f) => { f[D.d01] = swap(f[D.d01], 'review: reviewed', 'review: maybe'); f[D.archiv] = swap(f[D.archiv], 'review: reviewed\n', ''); });

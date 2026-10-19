@@ -122,7 +122,8 @@ for (const [q, file, link] of [
     const core = await startEmpty(page);
     await page.keyboard.type(`[[${q}`);
     const o = await options(page, 'link');
-    assert.equal(o[o.length - 1], `Create "${q}"`, `last row Create "${q}": ${o.join(' | ')}`);
+    // 5B (FR-VLT-05 AC-3 (b), D-550): `Create "<q>"` is followed by the row `Create "<q>" as…`.
+    assert.deepEqual(o.slice(-2), [`Create "${q}"`, `Create "${q}" as…`], `the last rows: ${o.join(' | ')}`);
     await linkSuggestions(page).getByRole('option', { name: `Create "${q}"` }).click();
     await page.keyboard.type(' konec');
     const t = await saved(page, core, E.prazdna);
