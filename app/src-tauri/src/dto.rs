@@ -487,6 +487,33 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub convert: Option<ConvertUiDto>,
+    /// ms5-capture §5.2 (5B, FR-SET-03, D-566): Date & time display choices; missing reads as all `region`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub date_time: Option<DateTimeUiDto>,
+    /// ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub inbox: Option<InboxUiDto>,
+}
+
+/// ms5-capture §5.2 (FR-SET-03, D-566): `date` `region` | `iso` | `long`; `time` `region` | `24` | `12`; `week`
+/// `region` | `monday` | `sunday`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct DateTimeUiDto {
+    pub date: String,
+    pub time: String,
+    pub week: String,
+}
+
+/// ms5-capture §7.4 (D-555): `filter` is `all` or a type key.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct InboxUiDto {
+    pub filter: String,
 }
 
 /// ms5-tasks §11.4: machine-local conversion state (D-128).
@@ -915,8 +942,129 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None }
     }
+}
+
+// ---------------------------------------------------------------- slice 5B (ms5-capture §2.2, §5, §7)
+
+/// ms5-capture §2.2: the vault the capture window saves to; `id` is an opaque token that changes when another vault opens.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureVaultDto {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+}
+
+/// ms5-capture §2.2: one capture target (R55 order; the UI sorts user types with its collator).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureTypeDto {
+    pub key: String,
+    pub name: String,
+    pub icon: String,
+    pub color: String,
+    pub folder: String,
+    /// `off`, `on` or `locked`.
+    pub review: String,
+    pub attributes: Vec<AttributeDto>,
+    /// D-567: the default template's frontmatter block only, `---` lines included, no body.
+    pub template_head: Option<String>,
+}
+
+/// ms5-capture §2.2 (D-553): everything the capture window may read.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureContextDto {
+    pub vault: Option<CaptureVaultDto>,
+    pub types: Vec<CaptureTypeDto>,
+    pub default_type: String,
+    pub tags: Vec<String>,
+}
+
+/// ms5-capture §2.2: what `capture_create` wrote.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CapturedDto {
+    pub path: String,
+    pub title: String,
+    pub type_name: String,
+}
+
+/// ms5-capture §2.2 (FR-CAP-01 AC-8): `capture-draft.json` in Application Support.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureDraftDto {
+    pub text: String,
+    pub r#type: String,
+    pub tags: Vec<String>,
+    pub due: Option<String>,
+    pub priority: Option<String>,
+    pub saved_at: String,
+}
+
+/// ms5-capture §5.1 (D-541): `default-type` as stored and matched.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct DefaultTypeDto {
+    pub raw: Option<String>,
+    pub key: String,
+    pub valid: bool,
+}
+
+/// ms5-capture §5.1 (FR-SET-01).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct VaultSettingsDto {
+    pub version: Option<VersionDto>,
+    pub default_type: DefaultTypeDto,
+    pub daily_format: String,
+    pub attachments: String,
+}
+
+/// ms5-capture §5.2 (FR-SET-05, D-547): machine settings owned by the shell (`shell-settings.json`).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct ShellSettingsDto {
+    pub show_status_item: bool,
+    pub open_at_login: bool,
+}
+
+/// ms5-capture §1.6 (D-71, D-548): `id` `quick-capture` | `new-task`; `state` `active` | `taken`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct HotkeyStateDto {
+    pub id: String,
+    pub keys: String,
+    pub state: String,
+}
+
+/// ms5-capture §7.1 (R61): one Inbox member, raw values.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct InboxRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub r#type: String,
+    pub review_raw: Option<String>,
+    pub captured: Option<String>,
+    pub created: Option<String>,
+    pub modified: Option<String>,
+    pub tags: Vec<String>,
+    pub excerpt: String,
+    pub read_only: bool,
 }
 
 /// The generated `types.ts`, in a fixed order.
@@ -997,6 +1145,18 @@ pub fn typescript() -> String {
         TaskDefsDto::decl(),
         TaskListDto::decl(),
         DailyTasksDto::decl(),
+        DateTimeUiDto::decl(),
+        InboxUiDto::decl(),
+        CaptureVaultDto::decl(),
+        CaptureTypeDto::decl(),
+        CaptureContextDto::decl(),
+        CapturedDto::decl(),
+        CaptureDraftDto::decl(),
+        DefaultTypeDto::decl(),
+        VaultSettingsDto::decl(),
+        ShellSettingsDto::decl(),
+        HotkeyStateDto::decl(),
+        InboxRowDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

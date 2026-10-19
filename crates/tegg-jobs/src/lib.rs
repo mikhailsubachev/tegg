@@ -34,6 +34,8 @@ pub enum JobKind {
     TypeDelete,
     /// FR-HIS-04 AC-5 only: with `TEGG_TEST=1` and in Rust tests.
     TestBackup,
+    /// ms5-capture §7.3 (5B, D-561): an Inbox action on more than one file. STUB (TS-I1): no planner until 5B is built.
+    Inbox,
 }
 
 impl JobKind {
@@ -50,6 +52,7 @@ impl JobKind {
             JobKind::FolderMove => "folder-move",
             JobKind::TypeDelete => "type-delete",
             JobKind::TestBackup => "test-backup",
+            JobKind::Inbox => "inbox",
         }
     }
 
@@ -129,6 +132,22 @@ pub enum JobOp {
     TypeMove { path: String, to_type: String },
     FolderMove { r#type: String, to_folder: String },
     TypeDelete { r#type: String, objects: TypeDeleteChoice },
+    /// ms5-capture §7.3 (5B, D-561): the same change applied to each of `paths` (vault paths, NFC), each against its
+    /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).
+    /// STUB (TS-I1): `start` refuses it with `NotImplemented` until 5B is built.
+    Inbox { paths: Vec<String>, change: InboxJobChange },
+}
+
+/// ms5-capture §7.3: the change of an `inbox` job; each maps to the `@tegg/doc` `TextOp` of the same name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InboxJobChange {
+    /// `value`: `reviewed` or `unreviewed`.
+    SetReview { value: String, now: String },
+    /// Writes `type`, `review: reviewed` and `modified` (D-557).
+    SetType { r#type: String, now: String },
+    AddTags { tags: Vec<String>, now: String },
+    /// `target`: the link text written as `[[target]]` (D-559).
+    AppendLink { target: String, now: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -174,6 +193,11 @@ pub enum TextOp {
     },
     /// The renamed note only; also touches `modified` with `now` (FR-FMT-11).
     SetTitle { title: String, now: String },
+    /// ms5-capture §7.3 (5B): thin wrappers of `@tegg/doc` `applyInboxChange` for the `inbox` kind.
+    SetReview { value: String, now: String },
+    SetType { r#type: String, now: String },
+    AddTags { tags: Vec<String>, now: String },
+    AppendLink { target: String, now: String },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).

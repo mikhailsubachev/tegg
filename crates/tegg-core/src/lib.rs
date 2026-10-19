@@ -75,6 +75,12 @@ pub enum CoreError {
     DailyMismatch,
     /// ms5-tasks §11.6: `note_discard` of a file that isn't a note (`.tegg/`, `_templates/`, `.trash/`, not `.md`).
     Protected,
+    /// ms5-capture §3.3 (5B): `capture_create` of Daily Note, Tag, Image, PDF or an unknown type key.
+    UnsupportedType,
+    /// ms5-capture §3.3 (5B): the bytes lack this type, `review: unreviewed` or a `captured` value.
+    NotACapture,
+    /// ms5-capture §5.1 (5B): a vault setting D-336 or D-222 rejects; nothing was written.
+    Invalid { reason: String },
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -953,3 +959,11 @@ pub use daily::{ContextRow, DailyContext, DailyContextPage, DailyCreated, DailyD
 // docs/contracts/ms5-tasks.md §2: the task query and the Daily Note's Tasks due (`tasks5a.rs`).
 mod tasks5a;
 pub use tasks5a::{DailyTaskRows, StatusOption, TaskDefs, TaskRow, TaskState};
+
+// ------------------------------------------------------------------------------------------------ slice 5B
+// docs/contracts/ms5-capture.md §3.3, §5.1, §7.1: capture, vault settings and the Inbox query.
+mod capture5b;
+mod inbox5b;
+mod settings5b;
+pub use inbox5b::InboxRow;
+pub use settings5b::{DefaultTypeSetting, VaultKey, VaultSettings};

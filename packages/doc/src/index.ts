@@ -95,6 +95,10 @@ export function newObject(opts: {
   /** ms5-tasks §11.2 (5A-2, D-524): the body after the frontmatter instead of the template's body (the template's
    *  frontmatter entries still apply). */
   body?: string
+  /** ms5-capture §3.2 (5B, D-540): a capture's time stamp. With it: `review: unreviewed` whatever `type.review`, then
+   *  `captured`, then `created`, `modified`; template identity/review/stamp keys ignored; `body` required.
+   *  STUB (TS-I1): not built yet, ignored. */
+  captured?: string
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
   const tplEntries = new Map<string, string>()
@@ -199,3 +203,8 @@ export { applyTaskChange, completeTask, type TaskChange, type TaskState, type Ta
 // ---------------------------------------------------------------- slice 5A-2 (ms5-tasks §11.1)
 
 export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit } from './convert.js'
+
+// ---------------------------------------------------------------- slice 5B (ms5-capture §3.1, §7.3)
+
+export { captureParts, type CaptureParts } from './capture.js'
+export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'

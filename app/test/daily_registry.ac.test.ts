@@ -108,15 +108,7 @@ test('fr_dly_03_ac2_daily_shortcuts_are_not_bound_twice', async () => {
   assert.deepEqual(dup, [], 'no shortcut conflicts');
 });
 
-test('fr_dly_05_ac3_inbox_stays_tbd_ms5', async () => {
-  const { reg, cat, cmd } = await mods();
-  const inbox = (reg.ROUTES as any[]).find((r) => r.id === 'inbox');
-  assert.ok(inbox, 'R1 inbox');
-  assert.equal(inbox.status.built, false, 'inbox not built by 4B');
-  assert.equal(reg.showDue(inbox.status.due), 'MS5', 'Coming in MS5');
-  // Red guard: the 4B commands exist in the same registry.
-  assert.ok(byTitle(cat, cmd.commands(dailyCtx(reg, '2026-10-07', true)) as any[], 'Mark reviewed'), 'Mark reviewed exists on a daily route');
-});
+// FR-DLY-05 AC-3 (no Inbox yet) is retired by 5B and replaced by inbox.md FR-DLY-05 AC-5 (D-272, D-515).
 
 test('fr_dly_01_ac1_catalog_has_the_r19_strings', async () => {
   const { cat } = await mods();

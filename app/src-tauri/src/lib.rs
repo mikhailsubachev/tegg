@@ -1473,6 +1473,145 @@ fn init_script(dirs: &AppDirs) -> String {
     )
 }
 
+
+// ------------------------------------------------------------------------------------------------ slice 5B
+// docs/contracts/ms5-capture.md §2.2 (capture window), §5 (settings), §7 (Inbox). STUBS (TS-I1): every command exists and
+// refuses with `NotImplemented` until 5B is built; the capture window, status item, hotkeys, single instance and the
+// capture capability (§1, §2.1) don't exist yet.
+
+/// ms5-capture §2.1 (NFR-SEC-03 AC-2), test support for `tests/ac_capture_acl.rs`: invokes `command` as the window
+/// `window` through Tauri's mock runtime (`tauri::test::mock_builder`) with the app's capabilities and command manifest,
+/// and tells whether the ACL refused the call or the command function was reached. STUB (TS-I1): reports every call as
+/// reached until 5B is built.
+#[doc(hidden)]
+pub fn acl_probe(window: &str, command: &str) -> AclProbe {
+    let _ = (window, command);
+    AclProbe::Reached
+}
+
+/// The outcome of [`acl_probe`].
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AclProbe {
+    /// Refused by the ACL; no command function ran.
+    Refused,
+    /// The command function ran (whatever it returned).
+    Reached,
+}
+
+fn not_built(cmd: &str) -> IpcError {
+    err("NotImplemented", format!("{cmd} is not built yet (5B)"))
+}
+
+/// §2.2 (D-553). STUB.
+#[tauri::command]
+async fn capture_context() -> Result<CaptureContextDto, IpcError> {
+    Err(not_built("capture_context"))
+}
+/// §2.2, §3.3: one create-exclusive file. STUB.
+#[tauri::command]
+async fn capture_create(vault: String, r#type: String, title: String, text: String) -> Result<CapturedDto, IpcError> {
+    let _ = (vault, r#type, title, text);
+    Err(not_built("capture_create"))
+}
+/// §2.2, §8: the `capture-ready` mark. STUB.
+#[tauri::command]
+async fn capture_ready(seq: u64) -> Result<(), IpcError> {
+    let _ = seq;
+    Err(not_built("capture_ready"))
+}
+/// §1.3. STUB.
+#[tauri::command]
+async fn capture_hide() -> Result<(), IpcError> {
+    Err(not_built("capture_hide"))
+}
+/// §2.2. STUB.
+#[tauri::command]
+async fn capture_resize(height: f64) -> Result<(), IpcError> {
+    let _ = height;
+    Err(not_built("capture_resize"))
+}
+/// §2.2 (FR-CAP-01 AC-13). STUB.
+#[tauri::command]
+async fn capture_open_main(path: Option<String>) -> Result<(), IpcError> {
+    let _ = path;
+    Err(not_built("capture_open_main"))
+}
+/// §2.2 (FR-CAP-01 AC-8). STUB.
+#[tauri::command]
+async fn capture_draft_get() -> Result<Option<CaptureDraftDto>, IpcError> {
+    Err(not_built("capture_draft_get"))
+}
+/// §2.2: `null` deletes the draft. STUB.
+#[tauri::command]
+async fn capture_draft_set(draft: Option<CaptureDraftDto>) -> Result<(), IpcError> {
+    let _ = draft;
+    Err(not_built("capture_draft_set"))
+}
+/// §2.2, §1.2: the `capture-saved` panel for 4 s. STUB.
+#[tauri::command]
+async fn capture_saved_show(type_name: String, title: String, path: String) -> Result<(), IpcError> {
+    let _ = (type_name, title, path);
+    Err(not_built("capture_saved_show"))
+}
+/// §5.1 (FR-SET-01). STUB.
+#[tauri::command]
+async fn vault_settings(state: State<'_, AppState>) -> Result<VaultSettingsDto, IpcError> {
+    let _ = core(&state)?;
+    Err(not_built("vault_settings"))
+}
+/// §5.1: `key` `default-type` | `daily-format` | `attachments`. STUB.
+#[tauri::command]
+async fn vault_settings_patch(state: State<'_, AppState>, base: Option<VersionDto>, key: String, value: String) -> Result<VaultSettingsDto, IpcError> {
+    let _ = (core(&state)?, base, key, value);
+    Err(not_built("vault_settings_patch"))
+}
+/// §5.1 (FR-SET-01 AC-7). STUB.
+#[tauri::command]
+async fn vault_reveal() -> Result<(), IpcError> {
+    Err(not_built("vault_reveal"))
+}
+/// §5.2 (FR-SET-05). STUB.
+#[tauri::command]
+async fn shell_settings() -> Result<ShellSettingsDto, IpcError> {
+    Err(not_built("shell_settings"))
+}
+/// §5.2. STUB.
+#[tauri::command]
+async fn shell_settings_set(settings: ShellSettingsDto) -> Result<(), IpcError> {
+    let _ = settings;
+    Err(not_built("shell_settings_set"))
+}
+/// §5.2, §1.6 (D-71). STUB.
+#[tauri::command]
+async fn hotkeys() -> Result<Vec<HotkeyStateDto>, IpcError> {
+    Err(not_built("hotkeys"))
+}
+/// §5.2. STUB.
+#[tauri::command]
+async fn hotkeys_retry(id: String) -> Result<Vec<HotkeyStateDto>, IpcError> {
+    let _ = id;
+    Err(not_built("hotkeys_retry"))
+}
+/// §7.1 (R61). STUB.
+#[tauri::command]
+async fn inbox_list(state: State<'_, AppState>) -> Result<Vec<InboxRowDto>, IpcError> {
+    let _ = core(&state)?;
+    Err(not_built("inbox_list"))
+}
+/// §7.1. STUB.
+#[tauri::command]
+async fn inbox_count(state: State<'_, AppState>) -> Result<u32, IpcError> {
+    let _ = core(&state)?;
+    Err(not_built("inbox_count"))
+}
+/// §7.3: `change` is `@tegg/doc` `InboxChange` as JSON. STUB.
+#[tauri::command]
+async fn inbox_bulk(state: State<'_, AppState>, paths: Vec<String>, change: serde_json::Value) -> Result<JobIdDto, IpcError> {
+    let _ = (core(&state)?, paths, change);
+    Err(not_built("inbox_bulk"))
+}
+
 pub fn run() {
     let dirs = app_dirs();
     tauri::Builder::default()
@@ -1544,7 +1683,10 @@ pub fn run() {
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
             job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
-            task_list, daily_tasks
+            task_list, daily_tasks,
+            capture_context, capture_create, capture_ready, capture_hide, capture_resize, capture_open_main, capture_draft_get,
+            capture_draft_set, capture_saved_show, vault_settings, vault_settings_patch, vault_reveal, shell_settings,
+            shell_settings_set, hotkeys, hotkeys_retry, inbox_list, inbox_count, inbox_bulk
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tegg")

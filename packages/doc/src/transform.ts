@@ -10,6 +10,11 @@ import { parse, type Doc, type Range } from './parse.js'
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
   | { op: 'set-title'; title: string; now: string }
+  // Slice 5B (ms5-capture §7.3): thin wrappers of `applyInboxChange` for the `inbox` job kind. STUB until 5B is built.
+  | { op: 'set-review'; value: 'reviewed' | 'unreviewed'; now: string }
+  | { op: 'set-type'; type: string; now: string }
+  | { op: 'add-tags'; tags: string[]; now: string }
+  | { op: 'append-link'; target: string; now: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -21,7 +26,8 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   const patches: Patch[] = []
   for (const op of ops) {
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
-    else patches.push(...linkPatches(doc, source, op))
+    else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
+    // 5B Inbox ops: STUB (TS-I1), no change until 5B is built.
   }
   const changed = patches.filter((p) => text.slice(p.range[0], p.range[1]) !== p.text)
   if (changed.length === 0) return { kind: 'unchanged' }

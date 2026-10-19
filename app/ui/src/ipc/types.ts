@@ -217,7 +217,15 @@ tasks?: TasksUiDto,
 /**
  * ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again"; missing reads as the defaults.
  */
-convert?: ConvertUiDto, };
+convert?: ConvertUiDto, 
+/**
+ * ms5-capture §5.2 (5B, FR-SET-03, D-566): Date & time display choices; missing reads as all `region`.
+ */
+dateTime?: DateTimeUiDto, 
+/**
+ * ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter.
+ */
+inbox?: InboxUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -335,4 +343,24 @@ export type UnknownStateDto = { label: string, state: string | null, };
 export type TaskDefsDto = { statuses: Array<StatusOptionDto>, priorities: Array<OptionDto>, unknownStates: Array<UnknownStateDto>, };
 export type TaskListDto = { tasks: Array<TaskRowDto>, defs: TaskDefsDto, };
 export type DailyTasksDto = { overdue: Array<TaskRowDto>, due: Array<TaskRowDto>, completed: Array<TaskRowDto>, total: number, };
+export type DateTimeUiDto = { date: string, time: string, week: string, };
+export type InboxUiDto = { filter: string, };
+export type CaptureVaultDto = { id: string, name: string, color: string | null, };
+export type CaptureTypeDto = { key: string, name: string, icon: string, color: string, folder: string, 
+/**
+ * `off`, `on` or `locked`.
+ */
+review: string, attributes: Array<AttributeDto>, 
+/**
+ * D-567: the default template's frontmatter block only, `---` lines included, no body.
+ */
+templateHead: string | null, };
+export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<string>, };
+export type CapturedDto = { path: string, title: string, typeName: string, };
+export type CaptureDraftDto = { text: string, type: string, tags: Array<string>, due: string | null, priority: string | null, savedAt: string, };
+export type DefaultTypeDto = { raw: string | null, key: string, valid: boolean, };
+export type VaultSettingsDto = { version: VersionDto | null, defaultType: DefaultTypeDto, dailyFormat: string, attachments: string, };
+export type ShellSettingsDto = { showStatusItem: boolean, openAtLogin: boolean, };
+export type HotkeyStateDto = { id: string, keys: string, state: string, };
+export type InboxRowDto = { path: string, id: string | null, title: string, type: string, reviewRaw: string | null, captured: string | null, created: string | null, modified: string | null, tags: Array<string>, excerpt: string, readOnly: boolean, };
 export type TypeDefDto = TypeDto;
