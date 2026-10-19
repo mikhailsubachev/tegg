@@ -262,7 +262,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
     'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
     // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
-    'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count',
+    'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
     'capture_draft_set', 'capture_saved_show',
   ]);
@@ -312,7 +312,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       if (!state.vault) return;
       if (o.sameBytesTouch) state.touch(p);
       else if (text === null) { delete state.vault.files[p]; delete state.invalid[p]; delete state.mtimes[p]; }
-      else if (typeof text === 'string') { state.vault.files[p] = text; delete state.invalid[p]; state.touch(p); }
+      else if (typeof text === 'string') { if (o.silent && !state.stale.has(p) && state.vault.files[p] !== undefined) state.indexVer[p] = state.ver(p)!; state.vault.files[p] = text; delete state.invalid[p]; state.touch(p); }
       else {
         const bytes = Uint8Array.from(text.bytes);
         let ok = true;
@@ -322,7 +322,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         state.touch(p);
       }
       // 5B (§7.3): a silent change makes the index version stale; an `inbox` job skips the file as `changed`.
-      if (o.silent) state.stale.add(p); else state.stale.delete(p);
+      if (o.silent) state.stale.add(p); else { state.stale.delete(p); delete state.indexVer[p]; }
       return o.silent ? undefined : state.emit('vault:changed', { paths: [p] });
     },
     // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
@@ -333,6 +333,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     draft: (opts.captureDraft ?? null) as CaptureDraftDto | null,
     backups: [] as BackupDto[],
     stale: new Set<string>(),
+    /** 5B (§7.3): the version the index last read of a silently changed file (`index_versions`). */
+    indexVer: {} as Record<string, VersionDto>,
     vaultId: 1,
     captureSeq: 0,
     captureLog: { ready: [] as number[], hides: 0, openMain: [] as (string | null)[], saved: [] as unknown[], opens: [] as string[] },
@@ -513,7 +515,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
-    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || p === '.tegg/vault.yml' || fn === '__teggTasks') vers[p] = state.ver(p)!;
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || p === '.tegg/vault.yml' || fn === '__teggTasks' || fn === '__teggInbox') vers[p] = state.indexVer[p] ?? state.ver(p)!;
     // 5A-1 (ms5-tasks §7): task rows carry each file's version and whether the editor would open it read-only.
     const r = await w[fn](cmd, a ?? {}, files, vers, Object.keys(state.invalid));
     if (r.writes) {
@@ -825,6 +827,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       }
       state.vault.files[p] = text;
       state.touch(p);
+      state.stale.delete(p);
+      delete state.indexVer[p];
       state.writtenPaths.push(p);
       return { outcome: 'written', version: state.ver(p) };
     },
@@ -1057,6 +1061,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     hotkeys: () => state.hotkeys.map((h) => ({ ...h })),
     hotkeys_retry: () => state.hotkeys.map((h) => ({ ...h })),
     inbox_list: viaNode('inbox_list', '__teggInbox'),
+    index_versions: (a) => ((a.paths ?? []) as string[]).map((p) => { const k = String(p).normalize('NFC'); return state.indexVer[k] ?? state.ver(k); }),
     inbox_count: viaNode('inbox_count', '__teggInbox'),
     /** The palette's `Quick Capture` / `Capture a task` and Inbox zero's `Quick Capture` (§1.3, trigger `palette`; the
      *  command name is red-test point AP-506): the capture window gets `capture:open`. */

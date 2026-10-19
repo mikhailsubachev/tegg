@@ -8,6 +8,7 @@ import type {
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
+  InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
 } from './types';
 
 export const ipc = {
@@ -85,6 +86,20 @@ export const ipc = {
   editorClose: (path: string) => invoke<void>('editor_close', { path }),
   // 4F (ms4-embeds §4): one call per nesting level; records no recency.
   embedLoad: (paths: string[]) => invoke<EmbedNoteDto[]>('embed_load', { paths }),
+  // 5B (ms5-capture §5, §7; D-578).
+  inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
+  inboxCount: () => invoke<number>('inbox_count'),
+  inboxBulk: (paths: string[], change: unknown) => invoke<JobIdDto>('inbox_bulk', { paths, change }),
+  indexVersions: (paths: string[]) => invoke<(VersionDto | null)[]>('index_versions', { paths }),
+  vaultSettings: () => invoke<VaultSettingsDto>('vault_settings'),
+  vaultSettingsPatch: (base: VersionDto | null, key: 'default-type' | 'daily-format' | 'attachments', value: string) =>
+    invoke<VaultSettingsDto>('vault_settings_patch', { base, key, value }),
+  vaultReveal: () => invoke<void>('vault_reveal'),
+  shellSettings: () => invoke<ShellSettingsDto>('shell_settings'),
+  shellSettingsSet: (settings: ShellSettingsDto) => invoke<void>('shell_settings_set', { settings }),
+  hotkeys: () => invoke<HotkeyStateDto[]>('hotkeys'),
+  hotkeysRetry: (id: string) => invoke<HotkeyStateDto[]>('hotkeys_retry', { id }),
+  captureOpen: (kind: 'default' | 'task') => invoke<void>('capture_open', { kind }),
 };
 
 /** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */
@@ -100,6 +115,10 @@ export const events = {
   quitRequested: (f: () => void): Promise<UnlistenFn> => listen('app:quit-requested', () => f()),
   jobProgress: (f: (p: JobProgressDto) => void): Promise<UnlistenFn> => listen<JobProgressDto>('job:progress', (e) => f(e.payload)),
   jobTransform: (f: (t: JobTransformEvent) => void): Promise<UnlistenFn> => listen<JobTransformEvent>('job:transform', (e) => f(e.payload)),
+  // 5B (ms5-capture §1.4, §5.2, §7.1).
+  inboxCount: (f: (n: number) => void): Promise<UnlistenFn> => listen<{ count: number }>('inbox:count', (e) => f(e.payload.count)),
+  hotkeysState: (f: (s: HotkeyStateDto[]) => void): Promise<UnlistenFn> => listen<HotkeyStateDto[]>('hotkeys:state', (e) => f(e.payload)),
+  shellRoute: (f: (route: string) => void): Promise<UnlistenFn> => listen<{ route: string }>('shell:route', (e) => f(e.payload.route)),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */

@@ -1581,7 +1581,7 @@ pub fn run() {
             shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show,
             shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
             shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
-            shell5b::inbox_bulk, shell5b::capture_open
+            shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions
         ])
         .build(context())
         .expect("error while building Tegg")

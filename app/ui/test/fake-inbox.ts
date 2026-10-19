@@ -15,6 +15,7 @@ const doc = async () => (docMod ??= await import('@tegg/doc'));
 export type InboxRowDto = {
   path: string; id: string | null; title: string; type: string; reviewRaw: string | null;
   captured: string | null; created: string | null; modified: string | null; tags: string[]; excerpt: string; readOnly: boolean;
+  version?: unknown;
 };
 
 const indexed = (p: string) => p.endsWith('.md') && !p.split('/').some((seg, i, a) => i < a.length - 1 && (seg.startsWith('.') || seg === '_templates'));
@@ -25,7 +26,7 @@ const byteOrder = (a: string, b: string) => {
 };
 
 /** `inbox_list` (InboxRowDto[]): members only, in NFC path byte order. `readOnly`: paths whose last read wasn't UTF-8. */
-export async function inboxList(files: Files, readOnly: string[] = []): Promise<InboxRowDto[]> {
+export async function inboxList(files: Files, readOnly: string[] = [], vers: Record<string, unknown> = {}): Promise<InboxRowDto[]> {
   const d = await doc();
   const ro = new Set(readOnly.map(nfc));
   const out: InboxRowDto[] = [];
@@ -52,15 +53,16 @@ export async function inboxList(files: Files, readOnly: string[] = []): Promise<
       path, id: raw(data.id), title, type, reviewRaw: review,
       captured: raw(data.captured), created: raw(data.created), modified: raw(data.modified),
       tags, excerpt: excerpt(text.slice(parsed.bodyStart)), readOnly: ro.has(path),
+      ...(vers[path] !== undefined ? { version: vers[path] } : {}),
     });
   }
   return out.sort((a, b) => byteOrder(a.path, b.path));
 }
 
-export async function handle(cmd: string, a: any, files: Files, _vers: unknown, ro: string[] = []): Promise<Answer> {
+export async function handle(cmd: string, a: any, files: Files, vers: Record<string, unknown> = {}, ro: string[] = []): Promise<Answer> {
   switch (cmd) {
     case 'inbox_list':
-      return { result: await inboxList(files, ro) };
+      return { result: await inboxList(files, ro, vers) };
     case 'inbox_count':
       return { result: (await inboxList(files, ro)).length };
     case 'apply': {

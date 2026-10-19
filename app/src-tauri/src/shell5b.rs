@@ -582,8 +582,15 @@ pub(crate) async fn inbox_list(state: State<'_, AppState>) -> Result<Vec<InboxRo
             tags: r.tags,
             excerpt: r.excerpt,
             read_only: r.read_only,
+            version: version_dto(&r.version),
         })
         .collect())
+}
+
+/// The index's versions of `paths` (ms5-capture §7.3): the base of an `Append to…` target.
+#[tauri::command]
+pub(crate) async fn index_versions(state: State<'_, AppState>, paths: Vec<String>) -> Result<Vec<Option<VersionDto>>, IpcError> {
+    Ok(core(&state)?.index_versions(&paths).iter().map(|v| v.as_ref().map(version_dto)).collect())
 }
 
 #[tauri::command]

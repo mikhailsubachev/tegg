@@ -84,6 +84,7 @@
     "allow-inbox-list",
     "allow-inbox-count",
     "allow-inbox-bulk",
-    "allow-capture-open"
+    "allow-capture-open",
+    "allow-index-versions"
   ]
 }

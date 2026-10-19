@@ -1065,6 +1065,8 @@ pub struct InboxRowDto {
     pub tags: Vec<String>,
     pub excerpt: String,
     pub read_only: bool,
+    /// The base of a single Inbox action (ms5-capture §7.3).
+    pub version: VersionDto,
 }
 
 /// The generated `types.ts`, in a fixed order.

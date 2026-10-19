@@ -49,6 +49,8 @@ import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
 import { AllTasks } from './tasks/AllTasks';
 import type { TasksView } from './tasks/TasksHeader';
 import { useTaskBadge } from './tasks/useTasks';
+import { InboxPage } from './inbox/InboxPage';
+import { useInboxCount } from './inbox/useInboxCount';
 import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
 
@@ -136,6 +138,7 @@ export function App() {
   const uiLoaded = useRef(false);
   // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
   const taskCommand = useRef<((id: string) => void) | null>(null);
+  const inboxCommand = useRef<((id: string) => void) | null>(null);
   const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
@@ -212,6 +215,8 @@ export function App() {
     const un = [
       events.progress(setProgress),
       events.changed(() => { setRefresh((n) => n + 1); }),
+      // 5B (ms5-capture §1.4, §2.2): `Settings…` in the status menu and the Saved panel's `Open`.
+      events.shellRoute((r) => { const parsed = parseRoute(r); if (parsed) void goRef.current?.(parsed); }),
     ];
     return () => un.forEach((p) => p.then((f) => f()));
   }, []);
@@ -246,6 +251,8 @@ export function App() {
     justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
     setRoute(r);
   }, []);
+  const goRef = useRef(go);
+  goRef.current = go;
   const step = useCallback(async (dir: 'back' | 'forward') => {
     if (dir === 'back' ? !history.current.canBack() : !history.current.canForward()) return;
     await flushNote();
@@ -390,6 +397,7 @@ export function App() {
 
   // ------------------------------------------------------------------ layout
   const taskBadge = useTaskBadge(refresh, !!vault);
+  const inboxCount = useInboxCount(refresh, !!vault);
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -431,6 +439,10 @@ export function App() {
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
     taskCommand: (id: string) => taskCommand.current?.(id),
+    // 5B (inbox.md R62; D-562, D-578).
+    inboxCommand: (id: string) => inboxCommand.current?.(id),
+    capture: (kind: 'default' | 'task') => { void ipc.captureOpen(kind).catch(() => {}); },
+    setNoteReviewed: (r: boolean) => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
@@ -462,9 +474,10 @@ export function App() {
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
 
-  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route;
+  // D-562: a note route carries its object's type, so the review commands follow its Review row.
+  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type } : route;
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -763,6 +776,19 @@ export function App() {
         commandRef={taskCommand}
       />
     );
+  } else if (route?.id === 'inbox' && vault) {
+    body = (
+      <InboxPage
+        refresh={refresh}
+        heading={heading}
+        types={types}
+        filter={ui.inbox?.filter ?? 'all'}
+        onFilter={(f) => updateUi((u) => ({ ...u, inbox: { filter: f } }))}
+        dateTime={ui.dateTime}
+        nav={{ openNote: (p) => openNote(p), openDay, capture: (k) => actions.capture?.(k), today: () => { void go({ id: 'today' }); } }}
+        commandRef={inboxCommand}
+      />
+    );
   } else if (route?.id === 'broken-links') {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
@@ -800,6 +826,7 @@ export function App() {
             onAbout={actions.about}
             conflicts={conflicts}
             taskCount={taskBadge}
+            inboxCount={inboxCount}
             onTasks={actions.goTasks}
           />
         )}

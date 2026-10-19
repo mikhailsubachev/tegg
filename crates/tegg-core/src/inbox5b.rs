@@ -7,7 +7,7 @@
 use serde_json::Value;
 use tegg_format::nfc;
 
-use crate::{Core, ObjectInfo};
+use crate::{Core, FileVersion, ObjectInfo};
 
 /// One Inbox member (R61).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +31,8 @@ pub struct InboxRow {
     pub excerpt: String,
     /// The last read wasn't valid UTF-8 (D-180).
     pub read_only: bool,
+    /// The version the index last read: the base of a single Inbox action (ms5-capture §7.3).
+    pub version: FileVersion,
 }
 
 /// A string value as written (NFC, trimmed); other values are none.
@@ -79,11 +81,19 @@ impl Core {
                     tags,
                     excerpt: st.excerpt,
                     read_only: !st.utf8,
+                    version: st.version,
                 })
             })
             .collect();
         rows.sort_by(|a, b| a.path.as_bytes().cmp(b.path.as_bytes()));
         rows
+    }
+
+    /// The versions the index last read for `paths` (None when not indexed): the base of an `Append to…` target, so
+    /// a change the index hasn't seen is a conflict, never overwritten (FR-INB-02 AC-7, NFR-REL-02).
+    pub fn index_versions(&self, paths: &[String]) -> Vec<Option<FileVersion>> {
+        let idx = self.index();
+        paths.iter().map(|p| idx.note_state(&nfc(p)).map(|s| s.version)).collect()
     }
 
     pub fn inbox_count(&self) -> usize {

@@ -1101,6 +1101,7 @@ export const en: Catalog = {
   'capture.draftKept': 'Your capture is kept as a draft.',
   'inbox.typeSummary': '{plural}',
   'cmd.quickCapture': 'Quick Capture',
+  'inbox.job.running': { one: 'Changing {count} item…', other: 'Changing {count} items…' },
   'cmd.captureTask': 'Capture a task',
   'cmd.markReviewed': 'Mark reviewed',
   'cmd.markUnreviewed': 'Mark unreviewed',

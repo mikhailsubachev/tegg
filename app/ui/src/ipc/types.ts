@@ -362,5 +362,9 @@ export type DefaultTypeDto = { raw: string | null, key: string, valid: boolean, 
 export type VaultSettingsDto = { version: VersionDto | null, defaultType: DefaultTypeDto, dailyFormat: string, attachments: string, };
 export type ShellSettingsDto = { showStatusItem: boolean, openAtLogin: boolean, };
 export type HotkeyStateDto = { id: string, keys: string, state: string, };
-export type InboxRowDto = { path: string, id: string | null, title: string, type: string, reviewRaw: string | null, captured: string | null, created: string | null, modified: string | null, tags: Array<string>, excerpt: string, readOnly: boolean, };
+export type InboxRowDto = { path: string, id: string | null, title: string, type: string, reviewRaw: string | null, captured: string | null, created: string | null, modified: string | null, tags: Array<string>, excerpt: string, readOnly: boolean, 
+/**
+ * The base of a single Inbox action (ms5-capture §7.3).
+ */
+version: VersionDto, };
 export type TypeDefDto = TypeDto;

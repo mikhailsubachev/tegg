@@ -330,10 +330,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // A note route that turned out to be a Daily Note (D-334) gets the title fix once known.
   useEffect(() => { if (saver.current && !saver.current.create) saver.current.transform = daily ? fixDailyTitle : null; }, [!!daily]);
 
-  /** D-330: writes only `review` (and `modified`) through the editor's save path. */
+  /** D-330, D-562: writes only `review` (and `modified`) through the editor's save path; a virtual Daily Note has no
+   *  file yet. */
   const setReviewedRef = useRef<(r: boolean) => void>(() => {});
   setReviewedRef.current = (r: boolean) => {
-    if (!live.current.daily || live.current.daily.virtual) return;
+    if (live.current.daily?.virtual) return;
     const only = !saver.current?.pending; // nothing else waits to be saved: only `review` and `modified` change
     commit((d) => setValue(d, 'review', r ? 'reviewed' : 'unreviewed'));
     if (only && saver.current) saver.current.skipTransform = true;

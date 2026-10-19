@@ -86,6 +86,7 @@ const COMMANDS: &[&str] = &[
     "inbox_count",
     "inbox_bulk",
     "capture_open",
+    "index_versions",
 ];
 
 fn main() {
