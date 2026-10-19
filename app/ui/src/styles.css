@@ -778,9 +778,12 @@ button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .inbox-filter { display: flex; gap: 6px; flex-wrap: wrap; }
 .inbox-filter .count { color: var(--muted); }
 .inbox-order { margin-left: auto; }
-.inbox-group h2 { font-size: 13px; color: var(--muted); margin: 16px 0 8px; }
+.inbox-group { display: flow-root; }
+.inbox-group h2 { font-size: 13px; line-height: 20px; height: 20px; color: var(--muted); margin: 16px 0 8px; }
 .inbox-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-.inbox-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+/* D-586: one fixed card height, so the virtualized list knows every card's place (inbox/virtual.ts). */
+.inbox-card { box-sizing: border-box; height: 180px; overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.inbox-card-foot { margin-top: auto; }
 .inbox-card:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
 .inbox-card.reviewed { opacity: 0.6; }
 .inbox-card.selected { border-color: var(--accent); }

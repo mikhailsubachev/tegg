@@ -2,7 +2,7 @@
 // object waiting for review, newest first in Today / Yesterday / Earlier this week / Older, filterable by type, with
 // keyboard-first actions per card (mark reviewed, convert, append, link, tags, open) and on a selection (an `inbox`
 // job). A card marked reviewed stays dimmed in place until the user leaves the page or changes the filter (D-556).
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { TagField } from '../capture/TagField';
 import { firstDay } from '../i18n/dates';
 import { collator, region as regionOf } from '../i18n/collate';
@@ -13,6 +13,7 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { useToday } from '../tasks/useTasks';
 import { appZone, localIso } from '../zone';
 import { appendItem, changeItem, linkTextFrom, type AppendTarget } from './actions';
+import { DEFAULT_METRICS, cardTop, columns, windowOf, type Metrics } from './virtual';
 import { inboxGroups, inboxOrder, type InboxGroup } from './bucket';
 import { cardFooter, cardTags } from './card';
 
@@ -97,16 +98,76 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     onFilter(f);
   };
 
+  // ------------------------------------------------------------------------------------------------ the card window
+  // D-586 (FR-INB-01 AC-12): only the cards around the viewport are in the page (virtual.ts); cards have a fixed height,
+  // so a card outside the window is brought in by scrolling to its exact place before it is focused.
+  const sizes = GROUPS.map(([g]) => groups[g].length);
+  const [metrics, setMetrics] = useState<Metrics>(DEFAULT_METRICS);
+  const [view, setView] = useState({ top: 0, height: 900, width: 1000 });
+  const pendingFocus = useRef<string | null>(null);
+  const scroller = () => (listRef.current?.closest('main') as HTMLElement | null) ?? null;
+  const listTop = (list: HTMLElement, main: HTMLElement) => list.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+  const measureView = useCallback(() => {
+    const list = listRef.current;
+    const main = scroller();
+    if (!list || !main) return;
+    const next = { top: Math.round(main.scrollTop - listTop(list, main)), height: main.clientHeight, width: list.clientWidth };
+    setView((v) => (v.top === next.top && v.height === next.height && v.width === next.width ? v : next));
+  }, []);
+  useEffect(() => {
+    const main = scroller();
+    if (!main) return;
+    let frame = 0;
+    const on = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureView(); }); };
+    main.addEventListener('scroll', on, { passive: true });
+    window.addEventListener('resize', on);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(on);
+    if (listRef.current) ro?.observe(listRef.current);
+    measureView();
+    return () => { main.removeEventListener('scroll', on); window.removeEventListener('resize', on); ro?.disconnect(); if (frame) cancelAnimationFrame(frame); };
+  }, [rows !== null, measureView]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    // The real sizes of a rendered card, the gap and a group heading (fixed by styles.css).
+    const list = listRef.current;
+    const art = list?.querySelector<HTMLElement>('article.inbox-card');
+    const sec = art?.closest<HTMLElement>('.inbox-group');
+    const grid = art?.parentElement;
+    if (art && sec && grid) {
+      const gap = parseFloat(getComputedStyle(grid).rowGap) || DEFAULT_METRICS.gap;
+      const next = { card: art.offsetHeight, gap, head: sec.offsetHeight - grid.offsetHeight, minCol: DEFAULT_METRICS.minCol };
+      if (next.card > 0 && (Math.abs(next.card - metrics.card) > 0.5 || Math.abs(next.gap - metrics.gap) > 0.5 || Math.abs(next.head - metrics.head) > 0.5)) setMetrics(next);
+    }
+    const p = pendingFocus.current;
+    if (p) {
+      const el = cardEl(p);
+      if (el) { pendingFocus.current = null; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
+    }
+  });
+  const cols = columns(view.width, metrics);
+  const slices = windowOf(sizes, cols, metrics, view.top, view.height);
+
+  const cardEl = (p: string) => listRef.current?.querySelector<HTMLElement>(`article[data-path="${CSS.escape(nfc(p))}"]`) ?? null;
+  /** Focuses the card of `p`, first scrolling it into the window when it isn't rendered (D-586). */
+  const focusPath = (p: string) => {
+    const el = cardEl(p);
+    if (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); return; }
+    const i = flat.findIndex((x) => nfc(x.path) === nfc(p));
+    const list = listRef.current;
+    const main = scroller();
+    if (i < 0 || !list || !main) return;
+    pendingFocus.current = nfc(p);
+    main.scrollTop = Math.max(0, listTop(list, main) + cardTop(sizes, cols, metrics, i) - Math.max(0, (main.clientHeight - metrics.card) / 2));
+    measureView();
+  };
+  const focusCard = (p: string | null) => { if (p) requestAnimationFrame(() => focusPath(p)); };
+
   // Focus the card the user came back to (FR-INB-01 AC-6).
   useEffect(() => {
     if (!rows || !returnTo) return;
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(returnTo)}"]`);
+    const p = returnTo;
     returnTo = null;
-    el?.focus();
-  }, [rows]);
-
-  const cardEl = (p: string) => listRef.current?.querySelector<HTMLElement>(`article[data-path="${CSS.escape(nfc(p))}"]`) ?? null;
-  const focusCard = (p: string | null) => { if (p) requestAnimationFrame(() => cardEl(p)?.focus()); };
+    requestAnimationFrame(() => focusPath(p));
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (r: InboxRowDto) => {
     returnTo = nfc(r.path);
@@ -279,7 +340,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
       const next = flat[i + d];
       if (!next) return;
       if (e.shiftKey) setSelection((s) => [...new Set([...s, p, nfc(next.path)])]);
-      cardEl(next.path)?.focus();
+      focusPath(next.path);
     };
     const key = e.key;
     if (key === 'ArrowDown' || key === 'ArrowRight') { e.preventDefault(); move(1); }
@@ -306,7 +367,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   const summary = active === 'all' ? t('inbox.summary', { count: members.length }) : t('inbox.summaryFiltered', { shown: shownMembers.length, count: members.length });
   const filtered = active !== 'all' && shown.length === 0;
 
-  const card = (r: InboxRowDto) => {
+  const card = (r: InboxRowDto, index: number) => {
     const p = nfc(r.path);
     const reviewed = isReviewed(r);
     const selected = selection.includes(p);
@@ -314,6 +375,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     const footer = cardFooter(r, z, dateTime);
     return (
       <article key={p} tabIndex={0} aria-label={t('inbox.card', { type: typeName(r.type), title: r.title })} data-path={p}
+        aria-setsize={flat.length} aria-posinset={index + 1}
         data-review={reviewed ? 'reviewed' : 'unreviewed'} data-selected={selected || undefined}
         className={`inbox-card${reviewed ? ' reviewed' : ''}${selected ? ' selected' : ''}`}
         onFocus={(e) => { if (e.target === e.currentTarget) focused.current = p; }} onKeyDown={(e) => onCardKey(e, r)}>
@@ -424,12 +486,22 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             </p>
           ) : (
             <div ref={listRef} className="inbox-groups">
-              {GROUPS.map(([g, label]) => groups[g].length > 0 && (
-                <section key={g} role="region" aria-labelledby={`inbox-group-${g}`} data-group={g} className="inbox-group">
-                  <h2 id={`inbox-group-${g}`}>{t(label)}</h2>
-                  <div className="inbox-cards">{groups[g].map(card)}</div>
-                </section>
-              ))}
+              {GROUPS.map(([g, label], gi) => {
+                const items = groups[g];
+                if (items.length === 0) return null;
+                const sl = slices[gi];
+                if (sl.toRow <= sl.fromRow) return <div key={g} aria-hidden="true" className="inbox-group-spacer" style={{ height: sl.height }} />;
+                const offset = sizes.slice(0, gi).reduce((a, b) => a + b, 0);
+                const from = sl.fromRow * cols;
+                return (
+                  <section key={g} role="region" aria-labelledby={`inbox-group-${g}`} data-group={g} className="inbox-group">
+                    <h2 id={`inbox-group-${g}`}>{t(label)}</h2>
+                    <div className="inbox-cards" style={{ paddingTop: sl.top, paddingBottom: sl.bottom }}>
+                      {items.slice(from, sl.toRow * cols).map((r, k) => card(r, offset + from + k))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
           <p className="muted inbox-keys">{t('inbox.keys')}</p>
