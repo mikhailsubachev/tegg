@@ -108,7 +108,9 @@ test('fr_set_03_ac2_dates_follow_the_setting_and_files_do_not_change', async ({ 
   const st = await core.uiState();
   assert.deepEqual(st?.dateTime, { date: 'iso', time: '24', week: 'region' }, 'stored in UiStateDto.dateTime');
   await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
-  assert.ok(await seen(main(page).getByText('2026-10-15', { exact: true }), 3000), 'the attribute panel shows due as 2026-10-15');
+  // The due date is the value of the attribute panel's `Due date` field (an input, not page text).
+  const due = () => main(page).getByRole('textbox', { name: 'Due date', exact: true }).inputValue().catch(() => '');
+  assert.equal(await eventually(due, (v) => v === '2026-10-15', 3000), '2026-10-15', 'the attribute panel shows due as 2026-10-15');
   await gotoInbox(page);
   const q1 = await must(cardAt(page, 'Quick Notes/Koupit mléko.md'), 'Q1 card');
   assert.ok(flat(await q1.innerText()).includes('Captured 2026-10-14 08:15'), 'the Inbox footer in ISO with 24-hour time');
@@ -116,7 +118,8 @@ test('fr_set_03_ac2_dates_follow_the_setting_and_files_do_not_change', async ({ 
   await choose(page, 'Date format', 'Long (14 October 2026)');
   await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
-  assert.ok(await seen(main(page).getByText('15 October 2026', { exact: true }), 3000), 'Long: 15 October 2026');
+  // With Long, date fields keep the region's input format, which reads back as a date (D-566, ms5-capture §15 item 7).
+  assert.equal((await eventually(due, (v) => v !== '', 3000)).replace(/\s/g, ' '), '15. 10. 2026', 'Long: the field in the region format (cs)');
   assert.deepEqual(await vaultWrites(core), [], 'no vault file is written by the change or by showing');
 });
 

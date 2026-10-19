@@ -240,8 +240,9 @@ test('fr_inb_03_ac1_the_review_row_matches_the_card', async ({ page }) => {
   assert.ok(flat(await row.evaluate((e) => e.closest('[role="row"], li, div')?.textContent ?? '')).includes('maybe'), 'Q5 shows the raw value as invalid');
   await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
   await click(main(page).getByRole('link', { name: 'Koupit mléko', exact: true }), 'Q1');
-  const control = await must(main(page).getByRole('region', { name: 'Properties' }).getByRole('checkbox', { name: /Review/ }).or(main(page).getByRole('button', { name: /^(Reviewed|Unreviewed|Mark reviewed)$/ })), 'Q1 Review control');
-  assert.equal(await control.getAttribute('aria-checked') ?? await control.getAttribute('aria-pressed'), 'false', 'same state as the card (unreviewed)');
+  // The Review row is the attribute panel's combobox `Review` (types.md FR-EDT-07 AC-11).
+  const control = await must(main(page).getByRole('region', { name: 'Properties' }).getByRole('combobox', { name: 'Review', exact: true }), 'Q1 Review control');
+  assert.equal(flat(await control.innerText()), 'Unreviewed', 'same state as the card (unreviewed)');
   assert.equal(await main(page).getByRole('region', { name: 'Properties' }).getByRole('button', { name: /Remove/ }).filter({ hasText: /review/i }).count(), 0, 'no way to remove the key on a Quick Note');
 });
 
