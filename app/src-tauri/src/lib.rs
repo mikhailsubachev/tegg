@@ -1082,9 +1082,10 @@ async fn link_create_plan(state: State<'_, AppState>, from: String, target: Stri
 
 /// `link_create` (FR-LNK-04 AC-5, AC-11): the one write of the Create offer; re-plans first.
 #[tauri::command]
-async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String) -> Result<LinkCreatedDto, IpcError> {
+async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String, as_type: Option<String>) -> Result<LinkCreatedDto, IpcError> {
     let core = core(&state)?;
-    let made = core.link_create(&from, &target, &plan_from(expect), text.as_bytes()).map_err(core_err)?;
+    // `asType`: the type picked in the offer's `Type` control (FR-VLT-05 AC-3, D-550).
+    let made = core.link_create_as(&from, &target, &plan_from(expect), text.as_bytes(), as_type.as_deref()).map_err(core_err)?;
     Ok(LinkCreatedDto { path: made.path, rewrite: made.rewrite })
 }
 

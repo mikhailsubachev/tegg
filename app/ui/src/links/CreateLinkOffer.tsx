@@ -15,6 +15,8 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
   const [plan, setPlan] = useState<LinkCreatePlanDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** FR-VLT-05 AC-3: the user picked the type in the `Type` control. */
+  const [picked, setPicked] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);
   const create = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 120, top: 120 });
@@ -79,7 +81,7 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
     try {
       const chipPos = req.chipAt ? req.chipAt() ?? undefined : req.chipPos;
       if (plan.rewrite && chipPos === undefined) { setError(t('createLink.rewriteFailed', { stem })); return; }
-      const path = await createObjectForLink(req.from, req.target, plan, { editor: req.editor, chipPos });
+      const path = await createObjectForLink(req.from, req.target, plan, { editor: req.editor, chipPos, picked });
       onClose();
       onCreated(path);
     } catch (e) {
@@ -106,6 +108,7 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
               onChange={(e) => {
                 // FR-VLT-05 AC-3 (D-550): another type plans again with it (relation offers: only the allowed types).
                 const key = e.target.value;
+                setPicked(true);
                 ipc.linkCreatePlan(req.from, req.target, [key]).then(setPlan, () => setError(t('error.io')));
               }}>
               {captureTargets(types).filter((x) => !req.relationTo || req.relationTo.includes(x.key)).map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}

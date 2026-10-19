@@ -13,5 +13,5 @@ export default defineConfig({
   // SVG assets (the logo, D-164) stay files, byte for byte, instead of minified data: URLs.
   build: { target: 'safari16', outDir: resolve(__dirname, 'dist'), emptyOutDir: true,
     // ms5-capture §4: the capture window is a second page.
-    rollupOptions: { input: { main: resolve(__dirname, 'ui/index.html'), capture: resolve(__dirname, 'ui/capture.html') } }, assetsInlineLimit: (file: string) => (file.endsWith('.svg') ? false : undefined) },
+    rollupOptions: { input: { main: resolve(__dirname, 'ui/index.html'), capture: __dirname + '/ui/capture.html' } }, assetsInlineLimit: (file: string) => (file.endsWith('.svg') ? false : undefined) },
 });

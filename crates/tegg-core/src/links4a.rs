@@ -555,17 +555,27 @@ impl Core {
     }
 
     pub fn link_create(&self, from: &str, target: &str, expect: &LinkCreatePlan, bytes: &[u8]) -> Result<LinkCreated, CoreError> {
+        self.link_create_as(from, target, expect, bytes, None)
+    }
+
+    /// `link_create` with the type the user picked in the offer's `Type` control (FR-VLT-05 AC-3, D-550): the plan is
+    /// made again with that type. Without it, only a relation's type is (D-243).
+    pub fn link_create_as(&self, from: &str, target: &str, expect: &LinkCreatePlan, bytes: &[u8], picked: Option<&str>) -> Result<LinkCreated, CoreError> {
         // A file at the planned path appeared after the offer opened (not indexed yet): never written over.
         if let LinkCreatePlan::Create { path, .. } = expect {
             if matches!(self.shared.vault.stat(&nfc(path)), Ok(Some(_))) {
                 return Err(CoreError::Exists { path: nfc(path) });
             }
         }
-        // The offer may have planned with a relation's first allowed type (D-243), or with a type the user picked in
-        // its `Type` control (FR-VLT-05 AC-3, D-550): any type a capture can make.
-        let picked = |k: &str| !matches!(k, "daily-note" | "tag" | "image" | "pdf") && self.type_get(k).is_some();
+        // The offer may have planned with a relation's first allowed type (D-243), or with the type the user picked in
+        // its `Type` control (FR-VLT-05 AC-3, D-550; any type a capture can make).
+        let chose = |k: &str| {
+            picked.is_some_and(|p| tegg_format::type_key(p) == tegg_format::type_key(k))
+                && !matches!(k, "daily-note" | "tag" | "image" | "pdf")
+                && self.type_get(k).is_some()
+        };
         let typed = match expect {
-            LinkCreatePlan::Create { type_key, .. } if self.relation_allows(from, target, type_key) || picked(type_key) => {
+            LinkCreatePlan::Create { type_key, .. } if self.relation_allows(from, target, type_key) || chose(type_key) => {
                 self.link_create_plan(from, target, Some(std::slice::from_ref(type_key)))
             }
             _ => self.link_create_plan(from, target, None),

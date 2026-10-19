@@ -415,7 +415,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (am && !lm0) {
       const from = $f.pos - am[1].length - 1;
       const cur = live.current.suggest;
-      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create' || x.kind === 'pickDate')) {
+      if (am[1].endsWith(' ') && cur?.kind === 'link' && cur.from === from && cur.items.length > 0 && cur.items.every((x) => x.kind === 'create' || x.kind === 'create-as' || x.kind === 'pickDate')) {
         dismissed.current = `a${from}`;
         setSuggest(null);
       }

@@ -62,7 +62,7 @@ export async function createObjectForLink(
   from: string,
   target: string,
   plan: { state: 'create'; path: string; title: string; type: string; rewrite: string | null },
-  opts: { editor?: { commands: { replaceLink(pos: number, linkText: string): boolean } }; chipPos?: number },
+  opts: { editor?: { commands: { replaceLink(pos: number, linkText: string): boolean } }; chipPos?: number; picked?: boolean },
 ): Promise<string> {
   if (plan.rewrite && (!opts.editor || opts.chipPos === undefined)) throw new Error('createLink.needsEdit');
   const key = plan.type.normalize('NFC');
@@ -76,7 +76,7 @@ export async function createObjectForLink(
     now: localIso(new Date(Date.now())),
     newId: () => ulid(Date.now()),
   });
-  const made = await ipc.linkCreate(from, target, plan, text);
+  const made = await ipc.linkCreate(from, target, plan, text, opts.picked ? key : undefined);
   if (made.rewrite && opts.editor && opts.chipPos !== undefined && !opts.editor.commands.replaceLink(opts.chipPos, made.rewrite)) {
     // The note exists now, but its link couldn't be changed (D-287): say so instead of leaving it broken silently.
     throw Object.assign(new Error('createLink.rewriteFailed'), { kind: 'RewriteFailed', path: made.path });

@@ -61,7 +61,7 @@ export const ipc = {
   brokenLinks: () => invoke<BrokenLinksDto>('index_broken_links'),
   duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
   linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),
-  linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text }),
+  linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string, asType?: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text, ...(asType ? { asType } : {}) }),
   // 4B (ms4-daily §4).
   dailyView: (date: string) => invoke<DailyViewDto>('daily_view', { date }),
   dailyDates: (year: number, month: number) => invoke<string[]>('daily_dates', { year, month }),
