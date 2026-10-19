@@ -38,7 +38,7 @@ test.describe('the page (Europe/Prague, cs)', () => {
   test('fr_tsk_04_ac1_sidebar_and_palette_open_the_schedule', async ({ page }) => {
     const core = await startTasks(page);
     const entry = await must(sidebarTasks(page), 'sidebar entry Tasks');
-    assert.match((await textOf(entry)), /^Tasks\s*4$/, 'the sidebar count: overdue + due today = 4 (AP-411)');
+    assert.match((await textOf(entry)), /^Tasks\s*15$/, 'the sidebar count: the open tasks = 15 (D-588, AC-18)');
     await entry.click();
     await must(heading(page), 'heading Tasks');
     assert.ok((await summaryText(page)).includes(SUMMARY), `summary "${SUMMARY}"`);
@@ -387,7 +387,7 @@ test.describe('live (Europe/Prague)', () => {
     assert.ok((await textOf(card(page, titleOf(T.t03)))).includes(`${shortDate('2026-10-14', 'cs')} · Yesterday`), 'T03: <Wed 14 Oct> · Yesterday');
     assert.deepEqual(g[1]?.paths, paths('t04', 't19'), 'T04 and T19 move to Today');
     assert.ok(flat(await main(page).innerText()).includes('15 open · 4 overdue · 2 due today'), 'the summary follows (T03, T14 overdue; T04, T19 due)');
-    assert.match((await textOf(sidebarTasks(page))), /^Tasks\s*6$/, 'the sidebar count follows');
+    assert.match((await textOf(sidebarTasks(page))), /^Tasks\s*15$/, 'the sidebar count follows (open tasks, D-588: still 15)');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
   });
 
