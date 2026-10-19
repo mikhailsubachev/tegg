@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.72, for review                                             |
+| **Document status** | Draft v1.73, for review                                             |
 | **Date**            | 2026-10-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -88,6 +88,7 @@
 | v1.70   | 2026-10-18 | D-521…D-523 (AP-449…AP-451, `docs/contracts/ms5-tasks.md` §12.2): an unsaved new object's history entry, when its first write happens, and `Untitled` for an empty title. |
 | v1.71   | 2026-10-18 | Slice 5A-2 contract and red-test decisions D-524…D-538 (AP-452…AP-466, `docs/contracts/ms5-tasks.md` §11.10). |
 | v1.72   | 2026-10-19 | Slice 5B acceptance and contract decisions D-539…D-567 (AP-467…AP-495, `docs/acceptance/capture.md`, `docs/acceptance/inbox.md`): capture text and frontmatter, the capture window, status item and hotkey display, default type stored as a key, Settings: Vault, the Inbox's membership, order and actions (convert keeps the file, `Append to…`, trash in MS6), and FR-SET-02's font, size, width and accent moved to v1.0. |
+| v1.73   | 2026-10-19 | Slice 5B red-test decisions D-568…D-584 (AP-496…AP-512, `docs/contracts/ms5-capture.md` §14). |
 
 ---
 
@@ -688,6 +689,23 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-565 | Overdue MS3 (3E) placeholders (AP-493, owner, 2026-10-19) | `settings/date-time` (FR-SET-03) is built in 5B with the other Settings pages; the Appearance extras Font, Font size, Editor width and Accent color (FR-SET-02) move to v1.0 and are relabelled |
 | D-566 | Settings: Date & time (AP-494, owner, 2026-10-19) | Per machine (as D-128): `Date format` Region / ISO / Long, `Time format` Region / 24-hour / 12-hour, `First day of week` Region / Monday / Sunday, all defaulting to Region. Display only: files keep `YYYY-MM-DD` and ISO date-times (FR-FMT-11); date inputs accept the region format and ISO whatever the setting |
 | D-567 | Template frontmatter in the capture window (AP-495, owner, 2026-10-19) | The default template's frontmatter block counts as part of the type definition (D-553): `capture_context` sends it as `templateHead`, never shown in the DOM; the template's body never reaches the capture window (`docs/contracts/ms5-capture.md` §2.2, §3.2) |
+| D-568 | L1 tests of the 5B UI modules (AP-496, owner, 2026-10-19) | They live in `app/test/` (`inbox_bucket.ac.test.ts`, `dates_5b.ac.test.ts`, `capture_ui.ac.test.ts`), where Vitest and `check-red` run them; ms5-capture §11.3 corrected |
+| D-569 | 5B L1 interfaces (AP-497, owner, 2026-10-19) | `inboxGroups(rows, todayLocal, firstDay, zone) → { today, yesterday, week, older }` (input order kept; `firstDay` ISO weekday 1…7); `inbox/card.ts` `cardTags(tags) → { shown, more }`, `cardFooter(row, zone, setting?) → string | null`; `capture/tags.ts` `tagSuggestions(typed, tags, locale)`, `addChip(chips, typed)`; `i18n/dates.ts` reads `UiStateDto.dateTime` (missing = all `region`) and the region from `region()` (ms5-capture §7.5) |
+| D-570 | Capture ACL test entry point (AP-498, owner, 2026-10-19) | A doc-hidden `tegg_app_lib::acl_probe(window, command) -> AclProbe { Refused, Reached }` runs one invoke through `tauri::test::mock_builder` with the app's capabilities and command manifest (NFR-SEC-03 AC-2) |
+| D-571 | check-red for the shell's Rust AC tests (AP-499, owner, 2026-10-19) | `qa.config.json` `acRunners` gains `app/src-tauri/tests/ac_*.rs` (run through `cargo-junit.ts`) |
+| D-572 | `appendSection`'s retarget (AP-500, owner, 2026-10-19) | It gets a link's target as written (no alias, no subpath) and returns the whole new inner text (`Quick Notes/Dvojník|Dvojník`) or null to keep the link |
+| D-573 | Bulk Link to across folders (AP-501, owner, 2026-10-19) | `InboxJobChange::AppendLink`'s target is the target's vault path; the transformer writes the D-184 link text per source file |
+| D-574 | `Long` date format (AP-502, owner, 2026-10-19) | The UI language's day-month-year with the month name (`20 October 2026` in English), whatever the region; `Region` follows the region (amends D-566's example only) |
+| D-575 | Menu-bar strings (AP-503, owner, 2026-10-19) | All seven `menubar.*` keys of R59 live in `app/src-tauri/src/strings.rs`, each equal to the catalog's English value |
+| D-576 | Retired FR-DLY-05 AC-3 (AP-504, owner, 2026-10-19) | daily-notes.md marks it retired (struck through, not a criterion for coverage), replaced by inbox.md FR-DLY-05 AC-5 |
+| D-577 | Registry rows built in 5B (AP-505, owner, 2026-10-19) | `settings/date-time` is built with milestone MS5 like the other 5B routes; the Inbox's `Move to trash` (triage menu and selection toolbar) is one R3 control (MS6, FR-HIS-01); `Change…` on Settings: Shortcuts is one (v1.0, FR-SET-04) |
+| D-578 | Opening capture from the main window (AP-506, owner, 2026-10-19) | A main-window command `capture_open { kind: 'default' | 'task' }` runs `open_capture('palette', kind)` (palette `Quick Capture`, `Capture a task`, Inbox zero) |
+| D-579 | Filling the Saved panel (AP-507, owner, 2026-10-19) | The shell emits `capture:saved { typeName, title, path }` to `capture-saved`; its `Open` calls `capture_open_main(path)` |
+| D-580 | When Inbox Add tags applies (AP-508, owner, 2026-10-19) | ⏎ adds a chip; the field applies its chips when closed with ⌘↩ (or ⏎ on an empty field), one write per application |
+| D-581 | Exclusive hotkey registration (AP-509, owner, 2026-10-19) | ⌃⌥Space and ⌃⌥T are registered with `kEventHotKeyExclusive` and reported `taken` when that fails (D-71); the L6 holder registers exclusively too |
+| D-582 | Cancelling a bulk convert (AP-510, owner, 2026-10-19) | The job status element shows `Cancel` while an `inbox` job is in planning or backup, as for a rename |
+| D-583 | FR-CAP-05 AC-9 marker (AP-511, owner, 2026-10-19) | `[manual]` moves directly after the label so coverage reads it as manual |
+| D-584 | Capture benchmarks' closed main window (AP-512, owner, 2026-10-19) | The benchmarks launch as a login item (`TEGG_TEST_LAUNCHED_AT_LOGIN=1`), so `main` is hidden from the start; NFR-PERF-10 AC-4's idle time is `TEGG_IDLE_MS` (default 10 minutes) |
 
 ---
 

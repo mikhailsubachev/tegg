@@ -176,7 +176,7 @@ Text fields commit on ⏎ or when the focus leaves; Esc restores the stored valu
 - **AC-6** **Try again.** After the helper exits, `Try again` registers ⌃⌥Space, the row shows `Active` within 1 s, and ⌃⌥Space opens the capture window. *(L6)*
 - **AC-7** **Released on quit.** After `Quit Tegg`, the helper can register ⌃⌥Space and ⌃⌥T (the app no longer holds them). *(L6)*
 - **AC-8** **Not customizable yet (FR-SET-04, D-376).** On `settings/shortcuts` both `Change…` buttons are aria-disabled with `Coming in v1.0` and do nothing; the global shortcuts are ⌃⌥Space and ⌃⌥T on every machine and are not stored. *(L5)*
-- **AC-9** **Tegg Preview beside Tegg (D-118, AP-477).** With Tegg Preview running, a second app bundle (`app.tegg.desktop`) started afterwards runs too (single instance is per bundle), can't register the hotkeys, and shows AC-5's display for both; the first app's hotkeys keep working. *[manual]*
+- **AC-9** [manual] **Tegg Preview beside Tegg (D-118, AP-477; D-583).** With Tegg Preview running, a second app bundle (`app.tegg.desktop`) started afterwards runs too (single instance is per bundle), can't register the hotkeys, and shows AC-5's display for both; the first app's hotkeys keep working.
 
 ### FR-TSK-10 New Task from any app (hotkey part; AC-1…AC-8 in tasks.md)
 
