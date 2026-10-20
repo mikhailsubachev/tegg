@@ -162,7 +162,7 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
     <div className="sidebar-foot">
       <button ref={button} tabIndex={0} type="button" className="logo" aria-label={t('logo.button')} aria-haspopup="menu" aria-expanded={open}
         data-command="app.logoMenu" onClick={() => setOpen((o) => !o)}>
-        <span className="app-version">{__TEGG_VERSION__}</span>
+        <span className="app-version">{t('logo.version', { version: __TEGG_VERSION__ })}</span>
       </button>
       {open && (
         <PopupMenu label={t('logo.menu')} anchor={button.current} placement="above" onClose={() => setOpen(false)} entries={[

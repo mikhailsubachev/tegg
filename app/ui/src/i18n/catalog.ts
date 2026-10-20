@@ -127,6 +127,8 @@ export const en: Catalog = {
   'logo.button': 'Tegg: About and Settings',
   'logo.menu': 'About and Settings',
   'logo.settings': 'Settings…',
+  // D-597: the build's version label (`v0.51`) at the bottom left, through the catalog for NFR-OTH-02.
+  'logo.version': '{version}',
   'cmd.createVault': 'Create new vault…',
   'cmd.theme.system': 'Theme: System',
   'cmd.theme.light': 'Theme: Light',
