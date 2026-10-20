@@ -84,6 +84,8 @@ export function CaptureApp() {
   // it hasn't restored yet); a save or Discard disarms it and drops a pending store.
   const draftArmed = useRef(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Shown: from `capture:open` to the next hide (D-596 ignores a blur outside that span, e.g. the hide's own).
+  const shown = useRef(false);
   const cancelDraftStore = () => { if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; } };
 
   const reset = (c: CaptureContextDto | null) => {
@@ -108,6 +110,7 @@ export function CaptureApp() {
   };
 
   const onOpen = useCallback(async (o: CaptureOpen) => {
+    shown.current = true;
     // ⌃⌥T sets Task at once, also on an open window or a restored draft (D-542).
     if (o.kind === 'task') setType('task');
     const c = (await loadContext()) ?? ctx;
@@ -190,7 +193,7 @@ export function CaptureApp() {
     });
   };
 
-  const hide = () => void captureIpc.hide();
+  const hide = () => { shown.current = false; void captureIpc.hide(); };
 
   const keepDraft = async () => {
     const s = state.current;
@@ -215,6 +218,25 @@ export function CaptureApp() {
     hide();
   };
 
+  // D-596: focus loss (a click into another app or Tegg window) hides the window as Esc does, also with a menu open;
+  // with text the draft is kept, empty it just hides. Its own menus and pickers are DOM, so they never blur the window.
+  const lostFocus = async () => {
+    if (!shown.current || saving.current) return;
+    setMenu(null);
+    const s = state.current;
+    const pending = draftTimer.current !== null;
+    cancelDraftStore();
+    if (s.text.trim() !== '' || s.chips.length > 0 || pending) await keepDraft();
+    hide();
+  };
+  const lostFocusRef = useRef(lostFocus);
+  lostFocusRef.current = lostFocus;
+  useEffect(() => {
+    const h = () => void lostFocusRef.current();
+    window.addEventListener('blur', h);
+    return () => window.removeEventListener('blur', h);
+  }, []);
+
   const discard = async () => {
     draftArmed.current = false;
     cancelDraftStore();
@@ -230,6 +252,7 @@ export function CaptureApp() {
     const def = types.find((x) => x.key === s.type);
     if (!def) return;
     saving.current = true;
+    cancelDraftStore(); // no debounced draft write while the save is in flight (D-596)
     try {
       const parts = captureParts(s.text, () => null);
       const title = parts.title === '' ? 'Untitled' : parts.title;
@@ -249,7 +272,7 @@ export function CaptureApp() {
         title,
         template: def.templateHead,
         now,
-        captured: now,
+        capture: true,
         newId: () => ulid(Date.now()),
         values,
         body: parts.body,
@@ -341,7 +364,7 @@ export function CaptureApp() {
         <div className="capture-type">
           <button ref={typeRef} type="button" tabIndex={0} className="capture-type-btn" aria-haspopup="menu" aria-expanded={menu === 'type'}
             aria-label={t('capture.type', { name: typeDef?.name ?? '' })} onClick={() => setMenu(menu === 'type' ? null : 'type')}>
-            <span className="capture-type-icon" style={typeDef?.color ? { color: `var(--type-${typeDef.color})` } : undefined}><Icon name={typeIconName(type)} size={14} /></span>
+            <span className="capture-type-icon" style={typeDef?.color ? { color: `var(--type-${typeDef.color})` } : undefined}><Icon name={typeIconName(type, typeDef?.icon)} size={14} /></span>
             <span data-user-content>{typeDef?.name ?? ''}</span>
             <Icon name="chevron-down" size={11} />
           </button>
@@ -354,7 +377,7 @@ export function CaptureApp() {
                   <button key={x.key} type="button" role="menuitemradio" aria-checked={x.key === type} aria-label={x.name} aria-description={desc}
                     tabIndex={-1} className="capture-menu-item" onClick={() => pickType(x.key)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); pickType(x.key); } }}>
-                    <Icon name={typeIconName(x.key)} size={14} />
+                    <Icon name={typeIconName(x.key, x.icon)} size={14} />
                     <span data-user-content>{x.name}</span>
                     {desc && <span className="muted capture-menu-desc">{desc}</span>}
                   </button>

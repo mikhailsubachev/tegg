@@ -151,7 +151,7 @@ The capture page reuses `app/ui/src/tasks/quickAdd.ts` (ms5-tasks §6.4, D-483) 
 - `CaptureApp.tsx` (R55), `TypeMenu.tsx`, `TagField.tsx` (also used by the Inbox's `Add tags…`, §6), `Saved.tsx` (the `#saved` panel), `draft.ts`.
 - On `capture:open`: restore the draft if any (else empty), apply `kind`, focus `Capture text` with the caret at the end, wait two animation frames, call `capture_ready(seq)`.
 - Save: `captureParts` → `newObject` with `now = localIso(Date.now())` and `capture: true` → `capture_create`; on success clear the draft, `capture_saved_show`, `capture_hide`; on error keep everything and show R55's status (FR-CAP-01 AC-10, AC-11). ⌘↩ while a save is in flight is ignored (one file per capture).
-- Esc, and the window's `blur` (focus loss, D-596): empty → `capture_hide`; else `capture_draft_set` then `capture_hide`. A `blur` while a save is in flight, or right after `capture:open` before `capture_ready`, is ignored. `Discard`: `capture_draft_set(null)`, clear, `capture_hide`.
+- Esc, and the window's `blur` (focus loss, D-596): empty → `capture_hide`; else `capture_draft_set` then `capture_hide`. A `blur` while a save is in flight, or after `capture_hide` until the next `capture:open`, is ignored. `Discard`: `capture_draft_set(null)`, clear, `capture_hide`.
 - Theme: `theme/*` with the stored theme from `__TEGG_UI_STATE__`; `ui:state` events (emitted by `ui_state_set`) re-apply theme and date format.
 
 ## 5. Settings

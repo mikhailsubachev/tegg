@@ -9,7 +9,7 @@ test.use({ timezoneId: 'Europe/Prague' });
 
 const P = 'Pages/Tabulky.md';
 const TEXT = '---\nid: 01JB5B2TAB000000000000T001\ntype: page\ntitle: Tabulky\n---\n\n| Název | Stav | Částka |\n| --- | :---: | ---: |\n| Alfa | hotovo | 120 |\n\n'
-  + `| ${Array.from({ length: 10 }, (_, i) => `sloupec${i + 1}`).join(' | ')} |\n|${' --- |'.repeat(10)}\n| ${Array.from({ length: 10 }, (_, i) => `hodnota-${i + 1}-dlouhá`).join(' | ')} |\n`;
+  + `| ${Array.from({ length: 10 }, (_, i) => `sloupec${i + 1}`).join(' | ')} |\n|${' --- |'.repeat(10)}\n| ${Array.from({ length: 10 }, (_, i) => `hodnota${i + 1}dlouhá`).join(' | ')} |\n`;
 
 test('bug_ms5b2_fr_edt_02_table_alignment_and_width', async ({ page }) => {
   const v = editorVault();

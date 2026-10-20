@@ -4,12 +4,12 @@
 // `Create "<query>"` makes the note with note_create and stays on this note (FR-EDT-06 AC-4).
 import { useEffect, useRef, useState } from 'react';
 import { DuplicateDetails } from '../../links/DuplicateDetails';
-import { typeNameOf } from '../../links/icons';
+import { chipIcon, typeNameOf } from '../../links/icons';
 import { linkText } from '@tegg/editor';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
 import type { SwitcherItemDto } from '../../ipc/types';
-import { Icon, typeIconName } from '../../shell/Icon';
+import { Icon } from '../../shell/Icon';
 import { createObject } from '../create';
 
 type Field = HTMLInputElement | HTMLTextAreaElement;
@@ -119,7 +119,7 @@ export function useLinkSuggest({ path, value, setValue, field }: {
               className={`option ${i === open.sel ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => void choose(it)}>
               {create ? <span>{label}</span> : (
                 <>
-                  <Icon name={typeIconName(it.type)} />
+                  <Icon name={chipIcon(it.type).glyph} />
                   <span data-user-content>{it.title}</span>
                   {it.matched_alias && <span className="alias" data-user-content>{it.matched_alias}</span>}
                   {it.duplicate && <DuplicateDetails details={it.duplicate} typeName={typeNameOf(it.type)} />}

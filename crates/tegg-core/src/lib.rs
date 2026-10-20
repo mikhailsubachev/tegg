@@ -77,7 +77,7 @@ pub enum CoreError {
     Protected,
     /// ms5-capture §3.3 (5B): `capture_create` of Daily Note, Tag, Image, PDF or an unknown type key.
     UnsupportedType,
-    /// ms5-capture §3.3 (5B): the bytes lack this type, `review: unreviewed` or a `captured` value.
+    /// ms5-capture §3.3 (5B): the bytes lack this type, `review: unreviewed` or a `created` value (D-595).
     NotACapture,
     /// ms5-capture §5.1 (5B): a vault setting D-336 or D-222 rejects; nothing was written.
     Invalid { reason: String },

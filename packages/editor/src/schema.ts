@@ -11,7 +11,38 @@ import { ListItem } from '@tiptap/extension-list'
 import Strike from '@tiptap/extension-strike'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
+import { Plugin } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { TagRules } from './tagRules'
+
+/** A table's column alignments (the delimiter row, kept in `align`) shown on its cells, as the read view does
+ *  (FR-EDT-02 AC-16, read-view AC-4; 5B feedback G6). Header cells without an alignment are left aligned (styles). */
+const TableAlign = Extension.create({
+  name: 'teggTableAlign',
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      props: {
+        decorations(state) {
+          const decos: Decoration[] = []
+          state.doc.forEach((table, pos) => {
+            if (table.type.name !== 'table' || !Array.isArray(table.attrs.align)) return
+            const align = table.attrs.align as (string | null)[]
+            table.forEach((row, rowOff) => {
+              row.forEach((cell, cellOff, i) => {
+                const a = align[i]
+                if (a === 'left' || a === 'center' || a === 'right') {
+                  const from = pos + 1 + rowOff + 1 + cellOff
+                  decos.push(Decoration.node(from, from + cell.nodeSize, { style: `text-align: ${a}` }))
+                }
+              })
+            })
+          })
+          return decos.length ? DecorationSet.create(state.doc, decos) : null
+        },
+      },
+    })]
+  },
+})
 
 export const TOP_LEVEL_TYPES = [
   'paragraph', 'heading', 'blockquote', 'callout', 'bulletList', 'orderedList', 'codeBlock',
@@ -210,7 +241,8 @@ export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
     Strike.extend(noRules),
     Code.extend(noRules),
     TeggListItem,
-    Table.configure({ resizable: false }),
+    Table.configure({ resizable: false, renderWrapper: true }),
+    TableAlign,
     TableRow,
     TableHeader,
     TableCell,

@@ -1,6 +1,6 @@
-//! Slice 5B: the capture window's only write (docs/contracts/ms5-capture.md §3.3; D-540, D-552, NFR-SEC-03 AC-3).
+//! Slice 5B: the capture window's only write (docs/contracts/ms5-capture.md §3.3; D-540, D-552, D-595, NFR-SEC-03 AC-3).
 //! `capture_create` refuses Daily Note, Tag, Image, PDF and unknown keys (`UnsupportedType`) and bytes without this
-//! type, `review: unreviewed` and a `captured` value (`NotACapture`); then it is exactly `create_object` (folder re-read
+//! type, `review: unreviewed` and a `created` value (`NotACapture`; D-595, was `captured`); then it is exactly `create_object` (folder re-read
 //! now, folders created, `free_stem`, create-exclusive, indexed at once). No path argument exists.
 
 use serde_json::Value;
@@ -26,8 +26,8 @@ impl Core {
         let text = |k: &str| fm.get(k).and_then(Value::as_str).map(|s| tegg_format::nfc(s.trim()));
         let typed = text("type").is_some_and(|t| type_key(&t) == key);
         let unreviewed = text("review").as_deref() == Some("unreviewed");
-        let captured = fm.get("captured").is_some_and(|v| !v.is_null() && v.as_str().map_or(true, |s| !s.trim().is_empty()));
-        if !(typed && unreviewed && captured) {
+        let created = fm.get("created").is_some_and(|v| !v.is_null() && v.as_str().map_or(true, |s| !s.trim().is_empty()));
+        if !(typed && unreviewed && created) {
             return Err(CoreError::NotACapture);
         }
         self.create_object(&key, title, bytes)
