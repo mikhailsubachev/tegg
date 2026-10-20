@@ -16,7 +16,8 @@ kbd { font-family: inherit; font-size: 11px; color: var(--muted); }
 :focus { outline: none; }
 /* D-594 (extends D-266): no ring after a pointer click, a neutral ring on keyboard focus, none on text fields. */
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-h1:focus-visible { outline-offset: 4px; border-radius: 4px; }
+/* The page heading takes the focus after a route change (FR-UX-03 AC-11) but is no control: no ring (D-594). */
+h1:focus-visible { outline: none; }
 input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):focus-visible, textarea:focus-visible, select:focus-visible, [contenteditable='true']:focus-visible { outline: none; }
 .icon { flex: none; }
 
