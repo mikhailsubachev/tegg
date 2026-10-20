@@ -129,6 +129,8 @@ const TEMPLATES = ['_templates/Quick Note/Quick Note.md', '_templates/Nápad/Ná
 async function stateOn(page: Page, path: string): Promise<{ count: number; name: string | null; pressed: string | null; right: boolean | null; writes: string[] }> {
   const p = await page.context().newPage();
   try {
+    // Templates are never restored as the last note: open every path by its route (as convert.ac.test.ts does).
+    await p.addInitScript((r) => { (window as any).__TEGG_ROUTE__ = r; }, `note/${nfc(path)}`);
     const core = await startMain(p, { at: path });
     await must(p.getByRole('textbox', { name: 'Title', exact: true }).or(p.locator('[aria-label="Title"]')), `${path}: the note`, 5000);
     await sleep(400);

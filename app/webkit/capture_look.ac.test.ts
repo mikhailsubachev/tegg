@@ -231,9 +231,13 @@ test('fr_cap_01_ac17_the_first_line_is_bold_through_a_mirror', async ({ page }) 
   await sleep(100);
   const undone = await capValue(page);
   assert.ok(undone.length < 'Koupit chleba\na máslo x'.length && 'Koupit chleba\na máslo x'.startsWith(undone), `⌘Z undoes typing (${JSON.stringify(undone)})`);
-  const mirrorText = await page.evaluate(() => [...document.querySelectorAll('[aria-hidden="true"]')].map((m) => (m.textContent ?? '').normalize('NFC')).find((x) => x.includes('Koupit chleba')) ?? null);
+  // The mirror beside the textarea (WebKit under Playwright may undo all the typing at once, so its text can't be the
+  // lookup key).
+  const mirrorText = await capText(page).evaluate((t) => [...(t.parentElement?.querySelectorAll('[aria-hidden="true"]') ?? [])].map((m) => (m.textContent ?? '').normalize('NFC'))[0] ?? null);
   assert.equal(mirrorText?.trimEnd(), undone.trimEnd(), 'the mirror follows the value after ⌘Z');
-  // With a vertical scroll: many lines, scrolled to the end; the first line stays aligned.
+  // With a vertical scroll: many lines, scrolled to the end; the first line stays aligned. The two lines are set again,
+  // since ⌘Z may have undone all of them.
+  await capText(page).fill('Koupit chleba\na máslo');
   await capText(page).focus();
   await page.keyboard.press('Meta+ArrowDown');
   for (let i = 1; i <= 30; i++) { await page.keyboard.press('Enter'); await page.keyboard.insertText(`řádek ${i}`); }

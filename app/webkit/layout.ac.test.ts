@@ -81,7 +81,8 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   assert.match(await sb.getByRole('button', { name: 'New object' }).innerText(), /⌘N/);
   // TBD entries show no count; Today shows ⌘D.
   // 5B (inbox.md R62, FR-NAV-04 AC-2, D-515): the Inbox shows its count; Home and Pinned are labelled v1.0.
-  for (const e of ['Home', 'Today', 'Tasks', 'Pinned', 'Saved queries']) {
+  // D-588: Tasks shows its open tasks (tasks.md FR-TSK-04 AC-18), so it isn't checked here.
+  for (const e of ['Home', 'Today', 'Pinned', 'Saved queries']) {
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const text = (await row.innerText()).replace(e, '').replace('⌘D', '');
     assert.ok(!/\d/.test(text), `${e} shows a count: ${text}`);

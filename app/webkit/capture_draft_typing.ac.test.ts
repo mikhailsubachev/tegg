@@ -102,7 +102,7 @@ test('fr_cap_01_ac15_a_draft_stored_while_typing_is_restored_after_a_relaunch', 
   const page2 = await context.newPage();
   await startCapture(page2, { draft: stored, trigger: 'status-item', kind: 'default' });
   assert.equal(nfc(await capValue(page2)), 'Objednat dřevo\nNa zimu, 3 m³.', 'the text');
-  assert.equal(flat(await typeBtn(page2).innerText()), 'Type: Task', 'the type');
+  assert.equal(flat(await typeBtn(page2).getAttribute('aria-label')), 'Type: Task', 'the type');
   assert.deepEqual(await chips(page2), ['chata'], 'the chips');
   assert.equal(flat(await prioBtn(page2).innerText()), 'Priority: Low', 'the fields');
   const caret = await capText(page2).evaluate((e) => [(e as HTMLTextAreaElement).selectionStart, (e as HTMLTextAreaElement).value.length]);

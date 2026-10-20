@@ -183,7 +183,7 @@ test('fr_vlt_05_ac5_a_new_default_applies_at_once', async ({ browser }) => {
   assert.ok((await callsOf(core, 'vault_settings_patch')).length >= 1, 'vault_settings_patch');
   await newDraft(mainPage);
   assert.ok(await seen(tab(mainPage, 'New Nápad'), 2000), 'the next ⌘N opens new/nápad');
-  const shown = await eventually(async () => flat(await typeBtn(capPage).innerText().catch(() => '')), (x) => x === 'Type: Nápad', 2000);
+  const shown = await eventually(async () => flat(await typeBtn(capPage).getAttribute('aria-label').catch(() => '')), (x) => x === 'Type: Nápad', 2000);
   assert.equal(shown, 'Type: Nápad', 'the pre-warmed capture window updates within 2 s');
   // Another program edits default-type.
   const yml = (await core.files())['.tegg/vault.yml'];
