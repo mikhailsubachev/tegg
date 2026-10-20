@@ -60,6 +60,10 @@ export const light: Tokens = {
   // F9 (capture.md R55 look): the board's primary button.
   btn: '#1C1C1E',
   'btn-fg': '#FFFFFF',
+  // The app mark on the capture's saved panel (D-164 colours, both themes).
+  'logo-tile': '#FFFFFF',
+  'logo-edge': '#D9DEEA',
+  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -86,6 +90,9 @@ export const dark: Tokens = {
   'link-bg': '#1E2A44',
   btn: '#ECECEE',
   'btn-fg': '#1C1C1E',
+  'logo-tile': '#FFFFFF',
+  'logo-edge': '#D9DEEA',
+  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_DARK),
 };
 

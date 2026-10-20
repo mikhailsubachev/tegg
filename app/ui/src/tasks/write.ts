@@ -20,7 +20,7 @@ const chains = new Map<string, VersionDto[]>();
 /** Runs one task write. `base: 'current'` (Try again) bases it on the file as it is now. */
 /** Tells the sidebar's Tasks count (D-588) that a task changed: the app's own writes send no `vault:changed`. */
 export const TASKS_WRITTEN = 'tegg:tasks-written';
-export function tasksWritten() { window.dispatchEvent(new Event(TASKS_WRITTEN)); }
+export function tasksWritten() { if (typeof window !== 'undefined') window.dispatchEvent(new Event(TASKS_WRITTEN)); }
 
 export function writeTask(row: TaskRowDto, defs: TaskDefsDto, action: TaskAction, base: 'row' | 'current' = 'row'): Promise<WriteResult> {
   const key = row.path.normalize('NFC');
