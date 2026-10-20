@@ -1,9 +1,0 @@
-<!-- Tegg app icon: design direction 11 "Blue T-node" (design/edit-note-page/Logos.dc.html).
-     macOS icon grid: 1024 canvas, 824 body at 100, as in Apple's app icon template. -->
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <g transform="translate(100 100) scale(8.24)">
-    <path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="1"/>
-    <path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15" stroke-linecap="butt"/>
-    <circle cx="50" cy="72" r="11" fill="#0B44F0"/>
-  </g>
-</svg>

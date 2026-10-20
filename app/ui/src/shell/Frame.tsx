@@ -1,6 +1,4 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
-import logoDark from '../assets/logo-dark.svg';
-import logoLight from '../assets/logo-light.svg';
 import { PopupMenu, type MenuEntry } from './Menu';
 import { vaultColor } from './vaultColor';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -20,18 +18,6 @@ import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
-
-/** The resolved theme (`data-theme` on the root, ms3-shell §3.5), following live changes. */
-function useResolvedTheme(): 'light' | 'dark' {
-  const read = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
-  const [theme, setTheme] = useState<'light' | 'dark'>(read);
-  useEffect(() => {
-    const o = new MutationObserver(() => setTheme(read()));
-    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => o.disconnect();
-  }, []);
-  return theme;
-}
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
 export type VaultSwitcherProps = {
@@ -168,17 +154,15 @@ function useToday(): string {
   return d;
 }
 
-/** D-220: the logo at the bottom left opens About and Settings (FR-UX-01 AC-5). */
+/** D-220, D-597: the version at the bottom left opens About and Settings (FR-UX-01 AC-5); no logo in the app. */
 function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: () => void }) {
   const button = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const theme = useResolvedTheme();
   return (
     <div className="sidebar-foot">
       <button ref={button} tabIndex={0} type="button" className="logo" aria-label={t('logo.button')} aria-haspopup="menu" aria-expanded={open}
         data-command="app.logoMenu" onClick={() => setOpen((o) => !o)}>
-        {/* D-164: the board's mark and wordmark as one image per theme; the button keeps its label. */}
-        <img className="logo-img" src={theme === 'dark' ? logoDark : logoLight} alt="" />
+        <span className="app-version">{__TEGG_VERSION__}</span>
       </button>
       {open && (
         <PopupMenu label={t('logo.menu')} anchor={button.current} placement="above" onClose={() => setOpen(false)} entries={[
