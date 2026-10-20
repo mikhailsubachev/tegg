@@ -396,7 +396,8 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
       if (!r.on || !r.off) continue;
       // D-266: the note body, title, description and property fields show their caret instead of a ring.
       if (el.matches('.ProseMirror, .title-field, .note-subtitle-field, .pfield')) continue;
-      // D-594: every text field shows only its caret.
+      // D-594: every text field shows only its caret, and the page heading focused after a route change (AC-11) no ring.
+      if (el.matches('h1')) continue;
       if (el.matches("textarea, [contenteditable='true'], input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button'])")) continue;
       const [style, width, , shadow, bg] = JSON.parse(r.on) as string[];
       const outline = style !== 'none' && parseFloat(width) >= 2;
