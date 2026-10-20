@@ -178,7 +178,7 @@ export function capturePlan(files: Files, a: { type: string; title: string; text
   if (!t || NOT_CAPTURE_TARGETS.includes(key)) return { error: { kind: 'UnsupportedType', message: `fake: ${key} can't be captured` } };
   const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/.exec(String(a.text));
   const y = m ? readYml(m[1]) : {};
-  const ok = typeof y.type === 'string' && matchKey(y.type) === key && y.review === 'unreviewed' && typeof y.captured === 'string' && y.captured !== '';
+  const ok = typeof y.type === 'string' && matchKey(y.type) === key && y.review === 'unreviewed' && (typeof y.created === 'string' ? y.created !== '' : y.created != null);
   if (!ok) return { error: { kind: 'NotACapture', message: 'fake: not a capture' } };
   const folder = String(t.folder ?? key).replace(/\/+$/, '');
   const stem = stemOf(a.title);

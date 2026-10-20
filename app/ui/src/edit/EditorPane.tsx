@@ -26,7 +26,7 @@ import { region } from '../i18n/collate';
 import { createObject, prepareObject, type Prepared } from '../types/create';
 import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
-import { Icon, iconElement, typeIconName } from '../shell/Icon';
+import { Icon, iconElement } from '../shell/Icon';
 import { eventKeys } from '../shell/keys';
 import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
 import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
@@ -1265,7 +1265,7 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
                 className={`option ${i === s.sel ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => onLink(it)}>
                 {create ? <span>{label}</span> : (
                   <>
-                    <Icon name={typeIconName(it.type)} />
+                    <Icon name={chipIcon(it.type).glyph} />
                     <span data-user-content>{it.title}</span>
                     {it.matched_alias && <span className="alias" data-user-content>{it.matched_alias}</span>}
                     {it.duplicate ? <DuplicateDetails details={it.duplicate} typeName={typeName} /> : <span className="meta" data-user-content>{typeName}</span>}
@@ -1422,7 +1422,7 @@ function LinkFieldView({ field, pos, onChange, onClose, onPickNote, onUrl, onRem
           {notes.map((it, i) => (
             <div key={it.path ?? it.title} role="option" aria-selected={i === field.sel} className={`option ${i === field.sel ? 'selected' : ''}`}
               onMouseDown={(e) => e.preventDefault()} onClick={() => onPickNote(it)}>
-              <Icon name={typeIconName(it.type)} />
+              <Icon name={chipIcon(it.type).glyph} />
               <span data-user-content>{it.title}</span>
             </div>
           ))}

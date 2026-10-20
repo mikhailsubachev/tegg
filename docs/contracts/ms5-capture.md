@@ -125,9 +125,9 @@ export function captureParts(text: string, linkTitle: (target: string) => string
 - The title line's plain text uses `objectFromUnit`'s first-line rules (ms5-tasks §11.1, D-491); `linkTitle` gives a link's target title when it has no alias (the capture window has no index access: it passes `() => null`, so an alias-less link's title is its target text without folder and `.md`; §12 item 2).
 - The UI turns `title === ''` into `Untitled` (D-523) only when saving.
 
-### 3.2 `newObject` gains `captured` (D-540)
+### 3.2 `newObject` gains `capture` (D-540, D-595)
 
-`newObject({ …, captured?: string })`. With `captured`: `review: unreviewed` is written whatever `type.review` is; `captured: <captured>` follows it; then `created`, `modified` (both = `now`, and the caller passes `captured === now`); the template's `id, type, title, tags, review, captured, created, modified` entries are ignored; `body` is required (the template's body is never used). The capture window builds the template input from `templateHead` (§2.2).
+`newObject({ …, capture?: true })`. With `capture`: `review: unreviewed` is written whatever `type.review` is; then `created`, `modified` (both = `now`); no `captured` key (D-595, replaces D-540's `captured: <captured>`); the template's `id, type, title, tags, review, captured, created, modified` entries are ignored; `body` is required (the template's body is never used). The capture window builds the template input from `templateHead` (§2.2).
 
 Task fields: `values` gets `priority` (the chosen label, as written) and `due` (`{ date }`) when set; `status` comes from the D-470 rule already in `newObject`. `tags` = the chips, then `captureParts().tags`, duplicates dropped by `tagKey` (first spelling wins), NFC.
 
@@ -136,7 +136,7 @@ Task fields: `values` gets `priority` (the chosen label, as written) and `due` (
 `Core::capture_create(type_key, title, bytes) -> Result<String, CoreError>`:
 
 1. `type_key` matched by D-239; `daily-note`, `tag`, `image`, `pdf` and unknown keys → `UnsupportedType`.
-2. The bytes' frontmatter must carry this type (as `create_object`), `review: unreviewed` and a `captured` value → else `NotACapture`.
+2. The bytes' frontmatter must carry this type (as `create_object`), `review: unreviewed` and a `created` value (D-595; was `captured`) → else `NotACapture`.
 3. Then exactly `create_object` (folder re-read now, folders created, `free_stem`, `create_file` with `RENAME_EXCL`, indexed at once). No path argument exists.
 
 The shell command checks `vault` against the current `vaultId` (`VaultChanged`) and that a vault is open (`NoVault`) before calling the core.
@@ -150,8 +150,8 @@ The capture page reuses `app/ui/src/tasks/quickAdd.ts` (ms5-tasks §6.4, D-483) 
 - `capture.html` is a second Vite input (`build.rollupOptions.input: { main: 'index.html', capture: 'capture.html' }`); its entry `capture/main.tsx` imports only `@tegg/doc`, `capture/*`, `i18n/*`, `theme/*`, `tasks/quickAdd.ts`, `ipc/capture.ts` (a client with §2.2's commands only) and shared presentational components (`shell/Icon`). An L0 test checks the import graph of the built `capture` chunk: no `ipc/client.ts`, no `@tegg/editor`.
 - `CaptureApp.tsx` (R55), `TypeMenu.tsx`, `TagField.tsx` (also used by the Inbox's `Add tags…`, §6), `Saved.tsx` (the `#saved` panel), `draft.ts`.
 - On `capture:open`: restore the draft if any (else empty), apply `kind`, focus `Capture text` with the caret at the end, wait two animation frames, call `capture_ready(seq)`.
-- Save: `captureParts` → `newObject` with `now = captured = localIso(Date.now())` → `capture_create`; on success clear the draft, `capture_saved_show`, `capture_hide`; on error keep everything and show R55's status (FR-CAP-01 AC-10, AC-11). ⌘↩ while a save is in flight is ignored (one file per capture).
-- Esc: empty → `capture_hide`; else `capture_draft_set` then `capture_hide`. `Discard`: `capture_draft_set(null)`, clear, `capture_hide`.
+- Save: `captureParts` → `newObject` with `now = localIso(Date.now())` and `capture: true` → `capture_create`; on success clear the draft, `capture_saved_show`, `capture_hide`; on error keep everything and show R55's status (FR-CAP-01 AC-10, AC-11). ⌘↩ while a save is in flight is ignored (one file per capture).
+- Esc, and the window's `blur` (focus loss, D-596): empty → `capture_hide`; else `capture_draft_set` then `capture_hide`. A `blur` while a save is in flight, or after `capture_hide` until the next `capture:open`, is ignored. `Discard`: `capture_draft_set(null)`, clear, `capture_hide`.
 - Theme: `theme/*` with the stored theme from `__TEGG_UI_STATE__`; `ui:state` events (emitted by `ui_state_set`) re-apply theme and date format.
 
 ## 5. Settings

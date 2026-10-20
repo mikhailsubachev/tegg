@@ -27,7 +27,7 @@ process.on('exit', appiumDown);
 
 // D-504: the test clock starts at TEGG_NOW and runs on, so a stamp a few seconds later is the same test minute.
 const clk = (t: string | null) => t?.replace(/^(captured|created|modified): (\d{4}-\d\d-\d\dT\d\d:\d\d):\d\d([+-]\d\d:\d\d)$/gm, (_m, k, hm, o) => `${k}: ${hm}:00${o}`) ?? null;
-const stamps = (now = NOW) => `review: unreviewed\ncaptured: ${now}\ncreated: ${now}\nmodified: ${now}\n`;
+const stamps = (now = NOW) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n`; // D-595: no `captured`
 type Ctx = { base: string; vault: string; sup: string; log: string; d?: Driver };
 function fresh(name: string, o: { shell?: { showStatusItem: boolean; openAtLogin: boolean }; ui?: Record<string, unknown> } = {}): Ctx {
   const base = tmp(name);
@@ -163,8 +163,10 @@ test('fr_cap_01_ac9_window_placement_focus_loss_and_hotkeys_while_open', { timeo
     assert.ok(Math.abs(r2.x + r2.width / 2 - screen.w / 2) < 40 && r2.y < screen.h / 3, 'a hotkey centres it in the upper third');
     await typeCapture('Nezmizí');
     await activateFinder();
-    assert.ok(await captureOpen(d), 'clicking into another app does not hide it');
-    assert.equal(await captureValue(d), 'Nezmizí', 'nor change its text');
+    // D-596 (replaces D-542's "focus loss doesn't hide it"): clicking into another app hides it and keeps the draft.
+    assert.ok(await waitFor(async () => !(await captureOpen(d)), 2000), 'clicking into another app hides it');
+    await openByHotkey(d);
+    assert.equal(await captureValue(d), 'Nezmizí', 'the next open shows the same text');
     hotkey('quick');
     await sleep(500);
     assert.equal(await captureValue(d), 'Nezmizí', '⌃⌥Space while open keeps everything');

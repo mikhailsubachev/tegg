@@ -139,7 +139,7 @@ test('fr_edt_06_ac9_at_in_a_table_cell_escapes_the_pipe', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   const cell = await must(block(page, 8).getByRole('cell', { name: '1' }), 'cell');
   await cell.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press('Meta+ArrowRight'); // line end on macOS; the click may land before right-aligned text (G6: column alignment)
   await page.keyboard.type(' @C# tips');
   await (await must(linkSuggestions(page).getByRole('option').filter({ hasText: 'C# tips' }).first(), 'option C# tips')).click();
   const t = await saved(page, core, E.deset);

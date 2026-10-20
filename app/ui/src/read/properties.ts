@@ -19,7 +19,7 @@ export type AttrRow = {
     | { kind: 'yaml'; source: string };
 };
 
-const HIDDEN = new Set(['id', 'type', 'title', 'description', 'icon', 'cover', 'import-id', 'previous', 'file']);
+const HIDDEN = new Set(['id', 'type', 'title', 'description', 'icon', 'cover', 'import-id', 'previous', 'file', 'captured']); // captured: D-595
 const FIRST = ['tags', 'aliases'];
 const LAST = ['source', 'review', 'created', 'modified'];
 const LABELS: Record<string, string> = {

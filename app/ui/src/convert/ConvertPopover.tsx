@@ -74,7 +74,7 @@ export function ConvertPopover({ at, types, title: initial, type: preselect, cou
         {list.map((x) => (
           <button key={x.key} type="button" role="radio" data-type={x.key} data-command="convert.chooseType" aria-checked={x.key === type} tabIndex={x.key === type ? 0 : -1}
             aria-label={x.name} className={`convert-type${x.key === type ? ' selected' : ''}`} onClick={() => pick(x.key)}>
-            <Icon name={typeIconName(x.key)} size={14} />
+            <Icon name={typeIconName(x.key, x.icon)} size={14} />
             <span data-user-content>{x.name}</span>
           </button>
         ))}

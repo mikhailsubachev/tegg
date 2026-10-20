@@ -1,5 +1,5 @@
 // MS5 slice 5B, L1: what a capture writes (docs/acceptance/capture.md R57; docs/contracts/ms5-capture.md §3.1, §3.2;
-// D-539, D-540, D-544): `captureParts` (title, body, trailing tags of the capture text) and `newObject` with `captured`
+// D-539, D-540, D-544): `captureParts` (title, body, trailing tags of the capture text) and `newObject` with `capture` (D-595: no `captured` key)
 // (the bytes). FR-CAP-04 AC-1 (Quick Note bytes), AC-2 (any type, template frontmatter but not its body), AC-3 (time
 // stamps, TZ and the autumn DST change), AC-4 (the title/body table), AC-5 (names: the full title is kept and quoted);
 // FR-CAP-01 AC-5 (Markdown kept); FR-TSK-10 AC-9 (Task bytes), AC-10 (quick-add tokens only for Task), AC-11 (dates
@@ -7,7 +7,7 @@
 //
 // The capture window's composition (contract §3.2, §4): `captureParts(text, () => null)` (no index access, so an
 // alias-less link's title is its target text), title `''` → `Untitled` (D-523), then `newObject({ type, title,
-// template: <the default template's frontmatter>, now, captured: now, newId, values, body })` with `values` = `tags`
+// template: <the default template's frontmatter>, now, capture: true, newId, values, body })` with `values` = `tags`
 // (chips, then the title's trailing tags, unique by tagKey) and for a Task `priority`, `due`.
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
@@ -57,7 +57,7 @@ const NAPAD_HEAD = () => {
   return t.slice(0, end)
 }
 
-/** The capture window's save (contract §4): parts → newObject with `captured`. */
+/** The capture window's save (contract §4): parts → newObject with `capture` (D-595). */
 async function captureBytes(o: { type: Record<string, unknown>; text: string; chips?: string[]; template?: string | null; now?: string; priority?: string | null; due?: string | null }): Promise<string> {
   const m = await doc()
   const p = m.captureParts(o.text, () => null) as Parts
@@ -72,9 +72,9 @@ async function captureBytes(o: { type: Record<string, unknown>; text: string; ch
   if (o.priority) values.push(['priority', o.priority])
   if (o.due) values.push(['due', { date: o.due }])
   if (tags.length) values.push(['tags', tags])
-  return m.newObject({ type: o.type, title: p.title === '' ? 'Untitled' : p.title, template: o.template ?? null, now, captured: now, newId: () => ID, values, body: p.body }) as string
+  return m.newObject({ type: o.type, title: p.title === '' ? 'Untitled' : p.title, template: o.template ?? null, now, capture: true, newId: () => ID, values, body: p.body }) as string
 }
-const stamps = (now: string) => `review: unreviewed\ncaptured: ${now}\ncreated: ${now}\nmodified: ${now}\n`
+const stamps = (now: string) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n` // D-595: no `captured`
 
 // ------------------------------------------------------------------------------------------------ FR-CAP-04 AC-1
 
@@ -99,7 +99,7 @@ test('fr_cap_04_ac2_napad_takes_the_template_frontmatter_not_its_body', async ()
   assert.ok(!got.includes('Proč na tom záleží'), 'the template body is never used')
   // The full template (body included) gives the same bytes: `body` wins, D-524.
   const m = await doc()
-  const full = m.newObject({ type: NAPAD, title: 'Koupit dárek pro Janu', template: FX('_templates/Nápad/Nápad.md'), now: NOW, captured: NOW, newId: () => ID, values: [['tags', ['nákup']]], body: 'Něco do 500 Kč, viz [[Plán webu]].\n' })
+  const full = m.newObject({ type: NAPAD, title: 'Koupit dárek pro Janu', template: FX('_templates/Nápad/Nápad.md'), now: NOW, capture: true, newId: () => ID, values: [['tags', ['nákup']]], body: 'Něco do 500 Kč, viz [[Plán webu]].\n' })
   assert.equal(full, got, 'a whole template contributes its frontmatter only')
 })
 
@@ -124,7 +124,7 @@ test('fr_cap_04_ac3_stamps_in_los_angeles_and_across_the_autumn_change', async (
     const now = m.localIso(Date.parse(instant), zone) as string
     assert.equal(now, want, `${instant} in ${zone}`)
     const got = await captureBytes({ type: QUICK, text: 'Čas', now })
-    assert.equal(got, `---\nid: ${ID}\ntype: quick-note\ntitle: Čas\n${stamps(want)}---\n`, `captured = created = modified = ${want}`)
+    assert.equal(got, `---\nid: ${ID}\ntype: quick-note\ntitle: Čas\n${stamps(want)}---\n`, `created = modified = ${want}`)
   }
 })
 
@@ -232,6 +232,6 @@ test('fr_tsk_10_ac11_tomorrow_and_stamps_follow_the_zone', async () => {
     assert.equal(tomorrow, due, `${zone}: tomorrow is ${due} (the page parses the token against the local date)`)
     const stamp = m.localIso(at, zone) as string
     const got = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', due: tomorrow, now: stamp })
-    assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${stamps(now)}---\n`, `${zone}: due ${due}, captured ${now}`)
+    assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${stamps(now)}---\n`, `${zone}: due ${due}, created ${now}`)
   }
 })

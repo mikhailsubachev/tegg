@@ -20,7 +20,7 @@ test.use({ timezoneId: 'Europe/Prague' });
 const ID = /^id: [0-9A-HJKMNP-TV-Z]{26}$/m;
 /** The bytes of a capture call with its new id masked. */
 const masked = (t: string) => t.replace(/^id: .*$/m, 'id: <ULID>');
-const stamps = (now = NOW) => `review: unreviewed\ncaptured: ${now}\ncreated: ${now}\nmodified: ${now}\n`;
+const stamps = (now = NOW) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n`; // D-595: no `captured`
 async function saveWithKeys(page: Page) {
   await page.keyboard.press('Meta+Enter');
   await sleep(200);

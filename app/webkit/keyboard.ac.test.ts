@@ -335,7 +335,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
   await page.evaluate(() => {
     const w = window as any;
     w.__focusLog = new Map<Element, { on?: string; off?: string; label: string }>();
-    const sig = (e: Element) => { const s = getComputedStyle(e); return JSON.stringify([s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow]); };
+    const sig = (e: Element) => { const s = getComputedStyle(e); return JSON.stringify([s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.backgroundColor]); };
     document.addEventListener('focusin', (ev) => { const t = ev.target as Element; const r = w.__focusLog.get(t) ?? { label: (t.getAttribute('aria-label') ?? t.textContent ?? t.tagName).trim().slice(0, 40) }; r.on = sig(t); w.__focusLog.set(t, r); }, true);
     document.addEventListener('focusout', (ev) => { const t = ev.target as Element; setTimeout(() => { const r = w.__focusLog.get(t); if (r && document.activeElement !== t) r.off = sig(t); }, 0); }, true);
     w.__pointer = 0;
@@ -396,10 +396,16 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
       if (!r.on || !r.off) continue;
       // D-266: the note body, title, description and property fields show their caret instead of a ring.
       if (el.matches('.ProseMirror, .title-field, .note-subtitle-field, .pfield')) continue;
-      const [style, width, , shadow] = JSON.parse(r.on) as string[];
+      // D-594: every text field shows only its caret, and the page heading focused after a route change (AC-11) no ring.
+      if (el.matches('h1')) continue;
+      if (el.matches("textarea, [contenteditable='true'], input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button'])")) continue;
+      const [style, width, , shadow, bg] = JSON.parse(r.on) as string[];
       const outline = style !== 'none' && parseFloat(width) >= 2;
       const ring = shadow !== 'none' && (shadow.match(/(-?\d+(?:\.\d+)?)px/g) ?? []).map(parseFloat).some((v, i) => i >= 2 && v >= 2);
-      if (r.on === r.off || !(outline || ring)) out.push(r.label);
+      // D-594: rows, cards and menu items show a background instead of a ring.
+      const row = ['row', 'article', 'menuitem', 'menuitemradio', 'menuitemcheckbox', 'option', 'listitem', 'gridcell'].includes(el.getAttribute('role') ?? (el.tagName === 'TR' ? 'row' : el.tagName === 'ARTICLE' ? 'article' : ''));
+      const fill = row && bg !== (JSON.parse(r.off) as string[])[4];
+      if (r.on === r.off || !(outline || ring || fill)) out.push(r.label);
     }
     return out;
   });

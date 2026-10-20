@@ -48,7 +48,7 @@ export const light: Tokens = {
   link: '#1D5CCB',
   accent: '#0A6E5E',
   danger: '#B3261E',
-  focus: '#1D5CCB',
+  focus: '#737373', // D-594: neutral grey, ≥ 3:1 on bg/side/panel (WCAG 1.4.11)
   'accent-bg': '#E3F3EF',
   sel: '#D3E3FF',
   // 4F (FR-LNK-07, D-418): the embed frame; text tokens keep 4.5:1 on embed-bg.
@@ -61,9 +61,6 @@ export const light: Tokens = {
   btn: '#1C1C1E',
   'btn-fg': '#FFFFFF',
   // The app mark on the capture's saved panel (D-164 colours, both themes).
-  'logo-tile': '#FFFFFF',
-  'logo-edge': '#D9DEEA',
-  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -81,7 +78,7 @@ export const dark: Tokens = {
   link: '#86AEFF',
   accent: '#4CC9B0',
   danger: '#FF8A85',
-  focus: '#86AEFF',
+  focus: '#8E8E93', // D-594
   'accent-bg': '#17332E',
   sel: '#2A4677',
   'embed-border': '#3C3C41',
@@ -90,9 +87,6 @@ export const dark: Tokens = {
   'link-bg': '#1E2A44',
   btn: '#ECECEE',
   'btn-fg': '#1C1C1E',
-  'logo-tile': '#FFFFFF',
-  'logo-edge': '#D9DEEA',
-  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_DARK),
 };
 

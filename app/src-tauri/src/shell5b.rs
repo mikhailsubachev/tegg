@@ -155,6 +155,27 @@ pub(crate) fn show_main(app: &AppHandle) {
 
 const TRAY_ID: &str = "tegg-status";
 
+/// D-597: the status item is the full-colour Tegg tile (not a template image): blue on a light menu bar, navy on a
+/// dark one. The windows follow the system appearance (no window sets a theme), so their theme is the system's.
+fn tray_image(theme: tauri::Theme) -> tauri::image::Image<'static> {
+    match theme {
+        tauri::Theme::Dark => tauri::include_image!("icons/tray-dark.png"),
+        _ => tauri::include_image!("icons/tray-light.png"),
+    }
+}
+
+fn system_theme(app: &AppHandle) -> tauri::Theme {
+    app.webview_windows().values().find_map(|w| w.theme().ok()).unwrap_or(tauri::Theme::Light)
+}
+
+/// Called on every window's `ThemeChanged` (lib.rs): swaps the status item's tile.
+pub fn tray_follow_theme(app: &AppHandle, theme: tauri::Theme) {
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = tray.set_icon(Some(tray_image(theme)));
+        let _ = tray.set_icon_as_template(false);
+    }
+}
+
 pub(crate) fn set_status_item(app: &AppHandle, show: bool) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -177,8 +198,8 @@ pub(crate) fn set_status_item(app: &AppHandle, show: bool) -> tauri::Result<()> 
         ],
     )?;
     TrayIconBuilder::with_id(TRAY_ID)
-        .icon(tauri::include_image!("icons/tray.png"))
-        .icon_as_template(true)
+        .icon(tray_image(system_theme(app)))
+        .icon_as_template(false)
         .title("")
         .tooltip(s("help"))
         .menu(&menu)

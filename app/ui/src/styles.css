@@ -13,8 +13,12 @@ button, input { font: inherit; color: inherit; }
 button { background: transparent; border: 0; padding: 0; cursor: default; }
 a { color: inherit; text-decoration: none; }
 kbd { font-family: inherit; font-size: 11px; color: var(--muted); }
-:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
-h1:focus { outline-offset: 4px; border-radius: 4px; }
+:focus { outline: none; }
+/* D-594 (extends D-266): no ring after a pointer click, a neutral ring on keyboard focus, none on text fields. */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* The page heading takes the focus after a route change (FR-UX-03 AC-11) but is no control: no ring (D-594). */
+h1:focus-visible { outline: none; }
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):focus-visible, textarea:focus-visible, select:focus-visible, [contenteditable='true']:focus-visible { outline: none; }
 .icon { flex: none; }
 
 /* ------------------------------------------------------------ layout */
@@ -48,9 +52,9 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .sidebar { width: 232px; flex: none; background: var(--side); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .sidebar-scroll { flex: 1; overflow-y: auto; padding: 10px 8px 16px; display: flex; flex-direction: column; gap: 2px; }
 .sidebar-foot { flex: none; border-top: 1px solid var(--border); padding: 8px 8px 10px; }
-.logo { display: flex; align-items: center; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; cursor: pointer; }
+.logo { display: flex; align-items: center; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 .logo:hover, .logo[aria-expanded="true"] { background: var(--row); }
-.logo-img { height: 24px; width: auto; display: block; }
+.app-version { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; } /* D-597 */
 .jump {
   display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px;
   font-size: 13px; color: var(--muted); text-align: left;
@@ -158,7 +162,7 @@ mark { background: var(--accent-bg); color: var(--text); }
   border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
 }
 .dialog input, .switcher input { width: 100%; height: 44px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--border); background: var(--pop); }
-.dialog input:focus, .switcher input:focus { outline: 2px solid var(--focus); outline-offset: -2px; }
+.dialog input:focus, .switcher input:focus { outline: none; }
 .dialog ul, .switcher ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow: auto; }
 .dialog li, .switcher li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 7px; }
 .dialog li.selected, .switcher li.selected { background: var(--sel); }
@@ -193,7 +197,9 @@ button:disabled { color: var(--muted); }
 
 /* ---------------------------------------------------------------- slice 3B: read view (FR-EDT-02, FR-EDT-10, FR-TYP-08) */
 code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* top/left 0: without them an absolute element sits at its static place, below a tall Kanban, and makes the whole
+   document scroll as well as the main pane (G1: two vertical scrollbars). */
+.sr-only { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .note-root { min-height: 100%; }
 .note-toolbar { z-index: 2; }
 .toolbar-note { font-size: 12px; color: var(--muted); margin-left: 4px; }
@@ -224,7 +230,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .table-wrap { overflow-x: auto; margin: 0.6em 0; }
 .read-view table { border-collapse: collapse; font-size: 14px; }
 .read-view th, .read-view td { border: 1px solid var(--border); padding: 4px 10px; }
-.read-view th { background: var(--row); }
+.read-view th { background: var(--row); text-align: start; }
 .chip { display: inline-flex; align-items: center; gap: 3px; border-radius: 5px; padding: 0 4px; text-decoration: none; font-weight: 400; }
 .chip .icon { flex: none; }
 .link-chip { --cbg: var(--type-blue-bg); color: var(--link); background: var(--cbg); }
@@ -291,8 +297,11 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .editor-host .ProseMirror pre code { background: none; padding: 0; }
 .editor-host .ProseMirror mark { --cbg: var(--type-yellow-bg); background: var(--cbg); color: var(--text); padding: 0 2px; border-radius: 2px; }
 .editor-host .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
-.editor-host .ProseMirror table { border-collapse: collapse; font-size: 14px; margin: 0.6em 0; }
-.editor-host .ProseMirror th, .editor-host .ProseMirror td { border: 1px solid var(--border); padding: 4px 10px; min-width: 3em; vertical-align: top; }
+.editor-host .ProseMirror .tableWrapper { overflow-x: auto; margin: 0.6em 0; }
+.editor-host .ProseMirror table { border-collapse: collapse; font-size: 14px; margin: 0; }
+/* G6 (FR-EDT-02 AC-16): cells wrap only between words, a wide table scrolls sideways in its wrapper; alignments come
+   from the delimiter row (TableAlign decorations), headers default to the start. */
+.editor-host .ProseMirror th, .editor-host .ProseMirror td { border: 1px solid var(--border); padding: 4px 10px; min-width: 3em; vertical-align: top; overflow-wrap: normal; word-break: normal; text-align: start; }
 .editor-host .ProseMirror th { background: var(--row); }
 .editor-host .ProseMirror th p, .editor-host .ProseMirror td p { margin: 0; }
 .editor-host .ProseMirror a { color: var(--link); text-decoration: underline; }
@@ -367,6 +376,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .popup-menu { position: fixed; z-index: 40; min-width: 260px; max-width: 420px; padding: 4px; background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent); font-size: 13px; }
 .menu-item { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 4px 8px; border-radius: 6px; cursor: default; outline: none; }
 .menu-item:hover, .menu-item:focus { background: var(--row); }
+.menu-item:focus-visible { outline: none; background: var(--hover); } /* D-594 */
 .menu-item.checked { font-weight: 600; }
 .menu-item[aria-disabled="true"] { opacity: .5; }
 .menu-item kbd { margin-left: auto; color: var(--muted); font: inherit; font-size: 12px; }
@@ -470,7 +480,7 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .type-table th.sorted { color: var(--text); }
 .type-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
 .type-row:hover { background: var(--row); }
-.type-row:focus { outline: 2px solid var(--focus); outline-offset: -2px; }
+.type-row:focus-visible { outline: none; background: var(--hover); }
 .cell-title { display: inline-flex; align-items: center; gap: 6px; }
 .cell-title .icon { color: var(--muted); }
 .sort-mark { margin-left: 4px; }
@@ -629,7 +639,7 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .quick-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .quick-add.inline { margin: 8px 0; }
 .quick-add-input { flex: 1 1 240px; min-width: 0; font: inherit; color: var(--text); background: none; border: none; border-radius: 4px; }
-.quick-add-input:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+.quick-add-input:focus { outline: none; }
 .quick-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); background: var(--hover); border-radius: 5px; padding: 1px 6px; }
 .quick-chip .icon-button { width: 18px; height: 18px; }
 .quick-hint { font-size: 12px; color: var(--muted); }
@@ -647,7 +657,7 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .tf-chip-remove, .tf-clear { width: 20px; height: 20px; padding: 0; border: none; border-radius: 10px; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
 .tf-chip-remove:hover, .tf-clear:hover { background: var(--hover); }
 .tf-input { flex: 1 1 90px; min-width: 90px; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: 13px; }
-.tf-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.tf-input:focus-visible { outline: none; }
 .tf-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: 300px; padding: 6px; border-radius: 10px; background: var(--pop, var(--bg)); border: 1px solid var(--border); box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent); font-size: 13px; }
 .tf-menu-hint { padding: 4px 8px 6px; font-size: 11px; color: var(--muted); }
 .tf-options { max-height: 220px; overflow-y: auto; }
@@ -667,7 +677,7 @@ button.toggle .count { margin-left: 0; }
 .task-alert { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; background: var(--danger-bg); color: var(--danger); }
 .task-alert button { font: inherit; color: inherit; background: none; border: 1px solid currentColor; border-radius: 5px; padding: 0 6px; cursor: pointer; }
 .task-alert .icon-button { border: none; margin-left: auto; }
-.sr-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-live { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .task-note { margin: 6px 0; color: var(--muted); font-size: 13px; }
 .task-section { margin: 20px 0 8px; }
 .task-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
@@ -680,7 +690,7 @@ button.toggle .count { margin-left: 0; }
 .task-group h3.danger { color: var(--danger); }
 .task-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .task-card { box-sizing: border-box; width: 272px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; cursor: default; }
-.task-card:focus-visible, .task-card:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+.task-card:focus-visible { outline: none; background: var(--hover); }
 .task-card-head { display: flex; align-items: flex-start; gap: 8px; }
 .task-check { flex: none; width: 16px; height: 16px; margin-top: 2px; padding: 0; border: 1.5px solid var(--muted); border-radius: 50%; background: var(--bg); color: var(--bg); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .task-check.checked { background: var(--accent); border-color: var(--accent); }
@@ -698,7 +708,13 @@ button.toggle .count { margin-left: 0; }
 .task-chip.due.tone-today { font-weight: 600; color: var(--link); background: var(--link-bg); }
 .task-also { margin: 0; font-size: 12px; color: var(--muted); }
 /* Columns stretch to the board, which fills the page: a column is a drop target over its whole height (5B feedback F5). */
-.task-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: stretch; min-height: calc(100vh - 260px); }
+.task-board { display: flex; gap: 12px; overflow-x: hidden; overflow-y: hidden; padding-bottom: 12px; align-items: stretch; min-height: calc(100vh - 260px); }
+/* D-593: the board scrolls sideways, but its scrollbar takes no space and isn't drawn until the pointer is over the
+   board or a card is dragged (with a mouse macOS always shows scrollbars, and this one sits below the fold). WebKit
+   doesn't restyle a scrollbar on :hover, so the overflow itself switches; the padding keeps the height the same. */
+.task-board:hover, .task-board.dragging { overflow-x: auto; padding-bottom: 4px; }
+.task-board::-webkit-scrollbar { height: 8px; background: transparent; }
+.task-board::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .task-column { flex: none; width: 288px; padding: 8px; border-radius: 10px; background: var(--side); }
 .task-column.drop-over { outline: 2px dashed var(--focus); }
 .task-column-head { display: flex; align-items: center; gap: 6px; }
@@ -795,7 +811,6 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .capture-status { min-height: 1px; display: flex; gap: 8px; align-items: center; padding: 0 16px; }
 .capture-status:not(:empty) { padding: 0 16px 10px; }
 .capture-saved { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; color: var(--text); background: color-mix(in srgb, var(--bg) 94%, transparent); border-radius: 14px; font: 13px/1.4 -apple-system, system-ui, sans-serif; }
-.capture-saved-logo { flex: none; width: 34px; height: 34px; }
 .capture-saved-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .capture-saved-head { display: flex; align-items: baseline; gap: 8px; }
 .capture-saved-head strong { flex: 1; }
@@ -824,7 +839,7 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 /* D-586: one fixed card height, so the virtualized list knows every card's place (inbox/virtual.ts). */
 .inbox-card { box-sizing: border-box; height: 180px; overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .inbox-card-foot { margin-top: auto; }
-.inbox-card:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+.inbox-card:focus-visible { outline: none; background: var(--hover); }
 .inbox-card.reviewed { opacity: 0.6; }
 .inbox-card.selected { border-color: var(--accent); }
 .inbox-card-head { display: flex; align-items: center; gap: 6px; color: var(--muted); }
