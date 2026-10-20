@@ -166,7 +166,7 @@ function completeTask(text: string, defs: TaskDefsDto, done: boolean, now: strin
 
 ### 6.1 Routes, commands, registry
 
-- **Routes:** `tasks` (Schedule) and `tasks/kanban`, both built (R45). The sidebar `Tasks` entry opens the last view (D-481) and shows `counts.overdue + counts.dueToday` when > 0.
+- **Routes:** `tasks` (Schedule) and `tasks/kanban`, both built (R45). The sidebar `Tasks` entry opens the last view (D-481) and shows `counts.open` when > 0 (D-588; was overdue + due today).
 - **Commands** (R45 R4), all `needsVault: true`: `tasks.go`, `tasks.schedule`, `tasks.kanban`, `tasks.groupStatus`, `tasks.groupTag`, `tasks.filterAll`, `tasks.filterToday`, `tasks.filterWeek`, `tasks.add`, and the card-scoped `task.complete`, `task.setStatus`, `task.moveNext`, `task.movePrevious`. Card-scoped commands without a focused card, and Kanban commands on `tasks`, are not run and show nothing. No new shortcut.
 - **Registry:** `tasks` becomes `built`; the `daily-tasks` row leaves `IN_NOTE_PLACEHOLDERS`; new disabled controls `tasks.sort` (v1.0) and `task.trash` (MS6); `recurrence` moves to v1.0 (D-381).
 - **i18n:** the R46 keys, exact English texts as the ACs'. Dates in labels come from `Intl.DateTimeFormat(region, …)`, never from the catalog.

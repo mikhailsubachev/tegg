@@ -2,6 +2,7 @@
 // of index tag suggestions. ⏎ adds the highlighted suggestion or the typed tag; a space or a comma adds the typed tag;
 // ⌫ in the empty field removes the last chip. Shared by the capture window and the Inbox's `Add tags…` (§4).
 import { useId, useRef, useState } from 'react';
+import { Icon } from '../shell/Icon';
 import { region } from '../i18n/collate';
 import { t } from '../i18n/catalog';
 import { addChip, tagSuggestions } from './tags';
@@ -32,6 +33,7 @@ export function TagField({ chips, onChange, tags, autoFocus }: { chips: string[]
   };
   return (
     <div className="tag-field">
+      <span className="tag-field-icon"><Icon name="hash" size={13} /></span>
       {chips.map((c) => (
         <span key={c} className="tag-field-chip">
           <span data-user-content>#{c}</span>

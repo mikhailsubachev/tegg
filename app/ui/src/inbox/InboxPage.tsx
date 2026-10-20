@@ -3,6 +3,7 @@
 // keyboard-first actions per card (mark reviewed, convert, append, link, tags, open) and on a selection (an `inbox`
 // job). A card marked reviewed stays dimmed in place until the user leaves the page or changes the filter (D-556).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
+import { CardText } from './CardText';
 import { TagField } from '../capture/TagField';
 import { firstDay } from '../i18n/dates';
 import { collator, region as regionOf } from '../i18n/collate';
@@ -396,7 +397,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             {tags.more > 0 && <span className="muted">+{tags.more}</span>}
           </div>
         )}
-        {r.excerpt && <p className="inbox-card-text" data-user-content>{r.excerpt}</p>}
+        <CardText path={r.path} version={r.version} excerpt={r.excerpt} />
         <div className="inbox-card-foot">
           {footer && <span className="muted">{footer}</span>}
           <label className="inbox-reviewed">

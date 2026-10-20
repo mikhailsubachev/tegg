@@ -28,10 +28,12 @@ import { Icon } from '../shell/Icon';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { pageFallback, typeOfValue } from '../types/util';
+import { reviewable } from '../review';
 import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
 import { ContextSections } from '../daily/ContextSections';
 
-export type NoteMeta = { title: string; type: string };
+/** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
+export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
 /** D-520 (ms5-tasks §12.2): an unsaved new object. */
 export type DraftInfo = { text: string; stamp: string; onCreate: (text: string) => Promise<{ path: string; version: VersionDto }> };
 
@@ -39,7 +41,7 @@ export type DraftInfo = { text: string; stamp: string; onCreate: (text: string) 
 export function noteMeta(path: string, text: string): NoteMeta {
   const doc = parse(text.replace(/^﻿/, ''));
   const type = doc.frontmatter?.data?.type;
-  return { title: noteTitle(doc, path), type: typeMatch(type).key.normalize('NFC') };
+  return { title: noteTitle(doc, path), type: typeMatch(type).key.normalize('NFC'), review: doc.frontmatter?.data?.review, hasFrontmatter: !!doc.frontmatter };
 }
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -807,11 +809,21 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const shownState = save.state === 'readOnly' ? save.state : (RANK[embedState] ?? 0) > (RANK[save.state] ?? 0) ? embedState : save.state;
   const saveText = t(`save.${shownState}`);
   // 3D: the type in effect (FR-TYP-13): the panel's frontmatter in the editor, else the file.
-  const fmData = parse(editable ? head : (diskText || loaded.text)).frontmatter?.data ?? {};
+  const fmDoc = parse(editable ? head : (diskText || loaded.text));
+  const fmData = fmDoc.frontmatter?.data ?? {};
   const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
+  // D-591: the review toggle right of the title row (the daily header has its own, D-330).
+  const reviewShown = !daily && !draft && editable && !showSource && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
+  const reviewed = reviewOf(fmData);
+  const reviewToggle = reviewShown ? (
+    <button type="button" tabIndex={0} className={`text-button review note-review ${reviewed ? 'on' : ''}`} aria-pressed={reviewed} data-command={reviewed ? 'note.markUnreviewed' : 'note.markReviewed'}
+      onClick={() => setReviewedRef.current(!reviewed)}>
+      {reviewed && <Icon name="check" size={14} />}<span>{t(reviewed ? 'daily.reviewed' : 'daily.markReviewed')}</span>
+    </button>
+  ) : null;
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
@@ -852,6 +864,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
             </span>
           </h1>
         ) : editable && !showSource ? (
+          <div className="note-title-row">
           <h1 className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
@@ -864,6 +877,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               onTab={() => { onTitleBlur(); if (propertiesOpen) panelApi.current?.focusFirst(); else pane.current?.focus(); }}
             />
           </h1>
+          {reviewToggle}
+          </div>
         ) : (
           <h1 ref={heading} tabIndex={-1} className="note-title">
             <span data-user-content>{meta.title}</span>

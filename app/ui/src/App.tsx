@@ -491,9 +491,9 @@ export function App() {
 
   // D-562: a note route carries its object's type, so the review commands follow its Review row.
   setDateTimeSetting(ui.dateTime);
-  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type } : route;
+  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter } : route;
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type, meta?.review, meta?.hasFrontmatter]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 

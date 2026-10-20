@@ -57,6 +57,13 @@ export const light: Tokens = {
   // 5A-1 (FR-TSK-09 AC-2, AC-3): due chips on the Tasks boards; danger / link keep 4.5:1 on them.
   'danger-bg': '#FCEBEA',
   'link-bg': '#E8EFFC',
+  // F9 (capture.md R55 look): the board's primary button.
+  btn: '#1C1C1E',
+  'btn-fg': '#FFFFFF',
+  // The app mark on the capture's saved panel (D-164 colours, both themes).
+  'logo-tile': '#FFFFFF',
+  'logo-edge': '#D9DEEA',
+  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -81,6 +88,11 @@ export const dark: Tokens = {
   'embed-bg': '#212124',
   'danger-bg': '#3A2020',
   'link-bg': '#1E2A44',
+  btn: '#ECECEE',
+  'btn-fg': '#1C1C1E',
+  'logo-tile': '#FFFFFF',
+  'logo-edge': '#D9DEEA',
+  'logo-mark': '#0B44F0',
   ...typeTokens(TYPE_DARK),
 };
 

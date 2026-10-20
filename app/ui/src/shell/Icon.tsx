@@ -58,6 +58,7 @@ const PATHS: Record<string, string> = {
   map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
   star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z',
   flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
+  upload: 'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4',
   bookmark: 'M6 3h12v18l-6-4-6 4z',
   briefcase: 'M3 7h18v13H3zM8 7V4h8v3M3 12h18',
   coffee: 'M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 9h1a3 3 0 0 1 0 6h-1M7 2v3M11 2v3',

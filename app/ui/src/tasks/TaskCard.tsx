@@ -99,13 +99,16 @@ export type CardProps = {
   onMenu: (row: TaskRowDto, anchor: HTMLElement, opener: HTMLElement | null) => void;
   onKey?: (e: React.KeyboardEvent<HTMLElement>, row: TaskRowDto) => void;
   dragProps?: Record<string, unknown>;
+  /** The Kanban by status (D-589). */
+  hideStatus?: boolean;
   children?: ReactNode;
 };
 
-export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, onToggle, onMenu, onKey, dragProps }: CardProps) {
+export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStatus, onToggle, onMenu, onKey, dragProps }: CardProps) {
   const done = isDone(row);
   const firstStatus = defs.statuses[0]?.label ?? null;
-  const showStatus = row.status !== null && (row.status !== firstStatus || !row.statusKnown);
+  // D-589: the Kanban by status names the status in its column; a value that isn't a status still shows (`No status`).
+  const showStatus = row.status !== null && (hideStatus ? !row.statusKnown : row.status !== firstStatus || !row.statusKnown);
   const lastPriority = defs.priorities[defs.priorities.length - 1]?.label ?? null;
   const showPriority = !done && row.priority !== null && row.priorityRank < defs.priorities.length && row.priority !== lastPriority;
   const statusColor = optionColor(defs, 'status', row.status);

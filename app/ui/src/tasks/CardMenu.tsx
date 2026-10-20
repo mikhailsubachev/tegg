@@ -1,11 +1,13 @@
 // Slice 5A-1: the card's `More` menu (R43, D-482, D-479): Open, Status ›, Priority ›, Due date…, Move to trash (MS6);
 // on the Kanban `Move to ›` and, grouped by tag, `Also add to ›`. A submenu replaces the list in place, so one menu is
 // open at a time; Esc closes and gives the focus back to what had it.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseDate as parseRegionDate } from '@tegg/schema';
 import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
+import { Icon } from '../shell/Icon';
+import { DatePicker } from '../types/controls/DateControls';
 import type { KanbanColumn } from './views';
 
 export type MenuTarget = { row: TaskRowDto; anchor: HTMLElement; opener: HTMLElement | null; column?: string };
@@ -30,6 +32,8 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
   const [level, setLevel] = useState<'root' | 'status' | 'priority' | 'move' | 'also' | 'due'>('root');
   const [dueText, setDueText] = useState('');
   const [dueError, setDueError] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const pickBtn = useRef<HTMLButtonElement | null>(null);
   const { row } = target;
   const close = () => { onClose(); (target.opener ?? target.anchor)?.focus(); };
   const run = (f: () => void) => () => { close(); f(); };
@@ -50,6 +54,16 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
             const p = parseRegionDate(dueText, region);
             if (p.ok && p.value && typeof p.value === 'object' && 'date' in p.value) { close(); actions.due(row, (p.value as { date: string }).date); } else setDueError(true);
           }} />
+        {/* D-587: the month grid of a date property, next to the field. */}
+        <button ref={pickBtn} type="button" tabIndex={0} className="icon-button" data-command="task.dueDate" aria-label={t('panel.datePicker')} title={t('panel.datePicker')}
+          aria-haspopup="dialog" aria-expanded={picker} onClick={() => setPicker((p) => !p)}>
+          <Icon name="calendar" size={14} />
+        </button>
+        {picker && (
+          <DatePicker value={row.due} anchor={pickBtn.current}
+            onClose={() => { setPicker(false); pickBtn.current?.focus(); }}
+            onPick={(d) => { setPicker(false); close(); actions.due(row, d); }} />
+        )}
       </div>
     );
   }

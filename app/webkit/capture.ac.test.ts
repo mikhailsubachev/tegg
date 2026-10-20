@@ -30,7 +30,7 @@ async function saveWithKeys(page: Page) {
 
 test('fr_cap_01_ac1_the_window_content_opened_from_the_status_item', async ({ page }) => {
   await startCapture(page, { trigger: 'status-item' });
-  assert.equal(flat(await (await must(typeBtn(page), 'button "Type: …"')).getAttribute('aria-label') ?? await typeBtn(page).innerText()), 'Type: Quick Note', 'the vault default type');
+  assert.equal(flat(await (await must(typeBtn(page), 'button "Type: …"')).getAttribute('aria-label') ?? await typeBtn(page).getAttribute('aria-label')), 'Type: Quick Note', 'the vault default type');
   assert.ok(await seen(page.getByText('Saves to Doručené', { exact: true }), 1000), 'Saves to <vault name>');
   assert.equal(await dueBtn(page).count(), 0, 'no Due control for a Quick Note');
   assert.equal(await prioBtn(page).count(), 0, 'no Priority control');
@@ -193,7 +193,7 @@ test('fr_cap_01_ac8_esc_keeps_a_draft_and_discard_clears_it', async ({ page }) =
   // The next open (status item keeps the draft's type) restores everything, caret at the end.
   await core.openCapture({ trigger: 'status-item', kind: 'default' });
   assert.equal(nfc(await capValue(page)), 'Zavolat kominíkovi', 'text restored');
-  assert.equal(flat(await typeBtn(page).innerText()), 'Type: Task', 'type kept');
+  assert.equal(flat(await typeBtn(page).getAttribute('aria-label')), 'Type: Task', 'type kept');
   assert.deepEqual(await chips(page), ['doma'], 'chips restored');
   assert.equal(flat(await prioBtn(page).innerText()), 'Priority: High', 'priority restored');
   const caret = await capText(page).evaluate((e) => [(e as HTMLTextAreaElement).selectionStart, (e as HTMLTextAreaElement).value.length]);
@@ -210,7 +210,7 @@ test('fr_cap_01_ac8_ctrl_opt_t_switches_a_drafts_type_and_a_save_removes_it', as
   const core = await startCapture(page, { draft: { text: 'Rozepsáno', type: 'quick-note', tags: [], due: null, priority: null, savedAt: NOW } });
   assert.equal(nfc(await capValue(page)), 'Rozepsáno', 'the stored draft is shown');
   await core.openCapture({ trigger: 'hotkey', kind: 'task' });
-  assert.equal(flat(await typeBtn(page).innerText()), 'Type: Task', '⌃⌥T switches the type to Task');
+  assert.equal(flat(await typeBtn(page).getAttribute('aria-label')), 'Type: Task', '⌃⌥T switches the type to Task');
   await saveWithKeys(page);
   assert.equal((await creates(core)).length, 1, 'saved');
   assert.equal(await eventually(() => core.draft(), (x) => x === null, 1000), null, 'a successful save removes the draft');
@@ -372,7 +372,7 @@ test('fr_cap_04_ac8_the_type_menu_follows_the_type_files', async ({ page }) => {
   assert.ok(items.includes('Recept'), `recept.yml is in the menu: ${items.join(', ')}`);
   assert.ok(!items.includes('Schůzka'), 'a deleted type is gone');
   await page.keyboard.press('Escape');
-  assert.equal(flat(await typeBtn(page).innerText()), 'Type: Quick Note', 'the draft of the deleted type falls back to the default type');
+  assert.equal(flat(await typeBtn(page).getAttribute('aria-label')), 'Type: Quick Note', 'the draft of the deleted type falls back to the default type');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-CAP-05 AC-1, AC-2 (the type)
@@ -380,14 +380,14 @@ test('fr_cap_04_ac8_the_type_menu_follows_the_type_files', async ({ page }) => {
 test('fr_cap_05_ac1_the_hotkey_opens_with_the_vault_default', async ({ page }) => {
   const v = inboxVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: nápad'); });
   await startCapture(page, { vault: v, trigger: 'hotkey' });
-  assert.equal(flat(await (await must(typeBtn(page), 'Type')).innerText()), 'Type: Nápad', 'default-type: nápad');
+  assert.equal(flat(await (await must(typeBtn(page), 'Type')).getAttribute('aria-label')), 'Type: Nápad', 'default-type: nápad');
   assert.equal((await focusName(page)).name, 'Capture text', 'focus in Capture text');
 });
 
 test('fr_cap_05_ac2_new_task_opens_as_task_whatever_the_default', async ({ page }) => {
   const v = inboxVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: nápad'); });
   await startCapture(page, { vault: v, trigger: 'hotkey', kind: 'task' });
-  assert.equal(flat(await (await must(typeBtn(page), 'Type')).innerText()), 'Type: Task');
+  assert.equal(flat(await (await must(typeBtn(page), 'Type')).getAttribute('aria-label')), 'Type: Task');
   assert.equal(flat(await (await must(dueBtn(page), 'Due')).innerText()), 'Due: None');
   assert.equal(flat(await (await must(prioBtn(page), 'Priority')).innerText()), 'Priority: None');
 });

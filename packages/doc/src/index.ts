@@ -210,3 +210,4 @@ export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit 
 
 export { captureParts, type CaptureParts } from './capture.js'
 export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'
+export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan } from './card.js'
