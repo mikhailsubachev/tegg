@@ -2,7 +2,7 @@
 // click leaves no focus ring (computed `outline-style` none or `outline-width` 0, and no `box-shadow` ring) on a sidebar
 // entry, the `Kanban` and `Status` tabs, a button, a task card, an Inbox card, a table row and a menu item; (b) reaching
 // them with Tab or arrows shows an indicator: a ≥ 2 px outline in the `focus` token on buttons, tabs, links and chips,
-// the `sel` background on rows, cards and menu items; (c) a focused text field (quick-add, tag filter, dialog inputs,
+// the `hover` background on rows, cards and menu items; (c) a focused text field (quick-add, tag filter, dialog inputs,
 // property fields) has no outline ring, by click or by Tab; no computed `outline-color` equals the old blue focus values
 // `#1D5CCB` / `#86AEFF`. Routes: Home, Inbox, Tasks (Schedule and Kanban), a type page, a note page and Settings.
 // docs/acceptance/app-shell.md; fixture tests/fixtures/vaults/inbox (+ new-empty/.tegg). Interface: ms3-shell §3.5
@@ -153,9 +153,9 @@ test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
 test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }) => {
   await startMain(page);
   const focus = await tokenColour(page, 'focus');
-  const sel = await tokenColour(page, 'sel');
+  const sel = await tokenColour(page, 'hover'); // D-594: the neutral hover background, not the blue sel
   assert.ok(focus, 'the focus token exists');
-  assert.ok(sel, 'the sel token exists (D-594: the --sel background on rows, cards and menu items)');
+  assert.ok(sel, 'the hover token exists (D-594: the --hover background on rows, cards and menu items)');
   const states: NonNullable<State>[] = [];
   await runCommand(page, 'Go to Home');
   await sleep(200);
@@ -196,7 +196,7 @@ test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }
   for (const s of states) {
     if (s.textField) continue;
     if (selRoles.has(s.role)) {
-      if (s.bg !== sel) bad.push(`${show(s)}: background should be the sel token ${sel}`);
+      if (s.bg !== sel) bad.push(`${show(s)}: background should be the hover token ${sel}`);
     } else if (outlineRoles.has(s.role)) {
       if (!(hasOutline(s) && s.outlineWidth >= 2 && s.outlineColor === focus)) bad.push(`${show(s)}: should be a ≥ 2 px outline in the focus token ${focus}`);
     } else bad.push(`${show(s)}: unexpected focus target`);

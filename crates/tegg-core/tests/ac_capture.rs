@@ -5,7 +5,7 @@
 //! start removes the temp file; a stem taken between plan and rename gives ` (2)`), AC-8 (the folder as defined at the
 //! moment of the save, folders created); FR-CAP-01 AC-5 (a captured link resolves and is a backlink; an inline tag
 //! counts); NFR-SEC-03 AC-3 (it never overwrites; it refuses Daily Note, Tag, Image, PDF, unknown keys and bytes
-//! without the type, `review: unreviewed` or `captured`). Written from the ACs and the contract only (D-61). The bytes
+//! without the type, `review: unreviewed` or `created`, D-595). Written from the ACs and the contract only (D-61). The bytes
 //! are written literally as R57 gives them (the capture window builds them with `@tegg/doc`, tested at L1).
 //!
 //! Fixture: tests/fixtures/vaults/inbox + new-empty/.tegg in a temporary directory (its README.md isn't a vault file).
@@ -80,9 +80,10 @@ fn changed(a: &std::collections::BTreeMap<String, Entry>, b: &std::collections::
 fn strs(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
 }
-/// R57 bytes of a captured object: `extra` lines go between `title` and `review` (schema keys, template keys, tags).
+/// R57 bytes of a captured object: `extra` lines go between `title` and `review` (schema keys, template keys, tags);
+/// no `captured` key (D-595).
 fn capture_bytes(r#type: &str, title_yaml: &str, extra: &str, body: &str) -> String {
-    format!("---\nid: {ID}\ntype: {}\ntitle: {title_yaml}\n{extra}review: unreviewed\ncaptured: {NOW}\ncreated: {NOW}\nmodified: {NOW}\n---\n{body}", r#type)
+    format!("---\nid: {ID}\ntype: {}\ntitle: {title_yaml}\n{extra}review: unreviewed\ncreated: {NOW}\nmodified: {NOW}\n---\n{body}", r#type)
 }
 fn quick(title_yaml: &str, body: &str) -> String {
     capture_bytes("quick-note", title_yaml, "", body)
@@ -365,9 +366,9 @@ fn nfr_sec_03_ac3_refuses_bytes_that_are_not_a_capture() {
     ok!(core.capture_create("quick-note", "Platný", quick("Platný", "").as_bytes()), "capture_create(quick-note)");
     let before = snapshot(&root);
     let bad = [
-        ("no review", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\ncaptured: {NOW}\ncreated: {NOW}\nmodified: {NOW}\n---\n")),
-        ("reviewed", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\nreview: reviewed\ncaptured: {NOW}\ncreated: {NOW}\nmodified: {NOW}\n---\n")),
-        ("no captured", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\nreview: unreviewed\ncreated: {NOW}\nmodified: {NOW}\n---\n")),
+        ("no review", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\ncreated: {NOW}\nmodified: {NOW}\n---\n")),
+        ("reviewed", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\nreview: reviewed\ncreated: {NOW}\nmodified: {NOW}\n---\n")),
+        ("no created (D-595)", format!("---\nid: {ID}\ntype: quick-note\ntitle: Zkouška\nreview: unreviewed\nmodified: {NOW}\n---\n")),
         ("another type", capture_bytes("page", "Zkouška", "", "")),
         ("no frontmatter", "Zkouška\n".to_string()),
     ];

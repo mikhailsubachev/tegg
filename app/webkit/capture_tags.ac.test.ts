@@ -42,7 +42,7 @@ test('fr_cap_01_ac6_the_tag_field', async ({ page }) => {
   await sleep(300);
   const c = await creates(core);
   assert.equal(c.length, 1, 'one capture');
-  assert.equal(masked(c[0].text), `---\nid: <ULID>\ntype: quick-note\ntitle: Výlet na Sněžku\ntags: [výlet, nákup]\nreview: unreviewed\ncaptured: ${NOW}\ncreated: ${NOW}\nmodified: ${NOW}\n---\n`, 'tags in chip order');
+  assert.equal(masked(c[0].text), `---\nid: <ULID>\ntype: quick-note\ntitle: Výlet na Sněžku\ntags: [výlet, nákup]\nreview: unreviewed\ncreated: ${NOW}\nmodified: ${NOW}\n---\n`, 'tags in chip order');
   assert.ok(!(await core.writesTo()).some((p) => p.startsWith('Tags/')), 'no Tags/ file (D-185)');
 });
 

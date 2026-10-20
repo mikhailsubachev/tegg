@@ -398,7 +398,7 @@ test('fr_edt_02_ac20_table_cell_pipe_and_actions', async ({ page }) => {
   const orig = original(E.deset);
   const cell = await must(block(page, 8).getByRole('cell', { name: '1' }), 'cell 1');
   await cell.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press('Meta+ArrowRight'); // line end on macOS; the click may land before right-aligned text (G6: column alignment)
   await page.keyboard.type('x|y');
   let t = await savedText(page, core, E.deset);
   assert.equal(noModified(t), noModified(orig).replace('| a \\| b | 1 |', '| a \\| b | 1x\\|y |'), 'pipe escaped; alignment and other cells unchanged');
