@@ -138,6 +138,10 @@ export type FakeOptions = {
   shellSettings?: ShellSettingsDto;
   /** The stored capture draft (`capture_draft_get`). */
   captureDraft?: CaptureDraftDto | null;
+  // ---------------------------------------------------------------- v0.52 feedback (ms3-shell §16.8)
+  /** FR-SYN-03 AC-21: every written `note_write` is reported as `vault:changed { paths: [p] }` twice, as the watcher
+   *  reports Tegg's own saves: once while the write is pending (before it resolves) and once after it returned. */
+  echoWrites?: boolean;
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -264,7 +268,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
     'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
-    'capture_draft_set', 'capture_saved_show',
+    'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
   ]);
   const opts = init.opts;
   const state = {
@@ -835,6 +839,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.stale.delete(p);
       delete state.indexVer[p];
       state.writtenPaths.push(p);
+      if (opts.echoWrites) {
+        // ms3-shell §16.8: the watcher's report of this write, while it is pending and again after it returned.
+        await state.emit('vault:changed', { paths: [p] });
+        await new Promise((r) => setTimeout(r, 30));
+        setTimeout(() => { void state.emit('vault:changed', { paths: [p] }); }, 0);
+      }
       return { outcome: 'written', version: state.ver(p) };
     },
     note_create_exact: (a) => {
@@ -996,7 +1006,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const byCode = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
       const winners = (a.targets as string[]).some((x) => /\d{4}-\d{2}-\d{2}/.test(String(x))) ? await dailyWinners() : {};
       const dailyWinner = (date: string) => objects().find((o) => o.path === winners[date]);
-      return (a.targets as string[]).map((given) => {
+      // D-601 (ms3-shell §11.1, §16): the resolved object's `review`, `status`, `due`, `completed` (trimmed strings, or null).
+      const fields = (path: string | null) => {
+        const f = path && state.vault?.files[path] !== undefined ? front(state.vault.files[path]) : {};
+        const v = (k: string) => (typeof f[k] === 'string' ? f[k].trim() : null);
+        return { review: v('review'), status: v('status'), due: v('due'), completed: v('completed') };
+      };
+      return (a.targets as string[]).map((given) => { const r = resolveOne(given); return { ...r, ...fields(r.path) }; });
+      function resolveOne(given: string): { target: string; kind: string; path: string | null; title: string | null; type: string | null } {
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);
         if (cut >= 0) t = t.slice(0, cut).trim();
@@ -1018,7 +1035,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         if (hit) return { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type };
 
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
-      });
+      }
     },
     // 4C (ms4-jobs §4, §11): the job engine over the in-memory files; plans and bytes from Node (fake-jobs.ts).
     note_rename: async (a) => {
@@ -1161,6 +1178,19 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.touch(plan.path);
       state.writtenPaths.push(plan.path);
       return { path: plan.path, title: String(a.title).normalize('NFC'), typeName: plan.typeName };
+    },
+    // v0.52 (ms5-capture §16.1, D-603): the switcher's matching as `{ link, title, type, alias }`, at most 8, no create
+    // rows; `link` is the D-184 link text (the file stem, or the vault path without `.md` when the stem isn't unique).
+    capture_suggest: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const items = (await handlers.index_switcher({ q: String(a?.query ?? ''), limit: 30 })) as any[];
+      const stemOf = (p: string) => p.split('/').pop()!.replace(/\.md$/, '').normalize('NFC').toLowerCase();
+      const stems: Record<string, number> = {};
+      for (const o of objects()) stems[stemOf(o.path)] = (stems[stemOf(o.path)] ?? 0) + 1;
+      return items.filter((x) => x.kind === 'object').slice(0, 8).map((x) => ({
+        link: (stems[stemOf(x.path)] ?? 0) > 1 ? String(x.path).replace(/\.md$/, '') : String(x.path).split('/').pop()!.replace(/\.md$/, ''),
+        title: x.title, type: x.type, alias: x.matched_alias ?? null,
+      }));
     },
     capture_ready: (a) => { state.captureLog.ready.push(Number(a.seq)); return null; },
     capture_hide: () => { state.captureLog.hides++; return null; },

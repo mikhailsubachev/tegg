@@ -178,7 +178,11 @@ export function capturePlan(files: Files, a: { type: string; title: string; text
   if (!t || NOT_CAPTURE_TARGETS.includes(key)) return { error: { kind: 'UnsupportedType', message: `fake: ${key} can't be captured` } };
   const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/.exec(String(a.text));
   const y = m ? readYml(m[1]) : {};
-  const ok = typeof y.type === 'string' && matchKey(y.type) === key && y.review === 'unreviewed' && (typeof y.created === 'string' ? y.created !== '' : y.created != null);
+  // D-604 (§3.3 step 2): `review: unreviewed` exactly when the type's review workflow is on (locked or on); another type's
+  // capture carries no `review` key.
+  const reviewType = t.review === 'on' || t.review === 'locked';
+  const reviewOk = reviewType ? y.review === 'unreviewed' : !Object.prototype.hasOwnProperty.call(y, 'review');
+  const ok = typeof y.type === 'string' && matchKey(y.type) === key && reviewOk && (typeof y.created === 'string' ? y.created !== '' : y.created != null);
   if (!ok) return { error: { kind: 'NotACapture', message: 'fake: not a capture' } };
   const folder = String(t.folder ?? key).replace(/\/+$/, '');
   const stem = stemOf(a.title);
