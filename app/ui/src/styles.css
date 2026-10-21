@@ -912,7 +912,7 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 /* D-602 (QuickCapture board state 4): the due calendar. */
 .capture-chip.open { border-color: var(--link); }
 .capture-chip-icon.due.none { color: var(--faint); }
-.capture-chip .faint { color: var(--faint); }
+.capture-chip .faint { color: var(--muted); }
 .capture-cal { width: 268px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .capture-cal input[type='text'] { height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
 .cal-quick { display: flex; flex-wrap: wrap; gap: 6px; }

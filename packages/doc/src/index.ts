@@ -209,5 +209,5 @@ export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit 
 
 export { captureParts, type CaptureParts } from './capture.js'
 export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'
-export { tableCells, displayTable, displayTables, needsDisplayTable, splitRow, type TableAlign, type TableCells } from './table.js'
+export { tableCells, displayTable, displayTables, displayTablesAt, needsDisplayTable, splitRow, type TableAlign, type TableCells } from './table.js'
 export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan } from './card.js'

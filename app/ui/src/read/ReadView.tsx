@@ -5,7 +5,7 @@ import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
-import { displayTables, markdownTree, parse, wikilinks } from '@tegg/doc';
+import { displayTables, displayTablesAt, markdownTree, parse, wikilinks } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
 import type { EmbedTree } from '../embeds/tree';
@@ -116,7 +116,7 @@ function plainText(n: Any): string {
   return '';
 }
 
-type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object> };
+type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object>; readOnlyTables?: Set<number> };
 
 function Chip({ kind, name, type, description, disabled, onActivate, info }: {
   kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
@@ -487,7 +487,7 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       const align = (i: number) => (n.align?.[i] ?? undefined) as 'left' | 'center' | 'right' | undefined;
       const [head, ...rows] = n.children as Any[];
       return (
-        <div key={key} className="table-wrap">
+        <div key={key} className="table-wrap" {...(c.readOnlyTables?.has(n.position?.start?.line) ? { 'data-table-readonly': '', 'aria-description': t('table.readOnly') } : {})}>
           <table>
             <thead>
               <tr>
@@ -553,10 +553,11 @@ export function ReadView(props: ReadViewProps) {
   const text = props.text.replace(/^﻿/, '');
   const doc = parse(text);
   // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
-  const body = displayTables(text.slice(doc.bodyStart));
+  const shown = displayTablesAt(text.slice(doc.bodyStart));
+  const body = shown.text;
   const tree = markdownTree(body) as unknown as Any;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
-  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet() };
+  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines) };
   if (props.bare) return <div className="read-view embed-read" data-user-content>{topBlocks(c, tree.children as Any[], lineOffset)}</div>;
   return (
     <article className="read-view" aria-label={noteTitle(doc, props.path)} data-user-content>

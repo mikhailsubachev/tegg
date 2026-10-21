@@ -2,7 +2,7 @@
 // their state, and the editor's typing triggers. Read only; changing shortcuts is FR-SET-04 (v1.0).
 import type { RefObject } from 'react';
 import { t } from '../i18n/catalog';
-import { GROUPS, grouped, INBOX_KEYS, TRIGGERS } from '../shell/shortcutGroups';
+import { GROUPS, grouped, INBOX_KEYS, ROUTE_TITLES, TRIGGERS } from '../shell/shortcutGroups';
 import { useHotkeys } from './settings5b';
 
 export function ShortcutsPage({ heading, commandTitle }: { heading: RefObject<HTMLHeadingElement | null>; commandTitle: (id: string) => string | null }) {
@@ -28,7 +28,7 @@ export function ShortcutsPage({ heading, commandTitle }: { heading: RefObject<HT
       <h1 ref={heading} tabIndex={-1}>{t('help.shortcuts')}</h1>
       {table(t('settings.shortcuts.global'), global)}
       {GROUPS.map((g) => {
-        const rows: [string, string][] = (groups.get(g) ?? []).map((s) => [commandTitle(s.command) ?? s.command, s.keys]);
+        const rows: [string, string][] = (groups.get(g) ?? []).map((s) => [commandTitle(s.command) ?? (ROUTE_TITLES[s.command] ? t(ROUTE_TITLES[s.command]) : s.command), s.keys]);
         if (g === 'inbox') rows.push(...INBOX_KEYS.map(([k, label]): [string, string] => [t(label), k]));
         return table(t(`help.group.${g}`), rows);
       })}

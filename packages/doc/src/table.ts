@@ -82,6 +82,12 @@ export function needsDisplayTable(raw: string): boolean {
 
 /** `text` with every table that `needsDisplayTable` rewritten by `displayTable`, for display; lines are kept. */
 export function displayTables(text: string): string {
+  return displayTablesAt(text).text
+}
+
+/** `displayTables`, with the 1-based first lines of the rewritten tables (the read view marks them read-only). */
+export function displayTablesAt(text: string): { text: string; lines: number[] } {
+  const at: number[] = []
   const lines = text.split('\n')
   for (let i = 0; i + 1 < lines.length; i++) {
     if (!lines[i].includes('|')) continue
@@ -89,8 +95,8 @@ export function displayTables(text: string): string {
     while (j < lines.length && lines[j].includes('|') && lines[j].trim() !== '') j++
     const raw = lines.slice(i, j).join('\n')
     if (!tableCells(raw)) continue
-    if (needsDisplayTable(raw)) lines.splice(i, j - i, ...displayTable(raw)!.split('\n'))
+    if (needsDisplayTable(raw)) { lines.splice(i, j - i, ...displayTable(raw)!.split('\n')); at.push(i + 1) }
     i = j - 1
   }
-  return lines.join('\n')
+  return { text: lines.join('\n'), lines: at }
 }
