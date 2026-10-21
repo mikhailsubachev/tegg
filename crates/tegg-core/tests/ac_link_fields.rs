@@ -3,7 +3,7 @@
 //! `due`, `completed` are the trimmed string values of those frontmatter keys of the resolved object, null when
 //! unresolved or not a string; read-only, from the index). Written from the AC and the contract only (D-61).
 //!
-//! The new fields are read through `LinkTarget`'s `Debug` output (`review: Some("unreviewed")`), so the file compiles
+//! The new fields are read through the `Debug` output of `resolve_links_with_fields`'s pairs (`review: Some("unreviewed")`), so the file compiles
 //! before they exist and fails on an assertion (TS-I1).
 //!
 //! Fixture: `new-empty/.tegg` plus synthetic notes (the AC's tasks, Quick Notes and Pages) in a temporary directory.
@@ -14,7 +14,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use common::*;
-use tegg_core::{Core, CoreOptions, LinkTarget};
+use tegg_core::{Core, CoreOptions, LinkFields, LinkTarget};
+
+/// D-601: `resolve_links_with_fields` gives each target with its chip fields (owner-approved change, v0.52).
+type Resolved = (LinkTarget, LinkFields);
 
 macro_rules! ok {
     ($e:expr, $what:expr) => {
@@ -71,7 +74,7 @@ fn targets(t: &[&str]) -> Vec<String> {
 }
 /// The `Debug` text of one field of a resolved target, e.g. `Some("To do")` or `None`; `<missing>` when the field
 /// doesn't exist on `LinkTarget`.
-fn field(t: &LinkTarget, name: &str) -> String {
+fn field(t: &Resolved, name: &str) -> String {
     let dbg = format!("{t:?}");
     let key = format!("{name}: ");
     let Some(at) = dbg.find(&format!(" {key}")).map(|i| i + 1 + key.len()) else { return "<missing>".to_string() };
@@ -98,7 +101,7 @@ fn field(t: &LinkTarget, name: &str) -> String {
     }
     rest.split([',', '}']).next().unwrap_or("").trim().to_string()
 }
-fn fields(t: &LinkTarget) -> [String; 4] {
+fn fields(t: &Resolved) -> [String; 4] {
     [field(t, "review"), field(t, "status"), field(t, "due"), field(t, "completed")]
 }
 fn some(s: &str) -> String {
@@ -113,7 +116,7 @@ fn fr_lnk_07_ac10_resolve_links_returns_review_status_due_completed() {
     let sb = sandbox();
     let root = vault(&sb);
     let core = open(&root, &sb);
-    let r = core.resolve_links(PREHLED, &targets(&["Připravit poznámky", "Nápad na podcast", "Sebrat ceny letenek", "Plán"]));
+    let r = core.resolve_links_with_fields(PREHLED, &targets(&["Připravit poznámky", "Nápad na podcast", "Sebrat ceny letenek", "Plán"]));
     assert_eq!(r.len(), 4, "one result per target");
     assert_eq!(fields(&r[0]), [NONE.to_string(), some("To do"), some("2026-10-23"), NONE.to_string()], "Připravit poznámky: review, status, due, completed (D-601)");
     assert_eq!(fields(&r[1]), [some("unreviewed"), NONE.to_string(), NONE.to_string(), NONE.to_string()], "Nápad na podcast: review unreviewed");
@@ -126,7 +129,7 @@ fn fr_lnk_07_ac10_values_are_trimmed_strings_and_null_otherwise() {
     let sb = sandbox();
     let root = vault(&sb);
     let core = open(&root, &sb);
-    let r = core.resolve_links(PREHLED, &targets(&["Zeptat se Petra", "Číselný stav", "Chybí"]));
+    let r = core.resolve_links_with_fields(PREHLED, &targets(&["Zeptat se Petra", "Číselný stav", "Chybí"]));
     assert_eq!(r.len(), 3, "one result per target");
     assert_eq!(field(&r[0], "status"), some("Waiting"), "a quoted value with spaces is trimmed");
     assert_eq!([field(&r[1], "status"), field(&r[1], "review")], [NONE.to_string(), NONE.to_string()], "a number or a list is not a string: null");
@@ -138,12 +141,12 @@ fn fr_lnk_07_ac10_fields_follow_an_external_change() {
     let sb = sandbox();
     let root = vault(&sb);
     let core = open(&root, &sb);
-    let before = core.resolve_links(PREHLED, &targets(&["Připravit poznámky"]));
+    let before = core.resolve_links_with_fields(PREHLED, &targets(&["Připravit poznámky"]));
     assert_eq!(field(&before[0], "status"), some("To do"), "before: To do");
     let changed = note(1, "task", "Připravit poznámky", "status: Done\ndue: 2026-10-23\ncompleted: 2026-10-19T09:30:00+02:00\n", "");
     std::fs::write(root.join(PRIPRAVIT), changed).expect("setup: external write");
     core.notify_changed(&[PRIPRAVIT.to_string()]);
     assert!(core.wait_idle(Duration::from_secs(30)), "the change is indexed");
-    let after = core.resolve_links(PREHLED, &targets(&["Připravit poznámky"]));
+    let after = core.resolve_links_with_fields(PREHLED, &targets(&["Připravit poznámky"]));
     assert_eq!(fields(&after[0]), [NONE.to_string(), some("Done"), some("2026-10-23"), some("2026-10-19T09:30:00+02:00")], "after the change: Done with completed");
 }

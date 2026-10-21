@@ -44,12 +44,14 @@ async function tableOf(scope: Locator): Promise<{ header: Cell[]; rows: Cell[][]
     const t = root.querySelector('table');
     if (!t) return null;
     const cell = (c: Element) => {
-      const chip = c.querySelector('[data-link-kind]');
-      const a = [...c.querySelectorAll('a[href]')].find((x) => !x.hasAttribute('data-link-kind') && /^https?:/.test(x.getAttribute('href') ?? ''));
+      const chip = c.querySelector('[data-link-kind]:not([data-link-kind="external"])');
+      // The read view's external link (FR-EDT-02, ms3-shell §11.1): `data-link-kind="external"`, the URL in `title`;
+      // it never navigates itself (owner-approved change, v0.52).
+      const a = c.querySelector('a[data-link-kind="external"]');
       return {
         text: ((c as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
         chip: chip ? { kind: chip.getAttribute('data-link-kind'), text: ((chip as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC') } : null,
-        external: a ? `${((a as HTMLElement).innerText ?? '').trim()}|${a.getAttribute('href')}` : null,
+        external: a ? `${((a as HTMLElement).innerText ?? '').trim()}|${a.getAttribute('title')}` : null,
       };
     };
     const trs = [...t.querySelectorAll('tr')];

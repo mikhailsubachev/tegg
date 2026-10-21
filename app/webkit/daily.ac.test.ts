@@ -92,6 +92,9 @@ for (const tz of ZONES) {
   });
 }
 
+/** D-607 (v0.52): the review control is a checkbox (`aria-checked`). */
+const rev = (page: Page, name: string) => main(page).getByRole('checkbox', { name, exact: true });
+
 test.describe('which note a date opens', () => {
   test.use({ timezoneId: 'Europe/Prague' });
 
@@ -489,31 +492,31 @@ test.describe('review', () => {
     await caretAtEnd(page);
     await page.keyboard.type('Dnes');
     assert.ok(await fileWhen(core, D.new14, (t) => !!t?.includes('review: unreviewed')), 'the first write is unreviewed');
-    assert.ok(await seen(btn(page, 'Mark reviewed'), 2000), 'then the control appears as Mark reviewed');
+    assert.ok(await seen(rev(page, 'Mark reviewed'), 2000), 'then the control appears as Mark reviewed');
   });
 
   test('fr_dly_05_ac2_the_review_toggle', async ({ page }) => {
     const core = await startDaily(page, { now: '2026-10-07T12:00:00+02:00' });
     await cmdD(page, '2026-10-07');
-    const b = await must(btn(page, 'Mark reviewed'), 'button "Mark reviewed"');
-    assert.equal(await b.getAttribute('aria-pressed'), 'false', 'not pressed');
+    const b = await must(rev(page, 'Mark reviewed'), 'checkbox "Mark reviewed"');
+    assert.equal(await b.getAttribute('aria-checked'), 'false', 'not checked');
     await b.click();
     const t = await fileWhen(core, D.d07, (x) => !!x?.includes('review: reviewed'));
     const was = original(D.d07)!.split('\n'), now = (t ?? '').split('\n');
     const diff = was.map((l, i) => (l === now[i] ? null : l.split(':')[0])).filter(Boolean);
     assert.deepEqual(diff, ['review', 'modified'], 'only review and modified change (FR-FMT-07 AC-5)');
-    assert.equal(await (await must(btn(page, 'Reviewed'), 'button "Reviewed"')).getAttribute('aria-pressed'), 'true', 'pressed');
+    assert.equal(await (await must(rev(page, 'Reviewed'), 'checkbox "Reviewed"')).getAttribute('aria-checked'), 'true', 'checked');
     await runCommand(page, 'Mark unreviewed');
     assert.ok(await fileWhen(core, D.d07, (x) => !!x?.includes('review: unreviewed')), 'Mark unreviewed reverts it');
     await core.setFile(D.d07, swap(await fileText(core, D.d07), 'review: unreviewed', 'review: reviewed'));
-    assert.ok(await seen(btn(page, 'Reviewed'), 2000), 'an external change updates the control within 2 s');
+    assert.ok(await seen(rev(page, 'Reviewed'), 2000), 'an external change updates the control within 2 s');
   });
 
   test('fr_dly_05_ac2_1_october_starts_reviewed', async ({ page }) => {
     await startDaily(page, { now: '2026-10-01T12:00:00+02:00' });
     await cmdD(page, '2026-10-01');
-    const b = await must(btn(page, 'Reviewed'), 'button "Reviewed"');
-    assert.equal(await b.getAttribute('aria-pressed'), 'true');
+    const b = await must(rev(page, 'Reviewed'), 'checkbox "Reviewed"');
+    assert.equal(await b.getAttribute('aria-checked'), 'true');
   });
 
   // FR-DLY-05 AC-3 (no Inbox yet) is retired by 5B: inbox.md FR-DLY-05 AC-5 replaces it (D-272, D-515).
@@ -523,11 +526,11 @@ test.describe('review', () => {
     const core = await startDaily(page, { vault: v });
     for (const date of ['2026-10-10', '2026-10-01']) {
       await gotoDaily(page, date);
-      const b = await must(btn(page, 'Mark reviewed'), `${date}: Mark reviewed`);
-      assert.equal(await b.getAttribute('aria-pressed'), 'false');
+      const b = await must(rev(page, 'Mark reviewed'), `${date}: Mark reviewed`);
+      assert.equal(await b.getAttribute('aria-checked'), 'false');
     }
     assert.deepEqual(await writeCalls(core), [], 'opening writes nothing');
-    await (await must(btn(page, 'Mark reviewed'), 'Mark reviewed')).click();
+    await (await must(rev(page, 'Mark reviewed'), 'Mark reviewed')).click();
     assert.ok(await fileWhen(core, D.d01, (t) => !!t?.includes('review: reviewed')), 'only activating writes review: reviewed');
   });
 });

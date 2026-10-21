@@ -645,8 +645,9 @@ test('fr_emb_02_ac5_link_mode', async ({ page }) => {
     assert.equal(e?.icon, icon, `${title}: the type icon`);
     const el = topEmbed(main(page), i);
     assert.equal(await el.locator('[data-embed-body], [role="list"], button').count(), 0, `${title}: no header, body or strip`);
-    const alone = await el.evaluate((x) => { const p = x.closest('p') ?? x.parentElement; return ((p as HTMLElement).innerText ?? '').trim() === ((x as HTMLElement).innerText ?? '').trim(); });
-    assert.ok(alone, `${title}: alone in its paragraph`);
+    // D-598 (v0.52): a link-mode block embed is followed by its `Display as` button; nothing else shares its block.
+    const alone = await el.evaluate((x) => { const p = x.closest('p') ?? x.closest('.embed-link-block') ?? x.parentElement; const rest = ((p as HTMLElement).innerText ?? '').replace('Display as', '').trim(); return rest === ((x as HTMLElement).innerText ?? '').trim(); });
+    assert.ok(alone, `${title}: alone in its block (with its Display as, D-598)`);
   }
 });
 
@@ -1022,11 +1023,8 @@ test('fr_emb_02_ac11_showing_an_embed_is_not_opening_it', async ({ page }) => {
   await needEmbeds(main(page), 12, 'the host note');
   await sleep(500);
   assert.deepEqual((await navs(core)).slice(n0), [nfc(M.rezimy)], 'nav_opened exactly once, for Režimy');
-  await page.keyboard.press('Meta+o');
-  await sleep(300);
-  const recent = (await page.getByRole('dialog', { name: 'Quick switcher' }).getByRole('option').allInnerTexts()).map((t) => flat(t.split('\n')[0]));
-  for (const t of ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', 'Saturnin', 'Zavolat Janě', 'Praha', '2026-10-07']) assert.ok(!recent.includes(t), `${t} isn't in the recent list`);
-  await page.keyboard.press('Escape');
+  // v0.52: the switcher check that was here is removed: its rows began with an emoji icon, so it never matched a title,
+  // and the empty switcher lists every object, recent or not. `nav_opened` above is what records recency (FR-NAV-03).
   const bad = (await writeCalls(core)).filter((c) => ['note_write', 'note_create', 'note_create_exact', 'link_create', 'type_patch'].includes(c.cmd));
   assert.deepEqual(bad.map((c) => c.cmd), [], 'no write');
 });
@@ -1120,10 +1118,11 @@ test('fr_emb_02_ac14_read_view_tab_reaches_open_and_display_as', async ({ page }
     await page.keyboard.press('Tab');
     const n = await page.evaluate(() => (document.activeElement?.getAttribute('aria-label') ?? (document.activeElement as HTMLElement | null)?.innerText ?? '').trim().normalize('NFC'));
     if (/^Open /.test(n) || n === 'Display as') seenNames.push(n);
-    if (seenNames.length >= 20) break;
+    if (seenNames.length >= 22) break;
   }
-  const frames = ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', 'Zavolat Janě', 'Praha', '2026-10-07', 'Cíl', 'Jana Nováková', 'Cíl'];
-  assert.deepEqual(seenNames, frames.flatMap((t) => [`Open ${t}`, 'Display as']), 'Tab reaches each frame’s Open and Display as in document order');
+  // D-598 (v0.52): the link-mode block embeds (Saturnin, Svíčková|link) have a `Display as` (no Open) in their place.
+  const frames = ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', null, 'Zavolat Janě', 'Praha', '2026-10-07', 'Cíl', 'Jana Nováková', null, 'Cíl'];
+  assert.deepEqual(seenNames, frames.flatMap((t) => (t === null ? ['Display as'] : [`Open ${t}`, 'Display as'])), 'Tab reaches each frame’s Open and Display as in document order');
 });
 
 test('fr_emb_02_ac14_commands_without_a_selected_embed_are_not_run', async ({ page }) => {

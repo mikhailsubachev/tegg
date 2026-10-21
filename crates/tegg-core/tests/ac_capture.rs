@@ -85,6 +85,10 @@ fn strs(v: &[&str]) -> Vec<String> {
 fn capture_bytes(r#type: &str, title_yaml: &str, extra: &str, body: &str) -> String {
     format!("---\nid: {ID}\ntype: {}\ntitle: {title_yaml}\n{extra}review: unreviewed\ncreated: {NOW}\nmodified: {NOW}\n---\n{body}", r#type)
 }
+/// D-604: a capture of a type without the review workflow (Page, Schůzka, Task) has no `review` line.
+fn plain_bytes(r#type: &str, title_yaml: &str, extra: &str, body: &str) -> String {
+    capture_bytes(r#type, title_yaml, extra, body).replace("review: unreviewed\n", "")
+}
 fn quick(title_yaml: &str, body: &str) -> String {
     capture_bytes("quick-note", title_yaml, "", body)
 }
@@ -112,10 +116,10 @@ fn fr_cap_04_ac1_capture_create_writes_exactly_one_file_indexed_at_once() {
 fn fr_cap_04_ac2_every_capture_type_writes_into_its_folder() {
     let body = "Něco do 500 Kč, viz [[Plán webu]].\n";
     let cases = [
-        ("page", "Pages/Koupit dárek pro Janu.md", capture_bytes("page", "Koupit dárek pro Janu", "tags: [nákup]\n", body)),
-        ("schůzka", "Schůzky/Koupit dárek pro Janu.md", capture_bytes("schůzka", "Koupit dárek pro Janu", "tags: [nákup]\n", body)),
+        ("page", "Pages/Koupit dárek pro Janu.md", plain_bytes("page", "Koupit dárek pro Janu", "tags: [nákup]\n", body)),
+        ("schůzka", "Schůzky/Koupit dárek pro Janu.md", plain_bytes("schůzka", "Koupit dárek pro Janu", "tags: [nákup]\n", body)),
         ("nápad", "Nápady/Koupit dárek pro Janu.md", capture_bytes("nápad", "Koupit dárek pro Janu", "hodnocení: 3\noblast: osobní\ntags: [nákup]\n", body)),
-        ("task", "Tasks/Zavolat kominíkovi.md", capture_bytes("task", "Zavolat kominíkovi", "status: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n", "")),
+        ("task", "Tasks/Zavolat kominíkovi.md", plain_bytes("task", "Zavolat kominíkovi", "status: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n", "")),
     ];
     for (key, want, bytes) in cases {
         // A fresh vault per type: stems are free vault-wide (D-291), so the same title twice in one vault gets ` (2)`.

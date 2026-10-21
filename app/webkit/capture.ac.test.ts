@@ -21,6 +21,8 @@ const ID = /^id: [0-9A-HJKMNP-TV-Z]{26}$/m;
 /** The bytes of a capture call with its new id masked. */
 const masked = (t: string) => t.replace(/^id: .*$/m, 'id: <ULID>');
 const stamps = (now = NOW) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n`; // D-595: no `captured`
+/** D-604: a Task capture (review workflow off) has no `review` line. */
+const plain = (now = NOW) => `created: ${now}\nmodified: ${now}\n`;
 async function saveWithKeys(page: Page) {
   await page.keyboard.press('Meta+Enter');
   await sleep(200);
@@ -76,7 +78,7 @@ test('fr_cap_01_ac3_the_type_menu', async ({ page }) => {
   assert.ok(await absent(typeMenu(page), 1000), 'Esc closes');
   assert.match((await focusName(page)).name, /^Type: /, 'the focus is back on the button');
   await chooseType(page, 'Task');
-  assert.equal(flat(await (await must(dueBtn(page), 'Due control')).innerText()), 'Due: None');
+  assert.equal(flat(await (await must(dueBtn(page), 'Due control')).innerText()), 'Due: No date'); // D-602
   assert.equal(flat(await (await must(prioBtn(page), 'Priority control')).innerText()), 'Priority: None');
   // A priority chosen while Task was the type isn't written after switching to Nápad.
   await click(prioBtn(page), 'Priority');
@@ -388,7 +390,7 @@ test('fr_cap_05_ac2_new_task_opens_as_task_whatever_the_default', async ({ page 
   const v = inboxVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: nápad'); });
   await startCapture(page, { vault: v, trigger: 'hotkey', kind: 'task' });
   assert.equal(flat(await (await must(typeBtn(page), 'Type')).getAttribute('aria-label')), 'Type: Task');
-  assert.equal(flat(await (await must(dueBtn(page), 'Due')).innerText()), 'Due: None');
+  assert.equal(flat(await (await must(dueBtn(page), 'Due')).innerText()), 'Due: No date'); // D-602
   assert.equal(flat(await (await must(prioBtn(page), 'Priority')).innerText()), 'Priority: None');
 });
 
@@ -412,7 +414,7 @@ async function taskCapture(page: Page, o: { title: string; due?: string; priorit
     await page.keyboard.press('Enter');
   }
 }
-const TASK_BYTES = `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps()}---\n`;
+const TASK_BYTES = `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${plain()}---\n`;
 
 test('fr_tsk_10_ac9_the_task_bytes', async ({ page }) => {
   const core = await startCapture(page, { kind: 'task' });
@@ -429,11 +431,11 @@ test('fr_tsk_10_ac9_no_priority_and_cleared_due_write_no_key', async ({ page }) 
   const core = await startCapture(page, { kind: 'task' });
   await taskCapture(page, { title: 'Zavolat kominíkovi', due: '15. 10. 2026', priority: 'No priority' });
   await click(dueBtn(page), 'Due');
-  await click(page.getByRole('button', { name: 'Clear', exact: true }), 'Clear');
+  await click(page.getByRole('button', { name: 'No date', exact: true }), 'No date'); // D-602
   await saveWithKeys(page);
   const c = await creates(core);
   assert.equal(c.length, 1, 'one capture');
-  assert.equal(masked(c[0].text), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\n${stamps()}---\n`, 'no priority, no due');
+  assert.equal(masked(c[0].text), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\n${plain()}---\n`, 'no priority, no due');
 });
 
 test('fr_tsk_10_ac10_quick_add_tokens_in_the_first_line', async ({ page }) => {
@@ -443,7 +445,7 @@ test('fr_tsk_10_ac10_quick_add_tokens_in_the_first_line', async ({ page }) => {
   assert.equal(flat(await prioBtn(page).innerText()), 'Priority: High', 'Priority from the token');
   assert.deepEqual(await chips(page), ['doma'], 'the chip #doma');
   await click(dueBtn(page), 'Due');
-  await click(page.getByRole('button', { name: 'Clear', exact: true }), 'Clear due date');
+  await click(page.getByRole('button', { name: 'No date', exact: true }), 'No date (D-602)');
   assert.ok(nfc(await capValue(page)).includes('tomorrow'), 'Clear puts tomorrow back into the text');
   const page2 = await page.context().newPage();
   const core2 = await startCapture(page2, { kind: 'task' });
@@ -467,7 +469,7 @@ for (const [zone, due, now] of [['Europe/Prague', '2026-10-16', '2026-10-15T00:3
       await typeInCapture(page, 'Zavolat kominíkovi tomorrow');
       await saveWithKeys(page);
       const t = (await creates(core))[0]?.text ?? '';
-      assert.equal(masked(t), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${stamps(now)}---\n`, `${zone}: due ${due}, stamps ${now}`);
+      assert.equal(masked(t), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${plain(now)}---\n`, `${zone}: due ${due}, stamps ${now}`);
     });
   });
 }
@@ -483,8 +485,9 @@ test('fr_tsk_10_ac12_the_task_shows_on_tasks_and_in_the_inbox', async ({ browser
   await saveWithKeys(capPage);
   assert.equal((await creates(cap)).length, 1, 'captured');
   await gotoInbox(mainPage);
-  const first = await eventually(async () => groupRegion(mainPage, 'today').locator('[data-path]').first().getAttribute('data-path').catch(() => null), (p) => p === 'Tasks/Zavolat kominíkovi.md', 2000);
-  assert.equal(first, 'Tasks/Zavolat kominíkovi.md', 'the top of Today in the Inbox');
+  // D-604: Task's review workflow is off, so the capture is not an Inbox item.
+  await sleep(1500);
+  assert.equal(await mainPage.getByRole('main').locator('[data-path="Tasks/Zavolat kominíkovi.md"]').count(), 0, 'not in the Inbox (D-604)');
   await mainPage.keyboard.press('Meta+k');
   await mainPage.getByRole('combobox', { name: 'Command query' }).fill('Go to Tasks');
   await mainPage.keyboard.press('Enter');

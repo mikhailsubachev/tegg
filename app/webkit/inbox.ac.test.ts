@@ -140,7 +140,7 @@ test('fr_inb_01_ac6_open_an_item_and_come_back', async ({ page }) => {
   await click(filterBtn(page, 'all'), 'All');
   await (await must(cardAt(page, I.D1), 'D1')).focus();
   await page.keyboard.press('Enter');
-  await must(main(page).getByRole('button', { name: /^(Reviewed|Mark reviewed)$/ }), 'daily/2026-10-13 (D-321)', 3000);
+  await must(main(page).getByRole('checkbox', { name: /^(Reviewed|Mark reviewed)$/ }), 'daily/2026-10-13 (D-321)', 3000); // D-607: a checkbox
   assert.deepEqual(await vaultWrites(core), [], 'opening writes nothing and marks nothing reviewed');
 });
 
@@ -318,8 +318,8 @@ test('fr_inb_03_ac6_one_state_everywhere', async ({ page }) => {
   await click(reviewedBox(d1), 'D1 Reviewed');
   assert.equal(await eventually(() => sidebarCount(page), (c) => c === '12', 1000), '12', 'the count follows');
   await (await must(main(page).getByRole('link', { name: '2026-10-13', exact: true }), 'D1 title')).click();
-  const toggle = await must(main(page).getByRole('button', { name: /^(Reviewed|Mark reviewed)$/ }), 'the daily header toggle');
-  assert.equal(await toggle.getAttribute('aria-pressed'), 'true', 'Reviewed (pressed) in daily/2026-10-13');
+  const toggle = await must(main(page).getByRole('checkbox', { name: /^(Reviewed|Mark reviewed)$/ }), 'the daily header toggle (D-607: a checkbox)');
+  assert.equal(await toggle.getAttribute('aria-checked'), 'true', 'Reviewed (checked) in daily/2026-10-13');
   await toggle.click();
   assert.equal(await eventually(() => sidebarCount(page), (c) => c === '13', 1000), '13', 'unreviewed from the header lists it again within 1 s');
 });

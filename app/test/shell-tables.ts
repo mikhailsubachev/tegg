@@ -52,6 +52,8 @@ export const R1: R1Row[] = [
   { id: 'settings/date-time', page: 'Settings: Date & time', built: true, due: d('MS5'), reqs: 'FR-SET-03', design: null, goto: 'Go to Settings: Date & time' },
   { id: 'settings/vault', page: 'Settings: Vault', built: true, due: d('MS5'), reqs: 'FR-SET-01', design: null, goto: 'Go to Settings: Vault' },
   { id: 'settings/shortcuts', page: 'Settings: Shortcuts', built: true, due: d('MS5'), reqs: 'FR-SET-04', design: null, goto: 'Go to Settings: Shortcuts' },
+  // v0.52 (D-608): Help › Keyboard Shortcuts; no `Go to` command (palette `Keyboard shortcuts`, ⇧⌘/).
+  { id: 'help/shortcuts', page: 'Keyboard shortcuts', built: true, due: d('MS5'), reqs: 'FR-UX-03', design: null, goto: 'Keyboard shortcuts' },
   { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: null, goto: 'Go to Settings: Menu bar and startup' },
   { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: null, goto: 'Go to Settings: Trash and history' },
   { id: 'settings/previews', page: 'Settings: Previews', built: false, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
@@ -120,6 +122,7 @@ export const R4: R4Row[] = [
   { keys: '⌃⌘S', press: 'Control+Meta+s', command: 'Toggle sidebar', enabled: true },
   { keys: '⇧⌘\\', press: 'Meta+Shift+Backslash', command: 'Toggle focus mode', enabled: true },
   { keys: '⌘,', press: 'Meta+Comma', command: 'Go to Settings', enabled: true },
+  { keys: '⇧⌘/', press: 'Meta+Shift+Slash', command: 'Keyboard shortcuts', enabled: true }, // D-608
   { keys: '⌥⌘U', press: 'Alt+Meta+KeyU', command: 'Toggle Markdown source', enabled: true },
   // 4B (daily-notes.md R17, D-329): on daily routes only.
   { keys: '⌥⌘←', press: 'Alt+Meta+ArrowLeft', command: 'Previous day', enabled: true },
