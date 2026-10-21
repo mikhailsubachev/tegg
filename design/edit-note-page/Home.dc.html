@@ -85,9 +85,9 @@ Home
 </a>
 </sc-for>
 </div>
-<!-- Logo (bottom left) -->
-<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px">
-<button aria-haspopup="menu" aria-label="Tegg: About and Settings" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; border-radius: 8px"><svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg><span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .05em; color: var(--brand)">TEGG</span></button>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
 </div>
 </nav>
 
@@ -271,7 +271,7 @@ const nav = [
 { label: 'Tasks', d: I.task, meta: '3' }
 ].map((n) => ({ ...n, bg: n.active ? 'var(--hover)' : 'transparent', weight: n.active ? '600' : '400' }));
 const types = [
-['Pages', 'page', '128'], ['Tasks', 'task', '46'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
+['Pages', 'page', '128'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
 ['Ideas', 'idea', '10'], ['Meetings', 'meet', '58'], ['Projects', 'proj', '9'], ['People', 'person', '31']
 ].map(([label, k, count]) => ({ label, count, d: T[k][0], color: T[k][1] }));
 const sideTags = [
