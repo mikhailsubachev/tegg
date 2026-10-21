@@ -95,7 +95,7 @@ export function newObject(opts: {
   /** ms5-tasks §11.2 (5A-2, D-524): the body after the frontmatter instead of the template's body (the template's
    *  frontmatter entries still apply). */
   body?: string
-  /** ms5-capture §3.2 (5B, D-540, D-595): a capture. With it: `review: unreviewed` whatever `type.review`, then
+  /** ms5-capture §3.2 (5B, D-540, D-595): a capture. With it: `review: unreviewed` only on review types (D-604), then
    *  `created`, `modified` (no `captured` key, D-595); the template's `id, type, title, tags, review, captured,
    *  created, modified` are ignored and its body is never used (D-540, D-567). */
   capture?: true
@@ -147,7 +147,7 @@ export function newObject(opts: {
     const v = values.get(k)!
     if (v !== null && !(Array.isArray(v) && v.length === 0)) out += entry(k, v)
   }
-  if (opts.type.review !== 'off' || opts.capture) out += formatEntry('review', 'unreviewed')
+  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed') // a capture too only on review types (D-604)
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
   if (opts.body !== undefined) {
     const body = opts.body.normalize('NFC')
@@ -209,4 +209,5 @@ export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit 
 
 export { captureParts, type CaptureParts } from './capture.js'
 export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'
+export { tableCells, displayTable, displayTables, needsDisplayTable, splitRow, type TableAlign, type TableCells } from './table.js'
 export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan } from './card.js'

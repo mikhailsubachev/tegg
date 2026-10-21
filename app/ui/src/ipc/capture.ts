@@ -2,10 +2,10 @@
 // capability allows and the events it listens to. The main window's `ipc/client.ts` is never imported here.
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { CaptureContextDto, CaptureDraftDto, CapturedDto, DateTimeUiDto } from './types';
+import type { CaptureContextDto, CaptureDraftDto, CapturedDto, CaptureSuggestDto, DateTimeUiDto } from './types';
 
 export type CaptureOpen = { seq: number; trigger: string; kind: 'default' | 'task' };
-export type CaptureSaved = { typeName: string; title: string; path: string };
+export type CaptureSaved = { typeName: string; title: string; path: string; heading?: string | null };
 
 export const captureIpc = {
   context: () => invoke<CaptureContextDto>('capture_context'),
@@ -16,7 +16,10 @@ export const captureIpc = {
   openMain: (path: string | null) => invoke<void>('capture_open_main', { path }),
   draftGet: () => invoke<CaptureDraftDto | null>('capture_draft_get'),
   draftSet: (draft: CaptureDraftDto | null) => invoke<void>('capture_draft_set', { draft }),
-  savedShow: (typeName: string, title: string, path: string) => invoke<void>('capture_saved_show', { typeName, title, path }),
+  /** D-603: link suggestions for `[[` and `@` (no body, excerpt or path). */
+  suggest: (query: string) => invoke<CaptureSuggestDto[]>('capture_suggest', { query }),
+  /** `heading`: D-604's `Saved to <plural>` on a type without the review workflow (default `Saved to Inbox`). */
+  savedShow: (typeName: string, title: string, path: string, heading?: string) => invoke<void>('capture_saved_show', { typeName, title, path, heading: heading ?? null }),
 };
 
 export type CaptureUiState = { theme?: string; dateTime?: DateTimeUiDto | null };

@@ -120,7 +120,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'task.trash': 'task.trash',
 };
 
-const NO_GOTO = new Set(['tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -131,6 +131,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'nav.back', title: 'cmd.goBack', section: 'navigate', shortcut: shortcutOf('nav.back'), needsVault: true, run: (c) => a(c)?.back() },
     { id: 'nav.forward', title: 'cmd.goForward', section: 'navigate', shortcut: shortcutOf('nav.forward'), needsVault: true, run: (c) => a(c)?.forward() },
     { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
+    { id: 'help.shortcuts', title: 'cmd.keyboardShortcuts', section: 'app', shortcut: shortcutOf('help.shortcuts'), needsVault: false, run: (c) => a(c)?.go({ id: 'help/shortcuts' }) },
   ];
   for (const r of ROUTES) {
     if (NO_GOTO.has(r.id)) continue;

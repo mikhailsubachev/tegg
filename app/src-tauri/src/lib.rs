@@ -680,7 +680,12 @@ async fn nav_opened(state: State<'_, AppState>, path: Option<String>, route: Opt
 #[tauri::command]
 async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
     let core = core(&state)?;
-    Ok(core.resolve_links(&from, &targets).into_iter().map(link_dto).collect())
+    // D-601: with the chip fields (review, task status, due, completed).
+    Ok(core
+        .resolve_links_with_fields(&from, &targets)
+        .into_iter()
+        .map(|(t, f)| LinkTargetDto { review: f.review, status: f.status, due: f.due, completed: f.completed, ..link_dto(t) })
+        .collect())
 }
 
 /// `embed_load` (ms4-embeds §4, D-429): one call per nesting level; read-only, records no recency.
@@ -728,7 +733,7 @@ fn target_info_dto(t: tegg_core::LinkTargetInfo) -> LinkTargetDto {
         DateMissing => "date-missing",
         Unresolved => "unresolved",
     };
-    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type }
+    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type, review: None, status: None, due: None, completed: None }
 }
 
 fn excerpt_dto(e: tegg_core::Excerpt) -> ExcerptDto {
@@ -1291,6 +1296,10 @@ fn link_dto(t: LinkTarget) -> LinkTargetDto {
         path: t.path,
         title: t.title,
         type_key: t.r#type,
+        review: None,
+        status: None,
+        due: None,
+        completed: None,
     }
 }
 
@@ -1566,10 +1575,21 @@ pub fn run() {
                     app_menu.append(&PredefinedMenuItem::separator(&handle)?)?;
                     app_menu.append(&MenuItem::with_id(&handle, "tegg-quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?)?;
                 }
+                // D-608: Help › Keyboard Shortcuts opens `help/shortcuts` in the main window.
+                for item in menu.items()? {
+                    if let tauri::menu::MenuItemKind::Submenu(sub) = &item {
+                        if sub.text().unwrap_or_default() == "Help" {
+                            sub.append(&MenuItem::with_id(&handle, "tegg-shortcuts", strings::menubar("shortcuts"), true, Some("CmdOrCtrl+Shift+/"))?)?;
+                        }
+                    }
+                }
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, e| {
                     if e.id() == "tegg-quit" {
                         request_quit(app);
+                    } else if e.id() == "tegg-shortcuts" {
+                        shell5b::show_main(app);
+                        let _ = app.emit_to("main", "shell:route", serde_json::json!({ "route": "help/shortcuts" }));
                     }
                 });
             }
@@ -1609,7 +1629,7 @@ pub fn run() {
             job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
             task_list, daily_tasks,
             shell5b::capture_context, shell5b::capture_create, shell5b::capture_ready, shell5b::capture_hide, shell5b::capture_resize,
-            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show,
+            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show, shell5b::capture_suggest,
             shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
             shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
             shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions

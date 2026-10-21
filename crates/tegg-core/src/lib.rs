@@ -830,7 +830,37 @@ pub struct LinkTarget {
     pub r#type: Option<String>,
 }
 
+/// D-601 (v0.52 feedback): what a link chip shows of its target beyond `LinkTarget`: the trimmed string values of
+/// `review`, `status`, `due` and `completed` (None when unresolved, absent or not a string).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LinkFields {
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
+}
+
 impl Core {
+    /// `link_resolve` with D-601's chip fields: one pass over the same objects (NFR-PERF-05 AC-3).
+    pub fn resolve_links_with_fields(&self, from: &str, targets: &[String]) -> Vec<(LinkTarget, LinkFields)> {
+        let objs = self.objects();
+        let by_path: HashMap<&str, &ObjectInfo> = objs.iter().map(|o| (o.path.as_str(), o)).collect();
+        let text = |o: &ObjectInfo, k: &str| o.attributes.get(k).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        Resolver::new(&objs, &self.shared)
+            .resolve(from, targets)
+            .into_iter()
+            .map(|t| {
+                let fields = t.path.as_deref().and_then(|p| by_path.get(p)).map(|o| LinkFields {
+                    review: text(o, "review"),
+                    status: text(o, "status"),
+                    due: o.attributes.get("due").and_then(|v| v.as_str().map(|s| s.trim().to_string())).filter(|s| !s.is_empty()),
+                    completed: text(o, "completed"),
+                });
+                (t, fields.unwrap_or_default())
+            })
+            .collect()
+    }
+
     /// `link_resolve`: resolves every target of one note in one call, by the rules of ms3-shell §11.1 (dialect §6,
     /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {

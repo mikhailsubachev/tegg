@@ -383,6 +383,7 @@ pub(crate) async fn capture_context(state: State<'_, AppState>) -> Result<Captur
                 review: review.into(),
                 attributes: t.def.attributes.clone().into_iter().map(attribute_dto).collect(),
                 template_head: head,
+                plural: Some(t.plural.clone()),
             }
         })
         .collect();
@@ -480,7 +481,7 @@ pub(crate) async fn capture_draft_set(app: AppHandle, draft: Option<CaptureDraft
 static SAVED_GEN: AtomicU64 = AtomicU64::new(0);
 
 #[tauri::command]
-pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title: String, path: String) -> Result<(), IpcError> {
+pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title: String, path: String, heading: Option<String>) -> Result<(), IpcError> {
     let gen = SAVED_GEN.fetch_add(1, Ordering::SeqCst) + 1;
     let a = app.clone();
     app.run_on_main_thread(move || {
@@ -490,7 +491,7 @@ pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title:
                 let _ = panel.set_position(p);
             }
         }
-        let _ = panel.emit_to(SAVED, "capture:saved", serde_json::json!({ "typeName": type_name, "title": title, "path": path }));
+        let _ = panel.emit_to(SAVED, "capture:saved", serde_json::json!({ "typeName": type_name, "title": title, "path": path, "heading": heading }));
         let _ = panel.show();
     })
     .map_err(|e| err("Io", e))?;
@@ -902,4 +903,32 @@ mod macos {
     pub fn launched_as_login_item() -> bool {
         false
     }
+}
+
+/// `capture_suggest` (D-603, ms5-capture §16.1): at most 8 switcher matches as link text, title, type and the matched
+/// alias, for `[[` and `@` in the capture window. No body, excerpt or path is sent (NFR-SEC-03 as amended).
+#[tauri::command]
+pub(crate) async fn capture_suggest(state: State<'_, AppState>, query: String) -> Result<Vec<CaptureSuggestDto>, IpcError> {
+    let core = core(&state)?;
+    let stem = |p: &str| -> String {
+        let p = p.strip_suffix(".md").unwrap_or(p);
+        p.rsplit('/').next().unwrap_or(p).to_string()
+    };
+    let mut stems: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for o in core.objects() {
+        *stems.entry(tegg_format::nfc(&stem(&o.path)).to_lowercase()).or_default() += 1;
+    }
+    Ok(core
+        .switcher(&query, 8)
+        .into_iter()
+        .filter(|i| matches!(i.kind, tegg_core::SwitcherKind::Object))
+        .filter_map(|i| {
+            let path = i.path?;
+            let s = stem(&path);
+            let unique = stems.get(&tegg_format::nfc(&s).to_lowercase()).copied().unwrap_or(0) <= 1;
+            let link = if unique { s } else { path.strip_suffix(".md").unwrap_or(&path).to_string() };
+            Some(CaptureSuggestDto { link, title: i.title, type_key: i.r#type, alias: i.matched_alias })
+        })
+        .take(8)
+        .collect())
 }

@@ -1,5 +1,6 @@
 // Relation and Source (link chips and the picker, FR-EDT-07 AC-6, FR-TYP-08 AC-10), Tags (FR-TYP-08 AC-8) and Aliases
 // (AC-9). Lists keep their style through @tegg/doc setValue (D-230); removing the last item removes the key (AC-9).
+import { chipParts } from '../../links/ChipParts';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
@@ -66,9 +67,10 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
         const wrongType = ok && to && to.length > 0 && !to.map(nfc).includes(nfc(info!.type ?? 'page'));
         const d = dated ? undefined : !ok ? t('link.noNote', { target: w.target }) : wrongType ? t('panel.notType', { type: allowedNames.join(' / ') }) : invalidItems.includes(i) ? t('panel.invalid', { type: t('attrType.relation') }) : undefined;
         const icon = chipIcon(info?.type ?? 'page');
+        const parts = ok ? chipParts(info) : null; // D-600
         return (
           <span key={`${i}:${w.inner}`} className={`chip-wrap ${wrongType ? 'warn' : ''}`}>
-            <a data-command="panel.list.a1" href="#" aria-description={d} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
+            <a data-command="panel.list.a1" href="#" aria-description={ok && parts?.description ? [d, parts.description].filter(Boolean).join(', ') : d} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'} {...parts?.attrs}
               className={`chip link-chip kind-${ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -77,8 +79,9 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
                 else requestOffer({ from: path, target: w.target, relationTo: to && to.length ? to : null, anchor: e.currentTarget }); // FR-LNK-04 AC-4, D-243
               }}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); remove(i); } }}>
-              {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+              {ok && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
               <span data-user-content>{shown}</span>
+              {parts?.suffix}
             </a>
             {wrongType && <WarnIcon />}
             {!disabled && (

@@ -65,6 +65,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `settings/date-time` | Settings: Date & time | TBD | MS3 (3E) | FR-SET-03 | — | Settings section list, palette |
 | `settings/vault` | Settings: Vault | TBD | MS5 | FR-SET-01 | — | Settings section list, palette |
 | `settings/shortcuts` | Settings: Shortcuts | TBD | MS5 | FR-SET-04 | — | Settings section list, palette |
+| `help/shortcuts` | Keyboard shortcuts | built (D-608) | MS5 | FR-UX-03 | — | Help › Keyboard Shortcuts, palette `Keyboard shortcuts`, ⇧⌘/ (no `Go to` command) |
 | `settings/menu-bar` | Settings: Menu bar and startup | TBD | MS5 | FR-SET-05 | — | Settings section list, palette |
 | `settings/trash-history` | Settings: Trash and history | TBD | v1.0 | FR-SET-06 | — | Settings section list, palette |
 | `settings/previews` | Settings: Previews | TBD | v1.0 | FR-SET-07 | — | Settings section list, palette |
@@ -105,6 +106,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌃⌘S | Toggle sidebar | proposed, AP-70 |
 | ⌘⇧\ | Toggle focus mode (Esc also leaves it) | proposed, AP-70 |
 | ⌘, | Go to Settings | proposed, AP-70 |
+| ⇧⌘/ | Keyboard shortcuts | D-608 |
 | ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
 | ⌘[ and ⌘] | Go back, Go forward | FR-NAV-03 (3B.1, D-165, D-166) |

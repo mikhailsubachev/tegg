@@ -3,7 +3,7 @@ import { DuplicateDetails } from './links/DuplicateDetails';
 import { typeNameOf } from './links/icons';
 import { ipc } from './ipc/client';
 import type { SwitcherItemDto } from './ipc/types';
-import { typeIcon } from './icons';
+import { TypeIcon } from './icons';
 import { t } from './i18n/catalog';
 import { prepareObject, type Prepared } from './types/create';
 import { Icon } from './shell/Icon';
@@ -110,7 +110,7 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               }}
               onClick={() => choose(i)}
             >
-              {i.kind === 'create' || i.kind === 'create-as' ? <span className="icon" aria-hidden="true"><Icon name="plus" size={14} /></span> : <span className="icon" aria-hidden="true">{typeIcon(i.type)}</span>}
+              {i.kind === 'create' || i.kind === 'create-as' ? <span className="icon" aria-hidden="true"><Icon name="plus" size={14} /></span> : <span className="icon" aria-hidden="true"><TypeIcon type={i.type} /></span>}
               {i.kind === 'create-as' ? <span className="title">{t('create.as', { query: '\u0000' }).split('\u0000')[0]}<span data-user-content>{i.title}</span>{t('create.as', { query: '\u0000' }).split('\u0000')[1]}</span>
                 : <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>}
               {i.matched_alias && <span className="alias" data-user-content>{i.matched_alias}</span>}

@@ -1,5 +1,6 @@
 // The note's subtitle and read-only Properties strip (FR-TYP-08 display, D-147, D-154, D-160; ms3-shell §11.3).
 // Placed between the title and the body; collapsible, the state is machine-local UI state (D-127).
+import { chipParts } from '../links/ChipParts';
 import { parse } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
@@ -47,12 +48,14 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
   const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
   const kind = ok ? info!.kind : dated ? 'date-missing' : 'unresolved';
   const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
+  const parts = ok ? chipParts(info) : null; // D-600
   return (
     <a
       href="#"
       className={`chip link-chip kind-${kind}`}
       data-link-kind={kind}
-      aria-description={ok || dated ? undefined : t('link.noNote', { target })}
+      aria-description={ok ? parts?.description ?? undefined : dated ? undefined : t('link.noNote', { target })}
+      {...parts?.attrs}
       onClick={(e) => {
         e.preventDefault();
         if ((dated || info?.kind === 'daily') && openDate(target)) return; // FR-DLY-08 AC-6
@@ -60,8 +63,9 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
         else if (from !== undefined) requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
       }}
     >
-      {(ok || dated) && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      {(ok || dated) && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
       <span data-user-content>{ok ? info!.title ?? target : target}</span>
+      {parts?.suffix}
     </a>
   );
 }

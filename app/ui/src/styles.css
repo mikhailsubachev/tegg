@@ -141,6 +141,12 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--hover); }
 .segmented button { height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13px; color: var(--muted); }
 .segmented button.on { background: var(--bg); color: var(--text); font-weight: 600; }
+/* v0.52 H1 (FR-EMB-02 AC-17): Type settings' embed modes are radios drawn as the segmented control. */
+.segmented [role="radio"] { display: inline-flex; align-items: center; height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+.segmented [role="radio"]:hover { color: var(--text); }
+.segmented [role="radio"][aria-checked="true"] { background: var(--link-bg); color: var(--link); font-weight: 600; }
+.segmented [role="radio"][aria-disabled="true"] { cursor: default; opacity: .6; }
+.ts-embed-modes { width: fit-content; }
 
 /* search (MS2) */
 .search input { width: 100%; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
@@ -233,7 +239,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .read-view th { background: var(--row); text-align: start; }
 .chip { display: inline-flex; align-items: center; gap: 3px; border-radius: 5px; padding: 0 4px; text-decoration: none; font-weight: 400; }
 .chip .icon { flex: none; }
-.link-chip { --cbg: var(--type-blue-bg); color: var(--link); background: var(--cbg); }
+.link-chip { --cbg: var(--type-blue-bg); color: var(--link); background: var(--cbg); gap: 4px; padding: 0 6px; } /* D-600: the board's 4 px gap, 6 px padding */
 .link-chip.kind-unresolved { color: var(--danger); background: none; text-decoration: underline dashed var(--danger); text-underline-offset: 3px; }
 .link-chip.kind-date-missing { cursor: pointer; }
 .tag-chip { color: var(--accent); background: var(--accent-bg); }
@@ -776,14 +782,15 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .capture-vault-dot { width: 7px; height: 7px; border-radius: 4px; background: var(--link); }
 .capture-discard { width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
 .capture-text-wrap { position: relative; }
-.capture-text, .capture-mirror { box-sizing: border-box; width: 100%; margin: 0; padding: 10px 16px 4px; font: 15px/1.55 -apple-system, system-ui, sans-serif; letter-spacing: normal; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4; }
+.capture-text, .capture-mirror { box-sizing: border-box; font-kerning: none; font-variant-ligatures: none; text-rendering: optimizeSpeed; width: 100%; margin: 0; padding: 10px 16px 4px; font: 15px/1.55 -apple-system, system-ui, sans-serif; letter-spacing: normal; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4; }
 .capture-text { display: block; position: relative; min-height: 120px; resize: none; border: none; outline: none; box-shadow: none; background: transparent; color: transparent; caret-color: var(--text); scrollbar-width: none; }
 .capture-text::-webkit-scrollbar { display: none; }
 .capture-text:focus, .capture-text:focus-visible { outline: none; box-shadow: none; }
 .capture-text::placeholder { color: var(--faint); }
 .capture-text::selection { color: transparent; background: var(--sel); }
 .capture-mirror { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--text); }
-.capture-mirror-title { font-weight: 650; }
+/* D-592, v0.52 H6: bold by a stroke at the textarea's weight, so each glyph keeps its width and the caret stays on it. */
+.capture-mirror-title { font-weight: inherit; -webkit-text-stroke: 0.55px currentColor; paint-order: stroke fill; }
 .capture-fields { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 16px 2px; }
 .capture-field { position: relative; }
 .capture-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
@@ -867,3 +874,61 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .inbox-picker-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 260px; overflow: auto; }
 .inbox-picker-list li { padding: 4px 6px; border-radius: 4px; }
 .inbox-picker-list li.active { background: var(--hover); }
+/* D-598: a link-mode block embed: its chip, then `Display as` (muted until the pointer is over it). */
+.embed-link-block { display: inline-block; white-space: nowrap; padding: 4px 4px 4px 6px; } /* the inset is the block (D-428 selection), not the chip */
+.embed-link-block > .embed-mode { display: inline-block; margin-left: 6px; vertical-align: middle; }
+
+/* D-600 (LinkChips board): hover tint, Unreviewed mark, task suffix, done and cancelled tasks. */
+.link-chip:not(.kind-unresolved):hover { --cbg: var(--link-bg-h); }
+.link-chip, .embed-chip.embed-link { white-space: nowrap; max-width: 100%; vertical-align: baseline; }
+.link-chip > [data-user-content], .embed-chip.embed-link > [data-user-content] { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.link-chip[data-review="unreviewed"], .embed-chip.embed-link[data-review="unreviewed"] { box-shadow: inset 0 0 0 1px var(--unrev-ring); }
+.chip-suffix { display: inline-flex; align-items: center; flex: none; font-size: 12px; color: var(--muted); }
+.chip-div { width: 1px; height: 12px; background: var(--chip-div); margin: 0 6px 0 3px; }
+.chip-date { color: var(--muted); font-weight: 400; }
+.chip-date[data-tone="today"] { color: var(--link); font-weight: 600; }
+.chip-date[data-tone="overdue"] { color: var(--danger); font-weight: 600; }
+.chip-sep { color: var(--faint); margin: 0 4px; }
+.chip-status { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.chip-status-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--faint); flex: none; }
+.chip-unrev { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 4px; flex: none; }
+.link-chip[data-task-state="done"], .link-chip[data-task-state="cancelled"], .embed-chip.embed-link[data-task-state="done"], .embed-chip.embed-link[data-task-state="cancelled"] { --cbg: var(--hover); color: var(--muted); }
+.link-chip[data-task-state="done"] > [data-user-content], .link-chip[data-task-state="cancelled"] > [data-user-content],
+.embed-chip.embed-link[data-task-state="done"] > [data-user-content], .embed-chip.embed-link[data-task-state="cancelled"] > [data-user-content] { text-decoration: line-through; }
+.link-chip[data-task-state="done"] > .icon, .embed-chip.embed-link[data-task-state="done"] > .icon { color: var(--accent); }
+.link-chip[data-task-state="cancelled"] > .icon, .embed-chip.embed-link[data-task-state="cancelled"] > .icon { color: var(--faint); }
+.embed-chip.embed-link[data-task-state="done"], .embed-chip.embed-link[data-task-state="cancelled"] { background-color: var(--hover); }
+.embed-unrev { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--unrev); }
+.embed-unrev .chip-unrev { margin-left: 0; }
+.task-completed { font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* D-607 (MainUnreviewed board): the review checkbox. */
+.note-type-row > .spacer { flex: 1; }
+.review-check { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--unrev-ring); background: var(--unrev-bg); color: var(--unrev); font-size: 12px; font-weight: 600; cursor: pointer; }
+.review-check .review-box { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--unrev); background: transparent; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; color: var(--bg); }
+.review-check.on { border-color: var(--border); background: var(--bg); color: var(--accent); }
+.review-check.on .review-box { border-color: var(--accent); background: var(--accent); }
+.hidden-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.hidden-list label { display: inline-flex; align-items: center; gap: 8px; }
+/* D-602 (QuickCapture board state 4): the due calendar. */
+.capture-chip.open { border-color: var(--link); }
+.capture-chip-icon.due.none { color: var(--faint); }
+.capture-chip .faint { color: var(--faint); }
+.capture-cal { width: 268px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.capture-cal input[type='text'] { height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.cal-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-quick button { height: 26px; padding: 0 9px; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--text); }
+.cal-head { display: flex; align-items: center; gap: 2px; }
+.cal-head b { flex: 1; font-size: 13px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-wd { font-size: 11px; color: var(--muted); height: 22px; line-height: 22px; }
+.cal-day { height: 30px; border-radius: 7px; font-size: 12px; color: var(--text); background: transparent; }
+.cal-day:hover { background: var(--hover); }
+.cal-day.out, .cal-day.past { color: var(--muted); }
+.cal-day.today { box-shadow: inset 0 0 0 1.5px var(--link); font-weight: 700; }
+.cal-day.sel { background: var(--link); color: var(--bg); font-weight: 700; box-shadow: none; }
+.cal-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
+.cal-foot .text-button { color: var(--link); }
+.capture-suggest { position: absolute; z-index: 8; width: 280px; max-height: 260px; overflow-y: auto; }
+.capture-suggest .capture-menu-item { display: flex; align-items: center; gap: 8px; }
+.capture-suggest .capture-menu-item.sel { background: var(--hover); }
+.shortcuts-group h2 { font-size: 15px; margin: 24px 0 8px; }

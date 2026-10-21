@@ -212,12 +212,11 @@ Text fields commit on ⏎ or when the focus leaves; Esc restores the stored valu
   priority: High
   due: 2026-10-15
   tags: [doma]
-  review: unreviewed
   created: 2026-10-14T12:00:00+02:00
   modified: 2026-10-14T12:00:00+02:00
   ---
   ```
-  and an empty body. `No priority` writes no `priority` key; choosing the option `None` writes `priority: None`; `Due` › `Clear` writes no `due`. *(L1 for the bytes; L5; L6 once)*
+  and an empty body (no `review` line: Task's review workflow is off, D-604). `No priority` writes no `priority` key; choosing the option `None` writes `priority: None`; `Due` › `Clear` writes no `due`. *(L1 for the bytes; L5; L6 once)*
 - **AC-10** **Quick-add tokens in the title (D-380, D-483, AP-472).** With type Task, typing `Zavolat kominíkovi tomorrow !high #doma` shows `Due: Tomorrow` and `Priority: High` and the chip `#doma` as the text is typed, and saving writes AC-9's bytes; `Clear due date` (the Due control's `Clear`) puts `tomorrow` back into the text. Tokens are parsed only at the end of the first line and only while the type is Task: the same text captured as a Quick Note gets the title `Zavolat kominíkovi tomorrow !high` and `tags: [doma]` (R57's trailing-tag rule). The D-483 table of tasks.md FR-TSK-10 AC-2 holds for the first line. *(L1; L5)*
 - **AC-11** **Dates never shift (FR-FMT-11, TZ).** At the instant `2026-10-14T22:30:00Z`, `tomorrow` writes `due: 2026-10-16` in Prague (00:30 on 15 Oct) and `due: 2026-10-15` in Los Angeles (15:30 on 14 Oct), with `created` `2026-10-15T00:30:00+02:00` and `2026-10-14T15:30:00-07:00`. *(L1; L5)*
 - **AC-12** **Where it shows.** Within 2 s of saving AC-9, the Tasks page shows the task in This week › Thu 15 with the priority chip `High` and no source chip, and the Inbox shows it at the top of `Today`. *(L5; L6 once)*

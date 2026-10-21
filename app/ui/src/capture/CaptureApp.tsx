@@ -13,6 +13,8 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { parseQuickAdd } from '../tasks/quickAdd';
 import { localDate, localIso } from '../zone';
 import { TagField } from './TagField';
+import { DueCalendar } from './DueCalendar';
+import { insertion, SuggestList, triggerAt, useSuggestions, type Row } from './suggest';
 import { dueLabelOf, ulid } from './util';
 
 type Status = { kind: 'nothing' } | { kind: 'failed' } | { kind: 'vaultGone'; vault: string } | { kind: 'media' } | null;
@@ -37,10 +39,17 @@ function mirror(text: string) {
   return <>{m[1]}<span className="capture-mirror-title">{m[2]}</span>{m[3]}{' '}</>;
 }
 
+/** D-604: the type's plural; without one (an older context), its folder's last part. */
+const pluralOf = (d: CaptureTypeDto) => d.plural ?? (d.folder.split('/').filter(Boolean).pop() || d.name);
+
 export function CaptureApp() {
   const [, setUiTick] = useState(0);
   const [ctx, setCtx] = useState<CaptureContextDto | null>(null);
   const [text, setText] = useState('');
+  const [caret, setCaret] = useState(0);
+  const [sugSel, setSugSel] = useState(0);
+  /** Esc closed the list at this caret and length; typing on reopens it. */
+  const [sugClosed, setSugClosed] = useState<string | null>(null);
   const [scroll, setScroll] = useState(0);
   const [type, setType] = useState('quick-note');
   const [chips, setChips] = useState<string[]>([]);
@@ -283,7 +292,8 @@ export function CaptureApp() {
       cancelDraftStore();
       await captureIpc.draftSet(null).catch(() => {});
       reset(ctx);
-      void captureIpc.savedShow(made.typeName, made.title, made.path).catch(() => {});
+      // D-604: only review types land in the Inbox.
+      void captureIpc.savedShow(made.typeName, made.title, made.path, def.review === 'off' ? t('capture.savedTo', { plural: pluralOf(def) }) : undefined).catch(() => {});
       hide();
     } catch (e) {
       const kind = (e as { kind?: string } | null)?.kind;
@@ -346,7 +356,42 @@ export function CaptureApp() {
   };
 
   const today = localDate(Date.now());
-  const dueText0 = due ? dueLabelOf(due, today, region() ?? navigator.language) : t('capture.none');
+  // D-603: `[[` / `@` suggestions at the caret.
+  const trig = sugClosed === `${caret}:${text.length}` ? null : triggerAt(text, caret);
+  const rows = useSuggestions(trig, today);
+  const sugPos = (() => {
+    const el = textRef.current;
+    if (!el || !trig) return { left: 16, top: 40 };
+    const probe = document.createElement('div');
+    probe.className = 'capture-mirror';
+    probe.style.visibility = 'hidden';
+    probe.textContent = text.slice(0, trig.from);
+    const mark = document.createElement('span');
+    mark.textContent = '[';
+    probe.appendChild(mark);
+    el.parentElement!.appendChild(probe);
+    const r = mark.getBoundingClientRect(), w = el.parentElement!.getBoundingClientRect();
+    probe.remove();
+    return { left: Math.max(8, Math.min(r.left - w.left, w.width - 280)), top: r.bottom - w.top - scroll + 4 };
+  })();
+  const pickSuggestion = (r: Row) => {
+    if (!trig) return;
+    const ins = insertion(r);
+    const next = text.slice(0, trig.from) + ins + text.slice(caret);
+    const at = trig.from + ins.length;
+    setText(next);
+    setCaret(at);
+    setSugSel(0);
+    requestAnimationFrame(() => { const el = textRef.current; if (el) { el.focus(); el.setSelectionRange(at, at); } });
+  };
+  const onSuggestKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!trig || rows.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSugSel((i) => (i + 1) % rows.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSugSel((i) => (i - 1 + rows.length) % rows.length); }
+    else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); pickSuggestion(rows[Math.min(sugSel, rows.length - 1)]); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSugClosed(`${caret}:${text.length}`); }
+  };
+  const dueText0 = due ? dueLabelOf(due, today, region() ?? navigator.language) : t('capture.noDate');
   const commitDue = () => {
     const p = parseRegionDate(dueText, region() ?? navigator.language);
     const v = p.ok ? p.value : null;
@@ -398,25 +443,36 @@ export function CaptureApp() {
       </div>
       {/* D-592: the first non-empty line (the title, AP-467) is drawn bold by a mirror behind the transparent textarea,
           which stays the plain-text field (selection, IME, undo, accessibility). */}
-      <div className="capture-text-wrap">
+      {/* The window fits its content (capture_resize): room for the suggestion list while it is open (D-603). */}
+      <div className="capture-text-wrap" style={trig && rows.length ? { paddingBottom: Math.min(260, rows.length * 32 + 12) } : undefined}>
         <div className="capture-mirror" aria-hidden="true" data-user-content>
           <div style={{ transform: `translateY(${-scroll}px)` }}>{mirror(text)}</div>
         </div>
         <textarea ref={textRef} className="capture-text" aria-label={t('capture.text')} placeholder={t('capture.placeholder')} value={text}
-          spellCheck rows={4} onChange={(e) => onText(e.target.value)} onPaste={onPaste} onScroll={(e) => setScroll(e.currentTarget.scrollTop)} data-user-content />
+          spellCheck rows={4} onChange={(e) => { onText(e.target.value); setCaret(e.target.selectionStart); }} onPaste={onPaste} onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)} onKeyDown={onSuggestKey}
+          aria-autocomplete="list" aria-expanded={rows.length > 0} data-user-content />
+        {trig && <SuggestList rows={rows} sel={Math.min(sugSel, rows.length - 1)} types={types} pos={sugPos} onPick={pickSuggestion} onHover={setSugSel} />}
       </div>
       {isTask && (
         <div className="capture-fields">
           <div className="capture-field">
-            <button type="button" tabIndex={0} className="capture-chip" aria-haspopup="dialog" aria-label={t('capture.due', { label: dueText0 })} onClick={() => { setDueText(due ?? ''); setMenu(menu === 'due' ? null : 'due'); }}>
-              <span className="capture-chip-icon due"><Icon name="calendar" size={13} /></span><span className="muted">{t('capture.dueLabel')}</span> <span data-user-content>{dueText0}</span>
+            <button type="button" tabIndex={0} className={`capture-chip${menu === 'due' ? ' open' : ''}`} aria-haspopup="dialog" aria-expanded={menu === 'due'} aria-label={t('capture.due', { label: dueText0 })} onClick={() => { setDueText(due ?? ''); setMenu(menu === 'due' ? null : 'due'); }}>
+              <span className={`capture-chip-icon due${due ? '' : ' none'}`}><Icon name="calendar" size={13} /></span><span className="muted">{t('capture.dueLabel')}</span> <span data-user-content className={due ? undefined : 'faint'}>{dueText0}</span>
             </button>
             {menu === 'due' && (
-              <div className="capture-menu capture-due" role="group">
-                <input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMenu(null); } }} />
-                <button type="button" onClick={() => { putBack(moved.due); setMoved((m) => ({ ...m, due: undefined })); setDue(null); setMenu(null); refocus(focusText); }}>{t('task.clearDue')}</button>
-              </div>
+              // D-602: the calendar with quick picks; the typed field stays (D-537).
+              <DueCalendar today={today} due={due} region={region() ?? navigator.language}
+                field={<input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } }} />}
+                onPick={(d) => {
+                  if (d === null) putBack(moved.due);
+                  setMoved((m) => ({ ...m, due: undefined }));
+                  setDue(d);
+                  setMenu(null);
+                  refocus(focusText);
+                }}
+                onClose={() => { setMenu(null); refocus(focusText); }} />
             )}
           </div>
           <div className="capture-field">
@@ -443,7 +499,7 @@ export function CaptureApp() {
         </button>
       </div>
       <div className="capture-foot">
-        <span className="muted capture-hint">{t('capture.hint')}</span>
+        <span className="muted capture-hint">{typeDef && typeDef.review === 'off' ? t('capture.hintSaves', { plural: pluralOf(typeDef) }) : t('capture.hint')}</span>
         <span className="muted">{t('capture.newLine')}</span>
         <button type="button" tabIndex={0} className="primary capture-save" aria-label={t('capture.save')} aria-disabled={!vault || undefined}
           onClick={() => void save()}>{t('capture.saveShort')} <kbd aria-hidden="true">⌘↩</kbd></button>
