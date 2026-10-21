@@ -85,6 +85,7 @@ A refused call never reaches a command function (NFR-SEC-03 AC-2, tested through
 | `capture_open_main` | `path: string \| null` | — | Shows `main`; with a path emits `shell:route { route: 'note/<path>' }` (the panel's `Open`, FR-CAP-01 AC-13; `Open Tegg`). |
 | `capture_draft_get` / `capture_draft_set` | — / `draft: CaptureDraftDto \| null` | `CaptureDraftDto \| null` / — | `capture-draft.json` in Application Support (FR-STO-07, FR-CAP-01 AC-8); `null` deletes it. |
 | `capture_saved_show` | `typeName`, `title`, `path` | — | Fills and shows `capture-saved` for 4 s (§1.2). |
+| `capture_suggest` | `query: string` | `CaptureSuggestDto[]` (≤ 8) | D-603 (amends D-553): the switcher's matching (`Core::switcher`, aliases included, no create rows, no templates, no trash) as `{ link, title, type, alias }`: `link` the D-184 link text from the vault root, `alias` the matched alias or null. No body, excerpt or path field. Errors: `NoVault`. |
 
 ```ts
 type CaptureContextDto = {
@@ -136,7 +137,7 @@ Task fields: `values` gets `priority` (the chosen label, as written) and `due` (
 `Core::capture_create(type_key, title, bytes) -> Result<String, CoreError>`:
 
 1. `type_key` matched by D-239; `daily-note`, `tag`, `image`, `pdf` and unknown keys → `UnsupportedType`.
-2. The bytes' frontmatter must carry this type (as `create_object`), `review: unreviewed` and a `created` value (D-595; was `captured`) → else `NotACapture`.
+2. The bytes' frontmatter must carry this type (as `create_object`) and a `created` value (D-595; was `captured`), and `review: unreviewed` exactly when the type's review workflow is on (locked or on; D-604): a review type without it, or another type with any `review` key → `NotACapture`.
 3. Then exactly `create_object` (folder re-read now, folders created, `free_stem`, `create_file` with `RENAME_EXCL`, indexed at once). No path argument exists.
 
 The shell command checks `vault` against the current `vaultId` (`VaultChanged`) and that a vault is open (`NoVault`) before calling the core.
@@ -357,3 +358,11 @@ Raised while writing the 5B red tests (D-61). Each test follows the recommendati
 8. **Bulk `Link to…` (D-573):** `InboxJobChange::AppendLinkTo { path, title, now }` (IPC `{ op: 'append-link-to', path, title, now }`) becomes the `TextOp` `append-link-to { toPath, toTitle, paths, now }`; `paths` are the vault's note paths, and `@tegg/doc` `d184Text` writes each file's link text from its own folder (D-291, as `retarget-links`). `AppendLink { target }` stays for one link text in every file (single items and L4 tests). `appendSection` keeps a link's `#heading` / `#^block`, the user's alias or an embed's size, and the table form `\|` when it rewrites the file part (D-572).
 9. **The draft while typing (D-585, FR-CAP-01 AC-15):** the capture page calls `capture_draft_set(draft)` 500 ms after the last change to the text, type, chips, Due or Priority (trailing debounce; one call per quiet period), `capture_draft_set(null)` when the text is empty and no chip is left, and as before on Esc, ⌘↩ success and `Discard`. No new command or event; the fake core records the calls (`callsOf(core, 'capture_draft_set')`) and `core.draft()` returns the stored draft. In L6 the draft file is `<Application Support>/capture-draft.json`.
 10. **Virtualized Inbox cards (D-586, FR-INB-01 AC-12):** the card list renders a window of cards around the viewport (at most 100 `article` elements); each rendered card keeps `data-path`, its R60 name and its group (the R60 structure is unchanged), and has `aria-setsize` (the number of shown items) and `aria-posinset` (its 1-based place in the shown order), so tests and assistive technology see the whole list's size. Group headings of the rendered range are rendered. Moving the focus to a card outside the window renders it first, then focuses it and scrolls it into view (`block: 'nearest'`).
+
+## 16. v0.52 feedback (D-598…D-608, `docs/feedback/ms5-v052.md`)
+
+1. **`capture_suggest` (D-603):** `type CaptureSuggestDto = { link: string; title: string; type: string; alias: string | null }`. Capability `capture` gains this one command; NFR-SEC-03 AC-2's probe lists it as `Reached` from `capture` (and `Refused` stays true for every other read command). The page debounces 80 ms per query change and drops stale answers. `@` adds the date rows Today, Tomorrow, Yesterday computed in the page (`[[YYYY-MM-DD]]`, D-331).
+2. **Review by type (D-604):** `newObject({ …, capture: true })` writes `review: unreviewed` only when the type's `review` is `on` or `locked` (the `CaptureTypeDto.review` / `TypeDto.review` value passed in); the fake `capture_create` applies §3.3 step 2. Strings: `capture.hint` stays for review types; new `capture.hintSaves` `Saves to {plural}`, `capture.savedTo` `Saved to {plural}` (the type's plural, D-232).
+3. **Due calendar (D-602):** the capture's `Due` dialog reuses `daily/Calendar.tsx` (the D-587 `Choose date` grid) with the quick picks above it. Strings: `capture.dueTitle` `Pick a due date`, `capture.noDate` `No date`, `due.today` `Today`, `due.tomorrow` `Tomorrow`, `due.nextWeek` `Next week`, `due.fri` `Fri`, `capture.dueHint` `or type “fri”, “next week”`.
+4. **Title caret (bug of D-592):** `.capture-mirror-title` keeps the textarea's font weight and draws bold with `-webkit-text-stroke` (≈ 0.6 px, `currentColor`), so every glyph keeps its advance width.
+
