@@ -95,3 +95,27 @@ function main(argv: string[]): number {
 
 // pathToFileURL: the repository path may contain spaces ("Tegg notes" → %20).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main(process.argv.slice(2)));
+
+// ---------------------------------------------------------------------------
+// Batched runs (CONTRACT §5.2, D-525): compiling stubs, implemented after the red tests (D-61).
+// ---------------------------------------------------------------------------
+
+export type Batch = { pkg: string; files: string[]; threads: number };
+export type Split = { stems: string[]; blocks: string[] };
+export type Args = { junit: string; threads: number; serial: Set<string>; files: string[]; libtest: string[] };
+
+export function parseArgs(_argv: string[]): Args {
+  return { junit: '', threads: 0, serial: new Set(), files: [], libtest: [] };
+}
+
+export function planBatches(_files: string[], _serial: Set<string>, _threads: number, _pkgOf: (file: string) => string = packageOf): Batch[] {
+  return [];
+}
+
+export function splitLibtestOutput(_stdout: string, _stderr: string): Split {
+  return { stems: [], blocks: [] };
+}
+
+export function pairBlocks(_split: Split, _files: string[], _sources: Map<string, string>): Map<string, string> | undefined {
+  return new Map();
+}
