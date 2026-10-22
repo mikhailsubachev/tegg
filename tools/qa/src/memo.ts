@@ -8,8 +8,9 @@ import path from 'node:path';
 import type { Gate, Step } from './config.ts';
 import { gitTry } from './proc.ts';
 
-/** Bump when the tooling's semantics change so that recorded passes must not be reused. */
-export const STEP_MEMO_VERSION = 1;
+/** Bump when the tooling's semantics change so that recorded passes must not be reused.
+ *  2: keys of version 1 missed the object id of an input that contains the step's directory (bug_pr54). */
+export const STEP_MEMO_VERSION = 2;
 
 export type MemoEntry = { step: string; gate: Gate; commit: string; startedAt: string; runId: string; reports: string[] };
 export type StepMemo = Record<string, MemoEntry>;
@@ -47,14 +48,14 @@ export function memoInputs(step: Step): string[] {
   return [...new Set([...(step.inputs ?? []), lock])];
 }
 
-/** The git object id of every input path in `sha`'s tree; a path absent from the tree is `''`. */
+/** The git object id of every input path in `sha`'s tree; a path absent from the tree is `''`.
+ *  One `rev-parse <sha>:<path>` per path: a single `ls-tree` with all paths descends into a directory whenever a
+ *  deeper path is also given (the step's lockfile inside its own input) and then never lists the directory itself. */
 function inputIds(root: string, sha: string, paths: string[]): Map<string, string> {
-  const ids = new Map<string, string>(paths.map((p) => [p, '']));
-  const r = gitTry(root, ['ls-tree', '-z', sha, '--', ...paths]);
-  if (r.status !== 0) return ids;
-  for (const rec of r.stdout.split('\0')) {
-    const m = /^\d+ \S+ ([0-9a-f]+)\t(.*)$/s.exec(rec);
-    if (m && ids.has(m[2])) ids.set(m[2], m[1]);
+  const ids = new Map<string, string>();
+  for (const p of paths) {
+    const r = gitTry(root, ['rev-parse', '--verify', '--quiet', `${sha}:${p}`]);
+    ids.set(p, r.status === 0 ? r.stdout.trim() : '');
   }
   return ids;
 }
