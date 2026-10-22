@@ -175,7 +175,7 @@ Exit 0 if every line was skipped or passed, else 1.
 
 ### 4.3 `verify hook commit-msg <message file>` (TS-I AC-1)
 
-Looks at the **staged** changes (`git diff --cached --name-status -M`). If any **existing** AC test file (§2 `acTestPatterns`) is modified, deleted or renamed, the commit message must contain a line matching `^AC-Test-Change: .+; approved-by: owner$`; otherwise exit 1 with a message naming the file(s). Adding new AC test files needs no trailer. Exit 0 otherwise.
+Looks at the **staged** changes (`git diff --cached --name-status -M`); during a merge (`MERGE_HEAD` exists) only the files whose staged result also differs from `MERGE_HEAD` count, i.e. the merge's own changes (§5.0). If any **existing** AC test file (§2 `acTestPatterns`) is modified, deleted or renamed, the commit message must contain a line matching `^AC-Test-Change: .+; approved-by: owner$`; otherwise exit 1 with a message naming the file(s). Adding new AC test files needs no trailer. Exit 0 otherwise.
 
 ### 4.4 Claude Code hook: `verify hook claude-pre-tool` (TS-HOOKS AC-2)
 

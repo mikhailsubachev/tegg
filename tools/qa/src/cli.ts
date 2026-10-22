@@ -101,7 +101,14 @@ async function hookPrePush(root: string): Promise<number> {
 function hookCommitMsg(root: string, file: string | undefined): number {
   if (!file) throw new UsageError('verify hook commit-msg: message file required');
   const cfg = loadConfig(root);
-  const changes = parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z']));
+  let changes = parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z']));
+  // A merge commit is judged by its own changes only (CONTRACT §5.0): the files whose staged result also differs
+  // from the other parent. What one side brings in unchanged needs no trailer (bug_pr54).
+  const mergeHead = path.resolve(root, git(root, ['rev-parse', '--git-path', 'MERGE_HEAD']).trim());
+  if (fs.existsSync(mergeHead)) {
+    const other = new Set(parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z', 'MERGE_HEAD'])).map((x) => x.path));
+    changes = changes.filter((x) => other.has(x.path));
+  }
   const files = protectedChanges(cfg, changes);
   if (files.length === 0) return 0;
   const msg = fs.readFileSync(path.resolve(file), 'utf8');
