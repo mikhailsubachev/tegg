@@ -1,6 +1,6 @@
 # Proposal: faster `./verify push` (G1) without losing coverage
 
-Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are superseded by D-524…D-527 (2026-10-22): concurrent lanes (item 6), a content-addressed step memo with declared inputs instead of range-based skipping (item 4), batched multi-threaded Rust AC runs, and `./verify merge`. Measured before D-524: push 770–870 s, `app-webkit` ~320 s, `core-rust-test` ~270 s, half of the last 60 runs failed.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
+Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are superseded by D-609…D-612 (2026-10-22): concurrent lanes (item 6), a content-addressed step memo with declared inputs instead of range-based skipping (item 4), batched multi-threaded Rust AC runs, and `./verify merge`. Measured before D-609: push 770–870 s, `app-webkit` ~320 s, `core-rust-test` ~270 s, half of the last 60 runs failed.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
 
 ## 1. What the measurements say
 
@@ -94,7 +94,7 @@ Push would be back inside the 600 s budget (TS-G4) with the same functional AC c
 - Release builds of Tegg crates for faster perf tests: would hide debug-assertion failures.
 - Hosted CI: D-60 says local only.
 
-## 5. Measured after D-524…D-527 (2026-10-22)
+## 5. Measured after D-609…D-612 (2026-10-22)
 
 Branch `qa/verify-speedup`, same Mac, but shared with another session running Rust and app tests (load average 13–19 on 12 cores during every run; the sequential gate's 770–870 s above were measured on a quiet machine):
 

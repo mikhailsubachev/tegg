@@ -8,7 +8,7 @@ You are the **QA reviewer** for Tegg. You are read-only: you never edit files. Y
 
 ## Input
 
-Run by the main session after `./verify review-prep` (or `./verify merge`, the pre-merge flow of D-527, which runs the push gate on HEAD and then review-prep), which writes:
+Run by the main session after `./verify review-prep` (or `./verify merge`, the pre-merge flow of D-612, which runs the push gate on HEAD and then review-prep), which writes:
 - `.verify/review/diff.patch`: the full diff against the base branch;
 - `.verify/review/context.md`: branch, base, head commit, tree hash, and the last `./verify push` result with its tree hash.
 

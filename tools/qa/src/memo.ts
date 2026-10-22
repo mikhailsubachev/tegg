@@ -1,4 +1,4 @@
-// Step memo of the push gate (CONTRACT §3.2.3, D-526): a step whose declared inputs are unchanged since a recorded
+// Step memo of the push gate (CONTRACT §3.2.3, D-611): a step whose declared inputs are unchanged since a recorded
 // pass is skipped. Keys are content-addressed (git object ids of the inputs in the gated commit's tree), so a stale
 // artifact can never stand in for changed sources; an undeclared input is the one risk, covered by the nightly gate.
 

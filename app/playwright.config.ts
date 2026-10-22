@@ -15,7 +15,7 @@ export default defineConfig({
   timeout: 60_000,
   // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
   // shares state. Under ./verify 6 workers (12-core reference Mac; 8 saturated the machine once the gate ran its lanes
-  // concurrently, D-524); otherwise Playwright's default.
+  // concurrently, D-609); otherwise Playwright's default.
   fullyParallel: true,
   workers: gate ? 6 : undefined,
   expect: { timeout: 3_000 },

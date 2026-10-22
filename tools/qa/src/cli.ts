@@ -252,7 +252,7 @@ function reviewPrep(root: string, base: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// merge: the pre-merge flow (CONTRACT §11, D-527)
+// merge: the pre-merge flow (CONTRACT §11, D-612)
 // ---------------------------------------------------------------------------
 
 async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<number> {

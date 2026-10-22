@@ -1,4 +1,4 @@
-// Runs Rust AC test files with `cargo test` and writes a JUnit report (CONTRACT §5.2, §5.3; D-525).
+// Runs Rust AC test files with `cargo test` and writes a JUnit report (CONTRACT §5.2, §5.3; D-610).
 // No extra tools: libtest's text output is parsed. A failure counts as an assertion (red) only if the
 // panic happened inside the test file itself and isn't an unwrap of a setup error; a stub's `todo!()`,
 // a panic elsewhere or a compile error is not red.
@@ -70,7 +70,7 @@ function packageOf(testFile: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Batched runs (CONTRACT §5.2, D-525)
+// Batched runs (CONTRACT §5.2, D-610)
 // ---------------------------------------------------------------------------
 
 export type Batch = { pkg: string; files: string[]; threads: number };

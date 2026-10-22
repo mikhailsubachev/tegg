@@ -1,4 +1,4 @@
-// TS-VERIFY AC-6: step memo (D-526). Black box against tools/qa/CONTRACT.md §2 (`inputs`), §3.2, §3.2.3, §3.4, §5.2.
+// TS-VERIFY AC-6: step memo (D-611). Black box against tools/qa/CONTRACT.md §2 (`inputs`), §3.2, §3.2.3, §3.4, §5.2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

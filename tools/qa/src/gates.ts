@@ -260,7 +260,7 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
     const env = { ...stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined), VERIFY_PORT_BASE: String(port) };
     const cached = { ...env, CARGO_TARGET_DIR: cargoCacheDir(root) };
 
-    // Step memo (CONTRACT §3.2.3, D-526): only push consults it, every tree gate records into it.
+    // Step memo (CONTRACT §3.2.3, D-611): only push consults it, every tree gate records into it.
     const memo = loadStepMemo(root);
     const consult = gate === 'push' && !opts.all;
     const keyOf = new Map(gateSteps.map((s) => [s.id, stepMemoKey(root, sha, s)]));

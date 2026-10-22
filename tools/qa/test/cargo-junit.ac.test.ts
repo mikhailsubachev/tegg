@@ -1,4 +1,4 @@
-// TS-I AC-4: the batched Rust AC runner (D-525, CONTRACT §5.2). Unit tests on sample libtest text plus one
+// TS-I AC-4: the batched Rust AC runner (D-610, CONTRACT §5.2). Unit tests on sample libtest text plus one
 // end-to-end run of the runner against a fake `cargo` (the fallback to one invocation per file).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,7 +46,7 @@ test result: FAILED. 1 passed; 3 failed; 0 ignored
 `;
 
 // ---------------------------------------------------------------------------
-// TS-I AC-4: batched runs per package (D-525, CONTRACT §5.2)
+// TS-I AC-4: batched runs per package (D-610, CONTRACT §5.2)
 // ---------------------------------------------------------------------------
 
 const BATCH_STDERR = `   Compiling tegg-p v0.1.0 (/t/crates/p)

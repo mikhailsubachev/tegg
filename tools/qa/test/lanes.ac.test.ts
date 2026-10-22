@@ -1,4 +1,4 @@
-// TS-VERIFY AC-5: lanes (D-524). Black box against tools/qa/CONTRACT.md §2 (`lane`), §3.2, §3.2.2, §3.4.
+// TS-VERIFY AC-5: lanes (D-609). Black box against tools/qa/CONTRACT.md §2 (`lane`), §3.2, §3.2.2, §3.4.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

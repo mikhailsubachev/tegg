@@ -8,8 +8,8 @@ export const GATES = ['commit', 'push', 'nightly', 'milestone', 'release'] as co
 export type Gate = (typeof GATES)[number];
 
 /** `cargoCache` (default true): tree gates give the step the shared Cargo build cache (CONTRACT §3.2.1, D-343).
- *  `lane` (default `default`): tree gates run lanes concurrently, a lane's steps in order (§3.2.2, D-524).
- *  `inputs`: repository paths the step depends on, for the push gate's step memo (§3.2.3, D-526); undefined = always runs. */
+ *  `lane` (default `default`): tree gates run lanes concurrently, a lane's steps in order (§3.2.2, D-609).
+ *  `inputs`: repository paths the step depends on, for the push gate's step memo (§3.2.3, D-611); undefined = always runs. */
 export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean; lane: string; inputs?: string[] };
 export type AcRunner = { dir: string; match: RegExp; run: string };
 export type Config = {

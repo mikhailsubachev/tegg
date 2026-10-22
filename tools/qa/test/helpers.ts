@@ -144,9 +144,9 @@ export type Step = {
   dir?: string;
   changedOnly?: boolean;
   cargoCache?: boolean;
-  /** CONTRACT §3.2.2 (D-524): steps of one lane run in config order, lanes run concurrently. */
+  /** CONTRACT §3.2.2 (D-609): steps of one lane run in config order, lanes run concurrently. */
   lane?: string;
-  /** CONTRACT §3.2.3 (D-526): repository-relative paths the step depends on (step memo). */
+  /** CONTRACT §3.2.3 (D-611): repository-relative paths the step depends on (step memo). */
   inputs?: string[];
 };
 

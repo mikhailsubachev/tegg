@@ -1,4 +1,4 @@
-// TS-VERIFY AC-7: `verify merge` (D-527). Black box against tools/qa/CONTRACT.md §11, §3.2, §3.2.2.
+// TS-VERIFY AC-7: `verify merge` (D-612). Black box against tools/qa/CONTRACT.md §11, §3.2, §3.2.2.
 // The temporary repositories have no `origin`, so the default base is `main`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
