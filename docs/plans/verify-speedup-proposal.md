@@ -1,6 +1,6 @@
 # Proposal: faster `./verify push` (G1) without losing coverage
 
-Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are still proposals.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
+Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are superseded by D-524…D-527 (2026-10-22): concurrent lanes (item 6), a content-addressed step memo with declared inputs instead of range-based skipping (item 4), batched multi-threaded Rust AC runs, and `./verify merge`. Measured before D-524: push 770–870 s, `app-webkit` ~320 s, `core-rust-test` ~270 s, half of the last 60 runs failed.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
 
 ## 1. What the measurements say
 

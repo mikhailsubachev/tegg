@@ -39,7 +39,7 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 
 | Field | Meaning |
 | --- | --- |
-| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). |
+| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). `lane` (default `default`): in tree gates, steps of the same lane run one after another in config order and different lanes run concurrently (§3.2.2); the commit gate ignores it. `inputs` (optional): repository-relative paths (files or directories, `/` separators, no leading `/` and no `..`) the step depends on, for the step memo (§3.2.3); a step without `inputs` always runs. |
 | `acTestPatterns` | Regular expressions (JavaScript syntax) matched against **repository-relative paths** with `/` separators. A file matching any of them is an **AC test file**. Default when omitted: the two patterns above. |
 | `acRunners[]` | How to run AC test files for `check-red` (§5). `dir`: runner working directory, relative to the checkout root. `match`: regex on the repository-relative path selecting files this runner handles. `run`: command template; `{files}` is replaced by the file path(s) relative to `dir`, each single-quoted; `{junit}` by an absolute path where the runner must write a JUnit XML report. |
 | `realAppTests` | Repository-relative directory prefixes (ending in `/`) whose test sources are **real-app tests** for the `l6-coverage` check (§9.5), e.g. `["app/e2e/"]`. When omitted or empty, the check isn't run. |
@@ -69,7 +69,7 @@ Runs in the **working directory as it is**. Order:
 1. **Privacy check** on **staged** files (§6).
 2. Steps with `level: commit`.
 
-### 3.2 `verify push [--commit <rev>] [--range <base>..<head>]` (G1)
+### 3.2 `verify push [--commit <rev>] [--range <base>..<head>] [--lanes 1] [--all]` (G1)
 
 Checks the committed state of `<rev>` (default `HEAD`) in a **fresh git worktree** created for this run (in a temporary directory) and removed afterwards (TS-VERIFY AC-3). Uncommitted and untracked files of the main working directory are not visible to the checks or steps. If the main working directory has uncommitted changes, a warning containing `uncommitted` is printed on stderr.
 
@@ -83,7 +83,7 @@ Order:
 3. **AC test protection** on every commit in the range (§5.1).
 4. **Red-first check** (§5.2): `check-red` for every commit in the range that **adds** an AC test file, unless its message has a trailer line `Red-First-Exempt: <reason>; approved-by: owner`.
 5. **L6 coverage check** on the tree of `<rev>` (§9.5).
-6. Steps with level `commit` and `push` (`changedOnly` is ignored).
+6. Steps with level `commit` and `push` (`changedOnly` is ignored), scheduled by lane (§3.2.2) and subject to the step memo (§3.2.3).
 
 On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`, but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08). On failure, `.verify/last-pass` is left unchanged.
 
@@ -95,6 +95,27 @@ On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), 
 - **Per-run port.** Steps that start a dev server (the Playwright steps) bind it to `VERIFY_PORT_BASE`, never to a fixed port, with Vite's `--strictPort` and without reusing a running server, so a gate never tests a stray server's code. The runner derives the candidate from the worktree path (so the stable path and a fall-back path start from different ports), skips ports that are already in use, and so two gates of the same repository can run at the same time. The developer ports (`app` 5177, `spikes/s2-editor` 5174) are outside the range and unchanged.
 - `check-red` (§5.2) keeps using a fresh temporary worktree and no shared cache.
 - **`verify clean`** deletes `.verify/cargo-target` (exit 0), for when the cache is suspected or too large.
+
+### 3.2.2 Lanes (D-524)
+
+Tree gates (push, nightly, milestone, release) run the steps of each lane one after another in config order, and the lanes concurrently. A step's lane is its `lane` field (§2), default `default`; lanes start in the order of their first step in the config. Every step still gets its own environment (§2.1) and `cargoCache` setting, and all steps run even after one fails (a failure ends neither its lane nor the gate).
+
+- **Output:** when a step starts, one line `▶ <id> [<lane>] (<dir>): <run>` is printed. When it finishes, its stdout, then its stderr, then the result line `✓ <id> (N s)` / `✗ <id> (N s)` are printed as **one contiguous block**: no line of another step appears between the first and the last line of that block.
+- **Summary (§3.4):** `steps[]` stays in config order regardless of lanes; each entry has its own `durationMs` and, in tree gates, its `lane`.
+- **Sequential run:** `--lanes 1` (push, nightly, milestone, release, merge) or the environment variable `VERIFY_LANES=1` runs every step in config order, as if all were in one lane; the option wins over the variable. Any other value of either exits 2 with a usage error.
+- Steps that share a resource (the Cargo cache of §3.2.1, `VERIFY_PORT_BASE`, a built app under a fixed path) must be in the same lane; the configuration, not the tool, guarantees this.
+- The commit gate ignores lanes and runs its steps in config order.
+
+### 3.2.3 Step memo (push only, D-526)
+
+For a step with `inputs` (§2), the push gate computes a **memo key**: a hash of the step's `id`, `dir`, `run`, `cargoCache`, a tooling version constant, and the git object id of every input path in the checked commit's tree (`git ls-tree <sha> -- <path>`; a path missing from the tree counts as empty). `<dir>/package-lock.json` is always part of the inputs (it decides `node_modules`, §3.2). The gate (and so `QA_PROPERTY_SCALE`) is not part of the key: a pass recorded by nightly, milestone or release counts for push.
+
+- If `.verify/step-memo.json` records a pass for the key, the step does not run: the gate prints `- <id>: skipped (inputs unchanged; reuses <gate> run <startedAt> at <short sha>)`, the summary entry has `result: "skipped"` and `reuses: "<startedAt of the reused run>"`, and the JUnit reports that run wrote for the step (the `$VERIFY_RESULTS/<name>.xml` files named in its `run`) are copied from `.verify/results/<that run>/` into this run's `VERIFY_RESULTS` when they still exist, so `.verify/last-results/` and `verify coverage` stay complete.
+- Otherwise the step runs. After the gate, every step with a key that **passed** is recorded under its key (step id, gate, commit, `startedAt`, run id, report names); a step that **failed** has any record for its key removed.
+- `nightly`, `milestone` and `release` never skip a step but record passes the same way. `verify push --all` never skips but records. `verify check-red` never reads or writes the memo.
+- A step without `inputs` always runs and is never recorded.
+- A missing, unreadable or malformed memo file is treated as empty and rewritten; it never fails the gate. The file is machine-local (git-ignored with the rest of `.verify/`).
+- Memo skips are only as good as the declared inputs: a dependency not listed can leave a stale pass in place until a nightly or `--all` run (§12).
 
 ### 3.3 `verify nightly`, `verify milestone --milestone <MSn>`, `verify release`
 
@@ -122,6 +143,7 @@ Every gate run writes a JSON summary to `.verify/runs/<timestamp>-<gate>.json` a
 ```
 
 - `result` is `pass` or `fail`; step `result` is `pass`, `fail` or `skipped`. For the commit gate, `commit` is the `HEAD` sha and `tree` is the tree of the staged index (`git write-tree`).
+- `steps[]` is in config order regardless of lanes (§3.2.2). In tree gates each entry also has `lane`; a step skipped by the step memo (§3.2.3) has `result: "skipped"`, `durationMs: 0` and `reuses` (the `startedAt` of the run whose pass it reuses).
 - Check `id`s: `privacy`, `fixtures`, `ac-test-protection`, `red-first`, `l6-coverage`, `milestone-acs`, `milestone-deferred`.
 - `seeds`: every integer found in the step's output after `seed` followed by `=`, `:` or spaces (case-insensitive), in order.
 - JUnit files written to `VERIFY_RESULTS` by the run are copied to `.verify/last-results/` (replacing its previous content).
@@ -183,7 +205,7 @@ For every commit in the range: if it modifies, deletes or renames an existing AC
 4. A file passes if the report has **at least one** `<testcase>` and **every** testcase has a `<failure>` or `<error>` whose `type` attribute, `message` attribute or text contains `AssertionError`. A missing report, zero testcases, a passing testcase or a non-assertion failure (syntax error, missing module, missing fixture) fails the file.
 5. Exit 0 if every added file passes, else 1, listing each failing file and why.
 
-**Rust AC tests** run through `tools/qa/src/cargo-junit.ts` (no extra tools): it runs `cargo test -p <package> --test <file stem>` and converts libtest's output to JUnit. A failure gets `type="AssertionError"` only if the panic happened **in the AC test file itself** and isn't an unwrap/expect of an error or a `todo!()`/`unimplemented!()` message; a panic in library code, a setup unwrap or a compile error (no testcases) is not red. Product stubs therefore return wrong values or `Err(NotImplemented)` rather than panicking (`docs/contracts/ms1-core.md`).
+**Rust AC tests** run through `tools/qa/src/cargo-junit.ts` (no extra tools): `node tools/qa/src/cargo-junit.ts --junit <report.xml> [--threads N] [--serial <file>]… <tests/ac_*.rs>… [-- <libtest args>]`, run from the Cargo workspace root. It groups the files by package and runs all files of a package in **one** invocation, `cargo test -p <package> --test <stem> --test <stem>… --no-fail-fast -- --test-threads=N <libtest args>`, splits libtest's output per test binary (cargo runs the binaries one after another; the *i*-th `running <n> tests` block on stdout belongs to the *i*-th `Running tests/<stem>.rs` line on stderr, and every test name in the block must be declared in that file, otherwise the package falls back to one invocation per file with a warning on stderr) and converts each binary's output to one JUnit suite `<package>::<stem>` (D-525). `--threads N` sets libtest's `--test-threads` (default 1); each `--serial <file>` runs that file in its own invocation with one thread (for tests that change process-wide state, e.g. `TZ`). Arguments after `--` go to every binary. A failure gets `type="AssertionError"` only if the panic happened **in the AC test file itself** and isn't an unwrap/expect of an error or a `todo!()`/`unimplemented!()` message; a panic in library code, a setup unwrap or a compile error (no testcases) is not red. Product stubs therefore return wrong values or `Err(NotImplemented)` rather than panicking (`docs/contracts/ms1-core.md`).
 
 The configuration (`acRunners`) is read from the **current** checkout, not from `<commit>`.
 
@@ -294,6 +316,7 @@ The report (exit 0 always) contains, in this order:
 ## 11. Other commands
 
 - `verify review-prep [--base <rev>]`: writes `.verify/review/diff.patch` (diff of `HEAD` against the merge-base with `<rev>`, default `main`) and `.verify/review/context.md` (branch, base, head sha, head tree hash, last push result and whether its tree matches) for the QA reviewer.
+- `verify merge [--base <rev>] [--lanes 1] [--all]` (D-527): the pre-merge flow. `<rev>` defaults to `origin/main` if that ref exists, else `main`. If a remote `origin` exists, `git fetch origin` runs first (a failed fetch is a warning on stderr, not an error). If `<rev>` is not an ancestor of `HEAD`, it exits **1** without running a gate, with a message on stderr containing `merge <rev> first`. Otherwise it runs the push gate on `HEAD` exactly as `verify push` does (default range, lanes, memo, `.verify/last-pass` recorded on success), then `review-prep --base <rev>`, and prints a last line `verify merge: READY (tree <tree hash>)` when the gate passed or `verify merge: NOT READY` when it failed. Exit code: the gate's (0 or 1).
 - `verify help`: usage. Unknown commands exit 2.
 
 ## 12. Known limitations (owner decision 2026-10-08)
@@ -312,3 +335,5 @@ Found by the QA review of the first version and deliberately not addressed now. 
 - **Strategy items not in this contract:** the Claude hook blocking "task done" until G1 passed, and an "AC-coverage diff" in G1 (test-strategy §8.1, §8.3).
 - **Root commits and first pushes:** a root commit is compared with the empty tree (§5.2, §7). A range can only include a root commit through an unrelated history (`--range main..<orphan head>`), and with no upstream, `origin/main` or `main` the default range is empty, so the first push of a brand-new repository checks no commits.
 - **One AC per test name:** under the shortest-prefix rule (§9.2) a name like `ts_d4_ac1_ts_i_ac1_…` credits only the first AC.
+- **Step memo inputs (§3.2.3, owner decision 2026-10-22):** a dependency missing from a step's `inputs` can leave a stale pass in place; the nightly gate and `verify push --all` run everything regardless. A skipped step whose reused reports are gone from `.verify/results/` shows its ACs as not run in `verify coverage` until the next full run.
+- **Lane resources (§3.2.2):** nothing checks that steps sharing a port, cache or build output are in one lane; a wrong lane assignment shows up as flaky steps.
