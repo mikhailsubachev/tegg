@@ -16,7 +16,7 @@
     { "id": "doc-test", "lane": "node", "inputs": ["packages/doc","tests/fixtures"], "dir": "packages/doc",
       "run": "npx vitest run --maxWorkers 2 --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/doc.xml\" --passWithNoTests",
       "level": "push" },
-    { "id": "qa-tools-test", "lane": "node", "inputs": ["tools/qa","verify","qa.config.json",".githooks",".claude","docs"], "dir": "tools/qa",
+    { "id": "qa-tools-test", "lane": "node", "inputs": ["tools/qa","verify","qa.config.json",".githooks",".claude","docs",".gitignore"], "dir": "tools/qa",
       "run": "node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/qa-tools.xml\" 'test/*.test.ts'",
       "level": "push" },
     { "id": "schema-typecheck", "lane": "node", "dir": "packages/schema", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },

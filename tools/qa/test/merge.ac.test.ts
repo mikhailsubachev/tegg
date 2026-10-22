@@ -92,3 +92,44 @@ test('ts_verify_ac7_lanes_option_1_accepted_and_other_values_exit_2', (t) => {
   assert.equal(countLines(marker), 1, `--lanes 1 runs the gate\n${describe(r)}`);
   assert.match(lastLine(r), /^verify merge: READY \(tree [0-9a-f]{40}\)$/, `last stdout line\n${describe(r)}`);
 });
+
+// ---------------------------------------------------------------------------
+// With a remote: the default base is origin/main; a failed fetch is a warning
+// ---------------------------------------------------------------------------
+
+/** Adds a bare `origin` holding main and feature, then moves the local `main` ahead of `origin/main`. */
+function withOrigin(t: any, { repo }: { repo: string }): string {
+  const bare = tmpDir(t, 'tegg-qa-origin-');
+  git(bare, ['init', '-q', '--bare']);
+  git(repo, ['remote', 'add', 'origin', bare]);
+  git(repo, ['push', '-q', 'origin', 'main', 'feature']);
+  git(repo, ['checkout', '-q', 'main']);
+  writeFiles(repo, { 'other/b.txt': 'úpěl ďábelské ódy\n' });
+  commitAll(repo, 'Main moves on locally only');
+  git(repo, ['checkout', '-q', 'feature']);
+  return bare;
+}
+
+test('ts_verify_ac7_default_base_is_origin_main_when_the_remote_exists', (t) => {
+  const m = mergeRepo(t);
+  withOrigin(t, m);
+  // The local main is no longer an ancestor of HEAD, origin/main still is: the default base is origin/main.
+  const r = verify(m.repo, ['merge']);
+  assertExit(r, 0, 'verify merge with origin/main as the default base');
+  assert.equal(countLines(m.marker), 1, `the push gate ran once\n${describe(r)}`);
+  assert.match(lastLine(r), /^verify merge: READY \(tree [0-9a-f]{40}\)$/, `last stdout line\n${describe(r)}`);
+  assert.ok(!/fetch/.test(r.stderr), `a successful fetch prints no warning\n${describe(r)}`);
+  const context = readText(path.join(m.repo, '.verify', 'review', 'context.md'), 'review context');
+  assert.ok(context.includes('origin/main'), `review context names the base origin/main\n${context}`);
+});
+
+test('ts_verify_ac7_failed_fetch_is_a_warning_and_the_flow_continues', (t) => {
+  const m = mergeRepo(t);
+  const bare = withOrigin(t, m);
+  git(m.repo, ['remote', 'set-url', 'origin', path.join(bare, 'missing')]);
+  const r = verify(m.repo, ['merge']);
+  assertExit(r, 0, 'verify merge with an unreachable origin');
+  assert.match(r.stderr, /fetch/, `the failed fetch is reported on stderr\n${describe(r)}`);
+  assert.equal(countLines(m.marker), 1, `the push gate still ran\n${describe(r)}`);
+  assert.match(lastLine(r), /^verify merge: READY \(tree [0-9a-f]{40}\)$/, `last stdout line\n${describe(r)}`);
+});
