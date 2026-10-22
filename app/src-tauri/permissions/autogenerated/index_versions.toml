@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-versions"
+description = "Enables the index_versions command without any pre-configured scope."
+commands.allow = ["index_versions"]
+
+[[permission]]
+identifier = "deny-index-versions"
+description = "Denies the index_versions command without any pre-configured scope."
+commands.deny = ["index_versions"]

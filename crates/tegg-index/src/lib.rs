@@ -22,7 +22,7 @@ pub use text::fold;
 use text::{contains_item, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 4; // 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
+const SCHEMA_VERSION: i64 = 5; // 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
 // 4: link positions and block texts (4A, ms4-links §2.3)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
@@ -58,6 +58,14 @@ pub struct ObjectInfo {
     /// MS4 4B (ms4-daily §2, D-334, AP-264): a Daily Note's stored `title:` text when it differs from its `date`
     /// (the displayed title is the date). STUB: always `None` until 4B is built.
     pub stored_title: Option<String>,
+}
+
+/// 5A-1: what a task row needs beyond `ObjectInfo` (ms5-tasks §2.1).
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteState {
+    pub version: FileVersion,
+    pub utf8: bool,
+    pub excerpt: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -262,6 +270,12 @@ struct Stored {
     blocks: Vec<tegg_format::BlockText>,
     #[serde(default)]
     frontmatter_error: bool,
+    /// 5A-1 (ms5-tasks §2.1): the BLAKE3 of the bytes indexed, so a row carries the version a write is based on.
+    #[serde(default)]
+    hash: Option<[u8; 32]>,
+    /// False when the bytes aren't UTF-8 (the editor opens it read-only, NFR-REL-03).
+    #[serde(default = "yes")]
+    utf8: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -567,6 +581,8 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         body_line,
         blocks: ex.blocks,
         frontmatter_error: ex.frontmatter_error.is_some(),
+        hash: Some(version.hash),
+        utf8: std::str::from_utf8(bytes).is_ok(),
     };
     Some(Prepared { path: path.to_string(), mtime_ns: version.mtime_ns as i64, size: version.size as i64, stored, raw, fts })
 }
@@ -761,6 +777,15 @@ impl Index {
 
     pub fn object(&self, path: &str) -> Option<ObjectInfo> {
         self.meta(path).map(Meta::info)
+    }
+
+    /// 5A-1 (ms5-tasks §2.1): the version the note was indexed at, whether it is UTF-8, and the start of its body as
+    /// plain text (`text::excerpt`). None for a path the index doesn't hold.
+    pub fn note_state(&self, path: &str) -> Option<NoteState> {
+        let m = self.meta(path)?;
+        let excerpt = self.raw_of(m).ok().flatten().map(|raw| text::excerpt(raw.get(m.s.body_start..).unwrap_or(""))).unwrap_or_default();
+        let version = FileVersion { mtime_ns: m.mtime_ns as i128, size: m.size as u64, hash: m.s.hash.unwrap_or([0; 32]) };
+        Some(NoteState { version, utf8: m.s.utf8, excerpt })
     }
 
     /// D-185: every tag key of indexed objects (templates and `.trash/` are never indexed).

@@ -1,0 +1,387 @@
+{
+ "_comment": "ms5-tasks §2.2 (D-473; FR-TSK-02 AC-2…AC-7, FR-TSK-03 AC-2, AR-07 AC-5): option ops on the shipped Task type file. Each case applies `ops` in one patch to `base`; `replace` lists [from, to] substring edits (each `from` occurs exactly once in base, applied in order) giving the exact expected text; `unchanged`: nothing to write (patch returns no text); `error`: the RuleError reason (`label` compared when given), nothing written. `used`: the option usage counts (label, objects) the patch is given. Read by crates/tegg-schema/tests/ac_task_options.rs (and the fake schema, app/ui/test/fake-schema.ts). Synthetic (D-50).",
+ "base": "tests/fixtures/vaults/new-empty/.tegg/types/task.yml",
+ "key": "task",
+ "cases": [
+  {
+   "name": "status_colour_waiting_purple",
+   "ac": "FR-TSK-02/AC-2",
+   "ops": [
+    {
+     "op": "setOptionColor",
+     "attr": "status",
+     "label": "Waiting",
+     "color": "purple"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Waiting, state: open, color: yellow }\n",
+     "      - { label: Waiting, state: open, color: purple }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_move_waiting_above_in_progress",
+   "ac": "FR-TSK-02/AC-2",
+   "ops": [
+    {
+     "op": "moveOption",
+     "attr": "status",
+     "label": "Waiting",
+     "to": 1
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: In progress, state: in-progress, color: blue }\n      - { label: Waiting, state: open, color: yellow }\n",
+     "      - { label: Waiting, state: open, color: yellow }\n      - { label: In progress, state: in-progress, color: blue }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_add_delegovano_done_teal",
+   "ac": "FR-TSK-02/AC-3",
+   "ops": [
+    {
+     "op": "addOption",
+     "attr": "status",
+     "option": {
+      "label": "Delegováno",
+      "color": "teal",
+      "state": "done"
+     }
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Cancelled, state: cancelled, color: red }\n",
+     "      - { label: Cancelled, state: cancelled, color: red }\n      - { label: Delegováno, state: done, color: teal }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_state_waiting_in_progress",
+   "ac": "FR-TSK-02/AC-4",
+   "ops": [
+    {
+     "op": "setOptionState",
+     "attr": "status",
+     "label": "Waiting",
+     "state": "in-progress"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Waiting, state: open, color: yellow }\n",
+     "      - { label: Waiting, state: in-progress, color: yellow }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_remove_waiting",
+   "ac": "FR-TSK-02/AC-6",
+   "ops": [
+    {
+     "op": "removeOption",
+     "attr": "status",
+     "label": "Waiting"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Waiting, state: open, color: yellow }\n",
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "status_rename_unused_cancelled",
+   "ac": "FR-TSK-02/AC-5",
+   "used": [
+    [
+     "To do",
+     10
+    ],
+    [
+     "Waiting",
+     1
+    ]
+   ],
+   "ops": [
+    {
+     "op": "renameOption",
+     "attr": "status",
+     "from": "Cancelled",
+     "to": "Zrušeno"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Cancelled, state: cancelled, color: red }\n",
+     "      - { label: Zrušeno, state: cancelled, color: red }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_rename_used_to_do_refused",
+   "ac": "FR-TSK-02/AC-5",
+   "used": [
+    [
+     "To do",
+     10
+    ],
+    [
+     "Waiting",
+     1
+    ]
+   ],
+   "ops": [
+    {
+     "op": "renameOption",
+     "attr": "status",
+     "from": "To do",
+     "to": "Úkol"
+    }
+   ],
+   "error": "optionUsed",
+   "label": "To do"
+  },
+  {
+   "name": "status_remove_last_done_refused",
+   "ac": "FR-TSK-02/AC-7",
+   "ops": [
+    {
+     "op": "removeOption",
+     "attr": "status",
+     "label": "Done"
+    }
+   ],
+   "error": "needDone"
+  },
+  {
+   "name": "status_state_of_last_done_to_open_refused",
+   "ac": "FR-TSK-02/AC-7",
+   "ops": [
+    {
+     "op": "setOptionState",
+     "attr": "status",
+     "label": "Done",
+     "state": "open"
+    }
+   ],
+   "error": "needDone"
+  },
+  {
+   "name": "status_remove_both_open_refused",
+   "ac": "FR-TSK-02/AC-7",
+   "ops": [
+    {
+     "op": "removeOption",
+     "attr": "status",
+     "label": "Waiting"
+    },
+    {
+     "op": "removeOption",
+     "attr": "status",
+     "label": "To do"
+    }
+   ],
+   "error": "needOpen"
+  },
+  {
+   "name": "status_states_of_both_open_to_done_refused",
+   "ac": "FR-TSK-02/AC-7",
+   "ops": [
+    {
+     "op": "setOptionState",
+     "attr": "status",
+     "label": "To do",
+     "state": "done"
+    },
+    {
+     "op": "setOptionState",
+     "attr": "status",
+     "label": "Waiting",
+     "state": "cancelled"
+    }
+   ],
+   "error": "needOpen"
+  },
+  {
+   "name": "status_remove_one_of_two_open_allowed",
+   "ac": "FR-TSK-02/AC-7",
+   "ops": [
+    {
+     "op": "removeOption",
+     "attr": "status",
+     "label": "To do"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: To do, state: open, color: gray }\n",
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "status_same_colour_writes_nothing",
+   "ac": "FR-TSK-02/AC-2",
+   "ops": [
+    {
+     "op": "setOptionColor",
+     "attr": "status",
+     "label": "Waiting",
+     "color": "yellow"
+    }
+   ],
+   "unchanged": true
+  },
+  {
+   "name": "priority_move_low_above_medium",
+   "ac": "FR-TSK-03/AC-2",
+   "ops": [
+    {
+     "op": "moveOption",
+     "attr": "priority",
+     "label": "Low",
+     "to": 1
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Medium, color: orange }\n      - { label: Low, color: blue }\n",
+     "      - { label: Low, color: blue }\n      - { label: Medium, color: orange }\n"
+    ]
+   ]
+  },
+  {
+   "name": "priority_add_kriticka_red",
+   "ac": "FR-TSK-03/AC-2",
+   "ops": [
+    {
+     "op": "addOption",
+     "attr": "priority",
+     "option": {
+      "label": "Kritická",
+      "color": "red"
+     }
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: None, color: gray }\n",
+     "      - { label: None, color: gray }\n      - { label: Kritická, color: red }\n"
+    ]
+   ]
+  },
+  {
+   "name": "priority_add_kriticka_then_move_first",
+   "ac": "FR-TSK-03/AC-2",
+   "ops": [
+    {
+     "op": "addOption",
+     "attr": "priority",
+     "option": {
+      "label": "Kritická",
+      "color": "red"
+     }
+    },
+    {
+     "op": "moveOption",
+     "attr": "priority",
+     "label": "Kritická",
+     "to": 0
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: High, color: red }\n",
+     "      - { label: Kritická, color: red }\n      - { label: High, color: red }\n"
+    ]
+   ]
+  },
+  {
+   "name": "priority_remove_low_allowed",
+   "ac": "FR-TSK-03/AC-2",
+   "ops": [
+    {
+     "op": "removeOption",
+     "attr": "priority",
+     "label": "Low"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Low, color: blue }\n",
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "priority_rename_used_high_refused",
+   "ac": "FR-TSK-03/AC-2",
+   "used": [
+    [
+     "High",
+     3
+    ]
+   ],
+   "ops": [
+    {
+     "op": "renameOption",
+     "attr": "priority",
+     "from": "High",
+     "to": "Vysoká"
+    }
+   ],
+   "error": "optionUsed",
+   "label": "High"
+  },
+  {
+   "name": "priority_rename_unused_none",
+   "ac": "FR-TSK-03/AC-2",
+   "used": [
+    [
+     "High",
+     3
+    ],
+    [
+     "None",
+     1
+    ]
+   ],
+   "ops": [
+    {
+     "op": "renameOption",
+     "attr": "priority",
+     "from": "Low",
+     "to": "Nízká"
+    }
+   ],
+   "replace": [
+    [
+     "      - { label: Low, color: blue }\n",
+     "      - { label: Nízká, color: blue }\n"
+    ]
+   ]
+  },
+  {
+   "name": "status_add_duplicate_refused",
+   "ac": "FR-TSK-02/AC-3",
+   "ops": [
+    {
+     "op": "addOption",
+     "attr": "status",
+     "option": {
+      "label": "waiting",
+      "color": "teal",
+      "state": "open"
+     }
+    }
+   ],
+   "error": "optionDuplicate"
+  }
+ ]
+}

@@ -7,7 +7,8 @@ import type {
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
-  NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto,
+  NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
+  InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
 } from './types';
 
 export const ipc = {
@@ -36,6 +37,8 @@ export const ipc = {
   noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),
   noteCreateExact: (path: string, text: string) => invoke<VersionDto>('note_create_exact', { path, text }),
   noteTrash: (path: string, base: VersionDto) => invoke<string>('note_trash', { path, base }),
+  /** ms5-tasks §11.6 (D-492): deletes a note only while it is still `base` (a conversion's undo). */
+  noteDiscard: (path: string, base: VersionDto) => invoke<void>('note_discard', { path, base }),
   tags: () => invoke<TagDto[]>('index_tags'),
   conflicts: () => invoke<ConflictRowDto[]>('index_conflicts'),
   /** The open note is saved, or the user chose to quit anyway (D-196). */
@@ -58,7 +61,7 @@ export const ipc = {
   brokenLinks: () => invoke<BrokenLinksDto>('index_broken_links'),
   duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
   linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),
-  linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text }),
+  linkCreate: (from: string, target: string, expect: LinkCreatePlanDto, text: string, asType?: string) => invoke<LinkCreatedDto>('link_create', { from, target, expect, text, ...(asType ? { asType } : {}) }),
   // 4B (ms4-daily §4).
   dailyView: (date: string) => invoke<DailyViewDto>('daily_view', { date }),
   dailyDates: (year: number, month: number) => invoke<string[]>('daily_dates', { year, month }),
@@ -66,6 +69,9 @@ export const ipc = {
   dailyCreate: (date: string, text: string) => invoke<DailyCreatedDto>('daily_create', { date, text }),
   dailyBacklinks: (date: string) => invoke<BacklinksPanelDto>('daily_backlinks', { date }),
   dailyContext: (date: string, start: string, end: string, limit: number) => invoke<DailyContextDto>('daily_context', { date, start, end, limit }),
+  // 5A-1 (ms5-tasks §3).
+  taskList: () => invoke<TaskListDto>('task_list'),
+  dailyTasks: (date: string, start: string, end: string, today: string, limit: number) => invoke<DailyTasksDto>('daily_tasks', { date, start, end, today, limit }),
   // 4C (ms4-jobs §4).
   noteRename: (path: string, title: string, fromTitle: string) => invoke<NoteRenameDto>('note_rename', { path, title, fromTitle }),
   jobReport: (jobId: number) => invoke<JobReportDto | null>('job_report', { jobId }),
@@ -80,6 +86,20 @@ export const ipc = {
   editorClose: (path: string) => invoke<void>('editor_close', { path }),
   // 4F (ms4-embeds §4): one call per nesting level; records no recency.
   embedLoad: (paths: string[]) => invoke<EmbedNoteDto[]>('embed_load', { paths }),
+  // 5B (ms5-capture §5, §7; D-578).
+  inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
+  inboxCount: () => invoke<number>('inbox_count'),
+  inboxBulk: (paths: string[], change: unknown) => invoke<JobIdDto>('inbox_bulk', { paths, change }),
+  indexVersions: (paths: string[]) => invoke<(VersionDto | null)[]>('index_versions', { paths }),
+  vaultSettings: () => invoke<VaultSettingsDto>('vault_settings'),
+  vaultSettingsPatch: (base: VersionDto | null, key: 'default-type' | 'daily-format' | 'attachments', value: string) =>
+    invoke<VaultSettingsDto>('vault_settings_patch', { base, key, value }),
+  vaultReveal: () => invoke<void>('vault_reveal'),
+  shellSettings: () => invoke<ShellSettingsDto>('shell_settings'),
+  shellSettingsSet: (settings: ShellSettingsDto) => invoke<void>('shell_settings_set', { settings }),
+  hotkeys: () => invoke<HotkeyStateDto[]>('hotkeys'),
+  hotkeysRetry: (id: string) => invoke<HotkeyStateDto[]>('hotkeys_retry', { id }),
+  captureOpen: (kind: 'default' | 'task') => invoke<void>('capture_open', { kind }),
 };
 
 /** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */
@@ -95,6 +115,10 @@ export const events = {
   quitRequested: (f: () => void): Promise<UnlistenFn> => listen('app:quit-requested', () => f()),
   jobProgress: (f: (p: JobProgressDto) => void): Promise<UnlistenFn> => listen<JobProgressDto>('job:progress', (e) => f(e.payload)),
   jobTransform: (f: (t: JobTransformEvent) => void): Promise<UnlistenFn> => listen<JobTransformEvent>('job:transform', (e) => f(e.payload)),
+  // 5B (ms5-capture §1.4, §5.2, §7.1).
+  inboxCount: (f: (n: number) => void): Promise<UnlistenFn> => listen<{ count: number }>('inbox:count', (e) => f(e.payload.count)),
+  hotkeysState: (f: (s: HotkeyStateDto[]) => void): Promise<UnlistenFn> => listen<HotkeyStateDto[]>('hotkeys:state', (e) => f(e.payload)),
+  shellRoute: (f: (route: string) => void): Promise<UnlistenFn> => listen<{ route: string }>('shell:route', (e) => f(e.payload.route)),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */

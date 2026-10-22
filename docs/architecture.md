@@ -180,7 +180,7 @@ The note page reacts: **no unsaved edits** → reload silently, keep the cursor 
 
 ### 5.5 Create (capture, new object, attachment)
 
-The capture window may only call `create_object` (capability-restricted, NFR-SEC-03). Core: sanitize the title into a file name (D-52, D-68, D-80), pick the type's folder, write with `RENAME_EXCL`; a taken name gets ` (2)`, ` (3)` … (FR-LNK-14). New notes are rendered in the canonical dialect style by `@tegg/doc` on the UI side; the capture window carries a minimal renderer for its fixed note shape.
+The capture window may only call `capture_create(type, title, text)` (capability-restricted, NFR-SEC-03; D-552), which creates create-exclusive and refuses non-capture types and texts without `review: unreviewed` and `captured`. Core: sanitize the title into a file name (D-52, D-68, D-80), pick the type's folder, write with `RENAME_EXCL`; a taken name gets ` (2)`, ` (3)` … (FR-LNK-14). New notes are rendered in the canonical dialect style by `@tegg/doc` `newObject` on the UI side, the capture window included (it bundles `@tegg/doc`; the pre-warmed window hides the cost; D-245, D-552).
 
 ### 5.6 Bulk operations (jobs)
 

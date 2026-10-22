@@ -4,7 +4,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault } from '../ui/test/fake-core';
 import { R11 } from '../test/shell-tables';
-import { newObjectDialog, typeEntries } from './helpers';
+import { createFromDraft, typeEntries } from './helpers';
 import {
   callsOf, description, dialog, fixture, isDisabled, main, must, nonReadCalls, runCommand, seen, sleep, typeFile, typesVault,
 } from './types-helpers';
@@ -59,16 +59,14 @@ test('fr_vlt_02_ac8_starter_types_listed_and_usable', async ({ page }) => {
   assert.deepEqual(order, ['Books', 'Ideas', 'Meetings', 'People', 'Projects', 'Reading Notes', 'Trips'], 'D-121 order');
   await runCommand(page, 'Go to type: Meetings');
   await main(page).getByRole('button', { name: 'New Meeting', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Kick-off');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Kick-off', 'New Meeting'); // D-520: an unsaved draft, ↩ creates it
   await sleep(300);
   const files = await core.files();
   const m = files['Meetings/Kick-off.md'] ?? '';
   assert.match(m, /^---\nid: \S+\ntype: meeting\ntitle: Kick-off\ncreated: \S+\nmodified: \S+\n---\n## Agenda\n\n## Notes\n\n## Decisions\n$/);
   await runCommand(page, 'Go to type: Books');
   await main(page).getByRole('button', { name: 'New Book', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Řeka');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Řeka', 'New Book');
   await sleep(300);
   assert.ok(((await core.files())['Books/Řeka.md'] ?? '').includes('\nstatus: To read\n'), 'a new Book gets status: To read');
 });

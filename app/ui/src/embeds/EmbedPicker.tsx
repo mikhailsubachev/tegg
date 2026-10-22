@@ -7,7 +7,8 @@ import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { SwitcherItemDto, TypeDefDto } from '../ipc/types';
 import { DuplicateDetails } from '../links/DuplicateDetails';
-import { Icon, typeIconName } from '../shell/Icon';
+import { chipIcon } from '../links/icons';
+import { Icon } from '../shell/Icon';
 import { createObject } from '../types/create';
 
 export function EmbedPicker({ from, types, at, onChoose, onCancel }: {
@@ -93,7 +94,7 @@ export function EmbedPicker({ from, types, at, onChoose, onCancel }: {
               onMouseMove={() => i !== sel && setSel(i)} onClick={() => void choose(it)}>
               {create ? <div>{t('suggest.create', { query: query.trim() })}</div> : (
                 <>
-                  <div className="option-title"><Icon name={typeIconName(it.type)} /> <span data-user-content>{it.title}</span></div>
+                  <div className="option-title"><Icon name={chipIcon(it.type).glyph} /> <span data-user-content>{it.title}</span></div>
                   {it.duplicate ? <div className="meta"><DuplicateDetails details={it.duplicate} typeName={typeName} /></div>
                     : it.matched_alias ? <div className="meta alias" data-user-content>{it.matched_alias}</div> : null}
                 </>

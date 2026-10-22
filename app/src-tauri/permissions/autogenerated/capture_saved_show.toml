@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-saved-show"
+description = "Enables the capture_saved_show command without any pre-configured scope."
+commands.allow = ["capture_saved_show"]
+
+[[permission]]
+identifier = "deny-capture-saved-show"
+description = "Denies the capture_saved_show command without any pre-configured scope."
+commands.deny = ["capture_saved_show"]

@@ -265,7 +265,15 @@ function separateLists(items: Item[], eol: string): boolean {
       if (x === null) return 0
       return (items[i - 1]?.src === x - 1 ? 1 : 0) + (items[i + 1]?.src === x + 1 ? 1 : 0)
     }
-    const victimIndex = !b.unchanged ? k : !a.unchanged ? k - 1 : kept(k - 1) <= kept(k) ? k - 1 : k
+    let victimIndex = !b.unchanged ? k : !a.unchanged ? k - 1 : kept(k - 1) <= kept(k) ? k - 1 : k
+    // FR-FMT-07 AC-15: a list holding an embed line keeps its marker (its embed line keeps its bytes); the other list
+    // is re-marked, and when both hold one, the end-list comment separates them instead.
+    const hasEmbed = (it: Item) => it.unchanged && /!\[\[/.test(it.text)
+    if (hasEmbed(items[victimIndex])) {
+      const other = victimIndex === k ? k - 1 : k
+      if (hasEmbed(items[other])) continue
+      victimIndex = other
+    }
     const victim = items[victimIndex]
     const ordered = victim.node.type.name === 'orderedList'
     const taken = new Set([markerOf(items[victimIndex - 1]), markerOf(items[victimIndex + 1])])

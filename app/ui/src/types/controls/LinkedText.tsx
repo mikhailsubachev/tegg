@@ -2,6 +2,7 @@
 // opens its note (D-140), with the broken style when it doesn't resolve (D-142); the rest is plain text. `![[…]]`
 // in a value is a chip too, never an embed. Drawn over the field's input (whose text is then hidden): the text parts
 // are aria-hidden (the input already has the value), the chips are links; a chip takes no focus on mouse down.
+import { chipParts } from '../../links/ChipParts';
 import { t } from '../../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../../ipc/types';
 import { Icon } from '../../shell/Icon';
@@ -46,9 +47,10 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
         const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
         const shown = p.alias ?? (ok ? info!.title ?? p.target : p.target);
         const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
+        const parts = ok ? chipParts(info) : null; // D-600
         return (
           <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : dated ? 'kind-date-missing' : 'kind-unresolved'}`}
-            aria-description={ok || dated ? undefined : t('link.noNote', { target: p.target })} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
+            aria-description={ok ? parts?.description ?? undefined : dated ? undefined : t('link.noNote', { target: p.target })} {...parts?.attrs} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.preventDefault();
@@ -57,8 +59,9 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
               if (ok) ctx.onOpen(info!.path!);
               else requestOffer({ from: ctx.path, target: p.target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
             }}>
-            {(ok || dated) && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+            {(ok || dated) && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
             <span data-user-content>{shown}</span>
+            {parts?.suffix}
           </a>
         );
       })}

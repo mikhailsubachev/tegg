@@ -73,6 +73,14 @@ pub enum CoreError {
     UseDailyNote,
     /// ms4-daily §3: `daily_create` bytes don't have `type: daily-note`, the date and the date as title.
     DailyMismatch,
+    /// ms5-tasks §11.6: `note_discard` of a file that isn't a note (`.tegg/`, `_templates/`, `.trash/`, not `.md`).
+    Protected,
+    /// ms5-capture §3.3 (5B): `capture_create` of Daily Note, Tag, Image, PDF or an unknown type key.
+    UnsupportedType,
+    /// ms5-capture §3.3 (5B): the bytes lack this type, `review: unreviewed` or a `created` value (D-595).
+    NotACapture,
+    /// ms5-capture §5.1 (5B): a vault setting D-336 or D-222 rejects; nothing was written.
+    Invalid { reason: String },
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -189,9 +197,13 @@ impl Shared {
 
     fn load_default_type(&self) {
         let read = |p: &str| self.vault.read(p).ok().map(|(b, _)| String::from_utf8_lossy(&b).into_owned());
-        let name = read(".tegg/vault.yml").and_then(|t| yaml_str(&t, "default-type")).unwrap_or_else(|| "Quick Note".into());
-        let key = name.trim().to_lowercase().replace(' ', "-");
-        let folder = read(&format!(".tegg/types/{key}.yml")).and_then(|t| yaml_str(&t, "folder")).unwrap_or_else(|| default_folder(&name));
+        let exists = |k: &str| tegg_schema::builtin(k).is_some() || self.vault.read(&format!(".tegg/types/{k}.yml")).is_ok();
+        // D-541: the matched key of `default-type` (D-239), Quick Note when it names no type.
+        let key = settings5b::default_type_of(read(".tegg/vault.yml").as_deref(), exists).key;
+        let def = read(&format!(".tegg/types/{key}.yml")).or_else(|| tegg_schema::builtin(&key).map(str::to_string));
+        // The fallback folder is the plural of the type's name, not its key (`Quick Notes`, not `quick-notes`).
+        let name = def.as_deref().and_then(|t| yaml_str(t, "name")).unwrap_or_else(|| key.clone());
+        let folder = def.as_deref().and_then(|t| yaml_str(t, "folder")).unwrap_or_else(|| default_folder(&name));
         *lock(&self.default_type) = DefaultType { key, folder };
     }
 }
@@ -424,6 +436,20 @@ impl Core {
         self.index().remove(&path)?;
         self.shared.emit(CoreEvent::VaultChanged { paths: vec![path, to.clone()] });
         Ok(to)
+    }
+
+    /// ms5-tasks §11.6 (D-492): deletes `path` (no trash) only when its current version equals `base`; `Conflict`
+    /// otherwise, `NotFound` when absent. Only Markdown notes outside `.tegg/`, `_templates/` and `.trash/` (`Protected`).
+    pub fn discard_note(&self, path: &str, base: &FileVersion) -> Result<(), CoreError> {
+        let path = nfc(path);
+        let top = path.split('/').next().unwrap_or("");
+        if [".tegg", "_templates", ".trash"].contains(&top) || !path.to_lowercase().ends_with(".md") {
+            return Err(CoreError::Protected);
+        }
+        self.shared.vault.discard_checked(&path, base)?;
+        self.index().remove(&path)?;
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path] });
+        Ok(())
     }
 
     /// The one write path (MS1 `Vault::write`), then the index is updated directly (architecture §5.3).
@@ -804,7 +830,37 @@ pub struct LinkTarget {
     pub r#type: Option<String>,
 }
 
+/// D-601 (v0.52 feedback): what a link chip shows of its target beyond `LinkTarget`: the trimmed string values of
+/// `review`, `status`, `due` and `completed` (None when unresolved, absent or not a string).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LinkFields {
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
+}
+
 impl Core {
+    /// `link_resolve` with D-601's chip fields: one pass over the same objects (NFR-PERF-05 AC-3).
+    pub fn resolve_links_with_fields(&self, from: &str, targets: &[String]) -> Vec<(LinkTarget, LinkFields)> {
+        let objs = self.objects();
+        let by_path: HashMap<&str, &ObjectInfo> = objs.iter().map(|o| (o.path.as_str(), o)).collect();
+        let text = |o: &ObjectInfo, k: &str| o.attributes.get(k).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        Resolver::new(&objs, &self.shared)
+            .resolve(from, targets)
+            .into_iter()
+            .map(|t| {
+                let fields = t.path.as_deref().and_then(|p| by_path.get(p)).map(|o| LinkFields {
+                    review: text(o, "review"),
+                    status: text(o, "status"),
+                    due: o.attributes.get("due").and_then(|v| v.as_str().map(|s| s.trim().to_string())).filter(|s| !s.is_empty()),
+                    completed: text(o, "completed"),
+                });
+                (t, fields.unwrap_or_default())
+            })
+            .collect()
+    }
+
     /// `link_resolve`: resolves every target of one note in one call, by the rules of ms3-shell §11.1 (dialect §6,
     /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
@@ -932,3 +988,16 @@ pub mod daily;
 mod embeds4f;
 pub use embeds4f::{EmbedLoadState, EmbedNote};
 pub use daily::{ContextRow, DailyContext, DailyContextPage, DailyCreated, DailyDraft, DailyView, DayWindow};
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1
+// docs/contracts/ms5-tasks.md §2: the task query and the Daily Note's Tasks due (`tasks5a.rs`).
+mod tasks5a;
+pub use tasks5a::{DailyTaskRows, StatusOption, TaskDefs, TaskRow, TaskState};
+
+// ------------------------------------------------------------------------------------------------ slice 5B
+// docs/contracts/ms5-capture.md §3.3, §5.1, §7.1: capture, vault settings and the Inbox query.
+pub mod capture5b;
+mod inbox5b;
+mod settings5b;
+pub use inbox5b::InboxRow;
+pub use settings5b::{DefaultTypeSetting, VaultKey, VaultSettings};

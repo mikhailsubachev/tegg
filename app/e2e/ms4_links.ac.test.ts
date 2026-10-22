@@ -238,9 +238,13 @@ test('fr_syn_06_ac9_keyboard_tour_writes_nothing_then_one_create', { timeout: 90
       const more = await firstShown(d, 'Show 2 more');
       if (more) await more.click();
     }
-    // Every group collapsed and expanded with the keyboard (⏎ on its header).
+    // Every group collapsed and expanded with the keyboard (⏎ on its header). The headers are buttons; the sidebar's
+    // type rows (`Daily Notes, 1`) carry the same labels.
     for (const g of ['Pages, 4', 'Quick Notes, 1', 'Daily Notes, 1', 'Schůzky, 2', 'neznámý, 1']) {
-      const h = await firstShown(d, g);
+      let h: any = null;
+      for (const e of await d.$$(`-ios predicate string:elementType == 9 AND (label == "${g}" OR title == "${g}")`).catch(() => [] as any[])) {
+        if (await e.isDisplayed().catch(() => false)) { h = e; break; }
+      }
       assert.ok(h, `group header ${g}`);
       await h.click();
       await h.click();

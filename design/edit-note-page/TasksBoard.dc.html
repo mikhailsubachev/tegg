@@ -86,9 +86,9 @@ Task board
 </a>
 </sc-for>
 </div>
-<!-- Logo (bottom left) -->
-<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px">
-<button aria-haspopup="menu" aria-label="Tegg: About and Settings" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; border-radius: 8px"><svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg><span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .05em; color: var(--brand)">TEGG</span></button>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
 </div>
 </nav>
 
@@ -106,6 +106,7 @@ Task board
 <button role="tab" onClick="{{s.pick}}" aria-selected="{{s.selected}}" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 7px; background: {{s.bg}}; box-shadow: {{s.shadow}}; font-size: 13px; font-weight: {{s.weight}}">{{s.label}}<sc-if value="{{s.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 600; height: 18px; padding: 0 6px; border-radius: 9px; display: inline-flex; align-items: center; background: var(--link-bg); color: var(--link)">{{s.badge}}</span></sc-if></button>
 </sc-for>
 </div>
+<button aria-label="Type settings" title="Type settings" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6"></path></svg></button>
 </header>
 
 <!-- Quick add (FR-TSK-10) -->
@@ -127,20 +128,40 @@ Task board
 </sc-for>
 </div>
 </sc-if>
-<div role="group" aria-label="Filter" style="display: flex; gap: 6px; flex-wrap: wrap; flex: 1">
+<div role="group" aria-label="Filter" style="display: flex; gap: 6px; flex-wrap: wrap">
 <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
 <button onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid {{f.border}}; background: {{f.bg}}; font-size: 13px; font-weight: {{f.weight}}">{{f.label}} <span style="color: var(--muted); font-weight: 400">{{f.count}}</span></button>
 </sc-for>
 </div>
-<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"></path></svg>{{sortLabel}}</button>
-</div>
-<div role="group" aria-label="Filter by tag" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: -6px">
-<span style="font-size: 13px; color: var(--muted); margin-right: 2px">Tags</span>
-<sc-for list="{{tagFilters}}" as="g" hint-placeholder-count="6">
-<button onClick="{{g.pick}}" aria-pressed="{{g.pressed}}" style="display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: {{g.fg}}; font-size: 12px; font-weight: {{g.weight}}">#{{g.label}} <span style="color: var(--muted); font-weight: 400">{{g.count}}</span></button>
+
+<span aria-hidden="true" style="width: 1px; height: 22px; background: var(--border)"></span>
+
+<span style="font-size: 13px; color: var(--muted)">Tags</span>
+<div style="position: relative; flex: 0 1 380px; min-width: 240px">
+<div role="combobox" aria-expanded="{{tagMenuAttr}}" aria-haspopup="listbox" onClick="{{openTagMenu}}" style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-height: 32px; padding: 3px 8px; border-radius: 8px; border: 1px solid {{tagBoxBorder}}; background: var(--bg); box-sizing: border-box; cursor: text">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex: none"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<sc-for list="{{selChips}}" as="g" hint-placeholder-count="2">
+<span style="display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border-radius: 12px; background: var(--link-bg); color: var(--link); font-size: 12px; font-weight: 600">#{{g.label}}<button onClick="{{g.remove}}" aria-label="Remove #{{g.label}}" style="width: 20px; height: 20px; border-radius: 10px; color: inherit; font-size: 14px; line-height: 1">×</button></span>
 </sc-for>
-<sc-if value="{{hasTagSel}}" hint-placeholder-val="{{ false }}"><button onClick="{{clearTags}}" style="height: 26px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--link)">Clear</button></sc-if>
-<span style="font-size: 12px; color: var(--faint); margin-left: 4px">{{tagHint}}</span>
+<sc-if value="{{hasQuery}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--text)">{{tagQueryText}}<span style="display: inline-block; width: 1px; height: 15px; background: var(--link); vertical-align: -3px; margin-left: 1px"></span></span></sc-if>
+<sc-if value="{{noQuery}}" hint-placeholder-val="{{ true }}"><span style="flex: 1; min-width: 90px; font-size: 13px; color: var(--faint)">{{tagPlaceholder}}</span></sc-if>
+<sc-if value="{{hasQuery}}" hint-placeholder-val="{{ false }}"><span style="flex: 1"></span></sc-if>
+<sc-if value="{{hasTagSel}}" hint-placeholder-val="{{ false }}"><button onClick="{{clearTags}}" aria-label="Clear tags" title="Clear" style="width: 22px; height: 22px; border-radius: 6px; color: var(--muted)">×</button></sc-if>
+</div>
+<sc-if value="{{tagMenuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="listbox" aria-label="Tags" aria-multiselectable="true" style="position: absolute; left: 0; top: 36px; z-index: 5; width: 300px; padding: 6px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.16); font-size: 13px">
+<div style="padding: 4px 8px 6px; font-size: 11px; color: var(--muted)">{{tagQueryHint}}</div>
+<div style="max-height: 220px; overflow-y: auto">
+<sc-for list="{{tagOptions}}" as="o" hint-placeholder-count="6">
+<button role="option" onClick="{{o.pick}}" aria-selected="{{o.selected}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 6px; background: {{o.bg}}; box-shadow: {{o.ring}}; text-align: left"><span aria-hidden="true" style="width: 14px; color: var(--link); font-weight: 700">{{o.tick}}</span><span style="flex: 1">#{{o.pre}}<b style="color: var(--link)">{{o.hit}}</b>{{o.post}}</span><span style="font-size: 12px; color: var(--muted)">{{o.count}}</span></button>
+</sc-for>
+</div>
+<div style="border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--muted)">↑↓ move · ↩ add · ⌫ removes the last chip · Esc closes</div>
+</div>
+</sc-if>
+</div>
+<span style="font-size: 12px; color: var(--faint)">{{tagHint}}</span>
+<button style="margin-left: auto; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"></path></svg>{{sortLabel}}</button>
 </div>
 
 <!-- Schedule: Today & overdue / This week / Not scheduled -->
@@ -235,7 +256,7 @@ Task board
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"group":{"editor":"enum","options":["status","tag"],"default":"status"},"$preview":{"width":1440,"height":1240}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"group":{"editor":"enum","options":["status","tag"],"default":"status"},"tagDemo":{"editor":"enum","options":["none","searching","selected"],"default":"none"},"$preview":{"width":1440,"height":1240}}'>
 class Component extends DCLogic {
 renderVals() {
 const dark = this.props.dark ?? false;
@@ -307,8 +328,10 @@ toggleDone: () => this.setState({ done: { ...doneMap, [r.id]: !done } })
 };
 const range = st.range || 'all';
 const WEEK = ['over', 'today', 'Wednesday 21', 'Thursday 22', 'Friday 23', 'Saturday 24'];
-const selTags = st.tags || [];
-const tagOk = (r) => !selTags.length || r.tags.some((g) => selTags.includes(g));
+const demo = this.props.tagDemo ?? 'none';
+const selTags = st.tags || (demo === 'searching' ? ['q4'] : demo === 'selected' ? ['q4', 'offsite'] : []);
+// MVP: several tags always combine with AND (a task must have every selected tag).
+const tagOk = (r) => !selTags.length || selTags.every((g) => r.tags.includes(g));
 const inDate = (r) => range === 'all' ? true : range === 'today' ? (r.when === 'over' || r.when === 'today') : (WEEK.includes(r.when) || r.when === 'done');
 const inRange = (r) => inDate(r) && tagOk(r);
 const openAll = raw.filter((r) => r.s !== 'done' && tagOk(r));
@@ -350,7 +373,7 @@ label, badge: badge || '', hasBadge: !!badge, selected: v === cur ? 'true' : 'fa
 bg: v === cur ? 'var(--bg)' : 'transparent', shadow: v === cur ? '0 1px 2px rgba(0,0,0,.12)' : 'none', weight: v === cur ? '600' : '400',
 pick: () => this.setState({ [key]: v })
 }));
-const views = [['schedule', 'Schedule'], ['board', 'Kanban']].map(([v, label, badge]) => ({ label, badge: badge || '', hasBadge: !!badge, selected: v === view ? 'true' : 'false', bg: v === view ? 'var(--bg)' : 'transparent', shadow: v === view ? '0 1px 2px rgba(0,0,0,.12)' : 'none', weight: v === view ? '600' : '400', pick: () => {} }));
+const views = [['schedule', 'Schedule'], ['board', 'Kanban'], ['all', 'All tasks']].map(([v, label, badge]) => ({ label, badge: badge || '', hasBadge: !!badge, selected: v === view ? 'true' : 'false', bg: v === view ? 'var(--bg)' : 'transparent', shadow: v === view ? '0 1px 2px rgba(0,0,0,.12)' : 'none', weight: v === view ? '600' : '400', pick: () => {} }));
 // The two tabs are separate pages: Tasks (schedule) and Task board (kanban)
 const groupBy = pickSeg([['status', 'Status'], ['tag', 'Tag']], group, 'group');
 const filters = [['all', 'All'], ['today', 'Today'], ['week', 'This week']].map(([v, label]) => {
@@ -365,7 +388,7 @@ const nav = [
 { label: 'Tasks', d: I.task, meta: '4', active: true }
 ].map((n) => ({ ...n, bg: n.active ? 'var(--hover)' : 'transparent', weight: n.active ? '600' : '400' }));
 const types = [
-['Pages', 'page', '128'], ['Tasks', 'task', '46'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
+['Pages', 'page', '128'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
 ['Ideas', 'idea', '10'], ['Meetings', 'meet', '58'], ['Projects', 'proj', '9'], ['People', 'person', '31']
 ].map(([label, k, c]) => ({ label, count: c, d: T[k][0], color: T[k][1] }));
 const sideTags = [
@@ -378,14 +401,32 @@ return {
 themeClass: dark ? 'dark' : '', nav, types, sideTags,
 views, groupBy, filters, sections, collapsed, columns,
 isBoard, isSchedule: !isBoard,
-tagFilters: ['offsite', 'podcast', 'q4', 'finance', 'home', 'reading'].map((g) => {
+// Searchable tag picker: chips in a combobox; mock vault has dozens of tags.
+...(() => {
+const ALL_TAGS = ['offsite', 'podcast', 'q4', 'finance', 'home', 'reading', 'office-move', 'travel', 'health-admin', 'hiring', 'q3', 'q1-2027', 'budget', 'family', 'car', 'blog', 'tegg', 'design', 'research', 'invoices', 'garden', 'kids-school', 'taxes', 'birthday', 'lisbon', 'prague', 'conference', 'review', 'someday', 'errands', 'learning', 'writing', 'photos', 'insurance', 'bank', 'gifts', 'renovation'];
+const used = (g) => openAny.filter((r) => r.tags.includes(g) && inDate(r) && selTags.every((x) => x === g || r.tags.includes(x))).length;
+const query = st.tags ? (st.tagMenu ? '' : '') : (demo === 'searching' ? 'of' : '');
+const open = st.tagMenu ?? (demo === 'searching');
+const matches = ALL_TAGS.filter((g) => !query || g.includes(query));
+const options = matches.map((g) => ({ g, n: used(g) })).sort((x, y) => (y.n - x.n) || x.g.localeCompare(y.g)).slice(0, 12).map(({ g, n }, i) => {
 const on = selTags.includes(g);
-return { label: g, count: String(openAny.filter((r) => r.tags.includes(g) && inDate(r)).length), pressed: on ? 'true' : 'false',
-bg: on ? 'var(--link-bg)' : 'transparent', border: on ? 'var(--link)' : 'var(--border)', fg: on ? 'var(--link)' : 'var(--text)', weight: on ? '600' : '400',
-pick: () => this.setState({ tags: on ? selTags.filter((x) => x !== g) : [...selTags, g] }) };
-}),
-hasTagSel: selTags.length > 0, clearTags: () => this.setState({ tags: [] }),
-tagHint: selTags.length > 1 ? 'Showing tasks with any of the selected tags' : '',
+const k = query ? g.indexOf(query) : -1;
+return { pre: k >= 0 ? g.slice(0, k) : g, hit: k >= 0 ? query : '', post: k >= 0 ? g.slice(k + query.length) : '', count: String(n),
+selected: on ? 'true' : 'false', tick: on ? '✓' : '', bg: on ? 'var(--link-bg)' : (query && i === 0 ? 'var(--hover)' : 'transparent'), ring: 'none',
+pick: () => this.setState({ tags: on ? selTags.filter((x) => x !== g) : [...selTags, g], tagMenu: false }) };
+});
+return {
+selChips: selTags.map((g) => ({ label: g, remove: () => this.setState({ tags: selTags.filter((x) => x !== g), tagMenu: false }) })),
+tagPlaceholder: selTags.length ? 'Add tag…' : 'Search ' + ALL_TAGS.length + ' tags…',
+hasQuery: !!query, noQuery: !query, tagQueryText: query,
+tagMenuOpen: open, tagMenuAttr: open ? 'true' : 'false', tagBoxBorder: open ? 'var(--link)' : 'var(--border)',
+openTagMenu: () => this.setState({ tagMenu: !open, tags: selTags }),
+tagQueryHint: query ? matches.length + ' of ' + ALL_TAGS.length + ' tags match “' + query + '” · ↩ adds the first' : ALL_TAGS.length + ' tags · most used first · type to search',
+tagOptions: options,
+hasTagSel: selTags.length > 0, clearTags: () => this.setState({ tags: [], tagMenu: false }),
+tagHint: selTags.length > 1 ? 'Tasks with all selected tags' : '',
+};
+})(),
 schedCols: range === 'today' ? 'minmax(0, 1fr)' : range === 'week' ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))',
 quickDue: isBoard ? 'None' : 'Today',
 sortLabel: isBoard ? 'Due date' : 'Priority, then due',

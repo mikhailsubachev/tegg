@@ -3,9 +3,11 @@ import { DuplicateDetails } from './links/DuplicateDetails';
 import { typeNameOf } from './links/icons';
 import { ipc } from './ipc/client';
 import type { SwitcherItemDto } from './ipc/types';
-import { typeIcon } from './icons';
+import { TypeIcon } from './icons';
 import { t } from './i18n/catalog';
 import { prepareObject, type Prepared } from './types/create';
+import { Icon } from './shell/Icon';
+import { TypeMenu } from './shell/TypeMenu';
 
 /** FR-NAV-01: ⌘O quick switcher. Keyboard only: ↑/↓, ⏎, Esc (AC-11, FR-UX-03). */
 export function Switcher({ onOpen, onCreate, onClose }: {
@@ -16,6 +18,8 @@ export function Switcher({ onOpen, onCreate, onClose }: {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<SwitcherItemDto[]>([]);
   const [sel, setSel] = useState(0);
+  /** FR-VLT-05 AC-3 (D-550): the create row whose type the `Type` menu is choosing. */
+  const [asType, setAsType] = useState<{ item: SwitcherItemDto; at: { left: number; top: number } } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -27,7 +31,10 @@ export function Switcher({ onOpen, onCreate, onClose }: {
     const n = ++seq.current;
     ipc.switcher(q, 30).then((r) => {
       if (n === seq.current) {
-        setItems(r);
+        // `Create "<q>" as…` below the create row (FR-VLT-05 AC-3).
+        const out: SwitcherItemDto[] = [];
+        for (const x of r) { out.push(x); if (x.kind === 'create') out.push({ ...x, kind: 'create-as' }); }
+        setItems(out);
         setSel(0);
         const c = r.find((x) => x.kind === 'create');
         if (c && prepared.current?.key !== c.type) {
@@ -39,8 +46,13 @@ export function Switcher({ onOpen, onCreate, onClose }: {
     }, () => {});
   }, [q]);
 
+  const openAs = (i: SwitcherItemDto) => {
+    const r = document.querySelector('.switcher')?.getBoundingClientRect();
+    setAsType({ item: i, at: { left: (r?.left ?? 100) + 40, top: (r?.top ?? 100) + 60 } });
+  };
   const choose = (i: SwitcherItemDto | undefined) => {
     if (!i) return;
+    if (i.kind === 'create-as') return openAs(i);
     if (i.kind === 'create') onCreate(i, prepared.current?.key === i.type ? prepared.current.p : null);
     else if (i.path) {
       void ipc.perfMark('switcher-enter').catch(() => {}); // NFR-PERF-05 AC-2 (ms3-shell §11.5)
@@ -55,6 +67,9 @@ export function Switcher({ onOpen, onCreate, onClose }: {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSel((s) => Math.max(s - 1, 0));
+    } else if (e.key === 'Enter' && e.altKey && items[sel]?.kind === 'create') {
+      e.preventDefault();
+      openAs(items[sel]);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       choose(items[sel]);
@@ -82,8 +97,9 @@ export function Switcher({ onOpen, onCreate, onClose }: {
         <ul role="listbox" aria-label={t('switcher.results')}>
           {items.map((i, n) => (
             <li
-              key={i.path ?? `create:${i.title}`}
+              key={i.path ?? `${i.kind}:${i.title}`}
               role="option"
+              aria-label={i.kind === 'create' ? t('switcher.create', { title: i.title }) : i.kind === 'create-as' ? t('create.as', { query: i.title }) : undefined}
               aria-selected={n === sel}
               className={n === sel ? 'selected' : ''}
               onMouseMove={(e) => {
@@ -94,14 +110,19 @@ export function Switcher({ onOpen, onCreate, onClose }: {
               }}
               onClick={() => choose(i)}
             >
-              <span className="icon" aria-hidden="true">{i.kind === 'create' ? '+' : typeIcon(i.type)}</span>
-              <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>
+              {i.kind === 'create' || i.kind === 'create-as' ? <span className="icon" aria-hidden="true"><Icon name="plus" size={14} /></span> : <span className="icon" aria-hidden="true"><TypeIcon type={i.type} /></span>}
+              {i.kind === 'create-as' ? <span className="title">{t('create.as', { query: '\u0000' }).split('\u0000')[0]}<span data-user-content>{i.title}</span>{t('create.as', { query: '\u0000' }).split('\u0000')[1]}</span>
+                : <span className="title">{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[0] : null}<span data-user-content>{i.title}</span>{i.kind === 'create' ? t('switcher.create', { title: '\u0000' }).split('\u0000')[1] : null}</span>}
               {i.matched_alias && <span className="alias" data-user-content>{i.matched_alias}</span>}
-              {i.duplicate ? <DuplicateDetails details={i.duplicate} typeName={typeNameOf(i.type)} /> : <span className="folder" data-user-content>{i.folder}</span>}
+              {i.kind === 'create-as' ? null : i.duplicate ? <DuplicateDetails details={i.duplicate} typeName={typeNameOf(i.type)} /> : <span className="folder" data-user-content>{i.folder}</span>}
             </li>
           ))}
         </ul>
       </div>
+      {asType && (
+        <TypeMenu at={asType.at} onClose={() => { setAsType(null); input.current?.focus(); }}
+          onChoose={(ty) => { const it = asType.item; setAsType(null); onCreate({ ...it, kind: 'create', type: ty.key, folder: ty.folder }, null); }} />
+      )}
     </div>
   );
 }

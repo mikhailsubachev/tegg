@@ -27,6 +27,10 @@ export class Saver {
   /** A rename of this note is running: writes wait for it (its `moved`, or `release` when it renamed nothing). */
   private holding = false;
   state: SaveState = 'saved';
+  /** FR-SYN-03 AC-21 (v0.52 H9): the text of the write on its way, and of the last one that landed. The watcher reports
+   *  these writes too; a disk text equal to either is this note's own save, not an external change. */
+  writing: string | null = null;
+  lastWritten: string | null = null;
   failure: Failure = null;
   /** 4B (ms4-daily §4.1): while a Daily Note is virtual, its first save is this call instead of `note_write`;
    *  it returns the new path and version, and is cleared once it succeeds. */
@@ -35,6 +39,9 @@ export class Saver {
   transform: ((text: string) => string) | null = null;
   /** FR-DLY-05 AC-2 (PR #38 review): the next save holds only the review toggle, so it skips `transform`. */
   skipTransform = false;
+  /** D-522: the draft's title was committed, so its first write happens even when the document is as it opened (a
+   *  title carried over from a draft of another type, FR-VLT-05 AC-4). */
+  forceFirst = false;
   /** The document as opened (a virtual note's first write needs a changed document, D-323). */
   private openedDoc: TeggEditor['editor']['state']['doc'];
 
@@ -113,6 +120,9 @@ export class Saver {
       this.timer = setTimeout(() => { this.timer = null; void this.run(); }, 150);
       return;
     }
+    // This write saves everything changed so far: a debounce armed meanwhile (a flush's second write after the first
+    // write's `transform` reported a change) has nothing left to do and would keep `pending` true (bug_l6_fr_edt_08).
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     this.firstAt = null;
     const mark = this.changes;
     let text: string | null;
@@ -125,7 +135,7 @@ export class Saver {
     }
     // FR-DLY-02 AC-3: on a virtual Daily Note any change of the document counts (Enter adds an empty block that
     // serializes to the same bytes); a change undone before the save leaves the editor clean and writes nothing (D-323).
-    if (text === null && this.create && !this.ed.editor.state.doc.eq(this.openedDoc)) text = this.ed.text();
+    if (text === null && this.create && (this.forceFirst || !this.ed.editor.state.doc.eq(this.openedDoc))) text = this.ed.text();
     if (text === null) {
       if (this.changes === mark) this.set('saved');
       return;
@@ -138,6 +148,7 @@ export class Saver {
     }
     const path = this.path;
     const gen = this.generation;
+    this.writing = text;
     try {
       let r: { version: VersionDto };
       if (this.create) {
@@ -148,6 +159,8 @@ export class Saver {
       } else {
         r = await ipc.noteWrite(path, text, this.base);
       }
+      this.writing = null;
+      this.lastWritten = text;
       if (gen !== this.generation) { this.schedule(); return; }
       this.base = r.version;
       this.ed.markSaved(text);
@@ -155,6 +168,7 @@ export class Saver {
       if (this.changes === mark) this.set('saved');
       else this.schedule();
     } catch (err) {
+      this.writing = null;
       const e = err as { kind?: string; theirs?: string; theirsVersion?: VersionDto };
       // The note moved while this write was on its way (a rename, its undo or redo): write again at the new path.
       if (gen !== this.generation) { this.schedule(); return; }
@@ -222,6 +236,13 @@ export class Saver {
 
   isBlocked() {
     return this.blocked;
+  }
+
+  /** FR-VLT-05 AC-4 (D-550): an unwritten draft replaced by a draft of another type is never written. */
+  discard() {
+    this.blocked = true;
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (this.retry) { clearTimeout(this.retry); this.retry = null; }
   }
 
   dispose() {

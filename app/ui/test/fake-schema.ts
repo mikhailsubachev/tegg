@@ -91,7 +91,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     key: nfc(a.key), name: a.name ?? a.key, type: a.type, supported: R10.includes(a.type),
     readOnlyReason: R10.includes(a.type) ? null : ['file', 'color', 'recurrence'].includes(a.type) ? a.type : 'unsupported',
     default: a.default ?? null, required: a.required === true,
-    options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null })),
+    options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null, state: o.state ?? null })),
     to: Array.isArray(a.to) ? a.to : null, multiple: a.multiple === true, description: a.description ?? null, builtIn: builtinKeys.includes(a.key),
   }));
   const preview: string[] = Array.isArray(y.preview) ? y.preview.map(String) : [];
@@ -149,7 +149,7 @@ function scalar(v: unknown): string {
   return JSON.stringify(s);
 }
 const flow = (xs: string[]) => `[${xs.map(scalar).join(', ')}]`;
-const optionLine = (o: { label: string; color: string | null }) => `      - { label: ${scalar(o.label)}${o.color ? `, color: ${o.color}` : ''} }\n`;
+const optionLine = (o: { label: string; color: string | null; state?: string | null }) => `      - { label: ${scalar(o.label)}${o.state ? `, state: ${o.state}` : ''}${o.color ? `, color: ${o.color}` : ''} }\n`;
 
 type Entry = { key: string | null; lines: string[] };
 function entries(text: string): Entry[] {
@@ -223,12 +223,15 @@ function itemFrom(a: any): Item {
   return it;
 }
 
-async function patchText(key: string, text: string, ops: any[], t: TypeDto, all: TypeDto[]): Promise<{ text: string } | { error: Record<string, unknown> }> {
+const OPTION_OPS = ['setOptionState', 'addOption', 'setOptionColor', 'moveOption', 'removeOption', 'renameOption'];
+
+async function patchText(key: string, text: string, ops: any[], t: TypeDto, all: TypeDto[], used: (attr: string, label: string) => number = () => 0): Promise<{ text: string } | { error: Record<string, unknown> }> {
   const s = await schema();
   const es = entries(text);
   const others = all.filter((x) => x.key !== key);
   const rule = (r: any) => ({ error: err('Rule', `rule: ${r.reason}`, r) });
   const builtIn = (k: string) => t.attributes.find((a: any) => a.key === k)?.builtIn === true;
+  const working: Record<string, any[]> = {};
   for (const op of ops) {
     if (op.op === 'set') {
       const v = op.value === null ? null : nfc(String(op.value));
@@ -283,6 +286,36 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
         if (i < 0 || i === op.to) continue;
         const [it] = its.splice(i, 1);
         its.splice(Math.max(0, Math.min(op.to, its.length)), 0, it);
+      } else if (OPTION_OPS.includes(op.op)) {
+        // ms5-tasks §2.2 (D-473): one option line per op, also on built-in options; the Task status keeps an Open and a
+        // Done state; a used label isn't renamed (D-501).
+        const i = find(op.attr);
+        if (i < 0) continue;
+        const it = its[i];
+        const cur = t.attributes.find((a: any) => a.key === nfc(op.attr));
+        // The ops of one patch apply in order: each starts from the options the previous one left.
+        const opts: any[] = (working[nfc(op.attr)] ??= cur.options.map((o: any) => ({ label: o.label, color: o.color ?? null, state: o.state ?? null })));
+        const at = (l: string) => opts.findIndex((o) => o.label === nfc(String(l)));
+        const lower = (l: string) => nfc(l).trim().toLowerCase();
+        if (op.op === 'setOptionState') { const j = at(op.label); if (j < 0 || opts[j].state === op.state) continue; opts[j].state = op.state; }
+        else if (op.op === 'setOptionColor') { const j = at(op.label); if (j < 0 || opts[j].color === op.color) continue; opts[j].color = op.color; }
+        else if (op.op === 'removeOption') { const j = at(op.label); if (j < 0) continue; opts.splice(j, 1); }
+        else if (op.op === 'moveOption') { const j = at(op.label); const to = Math.max(0, Math.min(op.to, opts.length - 1)); if (j < 0 || j === to) continue; const [x] = opts.splice(j, 1); opts.splice(to, 0, x); }
+        else if (op.op === 'addOption') {
+          const l = nfc(String(op.option.label)).trim();
+          if (!l) return rule({ reason: 'optionEmpty', field: 'optionLabel' });
+          if (opts.some((o) => lower(o.label) === lower(l))) return rule({ reason: 'optionDuplicate', field: 'optionLabel' });
+          opts.push({ label: l, color: op.option.color ?? null, state: op.option.state ?? null });
+        } else if (op.op === 'renameOption') {
+          const j = at(op.from);
+          const l = nfc(String(op.to)).trim();
+          if (j < 0 || opts[j].label === l) continue;
+          if (!l) return rule({ reason: 'optionEmpty', field: 'optionLabel' });
+          if (used(op.attr, opts[j].label) > 0) return rule({ reason: 'optionUsed', field: 'optionLabel', label: opts[j].label });
+          if (opts.some((o, k) => k !== j && lower(o.label) === lower(l))) return rule({ reason: 'optionDuplicate', field: 'optionLabel' });
+          opts[j].label = l;
+        }
+        setField(it, 'options', opts.length ? ['    options:\n', ...opts.map(optionLine)] : null);
       } else if (op.op === 'updateAttribute') {
         if (builtIn(op.key)) return { error: err('BuiltInChanged', 'built-in attribute') };
         const i = find(op.key);
@@ -309,8 +342,17 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
         }
       }
       const body = its.map(itemText).join('');
-      es[ai] = { key: 'attributes', lines: body ? ['attributes:\n', body] : ['attributes: []\n'] };
+      // One line per entry, so a later op of the same patch reads the items again (D-512).
+      es[ai] = { key: 'attributes', lines: body ? ['attributes:\n', ...body.split(/(?<=\n)/)] : ['attributes: []\n'] };
     }
+  }
+  if (key === 'task' && working.status) {
+    // Only a change that removes the last Open / Done status is refused (tegg-schema check_task_states, PR #47 review).
+    const states = (o: any[]) => o.map((x) => s.taskState(x));
+    const before = states(t.attributes.find((a: any) => a.key === 'status')?.options ?? []);
+    const after = states(working.status);
+    if (before.includes('open') && !after.includes('open')) return rule({ reason: 'needOpen', field: 'optionLabel' });
+    if (before.includes('done') && !after.includes('done')) return rule({ reason: 'needDone', field: 'optionLabel' });
   }
   let out = join_(es);
   if (out !== text && t.declaredVersion === null) {
@@ -365,7 +407,9 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
       const p = typePath(key);
       if (t.exists ? !sameVersion(a.base, vers[p]) : (a.base !== null || files[p] !== undefined)) return { error: err('Conflict', 'changed on disk', { disk: getType(files, vers, key) }) };
       const text = t.exists ? files[p] : BUILTIN[key];
-      const out = await patchText(key, text, a.ops ?? [], t, types());
+      const objs = (a.ops ?? []).some((o: any) => o.op === 'renameOption') ? (await objects(files)).filter((o) => o.type === key) : [];
+      const usedOf = (attr: string, label: string) => objs.filter((o) => ([] as unknown[]).concat(o.data[attr] ?? []).map((x) => nfc(String(x))).includes(label)).length;
+      const out = await patchText(key, text, a.ops ?? [], t, types(), usedOf);
       if ('error' in out) return { error: out.error };
       if (t.exists && out.text === text) return { result: t };
       return { result: readType(key, out.text, true, null), writes: { [p]: out.text } };

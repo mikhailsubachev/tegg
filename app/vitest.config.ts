@@ -13,5 +13,7 @@ export default defineConfig({
       { find: /^\/packages\//, replacement: `${resolve(__dirname, '../packages')}/` },
     ],
   },
-  test: { include: ['test/**/*.ac.test.ts'], environment: 'node' },
+  // `*.contract.test.ts`: checks that a fake follows a shared corpus (D-512), not AC tests. `test/regress/`: regression
+  // tests (bug_*) of UI modules that need vitest's resolution and mocks.
+  test: { include: ['test/**/*.ac.test.ts', 'test/**/*.contract.test.ts', 'test/regress/**/*.test.ts'], environment: 'node' },
 });

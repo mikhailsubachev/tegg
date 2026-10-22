@@ -6,10 +6,18 @@ import type { Link, Nodes } from 'mdast'
 import { applyPatches, entryKeyText, formatEntry, type Patch, type Value } from './edit.js'
 import { wikilinks } from './links.js'
 import { parse, type Doc, type Range } from './parse.js'
+import { applyInboxChange, type InboxChange } from './inbox.js'
 
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
   | { op: 'set-title'; title: string; now: string }
+  // Slice 5B (ms5-capture §7.3): thin wrappers of `applyInboxChange` for the `inbox` job kind (not mixed with the others).
+  | { op: 'set-review'; value: 'reviewed' | 'unreviewed'; now: string }
+  | { op: 'set-type'; type: string; now: string }
+  | { op: 'add-tags'; tags: string[]; now: string }
+  | { op: 'append-link'; target: string; now: string }
+  // D-573: a bulk `Link to…`; each file gets the D-184 text of `toPath` from its own folder (D-291 over `paths`).
+  | { op: 'append-link-to'; toPath: string; toTitle: string; paths: string[]; now: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -17,11 +25,27 @@ type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
+  // 5B Inbox ops (ms5-capture §7.3) are whole-text changes of `applyInboxChange`; the edit is the changed span.
+  if (ops.length > 0 && ops.every((o) => o.op === 'set-review' || o.op === 'set-type' || o.op === 'add-tags' || o.op === 'append-link' || o.op === 'append-link-to')) {
+    let out = text
+    const changes = ops.map((o): InboxChange => (o.op === 'append-link-to' ? { op: 'append-link', target: d184Text(source, o.toPath, o.toTitle, o.paths), now: o.now } : (o as InboxChange)))
+    for (const op of changes) {
+      const r = applyInboxChange(out, op)
+      if (r.kind === 'bytes') out = r.text
+    }
+    if (out === text) return { kind: 'unchanged' }
+    let a = 0
+    while (a < text.length && a < out.length && text[a] === out[a]) a++
+    let b = 0
+    while (b < text.length - a && b < out.length - a && text[text.length - 1 - b] === out[out.length - 1 - b]) b++
+    const bytes = byteOffsets(text)
+    return { kind: 'bytes', text: out, edits: [{ start: bytes(a), end: bytes(text.length - b) }] }
+  }
   const doc = parse(text)
   const patches: Patch[] = []
   for (const op of ops) {
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
-    else patches.push(...linkPatches(doc, source, op))
+    else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
   }
   const changed = patches.filter((p) => text.slice(p.range[0], p.range[1]) !== p.text)
   if (changed.length === 0) return { kind: 'unchanged' }
@@ -30,6 +54,17 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   const bytes = byteOffsets(text)
   const edits = [...changed].sort((a, b) => a.range[0] - b.range[0]).map((p) => ({ start: bytes(p.range[0]), end: bytes(p.range[1]) }))
   return { kind: 'bytes', text: out, edits }
+}
+
+/** D-184: the link text for the note at `toPath` written in `source`: its stem when the stem resolves to it from there
+ *  (D-291), else its vault path without `.md`; `|title` when the title differs from that. */
+export function d184Text(source: string, toPath: string, toTitle: string, paths: string[]): string {
+  const path = nfc(toPath).replace(/\.md$/i, '')
+  const stem = path.slice(path.lastIndexOf('/') + 1)
+  const hit = resolveFrom(source, stem, false, paths.includes(toPath) ? paths : [...paths, toPath])
+  const target = hit !== null && key(hit) === key(toPath) ? stem : path
+  const shown = nfc(toTitle).trim()
+  return shown && shown !== target ? `${target}|${shown}` : target
 }
 
 /** The link rewrite alone (FR-LNK-03 AC-7, AC-9, AC-20). Same edit rules as `transform`. */

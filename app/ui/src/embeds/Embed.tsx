@@ -5,6 +5,8 @@ import { parse, type EmbedMode } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../ipc/types';
 import { chipIcon, chipTypes } from '../links/icons';
+import { isUnreviewed } from '../links/chip';
+import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
 import { openDate } from '../daily/open';
 import { Icon } from '../shell/Icon';
@@ -12,6 +14,7 @@ import { ReadView } from '../read/ReadView';
 import { formatDate } from '../read/PropertiesStrip';
 import { TypeCell, type TypeColumn } from '../types/cell';
 import type { EmbedNode } from './tree';
+import { isTaskCard, TaskEmbed } from './TaskEmbed';
 
 export type EmbedProps = {
   node: EmbedNode;
@@ -62,6 +65,7 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   const type = typeOf(node);
   const icon = chipIcon(type);
   const description = broken ? t('link.noNote', { target: node.target.target }) : node.state === 'too-deep' ? t('embed.tooDeep') : t('embed.chip');
+  const parts = broken ? null : chipParts(node.target); // D-600
   const act = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -82,13 +86,15 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
       data-icon={broken ? undefined : icon.def}
       data-link-kind={broken ? 'unresolved' : undefined}
       aria-label={broken ? node.target.target : titleOf(node)}
-      aria-description={description}
+      {...parts?.attrs}
+      aria-description={joinDescriptions(description, parts?.description)}
       onMouseDown={(e) => e.preventDefault()}
       onClick={act}
       onKeyDown={(e) => e.key === 'Enter' && act(e)}
     >
-      {!broken && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      {!broken && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
       <span data-user-content>{broken ? node.target.target : titleOf(node)}</span>
+      {parts?.suffix}
     </a>
   );
 }
@@ -167,20 +173,28 @@ function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: strin
   );
 }
 
-function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
+function OpenButton({ props }: { props: EmbedProps }) {
   const { node } = props;
   // `Open <title>` names the note, without the heading (R30).
   const name = node.target.title ?? node.target.target;
   return (
+    <button type="button" tabIndex={0} className="embed-btn" data-command="edit.openEmbed" onMouseDown={(e) => e.preventDefault()} aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
+      <Icon name="external" size={13} />
+    </button>
+  );
+}
+
+function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
+  const { node } = props;
+  return (
     <div className="embed-header">
       {showIcon && <TypeIcon type={typeOf(node)} />}
       <span className="embed-title" data-user-content>{title}</span>
+      {node.state === 'ok' && isUnreviewed(node.target) && <span className="embed-unrev" data-review="unreviewed"><span className="chip-unrev" aria-hidden="true" />{t('link.unreviewed')}</span>}
       {node.mode === 'full' && node.readOnly && node.state === 'ok' && props.editable === false && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) && (
         <span className="embed-readonly">{t('embed.readOnly')}</span>
       )}
-      <button type="button" tabIndex={0} className="embed-btn" data-command="edit.openEmbed" onMouseDown={(e) => e.preventDefault()} aria-label={t('embed.open', { title: name })} onClick={(e) => { e.stopPropagation(); open(node, props.onOpen); }}>
-        <Icon name="external" size={13} />
-      </button>
+      <OpenButton props={props} />
       {node.state !== 'date-missing' && <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />}
     </div>
   );
@@ -273,6 +287,15 @@ export function EmbedBody(props: EmbedProps) {
 export function Embed(props: EmbedProps): ReactNode {
   const { node } = props;
   if (node.inline || node.mode === 'link' || node.state === 'too-deep') {
+    // D-598 (D-428): a block embed in link mode keeps its `Display as` menu after the chip; inline ones don't (D-419).
+    if (!node.inline && node.state !== 'too-deep' && node.state !== 'broken' && node.state !== 'date-missing') {
+      return (
+        <span className="embed-link-block">
+          <LinkEmbed {...props} />
+          <ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />
+        </span>
+      );
+    }
     return <LinkEmbed {...props} />;
   }
   const depth = Math.min(node.depth, 3);
@@ -315,6 +338,16 @@ export function Embed(props: EmbedProps): ReactNode {
     );
   }
   const title = titleOf(node);
+  if (isTaskCard(node)) {
+    // D-74, D-497: the Task card (R52) in the 4F card frame; no preview strip.
+    return (
+      <section {...base} onClick={undefined} onKeyDown={undefined} className="embed embed-card embed-task" aria-label={t('embed.name', { title })} data-embed-state="ok" data-embed-target={node.target.path ?? node.target.target} data-task-card="">
+        <TaskEmbed node={node} editable={props.editable} title={title} body={props.body} onOpen={() => open(node, props.onOpen)}
+          openButton={<OpenButton props={props} />}
+          modeMenu={<ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />} />
+      </section>
+    );
+  }
   const state = node.state === 'ok' && node.mode === 'full' && node.readOnly && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) ? 'read-only' : node.state;
   const common = { ...base, className: `embed embed-${node.mode}`, 'aria-label': t('embed.name', { title }), 'data-embed-state': state, 'data-embed-target': node.target.path ?? node.target.target };
   let content: ReactNode = null;

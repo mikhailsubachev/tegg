@@ -1,5 +1,6 @@
 // The note's subtitle and read-only Properties strip (FR-TYP-08 display, D-147, D-154, D-160; ms3-shell §11.3).
 // Placed between the title and the body; collapsible, the state is machine-local UI state (D-127).
+import { chipParts } from '../links/ChipParts';
 import { parse } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
@@ -8,6 +9,8 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
 import { openDate } from '../daily/open';
+import { dateTimeSetting, formatDate as formatDateWith, formatDateTime as formatDateTimeWith } from '../i18n/dates';
+import { appZone } from '../zone';
 import { attributeRows, type AttrRow } from './properties';
 
 const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
@@ -16,6 +19,8 @@ const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.l
 export function formatDate(date: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
   if (!m) return date;
+  const s = dateTimeSetting(); // FR-SET-03 (D-566): ISO and Long when chosen
+  if (s && s.date !== 'region') return formatDateWith(m[0], s);
   return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium' }).format(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
 }
 
@@ -23,6 +28,8 @@ export function formatDate(date: string): string {
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  const s = dateTimeSetting();
+  if (s && (s.date !== 'region' || s.time !== 'region')) return formatDateTimeWith(iso, s, appZone());
   return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
 }
 
@@ -41,12 +48,14 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
   const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
   const kind = ok ? info!.kind : dated ? 'date-missing' : 'unresolved';
   const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
+  const parts = ok ? chipParts(info) : null; // D-600
   return (
     <a
       href="#"
       className={`chip link-chip kind-${kind}`}
       data-link-kind={kind}
-      aria-description={ok || dated ? undefined : t('link.noNote', { target })}
+      aria-description={ok ? parts?.description ?? undefined : dated ? undefined : t('link.noNote', { target })}
+      {...parts?.attrs}
       onClick={(e) => {
         e.preventDefault();
         if ((dated || info?.kind === 'daily') && openDate(target)) return; // FR-DLY-08 AC-6
@@ -54,8 +63,9 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
         else if (from !== undefined) requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
       }}
     >
-      {(ok || dated) && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+      {(ok || dated) && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
       <span data-user-content>{ok ? info!.title ?? target : target}</span>
+      {parts?.suffix}
     </a>
   );
 }

@@ -471,8 +471,8 @@ test('fr_fmt_12_ac6_nfd_file_name_edit_keeps_one_file', { timeout: 300_000 }, as
     press('o', ['command']);
     paste('Cíl');
     await sleep(600);
-    // A switcher row exposes "<icon> <title> <folder>" as its title; the query field and the page also show "Cíl".
-    const rows = await d.$$('-ios predicate string:title ENDSWITH " Cíl Pages"');
+    // A switcher row exposes "<title> <folder>" as its title; the query field and the page also show "Cíl".
+    const rows = await d.$$('-ios predicate string:title == "Cíl Pages"');
     let shownRows = 0;
     for (const h of rows) if (await h.isDisplayed().catch(() => false)) shownRows++;
     assert.equal(shownRows, 1, 'the switcher lists one object for it');

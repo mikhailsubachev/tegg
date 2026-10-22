@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-starter-plan"
+description = "Enables the starter_plan command without any pre-configured scope."
+commands.allow = ["starter_plan"]
+
+[[permission]]
+identifier = "deny-starter-plan"
+description = "Denies the starter_plan command without any pre-configured scope."
+commands.deny = ["starter_plan"]

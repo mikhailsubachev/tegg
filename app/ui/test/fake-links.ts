@@ -18,16 +18,21 @@ let schemaMod: any = null;
 const doc = async () => (docMod ??= await import('@tegg/doc'));
 const schema = async () => (schemaMod ??= await import('@tegg/schema'));
 
-type Obj = {
+export type Obj = {
   path: string; stem: string; folder: string; title: string; id: string | null; type: string; raw: string | null;
   attributes: Record<string, any>; frontmatterError: boolean; links: any[]; blocks: any[];
   /** ms4-daily §2: a Daily Note's valid date (its displayed title, D-320) and its stored title when different. */
   daily: string | null; storedTitle: string | null;
+  /** Tag keys, frontmatter and inline (D-185). */
+  tags?: string[];
 };
 
-async function objects(files: Files): Promise<Obj[]> {
-  const d = await doc();
-  const s = await schema();
+export async function objects(files: Files): Promise<Obj[]> {
+  return objectsWith(files, await doc(), await schema());
+}
+
+/** `objects` with the modules already loaded (5A-1 fake-tasks.ts, ms5-tasks §7). */
+export function objectsWith(files: Files, d: any, s: any): Obj[] {
   return Object.entries(files).filter(([p]) => !excluded(p)).map(([path, text]) => {
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const x = d.extract(text, stem);
@@ -36,13 +41,13 @@ async function objects(files: Files): Promise<Obj[]> {
     const raw = typeof attributes.type === 'string' && attributes.type.trim() ? nfc(attributes.type.trim()) : null;
     const daily = m.key === 'daily-note' && attributes.date != null ? d.parseDate(String(attributes.date).trim().slice(0, 10)) : null;
     const storedTitle = daily && nfc(String(x.title).trim()) !== daily ? x.title : null;
-    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: daily ?? x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks, daily, storedTitle };
+    return { path, stem, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', title: daily ?? x.title, id: x.id, type: m.key, raw, attributes, frontmatterError: x.frontmatterError, links: x.links, blocks: x.blocks, daily, storedTitle, tags: x.tags };
   });
 }
 
 type Res = { kind: 'note' | 'daily' | 'date-missing' | 'unresolved' | 'ignored'; path: string | null };
 
-function resolver(objs: Obj[]) {
+export function resolver(objs: Obj[]) {
   const byPath = new Map<string, Obj>();
   const byId = new Map<string, Obj>();
   const byStem = new Map<string, Obj[]>();
@@ -223,7 +228,7 @@ function dailyFolder(ctx: Ctx): string {
 }
 
 /** D-339: `created`/`modified` in the day window: instants by [start, end), offset-less values by their local date. */
-function inWindow(v: unknown, date: string, start: number, end: number): number | null {
+export function inWindow(v: unknown, date: string, start: number, end: number): number | null {
   if (typeof v !== 'string') return null;
   const s = v.trim();
   if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:\d{2})$/.test(s)) { const t = Date.parse(s); return t >= start && t < end ? t : null; }
@@ -279,8 +284,17 @@ async function daily(cmd: string, a: any, files: Files, ctx: Ctx): Promise<Answe
       const start = Date.parse(String(a.start)), end = Date.parse(String(a.end)), limit = Number(a.limit ?? 50);
       const own = of(date)[0]?.path ?? null;
       const q: [number, any][] = [], c: [number, any][] = [], m: [number, any][] = [];
+      // 5A-1 (D-328, FR-DLY-04 AC-11): what Tasks due lists for the day (due on it, or completed in it) isn't repeated.
+      const statusOpts: any[] = (ctx.types as any[]).find((x) => x.key === 'task')?.attributes?.find((a: any) => a.key === 'status')?.options ?? [];
+      const stateOf = (v: unknown) => { const o = statusOpts.find((x) => x.label === (typeof v === 'string' ? nfc(v) : null)); return ['open', 'in-progress', 'done', 'cancelled'].includes(o?.state) ? o.state : 'open'; };
+      const listed = (o: Obj) => {
+        if (o.type !== 'task') return false;
+        const st = stateOf(o.attributes.status);
+        if ((st === 'open' || st === 'in-progress') && typeof o.attributes.due === 'string' && o.attributes.due.trim() === date) return true;
+        return st === 'done' && inWindow(o.attributes.completed, date, start, end) !== null;
+      };
       for (const o of ctx.objs) {
-        if (o.path === own) continue;
+        if (o.path === own || listed(o)) continue;
         const row = (v: unknown) => ({ path: o.path, title: o.title, type: o.type, at: String(v) });
         const cr = inWindow(o.attributes.created, date, start, end), mo = inWindow(o.attributes.modified, date, start, end);
         if (o.type === 'quick-note' && cr !== null) q.push([cr, row(o.attributes.created)]);
@@ -493,7 +507,10 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
     case 'link_create': {
       const from = String(a.from ?? ''), target = String(a.target ?? ''), expect = a.expect;
       if (expect?.state === 'create' && files[nfc(expect.path)] !== undefined) return { error: err('Exists', 'fake: the file appeared', { path: nfc(expect.path) }) };
-      const typed = expect?.state === 'create' && relationAllows(ctx, from, target, expect.type) ? plan(files, ctx, from, target, [expect.type]) : plan(files, ctx, from, target, null);
+      // 5B (FR-VLT-05 AC-3, D-550): a type picked in the offer's `Type` control is planned again with that type, as the
+      // core does for any type a capture can make.
+      const picked = expect?.state === 'create' && typeof a.asType === 'string' && a.asType === expect.type && !['daily-note', 'tag', 'image', 'pdf'].includes(String(expect.type));
+      const typed = expect?.state === 'create' && (relationAllows(ctx, from, target, expect.type) || picked) ? plan(files, ctx, from, target, [expect.type]) : plan(files, ctx, from, target, null);
       const now = same(typed, expect) ? typed : plan(files, ctx, from, target, null);
       if (now.state === 'exists') return { error: err('Exists', 'fake: exists now', { path: now.path }) };
       if (!same(now, expect) || now.state !== 'create') return { error: err('PlanChanged', 'fake: the plan changed', { now }) };

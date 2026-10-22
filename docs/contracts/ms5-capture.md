@@ -1,0 +1,368 @@
+# MS5 Capture and Inbox Interface Contract (slice 5B)
+
+- **Status:** accepted, 2026-10-19. Written before the 5B red tests (D-552, as D-487). Follows D-539…D-567 (BRD v1.72); §13's AP-495 is decided as D-567; §14's red-test points as D-568…D-584 (BRD v1.73).
+- **ACs:** [docs/acceptance/capture.md](../acceptance/capture.md) (FR-CAP-01 AC-1…AC-14, FR-CAP-03 AC-1…AC-5, FR-CAP-04 AC-1…AC-8, FR-CAP-05 AC-1…AC-9, FR-TSK-10 AC-9…AC-12, FR-VLT-05 AC-1…AC-7, FR-SET-01 AC-1…AC-10, FR-SET-03 AC-1…AC-5, FR-SET-05 AC-1…AC-6, NFR-SEC-03 AC-1…AC-5, NFR-PERF-10 AC-2…AC-5, FR-SYN-06 AC-24, AC-25; tables R55…R59) and [docs/acceptance/inbox.md](../acceptance/inbox.md) (FR-INB-01 AC-1…AC-11, FR-INB-02 AC-1…AC-15, FR-INB-03 AC-1…AC-6, FR-INB-04 AC-1…AC-3, FR-NAV-02 AC-1, FR-NAV-04 AC-1…AC-5, FR-NAV-05 AC-1, FR-DLY-05 AC-5, FR-FMT-07 AC-21, FR-SYN-06 AC-26…AC-28; tables R60…R63). Where this contract and the ACs disagree, the ACs win, and this contract is corrected before the red tests.
+- **Builds on** [ms3-shell.md](ms3-shell.md) (§1 launching and test hooks, §5 fake core, §13.2 `note_read` / `note_write`, §14 types and the creation path §14.2.3), [ms4-links.md](ms4-links.md) (§1 resolution, §3.1 free stem, D-184 link text), [ms4-daily.md](ms4-daily.md) (§1 dates, `daily_create`), [ms4-jobs.md](ms4-jobs.md) (job engine, transformer, backups) and [ms5-tasks.md](ms5-tasks.md) (§1 clock and first weekday, §6.4 quick-add parsing). Everything in those contracts stays valid unless this one changes it.
+- **Writes.** A capture is one create-exclusive file (`capture_create`). A single Inbox action is one `note_write` with a base version (Append to: two, target first). A settings change is one file (`vault_settings_patch` or `type_patch`). An Inbox action on more than one file is a `tegg-jobs` job of the new kind `inbox` (§7.3); only a bulk convert makes a backup zip (D-561).
+
+Until a part is implemented, it exists as a stub that compiles and returns a deliberately wrong result (an empty list, `None`, the input unchanged, or an `Io` error). A test then fails on its assertion, never on a build or import error (TS-I1).
+
+---
+
+## 1. Process, windows and lifecycle (`app/src-tauri`)
+
+### 1.1 Plugins and dependencies
+
+| Need | Choice |
+| --- | --- |
+| Status item | Tauri's `tray-icon` feature (as S3); template image `icons/tray.png` (+ `@2x`) |
+| Global hotkeys | `tauri-plugin-global-shortcut` 2 (as S3) |
+| Single instance (D-71) | `tauri-plugin-single-instance` 2, registered first; the second launch's callback shows the main window (§1.3) and exits the second process |
+| Login item (FR-SET-05) | `SMAppService.mainAppService` through `objc2-service-management` (`register` / `unregister` / `status`); listed under Login Items › Open at Login |
+| Previous app | `NSWorkspace.frontmostApplication` (objc2-app-kit, already a dependency) |
+
+No other plugin. No `fs`, `shell`, `clipboard-manager`, `opener` or `http` plugin (NFR-SEC-01, NFR-SEC-03).
+
+### 1.2 Windows
+
+| Label | Page | Created | Properties |
+| --- | --- | --- | --- |
+| `main` | `index.html` | at startup (as today) | **hidden** at startup when launched at login (§1.5); otherwise shown |
+| `capture` | `capture.html` | at startup, hidden (pre-warmed, FR-CAP-03) | 420 pt wide, height set by the page (`capture_resize(height)`), not resizable, no title bar (`decorations: false`; transparent with the popover effect, 14 px corners and the shadow, `macOSPrivateApi`, D-592), `always_on_top`, `skip_taskbar`, `visible_on_all_workspaces` (current Space, also over full-screen apps), the same `initialization_script` as `main` (UI state, region, test mode, TZ, clock) |
+| `capture-saved` | `capture.html#saved` | at startup, hidden | the confirmation panel (R55 "After saving"): 360 pt wide, height following its content, transparent with the popover effect (D-592), no title bar, `always_on_top`, `focused(false)`; shown with `orderFrontRegardless` without making it key, hidden after 4 s |
+
+- **Closing the main window hides it** (close button, ⌘W): `CloseRequested` → `prevent_close` and `hide()`; the app keeps running (FR-CAP-03 AC-1). The current D-196 save-before-exit flow moves from `CloseRequested` to quitting only (⌘Q, `Quit Tegg`, the Quit Apple Event).
+- **Dock click** (`RunEvent::Reopen`) shows and focuses `main` on its current route. The activation policy stays `Regular` (Dock icon always; FR-SET-05 AC-3).
+- **Closing or hiding `capture`** never quits the app.
+
+### 1.3 Opening the capture window
+
+`open_capture(trigger, kind)` in the shell, for every trigger:
+
+| Trigger | `trigger` | `kind` |
+| --- | --- | --- |
+| Status item click | `status-item` | `default` |
+| Status menu `Quick Capture` / `New Task` | `status-menu` | `default` / `task` |
+| ⌃⌥Space / ⌃⌥T | `hotkey` | `default` / `task` |
+| Palette `Quick Capture` / `Capture a task`, Inbox zero `Quick Capture` | `palette` | `default` / `task` |
+
+Steps: record `t0 = Instant::now()` and a new `seq`; record the frontmost application (unless it is Tegg); emit `capture:open { seq, trigger, kind }` to `capture`; position it (below the status item's rect for `status-item` / `status-menu`; else centred horizontally in the upper third of the screen with the pointer, D-542); `show()` and `set_focus()`. When `capture` is already visible: emit the same event (the page keeps its text; `task` switches the type, D-542) and focus it. The main window is never shown or ordered front by this path (FR-CAP-03 AC-3).
+
+Hiding (`capture_hide`): `hide()`, then re-activate the recorded application (`NSRunningApplication.activateWithOptions`) when Tegg's main window isn't visible or wasn't key before the trigger (FR-CAP-01 AC-4).
+
+### 1.4 Status item (R56, D-547)
+
+Built at startup when `showStatusItem` (§5.2) is true; removed and rebuilt by `shell_settings_set`. `show_menu_on_left_click(false)`; left click → `open_capture(status-item, default)`; the menu (R56 strings from the shell's own catalog, §9) shows ⌃⌥Space / ⌃⌥T as accelerators only while that hotkey is `active`. `Open Tegg` shows `main`; `Settings…` shows `main` and emits `shell:route { route: 'settings/appearance' }`; `Quit Tegg` runs the quit flow.
+
+### 1.5 Launch at login (D-547)
+
+The app counts as launched at login when the launch Apple event carries `keyAELaunchedAsLogInItem`, or with `TEGG_TEST=1` and `TEGG_TEST_LAUNCHED_AT_LOGIN=1`. Then `main` is created hidden; the vault opens as usual; the status item and hotkeys are set up; the first Dock click or `Open Tegg` shows `main` on the D-132 landing route.
+
+### 1.6 Global hotkeys (FR-CAP-05, D-548)
+
+Fixed: `quick-capture` = ⌃⌥Space, `new-task` = ⌃⌥T (not stored, FR-CAP-05 AC-8). Registered at startup after the status item; each registration result is kept as `HotkeyState { id, keys: "⌃⌥Space", state: 'active' | 'taken' }`. Changes emit `hotkeys:state` (the whole list) to `main`. Unregistered on quit (the plugin's drop; FR-CAP-05 AC-7).
+
+## 2. IPC of the capture window (capability `capture`, NFR-SEC-03)
+
+### 2.1 Capabilities (D-552, D-553)
+
+`build.rs` declares the app's commands with `tauri_build::Attributes::app_manifest(AppManifest::new().commands(&[...]))`, so every command needs an explicit `allow-<command>` permission:
+
+- `capabilities/default.json`: windows `["main"]`; today's permissions plus `allow-<command>` for every main-window command (all commands except §2.2's capture-only ones).
+- `capabilities/capture.json` (new): windows `["capture", "capture-saved"]`; exactly `core:event:allow-listen`, `core:event:allow-unlisten`, `core:window:allow-start-dragging` and the `allow-` permissions of §2.2. No plugin permission.
+
+A refused call never reaches a command function (NFR-SEC-03 AC-2, tested through `tauri::test::mock_builder` with the window label `capture`).
+
+### 2.2 Commands
+
+| Command | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `capture_context` | — | `CaptureContextDto` | Everything the window may read (D-553): see below. |
+| `capture_create` | `vault: string` (the `vaultId` it showed), `type`, `title`, `text` | `CapturedDto { path, title, typeName }` | §3.3. Errors: `NoVault`, `VaultChanged`, `UnsupportedType`, `NotACapture`, `Io`. |
+| `capture_ready` | `seq` | — | Writes the `capture-ready` mark (§8) once per `seq`. |
+| `capture_hide` | — | — | §1.3 hiding. |
+| `capture_resize` | `height` | — | Sets the window's content height (min 160, max 560 pt). |
+| `capture_open_main` | `path: string \| null` | — | Shows `main`; with a path emits `shell:route { route: 'note/<path>' }` (the panel's `Open`, FR-CAP-01 AC-13; `Open Tegg`). |
+| `capture_draft_get` / `capture_draft_set` | — / `draft: CaptureDraftDto \| null` | `CaptureDraftDto \| null` / — | `capture-draft.json` in Application Support (FR-STO-07, FR-CAP-01 AC-8); `null` deletes it. |
+| `capture_saved_show` | `typeName`, `title`, `path` | — | Fills and shows `capture-saved` for 4 s (§1.2). |
+| `capture_suggest` | `query: string` | `CaptureSuggestDto[]` (≤ 8) | D-603 (amends D-553): the switcher's matching (`Core::switcher`, aliases included, no create rows, no templates, no trash) as `{ link, title, type, alias }`: `link` the D-184 link text from the vault root, `alias` the matched alias or null. No body, excerpt or path field. Errors: `NoVault`. |
+
+```ts
+type CaptureContextDto = {
+  vault: { id: string; name: string; color: string | null } | null; // id: an opaque token that changes when another vault opens
+  types: CaptureTypeDto[];       // R55 order: Page, Task, Quick Note, then user types by D-122 (the UI sorts with its collator)
+  defaultType: string;           // capture's default key (D-541: Daily Note or invalid → quick-note)
+  tags: string[];                // index tag names in D-185 spelling
+};
+type CaptureTypeDto = {
+  key: string; name: string; icon: string; color: string; folder: string;
+  review: 'off' | 'on' | 'locked';
+  attributes: { key: string; type: string; default?: unknown; options?: { label: string; color?: string | null; state?: string | null }[] }[];
+  templateHead: string | null;   // the default template's frontmatter block only, `---` lines included, no body (D-567)
+};
+type CaptureDraftDto = { text: string; type: string; tags: string[]; due: string | null; priority: string | null; savedAt: string };
+```
+
+Events to `capture`: `capture:open { seq, trigger, kind }`; `capture:context-changed` (after `vault:changed` touching `.tegg/`, a tag change, or a vault switch; the page re-reads `capture_context` within 2 s, FR-VLT-05 AC-5, FR-CAP-04 AC-8). The capture window gets no `vault:changed` payloads (paths stay in the main window).
+
+### 2.3 What the capture page never does (NFR-SEC-03 AC-4)
+
+No `navigator.clipboard`, no clipboard plugin, no `postMessage`, no `window.open`, no fetch. Paste works only through the textarea's native ⌘V. A pasted image (`paste` event with an image item) is prevented and shows `capture.mediaLater` (D-545); a dropped file is prevented (`dragover`/`drop` default prevented on the document).
+
+## 3. Capture text → object
+
+### 3.1 `@tegg/doc` `capture.ts` (new, exported from the index)
+
+```ts
+/** R57 (D-539): title, body and trailing tags of a capture's text. NFC, CRLF → LF. */
+export function captureParts(text: string, linkTitle: (target: string) => string | null): {
+  title: string;        // '' when no line has non-space characters
+  body: string;         // '' or ending with exactly one '\n'
+  tags: string[];       // trailing `#tag` tokens of the title line, in order, as written (without '#')
+  keptTitleLine: boolean;
+};
+```
+
+- The title line's plain text uses `objectFromUnit`'s first-line rules (ms5-tasks §11.1, D-491); `linkTitle` gives a link's target title when it has no alias (the capture window has no index access: it passes `() => null`, so an alias-less link's title is its target text without folder and `.md`; §12 item 2).
+- The UI turns `title === ''` into `Untitled` (D-523) only when saving.
+
+### 3.2 `newObject` gains `capture` (D-540, D-595)
+
+`newObject({ …, capture?: true })`. With `capture`: `review: unreviewed` is written whatever `type.review` is; then `created`, `modified` (both = `now`); no `captured` key (D-595, replaces D-540's `captured: <captured>`); the template's `id, type, title, tags, review, captured, created, modified` entries are ignored; `body` is required (the template's body is never used). The capture window builds the template input from `templateHead` (§2.2).
+
+Task fields: `values` gets `priority` (the chosen label, as written) and `due` (`{ date }`) when set; `status` comes from the D-470 rule already in `newObject`. `tags` = the chips, then `captureParts().tags`, duplicates dropped by `tagKey` (first spelling wins), NFC.
+
+### 3.3 Core `capture_create` (`tegg-core`, `capture5b.rs`)
+
+`Core::capture_create(type_key, title, bytes) -> Result<String, CoreError>`:
+
+1. `type_key` matched by D-239; `daily-note`, `tag`, `image`, `pdf` and unknown keys → `UnsupportedType`.
+2. The bytes' frontmatter must carry this type (as `create_object`) and a `created` value (D-595; was `captured`), and `review: unreviewed` exactly when the type's review workflow is on (locked or on; D-604): a review type without it, or another type with any `review` key → `NotACapture`.
+3. Then exactly `create_object` (folder re-read now, folders created, `free_stem`, `create_file` with `RENAME_EXCL`, indexed at once). No path argument exists.
+
+The shell command checks `vault` against the current `vaultId` (`VaultChanged`) and that a vault is open (`NoVault`) before calling the core.
+
+### 3.4 Quick-add tokens (D-544)
+
+The capture page reuses `app/ui/src/tasks/quickAdd.ts` (ms5-tasks §6.4, D-483) on the first line while the type is Task: on each input event the trailing tokens are moved into Due, Priority and chips; the Due control's `Clear` and the chip's remove put the token back at the end of the first line, as typed. The draft stores the text after the move.
+
+## 4. The capture page (`app/ui/src/capture/`)
+
+- `capture.html` is a second Vite input (`build.rollupOptions.input: { main: 'index.html', capture: 'capture.html' }`); its entry `capture/main.tsx` imports only `@tegg/doc`, `capture/*`, `i18n/*`, `theme/*`, `tasks/quickAdd.ts`, `ipc/capture.ts` (a client with §2.2's commands only) and shared presentational components (`shell/Icon`). An L0 test checks the import graph of the built `capture` chunk: no `ipc/client.ts`, no `@tegg/editor`.
+- `CaptureApp.tsx` (R55), `TypeMenu.tsx`, `TagField.tsx` (also used by the Inbox's `Add tags…`, §6), `Saved.tsx` (the `#saved` panel), `draft.ts`.
+- On `capture:open`: restore the draft if any (else empty), apply `kind`, focus `Capture text` with the caret at the end, wait two animation frames, call `capture_ready(seq)`.
+- Save: `captureParts` → `newObject` with `now = localIso(Date.now())` and `capture: true` → `capture_create`; on success clear the draft, `capture_saved_show`, `capture_hide`; on error keep everything and show R55's status (FR-CAP-01 AC-10, AC-11). ⌘↩ while a save is in flight is ignored (one file per capture).
+- Esc, and the window's `blur` (focus loss, D-596): empty → `capture_hide`; else `capture_draft_set` then `capture_hide`. A `blur` while a save is in flight, or after `capture_hide` until the next `capture:open`, is ignored. `Discard`: `capture_draft_set(null)`, clear, `capture_hide`.
+- Theme: `theme/*` with the stored theme from `__TEGG_UI_STATE__`; `ui:state` events (emitted by `ui_state_set`) re-apply theme and date format.
+
+## 5. Settings
+
+### 5.1 Vault settings (FR-VLT-05, FR-SET-01; D-541, D-551)
+
+Core (`tegg-core`, `settings5b.rs`) and `tegg-schema` (`vault_yml.rs`, Rust edits YAML as for type files, D-235):
+
+```rust
+pub struct VaultSettings {
+    pub version: Option<FileVersion>,          // None when vault.yml is missing
+    pub default_type: DefaultTypeSetting,      // { raw: Option<String>, key: String, valid: bool }
+    pub daily_format: String,                  // raw or "YYYY-MM-DD"
+    pub attachments: String,                   // raw or "_attachments"
+}
+pub fn vault_settings(&self) -> VaultSettings;
+pub fn vault_settings_patch(&self, base: Option<FileVersion>, key: VaultKey, value: String) -> Result<VaultSettings, CoreError>;
+pub enum VaultKey { DefaultType, DailyFormat, Attachments }
+```
+
+- `default_type.key`: D-239 match of `raw` against the defined types; `valid = false` (key `quick-note`) when missing, empty, not a string, or no such type; a raw `Daily Note` is valid (⌘N keeps D-353). Capture's default is `quick-note` when the key is `daily-note` or invalid. `load_default_type` uses this, so the switcher's create row and ⌘N follow it. Reading never writes.
+- `vault_settings_patch` writes only that key's line (`default-type: <key>`, as the type key; `daily-format`, `attachments` as given, YAML-quoted when needed, D-230), appending the key after the last entry when missing, keeping comments and other lines byte for byte; refused with `Conflict` when `base` isn't the current version, `Invalid { reason }` for a D-336-rejected format or a D-222-rejected folder (`check_folder`). Equal value → no write, `Ok`.
+- The daily notes folder uses `type_patch('daily-note', base, [SetFolder])` (the whole default file is written when it is missing, D-90).
+
+| IPC (main window) | Args | Returns |
+| --- | --- | --- |
+| `vault_settings` | — | `VaultSettingsDto` |
+| `vault_settings_patch` | `base: VersionDto \| null`, `key: 'default-type' \| 'daily-format' \| 'attachments'`, `value` | `VaultSettingsDto` |
+| `vault_reveal` | — | — (`/usr/bin/open -R <vault>`; with `TEGG_TEST=1` appends the path to `TEGG_TEST_REVEAL` instead) |
+
+### 5.2 Machine settings (FR-SET-05, FR-SET-03; D-547, D-566)
+
+- **Shell settings** (owned by the shell, `shell-settings.json` in Application Support): `{ showStatusItem: true, openAtLogin: false }` as defaults. IPC `shell_settings` → `ShellSettingsDto`; `shell_settings_set(settings)` applies at once (status item built/removed; login item `register`/`unregister`, or with `TEGG_TEST=1` one line `register` / `unregister` appended to `TEGG_TEST_LOGIN_ITEM`) and stores. `openAtLogin` shown on the page is `SMAppService` status when not in test mode.
+- **Hotkeys:** IPC `hotkeys` → `HotkeyStateDto[]`; `hotkeys_retry(id)` re-registers that one and returns the list; event `hotkeys:state`. The main window shows the once-per-launch notice (`hotkeys.notice`) when the first `hotkeys` result after launch has a `taken` entry.
+- **Date & time** in `UiStateDto.dateTime?: { date: 'region' | 'iso' | 'long'; time: 'region' | '24' | '12'; week: 'region' | 'monday' | 'sunday' }` (missing = all `region`). `app/ui/src/i18n/dates.ts` (new) is the one formatter: `formatDate(date, setting)`, `formatDateTime(instant, setting, zone)`, `firstDay(setting, region)`; every date shown in the UI (attribute panel, task rows and chips, Inbox footer, daily header, calendar) goes through it; the calendar (D-329) and Tasks bucketing (ms5-tasks §4) take `firstDay(...)` instead of `firstWeekday(region)` directly. Date inputs parse the region format and ISO whatever the setting (D-566).
+
+## 6. Default type in the create paths (FR-VLT-05 AC-2…AC-4, D-550)
+
+- `app/ui/src/types/defaultType.ts` (new): `defaultTypeKey(): Promise<string>` from `vault_settings` (cached, refreshed on `vault:changed` of `.tegg/vault.yml` or a type file); replaces the `switcher('?')` lookup in `App.tsx`.
+- **Create offer:** the `Type` combobox is enabled (removes `ctl.typePickerLink`); its options are the capture targets (relation offers: the allowed types).
+- **Switcher, `[[`, `@`:** a second create row `Create "<q>" as…` (kind `create-as`, added by the UI, not the core); it and ⌥⏎ on the create row open the shared `TypeMenu` (§4); the chosen type goes through `prepareObject(type).create(title)` (one creation path).
+- **Unwritten draft:** `Change type…` on `new/<type>` replaces the draft route with `new/<other>` keeping the typed title; nothing is written (D-520, D-522).
+
+## 7. Inbox
+
+### 7.1 Core query (`tegg-core`, `inbox5b.rs`; R61, D-554)
+
+```rust
+pub struct InboxRow {
+    pub path: String,               // NFC
+    pub id: Option<String>,
+    pub title: String,              // falls back to the stem (ObjectInfo rule)
+    pub r#type: String,             // matched key (D-239)
+    pub review_raw: Option<String>, // as written (NFC, trimmed), None when missing or not a string
+    pub captured: Option<String>,   // raw values; the UI parses them (§7.2)
+    pub created: Option<String>,
+    pub modified: Option<String>,
+    pub tags: Vec<String>,          // frontmatter then inline tags, D-185 spelling, unique by key
+    pub excerpt: String,            // tegg_index::text::excerpt (plain text, ≤ 300 chars)
+    pub read_only: bool,            // last read not valid UTF-8 (D-180)
+}
+pub fn inbox_list(&self) -> Vec<InboxRow>;   // members only, in path order
+pub fn inbox_count(&self) -> usize;
+```
+
+Membership exactly R61 (D-554) from the index's stored frontmatter: `review_raw == "unreviewed"`, or type `quick-note`/`daily-note` with `review_raw != Some("reviewed")`; never `_templates/`, `.trash/`, files without frontmatter, or virtual Daily Notes. The index must store `review` and `captured` raw values (rebuilt from files, AR-01). `vault:changed` already follows index updates; a member-set change also emits `inbox:count { count }` (the sidebar, FR-NAV-04 AC-2).
+
+| IPC | Args | Returns |
+| --- | --- | --- |
+| `inbox_list` | — | `InboxRowDto[]` |
+| `inbox_count` | — | `number` |
+
+### 7.2 Order and groups (`app/ui/src/inbox/bucket.ts`, pure TypeScript; D-555)
+
+`inboxInstant(row, zone): number | null` with `@tegg/doc` `parseInstant` (offset-less in `zone`, D-365; a date alone is local midnight); `inboxOrder(rows, zone, collator)`; `inboxGroups(rows, todayLocal, firstDay, zone)` → `today | yesterday | week | older`. The page re-derives today every 30 s (the ms5-tasks §1 timer).
+
+### 7.3 Writes
+
+Text changes are `@tegg/doc` functions (new `inbox.ts`), each returning the new text or `unchanged`, editing only their lines (D-230 append rule; quote style kept; CRLF, BOM and final-newline state kept):
+
+```ts
+export type InboxChange =
+  | { op: 'set-review'; value: 'reviewed' | 'unreviewed'; now: string }
+  | { op: 'set-type'; type: string; now: string }                // writes `type`, `review: reviewed`, `modified` (D-557)
+  | { op: 'add-tags'; tags: string[]; now: string }               // flow list append, unique by tagKey
+  | { op: 'append-link'; target: string; now: string }            // blank line + `[[target]]` paragraph (D-559)
+export function applyInboxChange(text: string, change: InboxChange): { kind: 'bytes'; text: string } | { kind: 'unchanged' };
+/** D-558: `## <title>` + the item's body appended to `target`, links rewritten by `retarget` (D-184 text or null = keep). */
+export function appendSection(target: string, title: string, itemBody: string, retarget: (link: string) => string | null, now: string): string;
+```
+
+- **One item:** `note_read` → `applyInboxChange` → `note_write(path, text, base)` with the version the page loaded (FR-INB-02 AC-3: `Conflict` → reload + alert). Append to: compute `retarget` by `link_resolve(itemPath, links)` vs `link_resolve(targetPath, links)` and `linkText` (ms4-links D-184) for each link whose resolution differs; write the target (`note_write`, or `daily_create(date, text)` for a virtual today, FR-DLY-02 AC-2), then the item with `set-review reviewed` (FR-INB-02 AC-7: a failed item write is retried alone).
+- **Several items:** the job kind `inbox` (ms4-jobs §1 table gains a row): `JobOp::Inbox { paths, change: InboxJobChange }` (`SetReview`, `SetType`, `AddTags`, `AppendLink`); flags `needsConfirm: false` (the page confirms `Mark all reviewed` itself), `backup: true` only for `SetType` (D-561, operation label `backup.convert`), `undoable: false`, cancellable in `planning` and `backup`. The planner lists the given paths with their index versions; the transformer gets the matching new `TextOp`s (`set-review`, `set-type`, `add-tags`, `append-link`, added to `@tegg/doc` `transform` as thin wrappers of `applyInboxChange`). Changed and read-only files are skipped (`changed`, `readOnly`) and listed in the report; the page shows `inbox.skipped`.
+- IPC `inbox_bulk(paths, change)` → `{ jobId }`; progress, report and cancel use the existing job IPC.
+
+### 7.4 UI (`app/ui/src/inbox/`)
+
+`InboxPage.tsx` (route `inbox`, R60), `Card.tsx`, `TriageMenu.tsx`, `Picker.tsx` (switcher matching without the create row; Append lists `Today's note` first), `actions.ts` (§7.3), `bucket.ts`, `selection.ts`. Virtualized card list (FR-INB-01 AC-10). Remembered filter in `UiStateDto.inbox?: { filter: string }` (D-555). The `route-ready:inbox` mark after the visible cards have painted.
+
+### 7.5 L1 interfaces (D-569)
+
+- `inbox/bucket.ts` `inboxGroups(rows, todayLocal, firstDay, zone) → { today, yesterday, week, older }`, each in input order; `firstDay` is an ISO weekday (1 = Monday … 7 = Sunday, as `firstWeekday`).
+- `inbox/card.ts` `cardTags(tags) → { shown, more }` (up to 3 shown) and `cardFooter(row, zone, setting?) → string | null` (`Captured …`, `Created …`, or none).
+- `capture/tags.ts` `tagSuggestions(typed, tags, locale)` and `addChip(chips, typed)`, shared by `TagField.tsx`.
+- `i18n/dates.ts` reads `UiStateDto.dateTime` (missing = all `region`) and the region from `i18n/collate.ts` `region()`.
+- Commands and events settled by D-570, D-578, D-579: `acl_probe` (test only), `capture_open { kind }` (main window), `capture:saved { typeName, title, path }` (to `capture-saved`).
+
+## 8. Marks and timing (NFR-PERF-10)
+
+- `capture-ready`: the shell computes `t0 → capture_ready(seq)` in ms and appends `{"mark":"capture-ready","trigger":…,"kind":…,"ms":…}` to `TEGG_PERF_LOG` (test builds only), as S3. The L6 suite also reads the external time from the accessibility tree (S3's upper bound).
+- `route-ready:inbox` as every route (ms3-shell §1).
+- Benchmarks: `app/e2e/perf_capture.ts` (20 runs per trigger; NFR-PERF-10 AC-2…AC-5) and `app/e2e/perf_inbox.ts` (FR-INB-01 AC-10), report-only unless `TEGG_PERF_REF=1` (D-152), in the `app-perf` step.
+
+## 9. Strings
+
+R59 and R63 keys in `app/ui/src/i18n/catalog.ts`. The status item's menu is built in Rust before any webview loads: its seven strings (D-575) live in `app/src-tauri/src/strings.rs` as a table keyed like the catalog (`menubar.*`), and an L1 test checks they equal the catalog's English values (NFR-OTH-02).
+
+## 10. Registry (R62)
+
+Route, tab, control, shortcut and command changes exactly as inbox.md R62, in `shell/registry.ts`. New routes `inbox`, `settings/vault`, `settings/menu-bar`, `settings/shortcuts`, `settings/date-time` are built; `capture` is removed; `home`, `pinned`, `outline` and the four Appearance extras are due `v1.0`.
+
+## 11. Test environment, fake core and layout
+
+### 11.1 Test hooks (only with `TEGG_TEST=1`)
+
+| Variable | Effect |
+| --- | --- |
+| `TEGG_TEST_LAUNCHED_AT_LOGIN=1` | start as if launched at login (§1.5) |
+| `TEGG_TEST_LOGIN_ITEM=<file>` | login item calls append `register` / `unregister` lines instead of calling `SMAppService` |
+| `TEGG_TEST_REVEAL=<file>` | `vault_reveal` appends the path instead of opening Finder |
+| `TEGG_TEST_FAIL_CAPTURE=io` | the next `capture_create` fails with `Io` before writing (L6 alternative to the read-only folder) |
+
+Existing hooks apply (`TEGG_APP_SUPPORT`, `TEGG_VAULT`, `TEGG_NOW`, `TZ`, `TEGG_PERF_LOG`, `TEGG_TEST_PICK_DIR`). The L6 hotkey holder is `app/e2e/helpers/holdhotkey.swift` (Carbon `RegisterEventHotKey` for ⌃⌥Space until killed), compiled with `swiftc` into the test's temp folder by the suite's setup (Xcode is an L6 prerequisite).
+
+### 11.2 Fake core additions (ms3-shell §5)
+
+- Main window: `vault_settings`, `vault_settings_patch` (same line rules through a TS twin in `app/ui/test/fake-settings.ts`), `vault_reveal` (recorded), `shell_settings`, `shell_settings_set` (recorded), `hotkeys`, `hotkeys_retry` (states from `FakeOptions.hotkeys`), `inbox_list`, `inbox_count`, `inbox_bulk` (a job over the in-memory files with the real `@tegg/doc`, `FakeOptions.writeControl` honoured per path), `inbox:count` and `hotkeys:state` events.
+- Capture page: `installFakeCore(page, vault, { window: 'capture' })` serves `capture.html` with §2.2's commands only (any other command rejects with `Forbidden`, as the ACL); `handle.openCapture({ trigger, kind })` emits `capture:open`; `capture_create` writes into the same in-memory files, so a second page on `index.html` sharing the handle's vault sees the capture.
+- `app/ui/test/fake-inbox.ts`: the TS twin of `inbox_list` (R61) for L1 and L2.
+
+### 11.3 Test layout
+
+| Layer | Files |
+| --- | --- |
+| L0 | `app/test/capture_static.ac.test.ts` (capability files, the capture chunk's imports, no clipboard / `postMessage` in the capture bundle) |
+| L1 | `packages/doc/test/capture.ac.test.ts`, `packages/doc/test/inbox.ac.test.ts`; `app/test/inbox_bucket.ac.test.ts`, `dates_5b.ac.test.ts`, `capture_ui.ac.test.ts`, `registry_5b.ac.test.ts` (D-568); `app/test/catalog_5b.ac.test.ts` (strings, Rust menu table) |
+| L2 | `packages/doc/test/inbox.prop.ac.test.ts` (FR-FMT-07 AC-21, FR-INB-04 AC-3), `app/test/inbox_members.prop.ac.test.ts` (FR-SYN-06 AC-28) |
+| L4 | `crates/tegg-core/tests/ac_capture.rs`, `ac_inbox.rs`, `ac_vault_settings.rs`; `crates/tegg-jobs/tests/ac_inbox_job.rs`; `app/src-tauri/tests/ac_capture_acl.rs` (mock runtime, NFR-SEC-03 AC-2) |
+| L5 | `app/webkit/capture.ac.test.ts`, `capture_tags.ac.test.ts`, `default_type.ac.test.ts`, `settings_vault.ac.test.ts`, `settings_machine.ac.test.ts`, `inbox.ac.test.ts`, `inbox_actions.ac.test.ts`, `inbox_bulk.ac.test.ts`, `sidebar_5b.ac.test.ts` |
+| L6 | `app/e2e/ms5_capture.ac.test.ts` (FR-CAP-*, FR-TSK-10, FR-SET-05, NFR-SEC-03 AC-4, AC-5, FR-SYN-06 AC-24, AC-25), `app/e2e/ms5_inbox.ac.test.ts` (FR-INB-*, FR-SYN-06 AC-26, AC-27), `app/e2e/nfr_perf_10.ac.test.ts` + `perf_capture.ts`, `perf_inbox.ts` |
+
+The fixture `tests/fixtures/vaults/inbox/` is written byte-exact from its README in its own commit (with `Fixture-Change:`), before the red tests.
+
+## 12. Contract choices (no owner decision needed)
+
+1. **App command ACL.** Tauri 2 lets every window call every app command unless the app declares a command manifest; declaring it (§2.1) is what makes NFR-SEC-03 AC-2 enforceable.
+2. **Alias-less links in a capture's title** show their target text (no index read from the capture window, D-553); FR-CAP-04 AC-4's `[[Plán webu]]` row gives `Plán webu` either way.
+3. **Shell settings in their own file**, written only by the shell, because the shell needs them before any webview loads; date-and-time choices stay in `UiStateDto` with the other UI state.
+4. **`capture-saved` is a separate pre-warmed window** so the confirmation never makes the capture window key again and never activates the app.
+5. **Single-item Inbox actions are not jobs**: one `note_write` each, as the Tasks page (D-480); only multi-file actions go through `tegg-jobs` for base checks, progress and skips.
+6. **The Inbox instant is computed in TypeScript** like the Tasks buckets (ms5-tasks §1: the core never decides "today").
+7. **Login item risk:** `SMAppService.mainAppService` needs the app in `/Applications` or `~/Applications` and may refuse an ad-hoc-signed build; the failure is shown on `settings/menu-bar` as the switch returning off with `Couldn’t add Tegg to the login items.` (new key `settings.menubar.loginFailed`), and FR-SET-05 AC-4's manual part runs on the installed preview.
+
+## 13. Points for the owner
+
+| # | Issue | Recommendation | Alternatives | Affects |
+| --- | --- | --- | --- | --- |
+| AP-495 | **The template's frontmatter in the capture window.** D-540 applies a type's template frontmatter to captures, and D-552 builds the bytes in the capture window; D-553 lets the window read only type definitions, the default type, tag names and the vault name. The template is a vault file. | Count the default template's **frontmatter block** as part of the type definition: `capture_context` sends it as `templateHead` (no body, never shown in the DOM); the template body never reaches the capture window. **Accepted: D-567.** | (b) The core merges the template frontmatter into the capture's bytes in `capture_create` (Rust editing YAML of a note: against D-82). (c) Captures ignore the template entirely (amends D-540; FR-CAP-04 AC-2's `hodnocení: 3`, `oblast: osobní` become the default `1` and nothing). | §2.2, §3.2; FR-CAP-04 AC-2; NFR-SEC-03 AC-4 |
+
+## 14. Red-test points (accepted as recommended 2026-10-19: AP-496…AP-512 → D-568…D-584)
+
+Raised while writing the 5B red tests (D-61). Each test follows the recommendation; nothing here changes an AC.
+
+| # | Issue | Recommendation | Alternatives | Affects |
+| --- | --- | --- | --- | --- |
+| AP-496 | **Where the UI modules' L1 tests live.** §11.3 puts them in `app/ui/src/**/*.test.ts`, but the app's Vitest config only runs `app/test/**/*.ac.test.ts` and `check-red` has no runner for `app/ui/src/`, so such tests would never run and the red check would fail. | They live in `app/test/` as `inbox_bucket.ac.test.ts` (bucket.ts, card.ts, the fake-inbox twin), `dates_5b.ac.test.ts` (dates.ts), `capture_ui.ac.test.ts` (tags.ts, the settings twin); §11.3 is corrected to these paths. **Accepted: D-568.** | (b) Widen the Vitest include and add an `acRunners` entry for `app/ui/src/`. | §11.3 |
+| AP-497 | **L1 surfaces the contract doesn't spell out.** `inboxGroups`' result, the card's derived parts, the tag field's logic and the date setting's shape are named only as files or components. | As stubbed: `inboxGroups(rows, todayLocal, firstDay, zone) → { today, yesterday, week, older }` (each in input order; `firstDay` an ISO weekday, 1 = Monday … 7 = Sunday, as `firstWeekday`); `inbox/card.ts` `cardTags(tags) → { shown, more }` and `cardFooter(row, zone, setting?) → string \| null` (`Captured …` / `Created …` / none); `capture/tags.ts` `tagSuggestions(typed, tags, locale)` and `addChip(chips, typed)` (shared by `TagField.tsx`); `i18n/dates.ts` takes `UiStateDto.dateTime` (missing = all `region`) and reads the region from `i18n/collate.ts` `region()`. **Accepted: D-569.** | (b) Other names or shapes, with the L1 tests changed before the build. | §4, §5.2, §7.2, §7.4 |
+| AP-498 | **The ACL test's entry point (NFR-SEC-03 AC-2).** §2.1 names `tauri::test::mock_builder` but no way for `app/src-tauri/tests/` to build the app's real invoke handler and capabilities on the mock runtime. | A doc-hidden `tegg_app_lib::acl_probe(window, command) -> AclProbe { Refused, Reached }` that runs one invoke through `mock_builder` with the app's capabilities and command manifest (stubbed as always `Reached`). **Accepted: D-570.** | (b) `lib.rs` exposes a runtime-generic builder and the test assembles the mock app itself. | §2.1, §11.3 |
+| AP-499 | **`check-red` for the shell's Rust AC tests.** `qa.config.json` has no `acRunners` entry for `app/src-tauri/tests/ac_*.rs`, so `./verify check-red` can't run `ac_capture_acl.rs`. | Added in the red commit: `{ "dir": "app/src-tauri", "match": "^app/src-tauri/tests/ac_[^/]+\\.rs$", "run": "node ../../tools/qa/src/cargo-junit.ts --junit {junit} {files}" }` (the `app-shell-test` step already runs these tests). **Accepted: D-571.** | — | `qa.config.json` |
+| AP-500 | **`appendSection`'s `retarget`.** §7.3 says "D-184 text or null = keep" without saying what the function gets. | It gets a link's target as written (no alias, no subpath) and returns the whole new inner text (`Quick Notes/Dvojník\|Dvojník`) or null. **Accepted: D-572.** | (b) It gets and returns the target only; the alias is kept from the source link. | §7.3, FR-INB-02 AC-6 |
+| AP-501 | **Bulk `Link to…` across folders.** `InboxJobChange::AppendLink { target }` carries one link text, but the D-184 text of one target can differ per item folder (FR-INB-02 AC-8's `[[Pages/Dvojník\|Dvojník]]`). **Accepted: D-573.** | The job's `target` is the target's vault path and the transformer writes the D-184 text per source file; the red tests use a target that resolves alike from every item (`Plán webu`). | (b) `inbox_bulk` takes one change per path. | §7.3, FR-INB-02 AC-8, AC-12 |
+| AP-502 | **The `Long` date format.** R58 shows `Long (14 October 2026)` and FR-SET-03 AC-2 `20 October 2026`, with the test region `cs`; the region's own long date is `20. října 2026`. | `Long` is the UI language's day-month-year with the month name (`20 October 2026` in English), whatever the region; `Region` follows the region. **Accepted: D-574.** | (b) The region's long date. | R58, FR-SET-03 AC-2 |
+| AP-503 | **Seven menu-bar strings, not six.** §9 says the status item's menu has six strings in `strings.rs`; R59 has seven `menubar.*` keys (`title`, `help` and five items). | All seven in `strings.rs`, each equal to the catalog's English value. **Accepted: D-575.** | — | §9, R59 |
+| AP-504 | **The retired FR-DLY-05 AC-3.** inbox.md retires it (replaced by FR-DLY-05 AC-5) and its two tests are removed with the approved trailer, but daily-notes.md still lists it, so `verify coverage` shows it untested and the MS4 milestone check would fail on it. | Mark it retired in daily-notes.md so the coverage tool no longer reads it as a criterion (e.g. `- ~~**AC-3**~~ … retired by D-515, see inbox.md FR-DLY-05 AC-5`). **Accepted: D-576.** | (b) Keep a test that asserts the opposite (the Inbox is built). | daily-notes.md FR-DLY-05 |
+| AP-505 | **Registry rows built in 5B.** R62 doesn't give the milestone of `settings/date-time` once built (it was `MS3 (3E)`), nor whether the Inbox's triage-menu and toolbar `Move to trash` are one R3 control. | `settings/date-time` built with milestone MS5 like the other 5B routes; one R3 control `Move to trash` (Inbox triage menu and selection toolbar, MS6, FR-HIS-01); one `Change…` (Settings: Shortcuts, v1.0, FR-SET-04). `app/test/shell-tables.ts` follows this. **Accepted: D-577.** | (b) Keep `MS3 (3E)`; two `Move to trash` rows. | R62, app-shell R1, R3 |
+| AP-506 | **How the main window opens the capture window.** §1.3 lists the palette's `Quick Capture` / `Capture a task` and Inbox zero's `Quick Capture` as trigger `palette`, but the IPC table names no main-window command for it. | A main-window command `capture_open { kind: 'default' \| 'task' }` that runs `open_capture('palette', kind)`; the fake core records it (`captureLog().opens`) and forwards `capture:open` to a capture page sharing the vault. **Accepted: D-578.** | (b) An event the main window emits to the shell. | §1.3, §2.2, FR-VLT-05 AC-6, FR-INB-01 AC-7, FR-NAV-02 AC-1 |
+| AP-507 | **How `capture-saved` gets its content.** §1.2 and §2.2 say `capture_saved_show` "fills" the panel window but name no event. | The shell emits `capture:saved { typeName, title, path }` to the `capture-saved` window (`capture.html#saved`); its `Open` calls `capture_open_main(path)`. The fake core's `showSaved()` emits it. **Accepted: D-579.** | (b) The panel reads the last capture through a command. | §1.2, §2.2, FR-CAP-01 AC-13 |
+| AP-508 | **When the Inbox's `Add tags…` applies.** FR-INB-02 AC-9 reuses the capture tag field (⏎, space and comma add chips) but doesn't say when the chips are written to the item. | ⏎ on a chip adds it and the field applies its chips when it closes with ⌘↩ (or ⏎ on an empty field); one write per application. The L5 test accepts either an immediate write after ⏎ or one after ⌘↩. **Accepted: D-580.** | (b) Every added chip is written at once. | FR-INB-02 AC-9, R60 |
+| AP-509 | **Detecting a hotkey another app holds (D-71).** Carbon `RegisterEventHotKey` succeeds for a key another process already holds unless both register with `kEventHotKeyExclusive`; without it the conflict is invisible and FR-CAP-05 AC-5 can't happen. | The shell registers ⌃⌥Space and ⌃⌥T exclusively and reports `taken` when that fails; the L6 holder (`helpers/holdhotkey.swift`) also registers exclusively. **Accepted: D-581.** | (b) Probe for conflicts another way (none known without private API). | §1.6, FR-CAP-05 AC-5…AC-7 |
+| AP-510 | **Where a bulk convert is cancelled.** FR-INB-02 AC-14 says cancelling during planning leaves the vault untouched but not which control cancels. | The job status element (ms4-jobs §10) shows `Cancel` while an `inbox` job is in planning or backup, as for a rename. **Accepted: D-582.** | (b) A `Cancel` in the selection toolbar. | §7.3, FR-INB-02 AC-14 |
+| AP-511 | **FR-CAP-05 AC-9 is read as automated.** Its `[manual]` marker stands at the end of the line, so `verify coverage` (tools/qa CONTRACT §9.1) counts it as an automated AC without a test. | Move `[manual]` directly after the label (`- **AC-9** [manual] **Tegg Preview beside Tegg …**`). **Accepted: D-583.** | — | capture.md FR-CAP-05 AC-9 |
+| AP-512 | **The benchmarks' "main window closed".** Closing the main window with ⌘W before each of 20 runs adds noise; NFR-PERF-10 AC-4's 10 idle minutes make a long run. | The benchmarks start the app as a login item (`TEGG_TEST_LAUNCHED_AT_LOGIN=1`, §1.5), so `main` is hidden from the start; AC-4's idle time is `TEGG_IDLE_MS` (default 10 min). **Accepted: D-584.** | (b) Close the window with ⌘W once after launch. | §8, NFR-PERF-10 AC-2…AC-5 |
+
+## 15. Interface details settled while building 5B (no owner decision needed)
+
+1. **Own small modules instead of two plugins (§1.1).** `tauri-plugin-global-shortcut` registers hotkeys non-exclusively, so a conflict can't be detected (D-581); the shell registers ⌃⌥Space and ⌃⌥T itself through Carbon `RegisterEventHotKey` with `kEventHotKeyExclusive`. Single instance is a local Unix socket in the per-user temp folder keyed by the bundle id (one instance per bundle, Tegg Preview apart, D-118, D-549; FR-CAP-05 AC-4: a second launch without the first one's environment is still the same app). The login item calls `SMAppService.mainAppService` through `objc2` messages. No new crates.
+2. **Inbox rows carry `version`** (the index's version of the file): the base of a single Inbox action, so a change the index hasn't seen is a conflict (§7.3, FR-INB-02 AC-3).
+3. **`index_versions(paths)`** (main window, read-only) gives the index's versions of an `Append to…` target, for the same reason (FR-INB-02 AC-7).
+4. **`link_create` accepts a picked type:** a plan made with a type chosen in the Create offer's `Type` control is planned again with that type (any capture target), as a relation's type already was (FR-VLT-05 AC-3, D-550).
+5. **Drafts:** `Change type…` on an unwritten draft drops it unwritten and opens `new/<type>` with the typed title; the palette or a menu taking the focus doesn't commit a draft's title; committing a carried title is the first write (D-522). The draft's tab is `New <Type name>` (FR-VLT-05 AC-4).
+6. **Events with note content** (`vault:changed` paths, `note:conflict`, `job:*`, `index:progress`, `nav:mouse`) go to the main window only; the capture window gets `capture:open`, `capture:context-changed` and `capture:saved` (NFR-SEC-03).
+7. **Date & time:** `i18n/dates.ts` keeps the current choice (`setDateTimeSetting`, set by the app on every render); the calendar, the Tasks buckets, the attribute strip and Created/Modified read it. Date inputs keep the region's numeric format, or ISO when ISO is chosen (D-566).
+8. **Bulk `Link to…` (D-573):** `InboxJobChange::AppendLinkTo { path, title, now }` (IPC `{ op: 'append-link-to', path, title, now }`) becomes the `TextOp` `append-link-to { toPath, toTitle, paths, now }`; `paths` are the vault's note paths, and `@tegg/doc` `d184Text` writes each file's link text from its own folder (D-291, as `retarget-links`). `AppendLink { target }` stays for one link text in every file (single items and L4 tests). `appendSection` keeps a link's `#heading` / `#^block`, the user's alias or an embed's size, and the table form `\|` when it rewrites the file part (D-572).
+9. **The draft while typing (D-585, FR-CAP-01 AC-15):** the capture page calls `capture_draft_set(draft)` 500 ms after the last change to the text, type, chips, Due or Priority (trailing debounce; one call per quiet period), `capture_draft_set(null)` when the text is empty and no chip is left, and as before on Esc, ⌘↩ success and `Discard`. No new command or event; the fake core records the calls (`callsOf(core, 'capture_draft_set')`) and `core.draft()` returns the stored draft. In L6 the draft file is `<Application Support>/capture-draft.json`.
+10. **Virtualized Inbox cards (D-586, FR-INB-01 AC-12):** the card list renders a window of cards around the viewport (at most 100 `article` elements); each rendered card keeps `data-path`, its R60 name and its group (the R60 structure is unchanged), and has `aria-setsize` (the number of shown items) and `aria-posinset` (its 1-based place in the shown order), so tests and assistive technology see the whole list's size. Group headings of the rendered range are rendered. Moving the focus to a card outside the window renders it first, then focuses it and scrolls it into view (`block: 'nearest'`).
+
+## 16. v0.52 feedback (D-598…D-608, `docs/feedback/ms5-v052.md`)
+
+1. **`capture_suggest` (D-603):** `type CaptureSuggestDto = { link: string; title: string; type: string; alias: string | null }`. Capability `capture` gains this one command; NFR-SEC-03 AC-2's probe lists it as `Reached` from `capture` (and `Refused` stays true for every other read command). The page debounces 80 ms per query change and drops stale answers. `@` adds the date rows Today, Tomorrow, Yesterday computed in the page (`[[YYYY-MM-DD]]`, D-331).
+2. **Review by type (D-604):** `newObject({ …, capture: true })` writes `review: unreviewed` only when the type's `review` is `on` or `locked` (the `CaptureTypeDto.review` / `TypeDto.review` value passed in); the fake `capture_create` applies §3.3 step 2. Strings: `capture.hint` stays for review types; new `capture.hintSaves` `Saves to {plural}`, `capture.savedTo` `Saved to {plural}` (the type's plural, D-232).
+3. **Due calendar (D-602):** the capture's `Due` dialog reuses `daily/Calendar.tsx` (the D-587 `Choose date` grid) with the quick picks above it. Strings: `capture.dueTitle` `Pick a due date`, `capture.noDate` `No date`, `due.today` `Today`, `due.tomorrow` `Tomorrow`, `due.nextWeek` `Next week`, `due.fri` `Fri`, `capture.dueHint` `or type “fri”, “next week”`.
+4. **Title caret (bug of D-592):** `.capture-mirror-title` keeps the textarea's font weight and draws bold with `-webkit-text-stroke` (≈ 0.6 px, `currentColor`), so every glyph keeps its advance width.
+

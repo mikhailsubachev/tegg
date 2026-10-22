@@ -1,17 +1,15 @@
-// MS3 slice 3B.1, L5 (WebKit + fake core): Back and Forward (FR-NAV-03 AC-1, AC-2, AC-4…AC-7) and the logo
-// (FR-UX-01 AC-5), D-164, D-165.
+// MS3 slice 3B.1, L5 (WebKit + fake core): Back and Forward (FR-NAV-03 AC-1, AC-2, AC-4…AC-7) and the About and
+// Settings button's menu (FR-UX-01 AC-5; its version label, D-597, is in version_label.ac.test.ts), D-164, D-165.
 // Written from docs/acceptance/app-shell.md and docs/contracts/ms3-shell.md §3.7, §5, §11, §12 only (D-61). Every
 // lookup goes through `must`/`seen` and node:assert, so a missing element is an AssertionError (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { newEmptyVault } from '../ui/test/fake-core';
 import {
-  P, eventually, focused, mainName, must, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, paletteDialog,
+  P, eventually, focused, mainName, must, mustBeOn, nonReadCalls, onPage, openNote, paletteDialog,
   runCommand, seen, sidebar, sleep, start, switcherDialog, theme, typesList,
 } from './helpers';
-import { IDS, R, article, firstVisibleBlockText, headingFn, placement, readVault, scrollToTop, ui, watchNetwork } from './read-helpers';
+import { IDS, R, article, firstVisibleBlockText, headingFn, placement, readVault, scrollToTop, ui } from './read-helpers';
 
 const PORADA = '2026-10-07 Porada';
 const backBtn = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
@@ -242,8 +240,9 @@ test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ p
 
 // ------------------------------------------------------------------------------------------------ AC-6
 
+// D-520: ⌘N no longer opens a dialog (it navigates to an unsaved draft), so the New object case is gone.
 for (const [dialog, key, loc] of [
-  ['palette', 'Meta+k', paletteDialog], ['switcher', 'Meta+o', switcherDialog], ['new_object', 'Meta+n', newObjectDialog],
+  ['palette', 'Meta+k', paletteDialog], ['switcher', 'Meta+o', switcherDialog],
 ] as const) {
   test(`fr_nav_03_ac6_no_navigation_while_${dialog}_is_open`, async ({ page }) => {
     await start(page);
@@ -343,66 +342,16 @@ test('fr_nav_03_ac7_creating_another_vault_clears_history', async ({ page }) => 
 
 // ------------------------------------------------------------------------------------------------ FR-UX-01 AC-5
 
-const ASSETS = resolve(import.meta.dirname, '../ui/src/assets');
-const asset = (name: string) => { try { return readFileSync(resolve(ASSETS, name), 'utf8'); } catch { return null; } };
-
 // D-220: the logo is the bottom-left button `Tegg: About and Settings` (ms3-shell §3.7), no longer the link `Tegg home`.
 const logoButton = (page: Page) => sidebar(page).getByRole('button', { name: 'Tegg: About and Settings', exact: true });
 const logoMenu = (page: Page) => page.getByRole('menu', { name: 'About and Settings' });
 
-async function logoInfo(page: Page) {
-  const link = await must(logoButton(page), 'sidebar button "Tegg: About and Settings"');
-  return link.evaluate(async (a) => {
-    const imgs = [...a.querySelectorAll('img')] as HTMLImageElement[];
-    const walker = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
-    const texts: string[] = [];
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n.textContent ?? '').trim()) texts.push(n.textContent!.trim());
-    const img = imgs[0];
-    let body: string | null = null;
-    if (img) {
-      if (!img.complete) await new Promise((r) => { img.onload = r; img.onerror = r; setTimeout(r, 2000); });
-      try { body = await (await fetch(img.currentSrc || img.src)).text(); } catch { body = null; }
-    }
-    return { imgs: imgs.length, svgs: a.querySelectorAll('svg').length, texts, alt: img?.getAttribute('alt') ?? null, loaded: !!img && img.naturalWidth > 0, body };
-  });
-}
-const norm = (s: string | null) => (s ?? '').replace(/\r\n/g, '\n').trim();
-
-test('fr_ux_01_ac5_logo_image_follows_the_theme_without_network', async ({ page }) => {
-  const hits = watchNetwork(page);
-  await start(page, { uiState: ui('light') });
-  assert.equal(await theme(page), 'light', 'setup: light theme');
-  const light = asset('logo-light.svg');
-  const dark = asset('logo-dark.svg');
-  assert.ok(light && dark, 'logo assets exist (ms3-shell §12.3)');
-  let info = await logoInfo(page);
-  assert.equal(info.imgs, 1, 'the button shows one image');
-  assert.equal(info.svgs, 0, 'no inline SVG beside the image');
-  assert.deepEqual(info.texts, [], 'no visible text node in the button (the wordmark is part of the image)');
-  assert.equal(info.alt, '', 'decorative image: alt=""');
-  assert.ok(info.loaded, 'the image loaded');
-  assert.equal(norm(info.body), norm(light), 'light theme shows logo-light.svg');
-
-  await page.evaluate(() => { (window as any).__noReload = true; });
-  await runCommand(page, 'Theme: Dark');
-  assert.equal(await eventually(() => theme(page), (v) => v === 'dark', 1500), 'dark', 'dark theme');
-  info = await eventually(() => logoInfo(page), (v) => norm(v.body) === norm(dark), 2000);
-  assert.equal(norm(info.body), norm(dark), 'dark theme shows logo-dark.svg');
-  assert.equal(await page.evaluate(() => (window as any).__noReload === true), true, 'switched without a reload');
-  await runCommand(page, 'Theme: Light');
-  info = await eventually(() => logoInfo(page), (v) => norm(v.body) === norm(light), 2000);
-  assert.equal(norm(info.body), norm(light), 'back to logo-light.svg');
-  assert.deepEqual(hits, [], 'no network request (NFR-SEC-01)');
-});
-
-test('fr_ux_01_ac5_logo_button_shows_the_dark_asset_and_opens_its_menu', async ({ page }) => {
+// D-597: the button shows the version, no logo (the image checks are in version_label.ac.test.ts).
+test('fr_ux_01_ac5_logo_button_opens_its_menu', async ({ page }) => {
   const core = await start(page, { uiState: ui('dark') });
   const btn = await must(logoButton(page), 'sidebar button "Tegg: About and Settings"');
   assert.equal(await btn.getAttribute('aria-haspopup'), 'menu', 'aria-haspopup="menu"');
   assert.equal(await btn.getAttribute('aria-expanded'), 'false', 'aria-expanded="false" while closed');
-  const info = await logoInfo(page);
-  assert.equal(info.imgs, 1, 'one image');
-  assert.equal(norm(info.body), norm(asset('logo-dark.svg')), 'dark asset in the dark theme');
   await runCommand(page, 'Go to Inbox');
   await mustBeOn(page, 'Inbox', 'setup');
   await btn.click();

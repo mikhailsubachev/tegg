@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-job-confirm"
+description = "Enables the job_confirm command without any pre-configured scope."
+commands.allow = ["job_confirm"]
+
+[[permission]]
+identifier = "deny-job-confirm"
+description = "Denies the job_confirm command without any pre-configured scope."
+commands.deny = ["job_confirm"]

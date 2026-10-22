@@ -8,7 +8,7 @@ import { Embed } from '../embeds/Embed';
 import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
-import { fixDailyTitle, parse, parseDate, setValue, transform, type TextOp } from '@tegg/doc';
+import { fixDailyTitle, parse, parseDate, setAttribute, setValue, transform, type TextOp } from '@tegg/doc';
 import { lastRenameOf, onMoved, redoLast, renameNote, undoLast } from '../jobs/jobs';
 import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
@@ -20,23 +20,29 @@ import { Saver, type ConflictInfo, type Failure, type SaveState } from '../edit/
 import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
+import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
 import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
+import { ReviewCheck } from '../shell/ReviewCheck';
 import { pageFallback, typeOfValue } from '../types/util';
+import { reviewable } from '../review';
 import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
 import { ContextSections } from '../daily/ContextSections';
 
-export type NoteMeta = { title: string; type: string };
+/** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
+export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
+/** D-520 (ms5-tasks §12.2): an unsaved new object. */
+export type DraftInfo = { text: string; stamp: string; onCreate: (text: string) => Promise<{ path: string; version: VersionDto }> };
 
 /** Title and type from the frontmatter (untyped files are Pages, D-103), else the file name. */
 export function noteMeta(path: string, text: string): NoteMeta {
   const doc = parse(text.replace(/^﻿/, ''));
   const type = doc.frontmatter?.data?.type;
-  return { title: noteTitle(doc, path), type: typeMatch(type).key.normalize('NFC') };
+  return { title: noteTitle(doc, path), type: typeMatch(type).key.normalize('NFC'), review: doc.frontmatter?.data?.review, hasFrontmatter: !!doc.frontmatter };
 }
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -77,6 +83,12 @@ export type NotePageApi = {
   touched: () => boolean;
   /** 4B (D-330): the review toggle, also from the palette. */
   setReviewed: (reviewed: boolean) => void;
+  /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run now, or null. */
+  convertBlocked: () => string | null;
+  /** 5B (FR-VLT-05 AC-4): the title as typed (an unwritten draft keeps it when its type changes). */
+  title: () => string;
+  /** 5B (FR-VLT-05 AC-4): drop an unwritten draft without writing it (its type changes). */
+  discardDraft: () => void;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
@@ -89,7 +101,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily, draft }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -97,6 +109,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   at?: { line: number; byte: number };
   /** ms4-links §5.4: the focus on this property's value control. */
   attr?: string;
+  /** 5A-1 (D-486, FR-TSK-08 AC-2): select the first block embed of this path, at the top of the pane. */
+  selectEmbedOf?: string;
+  /** 5A-1 (FR-TSK-08 AC-3): open a note with this note's embed selected. */
+  onOpenSource?: (path: string) => void;
   restoreScroll?: number;
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
@@ -125,6 +141,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   daily?: DailyInfo;
   /** 4B: a note route opened a Daily Note (type daily-note with a valid date). */
   onDaily?: (date: string) => void;
+  /** D-520 (ms5-tasks §12.2): an unsaved new object, opened on `text` (stamped `stamp`) and written by `onCreate`. */
+  draft?: DraftInfo;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
@@ -141,6 +159,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const [deleted, setDeleted] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('');
+  const titleRef = useRef('');
+  titleRef.current = title;
   const [diskText, setDiskText] = useState<string>('');
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
@@ -163,8 +183,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   liveFragment.current = fragment;
   const liveRestore = useRef(restoreScroll);
   liveRestore.current = restoreScroll;
-  const live = useRef({ path, loaded, merge, deleted, daily });
-  live.current = { path, loaded, merge, deleted, daily };
+  const live = useRef({ path, loaded, merge, deleted, daily, draft });
+  live.current = { path, loaded, merge, deleted, daily, draft };
+  /** D-522: still an unwritten draft (typing its title writes nothing until the commit). */
+  const isDraft = () => !!(live.current.draft && saver.current?.create);
   // 3D: the frontmatter in effect in the editor (saved or committed by the panel, §14.6), for the panel and the chip.
   const [head, setHead] = useState<string>('');
   const panelApi = useRef<PanelApi | null>(null);
@@ -181,7 +203,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const load = useCallback(async () => {
     try {
       // 4B (ms4-daily §4.1): a virtual Daily Note opens on its draft; nothing is read or written.
-      const v = live.current.daily?.virtual;
+      const v = live.current.daily?.virtual ?? live.current.draft;
       const n = v ? { text: v.text, version: null as unknown as VersionDto, utf8: true } : await ipc.noteRead(path);
       const doc = parse(n.text.replace(/^﻿/, ''));
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
@@ -198,8 +220,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       setLoaded({ text: n.text, version: n.version, mode, links });
       setDiskText(n.text);
       const meta = noteMeta(path, n.text);
-      setTitle(meta.title);
-      savedTitle.current = meta.title;
+      // D-520: a draft's title starts empty (its planned file name is no title), unless the draft carries the title typed
+      // before its type changed (FR-VLT-05 AC-4).
+      const carried = live.current.draft ? String(doc.frontmatter?.data?.title ?? '').normalize('NFC') : '';
+      const shownTitle = live.current.draft ? carried : meta.title;
+      setTitle(shownTitle);
+      savedTitle.current = live.current.draft ? '' : shownTitle;
       const id = doc.frontmatter?.data?.id;
       if (typeof id === 'string' && id) onId?.(id);
       const day = meta.type === 'daily-note' ? parseDate(String(doc.frontmatter?.data?.date ?? '').trim().slice(0, 10)) : null;
@@ -243,16 +269,21 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     edRef.current = ed;
     const l = live.current.loaded!;
     saver.current?.dispose();
+    const fromDraft = !!live.current.draft; // the route may drop the draft before the first write's result arrives
     const s = new Saver(path, ed, l.version, {
       state: (state, failure) => setSave({ state, failure }),
       conflict: (c: ConflictInfo) => setMerge({ mine: c.mine, theirs: c.theirs, theirsVersion: c.theirsVersion, compare: false }),
       gone: () => setDeleted(true),
       written: (text) => {
         const before = noteMeta(live.current.path, diskTextRef.current || text).type;
+        diskTextRef.current = text; // at once: a watcher event can arrive before the next render (FR-SYN-03 AC-21)
         setDiskText(text);
         syncHead();
         if (noteMeta(live.current.path, text).type !== before) onTypeSaved?.();
         savedTitle.current = noteMeta(live.current.path, text).title;
+        const written = savedTitle.current;
+        setTitle((cur) => (cur.trim() === '' ? written : cur)); // D-523: an empty title was written as `Untitled`
+        if (fromDraft) onMeta(noteMeta(s.path, text)); // D-520: the page now shows this note (its name, its type)
         void ipc.perfMark('note-saved').catch(() => {});
       },
     }, () => !!pane.current?.slashOpen());
@@ -266,6 +297,18 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         // ms4-daily §3: the first write carries the write time, not the time the virtual note opened.
         s.transform = (text) => fixDailyTitle(s.create ? restampDraft(text, stamp, localIso(Date.now())) : text);
       }
+    }
+    const dr = live.current.draft;
+    if (dr) {
+      // D-520, D-523: the first write goes through the creation path, stamped at the write time, `Untitled` when the
+      // title is still empty.
+      s.create = (text) => live.current.draft!.onCreate(text);
+      s.transform = (text) => {
+        if (!s.create) return text;
+        const out = restampDraft(text, dr.stamp, localIso(Date.now()));
+        const tt = parse(out).frontmatter?.data?.title;
+        return typeof tt === 'string' && tt.trim() !== '' ? out : setAttribute(parse(out), 'title', t('newObject.untitled'));
+      };
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
@@ -299,10 +342,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   // A note route that turned out to be a Daily Note (D-334) gets the title fix once known.
   useEffect(() => { if (saver.current && !saver.current.create) saver.current.transform = daily ? fixDailyTitle : null; }, [!!daily]);
 
-  /** D-330: writes only `review` (and `modified`) through the editor's save path. */
+  /** D-330, D-562: writes only `review` (and `modified`) through the editor's save path; a virtual Daily Note has no
+   *  file yet. */
   const setReviewedRef = useRef<(r: boolean) => void>(() => {});
   setReviewedRef.current = (r: boolean) => {
-    if (!live.current.daily || live.current.daily.virtual) return;
+    if (live.current.daily?.virtual) return;
     const only = !saver.current?.pending; // nothing else waits to be saved: only `review` and `modified` change
     commit((d) => setValue(d, 'review', r ? 'reviewed' : 'unreviewed'));
     if (only && saver.current) saver.current.skipTransform = true;
@@ -313,6 +357,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     // D-421: leaving the page saves every file it edits (FR-EMB-03 AC-7).
     await Promise.all([s ? s.flush() : Promise.resolve(), embeds.flush()]);
   }, []);
+
+  useEffect(() => () => clearAlerts(), [path]);
 
   useImperativeHandle(apiRef, () => ({
     flush,
@@ -329,8 +375,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       else panelApi.current?.focusFirst();
     },
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
-    touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && live.current.daily?.virtual),
+    touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
+    title: () => titleRef.current,
+    discardDraft: () => { if (isDraft()) saver.current?.discard(); },
+    // D-494: only the note's own editor converts; the read view, the source view and read-only files don't.
+    convertBlocked: () => (pane.current && live.current.loaded?.mode === 'edit' ? pane.current.convertBlocked() : t('convert.readOnly')),
   }), [flush, propertiesOpen, onToggleProperties]);
 
   // ------------------------------------------------------------------ external changes (FR-SYN-03)
@@ -364,6 +414,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       if (!s.isBlocked() && !s.pending) s.base = n.version;
       return;
     }
+    // FR-SYN-03 AC-21 (v0.52 H9, H10): the watcher reporting this page's own save, on its way or just landed; the
+    // write's result sets the base. Taking it as external opened the merge dialog or reloaded the editor (caret jump).
+    if (n.text === s.writing || n.text === s.lastWritten) return;
     const doc = parse(n.text.replace(/^﻿/, ''));
     const dirty = s.pending || ed.dirty();
     if (dirty) {
@@ -544,9 +597,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     if (!ed) return;
     const tt = v.normalize('NFC');
     ed.setTitle(tt.trim() === '' ? null : tt.trim()); // FR-FMT-08 AC-7: the title is stored trimmed
-    if (tt.trim() !== '') saver.current?.changed();
+    if (tt.trim() !== '' && !isDraft()) saver.current?.changed(); // D-522: a draft's title is written on its commit
   };
-  const onTitleBlur = () => {
+  const onTitleBlur = (to?: HTMLElement | null) => {
+    // FR-VLT-05 AC-4 (D-550): a draft's title isn't committed by the palette or a menu taking the focus for a moment
+    // (`Change type…` writes nothing); leaving the draft still flushes it (D-522).
+    if (isDraft() && to?.closest('.palette, [role="menu"], .type-menu')) return;
     const from = titleFrom.current;
     titleFrom.current = null;
     if (title.trim() === '') {
@@ -554,6 +610,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       edRef.current?.setTitle(null);
       return;
     }
+    // D-522: committing a draft's title is its first write.
+    if (isDraft()) { saver.current!.forceFirst = true; saver.current!.changed(); void saver.current!.flush(); return; }
     // D-268: the commit (↩, Tab, leaving the field) renames the file and moves the links; typing only autosaves
     // `title:` (D-394). Templates and trashed notes keep their file name (D-391); a Daily Note's title is read-only.
     const next = title.trim().normalize('NFC');
@@ -634,6 +692,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   }, [path, editing]);
 
   // ------------------------------------------------------------------ note-ready and the first focus
+  // D-520, D-255: a new note's title holds the caret before it is painted, so keys typed right after ⌘N land in it.
+  // The App's own placeFocus call comes frames later (after the meta); until then nothing else has the focus.
+  useLayoutEffect(() => {
+    if (!loaded || loaded.mode !== 'edit' || showSource || !createdAtOpen.current || live.current.daily || !heading.current) return;
+    const a = document.activeElement;
+    if ((a && a !== document.body) || document.querySelector('[role="dialog"]')) return;
+    wantFocus.current = true;
+    placeFocus.current();
+  }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const readyFor = useRef<string | null>(null);
   useEffect(() => {
     if (!loaded) return;
@@ -658,6 +725,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
     if (!wantFocus.current || !loaded) return;
     if (document.querySelector('[role="dialog"]')) { wantFocus.current = false; return; }
     const edit = loaded.mode === 'edit' && !showSource;
+    // A new note: the title in edit mode, caret at its end, nothing selected (D-255). The title field exists before the
+    // editor mounts, so it takes the focus at once: what is typed right after ⌘N lands in it (D-520).
     if (edit && !edRef.current) return; // again when the editor is ready
     wantFocus.current = false;
     // D-367: a new object whose title is fixed (a Daily Note, D-320) gets the caret at the start of its first block.
@@ -666,7 +735,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
       return;
     }
     if (edit && createdAtOpen.current) {
-      // A new note: the title in edit mode, caret at its end, nothing selected (D-255).
       const el = heading.current;
       if (el) {
         el.focus({ preventScroll: true });
@@ -690,6 +758,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         setFocusTarget('body');
         return;
       }
+    }
+    if (selectEmbedOf && edit && pane.current) {
+      const p = pane.current;
+      const blocks = p.embedBlocks();
+      setFocusTarget('body');
+      if (!blocks.length) { p.caretToStart(); return; }
+      void ipc.linkResolve(path, blocks.map((b) => b.target)).then((rs) => {
+        const i = rs.findIndex((r) => (r.path ?? '').normalize('NFC') === selectEmbedOf.normalize('NFC'));
+        if (i < 0 || !p.selectBlockAtTop(blocks[i].index)) p.caretToStart();
+      }, () => p.caretToStart());
+      return;
     }
     if (at && !edit) {
       const line = root.current?.querySelector<HTMLElement>(`[data-line="${at.line}"]`);
@@ -735,11 +814,18 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
   const shownState = save.state === 'readOnly' ? save.state : (RANK[embedState] ?? 0) > (RANK[save.state] ?? 0) ? embedState : save.state;
   const saveText = t(`save.${shownState}`);
   // 3D: the type in effect (FR-TYP-13): the panel's frontmatter in the editor, else the file.
-  const fmData = parse(editable ? head : (diskText || loaded.text)).frontmatter?.data ?? {};
+  const fmDoc = parse(editable ? head : (diskText || loaded.text));
+  const fmData = fmDoc.frontmatter?.data ?? {};
   const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
+  // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
+  const reviewShown = !daily && !draft && editable && !showSource && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
+  const reviewed = reviewOf(fmData);
+  const reviewToggle = reviewShown ? (
+    <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
+  ) : null;
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
@@ -765,6 +851,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />
+          {reviewToggle && <span className="spacer" />}
+          {reviewToggle}
         </div>
         {daily && (
           <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}
@@ -780,6 +868,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             </span>
           </h1>
         ) : editable && !showSource ? (
+          <div className="note-title-row">
           <h1 className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
@@ -792,15 +881,18 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               onTab={() => { onTitleBlur(); if (propertiesOpen) panelApi.current?.focusFirst(); else pane.current?.focus(); }}
             />
           </h1>
+          </div>
         ) : (
           <h1 ref={heading} tabIndex={-1} className="note-title">
             <span data-user-content>{meta.title}</span>
           </h1>
         )}
+        {draft && saver.current?.create !== null && !daily && <p role="status" className="daily-virtual">{t('newObject.notSaved')}</p>}
         {loaded.mode === 'utf8' && (
           <div role="alert" className="fm-warning"><strong>{t('readOnly.utf8')}</strong> {t('readOnly.utf8Body')}</div>
         )}
         {loaded.mode === 'editorFailed' && <div role="alert" className="fm-warning">{t('readOnly.editorFailed')}</div>}
+        <PageAlerts />
         {save.state === 'failed' && save.failure === 'io' && (
           <div role="alert" className="save-alert">
             <span>{t('save.ioFailed')}</span>
@@ -840,7 +932,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
             <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
               open={propertiesOpen} onToggle={onToggleProperties}
-              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onTag={onTag}
+              otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />
             <EditorPane
               embeds={embeds}
@@ -851,8 +943,14 @@ export function NotePage({ apiRef, path, fragment, at, attr, restoreScroll, type
               labelBody={t('editor.body')}
               onReady={onEditor}
               onSaveNow={() => void flush()}
+              flush={flush}
+              daily={daily?.date ?? null}
               describedBy={titleId}
-              onChange={() => { if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false; saver.current?.changed(); syncHead(); }}
+              onChange={() => {
+                if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false;
+                if (!(isDraft() && document.activeElement === heading.current)) saver.current?.changed(); // D-522
+                syncHead();
+              }}
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
@@ -880,7 +978,7 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
   value: string;
   label: string;
   onChange: (v: string) => void;
-  onLeave: () => void;
+  onLeave: (to?: HTMLElement | null) => void;
   onDown: () => void;
   /** Tab: the first property, else the body (FR-EDT-07 AC-10; no description subtitle, D-313). */
   onTab?: () => void;
@@ -894,9 +992,10 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
       id={id} role="textbox" aria-label={label} tabIndex={-1} className="title-field" data-user-content
+      data-placeholder={t('newObject.untitled')} aria-placeholder={t('newObject.untitled')}
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
-      onBlur={onLeave}
+      onBlur={(e) => onLeave(e.relatedTarget as HTMLElement | null)}
       // An accessibility press (VoiceOver, UI automation) clicks without focusing the field: focus it, caret at the end.
       onClick={(e) => {
         const el = e.currentTarget;
@@ -952,5 +1051,21 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
         </div>
       </div>
     </div>
+  );
+}
+
+/** 5A-2: the conversion's and Task cards' alerts (FR-CNV-03 AC-6, FR-CNV-06 AC-3, FR-CNV-05 AC-7). */
+function PageAlerts() {
+  const alerts = usePageAlerts();
+  return (
+    <>
+      {alerts.map((a) => (
+        <div key={a.id} role="alert" className="save-alert">
+          <span>{a.text}</span>
+          {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { dismissAlert(a.id); a.retry!(); }}>{t('task.tryAgain')}</button>}
+          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}>×</button>
+        </div>
+      ))}
+    </>
   );
 }

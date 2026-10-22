@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-daily-dates"
+description = "Enables the daily_dates command without any pre-configured scope."
+commands.allow = ["daily_dates"]
+
+[[permission]]
+identifier = "deny-daily-dates"
+description = "Denies the daily_dates command without any pre-configured scope."
+commands.deny = ["daily_dates"]

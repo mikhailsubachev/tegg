@@ -3,9 +3,12 @@
 // AC-13; daily-notes.md FR-DLY-01 AC-5 (caret part); backlinks.md FR-LNK-04 AC-5 (caret part, through AC-13).
 // Interface docs/contracts/ms3-shell.md §15.2 (`data-focus-target`), app-shell R3 (sidebar `New object`). Written from
 // the ACs and the contracts only (D-61). Missing elements fail through `must`/node:assert (TS-I1).
+// D-520 (FR-EDT-01 AC-13 annotation): ⌘N / New object and `New <Name>` open an unsaved draft with an empty title, so
+// for them the caret is checked in the empty title and the ` 2` typing check applies to the switcher's create item
+// and the Create offer only.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { mustBeOn, newObjectDialog, runCommand, sidebar, switcherDialog, typesList } from './helpers';
+import { mustBeDraft, mustBeOn, runCommand, sidebar, switcherDialog, typesList } from './helpers';
 import { E, editorBody, eventually, fileText, must, noModified, openEditor, sleep, titleField, type FakeCoreHandle } from './editor-helpers';
 import { B, createOffer, chips, openLinks } from './links-helpers';
 import { D, callsOf, dailyVault, mustDaily, startDaily, swap } from './daily-helpers';
@@ -64,22 +67,33 @@ async function expectTitleCaretThenType(page: Page, core: FakeCoreHandle, title:
   assert.ok((await core.writesTo()).length > writesBefore, `${how}: the edit is saved`);
 }
 
+/** After a path that opens an unsaved draft (D-520): the empty title holds the caret with nothing selected and nothing
+ *  is written; typing a title and ↩ then creates `path` as the only write (D-522). */
+async function expectDraftTitleCaret(page: Page, core: FakeCoreHandle, title: string, path: string, how: string) {
+  await mustBeDraft(page, how, 5000);
+  await sleep(300);
+  assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, `${how}: document.activeElement is the empty title, caret in it, nothing selected`);
+  assert.deepEqual(await core.writesTo(), [], `${how}: placing the caret writes nothing (the draft is unsaved)`);
+  await page.keyboard.type(title);
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, title, `${how}: ↩ creates the note`, 5000);
+  const created = await eventually(() => fileText(core, path), (t) => t !== undefined, 2000);
+  assert.ok(created, `${how}: ${path} was created`);
+  assert.deepEqual(await core.writesTo(), [path], `${how}: the creation write is the only write`);
+}
+
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-13
 
 test('fr_edt_01_ac13_cmd_n_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await page.keyboard.press('Meta+n');
-  await (await must(newObjectDialog(page), 'New object')).getByRole('textbox', { name: 'Title' }).fill('Nový zápis');
-  await page.keyboard.press('Enter');
-  await expectTitleCaretThenType(page, core, 'Nový zápis', 'Quick Notes/Nový zápis.md', '⌘N');
+  await expectDraftTitleCaret(page, core, 'Nový zápis', 'Quick Notes/Nový zápis.md', '⌘N');
 });
 
 test('fr_edt_01_ac13_palette_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await runCommand(page, 'New object');
-  await (await must(newObjectDialog(page), 'New object')).getByRole('textbox', { name: 'Title' }).fill('Zápis z palety');
-  await page.keyboard.press('Enter');
-  await expectTitleCaretThenType(page, core, 'Zápis z palety', 'Quick Notes/Zápis z palety.md', 'palette New object');
+  await expectDraftTitleCaret(page, core, 'Zápis z palety', 'Quick Notes/Zápis z palety.md', 'palette New object');
 });
 
 test('fr_edt_01_ac13_switcher_create_item_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
@@ -88,7 +102,7 @@ test('fr_edt_01_ac13_switcher_create_item_puts_the_caret_at_the_end_of_the_title
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option').last().click();
+  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await expectTitleCaretThenType(page, core, 'Úplně nový', 'Quick Notes/Úplně nový.md', 'switcher create item');
 });
 
@@ -97,17 +111,13 @@ test('fr_edt_01_ac13_type_page_new_puts_the_caret_at_the_end_of_the_title', asyn
   await (await must(typesList(page).getByRole('link', { name: /^Pages/ }).or(typesList(page).getByRole('button', { name: /^Pages/ })).first(), 'sidebar entry Pages')).click();
   await mustBeOn(page, 'Pages', 'type page Pages');
   await (await must(page.getByRole('main').getByRole('button', { name: 'New Page', exact: true }), 'New Page')).click();
-  await (await must(newObjectDialog(page), 'New object')).getByRole('textbox', { name: 'Title' }).fill('Stránka z typu');
-  await page.keyboard.press('Enter');
-  await expectTitleCaretThenType(page, core, 'Stránka z typu', 'Pages/Stránka z typu.md', 'type page New Page');
+  await expectDraftTitleCaret(page, core, 'Stránka z typu', 'Pages/Stránka z typu.md', 'type page New Page');
 });
 
 test('fr_edt_01_ac13_sidebar_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await (await must(sidebar(page).getByRole('button', { name: /^New object/ }), 'sidebar button "New object"')).click();
-  await (await must(newObjectDialog(page), 'New object')).getByRole('textbox', { name: 'Title' }).fill('Ze sidebaru');
-  await page.keyboard.press('Enter');
-  await expectTitleCaretThenType(page, core, 'Ze sidebaru', 'Quick Notes/Ze sidebaru.md', 'sidebar New object');
+  await expectDraftTitleCaret(page, core, 'Ze sidebaru', 'Quick Notes/Ze sidebaru.md', 'sidebar New object');
 });
 
 test('fr_edt_01_ac13_broken_link_create_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
@@ -126,7 +136,7 @@ test('fr_edt_01_ac13_link_create_does_not_navigate_or_move_the_focus', async ({ 
   await editorBody(page).first().click();
   await page.keyboard.type('[[Nový cíl');
   const before = await page.evaluate(() => document.activeElement?.closest('[aria-label="Note body"]') !== null);
-  await (await must(page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"' }), 'Create option')).click();
+  await (await must(page.getByRole('listbox', { name: 'Link suggestions', exact: true }).getByRole('option', { name: 'Create "Nový cíl"', exact: true }), 'Create option')).click();
   await sleep(300);
   assert.ok(before, 'setup: the caret is in the body');
   assert.equal(await page.evaluate(() => document.activeElement?.closest('[aria-label="Note body"]') !== null), true, 'document.activeElement unchanged (still the body)');

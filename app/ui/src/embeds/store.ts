@@ -21,6 +21,8 @@ export type NestedEditor = {
   peerWrote(text: string, version: unknown): void;
   focusStart(): void;
   el(): HTMLElement | null;
+  /** D-605: a formatting action of the selection menu on this editor (`bold`, `italic`, `strike`, `code`, `highlight`). */
+  mark?(m: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): void;
 };
 
 export type EmbedHost = {

@@ -5,6 +5,7 @@
 // the ACs and the contract only (D-61). Every lookup goes through `must`/node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { mustBeDraft } from './helpers';
 import { B, description, editorBody, eventually, fileText, flat, gotoNote, isDisabled, main, must, mustBeOn, openLinks, props, runCommand, seen, sleep, swap, writeCalls } from './links-helpers';
 
 const DETAILS_PRAGUE: [RegExp, string][] = [
@@ -136,8 +137,8 @@ test.describe('Duplicate titles page', () => {
 test('fr_lnk_14_ac10_new_object_never_takes_a_stem_in_use', async ({ page }) => {
   const core = await openLinks(page, B.osamela);
   await page.keyboard.press('Meta+n');
-  const dlg = await must(page.getByRole('dialog', { name: 'New object' }), 'New object');
-  await dlg.getByRole('textbox', { name: 'Title' }).fill('Jana Nováková');
+  await mustBeDraft(page, 'New object'); // D-520: an unsaved draft; the title is typed there and ↩ creates it
+  await page.keyboard.type('Jana Nováková');
   await page.keyboard.press('Enter');
   const w = await eventually(() => core.writesTo(), (x) => x.length > 0, 3000);
   assert.deepEqual(w, ['Quick Notes/Jana Nováková (2).md'], 'a stem used in Osoby/ is not taken (D-291)');

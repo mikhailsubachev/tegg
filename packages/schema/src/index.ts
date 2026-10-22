@@ -8,7 +8,8 @@ import { formatScalar, typeKey as docTypeKey, typeMatch as docTypeMatch, type Va
 export type { Value };
 
 /** Structural copies of the IPC shapes (`app/ui/src/ipc/types.ts`, §14.3). */
-export type OptionDto = { label: string; color: string | null };
+/** `state`: ms5-tasks §2.2 (D-473), a Task status option's `state` as written. */
+export type OptionDto = { label: string; color: string | null; state?: string | null };
 export type AttributeDto = {
   key: string; name: string; type: string; supported: boolean;
   readOnlyReason: 'file' | 'color' | 'recurrence' | 'unsupported' | null;
@@ -351,4 +352,24 @@ export function parseDateRange(start: string | null, end: string | null): Parsed
   if (s === undefined || e === undefined) return fail('value.notDate');
   if (s && e && (e as { date: string }).date < (s as { date: string }).date) return fail('value.endBeforeStart');
   return { ok: true, value: [s, e] };
+}
+
+// ------------------------------------------------------------------------------------------------ slice 5A-1 (ms5-tasks §2.2)
+
+export type TaskState = 'open' | 'in-progress' | 'done' | 'cancelled';
+
+const STATES: readonly TaskState[] = ['open', 'in-progress', 'done', 'cancelled'];
+
+/** D-471: an option's semantic state; absent or unknown `state` is Open. */
+export function taskState(option: OptionDto): TaskState {
+  const s = (option.state ?? '').trim() as TaskState;
+  return STATES.includes(s) ? s : 'open';
+}
+
+/** D-473: `needOpen` / `needDone` when no status option with state Open / Done remains. */
+export function checkStatusOptions(options: OptionDto[]): RuleError | null {
+  const states = options.map(taskState);
+  if (!states.includes('open')) return { reason: 'needOpen', field: 'optionLabel' };
+  if (!states.includes('done')) return { reason: 'needDone', field: 'optionLabel' };
+  return null;
 }

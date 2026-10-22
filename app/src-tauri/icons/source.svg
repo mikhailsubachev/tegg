@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- D-597 app icon (light): the Tegg mark on a white rounded tile, on the macOS icon grid (824 px tile). -->
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0A84FF"/><stop offset="1" stop-color="#1E6BFF"/></linearGradient>
+    <linearGradient id="stem" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D3FB8"/><stop offset="1" stop-color="#1531A3"/></linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.22"/></filter>
+  </defs>
+  <g transform="translate(100 92) scale(8.24)">
+    <path filter="url(#sh)" d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#E3E7EF" stroke-width="1"/>
+    <g transform="translate(15.7 16) scale(.66)">
+      <path d="M37 30 H61 V75 C61 81.6 55.6 87 49 87 C42.4 87 37 81.6 37 75 Z" fill="url(#stem)"/>
+      <path d="M23 16 H87 C91 16 92.5 19 91 22.5 L87.5 31 C85.5 36 82 38 77 38 H23 C16.9 38 12 33.1 12 27 C12 20.9 16.9 16 23 16 Z" fill="url(#bar)"/>
+    </g>
+  </g>
+</svg>

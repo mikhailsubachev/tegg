@@ -241,3 +241,42 @@ export function dailyOrder(a: { path: string; created?: unknown; modified?: unkn
   const cmp = (x: Uint8Array, y: Uint8Array) => { for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]; return x.length - y.length }
   return by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
 }
+
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §1)
+
+/** The region's first weekday, 1 = Monday … 7 = Sunday (D-329), from `Intl.Locale` week info; regions without it use
+ *  Sunday for US, CA, JP and plain `en`, else Monday. */
+export function firstWeekday(region: string): number {
+  try {
+    const l = new Intl.Locale(region) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } }
+    const w = l.getWeekInfo?.() ?? l.weekInfo
+    if (w && w.firstDay >= 1 && w.firstDay <= 7) return w.firstDay
+    const r = (l.region ?? '').toUpperCase()
+    if (r === 'US' || r === 'CA' || r === 'JP' || (!r && l.language === 'en')) return 7
+    return 1
+  } catch {
+    return 1
+  }
+}
+
+/** A `completed` value as epoch milliseconds (R44, D-365): with offset as written, without offset in `timeZone`, a date
+ *  alone at local midnight; null when it isn't a date or date-time. */
+export function parseInstant(s: string, timeZone?: string): number | null {
+  const v = s.trim()
+  const d = parseDate(v)
+  if (d) return Date.parse(localMidnight(d, timeZone))
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?$/.exec(v)
+  if (!m || !parseDate(m[1])) return null
+  const [y, mo, day] = m[1].split('-').map(Number)
+  const [h, mi, sec] = [Number(m[2]), Number(m[3]), Number(m[4] ?? 0)]
+  if (h > 23 || mi > 59 || sec > 59) return null
+  const ms = Number((m[5] ?? '').padEnd(3, '0').slice(0, 3) || '0')
+  const wallUtc = Date.UTC(y, mo - 1, day, h, mi, sec, ms)
+  if (m[6] !== undefined) {
+    const off = m[6] === 'Z' ? 0 : (m[6][0] === '-' ? -1 : 1) * (Number(m[6].slice(1, 3)) * 60 + Number(m[6].slice(4, 6)))
+    return wallUtc - off * 60_000
+  }
+  let off = offsetMinutes(wallUtc, timeZone)
+  off = offsetMinutes(wallUtc - off * 60_000, timeZone)
+  return wallUtc - off * 60_000
+}

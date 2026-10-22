@@ -620,15 +620,17 @@ test('fr_emb_02_ac4_card_mode', async ({ page }) => {
   const task = await needTop(main(page), 5, 'Zavolat Janě card');
   assert.equal(await task.evaluate((e) => e.firstElementChild?.querySelector('[data-icon]')?.getAttribute('data-icon') ?? null), 'check-square', 'Task icon');
   await must(openButton(task, 'Zavolat Janě'), 'Open Zavolat Janě');
-  assert.deepEqual(await stripItems(task), ['Status To do', 'Priority High', 'Due date Oct 9, 2026'], 'the task strip (D-160 medium date)');
-  assert.equal(await task.getByRole('checkbox').count(), 0, 'no checkbox until MS5');
-  assert.ok(!flat(await task.innerText()).includes('Domluvit schůzku.'), 'no task body');
+  // 5A-2 (conversion.md FR-CNV-05 AC-1, R52; D-499): the Task card replaces the generic card: no strip, the
+  // checkbox and header buttons, and the task's body below.
+  assert.deepEqual(await stripItems(task), [], 'no preview strip on a Task card');
+  assert.equal(await task.getByRole('checkbox', { name: 'Complete "Zavolat Janě"', exact: true }).count(), 1, 'the checkbox');
+  await must(task.getByRole('button', { name: 'Status: To do', exact: true }), 'Status: To do');
+  assert.ok(flat(await task.innerText()).includes('Domluvit schůzku.'), 'the task body');
   const cilCard = await needTop(main(page), 8, '![[Cíl|card]]');
   assert.equal(await cardStrip(cilCard).count(), 0, 'Cíl|card: header only');
   assert.equal(await embedBody(cilCard).count(), 0, 'Cíl|card: no body');
-  for (const f of [jana, task]) {
-    assert.equal(await f.locator('[contenteditable="true"], input, textarea, [role="textbox"]').count(), 0, 'card values are never editable');
-  }
+  assert.equal(await jana.locator('[contenteditable="true"], input, textarea, [role="textbox"]').count(), 0, 'card values are never editable');
+  assert.equal(await task.locator('.task-embed-header [contenteditable="true"], .task-embed-header input, .task-embed-header [role="textbox"]').count(), 0, 'the Task card header has no editable field (AP-427)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EMB-02 AC-5
@@ -643,8 +645,9 @@ test('fr_emb_02_ac5_link_mode', async ({ page }) => {
     assert.equal(e?.icon, icon, `${title}: the type icon`);
     const el = topEmbed(main(page), i);
     assert.equal(await el.locator('[data-embed-body], [role="list"], button').count(), 0, `${title}: no header, body or strip`);
-    const alone = await el.evaluate((x) => { const p = x.closest('p') ?? x.parentElement; return ((p as HTMLElement).innerText ?? '').trim() === ((x as HTMLElement).innerText ?? '').trim(); });
-    assert.ok(alone, `${title}: alone in its paragraph`);
+    // D-598 (v0.52): a link-mode block embed is followed by its `Display as` button; nothing else shares its block.
+    const alone = await el.evaluate((x) => { const p = x.closest('p') ?? x.closest('.embed-link-block') ?? x.parentElement; const rest = ((p as HTMLElement).innerText ?? '').replace('Display as', '').trim(); return rest === ((x as HTMLElement).innerText ?? '').trim(); });
+    assert.ok(alone, `${title}: alone in its block (with its Display as, D-598)`);
   }
 });
 
@@ -1020,11 +1023,8 @@ test('fr_emb_02_ac11_showing_an_embed_is_not_opening_it', async ({ page }) => {
   await needEmbeds(main(page), 12, 'the host note');
   await sleep(500);
   assert.deepEqual((await navs(core)).slice(n0), [nfc(M.rezimy)], 'nav_opened exactly once, for Režimy');
-  await page.keyboard.press('Meta+o');
-  await sleep(300);
-  const recent = (await page.getByRole('dialog', { name: 'Quick switcher' }).getByRole('option').allInnerTexts()).map((t) => flat(t.split('\n')[0]));
-  for (const t of ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', 'Saturnin', 'Zavolat Janě', 'Praha', '2026-10-07']) assert.ok(!recent.includes(t), `${t} isn't in the recent list`);
-  await page.keyboard.press('Escape');
+  // v0.52: the switcher check that was here is removed: its rows began with an emoji icon, so it never matched a title,
+  // and the empty switcher lists every object, recent or not. `nav_opened` above is what records recency (FR-NAV-03).
   const bad = (await writeCalls(core)).filter((c) => ['note_write', 'note_create', 'note_create_exact', 'link_create', 'type_patch'].includes(c.cmd));
   assert.deepEqual(bad.map((c) => c.cmd), [], 'no write');
 });
@@ -1118,10 +1118,11 @@ test('fr_emb_02_ac14_read_view_tab_reaches_open_and_display_as', async ({ page }
     await page.keyboard.press('Tab');
     const n = await page.evaluate(() => (document.activeElement?.getAttribute('aria-label') ?? (document.activeElement as HTMLElement | null)?.innerText ?? '').trim().normalize('NFC'));
     if (/^Open /.test(n) || n === 'Display as') seenNames.push(n);
-    if (seenNames.length >= 20) break;
+    if (seenNames.length >= 22) break;
   }
-  const frames = ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', 'Zavolat Janě', 'Praha', '2026-10-07', 'Cíl', 'Jana Nováková', 'Cíl'];
-  assert.deepEqual(seenNames, frames.flatMap((t) => [`Open ${t}`, 'Display as']), 'Tab reaches each frame’s Open and Display as in document order');
+  // D-598 (v0.52): the link-mode block embeds (Saturnin, Svíčková|link) have a `Display as` (no Open) in their place.
+  const frames = ['Cíl', 'Jana Nováková', 'Šárka Malá', 'Svíčková', null, 'Zavolat Janě', 'Praha', '2026-10-07', 'Cíl', 'Jana Nováková', null, 'Cíl'];
+  assert.deepEqual(seenNames, frames.flatMap((t) => (t === null ? ['Display as'] : [`Open ${t}`, 'Display as'])), 'Tab reaches each frame’s Open and Display as in document order');
 });
 
 test('fr_emb_02_ac14_commands_without_a_selected_embed_are_not_run', async ({ page }) => {
@@ -1201,7 +1202,7 @@ for (const [at, slug] of [[M.rezimy, 'rezimy'], [M.sekce, 'sekce'], [M.rozbita, 
 test('fr_emb_02_ac15_pseudo_locale_type_settings_osoba', async ({ page }) => {
   await openEmbeds(page, M.rezimy, { prelude: PSEUDO });
   await runCommand(page, 'Go to type Osoby');
-  await (await must(main(page).locator('[data-command]').filter({ hasText: /Type settings/ }), 'Type settings control', 5000)).click();
+  await (await must(main(page).getByRole('button', { name: /^⟦?Type settings⟧?$/ }), 'Type settings control', 5000)).click(); // D-519: an icon button
   const sec = await must(main(page).getByRole('region', { name: /^⟦Embeds⟧$/ }), 'section ⟦Embeds⟧', 5000);
   const out = await sec.evaluate((root) => {
     const res: string[] = [];

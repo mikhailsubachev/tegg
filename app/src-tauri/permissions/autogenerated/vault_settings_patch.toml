@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-vault-settings-patch"
+description = "Enables the vault_settings_patch command without any pre-configured scope."
+commands.allow = ["vault_settings_patch"]
+
+[[permission]]
+identifier = "deny-vault-settings-patch"
+description = "Denies the vault_settings_patch command without any pre-configured scope."
+commands.deny = ["vault_settings_patch"]

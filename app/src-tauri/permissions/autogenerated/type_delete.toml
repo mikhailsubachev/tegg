@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-delete"
+description = "Enables the type_delete command without any pre-configured scope."
+commands.allow = ["type_delete"]
+
+[[permission]]
+identifier = "deny-type-delete"
+description = "Denies the type_delete command without any pre-configured scope."
+commands.deny = ["type_delete"]

@@ -63,7 +63,8 @@ test('fr_lnk_14_ac9_r3_controls_added_by_4a', async () => {
   const find = (label: string) => controls.find((c) => c.label === label);
   assert.deepEqual(find('Merge…'), { label: 'Merge…', due: 'MS4 (4C)', req: 'FR-LNK-14' }, 'Merge… on the Duplicate titles page (AP-218, AP-220)');
   assert.deepEqual(find('Unlinked mentions'), { label: 'Unlinked mentions', due: 'v1.x', req: 'FR-LNK-05' }, 'Unlinked mentions in the panel (AP-211)');
-  assert.deepEqual(find('Type picker'), { label: 'Type picker', due: 'MS5', req: 'FR-VLT-05' }, 'Type picker in the Create note popover');
+  // 5B (capture.md, FR-VLT-05 AC-3, D-550): the Create offer's type picker is built, so it is no longer a disabled control.
+  assert.equal(find('Type picker'), undefined, 'Type picker is built in 5B');
 });
 
 test('fr_lnk_14_ac9_ms4_slices_show_and_count_as_ms4', async () => {

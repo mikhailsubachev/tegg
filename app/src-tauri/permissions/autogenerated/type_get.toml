@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-get"
+description = "Enables the type_get command without any pre-configured scope."
+commands.allow = ["type_get"]
+
+[[permission]]
+identifier = "deny-type-get"
+description = "Denies the type_get command without any pre-configured scope."
+commands.deny = ["type_get"]

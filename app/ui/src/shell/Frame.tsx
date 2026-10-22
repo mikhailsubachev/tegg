@@ -1,9 +1,7 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
-import logoDark from '../assets/logo-dark.svg';
-import logoLight from '../assets/logo-light.svg';
 import { PopupMenu, type MenuEntry } from './Menu';
 import { vaultColor } from './vaultColor';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { ProgressDto, RecentVaultDto, TypeDefDto, VaultInfo } from '../ipc/types';
@@ -15,23 +13,11 @@ import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
-import { PANEL_TABS, SHORTCUTS } from './registry';
+import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
 
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
-
-/** The resolved theme (`data-theme` on the root, ms3-shell §3.5), following live changes. */
-function useResolvedTheme(): 'light' | 'dark' {
-  const read = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
-  const [theme, setTheme] = useState<'light' | 'dark'>(read);
-  useEffect(() => {
-    const o = new MutationObserver(() => setTheme(read()));
-    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => o.disconnect();
-  }, []);
-  return theme;
-}
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
 export type VaultSwitcherProps = {
@@ -168,17 +154,15 @@ function useToday(): string {
   return d;
 }
 
-/** D-220: the logo at the bottom left opens About and Settings (FR-UX-01 AC-5). */
+/** D-220, D-597: the version at the bottom left opens About and Settings (FR-UX-01 AC-5); no logo in the app. */
 function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: () => void }) {
   const button = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const theme = useResolvedTheme();
   return (
     <div className="sidebar-foot">
       <button ref={button} tabIndex={0} type="button" className="logo" aria-label={t('logo.button')} aria-haspopup="menu" aria-expanded={open}
         data-command="app.logoMenu" onClick={() => setOpen((o) => !o)}>
-        {/* D-164: the board's mark and wordmark as one image per theme; the button keeps its label. */}
-        <img className="logo-img" src={theme === 'dark' ? logoDark : logoLight} alt="" />
+        <span className="app-version">{t('logo.version', { version: __TEGG_VERSION__ })}</span>
       </button>
       {open && (
         <PopupMenu label={t('logo.menu')} anchor={button.current} placement="above" onClose={() => setOpen(false)} entries={[
@@ -190,7 +174,12 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0 }: {
+export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks }: {
+  /** 5A-1 (R45 R1, D-481): overdue + due today, hidden at 0; the entry opens the last task view. */
+  taskCount?: number;
+  /** 5B (FR-NAV-04 AC-2): the Inbox query's count; none at 0. */
+  inboxCount?: number;
+  onTasks?: () => void;
   onAbout: () => void;
   /** 3D: the New type dialog (FR-TYP-01 AC-1). */
   onNewType: () => void;
@@ -215,22 +204,40 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   const link = (e: Entry) => {
     // 4B (R17): Today is current on today's daily route, with the long date as its description (D-337).
     const isToday = e.id === 'today';
-    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : route.id === e.id;
-    const go = (ev: React.MouseEvent) => { ev.preventDefault(); onGo({ id: e.id }); };
-    return (
-      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : `goto.${e.id}`} onClick={go}
-        {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}>
+    const isTasks = e.id === 'tasks';
+    const current = isToday ? route.id === 'daily/YYYY-MM-DD' && route.param === today : isTasks ? route.id === 'tasks' || route.id === 'tasks/kanban' || (route.id === 'type/<type>' && route.param?.normalize('NFC') === 'task') : route.id === e.id;
+    const go = (ev: React.MouseEvent) => { ev.preventDefault(); if (isTasks && onTasks) onTasks(); else onGo({ id: e.id }); };
+    // R62: the Inbox count's description is also hidden text after the entry, so the macOS accessibility tree (L6)
+    // carries `13 items to review`; WebKit exposes `aria-description` to VoiceOver only.
+    const described = e.id === 'inbox' && inboxCount > 0;
+    const a = (
+      <a tabIndex={0} key={e.id} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command={isToday ? 'daily.today' : isTasks ? 'tasks.go' : `goto.${e.id}`} onClick={go}
+        {...(isToday ? { 'aria-label': t(e.label), 'aria-description': longDate(today) } : {})}
+        {...(e.id === 'inbox' && inboxCount > 0 ? { 'aria-label': t(e.label), 'aria-description': t('sidebar.inboxCount', { count: inboxCount }) } : {})}
+        {...(isTasks && taskCount > 0 ? { 'aria-label': t(e.label), 'aria-description': t('sidebar.tasksCount', { count: taskCount }) } : {})}
+        {...(() => { const d = ROUTES.find((r) => r.id === e.id); return d && !d.status.built && d.status.due ? { 'aria-description': t('due.comingIn', { due: showDue(d.status.due) }) } : {}; })()}>
         <Icon name={e.icon} />
         {e.kbd ? (
           <>
             <span className="entry-label">{t(e.label)}</span>
             <kbd>{keysOf(e.kbd)}</kbd>
           </>
+        ) : (isTasks && taskCount > 0) || (e.id === 'inbox' && inboxCount > 0) ? (
+          <>
+            <span className="entry-label">{t(e.label)}</span>
+            <span className="count">{isTasks ? taskCount : inboxCount}</span>
+          </>
         ) : (
           t(e.label)
         )}
       </a>
     );
+    return described ? (
+      <Fragment key={e.id}>
+        {a}
+        <span className="sr-only">{t('sidebar.inboxCount', { count: inboxCount })}</span>
+      </Fragment>
+    ) : a;
   };
   return (
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
@@ -314,7 +321,7 @@ export function ContextPanel({ tab, onTab, backlinks }: {
             role="tab"
             aria-selected={p.id === current.id}
             aria-label={t(p.name)}
-            aria-description={p.id === 'backlinks' && count > 0 ? t('backlinks.count', { count }) : undefined}
+            aria-description={p.id === 'backlinks' && count > 0 ? t('backlinks.count', { count }) : !p.status.built && p.status.due ? t('due.comingIn', { due: showDue(p.status.due) }) : undefined}
             className={p.id === current.id ? 'on' : ''}
             data-command={`panel.${p.id}`}
             onClick={(e) => { e.currentTarget.focus(); onTab(p.id); }}

@@ -2,7 +2,7 @@
 // Public interface: docs/contracts/ms1-core.md §4. Ported from spike S1 (D-83).
 
 import { parse, type Doc } from './parse.js'
-import { formatEntry, setAttribute, type Value } from './edit.js'
+import { flowList, formatEntry, formatKey, setAttribute, type Value } from './edit.js'
 
 export type { Range, BlockKind, Block, FrontmatterEntry, Frontmatter, Doc } from './parse.js'
 export { decode, encode, parse, markdownTree } from './parse.js'
@@ -77,18 +77,28 @@ export function touchModified(before: string, after: string, now: string): strin
 
 // ---------------------------------------------------------------- slice 3D (ms3-shell §14.5)
 
-export { setValue, setRange } from './edit.js'
+export { setValue, setRange, setFlowList, flowList } from './edit.js'
 
 /** D-232, FR-TYP-03 AC-12: the bytes of a new object. Order: `id`, `type`, `title`; each schema attribute (the
  *  template's entry verbatim, else its default, else omitted); the template's other entries verbatim (minus identity,
  *  `review`, `created`, `modified`); `review: unreviewed` when review is on or locked; `created`, `modified`; the
  *  template's body verbatim. A template with invalid frontmatter contributes only its body (§14.10 item 9). */
 export function newObject(opts: {
-  type: { key: string; attributes: { key: string; type: string; default?: unknown }[]; review: 'off' | 'on' | 'locked' }
+  type: { key: string; attributes: { key: string; type: string; default?: unknown; options?: { label: string; color?: string | null; state?: string | null }[] }[]; review: 'off' | 'on' | 'locked' }
   title: string
   template: string | null
   now: string
   newId: () => string
+  /** ms5-tasks §5 (D-470): explicit values that win over template and default. Values for keys that aren't schema
+   *  attributes are written after the template's keys, `tags` then `source` first; lists in flow style. */
+  values?: [string, Value][]
+  /** ms5-tasks §11.2 (5A-2, D-524): the body after the frontmatter instead of the template's body (the template's
+   *  frontmatter entries still apply). */
+  body?: string
+  /** ms5-capture §3.2 (5B, D-540, D-595): a capture. With it: `review: unreviewed` only on review types (D-604), then
+   *  `created`, `modified` (no `captured` key, D-595); the template's `id, type, title, tags, review, captured,
+   *  created, modified` are ignored and its body is never used (D-540, D-567). */
+  capture?: true
 }): string {
   const tpl = opts.template === null ? null : parse(opts.template)
   const tplEntries = new Map<string, string>()
@@ -100,7 +110,10 @@ export function newObject(opts: {
     }
   }
   let out = '---\n' + formatEntry('id', opts.newId()) + formatEntry('type', opts.type.key.normalize('NFC')) + formatEntry('title', opts.title.normalize('NFC'))
-  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified'])
+  const used = new Set<string>(['id', 'type', 'title', 'review', 'created', 'modified', 'captured'])
+  if (opts.capture) for (const k of ['tags', 'captured']) tplEntries.delete(k)
+  const values = new Map<string, Value>((opts.values ?? []).map(([k, v]) => [k.normalize('NFC'), v]))
+  const entry = (k: string, v: Value) => (Array.isArray(v) ? `${formatKey(k)}: ${flowList(v)}\n` : formatEntry(k, v))
   for (const a of opts.type.attributes) {
     const key = a.key.normalize('NFC')
     if (a.type === 'date-range') {
@@ -113,17 +126,40 @@ export function newObject(opts: {
     }
     used.add(key)
     const t = tplEntries.get(key)
-    if (t !== undefined) out += t
-    else {
+    const given = values.get(key)
+    if (given !== undefined) {
+      if (given !== null && !(Array.isArray(given) && given.length === 0)) out += entry(key, given)
+    } else if (t !== undefined) out += t
+    else if (opts.type.key === 'task' && key === 'status' && a.options?.length) {
+      // D-470, D-503: a new Task gets the first status whose state is Open (absent or unknown state counts as Open).
+      const known = ['open', 'in-progress', 'done', 'cancelled']
+      const first = a.options.find((o) => !o.state || !known.includes(o.state) || o.state === 'open')
+      if (first) out += formatEntry(key, first.label)
+    } else {
       const v = defaultValue(a.type, a.default)
       if (v !== null) out += formatEntry(key, v)
     }
   }
-  for (const [k, raw] of tplEntries) if (!used.has(k)) out += raw
-  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed')
+  for (const [k, raw] of tplEntries) if (!used.has(k) && !values.has(k)) out += raw
+  const rest = [...values.keys()].filter((k) => !used.has(k))
+  rest.sort((x, y) => rank(x) - rank(y))
+  for (const k of rest) {
+    const v = values.get(k)!
+    if (v !== null && !(Array.isArray(v) && v.length === 0)) out += entry(k, v)
+  }
+  if (opts.type.review !== 'off') out += formatEntry('review', 'unreviewed') // a capture too only on review types (D-604)
   out += formatEntry('created', { datetime: opts.now }) + formatEntry('modified', { datetime: opts.now }) + '---\n'
-  if (tpl) out += tpl.text.slice(tpl.bodyStart)
+  if (opts.body !== undefined) {
+    const body = opts.body.normalize('NFC')
+    if (body !== '') out += body.endsWith('\n') ? body : body + '\n'
+  } else if (tpl && !opts.capture) out += tpl.text.slice(tpl.bodyStart)
   return out
+}
+
+/** D-470: universal keys Tegg writes, in this order, before other given keys. */
+function rank(k: string): number {
+  const i = ['tags', 'source'].indexOf(k)
+  return i < 0 ? 2 : i
 }
 
 /** A schema default as the Value written for its attribute type (null = nothing written). */
@@ -155,8 +191,23 @@ export function typeMatch(value: unknown): { key: string; single: boolean } {
 
 // ---------------------------------------------------------------- slice 4B (ms4-daily §1, §5, §6)
 
-export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder } from './daily.js'
+export { parseDate, localDate, localIso, localMidnight, addDays, formatDate, dailyFileStem, expandDailyTemplate, newDailyNote, fixDailyTitle, dateRows, instantOf, dailyOrder, firstWeekday, parseInstant } from './daily.js'
 
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §2.3)
 
-export { transform, rewriteLinks, resolveFrom, type TextOp, type Transformed } from './transform.js'
+export { transform, rewriteLinks, resolveFrom, d184Text, type TextOp, type Transformed } from './transform.js'
+
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §5)
+
+export { applyTaskChange, completeTask, type TaskChange, type TaskState, type TaskDefsLike } from './task.js'
+
+// ---------------------------------------------------------------- slice 5A-2 (ms5-tasks §11.1)
+
+export { conversionUnit, objectFromUnit, replaceUnitWithEmbed, type ConvertUnit } from './convert.js'
+
+// ---------------------------------------------------------------- slice 5B (ms5-capture §3.1, §7.3)
+
+export { captureParts, type CaptureParts } from './capture.js'
+export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'
+export { tableCells, displayTable, displayTables, displayTablesAt, needsDisplayTable, splitRow, type TableAlign, type TableCells } from './table.js'
+export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan } from './card.js'

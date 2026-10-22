@@ -1,6 +1,7 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
+import { reviewable } from '../review';
 import { DISABLED_CONTROLS, ROUTES, SHORTCUTS, type Due } from './registry';
 import type { Route } from './routes';
 import { typeEntries } from './types';
@@ -29,6 +30,9 @@ export type ShellActions = {
   setTheme: (t: ThemeChoice) => void;
   /** Runs an R8 editor action on the note route's editor; a no-op elsewhere (editor.md R8). */
   edit?: (action: EditAction) => void;
+  /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run on the note now (read view, read-only, a nested editor,
+   *  a template), or null. */
+  convertBlocked?: () => string | null;
   // 3D (R13, ms3-shell §14.7.2).
   newType?: () => void;
   openTypeSettings?: () => void;
@@ -41,14 +45,24 @@ export type ShellActions = {
   /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
   pickDate?: () => void;
   setReviewed?: (reviewed: boolean) => void;
+  /** 5A-1 (tasks.md R45): open the Tasks page at its last view (D-481); run a Tasks page or card command. */
+  goTasks?: () => void;
+  taskCommand?: (id: string) => void;
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
   showNotUpdated?: () => void;
+  /** 5B (inbox.md R62, D-578): open the capture window (`default` or `task`). */
+  capture?: (kind: 'default' | 'task') => void;
+  /** 5B (R62): run an Inbox command on the focused card or the selection; nothing without either. */
+  inboxCommand?: (id: string) => void;
+  /** 5B (D-562): mark the open note reviewed or unreviewed. */
+  setNoteReviewed?: (reviewed: boolean) => void;
 };
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
-  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs';
+  | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
+  | 'turnIntoTask' | 'turnIntoObject';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -56,7 +70,7 @@ export type ShellContext = {
   counts: Record<string, number>;
   actions?: ShellActions;
   /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
-  route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null } | null;
+  route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null; review?: unknown; hasFrontmatter?: boolean } | null;
 };
 
 export type Command = {
@@ -66,6 +80,8 @@ export type Command = {
   section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit';
   shortcut?: string;
   due?: Due;
+  /** 5A-2 (FR-CNV-01 AC-5): why the command can't run here now, or null; listed disabled with the reason. */
+  disabled?: () => string | null;
   needsVault: boolean;
   run: (ctx: ShellContext) => void | Promise<void>;
 };
@@ -75,7 +91,6 @@ const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys
 /** Command ids of the R3 controls (D-130), in registry order. */
 export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
-  'ctl.turnIntoObject': 'edit.turnIntoObject',
   'ctl.copyBlockLink': 'edit.copyBlockLink',
   'ctl.filter': 'typePage.filter',
   'ctl.group': 'typePage.group',
@@ -96,13 +111,16 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
-  'ctl.typePicker': 'object.typePicker',
-  'ctl.typePickerLink': 'createLink.typePicker',
+  'inbox.trash': 'inbox.trash',
+  'capture.drop': 'capture.addMedia',
+  'settings.shortcuts.change': 'settings.changeShortcut',
   'duplicates.merge': 'duplicates.merge',
   'backlinks.unlinked': 'panel.unlinkedMentions',
+  'tasks.sort': 'tasks.sort',
+  'task.trash': 'task.trash',
 };
 
-const NO_GOTO = new Set(['chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -113,6 +131,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'nav.back', title: 'cmd.goBack', section: 'navigate', shortcut: shortcutOf('nav.back'), needsVault: true, run: (c) => a(c)?.back() },
     { id: 'nav.forward', title: 'cmd.goForward', section: 'navigate', shortcut: shortcutOf('nav.forward'), needsVault: true, run: (c) => a(c)?.forward() },
     { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
+    { id: 'help.shortcuts', title: 'cmd.keyboardShortcuts', section: 'app', shortcut: shortcutOf('help.shortcuts'), needsVault: false, run: (c) => a(c)?.go({ id: 'help/shortcuts' }) },
   ];
   for (const r of ROUTES) {
     if (NO_GOTO.has(r.id)) continue;
@@ -142,6 +161,45 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'job.undoRename', title: 'cmd.undoRename', section: 'edit', needsVault: true, run: (c) => a(c)?.undoRename?.() },
     { id: 'job.showNotUpdated', title: 'cmd.showNotUpdated', section: 'view', needsVault: true, run: (c) => a(c)?.showNotUpdated?.() },
   );
+  // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
+  const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);
+  list.push(
+    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
+    { id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
+    { id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks/kanban' }) },
+    ...([
+      ['tasks.groupStatus', 'cmd.tasks.groupStatus'], ['tasks.groupTag', 'cmd.tasks.groupTag'], ['tasks.filterAll', 'cmd.tasks.filterAll'],
+      ['tasks.filterToday', 'cmd.tasks.filterToday'], ['tasks.filterWeek', 'cmd.tasks.filterWeek'], ['tasks.add', 'cmd.tasks.add'],
+      ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
+    ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
+  );
+  // 5B (inbox.md R62): capture from the palette (D-578); Inbox commands on `inbox` (D-561); review on notes (D-562).
+  list.push(
+    { id: 'capture.quick', title: 'cmd.quickCapture', section: 'create', needsVault: true, run: (c) => a(c)?.capture?.('default') },
+    { id: 'capture.task', title: 'cmd.captureTask', section: 'create', needsVault: true, run: (c) => a(c)?.capture?.('task') },
+  );
+  if (ctx.route?.id === 'inbox') {
+    const ic = (id: string) => (c: ShellContext) => a(c)?.inboxCommand?.(id);
+    list.push(
+      ...([
+        ['inbox.markReviewed', 'cmd.markReviewed'], ['inbox.markUnreviewed', 'cmd.markUnreviewed'], ['inbox.convert', 'cmd.inbox.convert'],
+        ['inbox.append', 'cmd.inbox.append'], ['inbox.link', 'cmd.inbox.link'], ['inbox.tags', 'cmd.inbox.tags'],
+        ['inbox.selectAll', 'cmd.inbox.selectAll'], ['inbox.clearSelection', 'cmd.inbox.clearSelection'],
+        ['inbox.markAll', 'cmd.inbox.markAll'], ['inbox.showAll', 'cmd.inbox.showAll'],
+      ] as const).map(([id, title]): Command => ({ id, title, section: 'edit', needsVault: true, run: ic(id) })),
+    );
+  }
+  if (ctx.route?.id === 'note/<path>') {
+    const key = (ctx.route.type ?? '').normalize('NFC');
+    const typeReview = ctx.types.find((x) => x.key.normalize('NFC') === key)?.review;
+    // D-591: the objects with the review toggle (before the note is read, the type decides).
+    if (reviewable({ path: ctx.route.path ?? '', type: key, hasFrontmatter: ctx.route.hasFrontmatter ?? true, review: ctx.route.review, typeReview })) {
+      list.push(
+        { id: 'note.markReviewed', title: 'cmd.markReviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(true) },
+        { id: 'note.markUnreviewed', title: 'cmd.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(false) },
+      );
+    }
+  }
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(
     { id: 'goto.brokenLinks', title: 'commands.gotoBrokenLinks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'broken-links' }) },
@@ -167,7 +225,7 @@ export function commands(ctx: ShellContext): Command[] {
       { id: 'daily.markUnreviewed', title: 'daily.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setReviewed?.(false) },
     );
   }
-  if (ctx.route?.id === 'note/<path>' || dailyDate) {
+  if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'new/<type>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
   }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
@@ -178,9 +236,14 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'type.new', title: 'cmd.newType', section: 'create', needsVault: true, run: (c) => a(c)?.newType?.() },
     { id: 'vault.addStarterTypes', title: 'cmd.addStarterTypes', section: 'vault', needsVault: true, run: (c) => a(c)?.addStarterTypes?.() },
   );
-  const onNote = route?.id === 'note/<path>' || route?.id === 'daily/YYYY-MM-DD';
+  const onNote = route?.id === 'note/<path>' || route?.id === 'new/<type>' || route?.id === 'daily/YYYY-MM-DD';
   if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
+  }
+  // FR-TSK-04 AC-17 (D-520): `New Task` from anywhere opens the Tasks page's quick-add row (on `type/task` the type's
+  // own `New Task` is that command).
+  if (!(definedType && definedType.key === 'task') && ctx.types.some((x) => x.key === 'task')) {
+    list.push({ id: 'task.new', title: 'cmd.newOfType', vars: { name: ctx.types.find((x) => x.key === 'task')!.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.('task') });
   }
   if (definedType) {
     const key = definedType.key;
@@ -203,9 +266,13 @@ export function commands(ctx: ShellContext): Command[] {
     // 4F (R32, D-428): no shortcuts.
     ['edit.embedObject', 'embedObject', 'commands.embedObject'], ['edit.openEmbed', 'openEmbed', 'commands.openEmbed'],
     ['edit.displayEmbedAs', 'displayEmbedAs', 'commands.displayEmbedAs'],
+    // 5A-2 (R53): ⇧⌘T, ⇧⌘O.
+    ['edit.turnIntoTask', 'turnIntoTask', 'cmd.edit.turnIntoTask'], ['edit.turnIntoObject', 'turnIntoObject', 'cmd.edit.turnIntoObject'],
   ];
   for (const [id, action, title] of EDIT) {
-    list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action) });
+    const convert = action === 'turnIntoTask' || action === 'turnIntoObject';
+    list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
+      ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];

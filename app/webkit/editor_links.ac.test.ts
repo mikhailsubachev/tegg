@@ -122,8 +122,9 @@ for (const [q, file, link] of [
     const core = await startEmpty(page);
     await page.keyboard.type(`[[${q}`);
     const o = await options(page, 'link');
-    assert.equal(o[o.length - 1], `Create "${q}"`, `last row Create "${q}": ${o.join(' | ')}`);
-    await linkSuggestions(page).getByRole('option', { name: `Create "${q}"` }).click();
+    // 5B (FR-VLT-05 AC-3 (b), D-550): `Create "<q>"` is followed by the row `Create "<q>" as…`.
+    assert.deepEqual(o.slice(-2), [`Create "${q}"`, `Create "${q}" as…`], `the last rows: ${o.join(' | ')}`);
+    await linkSuggestions(page).getByRole('option', { name: `Create "${q}"`, exact: true }).click();
     await page.keyboard.type(' konec');
     const t = await saved(page, core, E.prazdna);
     assert.equal(await bodyOf(t), `${link} konec\n`, `${q}: link saved, caret after it`);
@@ -172,7 +173,7 @@ test('fr_edt_06_ac6_undo_after_choose_and_after_create', async ({ page }) => {
   assert.equal(flat(await tree(await bodyOf(t))).trim(), '[[Cíl', '⌘Z restores [[Cíl as text');
   await page.keyboard.press('Enter');
   await page.keyboard.type('[[Úplně nová');
-  await linkSuggestions(page).getByRole('option', { name: 'Create "Úplně nová"' }).click();
+  await linkSuggestions(page).getByRole('option', { name: 'Create "Úplně nová"', exact: true }).click();
   await mustBeSaved(page);
   await page.keyboard.press('Meta+z');
   t = await saved(page, core, E.prazdna);
@@ -184,7 +185,7 @@ test('fr_edt_06_ac7_alias_link_in_a_table_cell_escapes_the_pipe', async ({ page 
   const core = await openEditor(page, E.deset);
   const cell = await must(block(page, 8).getByRole('cell', { name: '1' }), 'cell');
   await cell.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press('Meta+ArrowRight'); // line end on macOS; the click may land before right-aligned text (G6: column alignment)
   await page.keyboard.type(' [[C# tips');
   await linkSuggestions(page).getByRole('option').filter({ hasText: 'C# tips' }).first().click();
   const t = await saved(page, core, E.deset);

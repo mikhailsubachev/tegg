@@ -51,6 +51,10 @@ impl Host for CoreHost {
         self.shared.vault.version(path).ok().flatten()
     }
 
+    fn indexed_version(&self, path: &str) -> Option<FileVersion> {
+        lock(&self.shared.index).note_state(path).map(|s| s.version)
+    }
+
     fn is_placeholder(&self, path: &str) -> bool {
         self.shared.vault.is_placeholder(path)
     }

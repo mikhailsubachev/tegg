@@ -1,4 +1,5 @@
 // One value of a type page row, as the type page and embed cards show it (FR-TYP-09, D-427; ms4-embeds §6).
+import { chipParts } from '../links/ChipParts';
 import { validate } from '@tegg/schema';
 import { chipIcon } from '../links/icons';
 import { t } from '../i18n/catalog';
@@ -66,12 +67,14 @@ function LinkCell({ value, links, types, onOpen }: { value: unknown; links: Link
   const info = links.find((l) => [nfc(w.target), nfc(w.inner), nfc(String(value))].includes(nfc(l.target)));
   const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
   const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
+  const parts = ok ? chipParts(info, 12) : null; // D-600
   return (
-    <a data-command="typePage.a1" href="#" className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`} aria-description={ok ? undefined : t('link.noNote', { target: w.target })}
+    <a data-command="typePage.a1" href="#" className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`} aria-description={ok ? parts?.description ?? undefined : t('link.noNote', { target: w.target })} {...parts?.attrs}
       data-link-kind={ok ? info!.kind : 'unresolved'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ok) onOpen(info!.path!); }}>
-      {ok && <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} dataIcon={chipIcon(info!.type ?? 'page').def} size={12} />}
+      {ok && (parts?.icon ?? <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} dataIcon={chipIcon(info!.type ?? 'page').def} size={12} />)}
       <span data-user-content>{shown}</span>
+      {parts?.suffix}
     </a>
   );
 }

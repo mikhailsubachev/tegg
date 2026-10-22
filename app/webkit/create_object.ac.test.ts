@@ -2,10 +2,11 @@
 // entry point (⌘N New object, the switcher's create item, `[[` create, the type page's `New <Name>`, a relation's
 // `Create`); FR-TYP-12 AC-3; FR-TYP-01 AC-5 (new objects follow the folder). Each entry point must call `type_get`,
 // `type_template` and `note_create(type, title, text)` with the bytes of @tegg/doc `newObject` (ms3-shell §14.7.1).
+// D-520 (ms5-tasks §12.2): ⌘N and `New <Name>` open an unsaved draft; the title is typed there and committed with ↩.
 // Clock 2026-10-14T10:00:00+02:00 (Playwright clock, zone Europe/Prague). Written from the ACs and contract (D-61).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { mainName, newObjectDialog, switcherDialog } from './helpers';
+import { createFromDraft, mainName, switcherDialog } from './helpers';
 import {
   P, callsOf, eventually, gotoTypePage, main, must, openTypes, props, runCommand, sleep, typeFile, typesVault, swap, dialog,
 } from './types-helpers';
@@ -42,8 +43,7 @@ test('fr_typ_03_ac12_type_page_new_napad_writes_template_values_review_and_body'
   const core = await openTypes(page);
   await gotoTypePage(page, 'Nápady');
   await main(page).getByRole('button', { name: 'New Nápad', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Nový nápad');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Nový nápad', 'draft');
   const c = await created(core);
   await onePathCalls(core, 'nápad');
   assert.equal(c.type, 'nápad');
@@ -56,13 +56,11 @@ test('fr_typ_03_ac12_type_page_new_projekt_and_schuzka', async ({ page }) => {
   const core = await openTypes(page);
   await gotoTypePage(page, 'Projekty');
   await main(page).getByRole('button', { name: 'New Projekt', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Nový projekt');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Nový projekt', 'draft');
   assert.equal(mask((await created(core)).text), `${head('projekt', 'Nový projekt')}stav: Plánovaný\n${tail}`);
   await gotoTypePage(page, 'Schůzky');
   await main(page).getByRole('button', { name: 'New Schůzka', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Plánování');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Plánování', 'draft');
   const s = await created(core);
   assert.equal(mask(s.text), `${head('schůzka', 'Plánování')}${tail}`, 'only identity keys, empty body, no review (FR-TYP-12 AC-3)');
 });
@@ -71,8 +69,7 @@ test('fr_typ_03_ac12_cmd_n_creates_the_default_type_quick_note_unreviewed', asyn
   await clock(page);
   const core = await openTypes(page);
   await page.keyboard.press('Meta+n');
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Rychlý nápad');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Rychlý nápad', 'draft');
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Rychlý nápad')}review: unreviewed\n${tail}`, 'locked → review: unreviewed');
@@ -86,7 +83,7 @@ test('fr_typ_03_ac12_switcher_create_item_uses_the_same_path', async ({ page }) 
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option').last().click();
+  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Úplně nový')}review: unreviewed\n${tail}`);
@@ -99,7 +96,7 @@ test('fr_typ_03_ac12_link_create_in_the_editor_uses_the_same_path', async ({ pag
   await page.keyboard.press('End');
   await page.keyboard.type(' [[Odkazovaná');
   const lb = await must(page.getByRole('listbox', { name: 'Link suggestions' }), 'Link suggestions');
-  await lb.getByRole('option', { name: 'Create "Odkazovaná"' }).click();
+  await lb.getByRole('option', { name: 'Create "Odkazovaná"', exact: true }).click();
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Odkazovaná')}review: unreviewed\n${tail}`);
@@ -113,7 +110,7 @@ test('fr_typ_03_ac12_relation_create_uses_the_first_allowed_type', async ({ page
   const pick = await must(dialog(page, 'Choose Projekt'), 'picker');
   await pick.getByRole('combobox', { name: 'Search' }).fill('Nová stavba');
   await sleep(150);
-  await pick.getByRole('option', { name: 'Create "Nová stavba"' }).click();
+  await pick.getByRole('option', { name: 'Create "Nová stavba"', exact: true }).click();
   const c = await created(core);
   await onePathCalls(core, 'projekt');
   assert.equal(mask(c.text), `${head('projekt', 'Nová stavba')}stav: Plánovaný\n${tail}`);
@@ -128,8 +125,7 @@ test('fr_typ_03_ac12_defaults_are_written_in_schema_order', async ({ page }) => 
   const core = await openTypes(page, undefined, { vault });
   await gotoTypePage(page, 'Projekty');
   await main(page).getByRole('button', { name: 'New Projekt', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Pořadí');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Pořadí', 'draft');
   assert.equal(mask((await created(core)).text), `${head('projekt', 'Pořadí')}stav: Plánovaný\nweb: https://example.com\n${tail}`);
 });
 
@@ -139,8 +135,7 @@ test('fr_typ_12_ac3_turning_review_on_applies_to_new_objects_only', async ({ pag
   const core = await openTypes(page, undefined, { vault });
   await gotoTypePage(page, 'Schůzky');
   await main(page).getByRole('button', { name: 'New Schůzka', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Se schválením');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Se schválením', 'draft');
   assert.equal(mask((await created(core)).text), `${head('schůzka', 'Se schválením')}review: unreviewed\n${tail}`);
   assert.ok(!(await core.files())[P.porada].includes('review:'), 'Porada stays without it');
 });
@@ -151,8 +146,7 @@ test('fr_typ_01_ac5_the_next_object_goes_to_the_new_folder', async ({ page }) =>
   const core = await openTypes(page, undefined, { vault });
   await gotoTypePage(page, 'Schůzky');
   await main(page).getByRole('button', { name: 'New Schůzka', exact: true }).click();
-  await newObjectDialog(page).getByRole('textbox', { name: 'Title' }).fill('Plánování');
-  await page.keyboard.press('Enter');
+  await createFromDraft(page, 'Plánování', 'draft');
   const c = await created(core);
   assert.equal(c.path, 'Práce/Porady/Plánování.md', 'folders created then (data-safety FR-STO-01 AC-2)');
   await runCommand(page, 'Go to type: Schůzky');

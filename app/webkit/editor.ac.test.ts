@@ -132,7 +132,7 @@ test('fr_edt_01_ac6_block_menu_items_duplicate_delete_turn_into', async ({ page 
   assert.equal(await copy.getAttribute('aria-disabled'), 'true', 'Copy link to block disabled (AP-131)');
   assert.match(await described(copy), /Coming in v1\.0/, 'Coming in v1.0');
   const obj = menu.getByRole('menuitem', { name: 'Turn into object', exact: true });
-  assert.equal(await obj.getAttribute('aria-disabled'), 'true', 'Turn into object disabled');
+  assert.equal(await obj.getAttribute('aria-disabled'), null, 'Turn into object enabled (built in 5A-2, R53, D-499)');
   await page.keyboard.press('Escape');
   assert.ok(await absent(blockMenu(page)), 'Esc closes the menu');
 
@@ -398,7 +398,7 @@ test('fr_edt_02_ac20_table_cell_pipe_and_actions', async ({ page }) => {
   const orig = original(E.deset);
   const cell = await must(block(page, 8).getByRole('cell', { name: '1' }), 'cell 1');
   await cell.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press('Meta+ArrowRight'); // line end on macOS; the click may land before right-aligned text (G6: column alignment)
   await page.keyboard.type('x|y');
   let t = await savedText(page, core, E.deset);
   assert.equal(noModified(t), noModified(orig).replace('| a \\| b | 1 |', '| a \\| b | 1x\\|y |'), 'pipe escaped; alignment and other cells unchanged');
@@ -518,7 +518,8 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
   await page.keyboard.type('/');
   const menu = await must(slashMenu(page), 'menu');
   const n0 = (await core.calls()).length;
-  for (const [name, ms] of [['Task', 'MS5'], ['Image', 'MS6'], ['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
+  // 5A-2 (R53, D-499): `Task` is built; the other disabled items stay.
+  for (const [name, ms] of [['Image', 'MS6'], ['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);
@@ -599,7 +600,7 @@ test('fr_edt_05_ac1_toolbar_on_text_selection_only', async ({ page }) => {
   for (const b of ['Bold', 'Italic', 'Strikethrough', 'Inline code', 'Highlight', 'Link', 'Turn into object']) {
     await must(tb.getByRole('button', { name: b, exact: true }), `button ${b}`);
   }
-  assert.equal(await tb.getByRole('button', { name: 'Turn into object' }).getAttribute('aria-disabled'), 'true', 'Turn into object disabled');
+  assert.equal(await tb.getByRole('button', { name: 'Turn into object' }).getAttribute('aria-disabled'), null, 'Turn into object enabled (built in 5A-2, R53, D-499)');
   assert.equal(await tb.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'), 'false', 'aria-pressed');
   await page.keyboard.press('Escape');
   assert.ok(await absent(toolbar(page)), 'Esc hides it');

@@ -3,6 +3,10 @@
 //! files; the perf log and the UI state are machine-local (docs/contracts/ms2-shell.md §1, ms3-shell.md §1, §2).
 
 mod dto;
+mod shell5b;
+mod strings;
+
+pub use shell5b::{acl_probe, AclProbe};
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -19,14 +23,14 @@ use tegg_vault::{CreateError, OpenError, VaultKind};
 
 use dto::*;
 
-struct AppState {
-    dirs: AppDirs,
-    core: Mutex<Option<Arc<Core>>>,
-    vault: Mutex<Option<VaultInfo>>,
+pub(crate) struct AppState {
+    pub(crate) dirs: AppDirs,
+    pub(crate) core: Mutex<Option<Arc<Core>>>,
+    pub(crate) vault: Mutex<Option<VaultInfo>>,
 }
 
 /// The test environment (contract §1): honoured only with `TEGG_TEST=1`.
-fn test_var(name: &str) -> Option<String> {
+pub(crate) fn test_var(name: &str) -> Option<String> {
     if std::env::var("TEGG_TEST").as_deref() != Ok("1") {
         return None;
     }
@@ -34,7 +38,9 @@ fn test_var(name: &str) -> Option<String> {
 }
 
 /// The app name: window title and Application Support folder (D-118: the preview keeps its own data).
-const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+pub(crate) const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549).
+pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
 fn app_dirs() -> AppDirs {
     let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
@@ -70,28 +76,52 @@ fn ms_since_process_start() -> f64 {
 
 static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// Bumped each time a vault opens: the capture window's vault token (ms5-capture §2.2, FR-CAP-01 AC-11).
+pub(crate) static VAULT_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// Set once the UI has saved (or the user chose to quit anyway): only then may the app exit (FR-EDT-08 AC-7, D-196).
 static ALLOW_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// A native event the navigation monitor sees (FR-NAV-03).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum NavInput {
+    /// `OtherMouseUp` with AppKit's button number (3 = back, 4 = forward).
+    OtherMouseUp(isize),
+    /// A navigation swipe (`NSEventTypeSwipe`) with its `deltaX`.
+    Swipe(f64),
+}
+
+/// The `nav:mouse` direction for a native event, if any.
+pub(crate) fn nav_of(input: NavInput) -> Option<&'static str> {
+    match input {
+        NavInput::OtherMouseUp(3) => Some("back"),
+        NavInput::OtherMouseUp(4) => Some("forward"),
+        // AppKit: deltaX > 0 is a swipe to the left of the content, which browsers treat as Back.
+        NavInput::Swipe(dx) if dx > 0.0 => Some("back"),
+        NavInput::Swipe(dx) if dx < 0.0 => Some("forward"),
+        _ => None,
+    }
+}
+
 /// The mouse's back and forward buttons (FR-NAV-03, D-165): WKWebView doesn't pass them to the page, so a local
-/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI.
+/// event monitor turns them into `nav:mouse` events (`back` / `forward`) for the UI. Mouse utilities such as Logi
+/// Options+ send them as the system's navigation swipe instead (5B feedback F1), which the monitor also maps.
 #[cfg(target_os = "macos")]
 fn watch_mouse_buttons(app: AppHandle) {
     use block2::RcBlock;
-    use objc2_app_kit::{NSEvent, NSEventMask};
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
     use std::ptr::NonNull;
     let block = RcBlock::new(move |e: NonNull<NSEvent>| -> *mut NSEvent {
         // SAFETY: AppKit passes a valid event for the duration of the handler.
-        let n = unsafe { e.as_ref() }.buttonNumber();
-        match n {
-            3 => { let _ = app.emit("nav:mouse", "back"); }
-            4 => { let _ = app.emit("nav:mouse", "forward"); }
-            _ => {}
+        let ev = unsafe { e.as_ref() };
+        let input = if ev.r#type() == NSEventType::Swipe { NavInput::Swipe(ev.deltaX()) } else { NavInput::OtherMouseUp(ev.buttonNumber()) };
+        if let Some(dir) = nav_of(input) {
+            let _ = app.emit_to("main", "nav:mouse", dir);
         }
         e.as_ptr()
     });
     // SAFETY: called on the main thread during setup; the monitor lives as long as the app.
-    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp, &block) };
+    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseUp | NSEventMask::Swipe, &block) };
     std::mem::forget(monitor);
 }
 
@@ -126,15 +156,15 @@ fn mark(app: &AppHandle, name: &str) {
 
 // ---------------------------------------------------------------- vault and events
 
-fn err(kind: &str, message: impl ToString) -> IpcError {
+pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
     IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None }
 }
 
-fn version_dto(v: &FileVersion) -> VersionDto {
+pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
     VersionDto { mtime_ns: v.mtime_ns.to_string(), size: v.size, hash: v.hash.iter().map(|b| format!("{b:02x}")).collect() }
 }
 
-fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
+pub(crate) fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
     let bad = || err("Io", "malformed version");
     if d.hash.len() != 64 {
         return Err(bad());
@@ -155,7 +185,7 @@ fn mark_repeat(name: &str) {
     }
 }
 
-fn core_err(e: CoreError) -> IpcError {
+pub(crate) fn core_err(e: CoreError) -> IpcError {
     match e {
         CoreError::Vault(VaultError::Conflict { .. }) => err("Conflict", "the file changed on disk"),
         CoreError::Vault(VaultError::Gone) => err("Gone", "the file was deleted"),
@@ -176,6 +206,8 @@ fn core_err(e: CoreError) -> IpcError {
         // ms4-daily §3 (4B).
         CoreError::UseDailyNote => err("UseDailyNote", "a Daily Note is created by typing in it"),
         CoreError::DailyMismatch => err("DailyMismatch", "the bytes aren't this date's Daily Note"),
+        // ms5-tasks §11.6 (5A-2).
+        CoreError::Protected => err("Protected", "only notes can be discarded"),
         other => err("Io", format!("{other:?}")),
     }
 }
@@ -208,6 +240,8 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
         RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
         RuleError::PreviewFull => ("previewFull", None, None, None),
+        RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
+        RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };
     IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
@@ -260,6 +294,9 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     }
     *state.core.lock().unwrap_or_else(|p| p.into_inner()) = Some(core);
     *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
+    VAULT_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
+    shell5b::inbox_count_changed(app);
     Ok(info)
 }
 
@@ -275,13 +312,16 @@ fn forward_events(app: AppHandle, core: &Core) {
                         ProgressState::Done => "done",
                         ProgressState::Cancelled => "cancelled",
                     };
-                    let _ = app.emit("index:progress", ProgressDto { done: done as u32, total: total as u32, state: s.into() });
+                    let _ = app.emit_to("main", "index:progress", ProgressDto { done: done as u32, total: total as u32, state: s.into() });
                     if state == ProgressState::Done {
                         mark(&app, "index-ready");
                     }
                 }
                 CoreEvent::VaultChanged { paths } => {
-                    let _ = app.emit("vault:changed", ChangedDto { paths });
+                    // The capture window gets no paths (NFR-SEC-03): only a hint to re-read its context (§2.2).
+                    shell5b::context_maybe_changed(&app, &paths);
+                    let _ = app.emit_to("main", "vault:changed", ChangedDto { paths });
+                    shell5b::inbox_count_changed(&app);
                 }
                 CoreEvent::NoteConflict { path, mine, theirs, disk } => {
                     let c = ConflictDto {
@@ -290,23 +330,23 @@ fn forward_events(app: AppHandle, core: &Core) {
                         theirs: String::from_utf8_lossy(&theirs).into_owned(),
                         theirs_version: version_dto(&disk),
                     };
-                    let _ = app.emit("note:conflict", c);
+                    let _ = app.emit_to("main", "note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
                 // ms4-jobs §4 (4C).
                 CoreEvent::JobProgress(p) => {
-                    let _ = app.emit("job:progress", progress_dto(&p));
+                    let _ = app.emit_to("main", "job:progress", progress_dto(&p));
                 }
                 CoreEvent::JobTransform { request, source, text, ops, live } => {
                     let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::op_json).collect();
-                    let _ = app.emit("job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
+                    let _ = app.emit_to("main", "job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
                 }
             }
         }
     });
 }
 
-fn core(state: &State<AppState>) -> Result<Arc<Core>, IpcError> {
+pub(crate) fn core(state: &State<AppState>) -> Result<Arc<Core>, IpcError> {
     state.core.lock().unwrap_or_else(|p| p.into_inner()).clone().ok_or_else(|| err("NoVault", "no vault is open"))
 }
 
@@ -457,6 +497,13 @@ async fn note_trash(state: State<'_, AppState>, path: String, base: VersionDto) 
     core.trash_note(&path, &version_from(&base)?).map_err(core_err)
 }
 
+/// ms5-tasks §11.6 (D-492): delete a just-created file after a version check (conversion undo).
+#[tauri::command]
+async fn note_discard(state: State<'_, AppState>, path: String, base: VersionDto) -> Result<(), IpcError> {
+    let core = core(&state)?;
+    core.discard_note(&path, &version_from(&base)?).map_err(core_err)
+}
+
 /// D-185.
 #[tauri::command]
 async fn index_tags(state: State<'_, AppState>) -> Result<Vec<TagDto>, IpcError> {
@@ -496,7 +543,20 @@ async fn index_conflicts(state: State<'_, AppState>) -> Result<Vec<ConflictRowDt
 #[tauri::command]
 async fn note_create(state: State<'_, AppState>, r#type: String, title: String, text: String) -> Result<String, IpcError> {
     let core = core(&state)?;
-    core.create_object(&r#type, &title, text.as_bytes()).map_err(core_err)
+    let path = core.create_object(&r#type, &title, text.as_bytes()).map_err(core_err)?;
+    if test_var("TEGG_TEST_HOLD").as_deref() == Some("after-create") {
+        hold("after-create"); // FR-CNV-03 AC-7: the new file is written and indexed, the source not yet saved
+    }
+    Ok(path)
+}
+
+/// ms5-tasks §11.6 (test build only): marks `hold:<point>` and blocks this thread forever, so the L6 test can kill
+/// the app at that point (FR-CNV-03 AC-7).
+fn hold(point: &str) {
+    mark_repeat(&format!("hold:{point}"));
+    loop {
+        std::thread::sleep(Duration::from_secs(3600));
+    }
 }
 
 /// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
@@ -620,7 +680,12 @@ async fn nav_opened(state: State<'_, AppState>, path: Option<String>, route: Opt
 #[tauri::command]
 async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<String>) -> Result<Vec<LinkTargetDto>, IpcError> {
     let core = core(&state)?;
-    Ok(core.resolve_links(&from, &targets).into_iter().map(link_dto).collect())
+    // D-601: with the chip fields (review, task status, due, completed).
+    Ok(core
+        .resolve_links_with_fields(&from, &targets)
+        .into_iter()
+        .map(|(t, f)| LinkTargetDto { review: f.review, status: f.status, due: f.due, completed: f.completed, ..link_dto(t) })
+        .collect())
 }
 
 /// `embed_load` (ms4-embeds §4, D-429): one call per nesting level; read-only, records no recency.
@@ -668,7 +733,7 @@ fn target_info_dto(t: tegg_core::LinkTargetInfo) -> LinkTargetDto {
         DateMissing => "date-missing",
         Unresolved => "unresolved",
     };
-    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type }
+    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type, review: None, status: None, due: None, completed: None }
 }
 
 fn excerpt_dto(e: tegg_core::Excerpt) -> ExcerptDto {
@@ -854,11 +919,37 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
     })
 }
 
+// ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
+
+/// `task_list` (R44): read-only, one call for the rows and the Task type's options.
+#[tauri::command]
+async fn task_list(state: State<'_, AppState>) -> Result<TaskListDto, IpcError> {
+    let core = core(&state)?;
+    let d = core.task_defs();
+    let defs = TaskDefsDto {
+        statuses: d.statuses.into_iter().map(|s| StatusOptionDto { label: s.label, color: s.color, state: task_state(s.state), state_raw: s.state_raw }).collect(),
+        priorities: d.priorities.into_iter().map(option_dto).collect(),
+        unknown_states: d.unknown_states.into_iter().map(|(label, state)| UnknownStateDto { label, state }).collect(),
+    };
+    Ok(TaskListDto { tasks: core.tasks().into_iter().map(task_dto).collect(), defs })
+}
+
+/// `daily_tasks` (FR-DLY-04 AC-9, D-485): read-only.
+#[tauri::command]
+async fn daily_tasks(state: State<'_, AppState>, date: String, start: String, end: String, today: String, limit: u32) -> Result<DailyTasksDto, IpcError> {
+    let core = core(&state)?;
+    let t = |s: &str| chrono::DateTime::parse_from_rfc3339(s).map_err(|_| err("Io", format!("not an instant: {s}")));
+    let w = tegg_core::DayWindow { date: parse_day(&date)?, start: t(&start)?, end: t(&end)? };
+    let d = core.daily_tasks(&w, parse_day(&today)?, limit as usize);
+    let rows = |v: Vec<tegg_core::TaskRow>| v.into_iter().map(task_dto).collect();
+    Ok(DailyTasksDto { overdue: rows(d.overdue), due: rows(d.due), completed: rows(d.completed), total: d.total as u32 })
+}
+
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
 
 use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
 
-fn job_err(e: JobError) -> IpcError {
+pub(crate) fn job_err(e: JobError) -> IpcError {
     match e {
         JobError::NotRenamable => err("NotRenamable", "this note can't be renamed"),
         JobError::Busy => err("Busy", "another job is running"),
@@ -1019,9 +1110,10 @@ async fn link_create_plan(state: State<'_, AppState>, from: String, target: Stri
 
 /// `link_create` (FR-LNK-04 AC-5, AC-11): the one write of the Create offer; re-plans first.
 #[tauri::command]
-async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String) -> Result<LinkCreatedDto, IpcError> {
+async fn link_create(state: State<'_, AppState>, from: String, target: String, expect: LinkCreatePlanDto, text: String, as_type: Option<String>) -> Result<LinkCreatedDto, IpcError> {
     let core = core(&state)?;
-    let made = core.link_create(&from, &target, &plan_from(expect), text.as_bytes()).map_err(core_err)?;
+    // `asType`: the type picked in the offer's `Type` control (FR-VLT-05 AC-3, D-550).
+    let made = core.link_create_as(&from, &target, &plan_from(expect), text.as_bytes(), as_type.as_deref()).map_err(core_err)?;
     Ok(LinkCreatedDto { path: made.path, rewrite: made.rewrite })
 }
 
@@ -1066,7 +1158,7 @@ fn type_dto(t: TypeInfo) -> TypeDto {
     }
 }
 
-fn attribute_dto(a: AttrDef) -> AttributeDto {
+pub(crate) fn attribute_dto(a: AttrDef) -> AttributeDto {
     let read_only_reason = match &a.r#type {
         AttrType::File => Some("file"),
         AttrType::Color => Some("color"),
@@ -1082,7 +1174,7 @@ fn attribute_dto(a: AttrDef) -> AttributeDto {
         read_only_reason: read_only_reason.map(str::to_string),
         default: a.default,
         required: a.required,
-        options: a.options.into_iter().map(|o| OptionDto { label: o.label, color: o.color }).collect(),
+        options: a.options.into_iter().map(option_dto).collect(),
         to: a.to,
         multiple: a.multiple,
         description: a.description,
@@ -1090,8 +1182,43 @@ fn attribute_dto(a: AttrDef) -> AttributeDto {
     }
 }
 
+/// D-511: a status option's `state` travels both ways, so an options edit from the UI never drops it.
+fn option_dto(o: OptionDef) -> OptionDto {
+    let state = tegg_schema::option_state(&o).map(str::to_string);
+    OptionDto { label: o.label, color: o.color, state }
+}
+
 fn option_def(o: OptionDto) -> OptionDef {
-    OptionDef { label: o.label, color: o.color, extra: Vec::new() }
+    let extra = o.state.filter(|s| !s.trim().is_empty()).map(|s| vec![("state".to_string(), serde_json::Value::String(s))]).unwrap_or_default();
+    OptionDef { label: o.label, color: o.color, extra }
+}
+
+fn task_state(s: tegg_core::TaskState) -> String {
+    s.as_str().to_string()
+}
+
+fn task_dto(r: tegg_core::TaskRow) -> TaskRowDto {
+    TaskRowDto {
+        path: r.path,
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        state: task_state(r.state),
+        status_known: r.status_known,
+        priority: r.priority,
+        priority_rank: r.priority_rank as u32,
+        due_raw: r.due_raw,
+        due: r.due.map(|d| d.format("%Y-%m-%d").to_string()),
+        completed: r.completed,
+        tags: r.tags,
+        fm_tags: r.fm_tags,
+        source: r.source.map(link_dto),
+        excerpt: r.excerpt,
+        created: r.created,
+        modified: r.modified,
+        version: version_dto(&r.version),
+        read_only: r.read_only,
+    }
 }
 
 fn attr_def(a: AttributeInputDto) -> AttrDef {
@@ -1146,6 +1273,13 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         },
         TypeOpDto::RemoveAttribute { key } => TypeOp::RemoveAttribute(key),
         TypeOpDto::MoveAttribute { key, to } => TypeOp::MoveAttribute { key, to: to as usize },
+        // ms5-tasks §2.2 (5A-1).
+        TypeOpDto::SetOptionState { attr, label, state } => TypeOp::SetOptionState { attr, label, state },
+        TypeOpDto::AddOption { attr, option } => TypeOp::AddOption { attr, option: option_def(option) },
+        TypeOpDto::SetOptionColor { attr, label, color } => TypeOp::SetOptionColor { attr, label, color },
+        TypeOpDto::MoveOption { attr, label, to } => TypeOp::MoveOption { attr, label, to: to as usize },
+        TypeOpDto::RemoveOption { attr, label } => TypeOp::RemoveOption { attr, label },
+        TypeOpDto::RenameOption { attr, from, to } => TypeOp::RenameOption { attr, from, to },
     })
 }
 
@@ -1162,6 +1296,10 @@ fn link_dto(t: LinkTarget) -> LinkTargetDto {
         path: t.path,
         title: t.title,
         type_key: t.r#type,
+        review: None,
+        status: None,
+        due: None,
+        completed: None,
     }
 }
 
@@ -1303,6 +1441,27 @@ mod external_tests {
     }
 }
 
+/// D-511 (T2, AP-440): an options edit from the UI keeps each option's `state`, also for a renamed label.
+#[cfg(test)]
+mod bug_5a_fr_tsk_02_option_state_kept {
+    use super::{option_def, option_dto, OptionDef};
+    use tegg_schema::{patch, AttrChange, PatchContext, TypeOp};
+
+    #[test]
+    fn bug_5a_fr_tsk_02_option_state_kept() {
+        let o = OptionDef { label: "Waiting".into(), color: Some("yellow".into()), extra: vec![("state".into(), serde_json::json!("open"))] };
+        let back = option_def(option_dto(o.clone()));
+        assert_eq!(back, o, "state survives the IPC round trip");
+        let text = "version: 1\nname: Projekt\nplural: Projekty\nattributes:\n  - key: faze\n    name: Fáze\n    type: select\n    options:\n      - { label: Nápad, state: open, color: gray }\n      - { label: Hotovo, state: done, color: green }\n";
+        let mut dtos: Vec<_> = tegg_schema::parse("projekt", text).def.attributes[0].options.clone().into_iter().map(option_dto).collect();
+        dtos[0].label = "Myšlenka".into(); // a rename: the old label's extra can't be found by label
+        let change = AttrChange { options: Some(dtos.into_iter().map(option_def).collect()), ..Default::default() };
+        let out = patch("projekt", text, &[TypeOp::UpdateAttribute { key: "faze".into(), change }], &PatchContext { others: &[] });
+        let out = out.expect("patch").expect("a change");
+        assert!(out.contains("- { label: Myšlenka, state: open, color: gray }"), "the renamed option keeps its state:\n{out}");
+    }
+}
+
 const UI_STATE_FILE: &str = "ui-state.json";
 
 fn load_ui_state(dirs: &AppDirs) -> UiStateDto {
@@ -1315,9 +1474,16 @@ fn ui_state_get(state: State<AppState>) -> UiStateDto {
 }
 
 #[tauri::command]
-fn ui_state_set(app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
+fn ui_state_set(app: AppHandle, app_state: State<AppState>, state: UiStateDto) -> Result<(), IpcError> {
     let bytes = serde_json::to_vec_pretty(&state).map_err(|e| err("Io", e))?;
-    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))
+    tegg_vault::write_local_file(&app_state.dirs.root.join(UI_STATE_FILE), &bytes).map_err(|e| err("Io", e))?;
+    // ms5-capture §4 (FR-CAP-01 AC-14): the pre-warmed capture windows re-apply the theme and the date format; they get
+    // these two choices only, never the rest of the state.
+    let ui = serde_json::json!({ "theme": state.theme, "dateTime": state.date_time });
+    for w in [shell5b::CAPTURE, shell5b::SAVED] {
+        let _ = app.emit_to(w, "ui:state", ui.clone());
+    }
+    Ok(())
 }
 
 /// The collation locale of this Mac (D-122): the explicit collation order if set, else the region locale.
@@ -1334,14 +1500,23 @@ fn region_locale() -> Option<String> {
 
 /// Set before the UI's first paint (ms3-shell §3.5, §3.6, §10): the stored theme, the region locale, and in the
 /// test environment the start route and the time zone (`TZ`).
-fn init_script(dirs: &AppDirs) -> String {
+pub(crate) fn init_script(dirs: &AppDirs) -> String {
     let mut ui = load_ui_state(dirs);
     if let Some(theme) = test_var("TEGG_THEME").filter(|t| ["system", "light", "dark"].contains(&t.as_str())) {
         ui.theme = theme;
     }
     let route = test_var("TEGG_ROUTE");
+    // D-504: with TEGG_TEST=1, `TEGG_NOW=<ISO 8601>` fixes the UI's clock (it starts there and runs on), so L6 tests run
+    // on the criteria's test clock. Only a valid date-time with offset is used.
+    let now_ms = test_var("TEGG_NOW").and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|t| t.timestamp_millis());
+    let clock = match now_ms {
+        Some(ms) => format!(
+            " (() => {{ const off = {ms} - Date.now(); const R = Date; class D extends R {{ constructor(...a) {{ if (a.length === 0) super(R.now() + off); else super(...a); }} static now() {{ return R.now() + off; }} }} window.Date = D; window.__TEGG_NOW__ = {ms}; }})();"
+        ),
+        None => String::new(),
+    };
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};{clock}",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
@@ -1351,13 +1526,39 @@ fn init_script(dirs: &AppDirs) -> String {
     )
 }
 
+
+/// ⌘Q, the status menu's `Quit Tegg` and the Quit Apple Event: the UI saves first and answers `app_quit` (D-196).
+pub(crate) fn request_quit(app: &AppHandle) {
+    if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
+        app.exit(0);
+    } else {
+        let _ = app.emit_to("main", "app:quit-requested", ());
+    }
+}
+
+/// The app's context (config, assets, capabilities, command manifest), for the real runtime and the ACL probe (D-570).
+pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 pub fn run() {
     let dirs = app_dirs();
+    // D-71: one instance per app bundle (FR-CAP-05 AC-4, AC-9); a second launch shows the first one's window.
+    shell5b::single_instance(BUNDLE_ID);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
         .setup(|app| {
             let handle = app.handle().clone();
+            // FR-CNV-03 AC-7 (test build): `TEGG_TEST_HOLD=during-source-save:<vault path>` holds that file's next
+            // replacing write after its temp file is written, before the rename.
+            if let Some(target) = test_var("TEGG_TEST_HOLD").and_then(|v| v.strip_prefix("during-source-save:").map(tegg_format::nfc)) {
+                let _ = tegg_vault::BEFORE_RENAME.set(Box::new(move |path: &str| {
+                    if tegg_format::nfc(path) == target {
+                        hold("during-source-save");
+                    }
+                }));
+            }
             watch_mouse_buttons(handle.clone());
             // The default menu, with Quit replaced by an item that lets the UI save first (FR-EDT-08 AC-7, D-196).
             {
@@ -1374,27 +1575,40 @@ pub fn run() {
                     app_menu.append(&PredefinedMenuItem::separator(&handle)?)?;
                     app_menu.append(&MenuItem::with_id(&handle, "tegg-quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?)?;
                 }
+                // D-608: Help › Keyboard Shortcuts opens `help/shortcuts` in the main window.
+                for item in menu.items()? {
+                    if let tauri::menu::MenuItemKind::Submenu(sub) = &item {
+                        if sub.text().unwrap_or_default() == "Help" {
+                            sub.append(&MenuItem::with_id(&handle, "tegg-shortcuts", strings::menubar("shortcuts"), true, Some("CmdOrCtrl+Shift+/"))?)?;
+                        }
+                    }
+                }
                 app.set_menu(menu)?;
                 app.on_menu_event(|app, e| {
                     if e.id() == "tegg-quit" {
-                        if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
-                            app.exit(0);
-                        } else {
-                            let _ = app.emit("app:quit-requested", ());
-                        }
+                        request_quit(app);
+                    } else if e.id() == "tegg-shortcuts" {
+                        shell5b::show_main(app);
+                        let _ = app.emit_to("main", "shell:route", serde_json::json!({ "route": "help/shortcuts" }));
                     }
                 });
             }
             let dirs = app.state::<AppState>().dirs.clone();
-            // The main window is built here so the init script runs before the UI (no flash of the wrong theme).
+            // The main window is built here so the init script runs before the UI (no flash of the wrong theme). A
+            // login launch starts with it hidden: menu bar and hotkeys only (D-547).
             tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title(APP_NAME)
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(800.0, 500.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true)
+                .visible(!shell5b::launched_at_login())
                 .initialization_script(&init_script(&dirs))
                 .build()?;
+            // ms5-capture §1: the pre-warmed capture window and panel, the status item, the global hotkeys.
+            shell5b::build_windows(&handle)?;
+            shell5b::setup_hotkeys(&handle);
+            shell5b::set_status_item(&handle, shell5b::load_shell(&dirs.root).show_status_item)?;
             let path = test_var("TEGG_VAULT").map(PathBuf::from).or_else(|| Vault::last_opened(&dirs).filter(|(_, exists)| *exists).map(|(p, _)| p));
             if let Some(path) = path {
                 // FR-VLT-01 AC-7: a vault that can't be opened leaves the app on its "open a vault" screen.
@@ -1407,29 +1621,58 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, index_tags, index_conflicts, app_quit, type_get,
+            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,
-            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close
+            job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
+            task_list, daily_tasks,
+            shell5b::capture_context, shell5b::capture_create, shell5b::capture_ready, shell5b::capture_hide, shell5b::capture_resize,
+            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show, shell5b::capture_suggest,
+            shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
+            shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
+            shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions
         ])
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("error while building Tegg")
         .run(|app, event| {
-            // ⌘Q, the Quit Apple Event and closing the window first let the UI flush the open note (FR-EDT-08 AC-7):
-            // the UI answers with `app_quit` when the note is saved or the user chose to quit anyway (D-196).
+            // ⌘Q and the Quit Apple Event first let the UI flush the open note (FR-EDT-08 AC-7): the UI answers with
+            // `app_quit` when the note is saved or the user chose to quit anyway (D-196). Closing a window only hides
+            // it: the app keeps running in the menu bar (FR-CAP-03 AC-1).
             let allowed = ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst);
             match event {
                 tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() && !allowed => {
                     api.prevent_exit();
-                    let _ = app.emit("app:quit-requested", ());
+                    let _ = app.emit_to("main", "app:quit-requested", ());
                 }
-                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
+                tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {
                     api.prevent_close();
-                    let _ = app.emit("app:quit-requested", ());
+                    if let Some(w) = app.get_webview_window(&label) {
+                        let _ = w.hide();
+                    }
                 }
+                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::ThemeChanged(theme), .. } => shell5b::tray_follow_theme(app, theme),
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => shell5b::show_main(app),
                 _ => {}
             }
         });
+}
+
+/// 5B preview feedback F1 (docs/feedback/ms5-5b.md): Logi Options+ sends the mouse's Back and Forward buttons as the
+/// system's navigation swipe, not as buttons 4/5; they navigate as the touchpad's back swipe does (FR-NAV-03, D-165).
+#[cfg(test)]
+mod bug_ms5b_fr_nav_03_swipe_goes_back {
+    use super::{nav_of, NavInput};
+
+    #[test]
+    fn bug_ms5b_fr_nav_03_swipe_goes_back() {
+        assert_eq!(nav_of(NavInput::OtherMouseUp(3)), Some("back"));
+        assert_eq!(nav_of(NavInput::OtherMouseUp(4)), Some("forward"));
+        assert_eq!(nav_of(NavInput::OtherMouseUp(2)), None, "the middle button isn't navigation");
+        assert_eq!(nav_of(NavInput::Swipe(1.0)), Some("back"), "a swipe with deltaX > 0 goes back, as in Safari and Chromium");
+        assert_eq!(nav_of(NavInput::Swipe(-1.0)), Some("forward"));
+        assert_eq!(nav_of(NavInput::Swipe(0.0)), None, "a vertical swipe isn't navigation");
+    }
 }

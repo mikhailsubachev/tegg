@@ -139,7 +139,7 @@ test('fr_edt_06_ac9_at_in_a_table_cell_escapes_the_pipe', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   const cell = await must(block(page, 8).getByRole('cell', { name: '1' }), 'cell');
   await cell.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press('Meta+ArrowRight'); // line end on macOS; the click may land before right-aligned text (G6: column alignment)
   await page.keyboard.type(' @C# tips');
   await (await must(linkSuggestions(page).getByRole('option').filter({ hasText: 'C# tips' }).first(), 'option C# tips')).click();
   const t = await saved(page, core, E.deset);
@@ -152,8 +152,8 @@ test('fr_edt_06_ac10_at_create_writes_two_files', async ({ page }) => {
   const core = await startEmpty(page);
   await page.keyboard.type('@Novinka');
   const o = await options(page);
-  assert.equal(o[o.length - 1], 'Create "Novinka"', `last row Create: ${o.join(' | ')}`);
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Novinka"' }), 'Create row')).click();
+  assert.equal(o[o.length - 2], 'Create "Novinka"', `Create, then Create … as… last: ${o.join(' | ')}`); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Novinka"', exact: true }), 'Create row')).click();
   const t = await saved(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '[[Novinka]]\n');
   assert.equal(await mainName(page), 'Prázdná', 'no navigation');
@@ -169,7 +169,7 @@ test('fr_edt_06_ac10_spaces_esc_and_the_create_only_space_rule', async ({ page }
   await page.keyboard.press('Enter');
   await page.keyboard.type('@Žádnátakovávěc');
   const o = await options(page);
-  assert.deepEqual(o.filter((x) => x !== 'Pick a date…'), ['Create "Žádnátakovávěc"'], 'only the create row (and 4B\'s Pick a date…, D-331)');
+  assert.deepEqual(o.filter((x) => x !== 'Pick a date…'), ['Create "Žádnátakovávěc"', 'Create "Žádnátakovávěc" as…'], 'only the create rows (and 4B\'s Pick a date…, D-331)'); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await page.keyboard.type(' ');
   assert.ok(await absent(linkSuggestions(page)), 'a space with only the create row closes the list (AP-190)');
   await page.keyboard.type('dál');
@@ -191,7 +191,7 @@ test('fr_edt_06_ac10_undo_restores_the_at_query_in_one_step', async ({ page }) =
   assert.equal(await bodyOf(t), '@Cíl\n', '⌘Z restores @Cíl as text in one step');
   await page.keyboard.press('Enter');
   await page.keyboard.type('@Úplněnová');
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Úplněnová"' }), 'Create row')).click();
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Úplněnová"', exact: true }), 'Create row')).click();
   await mustBeSaved(page);
   await page.keyboard.press('Meta+z');
   await saved(page, core, E.prazdna);
@@ -261,7 +261,7 @@ test('fr_edt_06_ac11_create_from_a_property_stays_on_the_note', async ({ page })
   const f = await must(control(page, 'textbox', 'Místo'), 'panel textbox Místo');
   await f.click();
   await page.keyboard.type('@Hřiště');
-  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Hřiště"' }), 'Create row in the Místo field')).click();
+  await (await must(linkSuggestions(page).getByRole('option', { name: 'Create "Hřiště"', exact: true }), 'Create row in the Místo field')).click();
   await sleep(300);
   assert.equal(await mainName(page), '2026-10-07 Porada', 'no navigation');
   assert.equal((await core.calls()).filter((c) => c.cmd === 'note_create').length, 1, 'created through note_create (AC-4)');

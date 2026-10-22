@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-suggest"
+description = "Enables the capture_suggest command without any pre-configured scope."
+commands.allow = ["capture_suggest"]
+
+[[permission]]
+identifier = "deny-capture-suggest"
+description = "Denies the capture_suggest command without any pre-configured scope."
+commands.deny = ["capture_suggest"]

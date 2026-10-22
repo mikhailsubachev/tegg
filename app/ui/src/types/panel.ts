@@ -19,7 +19,7 @@ export type PanelRow = {
 };
 
 /** Keys never shown as rows (read-view FR-TYP-08 AC-1); `description` is the subtitle. */
-export const HIDDEN_KEYS = new Set(['id', 'type', 'title', 'description', 'icon', 'cover', 'import-id', 'previous']);
+export const HIDDEN_KEYS = new Set(['id', 'type', 'title', 'description', 'icon', 'cover', 'import-id', 'previous', 'captured']); // captured: D-595
 export const UNIVERSAL_KEYS = ['tags', 'aliases', 'source', 'review', 'created', 'modified'] as const;
 const LABEL: Record<string, string> = {
   tags: 'attr.tags', aliases: 'attr.aliases', source: 'attr.source', review: 'attr.review', created: 'attr.created', modified: 'attr.modified',

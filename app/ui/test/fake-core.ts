@@ -8,6 +8,9 @@ import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
 import { handle as handleLinks } from './fake-links';
 import { handle as handleJobs } from './fake-jobs';
+import { handle as handleTasks } from './fake-tasks';
+import { handle as handleInbox } from './fake-inbox';
+import { handle as handleSettings } from './fake-settings';
 
 export type FakeVault = { name: string; files: Record<string, string> };
 export type UiStateDto = {
@@ -17,7 +20,20 @@ export type UiStateDto = {
   rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
   /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
   propertiesOpen?: boolean;
+  /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
+  tasks?: { view: 'schedule' | 'kanban'; groupBy: 'status' | 'tag'; dateFilter: 'all' | 'today' | 'week'; tags: string[]; doneExpanded: boolean };
+  /** ms5-tasks §11.4 (D-493, D-496): the last conversion type and "Don't ask again". */
+  convert?: { lastType: string | null; skipRemoveConfirm: boolean };
+  /** ms5-capture §5.2 (5B, D-566): Date & time display choices. */
+  dateTime?: { date: string; time: string; week: string };
+  /** ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter. */
+  inbox?: { filter: string };
 };
+/** ms5-capture §1.6, §5.2 (5B). */
+export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
+export type ShellSettingsDto = { showStatusItem: boolean; openAtLogin: boolean };
+export type CaptureDraftDto = { text: string; type: string; tags: string[]; due: string | null; priority: string | null; savedAt: string };
+export type BackupDto = { name: string; kind: string; time: string };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
 export type ConflictRowDto = {
@@ -39,7 +55,7 @@ export type FakeCoreHandle = {
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
   renameFile(from: string, to: string, opts?: { silent?: boolean }): Promise<void>;
   /** Delay or fail every `note_write`; `hold` queues writes until `release()`. 4F (ms4-embeds §8): with `path`, only
-   *  writes to that path are affected. */
+   *  writes to that path are affected (task writes and `note_create` too, D-510). */
   writeControl(c: { delayMs?: number; fail?: 'Io' | null; hold?: boolean; path?: string | null }): Promise<void>;
   release(): Promise<void>;
   /** Paths of successful writes (`note_write` written, `note_create`, `note_create_exact`), in order. */
@@ -59,6 +75,27 @@ export type FakeCoreHandle = {
   holdJob(phase: 'planning' | 'writing'): Promise<() => Promise<void>>;
   /** The next job write to `path` is skipped with `reason`. */
   skipOnWrite(path: string, reason: SkipReason): Promise<void>;
+  // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
+  /** Capture page: emits `capture:open { seq, trigger, kind }` as the shell does on a trigger (§1.3). */
+  openCapture(o?: { trigger?: 'status-item' | 'status-menu' | 'hotkey' | 'palette'; kind?: 'default' | 'task' }): Promise<number>;
+  /** Capture `#saved` page: fills the confirmation panel as `capture_saved_show` does (event `capture:saved`). */
+  showSaved(o: { typeName: string; title: string; path: string }): Promise<void>;
+  /** The hotkey states the shell reports; emits `hotkeys:state` (main window). */
+  setHotkeys(list: HotkeyStateDto[]): Promise<void>;
+  /** `shell_settings_set` calls, in order (machine-local, never the vault). */
+  shellCalls(): Promise<ShellSettingsDto[]>;
+  /** `vault_reveal` calls (the vault paths the shell was asked to reveal). */
+  reveals(): Promise<string[]>;
+  /** The capture draft in Application Support (`capture_draft_set`), or null. */
+  draft(): Promise<CaptureDraftDto | null>;
+  /** Backup zips the fake made (bulk convert), as `backups_list` lists them. */
+  backups(): Promise<BackupDto[]>;
+  /** Switches the open vault as another window would (D-219); `null` closes it. The capture page gets
+   *  `capture:context-changed` and a new vault id. */
+  setVault(v: FakeVault | null): Promise<void>;
+  /** The capture page's records: `capture_ready` seqs, `capture_hide` count, `capture_open_main` paths,
+   *  `capture_saved_show` payloads, `capture_open` (main window) kinds. */
+  captureLog(): Promise<{ ready: number[]; hides: number; openMain: (string | null)[]; saved: { typeName: string; title: string; path: string }[]; opens: string[] }>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -91,6 +128,20 @@ export type FakeOptions = {
   recent?: RecentVaultDto[];
   /** Code run at the start of `/src/main.tsx`, before the app renders (test catalogs, collation locale). */
   prelude?: string;
+  // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
+  /** `capture`: the page is the capture window (`capture.html`), answering only §2.2's commands (others reject with
+   *  `Forbidden`, as the ACL). Default `main`. */
+  window?: 'main' | 'capture';
+  /** `hotkeys` answers (default: both active). */
+  hotkeys?: HotkeyStateDto[];
+  /** `shell_settings` (default `{ showStatusItem: true, openAtLogin: false }`). */
+  shellSettings?: ShellSettingsDto;
+  /** The stored capture draft (`capture_draft_get`). */
+  captureDraft?: CaptureDraftDto | null;
+  // ---------------------------------------------------------------- v0.52 feedback (ms3-shell §16.8)
+  /** FR-SYN-03 AC-21: every written `note_write` is reported as `vault:changed { paths: [p] }` twice, as the watcher
+   *  reports Tegg's own saves: once while the write is pending (before it resolves) and once after it returned. */
+  echoWrites?: boolean;
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -124,6 +175,8 @@ export function newEmptyVault(name: string): FakeVault {
 }
 
 const MOCKS = resolve(import.meta.dirname, '../../node_modules/@tauri-apps/api/mocks.js');
+/** 5B: pages installed with the same vault object (main window and capture window of one test). */
+const GROUPS = new WeakMap<FakeVault, Set<Page>>();
 
 export async function installFakeCore(page: Page, vault: FakeVault | null, opts: FakeOptions = {}): Promise<FakeCoreHandle> {
   const mocks = readFileSync(MOCKS, 'utf8').replace(/export\s*\{[^}]*\};?\s*$/, '');
@@ -136,10 +189,28 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleLinks(cmd, args, files, vers as any)).catch(() => {});
   // 4C (ms4-jobs §11): rename plans and text changes in Node with the real @tegg/doc.
   await page.exposeFunction('__teggJobs', (cmd: string, args: unknown, files: Record<string, string>) => handleJobs(cmd, args, files)).catch(() => {});
+  // 5A-1 (ms5-tasks §7): the task queries in Node (fake-tasks.ts) with the real @tegg/doc and @tegg/schema.
+  await page.exposeFunction('__teggTasks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>, ro: string[]) =>
+    handleTasks(cmd, args, files, vers as any, ro)).catch(() => {});
+  // 5B (ms5-capture §11.2): the Inbox query and vault settings in Node; pages sharing one vault object see each other's
+  // writes (the capture window's capture appears in the main window, a settings change reaches the capture window).
+  await page.exposeFunction('__teggInbox', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>, ro: string[]) =>
+    handleInbox(cmd, args, files, vers, ro)).catch(() => {});
+  await page.exposeFunction('__teggSettings', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
+    handleSettings(cmd, args, files, vers as any)).catch(() => {});
+  if (vault) {
+    const group = GROUPS.get(vault) ?? new Set<Page>();
+    GROUPS.set(vault, group);
+    group.add(page);
+    page.on('close', () => group.delete(page));
+    await page.exposeFunction('__teggSync', async (msg: unknown) => {
+      for (const other of group) if (other !== page && !other.isClosed()) await other.evaluate((m) => (window as any).__teggFake?.remote(m), msg).catch(() => {});
+    }).catch(() => {});
+  }
   await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
-    await page.route(/\/src\/main\.tsx(\?.*)?$/, async (route) => {
+    await page.route(/\/src\/(capture\/)?main\.tsx(\?.*)?$/, async (route) => {
       const res = await route.fetch();
       await route.fulfill({ response: res, body: `${prelude}\n${await res.text()}` });
     });
@@ -167,6 +238,15 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       return async () => { await page.evaluate(() => { const f = (window as any).__teggFake; f.jobHold = null; for (const r of f.jobHeld.splice(0)) r(); }); };
     },
     skipOnWrite: (path, reason) => page.evaluate(([p, r]) => { (window as any).__teggFake.jobSkips[p.normalize('NFC')] = r; }, [path, reason] as const),
+    openCapture: (o) => page.evaluate((oo) => (window as any).__teggFake.openCapture(oo.trigger ?? 'hotkey', oo.kind ?? 'default'), o ?? {}),
+    showSaved: (o) => page.evaluate((oo) => (window as any).__teggFake.emit('capture:saved', oo), o),
+    setHotkeys: (list) => page.evaluate((l) => { const f = (window as any).__teggFake; f.hotkeys = l; return f.emit('hotkeys:state', l); }, list),
+    shellCalls: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.shellCalls)) as ShellSettingsDto[]),
+    reveals: () => ev(() => [...(window as any).__teggFake.reveals] as string[]),
+    draft: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.draft ?? null)) as CaptureDraftDto | null),
+    backups: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.backups)) as BackupDto[]),
+    setVault: (v) => page.evaluate((vv) => (window as any).__teggFake.switchVault(vv), v ? JSON.parse(JSON.stringify(v)) : null),
+    captureLog: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.captureLog))),
   };
 }
 
@@ -184,6 +264,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
+    'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
+    // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
+    'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
+    'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
+    'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
   ]);
   const opts = init.opts;
   const state = {
@@ -231,7 +316,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       if (!state.vault) return;
       if (o.sameBytesTouch) state.touch(p);
       else if (text === null) { delete state.vault.files[p]; delete state.invalid[p]; delete state.mtimes[p]; }
-      else if (typeof text === 'string') { state.vault.files[p] = text; delete state.invalid[p]; state.touch(p); }
+      else if (typeof text === 'string') { if (o.silent && !state.stale.has(p) && state.vault.files[p] !== undefined) state.indexVer[p] = state.ver(p)!; state.vault.files[p] = text; delete state.invalid[p]; state.touch(p); }
       else {
         const bytes = Uint8Array.from(text.bytes);
         let ok = true;
@@ -240,7 +325,94 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         if (ok) delete state.invalid[p]; else state.invalid[p] = [...bytes];
         state.touch(p);
       }
+      // 5B (§7.3): a silent change makes the index version stale; an `inbox` job skips the file as `changed`.
+      if (o.silent) state.stale.add(p); else { state.stale.delete(p); delete state.indexVer[p]; }
       return o.silent ? undefined : state.emit('vault:changed', { paths: [p] });
+    },
+    // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
+    hotkeys: (opts.hotkeys ?? [{ id: 'quick-capture', keys: '⌃⌥Space', state: 'active' }, { id: 'new-task', keys: '⌃⌥T', state: 'active' }]) as HotkeyStateDto[],
+    shell: (opts.shellSettings ?? { showStatusItem: true, openAtLogin: false }) as ShellSettingsDto,
+    shellCalls: [] as ShellSettingsDto[],
+    reveals: [] as string[],
+    draft: (opts.captureDraft ?? null) as CaptureDraftDto | null,
+    backups: [] as BackupDto[],
+    stale: new Set<string>(),
+    /** 5B (§7.3): the version the index last read of a silently changed file (`index_versions`). */
+    indexVer: {} as Record<string, VersionDto>,
+    vaultId: 1,
+    captureSeq: 0,
+    captureLog: { ready: [] as number[], hides: 0, openMain: [] as (string | null)[], saved: [] as unknown[], opens: [] as string[] },
+    lastCount: null as number | null,
+    countTimer: 0 as unknown as ReturnType<typeof setTimeout> | 0,
+    remoteApplying: false,
+    inboxJobs: {} as Record<number, { phase: string; cancelled: boolean }>,
+    openCapture: (trigger: string, kind: string) => {
+      const seq = ++state.captureSeq;
+      void state.emit('capture:open', { seq, trigger, kind });
+      return seq;
+    },
+    /** Changes from another page of the same test (the other window of the app). */
+    remote: (m: any) => {
+      if (m.kind === 'file' && state.vault) {
+        const p = String(m.path).normalize('NFC');
+        state.remoteApplying = true;
+        try {
+          if (m.text === null) { delete state.vault.files[p]; delete state.mtimes[p]; } else { state.vault.files[p] = m.text; state.touch(p); }
+        } finally { state.remoteApplying = false; }
+        state.stale.delete(p);
+        if (opts.window === 'capture') void state.emit('capture:context-changed', {});
+        else void state.emit('vault:changed', { paths: [p] });
+        state.refreshCount();
+      } else if (m.kind === 'capture-open' && opts.window === 'capture') state.openCapture(m.trigger, m.captureKind);
+      else if (m.kind === 'saved' && opts.window === 'capture') void state.emit('capture:saved', m.payload);
+      else if (m.kind === 'ui-state' && opts.window === 'capture') void state.emit('ui:state', m.payload);
+      else if (m.kind === 'route' && opts.window !== 'capture') void state.emit('shell:route', { route: m.route });
+      return null;
+    },
+    sync: (m: unknown) => { if (typeof w.__teggSync === 'function') void w.__teggSync(m); },
+    /** `inbox:count` when the member count changed (FR-NAV-04 AC-2). */
+    refreshCount: () => {
+      if (opts.window === 'capture' || !state.vault) return;
+      if (state.countTimer) clearTimeout(state.countTimer as ReturnType<typeof setTimeout>);
+      state.countTimer = setTimeout(async () => {
+        state.countTimer = 0;
+        if (!state.vault) return;
+        const r = await w.__teggInbox('inbox_count', {}, state.vault.files, {}, Object.keys(state.invalid));
+        const n = Number(r?.result ?? 0);
+        if (state.lastCount !== null && n !== state.lastCount) void state.emit('inbox:count', { count: n });
+        state.lastCount = n;
+      }, 30);
+    },
+    watch: () => {
+      if (!state.vault) return;
+      const raw = state.vault.files;
+      state.vault.files = new Proxy(raw, {
+        set(t, k, v) {
+          (t as any)[k] = v;
+          if (typeof k === 'string') {
+            if (!state.remoteApplying) { state.stale.delete(k.normalize('NFC')); state.sync({ kind: 'file', path: k, text: v }); }
+            state.refreshCount();
+          }
+          return true;
+        },
+        deleteProperty(t, k) {
+          delete (t as any)[k];
+          if (typeof k === 'string') {
+            if (!state.remoteApplying) state.sync({ kind: 'file', path: k, text: null });
+            state.refreshCount();
+          }
+          return true;
+        },
+      });
+    },
+    switchVault: (v: FakeVault | null) => {
+      state.vault = v ? JSON.parse(JSON.stringify(v)) : null;
+      state.path = v ? `/fake/${v.name}` : null;
+      state.vaultId++;
+      state.watch();
+      if (opts.window === 'capture') void state.emit('capture:context-changed', {});
+      else void state.emit('vault:changed', { paths: [] });
+      return null;
     },
     renameFile: (from: string, to: string, o: { silent?: boolean } = {}) => {
       const f = from.normalize('NFC'), t = to.normalize('NFC');
@@ -253,6 +425,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
   };
   w.__teggFake = state;
+  state.watch();
+  state.refreshCount();
   // The theme the Rust side injects before the first paint (contract §3.5); its name is not in the contract yet.
   w.__TEGG_UI_STATE__ = state.uiState;
 
@@ -322,10 +496,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     const p = path.normalize('NFC');
     state.recent = [{ name: name.normalize('NFC'), path: p, exists: true }, ...state.recent.filter((r) => r.path.normalize('NFC') !== p)].slice(0, 9);
   };
+  // D-239, D-541 (5B): `default-type` is matched as a key (NFC, lower case, spaces as `-`); a value that names no type
+  // gives Quick Note, as the core does.
   const defaultType = () => {
     const v = yaml(state.vault?.files['.tegg/vault.yml'] ?? '');
-    const name = v['default-type'] ?? 'Page';
-    return types().find((t) => t.name === name) ?? { key: 'page', folder: 'Pages' };
+    const raw = typeof v['default-type'] === 'string' ? String(v['default-type']) : '';
+    const key = raw.normalize('NFC').trim().toLowerCase().replace(/\s+/g, '-');
+    const all = types();
+    return all.find((t) => t.key.normalize('NFC') === key) ?? all.find((t) => t.key === 'quick-note') ?? { key: 'page', folder: 'Pages' };
   };
 
   // 3D (ms3-shell §14.8): forwards a command to the Node side with the current files and type-file versions, applies
@@ -346,8 +524,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (fn === '__teggLinks' && cmd === 'link_create' && ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)'); // D-309
     const files = state.vault.files;
     const vers: Record<string, VersionDto> = {};
-    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/')) vers[p] = state.ver(p)!;
-    const r = await w[fn](cmd, a ?? {}, files, vers);
+    for (const p of Object.keys(files)) if (p.startsWith('.tegg/types/') || p === '.tegg/vault.yml' || fn === '__teggTasks' || fn === '__teggInbox') vers[p] = (fn === '__teggInbox' ? state.indexVer[p] : undefined) ?? state.ver(p)!;
+    // 5A-1 (ms5-tasks §7): task rows carry each file's version and whether the editor would open it read-only.
+    const r = await w[fn](cmd, a ?? {}, files, vers, Object.keys(state.invalid));
     if (r.writes) {
       const paths: string[] = [];
       for (const [p, t] of Object.entries(r.writes as Record<string, string | null>)) {
@@ -476,6 +655,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.vault = JSON.parse(JSON.stringify(v));
       state.path = path;
       state.last = null;
+      state.vaultId++;
+      state.watch();
       record(state.vault!.name, path);
       return info();
     },
@@ -487,6 +668,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const target = `${String(a.parent).replace(/\/+$/, '')}/${name}`;
       if ((opts.nonEmpty ?? []).includes(target)) throw err('NotEmpty', `fake: ${target} is not empty`);
       state.vault = { name, files: a.kind === 'starter' ? { ...init.empty, ...init.starter } : { ...init.empty } }; // FR-VLT-02 AC-6/AC-7
+      state.vaultId++;
+      state.watch();
       state.path = target;
       state.last = null;
       record(name, target);
@@ -535,6 +718,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     daily_backlinks: viaNode('daily_backlinks', '__teggLinks'),
     daily_context: viaNode('daily_context', '__teggLinks'),
+    // 5A-1 (ms5-tasks §7): read-only task queries in Node (fake-tasks.ts).
+    task_list: viaNode('task_list', '__teggTasks'),
+    daily_tasks: viaNode('daily_tasks', '__teggTasks'),
     index_type_counts: () => {
       const out: Record<string, number> = {};
       for (const o of objects()) out[o.type] = (out[o.type] ?? 0) + 1;
@@ -650,7 +836,15 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       }
       state.vault.files[p] = text;
       state.touch(p);
+      state.stale.delete(p);
+      delete state.indexVer[p];
       state.writtenPaths.push(p);
+      if (opts.echoWrites) {
+        // ms3-shell §16.8: the watcher's report of this write, while it is pending and again after it returned.
+        await state.emit('vault:changed', { paths: [p] });
+        await new Promise((r) => setTimeout(r, 30));
+        setTimeout(() => { void state.emit('vault:changed', { paths: [p] }); }, 0);
+      }
       return { outcome: 'written', version: state.ver(p) };
     },
     note_create_exact: (a) => {
@@ -678,6 +872,23 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.writtenPaths.push(t);
       void state.emit('vault:changed', { paths: [p, t] });
       return t;
+    },
+    // ms5-tasks §11.6, §11.7 (D-492): a conversion's undo deletes the new file only while it is still `base`; counted
+    // as a write of that path; `writeControl({ fail })` applies (D-510).
+    note_discard: (a) => {
+      const p = String(a.path).normalize('NFC');
+      const top = p.split('/')[0];
+      if (['.tegg', '_templates', '.trash'].includes(top) || !/\.md$/i.test(p)) throw err('Protected', `fake: ${p} can't be discarded`);
+      if (!state.vault || state.vault.files[p] === undefined) throw err('NotFound', `fake: ${p} is gone`);
+      if (ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      const now = state.ver(p)!;
+      const base = a.base as VersionDto;
+      if (!base || base.size !== now.size || base.hash !== now.hash) throw { ...err('Conflict', `fake: ${p} changed`), path: p, mine: '', theirs: state.vault.files[p], theirsVersion: now };
+      delete state.vault.files[p];
+      delete state.mtimes[p];
+      state.writtenPaths.push(p);
+      void state.emit('vault:changed', { paths: [p] });
+      return null;
     },
     index_tags: () => {
       const forms: Record<string, Record<string, number>> = {};
@@ -736,6 +947,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       state.writes++;
       if (!state.vault) throw err('NoVault', 'fake: no vault');
       if (a.type !== undefined && String(a.type).normalize('NFC') === 'daily-note') throw err('UseDailyNote', 'fake: a Daily Note is created by typing in it'); // D-318
+      // 5A-1 (D-510): `writeControl({ fail })` applies to the typed create too.
+      // With `path`, the typed create the core would name that path fails (its stem is the sanitized title).
+      const planned = (title: string) => String(title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim();
+      const ctlCreate = !state.control.path || String(state.control.path).normalize('NFC').replace(/\.md$/i, '').split('/').pop()!.replace(/ \(\d+\)$/, '') === planned(a.title);
+      if (a.type !== undefined && ctlCreate && state.control.fail === 'Io') throw err('Io', 'fake: create failed (Io)');
       if (a.type !== undefined) return viaNode('note_create')(a); // 3D: note_create(type, title, text) (ms3-shell §14.3)
       const dir = String(a.dir).normalize('NFC');
       const stem = String(a.title).normalize('NFC').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim(); // 3C: `#^[]` too (D-68 `C# tips` → `C tips`)
@@ -748,7 +964,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       return path;
     },
     ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
-    ui_state_set: (a) => { state.uiState = a.state; return null; },
+    ui_state_set: (a) => {
+      state.uiState = a.state;
+      // ms5-capture §4 (as the shell): the capture windows get the theme and the Date & time choice as `ui:state`.
+      state.sync({ kind: 'ui-state', payload: { theme: a.state?.theme, dateTime: a.state?.dateTime ?? null } });
+      return null;
+    },
     nav_opened: (a) => {
       // D-349: a daily route is recorded as the route, so the landing can reopen it.
       if (typeof a.route === 'string' && a.route.startsWith('daily/')) { state.last = { path: a.route, id: null }; return null; }
@@ -785,7 +1006,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const byCode = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
       const winners = (a.targets as string[]).some((x) => /\d{4}-\d{2}-\d{2}/.test(String(x))) ? await dailyWinners() : {};
       const dailyWinner = (date: string) => objects().find((o) => o.path === winners[date]);
-      return (a.targets as string[]).map((given) => {
+      // D-601 (ms3-shell §11.1, §16): the resolved object's `review`, `status`, `due`, `completed` (trimmed strings, or null).
+      const fields = (path: string | null) => {
+        const f = path && state.vault?.files[path] !== undefined ? front(state.vault.files[path]) : {};
+        const v = (k: string) => (typeof f[k] === 'string' ? f[k].trim() : null);
+        return { review: v('review'), status: v('status'), due: v('due'), completed: v('completed') };
+      };
+      return (a.targets as string[]).map((given) => { const r = resolveOne(given); return { ...r, ...fields(r.path) }; });
+      function resolveOne(given: string): { target: string; kind: string; path: string | null; title: string | null; type: string | null } {
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);
         if (cut >= 0) t = t.slice(0, cut).trim();
@@ -807,7 +1035,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         if (hit) return { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type };
 
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
-      });
+      }
     },
     // 4C (ms4-jobs §4, §11): the job engine over the in-memory files; plans and bytes from Node (fake-jobs.ts).
     note_rename: async (a) => {
@@ -818,7 +1046,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       void jobs.rename(jobId, String(a.path).normalize('NFC'), plan);
       return { jobId, toPath: plan.toPath ?? String(a.path).normalize('NFC') };
     },
-    job_cancel: () => { throw err('NotCancellable', 'fake: nothing to cancel'); },
+    // 5B: an `inbox` job is cancellable in planning and backup (ms5-capture §7.3).
+    job_cancel: (a) => {
+      const j = state.inboxJobs[a.jobId];
+      if (j && (j.phase === 'planning' || j.phase === 'backup' || j.phase === 'queued')) { j.cancelled = true; return null; }
+      throw err('NotCancellable', 'fake: nothing to cancel');
+    },
     job_confirm: () => { throw err('NotImplemented', 'fake: no job needs confirming in 4C'); },
     job_report: (a) => state.reports[a.jobId] ?? null,
     job_retry: async (a) => {
@@ -839,10 +1072,83 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     job_transform_result: () => null,
     job_interrupted: () => [],
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
-    backups_list: () => [],
+    backups_list: () => state.backups.map((b) => ({ ...b })),
     backup_restore: () => { throw err('NotImplemented', 'fake: restore comes with 4D-lite'); },
     editor_open: (a) => { state.editors.add(String(a.path).normalize('NFC')); return null; },
     editor_close: (a) => { state.editors.delete(String(a.path).normalize('NFC')); return null; },
+    // ---------------------------------------------------------------- 5B (ms5-capture §5, §7, §11.2)
+    vault_settings: viaNode('vault_settings', '__teggSettings'),
+    vault_settings_patch: async (a) => {
+      const r: any = await viaNode('vault_settings_patch', '__teggSettings')(a);
+      return r ? { ...r, version: state.ver('.tegg/vault.yml') } : null;
+    },
+    vault_reveal: () => { if (!state.vault) throw err('NoVault', 'fake: no vault'); state.reveals.push(String(state.path)); return null; },
+    shell_settings: () => ({ ...state.shell }),
+    shell_settings_set: (a) => { state.shell = { ...a.settings }; state.shellCalls.push({ ...a.settings }); return null; },
+    hotkeys: () => state.hotkeys.map((h) => ({ ...h })),
+    hotkeys_retry: () => state.hotkeys.map((h) => ({ ...h })),
+    inbox_list: viaNode('inbox_list', '__teggInbox'),
+    index_versions: (a) => ((a.paths ?? []) as string[]).map((p) => { const k = String(p).normalize('NFC'); return state.indexVer[k] ?? state.ver(k); }),
+    inbox_count: viaNode('inbox_count', '__teggInbox'),
+    /** The palette's `Quick Capture` / `Capture a task` and Inbox zero's `Quick Capture` (§1.3, trigger `palette`; the
+     *  command name is red-test point AP-506): the capture window gets `capture:open`. */
+    capture_open: (a) => {
+      const kind = a?.kind === 'task' ? 'task' : 'default';
+      state.captureLog.opens.push(kind);
+      state.sync({ kind: 'capture-open', trigger: 'palette', captureKind: kind });
+      return null;
+    },
+    inbox_bulk: (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const jobId = ++state.jobSeq;
+      const paths = ((a.paths ?? []) as string[]).map((p) => String(p).normalize('NFC'));
+      const change = a.change;
+      const job = (state.inboxJobs[jobId] = { phase: 'queued', cancelled: false });
+      const progress = (phase: string, done: number, counts?: unknown) => {
+        job.phase = phase;
+        return state.emit('job:progress', { jobId, kind: 'inbox', phase, done, total: paths.length, ...(counts ? { counts } : {}) });
+      };
+      void (async () => {
+        const report: any = { jobId, kind: 'inbox', phase: 'done', written: [], unchanged: [], skipped: [] };
+        const finish = async (phase: string) => {
+          report.phase = phase;
+          state.reports[jobId] = report;
+          state.jobs.push(report);
+          job.phase = phase;
+          await progress(phase, phase === 'done' ? paths.length : 0, { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length });
+        };
+        await progress('planning', 0);
+        await jobs.hold('planning');
+        if (job.cancelled) return finish('cancelled');
+        if (change?.op === 'set-type') {
+          await progress('backup', 0);
+          if (job.cancelled) return finish('cancelled');
+          const t = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+          state.backups.push({ name: `${t}-inbox.zip`, kind: 'inbox', time: new Date().toISOString() });
+        }
+        await progress('writing', 0);
+        await jobs.hold('writing');
+        let done = 0;
+        for (const p of paths) {
+          const files = state.vault!.files;
+          const skip = state.jobSkips[p];
+          if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+          else if (files[p] === undefined) report.skipped.push({ path: p, reason: 'missing' });
+          else if (p in state.invalid) report.skipped.push({ path: p, reason: 'readOnly' });
+          else if (state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
+          else if (ctlOn({ path: p }) && state.control.fail === 'Io') report.skipped.push({ path: p, reason: 'io' });
+          else {
+            const r = await w.__teggInbox('apply', { path: p, text: files[p], change }, files, {}, []);
+            const out = r?.result ?? null;
+            if (out === null || out === files[p]) report.unchanged.push(p);
+            else { jobs.write(p, out); report.written.push(p); }
+          }
+          await progress('writing', ++done);
+        }
+        await finish('done');
+      })();
+      return { jobId };
+    },
     open_external: (a) => {
       const url = String(a.url);
       if (!/^(https?:|mailto:)/i.test(url)) throw err('Unsupported', `fake: scheme not allowed: ${url}`);
@@ -851,11 +1157,73 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
   };
 
-  w.__teggMocks.mockWindows('main');
+  // 5B (ms5-capture §2.2): the capture window's commands; every other command is refused as the ACL does (§2.1).
+  const capture: Record<string, (a: any) => unknown> = {
+    capture_context: async () => {
+      if (!state.vault) return { vault: null, types: [], defaultType: 'quick-note', tags: [] };
+      const r = await w.__teggSettings('capture_context', {}, state.vault.files, {});
+      const tags = (handlers.index_tags({}) as { spelling: string }[]).map((t) => t.spelling);
+      return { vault: { id: `vault-${state.vaultId}`, name: state.vault.name, color: null }, types: r.result.types, defaultType: r.result.defaultType, tags };
+    },
+    capture_create: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (String(a.vault) !== `vault-${state.vaultId}`) throw err('VaultChanged', 'fake: another vault is open');
+      if (state.control.hold) await new Promise<void>((r) => state.held.push(r));
+      if (state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
+      if (state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
+      const r = await w.__teggSettings('capture_plan', { type: a.type, title: a.title, text: a.text }, state.vault.files, {});
+      const plan = r.result;
+      if (plan.error) throw plan.error;
+      state.vault.files[plan.path] = String(a.text);
+      state.touch(plan.path);
+      state.writtenPaths.push(plan.path);
+      return { path: plan.path, title: String(a.title).normalize('NFC'), typeName: plan.typeName };
+    },
+    // v0.52 (ms5-capture §16.1, D-603): the switcher's matching as `{ link, title, type, alias }`, at most 8, no create
+    // rows; `link` is the D-184 link text (the file stem, or the vault path without `.md` when the stem isn't unique).
+    capture_suggest: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const items = (await handlers.index_switcher({ q: String(a?.query ?? ''), limit: 30 })) as any[];
+      const stemOf = (p: string) => p.split('/').pop()!.replace(/\.md$/, '').normalize('NFC').toLowerCase();
+      const stems: Record<string, number> = {};
+      for (const o of objects()) stems[stemOf(o.path)] = (stems[stemOf(o.path)] ?? 0) + 1;
+      return items.filter((x) => x.kind === 'object').slice(0, 8).map((x) => ({
+        link: (stems[stemOf(x.path)] ?? 0) > 1 ? String(x.path).replace(/\.md$/, '') : String(x.path).split('/').pop()!.replace(/\.md$/, ''),
+        title: x.title, type: x.type, alias: x.matched_alias ?? null,
+      }));
+    },
+    capture_ready: (a) => { state.captureLog.ready.push(Number(a.seq)); return null; },
+    capture_hide: () => { state.captureLog.hides++; return null; },
+    capture_resize: () => null,
+    capture_open_main: (a) => {
+      const p = a.path === null || a.path === undefined ? null : String(a.path).normalize('NFC');
+      state.captureLog.openMain.push(p);
+      if (p) state.sync({ kind: 'route', route: `note/${p}` });
+      return null;
+    },
+    capture_draft_get: () => (state.draft ? { ...state.draft } : null),
+    capture_draft_set: (a) => { state.draft = a.draft ? { ...a.draft } : null; return null; },
+    capture_saved_show: (a) => {
+      const payload = { typeName: String(a.typeName), title: String(a.title), path: String(a.path) };
+      state.captureLog.saved.push(payload);
+      state.sync({ kind: 'saved', payload });
+      return null;
+    },
+  };
+
+  w.__teggMocks.mockWindows(opts.window === 'capture' ? 'capture' : 'main');
   w.__teggMocks.mockIPC((cmd: string, args: any) => {
     const rec: { cmd: string; args: unknown; at?: number; seq?: number; endSeq?: number; ok?: boolean; endAt?: number; result?: unknown } =
       { cmd, args: args === undefined ? undefined : JSON.parse(JSON.stringify(args ?? null)), at: Date.now(), seq: ++state.seq };
     state.calls.push(rec);
+    if (opts.window === 'capture' && !cmd.startsWith('plugin:event|')) {
+      const c = capture[cmd];
+      if (!c) { rec.ok = false; return Promise.reject(err('Forbidden', `fake ACL: ${cmd} is not allowed from the capture window`)); }
+      let out: Promise<unknown>;
+      try { out = Promise.resolve(c(args ?? {})); } catch (e) { out = Promise.reject(e); }
+      return out.then((v) => { rec.ok = true; rec.result = v === undefined ? undefined : JSON.parse(JSON.stringify(v)); return v; }, (e) => { rec.ok = false; rec.result = JSON.parse(JSON.stringify(e ?? null)); throw e; });
+    }
+    if (opts.window !== 'capture' && cmd in capture && cmd !== 'capture_open') { rec.ok = false; return Promise.reject(err('Forbidden', `fake ACL: ${cmd} is a capture-window command`)); }
     const h = handlers[cmd];
     if (!READS.has(cmd) && cmd !== 'vault_create' && cmd !== 'note_create') state.writes++; // those two count themselves
     if (!h) throw err('Io', `fake core: unknown command ${cmd}`);

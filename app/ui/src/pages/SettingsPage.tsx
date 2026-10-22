@@ -1,10 +1,12 @@
-// Settings (FR-SET-02 theme part, D-128): a section list; Appearance has the Theme control, the other sections and
-// the rest of Appearance are TBD with their slice or milestone (R1, R3).
+// Settings (FR-SET-02 theme part, D-128): a section list; Appearance has the Theme control; 5B builds Vault, Menu bar
+// and startup, Shortcuts and Date & time (R58); the rest is TBD with its milestone (R1, R3).
 import { t } from '../i18n/catalog';
 import type { ThemeChoice } from '../shell/commands';
 import { Disabled } from '../shell/Disabled';
 import { Placeholder } from '../shell/Placeholder';
 import { ROUTES, routeDef } from '../shell/registry';
+import type { DateTimeUiDto, TypeDefDto, VaultInfo } from '../ipc/types';
+import { DateTimeSettings, MenuBarSettings, ShortcutsSettings, VaultSettings } from './settings5b';
 
 const SECTIONS: [string, string][] = [
   ['settings/appearance', 'settings.appearance'],
@@ -17,12 +19,21 @@ const SECTIONS: [string, string][] = [
 ];
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
-export function SettingsPage({ id, theme, heading, onSection, onTheme }: {
+export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle }: {
   id: string;
   theme: ThemeChoice;
   heading: React.RefObject<HTMLHeadingElement | null>;
   onSection: (id: string) => void;
   onTheme: (c: ThemeChoice) => void;
+  // 5B (R58).
+  vault: VaultInfo | null;
+  types: TypeDefDto[];
+  refresh: number;
+  dateTime: DateTimeUiDto | undefined;
+  onDateTime: (v: DateTimeUiDto) => void;
+  onStarter: () => void;
+  onOpenFolder: () => void;
+  commandTitle: (id: string) => string | null;
 }) {
   const def = routeDef(id) ?? ROUTES.find((r) => r.id === 'settings/appearance')!;
   return (
@@ -73,6 +84,14 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme }: {
             <Disabled control="ctl.accentColor" />
           </div>
         </div>
+      ) : id === 'settings/vault' && vault ? (
+        <VaultSettings vault={vault} types={types} refresh={refresh} onStarter={onStarter} onOpenFolder={onOpenFolder} />
+      ) : id === 'settings/menu-bar' ? (
+        <MenuBarSettings />
+      ) : id === 'settings/shortcuts' ? (
+        <ShortcutsSettings commandTitle={commandTitle} />
+      ) : id === 'settings/date-time' ? (
+        <DateTimeSettings value={dateTime} onChange={onDateTime} />
       ) : (
         <Placeholder def={def} />
       )}
