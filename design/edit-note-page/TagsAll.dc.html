@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – All tags</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--embed:#F7F7F5;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--unrev:#D98A00;--unrev-ring:#F2C46B}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--embed:#232326;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--unrev:#F0B34A;--unrev-ring:#7A5A1E}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<span aria-hidden="true" style="color: var(--muted); font-weight: 600">#</span>
+{{tabLabel}}
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Left sidebar -->
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; text-align: left">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<span style="flex: 1">Search or jump to…</span>
+<span style="font-size: 12px">⌘O</span>
+</button>
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{n.bg}}; font-weight: {{n.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{n.meta}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<button onClick="{{toAll}}" style="display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; margin-bottom: 4px; border-radius: 6px; background: {{allSideBg}}; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: {{allSideFg}}; text-align: left"><span style="flex: 1">Tags</span><span style="text-transform: none; letter-spacing: 0; font-weight: 500">All {{tagTotal}} ›</span></button>
+<sc-for list="{{sideTags}}" as="g" hint-placeholder-count="5">
+<a href="#" onClick="{{g.pick}}" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{g.bg}}; font-weight: {{g.weight}}">
+<span aria-hidden="true" style="width: 16px; text-align: center; color: var(--faint); font-weight: 600">#</span>
+<span style="flex: 1">{{g.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{g.count}}</span>
+</a>
+</sc-for>
+</div>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
+</div>
+</nav>
+
+<!-- Type page -->
+<main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<sc-if value="{{isTagPage}}" hint-placeholder-val="{{ false }}">
+<nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: -8px"><button onClick="{{toAll}}" style="color: var(--link); font-size: 13px">‹ All tags</button><span aria-hidden="true">/</span><span style="color: var(--text)">#{{tagName}}</span></nav>
+<!-- Header: tag name, description, count (FR-TAG-06; no colour in the MVP, D-370) -->
+<div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+<span aria-hidden="true" style="width: 48px; height: 48px; border-radius: 12px; background: var(--hover); display: flex; align-items: center; justify-content: center; flex: none; font-size: 26px; font-weight: 700; color: var(--muted)">#</span>
+<div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">{{tagName}}</h1>
+<div style="color: var(--muted); font-size: 14px">{{countLabel}}</div>
+</div>
+<div style="display: flex; gap: 8px; align-items: center; position: relative">
+<button aria-label="Tag actions" aria-haspopup="menu" aria-expanded="{{menuAttr}}" onClick="{{toggleMenu}}" title="Rename, delete" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); background: {{menuBg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Tag actions" style="position: absolute; right: 0; top: 42px; z-index: 6; width: 240px; padding: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.16); font-size: 13px">
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"></path></svg><span style="flex: 1">Rename tag…</span><span style="font-size: 11px; color: var(--muted)">updates {{tagCount}} notes</span></div>
+<div aria-hidden="true" style="height: 1px; background: var(--border); margin: 5px 2px"></div>
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"></path></svg><span style="flex: 1">Delete tag…</span></div>
+</div>
+</sc-if>
+<button style="height: 36px; padding: 0 14px; border-radius: 8px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New with #{{tagName}}</button>
+</div>
+</div>
+
+<!-- View tabs + toolbar: the same views as a type page -->
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border)">
+<div role="tablist" aria-label="Views" style="display: flex; gap: 4px; align-items: flex-end; flex: 1; min-width: 0">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{v.selected}}" onClick="{{v.pick}}" style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; font-size: 13px; font-weight: 600; color: {{v.fg}}; border-bottom: 2px solid {{v.line}}; margin-bottom: -1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{v.d}}"></path></svg>{{v.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; padding-bottom: 6px">
+<label style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); color: var(--muted); font-size: 13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Filter by text</span><input type="text" placeholder="Filter…" style="border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; width: 120px"></label>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16l-6 7v6l-4-2v-4z"></path></svg>Type: all</button>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"></path></svg>Modified ↓</button>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v4H4zM4 15h16v4H4z"></path></svg>No grouping</button>
+</div>
+</div>
+
+<!-- TABLE: one flat list, mixed types, not grouped -->
+<sc-if value="{{isTable}}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto">
+<table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px">
+<thead><tr style="text-align: left; color: var(--muted); font-size: 12px">
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); width: 44%">Title</th>
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border)">Type</th>
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border)">Other tags</th>
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--text)">Modified ↓</th>
+<th scope="col" style="padding: 8px 4px; border-bottom: 1px solid var(--border); width: 36px"><button aria-label="Add column" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></th>
+</tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+<tr>
+<td style="padding: 8px 10px; border-bottom: 1px solid var(--border)">
+<a href="#" style="display: flex; align-items: flex-start; gap: 8px; color: {{r.titleFg}}; font-size: 14px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{r.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 3px"><path d="{{r.d}}"></path></svg><span style="min-width: 0; overflow-wrap: anywhere"><span style="text-decoration: {{r.deco}}">{{r.title}}</span><sc-if value="{{r.unrev}}" hint-placeholder-val="{{ false }}"><span title="Unreviewed" style="display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 6px; vertical-align: 2px"></span></sc-if><sc-if value="{{r.isTask}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--border); vertical-align: 1px"><sc-if value="{{r.hasDue}}" hint-placeholder-val="{{ false }}"><span style="color: {{r.dueFg}}; font-weight: {{r.dueWeight}}">{{r.due}}</span><span style="color: var(--faint)">·</span></sc-if><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--muted)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: {{r.statusColor}}"></span>{{r.status}}</span></span></sc-if></span></a>
+</td>
+<td style="padding: 0 10px; border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap">{{r.type}}</td>
+<td style="padding: 0 10px; border-bottom: 1px solid var(--border)"><span style="display: flex; gap: 4px; flex-wrap: wrap"><sc-for list="{{r.tags}}" as="g" hint-placeholder-count="1"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--hover); color: var(--muted); font-size: 12px; display: inline-flex; align-items: center">#{{g}}</span></sc-for></span></td>
+<td style="padding: 0 10px; border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums">{{r.modified}}</td>
+<td style="padding: 0 4px; border-bottom: 1px solid var(--border)"></td>
+</tr>
+</sc-for>
+<tr><td colspan="5" style="padding: 0 10px; height: 44px"><button style="display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; height: 32px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New with #{{tagName}}</button></td></tr>
+</tbody>
+</table>
+</div>
+</sc-if>
+
+<!-- CARDS: the universal object card, one wall, not grouped -->
+<sc-if value="{{isCards}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: start">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+<article style="background: var(--bg); border: 1px solid {{r.cardBorder}}; box-shadow: {{r.cardRing}}; border-radius: 14px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 7px">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{r.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.d}}"></path></svg><span style="flex: 1">{{r.type}}</span><sc-if value="{{r.unrev}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 5px; color: var(--unrev); font-weight: 600"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 4px; background: var(--unrev)"></span>Unreviewed</span></sc-if><span aria-hidden="true" style="width: 22px; text-align: center; font-weight: 700; letter-spacing: 1px">···</span></div>
+<h3 style="margin: 0; font-size: 15px; font-weight: 650; line-height: 1.35; color: {{r.titleFg}}; text-decoration: {{r.deco}}; overflow-wrap: anywhere"><a href="#">{{r.title}}</a></h3>
+<sc-if value="{{r.isTask}}" hint-placeholder-val="{{ false }}"><div style="display: flex; align-items: center; gap: 6px; font-size: 12px"><sc-if value="{{r.hasDue}}" hint-placeholder-val="{{ false }}"><span style="color: {{r.dueFg}}; font-weight: {{r.dueWeight}}">{{r.due}}</span><span style="color: var(--faint)">·</span></sc-if><span style="display: inline-flex; align-items: center; gap: 5px; color: var(--muted)"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 4px; background: {{r.statusColor}}"></span>{{r.status}}</span></div></sc-if>
+<div style="display: flex; gap: 5px; flex-wrap: wrap"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--hover); color: var(--text); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">#{{tagName}}</span><sc-for list="{{r.tags}}" as="g" hint-placeholder-count="1"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--hover); color: var(--muted); font-size: 12px; display: inline-flex; align-items: center">#{{g}}</span></sc-for></div>
+<sc-if value="{{r.hasBody}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">{{r.body}}</p></sc-if>
+<div style="font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px">Edited {{r.modified}}</div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+<div style="font-size: 12px; color: var(--muted)">{{footNote}}</div>
+</sc-if>
+
+<!-- ALL TAGS: every tag with its description and count; a row opens that tag's page -->
+<sc-if value="{{isAll}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+<span aria-hidden="true" style="width: 48px; height: 48px; border-radius: 12px; background: var(--hover); display: flex; align-items: center; justify-content: center; flex: none; font-size: 26px; font-weight: 700; color: var(--muted)">#</span>
+<div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">Tags</h1>
+<div style="color: var(--muted); font-size: 14px">{{allSubtitle}}</div>
+</div>
+<button style="height: 36px; padding: 0 14px; border-radius: 8px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New tag</button>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 10px">
+<label style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); color: var(--muted); font-size: 13px; flex: 0 1 320px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Find a tag</span><input type="text" placeholder="Find a tag…" style="border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; width: 100%"></label>
+<span style="flex: 1"></span>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; color: var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"></path></svg>Most used ↓</button>
+</div>
+<table style="width: 100%; border-collapse: collapse; font-size: 13px">
+<thead><tr style="text-align: left; color: var(--muted); font-size: 12px">
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); width: 60%">Tag</th>
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; color: var(--text)">Objects ↓</th>
+<th scope="col" style="font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap">Last used</th>
+<th scope="col" style="padding: 8px 4px; border-bottom: 1px solid var(--border); width: 30px"></th>
+</tr></thead>
+<tbody>
+<sc-for list="{{allTags}}" as="t" hint-placeholder-count="12">
+<tr onClick="{{t.pick}}" style="cursor: pointer">
+<td style="padding: 0 10px; height: 44px; border-bottom: 1px solid var(--border)"><a href="#" onClick="{{t.pick}}" style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--hover); color: var(--text); font-size: 13px; font-weight: 600"><span style="color: var(--faint)">#</span>{{t.name}}</a></td>
+<td style="padding: 0 10px; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums">{{t.count}}</td>
+<td style="padding: 0 10px; border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap">{{t.used}}</td>
+<td style="padding: 0 4px; border-bottom: 1px solid var(--border); color: var(--faint); text-align: center">›</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</sc-if>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"page":{"editor":"enum","options":["all tags","#offsite"],"default":"all tags"},"view":{"editor":"enum","options":["table","cards"],"default":"table"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? false;
+const st = this.state || {};
+const view = st.view || this.props.view || 'table';
+const propPage = this.props.page ?? 'all tags';
+const cur = st.tag === undefined ? (propPage === 'all tags' ? null : 'offsite') : st.tag;
+const open = (t) => this.setState({ tag: t, menu: false });
+const menu = !!st.menu;
+const I = {
+home: 'M4 11l8-7 8 7M6 10v10h12V10', inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z', cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5', task: 'M5 5h14v14H5zM9 12l2 2 4-4', box: 'M5 5h14v14H5z', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z', person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z'
+};
+const nav = [{ label: 'Home', d: I.home, meta: '' }, { label: 'Inbox', d: I.inbox, meta: '4' }, { label: 'Today', d: I.cal, meta: '⌘D' }, { label: 'Tasks', d: I.task, meta: '4' }].map((n) => ({ ...n, bg: 'transparent', weight: '400' }));
+const types = [
+{ label: 'Pages', d: I.page, color: 'var(--muted)', count: '128' }, { label: 'Quick Notes', d: I.bolt, color: 'var(--o)', count: '212' },
+{ label: 'Daily Notes', d: I.cal, color: 'var(--muted)', count: '340' }, { label: 'Ideas', d: I.idea, color: 'var(--idea)', count: '10' },
+{ label: 'Meetings', d: I.meet, color: 'var(--accent)', count: '58' }, { label: 'Projects', d: I.proj, color: 'var(--o)', count: '9' },
+{ label: 'People', d: I.person, color: 'var(--p)', count: '31' }
+].map((t) => ({ ...t, bg: 'transparent', weight: '400' }));
+const TAGS = [
+['offsite', 'Everything for the team offsites: venues, agendas, travel.', 'Today'],
+['finance', 'Budgets, invoices and anything Jana needs from me.', 'Mon'],
+['q4', 'Work that has to land before the end of the year.', 'Yesterday'],
+['podcast', 'The local-first podcast: episode ideas and guests.', '16 Oct'],
+['reading', 'Books and articles to read, with notes.', '12 Oct'],
+['home', '', '9 Oct'],
+['productivity', 'How I work: methods, habits, tools.', '30 Sep'],
+['travel', '', '28 Sep'],
+['design', 'UI and product design notes for Tegg.', '21 Sep'],
+['hiring', '', '2 Sep'],
+['taxes', 'Yearly tax return and receipts.', 'Apr']
+];
+const counts = { offsite: 10, finance: 14, q4: 8, podcast: 6, reading: 4, home: 4, productivity: 17, travel: 3, design: 9, hiring: 2, taxes: 5 };
+const sideTags = ['offsite', 'finance', 'q4', 'podcast', 'reading'].map((label) => ({ label, count: String(counts[label]), bg: label === cur ? 'var(--hover)' : 'transparent', weight: label === cur ? '600' : '400', pick: () => open(label) }));
+const TY = { proj: ['Project', 'var(--o)'], meet: ['Meeting', 'var(--accent)'], task: ['Task', 'var(--link)'], quick: ['Quick Note', 'var(--o)'], idea: ['Idea', 'var(--idea)'], page: ['Page', 'var(--muted)'], daily: ['Daily Note', 'var(--muted)'], person: ['Person', 'var(--p)'] };
+const SC = { 'To do': 'var(--faint)', 'In progress': 'var(--link)', 'Waiting': 'var(--o)', 'Done': 'var(--t)' };
+const raw = [
+['proj', 'Lisbon Offsite 2026', ['offsite', 'q4'], 'Three days in Lisbon in the week of 16 Nov. Agenda first, then venue, then travel.', 9, 'Today', {}],
+['task', 'Book the venue for the Lisbon offsite', ['offsite'], 'Two options left: the LX Factory loft or the hotel’s conference room.', 2, 'Today', { status: 'In progress', due: 'Sun 18 Oct', when: 'over' }],
+['quick', 'Check flight prices LIS', ['offsite'], 'https://example.com/flights/prg-lis', 1, 'Yesterday', { unrev: true }],
+['task', 'Draft the offsite agenda', ['offsite', 'q4'], 'Day 1 strategy, day 2 roadmap, day 3 team time.', 3, 'Yesterday', { status: 'In progress', due: 'Wed 21 Oct' }],
+['meet', '2026-10-07 Weekly Sync', ['offsite', 'finance', 'q4'], 'Agenda: Q4 budget status, offsite logistics. Finance wants the draft before Friday.', 11, 'Mon', {}],
+['page', 'Venue options', ['offsite'], 'LX Factory loft, Hotel Avenida conference room, Palácio do Grilo. Prices per day, capacity, distance from the airport.', 4, 'Mon', {}],
+['idea', 'Offsites work when the agenda is written first', ['offsite', 'productivity'], 'People arrive prepared only if they know what each day is for.', 1, '30 Sep', {}],
+['daily', '2026-10-19', ['offsite'], '09:05 standup, 13:30 lunch with Jana, 17:00 call with the venue about the November dates…', 3, '19 Oct', { unrev: true }],
+['person', 'Marta Silva', ['offsite'], 'Venue coordinator at the LX Factory loft.', 2, '15 Oct', {}],
+['task', 'Collect flight prices to Lisbon', ['offsite'], '', 1, '17 Oct', { status: 'Done' }],
+['task', 'Send Q4 budget draft to Jana', ['finance', 'q4'], 'Use the numbers from the finance sheet and flag the travel line.', 2, 'Thu', { status: 'To do', due: 'Fri 16 Oct', when: 'over' }],
+['page', 'Q4 Budget', ['finance', 'q4'], 'Headcount, travel, tools. Draft due to finance before the review.', 7, 'Wed', {}],
+['quick', 'Ask Jana about the travel cap', ['finance'], 'Is the cap per person or per team?', 0, 'Tue', { unrev: true }]
+];
+const tagName = cur || 'offsite';
+const rows = raw.filter((r) => r[2].includes(tagName)).map(([k, title, tags0, body, links, modified, o]) => {
+const tags = tags0.filter((g) => g !== tagName);
+const done = o.status === 'Done';
+return {
+title, type: TY[k][0], color: k === 'task' ? (done ? 'var(--t)' : 'var(--link)') : TY[k][1], d: k === 'task' ? (done ? I.task : I.box) : k === 'quick' ? I.bolt : k === 'daily' ? I.cal : I[k],
+tags, body, hasBody: !!body, links: String(links), modified,
+unrev: !!o.unrev, cardBorder: o.unrev ? 'var(--unrev-ring)' : 'var(--border)', cardRing: o.unrev ? '0 0 0 1px var(--unrev-ring)' : '0 1px 2px rgba(0,0,0,.05)',
+isTask: !!o.status, status: o.status || '', statusColor: SC[o.status] || '', hasDue: !!o.due && !done, due: o.due || '',
+dueFg: o.when === 'over' ? 'var(--danger)' : 'var(--muted)', dueWeight: o.when === 'over' ? '600' : '400',
+deco: done ? 'line-through' : 'none', titleFg: done ? 'var(--muted)' : 'var(--text)'
+};
+});
+const isTable = view === 'table';
+const views = [['table', 'All objects', 'M4 5h16v14H4zM4 10h16M10 5v14'], ['cards', 'Cards', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z']].map(([v, label, d]) => ({
+label, d, selected: v === view ? 'true' : 'false', fg: v === view ? 'var(--text)' : 'var(--muted)', line: v === view ? 'var(--text)' : 'transparent', pick: () => this.setState({ view: v })
+}));
+return {
+themeClass: dark ? 'dark' : '', nav, types, sideTags, rows, views, isTable, isCards: !isTable,
+countLabel: rows.length + ' objects of ' + new Set(rows.map((r) => r.type)).size + ' types',
+isAll: cur === null, isTagPage: cur !== null, tagName, tabLabel: cur === null ? 'Tags' : tagName,
+tagDesc: (TAGS.find((t) => t[0] === tagName) || [])[1] || 'No description yet.', tagCount: String(rows.length),
+toAll: () => open(null), allSideBg: cur === null ? 'var(--hover)' : 'transparent', allSideFg: cur === null ? 'var(--text)' : 'var(--muted)', tagTotal: String(TAGS.length),
+allSubtitle: TAGS.length + ' tags · ' + Object.values(counts).reduce((a, b) => a + b, 0) + ' tagged objects',
+allTags: TAGS.map(([name, desc, used]) => ({ name, desc: desc || '—', descFg: desc ? 'var(--muted)' : 'var(--faint)', virtual: !desc, count: String(counts[name]), used, pick: () => open(name) })).sort((x, y) => +y.count - +x.count),
+menuOpen: menu, menuAttr: menu ? 'true' : 'false', menuBg: menu ? 'var(--hover)' : 'transparent', toggleMenu: () => this.setState({ menu: !menu }),
+footNote: 'One flat list of every object with the tag, whatever its type: no type groups. The same table and card views as a type page; “Type: all” filters, it does not group.'
+};
+}
+}
+</script>
+</body>
+</html>
