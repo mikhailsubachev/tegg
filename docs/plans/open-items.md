@@ -9,11 +9,11 @@ what is open and the next step. Remove an item once it is done or decided.
 Full `app-e2e` set (no `nfr_perf_*`, `nightly_*`): 158 tests, **147 pass, 11 fail**, 46 min. The four 6A media tests
 below ran on the real app for the first time. Logs stay local (not committed).
 
-14. **A pasted image in Quick Capture is saved twice (T2, likely a real bug).** `fr_cap_01_ac12` and
-    `fr_att_01_ac11`: one capture with one pasted image writes two Image objects (`Obrazek z menu 1.md`, `… 2.md`) and
-    two files (`Pasted image …0001.png`, `…0004.png`) instead of one each; the capture window shows no thumbnail with
-    `Remove`. Next: a `bug_…_fr_cap_01_…` regression test (the paste handler likely fires twice: the native paste hook
-    and the webview paste event), then the fix.
+14. **A pasted image in Quick Capture "saved twice": done (branch `ms6/capture-paste-twice`).** Not a double save:
+    `fr_cap_01_ac12` pasted, pressed Esc and pasted again, and staged images survive Esc (D-636, AP-566), so both were
+    saved; the test now uses Discard. `fr_att_01_ac11` looked for a button named exactly `Remove` (it is
+    `Remove "<name>"`). Found on the way: Discard kept the staged images (`bug_v055_fr_cap_01_discard_drops_staged_media`,
+    fixed).
 15. **Drop and double-click on media in the real app.** `fr_att_01_ac2` (two dropped files don't land as two
     paragraphs at the drop point, in drop order) and `fr_att_01_ac13` (a double-click on the image doesn't open
     `note/Images/Záhon.md`). Both pass at L5 on the fake core. Next: reproduce in the built app; decide app bug vs. L6

@@ -266,6 +266,8 @@ export function CaptureApp() {
     cancelDraftStore();
     await captureIpc.draftSet(null).catch(() => {});
     reset(ctx);
+    // ms6-trash-media §5: Discard cancels the capture, so its staged files go too (the shell expires the tokens).
+    setStaged([]);
     hide();
   };
 
