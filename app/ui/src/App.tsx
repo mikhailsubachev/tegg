@@ -186,7 +186,7 @@ export function App() {
   const land = useCallback(async () => {
     const forced = (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
     const r = forced ? parseRoute(forced) : null;
-    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'home' }), () => ({ id: 'home' }));
+    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'inbox' }), () => ({ id: 'inbox' }));
     history.current.clear(); // D-171: the history starts with the landing route
     history.current.push(landing);
     setHistTick((n) => n + 1);
@@ -841,7 +841,7 @@ export function App() {
       <div className="frame">
         {showSidebar && (
           <Sidebar
-            route={route ?? { id: 'home' }}
+            route={route ?? { id: 'inbox' }}
             types={typeEntries(types, counts).filter((e) => e.key !== 'task') /* D-516: the Tasks entry covers it */}
             onGo={go}
             onSwitcher={actions.openSwitcher}

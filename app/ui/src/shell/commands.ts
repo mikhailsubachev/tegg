@@ -57,6 +57,13 @@ export type ShellActions = {
   inboxCommand?: (id: string) => void;
   /** 5B (D-562): mark the open note reviewed or unreviewed. */
   setNoteReviewed?: (reviewed: boolean) => void;
+  /** 6A (R75): move the open note, the focused card or row to the trash; why it can't, or null. */
+  trashObject?: () => void;
+  trashBlocked?: () => string | null;
+  /** 6A (R75): the Trash page's Restore and Delete permanently… on the focused row. */
+  trashCommand?: (id: 'restore' | 'delete') => void;
+  /** 6A (R75): the file picker, then add the files at the editor's caret. */
+  addMedia?: () => void;
 };
 
 export type EditAction =
@@ -104,20 +111,16 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.editTemplate': 'typeSettings.editTemplate',
   'ctl.addViewSettings': 'typeSettings.addView',
   'ctl.editView': 'typeSettings.editView',
-  'ctl.rowFile': 'panel.editFile',
   'ctl.rowColor': 'panel.editColor',
   'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
-  'inbox.trash': 'inbox.trash',
-  'capture.drop': 'capture.addMedia',
   'settings.shortcuts.change': 'settings.changeShortcut',
   'duplicates.merge': 'duplicates.merge',
   'backlinks.unlinked': 'panel.unlinkedMentions',
   'tasks.sort': 'tasks.sort',
-  'task.trash': 'task.trash',
 };
 
 const NO_GOTO = new Set(['help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
@@ -248,6 +251,16 @@ export function commands(ctx: ShellContext): Command[] {
   if (definedType) {
     const key = definedType.key;
     list.push({ id: 'type.newObject', title: 'cmd.newOfType', vars: { name: definedType.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.(key) });
+  }
+  // 6A (trash-media.md R75): Move to trash (⌘⌫) wherever there is an object to trash; Add image or PDF… in an editor.
+  list.push({ id: 'object.trash', title: 'cmd.trash', section: 'edit', shortcut: shortcutOf('object.trash'), needsVault: true, run: (c) => a(c)?.trashObject?.(),
+    disabled: () => a(ctx)?.trashBlocked?.() ?? null });
+  if (onNote) list.push({ id: 'media.add', title: 'cmd.mediaAdd', section: 'create', shortcut: shortcutOf('media.add'), needsVault: true, run: (c) => a(c)?.addMedia?.() });
+  if (route?.id === 'trash') {
+    list.push(
+      { id: 'trash.restore', title: 'cmd.trashRestore', section: 'edit', needsVault: true, run: (c) => a(c)?.trashCommand?.('restore') },
+      { id: 'trash.delete', title: 'cmd.trashDelete', section: 'edit', needsVault: true, run: (c) => a(c)?.trashCommand?.('delete') },
+    );
   }
   if (onNote) {
     list.push(

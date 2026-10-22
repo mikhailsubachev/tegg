@@ -30,17 +30,14 @@ const built = { built: true } as const;
 const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, due: slice ? { milestone, slice } : { milestone } });
 
 export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
-  { id: 'embed-image', name: 'ph.embedImage', due: { milestone: 'MS6' }, reqs: ['FR-ATT-03', 'FR-ATT-07'] },
-  { id: 'embed-pdf', name: 'ph.embedPdf', due: { milestone: 'MS6' }, reqs: ['FR-ATT-02'] },
-  { id: 'embed-other', name: 'ph.embedOther', due: { milestone: 'MS6' }, reqs: ['FR-ATT-07'] },
+  // 6A (D-626): `embed-image` and `embed-pdf` are retired (trash-media.md R77 renders them); `embed-other` is a built card.
   { id: 'query', name: 'ph.query', due: { milestone: 'v1.0' }, reqs: ['FR-QRY-01', 'FR-FMT-06'] },
   { id: 'mindmap', name: 'ph.mindmap', due: { milestone: 'v1.0' }, reqs: ['FR-MMP-01', '-02', 'FR-FMT-05'] },
 ];
 
 export const ROUTES: RouteDef[] = [
   { id: 'chooser', name: 'route.chooser', purpose: 'purpose.chooser', status: built, reqs: ['FR-VLT-01', 'FR-VLT-02'], design: null },
-  // 5B (inbox.md R62, D-515): Home stays TBD until v1.0; the Inbox is built.
-  { id: 'home', name: 'route.home', purpose: 'purpose.home', status: tbd('v1.0'), reqs: ['FR-HOM-01', 'FR-HOM-02'], design: 'Home' },
+  // 6A (trash-media.md R75, D-609): `home` is removed until FR-HOM-01 ships in v1.0; the Inbox is built (5B).
   { id: 'inbox', name: 'route.inbox', purpose: 'purpose.inbox', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-INB-01…04'], design: 'Inbox' },
   // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
   { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
@@ -58,7 +55,7 @@ export const ROUTES: RouteDef[] = [
   // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
   { id: 'new/<type>', name: 'route.new', purpose: 'purpose.new', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TYP-09', 'FR-EDT-01'], design: 'Main' },
   { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
-  { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: tbd('MS6'), reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null },
+  { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: { built: true, due: { milestone: 'MS6' } }, reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null }, // built in 6A (R75)
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
   // 4A (backlinks.md R16): vault checks, reached from the palette only (D-284).
   { id: 'broken-links', name: 'route.brokenLinks', purpose: 'purpose.brokenLinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-04'], design: null },
@@ -100,20 +97,17 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.editTemplate', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01' },
   { label: 'ctl.addViewSettings', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
   { label: 'ctl.editView', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
-  { label: 'ctl.rowFile', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07' },
   { label: 'ctl.rowColor', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05' },
   { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01' }, // D-381
   // 5A-1 (tasks.md R45 R3).
   { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },
-  { label: 'task.trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01' },
   // 5B R62 (D-565): the four Appearance extras are v1.0.
   { label: 'ctl.font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
-  // 5B R62: Inbox trash (D-560), the capture drop zone (D-545), shortcut editing (D-548).
-  { label: 'inbox.trash', where: 'Inbox triage menu and selection toolbar', due: d('MS6'), req: 'FR-HIS-01' },
-  { label: 'capture.drop', where: 'capture window', due: d('MS6'), req: 'FR-ATT-01' },
+  // 5B R62: shortcut editing (D-548). 6A (R75): the Inbox's and task card's Move to trash, the capture drop zone and the
+  // File row are built.
   { label: 'settings.shortcuts.change', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05).
   { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },
@@ -169,6 +163,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   // 5A-2 (conversion.md R53).
   { keys: '⇧⌘T', command: 'edit.turnIntoTask' },
   { keys: '⇧⌘O', command: 'edit.turnIntoObject' },
+  // 6A (trash-media.md R75): on a note page, a focused card or row / in an editor.
+  { keys: '⌘⌫', command: 'object.trash' },
+  { keys: '⇧⌘A', command: 'media.add' },
 ];
 
 /** R6 (editor.md, D-189): the slash menu. Labels are catalog keys; later items are disabled with their milestone. */
@@ -191,8 +188,8 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('codeBlock', 'blocks', ['FR-EDT-02']),
   slash('divider', 'blocks', ['FR-EDT-02']),
   slash('table', 'blocks', ['FR-EDT-02']),
-  slash('image', 'media', ['FR-ATT-01', 'FR-ATT-03'], d('MS6')),
-  slash('pdf', 'media', ['FR-ATT-02'], d('MS6')),
+  slash('image', 'media', ['FR-ATT-01']), // built in 6A (R75)
+  slash('pdf', 'media', ['FR-ATT-02']),
   slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
   slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06'], d('v1.0')),
   slash('mindmap', 'advanced', ['FR-MMP-01'], d('v1.0')),
