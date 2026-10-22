@@ -178,7 +178,12 @@ test('fr_att_01_ac11_capture_window_saves_a_pasted_image', { timeout: 300_000 },
     writeFileSync(png, fx(P.png));
     pngToClipboard(png);
     press('v', ['command']);
-    assert.ok(await shown(d, 'Remove', 2000), 'a thumbnail with Remove');
+    // The button is `Remove "<file name>"` (the L5 test matches /^Remove/ too).
+    let removeShown = false;
+    for (const endAt = Date.now() + 2000; !removeShown && Date.now() < endAt; await sleep(100)) {
+      for (const e of await d.$$('-ios predicate string:label BEGINSWITH "Remove \\""').catch(() => [] as any[])) if (await e.isDisplayed().catch(() => false)) removeShown = true;
+    }
+    assert.ok(removeShown, 'a thumbnail with Remove');
     press('enter', ['command']);
     const note = await waitFile(join(c.vault, 'Quick Notes/Seminka na jaro.md'), (t) => !!t && /!\[\[Pasted image 2026102210\d{4}\.png\]\]\n$/.test(t), 5000);
     assert.ok(note, 'the captured note ends with the embed');

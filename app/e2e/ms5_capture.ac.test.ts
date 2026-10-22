@@ -226,9 +226,10 @@ test('fr_cap_01_ac12_a_pasted_image_is_saved_with_the_capture', { timeout: 300_0
     await openByHotkey(d);
     press('v', ['command']);
     assert.ok(!(await shown(d, 'Images and PDFs can be added from MS6.', 1000)), 'the MS6 message is retired');
-    press('escape');
+    // D-636: Esc would keep the staged image for the next open; Discard drops it.
+    await (await need(d, 'Discard')).click();
     await sleep(500);
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'Esc: nothing written');
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'Discard: nothing written');
     await openByHotkey(d);
     typeAscii('Obrazek z menu');
     execFileSync('osascript', ['-e', `set the clipboard to (read (POSIX file "${png}") as «class PNGf»)`]);
