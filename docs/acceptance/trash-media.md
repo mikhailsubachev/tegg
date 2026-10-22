@@ -117,13 +117,13 @@ R1: `home` removed (returns in v1.0 with FR-HOM-01); `trash` built, milestone MS
 - **AC-9** **Keyboard and strings.** Rows are a list: ↑↓ move the focus, ↩ opens, R restores, ⌘⌫ asks to delete; Tab reaches `Empty trash…` and each row's buttons. Every text of R70 is an R78 key (pseudo-locale check); FR-UX-05 AC-4, AC-5 and axe `color-contrast` pass on `trash` with rows, with a dialog open and empty, light and dark. *(L1; L5)*
 - **AC-10** **Nothing only in the index (AR-01).** The trash list, the trash times and the restore targets come from the file system: after deleting the index and reopening, AC-4's list is identical. *(L4)*
 
-### Trashed links and embeds (D-27; AP-531)
+### FR-HIS-01 Trashed links and embeds (D-27; AP-531)
 
 - **AC-11** **Chips (R74).** On `note/Pages/Odkazy.md`, `[[Stará poznámka]]` is a trashed chip (`data-link-state="trashed"`, struck through, description `In trash`); clicking it opens `trash` with T1's row focused. After AC-5's restore it is a normal chip within 2 s; after trashing Úkol, `[[Koupit semínka]]` becomes trashed within 2 s. No file is written by any of this (AP-531). The same in the read view and in a relation value. *(L4 for `link_resolve`'s `trashed` state; L5)*
 - **AC-12** **Embeds (R74; conversion.md FR-CNV-08 AC-6).** In Odkazy, `![[Stará poznámka]]` shows `"Stará poznámka" was moved to the trash` with `Restore`; `![[Smazaný obrázek.png]]` shows the same for the pair T3, and its `Restore` brings back both files, after which the image shows. Restore from a placeholder writes nothing but the renames. *(L5; L4)*
 - **AC-13** **Not broken, not backlinks.** The Broken links page doesn't list `Stará poznámka`; Stará poznámka's (restored) backlinks list Odkazy; a trashed note's own links aren't backlinks of their targets (D-278). *(L4)*
 
-### Media objects in the trash (AP-532)
+### FR-HIS-01 Media objects in the trash (AP-532)
 
 - **AC-14** **A pair goes together (T1).** Trashing Img (`More › Move to trash` on `note/Images/Záhon.md`) moves `Images/Záhon.md` and `_attachments/záhon.png` into `.trash/` (two renames, object first; if the second fails, the first is undone and the alert says why). Plán's embed shows the trashed placeholder; Undo or Restore brings back both. Trashing a note never trashes the media it embeds (FR-ATT-09): trashing Plán leaves Img, PNG, Pdf and PDF in place. *(L4; L5)*
 - **AC-15** **A shared file.** When two objects' `file:` link the same file (a runtime copy of Img), trashing one moves only its object, not the file (the other still uses it); the trash row has no file part. *(L4)*
@@ -142,7 +142,7 @@ R1: `home` removed (returns in v1.0 with FR-HOM-01); `trash` built, milestone MS
 - **AC-10** **Obsidian compatibility (NFR-POR-01).** The vault after AC-1…AC-3 opens in the obsidian-check harness with every `![[…]]` resolving to its file (Obsidian's shortest-path rule) and every Image/PDF object a valid note. *(L4)*
 - **AC-11** **The capture window (capture.md FR-CAP-01 AC-12, R55).** The drop zone `Add an image or PDF` is enabled: dropping, pasting (⌘V with an image) or clicking it (the picker) adds the files to the capture as thumbnails with `Remove`; saving writes the pairs (R72's capture row) and the captured note with one `![[…]]` paragraph per file after its text, in one capture (the pairs first, then the note, create-exclusive). Cancelling writes nothing. The capture window gets only the commands it needs (`capture_media_add`), never a vault read (NFR-SEC-03, D-553). *(L5; L6 once)*
 
-### Media in notes (R76, R77)
+### FR-ATT-01 Media in notes (R76, R77)
 
 - **AC-12** **Display.** Plán shows `záhon.png` as a `figure` with `img` `alt="Záhon"` at 64 × 48 and the PDF as a link card `Rozpočet` / `2 pages · <size>`, in the editor and the read view; a bare file with no object shows as an image; `![[missing.png]]` shows `Can't find "missing.png"`. The image is loaded from the vault through the shell's media protocol (AP-542); no other scheme, no network, no file outside the vault. *(L5; L6 once for the real protocol)*
 - **AC-13** **Open.** Double-click or ⌘-click on the image, or a click on the PDF card, opens `note/Images/Záhon.md` / `note/PDFs/Rozpočet.md` (R76); `Open in Preview` and `Reveal in Finder` call the shell (L5: the fake records the call; L6: the default app opens). *(L5; L6 once)*
@@ -155,9 +155,11 @@ R1: `home` removed (returns in v1.0 with FR-HOM-01); `trash` built, milestone MS
 - **AC-6** **Entries.** Top to bottom: the field `Search or jump to…`, `New object`, `Inbox` (with its count), `Today`, `Tasks`, the `Types` section, `Tags`, `Pinned` (v1.0), `Saved queries` (v1.0), `Trash`. There is no Home entry, no `Go to Home` command and no `home` route; `__TEGG_ROUTE__="home"` lands like an unknown route (FR-UX-02's not-found rule). *(L5; L6 once)*
 - **AC-7** **Launch landing (D-132 amended, AP-530).** app-shell FR-UX-02 AC-16 with `inbox` in place of the `home` placeholder in (b) and (d): with no note ever opened, or the last one deleted or in `.trash/`, launch shows `inbox` (`route-ready:inbox`), with no error dialog and no write. A new vault opens on `inbox` too. *(L6; L5)*
 
-### FR-FMT-07 and FR-SYN-06 (slice 6A)
+### FR-FMT-07 Round-trip with media (slice 6A)
 
 - **AC-22** [MS6] **Property (AR-06, T1).** For random notes of the round-trip corpus, inserting and removing media paragraphs by paste, drop and ⌫ changes only those paragraphs; trashing and restoring a file returns it byte-identical with the same mtime. *(L2)*
+### FR-SYN-06 No writes but the user's (slice 6A)
+
 - **AC-29** [MS6] **A browsing tour writes nothing.** Opening `trash`, every row, every image and PDF object, every placeholder, and the media in Plán, without choosing an action, writes nothing (vault byte-identical, no rename). *(L6)*
 - **AC-30** [MS6] **Each action writes only its files.** Move to trash and Restore are renames of exactly the object (and its pair's file); a paste writes exactly the file, the object and the note; Delete permanently moves exactly the row's files out of `.trash/`. *(L4; L6 once)*
 
