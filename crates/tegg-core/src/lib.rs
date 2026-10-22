@@ -81,6 +81,10 @@ pub enum CoreError {
     NotACapture,
     /// ms5-capture §5.1 (5B): a vault setting D-336 or D-222 rejects; nothing was written.
     Invalid { reason: String },
+    /// ms6-trash-media §3.4 (6A): the bytes aren't one of R72's media types (`media.refused`); nothing was written.
+    Refused,
+    /// ms6-trash-media §3.1 (6A, D-621): more than 200 MB; nothing was written.
+    TooLarge,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -818,6 +822,10 @@ pub enum LinkKind {
     Daily,
     DateMissing,
     Unresolved,
+    /// ms6-trash-media §2 (6A, D-611): resolves only in `.trash/`; `path` is the trashed path.
+    Trashed,
+    /// ms6-trash-media §3.2 (6A): a media file; `path` is the file, `LinkFields::object` its live Image/PDF object.
+    Media,
 }
 
 /// One resolved link target (ms3-shell §11.1, fields as `LinkTargetDto`).
@@ -838,6 +846,9 @@ pub struct LinkFields {
     pub status: Option<String>,
     pub due: Option<String>,
     pub completed: Option<String>,
+    /// ms6-trash-media §3.2 (6A): for a `Media` target, the live Image or PDF object whose `file:` resolves to the file
+    /// (several: path order); None otherwise. 6A stub: always None.
+    pub object: Option<String>,
 }
 
 impl Core {
@@ -855,6 +866,7 @@ impl Core {
                     status: text(o, "status"),
                     due: o.attributes.get("due").and_then(|v| v.as_str().map(|s| s.trim().to_string())).filter(|s| !s.is_empty()),
                     completed: text(o, "completed"),
+                    object: None, // 6A stub (ms6-trash-media §3.2)
                 });
                 (t, fields.unwrap_or_default())
             })
@@ -1001,3 +1013,11 @@ mod inbox5b;
 mod settings5b;
 pub use inbox5b::InboxRow;
 pub use settings5b::{DefaultTypeSetting, VaultKey, VaultSettings};
+
+// ------------------------------------------------------------------------------------------------ slice 6A
+// docs/contracts/ms6-trash-media.md §1, §3: the trash and media (`trash6a.rs`, `media6a.rs`).
+mod trash6a;
+pub mod media6a;
+pub use media6a::{media_info, media_names, media_object, MediaAdd, MediaAdded, MediaInfo, MediaNames, MediaObjectFields, NameRequest, OwnerRef};
+pub use tegg_vault::SystemTrash;
+pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};

@@ -11,6 +11,8 @@ pub enum EmbedLoadState {
     /// No such file, or it is in `.trash/` or `_templates/`.
     Missing,
     Io,
+    /// ms6-trash-media §2 (6A): a path under `.trash/` that exists (the D-27 placeholder). 6A stub: never returned.
+    Trashed,
 }
 
 /// One embedded file as read for an embed (ms4-embeds §4).

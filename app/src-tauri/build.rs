@@ -88,6 +88,18 @@ const COMMANDS: &[&str] = &[
     "inbox_bulk",
     "capture_open",
     "index_versions",
+    // 6A (ms6-trash-media §4, §5).
+    "trash_list",
+    "object_trash",
+    "trash_restore",
+    "trash_delete",
+    "trash_empty",
+    "media_add",
+    "media_add_paths",
+    "media_pick",
+    "media_open",
+    "media_reveal",
+    "capture_media_add",
 ];
 
 fn main() {

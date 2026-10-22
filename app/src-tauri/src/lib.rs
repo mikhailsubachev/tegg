@@ -4,9 +4,11 @@
 
 mod dto;
 mod shell5b;
+mod shell6a;
 mod strings;
 
 pub use shell5b::{acl_probe, AclProbe};
+pub use shell6a::{media_scheme_probe, MediaResponse};
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -684,7 +686,7 @@ async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<Str
     Ok(core
         .resolve_links_with_fields(&from, &targets)
         .into_iter()
-        .map(|(t, f)| LinkTargetDto { review: f.review, status: f.status, due: f.due, completed: f.completed, ..link_dto(t) })
+        .map(|(t, f)| LinkTargetDto { review: f.review, status: f.status, due: f.due, completed: f.completed, object: f.object, ..link_dto(t) })
         .collect())
 }
 
@@ -701,6 +703,7 @@ async fn embed_load(state: State<'_, AppState>, paths: Vec<String>) -> Result<Ve
                 tegg_core::EmbedLoadState::Ok => "ok",
                 tegg_core::EmbedLoadState::Missing => "missing",
                 tegg_core::EmbedLoadState::Io => "io",
+                tegg_core::EmbedLoadState::Trashed => "trashed", // ms6-trash-media §2 (6A)
             }
             .into(),
             text: n.text,
@@ -733,7 +736,7 @@ fn target_info_dto(t: tegg_core::LinkTargetInfo) -> LinkTargetDto {
         DateMissing => "date-missing",
         Unresolved => "unresolved",
     };
-    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type, review: None, status: None, due: None, completed: None }
+    LinkTargetDto { target: t.target, kind: kind.into(), path: t.path, title: t.title, type_key: t.r#type, review: None, status: None, due: None, completed: None, object: None }
 }
 
 fn excerpt_dto(e: tegg_core::Excerpt) -> ExcerptDto {
@@ -1291,6 +1294,9 @@ fn link_dto(t: LinkTarget) -> LinkTargetDto {
             LinkKind::Daily => "daily",
             LinkKind::DateMissing => "date-missing",
             LinkKind::Unresolved => "unresolved",
+            // ms6-trash-media §2, §3.2 (6A).
+            LinkKind::Trashed => "trashed",
+            LinkKind::Media => "media",
         }
         .into(),
         path: t.path,
@@ -1300,6 +1306,7 @@ fn link_dto(t: LinkTarget) -> LinkTargetDto {
         status: None,
         due: None,
         completed: None,
+        object: None,
     }
 }
 
@@ -1632,7 +1639,10 @@ pub fn run() {
             shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show, shell5b::capture_suggest,
             shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
             shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
-            shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions
+            shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions,
+            shell6a::trash_list, shell6a::object_trash, shell6a::trash_restore, shell6a::trash_delete, shell6a::trash_empty,
+            shell6a::media_add, shell6a::media_add_paths, shell6a::media_pick, shell6a::media_open, shell6a::media_reveal,
+            shell6a::capture_media_add
         ])
         .build(context())
         .expect("error while building Tegg")

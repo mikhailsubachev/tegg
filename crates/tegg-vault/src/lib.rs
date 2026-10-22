@@ -77,6 +77,13 @@ pub trait VaultFs: Send + Sync {
     fn watch(&self, _sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         Ok(None)
     }
+    /// ms6-trash-media §1.1 (D-614): the entry's status-change time (`st_ctime` on Unix, the last write time
+    /// elsewhere), `None` when missing; a rename into `.trash/` sets it (R71). `MemFs` keeps a counter set on every
+    /// rename.
+    /// 6A stub (ms6-trash-media §1.1): no file system reports it yet.
+    fn changed_ns(&self, _path: &str) -> io::Result<Option<i128>> {
+        Ok(None)
+    }
 }
 
 /// What a watcher reports: vault-relative NFC paths that may have changed (event kinds are never trusted,
@@ -128,6 +135,16 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         (**self).watch(sink)
     }
+    fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
+        (**self).changed_ns(path)
+    }
+}
+
+/// ms6-trash-media §1.1 (D-615): moves a file or folder out of the vault into the system's trash (macOS: Finder's
+/// Trash through `NSFileManager trashItemAtURL`). The core stays platform-neutral (AR-03): the shell implements it;
+/// tests use a recording implementation. `abs` is an absolute path.
+pub trait SystemTrash: Send + Sync {
+    fn trash(&self, abs: &Path) -> io::Result<()>;
 }
 
 /// AR-04 AC-3: remote changes will enter through this trait (Phase 2); Phase 1 relies on the watcher.
@@ -522,6 +539,20 @@ impl Vault {
         let trashed = nfc(trashed);
         let original = trashed.strip_prefix(&format!("{TRASH}/")).ok_or(VaultError::NotFound)?.to_string();
         self.move_free(&trashed, &original)
+    }
+
+    /// ms6-trash-media §1.1 (FR-HIS-01 AC-5, D-225): moves a trashed folder (`.trash/<dir>`) back to `<dir>` in one
+    /// rename, with a ` (2)` suffix if that is taken; returns the folder's new vault path.
+    /// 6A stub (ms6-trash-media §1.1).
+    pub fn restore_dir(&self, _trashed_dir: &str) -> Result<String, VaultError> {
+        Err(VaultError::NotImplemented)
+    }
+
+    /// ms6-trash-media §1.1, §1.4 (FR-HIS-01 AC-7, AC-8, D-615): moves the file or folder `path` (vault-relative)
+    /// out of the vault through `sink`; Tegg never unlinks a vault file itself.
+    /// 6A stub (ms6-trash-media §1.1).
+    pub fn remove_to(&self, _path: &str, _sink: &dyn SystemTrash) -> Result<(), VaultError> {
+        Err(VaultError::NotImplemented)
     }
 
     /// FR-SYN-02 AC-4: deletes `.<name>.tegg-tmp` files older than 1 minute; returns how many.

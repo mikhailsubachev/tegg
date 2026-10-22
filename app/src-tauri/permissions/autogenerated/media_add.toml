@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-media-add"
+description = "Enables the media_add command without any pre-configured scope."
+commands.allow = ["media_add"]
+
+[[permission]]
+identifier = "deny-media-add"
+description = "Denies the media_add command without any pre-configured scope."
+commands.deny = ["media_add"]

@@ -1,0 +1,81 @@
+{
+  "_doc": "ms6-trash-media §3.5: MediaObjectFields → object bytes, the shared twin table of packages/doc/test/media.ac.test.ts (mediaObject) and crates/tegg-core/tests/ac_media.rs (media_object).",
+  "cases": [
+    {
+      "name": "pasted image with a source",
+      "fields": {
+        "id": "01JB6A0000000000000000T001",
+        "title": "Plán zahrady 1",
+        "now": "2026-10-22T10:00:00+02:00",
+        "embed": "Pasted image 20261022100000.png",
+        "info": {
+          "mediaType": "image/png",
+          "ext": "png",
+          "width": 64,
+          "height": 48,
+          "pages": null
+        },
+        "size": 1234,
+        "source": "Plán zahrady"
+      },
+      "bytes": "---\nid: 01JB6A0000000000000000T001\ntype: image\ntitle: Plán zahrady 1\ncreated: 2026-10-22T10:00:00+02:00\nmodified: 2026-10-22T10:00:00+02:00\nfile: \"[[Pasted image 20261022100000.png]]\"\nmedia-type: image/png\nsize: 1234\nwidth: 64\nheight: 48\nsource: \"[[Plán zahrady]]\"\n---\n"
+    },
+    {
+      "name": "pdf without a source",
+      "fields": {
+        "id": "01JB6A0000000000000000T002",
+        "title": "Rozpočet 2026",
+        "now": "2026-10-22T10:00:00+02:00",
+        "embed": "Rozpočet 2026.pdf",
+        "info": {
+          "mediaType": "application/pdf",
+          "ext": "pdf",
+          "width": null,
+          "height": null,
+          "pages": 2
+        },
+        "size": 844,
+        "source": null
+      },
+      "bytes": "---\nid: 01JB6A0000000000000000T002\ntype: pdf\ntitle: Rozpočet 2026\ncreated: 2026-10-22T10:00:00+02:00\nmodified: 2026-10-22T10:00:00+02:00\nfile: \"[[Rozpočet 2026.pdf]]\"\nmedia-type: application/pdf\nsize: 844\npages: 2\n---\n"
+    },
+    {
+      "name": "svg without dimensions",
+      "fields": {
+        "id": "01JB6A0000000000000000T003",
+        "title": "Vektor",
+        "now": "2026-10-22T10:00:00+02:00",
+        "embed": "vektor.svg",
+        "info": {
+          "mediaType": "image/svg+xml",
+          "ext": "svg",
+          "width": null,
+          "height": null,
+          "pages": null
+        },
+        "size": 140,
+        "source": null
+      },
+      "bytes": "---\nid: 01JB6A0000000000000000T003\ntype: image\ntitle: Vektor\ncreated: 2026-10-22T10:00:00+02:00\nmodified: 2026-10-22T10:00:00+02:00\nfile: \"[[vektor.svg]]\"\nmedia-type: image/svg+xml\nsize: 140\n---\n"
+    },
+    {
+      "name": "a title with a colon and a path embed",
+      "fields": {
+        "id": "01JB6A0000000000000000T004",
+        "title": "Poznámka: jaro",
+        "now": "2026-10-22T10:00:00+02:00",
+        "embed": "_attachments/záhon.png",
+        "info": {
+          "mediaType": "image/png",
+          "ext": "png",
+          "width": 64,
+          "height": 48,
+          "pages": null
+        },
+        "size": 1234,
+        "source": "Pages/Zahrada"
+      },
+      "bytes": "---\nid: 01JB6A0000000000000000T004\ntype: image\ntitle: \"Poznámka: jaro\"\ncreated: 2026-10-22T10:00:00+02:00\nmodified: 2026-10-22T10:00:00+02:00\nfile: \"[[_attachments/záhon.png]]\"\nmedia-type: image/png\nsize: 1234\nwidth: 64\nheight: 48\nsource: \"[[Pages/Zahrada]]\"\n---\n"
+    }
+  ]
+}

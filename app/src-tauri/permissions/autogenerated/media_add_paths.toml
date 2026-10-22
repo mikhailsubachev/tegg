@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-media-add-paths"
+description = "Enables the media_add_paths command without any pre-configured scope."
+commands.allow = ["media_add_paths"]
+
+[[permission]]
+identifier = "deny-media-add-paths"
+description = "Denies the media_add_paths command without any pre-configured scope."
+commands.deny = ["media_add_paths"]

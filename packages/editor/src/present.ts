@@ -47,6 +47,12 @@ export interface EditorUi {
   hideBlockIds?: boolean
   /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
   embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string; target?: string } | undefined
+  /** 6A (ms6-trash-media §6.1): renders a block embed whose target resolved to kind `media` into `block` (the app draws
+   *  the figure or the PDF card; the editor owns no `img`). 6A stub: never called yet. */
+  media?(target: LinkInfo, block: HTMLElement): void
+  /** 6A (ms6-trash-media §6.1, FR-ATT-01 AC-1): called first by `handlePaste` when the clipboard has files (image
+   *  items win over text); `true` consumes the paste. 6A stub: never called yet. */
+  onFiles?(files: File[], pos: number): boolean
 }
 
 /** 4F (ms4-embeds §7): the app's handle on a rendered block embed. */
