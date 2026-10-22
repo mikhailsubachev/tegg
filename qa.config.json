@@ -30,7 +30,7 @@
     { "id": "app-typecheck", "lane": "node", "dir": "app", "run": "npm run --silent typecheck", "level": "commit", "changedOnly": true },
     { "id": "app-shell-test", "lane": "cargo", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app", "run": "npx vite build --logLevel error && cargo test --quiet --manifest-path src-tauri/Cargo.toml && node --test test/bug_*.test.ts", "level": "push" },
     { "id": "app-test-typecheck", "lane": "node", "dir": "app", "run": "npx tsc -p tsconfig.test.json && npx tsc --noEmit -p e2e/tsconfig.json", "level": "commit", "changedOnly": true },
-    { "id": "app-ui-test", "lane": "node", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app",
+    { "id": "app-ui-test", "lane": "browser", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app",
       "run": "npx vitest run --maxWorkers 4 --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/app-ui.xml\"",
       "level": "push" },
     { "id": "app-webkit", "lane": "browser", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app",
