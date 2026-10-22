@@ -5,10 +5,10 @@ import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
 
 type Toast = { id: number; text: string; undo?: () => void } | null;
-type Alert = { id: number; text: string } | null;
+type Alert = { id: number; text: string; action?: { label: string; run: () => void } };
 
 let toast: Toast = null;
-let alert: Alert = null;
+let alerts: Alert[] = [];
 let seq = 0;
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
@@ -21,28 +21,31 @@ export function showToast(text: string, undo?: () => void, ms = 8000): void {
   emit();
 }
 
-export function showAlert(text: string): void {
-  alert = { id: ++seq, text };
+/** A non-modal alert (`role="alert"`), with an optional action such as `Try again` (6A: trash and media). */
+export function showAlert(text: string, action?: { label: string; run: () => void }): void {
+  alerts = [...alerts.filter((a) => a.text !== text), { id: ++seq, text, action }];
   emit();
 }
 
-export function clearTrashAlert(): void {
-  if (alert) { alert = null; emit(); }
+function dismiss(id: number): void {
+  alerts = alerts.filter((a) => a.id !== id);
+  emit();
 }
 
 const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 
 export function TrashMessages() {
-  const s = useSyncExternalStore(subscribe, () => `${toast?.id ?? 0}:${alert?.id ?? 0}`);
+  const s = useSyncExternalStore(subscribe, () => `${toast?.id ?? 0}:${alerts.map((a) => a.id).join(',')}`);
   void s;
   return (
     <>
-      {alert && (
-        <div className="banner trash-alert" role="alert">
-          <span>{alert.text}</span>
-          <button type="button" className="icon-button small" aria-label={t('trash.dismiss')} onClick={clearTrashAlert}><Icon name="x" size={12} /></button>
+      {alerts.map((a) => (
+        <div key={a.id} className="banner trash-alert" role="alert">
+          <span>{a.text}</span>
+          {a.action && <button type="button" tabIndex={0} onClick={() => { dismiss(a.id); a.action!.run(); }}>{a.action.label}</button>}
+          <button type="button" tabIndex={0} className="icon-button small" aria-label={t('trash.dismiss')} onClick={() => dismiss(a.id)}><Icon name="x" size={12} /></button>
         </div>
-      )}
+      ))}
       {toast && (
         <div className="job-status trash-toast" role="status">
           <span>{toast.text}</span>

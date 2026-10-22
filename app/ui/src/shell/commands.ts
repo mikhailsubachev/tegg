@@ -69,7 +69,7 @@ export type ShellActions = {
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia';
 
 export type ShellContext = {
   vault: VaultInfo | null;

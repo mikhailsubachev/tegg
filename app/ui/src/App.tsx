@@ -500,6 +500,7 @@ export function App() {
     trashObject: () => { void trashHere(); },
     trashBlocked: () => (route?.id === 'new/<type>' ? t('trash.nothing') : isNoteRoute(route) || route?.id === DAILY ? (noteApi.current?.trashBlocked() ?? null) : null),
     trashCommand: (id: 'restore' | 'delete') => trashCommand.current?.(id),
+    addMedia: () => { if (isNoteRoute(route) || route?.id === DAILY) setTimeout(() => noteApi.current?.edit('addMedia'), 0); },
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {

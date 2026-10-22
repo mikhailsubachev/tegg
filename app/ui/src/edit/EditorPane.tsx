@@ -8,6 +8,8 @@ import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, t
 import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
+import { listen } from '@tauri-apps/api/event';
+import { addMedia, pickMedia, type MediaTarget } from '../media/addMedia';
 import { mountMedia } from '../media/mount';
 import { isAttachmentTarget } from '@tegg/doc';
 import type { EmbedStore } from '../embeds/store';
@@ -41,7 +43,7 @@ import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -142,6 +144,33 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const rerender = useCallback(() => setTick((n) => n + 1), []);
   const links = useRef(new Map<string, LinkInfo & { path?: string | null }>());
   const mediaViews = useRef(new Set<() => void>());
+  // 6A (FR-ATT-01 AC-2): files dropped from Finder (Tauri's window drag-drop event) go in at the drop point.
+  useEffect(() => {
+    const un = listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => {
+      const ed = edRef.current;
+      const tg = mediaTarget();
+      if (!ed || !tg || !e.payload?.paths?.length) return;
+      // Tauri reports physical pixels; accept logical ones too (the point must fall on the editor either way).
+      const r = ed.view.dom.getBoundingClientRect();
+      const inside = (px: number, py: number) => px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+      const dpr = window.devicePixelRatio || 1;
+      const { x: px, y: py } = e.payload.position;
+      const [x, y] = inside(px / dpr, py / dpr) ? [px / dpr, py / dpr] : [px, py];
+      if (!inside(x, y)) return;
+      const at = ed.view.posAtCoords({ left: x, top: y })?.pos;
+      void addMedia(tg, { kind: 'paths', paths: e.payload.paths }, at);
+    });
+    return () => void un.then((f) => f());
+  }, []);
+  /** 6A: where media goes: this editor, owned by this note (its title, else its stem). */
+  const mediaTarget = (): MediaTarget | null => {
+    const ed = edRef.current;
+    if (!ed) return null;
+    const data = (parse(ed.text()).frontmatter?.data ?? {}) as Record<string, unknown>;
+    const stem = (pathRef.current.split('/').pop() ?? '').replace(/\.md$/i, '');
+    const title = typeof data.title === 'string' && data.title.trim() ? data.title.trim() : stem;
+    return { view: ed.view, owner: { path: pathRef.current, title } };
+  };
   const pathRef = useRef(path);
   pathRef.current = path;
   const cbSave = useRef(onSaveNow);
@@ -196,6 +225,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
       // 6A (R77, D-618): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
       media: (source, dom) => mountMedia(dom, source, (tg) => links.current.get(tg), (p) => cb.current.onOpen(p), mediaViews.current),
+      // 6A (FR-ATT-01 AC-1): files on the clipboard are added as media (an image wins over text).
+      onFiles: (files, pos) => { const tg = mediaTarget(); if (!tg) return false; void addMedia(tg, { kind: 'paste', files }, pos); return true; },
       embedChip: embeds ? (value) => {
         const n = embeds.inlineNode(value);
         if (!n) return undefined;
@@ -660,6 +691,15 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const e = edRef.current;
     const s = live.current.slash;
     if (!e || !s || !item.status.built) return;
+    // 6A (FR-ATT-01 AC-3): slash Image / PDF open the system file dialog; the files go at the caret.
+    if (item.id === 'image' || item.id === 'pdf') {
+      setSlash(null);
+      dismissed.current = `s${s.from}`;
+      e.view.dispatch(e.view.state.tr.delete(s.from, e.view.state.selection.from).setMeta('addToHistory', false));
+      const tg = mediaTarget();
+      if (tg) void pickMedia(tg, item.id === 'pdf' ? 'pdf' : 'image');
+      return;
+    }
     if (item.id === 'embedObject') {
       setSlash(null);
       dismissed.current = `s${s.from}`;
@@ -872,6 +912,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         break;
       }
       case 'saveNow': cbSave.current?.(); break; // the note page flushes (FR-EDT-08 AC-9)
+      // 6A (R75): ⇧⌘A / palette `Add image or PDF…`.
+      case 'addMedia': { const tg = mediaTarget(); if (tg) void pickMedia(tg, 'any'); break; }
       // 4F (R32, D-428).
       case 'embedObject': {
         if (!embeds) break;
