@@ -91,7 +91,7 @@ async function runStepAsync(step: Step, checkout: string, env: NodeJS.ProcessEnv
     log(`✗ ${step.id}: directory ${step.dir} doesn't exist`);
     return { id: step.id, result: 'fail', durationMs: Date.now() - t0, seeds: [], lane: step.lane };
   }
-  const r = await execAsync('sh', ['-c', step.run], { cwd, env });
+  const r = step.nice > 0 ? await execAsync('nice', ['-n', String(step.nice), 'sh', '-c', step.run], { cwd, env }) : await execAsync('sh', ['-c', step.run], { cwd, env });
   const durationMs = Date.now() - t0;
   const result = r.status === 0 ? 'pass' : 'fail';
   const nl = (s: string) => (s.length === 0 || s.endsWith('\n') ? s : s + '\n');

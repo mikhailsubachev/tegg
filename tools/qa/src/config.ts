@@ -10,7 +10,8 @@ export type Gate = (typeof GATES)[number];
 /** `cargoCache` (default true): tree gates give the step the shared Cargo build cache (CONTRACT §3.2.1, D-343).
  *  `lane` (default `default`): tree gates run lanes concurrently, a lane's steps in order (§3.2.2, D-524).
  *  `inputs`: repository paths the step depends on, for the push gate's step memo (§3.2.3, D-526); undefined = always runs. */
-export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean; lane: string; inputs?: string[] };
+/** `nice` (default 0): tree gates start the step's shell with that niceness, so a lane can yield the CPU to another (§3.2.2). */
+export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean; lane: string; inputs?: string[]; nice: number };
 export type AcRunner = { dir: string; match: RegExp; run: string };
 export type Config = {
   steps: Step[];
@@ -56,6 +57,7 @@ export function loadConfig(root: string): Config {
     if (!GATES.includes(s.level)) throw new UsageError(`qa.config.json: steps[${i}].level must be one of ${GATES.join(', ')}`);
     if (s.cargoCache !== undefined && typeof s.cargoCache !== 'boolean') throw new UsageError(`qa.config.json: steps[${i}].cargoCache must be true or false`);
     if (s.lane !== undefined && (typeof s.lane !== 'string' || s.lane === '')) throw new UsageError(`qa.config.json: steps[${i}].lane must be a non-empty string`);
+    if (s.nice !== undefined && (!Number.isInteger(s.nice) || s.nice < 0 || s.nice > 20)) throw new UsageError(`qa.config.json: steps[${i}].nice must be an integer 0…20`);
     let inputs: string[] | undefined;
     if (s.inputs !== undefined) {
       if (!Array.isArray(s.inputs) || s.inputs.some((p: unknown) => typeof p !== 'string' || p === '')) throw new UsageError(`qa.config.json: steps[${i}].inputs must be an array of non-empty strings`);
@@ -63,7 +65,7 @@ export function loadConfig(root: string): Config {
       const bad = inputs!.find((p) => p.startsWith('/') || p.split('/').includes('..'));
       if (bad !== undefined) throw new UsageError(`qa.config.json: steps[${i}].inputs: "${bad}" must be repository-relative without ".."`);
     }
-    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false, lane: s.lane ?? 'default', inputs };
+    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false, lane: s.lane ?? 'default', inputs, nice: s.nice ?? 0 };
   });
   const acTestPatterns = (raw.acTestPatterns ?? DEFAULT_AC_TEST_PATTERNS).map((p: unknown, i: number) => regex(p, `acTestPatterns[${i}]`));
   const acRunners: AcRunner[] = (raw.acRunners ?? []).map((r: any, i: number) => {
