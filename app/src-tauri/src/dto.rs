@@ -458,6 +458,10 @@ pub struct RightPanelDto {
     pub open: bool,
     /// `backlinks`, `outline` or `graph`.
     pub tab: String,
+    /// D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub width: Option<u32>,
 }
 
 /// Machine-local display state (D-128), `<Application Support>/ui-state.json`.
@@ -624,6 +628,11 @@ pub struct BacklinkEntryDto {
     pub modified: Option<String>,
     pub read_only: bool,
     pub occurrences: Vec<OccurrenceDto>,
+    /// D-633: the source's trimmed `review`, `status`, `due`, `completed` (D-601), for the panel's chip.
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -955,7 +964,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into() }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None }
     }
 }
 

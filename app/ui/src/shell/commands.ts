@@ -119,7 +119,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
   'duplicates.merge': 'duplicates.merge',
-  'backlinks.unlinked': 'panel.unlinkedMentions',
   'tasks.sort': 'tasks.sort',
 };
 

@@ -305,15 +305,46 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   );
 }
 
-export function ContextPanel({ tab, onTab, backlinks }: {
+export function ContextPanel({ tab, onTab, backlinks, width, room, limits, onWidth }: {
   tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void;
   /** 4A: the Backlinks tab's content (FR-LNK-01). */
   backlinks?: { path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
+  /** D-634: the stored width (clamped to the limits), the room the centre pane leaves, [min, max, default], and the
+   * store, called when a drag ends or a key changes the width. */
+  width: number; room: number; limits: [number, number, number]; onWidth: (w: number) => void;
 }) {
   const current = PANEL_TABS.find((p) => p.id === tab) ?? PANEL_TABS[0];
   const [count, setCount] = useState(0);
+  const [min, max, initial] = limits;
+  const [dragging, setDragging] = useState<number | null>(null);
+  const drag = useRef<{ x: number; w: number } | null>(null);
+  const clamp = (w: number) => Math.min(Math.max(Math.round(w), min), max);
+  const drawn = Math.min(dragging ?? width, room);
+  const onKey = (e: { key: string; preventDefault: () => void }) => {
+    const next = e.key === 'ArrowLeft' ? width + 16 : e.key === 'ArrowRight' ? width - 16 : e.key === 'Home' ? min : e.key === 'End' ? max : null;
+    if (next === null) return;
+    e.preventDefault();
+    onWidth(clamp(next));
+  };
   return (
-    <aside className="context-panel" aria-label={t('frame.contextPanel')}>
+    <aside className="context-panel" aria-label={t('frame.contextPanel')} style={{ width: drawn }}>
+      <div role="separator" tabIndex={0} className="panel-resizer" aria-label={t('panel.resize')} aria-orientation="vertical"
+        aria-valuemin={min} aria-valuemax={max} aria-valuenow={drawn}
+        onKeyDown={onKey}
+        onDoubleClick={() => onWidth(initial)}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          drag.current = { x: e.clientX, w: drawn };
+        }}
+        onPointerMove={(e) => { const d = drag.current; if (d) setDragging(clamp(d.w + d.x - e.clientX)); }}
+        onPointerUp={(e) => {
+          const d = drag.current;
+          drag.current = null;
+          setDragging(null);
+          if (d && e.clientX !== d.x) onWidth(clamp(d.w + d.x - e.clientX));
+        }}
+        onPointerCancel={() => { drag.current = null; setDragging(null); }} />
       <div className="panel-tabs" role="tablist">
         {PANEL_TABS.map((p) => (
           <button tabIndex={0}

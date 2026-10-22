@@ -252,3 +252,38 @@ Builds the bytes with `@tegg/doc` `newObject(type, title, template)` exactly lik
 5. The broken-links group's Create plan is computed from its first source; `relationTo` comes from the relation's `to` only when every occurrence in the group is a relation value with `to` (FR-LNK-04 AC-10).
 6. A block of at most 160 characters is shown whole even when its chip is more than 60 characters in; the `before` limit only places the cut (§2.2). Not covered by an AC; the corpus gets a case for it with the implementation.
 7. A callout's title line is a block of its own (§2.2). Not covered by an AC; the corpus gets a case with the implementation.
+
+## 9. Preview v0.55 panel feedback (D-633…D-635; `docs/feedback/ms6-panel.md`)
+
+1. **Entries carry chip fields (D-633).** `BacklinkEntryDto` (Rust `app/src-tauri/src/dto.rs`, the generated TS in
+   `app/ui/src/ipc/types.ts`, the core's `BacklinkEntry`) gains `review`, `status`, `due`, `completed: string | null`,
+   the trimmed frontmatter strings as `LinkTargetDto` has them (D-601), filled from the index in `index_backlinks` and
+   `daily_backlinks`; the Broken links page's sources may carry them too (unused there). The fake core fills them from
+   the source's frontmatter.
+2. **Panel chips (D-633).** The panel's chip is built with `chipParts()` (`app/ui/src/links/ChipParts.tsx`) from a
+   `ChipTarget` made of the entry (type, review, status, due, completed), exactly as a note's chip: the data attributes,
+   description, task icon and suffix. It keeps `data-link-kind="note"`, `data-command="panel.backlinks.open"` and the
+   source's title as its accessible name; `title` is the full title; one line with the title truncated (`min-width: 0`
+   on the title, the suffix `flex: none`).
+3. **Width (D-634).** `RightPanelDto` gains an optional `width?: number` (Rust `Option<u32>`, `serde(default,
+   skip_serializing_if)`): absent until the user resizes the panel and read as 288, so an untouched `ui-state.json`
+   keeps its bytes and FR-UX-02 AC-10 its exact `rightPanel`; `version` stays 1. The UI sets the panel's width from it, clamped
+   to 240…480 and to the room that leaves the centre pane 400 px (drawn width only). The separator is a `div`
+   `role="separator"` with `tabIndex=0`, `aria-label` `Resize panel` (catalog `panel.resize`), `aria-orientation`
+   `vertical`, `aria-valuemin` 240, `aria-valuemax` 480, `aria-valuenow` = the drawn width, class `panel-resizer`,
+   placed as the panel's first child; pointer drag with pointer capture, ←/→ ±16, Home/End, double-click 288. The
+   stored width is written through `ui_state_set` when a drag ends or a key changes it (not on every move).
+4. **Unlinked mentions (D-635).** The section, its registry row (R3), its command id and the catalog key
+   `backlinks.unlinked` are removed.
+5. **Test layout.** L3 `crates/tegg-core/tests/ac_backlinks_chip_fields.rs` (FR-LNK-01 AC-24). L5
+   `app/webkit/panel_chips.ac.test.ts` (FR-LNK-01 AC-22, AC-23), `app/webkit/panel_resize.ac.test.ts` (FR-UX-02
+   AC-19…AC-21 L5 part). L6: FR-UX-02 AC-21's relaunch part in a new `app/e2e/ms6_panel.ac.test.ts`. The fixture vault
+   for AC-22/AC-24 is synthetic, written by the tests (as embeds FR-LNK-07 AC-9). AC-test changes per the feedback doc.
+6. **Settled while building (test-author points, no owner decision needed).** (a) AC-22's dates are the region's
+   short date as in FR-LNK-07 AC-9 (`Fri, Oct 23` in en-US; the AC's `Fri 23 Oct` is the board's en-GB look).
+   (b) The truncation case uses an extra task with a long title, as FR-LNK-07 AC-9's test. (c) A task set to Done
+   without `completed` shows only `Done` (D-599). (d) The panel tabs other than the selected one are not counted in
+   AC-23's order. (e) A task source's chip keeps `data-icon` = its type's icon on the chip and shows the D-600 box as
+   its icon (AC-17 for other sources). (f) In a narrow window the panel takes exactly the room that leaves 400 px.
+   (g) The focus ring is FR-UX-03 AC-10's (a 2 px outline, drawn inside the panel's edge). The panel chip's
+   `aria-label` is the title, so the suffix doesn't change its accessible name.

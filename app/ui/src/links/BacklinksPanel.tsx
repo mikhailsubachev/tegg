@@ -6,8 +6,8 @@ import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
 import type { BacklinkEntryDto, BacklinksPanelDto, OccurrenceDto, TypeDefDto } from '../ipc/types';
-import { Disabled } from '../shell/Disabled';
 import { Icon } from '../shell/Icon';
+import { chipParts } from './ChipParts';
 import { chipIcon } from './icons';
 import { orderBacklinks } from './order';
 
@@ -109,11 +109,14 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     const e = g.e;
     // FR-LNK-01 AC-17: the source type's icon; a type without a definition shows the generic type icon (D-121).
     const icon = g.g.defined ? chipIcon(e.type) : { glyph: 'type', def: 'type' };
+    // D-633: the D-600 states of a note's chip (Unreviewed, the task box and suffix); the name stays the title.
+    const parts = chipParts({ kind: 'note', type: e.type, review: e.review, status: e.status, due: e.due, completed: e.completed });
     return (
       <div key={`e:${e.source}`} data-source={e.source} className="backlink-entry">
         <a href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"
+          aria-label={e.title} aria-description={parts.description ?? undefined} title={e.title} {...parts.attrs}
           onClick={(ev) => { ev.preventDefault(); onOpen(e.source, null, e.readOnly); }}>
-          <Icon name={icon.glyph} dataIcon={icon.def} size={13} /><span data-user-content>{e.title}</span>
+          {parts.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}<span data-user-content>{e.title}</span>{parts.suffix}
         </a>
       </div>
     );
@@ -154,9 +157,6 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
         );
       })}
       {bottom > 0 && <div style={{ height: bottom }} aria-hidden="true" />}
-      <div className="unlinked">
-        <Disabled control="backlinks.unlinked" className="unlinked-header" />
-      </div>
     </div>
   );
 }
