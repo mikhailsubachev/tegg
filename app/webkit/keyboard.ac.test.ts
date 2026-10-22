@@ -110,7 +110,8 @@ async function checkEffect(page: Page, title: string, before: { main: string | n
       return (await seen(page.getByRole('main', { name: 'Choose a vault' }), 1500)) || (await seen(page.getByRole('form', { name: 'New vault' }), 300)) ? null : `${title}: no chooser`;
     case 'Open quick switcher': return (await seen(switcherDialog(page), 1500)) ? null : `${title}: no switcher`;
     // D-520: an unsaved draft with an empty title (the caret is checked in fr_nav_01_ac13 and fr_ux_03_ac1).
-    case 'New object': return (await seen(draftStatus(page), 1500)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
+    // 3 s as `isDraft`: ⌘N reaches the draft through several async steps (switcher, flush, prepareObject).
+    case 'New object': return (await seen(draftStatus(page), 3000)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
     case 'Toggle sidebar': return (await seen(sidebar(page), 800)) !== before.sidebar ? null : `${title}: sidebar unchanged`;
     case 'Toggle right panel': return (await seen(panel(page), 800)) !== before.panel ? null : `${title}: panel unchanged`;
     case 'Toggle focus mode': return (await absent(sidebar(page), 800)) ? null : `${title}: sidebar still shown`;
