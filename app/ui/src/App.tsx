@@ -694,7 +694,8 @@ export function App() {
         else if ((isNote || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
-        else h!.focus({ preventScroll: true });
+        // A page that already put the focus on one of its items (the Inbox card one came back to, D-457) keeps it.
+        else if (!(document.activeElement && document.activeElement !== h && document.querySelector('main')?.contains(document.activeElement) && document.activeElement.closest('[data-path]'))) h!.focus({ preventScroll: true });
       }
       if (pendingScroll.current !== null && route.id !== 'note/<path>' && route.id !== DAILY) {
         const m = document.querySelector('main');

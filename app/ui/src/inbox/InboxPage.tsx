@@ -25,6 +25,8 @@ const nfc = (s: string) => s.normalize('NFC');
 
 /** The card to focus when the user comes back from an opened item (D-457 rule). */
 let returnTo: string | null = null;
+/** The rows last shown, so coming back draws the cards (and focuses one) before the fresh query returns. */
+let lastRows: InboxRowDto[] | null = null;
 
 type Alert = { id: number; text: string; retry?: () => void };
 type Menu = { path: string; convert: boolean } | null;
@@ -43,7 +45,7 @@ export type InboxProps = {
 };
 
 export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime, nav, commandRef }: InboxProps) {
-  const [rows, setRows] = useState<InboxRowDto[] | null>(null);
+  const [rows, setRows] = useState<InboxRowDto[] | null>(() => (returnTo ? lastRows : null));
   const [kept, setKept] = useState<Map<string, InboxRowDto>>(new Map());
   const [selection, setSelection] = useState<string[]>([]);
   const [menu, setMenu] = useState<Menu>(null);
@@ -63,7 +65,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
 
   const load = useCallback(async () => {
     const r = await ipc.inboxList().catch(() => null);
-    if (r) setRows(r);
+    if (r) { lastRows = r; setRows(r); }
   }, []);
   useEffect(() => { void load(); }, [refresh, load]);
 
@@ -164,11 +166,13 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   const focusCard = (p: string | null) => { if (p) requestAnimationFrame(() => focusPath(p)); };
 
   // Focus the card the user came back to (FR-INB-01 AC-6).
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!rows || !returnTo) return;
     const p = returnTo;
     returnTo = null;
-    requestAnimationFrame(() => focusPath(p));
+    focusPath(p);
+    // Again after the app's own post-navigation focus (the heading) has run.
+    requestAnimationFrame(() => { if (!document.activeElement?.closest('[data-path]')) focusPath(p); setTimeout(() => { if (!document.activeElement?.closest('[data-path]')) focusPath(p); }, 120); });
   }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (r: InboxRowDto) => {
