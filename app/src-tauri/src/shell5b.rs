@@ -405,15 +405,18 @@ pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#
     if test_var("TEGG_TEST_FAIL_CAPTURE").as_deref() == Some("io") && !FAILED_ONCE.swap(true, Ordering::SeqCst) {
         return Err(err("Io", "test: the capture write failed"));
     }
-    // ms6-trash-media §5 (D-620): the staged files first (pairs, create-exclusive), then the note embedding them.
+    // ms6-trash-media §5 (D-620): the staged files first (pairs, create-exclusive), then the note embedding them. An
+    // empty title is a capture without one: its media get `Capture <date> <n>` titles, the note `Untitled`.
     let mut text = text;
+    let untitled = title.trim().is_empty();
+    let title = if untitled { "Untitled".to_string() } else { title };
     let media = media.unwrap_or_default();
     if !media.is_empty() {
         let key = tegg_format::type_key(&r#type);
         let folder = core.type_get(&key).map(|t| t.folder).unwrap_or_default();
         let owner = format!("{folder}/{}.md", tegg_format::sanitize_file_stem(title.trim()));
         let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-        let embeds = crate::shell6a::write_staged(&core, &media, &owner, title.trim(), &date)?;
+        let embeds = crate::shell6a::write_staged(&core, &media, &owner, if untitled { "" } else { title.trim() }, &date)?;
         let body: String = embeds.iter().map(|e| format!("![[{e}]]\n")).collect::<Vec<_>>().join("\n");
         if !text.ends_with('\n') {
             text.push('\n');

@@ -9,7 +9,7 @@ export function mediaUrl(path: string): string {
   return base + enc(path);
 }
 
-/** §5: a capture staging token's URL (the capture window only). */
+/** §5: a capture staging token's thumbnail URL (served to the capture window only). */
 export function stagedUrl(token: string): string {
   return mediaUrl(`stage/${token}`);
 }

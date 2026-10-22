@@ -318,7 +318,7 @@ export function Embed(props: EmbedProps): ReactNode {
     const title = node.target.title ?? node.target.target;
     const from = node.target.path ?? '';
     return (
-      <section {...base} className="embed embed-trashed" aria-label={title} data-embed-state="trashed" data-embed-target={from}>
+      <section {...base} className="embed embed-trashed" data-embed-state="trashed" data-embed-target={from}>
         <p className="embed-trashed-text">
           {t('trash.placeholder', { title })}{' '}
           <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button>

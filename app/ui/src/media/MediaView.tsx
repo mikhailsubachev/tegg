@@ -15,7 +15,7 @@ export function MediaView({ target, info, onOpen }: { target: string; info: Medi
   if (info?.kind === 'trashed') {
     const title = info.title ?? name;
     return (
-      <section className="embed embed-trashed" aria-label={title} data-embed-state="trashed" data-embed-target={info.path ?? ''}>
+      <section className="embed embed-trashed" data-embed-state="trashed" data-embed-target={info.path ?? ''}>
         <p className="embed-trashed-text">
           {t('trash.placeholder', { title })}{' '}
           <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (info.path) void ipc.trashRestore(info.path).catch(() => {}); }}>{t('cmd.trashRestore')}</button>
@@ -23,19 +23,23 @@ export function MediaView({ target, info, onOpen }: { target: string; info: Medi
       </section>
     );
   }
-  if (!info || info.kind !== 'media' || !info.path) {
+  const path = info?.kind === 'media' && info.path ? info.path : null;
+  // D-626: a file of another type is a card with its name and `Reveal in Finder`, found or not.
+  if (!isImageFile(target) && !isPdfFile(target) && (!path || (info?.type !== 'image' && info?.type !== 'pdf'))) {
+    const at = path ?? target;
+    return (
+      <div className="media-file-card" data-media-path={at.normalize('NFC')}>
+        <Icon name="file" size={18} />
+        <span className="media-file-name" data-user-content>{name}</span>
+        <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); void ipc.mediaReveal(at).catch(() => {}); }}>{t('media.reveal')}</button>
+      </div>
+    );
+  }
+  if (!path || !info) {
     return <p className="media-missing" data-embed-state="broken">{t('media.missing', { name })}</p>;
   }
-  const path = info.path;
   const object = info.object ?? null;
   const title = info.title ?? name;
   if (info.type === 'image' || (!info.type && isImageFile(path))) return <MediaFigure path={path} title={title} object={object} onOpen={onOpen} />;
-  if (info.type === 'pdf' || isPdfFile(path)) return <PdfCard path={path} title={title} object={object} onOpen={onOpen} />;
-  return (
-    <div className="media-file-card" data-media-path={path.normalize('NFC')}>
-      <Icon name="file" size={18} />
-      <span className="media-file-name" data-user-content>{name}</span>
-      <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); void ipc.mediaReveal(path).catch(() => {}); }}>{t('media.reveal')}</button>
-    </div>
-  );
+  return <PdfCard path={path} title={title} object={object} onOpen={onOpen} />;
 }

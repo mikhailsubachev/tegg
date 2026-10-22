@@ -128,7 +128,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
           <p className="muted trash-summary">{t('trash.summary', { count: entries.length })}</p>
         </div>
         {entries.length > 0 && (
-          <button type="button" tabIndex={0} className="trash-empty" onClick={() => setAsk({ kind: 'empty', count: entries.length })}>{t('trash.empty')}</button>
+          <button type="button" tabIndex={0} data-command="trash.empty" className="trash-empty" onClick={() => setAsk({ kind: 'empty', count: entries.length })}>{t('trash.empty')}</button>
         )}
       </div>
       <ul ref={list} role="list" aria-label={t('trash.list')} className="trash-list">
@@ -139,7 +139,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
               <Icon name={row.kind === 'folder' ? 'folder' : row.kind === 'file' ? 'file' : typeIconName(row.type ?? 'page')} size={16} />
             </span>
             <span className="trash-main">
-              <button type="button" tabIndex={0} className="trash-title link-button" onClick={() => open(row)} data-user-content>{row.title}</button>
+              <button type="button" tabIndex={0} data-command="trash.open" className="trash-title link-button" onClick={() => open(row)} data-user-content>{row.title}</button>
               <span className="trash-meta muted">
                 <span data-user-content>{row.folder}</span>
                 {row.kind === 'folder' && <> · <span>{t('trash.folder', { count: row.count })}</span></>}
@@ -147,10 +147,10 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
                 <span>{t('trash.deleted', { date: deletedAt(row.trashedAt) })}</span>
               </span>
             </span>
-            <button type="button" tabIndex={0} className="trash-restore" aria-label={t('trash.restore', { title: row.title })} onClick={() => void restore(row)}>
+            <button type="button" tabIndex={0} data-command="trash.restore" className="trash-restore" aria-label={t('trash.restore', { title: row.title })} onClick={() => void restore(row)}>
               <Icon name="restore" size={14} />
             </button>
-            <button type="button" tabIndex={0} className="trash-delete" aria-label={t('trash.delete', { title: row.title })}
+            <button type="button" tabIndex={0} data-command="trash.delete" className="trash-delete" aria-label={t('trash.delete', { title: row.title })}
               onClick={() => { returnTo.current = row.path; setAsk({ kind: 'delete', row }); }}>
               <Icon name="trash" size={14} />
             </button>
@@ -166,13 +166,13 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
             <h2>{t(ask.kind === 'delete' ? 'trash.deleteConfirmTitle' : 'trash.emptyConfirmTitle')}</h2>
             <p>{ask.kind === 'delete' ? t('trash.deleteConfirm', { title: ask.row.title }) : t('trash.emptyConfirm', { count: ask.count })}</p>
             <div className="dialog-buttons">
-              <button type="button" className="danger" onClick={() => {
+              <button type="button" className="danger" data-command="trash.confirm" onClick={() => {
                 const a = ask;
                 setAsk(null);
                 if (a.kind === 'delete') void remove(a.row);
                 else void empty();
               }}>{t(ask.kind === 'delete' ? 'trash.deleteOk' : 'trash.emptyOk')}</button>
-              <button type="button" autoFocus onClick={closeAsk}>{t('trash.dialogCancel')}</button>
+              <button type="button" autoFocus data-command="trash.cancel" onClick={closeAsk}>{t('trash.dialogCancel')}</button>
             </div>
           </div>
         </div>

@@ -2,6 +2,10 @@
 // FR-TSK-10 AC-9…AC-12; D-539…D-546): Type, vault, Discard, the text, Due and Priority for a Task, tags, the drop zone
 // (MS6), Save and the status. ⌘↩ saves from any control, ⏎ is a new line (D-69); Esc hides and keeps a draft (D-542).
 // The bytes come from `@tegg/doc` `newObject` (D-552); the only write is `capture_create`.
+import { listen } from '@tauri-apps/api/event';
+import { pastedImageName } from '@tegg/doc';
+import type { StagedMediaDto, StagedMediaResultDto } from '../ipc/types';
+import { stagedUrl } from '../ipc/media';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { captureParts, newObject, tagKey, type Value } from '@tegg/doc';
 import { parseDate as parseRegionDate } from '@tegg/schema';
@@ -17,7 +21,8 @@ import { DueCalendar } from './DueCalendar';
 import { insertion, SuggestList, triggerAt, useSuggestions, type Row } from './suggest';
 import { dueLabelOf, ulid } from './util';
 
-type Status = { kind: 'nothing' } | { kind: 'failed' } | { kind: 'vaultGone'; vault: string } | { kind: 'media' } | null;
+type Status = { kind: 'nothing' } | { kind: 'failed' } | { kind: 'vaultGone'; vault: string } | null;
+const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic', 'image/svg+xml': 'svg' };
 
 const FIRST = ['page', 'task', 'quick-note'];
 
@@ -97,7 +102,12 @@ export function CaptureApp() {
   const shown = useRef(false);
   const cancelDraftStore = () => { if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; } };
 
+  const [staged, setStaged] = useState<StagedMediaDto[]>([]);
+  const stagedRef = useRef<StagedMediaDto[]>([]);
+  stagedRef.current = staged;
+  const [refused, setRefused] = useState<string[]>([]);
   const reset = (c: CaptureContextDto | null) => {
+    setRefused([]);
     draftArmed.current = false;
     cancelDraftStore();
     setText('');
@@ -162,7 +172,12 @@ export function CaptureApp() {
     return () => ro.disconnect();
   }, []);
 
-  // A dropped file is prevented (D-545): images and PDFs come with MS6.
+  // 6A (D-620): files dropped from Finder come through Tauri's window drag-drop event and are staged.
+  useEffect(() => {
+    const un = listen<{ paths: string[] }>('tauri://drag-drop', (e) => { if (e.payload?.paths?.length) void stagePaths(e.payload.paths); });
+    return () => void un.then((f) => f());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The webview's own file drop is prevented (the event above carries the paths).
   useEffect(() => {
     const stop = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files') || (e.dataTransfer?.files.length ?? 0) > 0) e.preventDefault(); };
     const drop = (e: DragEvent) => e.preventDefault();
@@ -257,7 +272,7 @@ export function CaptureApp() {
   const save = async () => {
     if (saving.current || !vault) return;
     const s = state.current;
-    if (s.text.trim() === '') { setStatus({ kind: 'nothing' }); return; }
+    if (s.text.trim() === '' && stagedRef.current.length === 0) { setStatus({ kind: 'nothing' }); return; }
     const def = types.find((x) => x.key === s.type);
     if (!def) return;
     saving.current = true;
@@ -287,7 +302,9 @@ export function CaptureApp() {
         body: parts.body,
       });
       const vaultId = shownVault.current?.id ?? vault.id;
-      const made = await captureIpc.create(vaultId, def.key, title, bytes);
+      // 6A (D-620): the staged files are written first by the shell; `''` tells it the capture has no title.
+      const made = await captureIpc.create(vaultId, def.key, parts.title === '' && stagedRef.current.length ? '' : title, bytes, stagedRef.current.map((m) => m.token));
+      setStaged([]);
       draftArmed.current = false;
       cancelDraftStore();
       await captureIpc.draftSet(null).catch(() => {});
@@ -322,16 +339,31 @@ export function CaptureApp() {
     return () => window.removeEventListener('keydown', h);
   }, []);
 
+  // 6A (FR-CAP-01 AC-12, D-620): a pasted image or PDF is staged (a pasted image is `Pasted image <local time>`).
   const onPaste = (e: React.ClipboardEvent) => {
-    const files = [...(e.clipboardData?.items ?? [])].some((i) => i.kind === 'file');
-    if (files) {
+    const files = [...(e.clipboardData?.files ?? [])];
+    if (files.length) {
       e.preventDefault();
-      setStatus({ kind: 'media' });
+      void (async () => {
+        for (const f of files) {
+          const bytes = new Uint8Array(await f.arrayBuffer());
+          const name = f.type.startsWith('image/') ? pastedImageName(localIso(Date.now()).slice(0, 19), EXT[f.type] ?? 'png') : f.name;
+          took(await captureIpc.mediaBytes(bytes, name).catch(() => [{ error: 'Io', name: f.name }] as StagedMediaResultDto[]));
+        }
+      })();
     }
   };
+  const took = (r: StagedMediaResultDto[]) => {
+    const ok = r.flatMap((x) => ('ok' in x ? [x.ok] : []));
+    const bad = r.flatMap((x) => ('error' in x ? [x.name] : []));
+    if (ok.length) setStaged((l) => [...l, ...ok]);
+    setRefused(bad);
+  };
+  const stagePaths = async (paths: string[]) => took(await captureIpc.mediaPaths(paths).catch(() => paths.map((p) => ({ error: 'Io', name: p.split('/').pop() ?? p }))));
+  const pickFiles = async () => took(await captureIpc.mediaPick().catch(() => [] as StagedMediaResultDto[]));
 
   const statusText = status?.kind === 'nothing' ? t('capture.nothing') : status?.kind === 'failed' ? t('capture.failed')
-    : status?.kind === 'vaultGone' ? t('capture.vaultGone', { vault: status.vault }) : status?.kind === 'media' ? t('capture.mediaLater') : '';
+    : status?.kind === 'vaultGone' ? t('capture.vaultGone', { vault: status.vault }) : '';
 
   /** After a menu closes, the next frame returns focus to `to`, unless the user has already focused something else
    *  (the closed menu leaves focus on the body). */
@@ -494,10 +526,19 @@ export function CaptureApp() {
       )}
       <TagField chips={chips} onChange={setChips} tags={ctx?.tags ?? []} />
       <div className="capture-drop-row">
-        <button type="button" tabIndex={0} className="capture-drop" aria-disabled="true" aria-label={t('capture.drop')} aria-description={t('due.coming', { milestone: 'MS6' })} title={t('due.coming', { milestone: 'MS6' })}>
+        {staged.map((m) => (
+          <span key={m.token} className="capture-thumb" data-user-content>
+            {m.mediaType.startsWith('image/') ? <img src={stagedUrl(m.token)} alt={m.name} /> : <Icon name="pdf" size={16} />}
+            <span className="capture-thumb-name">{m.name}</span>
+            <button type="button" tabIndex={0} className="icon-button small" aria-label={t('capture.removeMedia', { name: m.name })}
+              onClick={() => setStaged((l) => l.filter((x) => x.token !== m.token))}><Icon name="x" size={10} /></button>
+          </span>
+        ))}
+        <button type="button" tabIndex={0} className="capture-drop" aria-label={t('capture.drop')} onClick={() => void pickFiles()}>
           <Icon name="upload" size={14} /><span>{t('capture.drop')}</span>
         </button>
       </div>
+      {refused.map((n) => <p key={n} className="capture-refused" role="status">{t('media.refused', { name: n })}</p>)}
       <div className="capture-foot">
         <span className="muted capture-hint">{typeDef && typeDef.review === 'off' ? t('capture.hintSaves', { plural: pluralOf(typeDef) }) : t('capture.hint')}</span>
         <span className="muted">{t('capture.newLine')}</span>

@@ -25,7 +25,7 @@ import { createHistory } from './shell/history';
 import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
 import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
-import { parseRoute, routeString, type Route } from './shell/routes';
+import { parseRoute, routeString, type Route, sameRoute } from './shell/routes';
 import { createdMarker, settleCreated } from './shell/created';
 import { typeEntries } from './shell/types';
 import { Switcher } from './Switcher';
@@ -889,7 +889,8 @@ export function App() {
           <Sidebar
             route={route ?? { id: 'inbox' }}
             types={typeEntries(types, counts).filter((e) => e.key !== 'task') /* D-516: the Tasks entry covers it */}
-            onGo={go}
+            // A click on the entry of the page shown moves the focus to its heading, as a navigation would (FR-UX-03 AC-11).
+            onGo={(r) => { if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
             onNewType={() => actions.newType?.()}

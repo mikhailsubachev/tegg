@@ -188,7 +188,7 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('codeBlock', 'blocks', ['FR-EDT-02']),
   slash('divider', 'blocks', ['FR-EDT-02']),
   slash('table', 'blocks', ['FR-EDT-02']),
-  slash('image', 'media', ['FR-ATT-01']), // built in 6A (R75)
+  slash('image', 'media', ['FR-ATT-01', 'FR-ATT-03']), // built in 6A (R75)
   slash('pdf', 'media', ['FR-ATT-02']),
   slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
   slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06'], d('v1.0')),
