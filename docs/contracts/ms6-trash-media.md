@@ -227,3 +227,24 @@ R78's keys in `app/ui/src/i18n/catalog.ts`; `trash.nothing` `Nothing to delete y
 5. **Raw IPC bodies for bytes** (Tauri 2 `InvokeBody::Raw`) keep a 10-MB paste within AC-16's 1 s; JSON arrays would be ~4× larger and slow.
 6. **One scheme for main and capture** with the staging path limited to the capture webview, so the capture window still reads nothing from the vault (D-553).
 7. **The trash table in the index** is rebuilt from the file system like everything else (AR-01) and exists only to make §2's `Trashed` resolution as fast as live resolution (NFR-PERF-05 AC-3 unchanged).
+
+## 11. Clarifications from the red tests (2026-10-22)
+
+The test-author's points AP-544…AP-560. AP-544, AP-546, AP-547 and AP-559 were decided by the owner (D-624…D-627); AP-545 was fixed in trash-media.md (requirement IDs in every heading). The rest are interface details settled here (no owner decision needed):
+
+| AP | Settled |
+| --- | --- |
+| AP-544 → D-624 | Tests changed: `crates/tegg-core/tests/ac_read_view.rs` (two cases), `ac_backlinks.rs` (the `smazaná` broken group), `app/test/read_view.ac.test.ts`, `app/webkit/broken_links.ac.test.ts` (two cases), `embeds.ac.test.ts`, `embeds_style.ac.test.ts`. The fake core's `trashedLinks` becomes the default. |
+| AP-547 → D-626 | `ph.embedImage`, `ph.embedPdf` and their registry rows go; `embed-other` is a built card. |
+| AP-548 | The scheme is tested through `tegg_app_lib::media_scheme_probe(root, method, uri, label, range) -> MediaResponse` (as `acl_probe`); a PDF `Range` request answers `206`. |
+| AP-549 | §1.5's `readOnly` reason doesn't exist on `NoteDto`: the UI treats a `note/.trash/…` route as read-only by its path; the core refuses writes under `.trash/` with `Invalid`. No DTO change. |
+| AP-550 | Fake core: `moves()` and `systemTrash()` record renames and removals (renames are not in `writesTo()`); `paste(page, { files, text })`; `FakeVault.bin` holds binary files. |
+| AP-551 | §9.3's `trash_order.ac.test.ts` is `app/test/fake_trash.contract.test.ts` (a contract test of the fake, D-512 pattern; not an AC test). |
+| AP-552 | No obsidian-check harness exists; `ac_media_obsidian.rs` states Obsidian's shortest-path rule itself. |
+| AP-553 | Signatures: Rust `media_names(exists: &dyn Fn(&str) -> bool, req: &NameRequest) -> MediaNames` with `NameRequest { name, info, owner_title, date, attachments, folder }`, `media_object(&MediaObjectFields) -> String`; TS `mediaNames`, `mediaObject`, `mediaInfo`, `isGenericName`, `pastedImageName`. |
+| AP-554 | 200 MB = 200 × 1024 × 1024 bytes (209,715,200); larger is refused. |
+| AP-555 | The whole file name, extension included, is ≤ 200 UTF-8 bytes (the stem is shortened). |
+| AP-556 | Sanitizing changes paths only: `Plán: jaro?.png` gives `_attachments/Plán jaro.png`, `Images/Plán jaro.md`, title `Plán: jaro?`. |
+| AP-557 | A refused paste names the clipboard file's name, else `Pasted image`. |
+| AP-558 | The capture ACL test is the new `app/src-tauri/tests/ac_media_acl.rs`; `ac_capture_acl.rs` is unchanged. |
+| AP-560 | Sizes: below 1,000 bytes `<n> bytes` (plural forms), else `Intl.NumberFormat` with `kilobyte` / `megabyte` units, base 1,000 (as Finder), one decimal: `1.2 KB`. The PDF card reads `2 pages · 844 bytes`. |
