@@ -628,6 +628,7 @@ impl Inner {
                     files: paths.len(),
                     links: 0,
                 },
+                warnings: Vec::new(),
             },
             JobOp::Inbox { paths, change } => self.plan_inbox(id, run, paths, change),
             _ => return Err("NotImplemented".into()),
@@ -692,7 +693,7 @@ impl Inner {
             }
         }
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 } }
+        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
     }
 
     // -------------------------------------------------------------------------------------------- note rename
@@ -719,6 +720,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts::default(),
+            warnings: Vec::new(),
         };
         let from_title = from_title
             .map(|t| nfc(t.trim()))
@@ -783,6 +785,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts { files: n, links: 0 },
+            warnings: Vec::new(),
         })
     }
 
@@ -1048,6 +1051,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts { files: n, links: 0 },
+            warnings: Vec::new(),
         })
     }
 

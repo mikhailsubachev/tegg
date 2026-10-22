@@ -1053,3 +1053,8 @@ pub mod media6a;
 pub use media6a::{media_info, media_names, media_object, MediaAdd, MediaAdded, MediaInfo, MediaNames, MediaObjectFields, NameRequest, OwnerRef};
 pub use tegg_vault::SystemTrash;
 pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};
+
+// ------------------------------------------------------------------------------------------------ slice 4D-lite
+// docs/contracts/ms4-tags.md §1: tags in the index (`tags4d.rs`).
+mod tags4d;
+pub use tags4d::{TagFileRef, TagObjectRow, TagRow, TagUsage};

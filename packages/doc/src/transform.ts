@@ -18,6 +18,11 @@ export type TextOp =
   | { op: 'append-link'; target: string; now: string }
   // D-573: a bulk `Link to…`; each file gets the D-184 text of `toPath` from its own folder (D-291 over `paths`).
   | { op: 'append-link-to'; toPath: string; toTitle: string; paths: string[]; now: string }
+  // Slice 4D-lite (ms4-tags §4.2): tag jobs, merge and restore through an open editor.
+  | { op: 'rename-tag'; key: string; to: string }
+  | { op: 'remove-tag'; key: string }
+  | { op: 'merge-into'; others: { path: string; title: string; text: string }[]; now: string }
+  | { op: 'replace'; text: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -25,6 +30,8 @@ type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
+  // 4D-lite stub (ms4-tags §4.2): the tag, merge and replace ops change nothing until the slice is built (TS-I1).
+  if (ops.some((o) => o.op === 'rename-tag' || o.op === 'remove-tag' || o.op === 'merge-into' || o.op === 'replace')) return { kind: 'unchanged' }
   // 5B Inbox ops (ms5-capture §7.3) are whole-text changes of `applyInboxChange`; the edit is the changed span.
   if (ops.length > 0 && ops.every((o) => o.op === 'set-review' || o.op === 'set-type' || o.op === 'add-tags' || o.op === 'append-link' || o.op === 'append-link-to')) {
     let out = text

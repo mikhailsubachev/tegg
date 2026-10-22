@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tag-new-path"
+description = "Enables the tag_new_path command without any pre-configured scope."
+commands.allow = ["tag_new_path"]
+
+[[permission]]
+identifier = "deny-tag-new-path"
+description = "Denies the tag_new_path command without any pre-configured scope."
+commands.deny = ["tag_new_path"]

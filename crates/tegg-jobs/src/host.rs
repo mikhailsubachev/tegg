@@ -74,4 +74,31 @@ pub trait Host: Send + Sync {
     fn local_read(&self, path: &Path) -> Option<Vec<u8>>;
     fn local_remove(&self, path: &Path);
     fn local_list(&self, dir: &Path) -> Vec<PathBuf>;
+
+    // -------------------------------------------------------------------------------- 4D-lite (ms4-tags §4.3)
+    // Default bodies are the 4D-lite stubs (TS-I1): nothing is found, every write is refused.
+
+    /// `_templates/**/*.md` (tag jobs rewrite templates, D-660).
+    fn template_paths(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// ms6-trash-media §1.4: renames `path` into `.trash/` if it is still `base`; returns the new path.
+    fn trash(&self, path: &str, base: &FileVersion) -> Result<String, WriteError> {
+        let _ = (path, base);
+        Err(WriteError::Io("4D-lite stub: Host::trash".into()))
+    }
+    /// Restore (§5.3): moves `trashed` back to `to`; `NameTaken` when `to` exists.
+    fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
+        let _ = (trashed, to);
+        Err(WriteError::Io("4D-lite stub: Host::untrash".into()))
+    }
+    /// Create-exclusive (restore of a file the job renamed away).
+    fn create(&self, path: &str, bytes: &[u8]) -> Result<FileVersion, WriteError> {
+        let _ = (path, bytes);
+        Err(WriteError::Io("4D-lite stub: Host::create".into()))
+    }
+    /// The Tag type's folder (D-665).
+    fn tag_folder(&self) -> String {
+        String::new()
+    }
 }

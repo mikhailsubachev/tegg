@@ -421,4 +421,19 @@ export type StagedMediaDto = { token: string, name: string, mediaType: string,
  */
 size: number, width: number | null, height: number | null, pages: number | null, };
 export type StagedMediaResultDto = { ok: StagedMediaDto, } | { error: string, name: string, };
+export type TagFileDto = { path: string, version: VersionDto, };
+export type TagRowDto = { key: string, name: string, file: TagFileDto | null, losers: Array<string>, color: string | null, colorRaw: string | null, count: number, lastUsed: string | null, 
+/**
+ * i128 as a decimal string.
+ */
+lastUsedNs: string | null, };
+export type TagObjectRowDto = { path: string, id: string | null, title: string, type: string, modified: string | null, modifiedNs: string | null, tags: Array<string>, review: string | null, status: string | null, due: string | null, completed: string | null, };
+export type TagUsageDto = { notes: number, templates: number, file: string | null, losers: Array<string>, };
+export type TagNewPathDto = { path: string, };
+export type CaptureTagDto = { name: string, color: string | null, };
+export type JobStartDto = { jobId: number | null, };
+export type RenamePairDto = { from: string, to: string, };
+export type PlanWarningDto = { kind: string, path: string, };
+export type MergeConflictDto = { key: string, kept: string, others: Array<string>, };
+export type JobPlanDto = { jobId: number, kind: string, files: number, templates: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
 export type TypeDefDto = TypeDto;

@@ -115,3 +115,41 @@ pub fn extract(bytes: &[u8], stem: &str) -> Extracted {
 pub fn type_key(name: &str) -> String {
     nfc(name).split_whitespace().collect::<Vec<_>>().join("-").to_lowercase()
 }
+
+// ------------------------------------------------------------------------------------------------ slice 4D-lite
+// docs/contracts/ms4-tags.md §2: the Rust twin of `@tegg/doc` `tagName` (shared table
+// tests/fixtures/format/tags/names.json).
+
+/// A valid tag name: `name` as written (NFC, one leading `#` dropped), `key` = its `tag_key`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagName {
+    pub name: String,
+    pub key: String,
+}
+
+/// Why a name isn't a tag (D-642, D-658); `Char` names the first refused character.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TagNameError {
+    Empty,
+    Space,
+    Digits,
+    Char(char),
+}
+
+impl TagNameError {
+    /// `empty`, `space`, `digits` or `char` (the `error` of the TS twin and of `JobError::InvalidName`).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TagNameError::Empty => "empty",
+            TagNameError::Space => "space",
+            TagNameError::Digits => "digits",
+            TagNameError::Char(_) => "char",
+        }
+    }
+}
+
+/// D-642, D-658: drops one leading `#`; NFC; then dialect §5 tag text. 4D-lite stub: refuses every name (TS-I1).
+pub fn tag_name(input: &str) -> Result<TagName, TagNameError> {
+    let _ = input;
+    Err(TagNameError::Empty)
+}

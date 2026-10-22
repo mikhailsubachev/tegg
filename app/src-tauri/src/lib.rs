@@ -9,6 +9,7 @@ mod strings;
 
 pub use shell5b::{acl_probe, AclProbe};
 pub use shell6a::{media_scheme_probe, MediaResponse};
+mod shell4d;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -967,6 +968,8 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::NotFound => err("NotFound", "no such job"),
         JobError::NotImplemented => err("NotImplemented", "not available"),
         JobError::BackupFailed(m) => err("BackupFailed", m),
+        JobError::InvalidName { error, .. } => err("InvalidName", error), // 4D-lite stub (ms4-tags §4.4)
+        JobError::TagExists { name } => err("TagExists", name),
         JobError::Core(m) => err("Io", m),
     }
 }
@@ -1651,7 +1654,9 @@ pub fn run() {
             shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions,
             shell6a::trash_list, shell6a::object_trash, shell6a::trash_restore, shell6a::trash_delete, shell6a::trash_empty,
             shell6a::media_add, shell6a::media_add_paths, shell6a::media_pick, shell6a::media_open, shell6a::media_reveal,
-            shell6a::capture_media_add
+            shell6a::capture_media_add,
+            shell4d::tag_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
+            shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal
         ])
         .build(context())
         .expect("error while building Tegg")

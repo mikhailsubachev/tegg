@@ -1199,6 +1199,116 @@ pub enum StagedMediaResultDto {
     Err { error: String, name: String },
 }
 
+// ---------------------------------------------------------------- slice 4D-lite (ms4-tags §3, §4.4)
+
+/// The winning Tag file of a tag (§1.2).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagFileDto {
+    pub path: String,
+    pub version: VersionDto,
+}
+
+/// One tag (§1.2; `index_tags` returns these once 4D-lite is built).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TagRowDto {
+    pub key: String,
+    pub name: String,
+    pub file: Option<TagFileDto>,
+    pub losers: Vec<String>,
+    pub color: Option<String>,
+    pub color_raw: Option<String>,
+    pub count: u32,
+    pub last_used: Option<String>,
+    /// i128 as a decimal string.
+    pub last_used_ns: Option<String>,
+}
+
+/// One object of a tag page (§1.3).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TagObjectRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub r#type: String,
+    pub modified: Option<String>,
+    pub modified_ns: Option<String>,
+    pub tags: Vec<String>,
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
+}
+
+/// §1.4.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagUsageDto {
+    pub notes: u32,
+    pub templates: u32,
+    pub file: Option<String>,
+    pub losers: Vec<String>,
+}
+
+/// `tag_new_path`.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagNewPathDto {
+    pub path: String,
+}
+
+/// `capture_context` tags once 4D-lite is built (D-655): name and colour only.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct CaptureTagDto {
+    pub name: String,
+    pub color: Option<String>,
+}
+
+/// `tag_rename`, `tag_delete`, `merge_start`: `null` when no job starts (FR-TAG-04 AC-5).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobStartDto {
+    pub job_id: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RenamePairDto {
+    pub from: String,
+    pub to: String,
+}
+
+/// `{ kind: 'duplicateTagFile', path }` (D-664).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct PlanWarningDto {
+    pub kind: String,
+    pub path: String,
+}
+
+/// A merge conflict: the kept value and the others' values (D-673).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct MergeConflictDto {
+    pub key: String,
+    pub kept: String,
+    pub others: Vec<String>,
+}
+
+/// `job_plan` (§4.4): the plan once the job is in `confirm`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobPlanDto {
+    pub job_id: u32,
+    pub kind: String,
+    pub files: u32,
+    pub templates: u32,
+    pub renames: Vec<RenamePairDto>,
+    pub trashes: Vec<String>,
+    pub warnings: Vec<PlanWarningDto>,
+    pub conflicts: Vec<MergeConflictDto>,
+}
+
 /// The generated `types.ts`, in a fixed order.
 pub fn typescript() -> String {
     let decls = [
@@ -1298,6 +1408,17 @@ pub fn typescript() -> String {
         MediaAddResultDto::decl(),
         StagedMediaDto::decl(),
         StagedMediaResultDto::decl(),
+        TagFileDto::decl(),
+        TagRowDto::decl(),
+        TagObjectRowDto::decl(),
+        TagUsageDto::decl(),
+        TagNewPathDto::decl(),
+        CaptureTagDto::decl(),
+        JobStartDto::decl(),
+        RenamePairDto::decl(),
+        PlanWarningDto::decl(),
+        MergeConflictDto::decl(),
+        JobPlanDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

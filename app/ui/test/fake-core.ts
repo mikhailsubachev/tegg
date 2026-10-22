@@ -13,6 +13,7 @@ import { handle as handleInbox } from './fake-inbox';
 import { handle as handleSettings } from './fake-settings';
 import { handle as handleTrash } from './fake-trash';
 import { handle as handleMedia, sniff } from './fake-media';
+import { handle as handleTags } from './fake-tags';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -36,7 +37,16 @@ export type UiStateDto = {
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
 export type ShellSettingsDto = { showStatusItem: boolean; openAtLogin: boolean };
 export type CaptureDraftDto = { text: string; type: string; tags: string[]; due: string | null; priority: string | null; savedAt: string };
-export type BackupDto = { name: string; kind: string; time: string };
+/** 4D-lite (ms4-tags §5.2): `label` and `files` are listed; the fake keeps the manifest and the entries in memory. */
+export type BackupDto = { name: string; kind: string; time: string; label?: { key: string; args: Record<string, string | number> }; files?: number };
+/** ms4-tags §5.1. */
+export type BackupManifest = {
+  version: 1; kind: string; label: { key: string; args: Record<string, string | number> }; vault: string; time: string; job: number;
+  planned: { renames: [string, string][]; creates: string[]; trashes: string[] };
+  done: { renames: [string, string, string][]; creates: [string, string][]; trashes: [string, string][]; written: [string, string][] } | null;
+};
+/** One zip of the fake (ms4-tags §8.1): listed fields, the manifest (`null` for zips without one) and the entries. */
+export type BackupRecord = BackupDto & { manifest: BackupManifest | null; entries: Record<string, string> };
 /** ms3-shell §13.2 (3C). */
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
 export type ConflictRowDto = {
@@ -91,8 +101,11 @@ export type FakeCoreHandle = {
   reveals(): Promise<string[]>;
   /** The capture draft in Application Support (`capture_draft_set`), or null. */
   draft(): Promise<CaptureDraftDto | null>;
-  /** Backup zips the fake made (bulk convert), as `backups_list` lists them. */
-  backups(): Promise<BackupDto[]>;
+  /** Backup zips the fake made (bulk convert, 4D-lite jobs, restores) and the seeded ones, newest last, with their
+   *  manifest and entries (ms4-tags §8.1). */
+  backups(): Promise<BackupRecord[]>;
+  /** 4D-lite (ms4-tags §8.1): the next backup zips fail (`BackupFailed`, as a read-only Application Support). */
+  failBackups(on: boolean): Promise<void>;
   /** Switches the open vault as another window would (D-219); `null` closes it. The capture page gets
    *  `capture:context-changed` and a new vault id. */
   setVault(v: FakeVault | null): Promise<void>;
@@ -174,6 +187,9 @@ export type FakeOptions = {
   /** §2 (D-615, D-628): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`.
    *  On by default; `false` gives the pre-6A behaviour (unresolved, missing). */
   trashedLinks?: boolean;
+  // ---------------------------------------------------------------- 4D-lite (ms4-tags §8.1)
+  /** Seeded zips `backups_list` lists (with or without a manifest). */
+  backups?: BackupRecord[];
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -235,6 +251,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleTrash(cmd, args, files, bin, at)).catch(() => {});
   await page.exposeFunction('__teggMedia', (cmd: string, args: any, files: Record<string, string>, bin: string[]) =>
     handleMedia(cmd, args, files, bin)).catch(() => {});
+  // 4D-lite (ms4-tags §8.1): the tag twin and the tag-job / merge planners in Node (fake-tags.ts).
+  await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
+    handleTags(cmd, args, files, vers as any)).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
   await page.route(/\/__media\//, async (route) => {
     const url = new URL(route.request().url());
@@ -298,7 +317,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     shellCalls: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.shellCalls)) as ShellSettingsDto[]),
     reveals: () => ev(() => [...(window as any).__teggFake.reveals] as string[]),
     draft: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.draft ?? null)) as CaptureDraftDto | null),
-    backups: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.backups)) as BackupDto[]),
+    backups: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.backups)) as BackupRecord[]),
+    failBackups: (on) => page.evaluate((o) => { (window as any).__teggFake.backupFail = o; }, on),
     setVault: (v) => page.evaluate((vv) => (window as any).__teggFake.switchVault(vv), v ? JSON.parse(JSON.stringify(v)) : null),
     captureLog: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.captureLog))),
     // 6A (ms6-trash-media §9.2).
@@ -349,6 +369,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
     'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
+    'tag_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -416,7 +437,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     shellCalls: [] as ShellSettingsDto[],
     reveals: [] as string[],
     draft: (opts.captureDraft ?? null) as CaptureDraftDto | null,
-    backups: [] as BackupDto[],
+    backups: (opts.backups ?? []).map((b) => JSON.parse(JSON.stringify(b))) as BackupRecord[],
+    backupFail: false,
     stale: new Set<string>(),
     /** 5B (§7.3): the version the index last read of a silently changed file (`index_versions`). */
     indexVer: {} as Record<string, VersionDto>,
@@ -893,6 +915,195 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
   };
 
+
+  // ---------------------------------------------------------------- 4D-lite (ms4-tags §4, §5, §8.1): tag jobs, merge, restore
+  const versAll = () => { const v: Record<string, VersionDto> = {}; for (const p of Object.keys(state.vault?.files ?? {})) v[p] = state.ver(p)!; return v; };
+  const viaTags = async (cmd: string, a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const r = await w.__teggTags(cmd, a ?? {}, state.vault.files, versAll());
+    if (r.error) throw r.error;
+    return r.result;
+  };
+  const tagJobs: Record<number, { kind: string; phase: string; cancelled: boolean; go?: () => void; plan: any }> = {};
+  const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  const sha = async (t: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)));
+  const utcName = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+  /** §5.1 (ms4-jobs §6): every `.md` and `.tegg/` file, before the first vault write; 10 kept (`exempt` too, D-671). */
+  const makeZip = (kind: string, jobId: number, label: any, planned: any, exempt: string | null = null): BackupRecord | null => {
+    if (state.backupFail) return null;
+    const files = state.vault!.files;
+    const entries: Record<string, string> = {};
+    for (const p of Object.keys(files)) if (p.endsWith('.md') || p.startsWith('.tegg/')) entries[p.normalize('NFC')] = files[p];
+    let name = `${utcName(Date.now())}-${kind}.zip`;
+    for (let n = 2; state.backups.some((b) => b.name === name); n++) name = `${utcName(Date.now())}-${kind}-${n}.zip`;
+    const manifest: BackupManifest = { version: 1, kind, label, vault: state.vault!.name, time: new Date(Date.now()).toISOString().replace(/\.\d+Z$/, 'Z'), job: jobId, planned, done: null };
+    const rec: BackupRecord = { name, kind, time: isoLocal(Date.now()), label, files: Object.keys(entries).length, manifest, entries };
+    state.backups.push(rec);
+    const others = state.backups.filter((b) => b.name !== exempt).sort((p, q) => (p.name < q.name ? -1 : 1));
+    while (others.length > 10) { const old = others.shift()!; state.backups = state.backups.filter((b) => b !== old); }
+    return rec;
+  };
+  const freeTrash = (p: string) => {
+    let t = `.trash/${p}`;
+    for (let n = 2; state.vault!.files[t] !== undefined; n++) t = `.trash/${p.replace(/\.md$/, '')} (${n}).md`;
+    return t;
+  };
+  const moveRaw = (from: string, to: string, text: string, kind: 'trash' | 'restore' | null) => {
+    const files = state.vault!.files;
+    files[to] = text;
+    delete files[from];
+    state.mtimes[to] = kind ? (state.mtimes[from] ?? 0) : ++state.clock;
+    delete state.mtimes[from];
+    if (kind) { x.moves.push({ kind, from, to }); if (kind === 'trash') x.trashedAt[to] = isoLocal(Date.now()); }
+    state.writtenPaths.push(to);
+    changed6a([from, to]);
+  };
+  const jobRun = (jobId: number, kind: string, plan: any) => {
+    const j: { kind: string; phase: string; cancelled: boolean; go?: () => void; plan: any } = (tagJobs[jobId] = { kind, phase: 'queued', cancelled: false, plan });
+    const report: any = { jobId, kind, phase: 'done', written: [], unchanged: [], skipped: [] };
+    const progress = (phase: string, done: number, total: number, counts?: unknown) => {
+      j.phase = phase;
+      return state.emit('job:progress', { jobId, kind, phase, done, total, ...(counts ? { counts } : {}) });
+    };
+    const finish = async (phase: string, total: number, zip: BackupRecord | null, error?: string, done?: any) => {
+      report.phase = phase;
+      if (error) report.error = error;
+      if (zip && done) zip.manifest!.done = done;
+      state.reports[jobId] = report;
+      state.jobs.push(report);
+      await progress(phase, phase === 'done' ? total : 0, total, { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length });
+    };
+    return { j, report, progress, finish };
+  };
+  /** `tag-rename`, `tag-delete`, `merge` (§4.1): plan in Node, confirm, zip, then write file by file. */
+  const startTagJob = async (planCmd: string, a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const r = await w.__teggTags(planCmd, a, state.vault.files, versAll());
+    if (r.error) throw r.error;
+    if (r.result?.noop) return { jobId: null };
+    const plan = r.result;
+    const jobId = ++state.jobSeq;
+    const { j, report, progress, finish } = jobRun(jobId, plan.kind, plan);
+    state.plans[jobId] = { op: null, files: {} };
+    void (async () => {
+      const total = plan.files.length + plan.trashes.length;
+      await progress('planning', 0, 0);
+      await jobs.hold('planning');
+      if (j.cancelled) return finish('cancelled', total, null);
+      await progress('confirm', 0, total);
+      await new Promise<void>((res) => { j.go = res; });
+      if (j.cancelled) return finish('cancelled', total, null);
+      await progress('backup', 0, total);
+      const zip = makeZip(plan.kind, jobId, plan.label, { renames: plan.renames.map((x: any) => [x.from, x.to]), creates: [], trashes: plan.trashes });
+      if (!zip) return finish('failed', total, null, 'BackupFailed: fake: Application Support is read-only');
+      if (j.cancelled) return finish('cancelled', total, zip);
+      await progress('writing', 0, total);
+      await jobs.hold('writing');
+      const files = state.vault!.files;
+      const done: any = { renames: [], creates: [], trashes: [], written: [] };
+      if (plan.check) for (const p of plan.check as string[]) {
+        const f = plan.files.find((q: any) => q.path === p);
+        const want = f ? f.text : undefined;
+        if (want !== undefined && files[p] !== want) return finish('failed', total, zip, `changed:${p}`, done);
+        if (want === undefined && files[p] === undefined) return finish('failed', total, zip, `changed:${p}`, done);
+      }
+      let n = 0;
+      for (const f of plan.files) {
+        const p = f.path;
+        state.plans[jobId].files[p] = f.ops;
+        const skip = state.jobSkips[p];
+        const cur = files[p];
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+        else if (cur === undefined) report.skipped.push({ path: p, reason: 'missing' });
+        else if (p in state.invalid) report.skipped.push({ path: p, reason: 'readOnly' });
+        else if (cur !== f.text || state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
+        else if (state.editors.has(p) && !f.rename) {
+          const rr = await jobs.live(p, f.ops);
+          if (rr === 'written') { report.written.push(p); done.written.push([p, await sha(files[p])]); } else report.skipped.push({ path: p, reason: 'changed' });
+        } else {
+          const out = await w.__teggJobs('transform', { source: p, text: cur, ops: f.ops }, files);
+          if (f.rename) {
+            const to = f.rename.to;
+            jobs.move(p, to, out ?? cur);
+            report.renamed = { from: p, to };
+            report.written.push(to);
+            done.renames.push([p, to, await sha(out ?? cur)]);
+          } else if (out === null || out === cur) report.unchanged.push(p);
+          else { jobs.write(p, out); report.written.push(p); done.written.push([p, await sha(out)]); }
+        }
+        await progress('writing', ++n, total);
+      }
+      for (const p of plan.trashes as string[]) {
+        if (files[p] === undefined) report.skipped.push({ path: p, reason: 'missing' });
+        else { const t = freeTrash(p); moveRaw(p, t, files[p], 'trash'); done.trashes.push([p, t]); }
+        await progress('writing', ++n, total);
+      }
+      await finish('done', total, zip, undefined, done);
+    })();
+    return { jobId };
+  };
+  /** `restore` (§5.3): the pre-restore zip, then the manifest's reversal, then every other differing entry. */
+  const startRestore = (name: string) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const src = state.backups.find((b) => b.name === name);
+    if (!src) throw err('NotFound', `fake: no backup ${name}`);
+    const jobId = ++state.jobSeq;
+    const { j, report, progress, finish } = jobRun(jobId, 'restore', { kind: 'restore', files: [], trashes: [], renames: [] });
+    void (async () => {
+      const files = state.vault!.files;
+      await progress('planning', 0, 0);
+      await jobs.hold('planning');
+      if (j.cancelled) return finish('cancelled', 0, null);
+      await progress('backup', 0, 0);
+      const pre = makeZip('restore', jobId, { key: 'backups.label.restore', args: { time: src.time } }, { renames: [], creates: [], trashes: [] }, src.name);
+      if (!pre) return finish('failed', 0, null, 'BackupFailed: fake: Application Support is read-only');
+      if (j.cancelled) return finish('cancelled', 0, pre);
+      const m = src.manifest;
+      const rev = m ? (m.done ?? { renames: m.planned.renames.map(([f, t]) => [f, t, '']), creates: m.planned.creates.map((c) => [c, '']), trashes: m.planned.trashes.map((t) => [t, `.trash/${t}`]), written: [] }) : null;
+      const entries = Object.entries(src.entries ?? {});
+      const total = entries.length + (rev ? rev.renames.length + rev.creates.length + rev.trashes.length : 0);
+      await progress('writing', 0, total);
+      await jobs.hold('writing');
+      const handled = new Set<string>();
+      let n = 0;
+      if (rev) {
+        for (const [from, to, h] of rev.renames as [string, string, string][]) {
+          handled.add(from);
+          const cur = files[to];
+          if (cur !== undefined && (h === '' || (await sha(cur)) === h) && files[from] === undefined && src.entries[from] !== undefined) {
+            moveRaw(to, from, src.entries[from], null); report.written.push(from);
+          } else report.skipped.push({ path: to, reason: 'changed' });
+          await progress('writing', ++n, total);
+        }
+        for (const [p, h] of rev.creates as [string, string][]) {
+          const cur = files[p];
+          if (cur !== undefined && (h === '' || (await sha(cur)) === h)) { moveRaw(p, freeTrash(p), cur, 'trash'); report.written.push(p); }
+          else report.skipped.push({ path: p, reason: 'changed' });
+          await progress('writing', ++n, total);
+        }
+        for (const [from, to] of rev.trashes as [string, string][]) {
+          handled.add(from);
+          if (files[to] !== undefined && files[from] === undefined) { moveRaw(to, from, files[to], 'restore'); report.written.push(from); }
+          else report.skipped.push({ path: from, reason: 'changed' });
+          await progress('writing', ++n, total);
+        }
+      }
+      for (const [p, text] of entries) {
+        if (handled.has(p)) continue;
+        const skip = state.jobSkips[p];
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+        else if (files[p] === text) { /* equal: untouched (FR-SYN-06) */ }
+        else if (state.editors.has(p)) {
+          const rr = await jobs.live(p, [{ op: 'replace', text }]);
+          if (rr === 'written') report.written.push(p); else report.skipped.push({ path: p, reason: 'changed' });
+        } else { jobs.write(p, text); report.written.push(p); }
+        await progress('writing', ++n, total);
+      }
+      await finish('done', total, null);
+    })();
+    return { jobId };
+  };
+
   const handlers: Record<string, (a: any) => unknown> = {
     vault_current: () => info(),
     vault_open: (a) => {
@@ -1140,34 +1351,28 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       void state.emit('vault:changed', { paths: [p] });
       return null;
     },
-    index_tags: () => {
-      const forms: Record<string, Record<string, number>> = {};
-      const add = (name: string) => {
-        const n = name.normalize('NFC');
-        const k = n.toLowerCase();
-        (forms[k] ??= {})[n] = (forms[k][n] ?? 0) + 1;
-      };
-      for (const o of objects()) {
-        const text = state.vault!.files[o.path];
-        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-        let bodyText = text;
-        if (fm) {
-          bodyText = text.slice(fm[0].length);
-          const lines = fm[1].split(/\r?\n/);
-          const i = lines.findIndex((l) => /^tags:/.test(l));
-          if (i >= 0) {
-            const flow = /^tags:\s*\[(.*)\]\s*$/.exec(lines[i]);
-            if (flow) flow[1].split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).filter(Boolean).forEach(add);
-            else for (let j = i + 1; j < lines.length && /^\s+-\s+/.test(lines[j]); j++) add(lines[j].replace(/^\s+-\s+/, '').replace(/^["']|["']$/g, ''));
-          }
-        }
-        bodyText = bodyText.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '');
-        for (const m of bodyText.matchAll(/(^|[\s(])#([\p{L}\p{N}_\/-]*\p{L}[\p{L}\p{N}_\/-]*)/gmu)) add(m[2]);
-      }
-      return Object.entries(forms).map(([key, f]) => {
-        const best = Object.entries(f).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0))[0][0];
-        return { key, spelling: best, count: Object.values(f).reduce((x, y) => x + y, 0) };
-      }).sort((x, y) => (x.key < y.key ? -1 : 1));
+    // 4D-lite (ms4-tags §3, §8.1): the tag twin in Node (fake-tags.ts); `TagRowDto[]` (was `TagDto[]`).
+    index_tags: () => viaTags('index_tags', {}),
+    tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
+    tag_usage: (a) => viaTags('tag_usage', { key: a.key }),
+    tag_new_path: (a) => viaTags('tag_new_path', { name: a.name }),
+    tag_rename: (a) => startTagJob('plan_tag_rename', { from: a.from, to: a.to, now: isoLocal(Date.now()) }),
+    tag_delete: (a) => startTagJob('plan_tag_delete', { key: a.key }),
+    merge_start: (a) => startTagJob('plan_merge', { keep: a.keep, others: a.others, now: isoLocal(Date.now()) }),
+    job_plan: (a) => {
+      const j = tagJobs[a.jobId];
+      if (!j || j.phase === 'planning' || j.phase === 'queued') return null;
+      const pl = j.plan;
+      return pl ? {
+        jobId: a.jobId, kind: pl.kind, files: pl.files.filter((f: any) => !f.template).length, templates: pl.templates ?? 0,
+        renames: pl.renames ?? [], trashes: pl.trashes ?? [], warnings: pl.warnings ?? [], conflicts: pl.conflicts ?? [],
+      } : null;
+    },
+    backup_reveal: (a) => {
+      const b = state.backups.find((z) => z.name === String(a.name));
+      if (!b) throw err('NotFound', `fake: no backup ${a.name}`);
+      state.reveals.push(`backups/${b.name}`);
+      return null;
     },
     index_conflicts: () => {
       if (state.conflicts) return state.conflicts;
@@ -1336,11 +1541,24 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     // 5B: an `inbox` job is cancellable in planning and backup (ms5-capture §7.3).
     job_cancel: (a) => {
+      const t = tagJobs[a.jobId];
+      if (t) {
+        const allowed = t.plan?.kind === 'restore' || t.kind === 'restore' ? ['queued', 'planning', 'backup'] : ['queued', 'planning', 'confirm', 'backup'];
+        if (!allowed.includes(t.phase)) throw err('NotCancellable', 'fake: the job is writing');
+        t.cancelled = true;
+        t.go?.();
+        return null;
+      }
       const j = state.inboxJobs[a.jobId];
       if (j && (j.phase === 'planning' || j.phase === 'backup' || j.phase === 'queued')) { j.cancelled = true; return null; }
       throw err('NotCancellable', 'fake: nothing to cancel');
     },
-    job_confirm: () => { throw err('NotImplemented', 'fake: no job needs confirming in 4C'); },
+    job_confirm: (a) => {
+      const t = tagJobs[a.jobId];
+      if (!t || t.phase !== 'confirm') throw err('NotFound', 'fake: no job waits for confirmation');
+      t.go?.();
+      return null;
+    },
     job_report: (a) => state.reports[a.jobId] ?? null,
     job_retry: async (a) => {
       const p = String(a.path).normalize('NFC');
@@ -1360,8 +1578,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     job_transform_result: () => null,
     job_interrupted: () => [],
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
-    backups_list: () => state.backups.map((b) => ({ ...b })),
-    backup_restore: () => { throw err('NotImplemented', 'fake: restore comes with 4D-lite'); },
+    // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).
+    backups_list: () => [...state.backups].sort((p, q) => (p.name < q.name ? 1 : p.name > q.name ? -1 : 0)).map((b) => ({
+      name: b.name, kind: b.kind, time: b.time, label: b.label ?? b.manifest?.label ?? { key: 'backups.label.unknown', args: { kind: b.kind } },
+      files: b.files ?? Object.keys(b.entries ?? {}).length,
+    })),
+    backup_restore: (a) => startRestore(String(a.name)),
     editor_open: (a) => { state.editors.add(String(a.path).normalize('NFC')); return null; },
     editor_close: (a) => { state.editors.delete(String(a.path).normalize('NFC')); return null; },
     // ---------------------------------------------------------------- 5B (ms5-capture §5, §7, §11.2)
@@ -1412,7 +1634,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           await progress('backup', 0);
           if (job.cancelled) return finish('cancelled');
           const t = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-          state.backups.push({ name: `${t}-inbox.zip`, kind: 'inbox', time: new Date().toISOString() });
+          state.backups.push({ name: `${t}-inbox.zip`, kind: 'inbox', time: new Date().toISOString(), manifest: null, entries: {} });
         }
         await progress('writing', 0);
         await jobs.hold('writing');
@@ -1488,7 +1710,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     capture_context: async () => {
       if (!state.vault) return { vault: null, types: [], defaultType: 'quick-note', tags: [] };
       const r = await w.__teggSettings('capture_context', {}, state.vault.files, {});
-      const tags = (handlers.index_tags({}) as { spelling: string }[]).map((t) => t.spelling);
+      const tags = (await w.__teggTags('capture_tags', {}, state.vault.files, {})).result; // 4D-lite: CaptureTagDto[] (D-655)
       return { vault: { id: `vault-${state.vaultId}`, name: state.vault.name, color: null }, types: r.result.types, defaultType: r.result.defaultType, tags };
     },
     capture_create: async (a) => {
