@@ -1155,6 +1155,26 @@ impl Index {
         self.metas.values().map(|m| nfc(&m.stem).to_lowercase()).collect()
     }
 
+    /// ms6-trash-media §3.2 (FR-ATT-07): every note with a link whose last path segment is `file_name` (NFC,
+    /// case-insensitive; alias and heading removed), with those link targets as written.
+    pub fn sources_linking_name(&self, file_name: &str) -> Vec<(String, Vec<String>)> {
+        let want = nfc(file_name).to_lowercase();
+        let base = |t: &str| {
+            let t = t.split('|').next().unwrap_or(t).split('#').next().unwrap_or(t).trim();
+            nfc(t.rsplit('/').next().unwrap_or(t)).to_lowercase()
+        };
+        let mut v: Vec<(String, Vec<String>)> = self
+            .metas
+            .values()
+            .filter_map(|m| {
+                let hits: Vec<String> = m.s.links.iter().filter(|t| base(t) == want).cloned().collect();
+                (!hits.is_empty()).then(|| (m.path.clone(), hits))
+            })
+            .collect();
+        v.sort();
+        v
+    }
+
     /// ms4-links §3: every note that has a link to a note that doesn't resolve (dates and attachments excluded).
     pub fn broken_sources(&self) -> Vec<NoteLinks> {
         self.with_links(|l| {

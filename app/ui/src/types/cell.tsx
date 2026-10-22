@@ -65,7 +65,7 @@ function LinkCell({ value, links, types, onOpen }: { value: unknown; links: Link
   const w = wiki(value);
   if (!w) return <span data-user-content>{rawText(value)}</span>;
   const info = links.find((l) => [nfc(w.target), nfc(w.inner), nfc(String(value))].includes(nfc(l.target)));
-  const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+  const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed');
   const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
   const parts = ok ? chipParts(info, 12) : null; // D-600
   return (

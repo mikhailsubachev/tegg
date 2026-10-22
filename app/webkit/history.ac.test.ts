@@ -40,7 +40,7 @@ const TRIGGERS: Trigger[] = [
 /** AC-1 setup: the fixture on `home`, then Porada (switcher) → type/schůzka (sidebar Types list; no breadcrumb, D-315)
  *  → search (⌘⇧F). */
 async function visitThree(page: Page) {
-  await mustBeOn(page, 'Home', 'the fixture opens on home');
+  await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-614)');
   await openNote(page, PORADA);
   const entry = await must(typesList(page).getByRole('link', { name: /^Schůzky\b/ }), 'sidebar Types entry "Schůzky"');
   await entry.click();
@@ -57,7 +57,7 @@ test('fr_nav_03_ac1_back_and_forward_through_the_visited_routes', async ({ page 
   const t = TRIGGERS[1];
   await t.back(page); await mustBeOn(page, 'Schůzky', 'Back from search');
   await t.back(page); await mustBeOn(page, PORADA, 'Back again');
-  await t.back(page); await mustBeOn(page, 'Home', 'Back again');
+  await t.back(page); await mustBeOn(page, 'Inbox', 'Back again');
   await t.forward(page); await mustBeOn(page, PORADA, 'Forward');
   await t.forward(page); await mustBeOn(page, 'Schůzky', 'Forward again');
 });
@@ -96,9 +96,9 @@ for (const t of TRIGGERS) {
     await visitThree(page);
     await t.back(page); await mustBeOn(page, 'Schůzky', `${t.name}: Back from search`);
     await t.back(page); await mustBeOn(page, PORADA, `${t.name}: Back again`);
-    await t.back(page); await mustBeOn(page, 'Home', `${t.name}: Back again`);
+    await t.back(page); await mustBeOn(page, 'Inbox', `${t.name}: Back again`);
     await t.back(page); await sleep(300);
-    assert.equal(await mainName(page), 'Home', `${t.name}: Back with nothing behind does nothing`);
+    assert.equal(await mainName(page), 'Inbox', `${t.name}: Back with nothing behind does nothing`);
     await t.forward(page); await mustBeOn(page, PORADA, `${t.name}: Forward`);
     await t.forward(page); await mustBeOn(page, 'Schůzky', `${t.name}: Forward again`);
     await t.forward(page); await mustBeOn(page, 'Search', `${t.name}: Forward again`);
@@ -110,7 +110,7 @@ for (const t of TRIGGERS) {
 
 test('fr_nav_03_ac2_title_bar_buttons_disabled_only_without_history', async ({ page }) => {
   await start(page);
-  await mustBeOn(page, 'Home', 'landing');
+  await mustBeOn(page, 'Inbox', 'landing');
   assert.equal(await disabled(page, 'Back'), true, 'Back disabled on the first route');
   assert.equal(await disabled(page, 'Forward'), true, 'Forward disabled on the first route');
   for (const w of ['Back', 'Forward'] as const) {
@@ -123,13 +123,13 @@ test('fr_nav_03_ac2_title_bar_buttons_disabled_only_without_history', async ({ p
   await page.keyboard.press('Meta+BracketLeft');
   await page.keyboard.press('Meta+BracketRight');
   await sleep(300);
-  assert.equal(await mainName(page), 'Home', 'nothing happened');
+  assert.equal(await mainName(page), 'Inbox', 'nothing happened');
 
   await openNote(page, PORADA);
   assert.equal(await eventually(() => disabled(page, 'Back'), (v) => !v, 1000), false, 'Back enabled with an entry behind');
   assert.equal(await disabled(page, 'Forward'), true, 'Forward still disabled');
   await backBtn(page).click({ force: true });
-  await mustBeOn(page, 'Home', 'Back');
+  await mustBeOn(page, 'Inbox', 'Back');
   assert.equal(await eventually(() => disabled(page, 'Back'), (v) => v, 1000), true, 'Back disabled at the start');
   assert.equal(await disabled(page, 'Forward'), false, 'Forward enabled with an entry ahead');
   for (const w of ['Back', 'Forward'] as const) assert.doesNotMatch(await description(page, w), /Coming in/, `${w}: no "Coming in"`);
@@ -198,7 +198,7 @@ async function moveFile(page: Page, from: string, to: string | null) {
 for (const how of ['trashed', 'deleted'] as const) {
   test(`fr_nav_03_ac5_back_to_a_${how}_note_shows_the_message_and_keeps_history`, async ({ page }) => {
     const core = await start(page);
-    await mustBeOn(page, 'Home', 'landing');
+    await mustBeOn(page, 'Inbox', 'landing');
     await openNote(page, PORADA);
     await page.keyboard.press('Meta+Shift+f');
     await mustBeOn(page, 'Search', 'search');
@@ -213,7 +213,7 @@ for (const how of ['trashed', 'deleted'] as const) {
     await mustBeOn(page, 'Search', 'Forward to search');
     await page.keyboard.press('Meta+BracketLeft');
     await page.keyboard.press('Meta+BracketLeft');
-    await mustBeOn(page, 'Home', 'Back past the gone note to home');
+    await mustBeOn(page, 'Inbox', 'Back past the gone note to the Inbox');
     assert.deepEqual(await nonReadCalls(core), [], 'no write');
   });
 }
@@ -221,7 +221,7 @@ for (const how of ['trashed', 'deleted'] as const) {
 test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ page }) => {
   await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const core = await start(page);
-  await mustBeOn(page, 'Home', 'landing');
+  await mustBeOn(page, 'Inbox', 'landing');
   await openNote(page, PORADA);
   await page.keyboard.press('Meta+Shift+f');
   await mustBeOn(page, 'Search', 'search');
@@ -268,7 +268,7 @@ for (const [dialog, key, loc] of [
 test('fr_nav_03_ac6_focus_on_page_heading_after_back_and_forward', async ({ page }) => {
   await start(page);
   await visitThree(page);
-  for (const [step, want] of [['back', 'Schůzky'], ['back', PORADA], ['forward', 'Schůzky'], ['back', PORADA], ['back', 'Home']] as const) {
+  for (const [step, want] of [['back', 'Schůzky'], ['back', PORADA], ['forward', 'Schůzky'], ['back', PORADA], ['back', 'Inbox']] as const) {
     await (await must(sidebar(page), 'sidebar')).focus().catch(() => {});
     if (step === 'back') await backBtn(page).click({ force: true }); else await fwdBtn(page).click({ force: true });
     await mustBeOn(page, want, `${step}`);
@@ -287,7 +287,7 @@ test('fr_nav_03_ac7_back_forward_write_nothing_and_record_opens', async ({ page 
   const from = (await core.calls()).length;
   await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Schůzky', 'Back');
   await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, PORADA, 'Back');
-  await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Home', 'Back');
+  await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Inbox', 'Back');
   await page.keyboard.press('Meta+BracketRight'); await mustBeOn(page, PORADA, 'Forward');
   await sleep(300);
   const calls = (await core.calls()).slice(from);
@@ -299,7 +299,7 @@ test('fr_nav_03_ac7_back_forward_write_nothing_and_record_opens', async ({ page 
 });
 
 async function withHistory(page: Page) {
-  await mustBeOn(page, 'Home', 'landing');
+  await mustBeOn(page, 'Inbox', 'landing');
   await openNote(page, PORADA);
   await runCommand(page, 'Go to Inbox');
   await mustBeOn(page, 'Inbox', 'inbox');
@@ -314,13 +314,13 @@ test('fr_nav_03_ac7_opening_another_vault_clears_history', async ({ page }) => {
   await withHistory(page);
   await runCommand(page, 'Open vault…');
   await (await must(page.getByRole('main', { name: 'Choose a vault' }).getByRole('button', { name: 'Open existing folder' }), 'Open existing folder')).click();
-  await mustBeOn(page, 'Home', 'the other vault opens');
+  await mustBeOn(page, 'Inbox', 'the other vault opens');
   await sleep(300);
   assert.equal(await disabled(page, 'Back'), true, 'Back disabled in the other vault');
   assert.equal(await disabled(page, 'Forward'), true, 'Forward disabled in the other vault');
   await page.keyboard.press('Meta+BracketLeft');
   await sleep(300);
-  assert.equal(await mainName(page), 'Home', '⌘[ does nothing');
+  assert.equal(await mainName(page), 'Inbox', '⌘[ does nothing');
   assert.equal(await core.writes(), 0);
 });
 
@@ -334,7 +334,7 @@ test('fr_nav_03_ac7_creating_another_vault_clears_history', async ({ page }) => 
   await form.getByRole('textbox', { name: 'Vault name' }).fill('Nový trezor');
   await form.getByRole('button', { name: 'Choose…' }).click();
   await form.getByRole('button', { name: 'Create', exact: true }).click();
-  await mustBeOn(page, 'Home', 'the new vault opens');
+  await mustBeOn(page, 'Inbox', 'the new vault opens');
   await sleep(300);
   assert.equal(await disabled(page, 'Back'), true, 'Back disabled in the new vault');
   assert.equal(await disabled(page, 'Forward'), true, 'Forward disabled in the new vault');

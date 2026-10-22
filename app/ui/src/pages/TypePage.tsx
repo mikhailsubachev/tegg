@@ -16,6 +16,7 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { TypeSettingsButton } from '../shell/TypeSettingsButton';
 import { NewPropertyDialog } from './TypeSettingsPage';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
+import { trashRequest } from '../trash/moveToTrash';
 import type { TypeOpDto } from '../ipc/types';
 import { typeErrorMessage } from '../types/util';
 import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } from '../types/util';
@@ -70,6 +71,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const [rows, setRows] = useState<TypeRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState(false);
+  const [rowMenu, setRowMenu] = useState<HTMLElement | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [notice, setNotice] = useState<{ text: string; alert: boolean } | null>(null);
   // The type as last written from this page, so quick toggles build on each other (D-252).
@@ -246,7 +248,10 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           <tbody ref={tbody}>
             {shown.map((r, i) => (
               <tr key={r.path} tabIndex={i === Math.min(cursor, shown.length - 1) ? 0 : -1} className="type-row"
+                data-path={r.path.normalize('NFC')} data-title={r.title}
                 onClick={() => onOpen(r.path)}
+                // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
+                onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
                 onFocus={() => setCursor(i)}
                 onKeyDown={(e) => {
                   if (e.target !== e.currentTarget) return;
@@ -265,6 +270,11 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       </div>
       {rows && rows.length === 0 && <p className="empty">{t('typePage.empty')}</p>}
       {notice && <p role={notice.alert ? 'alert' : 'status'} className={notice.alert ? 'warning-text' : 'type-notice'}>{notice.text}</p>}
+      {rowMenu && (
+        <PopupMenu label={t('typePage.rowMenu')} anchor={rowMenu} onClose={() => { const el = rowMenu; setRowMenu(null); el.focus(); }}
+          entries={[{ kind: 'item', key: 'trash', label: t('cmd.trash'), content: t('cmd.trash'),
+            onChoose: () => { const el = rowMenu; setRowMenu(null); el.focus(); trashRequest.current?.(); } }]} />
+      )}
       {columnsOpen && cur && (
         <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)}
           entries={columnEntries(cur, (keys) => void togglePreview(keys), () => { setColumnsOpen(false); setAdding(true); })} />

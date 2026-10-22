@@ -204,7 +204,7 @@ test('fr_vlt_01_ac16_choosing_another_vault_opens_it', async ({ page }) => {
   await mustBeOn(page, 'Inbox', 'setup');
   await openMenu(page);
   await radios(page).filter({ hasText: 'Knihovna' }).first().click();
-  await mustBeOn(page, 'Home', 'the other vault lands per FR-UX-02 AC-16');
+  await mustBeOn(page, 'Inbox', 'the other vault lands per FR-UX-02 AC-16');
   assert.deepEqual(await vaultOpens(core), [OTHER], 'one vault_open with the chosen path');
   const labels = (await eventually(() => typeEntries(page), (v) => v.some(([l]) => l === 'Knihy'))).map(([l]) => l);
   assert.ok(labels.includes('Knihy') && !labels.includes('Schůzky'), `Types list replaced: ${labels.join(', ')}`);
@@ -242,7 +242,7 @@ test('fr_vlt_01_ac16_open_folder_as_vault_uses_the_folder_picker', async ({ page
   await mustBeOn(page, 'Inbox', 'setup');
   await openMenu(page);
   await (await must(item(page, 'Open folder as vault…'), 'menuitem "Open folder as vault…"')).click();
-  await mustBeOn(page, 'Home', 'the picked vault lands per FR-UX-02 AC-16');
+  await mustBeOn(page, 'Inbox', 'the picked vault lands per FR-UX-02 AC-16');
   const calls = (await core.calls()).map((c) => c.cmd);
   assert.ok(calls.includes('vault_pick_dir'), 'the folder picker was shown (vault_pick_dir)');
   assert.deepEqual(await vaultOpens(core), [OTHER], 'the picked folder is opened');
@@ -315,7 +315,7 @@ test('fr_vlt_01_ac16_menu_works_from_the_keyboard', async ({ page }) => {
   const label = await eventually(() => page.evaluate(() => document.activeElement?.textContent ?? ''), (t) => t.includes('Knihovna'), 1000);
   assert.ok(label.includes('Knihovna'), `ArrowDown moves to the second row: ${label}`);
   await page.keyboard.press('Enter');
-  await mustBeOn(page, 'Home', 'Enter chooses it');
+  await mustBeOn(page, 'Inbox', 'Enter chooses it');
   assert.deepEqual(await vaultOpens(core), [OTHER]);
 });
 
@@ -328,7 +328,7 @@ test('fr_vlt_01_ac17_ctrl_cmd_n_opens_the_nth_recent_vault_from_any_route', asyn
     if (setup === 'inbox') { await runCommand(page, 'Go to Inbox'); await mustBeOn(page, 'Inbox', 'setup'); }
     else await openNote(page, 'Zavolat Evě');
     await page.keyboard.press('Meta+Control+2');
-    await mustBeOn(page, 'Home', `⌃⌘2 from ${setup} opens Knihovna`);
+    await mustBeOn(page, 'Inbox', `⌃⌘2 from ${setup} opens Knihovna`);
     assert.deepEqual(await vaultOpens(core), [OTHER], `${setup}: vault_open of the 2nd entry`);
     await page.close();
   }
@@ -366,7 +366,7 @@ test('fr_vlt_01_ac17_palette_commands_open_recent_vault_n', async ({ page }) => 
   }
   await page.keyboard.press('Escape');
   await runCommand(page, 'Open recent vault 2');
-  await mustBeOn(page, 'Home', 'the palette command opens the 2nd entry');
+  await mustBeOn(page, 'Inbox', 'the palette command opens the 2nd entry');
   assert.deepEqual(await vaultOpens(core), [OTHER]);
 });
 
@@ -374,7 +374,7 @@ test('fr_vlt_01_ac17_menu_reflects_the_list_after_switching', async ({ page }) =
   await open(page);
   await openMenu(page);
   await radios(page).filter({ hasText: 'Knihovna' }).first().click();
-  await mustBeOn(page, 'Home', 'setup: Knihovna opened');
+  await mustBeOn(page, 'Inbox', 'setup: Knihovna opened');
   await openMenu(page, 'Vault: Knihovna. Switch vault');
   const texts = (await radios(page).allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
   assert.ok(texts[0]?.includes(OTHER), `the opened vault is first: ${texts.join(' / ')}`);

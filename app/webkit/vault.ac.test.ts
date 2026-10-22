@@ -53,7 +53,7 @@ test('fr_vlt_01_ac10_new_vault_form_and_create', async ({ page }) => {
   await createBtn(page).click();
   const creates = (await core.calls()).filter((c) => c.cmd === 'vault_create');
   assert.deepEqual(creates.map((c) => c.args), [{ parent: PARENT, name: 'Můj trezor', kind: 'empty' }], 'one create command, kind empty');
-  await mustBeOn(page, 'Home', 'new vault lands on the home placeholder');
+  await mustBeOn(page, 'Inbox', 'new vault lands on the Inbox (D-614, was the home placeholder)');
   // D-516 (amends D-121, FR-UX-02 AC-4): Task is no longer in the Types list.
   const want = TYPES_CS.filter(([l]) => ['Pages', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
   assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 5), want, 'Types list of a new vault');
@@ -93,7 +93,7 @@ test('fr_vlt_01_ac14_open_existing_folder', async ({ browser }) => {
   const other = { ...loadFixtureVault('tests/fixtures/vaults/new-empty/.tegg'), name: 'Jiný trezor' };
   let core = await start(page, { vault: null, pickDir: '/Users/test/Jiný trezor', dirs: { '/Users/test/Jiný trezor': other } });
   await chooser(page).getByRole('button', { name: 'Open existing folder' }).click();
-  await mustBeOn(page, 'Home', 'a Tegg vault opens with the launch landing');
+  await mustBeOn(page, 'Inbox', 'a Tegg vault opens with the launch landing');
   assert.ok(await seen(sidebar(page)), 'frame shown');
   await page.close();
   page = await browser.newPage();
@@ -120,7 +120,7 @@ test('fr_vlt_01_ac15_changing_vault_from_the_frame', async ({ page }) => {
   }
   await runCommand(page, 'Open vault…');
   await chooser(page).getByRole('button', { name: 'Open existing folder' }).click();
-  await mustBeOn(page, 'Home', 'the other vault lands per FR-UX-02 AC-16');
+  await mustBeOn(page, 'Inbox', 'the other vault lands per FR-UX-02 AC-16');
   const labels = (await eventually(() => typeEntries(page), (v) => v.some(([l]) => l === 'Knihy'))).map(([l]) => l);
   assert.ok(labels.includes('Knihy') && !labels.includes('Schůzky'), `Types list replaced: ${labels.join(', ')}`);
   assert.equal(await core.writes(), 0);
@@ -140,7 +140,7 @@ test('fr_vlt_03_ac4_placeholder_banner_non_modal', async ({ browser }) => {
     await page.keyboard.press('Meta+o');
     assert.ok(await seen(switcherDialog(page)), 'switcher works with the banner');
     await page.keyboard.press('Escape');
-    for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) {
+    for (const e of ['Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) { // 6A: no Home entry (D-613)
       await sidebar(page).getByText(e, { exact: true }).click();
       await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `sidebar ${e} with the banner`); // 4B: named by its date
     }

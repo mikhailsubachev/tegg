@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { absent, mainName } from './helpers';
 import { watchNetwork } from './read-helpers';
 import {
-  E, block, bodyOf, caretIn, editorBody, fileText, fixtureText, linkSuggestions, must, mustBeSaved, noModified, openEditor,
+  E, block, bodyOf, caretIn, editorBody, eventually, fileText, fixtureText, linkSuggestions, must, mustBeSaved, noModified, openEditor,
   original, paste, seen, selectIn, sleep, sourceBlocks, tagSuggestions, writes, type FakeCoreHandle,
 } from './editor-helpers';
 
@@ -330,13 +330,17 @@ test('fr_edt_14_ac4_javascript_url_on_a_selection_is_literal', async ({ page }) 
   assert.ok(!t.includes('](javascript:'), 'no link created');
 });
 
-test('fr_edt_14_ac5_images_wait_for_ms6', async ({ page }) => {
+// Changed by 6A (trash-media.md FR-ATT-01 AC-1, D-186 changed): a pasted image is added (file, Image object, embed); the
+// MS6 notice is retired. The full criterion is app/webkit/media_add.ac.test.ts.
+test('fr_edt_14_ac5_images_are_added_from_6a', async ({ page }) => {
   const core = await startEmpty(page);
   await paste(page, { png: true });
-  await must(page.getByRole('status').filter({ hasText: 'Pasting images comes in MS6' }), 'non-modal notice');
-  await sleep(1500);
-  assert.equal((await writes(core)).length, 0, 'no note change');
-  assert.deepEqual(Object.keys(await core.files()).filter((p) => p.startsWith('_attachments/') || p.startsWith('Images/')), [], 'no attachment or Image object');
+  assert.equal(await page.getByRole('status').filter({ hasText: 'Pasting images comes in MS6' }).count(), 0, 'no MS6 notice');
+  const objects = await eventually(async () => Object.keys(await core.files()).filter((p) => p.startsWith('Images/')), (l) => l.length > 0, 3000);
+  assert.equal(objects.length, 1, 'an Image object');
+  assert.ok(Object.keys(await core.binary()).some((p) => /^_attachments\/Pasted image \d{14}\.png$/.test(p)), 'the file in _attachments/');
+  const w = await eventually(() => writes(core), (x) => x.some((c) => String((c.args as any)?.text ?? '').includes('![[Pasted image ')), 3000);
+  assert.ok(w.some((c) => String((c.args as any)?.text ?? '').includes('![[Pasted image ')), 'the note gets the embed');
 });
 
 test('fr_edt_14_ac6_nfd_paste_saved_in_nfc', async ({ page }) => {

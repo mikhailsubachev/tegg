@@ -77,6 +77,12 @@ pub trait VaultFs: Send + Sync {
     fn watch(&self, _sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         Ok(None)
     }
+    /// ms6-trash-media §1.1 (D-618): the entry's status-change time (`st_ctime` on Unix, the last write time
+    /// elsewhere), `None` when missing; a rename into `.trash/` sets it (R71). `MemFs` keeps a counter set on every
+    /// rename.
+    fn changed_ns(&self, _path: &str) -> io::Result<Option<i128>> {
+        Ok(None)
+    }
 }
 
 /// What a watcher reports: vault-relative NFC paths that may have changed (event kinds are never trusted,
@@ -128,6 +134,16 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         (**self).watch(sink)
     }
+    fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
+        (**self).changed_ns(path)
+    }
+}
+
+/// ms6-trash-media §1.1 (D-619): moves a file or folder out of the vault into the system's trash (macOS: Finder's
+/// Trash through `NSFileManager trashItemAtURL`). The core stays platform-neutral (AR-03): the shell implements it;
+/// tests use a recording implementation. `abs` is an absolute path.
+pub trait SystemTrash: Send + Sync {
+    fn trash(&self, abs: &Path) -> io::Result<()>;
 }
 
 /// AR-04 AC-3: remote changes will enter through this trait (Phase 2); Phase 1 relies on the watcher.
@@ -524,6 +540,50 @@ impl Vault {
         self.move_free(&trashed, &original)
     }
 
+    /// ms6-trash-media §1.1 (FR-HIS-01 AC-5, D-225): moves a trashed folder (`.trash/<dir>`) back to `<dir>` in one
+    /// rename, with a ` (2)` suffix if that is taken; returns the folder's new vault path.
+    pub fn restore_dir(&self, trashed_dir: &str) -> Result<String, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let trashed = nfc(trashed_dir.trim_matches('/'));
+        let original = trashed.strip_prefix(&format!("{TRASH}/")).ok_or(VaultError::NotFound)?.to_string();
+        let is_dir = self.fs.list()?.into_iter().any(|e| matches!(e, FsEntry::Dir { path } if nfc(&path) == trashed));
+        if !is_dir {
+            return Err(VaultError::NotFound);
+        }
+        self.move_dir_free(&trashed, &original)
+    }
+
+    /// ms6-trash-media §1.1, §1.4 (FR-HIS-01 AC-7, AC-8, D-619): moves the file or folder `path` (vault-relative)
+    /// out of the vault through `sink`; Tegg never unlinks a vault file itself.
+    pub fn remove_to(&self, path: &str, sink: &dyn SystemTrash) -> Result<(), VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let path = nfc(path.trim_matches('/'));
+        let exists = self.fs.list()?.into_iter().any(|e| match e {
+            FsEntry::File { path: p } | FsEntry::Dir { path: p } => fold(&p) == fold(&path),
+        });
+        if !exists {
+            return Err(VaultError::NotFound);
+        }
+        sink.trash(&self.root.join(&path))?;
+        Ok(())
+    }
+
+    /// Every file and folder of the vault, hidden ones included (ms6-trash-media §1.2 lists `.trash/` from it).
+    pub fn entries(&self) -> Result<Vec<FsEntry>, VaultError> {
+        Ok(self.fs.list()?)
+    }
+
+    /// `Fs::changed_ns` of a vault path (R71).
+    pub fn changed_ns(&self, path: &str) -> Result<Option<i128>, VaultError> {
+        Ok(self.fs.changed_ns(&nfc(path))?)
+    }
+
+    /// Renames `path` (a file, ` (2)` if taken) back to `to` exactly: undoing the first rename of a pair.
+    pub fn move_back(&self, from: &str, to: &str) -> Result<(), VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        Ok(self.fs.rename_no_replace(&nfc(from), &nfc(to))?)
+    }
+
     /// FR-SYN-02 AC-4: deletes `.<name>.tegg-tmp` files older than 1 minute; returns how many.
     pub fn clean_temp_files(&self, now: SystemTime) -> Result<usize, VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
@@ -599,6 +659,23 @@ impl Vault {
             .filter(|rest| !rest.contains('/'))
             .map(|n| fold(&n))
             .collect())
+    }
+
+    /// A folder to `to`, or `to (2)`, … when taken (no extension split).
+    fn move_dir_free(&self, from: &str, to: &str) -> Result<String, VaultError> {
+        let (dir, name) = to.rsplit_once('/').unwrap_or(("", to));
+        if !dir.is_empty() {
+            self.fs.create_dir_all(dir)?;
+        }
+        let mut taken: Vec<String> = self.names_in(dir)?;
+        loop {
+            let candidate = join(dir, &unique_file_name(name, "", &|n: &str| taken.contains(&fold(n))));
+            match self.fs.rename_no_replace(from, &candidate) {
+                Ok(()) => return Ok(candidate),
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => taken.push(fold(candidate.rsplit('/').next().unwrap_or(&candidate))),
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
 
     /// Renames `from` to `to`, or to `to` with ` (2)`, ` (3)`, … when taken; never replaces a file.

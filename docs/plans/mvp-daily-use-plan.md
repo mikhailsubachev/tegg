@@ -2,7 +2,7 @@
 
 Status: **accepted by the owner on 2026-10-16: AP-a…AP-h are D-370…D-377 (BRD v1.56; AP-a D-370, AP-b D-371, AP-c D-372, AP-d D-373, AP-e D-374, AP-f D-375, AP-g D-376, AP-h D-377).** Written 2026-10-16 while the 4B preview fixes (D-367…D-369) are in progress. Owner brief: *"I want an MVP version I can use for my daily operations, starting from an empty vault. Skip Obsidian import, tag colouring and object type changes."* Decisions needed are listed as AP points in §5.
 
-Update 2026-10-17 (owner, D-515): **Home is not part of the MVP.** FR-HOM-01 moves to v1.0 with FR-HOM-02; slice 5B is capture and Inbox only. Until v1.0 the Home sidebar entry and the D-132 launch fallback keep the TBD placeholder.
+Update 2026-10-17 (owner, D-515): **Home is not part of the MVP.** FR-HOM-01 moves to v1.0 with FR-HOM-02; slice 5B is capture and Inbox only. Until v1.0 the Home sidebar entry and the D-132 launch fallback keep the TBD placeholder. Update 2026-10-22 (owner, D-613, D-614): slice 6A removes the Home entry and route; launch falls back to the Inbox.
 
 ## 1. Where we are
 

@@ -21,8 +21,7 @@ const d = (milestone: string, slice?: string): Due => (slice ? { milestone, slic
 
 export const R1: R1Row[] = [
   { id: 'chooser', page: 'Vault chooser', built: true, due: d('MS3'), reqs: 'FR-VLT-01, FR-VLT-02', design: null, goto: null },
-  // 5B (inbox.md R62, D-515): Home stays TBD until v1.0; the Inbox is built (board `Inbox`).
-  { id: 'home', page: 'Home', built: false, due: d('v1.0'), reqs: 'FR-HOM-01, FR-HOM-02', design: 'Home', goto: 'Go to Home' },
+  // 6A (trash-media.md R75, D-613): `home` is removed (returns with FR-HOM-01 in v1.0); the Inbox is built (5B, board `Inbox`).
   { id: 'inbox', page: 'Inbox', built: true, due: d('MS5'), reqs: 'FR-INB-01…04', design: 'Inbox', goto: 'Go to Inbox' },
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
   { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
@@ -40,7 +39,7 @@ export const R1: R1Row[] = [
   // D-520 (5A-1 feedback, ms5-tasks §12.2): the unsaved draft of a new object; no sidebar entry, no Go to command.
   { id: 'new/<type>', page: 'New object', built: true, due: d('MS5'), reqs: 'FR-TYP-09, FR-EDT-01', design: 'Main', goto: null },
   { id: 'graph', page: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: 'Go to Graph' },
-  { id: 'trash', page: 'Trash', built: false, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' },
+  { id: 'trash', page: 'Trash', built: true, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' }, // built in 6A (R75)
   { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
   // 4A (backlinks.md R16): vault checks, palette only (D-284).
   { id: 'broken-links', page: 'Broken links', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-04', design: null, goto: 'Go to Broken links' },
@@ -87,20 +86,19 @@ export const R3: R3Control[] = [
   { label: 'Edit', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01', route: 'type-settings/<type>' },
   { label: 'Add view', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
-  { label: 'file', where: 'attribute panel row', due: d('MS6'), req: 'FR-ATT-07', route: 'note/<path>' },
+  // 6A (trash-media.md R75): the `File` row (`ctl.rowFile`) is built.
   { label: 'color', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05', route: 'note/<path>' },
   { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
   // 5A-1 (tasks.md R45 R3).
   { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
-  { label: 'Move to trash', where: 'task card menu', due: d('MS6'), req: 'FR-HIS-01', route: 'tasks' },
+  // 6A (R75): the task card's `Move to trash` is built.
   // 5B R62 (D-565): the four Appearance extras are relabelled v1.0.
   { label: 'Font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Font size', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Editor width', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Accent color', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   // 5B R62: Inbox trash (D-560), the capture drop zone (D-545), shortcut editing (D-548).
-  { label: 'Move to trash', where: 'Inbox triage menu and selection toolbar', due: d('MS6'), req: 'FR-HIS-01', route: 'inbox' },
-  { label: 'Add an image or PDF', where: 'capture window', due: d('MS6'), req: 'FR-ATT-01', route: null },
+  // 6A (R75): the Inbox's `Move to trash` and the capture drop zone `Add an image or PDF` are built.
   { label: 'Change…', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04', route: 'settings/shortcuts' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05), `ctl.typePickerLink` removed.
   { label: 'Merge…', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14', route: 'duplicate-titles' },
@@ -159,6 +157,9 @@ export const R4: R4Row[] = [
   // 5A-2 (conversion.md R53, D-499).
   { keys: '⇧⌘T', press: 'Meta+Shift+t', command: 'Turn into task', enabled: true },
   { keys: '⇧⌘O', press: 'Meta+Shift+o', command: 'Turn into object…', enabled: true },
+  // 6A (trash-media.md R75): on a note page, a focused card or row / in an editor.
+  { keys: '⌘⌫', press: 'Meta+Backspace', command: 'Move to trash', enabled: true },
+  { keys: '⇧⌘A', press: 'Meta+Shift+a', command: 'Add image or PDF…', enabled: true },
 ];
 
 /** Shortcuts macOS reserves (FR-UX-03 AC-7). */
@@ -206,12 +207,10 @@ export const showDue = (due: Due) => (due.slice ? `${due.milestone} (${due.slice
 export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
 
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
-/** 4F (D-431, R32): the `embed-note` row is built and removed. */
-export type R5Row = { id: 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
+/** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-630): `embed-image` and `embed-pdf` are retired
+ *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
+export type R5Row = { id: 'query' | 'mindmap'; due: Due; reqs: string };
 export const R5: R5Row[] = [
-  { id: 'embed-image', due: d('MS6'), reqs: 'FR-ATT-03, FR-ATT-07' },
-  { id: 'embed-pdf', due: d('MS6'), reqs: 'FR-ATT-02' },
-  { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },
   { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
   { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
 ];

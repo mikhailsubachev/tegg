@@ -5,9 +5,12 @@
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
-import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, unreviewedText } from '../links/chip';
+import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
+import { listen } from '@tauri-apps/api/event';
+import { addMedia, pickMedia, type MediaTarget } from '../media/addMedia';
+import { mountMedia } from '../media/mount';
 import { isAttachmentTarget } from '@tegg/doc';
 import type { EmbedStore } from '../embeds/store';
 import { mountEmbed } from '../embeds/slot';
@@ -40,7 +43,7 @@ import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -68,9 +71,9 @@ function chipIconElement(type: string): Element {
 /** D-600: the Unreviewed mark and a task's box and suffix on an editor chip (links/chip.ts). */
 function chipExtraOf(info: LinkInfo): ChipExtra | null {
   const s = chipState(info);
-  if (!s.unreviewed && !s.task) return null;
+  if (!s.unreviewed && !s.task && s.link === 'ok') return null;
   const glyph = taskGlyph(s);
-  return { attrs: chipAttrs(s), description: s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
+  return { attrs: chipAttrs(s), description: s.link === 'trashed' ? trashedText() : s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
@@ -140,6 +143,34 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const [, setTick] = useState(0);
   const rerender = useCallback(() => setTick((n) => n + 1), []);
   const links = useRef(new Map<string, LinkInfo & { path?: string | null }>());
+  const mediaViews = useRef(new Set<() => void>());
+  // 6A (FR-ATT-01 AC-2): files dropped from Finder (Tauri's window drag-drop event) go in at the drop point.
+  useEffect(() => {
+    const un = listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => {
+      const ed = edRef.current;
+      const tg = mediaTarget();
+      if (!ed || !tg || !e.payload?.paths?.length) return;
+      // Tauri reports physical pixels; accept logical ones too (the point must fall on the editor either way).
+      const r = ed.view.dom.getBoundingClientRect();
+      const inside = (px: number, py: number) => px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+      const dpr = window.devicePixelRatio || 1;
+      const { x: px, y: py } = e.payload.position;
+      const [x, y] = inside(px / dpr, py / dpr) ? [px / dpr, py / dpr] : [px, py];
+      if (!inside(x, y)) return;
+      const at = ed.view.posAtCoords({ left: x, top: y })?.pos;
+      void addMedia(tg, { kind: 'paths', paths: e.payload.paths }, at);
+    });
+    return () => void un.then((f) => f());
+  }, []);
+  /** 6A: where media goes: this editor, owned by this note (its title, else its stem). */
+  const mediaTarget = (): MediaTarget | null => {
+    const ed = edRef.current;
+    if (!ed) return null;
+    const data = (parse(ed.text()).frontmatter?.data ?? {}) as Record<string, unknown>;
+    const stem = (pathRef.current.split('/').pop() ?? '').replace(/\.md$/i, '');
+    const title = typeof data.title === 'string' && data.title.trim() ? data.title.trim() : stem;
+    return { view: ed.view, owner: { path: pathRef.current, title } };
+  };
   const pathRef = useRef(path);
   pathRef.current = path;
   const cbSave = useRef(onSaveNow);
@@ -185,13 +216,17 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
         if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
-        if (r?.path && (r.kind === 'note' || r.kind === 'daily')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
+        if (r?.path && (r.kind === 'note' || r.kind === 'daily' || r.kind === 'trashed')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
         else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
       },
       onTag: (v) => cb.current.onTag(v.normalize('NFC').toLowerCase()),
       onExternal: (url) => cb.current.onExternal(url),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
+      // 6A (R77, D-622): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
+      media: (source, dom) => mountMedia(dom, source, (tg) => links.current.get(tg), (p) => cb.current.onOpen(p), mediaViews.current),
+      // 6A (FR-ATT-01 AC-1): files on the clipboard are added as media (an image wins over text).
+      onFiles: (files, pos) => { const tg = mediaTarget(); if (!tg) return false; void addMedia(tg, { kind: 'paste', files }, pos); return true; },
       embedChip: embeds ? (value) => {
         const n = embeds.inlineNode(value);
         if (!n) return undefined;
@@ -243,12 +278,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     ed.view.state.doc.descendants((n) => {
       if (n.type.name === 'wikiLink' && (!n.attrs.embed || embeds)) {
         const tg = linkTarget(String(n.attrs.value)).target.normalize('NFC');
-        if (tg && !links.current.has(tg) && !(n.attrs.embed && isAttachmentTarget(tg))) targets.add(tg);
+        if (tg && !links.current.has(tg)) targets.add(tg); // 6A: inline file embeds resolve too (R77)
       }
       // 4F: block embeds resolve in the same batch as the links (FR-EMB-01 AC-2, NFR-PERF-05 AC-3).
       if (embeds && n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
         const tg = linkTarget(String(n.attrs.source).trim().replace(/^!\[\[|\]\]$/g, '')).target.normalize('NFC');
-        if (tg && !links.current.has(tg) && !isAttachmentTarget(tg)) targets.add(tg);
+        if (tg && !links.current.has(tg)) targets.add(tg); // 6A: file embeds resolve too (R77)
       }
       return true;
     });
@@ -256,8 +291,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null, object: r.object ?? null });
       edRef.current?.refreshUi();
+      mediaViews.current.forEach((f) => f());
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
     }
@@ -298,7 +334,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     for (const s of embedSources()) {
       const v = s.slice(2).trim().replace(/^!\[\[|\]\]$/g, '');
       const tg = linkTarget(v).target.normalize('NFC');
-      if (tg && !isAttachmentTarget(tg)) targets.add(tg);
+      if (tg) targets.add(tg); // 6A: file embeds follow their files (R74, R77)
     }
     // D-600, FR-LNK-07 AC-10: a changed target changes its chip (Unreviewed, a task's status and dates).
     ed.view.state.doc.descendants((n) => {
@@ -307,10 +343,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     });
     if (targets.size) {
       const res = await ipc.linkResolve(pathRef.current, [...targets]).catch(() => [] as LinkTargetDto[]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null, object: r.object ?? null });
     }
     buildEmbeds(true);
     edRef.current?.refreshUi();
+    mediaViews.current.forEach((f) => f());
   }, []);
   useEffect(() => {
     if (!embeds) return;
@@ -654,6 +691,15 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const e = edRef.current;
     const s = live.current.slash;
     if (!e || !s || !item.status.built) return;
+    // 6A (FR-ATT-01 AC-3): slash Image / PDF open the system file dialog; the files go at the caret.
+    if (item.id === 'image' || item.id === 'pdf') {
+      setSlash(null);
+      dismissed.current = `s${s.from}`;
+      e.view.dispatch(e.view.state.tr.delete(s.from, e.view.state.selection.from).setMeta('addToHistory', false));
+      const tg = mediaTarget();
+      if (tg) void pickMedia(tg, item.id === 'pdf' ? 'pdf' : 'image');
+      return;
+    }
     if (item.id === 'embedObject') {
       setSlash(null);
       dismissed.current = `s${s.from}`;
@@ -866,6 +912,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         break;
       }
       case 'saveNow': cbSave.current?.(); break; // the note page flushes (FR-EDT-08 AC-9)
+      // 6A (R75): ⇧⌘A / palette `Add image or PDF…`.
+      case 'addMedia': { const tg = mediaTarget(); if (tg) void pickMedia(tg, 'any'); break; }
       // 4F (R32, D-428).
       case 'embedObject': {
         if (!embeds) break;

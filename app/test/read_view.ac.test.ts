@@ -200,11 +200,12 @@ test('fr_edt_02_ac6_link_targets_are_one_batch_without_attachments', async () =>
   const odkazy = mod.linkTargets(fixture(F.odkazy)) as string[];
   assert.ok(Array.isArray(odkazy), 'linkTargets returns a list');
   assert.equal(new Set(odkazy).size, odkazy.length, 'deduplicated');
-  assert.deepEqual([...new Set(odkazy.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dvojník', 'neexistuje', 'reading list', 'smazaná', 'šablona'].sort(),
-    `targets of Odkazy (no attachments, nothing from code, math, comments or HTML): ${JSON.stringify(odkazy)}`);
+  // D-630, D-632 (6A, trash-media.md R77): `![[file]]` embeds resolve as media, so attachments are in the one batch.
+  assert.deepEqual([...new Set(odkazy.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dokument.pdf', 'dvojník', 'fotka.png', 'neexistuje', 'reading list', 'smazaná', 'tabulka.xlsx', 'šablona'].sort(),
+    `targets of Odkazy (with the embedded attachments; nothing from code, math, comments or HTML): ${JSON.stringify(odkazy)}`);
   for (const t of odkazy) assert.ok(!/[#|]/.test(t), `target without subpath or alias: ${t}`);
   const vl = mod.linkTargets(fixture(F.vlastnosti)) as string[];
-  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník'], `frontmatter relations of Vlastnosti (cover is an attachment): ${JSON.stringify(vl)}`);
+  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník', 'obal.jpg'], `frontmatter links of Vlastnosti (6A, D-632: the cover's file is in the batch too): ${JSON.stringify(vl)}`);
 });
 
 test('fr_edt_02_ac6_wikilinks_and_markdown_links_render_as_chips', async () => {
@@ -241,10 +242,15 @@ test('fr_edt_02_ac8_unresolved_and_date_links', async () => {
     assert.ok(n, `list under ${h}`);
     return [...n!.querySelectorAll('li')].map((li) => oneLink(li, text(li)));
   };
-  const unresolved = section('Nevyřešené');
-  assert.deepEqual(unresolved.map(name), ['Neexistuje', 'Reading list', 'Šablona', 'Smazaná']);
+  const all = section('Nevyřešené');
+  assert.deepEqual(all.map(name), ['Neexistuje', 'Reading list', 'Šablona', 'Smazaná']);
+  // D-628 (6A, D-615, trash-media.md R74): a link into `.trash/` is a trashed chip, not a broken one.
+  const smazana = all[3];
+  assert.equal(smazana.getAttribute('data-link-state'), 'trashed', 'Smazaná: trashed chip (R74)');
+  assert.equal(desc(smazana), 'In trash', 'Smazaná: description In trash');
+  const unresolved = all.slice(0, 3);
   for (const l of unresolved) {
-    assert.equal(l.getAttribute('data-link-kind'), 'unresolved', `${name(l)}: broken-link chip (aliases, templates and .trash/ never resolve)`);
+    assert.equal(l.getAttribute('data-link-kind'), 'unresolved', `${name(l)}: broken-link chip (aliases and templates never resolve)`);
     assert.equal(desc(l), `No note named ${name(l)}`, `${name(l)}: accessible description`);
   }
   calls.open.length = 0;
@@ -384,9 +390,11 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
   cleanup();
   const odkazy = await view(F.odkazy);
   const od = [...odkazy.article.querySelectorAll('[data-placeholder]')] as HTMLElement[];
-  assert.deepEqual(blIds, ['mindmap', 'query', 'embed-image'], 'Bloky: mindmap, query, remote image');
+  // 6A (D-630): the media placeholders are retired; Bloky keeps mindmap and query (a remote image is never loaded).
+  assert.deepEqual(blIds, ['mindmap', 'query'], 'Bloky: mindmap, query');
   // 4F (D-431): note embeds are no longer placeholders; without the embed renderer they are link-mode embeds.
-  assert.deepEqual(od.map((p) => p.dataset.placeholder), ['embed-image', 'embed-image', 'embed-pdf', 'embed-other'], 'Odkazy: two images, a PDF, another attachment');
+  // 6A (D-630, trash-media.md R77): Odkazy's media are no longer placeholders.
+  assert.deepEqual(od.map((p) => p.dataset.placeholder), [], 'Odkazy: no media placeholder');
   for (const p of od) {
     const row = R5.find((r) => r.id === p.dataset.placeholder)!;
     const def = defs.find((x) => x.id === row.id);
@@ -397,7 +405,6 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
     assert.ok(tx.includes(`Coming in ${showDue(row.due)}`), `${row.id}: "Coming in ${showDue(row.due)}"`);
     for (const id of expandReqs(row.reqs)) assert.ok(tx.includes(id) || tx.includes(`-${id.split('-').pop()}`), `${row.id}: requirement ${id}`);
   }
-  const [i1, i2, pdf, other] = od;
   const [n1, n2] = [...odkazy.article.querySelectorAll('[data-embed-mode="link"]')] as HTMLElement[];
   const embeds: [HTMLElement, string | undefined][] = [[n1, undefined], [n2, 'Druhá kapitola']];
   for (const [l, frag] of embeds) {
@@ -407,11 +414,15 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
     fireEvent.click(l);
     assert.deepEqual(odkazy.calls.open.map(([x, f]) => [nfc(x), f === undefined ? undefined : nfc(f)]), [[F.cil, frag]], 'the chip opens the note');
   }
-  assert.ok(text(i1).includes('fotka.png'), 'image: file name');
-  assert.ok(text(i2).includes('obrázek.jpg') && text(i2).includes('popis obrázku'), 'image: file name and alt text');
-  assert.ok(text(pdf).includes('dokument.pdf') && /\b3\b/.test(text(pdf)), 'PDF: file name and page');
-  assert.ok(text(other).includes('tabulka.xlsx'), 'other attachment: file name');
-  assert.equal(odkazy.article.querySelectorAll('img').length, 0, 'no image is loaded');
+  // 6A (R77, D-630): files that don't exist show the broken-media text; another file type is a card with its name and
+  // `Reveal in Finder`.
+  const all = text(odkazy.article);
+  assert.ok(all.includes('Can\'t find "fotka.png"'), 'missing image: Can\'t find "fotka.png"');
+  assert.ok(all.includes('Can\'t find "dokument.pdf"'), 'missing PDF: Can\'t find "dokument.pdf"');
+  const other = ([...odkazy.article.querySelectorAll('*')] as HTMLElement[]).filter((e) => text(e).includes('tabulka.xlsx') && e.querySelector('button')).pop();
+  assert.ok(other, 'the other-file card shows its file name');
+  assert.ok([...other!.querySelectorAll('button')].some((b) => name(b) === 'Reveal in Finder'), 'the card has Reveal in Finder');
+  assert.equal(odkazy.article.querySelectorAll('img').length, 0, 'no image is loaded (none of these files exists)');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-REL-03

@@ -85,6 +85,16 @@
     "allow-inbox-count",
     "allow-inbox-bulk",
     "allow-capture-open",
-    "allow-index-versions"
+    "allow-index-versions",
+    "allow-trash-list",
+    "allow-object-trash",
+    "allow-trash-restore",
+    "allow-trash-delete",
+    "allow-trash-empty",
+    "allow-media-add",
+    "allow-media-add-paths",
+    "allow-media-pick",
+    "allow-media-open",
+    "allow-media-reveal"
   ]
 }

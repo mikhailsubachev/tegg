@@ -28,6 +28,7 @@ const PATHS: Record<string, string> = {
   type: 'M5 5h14v4M12 5v14M9 19h6',
   vault: 'M4 4h16v16H4zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z',
   trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
+  restore: 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5',
   import: 'M12 3v12M7 10l5 5 5-5M4 19h16',
   conflict: 'M12 3l9 16H3zM12 10v4M12 17h.01',
   capture: 'M12 4v16M4 12h16',

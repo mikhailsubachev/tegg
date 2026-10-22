@@ -11,8 +11,11 @@ import { handle as handleJobs } from './fake-jobs';
 import { handle as handleTasks } from './fake-tasks';
 import { handle as handleInbox } from './fake-inbox';
 import { handle as handleSettings } from './fake-settings';
+import { handle as handleTrash } from './fake-trash';
+import { handle as handleMedia, sniff } from './fake-media';
 
-export type FakeVault = { name: string; files: Record<string, string> };
+/** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
+export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
 export type UiStateDto = {
   version: 1;
   theme: 'system' | 'light' | 'dark';
@@ -96,6 +99,24 @@ export type FakeCoreHandle = {
   /** The capture page's records: `capture_ready` seqs, `capture_hide` count, `capture_open_main` paths,
    *  `capture_saved_show` payloads, `capture_open` (main window) kinds. */
   captureLog(): Promise<{ ready: number[]; hides: number; openMain: (string | null)[]; saved: { typeName: string; title: string; path: string }[]; opens: string[] }>;
+  // ---------------------------------------------------------------- 6A (ms6-trash-media §9.2)
+  /** Binary vault files as they are now (vault path → bytes). */
+  binary(): Promise<Record<string, Uint8Array>>;
+  /** Sets or removes (`null`) a binary vault file "from another program"; emits `vault:changed` (and `trash:changed`
+   *  under `.trash/`) unless `silent`. */
+  setBinary(path: string, bytes: Uint8Array | null, opts?: { silent?: boolean }): Promise<void>;
+  /** The renames and removals of the trash commands, in order: `trash` (`object_trash`), `restore` (`trash_restore`),
+   *  `remove` (`trash_delete`, `trash_empty`). */
+  moves(): Promise<{ kind: 'trash' | 'restore' | 'remove'; from: string; to: string | null }[]>;
+  /** What `trash_delete` / `trash_empty` moved to the system trash (row entries: files, or a folder row's folder). */
+  systemTrash(): Promise<string[]>;
+  /** Emits Tauri's drag-drop events (`tauri://drag-enter`, `tauri://drag-over`, `tauri://drag-drop`) with `paths` and
+   *  the logical `position`, as a Finder drop on the window. */
+  dropFiles(paths: string[], position: { x: number; y: number }): Promise<void>;
+  /** Dispatches a synthetic `paste` on the focused element with `clipboardData.files` (and `text/plain` when given). */
+  paste(page: Page, o: { files: { name: string; type: string; bytes: Uint8Array }[]; text?: string }): Promise<void>;
+  /** Files staged by the capture window (`capture_media_add`), in order. */
+  staged(): Promise<{ token: string; name: string }[]>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -142,6 +163,17 @@ export type FakeOptions = {
   /** FR-SYN-03 AC-21: every written `note_write` is reported as `vault:changed { paths: [p] }` twice, as the watcher
    *  reports Tegg's own saves: once while the write is pending (before it resolves) and once after it returned. */
   echoWrites?: boolean;
+  // ---------------------------------------------------------------- 6A (ms6-trash-media §9.2)
+  /** Trash times of trashed entries (row path → ISO with offset), R71. */
+  trashedAt?: Record<string, string>;
+  /** Files outside the vault that drops and the picker can name (absolute path → bytes). A path that is a prefix
+   *  (`<path>/…`) of another key is a folder. */
+  files?: Record<string, Uint8Array>;
+  /** The paths the picker answers (`media_pick`, `capture_media_add { pick: true }`); default: Cancel (`[]`). */
+  pick?: string[];
+  /** §2 (D-615, D-628): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`.
+   *  On by default; `false` gives the pre-6A behaviour (unresolved, missing). */
+  trashedLinks?: boolean;
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -198,6 +230,27 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleInbox(cmd, args, files, vers, ro)).catch(() => {});
   await page.exposeFunction('__teggSettings', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleSettings(cmd, args, files, vers as any)).catch(() => {});
+  // 6A (ms6-trash-media §9.2): the trash rules (fake-trash.ts) and media adds (fake-media.ts) in Node.
+  await page.exposeFunction('__teggTrash', (cmd: string, args: unknown, files: Record<string, string>, bin: string[], at: Record<string, string>) =>
+    handleTrash(cmd, args, files, bin, at)).catch(() => {});
+  await page.exposeFunction('__teggMedia', (cmd: string, args: any, files: Record<string, string>, bin: string[]) =>
+    handleMedia(cmd, args, files, bin)).catch(() => {});
+  // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
+  await page.route(/\/__media\//, async (route) => {
+    const url = new URL(route.request().url());
+    const rel = decodeURIComponent(url.pathname.replace(/^.*?\/__media\//, '')).normalize('NFC');
+    const b64 = await page.evaluate((p) => {
+      const f = (window as any).__teggFake;
+      if (!f) return null;
+      if (p.startsWith('stage/')) return f.stagedBytes?.[p.slice('stage/'.length)] ?? null;
+      if (p.startsWith('.tegg/')) return null;
+      return f.bin?.[p] ?? null;
+    }, rel).catch(() => null);
+    const bytes = b64 === null ? null : Buffer.from(b64, 'base64');
+    const type = bytes ? sniff(bytes) : null;
+    if (!bytes || !type) { await route.fulfill({ status: 404, body: '' }); return; }
+    await route.fulfill({ status: 200, contentType: type, headers: { 'cache-control': 'no-cache' }, body: bytes });
+  }).catch(() => {});
   if (vault) {
     const group = GROUPS.get(vault) ?? new Set<Page>();
     GROUPS.set(vault, group);
@@ -207,7 +260,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       for (const other of group) if (other !== page && !other.isClosed()) await other.evaluate((m) => (window as any).__teggFake?.remote(m), msg).catch(() => {});
     }).catch(() => {});
   }
-  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined }, empty: newEmptyVault('').files, starter: STARTER });
+  const outside = Object.fromEntries(Object.entries(opts.files ?? {}).map(([k, v]) => [k.normalize('NFC'), Buffer.from(v).toString('base64')]));
+  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined, files: undefined }, outside, empty: newEmptyVault('').files, starter: STARTER });
   if (opts.prelude) {
     const prelude = opts.prelude;
     await page.route(/\/src\/(capture\/)?main\.tsx(\?.*)?$/, async (route) => {
@@ -247,12 +301,37 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     backups: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.backups)) as BackupDto[]),
     setVault: (v) => page.evaluate((vv) => (window as any).__teggFake.switchVault(vv), v ? JSON.parse(JSON.stringify(v)) : null),
     captureLog: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.captureLog))),
+    // 6A (ms6-trash-media §9.2).
+    binary: async () => {
+      const b = await ev(() => ({ ...((window as any).__teggFake.bin ?? {}) }) as Record<string, string>);
+      return Object.fromEntries(Object.entries(b).map(([k, v]) => [k, Uint8Array.from(Buffer.from(v, 'base64'))]));
+    },
+    setBinary: (path, bytes, o) => page.evaluate(([p, b, oo]) => (window as any).__teggFake.setBinary(p, b, oo),
+      [path, bytes === null ? null : Buffer.from(bytes).toString('base64'), o ?? {}] as const),
+    moves: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.moves))),
+    systemTrash: () => ev(() => [...(window as any).__teggFake.sysTrash] as string[]),
+    dropFiles: (paths, position) => page.evaluate(async ([ps, pos]) => {
+      const f = (window as any).__teggFake;
+      await f.emit('tauri://drag-enter', { paths: ps, position: pos });
+      await f.emit('tauri://drag-over', { position: pos });
+      await f.emit('tauri://drag-drop', { paths: ps, position: pos });
+    }, [paths.map((p) => p.normalize('NFC')), position] as const),
+    paste: (target, o) => target.evaluate(([files, text]) => {
+      const dt = new DataTransfer();
+      for (const f of files) dt.items.add(new File([Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0))], f.name, { type: f.type }));
+      if (text !== null) dt.setData('text/plain', text);
+      const target = (document.activeElement ?? document.body) as HTMLElement;
+      const e = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(e, 'clipboardData', { value: dt });
+      target.dispatchEvent(e);
+    }, [o.files.map((f) => ({ name: f.name, type: f.type, b64: Buffer.from(f.bytes).toString('base64') })), o.text ?? null] as const),
+    staged: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.staged ?? []))),
   };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // In-page part. Serialized by Playwright: it must be self-contained (no imports, no outer variables).
-function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Record<string, string>; starter: Record<string, string> }) {
+function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: Record<string, string>; empty: Record<string, string>; starter: Record<string, string> }) {
   const w = window as any;
   const READS = new Set([
     'vault_current', 'vault_last', 'vault_types', 'vault_pick_dir', 'index_type_counts', 'index_list', 'index_search',
@@ -269,6 +348,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
     'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
+    'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
   ]);
   const opts = init.opts;
   const state = {
@@ -327,6 +407,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       }
       // 5B (§7.3): a silent change makes the index version stale; an `inbox` job skips the file as `changed`.
       if (o.silent) state.stale.add(p); else { state.stale.delete(p); delete state.indexVer[p]; }
+      if (!o.silent && p.startsWith('.trash/')) void state.emit('trash:changed', null); // 6A (ms6-trash-media §4)
       return o.silent ? undefined : state.emit('vault:changed', { paths: [p] });
     },
     // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
@@ -363,6 +444,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         if (opts.window === 'capture') void state.emit('capture:context-changed', {});
         else void state.emit('vault:changed', { paths: [p] });
         state.refreshCount();
+      } else if (m.kind === 'bin') {
+        const p = String(m.path).normalize('NFC');
+        if (m.b64 === null) delete (state as any).bin[p]; else (state as any).bin[p] = m.b64;
+        if (opts.window !== 'capture') void state.emit('vault:changed', { paths: [p] });
       } else if (m.kind === 'capture-open' && opts.window === 'capture') state.openCapture(m.trigger, m.captureKind);
       else if (m.kind === 'saved' && opts.window === 'capture') void state.emit('capture:saved', m.payload);
       else if (m.kind === 'ui-state' && opts.window === 'capture') void state.emit('ui:state', m.payload);
@@ -421,7 +506,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       delete state.vault.files[f];
       state.mtimes[t] = state.mtimes[f] ?? 0;
       delete state.mtimes[f];
-      return o.silent ? undefined : state.emit('vault:changed', { paths: [f, t] });
+      if (o.silent) return undefined;
+      // 6A (ms6-trash-media §4): the shell also emits `trash:changed` for a change under `.trash/`.
+      if (f.startsWith('.trash/') || t.startsWith('.trash/')) void state.emit('trash:changed', null);
+      return state.emit('vault:changed', { paths: [f, t] });
     },
   };
   w.__teggFake = state;
@@ -538,6 +626,167 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     if (r.error) throw r.error.disk ? { ...r.error, disk: withVersions(r.error.disk) } : r.error;
     return withVersions(r.result);
   };
+
+
+  // ---------------------------------------------------------------- 6A (ms6-trash-media §9.2): trash and media
+  const x = state as any;
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  /** The page clock as ISO 8601 with the local offset (the fake's "now"). */
+  const isoLocal = (ms: number) => {
+    const d = new Date(ms);
+    const off = -d.getTimezoneOffset();
+    const a = Math.abs(off);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}${off >= 0 ? '+' : '-'}${pad2(Math.floor(a / 60))}:${pad2(a % 60)}`;
+  };
+  const toB64 = (v: any): string => {
+    const u8 = v instanceof Uint8Array ? v : v instanceof ArrayBuffer ? new Uint8Array(v) : Array.isArray(v) ? Uint8Array.from(v) : v && typeof v === 'object' ? Uint8Array.from(Object.values(v) as number[]) : new Uint8Array();
+    let out = '';
+    for (let i = 0; i < u8.length; i += 0x8000) out += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+    return btoa(out);
+  };
+  x.bin = Object.fromEntries(Object.entries(init.vault?.bin ?? {}).map(([k, v]) => [k.normalize('NFC'), v])) as Record<string, string>;
+  x.trashedAt = { ...(opts.trashedAt ?? {}) } as Record<string, string>;
+  x.moves = [] as { kind: string; from: string; to: string | null }[];
+  x.sysTrash = [] as string[];
+  x.staged = [] as { token: string; name: string }[];
+  x.stagedBytes = {} as Record<string, string>;
+  x.idSeq = 0;
+  x.lastOptions = null as any;
+  const changed6a = (paths: string[]) => {
+    void state.emit('vault:changed', { paths });
+    if (paths.some((q) => q.startsWith('.trash/'))) void state.emit('trash:changed', null);
+    state.refreshCount();
+  };
+  const setBin = (p: string, b64: string | null, sync = true) => {
+    if (b64 === null) delete x.bin[p]; else x.bin[p] = b64;
+    if (sync) state.sync({ kind: 'bin', path: p, b64 });
+  };
+  x.setBinary = (path: string, b64: string | null, o: { silent?: boolean } = {}) => {
+    const p = path.normalize('NFC');
+    setBin(p, b64);
+    if (!o.silent) changed6a([p]);
+  };
+  const viaTrash = async (cmd: string, a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const r = await w.__teggTrash(cmd, a ?? {}, state.vault.files, Object.keys(x.bin), x.trashedAt);
+    if (r.error) throw r.error;
+    return r;
+  };
+  const applyMoves = (moves: { from: string; to: string }[], kind: 'trash' | 'restore') => {
+    const files = state.vault!.files;
+    const paths: string[] = [];
+    const now = isoLocal(Date.now());
+    for (const m of moves) {
+      if (files[m.from] !== undefined) {
+        files[m.to] = files[m.from];
+        delete files[m.from];
+        state.mtimes[m.to] = state.mtimes[m.from] ?? 0;
+        delete state.mtimes[m.from];
+      } else if (x.bin[m.from] !== undefined) {
+        setBin(m.to, x.bin[m.from]);
+        setBin(m.from, null);
+      }
+      if (kind === 'trash') x.trashedAt[m.to] = now;
+      else delete x.trashedAt[m.from];
+      x.moves.push({ kind, from: m.from, to: m.to });
+      paths.push(m.from, m.to);
+    }
+    changed6a(paths);
+  };
+  /** `writeControl({ fail: 'Io', path })`: that path (or the entries under it) can't be moved to the system trash. */
+  const removable = (r: { remove: string[]; entries: string[]; result: any }) => {
+    const bad = state.control.fail === 'Io' && state.control.path ? String(state.control.path).normalize('NFC') : null;
+    if (!bad) return r;
+    const hit = (q: string) => q === bad || q.startsWith(`${bad}/`);
+    const failed = [...new Set(r.entries.filter(hit))];
+    return {
+      remove: r.remove.filter((q) => !hit(q)), entries: r.entries.filter((q) => !hit(q)),
+      result: { removed: r.result.removed.filter((q: string) => !hit(q)), failed: [...r.result.failed, ...failed.map((q) => ({ path: q, reason: 'fake: Io' }))] },
+    };
+  };
+  const removeAll = (remove: string[], entries: string[]) => {
+    const files = state.vault!.files;
+    for (const p of remove) {
+      if (files[p] !== undefined) { delete files[p]; delete state.mtimes[p]; }
+      if (x.bin[p] !== undefined) setBin(p, null);
+      delete x.trashedAt[p];
+      x.moves.push({ kind: 'remove', from: p, to: null });
+    }
+    x.sysTrash.push(...entries);
+    changed6a(remove);
+  };
+  /** §3.4: one file and its object, file first; `writeControl({ fail: 'Io', path })` fails the write of that path once
+   *  (the object: the file just written is removed again, FR-ATT-01 AC-7). */
+  const addMedia = async (q: { b64: string; name: string; owner: string | null; ownerTitle: string | null; date: string; size?: number }) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const id = `01JB6AFAKE${String(++x.idSeq).padStart(16, '0')}`;
+    const r = await w.__teggMedia('add', { ...q, now: isoLocal(Date.now()), id }, state.vault.files, Object.keys(x.bin));
+    if (r.error) throw r.error;
+    const [file] = Object.keys(r.writes.bin);
+    const [obj] = Object.keys(r.writes.text);
+    const failing = (p: string) => state.control.fail === 'Io' && !!state.control.path && String(state.control.path).normalize('NFC') === p;
+    if (failing(file)) { state.control.fail = null; throw { ...err('Io', `fake: ${file} couldn't be written`), name: q.name }; }
+    setBin(file, r.writes.bin[file]);
+    state.writtenPaths.push(file);
+    if (failing(obj)) {
+      state.control.fail = null;
+      setBin(file, null);
+      throw { ...err('Io', `fake: ${obj} couldn't be written`), name: q.name };
+    }
+    state.vault.files[obj] = r.writes.text[obj];
+    state.touch(obj);
+    state.writtenPaths.push(obj);
+    changed6a([file, obj]);
+    return r.result;
+  };
+  const dirOutside = (p: string) => Object.keys(init.outside).some((k) => k.startsWith(`${p.replace(/\/+$/, '')}/`));
+  const addPaths = async (paths: string[], owner: string | null, ownerTitle: string | null, date: string) => {
+    const out: any[] = [];
+    for (const raw of paths) {
+      const p = String(raw).normalize('NFC');
+      const name = p.split('/').filter(Boolean).pop() ?? p;
+      const b64 = init.outside[p];
+      if (b64 === undefined) { out.push({ error: dirOutside(p) ? 'Refused' : 'Io', name }); continue; }
+      try { out.push({ ok: await addMedia({ b64, name, owner, ownerTitle, date }) }); } catch (e: any) { out.push({ error: e?.kind ?? 'Io', name }); }
+    }
+    return out;
+  };
+  const headers = () => {
+    const h = new Headers((x.lastOptions?.headers ?? {}) as HeadersInit);
+    const dec = (v: string | null) => { if (v === null) return null; try { return decodeURIComponent(v); } catch { return v; } };
+    return { name: dec(h.get('x-tegg-name')) ?? '', owner: dec(h.get('x-tegg-owner')), ownerTitle: dec(h.get('x-tegg-owner-title')), date: dec(h.get('x-tegg-date')) ?? isoLocal(Date.now()).slice(0, 10) };
+  };
+  const isRaw = (a: any) => a instanceof Uint8Array || a instanceof ArrayBuffer || Array.isArray(a);
+  /** §5: stages one file in the page's memory (never the vault). */
+  const stage = async (b64: string, name: string) => {
+    const r = await w.__teggMedia('info', { b64, name }, {}, []);
+    if (r.error) return { error: r.error.kind, name };
+    const token = `stage-${++x.idSeq}`;
+    x.stagedBytes[token] = b64;
+    x.staged.push({ token, name });
+    return { ok: { token, name, ...r.result } };
+  };
+  /** §3.2: a link target naming a media file (an extension other than `.md`). */
+  const mediaTarget = (t: string) => {
+    const name = t.split('/').pop() ?? '';
+    const dot = name.lastIndexOf('.');
+    if (dot <= 0) return false;
+    const ext = name.slice(dot + 1);
+    return ext.toLowerCase() !== 'md' && !ext.includes(' ') && ext.length <= 5;
+  };
+  const parentDir = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+  /** §3.2: Obsidian's rule over `candidates`: exact path, then the name in `fromDir`, then the shortest path. */
+  const pickMedia = (candidates: string[], target: string, fromDir: string): string | null => {
+    const lo = (v: string) => v.normalize('NFC').toLowerCase();
+    const t = lo(target.trim());
+    const exact = candidates.find((c) => lo(c) === t);
+    if (exact) return exact;
+    const nm = t.split('/').pop()!;
+    const same = candidates.filter((c) => lo(c.split('/').pop()!) === nm);
+    return same.find((c) => lo(parentDir(c)) === lo(fromDir)) ?? [...same].sort((a1, b1) => [...a1].length - [...b1].length || (a1 < b1 ? -1 : 1))[0] ?? null;
+  };
+  const fileOf = (text: string | undefined) => { const m = /\[\[([^\]|#]+)/.exec(front(text ?? '').file ?? ''); return m ? m[1].trim().normalize('NFC') : null; };
+  const extType = (p: string) => (/\.(png|jpe?g|gif|webp|heic|svg)$/i.test(p) ? 'image' : /\.pdf$/i.test(p) ? 'pdf' : null);
 
   // 4C (ms4-jobs §11): the in-page job runner.
   const jobs = {
@@ -821,6 +1070,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       if (ctlOn(a) && state.control.delayMs) await new Promise((r) => setTimeout(r, state.control.delayMs));
       if (ctlOn(a) && state.control.fail === 'Io') throw err('Io', 'fake: write failed (Io)');
       if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (p.startsWith('.trash/')) throw err('Invalid', `fake: ${p} is in the trash (ms6-trash-media §1.5)`);
       if (p in state.invalid) throw err('NotUtf8', `fake: ${p} isn't valid UTF-8`);
       const disk = state.vault.files[p];
       if (disk === undefined) {
@@ -987,6 +1237,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         seen.add(p);
         const key = state.vault ? Object.keys(state.vault.files).find((k) => k.normalize('NFC') === p) : undefined;
         const text = key === undefined ? undefined : state.vault!.files[key];
+        if (opts.trashedLinks !== false && p.startsWith('.trash/') && (text !== undefined || x.bin[p] !== undefined)) {
+          // 6A (ms6-trash-media §2): a trashed object shows the D-27 placeholder.
+          out.push({ path: p, state: 'trashed', title: text !== undefined ? (front(text).title ?? p.split('/').pop()!.replace(/\.md$/, '')) : p.split('/').pop()!, text: null, version: null, utf8: true, links: [] });
+          continue;
+        }
         if (text === undefined || /^(_templates|\.trash)\//.test(p)) {
           out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
           continue;
@@ -999,7 +1254,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     },
     // 3B (ms3-shell §11.1): the resolution rules of `Core::resolve_links` over the in-memory files.
     link_resolve: async (a) => {
-      const from = String(a.from ?? '').normalize('NFC');
+      const from0 = String(a.from ?? '').normalize('NFC');
+      const from = from0.startsWith('.trash/') ? from0.slice('.trash/'.length) : from0; // §1.5: as from its original path
       const fromDir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '';
       const objs = objects();
       const low = (x: string) => x.normalize('NFC').toLowerCase();
@@ -1012,8 +1268,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         const v = (k: string) => (typeof f[k] === 'string' ? f[k].trim() : null);
         return { review: v('review'), status: v('status'), due: v('due'), completed: v('completed') };
       };
-      return (a.targets as string[]).map((given) => { const r = resolveOne(given); return { ...r, ...fields(r.path) }; });
-      function resolveOne(given: string): { target: string; kind: string; path: string | null; title: string | null; type: string | null } {
+      return (a.targets as string[]).map((given) => { const r = resolveOne(given); return { object: null, ...r, ...fields(r.kind === 'media' ? null : r.path) }; });
+      function resolveOne(given: string): { target: string; kind: string; path: string | null; title: string | null; type: string | null; object?: string | null } {
         let t = String(given).normalize('NFC').trim();
         const cut = t.search(/[#|]/);
         if (cut >= 0) t = t.slice(0, cut).trim();
@@ -1033,6 +1289,38 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
             ?? [...same].sort((x, y) => x.path.length - y.path.length || byCode(x.path, y.path))[0];
         }
         if (hit) return { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type };
+        // 6A (ms6-trash-media §3.2): a media file, resolved over the vault's files (not only objects).
+        const all = [...Object.keys(state.vault?.files ?? {}), ...Object.keys(x.bin)].map((q) => q.normalize('NFC'));
+        const usable = (q: string) => !/^(_templates|\.trash|\.tegg)\//.test(q) && !/\.md$/i.test(q);
+        if (mediaTarget(t)) {
+          const file = pickMedia(all.filter(usable), t, fromDir);
+          if (file) {
+            const owners = objs.filter((o) => (o.type === 'image' || o.type === 'pdf') && (() => { const ft = fileOf(state.vault!.files[o.path]); return !!ft && pickMedia(all.filter(usable), ft, o.folder) === file; })())
+              .sort((o1, o2) => (o1.path < o2.path ? -1 : 1));
+            const own = owners[0];
+            return { target: given, kind: 'media', path: file, title: own ? own.title : file.split('/').pop()!, type: own ? own.type : extType(file), object: own ? own.path : null };
+          }
+        }
+        // 6A (ms6-trash-media §2, D-628): the same rules over `.trash/` with its prefix removed.
+        const trashed = opts.trashedLinks !== false ? all.filter((q) => q.startsWith('.trash/')) : [];
+        if (mediaTarget(t)) {
+          const inTrash = trashed.filter((q) => !/\.md$/i.test(q)).map((q) => q.slice('.trash/'.length));
+          const file = pickMedia(inTrash, t, fromDir);
+          if (file) {
+            const pairObj = trashed.filter((q) => /\.md$/i.test(q)).sort().find((q) => { const ft = fileOf(state.vault!.files[q]); return !!ft && pickMedia(inTrash, ft, parentDir(q.slice('.trash/'.length))) === file; });
+            if (pairObj) { const f = front(state.vault!.files[pairObj]); return { target: given, kind: 'trashed', path: pairObj, title: f.title ?? pairObj.split('/').pop()!.replace(/\.md$/, ''), type: match(f.type) }; }
+            return { target: given, kind: 'trashed', path: `.trash/${file}`, title: file.split('/').pop()!, type: extType(file) };
+          }
+        } else {
+          const tobjs = trashed.filter((q) => /\.md$/i.test(q) && state.vault!.files[q] !== undefined).map((q) => {
+            const rest = q.slice('.trash/'.length);
+            const f = front(state.vault!.files[q]);
+            return { path: q, rest, id: f.id ?? null, title: f.title ?? rest.split('/').pop()!.replace(/\.md$/, ''), type: match(f.type), folder: parentDir(rest) };
+          });
+          const th = tobjs.find((o) => low(o.rest) === kmd) ?? tobjs.find((o) => o.id !== null && low(o.id) === k)
+            ?? (() => { const same = tobjs.filter((o) => low(o.rest.split('/').pop()!.replace(/\.md$/, '')) === k); return same.find((o) => o.folder === fromDir) ?? [...same].sort((o1, o2) => o1.rest.length - o2.rest.length || byCode(o1.rest, o2.rest))[0]; })();
+          if (th) return { target: given, kind: 'trashed', path: th.path, title: th.title, type: th.type };
+        }
 
         return { target: given, kind: 'unresolved', path: null, title: null, type: null };
       }
@@ -1149,6 +1437,44 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       })();
       return { jobId };
     },
+    // ---------------------------------------------------------------- 6A (ms6-trash-media §4, §9.2)
+    trash_list: async () => (await viaTrash('trash_list', {})).result,
+    object_trash: async (a) => {
+      const p = String(a.path).normalize('NFC');
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (!p.startsWith('.trash/') && !p.startsWith('.tegg/')) {
+        const now = state.ver(p);
+        if (!now && x.bin[p] === undefined) throw err('Gone', `fake: ${p} is gone`);
+        const base = a.base as VersionDto | null;
+        if (now && (!base || base.size !== now.size || base.hash !== now.hash)) throw { ...err('Conflict', `fake: ${p} changed`), disk: now, path: p };
+      }
+      const r = await viaTrash('object_trash', { path: p });
+      applyMoves(r.moves, 'trash');
+      return r.result;
+    },
+    trash_restore: async (a) => {
+      const r = await viaTrash('trash_restore', { path: String(a.path).normalize('NFC') });
+      applyMoves(r.moves, 'restore');
+      return r.result;
+    },
+    trash_delete: async (a) => {
+      const r = removable(await viaTrash('trash_delete', { paths: ((a.paths ?? []) as string[]).map((q) => String(q).normalize('NFC')) }));
+      removeAll(r.remove, r.entries);
+      return r.result;
+    },
+    trash_empty: async () => {
+      const r = removable(await viaTrash('trash_empty', {}));
+      removeAll(r.remove, r.entries);
+      return r.result;
+    },
+    media_add: async (a) => {
+      const h = headers();
+      return addMedia({ b64: toB64(a), name: h.name, owner: h.owner, ownerTitle: h.ownerTitle, date: h.date });
+    },
+    media_add_paths: (a) => addPaths((a.paths ?? []) as string[], a.owner ?? null, a.ownerTitle ?? null, String(a.date ?? isoLocal(Date.now()).slice(0, 10))),
+    media_pick: () => [...(opts.pick ?? [])],
+    media_open: () => null,
+    media_reveal: () => null,
     open_external: (a) => {
       const url = String(a.url);
       if (!/^(https?:|mailto:)/i.test(url)) throw err('Unsupported', `fake: scheme not allowed: ${url}`);
@@ -1174,7 +1500,24 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
       const r = await w.__teggSettings('capture_plan', { type: a.type, title: a.title, text: a.text }, state.vault.files, {});
       const plan = r.result;
       if (plan.error) throw plan.error;
-      state.vault.files[plan.path] = String(a.text);
+      // 6A (ms6-trash-media §5, D-624): the staged files first (pairs), then the note with one embed paragraph each.
+      let text = String(a.text);
+      const tokens = ((a.media ?? []) as string[]).map(String);
+      if (tokens.length) {
+        const embeds: string[] = [];
+        const title = String(a.title ?? '').trim();
+        for (const tk of tokens) {
+          const b64 = x.stagedBytes[tk];
+          const name = x.staged.find((s0: any) => s0.token === tk)?.name ?? tk;
+          if (b64 === undefined) throw err('Io', `fake: no staged file ${tk}`);
+          const added: any = await addMedia({ b64, name, owner: plan.path, ownerTitle: title || null, date: isoLocal(Date.now()).slice(0, 10) });
+          embeds.push(`![[${added.embed}]]`);
+        }
+        text = [text.replace(/\n+$/, ''), ...embeds].filter((part) => part !== '').join('\n\n') + '\n';
+        x.staged = [];
+        x.stagedBytes = {};
+      }
+      state.vault.files[plan.path] = text;
       state.touch(plan.path);
       state.writtenPaths.push(plan.path);
       return { path: plan.path, title: String(a.title).normalize('NFC'), typeName: plan.typeName };
@@ -1191,6 +1534,19 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
         link: (stems[stemOf(x.path)] ?? 0) > 1 ? String(x.path).replace(/\.md$/, '') : String(x.path).split('/').pop()!.replace(/\.md$/, ''),
         title: x.title, type: x.type, alias: x.matched_alias ?? null,
       }));
+    },
+    // 6A (ms6-trash-media §5): stages files in the page's memory, never the vault; reads no vault file.
+    capture_media_add: async (a) => {
+      if (isRaw(a)) return [await stage(toB64(a), headers().name)];
+      const paths = a?.pick ? [...(opts.pick ?? [])] : ((a?.paths ?? []) as string[]);
+      const out: any[] = [];
+      for (const raw of paths) {
+        const p = String(raw).normalize('NFC');
+        const name = p.split('/').filter(Boolean).pop() ?? p;
+        const b64 = init.outside[p];
+        out.push(b64 === undefined ? { error: dirOutside(p) ? 'Refused' : 'Io', name } : await stage(b64, name));
+      }
+      return out;
     },
     capture_ready: (a) => { state.captureLog.ready.push(Number(a.seq)); return null; },
     capture_hide: () => { state.captureLog.hides++; return null; },
@@ -1212,6 +1568,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
   };
 
   w.__teggMocks.mockWindows(opts.window === 'capture' ? 'capture' : 'main');
+  // 6A (ms6-trash-media §3.6): media URLs go to the fake's `/__media/` route (WebKit can't route custom schemes).
+  w.__TEGG_MEDIA_BASE__ = `${location.origin}/__media/`;
   w.__teggMocks.mockIPC((cmd: string, args: any) => {
     const rec: { cmd: string; args: unknown; at?: number; seq?: number; endSeq?: number; ok?: boolean; endAt?: number; result?: unknown } =
       { cmd, args: args === undefined ? undefined : JSON.parse(JSON.stringify(args ?? null)), at: Date.now(), seq: ++state.seq };
@@ -1232,4 +1590,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; empty: Rec
     try { out = Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
     return out.then((v) => { settle(true); rec.result = v === undefined ? undefined : JSON.parse(JSON.stringify(v)); return v; }, (e) => { settle(false); rec.result = JSON.parse(JSON.stringify(e ?? null)); throw e; });
   }, { shouldMockEvents: true });
+  // 6A (ms6-trash-media §4): the mock drops invoke options; raw-body commands read their headers from here.
+  const invokeMocked = w.__TAURI_INTERNALS__.invoke;
+  w.__TAURI_INTERNALS__.invoke = (cmd: string, args: unknown, options: unknown) => {
+    x.lastOptions = options ?? null;
+    return invokeMocked(cmd, args, options);
+  };
 }

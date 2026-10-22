@@ -570,6 +570,9 @@ pub struct LinkTargetDto {
     pub due: Option<String>,
     #[ts(optional = nullable)]
     pub completed: Option<String>,
+    /// ms6-trash-media §2, §3.2 (6A): with kind `media`, the live Image or PDF object of the file, else null.
+    #[ts(optional = nullable)]
+    pub object: Option<String>,
 }
 
 // ---------------------------------------------------------------- MS4 slice 4A (ms4-links §4)
@@ -1097,6 +1100,96 @@ pub struct InboxRowDto {
     pub version: VersionDto,
 }
 
+// ---------------------------------------------------------------- MS6 slice 6A (ms6-trash-media §4, §5)
+
+/// One row of the Trash page (ms6-trash-media §1.2, §4).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TrashEntryDto {
+    pub path: String,
+    /// `object`, `file` or `folder`.
+    pub kind: String,
+    pub original: String,
+    pub folder: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: Option<String>,
+    pub files: Vec<String>,
+    pub count: u32,
+    /// ISO instant with the vault zone's offset of the entry's `ctime` (R71).
+    pub trashed_at: String,
+}
+
+/// One rename of a trash operation (ms6-trash-media §4).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct MovedDto {
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TrashFailedDto {
+    pub path: String,
+    pub reason: String,
+}
+
+/// `trash_delete` / `trash_empty` (ms6-trash-media §4).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TrashRemovalDto {
+    pub removed: Vec<String>,
+    pub failed: Vec<TrashFailedDto>,
+}
+
+/// `media_add` (ms6-trash-media §4).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MediaAddedDto {
+    pub file: String,
+    pub object: String,
+    pub title: String,
+    pub embed: String,
+    pub media_type: String,
+    /// Bytes (at most 200 MB, D-625).
+    pub size: u32,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub pages: Option<u32>,
+}
+
+/// One path of `media_add_paths` (ms6-trash-media §4): `{ ok }` or `{ error, name }` with `Refused`, `TooLarge` or `Io`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(untagged)]
+pub enum MediaAddResultDto {
+    Ok { ok: MediaAddedDto },
+    Err { error: String, name: String },
+}
+
+/// A file staged by the capture window (ms6-trash-media §5).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct StagedMediaDto {
+    pub token: String,
+    pub name: String,
+    pub media_type: String,
+    /// Bytes (at most 200 MB, D-625).
+    pub size: u32,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub pages: Option<u32>,
+}
+
+/// One staged file or its error (ms6-trash-media §5).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(untagged)]
+pub enum StagedMediaResultDto {
+    Ok { ok: StagedMediaDto },
+    Err { error: String, name: String },
+}
+
 /// The generated `types.ts`, in a fixed order.
 pub fn typescript() -> String {
     let decls = [
@@ -1188,6 +1281,14 @@ pub fn typescript() -> String {
         ShellSettingsDto::decl(),
         HotkeyStateDto::decl(),
         InboxRowDto::decl(),
+        TrashEntryDto::decl(),
+        MovedDto::decl(),
+        TrashFailedDto::decl(),
+        TrashRemovalDto::decl(),
+        MediaAddedDto::decl(),
+        MediaAddResultDto::decl(),
+        StagedMediaDto::decl(),
+        StagedMediaResultDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

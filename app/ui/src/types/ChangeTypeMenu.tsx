@@ -3,6 +3,7 @@
 // changeable, and files the panel can't edit have a disabled chip. Choosing writes only `type:` (and `modified`).
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { t } from '../i18n/catalog';
+import { trashRequest } from '../trash/moveToTrash';
 import type { TypeDto } from '../ipc/types';
 import { PopupMenu } from '../shell/Menu';
 import { Icon, typeIconName } from '../shell/Icon';
@@ -56,6 +57,11 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
             kind: 'item' as const, key: 'changeType', label: t('note.more.changeType'), disabled: !!disabledWhy, description: disabledWhy ?? undefined,
             content: <span className="menu-title">{t('note.more.changeType')}</span>,
             onChoose: () => { setMore(false); show(moreBtn.current); },
+          }, {
+            // 6A (FR-HIS-01 AC-1, Main board's More menu): Move to trash, ⌘⌫.
+            kind: 'item' as const, key: 'trash', label: t('cmd.trash'),
+            content: <><span className="menu-title">{t('cmd.trash')}</span><span className="menu-kbd" aria-hidden="true">⌘⌫</span></>,
+            onChoose: () => { setMore(false); trashRequest.current?.(); },
           }]} />
       )}
       {open && (

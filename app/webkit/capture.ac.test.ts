@@ -263,29 +263,26 @@ test('fr_cap_01_ac11_the_vault_changed_while_open', async ({ page }) => {
   assert.ok(await seen(page.getByText('Saves to Jiný', { exact: true }), 2000), 'the next open shows the new vault');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-12 [MS6], 5B part
+// ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-12 [MS6], 6A part
+// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-624): the drop zone is enabled and a pasted image is staged as a
+// thumbnail (the full criterion is app/webkit/capture_media.ac.test.ts); nothing is written before the save.
 
-test('fr_cap_01_ac12_images_and_pdfs_come_with_ms6', async ({ page }) => {
+test('fr_cap_01_ac12_images_and_pdfs_are_added_from_6a', async ({ page }) => {
   const core = await startCapture(page);
-  assert.equal(await isDisabled(dropZone(page)), true, 'the drop zone is aria-disabled');
-  assert.equal(await description(dropZone(page)), 'Coming in MS6', 'Coming in MS6');
+  assert.equal(await isDisabled(dropZone(page)), false, 'the drop zone is enabled');
+  assert.ok(!(await description(dropZone(page))).includes('Coming in'), 'no Coming in MS6');
   await typeInCapture(page, 'S obrázkem');
   await capText(page).evaluate((el) => {
     const dt = new DataTransfer();
-    dt.items.add(new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'foto.png', { type: 'image/png' }));
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    dt.items.add(new File([new Uint8Array(png)], 'foto.png', { type: 'image/png' }));
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
   });
-  assert.equal(await textOf(capStatus(page)), 'Images and PDFs can be added from MS6.', 'the paste shows the MS6 message');
-  assert.equal(nfc(await capValue(page)), 'S obrázkem', 'nothing inserted');
-  const prevented = await page.evaluate(() => {
-    const dt = new DataTransfer();
-    dt.items.add(new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }));
-    const e = new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true });
-    document.body.dispatchEvent(e);
-    return e.defaultPrevented;
-  });
-  assert.equal(prevented, true, 'a dropped file is prevented');
-  assert.deepEqual(await vaultWrites(core), [], 'nothing written');
+  assert.ok(await seen(page.getByRole('button', { name: /^Remove(?! #)/ }), 2000), 'the pasted image is staged as a thumbnail with Remove');
+  assert.notEqual(await textOf(capStatus(page), 300), 'Images and PDFs can be added from MS6.', 'the MS6 message is retired');
+  assert.equal(nfc(await capValue(page)), 'S obrázkem', 'no text inserted');
+  assert.deepEqual((await callsOf(core, 'capture_media_add')).length, 1, 'staged with capture_media_add');
+  assert.deepEqual(await vaultWrites(core), [], 'nothing written before the save');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-13 (the panel)

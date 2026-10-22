@@ -89,9 +89,9 @@ test('fr_tsk_01_ac3_r3_controls_recurrence_v1_and_new_disabled_controls', async 
   assert.equal(reg.showDue(by('ctl.rowRecurrence')?.due ?? { milestone: 'MS5' }), 'v1.0', 'the Recurrence row moves to v1.0 (D-381)');
   assert.equal(by('tasks.sort')?.req, 'FR-QRY-05', 'Tasks page Sort (FR-QRY-05)');
   assert.equal(reg.showDue(by('tasks.sort')?.due ?? { milestone: 'MS5' }), 'v1.0', 'Sort: Coming in v1.0 (AP-407)');
-  assert.equal(by('task.trash')?.req, 'FR-HIS-01', 'card Move to trash (FR-HIS-01)');
-  assert.equal(reg.showDue(by('task.trash')?.due ?? { milestone: 'MS5' }), 'MS6', 'Move to trash: Coming in MS6');
-  for (const l of ['tasks.sort', 'task.trash']) assert.ok(l in cmd.CONTROL_COMMANDS, `${l} is also a command (FR-UX-03 AC-8)`);
+  // 6A (trash-media.md R75, tasks.md R43): the card's Move to trash is built, no longer a disabled control.
+  assert.equal(by('task.trash'), undefined, 'card Move to trash is built in 6A (no longer Coming in MS6)');
+  for (const l of ['tasks.sort']) assert.ok(l in cmd.CONTROL_COMMANDS, `${l} is also a command (FR-UX-03 AC-8)`);
 });
 
 test('fr_dly_04_ac8_the_daily_tasks_placeholder_is_gone', async () => {

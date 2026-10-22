@@ -119,7 +119,7 @@ test('fr_fmt_08_ac9_daily_note_title_never_renames', async ({ page }) => {
 });
 
 test('fr_fmt_08_ac9_template_and_trash_title_edits_write_title_only', async ({ page }) => {
-  for (const [path, title] of [[R.sablona, 'Page'], [R.kos, 'Starý']] as const) {
+  for (const [path, title] of [[R.sablona, 'Page']] as const) {
     const p = await page.context().newPage();
     const core = await openRename(p, path, { route: `note/${path}` });
     await mustBeOn(p, title, `${path} open`, 5000);
@@ -129,6 +129,18 @@ test('fr_fmt_08_ac9_template_and_trash_title_edits_write_title_only', async ({ p
     assert.deepEqual(await callsOf(core, 'note_rename'), [], `${path}: no rename (D-391)`);
     const files = await core.files();
     assert.ok(files[path] !== undefined, `${path}: the file keeps its path`);
+    await p.close();
+  }
+  // 6A (trash-media.md FR-HIS-01 AC-6, D-618, D-632): a note in `.trash/` opens read-only: no editable title, no write.
+  {
+    const p = await page.context().newPage();
+    const core = await openRename(p, R.kos, { route: `note/${R.kos}` });
+    await mustBeOn(p, 'Starý', `${R.kos} open`, 5000);
+    await must(p.getByText('This object is in the trash. Restore it to edit it.'), `${R.kos}: the read-only banner`, 3000);
+    assert.equal(await p.getByRole('textbox', { name: 'Title', exact: true }).count(), 0, `${R.kos}: no editable title`);
+    await sleep(500);
+    assert.deepEqual(await callsOf(core, 'note_rename'), [], `${R.kos}: no rename`);
+    assert.ok((await core.files())[R.kos] !== undefined, `${R.kos}: the file keeps its path`);
     await p.close();
   }
   const core = await openRename(page, R.beta);

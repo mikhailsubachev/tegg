@@ -25,7 +25,7 @@ import { createHistory } from './shell/history';
 import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
 import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
-import { parseRoute, routeString, type Route } from './shell/routes';
+import { parseRoute, routeString, type Route, sameRoute } from './shell/routes';
 import { createdMarker, settleCreated } from './shell/created';
 import { typeEntries } from './shell/types';
 import { Switcher } from './Switcher';
@@ -51,6 +51,9 @@ import { AllTasks } from './tasks/AllTasks';
 import type { TasksView } from './tasks/TasksHeader';
 import { useTaskBadge } from './tasks/useTasks';
 import { InboxPage } from './inbox/InboxPage';
+import { TrashPage } from './trash/TrashPage';
+import { TrashMessages } from './trash/toast';
+import { moveToTrash, trashRequest } from './trash/moveToTrash';
 import { TypeMenu } from './shell/TypeMenu';
 import { setDateTimeSetting } from './i18n/dates';
 import { HotkeyNotice } from './pages/HotkeyNotice';
@@ -146,6 +149,7 @@ export function App() {
   // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
   const taskCommand = useRef<((id: string) => void) | null>(null);
   const inboxCommand = useRef<((id: string) => void) | null>(null);
+  const trashCommand = useRef<((id: 'restore' | 'delete') => void) | null>(null);
   const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
@@ -186,7 +190,7 @@ export function App() {
   const land = useCallback(async () => {
     const forced = (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
     const r = forced ? parseRoute(forced) : null;
-    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'home' }), () => ({ id: 'home' }));
+    const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'inbox' }), () => ({ id: 'inbox' }));
     history.current.clear(); // D-171: the history starts with the landing route
     history.current.push(landing);
     setHistTick((n) => n + 1);
@@ -296,7 +300,11 @@ export function App() {
   }, []);
   /** A create path that lands on today's Daily Note (D-318, D-353): the caret goes into its body (D-367). */
   const createToday = useCallback(() => { const r = todayRoute(); justCreated.current = createdMarker(r); void go(r); }, [go]);
-  const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => { void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog }); }, [go]);
+  // 6A (R74, FR-HIS-01 AC-11): a link to a trashed object opens the Trash with its row focused.
+  const openNote = useCallback((path: string, fragment?: string, keepDialog = false) => {
+    if (path.startsWith('.trash/')) { void go({ id: 'trash', param: path.normalize('NFC') }, { keepDialog }); return; }
+    void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog });
+  }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
   useEffect(() => {
@@ -417,6 +425,35 @@ export function App() {
   const showSidebar = ui.sidebarOpen && !focusMode;
   const showPanel = isObject && ui.rightPanel.open && panelFits && !focusMode;
 
+  /** 6A: Move to trash for the current route (FR-HIS-01 AC-1, AC-3): a note page saves first and goes Back (or to the
+   *  Inbox); the Trash page asks to delete the focused row; elsewhere the focused row or card with a `data-path`. */
+  const trashHere = async () => {
+    if (route?.id === 'trash') { trashCommand.current?.('delete'); return; }
+    if (route?.id === 'inbox') { inboxCommand.current?.('inbox.trash'); return; }
+    if (isNoteRoute(route) || route?.id === DAILY) {
+      const api = noteApi.current;
+      if (!api || api.trashBlocked()) return;
+      const item = await api.trashTarget();
+      if (!item) return;
+      const back = route;
+      const r = await moveToTrash([item], { onUndone: () => { if (back) void go(back); } });
+      if (r.conflicts.length) { api.reload(); return; }
+      if (!r.moved.length) return;
+      if (history.current.canBack()) actions.back(); else void go({ id: 'inbox' });
+      return;
+    }
+    const el = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('main [data-path]');
+    const path = el?.dataset.path;
+    if (!path) return;
+    try {
+      const n = await ipc.noteRead(path);
+      const title = el?.dataset.title ?? path.split('/').pop()!.replace(/\.md$/i, '');
+      await moveToTrash([{ path, base: n.version, title }]);
+      setRefresh((x) => x + 1);
+    } catch { /* gone already */ }
+  };
+  trashRequest.current = () => { void trashHere(); };
+
   const actions: ShellActions = useMemo(() => ({
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
@@ -459,6 +496,11 @@ export function App() {
     inboxCommand: (id: string) => inboxCommand.current?.(id),
     capture: (kind: 'default' | 'task') => { void ipc.captureOpen(kind).catch(() => {}); },
     setNoteReviewed: (r: boolean) => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.setReviewed(r), 0); },
+    // 6A (R75, FR-HIS-01 AC-1, AC-3; D-620): Move to trash on the page's object, card or row.
+    trashObject: () => { void trashHere(); },
+    trashBlocked: () => (route?.id === 'new/<type>' ? t('trash.nothing') : isNoteRoute(route) || route?.id === DAILY ? (noteApi.current?.trashBlocked() ?? null) : null),
+    trashCommand: (id: 'restore' | 'delete') => trashCommand.current?.(id),
+    addMedia: () => { if (isNoteRoute(route) || route?.id === DAILY) setTimeout(() => noteApi.current?.edit('addMedia'), 0); },
     undoRename: () => { void undoLast(); },
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
@@ -551,6 +593,8 @@ export function App() {
       if ((s.command === 'daily.previous' || s.command === 'daily.next') && document.querySelector('[role="listbox"]')) return;
       // Editor commands the editor already handled (⌘Z in the text) don't run twice.
       if (s.command.startsWith('edit.') && e.defaultPrevented) return;
+      // 6A (FR-HIS-01 AC-1): in text (the editor, a field) ⌘⌫ keeps deleting to the line start.
+      if (s.command === 'object.trash' && el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       e.preventDefault();
       if (s.command === 'app.palette') {
         if (L.dialog !== 'palette') {
@@ -650,7 +694,8 @@ export function App() {
         else if ((isNote || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
-        else h!.focus({ preventScroll: true });
+        // A page that already put the focus on one of its items (the Inbox card one came back to, D-457) keeps it.
+        else if (!(document.activeElement && document.activeElement !== h && document.querySelector('main')?.contains(document.activeElement) && document.activeElement.closest('[data-path]'))) h!.focus({ preventScroll: true });
       }
       if (pendingScroll.current !== null && route.id !== 'note/<path>' && route.id !== DAILY) {
         const m = document.querySelector('main');
@@ -808,6 +853,8 @@ export function App() {
         commandRef={inboxCommand}
       />
     );
+  } else if (route?.id === 'trash' && vault) {
+    body = <TrashPage heading={heading} focus={route.param ?? null} onOpen={(p) => { void go({ id: 'note/<path>', param: p.normalize('NFC') }); }} commandRef={trashCommand} />;
   } else if (route?.id === 'broken-links') {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
@@ -841,9 +888,10 @@ export function App() {
       <div className="frame">
         {showSidebar && (
           <Sidebar
-            route={route ?? { id: 'home' }}
+            route={route ?? { id: 'inbox' }}
             types={typeEntries(types, counts).filter((e) => e.key !== 'task') /* D-516: the Tasks entry covers it */}
-            onGo={go}
+            // A click on the entry of the page shown moves the focus to its heading, as a navigation would (FR-UX-03 AC-11).
+            onGo={(r) => { if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
             onSwitcher={actions.openSwitcher}
             onNewObject={actions.newObject}
             onNewType={() => actions.newType?.()}
@@ -856,6 +904,7 @@ export function App() {
         )}
         <div className="centre">
           <HotkeyNotice onSettings={() => { void go({ id: 'settings/shortcuts' }); }} />
+          <TrashMessages />
           {vault.placeholders > 0 && (
             <div className="banner" role="region" aria-label={t('banner.offline')}>
               {t('banner.placeholders', { count: vault.placeholders })}

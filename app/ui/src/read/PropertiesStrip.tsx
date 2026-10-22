@@ -44,7 +44,7 @@ type Props = {
 
 function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<string, LinkTargetDto>; onOpen: (path: string) => void; from?: string }) {
   const info = links.get(target) ?? links.get(target.normalize('NFC'));
-  const ok = info && info.path && (info.kind === 'note' || info.kind === 'daily');
+  const ok = info && info.path && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed');
   const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
   const kind = ok ? info!.kind : dated ? 'date-missing' : 'unresolved';
   const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));

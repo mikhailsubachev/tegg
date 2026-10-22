@@ -39,5 +39,6 @@ test('fr_ux_02_ac13_overdue_includes_in_note_placeholders', async () => {
     assert.equal(listed(row.due.milestone, row.id), true, `${row.id} is overdue at ${row.due.milestone}`);
     assert.equal(listed('v1.x', row.id), true, `${row.id} is overdue at v1.x`);
   }
-  assert.equal(listed('MS4', 'embed-image'), false, 'embed-image is due MS6, not MS4');
+  // 6A (D-630): the media placeholders are retired; the remaining rows are v1.0.
+  assert.ok(!defs.some((d) => d.id.startsWith('embed-')), 'no media placeholder in the registry (D-630)');
 });

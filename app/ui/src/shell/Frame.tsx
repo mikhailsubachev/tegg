@@ -131,7 +131,6 @@ export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canFo
 type Entry = { id: string; label: string; icon: string; kbd?: string };
 // `kbd` holds a command id; its keys are rendered through the catalog at render time.
 const TOP: Entry[] = [
-  { id: 'home', label: 'route.home', icon: 'home' },
   { id: 'inbox', label: 'route.inbox', icon: 'inbox' },
   { id: 'today', label: 'route.today', icon: 'calendar', kbd: 'daily.today' },
   { id: 'tasks', label: 'route.tasks', icon: 'task' },
@@ -140,6 +139,8 @@ const BOTTOM: Entry[] = [
   { id: 'tags', label: 'frame.tags', icon: 'tag' },
   { id: 'pinned', label: 'route.pinned', icon: 'pin' },
   { id: 'saved-queries', label: 'route.savedQueries', icon: 'query' },
+  // 6A (D-618): the Trash, last, without a count.
+  { id: 'trash', label: 'route.trash', icon: 'trash' },
 ];
 
 let savedScroll = 0;

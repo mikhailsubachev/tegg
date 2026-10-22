@@ -922,8 +922,13 @@ test('nfr_oth_02_ac6_pseudo_locale_in_editor_surfaces', async ({ page }) => {
   await page.keyboard.type(' #pro');
   await check('tag suggestions', page.getByRole('listbox', { name: /Tag suggestions/ }));
   await page.keyboard.press('Escape');
-  await paste(page, { png: true });
-  await check('paste notice', page.getByRole('status').filter({ hasText: /MS6/ }));
+  // Changed by 6A (D-186 changed): the MS6 paste notice is retired; a refused file shows `media.refused` (FR-ATT-01 AC-6).
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new TextEncoder().encode('Tohle není obrázek.')], 'text.png', { type: 'image/png' }));
+    (document.activeElement as HTMLElement | null ?? document.body).dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await check('media refused alert', page.getByRole('alert').filter({ hasText: /text\.png|Pasted image/ }));
   await core.setFile(E.deset, original(E.deset).replace('Přehled', 'Jinde'), { silent: true });
   await page.keyboard.type('x');
   await check('merge dialog', page.getByRole('dialog', { name: /Note changed outside Tegg/ }));

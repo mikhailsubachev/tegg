@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-media-pick"
+description = "Enables the media_pick command without any pre-configured scope."
+commands.allow = ["media_pick"]
+
+[[permission]]
+identifier = "deny-media-pick"
+description = "Denies the media_pick command without any pre-configured scope."
+commands.deny = ["media_pick"]

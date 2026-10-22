@@ -55,7 +55,9 @@ const R63 = () => pairs('docs/acceptance/inbox.md', '`inbox.title`');
 test('fr_cap_01_ac14_r59_strings_are_catalog_keys_with_the_exact_english', async () => {
   const cat = await catalog();
   const list = R59();
-  assert.equal(list.length, 64, `R59 has ${list.length} keys`);
+  // 6A (D-624, D-632): `capture.mediaLater` is retired (catalog_6a.ac.test.ts requires it to be absent).
+  assert.ok(!list.some(([k]) => k === 'capture.mediaLater'), 'R59 no longer lists capture.mediaLater');
+  assert.equal(list.length, 63, `R59 has ${list.length} keys`);
   assert.deepEqual(check(cat, list), [], 'every R59 key with its English text');
 });
 

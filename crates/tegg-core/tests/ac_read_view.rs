@@ -71,6 +71,11 @@ fn none(target: &str, kind: LinkKind) -> LinkTarget {
     LinkTarget { target: target.into(), kind, path: None, title: None, r#type: None }
 }
 
+/// D-615, D-628 (6A): a target that resolves only in `.trash/` is `Trashed`, with the trashed path.
+fn trashed(target: &str, path: &str, title: &str, ty: &str) -> LinkTarget {
+    LinkTarget { target: target.into(), kind: LinkKind::Trashed, path: Some(path.into()), title: Some(title.into()), r#type: Some(ty.into()) }
+}
+
 const ODKAZY: &str = "Pages/Odkazy.md";
 const CIL: &str = "Pages/Cíl.md";
 
@@ -113,7 +118,7 @@ fn fr_edt_02_ac6_resolve_links_by_dialect_rules() {
         none("Reading list", LinkKind::Unresolved),
         none("Neexistuje", LinkKind::Unresolved),
         none("Šablona", LinkKind::Unresolved),
-        none("Smazaná", LinkKind::Unresolved),
+        trashed("Smazaná", ".trash/Pages/Smazaná.md", "Smazaná", "page"), // D-628 (6A): trashed, not unresolved
         none("Jiný titulek", LinkKind::Unresolved),
         note("Soubor", "Pages/Soubor.md", "Jiný titulek", "page"),
     ];
@@ -226,5 +231,9 @@ fn fr_syn_03_ac11_rename_keeps_identity_and_delete_unresolves() {
     let gone = wait_until(Duration::from_secs(2), || core.object("Pages/Cíl nový.md").is_none());
     assert!(gone.is_some(), "moved to .trash/: no longer indexed");
     let got = core.resolve_links(ODKAZY, &s(&[id, "Cíl nový"]));
-    assert_eq!(got, vec![none(id, LinkKind::Unresolved), none("Cíl nový", LinkKind::Unresolved)], ".trash/ is never a target");
+    assert_eq!(
+        got,
+        vec![trashed(id, ".trash/Pages/Cíl nový.md", "Cíl", "page"), trashed("Cíl nový", ".trash/Pages/Cíl nový.md", "Cíl", "page")],
+        "D-615, D-628 (6A): a target only in .trash/ resolves as trashed, never as a live note"
+    );
 }

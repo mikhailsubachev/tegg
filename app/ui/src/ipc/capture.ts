@@ -2,14 +2,18 @@
 // capability allows and the events it listens to. The main window's `ipc/client.ts` is never imported here.
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { CaptureContextDto, CaptureDraftDto, CapturedDto, CaptureSuggestDto, DateTimeUiDto } from './types';
+import type { CaptureContextDto, CaptureDraftDto, CapturedDto, CaptureSuggestDto, DateTimeUiDto, StagedMediaResultDto } from './types';
 
 export type CaptureOpen = { seq: number; trigger: string; kind: 'default' | 'task' };
 export type CaptureSaved = { typeName: string; title: string; path: string; heading?: string | null };
 
 export const captureIpc = {
   context: () => invoke<CaptureContextDto>('capture_context'),
-  create: (vault: string, type: string, title: string, text: string) => invoke<CapturedDto>('capture_create', { vault, type, title, text }),
+  create: (vault: string, type: string, title: string, text: string, media: string[] = []) => invoke<CapturedDto>('capture_create', { vault, type, title, text, media }),
+  /** 6A (ms6-trash-media §5, D-624): stages files in the shell (never the vault): pasted bytes, dropped paths, or the picker. */
+  mediaBytes: (bytes: Uint8Array, name: string) => invoke<StagedMediaResultDto[]>('capture_media_add', bytes, { headers: { 'x-tegg-name': encodeURIComponent(name) } }),
+  mediaPaths: (paths: string[]) => invoke<StagedMediaResultDto[]>('capture_media_add', { paths }),
+  mediaPick: () => invoke<StagedMediaResultDto[]>('capture_media_add', { pick: true }),
   ready: (seq: number) => invoke<void>('capture_ready', { seq }),
   hide: () => invoke<void>('capture_hide'),
   resize: (height: number) => invoke<void>('capture_resize', { height }),

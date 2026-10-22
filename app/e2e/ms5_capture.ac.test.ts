@@ -14,7 +14,7 @@ import { chmodSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
-  APP, NOW, NetMonitor, REPO, activateFinder, appPids, appiumDown, captureOpen, captureValue, changedPaths, closeMain, end, frontmost,
+  APP, FX, NOW, NetMonitor, REPO, activateFinder, appPids, appiumDown, captureOpen, captureValue, changedPaths, closeMain, end, frontmost,
   holdHotkey, hotkey, inboxCopy, mainOpen, maskId, need, palette, paste, pasteboard, press, quitApp, read, ready, session,
   setPasteboard, shown, sleep, spawnApp, statusItem, support, testEnv, tmp, tree, typeAscii, waitExit, waitFile, waitFor, waitMark,
   type Driver,
@@ -212,20 +212,33 @@ test('fr_cap_01_ac11_with_no_vault_every_trigger_opens_the_message', { timeout: 
   } finally { await end(d); rmSync(base, { recursive: true, force: true }); }
 });
 
-test('fr_cap_01_ac12_a_pasted_image_writes_nothing_until_ms6', { timeout: 300_000 }, async () => {
+// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-624): a pasted image is saved with the capture: one capture writes the
+// Image object, its file in `_attachments/` and the note ending with the embed; Esc before saving writes nothing.
+test('fr_cap_01_ac12_a_pasted_image_is_saved_with_the_capture', { timeout: 300_000 }, async () => {
   await ready();
   const c = fresh('cap01ac12');
   try {
     const d = await launch(c);
     const before = tree(c.vault);
     const png = join(c.base, 'obrazek.png');
-    writeFileSync(png, Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex'));
+    writeFileSync(png, readFileSync(join(FX, 'trash-media/_attachments/záhon.png')));
     execFileSync('osascript', ['-e', `set the clipboard to (read (POSIX file "${png}") as «class PNGf»)`]);
     await openByHotkey(d);
     press('v', ['command']);
-    assert.ok(await shown(d, 'Images and PDFs can be added from MS6.', 2000), 'the MS6 message');
+    assert.ok(!(await shown(d, 'Images and PDFs can be added from MS6.', 1000)), 'the MS6 message is retired');
     press('escape');
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'nothing written');
+    await sleep(500);
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'Esc: nothing written');
+    await openByHotkey(d);
+    typeAscii('Obrazek z menu');
+    execFileSync('osascript', ['-e', `set the clipboard to (read (POSIX file "${png}") as «class PNGf»)`]);
+    press('v', ['command']);
+    press('enter', ['command']);
+    const note = await waitFile(join(c.vault, 'Quick Notes/Obrazek z menu.md'), (t) => !!t && /!\[\[Pasted image \d{14}\.png\]\]\n$/.test(t), 5000);
+    assert.ok(note, 'the capture ends with the embed');
+    const changed = changedPaths(before, tree(c.vault)).filter((p) => !p.endsWith('/'));
+    assert.equal(changed.length, 3, `one capture writes the note, the Image object and the file: ${changed.join(', ')}`);
+    assert.ok(changed.includes('Images/Obrazek z menu 1.md') && changed.some((p) => p.startsWith('_attachments/Pasted image ')), 'the pair (R72)');
   } finally { await cleanup(c); }
 });
 

@@ -235,7 +235,11 @@ kind: string, path: string | null, title: string | null, type: string | null,
  * D-601: the target's `review`, `status`, `due` and `completed` (trimmed strings), for its chip. Only
  * `link_resolve` fills them; other payloads send null.
  */
-review?: string | null, status?: string | null, due?: string | null, completed?: string | null, };
+review?: string | null, status?: string | null, due?: string | null, completed?: string | null, 
+/**
+ * ms6-trash-media §2, §3.2 (6A): with kind `media`, the live Image or PDF object of the file, else null.
+ */
+object?: string | null, };
 export type AtDto = { line: number, byte: number, };
 export type ExcerptSegDto = { "kind": "text", text: string, marks: Array<string>, } | { "kind": "link", text: string, target: LinkTargetDto, here: boolean, marks: Array<string>, };
 export type ExcerptDto = { segments: Array<ExcerptSegDto>, cutStart: boolean, cutEnd: boolean, };
@@ -385,4 +389,28 @@ export type InboxRowDto = { path: string, id: string | null, title: string, type
  * The base of a single Inbox action (ms5-capture §7.3).
  */
 version: VersionDto, };
+export type TrashEntryDto = { path: string, 
+/**
+ * `object`, `file` or `folder`.
+ */
+kind: string, original: string, folder: string, title: string, type: string | null, files: Array<string>, count: number, 
+/**
+ * ISO instant with the vault zone's offset of the entry's `ctime` (R71).
+ */
+trashedAt: string, };
+export type MovedDto = { from: string, to: string, };
+export type TrashFailedDto = { path: string, reason: string, };
+export type TrashRemovalDto = { removed: Array<string>, failed: Array<TrashFailedDto>, };
+export type MediaAddedDto = { file: string, object: string, title: string, embed: string, mediaType: string, 
+/**
+ * Bytes (at most 200 MB, D-625).
+ */
+size: number, width: number | null, height: number | null, pages: number | null, };
+export type MediaAddResultDto = { ok: MediaAddedDto, } | { error: string, name: string, };
+export type StagedMediaDto = { token: string, name: string, mediaType: string, 
+/**
+ * Bytes (at most 200 MB, D-625).
+ */
+size: number, width: number | null, height: number | null, pages: number | null, };
+export type StagedMediaResultDto = { ok: StagedMediaDto, } | { error: string, name: string, };
 export type TypeDefDto = TypeDto;

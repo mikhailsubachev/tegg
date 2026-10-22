@@ -211,3 +211,7 @@ export { captureParts, type CaptureParts } from './capture.js'
 export { applyInboxChange, appendSection, type InboxChange } from './inbox.js'
 export { tableCells, displayTable, displayTables, displayTablesAt, needsDisplayTable, splitRow, type TableAlign, type TableCells } from './table.js'
 export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan } from './card.js'
+
+// ---------------------------------------------------------------- slice 6A (ms6-trash-media §3.1, §3.3, §3.5)
+
+export { mediaInfo, mediaNames, mediaObject, isGenericName, pastedImageName, type MediaInfo, type MediaNames, type MediaObjectFields, type NameRequest } from './media.js'

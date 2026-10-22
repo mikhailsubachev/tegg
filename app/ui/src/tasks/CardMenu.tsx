@@ -1,8 +1,9 @@
-// Slice 5A-1: the card's `More` menu (R43, D-482, D-479): Open, Status ›, Priority ›, Due date…, Move to trash (MS6);
+// Slice 5A-1: the card's `More` menu (R43, D-482, D-479): Open, Status ›, Priority ›, Due date…, Move to trash (built in 6A);
 // on the Kanban `Move to ›` and, grouped by tag, `Also add to ›`. A submenu replaces the list in place, so one menu is
 // open at a time; Esc closes and gives the focus back to what had it.
 import { useRef, useState } from 'react';
 import { parseDate as parseRegionDate } from '@tegg/schema';
+import { moveToTrash } from '../trash/moveToTrash';
 import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
@@ -89,7 +90,8 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
       { kind: 'item', key: 'due', content: t('task.dueDate'), disabled, description: why, onChoose: () => { setDueText(row.due ?? ''); setLevel('due'); } },
       ...(columns ? [{ kind: 'item', key: 'move', content: t('task.moveTo'), disabled, description: why, onChoose: () => setLevel('move') } as MenuEntry] : []),
       ...(columns && tagMode ? [{ kind: 'item', key: 'also', content: t('task.alsoAddTo'), disabled, description: why, onChoose: () => setLevel('also') } as MenuEntry] : []),
-      { kind: 'item', key: 'trash', content: t('task.trash'), disabled: true, description: t('due.comingIn', { due: 'MS6' }), onChoose: () => {} },
+      // 6A (R75, FR-HIS-01 AC-3): built.
+      { kind: 'item', key: 'trash', content: t('task.trash'), disabled, description: why, onChoose: run(() => { void moveToTrash([{ path: row.path, base: row.version, title: row.title }]); }) },
     ];
   }
   return <PopupMenu key={level} label={t('task.more', { title: row.title })} anchor={target.anchor} entries={entries} onClose={onClose} />;

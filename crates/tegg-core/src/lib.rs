@@ -81,6 +81,10 @@ pub enum CoreError {
     NotACapture,
     /// ms5-capture §5.1 (5B): a vault setting D-336 or D-222 rejects; nothing was written.
     Invalid { reason: String },
+    /// ms6-trash-media §3.4 (6A): the bytes aren't one of R72's media types (`media.refused`); nothing was written.
+    Refused,
+    /// ms6-trash-media §3.1 (6A, D-625): more than 200 MB; nothing was written.
+    TooLarge,
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -152,6 +156,9 @@ struct Shared {
     /// Type definitions by key for the index queries (rows, counts; 3D): read at open, after own type-file writes
     /// and on watched `.tegg/types/` changes, so a type page reads no file (D-233).
     type_defs: Mutex<std::collections::BTreeMap<String, tegg_schema::TypeFile>>,
+    /// ms6-trash-media §2, §3.2 (6A): the vault's non-note files and the trashed objects, read lazily from the file
+    /// system and dropped on every change (part of the disposable index, AR-01).
+    files: Mutex<Option<Arc<trash6a::FileCache>>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -263,6 +270,7 @@ impl Core {
             placeholders: Mutex::new(Vec::new()),
             not_utf8: Mutex::new(Default::default()),
             type_defs: Mutex::new(Default::default()),
+            files: Mutex::new(None),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
@@ -365,7 +373,15 @@ impl Core {
     }
 
     pub fn backlinks(&self, path: &str) -> Vec<String> {
-        self.index().backlinks(path)
+        let mut out = self.index().backlinks(path);
+        // FR-ATT-07 (ms6-trash-media §3.2): notes that embed or link an Image/PDF object's file.
+        for (src, _) in self.media_sources(path) {
+            if !out.contains(&src) {
+                out.push(src);
+            }
+        }
+        out.sort();
+        out
     }
 
     /// FR-LNK-02 (D-257, ms3-shell §15.4): backlinks with the frontmatter key each link is in.
@@ -456,6 +472,9 @@ impl Core {
     /// A version mismatch emits `NoteConflict`, writes nothing and returns `Conflict` (FR-SYN-03 AC-7/AC-8).
     pub fn write_note(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, CoreError> {
         let path = nfc(path);
+        if path.starts_with(".trash/") {
+            return Err(CoreError::Invalid { reason: "in the trash".into() }); // ms6-trash-media §1.5
+        }
         if lock(&self.shared.not_utf8).contains(&path) {
             return Err(CoreError::NotUtf8);
         }
@@ -517,6 +536,7 @@ fn worker(s: Arc<Shared>, rx: Receiver<Job>) {
         match job {
             Job::Stop => return,
             Job::CatchUp(listing) => {
+                *lock(&s.files) = None;
                 let first = listing.is_some();
                 catch_up(&s, listing);
                 if first {
@@ -652,6 +672,12 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
 /// Architecture §5.4: for each reported path, exists → re-index, gone → remove; event kinds are never
 /// trusted, and a folder is reconciled both ways. Emits `VaultChanged` with the note paths that changed.
 fn apply_paths(s: &Shared, paths: Vec<String>) {
+    *lock(&s.files) = None;
+    // ms6-trash-media §4 (6A): changes under `.trash/` are reported too (the Trash page and trashed chips follow them).
+    let trashed: Vec<String> = paths.iter().map(|p| nfc(p.trim_matches('/'))).filter(|p| p == ".trash" || p.starts_with(".trash/")).collect();
+    if !trashed.is_empty() {
+        s.emit(CoreEvent::VaultChanged { paths: trashed });
+    }
     let paths: BTreeSet<String> = paths.into_iter().map(|p| nfc(p.trim_matches('/'))).filter(|p| !p.is_empty()).collect();
     let mut changed: BTreeSet<String> = BTreeSet::new();
     if paths.iter().any(|p| p.starts_with(".tegg/")) {
@@ -818,6 +844,10 @@ pub enum LinkKind {
     Daily,
     DateMissing,
     Unresolved,
+    /// ms6-trash-media §2 (6A, D-615): resolves only in `.trash/`; `path` is the trashed path.
+    Trashed,
+    /// ms6-trash-media §3.2 (6A): a media file; `path` is the file, `LinkFields::object` its live Image/PDF object.
+    Media,
 }
 
 /// One resolved link target (ms3-shell §11.1, fields as `LinkTargetDto`).
@@ -838,23 +868,37 @@ pub struct LinkFields {
     pub status: Option<String>,
     pub due: Option<String>,
     pub completed: Option<String>,
+    /// ms6-trash-media §3.2 (6A): for a `Media` target, the live Image or PDF object whose `file:` resolves to the file
+    /// (several: path order); None otherwise.
+    pub object: Option<String>,
 }
 
 impl Core {
-    /// `link_resolve` with D-601's chip fields: one pass over the same objects (NFR-PERF-05 AC-3).
+    /// `link_resolve` with D-601's chip fields: one pass over the same objects (NFR-PERF-05 AC-3). Targets the live
+    /// objects don't resolve are tried as media files (§3.2), then in `.trash/` (§2, D-615). A trashed source resolves
+    /// as from its original path (§1.5).
     pub fn resolve_links_with_fields(&self, from: &str, targets: &[String]) -> Vec<(LinkTarget, LinkFields)> {
         let objs = self.objects();
         let by_path: HashMap<&str, &ObjectInfo> = objs.iter().map(|o| (o.path.as_str(), o)).collect();
         let text = |o: &ObjectInfo, k: &str| o.attributes.get(k).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-        Resolver::new(&objs, &self.shared)
-            .resolve(from, targets)
-            .into_iter()
+        let from = nfc(from);
+        let from = from.strip_prefix(".trash/").unwrap_or(&from).to_string();
+        let live = Resolver::new(&objs, &self.shared).resolve(&from, targets);
+        let mut files: Option<Arc<trash6a::FileCache>> = None;
+        live.into_iter()
             .map(|t| {
+                if t.kind == LinkKind::Unresolved {
+                    let cache = files.get_or_insert_with(|| self.file_cache()).clone();
+                    if let Some(r) = trash6a::resolve_more(&cache, &objs, &self.shared, &from, &t.target) {
+                        return r;
+                    }
+                }
                 let fields = t.path.as_deref().and_then(|p| by_path.get(p)).map(|o| LinkFields {
                     review: text(o, "review"),
                     status: text(o, "status"),
                     due: o.attributes.get("due").and_then(|v| v.as_str().map(|s| s.trim().to_string())).filter(|s| !s.is_empty()),
                     completed: text(o, "completed"),
+                    object: None,
                 });
                 (t, fields.unwrap_or_default())
             })
@@ -862,10 +906,10 @@ impl Core {
     }
 
     /// `link_resolve`: resolves every target of one note in one call, by the rules of ms3-shell §11.1 (dialect §6,
-    /// FR-LNK-14, D-141, D-142, D-155, D-162). Read-only, records no recency.
+    /// FR-LNK-14, D-141, D-142, D-155, D-162), then media files and the trash (ms6-trash-media §2, §3.2). Read-only,
+    /// records no recency.
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
-        let objs = self.objects();
-        Resolver::new(&objs, &self.shared).resolve(from, targets)
+        self.resolve_links_with_fields(from, targets).into_iter().map(|(t, _)| t).collect()
     }
 }
 
@@ -1001,3 +1045,11 @@ mod inbox5b;
 mod settings5b;
 pub use inbox5b::InboxRow;
 pub use settings5b::{DefaultTypeSetting, VaultKey, VaultSettings};
+
+// ------------------------------------------------------------------------------------------------ slice 6A
+// docs/contracts/ms6-trash-media.md §1, §3: the trash and media (`trash6a.rs`, `media6a.rs`).
+mod trash6a;
+pub mod media6a;
+pub use media6a::{media_info, media_names, media_object, MediaAdd, MediaAdded, MediaInfo, MediaNames, MediaObjectFields, NameRequest, OwnerRef};
+pub use tegg_vault::SystemTrash;
+pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};

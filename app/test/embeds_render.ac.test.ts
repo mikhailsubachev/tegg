@@ -67,7 +67,9 @@ test('fr_emb_01_ac1_read_view_renders_every_note_embed_through_render_embed', as
   const calls2: [string, number, boolean][] = [];
   const broken = await readView('Pages/Rozbitá vložení.md', marker(calls2));
   assert.deepEqual(calls2.map((c) => c[0]), ['Chybí', 'Šablona', 'Smazaná', 'Reading list', '2026-10-20', 'Chyba hlavičky'], 'attachments aren’t handed over');
-  assert.equal(broken.container.querySelectorAll('[data-placeholder="embed-image"]').length, 1, '![[obrázek.png]] is still the R5 embed-image placeholder');
+  // 6A (D-630, trash-media.md R77): the embed-image placeholder is retired; a missing image shows `Can't find`.
+  assert.equal(broken.container.querySelectorAll('[data-placeholder="embed-image"]').length, 0, 'no embed-image placeholder (D-630)');
+  assert.ok(text(broken.container).includes('Can\'t find "obrázek.png"'), '![[obrázek.png]] shows the broken-media text');
 });
 
 test('fr_emb_01_ac1_without_a_renderer_note_embeds_are_link_mode_not_placeholders', async () => {

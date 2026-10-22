@@ -199,9 +199,10 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
-  // 4F (D-431): a note embed is an embed now (embeds.md), image embeds, queries and mindmaps stay R5 placeholders.
+  // 4F (D-431): a note embed is an embed now (embeds.md); queries and mindmaps stay R5 placeholders. 6A (D-630): image
+  // embeds are media blocks (trash-media.md R77), no longer placeholders.
   const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 3, 'image embed, query and mindmap are R5 placeholders');
+  assert.ok((await regions.count()) >= 2, 'query and mindmap are R5 placeholders');
   assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();
@@ -432,7 +433,8 @@ test('fr_edt_02_ac21_embeds_typed_by_hand', async ({ page }) => {
   await page.keyboard.type('![[obrázek.png]]');
   t = await savedText(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '![[Cíl]]\n\n![[obrázek.png]]\n', 'image embed saved');
-  assert.equal((await editorBody(page).locator('[data-placeholder="embed-image"]').count()) >= 1, true, 'embed-image placeholder (the note embed is an embed now, 4F D-431)');
+  // D-630, D-632 (6A, trash-media.md R77): the embed-image placeholder is retired; a missing file shows `Can't find`.
+  assert.ok(await seen(editorBody(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 3000), 'the broken-media text for the missing obrázek.png (R77)');
   assert.equal((await core.calls()).filter((c) => /attachment|image|read_file/.test(c.cmd)).length, 0, 'no image file read');
 });
 
@@ -518,8 +520,12 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
   await page.keyboard.type('/');
   const menu = await must(slashMenu(page), 'menu');
   const n0 = (await core.calls()).length;
-  // 5A-2 (R53, D-499): `Task` is built; the other disabled items stay.
-  for (const [name, ms] of [['Image', 'MS6'], ['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
+  // 5A-2 (R53, D-499): `Task` is built; 6A (trash-media.md R75): `Image` and `PDF` are built; the other disabled items stay.
+  for (const name of ['Image', 'PDF']) {
+    const o = await must(menu.getByRole('option', { name, exact: true }), name);
+    assert.notEqual(await o.getAttribute('aria-disabled'), 'true', `${name} is enabled from 6A`);
+  }
+  for (const [name, ms] of [['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);

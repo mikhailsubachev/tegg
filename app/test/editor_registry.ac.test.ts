@@ -44,8 +44,8 @@ export const R6: [string, string, Due | null, string][] = [
   ['blocks', 'Code block', null, 'FR-EDT-02'],
   ['blocks', 'Divider', null, 'FR-EDT-02'],
   ['blocks', 'Table', null, 'FR-EDT-02'],
-  ['media', 'Image', d('MS6'), 'FR-ATT-01, FR-ATT-03'],
-  ['media', 'PDF', d('MS6'), 'FR-ATT-02'],
+  ['media', 'Image', null, 'FR-ATT-01, FR-ATT-03'], // built in 6A (trash-media.md R75)
+  ['media', 'PDF', null, 'FR-ATT-02'], // built in 6A (R75)
   ['advanced', 'Block embed', d('v1.0'), 'FR-EMB-01, FR-LNK-06'], // D-426, D-431
   ['advanced', 'Query', d('v1.0'), 'FR-QRY-06, FR-FMT-06'],
   ['advanced', 'Mindmap', d('v1.0'), 'FR-MMP-01'],

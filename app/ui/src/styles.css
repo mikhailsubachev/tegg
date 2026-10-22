@@ -932,3 +932,38 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .capture-suggest .capture-menu-item { display: flex; align-items: center; gap: 8px; }
 .capture-suggest .capture-menu-item.sel { background: var(--hover); }
 .shortcuts-group h2 { font-size: 15px; margin: 24px 0 8px; }
+
+/* 6A (trash-media.md R70, R74): the Trash page, trashed chips and the "moved to the trash" placeholder. */
+[data-link-state="trashed"] { text-decoration: line-through; color: var(--muted); }
+[data-link-state="trashed"] [data-user-content] { text-decoration: line-through; }
+.embed-trashed { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); }
+.embed-trashed-text { margin: 0; flex: 1; }
+.trash-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.trash-summary { margin: 2px 0 12px; }
+.trash-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.trash-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--border); border-radius: 6px; }
+.trash-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.trash-icon { color: var(--muted); display: inline-flex; }
+.trash-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.trash-title { text-align: left; font-weight: 600; color: var(--text); padding: 0; }
+.trash-meta { font-size: 12px; }
+.trash-restore, .trash-delete { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--text); }
+.trash-restore:hover, .trash-delete:hover { background: var(--hover); }
+.trash-keys { margin-top: 12px; font-size: 12px; }
+.trash-zero { margin-top: 40px; text-align: center; }
+.trash-zero-title { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
+.trash-banner { display: flex; align-items: center; gap: 12px; }
+.trash-toast { margin: 8px 16px 0; }
+
+/* 6A (trash-media.md R76, R77): media in notes. */
+.media-figure { margin: 4px 0; }
+.media-figure img { display: block; max-width: 100%; height: auto; border-radius: 4px; cursor: default; }
+.media-pdf-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--embed-border); border-radius: 8px; background: var(--embed-bg); color: var(--text); text-align: left; cursor: pointer; }
+.media-pdf-text { display: flex; flex-direction: column; }
+.media-pdf-title { font-weight: 600; }
+.media-pdf-meta { font-size: 12px; }
+.media-file-card { display: inline-flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--embed-border); border-radius: 8px; }
+.media-missing { color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; margin: 4px 0; }
+.media-object { margin: 8px 0 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.media-object-actions { display: flex; gap: 8px; }
+.media-inline { display: inline-block; vertical-align: middle; }

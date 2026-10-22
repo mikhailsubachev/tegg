@@ -61,7 +61,7 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
           );
         }
         const info = links.get(nfc(w.target));
-        const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+        const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed');
         const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
         const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
         const wrongType = ok && to && to.length > 0 && !to.map(nfc).includes(nfc(info!.type ?? 'page'));
