@@ -171,7 +171,7 @@ export type FakeOptions = {
   files?: Record<string, Uint8Array>;
   /** The paths the picker answers (`media_pick`, `capture_media_add { pick: true }`); default: Cancel (`[]`). */
   pick?: string[];
-  /** §2 (D-611, D-624): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`.
+  /** §2 (D-615, D-628): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`.
    *  On by default; `false` gives the pre-6A behaviour (unresolved, missing). */
   trashedLinks?: boolean;
 };
@@ -1301,7 +1301,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
             return { target: given, kind: 'media', path: file, title: own ? own.title : file.split('/').pop()!, type: own ? own.type : extType(file), object: own ? own.path : null };
           }
         }
-        // 6A (ms6-trash-media §2, D-624): the same rules over `.trash/` with its prefix removed.
+        // 6A (ms6-trash-media §2, D-628): the same rules over `.trash/` with its prefix removed.
         const trashed = opts.trashedLinks !== false ? all.filter((q) => q.startsWith('.trash/')) : [];
         if (mediaTarget(t)) {
           const inTrash = trashed.filter((q) => !/\.md$/i.test(q)).map((q) => q.slice('.trash/'.length));
@@ -1500,7 +1500,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const r = await w.__teggSettings('capture_plan', { type: a.type, title: a.title, text: a.text }, state.vault.files, {});
       const plan = r.result;
       if (plan.error) throw plan.error;
-      // 6A (ms6-trash-media §5, D-620): the staged files first (pairs), then the note with one embed paragraph each.
+      // 6A (ms6-trash-media §5, D-624): the staged files first (pairs), then the note with one embed paragraph each.
       let text = String(a.text);
       const tokens = ((a.media ?? []) as string[]).map(String);
       if (tokens.length) {

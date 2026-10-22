@@ -634,7 +634,7 @@ fn fr_lnk_04_ac9_broken_links_are_exactly_twelve_in_three_objects() {
     let root = backlinks_vault(&sb);
     let core = open(&root, &sb, false);
     let b = core.broken_links();
-    // D-624 (6A, D-611): `[[Smazaná]]` resolves to the trash, so it isn't broken: 11 broken links in 3 objects.
+    // D-628 (6A, D-615): `[[Smazaná]]` resolves to the trash, so it isn't broken: 11 broken links in 3 objects.
     assert_eq!((b.occurrences, b.objects), (11, 3), "11 broken links in 3 objects");
     let groups: BTreeMap<String, (String, usize)> = b.groups.iter().map(|g| (nfc(&g.key), (nfc(&g.label), g.count))).collect();
     let want: BTreeMap<String, (String, usize)> = [

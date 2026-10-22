@@ -405,7 +405,7 @@ pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#
     if test_var("TEGG_TEST_FAIL_CAPTURE").as_deref() == Some("io") && !FAILED_ONCE.swap(true, Ordering::SeqCst) {
         return Err(err("Io", "test: the capture write failed"));
     }
-    // ms6-trash-media §5 (D-620): the staged files first (pairs, create-exclusive), then the note embedding them. An
+    // ms6-trash-media §5 (D-624): the staged files first (pairs, create-exclusive), then the note embedding them. An
     // empty title is a capture without one: its media get `Capture <date> <n>` titles, the note `Untitled`.
     let mut text = text;
     let untitled = title.trim().is_empty();

@@ -39,7 +39,7 @@ const NOTE = { id: 'note/<path>', path: 'Tasks/Koupit semínka.md', type: 'task'
 test('fr_nav_04_ac6_routes_without_home_and_trash_built', async () => {
   const { reg } = await mods();
   const routes = reg.ROUTES as any[];
-  assert.equal(routes.find((r) => r.id === 'home'), undefined, 'no home route (D-609; returns with FR-HOM-01 in v1.0)');
+  assert.equal(routes.find((r) => r.id === 'home'), undefined, 'no home route (D-613; returns with FR-HOM-01 in v1.0)');
   const trash = routes.find((r) => r.id === 'trash');
   assert.ok(trash, 'route trash');
   assert.equal(trash.status.built, true, 'trash is built in 6A');

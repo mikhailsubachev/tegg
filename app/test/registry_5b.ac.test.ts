@@ -46,8 +46,8 @@ test('fr_nav_04_ac5_routes_follow_r62', async () => {
   }
   assert.equal(r('inbox').design, 'Inbox', 'inbox: the Inbox board');
   assert.equal(r('capture'), undefined, 'capture is a window, not a route (AP-491)');
-  // 6A (trash-media.md R75, D-609): `home` is removed; `pinned` stays TBD.
-  assert.equal(r('home'), undefined, 'home is removed in 6A (D-609)');
+  // 6A (trash-media.md R75, D-613): `home` is removed; `pinned` stays TBD.
+  assert.equal(r('home'), undefined, 'home is removed in 6A (D-613)');
   for (const id of ['pinned']) {
     assert.equal(r(id)?.status.built, false, `${id} stays TBD`);
     assert.equal(showDue(r(id).status.due), 'v1.0', `${id}: Coming in v1.0 (D-515, D-376)`);

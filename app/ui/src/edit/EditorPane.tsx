@@ -223,7 +223,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       onExternal: (url) => cb.current.onExternal(url),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
-      // 6A (R77, D-618): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
+      // 6A (R77, D-622): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
       media: (source, dom) => mountMedia(dom, source, (tg) => links.current.get(tg), (p) => cb.current.onOpen(p), mediaViews.current),
       // 6A (FR-ATT-01 AC-1): files on the clipboard are added as media (an image wins over text).
       onFiles: (files, pos) => { const tg = mediaTarget(); if (!tg) return false; void addMedia(tg, { kind: 'paste', files }, pos); return true; },

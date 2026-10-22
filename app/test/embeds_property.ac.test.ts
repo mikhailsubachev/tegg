@@ -169,4 +169,4 @@ test('fr_emb_04_ac7_property_embed_trees_terminate_and_follow_the_depth_and_cycl
     }), { seed, numRuns: RUNS, endOnFailure: true }).catch((e) => { if (!failures.length) failures.push(String(e).split('\n').slice(0, 4).join('\n')); });
   }
   assert.deepEqual(failures.slice(0, 3), [], `${failures.length} failures`);
-}, 600_000); // an explicit timeout as the other property tests (vitest's 5 s default is too short on a loaded machine, D-628)
+}, 600_000); // an explicit timeout as the other property tests (vitest's 5 s default is too short on a loaded machine, D-632)

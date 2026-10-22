@@ -103,7 +103,7 @@ fn fr_att_01_ac6_refused_content() {
     assert!(matches!(r, Err(CoreError::Refused)), "media_add refuses: {r:?}");
     // §11 (AP-554): 200 MB = 200 × 1024 × 1024 bytes; one byte more is refused.
     let big = core.media_add(add("velký.png", { let mut v = fixture(PNG); v.resize(200 * 1024 * 1024 + 1, 0); v }, Some((PLAN, "Plán zahrady"))));
-    assert!(matches!(big, Err(CoreError::TooLarge)), "over 200 MiB is refused (D-621): {:?}", big.as_ref().err());
+    assert!(matches!(big, Err(CoreError::TooLarge)), "over 200 MiB is refused (D-625): {:?}", big.as_ref().err());
     assert_eq!(changed(&before, &snap(&root)), Vec::<String>::new(), "nothing is written");
 }
 
@@ -144,7 +144,7 @@ fn fr_att_01_ac4_r72_names_and_titles() {
         .filter(|(got, want)| (nfc(&got.0), nfc(&got.1), nfc(&got.2)) != (want.0.to_string(), want.1.to_string(), want.2.to_string()))
         .map(|(got, want)| format!("want {want:?}, got {got:?}"))
         .collect();
-    assert!(bad.is_empty(), "R72/R73 (D-617): {bad:#?}");
+    assert!(bad.is_empty(), "R72/R73 (D-621): {bad:#?}");
 }
 
 // ------------------------------------------------------------------------------------------------ AC-1: §3.4, §3.5

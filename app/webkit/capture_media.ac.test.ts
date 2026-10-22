@@ -37,7 +37,7 @@ async function otherCalls(core: FakeCoreHandle) {
 test('fr_att_01_ac11_the_drop_zone_is_enabled_and_opens_the_picker', async ({ page }) => {
   const core = await open(page, { pick: [`${DESK}/Záhon 2.PNG`] });
   const zone = await must(dropZone(page), 'button "Add an image or PDF"');
-  assert.equal(await isDisabled(zone), false, 'enabled (FR-CAP-01 AC-12, D-620)');
+  assert.equal(await isDisabled(zone), false, 'enabled (FR-CAP-01 AC-12, D-624)');
   assert.ok(!(await description(zone)).includes('Coming in'), 'no Coming in MS6');
   await click(zone, 'the drop zone');
   const staged = await eventually(() => callsOf(core, 'capture_media_add'), (c) => c.length > 0, 2000);

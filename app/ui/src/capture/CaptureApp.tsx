@@ -172,7 +172,7 @@ export function CaptureApp() {
     return () => ro.disconnect();
   }, []);
 
-  // 6A (D-620): files dropped from Finder come through Tauri's window drag-drop event and are staged.
+  // 6A (D-624): files dropped from Finder come through Tauri's window drag-drop event and are staged.
   useEffect(() => {
     const un = listen<{ paths: string[] }>('tauri://drag-drop', (e) => { if (e.payload?.paths?.length) void stagePaths(e.payload.paths); });
     return () => void un.then((f) => f());
@@ -302,7 +302,7 @@ export function CaptureApp() {
         body: parts.body,
       });
       const vaultId = shownVault.current?.id ?? vault.id;
-      // 6A (D-620): the staged files are written first by the shell; `''` tells it the capture has no title.
+      // 6A (D-624): the staged files are written first by the shell; `''` tells it the capture has no title.
       const made = await captureIpc.create(vaultId, def.key, parts.title === '' && stagedRef.current.length ? '' : title, bytes, stagedRef.current.map((m) => m.token));
       setStaged([]);
       draftArmed.current = false;
@@ -339,7 +339,7 @@ export function CaptureApp() {
     return () => window.removeEventListener('keydown', h);
   }, []);
 
-  // 6A (FR-CAP-01 AC-12, D-620): a pasted image or PDF is staged (a pasted image is `Pasted image <local time>`).
+  // 6A (FR-CAP-01 AC-12, D-624): a pasted image or PDF is staged (a pasted image is `Pasted image <local time>`).
   const onPaste = (e: React.ClipboardEvent) => {
     const files = [...(e.clipboardData?.files ?? [])];
     if (files.length) {

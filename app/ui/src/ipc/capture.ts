@@ -10,7 +10,7 @@ export type CaptureSaved = { typeName: string; title: string; path: string; head
 export const captureIpc = {
   context: () => invoke<CaptureContextDto>('capture_context'),
   create: (vault: string, type: string, title: string, text: string, media: string[] = []) => invoke<CapturedDto>('capture_create', { vault, type, title, text, media }),
-  /** 6A (ms6-trash-media §5, D-620): stages files in the shell (never the vault): pasted bytes, dropped paths, or the picker. */
+  /** 6A (ms6-trash-media §5, D-624): stages files in the shell (never the vault): pasted bytes, dropped paths, or the picker. */
   mediaBytes: (bytes: Uint8Array, name: string) => invoke<StagedMediaResultDto[]>('capture_media_add', bytes, { headers: { 'x-tegg-name': encodeURIComponent(name) } }),
   mediaPaths: (paths: string[]) => invoke<StagedMediaResultDto[]>('capture_media_add', { paths }),
   mediaPick: () => invoke<StagedMediaResultDto[]>('capture_media_add', { pick: true }),

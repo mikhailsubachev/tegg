@@ -1558,7 +1558,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
-        // ms6-trash-media §3.6 (D-622): vault media for the webviews, read-only.
+        // ms6-trash-media §3.6 (D-626): vault media for the webviews, read-only.
         .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
         .setup(|app| {
             let handle = app.handle().clone();

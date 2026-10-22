@@ -1,6 +1,6 @@
 // MS6 slice 6A, L5 (WebKit + fake core): the sidebar without Home, docs/acceptance/trash-media.md FR-NAV-04 AC-6
 // (entries top to bottom ending with `Trash`; no Home entry, no `Go to Home`, `home` lands like an unknown route) and
-// AC-7's UI branch (D-610, AP-530: with no note opened, a deleted or trashed last note, and a new vault, the launch
+// AC-7's UI branch (D-614, AP-530: with no note opened, a deleted or trashed last note, and a new vault, the launch
 // shows `inbox`; no error dialog, no write). Interface docs/contracts/ms6-trash-media.md §6.2 (registry: `home` removed,
 // `BOTTOM` gains `trash` last, `land()` falls back to `{ id: 'inbox' }`). Written from the ACs and the contract only
 // (D-61). Every lookup goes through `must` (TS-I1).
@@ -29,7 +29,7 @@ test('fr_nav_04_ac6_sidebar_without_home', async ({ page }) => {
     assert.ok(b!.y >= last, `${name} below the previous entry`);
     last = b!.y;
   }
-  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-609)');
+  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
   const trash = (await sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Trash', { exact: true }) }).first().innerText()).replace(/\s+/g, ' ').trim();
   assert.equal(trash, 'Trash', 'Trash without a count (AP-534)');
   await page.keyboard.press('Meta+k');
@@ -67,7 +67,7 @@ test('fr_nav_04_ac7_launch_landing_is_the_inbox', async ({ browser }) => {
     const p = await ctx.newPage();
     const vault = tmVault(c.edit ? (f) => c.edit!(f) : undefined);
     const core = await start(p, { vault, last: c.last });
-    await mustBeOn(p, 'Inbox', `${c.what}: launch shows inbox (D-610)`, 5000);
+    await mustBeOn(p, 'Inbox', `${c.what}: launch shows inbox (D-614)`, 5000);
     assert.equal(await p.getByRole('alertdialog').count() + await p.getByRole('dialog').count(), 0, `${c.what}: no error dialog`);
     assert.deepEqual(await vaultWrites6a(core), [], `${c.what}: no write`);
     await ctx.close();

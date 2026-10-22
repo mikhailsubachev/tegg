@@ -1,4 +1,4 @@
-// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R76, D-618): above the body of an Image or PDF object's page: the
+// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R76, D-622): above the body of an Image or PDF object's page: the
 // image at its natural size (or the PDF card), the file's name and metadata, `Open in Preview` and `Reveal in Finder`.
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/catalog';

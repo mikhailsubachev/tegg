@@ -131,7 +131,7 @@ test('fr_fmt_08_ac9_template_and_trash_title_edits_write_title_only', async ({ p
     assert.ok(files[path] !== undefined, `${path}: the file keeps its path`);
     await p.close();
   }
-  // 6A (trash-media.md FR-HIS-01 AC-6, D-614, D-628): a note in `.trash/` opens read-only: no editable title, no write.
+  // 6A (trash-media.md FR-HIS-01 AC-6, D-618, D-632): a note in `.trash/` opens read-only: no editable title, no write.
   {
     const p = await page.context().newPage();
     const core = await openRename(p, R.kos, { route: `note/${R.kos}` });

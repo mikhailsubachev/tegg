@@ -206,7 +206,7 @@ async function brokenGroups(page: Page): Promise<[string, number][]> {
   return names.map((n) => /^(.*?),? (\d+)$/.exec(n.normalize('NFC'))).filter(Boolean).map((m) => [m![1], Number(m![2])] as [string, number]);
 }
 
-// D-624 (6A, D-611): `[[Smazaná]]` resolves to the trash, so it is no longer a broken-links group (11 links).
+// D-628 (6A, D-615): `[[Smazaná]]` resolves to the trash, so it is no longer a broken-links group (11 links).
 for (const [region, order] of [
   ['cs', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Šablona']],
   ['en', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Šablona']],
@@ -268,7 +268,7 @@ test('fr_lnk_04_ac11_an_io_failure_keeps_the_offer_open', async ({ page }) => {
 });
 
 test('fr_lnk_04_ac12_opening_every_offer_writes_nothing', async ({ page }) => {
-  // D-624 (6A): `Smazaná` is a trashed chip, not a broken one, so it offers no Create.
+  // D-628 (6A): `Smazaná` is a trashed chip, not a broken one, so it offers no Create.
   const broken: (string | RegExp)[] = ['Neexistuje', 'neexistuje', SUBPATH_CHIP, 'jiný popis', 'Q3: plán?', 'Projekty/Alfa', 'Osoby/Eva Malá', 'Šablona'];
   for (const readView of [false, true]) {
     const p = readView ? await page.context().newPage() : page;

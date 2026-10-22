@@ -62,7 +62,7 @@ test('fr_his_01_ac9_contract_strings_and_plural_forms', async () => {
     ['trash.removeFailed', "{count} items couldn't be removed."],
     ['media.dropHint', 'Drop to add'],
   ]), [], 'ms6-trash-media §8 keys');
-  assert.equal(cat.t('media.tooLarge', { name: 'velký.png' }), cat.t('media.refused', { name: 'velký.png' }), 'media.tooLarge = media.refused (D-621)');
+  assert.equal(cat.t('media.tooLarge', { name: 'velký.png' }), cat.t('media.refused', { name: 'velký.png' }), 'media.tooLarge = media.refused (D-625)');
   const one: [string, string][] = [['trash.summary', '1 item'], ['trash.folder', '1 object'], ['media.pages', '1 page'], ['trash.removeFailed', "1 item couldn't be removed."], ['trash.movedMany', 'Moved 1 item to the trash']];
   for (const [k, want] of one) assert.equal(cat.t(k, { count: 1 }), want, `${k}: plural forms (count 1)`);
   for (const k of ['route.home', 'purpose.home', 'cmd.goto.home']) assert.ok(k in cat.en, `${k} stays for v1.0`);

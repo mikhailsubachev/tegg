@@ -1,4 +1,4 @@
-//! MS6 slice 6A AC test with the 4C job engine (L4, D-627): FR-ATT-01 AC-4's last sentence (docs/acceptance/
+//! MS6 slice 6A AC test with the 4C job engine (L4, D-631): FR-ATT-01 AC-4's last sentence (docs/acceptance/
 //! trash-media.md; FR-ATT-08): renaming an Image object later (a title edit, the 4C rename job) renames its `.md` and
 //! rewrites the links to the object, but never touches the image file: `_attachments/záhon.png` keeps its name, bytes,
 //! mtime and inode, the object's `file:` line and every `![[záhon.png]]` embed stay as they are, and the renamed object

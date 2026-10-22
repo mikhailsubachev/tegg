@@ -356,7 +356,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     }
     assert.fail(`keyboard tour: could not reach ${what} with Tab / ⇧Tab`);
   };
-  for (const e of ['Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries', 'Trash']) { // 6A: no Home (D-609), Trash added (R75)
+  for (const e of ['Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries', 'Trash']) { // 6A: no Home (D-613), Trash added (R75)
     await tabTo(new RegExp(`^${e}\\b`), `sidebar ${e}`);
     await page.keyboard.press('Enter');
     await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date

@@ -4,7 +4,7 @@
 
 const nfc = (s: string) => s.normalize('NFC');
 const low = (s: string) => nfc(s).toLowerCase();
-/** D-621: larger files are refused before they are read. */
+/** D-625: larger files are refused before they are read. */
 export const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
 
 let docMod: any;
@@ -69,7 +69,7 @@ export async function handle(cmd: string, a: MediaAddArgs, files: Record<string,
   const fileName = names.file.split('/').pop()!;
   const sameName = paths.filter((p) => low(p.split('/').pop()!) === low(fileName)).length;
   const embed = sameName > 0 ? names.file : fileName;
-  // The owner counts once: it is already in `paths` unless it is a capture's future note (D-628).
+  // The owner counts once: it is already in `paths` unless it is a capture's future note (D-632).
   const source = a.owner ? linkText(paths.includes(nfc(a.owner)) ? paths : [...paths, nfc(a.owner)], nfc(a.owner)) : null;
   const text = d.mediaObject({ id: a.id, title: names.title, now: a.now, embed, info, size, source });
   return {

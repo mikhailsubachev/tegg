@@ -1,6 +1,6 @@
 //! MS6 slice 6A AC tests of the desktop shell (L4, `app-shell-test` step): the read-only media scheme
 //! (docs/acceptance/trash-media.md FR-ATT-01 AC-12 "loaded from the vault through the shell's media protocol; no other
-//! scheme, no network, no file outside the vault"; docs/contracts/ms6-trash-media.md §3.6; D-622). Through
+//! scheme, no network, no file outside the vault"; docs/contracts/ms6-trash-media.md §3.6; D-626). Through
 //! `tegg_app_lib::media_scheme_probe(vault_root, method, uri, webview_label, range)`, the function the
 //! `register_asynchronous_uri_scheme_protocol("tegg-media", …)` handler answers with (the contract names the mechanism,
 //! not the entry point: red-test point AP-548): a vault image is `200` with its sniffed type and `no-cache`; a path

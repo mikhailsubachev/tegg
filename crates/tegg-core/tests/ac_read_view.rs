@@ -71,7 +71,7 @@ fn none(target: &str, kind: LinkKind) -> LinkTarget {
     LinkTarget { target: target.into(), kind, path: None, title: None, r#type: None }
 }
 
-/// D-611, D-624 (6A): a target that resolves only in `.trash/` is `Trashed`, with the trashed path.
+/// D-615, D-628 (6A): a target that resolves only in `.trash/` is `Trashed`, with the trashed path.
 fn trashed(target: &str, path: &str, title: &str, ty: &str) -> LinkTarget {
     LinkTarget { target: target.into(), kind: LinkKind::Trashed, path: Some(path.into()), title: Some(title.into()), r#type: Some(ty.into()) }
 }
@@ -118,7 +118,7 @@ fn fr_edt_02_ac6_resolve_links_by_dialect_rules() {
         none("Reading list", LinkKind::Unresolved),
         none("Neexistuje", LinkKind::Unresolved),
         none("Šablona", LinkKind::Unresolved),
-        trashed("Smazaná", ".trash/Pages/Smazaná.md", "Smazaná", "page"), // D-624 (6A): trashed, not unresolved
+        trashed("Smazaná", ".trash/Pages/Smazaná.md", "Smazaná", "page"), // D-628 (6A): trashed, not unresolved
         none("Jiný titulek", LinkKind::Unresolved),
         note("Soubor", "Pages/Soubor.md", "Jiný titulek", "page"),
     ];
@@ -234,6 +234,6 @@ fn fr_syn_03_ac11_rename_keeps_identity_and_delete_unresolves() {
     assert_eq!(
         got,
         vec![trashed(id, ".trash/Pages/Cíl nový.md", "Cíl", "page"), trashed("Cíl nový", ".trash/Pages/Cíl nový.md", "Cíl", "page")],
-        "D-611, D-624 (6A): a target only in .trash/ resolves as trashed, never as a live note"
+        "D-615, D-628 (6A): a target only in .trash/ resolves as trashed, never as a live note"
     );
 }

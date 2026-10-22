@@ -1,6 +1,6 @@
 # MS6 Trash and Media Interface Contract (slice 6A)
 
-- **Status:** draft, 2026-10-22. Written before the 6A red tests (as D-430, D-552). Follows D-609…D-623 (BRD v1.78).
+- **Status:** draft, 2026-10-22. Written before the 6A red tests (as D-430, D-552). Follows D-613…D-627 (BRD v1.79).
 - **ACs:** [docs/acceptance/trash-media.md](../acceptance/trash-media.md) (FR-HIS-01 AC-1…AC-15, FR-ATT-01/-07/-08 AC-1…AC-16, FR-NAV-04 AC-6, AC-7, FR-FMT-07 AC-22, FR-SYN-06 AC-29, AC-30) and the `[MS6]` criteria it takes over: conversion.md FR-CNV-08 AC-6, capture.md FR-CAP-01 AC-12, inbox.md FR-INB-02 AC-10, tasks.md R43's `Move to trash`.
 - **Builds on** [ms3-shell.md](ms3-shell.md) (§1 launching and test hooks, §5 fake core, §11.1 link resolution, §13.2 `note_read` / `note_write`), [ms4-links.md](ms4-links.md) (§1 resolution, D-184 link text, D-291), [ms4-embeds.md](ms4-embeds.md) (embed blocks, `embed_load`, D-428), [ms4-jobs.md](ms4-jobs.md) (the undo toast), [ms5-capture.md](ms5-capture.md) (§2 capture ACL, §3.3 `capture_create`, §11 fake core), [ms5-tasks.md](ms5-tasks.md) §11.6 (`note_trash`, `note_discard`).
 - **Writes.** Move to trash and Restore are renames only (one per file; a pair is two, object first). A media add is create-exclusive writes: the file, then the object, then (in the UI) the note's normal autosave. Delete permanently and Empty trash move files out of the vault into the system trash; Tegg never unlinks a vault file except Tegg's own just-written media file after a failed add (§3.4) and `note_discard` (D-492).
@@ -13,7 +13,7 @@ Until a part is implemented, it exists as a stub that compiles and returns a del
 
 ### 1.1 Vault additions (`tegg-vault`)
 
-- `FileVersion` is unchanged. `Fs::changed_ns(path) -> io::Result<Option<i128>>`: the entry's status-change time (`st_ctime` on Unix, the last write time elsewhere). A rename into `.trash/` sets it on macOS (APFS); it is the trash time of R71 (D-614). The in-memory test file system (`MemFs`) keeps a counter set on every rename, so L4 order tests are deterministic.
+- `FileVersion` is unchanged. `Fs::changed_ns(path) -> io::Result<Option<i128>>`: the entry's status-change time (`st_ctime` on Unix, the last write time elsewhere). A rename into `.trash/` sets it on macOS (APFS); it is the trash time of R71 (D-618). The in-memory test file system (`MemFs`) keeps a counter set on every rename, so L4 order tests are deterministic.
 - `Vault::trash`, `trash_checked`, `trash_dir`, `restore` exist (FR-STO-08, D-195, D-225). New: `Vault::restore_dir(trashed_dir) -> Result<String>` (one rename, ` (2)` suffix if taken) and `Vault::remove_to(path, sink: &dyn SystemTrash) -> Result<()>` for §1.4.
 - `trait SystemTrash { fn trash(&self, abs: &Path) -> io::Result<()>; }` lives in `tegg-vault` (AR-03: the core stays platform-neutral). The shell implements it with `NSFileManager trashItemAtURL:resultingItemURL:error:` (`objc2-foundation`); with `TEGG_TEST=1` and `TEGG_TEST_SYSTEM_TRASH=<dir>` it moves the file into `<dir>` instead (renamed with a counter on collision), so tests never touch the user's Trash. L4 uses a recording implementation.
 
@@ -37,7 +37,7 @@ pub struct TrashEntry {
 - **Order** (R71): `trashed_ns` descending, then `path` ascending (NFC, case-insensitive). The UI keeps the core's order.
 - **No index.** The list reads the file system only (AR-01, FR-HIS-01 AC-10); objects are parsed with the same frontmatter reader as the index (`title`, `type`, `file`).
 
-### 1.3 Pairs (D-612)
+### 1.3 Pairs (D-616)
 
 `Core::pair_of(object_path) -> Option<String>`: the vault path of the file an Image or PDF object's `file:` links to, resolved by §3.2's media resolution from the object's folder (for a trashed object: inside `.trash/` first, then live). The pair is **shared** when another live object (excluding `_templates/` and `.trash/`) has a `file:` resolving to the same file; a shared file never moves with the object (FR-HIS-01 AC-15).
 
@@ -56,7 +56,7 @@ pub struct TrashEntry {
 
 `note_read` already reads any vault path; for a path under `.trash/` the result gets `readOnly: true` with reason `trash` (NoteReadDto's existing `readOnly` field gains the reason value `trash`), and `note_write`, `note_rename`, `link_create` refuse paths under `.trash/` with `Invalid`. `link_resolve` from a trashed note resolves as from its original path (so its chips work in the read-only view) but its links are never backlinks (D-278 unchanged).
 
-## 2. Links to trashed objects (D-611)
+## 2. Links to trashed objects (D-615)
 
 `LinkKind` gains `Trashed` and `Media` (§3.2). Resolution order for one target: (1) the existing rules over live objects; (2) if unresolved and the target names a media file, §3.2; (3) if still unresolved, the same rules run over the objects under `.trash/` with the `.trash/` prefix removed from their paths (the D-291 rules from the source's folder, ids included): a match gives `Trashed` with `path` = the trashed path, `title`, `type`. A media target whose file is only in `.trash/` gives `Trashed` with `path` = the trashed **object** when one pairs it, else the trashed file.
 
@@ -69,7 +69,7 @@ pub struct TrashEntry {
 
 ### 3.1 Metadata (`tegg-core`, new module `media6a.rs`)
 
-`pub fn media_info(bytes: &[u8]) -> Option<MediaInfo>`; `MediaInfo { media_type: &'static str, ext: &'static str, width: Option<u32>, height: Option<u32>, pages: Option<u32> }`. By magic bytes only (R72): PNG `89 50 4E 47`, JPEG `FF D8 FF`, GIF `GIF87a`/`GIF89a`, WebP `RIFF….WEBP`, HEIC `ftyp` with brand `heic`/`heix`/`mif1`/`msf1`, PDF `%PDF-`, SVG (UTF-8 text whose first element after an optional XML declaration, comments and doctype is `<svg`). Sizes with the `imagesize` crate (JPEG width/height swapped when the EXIF orientation is 5…8, read with `kamadak-exif`); SVG from the root's `width`/`height` when they are plain numbers or `px`, else from `viewBox`, else none; PDF pages = the `/Count` of the root `/Pages` object when found by a byte scan, else the number of `/Type /Page` (not `/Pages`) objects, else none. `None` = refused (`media.refused`). Empty input is refused. Over 200 MB is refused by the callers before reading (D-621).
+`pub fn media_info(bytes: &[u8]) -> Option<MediaInfo>`; `MediaInfo { media_type: &'static str, ext: &'static str, width: Option<u32>, height: Option<u32>, pages: Option<u32> }`. By magic bytes only (R72): PNG `89 50 4E 47`, JPEG `FF D8 FF`, GIF `GIF87a`/`GIF89a`, WebP `RIFF….WEBP`, HEIC `ftyp` with brand `heic`/`heix`/`mif1`/`msf1`, PDF `%PDF-`, SVG (UTF-8 text whose first element after an optional XML declaration, comments and doctype is `<svg`). Sizes with the `imagesize` crate (JPEG width/height swapped when the EXIF orientation is 5…8, read with `kamadak-exif`); SVG from the root's `width`/`height` when they are plain numbers or `px`, else from `viewBox`, else none; PDF pages = the `/Count` of the root `/Pages` object when found by a byte scan, else the number of `/Type /Page` (not `/Pages`) objects, else none. `None` = refused (`media.refused`). Empty input is refused. Over 200 MB is refused by the callers before reading (D-625).
 
 ### 3.2 Media resolution
 
@@ -77,7 +77,7 @@ A link target whose last path segment has an extension other than `.md` names a 
 
 FR-ATT-07 backlinks: an `![[file]]` or `[[file]]` link to a paired file counts as a link to its object (the object's backlinks list the note; FR-ATT-01 AC-15).
 
-### 3.3 Names and titles (D-617; R72, R73)
+### 3.3 Names and titles (D-621; R72, R73)
 
 `pub fn media_names(vault_files: &dyn Fn(&str) -> bool, objects: …, req: &NameRequest) -> MediaNames` in `media6a.rs` (pure, L4 unit tests):
 
@@ -115,7 +115,7 @@ source: "[[<owner D-184 link text>]]"
 
 `pdf`: `pages` instead of `width`/`height`. Absent values are omitted (no empty keys). Strings are double-quoted only where the D-174/D-232 writer quotes them (titles with `:`, `#`, leading special characters). `\n` line endings, final newline, no body. Rust and TS produce identical bytes for the same inputs (L1 + L4 twin test on the same table).
 
-### 3.6 The media scheme (D-622)
+### 3.6 The media scheme (D-626)
 
 `tegg-media://localhost/<percent-encoded vault path>` registered with `register_asynchronous_uri_scheme_protocol` on the main window's builder. It answers `GET` only: the path is NFC-normalized, joined to the open vault's root, canonicalized (symlinks resolved), and must stay inside the canonical root and outside `.tegg/`; the file must exist and its `media_info` class must be one of R72's. Then `200` with `Content-Type` = the sniffed media type, `Cache-Control: no-cache`, the bytes (HTTP `Range` honoured for PDFs). Everything else: `404` with an empty body (no listing, no error text). Trashed files are served (the Trash view shows them). `tegg-media://localhost/stage/<token>` serves a capture staging token (§5) to the capture window only (the request's webview label must be `capture`).
 
@@ -147,11 +147,11 @@ type MediaAddedDto = { file: string; object: string; title: string; embed: strin
 
 **Drag and drop.** Tauri's window drag-drop stays enabled (default). The editor listens to `getCurrentWebview().onDragDropEvent`: on `drop` with `paths` and `position` (logical px), it maps the position to a document position (`posAtCoords`), calls `media_add_paths`, then inserts. While a file drag is over the editor, a drop caret is shown (`.media-drop-caret`). Drops outside an editor are ignored. HTML5 drags inside the webview (text, blocks) are unaffected.
 
-## 5. Capture window (D-620; capability `capture`)
+## 5. Capture window (D-624; capability `capture`)
 
 New capture command `capture_media_add` (in `capabilities/capture.json`): raw body with headers `x-tegg-name`, or JSON `{ paths: string[] }` for drops, or `{ pick: true }` for the picker (the shell opens the dialog; the capture window gets no `media_pick`). It **stages** the files in shell memory (never the vault), checks `media_info` and the size, and returns `StagedMediaDto[] = { token, name, mediaType, size, width, height, pages }` or per-file errors as `media_add_paths`. Thumbnails load from `tegg-media://localhost/stage/<token>`. Tokens are dropped when the capture is saved, cancelled, or the window hides for more than 10 minutes.
 
-`capture_create` gains `media: string[]` (tokens, in display order): after its checks and before the note's create, each staged file is written through `Core::media_add` with owner = the capture's future path and title (`Capture <date>` titles when the capture has no title), then the note is created with `![[<embed>]]` paragraphs appended after its text (one per file, blank-line separated, D-620). If a media add fails, nothing more is written, the pairs already written stay (valid on their own), and the error is returned as `Io` with the file name. The capture page's `paste` handler stages an image item instead of D-545's notice; the drop zone `Add an image or PDF` is enabled. §2.3 of ms5-capture is amended: the capture page reads pasted image bytes from the paste event's `clipboardData.files` (still no clipboard API).
+`capture_create` gains `media: string[]` (tokens, in display order): after its checks and before the note's create, each staged file is written through `Core::media_add` with owner = the capture's future path and title (`Capture <date>` titles when the capture has no title), then the note is created with `![[<embed>]]` paragraphs appended after its text (one per file, blank-line separated, D-624). If a media add fails, nothing more is written, the pairs already written stay (valid on their own), and the error is returned as `Io` with the file name. The capture page's `paste` handler stages an image item instead of D-545's notice; the drop zone `Add an image or PDF` is enabled. §2.3 of ms5-capture is amended: the capture page reads pasted image bytes from the paste event's `clipboardData.files` (still no clipboard API).
 
 ## 6. Editor and views
 
@@ -173,7 +173,7 @@ New capture command `capture_media_add` (in `capabilities/capture.json`): raw bo
 | `app/ui/src/links/chip.ts` | trashed chips: `data-link-state="trashed"`, class `chip-trashed`, description `trash.inTrash` |
 | `app/ui/src/embeds/Embed.tsx` | `trashed` placeholder with `Restore` (D-27; FR-CNV-08 AC-6) for notes and media |
 
-**Registry (R75).** Route `home` removed from `ROUTES`; `home` in `parseRoute` gives the not-found route; `TOP` in `Frame.tsx` loses Home; `BOTTOM` gains `{ id: 'trash', label: 'route.trash', icon: 'trash' }` last; the launch fallback in `App.tsx` `land()` is `{ id: 'inbox' }` (D-610). Commands: `goto.home` removed; `object.trash` (⌘⌫; enabled on a note page, a focused Inbox card, task card or type-page row; aria-disabled `trash.nothing` = `Nothing to delete yet.` on a virtual Daily Note or unsaved object); `goto.trash`; `trash.restore` (R), `trash.delete` (⌘⌫ on the Trash page); `media.add` (⇧⌘A in an editor). The controls of R75 lose their `due`. The milestone check (`VERIFY_MILESTONE=MS6`) fails while any MS6 control or route is still TBD.
+**Registry (R75).** Route `home` removed from `ROUTES`; `home` in `parseRoute` gives the not-found route; `TOP` in `Frame.tsx` loses Home; `BOTTOM` gains `{ id: 'trash', label: 'route.trash', icon: 'trash' }` last; the launch fallback in `App.tsx` `land()` is `{ id: 'inbox' }` (D-614). Commands: `goto.home` removed; `object.trash` (⌘⌫; enabled on a note page, a focused Inbox card, task card or type-page row; aria-disabled `trash.nothing` = `Nothing to delete yet.` on a virtual Daily Note or unsaved object); `goto.trash`; `trash.restore` (R), `trash.delete` (⌘⌫ on the Trash page); `media.add` (⇧⌘A in an editor). The controls of R75 lose their `due`. The milestone check (`VERIFY_MILESTONE=MS6`) fails while any MS6 control or route is still TBD.
 
 **⌘⌫ in the editor.** In a text editor ⌘⌫ keeps its text meaning (delete to line start) whenever the editor has focus; `object.trash` fires only when the focus is outside a text field or editor (the page's header, the More menu, a card or row). The palette entry always works on the current note.
 
@@ -183,7 +183,7 @@ New capture command `capture_media_add` (in `capabilities/capture.json`): raw bo
 
 ## 8. Strings
 
-R78's keys in `app/ui/src/i18n/catalog.ts`; `trash.nothing` `Nothing to delete yet.`; `trash.conflict` `"{title}" changed outside Tegg. It wasn't moved to the trash.`; `trash.removeFailed` `{count} items couldn't be removed.` (plural forms); `media.dropHint` `Drop to add`; `media.tooLarge` = `media.refused`'s text (D-621 uses the same message). The capture keys `capture.mediaLater` is retired; `capture.drop` (exists) is now a button.
+R78's keys in `app/ui/src/i18n/catalog.ts`; `trash.nothing` `Nothing to delete yet.`; `trash.conflict` `"{title}" changed outside Tegg. It wasn't moved to the trash.`; `trash.removeFailed` `{count} items couldn't be removed.` (plural forms); `media.dropHint` `Drop to add`; `media.tooLarge` = `media.refused`'s text (D-625 uses the same message). The capture keys `capture.mediaLater` is retired; `capture.drop` (exists) is now a button.
 
 ## 9. Test environment, fake core and layout
 
@@ -230,12 +230,12 @@ R78's keys in `app/ui/src/i18n/catalog.ts`; `trash.nothing` `Nothing to delete y
 
 ## 11. Clarifications from the red tests (2026-10-22)
 
-The test-author's points AP-544…AP-560. AP-544, AP-546, AP-547 and AP-559 were decided by the owner (D-624…D-627); AP-545 was fixed in trash-media.md (requirement IDs in every heading). The rest are interface details settled here (no owner decision needed):
+The test-author's points AP-544…AP-560. AP-544, AP-546, AP-547 and AP-559 were decided by the owner (D-628…D-631); AP-545 was fixed in trash-media.md (requirement IDs in every heading). The rest are interface details settled here (no owner decision needed):
 
 | AP | Settled |
 | --- | --- |
-| AP-544 → D-624 | Tests changed: `crates/tegg-core/tests/ac_read_view.rs` (two cases), `ac_backlinks.rs` (the `smazaná` broken group), `app/test/read_view.ac.test.ts`, `app/webkit/broken_links.ac.test.ts` (two cases), `embeds.ac.test.ts`, `embeds_style.ac.test.ts`. The fake core's `trashedLinks` becomes the default. |
-| AP-547 → D-626 | `ph.embedImage`, `ph.embedPdf` and their registry rows go; `embed-other` is a built card. |
+| AP-544 → D-628 | Tests changed: `crates/tegg-core/tests/ac_read_view.rs` (two cases), `ac_backlinks.rs` (the `smazaná` broken group), `app/test/read_view.ac.test.ts`, `app/webkit/broken_links.ac.test.ts` (two cases), `embeds.ac.test.ts`, `embeds_style.ac.test.ts`. The fake core's `trashedLinks` becomes the default. |
+| AP-547 → D-630 | `ph.embedImage`, `ph.embedPdf` and their registry rows go; `embed-other` is a built card. |
 | AP-548 | The scheme is tested through `tegg_app_lib::media_scheme_probe(root, method, uri, label, range) -> MediaResponse` (as `acl_probe`); a PDF `Range` request answers `206`. |
 | AP-549 | §1.5's `readOnly` reason doesn't exist on `NoteDto`: the UI treats a `note/.trash/…` route as read-only by its path; the core refuses writes under `.trash/` with `Invalid`. No DTO change. |
 | AP-550 | Fake core: `moves()` and `systemTrash()` record renames and removals (renames are not in `writesTo()`); `paste(page, { files, text })`; `FakeVault.bin` holds binary files. |
@@ -259,5 +259,5 @@ The test-author's points AP-544…AP-560. AP-544, AP-546, AP-547 and AP-559 were
 6. **Alerts** of the trash and media flows (`trash.conflict`, `trash.removeFailed`, `media.refused`, `media.failed` with `Try again`) are a list in the centre pane, one per message; the Move to trash toast (`role="status"`, `Undo`) is shown there too.
 7. **Drops**: Tauri's `tauri://drag-drop` position is taken as physical pixels (÷ `devicePixelRatio`) or, when that point is off the editor, as logical pixels.
 8. **The Trash page** reaches `trash.restore` / `trash.delete` through the palette on the focused row; `⌘⌫` on the Trash page asks to delete the focused row.
-9. **A click on the sidebar entry of the page shown** moves the focus to its heading (FR-UX-03 AC-11), now that the launch lands on the Inbox (D-610).
+9. **A click on the sidebar entry of the page shown** moves the focus to its heading (FR-UX-03 AC-11), now that the launch lands on the Inbox (D-614).
 10. **An untitled capture with files** sends an empty title; the shell gives the files `Capture <date> <n>` titles and the note `Untitled`.

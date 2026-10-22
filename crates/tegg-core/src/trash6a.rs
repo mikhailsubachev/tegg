@@ -1,7 +1,7 @@
 //! MS6 slice 6A (docs/contracts/ms6-trash-media.md §1, §2, §3.2): the trash in the core. Listing `.trash/` from the
 //! file system only (AR-01, FR-HIS-01 AC-10), moving objects and their unshared pairs into `.trash/` and back (renames
-//! only), removing trash entries through the platform's `SystemTrash` (D-615: never an unlink), and resolving links to
-//! media files and to objects that are only in the trash (D-611).
+//! only), removing trash entries through the platform's `SystemTrash` (D-619: never an unlink), and resolving links to
+//! media files and to objects that are only in the trash (D-615).
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -386,7 +386,7 @@ impl Core {
         rows
     }
 
-    /// §1.3 (D-612): the vault path of the file an Image or PDF object's `file:` links to (a trashed object: inside
+    /// §1.3 (D-616): the vault path of the file an Image or PDF object's `file:` links to (a trashed object: inside
     /// `.trash/` first, then live).
     pub fn pair_of(&self, object_path: &str) -> Option<String> {
         let path = nfc(object_path);
@@ -516,7 +516,7 @@ impl Core {
         }
     }
 
-    /// §1.4 (D-615): every file of each row through `sink`.
+    /// §1.4 (D-619): every file of each row through `sink`.
     pub fn trash_delete(&self, paths: &[String], sink: &dyn SystemTrash) -> TrashRemoval {
         let mut out = TrashRemoval::default();
         for p in paths {
@@ -536,7 +536,7 @@ impl Core {
         out
     }
 
-    /// §1.4 (D-615): every top-level entry of `.trash/` through `sink`; `.trash/` itself stays.
+    /// §1.4 (D-619): every top-level entry of `.trash/` through `sink`; `.trash/` itself stays.
     pub fn trash_empty(&self, sink: &dyn SystemTrash) -> TrashRemoval {
         let mut out = TrashRemoval::default();
         let Ok(entries) = self.shared.vault.entries() else { return out };

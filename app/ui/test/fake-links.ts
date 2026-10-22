@@ -57,7 +57,7 @@ function trashedObjects(files: Files): Trashed[] {
   });
 }
 
-/** D-624: broken links and backlinks treat links into `.trash/` as `trashed` (trash-media.md R74). */
+/** D-628: broken links and backlinks treat links into `.trash/` as `trashed` (trash-media.md R74). */
 const TRASHED_TARGETS = true;
 
 export function resolver(objs: Obj[], trashed: Trashed[] = []) {
@@ -92,7 +92,7 @@ export function resolver(objs: Obj[], trashed: Trashed[] = []) {
         .sort((a, b) => byCode(a.path, b.path))[0];
       return owner ? { kind: 'note', path: owner.path } : { kind: 'unresolved', path: null };
     }
-    // 6A (ms6-trash-media §2, D-611): a target that resolves only in `.trash/` is trashed, not broken.
+    // 6A (ms6-trash-media §2, D-615): a target that resolves only in `.trash/` is trashed, not broken.
     const th = trashed.find((o) => low(o.rest).replace(/\.md$/, '') === key) ?? (t && trashed.find((o) => o.id === t))
       ?? (!key.includes('/') ? (trashed.filter((o) => low(o.stem) === key).find((o) => low(o.folder) === fromDir) ?? trashed.filter((o) => low(o.stem) === key)[0]) : undefined);
     return th ? { kind: 'trashed', path: th.path } : { kind: 'unresolved', path: null };
@@ -129,7 +129,7 @@ function isNoteTarget(t: string): boolean {
 type Ctx = { objs: Obj[]; byPath: Map<string, Obj>; res: Map<string, Res[]>; types: any[] };
 async function context(files: Files, vers: Record<string, VersionDto>): Promise<Ctx> {
   const objs = await objects(files);
-  // 6A (D-611, D-624): links into `.trash/` are trashed: not broken and not backlinks (trash-media.md R74).
+  // 6A (D-615, D-628): links into `.trash/` are trashed: not broken and not backlinks (trash-media.md R74).
   const r = resolver(objs, TRASHED_TARGETS ? trashedObjects(files) : []);
   const res = new Map<string, Res[]>();
   for (const o of objs) res.set(o.path, o.links.map((l: any) => (o.frontmatterError && l.inFrontmatter ? { kind: 'ignored', path: null } : r(o.path, l.target)) as Res));

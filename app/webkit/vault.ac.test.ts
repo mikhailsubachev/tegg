@@ -53,7 +53,7 @@ test('fr_vlt_01_ac10_new_vault_form_and_create', async ({ page }) => {
   await createBtn(page).click();
   const creates = (await core.calls()).filter((c) => c.cmd === 'vault_create');
   assert.deepEqual(creates.map((c) => c.args), [{ parent: PARENT, name: 'Můj trezor', kind: 'empty' }], 'one create command, kind empty');
-  await mustBeOn(page, 'Inbox', 'new vault lands on the Inbox (D-610, was the home placeholder)');
+  await mustBeOn(page, 'Inbox', 'new vault lands on the Inbox (D-614, was the home placeholder)');
   // D-516 (amends D-121, FR-UX-02 AC-4): Task is no longer in the Types list.
   const want = TYPES_CS.filter(([l]) => ['Pages', 'Quick Notes', 'Daily Notes', 'Images', 'PDFs'].includes(l)).map(([l]) => [l, 0]);
   assert.deepEqual(await eventually(() => typeEntries(page), (v) => v.length === 5), want, 'Types list of a new vault');
@@ -140,7 +140,7 @@ test('fr_vlt_03_ac4_placeholder_banner_non_modal', async ({ browser }) => {
     await page.keyboard.press('Meta+o');
     assert.ok(await seen(switcherDialog(page)), 'switcher works with the banner');
     await page.keyboard.press('Escape');
-    for (const e of ['Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) { // 6A: no Home entry (D-609)
+    for (const e of ['Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) { // 6A: no Home entry (D-613)
       await sidebar(page).getByText(e, { exact: true }).click();
       await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `sidebar ${e} with the banner`); // 4B: named by its date
     }

@@ -24,7 +24,7 @@ function json(rel: string): any {
 /** `allow-capture_context` and `allow-capture-context` are the same app-command permission. */
 const norm = (p: string) => p.replace(/_/g, '-');
 
-const CAPTURE_COMMANDS = ['capture_context', 'capture_create', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get', 'capture_draft_set', 'capture_saved_show', 'capture_suggest', 'capture_media_add']; // v0.52: capture_suggest (D-603, amends D-553); 6A: capture_media_add (D-620)
+const CAPTURE_COMMANDS = ['capture_context', 'capture_create', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get', 'capture_draft_set', 'capture_saved_show', 'capture_suggest', 'capture_media_add']; // v0.52: capture_suggest (D-603, amends D-553); 6A: capture_media_add (D-624)
 const CORE = ['core:event:allow-listen', 'core:event:allow-unlisten', 'core:window:allow-start-dragging'];
 
 test('nfr_sec_03_ac1_the_capture_capability_grants_exactly_the_capture_commands', () => {
@@ -93,7 +93,7 @@ test('nfr_sec_03_ac4_the_capture_page_imports_no_main_window_client_or_editor', 
   assert.ok(g.files.includes('ipc/capture.ts'), 'the capture page talks through ipc/capture.ts');
   assert.ok(!g.bare.some((b) => b.startsWith('@tegg/editor') || b.startsWith('@tiptap') || b.startsWith('prosemirror')), `no editor package: ${g.bare.join(', ')}`);
   assert.ok(!g.bare.some((b) => /^@tauri-apps\/plugin-/.test(b)), `no Tauri plugin: ${g.bare.join(', ')}`);
-  // 6A (D-620, D-628): also ipc/media.ts (the tegg-media URL builder of the thumbnails, no IPC; ms6-trash-media §3.6, §5);
+  // 6A (D-624, D-632): also ipc/media.ts (the tegg-media URL builder of the thumbnails, no IPC; ms6-trash-media §3.6, §5);
   // @tegg/doc (pastedImageName) is a package import, which this list of app files doesn't restrict.
   const allowed = /^(capture\/|i18n\/|theme\/|tasks\/quickAdd\.ts$|ipc\/capture\.ts$|ipc\/media\.ts$|ipc\/types\.ts$|shell\/Icon\.tsx$|icons\.ts$|zone\.ts$)/;
   assert.deepEqual(g.files.filter((f) => !allowed.test(f)), [], 'only capture/*, i18n/*, theme/*, tasks/quickAdd.ts, ipc/capture.ts, ipc/media.ts and shell/Icon (§4)');

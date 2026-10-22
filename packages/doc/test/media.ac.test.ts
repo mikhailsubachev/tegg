@@ -1,5 +1,5 @@
 // MS6 slice 6A, L1: the `@tegg/doc` media twins (docs/acceptance/trash-media.md R72, R73; docs/contracts/
-// ms6-trash-media.md §3.1, §3.3, §3.5; D-617). FR-ATT-01 AC-4 (names and titles: NFC, D-51 sanitizing, ` (2)` for a taken
+// ms6-trash-media.md §3.1, §3.3, §3.5; D-621). FR-ATT-01 AC-4 (names and titles: NFC, D-51 sanitizing, ` (2)` for a taken
 // file name, the next free number for a generic name, capture titles, (TZ) via the pasted name's local time),
 // AC-5 / AC-6 (`mediaInfo` by magic bytes on one fixture file per format; refused content), AC-1 (the object's bytes,
 // §3.5, the twin table shared with crates/tegg-core/tests/ac_media.rs). Written from the ACs and the contract only

@@ -212,7 +212,7 @@ test('fr_cap_01_ac11_with_no_vault_every_trigger_opens_the_message', { timeout: 
   } finally { await end(d); rmSync(base, { recursive: true, force: true }); }
 });
 
-// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-620): a pasted image is saved with the capture: one capture writes the
+// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-624): a pasted image is saved with the capture: one capture writes the
 // Image object, its file in `_attachments/` and the note ending with the embed; Esc before saving writes nothing.
 test('fr_cap_01_ac12_a_pasted_image_is_saved_with_the_capture', { timeout: 300_000 }, async () => {
   await ready();

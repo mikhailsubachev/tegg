@@ -1,5 +1,5 @@
 // Slice 6A (docs/contracts/ms6-trash-media.md §6.2; docs/acceptance/trash-media.md R70, R71, FR-HIS-01 AC-4…AC-9;
-// D-614, D-615): the `trash` route. One row per trashed object (a pair and a trashed folder are one row each), newest
+// D-618, D-619): the `trash` route. One row per trashed object (a pair and a trashed folder are one row each), newest
 // first; Restore, Delete permanently… (to the macOS Trash, after a dialog) and Empty trash….
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, RefObject } from 'react';

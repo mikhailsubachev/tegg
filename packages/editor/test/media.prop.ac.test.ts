@@ -44,7 +44,7 @@ function ui() {
     embed: () => ({ update: () => {}, selected: () => {}, destroy: () => {} }),
   };
 }
-/** The text with its `modified:` line removed: every edit updates `modified` (D-174), D-628. */
+/** The text with its `modified:` line removed: every edit updates `modified` (D-174), D-632. */
 const noMod = (t: string) => t.replace(/^modified: .*\n/m, '');
 const esc = (v: unknown) => JSON.stringify(v).replace(/[̀-ͯ]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 const RUNS = Number(process.env.EDITOR_PROPERTY_RUNS ?? 100);
@@ -96,7 +96,7 @@ test('fr_fmt_07_ac22_property_media_paragraphs_change_only_themselves', async ()
             if (raw === undefined || !isMedia(raw) || seq.includes(raw)) continue;
             if (!ed.commands.selectBlockAt(k) || !ed.commands.deleteBlocks()) { failures.push(`delete media block ${k} refused`); break; }
           }
-          // Back at the loaded text, `save()` has nothing to write (null): read the editor's text then (D-628).
+          // Back at the loaded text, `save()` has nothing to write (null): read the editor's text then (D-632).
           const back = (await ed.save()) ?? ed.text();
           ed.destroy();
           if (JSON.stringify(await blocksRaw(back)) !== JSON.stringify(seq)) failures.push(`after removal: ${esc(await blocksRaw(back))}, want ${esc(seq)}`);

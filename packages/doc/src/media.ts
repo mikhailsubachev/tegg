@@ -1,4 +1,4 @@
-// Slice 6A (docs/contracts/ms6-trash-media.md §3.1, §3.3, §3.5; D-617): the TS twins of `tegg-core` `media6a.rs` for
+// Slice 6A (docs/contracts/ms6-trash-media.md §3.1, §3.3, §3.5; D-621): the TS twins of `tegg-core` `media6a.rs` for
 // the fake core and the L1 tests: media metadata from the bytes (`mediaInfo`), names and titles of a new Image or PDF
 // object (`mediaNames`, R72, R73) and the object's bytes (`mediaObject`). Rust and TS give identical results for the
 // same inputs (L1 + L4 twin table).
@@ -219,7 +219,7 @@ function splitExt(name: string): [string, string | null] {
   return [name, null]
 }
 
-/** §3.3 (R72, R73, D-617): pure; `exists(vaultPath)` answers whether a path is taken (case-insensitive). */
+/** §3.3 (R72, R73, D-621): pure; `exists(vaultPath)` answers whether a path is taken (case-insensitive). */
 export function mediaNames(exists: (vaultPath: string) => boolean, req: NameRequest): MediaNames {
   const name = req.name.normalize('NFC').trim()
   const [stem0, ext0] = splitExt(name)

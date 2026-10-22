@@ -139,7 +139,7 @@ const BOTTOM: Entry[] = [
   { id: 'tags', label: 'frame.tags', icon: 'tag' },
   { id: 'pinned', label: 'route.pinned', icon: 'pin' },
   { id: 'saved-queries', label: 'route.savedQueries', icon: 'query' },
-  // 6A (D-614): the Trash, last, without a count.
+  // 6A (D-618): the Trash, last, without a count.
   { id: 'trash', label: 'route.trash', icon: 'trash' },
 ];
 

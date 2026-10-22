@@ -1,4 +1,4 @@
-// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; FR-HIS-01 AC-1, AC-2, AC-3, D-616): `object_trash` for each item,
+// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; FR-HIS-01 AC-1, AC-2, AC-3, D-620): `object_trash` for each item,
 // the `trash.moved` / `trash.movedMany` toast with `Undo` (restores what moved), and the `trash.conflict` alert for a
 // file that changed outside Tegg. The caller flushes the autosave of an open note first (D-196) and navigates.
 import { ipc } from '../ipc/client';

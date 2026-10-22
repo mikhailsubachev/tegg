@@ -496,7 +496,7 @@ export function App() {
     inboxCommand: (id: string) => inboxCommand.current?.(id),
     capture: (kind: 'default' | 'task') => { void ipc.captureOpen(kind).catch(() => {}); },
     setNoteReviewed: (r: boolean) => { if (route?.id === 'note/<path>') setTimeout(() => noteApi.current?.setReviewed(r), 0); },
-    // 6A (R75, FR-HIS-01 AC-1, AC-3; D-616): Move to trash on the page's object, card or row.
+    // 6A (R75, FR-HIS-01 AC-1, AC-3; D-620): Move to trash on the page's object, card or row.
     trashObject: () => { void trashHere(); },
     trashBlocked: () => (route?.id === 'new/<type>' ? t('trash.nothing') : isNoteRoute(route) || route?.id === DAILY ? (noteApi.current?.trashBlocked() ?? null) : null),
     trashCommand: (id: 'restore' | 'delete') => trashCommand.current?.(id),

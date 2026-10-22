@@ -103,7 +103,7 @@ for (const view of ['editor', 'read_view'] as const) {
 
   test(`fr_emb_01_ac1_image_embed_stays_placeholder_and_reads_no_file_${view}`, async ({ page }) => {
     const core = await openEmbeds(page, M.rozbita, { readView: view === 'read_view' });
-    // D-626, D-628 (6A, trash-media.md R77): no embed-image placeholder; the missing file shows `Can't find`.
+    // D-630, D-632 (6A, trash-media.md R77): no embed-image placeholder; the missing file shows `Can't find`.
     await must(main(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 'R77 broken-media text of ![[obrázek.png]]', 5000);
     await needFrame(main(page), 'Chyba hlavičky', 'the full embed of Chyba hlavičky next to it');
     const loads = (await embedLoads(core)).flat();
@@ -150,7 +150,7 @@ test('fr_emb_01_ac2_alias_template_trash_unresolved', async ({ page }) => {
   const l = await eventually(() => topEmbeds(main(page)).catch(() => [] as EmbedInfo[]), (x) => x.length >= 4, 5000);
   const broken = l.filter((e) => e.state === 'broken').map((e) => e.target);
   for (const t of ['Chybí', 'Šablona', 'Reading list']) assert.ok(broken.includes(nfc(t)), `![[${t}]] is unresolved (data-embed-state="broken", target as written): ${JSON.stringify(broken)}`);
-  // D-624 (6A, D-611, trash-media.md R74): a target in `.trash/` shows the D-27 placeholder, not the broken frame.
+  // D-628 (6A, D-615, trash-media.md R74): a target in `.trash/` shows the D-27 placeholder, not the broken frame.
   assert.ok(!broken.includes(nfc('Smazaná')), `![[Smazaná]] is not broken: ${JSON.stringify(broken)}`);
   assert.ok(await seen(main(page).getByText('"Smazaná" was moved to the trash'), 2000), '![[Smazaná]]: the trashed placeholder');
 });
@@ -399,7 +399,7 @@ test('fr_emb_01_ac9_typed_embed_becomes_an_embed', async ({ page }) => {
   assert.equal(await f.getAttribute('data-embed-mode'), 'full', "in Cíl's mode (full)");
   const t = await savedFile(page, core, M.vkladani, (x) => (x ?? '').includes('![[Cíl]]'));
   assert.equal(bodyOf(t), VK_WITH('![[Cíl]]'), 'saves ![[Cíl]]');
-  // `![[obrázek.png]]` typed by hand is a media block (R77, D-626, D-628): the missing file shows `Can't find`, no file read.
+  // `![[obrázek.png]]` typed by hand is a media block (R77, D-630, D-632): the missing file shows `Can't find`, no file read.
   await mustCaret(hostBlock(page, 'Odstavec po.'), null, 'end of Odstavec po.');
   await page.keyboard.press('Enter');
   await page.keyboard.type('![[obrázek.png]]');

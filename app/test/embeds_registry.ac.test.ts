@@ -38,8 +38,8 @@ const reqs = (r: string[] | string) => (Array.isArray(r) ? r : String(r).split(/
 test('fr_emb_01_ac1_in_note_placeholders_lose_embed_note', async () => {
   const { reg } = await mods();
   const ids = (reg.IN_NOTE_PLACEHOLDERS as { id: string }[]).map((d) => d.id);
-  // 6A (D-626): the media placeholders are retired too.
-  assert.deepEqual(ids, ['query', 'mindmap'], 'R5 without the embed-note row (R32) and the media rows (D-626)');
+  // 6A (D-630): the media placeholders are retired too.
+  assert.deepEqual(ids, ['query', 'mindmap'], 'R5 without the embed-note row (R32) and the media rows (D-630)');
   const ms4 = (reg.overdue('MS4') as string[]).join('\n');
   assert.ok(!ms4.includes('embed-note'), `overdue('MS4') lists no embed-note:\n${ms4}`);
 });

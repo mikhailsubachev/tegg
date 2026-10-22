@@ -1,6 +1,6 @@
 // MS6 slice 6A, L0: static rules for loading vault media (docs/acceptance/trash-media.md FR-ATT-01 AC-12 "no other
 // scheme, no network, no file outside the vault", AC-11 "the capture window gets only `capture_media_add`";
-// docs/contracts/ms6-trash-media.md §3.6, §5, §9.3; D-622, D-620, NFR-SEC-01, NFR-SEC-03). No Tauri `asset:` protocol
+// docs/contracts/ms6-trash-media.md §3.6, §5, §9.3; D-626, D-624, NFR-SEC-01, NFR-SEC-03). No Tauri `asset:` protocol
 // and no `assetProtocol` scope in the config; the shell registers the `tegg-media` scheme; the capture capability gains
 // exactly `allow-capture-media-add`; every media URL of the UI comes from `ipc/media.ts` `mediaUrl`, which builds
 // `tegg-media://localhost/<percent-encoded vault path>` or uses `window.__TEGG_MEDIA_BASE__` in tests. Written from the
@@ -36,7 +36,7 @@ test('fr_att_01_ac12_no_asset_protocol_and_the_tegg_media_scheme', () => {
   for (const rel of ['src-tauri/tauri.conf.json', 'src-tauri/tauri.preview.conf.json']) {
     const t = read(rel);
     if (t === null) continue;
-    assert.ok(!/assetProtocol/.test(t), `${rel}: no assetProtocol (D-622)`);
+    assert.ok(!/assetProtocol/.test(t), `${rel}: no assetProtocol (D-626)`);
     assert.ok(!/\basset:/.test(t) && !/asset\.localhost/.test(t), `${rel}: no asset: scheme`);
   }
   const csp = String(json('src-tauri/tauri.conf.json')?.app?.security?.csp ?? '');
@@ -50,7 +50,7 @@ test('fr_att_01_ac11_the_capture_capability_gains_exactly_capture_media_add', ()
   const cap = json('src-tauri/capabilities/capture.json');
   const perms: string[] = (cap.permissions ?? []).map((p: unknown) => norm(typeof p === 'string' ? p : String((p as any)?.identifier ?? '')));
   const media = perms.filter((p) => /media|trash/.test(p));
-  assert.deepEqual(media, ['allow-capture-media-add'], 'only capture_media_add (D-620, NFR-SEC-03)');
+  assert.deepEqual(media, ['allow-capture-media-add'], 'only capture_media_add (D-624, NFR-SEC-03)');
   for (const p of ['allow-media-add', 'allow-media-add-paths', 'allow-media-pick', 'allow-trash-list', 'allow-note-read']) assert.ok(!perms.includes(p), `not ${p}`);
   const main = json('src-tauri/capabilities/default.json');
   const mainPerms: string[] = (main.permissions ?? []).map((p: unknown) => norm(typeof p === 'string' ? p : String((p as any)?.identifier ?? '')));

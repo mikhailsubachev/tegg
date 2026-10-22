@@ -1,8 +1,8 @@
 # Fixture `trash-media/` (MS6 slice 6A)
 
-Synthetic vault for `docs/acceptance/trash-media.md` (FR-HIS-01, FR-ATT-01, -02, -07, -08, FR-NAV-04 AC-6, AC-7, FR-FMT-07 AC-22, FR-SYN-06 AC-29, AC-30) and the `[MS6]` criteria it takes over (conversion.md FR-CNV-08 AC-6, capture.md FR-CAP-01 AC-12, inbox.md FR-INB-02 AC-10, tasks.md R43). Hand-written from the fixture table of `trash-media.md` (D-50); no real content, no real photo or document. Interface: `docs/contracts/ms6-trash-media.md` (D-609…D-623).
+Synthetic vault for `docs/acceptance/trash-media.md` (FR-HIS-01, FR-ATT-01, -02, -07, -08, FR-NAV-04 AC-6, AC-7, FR-FMT-07 AC-22, FR-SYN-06 AC-29, AC-30) and the `[MS6]` criteria it takes over (conversion.md FR-CNV-08 AC-6, capture.md FR-CAP-01 AC-12, inbox.md FR-INB-02 AC-10, tasks.md R43). Hand-written from the fixture table of `trash-media.md` (D-50); no real content, no real photo or document. Interface: `docs/contracts/ms6-trash-media.md` (D-613…D-627).
 
-**Status: written, 2026-10-22,** byte-exact by a script, following D-609…D-623. Don't open and re-save these files in an editor or an image program.
+**Status: written, 2026-10-22,** byte-exact by a script, following D-613…D-627. Don't open and re-save these files in an editor or an image program.
 
 The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (`vault.yml` with `attachments: _attachments`; the Image and PDF type files with `file`, `media-type`, `size`, `width`, `height`, `pages`). This README and `make-media.mjs` are not vault files and are never copied. There is no type file for `recept`: the Folder entry is a type folder trashed with its type (D-225), so the type is unknown to the live vault.
 

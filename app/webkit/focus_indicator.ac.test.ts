@@ -112,7 +112,7 @@ async function oldBlueOutlines(page: Page): Promise<string[]> {
 test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
   await startMain(page);
   const states: NonNullable<State>[] = [];
-  // Trash (6A: Home is removed, D-609) → a sidebar entry (Inbox).
+  // Trash (6A: Home is removed, D-613) → a sidebar entry (Inbox).
   await runCommand(page, 'Go to Trash');
   await sleep(200);
   states.push(...await pointer(page, inboxEntry(page), 'sidebar entry Inbox'));
@@ -157,7 +157,7 @@ test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }
   assert.ok(focus, 'the focus token exists');
   assert.ok(sel, 'the hover token exists (D-594: the --hover background on rows, cards and menu items)');
   const states: NonNullable<State>[] = [];
-  await runCommand(page, 'Go to Trash'); // 6A: Go to Home is removed (D-609)
+  await runCommand(page, 'Go to Trash'); // 6A: Go to Home is removed (D-613)
   await sleep(200);
   states.push(await keyboard(page, inboxEntry(page), 'sidebar entry Inbox'));
   await gotoInbox(page);
@@ -261,7 +261,7 @@ for (const theme of ['light', 'dark'] as const) {
         hits.push(...(await oldBlueOutlines(page)).map((h) => `${route}: ${h}`));
       }
     };
-    await runCommand(page, 'Go to Trash'); // 6A: Home is removed (D-609); the Trash page is tabbed instead
+    await runCommand(page, 'Go to Trash'); // 6A: Home is removed (D-613); the Trash page is tabbed instead
     await sleep(200);
     await tabThrough('trash');
     await gotoInbox(page);

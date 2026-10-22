@@ -99,7 +99,7 @@ export function resolveOnFixture(from: string, targets: string[]): Map<string, L
       hit = same.find((o) => o.path.startsWith(`${fromDir}/`) && !o.path.slice(fromDir.length + 1).includes('/'))
         ?? [...same].sort((a, b) => a.path.length - b.path.length || (a.path < b.path ? -1 : 1))[0];
     }
-    // D-611, D-624 (6A): the fixture's trashed note resolves as `trashed` when nothing live matches.
+    // D-615, D-628 (6A): the fixture's trashed note resolves as `trashed` when nothing live matches.
     const inTrash = !hit && (k === 'smazaná' || k === '.trash/pages/smazaná' || k === 'pages/smazaná');
     if (hit) out.set(given, { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type });
     else if (inTrash) out.set(given, { target: given, kind: 'trashed', path: '.trash/Pages/Smazaná.md', title: 'Smazaná', type: 'page' });

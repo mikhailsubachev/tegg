@@ -1,5 +1,5 @@
-// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R77, D-618): an image embed: `figure` with `img` (alt = the
-// object's title, natural size up to the column width, `loading="lazy"`), loaded through the media URL (D-622). A
+// Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R77, D-622): an image embed: `figure` with `img` (alt = the
+// object's title, natural size up to the column width, `loading="lazy"`), loaded through the media URL (D-626). A
 // click selects (the editor), a double-click or ⌘-click opens the object; the context menu has Open, Open in Preview
 // and Reveal in Finder.
 import { useState } from 'react';

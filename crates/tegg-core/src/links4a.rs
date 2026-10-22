@@ -381,7 +381,7 @@ impl Core {
         let sources = self.index().broken_sources();
         let defs = self.type_names();
         let key_of = |l: &LinkRecord| nfc(l.target.trim()).to_lowercase();
-        // ms6-trash-media §2 (D-611): a target that resolves in `.trash/` isn't broken.
+        // ms6-trash-media §2 (D-615): a target that resolves in `.trash/` isn't broken.
         let trashed: std::collections::HashSet<String> = {
             let unresolved = |l: &LinkRecord| l.resolved.kind == TargetKind::Unresolved && tegg_index::is_note_target(&l.target);
             let mut seen = std::collections::HashSet::new();

@@ -68,7 +68,7 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     sb.getByText('Trash', { exact: true }),
     sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true }),
   ];
-  // 6A (trash-media.md FR-NAV-04 AC-6, D-609): no Home; Trash at the bottom.
+  // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home; Trash at the bottom.
   const names = ['switcher field', 'New object', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries', 'Trash', 'logo button'];
   const tops: number[] = [];
   for (let i = 0; i < parts.length; i++) {
@@ -92,7 +92,7 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   const inboxRow = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Inbox', { exact: true }) }).first();
   const inboxText = (await inboxRow.innerText()).replace('Inbox', '').trim();
   assert.equal(inboxText.replace(/\D/g, ''), members > 0 ? String(members) : '', `Inbox shows its count (${members}): ${inboxText}`);
-  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-609)');
+  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
   for (const e of ['Pinned']) {
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const label = await row.evaluate((el) => [el.getAttribute('aria-description'), ...(el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent ?? ''), el.getAttribute('title')].filter(Boolean).join(' '));
@@ -297,7 +297,7 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
     if (row.goto) { await runCommand(page, row.goto); await check(row, `palette "${row.goto}"`); }
   }
   // Other means from the "Reached by" column.
-  // 6A (D-609): no Home entry; Trash is reached from the sidebar (R75).
+  // 6A (D-613): no Home entry; Trash is reached from the sidebar (R75).
   const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Pinned', 'pinned'], ['Saved queries', 'saved-queries'], ['Tags', 'tags']];
   for (const [entry, id] of viaSidebar) {
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
@@ -405,7 +405,7 @@ test('fr_ux_02_ac15_single_title_bar_tab_follows_navigation', async ({ page }) =
     [() => gotoType(page, 'Quick Notes'), 'Quick Notes'],
     [() => openNote(page, 'Zavolat Evě'), 'Zavolat Evě'],
     [() => page.keyboard.press('Meta+Comma'), 'Settings: Appearance'],
-    [() => runCommand(page, 'Go to Trash'), 'Trash'], // 6A: Go to Home is removed (D-609)
+    [() => runCommand(page, 'Go to Trash'), 'Trash'], // 6A: Go to Home is removed (D-613)
   ];
   for (const [go, name] of steps) {
     await go();
@@ -419,7 +419,7 @@ test('fr_ux_02_ac15_single_title_bar_tab_follows_navigation', async ({ page }) =
 test('fr_ux_02_ac16_launch_landing_follows_core_answer', async ({ browser }) => {
   const cases: { what: string; last: { path: string; id: string | null } | null; edit?: (v: ReturnType<typeof shellVault>) => void; want: string }[] = [
     { what: '(a) last note Eva', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Zavolat Evě' },
-    // 6A (trash-media.md FR-NAV-04 AC-7, D-610): the launch fallback is the Inbox.
+    // 6A (trash-media.md FR-NAV-04 AC-7, D-614): the launch fallback is the Inbox.
     { what: '(b) no note opened', last: null, want: 'Inbox' },
     {
       what: '(c) renamed by another program', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Zavolat Evě',
@@ -554,7 +554,7 @@ test('fr_ux_01_ac3_typography', async ({ page }) => {
   assert.equal(body.lineHeight, '21px', 'line height 1.5');
   const entry = await sidebar(page).getByText('Inbox', { exact: true }).evaluate((e) => getComputedStyle(e).fontSize);
   assert.equal(entry, '13px', 'sidebar entries');
-  // 6A (D-609): Home is removed; the page-heading size is checked on the type page.
+  // 6A (D-613): Home is removed; the page-heading size is checked on the type page.
   await gotoType(page, 'Quick Notes');
   assert.equal(await page.getByRole('main').getByRole('heading', { level: 1 }).first().evaluate((e) => getComputedStyle(e).fontSize), '30px', 'type page heading');
   await openNote(page, '2026-10-07 Porada');

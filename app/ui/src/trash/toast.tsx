@@ -1,4 +1,4 @@
-// Slice 6A (ms6-trash-media §6.2; D-616): the status line of Move to trash and Restore (`role="status"`, with `Undo`
+// Slice 6A (ms6-trash-media §6.2; D-620): the status line of Move to trash and Restore (`role="status"`, with `Undo`
 // after a move) and the trash alerts (`role="alert"`), shown in the centre pane whatever page follows.
 import { useSyncExternalStore } from 'react';
 import { t } from '../i18n/catalog';

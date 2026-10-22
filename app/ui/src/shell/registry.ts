@@ -30,14 +30,14 @@ const built = { built: true } as const;
 const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, due: slice ? { milestone, slice } : { milestone } });
 
 export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
-  // 6A (D-626): `embed-image` and `embed-pdf` are retired (trash-media.md R77 renders them); `embed-other` is a built card.
+  // 6A (D-630): `embed-image` and `embed-pdf` are retired (trash-media.md R77 renders them); `embed-other` is a built card.
   { id: 'query', name: 'ph.query', due: { milestone: 'v1.0' }, reqs: ['FR-QRY-01', 'FR-FMT-06'] },
   { id: 'mindmap', name: 'ph.mindmap', due: { milestone: 'v1.0' }, reqs: ['FR-MMP-01', '-02', 'FR-FMT-05'] },
 ];
 
 export const ROUTES: RouteDef[] = [
   { id: 'chooser', name: 'route.chooser', purpose: 'purpose.chooser', status: built, reqs: ['FR-VLT-01', 'FR-VLT-02'], design: null },
-  // 6A (trash-media.md R75, D-609): `home` is removed until FR-HOM-01 ships in v1.0; the Inbox is built (5B).
+  // 6A (trash-media.md R75, D-613): `home` is removed until FR-HOM-01 ships in v1.0; the Inbox is built (5B).
   { id: 'inbox', name: 'route.inbox', purpose: 'purpose.inbox', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-INB-01…04'], design: 'Inbox' },
   // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
   { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },

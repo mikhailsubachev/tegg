@@ -147,7 +147,7 @@ test('fr_att_01_ac14_copy_paste_duplicates_the_embed_text', async ({ page }) => 
     return dt.getData('text/plain');
   });
   assert.equal(copied, '![[záhon.png]]', 'the embed text');
-  // Put the caret at the end of the text (the last paragraph holds the inline PDF card, which opens on a click; D-628).
+  // Put the caret at the end of the text (the last paragraph holds the inline PDF card, which opens on a click; D-632).
   await caretIn(page, await editorBody(page).locator(':scope > *').count());
   await page.keyboard.press('Enter');
   await page.evaluate((txt) => {
@@ -183,7 +183,7 @@ test('fr_att_01_ac15_backlinks_search_and_type_pages', async ({ page }) => {
   await gotoType(page, 'PDFs');
   assert.ok(await seen(main(page).getByRole('row').filter({ hasText: 'Rozpočet' }), 2000), 'PDFs lists Rozpočet');
   await page.keyboard.press('Meta+Shift+f');
-  // Wait for the Search page's field before typing (D-628).
+  // Wait for the Search page's field before typing (D-632).
   const input = await must(page.getByRole('searchbox').or(page.getByRole('textbox', { name: 'Search query' })).first(), 'the search field', 3000);
   await input.fill('Záhon');
   await page.keyboard.press('Enter');

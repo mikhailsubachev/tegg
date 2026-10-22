@@ -77,7 +77,7 @@ pub trait VaultFs: Send + Sync {
     fn watch(&self, _sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         Ok(None)
     }
-    /// ms6-trash-media §1.1 (D-614): the entry's status-change time (`st_ctime` on Unix, the last write time
+    /// ms6-trash-media §1.1 (D-618): the entry's status-change time (`st_ctime` on Unix, the last write time
     /// elsewhere), `None` when missing; a rename into `.trash/` sets it (R71). `MemFs` keeps a counter set on every
     /// rename.
     fn changed_ns(&self, _path: &str) -> io::Result<Option<i128>> {
@@ -139,7 +139,7 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     }
 }
 
-/// ms6-trash-media §1.1 (D-615): moves a file or folder out of the vault into the system's trash (macOS: Finder's
+/// ms6-trash-media §1.1 (D-619): moves a file or folder out of the vault into the system's trash (macOS: Finder's
 /// Trash through `NSFileManager trashItemAtURL`). The core stays platform-neutral (AR-03): the shell implements it;
 /// tests use a recording implementation. `abs` is an absolute path.
 pub trait SystemTrash: Send + Sync {
@@ -553,7 +553,7 @@ impl Vault {
         self.move_dir_free(&trashed, &original)
     }
 
-    /// ms6-trash-media §1.1, §1.4 (FR-HIS-01 AC-7, AC-8, D-615): moves the file or folder `path` (vault-relative)
+    /// ms6-trash-media §1.1, §1.4 (FR-HIS-01 AC-7, AC-8, D-619): moves the file or folder `path` (vault-relative)
     /// out of the vault through `sink`; Tegg never unlinks a vault file itself.
     pub fn remove_to(&self, path: &str, sink: &dyn SystemTrash) -> Result<(), VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());

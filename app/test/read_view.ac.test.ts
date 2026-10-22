@@ -200,12 +200,12 @@ test('fr_edt_02_ac6_link_targets_are_one_batch_without_attachments', async () =>
   const odkazy = mod.linkTargets(fixture(F.odkazy)) as string[];
   assert.ok(Array.isArray(odkazy), 'linkTargets returns a list');
   assert.equal(new Set(odkazy).size, odkazy.length, 'deduplicated');
-  // D-626, D-628 (6A, trash-media.md R77): `![[file]]` embeds resolve as media, so attachments are in the one batch.
+  // D-630, D-632 (6A, trash-media.md R77): `![[file]]` embeds resolve as media, so attachments are in the one batch.
   assert.deepEqual([...new Set(odkazy.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dokument.pdf', 'dvojník', 'fotka.png', 'neexistuje', 'reading list', 'smazaná', 'tabulka.xlsx', 'šablona'].sort(),
     `targets of Odkazy (with the embedded attachments; nothing from code, math, comments or HTML): ${JSON.stringify(odkazy)}`);
   for (const t of odkazy) assert.ok(!/[#|]/.test(t), `target without subpath or alias: ${t}`);
   const vl = mod.linkTargets(fixture(F.vlastnosti)) as string[];
-  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník', 'obal.jpg'], `frontmatter links of Vlastnosti (6A, D-628: the cover's file is in the batch too): ${JSON.stringify(vl)}`);
+  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník', 'obal.jpg'], `frontmatter links of Vlastnosti (6A, D-632: the cover's file is in the batch too): ${JSON.stringify(vl)}`);
 });
 
 test('fr_edt_02_ac6_wikilinks_and_markdown_links_render_as_chips', async () => {
@@ -244,7 +244,7 @@ test('fr_edt_02_ac8_unresolved_and_date_links', async () => {
   };
   const all = section('Nevyřešené');
   assert.deepEqual(all.map(name), ['Neexistuje', 'Reading list', 'Šablona', 'Smazaná']);
-  // D-624 (6A, D-611, trash-media.md R74): a link into `.trash/` is a trashed chip, not a broken one.
+  // D-628 (6A, D-615, trash-media.md R74): a link into `.trash/` is a trashed chip, not a broken one.
   const smazana = all[3];
   assert.equal(smazana.getAttribute('data-link-state'), 'trashed', 'Smazaná: trashed chip (R74)');
   assert.equal(desc(smazana), 'In trash', 'Smazaná: description In trash');
@@ -390,10 +390,10 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
   cleanup();
   const odkazy = await view(F.odkazy);
   const od = [...odkazy.article.querySelectorAll('[data-placeholder]')] as HTMLElement[];
-  // 6A (D-626): the media placeholders are retired; Bloky keeps mindmap and query (a remote image is never loaded).
+  // 6A (D-630): the media placeholders are retired; Bloky keeps mindmap and query (a remote image is never loaded).
   assert.deepEqual(blIds, ['mindmap', 'query'], 'Bloky: mindmap, query');
   // 4F (D-431): note embeds are no longer placeholders; without the embed renderer they are link-mode embeds.
-  // 6A (D-626, trash-media.md R77): Odkazy's media are no longer placeholders.
+  // 6A (D-630, trash-media.md R77): Odkazy's media are no longer placeholders.
   assert.deepEqual(od.map((p) => p.dataset.placeholder), [], 'Odkazy: no media placeholder');
   for (const p of od) {
     const row = R5.find((r) => r.id === p.dataset.placeholder)!;
@@ -414,7 +414,7 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
     fireEvent.click(l);
     assert.deepEqual(odkazy.calls.open.map(([x, f]) => [nfc(x), f === undefined ? undefined : nfc(f)]), [[F.cil, frag]], 'the chip opens the note');
   }
-  // 6A (R77, D-626): files that don't exist show the broken-media text; another file type is a card with its name and
+  // 6A (R77, D-630): files that don't exist show the broken-media text; another file type is a card with its name and
   // `Reveal in Finder`.
   const all = text(odkazy.article);
   assert.ok(all.includes('Can\'t find "fotka.png"'), 'missing image: Can\'t find "fotka.png"');

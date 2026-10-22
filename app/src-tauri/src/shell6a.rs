@@ -1,4 +1,4 @@
-//! Slice 6A shell (docs/contracts/ms6-trash-media.md §1.1, §3.6, §4, §5; D-609…D-623): the trash and media IPC
+//! Slice 6A shell (docs/contracts/ms6-trash-media.md §1.1, §3.6, §4, §5; D-613…D-627): the trash and media IPC
 //! commands of the main window, the capture window's `capture_media_add`, the `SystemTrash` of macOS
 //! (`NSFileManager trashItemAtURL`) and the read-only `tegg-media://` scheme.
 
@@ -14,7 +14,7 @@ use tegg_format::nfc;
 use crate::dto::*;
 use crate::{core, core_err, err, test_var, version_from, AppState};
 
-/// D-621 (§11, AP-554).
+/// D-625 (§11, AP-554).
 const MAX_BYTES: u64 = 200 * 1024 * 1024;
 
 /// `trash:changed` (§4), debounced 200 ms.
@@ -436,7 +436,7 @@ fn not_found() -> MediaResponse {
     MediaResponse { status: 404, content_type: None, body: Vec::new() }
 }
 
-/// §3.6 (D-622): what the `tegg-media://` scheme answers for one request of the webview `label`, with the open
+/// §3.6 (D-626): what the `tegg-media://` scheme answers for one request of the webview `label`, with the open
 /// vault at `vault_root`; `range` is the HTTP `Range` header, if any.
 #[doc(hidden)]
 pub fn media_scheme_probe(vault_root: &Path, method: &str, uri: &str, label: &str, range: Option<&str>) -> MediaResponse {

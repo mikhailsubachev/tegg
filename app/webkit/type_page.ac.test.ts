@@ -35,7 +35,7 @@ test('fr_typ_09_ac1_header_icon_plural_description_count_and_buttons', async ({ 
 
 test('fr_typ_09_ac2_rows_and_columns_from_one_index_query', async ({ page }) => {
   const core = await openTypes(page, undefined, { region: 'cs' });
-  // 6A (D-610, D-628): the launch lands on the Inbox, whose cards read their text (D-590): count from the type page.
+  // 6A (D-614, D-632): the launch lands on the Inbox, whose cards read their text (D-590): count from the type page.
   const readsBefore = (await callsOf(core, 'note_read')).length;
   await gotoTypePage(page, S);
   const table = typeTable(page, S);

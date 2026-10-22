@@ -40,7 +40,7 @@ const TRIGGERS: Trigger[] = [
 /** AC-1 setup: the fixture on `home`, then Porada (switcher) → type/schůzka (sidebar Types list; no breadcrumb, D-315)
  *  → search (⌘⇧F). */
 async function visitThree(page: Page) {
-  await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-610)');
+  await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-614)');
   await openNote(page, PORADA);
   const entry = await must(typesList(page).getByRole('link', { name: /^Schůzky\b/ }), 'sidebar Types entry "Schůzky"');
   await entry.click();

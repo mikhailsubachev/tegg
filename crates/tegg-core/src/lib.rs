@@ -83,7 +83,7 @@ pub enum CoreError {
     Invalid { reason: String },
     /// ms6-trash-media §3.4 (6A): the bytes aren't one of R72's media types (`media.refused`); nothing was written.
     Refused,
-    /// ms6-trash-media §3.1 (6A, D-621): more than 200 MB; nothing was written.
+    /// ms6-trash-media §3.1 (6A, D-625): more than 200 MB; nothing was written.
     TooLarge,
 }
 
@@ -844,7 +844,7 @@ pub enum LinkKind {
     Daily,
     DateMissing,
     Unresolved,
-    /// ms6-trash-media §2 (6A, D-611): resolves only in `.trash/`; `path` is the trashed path.
+    /// ms6-trash-media §2 (6A, D-615): resolves only in `.trash/`; `path` is the trashed path.
     Trashed,
     /// ms6-trash-media §3.2 (6A): a media file; `path` is the file, `LinkFields::object` its live Image/PDF object.
     Media,
@@ -875,7 +875,7 @@ pub struct LinkFields {
 
 impl Core {
     /// `link_resolve` with D-601's chip fields: one pass over the same objects (NFR-PERF-05 AC-3). Targets the live
-    /// objects don't resolve are tried as media files (§3.2), then in `.trash/` (§2, D-611). A trashed source resolves
+    /// objects don't resolve are tried as media files (§3.2), then in `.trash/` (§2, D-615). A trashed source resolves
     /// as from its original path (§1.5).
     pub fn resolve_links_with_fields(&self, from: &str, targets: &[String]) -> Vec<(LinkTarget, LinkFields)> {
         let objs = self.objects();

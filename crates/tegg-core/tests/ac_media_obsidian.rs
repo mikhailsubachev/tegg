@@ -110,7 +110,7 @@ fn fr_att_01_ac10_the_vault_after_adding_media_opens_in_obsidian() {
                 continue;
             }
             // The fixture's Odkazy embeds a trashed file on purpose (T3, R74): Obsidian doesn't resolve into `.trash/`
-            // either, so a target whose file exists only in `.trash/` is skipped (D-628).
+            // either, so a target whose file exists only in `.trash/` is skipped (D-632).
             let name = e.split(['|', '#']).next().unwrap_or("").trim().rsplit('/').next().unwrap_or("").to_string();
             if obsidian(&all, &e).is_none() && root.join(".trash/_attachments").join(&name).is_file() {
                 continue;

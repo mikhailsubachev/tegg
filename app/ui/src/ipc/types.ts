@@ -403,13 +403,13 @@ export type TrashFailedDto = { path: string, reason: string, };
 export type TrashRemovalDto = { removed: Array<string>, failed: Array<TrashFailedDto>, };
 export type MediaAddedDto = { file: string, object: string, title: string, embed: string, mediaType: string, 
 /**
- * Bytes (at most 200 MB, D-621).
+ * Bytes (at most 200 MB, D-625).
  */
 size: number, width: number | null, height: number | null, pages: number | null, };
 export type MediaAddResultDto = { ok: MediaAddedDto, } | { error: string, name: string, };
 export type StagedMediaDto = { token: string, name: string, mediaType: string, 
 /**
- * Bytes (at most 200 MB, D-621).
+ * Bytes (at most 200 MB, D-625).
  */
 size: number, width: number | null, height: number | null, pages: number | null, };
 export type StagedMediaResultDto = { ok: StagedMediaDto, } | { error: string, name: string, };

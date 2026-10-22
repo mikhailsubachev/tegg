@@ -335,7 +335,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     else if (id === 'inbox.trash') void trash(paths);
   };
 
-  /** 6A (FR-INB-02 AC-10, FR-HIS-01 AC-3; D-616): one rename per item, the toast with Undo; read-only items are left. */
+  /** 6A (FR-INB-02 AC-10, FR-HIS-01 AC-3; D-620): one rename per item, the toast with Undo; read-only items are left. */
   const trash = async (paths: string[]) => {
     const rows = paths.map(rowOf).filter((r): r is InboxRowDto => !!r && !r.readOnly);
     if (!rows.length) return;

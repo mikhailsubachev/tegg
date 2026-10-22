@@ -18,7 +18,7 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
   await startMain(page);
   const sb = sidebar(page);
   const parts: [string, ReturnType<typeof entry>][] = [
-    // 6A (trash-media.md FR-NAV-04 AC-6, D-609): no Home entry; `Trash` follows Saved queries (AP-534).
+    // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home entry; `Trash` follows Saved queries (AP-534).
     ['Search or jump to…', sb.getByRole('button', { name: 'Search or jump to…' })], ['New object', sb.getByRole('button', { name: 'New object' })],
     ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')],
     ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', entry(page, 'Tags')], ['Pinned', entry(page, 'Pinned')],
@@ -32,7 +32,7 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
     last = b!.y;
   }
   assert.equal(await sidebarCount(page), '13', 'Inbox with its count');
-  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-609)');
+  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
   for (const e of ['Pinned', 'Saved queries']) assert.match(await description(entry(page, e)), /Coming in v1\.0/, `${e}: Coming in v1.0`);
   const types = (await sb.getByRole('list', { name: 'Types' }).getByRole('listitem').allInnerTexts()).map(flat);
   assert.ok(!types.some((t) => /^Tasks\b/.test(t)), 'no Task in the Types section (D-516)');
@@ -94,7 +94,7 @@ test('fr_nav_04_ac4_keyboard_and_collapse', async ({ page }) => {
   await (await must(sidebar(page).getByRole('button', { name: 'New object' }), 'New object')).focus();
   const seenNames: string[] = [];
   for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); seenNames.push((await focusName(page)).name); }
-  // 6A (trash-media.md FR-NAV-04 AC-6, D-609): no Home entry; Tab reaches Inbox, then Today.
+  // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home entry; Tab reaches Inbox, then Today.
   const iInbox = seenNames.findIndex((n) => /^Inbox/.test(n));
   const iToday = seenNames.findIndex((n) => /^Today/.test(n));
   assert.ok(!seenNames.some((n) => /^Home/.test(n)) && iInbox >= 0 && iToday === iInbox + 1, `Tab reaches Inbox, then Today: ${seenNames.join(' | ')}`);
@@ -115,7 +115,7 @@ test('fr_nav_04_ac5_registry_in_the_ui', async ({ page }) => {
     await must(main(page).getByRole('heading', { name: ok }), `${cmd}: a built page`);
     assert.equal(await main(page).getByText(/Coming in MS\d/).count(), 0, `${cmd}: no Coming in MS…`);
   }
-  // 6A (D-609): `Go to Home` is removed.
+  // 6A (D-613): `Go to Home` is removed.
   await runCommand(page, 'Go to Pinned');
   assert.ok(await seen(main(page).getByText(/Coming in v1\.0/), 2000), 'Pinned: Coming in v1.0');
 });

@@ -1152,7 +1152,7 @@ pub struct MediaAddedDto {
     pub title: String,
     pub embed: String,
     pub media_type: String,
-    /// Bytes (at most 200 MB, D-621).
+    /// Bytes (at most 200 MB, D-625).
     pub size: u32,
     pub width: Option<u32>,
     pub height: Option<u32>,
@@ -1175,7 +1175,7 @@ pub struct StagedMediaDto {
     pub token: String,
     pub name: String,
     pub media_type: String,
-    /// Bytes (at most 200 MB, D-621).
+    /// Bytes (at most 200 MB, D-625).
     pub size: u32,
     pub width: Option<u32>,
     pub height: Option<u32>,

@@ -264,7 +264,7 @@ test('fr_cap_01_ac11_the_vault_changed_while_open', async ({ page }) => {
 });
 
 // ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-12 [MS6], 6A part
-// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-620): the drop zone is enabled and a pasted image is staged as a
+// Changed by 6A (trash-media.md FR-ATT-01 AC-11, D-624): the drop zone is enabled and a pasted image is staged as a
 // thumbnail (the full criterion is app/webkit/capture_media.ac.test.ts); nothing is written before the save.
 
 test('fr_cap_01_ac12_images_and_pdfs_are_added_from_6a', async ({ page }) => {

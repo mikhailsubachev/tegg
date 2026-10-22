@@ -180,7 +180,7 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
 function embedPlaceholder(c: Ctx, value: string, inline: boolean, line = 0): ReactNode {
   const { target, subpath } = splitWikilink(value);
   const file = target.split('/').pop() ?? target;
-  // 6A (R77, D-626): files render as figures, PDF cards, file cards or `Can't find`; trashed ones as the placeholder.
+  // 6A (R77, D-630): files render as figures, PDF cards, file cards or `Can't find`; trashed ones as the placeholder.
   if (isAttachment(target) || IMAGE_EXT.test(target)) {
     void subpath; void file;
     const view = <MediaView target={target} info={linkInfo(c, target) as never} onOpen={(p) => c.onOpen(p)} />;
@@ -215,7 +215,7 @@ function LinkModeEmbed({ c, value }: { c: Ctx; value: string }) {
   );
 }
 
-/** A Markdown image (`![alt](url)`): its alt text or file name, never loaded (no network, NFR-SEC-01; D-626). */
+/** A Markdown image (`![alt](url)`): its alt text or file name, never loaded (no network, NFR-SEC-01; D-630). */
 function imagePlaceholder(n: Any, inline: boolean): ReactNode {
   const file = decode(String(n.url).split(/[?#]/)[0]).split('/').pop() || n.url;
   const text = <span className="md-image" data-user-content>{n.alt || file}</span>;

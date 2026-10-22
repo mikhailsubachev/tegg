@@ -21,7 +21,7 @@ const d = (milestone: string, slice?: string): Due => (slice ? { milestone, slic
 
 export const R1: R1Row[] = [
   { id: 'chooser', page: 'Vault chooser', built: true, due: d('MS3'), reqs: 'FR-VLT-01, FR-VLT-02', design: null, goto: null },
-  // 6A (trash-media.md R75, D-609): `home` is removed (returns with FR-HOM-01 in v1.0); the Inbox is built (5B, board `Inbox`).
+  // 6A (trash-media.md R75, D-613): `home` is removed (returns with FR-HOM-01 in v1.0); the Inbox is built (5B, board `Inbox`).
   { id: 'inbox', page: 'Inbox', built: true, due: d('MS5'), reqs: 'FR-INB-01…04', design: 'Inbox', goto: 'Go to Inbox' },
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
   { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
@@ -207,7 +207,7 @@ export const showDue = (due: Due) => (due.slice ? `${due.milestone} (${due.slice
 export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
 
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
-/** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-626): `embed-image` and `embed-pdf` are retired
+/** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-630): `embed-image` and `embed-pdf` are retired
  *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
 export type R5Row = { id: 'query' | 'mindmap'; due: Due; reqs: string };
 export const R5: R5Row[] = [

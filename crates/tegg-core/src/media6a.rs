@@ -1,5 +1,5 @@
 //! MS6 slice 6A (docs/contracts/ms6-trash-media.md §3): media metadata from the bytes (§3.1), names and titles of a
-//! new Image or PDF object (§3.3, D-617), the object's bytes (§3.5; twin of `@tegg/doc` `media.ts`) and adding a file
+//! new Image or PDF object (§3.3, D-621), the object's bytes (§3.5; twin of `@tegg/doc` `media.ts`) and adding a file
 //! with its object (§3.4).
 
 use std::hash::{BuildHasher, Hasher};
@@ -10,7 +10,7 @@ use tegg_vault::VaultError;
 
 use crate::{Core, CoreError, CoreEvent, FileVersion};
 
-/// D-621 (§11, AP-554): 200 MiB.
+/// D-625 (§11, AP-554): 200 MiB.
 pub const MAX_MEDIA_BYTES: usize = 200 * 1024 * 1024;
 
 /// §3.1: what the bytes are (R72's types only).
@@ -268,7 +268,7 @@ fn join(dir: &str, name: &str) -> String {
     if dir.is_empty() { name.to_string() } else { format!("{dir}/{name}") }
 }
 
-/// §3.3 (R72, R73, D-617): pure; `exists(vault path)` answers whether a path is taken (case-insensitive).
+/// §3.3 (R72, R73, D-621): pure; `exists(vault path)` answers whether a path is taken (case-insensitive).
 pub fn media_names(exists: &dyn Fn(&str) -> bool, req: &NameRequest) -> MediaNames {
     let name = nfc(req.name.trim());
     let (stem, ext) = split_ext(&name);

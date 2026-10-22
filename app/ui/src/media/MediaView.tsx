@@ -24,7 +24,7 @@ export function MediaView({ target, info, onOpen }: { target: string; info: Medi
     );
   }
   const path = info?.kind === 'media' && info.path ? info.path : null;
-  // D-626: a file of another type is a card with its name and `Reveal in Finder`, found or not.
+  // D-630: a file of another type is a card with its name and `Reveal in Finder`, found or not.
   if (!isImageFile(target) && !isPdfFile(target) && (!path || (info?.type !== 'image' && info?.type !== 'pdf'))) {
     const at = path ?? target;
     return (

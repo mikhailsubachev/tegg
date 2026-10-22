@@ -1,4 +1,4 @@
-// MS6 slice 6A, L5 (WebKit + fake core): FR-HIS-01 AC-9's theme part (docs/acceptance/trash-media.md; D-627):
+// MS6 slice 6A, L5 (WebKit + fake core): FR-HIS-01 AC-9's theme part (docs/acceptance/trash-media.md; D-631):
 // app-shell FR-UX-05 AC-4 (axe `color-contrast`: zero violations) and AC-5 (every computed `color`,
 // `background-color` and `border-color` of every visible element is a token of the theme, `transparent` or inherited)
 // on `trash` with rows, with the `Delete permanently?` dialog open and empty, in light and in dark. Interface
