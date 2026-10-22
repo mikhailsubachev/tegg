@@ -104,7 +104,7 @@ Tree gates (push, nightly, milestone, release) run the steps of each lane one af
 - **Summary (§3.4):** `steps[]` stays in config order regardless of lanes; each entry has its own `durationMs` and, in tree gates, its `lane`.
 - **Sequential run:** `--lanes 1` (push, nightly, milestone, release, merge) or the environment variable `VERIFY_LANES=1` runs every step in config order, as if all were in one lane; the option wins over the variable. Any other value of either exits 2 with a usage error.
 - Steps that share a resource (the Cargo cache of §3.2.1, `VERIFY_PORT_BASE`, a built app under a fixed path) must be in the same lane; the configuration, not the tool, guarantees this.
-- **Priority:** a step with `nice` (§2) runs at that niceness. Tegg's config uses no niceness: a niced lane fails its own timing-bound tests (FR-UX-07 AC-1's 500 ms progress gap, the lane ACs); the lanes are balanced by worker counts instead (2 Rust test threads, 2 vitest workers, 8 WebKit workers on 12 cores).
+- **Priority:** a step with `nice` (§2) runs at that niceness. Tegg's config uses no niceness: a niced lane fails its own timing-bound tests (FR-UX-07 AC-1's 500 ms progress gap, the lane ACs); the lanes are balanced by worker counts instead (2 Rust test threads, 2 vitest workers, 6 WebKit workers on 12 cores).
 - The commit gate ignores lanes and runs its steps in config order.
 
 ### 3.2.3 Step memo (push only, D-526)
