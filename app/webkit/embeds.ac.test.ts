@@ -103,7 +103,8 @@ for (const view of ['editor', 'read_view'] as const) {
 
   test(`fr_emb_01_ac1_image_embed_stays_placeholder_and_reads_no_file_${view}`, async ({ page }) => {
     const core = await openEmbeds(page, M.rozbita, { readView: view === 'read_view' });
-    await must(main(page).locator('[data-placeholder="embed-image"]').filter({ hasText: 'obrázek.png' }), 'R5 embed-image placeholder of ![[obrázek.png]]', 5000);
+    // D-626, D-628 (6A, trash-media.md R77): no embed-image placeholder; the missing file shows `Can't find`.
+    await must(main(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 'R77 broken-media text of ![[obrázek.png]]', 5000);
     await needFrame(main(page), 'Chyba hlavičky', 'the full embed of Chyba hlavičky next to it');
     const loads = (await embedLoads(core)).flat();
     assert.ok(loads.includes(nfc(M.chybaHlavicky)), 'the note embeds of Rozbitá vložení are loaded with embed_load');
@@ -398,11 +399,11 @@ test('fr_emb_01_ac9_typed_embed_becomes_an_embed', async ({ page }) => {
   assert.equal(await f.getAttribute('data-embed-mode'), 'full', "in Cíl's mode (full)");
   const t = await savedFile(page, core, M.vkladani, (x) => (x ?? '').includes('![[Cíl]]'));
   assert.equal(bodyOf(t), VK_WITH('![[Cíl]]'), 'saves ![[Cíl]]');
-  // `![[obrázek.png]]` typed by hand stays the embed-image placeholder and reads no file.
+  // `![[obrázek.png]]` typed by hand is a media block (R77, D-626, D-628): the missing file shows `Can't find`, no file read.
   await mustCaret(hostBlock(page, 'Odstavec po.'), null, 'end of Odstavec po.');
   await page.keyboard.press('Enter');
   await page.keyboard.type('![[obrázek.png]]');
-  await must(editorBody(page).locator('[data-placeholder="embed-image"]'), 'embed-image placeholder', 3000);
+  await must(editorBody(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 'R77 broken-media text', 3000);
   // D-455: file reads are embed_load and note_read; the `![[` autocomplete's switcher search reads no file.
   assert.equal((await core.calls()).filter((c) => (c.cmd === 'embed_load' || c.cmd === 'note_read') && JSON.stringify(c.args ?? '').includes('obrázek')).length, 0, 'no file read for the image');
 });

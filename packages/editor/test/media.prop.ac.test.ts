@@ -44,6 +44,8 @@ function ui() {
     embed: () => ({ update: () => {}, selected: () => {}, destroy: () => {} }),
   };
 }
+/** The text with its `modified:` line removed: every edit updates `modified` (D-174), D-628. */
+const noMod = (t: string) => t.replace(/^modified: .*\n/m, '');
 const esc = (v: unknown) => JSON.stringify(v).replace(/[̀-ͯ]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 const RUNS = Number(process.env.EDITOR_PROPERTY_RUNS ?? 100);
 const SEEDS = [20261022, Number(process.env.QA_SEED ?? 0) || 13];
@@ -58,7 +60,7 @@ test('fr_fmt_07_ac22_property_media_paragraphs_change_only_themselves', async ()
     const ed = m.createEditor({ text: `${FRONT}Před.\n\nPo.\n`, now: () => NOW, newId, ui: ui() });
     const pos = ed.view.state.doc.child(0).nodeSize;
     assert.equal(m.insertEmbeds(ed.view, ['záhon.png'], pos), true, 'insertEmbeds inserts');
-    assert.equal(await ed.save(), `${FRONT}Před.\n\n![[záhon.png]]\n\nPo.\n`, 'one paragraph at pos');
+    assert.equal(noMod((await ed.save()) ?? ''), noMod(`${FRONT}Před.\n\n![[záhon.png]]\n\nPo.\n`), 'one paragraph at pos');
     ed.destroy();
   }
   const failures: string[] = [];
@@ -86,7 +88,7 @@ test('fr_fmt_07_ac22_property_media_paragraphs_change_only_themselves', async ()
           }
           const saved = (await ed.save()) ?? text;
           const got = await blocksRaw(saved);
-          if (!saved.startsWith(FRONT.replace(/modified: .*\n/, ''))) failures.push('frontmatter changed beyond modified');
+          if (!noMod(saved).startsWith(noMod(FRONT))) failures.push('frontmatter changed beyond modified');
           if (JSON.stringify(got) !== JSON.stringify(model)) failures.push(`after insert: ${esc(got)}, want ${esc(model)}`);
           // Remove every inserted media paragraph again (select the block, delete).
           for (let k = ed.view.state.doc.childCount - 1; k >= 0; k--) {
@@ -94,7 +96,8 @@ test('fr_fmt_07_ac22_property_media_paragraphs_change_only_themselves', async ()
             if (raw === undefined || !isMedia(raw) || seq.includes(raw)) continue;
             if (!ed.commands.selectBlockAt(k) || !ed.commands.deleteBlocks()) { failures.push(`delete media block ${k} refused`); break; }
           }
-          const back = (await ed.save()) ?? saved;
+          // Back at the loaded text, `save()` has nothing to write (null): read the editor's text then (D-628).
+          const back = (await ed.save()) ?? ed.text();
           ed.destroy();
           if (JSON.stringify(await blocksRaw(back)) !== JSON.stringify(seq)) failures.push(`after removal: ${esc(await blocksRaw(back))}, want ${esc(seq)}`);
           if (failures.length > mark) failures.push(`case: ${esc(seq)} inserts ${JSON.stringify(inserts)}`);

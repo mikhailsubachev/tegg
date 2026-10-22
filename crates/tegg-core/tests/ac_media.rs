@@ -204,7 +204,8 @@ fn fr_att_01_ac1_paste_writes_the_file_then_the_object() {
     assert_eq!(masked(&text(&root, "Images/Plán zahrady 1.md")), want, "§3.5 bytes");
     let mut diff = changed(&before, &snap(&root));
     diff.retain(|p| !p.ends_with('/'));
-    assert_eq!(diff, strs(&[&format!("_attachments/{PASTED}"), "Images/Plán zahrady 1.md"]), "FR-SYN-06 AC-30: exactly the file and the object");
+    // `changed` lists paths sorted (the write order is checked above through the file system's log).
+    assert_eq!(diff, strs(&["Images/Plán zahrady 1.md", &format!("_attachments/{PASTED}")]), "FR-SYN-06 AC-30: exactly the file and the object");
     assert!(core.object("Images/Plán zahrady 1.md").is_some_and(|o| o.r#type == "image"), "indexed at once");
 }
 

@@ -1,6 +1,7 @@
 //! MS4 slice 4A property test (L2): FR-LNK-01 AC-8, the inverse of link resolution (T2). docs/acceptance/backlinks.md;
 //! interface docs/contracts/ms4-links.md §1 (one resolution rule, re-resolution on add/remove/move/rename, the invariant
-//! `backlinks(T) = { S ≠ T | S outside _templates/ and .trash/, some link of S resolves to T }`). Written from the AC
+//! `backlinks(T) = { S ≠ T | S outside _templates/ and .trash/, some link of S resolves to T }`; 6A, D-628: a link that
+//! resolves to a file paired with an Image/PDF object counts for that object, FR-ATT-07, ms6-trash-media §12.5). Written from the AC
 //! and the contract only (D-61).
 //!
 //! Seeds (TS-L2): a fixed seed plus one random seed per run (`QA_SEED` when set, else the clock); with
@@ -219,18 +220,43 @@ fn excluded(p: &str) -> bool {
 }
 
 /// `{ S | some link of S resolves to T by link_resolve }` minus T itself, templates and `.trash/`.
+/// 6A (FR-ATT-07, FR-ATT-01 AC-15; ms6-trash-media §3.2, §12.5; D-628): the live Image/PDF objects whose `file:`
+/// resolves to each vault file (`Core::pair_of`).
+fn media_owners(core: &Core) -> BTreeMap<String, BTreeSet<String>> {
+    let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for o in core.objects().into_iter().filter(|o| o.r#type == "image" || o.r#type == "pdf") {
+        if let Some(f) = core.pair_of(&o.path) {
+            out.entry(nfc(&f)).or_default().insert(nfc(&o.path));
+        }
+    }
+    out
+}
+
 fn expected(core: &Core, sources: &BTreeMap<String, Vec<String>>) -> BTreeMap<String, BTreeSet<String>> {
     let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let owners = media_owners(core);
     for (s, targets) in sources {
         if excluded(s) || targets.is_empty() {
             continue;
         }
         for t in core.resolve_links(s, targets) {
-            if let (LinkKind::Note | LinkKind::Daily, Some(p)) = (t.kind, t.path) {
-                let p = nfc(&p);
-                if &p != s {
-                    out.entry(p).or_default().insert(s.clone());
+            match (t.kind, t.path) {
+                (LinkKind::Note | LinkKind::Daily, Some(p)) => {
+                    let p = nfc(&p);
+                    if &p != s {
+                        out.entry(p).or_default().insert(s.clone());
+                    }
                 }
+                // FR-ATT-07 (D-628): a link naming a file paired with an Image/PDF object's `file:` is a backlink of
+                // that object (every object pairing the file).
+                (LinkKind::Media, Some(f)) => {
+                    for o in owners.get(&nfc(&f)).into_iter().flatten() {
+                        if o != s {
+                            out.entry(o.clone()).or_default().insert(s.clone());
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -390,6 +416,10 @@ fn fr_lnk_01_ac8_property_inverse_on_the_generated_vault() {
         keys.insert(key(Path::new(&o.path).file_stem().and_then(|s| s.to_str()).unwrap_or("")));
         if let Some(id) = &o.id {
             keys.insert(nfc(id).to_lowercase());
+        }
+        // FR-ATT-07 (D-628): a sampled Image/PDF object's backlinks include the sources that name its file.
+        if let Some(f) = core.pair_of(&o.path) {
+            keys.insert(key(&f));
         }
     }
     // A date link's key is the date, which is its Daily Note's stem, so the stem keys cover dates too.

@@ -121,7 +121,7 @@ for (const theme of ['light', 'dark'] as const) {
     await openEmbeds(page, M.rozbita, { theme });
     const danger = await tokenColour(page, 'danger');
     const l = await list(page, 4);
-    assert.notEqual(l.find((e) => e.target === nfc('Smazaná'))?.state ?? null, 'broken', '![[Smazaná]] is not a broken frame (D-624)');
+    assert.equal(l.find((e) => e.target === nfc('.trash/Pages/Smazaná.md'))?.state ?? null, 'trashed', '![[Smazaná]] is a trashed frame, not a broken one (D-624, D-628)');
     for (const t of BROKEN) {
       const i = l.findIndex((e) => e.target === nfc(t));
       assert.deepEqual([l[i]?.state, l[i]?.target], ['broken', nfc(t)], `![[${t}]]: data-embed-state broken`);
@@ -168,7 +168,8 @@ test('fr_lnk_07_ac6_broken_link_mode_embed', async ({ page }) => {
 test('fr_lnk_07_ac6_broken_embeds_on_the_broken_links_page', async ({ page }) => {
   await openEmbeds(page, M.rozbita);
   const l = await list(page, 4);
-  assert.deepEqual(l.slice(0, 4).map((e) => e.state), ['broken', 'broken', 'broken', 'broken'], 'the four broken frames are shown');
+  // D-611, D-624 (6A, D-628): Rozbitá's `![[Smazaná]]` (a target in `.trash/`) is `trashed`, the other three broken.
+  assert.deepEqual(l.slice(0, 4).map((e) => [e.target, e.state]), [[nfc('Chybí'), 'broken'], [nfc('Šablona'), 'broken'], [nfc('.trash/Pages/Smazaná.md'), 'trashed'], [nfc('Reading list'), 'broken']], 'three broken frames and the trashed one');
   await runCommand(page, 'Go to Broken links');
   for (const t of BROKEN) assert.ok(await seen(main(page).getByRole('group', { name: new RegExp(`^${t}`) }), 3000), `${t} on the Broken links page`);
 });

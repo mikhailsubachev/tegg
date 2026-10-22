@@ -200,11 +200,12 @@ test('fr_edt_02_ac6_link_targets_are_one_batch_without_attachments', async () =>
   const odkazy = mod.linkTargets(fixture(F.odkazy)) as string[];
   assert.ok(Array.isArray(odkazy), 'linkTargets returns a list');
   assert.equal(new Set(odkazy).size, odkazy.length, 'deduplicated');
-  assert.deepEqual([...new Set(odkazy.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dvojník', 'neexistuje', 'reading list', 'smazaná', 'šablona'].sort(),
-    `targets of Odkazy (no attachments, nothing from code, math, comments or HTML): ${JSON.stringify(odkazy)}`);
+  // D-626, D-628 (6A, trash-media.md R77): `![[file]]` embeds resolve as media, so attachments are in the one batch.
+  assert.deepEqual([...new Set(odkazy.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dokument.pdf', 'dvojník', 'fotka.png', 'neexistuje', 'reading list', 'smazaná', 'tabulka.xlsx', 'šablona'].sort(),
+    `targets of Odkazy (with the embedded attachments; nothing from code, math, comments or HTML): ${JSON.stringify(odkazy)}`);
   for (const t of odkazy) assert.ok(!/[#|]/.test(t), `target without subpath or alias: ${t}`);
   const vl = mod.linkTargets(fixture(F.vlastnosti)) as string[];
-  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník'], `frontmatter relations of Vlastnosti (cover is an attachment): ${JSON.stringify(vl)}`);
+  assert.deepEqual([...new Set(vl.map(norm))].sort(), ['cíl', 'dvojník', 'obal.jpg'], `frontmatter links of Vlastnosti (6A, D-628: the cover's file is in the batch too): ${JSON.stringify(vl)}`);
 });
 
 test('fr_edt_02_ac6_wikilinks_and_markdown_links_render_as_chips', async () => {

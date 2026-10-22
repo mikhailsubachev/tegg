@@ -93,8 +93,10 @@ test('nfr_sec_03_ac4_the_capture_page_imports_no_main_window_client_or_editor', 
   assert.ok(g.files.includes('ipc/capture.ts'), 'the capture page talks through ipc/capture.ts');
   assert.ok(!g.bare.some((b) => b.startsWith('@tegg/editor') || b.startsWith('@tiptap') || b.startsWith('prosemirror')), `no editor package: ${g.bare.join(', ')}`);
   assert.ok(!g.bare.some((b) => /^@tauri-apps\/plugin-/.test(b)), `no Tauri plugin: ${g.bare.join(', ')}`);
-  const allowed = /^(capture\/|i18n\/|theme\/|tasks\/quickAdd\.ts$|ipc\/capture\.ts$|ipc\/types\.ts$|shell\/Icon\.tsx$|icons\.ts$|zone\.ts$)/;
-  assert.deepEqual(g.files.filter((f) => !allowed.test(f)), [], 'only capture/*, i18n/*, theme/*, tasks/quickAdd.ts, ipc/capture.ts and shell/Icon (§4)');
+  // 6A (D-620, D-628): also ipc/media.ts (the tegg-media URL builder of the thumbnails, no IPC; ms6-trash-media §3.6, §5);
+  // @tegg/doc (pastedImageName) is a package import, which this list of app files doesn't restrict.
+  const allowed = /^(capture\/|i18n\/|theme\/|tasks\/quickAdd\.ts$|ipc\/capture\.ts$|ipc\/media\.ts$|ipc\/types\.ts$|shell\/Icon\.tsx$|icons\.ts$|zone\.ts$)/;
+  assert.deepEqual(g.files.filter((f) => !allowed.test(f)), [], 'only capture/*, i18n/*, theme/*, tasks/quickAdd.ts, ipc/capture.ts, ipc/media.ts and shell/Icon (§4)');
 });
 
 test('nfr_sec_03_ac4_the_capture_sources_call_no_clipboard_postmessage_or_network', () => {

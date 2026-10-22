@@ -10,7 +10,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   TM, callsOf, click, editorBody, eventually, figure, fixtureBytes, flat, imgNamed, main, must, mustBeOn, nfc, openTM, original, pdfCard, seen, sleep,
-  startTM, tmVault, waitLoaded, type FakeCoreHandle,
+  startTM, tmVault, waitLoaded, caretIn, type FakeCoreHandle,
 } from './trash-media-helpers';
 import { gotoType, mainName } from './helpers';
 
@@ -147,8 +147,8 @@ test('fr_att_01_ac14_copy_paste_duplicates_the_embed_text', async ({ page }) => 
     return dt.getData('text/plain');
   });
   assert.equal(copied, '![[záhon.png]]', 'the embed text');
-  await (await must(editorBody(page).locator(':scope > *').last(), 'last block')).click();
-  await page.keyboard.press('End');
+  // Put the caret at the end of the text (the last paragraph holds the inline PDF card, which opens on a click; D-628).
+  await caretIn(page, await editorBody(page).locator(':scope > *').count());
   await page.keyboard.press('Enter');
   await page.evaluate((txt) => {
     const dt = new DataTransfer();
@@ -183,7 +183,9 @@ test('fr_att_01_ac15_backlinks_search_and_type_pages', async ({ page }) => {
   await gotoType(page, 'PDFs');
   assert.ok(await seen(main(page).getByRole('row').filter({ hasText: 'Rozpočet' }), 2000), 'PDFs lists Rozpočet');
   await page.keyboard.press('Meta+Shift+f');
-  await page.keyboard.insertText('Záhon');
+  // Wait for the Search page's field before typing (D-628).
+  const input = await must(page.getByRole('searchbox').or(page.getByRole('textbox', { name: 'Search query' })).first(), 'the search field', 3000);
+  await input.fill('Záhon');
   await page.keyboard.press('Enter');
   assert.ok(await seen(main(page).getByText('Záhon', { exact: true }), 3000), 'search finds Záhon');
 });

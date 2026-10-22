@@ -519,7 +519,8 @@ test('nfr_perf_05_ac3_one_link_resolution_call_and_one_read', async ({ page }) =
   const args = lr[0].args as { from: string; targets: string[] };
   assert.equal(nfc(args.from), R.odkazy, 'from = the note');
   const norm = (t: string) => nfc(t).toLowerCase().replace(/\.md$/, '');
-  assert.deepEqual([...new Set(args.targets.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dvojník', 'neexistuje', 'reading list', 'smazaná', 'šablona'].sort(), 'all body links in the one call');
+  // D-626, D-628 (6A, trash-media.md R77): `![[file]]` embeds resolve as media, so attachments are in the one call.
+  assert.deepEqual([...new Set(args.targets.map(norm))].sort(), ['2026-10-07', '2026-10-08', 'cíl', 'dokument.pdf', 'dvojník', 'fotka.png', 'neexistuje', 'reading list', 'smazaná', 'tabulka.xlsx', 'šablona'].sort(), 'all body links and embedded files in the one call');
   assert.deepEqual((await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path))), [R.odkazy], 'note_read exactly once');
 
   await openNote(page, 'Vlastnosti');
@@ -527,7 +528,7 @@ test('nfr_perf_05_ac3_one_link_resolution_call_and_one_read', async ({ page }) =
   await sleep(300);
   const lr2 = (await uiCalls(core, 'link_resolve')).slice(1);
   assert.equal(lr2.length, 1, 'one call for Vlastnosti');
-  assert.deepEqual([...new Set((lr2[0].args as any).targets.map(norm))].sort(), ['cíl', 'dvojník'], 'frontmatter relations in the same call');
+  assert.deepEqual([...new Set((lr2[0].args as any).targets.map(norm))].sort(), ['cíl', 'dvojník', 'obal.jpg'], 'frontmatter links (6A, D-628: the cover file too) in the same call');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-REL-03

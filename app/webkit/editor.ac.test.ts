@@ -433,7 +433,8 @@ test('fr_edt_02_ac21_embeds_typed_by_hand', async ({ page }) => {
   await page.keyboard.type('![[obrázek.png]]');
   t = await savedText(page, core, E.prazdna);
   assert.equal(await bodyOf(t), '![[Cíl]]\n\n![[obrázek.png]]\n', 'image embed saved');
-  assert.equal((await editorBody(page).locator('[data-placeholder="embed-image"]').count()) >= 1, true, 'embed-image placeholder (the note embed is an embed now, 4F D-431)');
+  // D-626, D-628 (6A, trash-media.md R77): the embed-image placeholder is retired; a missing file shows `Can't find`.
+  assert.ok(await seen(editorBody(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 3000), 'the broken-media text for the missing obrázek.png (R77)');
   assert.equal((await core.calls()).filter((c) => /attachment|image|read_file/.test(c.cmd)).length, 0, 'no image file read');
 });
 

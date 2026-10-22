@@ -35,6 +35,8 @@ test('fr_typ_09_ac1_header_icon_plural_description_count_and_buttons', async ({ 
 
 test('fr_typ_09_ac2_rows_and_columns_from_one_index_query', async ({ page }) => {
   const core = await openTypes(page, undefined, { region: 'cs' });
+  // 6A (D-610, D-628): the launch lands on the Inbox, whose cards read their text (D-590): count from the type page.
+  const readsBefore = (await callsOf(core, 'note_read')).length;
   await gotoTypePage(page, S);
   const table = typeTable(page, S);
   assert.deepEqual((await table.getByRole('columnheader').allInnerTexts()).map((t) => t.trim()), ['Title', 'Datum', 'Účastníci', 'Modified'], 'Title, preview attributes in order, Modified');
@@ -45,7 +47,10 @@ test('fr_typ_09_ac2_rows_and_columns_from_one_index_query', async ({ page }) => 
   const ve = table.getByRole('row').filter({ hasText: 'Schůzka ve stránkách' });
   assert.ok(await seen(ve.locator('[role="img"][aria-hidden="true"], svg[aria-hidden="true"]').first()), 'invalid value with the warning icon');
   assert.equal((await callsOf(core, 'index_type_rows')).length, 1, 'one index query');
-  const reads = (await callsOf(core, 'note_read')).length;
+  // Reads from the type page on, of the type's own objects (the Inbox's cards may still finish reading theirs).
+  const files = await core.files();
+  const rowPaths = new Set(Object.keys(files).filter((k) => /^type:\s*["']?schůzka["']?\s*$/im.test(files[k] ?? '')));
+  const reads = (await callsOf(core, 'note_read')).slice(readsBefore).filter((c) => rowPaths.has(String((c.args as any)?.path ?? '').normalize('NFC'))).length;
   assert.equal(reads, 0, 'never reads notes for rows');
 });
 

@@ -127,7 +127,8 @@ export async function openTM(page: Page, path: string, title: string, o: StartTM
 // ------------------------------------------------------------------------------------------------ the Trash page (R70)
 
 export const trashHeading = (page: Page) => main(page).getByRole('heading', { level: 1, name: /^⟦?Trash⟧?$/ });
-export const trashList = (page: Page) => main(page).getByRole('list', { name: 'Trashed objects', exact: true });
+/** The list `Trashed objects` (`⟦Trashed objects⟧` under the pseudo-locale, D-628). */
+export const trashList = (page: Page) => main(page).getByRole('list', { name: /^⟦?Trashed objects⟧?$/ });
 export const trashRow = (page: Page, path: string) => trashList(page).locator(`[data-path="${nfc(path)}"]`);
 export const restoreBtn = (page: Page, title: string) => main(page).getByRole('button', { name: `Restore "${title}"`, exact: true });
 export const deleteBtn = (page: Page, title: string) => main(page).getByRole('button', { name: `Delete "${title}" permanently…`, exact: true });

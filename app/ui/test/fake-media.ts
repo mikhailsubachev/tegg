@@ -69,7 +69,8 @@ export async function handle(cmd: string, a: MediaAddArgs, files: Record<string,
   const fileName = names.file.split('/').pop()!;
   const sameName = paths.filter((p) => low(p.split('/').pop()!) === low(fileName)).length;
   const embed = sameName > 0 ? names.file : fileName;
-  const source = a.owner ? linkText([...paths, nfc(a.owner)], nfc(a.owner)) : null;
+  // The owner counts once: it is already in `paths` unless it is a capture's future note (D-628).
+  const source = a.owner ? linkText(paths.includes(nfc(a.owner)) ? paths : [...paths, nfc(a.owner)], nfc(a.owner)) : null;
   const text = d.mediaObject({ id: a.id, title: names.title, now: a.now, embed, info, size, source });
   return {
     result: { file: names.file, object: names.object, title: names.title, embed, mediaType: info.mediaType, size, width: info.width, height: info.height, pages: info.pages },

@@ -288,7 +288,7 @@ test('fr_his_01_ac6_open_from_the_trash_read_only', async ({ page }) => {
   assert.equal(await editorBody(page).count(), 0, 'no editor');
   assert.equal(await page.getByRole('textbox', { name: 'Title', exact: true }).count(), 0, 'the title is not editable');
   assert.deepEqual(await vaultWrites6a(core), [], 'nothing written');
-  await page.goBack().catch(() => {});
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (FR-NAV-03); the browser's history isn't the app's (D-628)
   await gotoTrash(page);
   await click(trashRow(page, TM.t3).getByRole('button', { name: 'Smazaný obrázek', exact: true }), 'the image row');
   await must(main(page).getByRole('img', { name: 'Smazaný obrázek', exact: true }), 'the image shows (R76)', 3000);

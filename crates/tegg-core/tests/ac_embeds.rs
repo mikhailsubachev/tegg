@@ -175,8 +175,8 @@ fn fr_emb_01_ac2_embed_targets_resolve_by_the_link_rules_from_the_host() {
     let broken = core.resolve_links(ROZBITA, &strings(&["Chybí", "Šablona", "Smazaná", "Reading list", "2026-10-20"]));
     assert_eq!(
         broken.iter().map(|l| l.kind.clone()).collect::<Vec<_>>(),
-        vec![LinkKind::Unresolved, LinkKind::Unresolved, LinkKind::Unresolved, LinkKind::Unresolved, LinkKind::DateMissing],
-        "aliases, templates and .trash/ never resolve (D-141, FR-TPL-07, D-102)"
+        vec![LinkKind::Unresolved, LinkKind::Unresolved, LinkKind::Trashed, LinkKind::Unresolved, LinkKind::DateMissing],
+        "aliases and templates never resolve (D-141, FR-TPL-07); a target in .trash/ is trashed (D-611, D-624, D-628)"
     );
 
     // The same resolution through `embed_load`: each file's own targets, resolved from its own path.
@@ -198,9 +198,11 @@ fn fr_emb_01_ac2_embed_targets_resolve_by_the_link_rules_from_the_host() {
         assert!(!got.is_empty() && got.iter().all(|g| *g == note_at(p)), "Režimy: {t} → {p}: {got:?}");
     }
     let roz = loaded(&notes, ROZBITA);
-    for t in ["Chybí", "Šablona", "Smazaná", "Reading list"] {
+    for t in ["Chybí", "Šablona", "Reading list"] {
         assert_eq!(link_of(roz, t).into_iter().map(|g| g.0).collect::<Vec<_>>(), vec![LinkKind::Unresolved], "Rozbitá vložení: {t}");
     }
+    // D-611, D-624 (6A, D-628): a target in `.trash/` is trashed.
+    assert_eq!(link_of(roz, "Smazaná").into_iter().map(|g| g.0).collect::<Vec<_>>(), vec![LinkKind::Trashed], "Rozbitá vložení: Smazaná");
     assert_eq!(link_of(roz, "2026-10-20").into_iter().map(|g| g.0).collect::<Vec<_>>(), vec![LinkKind::DateMissing]);
     assert!(link_of(roz, "obrázek.png").is_empty(), "attachments aren't embed targets");
     // A link inside an embedded note resolves from that note's path.
@@ -230,10 +232,13 @@ fn fr_emb_01_ac2_templates_trash_and_missing_files_load_as_missing() {
     let core = open(&root, &sb, false);
     let notes = core.embed_load(&strings(&["Pages/Chybí.md", SABLONA, SMAZANA, CIL]));
     assert_eq!(notes.len(), 4, "one entry per path: {notes:?}");
-    for p in ["Pages/Chybí.md", SABLONA, SMAZANA] {
+    for p in ["Pages/Chybí.md", SABLONA] {
         let n = loaded(&notes, p);
         assert_eq!((n.state, n.text.is_none(), n.version.is_none()), (EmbedLoadState::Missing, true, true), "{p}: missing, no text, no version");
     }
+    // D-611, D-624 (6A, D-628): an existing path in `.trash/` loads as trashed (the D-27 placeholder), with no version.
+    let s = loaded(&notes, SMAZANA);
+    assert_eq!((s.state, s.version.is_none()), (EmbedLoadState::Trashed, true), "{SMAZANA}: trashed, no version");
     assert_eq!(loaded(&notes, CIL).state, EmbedLoadState::Ok, "Cíl loads");
 }
 

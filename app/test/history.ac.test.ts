@@ -43,7 +43,8 @@ async function setup() {
   return { hist, route, str };
 }
 
-const HOME = 'home';
+/** The first sample route. 6A (D-609, D-628): `home` is gone (it parses like an unknown route); `tasks` takes its place. */
+const HOME = 'tasks';
 const PORADA = 'note/Schůzky/2026-10-07 Porada.md';
 const SCHUZKA = 'type/schůzka';
 const SEARCH = 'search';
