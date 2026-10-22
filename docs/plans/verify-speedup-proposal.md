@@ -116,3 +116,5 @@ Under that load a handful of timing-sensitive WebKit tests (`broken_links_ac13`,
 | `app-webkit` alone, 8 workers, no other lane | 277 s | 1 failure (`fr_edt_02_ac13`), load 17 from WebKit itself |
 
 So the WebKit suite is already timing-flaky at 8 workers on its own (D-343's setting), and the lanes add one or two more such failures per run. The open decision for the owner: quarantine or fix the create-link and placeholder tests (test-strategy §8.4, an `AC-Test-Change`), or run WebKit at 6 workers under the gate (≈ +100 s on the browser lane). Until a push gate passes, `.verify/last-pass` stays empty and the branch cannot be pushed.
+
+**Outcome (owner, 2026-10-22):** WebKit runs on 6 workers under the gate. With that, `verify push --all` on a quiet machine passed in **411 s** (browser lane 362 s, cargo 408 s, node 203 s), against 770–870 s for the sequential gate.
