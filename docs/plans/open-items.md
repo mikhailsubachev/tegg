@@ -1,8 +1,37 @@
 # Open items for the next slices
 
-State on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
+
+## L6 run on preview v0.55 (main b8a6a62, 2026-10-22)
+
+Full `app-e2e` set (no `nfr_perf_*`, `nightly_*`): 158 tests, **147 pass, 11 fail**, 46 min. The four 6A media tests
+below ran on the real app for the first time. Logs stay local (not committed).
+
+14. **A pasted image in Quick Capture is saved twice (T2, likely a real bug).** `fr_cap_01_ac12` and
+    `fr_att_01_ac11`: one capture with one pasted image writes two Image objects (`Obrazek z menu 1.md`, `… 2.md`) and
+    two files (`Pasted image …0001.png`, `…0004.png`) instead of one each; the capture window shows no thumbnail with
+    `Remove`. Next: a `bug_…_fr_cap_01_…` regression test (the paste handler likely fires twice: the native paste hook
+    and the webview paste event), then the fix.
+15. **Drop and double-click on media in the real app.** `fr_att_01_ac2` (two dropped files don't land as two
+    paragraphs at the drop point, in drop order) and `fr_att_01_ac13` (a double-click on the image doesn't open
+    `note/Images/Záhon.md`). Both pass at L5 on the fake core. Next: reproduce in the built app; decide app bug vs. L6
+    test (drop coordinates through the drop hook, the double-click reaching the image node).
+16. **`broken chip Smazaná` not found** in `fr_syn_06_ac9` and `fr_lnk_04_ac12` (ms4_links). Likely 6A: links to
+    trashed targets now resolve as `trashed` (D-614), so a fixture note that is gone may now be in `.trash/` or the chip
+    has another `data-link-state`. Next: check the fixture and the chip state; if the test is out of date with D-614,
+    it is an AC-test change for the owner.
+17. **`switcher for <note>` not found** in `fr_syn_06_ac6` (Dvojník) and `nfr_rel_03_ac5` (Bloky). The switcher
+    tour can't select these notes. Next: reproduce; check whether 6A's Home removal or the Inbox landing (D-613) changed
+    the starting route or the focus the tour expects.
+18. **`fr_cap_05_ac6` (try again after the hotkey holder exits): `taken`.** Seen flaky before; the hotkey stays
+    taken after the holder exits. Next: rerun alone; if it fails again, investigate the re-registration.
+19. **L6 in a nested worktree.** (a) The worktree's `app/e2e/.appium` was incomplete (no manifest), so every Appium
+    session failed with "Could not find a driver for Mac2" until `APPIUM_HOME` pointed at the main checkout's.
+    (b) `fr_cap_03_ac4` and `fr_ux_07_ac9` failed because `tools/gen-vault` doesn't build in a nested worktree without
+    the `[workspace]` workaround. Next: an L6 preflight (with item 6) that checks the mac2 driver and builds gen-vault
+    first, failing fast with a clear message.
 
 ## Before PR #47 (5A-1 tasks) merges
 
