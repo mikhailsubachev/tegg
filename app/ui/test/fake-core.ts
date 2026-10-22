@@ -1016,11 +1016,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
         else if (cur === undefined) report.skipped.push({ path: p, reason: 'missing' });
         else if (p in state.invalid) report.skipped.push({ path: p, reason: 'readOnly' });
-        else if (cur !== f.text || state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
         else if (state.editors.has(p) && !f.rename) {
+          // ms4-jobs §9 (D-386): an open note is changed by its editor, whatever it holds now.
           const rr = await jobs.live(p, f.ops);
           if (rr === 'written') { report.written.push(p); done.written.push([p, await sha(files[p])]); } else report.skipped.push({ path: p, reason: 'changed' });
-        } else {
+        } else if (cur !== f.text || state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
+        else {
           const out = await w.__teggJobs('transform', { source: p, text: cur, ops: f.ops }, files);
           if (f.rename) {
             const to = f.rename.to;
