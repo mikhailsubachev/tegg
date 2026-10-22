@@ -248,3 +248,16 @@ The test-author's points AP-544…AP-560. AP-544, AP-546, AP-547 and AP-559 were
 | AP-557 | A refused paste names the clipboard file's name, else `Pasted image`. |
 | AP-558 | The capture ACL test is the new `app/src-tauri/tests/ac_media_acl.rs`; `ac_capture_acl.rs` is unchanged. |
 | AP-560 | Sizes: below 1,000 bytes `<n> bytes` (plural forms), else `Intl.NumberFormat` with `kilobyte` / `megabyte` units, base 1,000 (as Finder), one decimal: `1.2 KB`. The PDF card reads `2 pages · 844 bytes`. |
+
+## 12. Interface details settled while building 6A (no owner decision needed)
+
+1. **`EditorUi.media(source, dom, getPos)`** mounts like `EditorUi.embed` and returns an `EmbedHandle` (§6.1 said `media(target, block)`); inline file embeds (`… a ![[Rozpočet.pdf]].`) use the same hook from the link node view.
+2. **Every chip carries `data-link-state`** (`ok`, `broken` or `trashed`), not only trashed ones, so a chip's state can be read the same way everywhere (R74).
+3. **The trash list's folder rows** fall back to the newest file time inside when the file system can't report the folder's own `ctime`.
+4. **Trashed-target resolution** reads the trash lazily into a cache that every watcher event, catch-up and own trash operation drops (§2's "small table" without a schema change). The broken-links page leaves out a target that resolves in the trash for any of its sources.
+5. **FR-ATT-07 backlinks of media**: `Core::backlinks` and the backlinks panel add the notes whose links name the object's file (index `sources_linking_name`, then §3.2 resolution).
+6. **Alerts** of the trash and media flows (`trash.conflict`, `trash.removeFailed`, `media.refused`, `media.failed` with `Try again`) are a list in the centre pane, one per message; the Move to trash toast (`role="status"`, `Undo`) is shown there too.
+7. **Drops**: Tauri's `tauri://drag-drop` position is taken as physical pixels (÷ `devicePixelRatio`) or, when that point is off the editor, as logical pixels.
+8. **The Trash page** reaches `trash.restore` / `trash.delete` through the palette on the focused row; `⌘⌫` on the Trash page asks to delete the focused row.
+9. **A click on the sidebar entry of the page shown** moves the focus to its heading (FR-UX-03 AC-11), now that the launch lands on the Inbox (D-610).
+10. **An untitled capture with files** sends an empty title; the shell gives the files `Capture <date> <n>` titles and the note `Untitled`.
