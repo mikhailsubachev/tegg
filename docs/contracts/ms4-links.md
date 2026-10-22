@@ -252,3 +252,29 @@ Builds the bytes with `@tegg/doc` `newObject(type, title, template)` exactly lik
 5. The broken-links group's Create plan is computed from its first source; `relationTo` comes from the relation's `to` only when every occurrence in the group is a relation value with `to` (FR-LNK-04 AC-10).
 6. A block of at most 160 characters is shown whole even when its chip is more than 60 characters in; the `before` limit only places the cut (§2.2). Not covered by an AC; the corpus gets a case for it with the implementation.
 7. A callout's title line is a block of its own (§2.2). Not covered by an AC; the corpus gets a case with the implementation.
+
+## 9. Preview v0.55 panel feedback (D-633…D-635; `docs/feedback/ms6-panel.md`)
+
+1. **Entries carry chip fields (D-633).** `BacklinkEntryDto` (Rust `app/src-tauri/src/dto.rs`, the generated TS in
+   `app/ui/src/ipc/types.ts`, the core's `BacklinkEntry`) gains `review`, `status`, `due`, `completed: string | null`,
+   the trimmed frontmatter strings as `LinkTargetDto` has them (D-601), filled from the index in `index_backlinks` and
+   `daily_backlinks`; the Broken links page's sources may carry them too (unused there). The fake core fills them from
+   the source's frontmatter.
+2. **Panel chips (D-633).** The panel's chip is built with `chipParts()` (`app/ui/src/links/ChipParts.tsx`) from a
+   `ChipTarget` made of the entry (type, review, status, due, completed), exactly as a note's chip: the data attributes,
+   description, task icon and suffix. It keeps `data-link-kind="note"`, `data-command="panel.backlinks.open"` and the
+   source's title as its accessible name; `title` is the full title; one line with the title truncated (`min-width: 0`
+   on the title, the suffix `flex: none`).
+3. **Width (D-634).** `RightPanelDto` gains `width: number` (Rust `#[serde(default = "panel_width")]` = 288; TS
+   optional on input, always present from the core); `version` stays 1. The UI sets the panel's width from it, clamped
+   to 240…480 and to the room that leaves the centre pane 400 px (drawn width only). The separator is a `div`
+   `role="separator"` with `tabIndex=0`, `aria-label` `Resize panel` (catalog `panel.resize`), `aria-orientation`
+   `vertical`, `aria-valuemin` 240, `aria-valuemax` 480, `aria-valuenow` = the drawn width, class `panel-resizer`,
+   placed as the panel's first child; pointer drag with pointer capture, ←/→ ±16, Home/End, double-click 288. The
+   stored width is written through `ui_state_set` when a drag ends or a key changes it (not on every move).
+4. **Unlinked mentions (D-635).** The section, its registry row (R3), its command id and the catalog key
+   `backlinks.unlinked` are removed.
+5. **Test layout.** L3 `crates/tegg-core/tests/ac_backlinks_chip_fields.rs` (FR-LNK-01 AC-24). L5
+   `app/webkit/panel_chips.ac.test.ts` (FR-LNK-01 AC-22, AC-23), `app/webkit/panel_resize.ac.test.ts` (FR-UX-02
+   AC-19…AC-21 L5 part). L6: FR-UX-02 AC-21's relaunch part in a new `app/e2e/ms6_panel.ac.test.ts`. The fixture vault
+   for AC-22/AC-24 is synthetic, written by the tests (as embeds FR-LNK-07 AC-9). AC-test changes per the feedback doc.
