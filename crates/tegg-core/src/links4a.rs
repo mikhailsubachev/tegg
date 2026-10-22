@@ -337,14 +337,27 @@ impl Core {
     }
 
     pub fn backlinks_panel(&self, path: &str) -> BacklinksPanel {
-        let (target, sources) = {
+        let target = {
             let idx = self.index();
             let Some(t) = idx.object(path) else { return BacklinksPanel::default() };
-            let sources: Vec<NoteLinks> = idx.backlinks(&t.path).iter().filter_map(|s| idx.note_links(s)).collect();
-            (t.path, sources)
+            t.path
+        };
+        // FR-ATT-07 (ms6-trash-media §3.2): notes that embed the object's file count too.
+        let media = self.media_sources(&target);
+        let media_targets: std::collections::HashSet<String> = media.iter().flat_map(|(_, t)| t.iter().map(|x| nfc(x.trim()))).collect();
+        let sources: Vec<NoteLinks> = {
+            let idx = self.index();
+            let mut paths = idx.backlinks(&target);
+            for (src, _) in &media {
+                if !paths.contains(src) {
+                    paths.push(src.clone());
+                }
+            }
+            paths.sort();
+            paths.iter().filter_map(|s| idx.note_links(s)).collect()
         };
         let defs = self.type_names();
-        let here = |l: &LinkRecord| l.resolved.path.as_deref() == Some(target.as_str());
+        let here = |l: &LinkRecord| l.resolved.path.as_deref() == Some(target.as_str()) || media_targets.contains(&nfc(l.target.trim()));
         let entries: Vec<(BacklinkEntry, Option<String>)> = sources.iter().filter_map(|nl| self.entry_for(nl, &defs, &here).map(|e| (e, nl.type_raw.clone()))).collect();
         BacklinksPanel { objects: entries.len(), groups: self.group(entries, &defs) }
     }
@@ -367,8 +380,24 @@ impl Core {
     pub fn broken_links(&self) -> BrokenLinks {
         let sources = self.index().broken_sources();
         let defs = self.type_names();
-        let broken = |l: &LinkRecord| l.resolved.kind == TargetKind::Unresolved && tegg_index::is_note_target(&l.target);
         let key_of = |l: &LinkRecord| nfc(l.target.trim()).to_lowercase();
+        // ms6-trash-media §2 (D-611): a target that resolves in `.trash/` isn't broken.
+        let trashed: std::collections::HashSet<String> = {
+            let unresolved = |l: &LinkRecord| l.resolved.kind == TargetKind::Unresolved && tegg_index::is_note_target(&l.target);
+            let mut seen = std::collections::HashSet::new();
+            let mut out = std::collections::HashSet::new();
+            let (cache, objs) = (self.file_cache(), self.objects());
+            for nl in &sources {
+                for l in nl.links.iter().filter(|l| unresolved(l)) {
+                    let k = key_of(l);
+                    if seen.insert(k.clone()) && crate::trash6a::resolve_more(&cache, &objs, &self.shared, &nl.path, &l.target).is_some_and(|(t, _)| t.kind == crate::LinkKind::Trashed) {
+                        out.insert(k);
+                    }
+                }
+            }
+            out
+        };
+        let broken = |l: &LinkRecord| l.resolved.kind == TargetKind::Unresolved && tegg_index::is_note_target(&l.target) && !trashed.contains(&key_of(l));
         struct G {
             spellings: BTreeMap<String, usize>,
             count: usize,

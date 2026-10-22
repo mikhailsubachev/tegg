@@ -11,7 +11,7 @@ pub enum EmbedLoadState {
     /// No such file, or it is in `.trash/` or `_templates/`.
     Missing,
     Io,
-    /// ms6-trash-media §2 (6A): a path under `.trash/` that exists (the D-27 placeholder). 6A stub: never returned.
+    /// ms6-trash-media §2 (6A): a path under `.trash/` that exists (the D-27 placeholder).
     Trashed,
 }
 
@@ -49,8 +49,13 @@ impl Core {
     fn embed_one(&self, path: &str) -> EmbedNote {
         let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new() };
         // Never an embed target (FR-TPL-07, D-102).
-        if path.starts_with("_templates/") || path.starts_with(".trash/") {
+        if path.starts_with("_templates/") {
             return missing(EmbedLoadState::Missing);
+        }
+        // ms6-trash-media §2 (D-27): an existing path under `.trash/` is the "moved to trash" placeholder.
+        if path.starts_with(".trash/") {
+            let exists = matches!(self.shared.vault.version(path), Ok(Some(_)));
+            return missing(if exists { EmbedLoadState::Trashed } else { EmbedLoadState::Missing });
         }
         let (bytes, version) = match self.shared.vault.read(path) {
             Ok(r) => r,

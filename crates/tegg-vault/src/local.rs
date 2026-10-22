@@ -147,6 +147,16 @@ impl VaultFs for LocalFs {
         fs::remove_file(self.abs(path))
     }
 
+    /// ms6-trash-media §1.1: `st_ctime` (a rename sets it on APFS).
+    fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
+        use std::os::unix::fs::MetadataExt;
+        match fs::symlink_metadata(self.abs(path)) {
+            Ok(md) => Ok(Some(md.ctime() as i128 * 1_000_000_000 + md.ctime_nsec() as i128)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     fn stat(&self, path: &str) -> io::Result<Option<(i128, u64)>> {
         match fs::metadata(self.abs(path)) {
             Ok(md) if md.is_dir() => Err(io::Error::other(format!("{path}: is a directory"))),

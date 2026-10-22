@@ -18,13 +18,15 @@ pub struct MemFs {
     nodes: Mutex<BTreeMap<String, (String, Node)>>,
     clock: Mutex<i128>,
     placeholders: Mutex<BTreeSet<String>>,
+    /// ms6-trash-media §1.1: folded key → the clock value of the entry's last rename.
+    changed: Mutex<BTreeMap<String, i128>>,
 }
 
 impl Default for MemFs {
     fn default() -> Self {
         // Wall-clock start, so age-based rules (temp clean-up, FR-SYN-02 AC-4) behave as on disk.
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as i128).unwrap_or(0);
-        MemFs { nodes: Mutex::new(BTreeMap::new()), clock: Mutex::new(now), placeholders: Mutex::new(BTreeSet::new()) }
+        MemFs { nodes: Mutex::new(BTreeMap::new()), clock: Mutex::new(now), placeholders: Mutex::new(BTreeSet::new()), changed: Mutex::new(BTreeMap::new()) }
     }
 }
 
@@ -146,6 +148,18 @@ impl VaultFs for MemFs {
         self.put(path, bytes, true)
     }
 
+    fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
+        let key = fold(path);
+        if let Some(t) = self.changed.lock().expect("changed").get(&key) {
+            return Ok(Some(*t));
+        }
+        Ok(match self.nodes.lock().expect("nodes").get(&key) {
+            Some((_, Node::File { mtime_ns, .. })) => Some(*mtime_ns),
+            Some((_, Node::Dir)) => Some(0),
+            None => None,
+        })
+    }
+
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
         let (to_name, f, t) = (spelled(to), fold(from), fold(to));
         let mut nodes = self.nodes.lock().expect("nodes");
@@ -155,7 +169,14 @@ impl VaultFs for MemFs {
         }
         match nodes.remove(&f) {
             Some((_, n @ Node::File { .. })) => {
-                nodes.insert(t, (to_name, n));
+                nodes.insert(t.clone(), (to_name, n));
+                drop(nodes);
+                let tick = {
+                    let mut c = self.clock.lock().expect("clock");
+                    *c += 1;
+                    *c
+                };
+                self.changed.lock().expect("changed").insert(t, tick);
                 Ok(())
             }
             Some(entry) => {
