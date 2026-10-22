@@ -27,7 +27,8 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+      // No input: stdin is /dev/null (EOF at once). Writing to a pipe of a child that already exited raises EPIPE.
+      child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: [opts.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
     } catch (e) {
       resolve({ status: 127, stdout: '', stderr: String((e as Error).message) });
       return;
@@ -38,7 +39,10 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
     child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d));
     child.on('error', (e) => resolve({ status: 127, stdout, stderr: stderr + String(e.message) }));
     child.on('close', (code) => resolve({ status: code ?? 1, stdout, stderr }));
-    child.stdin!.end(opts.input ?? '');
+    if (child.stdin) {
+      child.stdin.on('error', () => {}); // the child may exit before reading its input
+      child.stdin.end(opts.input);
+    }
   });
 }
 
