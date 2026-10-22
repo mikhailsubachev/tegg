@@ -244,13 +244,13 @@ test('fr_ux_02_ac16_launch_landing_in_the_real_app', { timeout: 240_000 }, async
     assert.ok(ok, `${what}: expected mark ${wantMark}, got ${marks(log).filter((m) => m.startsWith('route-ready:')).join(', ')}`);
     assert.deepEqual(tree(vault), snap, `${what}: vault byte-identical before and after launch`);
   };
-  await run('(b) no note opened', {}, 'route-ready:home');
+  await run('(b) no note opened', {}, 'route-ready:inbox'); // 6A (D-610): the launch fallback is the Inbox
   await run('open Eva', { TEGG_ROUTE: `note/${EVA}` }, `route-ready:note/${EVA}`);
   await run('(a) relaunch after Eva', {}, `route-ready:note/${EVA}`);
   renameSync(join(vault, EVA), join(vault, 'Tasks/Zavolat Evě a Petrovi.md'));
   await run('(c) renamed while closed', {}, 'route-ready:note/Tasks/Zavolat Evě a Petrovi.md');
   rmSync(join(vault, 'Tasks/Zavolat Evě a Petrovi.md'));
-  await run('(d) deleted while closed', {}, 'route-ready:home');
+  await run('(d) deleted while closed', {}, 'route-ready:inbox');
   rmSync(base, { recursive: true, force: true });
 });
 
@@ -270,10 +270,10 @@ test('fr_ux_02_ac16_launch_landing_trashed_note_goes_home', { timeout: 120_000 }
   const snap = tree(vault);
   const log2 = join(base, 'b.jsonl');
   child = spawnApp(testEnv(support, log2, { TEGG_VAULT: vault }));
-  const ok = await waitMark(log2, 'route-ready:home');
+  const ok = await waitMark(log2, 'route-ready:inbox'); // 6A (D-610)
   quitApp(child);
   await waitExit(child);
-  assert.ok(ok, 'moved into .trash: lands on home');
+  assert.ok(ok, 'moved into .trash: lands on the Inbox (D-610)');
   assert.deepEqual(tree(vault), snap, 'vault byte-identical');
   rmSync(base, { recursive: true, force: true });
 });
@@ -437,7 +437,7 @@ test('fr_vlt_01_ac11_new_vault_in_the_real_app', { timeout: 180_000 }, async () 
     await (await byLabel(d, 'Choose…')).click();
     await sleep(300);
     await (await byLabel(d, 'Create')).click();
-    assert.ok(await waitMark(log, 'route-ready:home'), 'the new vault opens on home');
+    assert.ok(await waitMark(log, 'route-ready:inbox'), 'the new vault opens on the Inbox (D-610)');
   } finally {
     await end(d);
     d = undefined;
@@ -452,7 +452,7 @@ test('fr_vlt_01_ac11_new_vault_in_the_real_app', { timeout: 180_000 }, async () 
   }
   const log2 = join(base, 'perf2.jsonl');
   const child = spawnApp(testEnv(support, log2));
-  const reopened = await waitMark(log2, 'route-ready:home');
+  const reopened = await waitMark(log2, 'route-ready:inbox');
   quitApp(child);
   await waitExit(child);
   assert.ok(reopened, 'a relaunch opens the new vault');
@@ -598,7 +598,8 @@ test('fr_typ_09_ac17_d_cmd_q_writes_an_uncommitted_draft_title_once', { timeout:
   }
 });
 
-const GOTO = ['Go to Home', 'Go to Inbox', 'Go to Today', 'Go to Tasks', 'Go to Search', 'Go to Tags', 'Go to Pinned', 'Go to Saved queries',
+// 6A (trash-media.md R75, D-609): `Go to Home` is removed.
+const GOTO = ['Go to Inbox', 'Go to Today', 'Go to Tasks', 'Go to Search', 'Go to Tags', 'Go to Pinned', 'Go to Saved queries',
   'Go to Graph', 'Go to Trash', 'Go to Import', 'Go to Conflicts', 'Go to Quick capture', 'Go to Settings: Appearance',
   'Go to Settings: Date & time', 'Go to Settings: Vault', 'Go to Settings: Shortcuts', 'Go to Settings: Menu bar and startup',
   'Go to Settings: Trash and history', 'Go to Settings: Previews'];

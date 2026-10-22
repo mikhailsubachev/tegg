@@ -444,12 +444,16 @@ test('fr_typ_02_ac4_system_only_types_are_read_only', async ({ page }) => {
     f['Images/Fotka.md'] = '---\nid: 01JB0T0000000000000000T096\ntype: image\ntitle: Fotka\nfile: "[[photo.png]]"\n---\n';
   });
   const core = await openTypes(page, 'Tasks/Opakovaný.md', { vault });
-  for (const [title, label, raw, ms] of [['Opakovaný', 'Recurrence', 'every week', 'v1.0'], ['rozpočet', 'Color', 'red', 'MS4'], ['Fotka', 'File', '[[photo.png]]', 'MS6']] as const) {
+  for (const [title, label, raw, ms] of [['Opakovaný', 'Recurrence', 'every week', 'v1.0'], ['rozpočet', 'Color', 'red', 'MS4']] as const) {
     if (title !== 'Opakovaný') await openNoteByTitle(page, title);
     const row = await must(props(page).locator('[tabindex="0"]').filter({ hasText: raw }), `${label}: raw text, focusable`);
     // D-381, D-489: Task recurrence is v1.0 (`Coming in v1.0`); the others keep `Editing comes in <milestone>`.
     assert.equal(await description(row), ms === 'v1.0' ? 'Coming in v1.0' : `Editing comes in ${ms}`, `${label}: description`);
   }
+  // Changed by 6A (trash-media.md R75): the File row (`ctl.rowFile`) is built: no longer `Editing comes in MS6`.
+  await openNoteByTitle(page, 'Fotka');
+  const file = await must(props(page).locator('[tabindex="0"]').filter({ hasText: 'photo.png' }), 'File: the file, focusable');
+  assert.ok(!(await description(file)).includes('Editing comes in'), 'File: built in 6A');
   assert.deepEqual(await nonReadCalls(core), [], 'the panel never writes them');
   void main;
 });

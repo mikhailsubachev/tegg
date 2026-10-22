@@ -143,6 +143,8 @@ for (let shard = 0; shard < AC2_SHARDS; shard++) test(`fr_ux_03_ac2_every_comman
     const first = ((await paletteOptions(page))[0] ?? '').split('\n')[0].trim();
     if (first !== title) { failures.push(`"${title}" ranks "${first}" first`); continue; }
     const disabled = /Coming in/.test((await paletteOptions(page))[0]);
+    // 6A (trash-media.md R75): `Move to trash` would move Porada itself (FR-HIS-01 AC-3 runs it, trash.ac.test.ts).
+    if (title === 'Move to trash') { await page.keyboard.press('Escape'); continue; }
     await page.keyboard.press('Enter');
     if (disabled) continue; // FR-UX-03 AC-6 checks disabled commands
     if (title !== 'Open command palette' && !(await absent(paletteDialog(page), 1000))) failures.push(`"${title}": palette stays open`);
@@ -289,6 +291,9 @@ for (const row of R1.filter((r) => r.id !== 'chooser')) {
     for (const r4 of R4.filter((x) => x.enabled)) {
       if (['Toggle right panel', 'Toggle focus mode'].includes(r4.command) && row.id !== 'note/<path>') continue; // object routes only (FR-UX-02 AC-7, AC-9)
       if (r4.command.startsWith('Open recent vault')) continue; // switches the vault: from every route in vault_switcher.ac.test.ts (FR-VLT-01 AC-17)
+      // 6A (trash-media.md R75): ⌘⌫ moves the note to the trash (a write, FR-HIS-01 AC-1, trash.ac.test.ts) and ⇧⌘A opens
+      // the file picker in an editor (FR-ATT-01 AC-3, media_add.ac.test.ts).
+      if (r4.command === 'Move to trash' || r4.command === 'Add image or PDF…') continue;
       await reset();
       const name = await goRoute(page, row);
       if (!(await reached(page, name, 2000))) { failures.push(`${row.id}: not reached (before ${r4.keys}; main ${await mainName(page)}, title ${JSON.stringify(await titleState(page))})`); break; }
@@ -351,7 +356,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     }
     assert.fail(`keyboard tour: could not reach ${what} with Tab / ⇧Tab`);
   };
-  for (const e of ['Home', 'Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries']) {
+  for (const e of ['Inbox', 'Today', 'Tasks', 'Tags', 'Pinned', 'Saved queries', 'Trash']) { // 6A: no Home (D-609), Trash added (R75)
     await tabTo(new RegExp(`^${e}\\b`), `sidebar ${e}`);
     await page.keyboard.press('Enter');
     await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date

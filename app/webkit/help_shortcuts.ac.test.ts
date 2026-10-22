@@ -57,7 +57,7 @@ test('fr_ux_03_ac14_palette_and_shortcut_open_help_shortcuts', async ({ page }) 
   await runCommand(page, 'Keyboard shortcuts');
   await mustBeOn(page, 'Keyboard shortcuts', 'the palette command "Keyboard shortcuts"', 3000);
   await must(heading(page), 'heading "Keyboard shortcuts"');
-  await runCommand(page, 'Go to Home');
+  await runCommand(page, 'Go to Inbox'); // 6A: Go to Home is removed (D-609)
   await sleep(300);
   assert.notEqual(await mainName(page), 'Keyboard shortcuts', 'setup: left the page');
   await page.keyboard.press('Meta+Shift+Slash');

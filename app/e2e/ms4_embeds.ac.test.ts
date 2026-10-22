@@ -641,7 +641,7 @@ test('fr_emb_04_ac8_no_hang_on_cycles_and_depth', { timeout: 300_000 }, async ()
   // A mark is written at most once per process (ms2-shell §1): one launch per note, on a route without a note, so
   // the switcher's open writes that launch's first `note-ready`.
   for (const t of ['Sama sebe', 'Kruh A', 'Obsah', 'Řetěz 1']) {
-    const s = await on(`emb04-8-${t}`, 'home');
+    const s = await on(`emb04-8-${t}`, 'inbox'); // 6A: the `home` route is removed (D-609)
     const before = tree(s.vault);
     try {
       assert.equal(countMark(s.log, 'note-ready'), 0, `${t}: no note open before the switcher`);

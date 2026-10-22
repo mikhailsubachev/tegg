@@ -30,7 +30,7 @@ const R6: [string, string, string | null][] = [
   ['blocks', 'Text', null], ['blocks', 'Heading 1', null], ['blocks', 'Heading 2', null], ['blocks', 'Heading 3', null],
   ['blocks', 'Bulleted list', null], ['blocks', 'Numbered list', null], ['blocks', 'Checklist', null], ['blocks', 'Quote', null],
   ['blocks', 'Callout', null], ['blocks', 'Code block', null], ['blocks', 'Divider', null], ['blocks', 'Table', null],
-  ['media', 'Image', 'MS6'], ['media', 'PDF', 'MS6'],
+  ['media', 'Image', null], ['media', 'PDF', null], // built in 6A (trash-media.md R75)
   ['advanced', 'Block embed', 'v1.0'], ['advanced', 'Query', 'v1.0'], ['advanced', 'Mindmap', 'v1.0'],
 ];
 

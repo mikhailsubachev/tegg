@@ -1,7 +1,7 @@
 // FR-EMB-02 AC-13 benchmark ([MS8], report only in MS4, D-152; docs/acceptance/embeds.md AP-332 / D-429;
 // docs/contracts/ms4-embeds.md §6 mark `embeds-painted`): on the reference vault with the read-view benchmark note
 // (`tools/gen-vault --perf-note`: 5,000 words, 10 embeds, 50 links), 20 launches of the release test build. Each launch
-// starts on Home, opens the note through the quick switcher (⌘O, paste the title, ⏎) and exits after `embeds-painted`
+// starts on the Inbox (6A, D-609), opens the note through the quick switcher (⌘O, paste the title, ⏎) and exits after `embeds-painted`
 // (TEGG_EXIT_AFTER), or 5 s after `note-ready` if that mark never comes. Records per launch `note-ready − switcher-enter`
 // (editor NFR-PERF-05 AC-4 with embeds rendered) and `embeds-painted − note-ready`. Never touches the owner's
 // Application Support or vault (D-62). Used by nfr_perf_embeds.ac.test.ts; no assertions about the AC outcome here.
@@ -20,11 +20,11 @@ const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) 
 
 export type EmbedRun = { open: number | null; paint: number | null };
 
-/** One launch on Home, the note opened through the switcher; the app exits after `embeds-painted`. */
+/** One launch on the Inbox, the note opened through the switcher; the app exits after `embeds-painted`. */
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<EmbedRun> {
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];
-  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_ROUTE: 'home', TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: PAINTED }, stdio: 'ignore' });
+  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_ROUTE: 'inbox', TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: PAINTED }, stdio: 'ignore' });
   const end = Date.now() + timeoutMs;
   while (Date.now() < end && !readMarks(log).some((m) => m.mark === 'ui-ready')) await sleep(50);
   const alive = () => child.exitCode === null && child.signalCode === null;

@@ -54,9 +54,9 @@ const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) 
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<Mark[]> {
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];
-  // Every run starts on Home: otherwise the app reopens the note the previous run opened (vault_last, D-132), reaches
+  // Every run starts on the Inbox (6A: the `home` route is removed, D-609): otherwise the app reopens the note the previous run opened (vault_last, D-132), reaches
   // note-ready and quits before the switcher is used.
-  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_ROUTE: 'home', TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: 'note-ready' }, stdio: 'ignore' });
+  const child = spawn(EXE, [], { env: { ...clean, ...env, TEGG_ROUTE: 'inbox', TEGG_PERF_LOG: log, TEGG_EXIT_AFTER: 'note-ready' }, stdio: 'ignore' });
   const end = Date.now() + timeoutMs;
   while (Date.now() < end && !readMarks(log).some((m) => m.mark === 'ui-ready')) await sleep(50);
   const alive = () => child.exitCode === null && child.signalCode === null;

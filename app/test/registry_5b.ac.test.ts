@@ -46,7 +46,9 @@ test('fr_nav_04_ac5_routes_follow_r62', async () => {
   }
   assert.equal(r('inbox').design, 'Inbox', 'inbox: the Inbox board');
   assert.equal(r('capture'), undefined, 'capture is a window, not a route (AP-491)');
-  for (const id of ['home', 'pinned']) {
+  // 6A (trash-media.md R75, D-609): `home` is removed; `pinned` stays TBD.
+  assert.equal(r('home'), undefined, 'home is removed in 6A (D-609)');
+  for (const id of ['pinned']) {
     assert.equal(r(id)?.status.built, false, `${id} stays TBD`);
     assert.equal(showDue(r(id).status.due), 'v1.0', `${id}: Coming in v1.0 (D-515, D-376)`);
   }
@@ -64,8 +66,9 @@ test('fr_nav_04_ac5_controls_and_shortcuts_follow_r62', async () => {
   const ctl = (reg.DISABLED_CONTROLS as any[]).map((c) => ({ label: c.label in cat.en ? cat.t(c.label) : c.label, where: String(c.where), due: showDue(c.due), req: c.req }));
   assert.ok(!(reg.DISABLED_CONTROLS as any[]).some((c) => c.label === 'ctl.typePickerLink'), 'ctl.typePickerLink is removed (FR-VLT-05)');
   const has = (label: string, req: string, due: string, where: RegExp) => ctl.some((c) => c.label === label && c.req === req && c.due === due && where.test(c.where));
-  assert.ok(has('Move to trash', 'FR-HIS-01', 'MS6', /inbox/i), 'Move to trash in the Inbox (MS6)');
-  assert.ok(has('Add an image or PDF', 'FR-ATT-01', 'MS6', /capture/i), 'Add an image or PDF in the capture window (MS6)');
+  // 6A (trash-media.md R75): the Inbox's Move to trash and the capture drop zone are built.
+  assert.ok(!ctl.some((c) => c.label === 'Move to trash' && /inbox/i.test(c.where)), 'Move to trash in the Inbox is built (6A)');
+  assert.ok(!ctl.some((c) => c.label === 'Add an image or PDF'), 'Add an image or PDF in the capture window is built (6A)');
   assert.ok(has('Change…', 'FR-SET-04', 'v1.0', /shortcuts/i), 'Change… on Settings: Shortcuts (v1.0)');
   for (const l of ['Font', 'Font size', 'Editor width', 'Accent color']) assert.ok(ctl.some((c) => c.label === l && c.due === 'v1.0'), `${l}: v1.0 (D-565)`);
   const sc = (reg.SHORTCUTS as any[]).find((s) => s.keys === '⇧⌘I');

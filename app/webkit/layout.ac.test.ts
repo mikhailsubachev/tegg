@@ -57,7 +57,6 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   const parts = [
     sb.getByRole('button', { name: 'Search or jump to…' }),
     sb.getByRole('button', { name: 'New object' }),
-    sb.getByText('Home', { exact: true }),
     sb.getByText('Inbox', { exact: true }),
     sb.getByText('Today', { exact: true }),
     sb.getByText('Tasks', { exact: true }).first(),
@@ -66,9 +65,11 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     sb.getByText('Tags', { exact: true }),
     sb.getByText('Pinned', { exact: true }),
     sb.getByText('Saved queries', { exact: true }),
+    sb.getByText('Trash', { exact: true }),
     sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true }),
   ];
-  const names = ['switcher field', 'New object', 'Home', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries', 'logo button'];
+  // 6A (trash-media.md FR-NAV-04 AC-6, D-609): no Home; Trash at the bottom.
+  const names = ['switcher field', 'New object', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries', 'Trash', 'logo button'];
   const tops: number[] = [];
   for (let i = 0; i < parts.length; i++) {
     const b = await box(parts[i]);
@@ -82,7 +83,7 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   // TBD entries show no count; Today shows ⌘D.
   // 5B (inbox.md R62, FR-NAV-04 AC-2, D-515): the Inbox shows its count; Home and Pinned are labelled v1.0.
   // D-588: Tasks shows its open tasks (tasks.md FR-TSK-04 AC-18), so it isn't checked here.
-  for (const e of ['Home', 'Today', 'Pinned', 'Saved queries']) {
+  for (const e of ['Today', 'Pinned', 'Saved queries', 'Trash']) { // 6A: Trash shows no count (AP-534)
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const text = (await row.innerText()).replace(e, '').replace('⌘D', '');
     assert.ok(!/\d/.test(text), `${e} shows a count: ${text}`);
@@ -91,7 +92,8 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   const inboxRow = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Inbox', { exact: true }) }).first();
   const inboxText = (await inboxRow.innerText()).replace('Inbox', '').trim();
   assert.equal(inboxText.replace(/\D/g, ''), members > 0 ? String(members) : '', `Inbox shows its count (${members}): ${inboxText}`);
-  for (const e of ['Home', 'Pinned']) {
+  assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-609)');
+  for (const e of ['Pinned']) {
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const label = await row.evaluate((el) => [el.getAttribute('aria-description'), ...(el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent ?? ''), el.getAttribute('title')].filter(Boolean).join(' '));
     assert.match(label, /Coming in v1\.0/, `${e} is labelled Coming in v1.0: ${label}`);
@@ -295,7 +297,8 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
     if (row.goto) { await runCommand(page, row.goto); await check(row, `palette "${row.goto}"`); }
   }
   // Other means from the "Reached by" column.
-  const viaSidebar: [string, string][] = [['Home', 'home'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Pinned', 'pinned'], ['Saved queries', 'saved-queries'], ['Tags', 'tags']];
+  // 6A (D-609): no Home entry; Trash is reached from the sidebar (R75).
+  const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Pinned', 'pinned'], ['Saved queries', 'saved-queries'], ['Tags', 'tags']];
   for (const [entry, id] of viaSidebar) {
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
     await check(R1.find((r) => r.id === id)!, `sidebar ${entry}`);
@@ -402,7 +405,7 @@ test('fr_ux_02_ac15_single_title_bar_tab_follows_navigation', async ({ page }) =
     [() => gotoType(page, 'Quick Notes'), 'Quick Notes'],
     [() => openNote(page, 'Zavolat Evě'), 'Zavolat Evě'],
     [() => page.keyboard.press('Meta+Comma'), 'Settings: Appearance'],
-    [() => runCommand(page, 'Go to Home'), 'Home'],
+    [() => runCommand(page, 'Go to Trash'), 'Trash'], // 6A: Go to Home is removed (D-609)
   ];
   for (const [go, name] of steps) {
     await go();
@@ -416,14 +419,15 @@ test('fr_ux_02_ac15_single_title_bar_tab_follows_navigation', async ({ page }) =
 test('fr_ux_02_ac16_launch_landing_follows_core_answer', async ({ browser }) => {
   const cases: { what: string; last: { path: string; id: string | null } | null; edit?: (v: ReturnType<typeof shellVault>) => void; want: string }[] = [
     { what: '(a) last note Eva', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Zavolat Evě' },
-    { what: '(b) no note opened', last: null, want: 'Home' },
+    // 6A (trash-media.md FR-NAV-04 AC-7, D-610): the launch fallback is the Inbox.
+    { what: '(b) no note opened', last: null, want: 'Inbox' },
     {
       what: '(c) renamed by another program', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Zavolat Evě',
       edit: (v) => { v.files['Tasks/Zavolat Evě a Petrovi.md'] = v.files[P.eva]; delete v.files[P.eva]; },
     },
-    { what: '(d) deleted', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Home', edit: (v) => { delete v.files[P.eva]; } },
+    { what: '(d) deleted', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Inbox', edit: (v) => { delete v.files[P.eva]; } },
     {
-      what: '(d) moved to .trash', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Home',
+      what: '(d) moved to .trash', last: { path: P.eva, id: '01JA0H0000000000000000H004' }, want: 'Inbox',
       edit: (v) => { v.files['.trash/Tasks/Zavolat Evě.md'] = v.files[P.eva]; delete v.files[P.eva]; },
     },
   ];
@@ -550,9 +554,7 @@ test('fr_ux_01_ac3_typography', async ({ page }) => {
   assert.equal(body.lineHeight, '21px', 'line height 1.5');
   const entry = await sidebar(page).getByText('Inbox', { exact: true }).evaluate((e) => getComputedStyle(e).fontSize);
   assert.equal(entry, '13px', 'sidebar entries');
-  await runCommand(page, 'Go to Home');
-  await mustBeOn(page, 'Home', 'Go to Home');
-  assert.equal(await page.getByRole('main').getByRole('heading', { level: 1 }).first().evaluate((e) => getComputedStyle(e).fontSize), '30px', 'Home heading');
+  // 6A (D-609): Home is removed; the page-heading size is checked on the type page.
   await gotoType(page, 'Quick Notes');
   assert.equal(await page.getByRole('main').getByRole('heading', { level: 1 }).first().evaluate((e) => getComputedStyle(e).fontSize), '30px', 'type page heading');
   await openNote(page, '2026-10-07 Porada');

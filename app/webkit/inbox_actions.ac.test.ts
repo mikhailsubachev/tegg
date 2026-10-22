@@ -1,7 +1,7 @@
 // MS5 slice 5B, L5 (WebKit + fake core): single-item Inbox actions, docs/acceptance/inbox.md R60 and FR-INB-02 AC-1
 // (mark reviewed: bytes, dimmed in place, counts, live region), AC-3 (an external change: Conflict, reload, alert), AC-4
 // (a failed write, Try again), AC-5 (Convert to), AC-6 (Append to, Today's note), AC-7 (append failures), AC-8 (Link to),
-// AC-9 (Add tags), AC-10 (Move to trash: Coming in MS6, the 5B part), AC-11 (keyboard), AC-15 (no undo); FR-SYN-06
+// AC-9 (Add tags), AC-10 (Move to trash: built in 6A; the 6A behaviour is inbox_trash.ac.test.ts), AC-11 (keyboard), AC-15 (no undo); FR-SYN-06
 // AC-27 (L5: writes per path). Interface docs/contracts/ms5-capture.md §7.3 (one `note_write` with the loaded version as
 // base; Append to: target first, then the item; `daily_create` for a virtual today), §7.4, §11.2. Written from the ACs
 // and the contract only (D-61). Every lookup goes through `must` (TS-I1).
@@ -204,25 +204,24 @@ test('fr_inb_02_ac9_add_tags', async ({ page }) => {
   assert.ok(!(await core.writesTo()).some((p) => p.startsWith('Tags/')), 'no Tags/ file (D-185)');
 });
 
-// ------------------------------------------------------------------------------------------------ AC-10 [MS6], 5B part
+// ------------------------------------------------------------------------------------------------ AC-10 [MS6], 6A part
+// Changed by 6A (trash-media.md R75, D-560 ends): `Move to trash` is enabled in the triage menu and the selection
+// toolbar; what it does is app/webkit/inbox_trash.ac.test.ts.
 
-test('fr_inb_02_ac10_move_to_trash_comes_with_ms6', async ({ page }) => {
+test('fr_inb_02_ac10_move_to_trash_is_enabled_from_6a', async ({ page }) => {
   const core = await startInbox(page);
   const menu = await openTriage(page, 'Koupit mléko');
   const trash = menu.getByRole('menuitem', { name: 'Move to trash', exact: true });
-  assert.equal(await isDisabled(trash), true, 'aria-disabled in the triage menu');
-  assert.equal(await description(trash), 'Coming in MS6', 'Coming in MS6');
+  assert.equal(await isDisabled(trash), false, 'enabled in the triage menu');
+  assert.ok(!(await description(trash)).includes('Coming in'), 'no Coming in MS6');
   await page.keyboard.press('Escape');
   await (await must(cardNamed(page, CARD.Q1), 'Q1')).focus();
   await page.keyboard.press('Space');
   const bar = await must(main(page).getByRole('toolbar', { name: '1 selected' }), 'the selection toolbar');
-  assert.equal(await isDisabled(bar.getByRole('button', { name: 'Move to trash', exact: true })), true, 'aria-disabled in the toolbar');
+  assert.equal(await isDisabled(bar.getByRole('button', { name: 'Move to trash', exact: true })), false, 'enabled in the toolbar');
   await page.keyboard.press('Escape');
-  await (await must(cardNamed(page, CARD.Q1), 'Q1')).focus();
-  await page.keyboard.press('Backspace');
-  await sleep(300);
-  assert.equal(await page.getByRole('alert').count(), 0, '⌫ does nothing and shows no error');
-  assert.deepEqual(await vaultWrites(core), [], 'nothing written');
+  await sleep(100);
+  assert.deepEqual(await vaultWrites(core), [], 'nothing written without choosing it');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-11, AC-15

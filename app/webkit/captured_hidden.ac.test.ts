@@ -53,7 +53,7 @@ test('fr_typ_08_ac15_captured_is_not_shown_in_the_attribute_panel', async ({ pag
   const src = await must(sourceRegion(page), 'region "Markdown source"');
   assert.ok((await src.innerText()).includes(CAPTURED_LINE), `the source view shows "${CAPTURED_LINE}"`);
   // Closing the note (another route) writes nothing.
-  await runCommand(page, 'Go to Home');
+  await runCommand(page, 'Go to Inbox'); // 6A: Go to Home is removed (D-609)
   await sleep(300);
   assert.deepEqual(await vaultWrites(core), [], 'opening and closing the note writes nothing');
   void main;
@@ -69,7 +69,7 @@ test('fr_typ_08_ac15_captured_is_not_shown_in_the_read_view_properties', async (
   await (await must(toSource(page), 'toggle "Show Markdown source"')).click();
   const src = await must(sourceRegion(page), 'region "Markdown source"');
   assert.ok((await src.innerText()).includes(CAPTURED_LINE), `the source view shows "${CAPTURED_LINE}"`);
-  await runCommand(page, 'Go to Home');
+  await runCommand(page, 'Go to Inbox'); // 6A: Go to Home is removed (D-609)
   await sleep(300);
   assert.deepEqual(await vaultWrites(core), [], 'opening and closing the note writes nothing');
 });
