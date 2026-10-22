@@ -1,6 +1,6 @@
 // Process and git helpers for the QA tooling (tools/qa/CONTRACT.md).
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 export type Result = { status: number; stdout: string; stderr: string };
 
@@ -19,6 +19,31 @@ export function exec(cmd: string, args: string[], opts: RunOpts): Result {
   });
   if (r.error) return { status: 127, stdout: '', stderr: String(r.error.message) };
   return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/** Like `exec`, but the process runs in the background with its output buffered, so several can run at once
+ *  (the tree gates' lanes, CONTRACT §3.2.2). */
+export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<Result> {
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      // No input: stdin is /dev/null (EOF at once). Writing to a pipe of a child that already exited raises EPIPE.
+      child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: [opts.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+    } catch (e) {
+      resolve({ status: 127, stdout: '', stderr: String((e as Error).message) });
+      return;
+    }
+    let stdout = '';
+    let stderr = '';
+    child.stdout!.setEncoding('utf8').on('data', (d: string) => (stdout += d));
+    child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d));
+    child.on('error', (e) => resolve({ status: 127, stdout, stderr: stderr + String(e.message) }));
+    child.on('close', (code) => resolve({ status: code ?? 1, stdout, stderr }));
+    if (child.stdin) {
+      child.stdin.on('error', () => {}); // the child may exit before reading its input
+      child.stdin.end(opts.input);
+    }
+  });
 }
 
 // Git sets these for hooks; children working in another checkout must not inherit them (CONTRACT §2.1).

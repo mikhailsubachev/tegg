@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadConfig, type Gate } from './config.ts';
+import { loadConfig, type Config, type Gate } from './config.ts';
 import { checkRed, protectedChanges } from './checks.ts';
 import { writeReport } from './coverage.ts';
 import { cargoCacheDir, nightlyWarning, runCommitGate, runTreeGate } from './gates.ts';
@@ -14,11 +14,13 @@ const USAGE = `Usage: ./verify <command> [options]
 
 Gates (docs/test-strategy.md §8):
   commit                          G0: privacy check on staged files, commit-level steps
-  push [--commit <rev>] [--range <a>..<b>]
+  push [--commit <rev>] [--range <a>..<b>] [--lanes 1] [--all]
                                   G1: checks + steps in a fresh worktree; records .verify/last-pass
+                                  (--lanes 1: steps one after another; --all: ignore the step memo)
   nightly                         G2: push + nightly steps; reports failures in qa/nightly/
   milestone --milestone <MSn>     G3: nightly + milestone steps + milestone AC check
   release                         G4: everything + AC check for all milestones
+  merge [--base <rev>]            the pre-merge flow: push gate on HEAD (HEAD must contain the base), review-prep
 
 Tools:
   coverage [--results <dir>]      write qa/coverage/ac-matrix.md
@@ -48,6 +50,14 @@ function option(args: string[], name: string): string | undefined {
   return v;
 }
 
+/** `--lanes 1` or VERIFY_LANES=1 runs tree-gate steps one after another (CONTRACT §3.2.2); nothing else is valid. */
+function lanesOption(args: string[]): 1 | 'all' {
+  const v = option(args, '--lanes') ?? process.env.VERIFY_LANES;
+  if (v === undefined || v === '') return 'all';
+  if (v === '1') return 1;
+  throw new UsageError(`verify: --lanes / VERIFY_LANES must be 1, got "${v}"`);
+}
+
 function warnings(root: string): void {
   if (gitTry(root, ['config', '--get', 'core.hooksPath']).stdout.trim() !== '.githooks') {
     process.stderr.write('verify: warning: git hooks not installed; run ./verify install\n');
@@ -70,7 +80,7 @@ function lastPass(root: string): string {
 
 const ZERO = /^0+$/;
 
-function hookPrePush(root: string): number {
+async function hookPrePush(root: string): Promise<number> {
   const cfg = loadConfig(root);
   let failed = false;
   for (const line of readStdin().split('\n')) {
@@ -82,7 +92,7 @@ function hookPrePush(root: string): number {
       console.log(`verify: ${localSha.slice(0, 10)} already passed ./verify push; skipping`);
       continue;
     }
-    const s = runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true });
+    const s = await runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true, lanes: lanesOption([]) });
     if (s.result !== 'pass') failed = true;
   }
   return failed ? 1 : 0;
@@ -91,7 +101,14 @@ function hookPrePush(root: string): number {
 function hookCommitMsg(root: string, file: string | undefined): number {
   if (!file) throw new UsageError('verify hook commit-msg: message file required');
   const cfg = loadConfig(root);
-  const changes = parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z']));
+  let changes = parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z']));
+  // A merge commit is judged by its own changes only (CONTRACT §5.0): the files whose staged result also differs
+  // from the other parent. What one side brings in unchanged needs no trailer (bug_pr54).
+  const mergeHead = path.resolve(root, git(root, ['rev-parse', '--git-path', 'MERGE_HEAD']).trim());
+  if (fs.existsSync(mergeHead)) {
+    const other = new Set(parseNameStatusZ(git(root, ['diff', '--cached', '--name-status', '-M', '-z', 'MERGE_HEAD'])).map((x) => x.path));
+    changes = changes.filter((x) => other.has(x.path));
+  }
   const files = protectedChanges(cfg, changes);
   if (files.length === 0) return 0;
   const msg = fs.readFileSync(path.resolve(file), 'utf8');
@@ -242,10 +259,32 @@ function reviewPrep(root: string, base: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// merge: the pre-merge flow (CONTRACT §11, D-612)
+// ---------------------------------------------------------------------------
+
+async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<number> {
+  const lanes = lanesOption(args); // a usage error before anything runs
+  const exists = (ref: string) => gitTry(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).status === 0;
+  if (gitTry(root, ['remote', 'get-url', 'origin']).status === 0) {
+    const f = gitTry(root, ['fetch', 'origin']);
+    if (f.status !== 0) process.stderr.write(`verify merge: warning: git fetch origin failed: ${f.stderr.trim().split('\n').pop() ?? ''}\n`);
+  }
+  const base = option(args, '--base') ?? (exists('origin/main') ? 'origin/main' : 'main');
+  if (gitTry(root, ['merge-base', '--is-ancestor', base, 'HEAD']).status !== 0) {
+    process.stderr.write(`verify merge: HEAD does not contain ${base}; merge ${base} first, then run ./verify merge again\n`);
+    return 1;
+  }
+  const s = await runTreeGate(root, cfg, 'push', { lanes, all: args.includes('--all') });
+  reviewPrep(root, base);
+  console.log(s.result === 'pass' ? `verify merge: READY (tree ${s.tree})` : 'verify merge: NOT READY');
+  return s.result === 'pass' ? 0 : 1;
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
-function main(argv: string[]): number {
+async function main(argv: string[]): Promise<number> {
   const [cmd, ...args] = argv;
   if (cmd === undefined || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(USAGE);
@@ -274,13 +313,13 @@ function main(argv: string[]): number {
     case 'push':
     case 'nightly':
     case 'release': {
-      const s = runTreeGate(root, cfg, cmd as Gate, { commit: option(args, '--commit'), range: option(args, '--range') });
+      const s = await runTreeGate(root, cfg, cmd as Gate, { commit: option(args, '--commit'), range: option(args, '--range'), lanes: lanesOption(args), all: args.includes('--all') });
       return s.result === 'pass' ? 0 : 1;
     }
     case 'milestone': {
       const ms = option(args, '--milestone');
       if (!ms) throw new UsageError('verify milestone: --milestone <MSn> is required');
-      return runTreeGate(root, cfg, 'milestone', { milestone: ms }).result === 'pass' ? 0 : 1;
+      return (await runTreeGate(root, cfg, 'milestone', { milestone: ms, lanes: lanesOption(args) })).result === 'pass' ? 0 : 1;
     }
     case 'coverage': {
       const results = option(args, '--results') ?? path.join(root, '.verify', 'last-results');
@@ -304,8 +343,10 @@ function main(argv: string[]): number {
     }
     case 'review-prep':
       return reviewPrep(root, option(args, '--base') ?? 'main');
+    case 'merge':
+      return await mergeFlow(root, cfg, args);
     case 'hook':
-      if (args[0] === 'pre-push') return hookPrePush(root);
+      if (args[0] === 'pre-push') return await hookPrePush(root);
       if (args[0] === 'commit-msg') return hookCommitMsg(root, args[1]);
       throw new UsageError(`verify: unknown hook ${args[0] ?? ''}`);
     default:
@@ -313,14 +354,17 @@ function main(argv: string[]): number {
   }
 }
 
-try {
-  process.exitCode = main(process.argv.slice(2));
-} catch (e) {
-  if (e instanceof UsageError) {
-    process.stderr.write(e.message + '\n');
-    process.exitCode = 2;
-  } else {
-    process.stderr.write(`verify: ${e instanceof Error ? e.message : String(e)}\n`);
-    process.exitCode = 1;
-  }
-}
+main(process.argv.slice(2)).then(
+  (code) => {
+    process.exitCode = code;
+  },
+  (e) => {
+    if (e instanceof UsageError) {
+      process.stderr.write(e.message + '\n');
+      process.exitCode = 2;
+    } else {
+      process.stderr.write(`verify: ${e instanceof Error ? e.message : String(e)}\n`);
+      process.exitCode = 1;
+    }
+  },
+);

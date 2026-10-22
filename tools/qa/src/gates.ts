@@ -15,12 +15,14 @@ import {
   type CheckResult,
 } from './checks.ts';
 import { l6Problems, milestoneCheck, milestones } from './coverage.ts';
-import { exec, git, gitTry, strippedEnv } from './proc.ts';
+import { loadStepMemo, reportNames, saveStepMemo, stepMemoKey } from './memo.ts';
+import { exec, execAsync, git, gitTry, shortSha, strippedEnv } from './proc.ts';
 import { gatePortBase } from './port.ts';
 
 export { gatePortBase };
 
-export type StepResult = { id: string; result: 'pass' | 'fail' | 'skipped'; durationMs: number; seeds: number[] };
+/** `lane`: tree gates only (CONTRACT §3.2.2). `reuses`: a step skipped by the step memo names the run it reuses (§3.2.3). */
+export type StepResult = { id: string; result: 'pass' | 'fail' | 'skipped'; durationMs: number; seeds: number[]; lane?: string; reuses?: string };
 
 export type Summary = {
   gate: Gate;
@@ -34,10 +36,15 @@ export type Summary = {
   steps: StepResult[];
 };
 
-/** `fromHook`: the range was set by the pre-push hook, so a pass may still be recorded (CONTRACT §3.2). */
-export type GateOptions = { commit?: string; range?: string; milestone?: string; fromHook?: boolean };
+/** `fromHook`: the range was set by the pre-push hook, so a pass may still be recorded (CONTRACT §3.2).
+ *  `lanes`: 1 runs every step in config order (§3.2.2). `all`: the push gate ignores the step memo (§3.2.3). */
+export type GateOptions = { commit?: string; range?: string; milestone?: string; fromHook?: boolean; lanes?: 1 | 'all'; all?: boolean };
 
 const SEED_RE = /seed(?:\s*[=:]\s*|\s+)(-?\d+)/gi;
+
+function seedsOf(text: string): number[] {
+  return [...text.matchAll(SEED_RE)].map((m) => Number(m[1]));
+}
 
 function log(line: string): void {
   process.stdout.write(line + '\n');
@@ -66,10 +73,49 @@ function runStep(step: Step, checkout: string, env: NodeJS.ProcessEnv): StepResu
   if (r.stdout) process.stdout.write(r.stdout.endsWith('\n') ? r.stdout : r.stdout + '\n');
   if (r.stderr) process.stderr.write(r.stderr.endsWith('\n') ? r.stderr : r.stderr + '\n');
   const durationMs = Date.now() - t0;
-  const seeds = [...`${r.stdout}\n${r.stderr}`.matchAll(SEED_RE)].map((m) => Number(m[1]));
+  const seeds = seedsOf(`${r.stdout}\n${r.stderr}`);
   const result = r.status === 0 ? 'pass' : 'fail';
   log(`${result === 'pass' ? '✓' : '✗'} ${step.id} (${(durationMs / 1000).toFixed(1)} s)`);
   return { id: step.id, result, durationMs, seeds };
+}
+
+/** A step of a tree gate (CONTRACT §3.2.2): a start line when it starts; its stdout, stderr and result line as one
+ *  contiguous block when it finishes, so concurrent lanes never interleave inside a step. */
+async function runStepAsync(step: Step, checkout: string, env: NodeJS.ProcessEnv): Promise<StepResult> {
+  const cwd = path.join(checkout, step.dir);
+  const t0 = Date.now();
+  // The command is printed with the result, not here: the start line of one step must not carry text that
+  // another step's output block is searched for (CONTRACT §3.2.2).
+  log(`▶ ${step.id} [${step.lane}] (${step.dir}): started`);
+  if (!fs.existsSync(cwd)) {
+    log(`✗ ${step.id}: directory ${step.dir} doesn't exist`);
+    return { id: step.id, result: 'fail', durationMs: Date.now() - t0, seeds: [], lane: step.lane };
+  }
+  const r = await execAsync('sh', ['-c', step.run], { cwd, env });
+  const durationMs = Date.now() - t0;
+  const result = r.status === 0 ? 'pass' : 'fail';
+  const nl = (s: string) => (s.length === 0 || s.endsWith('\n') ? s : s + '\n');
+  // One write per stream, with nothing awaited in between: the block stays contiguous.
+  process.stdout.write(`${nl(r.stdout)}${result === 'pass' ? '✓' : '✗'} ${step.id} (${(durationMs / 1000).toFixed(1)} s): ${step.run}\n`);
+  if (r.stderr) process.stderr.write(nl(r.stderr));
+  return { id: step.id, result, durationMs, seeds: seedsOf(`${r.stdout}\n${r.stderr}`), lane: step.lane };
+}
+
+/** Runs each lane's steps in config order and the lanes concurrently (`lanes === 1`: one lane); results in config order. */
+async function runLanes(steps: Step[], run: (s: Step) => Promise<StepResult>, lanes: 1 | 'all'): Promise<StepResult[]> {
+  const groups = new Map<string, Step[]>();
+  for (const s of steps) {
+    const key = lanes === 1 ? '' : s.lane;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(s);
+  }
+  const byId = new Map<string, StepResult>();
+  await Promise.all(
+    [...groups.values()].map(async (g) => {
+      for (const s of g) byId.set(s.id, await run(s));
+    }),
+  );
+  return steps.map((s) => byId.get(s.id)!);
 }
 
 function resultsDirs(root: string, runId: string): { results: string; last: string } {
@@ -177,7 +223,7 @@ export function runCommitGate(root: string, cfg: Config): Summary {
 }
 
 /** push, nightly, milestone and release: fresh worktree of the commit (CONTRACT §3.2–§3.3). */
-export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOptions): Summary {
+export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOptions): Promise<Summary> {
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
   const seed = randomInt(1, 2 ** 31 - 1);
@@ -213,7 +259,38 @@ export function runTreeGate(root: string, cfg: Config, gate: Gate, opts: GateOpt
     log(`dev-server port for this run: ${port} (VERIFY_PORT_BASE)`);
     const env = { ...stepEnv(gate, results, seed, gate === 'milestone' ? opts.milestone : undefined), VERIFY_PORT_BASE: String(port) };
     const cached = { ...env, CARGO_TARGET_DIR: cargoCacheDir(root) };
-    for (const step of gateSteps) steps.push(runStep(step, wt.dir, step.cargoCache ? cached : env));
+
+    // Step memo (CONTRACT §3.2.3, D-611): only push consults it, every tree gate records into it.
+    const memo = loadStepMemo(root);
+    const consult = gate === 'push' && !opts.all;
+    const keyOf = new Map(gateSteps.map((s) => [s.id, stepMemoKey(root, sha, s)]));
+    const skipped = new Map<string, StepResult>();
+    const planned = gateSteps.filter((s) => {
+      const key = keyOf.get(s.id);
+      const e = consult && key ? memo[key] : undefined;
+      if (!e) return true;
+      log(`- ${s.id}: skipped (inputs unchanged; reuses ${e.gate} run ${e.startedAt} at ${shortSha(e.commit)})`);
+      for (const name of e.reports) {
+        const from = path.join(root, '.verify', 'results', e.runId, name);
+        if (!fs.existsSync(from)) continue;
+        fs.mkdirSync(path.dirname(path.join(results, name)), { recursive: true });
+        fs.copyFileSync(from, path.join(results, name));
+      }
+      skipped.set(s.id, { id: s.id, result: 'skipped', durationMs: 0, seeds: [], lane: s.lane, reuses: e.startedAt });
+      return false;
+    });
+
+    const ran = new Map((await runLanes(planned, (step) => runStepAsync(step, wt.dir, step.cargoCache ? cached : env), opts.lanes ?? 'all')).map((r) => [r.id, r]));
+    steps.push(...gateSteps.map((s) => ran.get(s.id) ?? skipped.get(s.id)!));
+
+    for (const s of gateSteps) {
+      const key = keyOf.get(s.id);
+      const r = ran.get(s.id);
+      if (!key || !r) continue;
+      if (r.result === 'pass') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: reportNames(s).filter((n) => fs.existsSync(path.join(results, n))) };
+      else if (r.result === 'fail') delete memo[key];
+    }
+    saveStepMemo(root, memo);
   } finally {
     wt.remove();
   }

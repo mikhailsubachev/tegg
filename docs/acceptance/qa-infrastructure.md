@@ -12,6 +12,9 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 - **AC-2** Each run writes a summary to `.verify/` (git-ignored): steps, results, durations, property-test seeds and the tree hash of the checked commit.
 - **AC-3** `./verify push` runs in a fresh `git worktree` of the commit being pushed, so uncommitted files can't make it pass.
 - **AC-4** `./verify push` completes in < 10 minutes on the reference machine for the current repo; if it doesn't, the slowest steps are listed.
+- **AC-5** Steps carry an optional `lane` (D-609). In the push, nightly, milestone and release gates, steps of different lanes run concurrently and the steps of one lane run one after another in config order; the summary keeps config order with each step's own duration; a step's output is printed as one contiguous block; every step of every lane still runs after a step fails; `--lanes 1` or `VERIFY_LANES=1` runs every step in config order and any other value exits 2; the commit gate ignores lanes.
+- **AC-6** A push step whose declared `inputs` (D-611) are unchanged since a recorded pass of that step is reported `skipped` with the reused run named and its JUnit reports carried over; a changed input, a changed command, a changed `package-lock.json` under the step's directory, a missing `inputs` declaration, `--all` and the nightly, milestone and release gates always run it; a failed step is never recorded; a malformed memo file counts as empty; `./verify check-red` never reads or writes the memo.
+- **AC-7** `./verify merge [--base <rev>]` (D-612) exits 1 without running a gate when `<rev>` (default `origin/main`, else `main`) is not an ancestor of `HEAD`, naming the base to merge first; otherwise it runs the push gate on `HEAD` (recording `.verify/last-pass` on success), writes the review context (`.verify/review/`), prints `READY` with the tree hash or `NOT READY`, and exits with the gate's result.
 
 ### TS-HOOKS Git and Claude Code hooks (D-60)
 
@@ -31,6 +34,7 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 - **AC-1** A `commit-msg` hook rejects a commit that modifies or deletes an existing AC test file (`*.ac.test.ts`, `tests/ac_*.rs`) unless the message has an `AC-Test-Change: <reason>; approved-by: owner` trailer. Adding new AC test files needs no trailer.
 - **AC-2** `./verify check-red <commit>` checks out the given commit, runs the AC tests added in it and passes only if they fail with assertion failures (not compile errors or missing fixtures).
 - **AC-3** `.claude/agents/` defines the roles AC author, Test author, QA reviewer and Explorer (test-strategy §6.1); the Test author's and Explorer's instructions forbid reading the implementation under test and the real exports respectively; the QA reviewer has read-only tools.
+- **AC-4** The Rust AC runner (`tools/qa/src/cargo-junit.ts`, D-610) runs all given AC files of one package in a single `cargo test` invocation, attributes libtest's output to each file (falling back to one invocation per file when it cannot), and still writes one JUnit suite per file with the AssertionError rule of CONTRACT §5.2; `--threads N` sets the test threads (default 1) and `--serial <file>` runs that file alone with one thread.
 
 ### TS-COV AC coverage report (test-strategy §7)
 
