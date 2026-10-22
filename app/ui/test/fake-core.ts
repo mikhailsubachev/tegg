@@ -171,8 +171,8 @@ export type FakeOptions = {
   files?: Record<string, Uint8Array>;
   /** The paths the picker answers (`media_pick`, `capture_media_add { pick: true }`); default: Cancel (`[]`). */
   pick?: string[];
-  /** §2 (D-611): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`. Off by
-   *  default while AP-544 is open: backlinks.md, embeds.md and read-view.md criteria still count them as broken. */
+  /** §2 (D-611, D-624): `link_resolve` and `embed_load` report targets that resolve only in `.trash/` as `trashed`.
+   *  On by default; `false` gives the pre-6A behaviour (unresolved, missing). */
   trashedLinks?: boolean;
 };
 
@@ -1237,7 +1237,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         seen.add(p);
         const key = state.vault ? Object.keys(state.vault.files).find((k) => k.normalize('NFC') === p) : undefined;
         const text = key === undefined ? undefined : state.vault!.files[key];
-        if (opts.trashedLinks && p.startsWith('.trash/') && (text !== undefined || x.bin[p] !== undefined)) {
+        if (opts.trashedLinks !== false && p.startsWith('.trash/') && (text !== undefined || x.bin[p] !== undefined)) {
           // 6A (ms6-trash-media §2): a trashed object shows the D-27 placeholder.
           out.push({ path: p, state: 'trashed', title: text !== undefined ? (front(text).title ?? p.split('/').pop()!.replace(/\.md$/, '')) : p.split('/').pop()!, text: null, version: null, utf8: true, links: [] });
           continue;
@@ -1301,8 +1301,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
             return { target: given, kind: 'media', path: file, title: own ? own.title : file.split('/').pop()!, type: own ? own.type : extType(file), object: own ? own.path : null };
           }
         }
-        // 6A (ms6-trash-media §2): the same rules over `.trash/` with its prefix removed (opt-in until AP-544).
-        const trashed = opts.trashedLinks ? all.filter((q) => q.startsWith('.trash/')) : [];
+        // 6A (ms6-trash-media §2, D-624): the same rules over `.trash/` with its prefix removed.
+        const trashed = opts.trashedLinks !== false ? all.filter((q) => q.startsWith('.trash/')) : [];
         if (mediaTarget(t)) {
           const inTrash = trashed.filter((q) => !/\.md$/i.test(q)).map((q) => q.slice('.trash/'.length));
           const file = pickMedia(inTrash, t, fromDir);

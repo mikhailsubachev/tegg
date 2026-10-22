@@ -199,9 +199,10 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
-  // 4F (D-431): a note embed is an embed now (embeds.md), image embeds, queries and mindmaps stay R5 placeholders.
+  // 4F (D-431): a note embed is an embed now (embeds.md); queries and mindmaps stay R5 placeholders. 6A (D-626): image
+  // embeds are media blocks (trash-media.md R77), no longer placeholders.
   const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 3, 'image embed, query and mindmap are R5 placeholders');
+  assert.ok((await regions.count()) >= 2, 'query and mindmap are R5 placeholders');
   assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();

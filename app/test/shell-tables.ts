@@ -207,12 +207,10 @@ export const showDue = (due: Due) => (due.slice ? `${due.milestone} (${due.slice
 export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];
 
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
-/** 4F (D-431, R32): the `embed-note` row is built and removed. */
-export type R5Row = { id: 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; due: Due; reqs: string };
+/** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-626): `embed-image` and `embed-pdf` are retired
+ *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
+export type R5Row = { id: 'query' | 'mindmap'; due: Due; reqs: string };
 export const R5: R5Row[] = [
-  { id: 'embed-image', due: d('MS6'), reqs: 'FR-ATT-03, FR-ATT-07' },
-  { id: 'embed-pdf', due: d('MS6'), reqs: 'FR-ATT-02' },
-  { id: 'embed-other', due: d('MS6'), reqs: 'FR-ATT-07' },
   { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
   { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
 ];

@@ -97,7 +97,7 @@ test('fr_cnv_08_ac6_a_trashed_converted_task_shows_restore', async ({ page }) =>
   const EMBED = `![[${ZAVOLAT}]]\n`;
   const PRE = swap(convertOriginal(C.bloky), ZAVOLAT_PARA, EMBED);
   const TASK = `---\nid: 01JB5A0000000000000000W401\ntype: task\ntitle: ${ZAVOLAT}\nstatus: To do\nsource: "[[Bloky]]"\ncreated: 2026-10-14T12:00:00+02:00\nmodified: 2026-10-14T12:00:00+02:00\n---\na domluvit termín.\n`;
-  const core = await openConvert(page, C.bloky, { vault: convertVault((f) => { f[C.bloky] = PRE; f[ZAVOLAT_TASK] = TASK; }), ...({ trashedLinks: true } as object) });
+  const core = await openConvert(page, C.bloky, { vault: convertVault((f) => { f[C.bloky] = PRE; f[ZAVOLAT_TASK] = TASK; }) });
   await must(main(page).getByRole('button', { name: `Open ${ZAVOLAT}`, exact: true }), 'the Task card first', 5000);
   await core.renameFile(ZAVOLAT_TASK, `.trash/${ZAVOLAT_TASK}`);
   const ph = await must(trashedPlaceholder(main(page), ZAVOLAT), `"${ZAVOLAT}" was moved to the trash`, 3000);

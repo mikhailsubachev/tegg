@@ -113,14 +113,17 @@ for (const theme of ['light', 'dark'] as const) {
 
 // ------------------------------------------------------------------------------------------------ AC-6
 
-const BROKEN = ['Chybí', 'Šablona', 'Smazaná', 'Reading list'];
+// D-624 (6A, D-611): `![[Smazaná]]` (a target in `.trash/`) shows the trashed placeholder, not a broken frame.
+const BROKEN = ['Chybí', 'Šablona', 'Reading list'];
 
 for (const theme of ['light', 'dark'] as const) {
   test(`fr_lnk_07_ac6_broken_frames_${theme}`, async ({ page }) => {
     await openEmbeds(page, M.rozbita, { theme });
     const danger = await tokenColour(page, 'danger');
     const l = await list(page, 4);
-    for (const [i, t] of BROKEN.entries()) {
+    assert.notEqual(l.find((e) => e.target === nfc('Smazaná'))?.state ?? null, 'broken', '![[Smazaná]] is not a broken frame (D-624)');
+    for (const t of BROKEN) {
+      const i = l.findIndex((e) => e.target === nfc(t));
       assert.deepEqual([l[i]?.state, l[i]?.target], ['broken', nfc(t)], `![[${t}]]: data-embed-state broken`);
       const el = topEmbed(main(page), i);
       const b = await boxOf(el);

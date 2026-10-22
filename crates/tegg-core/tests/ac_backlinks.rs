@@ -634,7 +634,8 @@ fn fr_lnk_04_ac9_broken_links_are_exactly_twelve_in_three_objects() {
     let root = backlinks_vault(&sb);
     let core = open(&root, &sb, false);
     let b = core.broken_links();
-    assert_eq!((b.occurrences, b.objects), (12, 3), "12 broken links in 3 objects");
+    // D-624 (6A, D-611): `[[Smazaná]]` resolves to the trash, so it isn't broken: 11 broken links in 3 objects.
+    assert_eq!((b.occurrences, b.objects), (11, 3), "11 broken links in 3 objects");
     let groups: BTreeMap<String, (String, usize)> = b.groups.iter().map(|g| (nfc(&g.key), (nfc(&g.label), g.count))).collect();
     let want: BTreeMap<String, (String, usize)> = [
         ("neexistuje", "Neexistuje", 5),
@@ -642,7 +643,6 @@ fn fr_lnk_04_ac9_broken_links_are_exactly_twelve_in_three_objects() {
         ("projekty/alfa", "Projekty/Alfa", 1),
         ("osoby/eva malá", "Osoby/Eva Malá", 1),
         ("šablona", "Šablona", 1),
-        ("smazaná", "Smazaná", 1),
         ("chybí", "Chybí", 1),
         ("chybějící osoba", "Chybějící osoba", 1),
     ]
@@ -653,7 +653,7 @@ fn fr_lnk_04_ac9_broken_links_are_exactly_twelve_in_three_objects() {
     let src = |key: &str| b.groups.iter().find(|g| g.key == key).map(|g| g.sources.iter().map(|e| nfc(&e.source)).collect::<BTreeSet<_>>()).unwrap_or_default();
     assert_eq!(src("neexistuje"), set(&[ROZBITE, DALSI]));
     assert_eq!(src("chybějící osoba"), set(&[S_CHYBOU]));
-    for not in ["2026-10-09", "chybí.png", "cíl", "nikde", "šablonový cíl", "z koše"] {
+    for not in ["2026-10-09", "chybí.png", "cíl", "nikde", "šablonový cíl", "z koše", "smazaná"] {
         assert!(!groups.contains_key(not), "{not} is not broken or not counted");
     }
 }

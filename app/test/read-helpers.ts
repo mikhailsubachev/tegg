@@ -68,7 +68,7 @@ export async function catalog() {
   return cat;
 }
 
-export type LinkTargetDto = { target: string; kind: 'note' | 'daily' | 'date-missing' | 'unresolved'; path: string | null; title: string | null; type: string | null };
+export type LinkTargetDto = { target: string; kind: 'note' | 'daily' | 'date-missing' | 'unresolved' | 'trashed'; path: string | null; title: string | null; type: string | null };
 
 /** The fixture's link resolution as the contract states it (ms3-shell §11.1 rules 1–4), for rendering tests: the
  *  real resolution is tested at the core (L4). Keys are the targets exactly as the UI asked for them. */
@@ -99,7 +99,10 @@ export function resolveOnFixture(from: string, targets: string[]): Map<string, L
       hit = same.find((o) => o.path.startsWith(`${fromDir}/`) && !o.path.slice(fromDir.length + 1).includes('/'))
         ?? [...same].sort((a, b) => a.path.length - b.path.length || (a.path < b.path ? -1 : 1))[0];
     }
+    // D-611, D-624 (6A): the fixture's trashed note resolves as `trashed` when nothing live matches.
+    const inTrash = !hit && (k === 'smazaná' || k === '.trash/pages/smazaná' || k === 'pages/smazaná');
     if (hit) out.set(given, { target: given, kind: 'note', path: hit.path, title: hit.title, type: hit.type });
+    else if (inTrash) out.set(given, { target: given, kind: 'trashed', path: '.trash/Pages/Smazaná.md', title: 'Smazaná', type: 'page' });
     else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) out.set(given, { target: given, kind: 'date-missing', path: null, title: null, type: null });
     else out.set(given, { target: given, kind: 'unresolved', path: null, title: null, type: null });
   }

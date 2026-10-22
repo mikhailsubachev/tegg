@@ -148,7 +148,10 @@ test('fr_emb_01_ac2_alias_template_trash_unresolved', async ({ page }) => {
   await openEmbeds(page, M.rozbita);
   const l = await eventually(() => topEmbeds(main(page)).catch(() => [] as EmbedInfo[]), (x) => x.length >= 4, 5000);
   const broken = l.filter((e) => e.state === 'broken').map((e) => e.target);
-  for (const t of ['Chybí', 'Šablona', 'Smazaná', 'Reading list']) assert.ok(broken.includes(nfc(t)), `![[${t}]] is unresolved (data-embed-state="broken", target as written): ${JSON.stringify(broken)}`);
+  for (const t of ['Chybí', 'Šablona', 'Reading list']) assert.ok(broken.includes(nfc(t)), `![[${t}]] is unresolved (data-embed-state="broken", target as written): ${JSON.stringify(broken)}`);
+  // D-624 (6A, D-611, trash-media.md R74): a target in `.trash/` shows the D-27 placeholder, not the broken frame.
+  assert.ok(!broken.includes(nfc('Smazaná')), `![[Smazaná]] is not broken: ${JSON.stringify(broken)}`);
+  assert.ok(await seen(main(page).getByText('"Smazaná" was moved to the trash'), 2000), '![[Smazaná]]: the trashed placeholder');
 });
 
 test('fr_emb_01_ac2_one_link_resolve_call_for_links_and_embeds', async ({ page }) => {

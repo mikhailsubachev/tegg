@@ -57,8 +57,8 @@ function trashedObjects(files: Files): Trashed[] {
   });
 }
 
-/** AP-544: whether broken links and backlinks treat links into `.trash/` as `trashed` (trash-media.md R74). */
-const TRASHED_TARGETS = false;
+/** D-624: broken links and backlinks treat links into `.trash/` as `trashed` (trash-media.md R74). */
+const TRASHED_TARGETS = true;
 
 export function resolver(objs: Obj[], trashed: Trashed[] = []) {
   const byPath = new Map<string, Obj>();
@@ -129,8 +129,7 @@ function isNoteTarget(t: string): boolean {
 type Ctx = { objs: Obj[]; byPath: Map<string, Obj>; res: Map<string, Res[]>; types: any[] };
 async function context(files: Files, vers: Record<string, VersionDto>): Promise<Ctx> {
   const objs = await objects(files);
-  // 6A: links into `.trash/` stay unresolved here (broken links, backlinks) until AP-544 is decided: backlinks.md and
-  // read-view.md count them as broken, trash-media.md R74 / FR-HIS-01 AC-13 as trashed. `trashedObjects` is ready.
+  // 6A (D-611, D-624): links into `.trash/` are trashed: not broken and not backlinks (trash-media.md R74).
   const r = resolver(objs, TRASHED_TARGETS ? trashedObjects(files) : []);
   const res = new Map<string, Res[]>();
   for (const o of objs) res.set(o.path, o.links.map((l: any) => (o.frontmatterError && l.inFrontmatter ? { kind: 'ignored', path: null } : r(o.path, l.target)) as Res));

@@ -206,19 +206,20 @@ async function brokenGroups(page: Page): Promise<[string, number][]> {
   return names.map((n) => /^(.*?),? (\d+)$/.exec(n.normalize('NFC'))).filter(Boolean).map((m) => [m![1], Number(m![2])] as [string, number]);
 }
 
+// D-624 (6A, D-611): `[[Smazaná]]` resolves to the trash, so it is no longer a broken-links group (11 links).
 for (const [region, order] of [
-  ['cs', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Smazaná', 'Šablona']],
-  ['en', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Šablona', 'Smazaná']],
+  ['cs', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Šablona']],
+  ['en', ['Neexistuje', 'Chybějící osoba', 'Chybí', 'Osoby/Eva Malá', 'Projekty/Alfa', 'Q3: plán?', 'Šablona']],
 ] as const) {
   test(`fr_lnk_04_ac10_broken_links_page_${region}`, async ({ page }) => {
     const core = await openLinks(page, B.osamela, { region });
     await runCommand(page, 'Go to Broken links');
     await must(main(page).getByRole('heading', { name: 'Broken links', exact: true }), 'heading Broken links', 5000);
-    assert.ok(await seen(main(page).getByText('12 broken links in 3 objects', { exact: true }), 1000), 'summary');
+    assert.ok(await seen(main(page).getByText('11 broken links in 3 objects', { exact: true }), 1000), 'summary');
     const g = await brokenGroups(page);
     assert.deepEqual(g.map((x) => x[0]), [...order], `${region} order`);
     assert.equal(g[0][1], 5, 'Neexistuje 5');
-    assert.ok(g.slice(1).every((x) => x[1] === 1), 'seven groups of 1');
+    assert.ok(g.slice(1).every((x) => x[1] === 1), 'six groups of 1');
     assert.deepEqual(await writeCalls(core), [], 'opening and browsing write nothing');
   });
 }
@@ -267,7 +268,8 @@ test('fr_lnk_04_ac11_an_io_failure_keeps_the_offer_open', async ({ page }) => {
 });
 
 test('fr_lnk_04_ac12_opening_every_offer_writes_nothing', async ({ page }) => {
-  const broken: (string | RegExp)[] = ['Neexistuje', 'neexistuje', SUBPATH_CHIP, 'jiný popis', 'Q3: plán?', 'Projekty/Alfa', 'Osoby/Eva Malá', 'Šablona', 'Smazaná'];
+  // D-624 (6A): `Smazaná` is a trashed chip, not a broken one, so it offers no Create.
+  const broken: (string | RegExp)[] = ['Neexistuje', 'neexistuje', SUBPATH_CHIP, 'jiný popis', 'Q3: plán?', 'Projekty/Alfa', 'Osoby/Eva Malá', 'Šablona'];
   for (const readView of [false, true]) {
     const p = readView ? await page.context().newPage() : page;
     const core = await openLinks(p, B.rozbite, { readView });

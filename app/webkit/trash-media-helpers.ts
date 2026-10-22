@@ -115,7 +115,7 @@ export async function startTM(page: Page, o: StartTM = {}): Promise<FakeCoreHand
   else await page.clock.setFixedTime(t);
   const vault = o.vault ?? tmVault();
   const last = o.at ? { path: nfc(o.at), id: idOf(vault.files[nfc(o.at)]) } : null;
-  return start(page, { trashedLinks: true, ...o, vault, last, trashedAt: o.trashedAt ?? TRASHED_AT, uiState: o.uiState ?? ui({ theme: o.theme, panel: o.panel }) });
+  return start(page, { ...o, vault, last, trashedAt: o.trashedAt ?? TRASHED_AT, uiState: o.uiState ?? ui({ theme: o.theme, panel: o.panel }) });
 }
 /** Starts on a note and waits for its page. */
 export async function openTM(page: Page, path: string, title: string, o: StartTM = {}): Promise<FakeCoreHandle> {
