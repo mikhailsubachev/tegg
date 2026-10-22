@@ -2,7 +2,7 @@
 // §5.4; D-283, D-284, D-292). FR-LNK-01 AC-1 (R2: `backlinks` built, requirements FR-LNK-01, FR-LNK-02), AC-14 (the
 // palette command `Show backlinks`), FR-LNK-04 AC-10 (route `broken-links`, `Go to Broken links`), FR-LNK-14 AC-8, AC-9
 // (route `duplicate-titles`, `Go to Duplicate titles`, `Merge…` disabled `MS4 (4C)`), R3 additions (`Type picker`,
-// `Unlinked mentions`), R5 `embed-note` shows `MS4 (4F)`. A new file: the R1–R5 tables of app/test/shell-tables.ts and
+// `Unlinked mentions`, removed again by D-635), R5 `embed-note` shows `MS4 (4F)`. A new file: the R1–R5 tables of app/test/shell-tables.ts and
 // the existing registry tests change with the 4A build (TS-I3). Written from the ACs and the contract only (D-61).
 import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -62,7 +62,8 @@ test('fr_lnk_14_ac9_r3_controls_added_by_4a', async () => {
   const controls = (reg.DISABLED_CONTROLS as any[]).map((c) => ({ label: text(cat, c.label), due: reg.showDue(c.due) as string, req: c.req }));
   const find = (label: string) => controls.find((c) => c.label === label);
   assert.deepEqual(find('Merge…'), { label: 'Merge…', due: 'MS4 (4C)', req: 'FR-LNK-14' }, 'Merge… on the Duplicate titles page (AP-218, AP-220)');
-  assert.deepEqual(find('Unlinked mentions'), { label: 'Unlinked mentions', due: 'v1.x', req: 'FR-LNK-05' }, 'Unlinked mentions in the panel (AP-211)');
+  // D-635 (supersedes D-283, AP-211): the panel has no Unlinked mentions section and R3 no longer lists it.
+  assert.equal(find('Unlinked mentions'), undefined, 'Unlinked mentions is not a disabled control (D-635)');
   // 5B (capture.md, FR-VLT-05 AC-3, D-550): the Create offer's type picker is built, so it is no longer a disabled control.
   assert.equal(find('Type picker'), undefined, 'Type picker is built in 5B');
 });

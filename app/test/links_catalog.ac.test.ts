@@ -19,7 +19,7 @@ const v = (n: number, m = 0, extra: Record<string, string> = {}) => ({ count: n,
 test('fr_lnk_01_ac15_backlinks_panel_strings_and_plurals', async () => {
   const cat = await catalog();
   const en = cat.en as Record<string, unknown>;
-  for (const k of ['backlinks.count', 'backlinks.empty', 'backlinks.emptyHint', 'backlinks.more', 'backlinks.embed', 'backlinks.unlinked', 'commands.showBacklinks']) {
+  for (const k of ['backlinks.count', 'backlinks.empty', 'backlinks.emptyHint', 'backlinks.more', 'backlinks.embed', 'commands.showBacklinks']) {
     assert.ok(k in en, `catalog key ${k}`);
   }
   assert.equal(typeof en['backlinks.count'], 'object', 'backlinks.count is a plural message (D-133)');
@@ -29,7 +29,7 @@ test('fr_lnk_01_ac15_backlinks_panel_strings_and_plurals', async () => {
   assert.equal(cat.t('backlinks.emptyHint'), 'Link to this note with [[ or @ from another note.', 'R15 hint');
   assert.equal(cat.t('backlinks.more', v(2)), 'Show 2 more', 'AC-5');
   assert.equal(cat.t('backlinks.embed'), 'Embed', 'FR-LNK-02 AC-5');
-  assert.equal(cat.t('backlinks.unlinked'), 'Unlinked mentions', 'R15 (AP-211)');
+  assert.ok(!('backlinks.unlinked' in en), 'D-635: the catalog key backlinks.unlinked is removed with the section (ms4-links §9.4)');
   assert.equal(cat.t('commands.showBacklinks'), 'Show backlinks', 'R16');
 });
 

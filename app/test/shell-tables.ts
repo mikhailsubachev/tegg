@@ -102,7 +102,7 @@ export const R3: R3Control[] = [
   { label: 'Change…', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04', route: 'settings/shortcuts' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05), `ctl.typePickerLink` removed.
   { label: 'Merge…', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14', route: 'duplicate-titles' },
-  { label: 'Unlinked mentions', where: 'Backlinks panel', due: d('v1.x'), req: 'FR-LNK-05', route: null },
+  // D-635: `Unlinked mentions` (Backlinks panel, v1.x, FR-LNK-05) is removed from the panel and from R3.
 ];
 
 /** R4. `keys` in ⌃⌥⇧⌘ order as displayed (AP-70); `press` is the Playwright chord; `command` the R4 command text
