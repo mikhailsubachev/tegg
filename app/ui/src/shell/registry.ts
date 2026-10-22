@@ -111,7 +111,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'settings.shortcuts.change', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05).
   { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },
-  { label: 'backlinks.unlinked', where: 'Backlinks panel', due: d('v1.x'), req: 'FR-LNK-05' },
 ];
 
 export const SHORTCUTS: ShortcutDef[] = [

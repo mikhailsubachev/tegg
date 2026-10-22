@@ -783,6 +783,10 @@ fn entry_dto(e: tegg_core::BacklinkEntry) -> BacklinkEntryDto {
                 excerpt: excerpt_dto(o.excerpt),
             })
             .collect(),
+        review: e.review,
+        status: e.status,
+        due: e.due,
+        completed: e.completed,
     }
 }
 

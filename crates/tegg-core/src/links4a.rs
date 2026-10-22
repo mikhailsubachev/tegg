@@ -37,6 +37,11 @@ pub struct BacklinkEntry {
     pub read_only: bool,
     /// All of them, file order, frontmatter first (the UI shows 3, D-278).
     pub occurrences: Vec<Occurrence>,
+    /// D-633: what the panel's chip shows (as `LinkFields`, D-601): trimmed `review`, `status`, `due`, `completed`.
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +142,11 @@ fn instant(v: Option<&str>) -> Option<i64> {
 
 fn attr_str(attrs: &Value, key: &str) -> Option<String> {
     attrs.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+/// D-633: a chip field, trimmed; empty reads as None (D-601).
+fn chip_str(attrs: &Value, key: &str) -> Option<String> {
+    attrs.get(key).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
 /// Most frequent key, ties by code point (BTreeMap order).
@@ -300,6 +310,10 @@ impl Core {
             modified: attr_str(&nl.attributes, "modified"),
             read_only: nl.frontmatter_error,
             occurrences,
+            review: chip_str(&nl.attributes, "review"),
+            status: chip_str(&nl.attributes, "status"),
+            due: chip_str(&nl.attributes, "due"),
+            completed: chip_str(&nl.attributes, "completed"),
         })
     }
 

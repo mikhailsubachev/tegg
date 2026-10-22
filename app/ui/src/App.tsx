@@ -71,6 +71,9 @@ const tasksRoute = (v: TasksView): Route => (v === 'kanban' ? { id: 'tasks/kanba
 
 const SIDEBAR_W = 232;
 const PANEL_W = 288;
+/** D-634: the range the user can drag the panel to. */
+const PANEL_MIN = 240;
+const PANEL_MAX = 480;
 const MIN_CENTRE = 400; // D-136
 
 type Dialog = 'palette' | 'switcher' | 'newType' | 'starter' | null;
@@ -421,7 +424,10 @@ export function App() {
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
-  const panelFits = available - PANEL_W >= MIN_CENTRE;
+  // D-634: the stored width, drawn narrower when the centre pane would fall below 400 px; closed when even 240 doesn't fit.
+  const panelWidth = Math.min(Math.max(ui.rightPanel.width ?? PANEL_W, PANEL_MIN), PANEL_MAX);
+  const panelRoom = available - MIN_CENTRE;
+  const panelFits = panelRoom >= PANEL_MIN;
   const showSidebar = ui.sidebarOpen && !focusMode;
   const showPanel = isObject && ui.rightPanel.open && panelFits && !focusMode;
 
@@ -505,7 +511,7 @@ export function App() {
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
       if (!isNoteRoute(route)) return;
-      updateUi((u) => ({ ...u, rightPanel: { open: true, tab: 'backlinks' } }));
+      updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'backlinks' } }));
       setFocusBacklinks((n) => n + 1);
     },
     toggleFocus: () => {
@@ -929,6 +935,8 @@ export function App() {
           </main>
         </div>
         {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
+          width={panelWidth} room={panelRoom} limits={[PANEL_MIN, PANEL_MAX, PANEL_W]}
+          onWidth={(w) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, width: w } }))}
           backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}

@@ -187,7 +187,11 @@ export type RightPanelDto = { open: boolean,
 /**
  * `backlinks`, `outline` or `graph`.
  */
-tab: string, };
+tab: string, 
+/**
+ * D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
+ */
+width?: number, };
 export type TypeSortDto = { column: string, 
 /**
  * `asc` or `desc`.
@@ -248,7 +252,11 @@ export type OccurrenceDto = {
  * `body`, `attribute` or `embed`.
  */
 kind: string, attribute: string | null, attributeName: string | null, at: AtDto, excerpt: ExcerptDto, };
-export type BacklinkEntryDto = { source: string, title: string, type: string, modified: string | null, readOnly: boolean, occurrences: Array<OccurrenceDto>, };
+export type BacklinkEntryDto = { source: string, title: string, type: string, modified: string | null, readOnly: boolean, occurrences: Array<OccurrenceDto>, 
+/**
+ * D-633: the source's trimmed `review`, `status`, `due`, `completed` (D-601), for the panel's chip.
+ */
+review: string | null, status: string | null, due: string | null, completed: string | null, };
 export type BacklinkGroupDto = { type: string, defined: boolean, raw: string, entries: Array<BacklinkEntryDto>, };
 export type BacklinksPanelDto = { objects: number, groups: Array<BacklinkGroupDto>, };
 export type LinkCreatePlanDto = { "state": "create", path: string, title: string, type: string, rewrite: string | null, } | { "state": "exists", path: string, } | { "state": "forbidden", reason: string, };

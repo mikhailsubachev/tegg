@@ -265,8 +265,9 @@ Builds the bytes with `@tegg/doc` `newObject(type, title, template)` exactly lik
    description, task icon and suffix. It keeps `data-link-kind="note"`, `data-command="panel.backlinks.open"` and the
    source's title as its accessible name; `title` is the full title; one line with the title truncated (`min-width: 0`
    on the title, the suffix `flex: none`).
-3. **Width (D-634).** `RightPanelDto` gains `width: number` (Rust `#[serde(default = "panel_width")]` = 288; TS
-   optional on input, always present from the core); `version` stays 1. The UI sets the panel's width from it, clamped
+3. **Width (D-634).** `RightPanelDto` gains an optional `width?: number` (Rust `Option<u32>`, `serde(default,
+   skip_serializing_if)`): absent until the user resizes the panel and read as 288, so an untouched `ui-state.json`
+   keeps its bytes and FR-UX-02 AC-10 its exact `rightPanel`; `version` stays 1. The UI sets the panel's width from it, clamped
    to 240…480 and to the room that leaves the centre pane 400 px (drawn width only). The separator is a `div`
    `role="separator"` with `tabIndex=0`, `aria-label` `Resize panel` (catalog `panel.resize`), `aria-orientation`
    `vertical`, `aria-valuemin` 240, `aria-valuemax` 480, `aria-valuenow` = the drawn width, class `panel-resizer`,
@@ -278,3 +279,11 @@ Builds the bytes with `@tegg/doc` `newObject(type, title, template)` exactly lik
    `app/webkit/panel_chips.ac.test.ts` (FR-LNK-01 AC-22, AC-23), `app/webkit/panel_resize.ac.test.ts` (FR-UX-02
    AC-19…AC-21 L5 part). L6: FR-UX-02 AC-21's relaunch part in a new `app/e2e/ms6_panel.ac.test.ts`. The fixture vault
    for AC-22/AC-24 is synthetic, written by the tests (as embeds FR-LNK-07 AC-9). AC-test changes per the feedback doc.
+6. **Settled while building (test-author points, no owner decision needed).** (a) AC-22's dates are the region's
+   short date as in FR-LNK-07 AC-9 (`Fri, Oct 23` in en-US; the AC's `Fri 23 Oct` is the board's en-GB look).
+   (b) The truncation case uses an extra task with a long title, as FR-LNK-07 AC-9's test. (c) A task set to Done
+   without `completed` shows only `Done` (D-599). (d) The panel tabs other than the selected one are not counted in
+   AC-23's order. (e) A task source's chip keeps `data-icon` = its type's icon on the chip and shows the D-600 box as
+   its icon (AC-17 for other sources). (f) In a narrow window the panel takes exactly the room that leaves 400 px.
+   (g) The focus ring is FR-UX-03 AC-10's (a 2 px outline, drawn inside the panel's edge). The panel chip's
+   `aria-label` is the title, so the suffix doesn't change its accessible name.
