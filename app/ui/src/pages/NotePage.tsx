@@ -27,6 +27,7 @@ import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
+import { ReviewCheck } from '../shell/ReviewCheck';
 import { pageFallback, typeOfValue } from '../types/util';
 import { reviewable } from '../review';
 import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
@@ -275,6 +276,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       gone: () => setDeleted(true),
       written: (text) => {
         const before = noteMeta(live.current.path, diskTextRef.current || text).type;
+        diskTextRef.current = text; // at once: a watcher event can arrive before the next render (FR-SYN-03 AC-21)
         setDiskText(text);
         syncHead();
         if (noteMeta(live.current.path, text).type !== before) onTypeSaved?.();
@@ -412,6 +414,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       if (!s.isBlocked() && !s.pending) s.base = n.version;
       return;
     }
+    // FR-SYN-03 AC-21 (v0.52 H9, H10): the watcher reporting this page's own save, on its way or just landed; the
+    // write's result sets the base. Taking it as external opened the merge dialog or reloaded the editor (caret jump).
+    if (n.text === s.writing || n.text === s.lastWritten) return;
     const doc = parse(n.text.replace(/^﻿/, ''));
     const dirty = s.pending || ed.dirty();
     if (dirty) {
@@ -815,14 +820,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
-  // D-591: the review toggle right of the title row (the daily header has its own, D-330).
+  // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
   const reviewShown = !daily && !draft && editable && !showSource && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
   const reviewed = reviewOf(fmData);
   const reviewToggle = reviewShown ? (
-    <button type="button" tabIndex={0} className={`text-button review note-review ${reviewed ? 'on' : ''}`} aria-pressed={reviewed} data-command={reviewed ? 'note.markUnreviewed' : 'note.markReviewed'}
-      onClick={() => setReviewedRef.current(!reviewed)}>
-      {reviewed && <Icon name="check" size={14} />}<span>{t(reviewed ? 'daily.reviewed' : 'daily.markReviewed')}</span>
-    </button>
+    <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
   ) : null;
 
   return (
@@ -849,6 +851,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />
+          {reviewToggle && <span className="spacer" />}
+          {reviewToggle}
         </div>
         {daily && (
           <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}
@@ -877,7 +881,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               onTab={() => { onTitleBlur(); if (propertiesOpen) panelApi.current?.focusFirst(); else pane.current?.focus(); }}
             />
           </h1>
-          {reviewToggle}
           </div>
         ) : (
           <h1 ref={heading} tabIndex={-1} className="note-title">

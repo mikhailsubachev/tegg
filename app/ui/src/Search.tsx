@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ipc } from './ipc/client';
 import type { SearchPageDto } from './ipc/types';
 import { Highlighted } from './Highlighted';
-import { typeIcon } from './icons';
+import { TypeIcon } from './icons';
 import { t } from './i18n/catalog';
 
 /** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet. `tag` presets the tag filter
@@ -41,7 +41,7 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
             {/* A link row, not a <button>: WebKit centres a flex button's content, so results with a wrapped snippet
                 jumped to the middle (3C preview feedback). */}
             <a href="#" tabIndex={0} className="result" onClick={(e) => { e.preventDefault(); onOpen(r.path); }}>
-              <span className="icon">{typeIcon(r.type)}</span>
+              <span className="icon"><TypeIcon type={r.type} /></span>
               <span className="title" data-user-content>{r.title}</span>
               {r.typo && <span className="typo">{t('search.typo')}</span>}
               {r.file_name && (() => {

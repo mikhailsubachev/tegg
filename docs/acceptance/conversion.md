@@ -157,6 +157,7 @@ The 4F frame (embeds.md R30, `data-embed-mode="card"`) with `data-task-card`, fo
 - **AC-8** **Two cards of one task.** In Dvě karty, checking the first card's checkbox updates the second card within 1 s; changing the status in the second card afterwards writes with the first write's resulting version as base (no `Conflict`). *(L5)*
 - **AC-9** **Read-only places (R52).** In the read view of Porada; in Obal (Porada as a full embed, so T01's card is at depth 2); and for a runtime copy of T01 with invalid frontmatter: the checkbox and the Status, Priority and Due buttons are aria-disabled with `This task can't be edited here.`, typing in the body changes nothing, and no write is sent. *(L5)*
 - **AC-10** **Title isn't edited in the card (AP-427).** The title text in the card header isn't editable (no `contenteditable`, no textbox); renaming happens on the task's page (4C). *(L5)*
+- **AC-11** **The completion date on a done task (D-599, AP-525; v0.52 feedback).** On Porada, checking the card's checkbox at the test clock replaces the `Due` button with the text `Completed <2026-10-14 as a D-160 medium date in the test region>` (no `Due:` button in the header); unchecking it brings back `Due: …` and removes the text. A task with status `Cancelled` and `completed: 2026-10-12T08:00:00+02:00` shows `Completed <2026-10-12, medium>`; a done task without `completed` shows neither. The card stays in card mode; no extra write. *(L5)*
 
 ### FR-CNV-06 One undoable action
 

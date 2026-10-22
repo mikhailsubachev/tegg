@@ -75,6 +75,7 @@ const COMMANDS: &[&str] = &[
     "capture_draft_get",
     "capture_draft_set",
     "capture_saved_show",
+    "capture_suggest",
     "vault_settings",
     "vault_settings_patch",
     "vault_reveal",

@@ -2,7 +2,7 @@
 //! texts live here, keyed like the UI catalog; `app/test/catalog_5b.ac.test.ts` checks they equal the catalog's
 //! English values (NFR-OTH-02).
 
-const MENUBAR: [(&str, &str); 7] = [
+const MENUBAR: [(&str, &str); 8] = [
     ("menubar.title", "Tegg"),
     ("menubar.help", "Quick Capture"),
     ("menubar.capture", "Quick Capture"),
@@ -10,6 +10,8 @@ const MENUBAR: [(&str, &str); 7] = [
     ("menubar.open", "Open Tegg"),
     ("menubar.settings", "Settings…"),
     ("menubar.quit", "Quit Tegg"),
+    // D-608: the app menu's Help › Keyboard Shortcuts.
+    ("menubar.shortcuts", "Keyboard Shortcuts"),
 ];
 
 /// `menubar.<key>`'s English text.

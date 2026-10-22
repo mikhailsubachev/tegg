@@ -371,8 +371,13 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
       // 4F (AP-349): a click on a block embed's frame (outside its controls and content) selects it as a block.
       handleClickOn: (view, _pos, node, nodePos, event, direct) => {
-        if (!direct || node.type.name !== 'rawBlock' || node.attrs.kind !== 'embed' || !opts.onEmbedKey) return false
         const el = event.target as HTMLElement | null
+        // D-606: a click on a read-only table (outside its links) selects it as a block, as a source block is.
+        if (direct && node.type.name === 'rawBlock' && el?.closest?.('[data-table-readonly]') && !el.closest('a, [role="link"]')) {
+          view.dispatch(view.state.tr.setMeta(blockSelKey, { anchor: view.state.doc.resolve(nodePos).index(0), head: view.state.doc.resolve(nodePos).index(0) }))
+          return true
+        }
+        if (!direct || node.type.name !== 'rawBlock' || node.attrs.kind !== 'embed' || !opts.onEmbedKey) return false
         if (el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')) return false
         const k = view.state.doc.resolve(nodePos).index(0)
         view.dispatch(view.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
@@ -1346,7 +1351,8 @@ function inEmbedDom(view: EditorView): boolean {
   const sel = typeof window !== 'undefined' ? window.getSelection() : null
   const node = sel?.anchorNode ?? null
   const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null
-  const block = el?.closest?.('.embed-block')
+  // D-606: a read-only table is guarded like an embed's content (its text isn't this document's).
+  const block = el?.closest?.('.embed-block, [data-table-readonly]')
   return !!block && view.dom.contains(block) && block !== view.dom
 }
 

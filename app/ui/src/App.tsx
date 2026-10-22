@@ -1,6 +1,7 @@
 // The MS3 slice 3A shell (architecture §12, docs/contracts/ms3-shell.md): the frame with every designed page,
 // TBD placeholders for later phases (D-116), the command palette and shortcuts (FR-UX-03), themes (FR-UX-05),
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
+import { ShortcutsPage } from './pages/ShortcutsPage';
 import { registerConvertPrefs } from './convert/prefs';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
@@ -811,6 +812,8 @@ export function App() {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
     body = <DuplicateTitlesPage heading={heading} refresh={refresh} types={types} onOpen={(p) => openNote(p)} />;
+  } else if (route?.id === 'help/shortcuts') {
+    body = <ShortcutsPage heading={heading} commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (route?.id === 'conflicts') {
     body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {

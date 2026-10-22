@@ -230,7 +230,12 @@ export type LinkTargetDto = { target: string,
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
  */
-kind: string, path: string | null, title: string | null, type: string | null, };
+kind: string, path: string | null, title: string | null, type: string | null, 
+/**
+ * D-601: the target's `review`, `status`, `due` and `completed` (trimmed strings), for its chip. Only
+ * `link_resolve` fills them; other payloads send null.
+ */
+review?: string | null, status?: string | null, due?: string | null, completed?: string | null, };
 export type AtDto = { line: number, byte: number, };
 export type ExcerptSegDto = { "kind": "text", text: string, marks: Array<string>, } | { "kind": "link", text: string, target: LinkTargetDto, here: boolean, marks: Array<string>, };
 export type ExcerptDto = { segments: Array<ExcerptSegDto>, cutStart: boolean, cutEnd: boolean, };
@@ -354,8 +359,21 @@ review: string, attributes: Array<AttributeDto>,
 /**
  * D-567: the default template's frontmatter block only, `---` lines included, no body.
  */
-templateHead: string | null, };
+templateHead: string | null, 
+/**
+ * D-604: the type's plural, for `Saves to <plural>` on types without the review workflow.
+ */
+plural?: string, };
 export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<string>, };
+export type CaptureSuggestDto = { 
+/**
+ * The link text to insert (the stem when it is unique in the vault, else the path without `.md`).
+ */
+link: string, title: string, type: string, 
+/**
+ * The matched alias, if the match was by alias.
+ */
+alias: string | null, };
 export type CapturedDto = { path: string, title: string, typeName: string, };
 export type CaptureDraftDto = { text: string, type: string, tags: Array<string>, due: string | null, priority: string | null, savedAt: string, };
 export type DefaultTypeDto = { raw: string | null, key: string, valid: boolean, };

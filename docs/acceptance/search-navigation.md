@@ -62,6 +62,7 @@ The criteria AC-12…AC-17 come from the MS3 3D preview feedback (D-246, `docs/f
 - **AC-4** Each result carries the location of the first body match: for `meruňkách` the Čtení result points to line 24 of the file (1-based) and the byte offset of `meruňkách` in that line.
 - **AC-5** [MS3] [manual] Opening a result opens the note in the editor scrolled so that the match from AC-4 is visible and highlighted.
 - **AC-6** [MS3] [manual] The search UI shows the type icon, title and highlighted snippet for each result, in light and dark themes.
+- **AC-7** **Type icons (D-236, D-519; v0.52 feedback).** Search results and quick switcher rows show the result's type icon as an SVG (`data-icon` = the type's icon), the same as the sidebar row of that type: a user type with `icon: lightbulb` shows the lightbulb; a Page the page icon. No emoji glyphs (`📄`, `◆`) are shown. *(L5; regression `bug_v052_fr_src_03_type_icons_in_search`)*
 
 ### FR-SRC-04 Search operators, diacritics, typos
 

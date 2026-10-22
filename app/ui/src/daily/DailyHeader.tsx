@@ -1,5 +1,6 @@
 // The header of a Daily Note (daily-notes.md R17, R19; D-321, D-329, D-330, D-337): previous/next day, Today, Pick date,
 // the localized long date, the review toggle on a written note, the virtual marker and the D-319 duplicate notice.
+import { ReviewCheck } from '../shell/ReviewCheck';
 import { useRef } from 'react';
 import { localDate } from '../zone';
 import { t } from '../i18n/catalog';
@@ -37,10 +38,7 @@ export function DailyHeader({ info, review, written, onReview }: { info: DailyIn
         </button>
         <span className="spacer" />
         {written && (
-          <button type="button" tabIndex={0} className={`text-button review ${review ? 'on' : ''}`} aria-pressed={review} data-command={review ? 'daily.markUnreviewed' : 'daily.markReviewed'}
-            onClick={() => onReview(!review)}>
-            {review && <Icon name="check" size={14} />}<span>{t(review ? 'daily.reviewed' : 'daily.markReviewed')}</span>
-          </button>
+          <ReviewCheck reviewed={review} onToggle={onReview} commands={['daily.markReviewed', 'daily.markUnreviewed']} />
         )}
       </div>
       {/* Region-formatted (D-133, D-337), not catalog text: marked like user content for the pseudo-locale check. */}

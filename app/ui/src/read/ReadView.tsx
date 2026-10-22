@@ -3,8 +3,9 @@
 // it, math and footnotes are shown as source text. Embeds, queries and mindmaps are R5 placeholders (D-144).
 import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
+import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
-import { markdownTree, parse, wikilinks } from '@tegg/doc';
+import { displayTables, displayTablesAt, markdownTree, parse, wikilinks } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
 import type { EmbedTree } from '../embeds/tree';
@@ -86,11 +87,12 @@ export function linkTargets(text: string): string[] {
   };
   const doc = parse(text);
   for (const l of wikilinks(doc)) add(l.target.trim());
-  walk(markdownTree(text.slice(doc.bodyStart)) as Any, (n) => {
+  walk(markdownTree(displayTables(text.slice(doc.bodyStart))) as Any, (n) => {
     if (n.type === 'link') {
       const p = noteUrl(n.url);
       if (p) add(p);
     }
+    if (n.type === 'wikiLink' && !n.embed) add(splitWikilink(String(n.value)).target.trim()); // links of D-606 tables
   });
   return out;
 }
@@ -114,28 +116,33 @@ function plainText(n: Any): string {
   return '';
 }
 
-type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object> };
+type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object>; readOnlyTables?: Set<number> };
 
-function Chip({ kind, name, type, description, disabled, onActivate }: {
+function Chip({ kind, name, type, description, disabled, onActivate, info }: {
   kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
+  /** D-600: the resolved target, for the Unreviewed mark and a task's suffix. */
+  info?: LinkTargetDto;
 }) {
   const act = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!disabled) onActivate?.(e.currentTarget as HTMLElement);
   };
   const icon = type && kind !== 'external' ? chipIcon(type) : null;
+  const parts = info ? chipParts(info) : null;
   return (
     <a
       href="#"
       className={`chip link-chip kind-${kind}`}
       data-link-kind={kind}
-      aria-description={description}
+      {...parts?.attrs}
+      aria-description={joinDescriptions(description, parts?.description)}
       aria-disabled={disabled ? 'true' : undefined}
       onClick={act}
       onKeyDown={(e) => e.key === 'Enter' && act(e)}
     >
-      {type && (icon ? <Icon name={icon.glyph} dataIcon={icon.def} size={13} /> : <Icon name="link" size={13} />)}
+      {parts?.icon ?? (type && (icon ? <Icon name={icon.glyph} dataIcon={icon.def} size={13} /> : <Icon name="link" size={13} />))}
       <span data-user-content>{name}</span>
+      {parts?.suffix}
     </a>
   );
 }
@@ -153,7 +160,7 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
   if (info && (info.kind === 'note' || info.kind === 'daily') && info.path) {
     const title = info.title ?? target;
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title);
-    return <Chip kind={info.kind} name={name} type={info.type} onActivate={() => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); }} />;
+    return <Chip kind={info.kind} name={name} type={info.type} info={info} onActivate={() => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); }} />;
   }
   if (info?.kind === 'date-missing') {
     // FR-DLY-08 AC-5, AC-6 (D-142 ended): never broken; opens the virtual Daily Note.
@@ -480,7 +487,7 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       const align = (i: number) => (n.align?.[i] ?? undefined) as 'left' | 'center' | 'right' | undefined;
       const [head, ...rows] = n.children as Any[];
       return (
-        <div key={key} className="table-wrap">
+        <div key={key} className="table-wrap" {...(c.readOnlyTables?.has(n.position?.start?.line) ? { 'data-table-readonly': '', 'aria-description': t('table.readOnly') } : {})}>
           <table>
             <thead>
               <tr>
@@ -545,10 +552,12 @@ export function noteTitle(doc: ReturnType<typeof parse>, path: string): string {
 export function ReadView(props: ReadViewProps) {
   const text = props.text.replace(/^﻿/, '');
   const doc = parse(text);
-  const body = text.slice(doc.bodyStart);
+  // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
+  const shown = displayTablesAt(text.slice(doc.bodyStart));
+  const body = shown.text;
   const tree = markdownTree(body) as unknown as Any;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
-  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet() };
+  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines) };
   if (props.bare) return <div className="read-view embed-read" data-user-content>{topBlocks(c, tree.children as Any[], lineOffset)}</div>;
   return (
     <article className="read-view" aria-label={noteTitle(doc, props.path)} data-user-content>

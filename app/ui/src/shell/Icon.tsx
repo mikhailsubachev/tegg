@@ -5,6 +5,9 @@ const PATHS: Record<string, string> = {
   inbox: 'M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5',
   calendar: 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4',
   task: 'M4 4h16v16H4zM8 12l3 3 5-6',
+  // D-600: a task chip's box by state (open empty, done ticked, cancelled crossed).
+  'task-open': 'M4 4h16v16H4z',
+  'task-cancelled': 'M4 4h16v16H4zM9 9l6 6M15 9l-6 6',
   search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4',
   plus: 'M12 5v14M5 12h14',
   file: 'M6 3h8l4 4v14H6zM14 3v4h4',

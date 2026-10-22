@@ -57,6 +57,13 @@ export const light: Tokens = {
   // 5A-1 (FR-TSK-09 AC-2, AC-3): due chips on the Tasks boards; danger / link keep 4.5:1 on them.
   'danger-bg': '#FCEBEA',
   'link-bg': '#E8EFFC',
+  // D-600 (LinkChips board): the hovered chip tint, the task suffix divider, the Unreviewed mark (text 4.5:1 on
+  // unrev-bg and bg; the board's #B06F00 is 3.8:1).
+  'link-bg-h': '#D6E3F8',
+  'chip-div': '#C3D2EE',
+  unrev: '#9A5F00',
+  'unrev-ring': '#F2C46B',
+  'unrev-bg': '#FFF6E5',
   // F9 (capture.md R55 look): the board's primary button.
   btn: '#1C1C1E',
   'btn-fg': '#FFFFFF',
@@ -85,6 +92,11 @@ export const dark: Tokens = {
   'embed-bg': '#212124',
   'danger-bg': '#3A2020',
   'link-bg': '#1E2A44',
+  'link-bg-h': '#2A3A57',
+  'chip-div': '#3A4C6E',
+  unrev: '#F0B34A',
+  'unrev-ring': '#7A5A1E',
+  'unrev-bg': '#33270F',
   btn: '#ECECEE',
   'btn-fg': '#1C1C1E',
   ...typeTokens(TYPE_DARK),

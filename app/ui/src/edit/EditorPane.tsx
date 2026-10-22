@@ -4,7 +4,10 @@
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { createEditor, embedTarget, linkTarget, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, unreviewedText } from '../links/chip';
+import { SelectionMenu, type SelectionAction } from './SelectionMenu';
+import { mountReadOnlyTable } from './readOnlyTable';
 import { isAttachmentTarget } from '@tegg/doc';
 import type { EmbedStore } from '../embeds/store';
 import { mountEmbed } from '../embeds/slot';
@@ -60,6 +63,14 @@ export type EditorPaneApi = {
 function chipIconElement(type: string): Element {
   const i = chipIcon(type);
   return iconElement(i.glyph, 13, i.def);
+}
+
+/** D-600: the Unreviewed mark and a task's box and suffix on an editor chip (links/chip.ts). */
+function chipExtraOf(info: LinkInfo): ChipExtra | null {
+  const s = chipState(info);
+  if (!s.unreviewed && !s.task) return null;
+  const glyph = taskGlyph(s);
+  return { attrs: chipAttrs(s), description: s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
@@ -146,6 +157,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const [menu, setMenu] = useState<Menu>(null);
   const [linkField, setLinkField] = useState<LinkField>(null);
   const [toolbarHidden, setToolbarHidden] = useState<string | null>(null);
+  /** D-605: the selection's context menu at the pointer; `nested` is the embed editor it was opened in. */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; nested: HTMLElement | null } | null>(null);
   const dismissed = useRef<string | null>(null);
   const live = useRef({ slash, suggest, menu, linkField });
   live.current = { slash, suggest, menu, linkField };
@@ -159,6 +172,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       sourceBlock: t('editor.sourceBlock'),
       checkbox: t('editor.checkbox'),
       chipIcon: (type) => (type ? chipIconElement(type) : null),
+      chipExtra: (info) => chipExtraOf(info),
+      readOnlyTable: (md, dom) => mountReadOnlyTable(md, dom, { path: pathRef.current, onOpen: (p, f) => cb.current.onOpen(p, f ? `#${f.replace(/^#/, '')}` : undefined), onTag: (k) => cb.current.onTag(k), onExternal: (u) => cb.current.onExternal(u) }),
+      readOnlyTableHint: t('table.readOnly'),
       hint: t('editor.hint'),
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
@@ -240,7 +256,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
       edRef.current?.refreshUi();
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
@@ -269,7 +285,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     embedSig.current = sig;
     const map = new Map<string, LinkTargetDto>();
     for (const [k, v] of links.current) {
-      const dto = { target: k, kind: v.kind, path: v.path ?? null, title: v.title ?? null, type: v.type ?? null } as LinkTargetDto;
+      const dto = { target: k, kind: v.kind, path: v.path ?? null, title: v.title ?? null, type: v.type ?? null, review: v.review ?? null, status: v.status ?? null, due: v.due ?? null, completed: v.completed ?? null } as LinkTargetDto;
       map.set(k, dto);
     }
     void embeds.build(ed.text(), map);
@@ -284,9 +300,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const tg = linkTarget(v).target.normalize('NFC');
       if (tg && !isAttachmentTarget(tg)) targets.add(tg);
     }
+    // D-600, FR-LNK-07 AC-10: a changed target changes its chip (Unreviewed, a task's status and dates).
+    ed.view.state.doc.descendants((n) => {
+      if (n.type.name === 'wikiLink' && !n.attrs.embed) { const tg = linkTarget(String(n.attrs.value)).target.normalize('NFC'); if (tg) targets.add(tg); }
+      return true;
+    });
     if (targets.size) {
       const res = await ipc.linkResolve(pathRef.current, [...targets]).catch(() => [] as LinkTargetDto[]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
     }
     buildEmbeds(true);
     edRef.current?.refreshUi();
@@ -346,7 +367,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       return !!b;
     };
     if (key === 'open') return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link');
-    if (key === 'displayAs') return click('.embed-header button[aria-haspopup="menu"]');
+    if (key === 'displayAs') return click('.embed-header button[aria-haspopup="menu"], .embed-link-block > .embed-mode > button[aria-haspopup="menu"]');
     const nested = embeds.nested().find((x) => { const el = x.el(); return !!el && dom.contains(el); });
     if (nested) { nested.focusStart(); return true; }
     return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link');
@@ -972,7 +993,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (e.shiftKey && !e.metaKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { stop(); ed.commands.extendBlockSelection(e.key === 'ArrowDown' ? 'down' : 'up'); return; }
       if (e.key === 'Backspace' || e.key === 'Delete') { stop(); ed.commands.deleteBlocks(); return; }
       // Typing over a block selection replaces it (D-496: the removal guard asks for converted objects' embeds).
-      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { stop(); ed.commands.pasteText(e.key, true); return; }
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        stop();
+        // D-606 (FR-EDT-02 AC-22): typing doesn't replace read-only tables; they are edited in the source view.
+        const kids = [...ed.view.dom.children];
+        if (kids.slice(bs.from, bs.to + 1).every((k) => k.hasAttribute('data-table-readonly'))) return;
+        ed.commands.pasteText(e.key, true);
+        return;
+      }
     }
     // FR-CNV-05 AC-4: Tab on a selected Task card goes to its header controls (checkbox, Status, …, Display as).
     const se = e.key === 'Tab' && !e.shiftKey && !e.metaKey ? ed.selectedEmbed() : null;
@@ -1079,8 +1107,52 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     return { left: c.left - wrapRect.left, top: c.bottom - wrapRect.top + 4 };
   };
 
+  // D-605 (FR-EDT-05 AC-7): a right-click on a text selection opens Tegg's menu; anything else keeps the system menu.
+  const onContextMenu = (ev: React.MouseEvent) => {
+    const e = edRef.current;
+    if (!e) return;
+    const target = ev.target as HTMLElement;
+    if (target.closest('pre, code')) return;
+    const nested = target.closest<HTMLElement>('[data-embed-body] .ProseMirror');
+    if (nested) {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !nested.contains(sel.anchorNode)) return;
+      ev.preventDefault();
+      setCtxMenu({ x: ev.clientX, y: ev.clientY, nested });
+      return;
+    }
+    if (!e.view.dom.contains(target)) return;
+    const sel = e.view.state.selection;
+    if (sel.empty || (sel as { node?: unknown }).node || sel.$from.parent.type.spec.code) return;
+    ev.preventDefault();
+    setCtxMenu({ x: ev.clientX, y: ev.clientY, nested: null });
+  };
+  const onSelectionAction = (a: SelectionAction, nested: HTMLElement | null) => {
+    const e = edRef.current;
+    if (!e) return;
+    if (nested) {
+      // A nested embed editor: the browser's editing commands and its own key bindings act on it.
+      nested.focus();
+      if (a === 'cut' || a === 'copy') document.execCommand(a);
+      else if (a === 'paste') void navigator.clipboard.readText().then((txt) => { nested.focus(); document.execCommand('insertText', false, txt); }).catch(() => {});
+      else if (a === 'bold' || a === 'italic' || a === 'strike' || a === 'code' || a === 'highlight') embeds?.nested().find((x) => { const el = x.el(); return !!el && (el === nested || el.contains(nested) || nested.contains(el)); })?.mark?.(a);
+      return;
+    }
+    e.view.focus();
+    if (a === 'cut' || a === 'copy') document.execCommand(a);
+    else if (a === 'paste') void navigator.clipboard.readText().then((txt) => { e.view.focus(); e.view.pasteText(txt); }).catch(() => {});
+    else if (a === 'link') openLinkField();
+    else if (a === 'turnIntoObject') { focusArea.current = 'body'; run('turnIntoObject'); }
+    else run(a);
+  };
+
   return (
-    <div ref={wrap} className="editor-wrap" onKeyDownCapture={onKeyDownCapture} onMouseDownCapture={onMouseDownCapture} onMouseMove={onMouseMove} onMouseLeave={() => setHover(null)}>
+    <div ref={wrap} className="editor-wrap" onKeyDownCapture={onKeyDownCapture} onMouseDownCapture={onMouseDownCapture} onMouseMove={onMouseMove} onMouseLeave={() => setHover(null)} onContextMenu={onContextMenu}>
+      {ctxMenu && (
+        <SelectionMenu x={ctxMenu.x} y={ctxMenu.y}
+          disabled={ctxMenu.nested ? { link: t('menu.notInEmbed'), turnIntoObject: t('menu.notInEmbed') } : { turnIntoObject: convertBlocked() ?? undefined }}
+          onClose={() => { const n = ctxMenu.nested; setCtxMenu(null); if (n) n.focus(); else focusEditor(); }} onAction={(a) => onSelectionAction(a, ctxMenu.nested)} />
+      )}
       {handleTop !== null && handleBlock !== null && (
         <div className="block-handles" style={{ top: handleTop }}>
           <button data-command="editor.addBlockBelow" type="button" tabIndex={-1} className="icon-button" aria-label={t('editor.addBelow')} title={t('editor.addBelow')}

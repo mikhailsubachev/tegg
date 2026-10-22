@@ -18,6 +18,7 @@
     "allow-capture-open-main",
     "allow-capture-draft-get",
     "allow-capture-draft-set",
-    "allow-capture-saved-show"
+    "allow-capture-saved-show",
+    "allow-capture-suggest"
   ]
 }

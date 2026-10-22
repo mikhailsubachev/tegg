@@ -122,7 +122,8 @@ test('fr_inb_01_ac13_the_card_text_is_simplified_markdown', async ({ page }) => 
 
 // ------------------------------------------------------------------------------------------------ FR-INB-03 AC-7
 
-const toggle = (page: Page) => main(page).getByRole('button', { name: /^(Mark reviewed|Reviewed)$/ });
+/** D-607 (v0.52): a checkbox in the type row above the title. */
+const toggle = (page: Page) => main(page).getByRole('checkbox', { name: /^(Mark reviewed|Reviewed)$/ });
 const TEMPLATES = ['_templates/Quick Note/Quick Note.md', '_templates/Nápad/Nápad.md'];
 
 /** Opens `path` in a fresh page of the same context and returns the toggle state there (null when absent). */
@@ -140,8 +141,8 @@ async function stateOn(page: Page, path: string): Promise<{ count: number; name:
     const tb = await t.boundingBox();
     const title = p.locator('[aria-label="Title"]').first();
     const hb = await title.boundingBox();
-    const right = !!tb && !!hb && tb.x > hb.x && tb.y < hb.y + hb.height && tb.y + tb.height > hb.y;
-    return { count, name: (await t.getAttribute('aria-label')) ?? nfc((await t.innerText()).trim()), pressed: await t.getAttribute('aria-pressed'), right, writes: await vaultWrites(core) };
+    const right = !!tb && !!hb && tb.y + tb.height <= hb.y + 2; // D-607: in the type row, above the title
+    return { count, name: (await t.getAttribute('aria-label')) ?? nfc((await t.innerText()).trim()), pressed: await t.getAttribute('aria-checked'), right, writes: await vaultWrites(core) };
   } finally {
     await p.close();
   }
@@ -152,7 +153,7 @@ test('fr_inb_03_ac7_the_toggle_shows_on_reviewable_objects_only', async ({ page 
   const not = ['Q1', 'Q2', 'Q4', 'Q5', 'T1', 'S1', 'N1', 'N2'] as const;
   for (const k of not) {
     const s = await stateOn(page, I[k]);
-    assert.deepEqual([s.count, s.name, s.pressed, s.right], [1, 'Mark reviewed', 'false', true], `${k}: "Mark reviewed" (not pressed) right of the title row`);
+    assert.deepEqual([s.count, s.name, s.pressed, s.right], [1, 'Mark reviewed', 'false', true], `${k}: "Mark reviewed" (not checked) in the type row above the title`);
     assert.deepEqual(s.writes, [], `${k}: opening writes nothing`);
   }
   for (const k of ['Q3', 'DQ'] as const) {
@@ -186,7 +187,7 @@ test('fr_inb_03_ac7_activating_the_toggle_writes_review', async ({ page }) => {
   const n2 = swap(original(I.N2), 'modified: 2026-09-30T09:00:00+02:00\n---\n', `modified: ${NOW}\nreview: reviewed\n---\n`);
   assert.equal(await fileWhen(core, I.N2, (t) => t !== original(I.N2)), n2, 'N2: review: reviewed appended after the last entry, modified updated (D-562)');
   assert.deepEqual(await core.writesTo(), [nfc(I.N2)], 'N2 written once');
-  const shown = await eventually(async () => [await toggle(page).first().getAttribute('aria-label') ?? (await toggle(page).first().innerText()).trim(), await toggle(page).first().getAttribute('aria-pressed')], (x) => x[1] === 'true', 2000);
+  const shown = await eventually(async () => [await toggle(page).first().getAttribute('aria-label') ?? (await toggle(page).first().innerText()).trim(), await toggle(page).first().getAttribute('aria-checked')], (x) => x[1] === 'true', 2000);
   assert.deepEqual(shown, ['Reviewed', 'true'], 'shows Reviewed (pressed)');
   await sleep(500);
   assert.equal(await inboxCountNow(page), '13', 'the Inbox count is unchanged (N2 wasn\'t a member)');
@@ -206,6 +207,6 @@ test('fr_inb_03_ac7_activating_the_toggle_writes_review', async ({ page }) => {
   await must(p2.locator('[aria-label="Title"]'), 'S1', 5000);
   await runCommand(p2, 'Mark reviewed');
   assert.ok((await fileWhen(core2, I.S1, (t) => !!t?.includes('review: reviewed')))?.includes('review: reviewed'), 'palette Mark reviewed on S1');
-  assert.equal(await eventually(async () => toggle(p2).first().getAttribute('aria-pressed'), (x) => x === 'true', 2000), 'true', 'the toggle follows the palette');
+  assert.equal(await eventually(async () => toggle(p2).first().getAttribute('aria-checked'), (x) => x === 'true', 2000), 'true', 'the toggle follows the palette');
   assert.ok(await seen(toggle(p2), 100), 'the toggle is there');
 });

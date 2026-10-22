@@ -85,9 +85,9 @@ Inbox
 </a>
 </sc-for>
 </div>
-<!-- Logo (bottom left) -->
-<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px">
-<button aria-haspopup="menu" aria-label="Tegg: About and Settings" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; border-radius: 8px"><svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true" style="flex: none"><path d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="3"></path><path d="M24 28 H76 M50 28 V60" fill="none" stroke="#0B44F0" stroke-width="15"></path><path d="M39 72 a11 11 0 1 0 22 0 a11 11 0 1 0 -22 0 Z" fill="#0B44F0"></path></svg><span style="font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .05em; color: var(--brand)">TEGG</span></button>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
 </div>
 </nav>
 
@@ -157,12 +157,12 @@ Inbox
 </div>
 <sc-if value="{{i.menuOpen}}" hint-placeholder-val="{{ false }}">
 <div role="menu" aria-label="Triage actions" style="position: absolute; top: 40px; right: 8px; width: 236px; padding: 6px; border-radius: 10px; background: var(--pop); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.16); display: flex; flex-direction: column; font-size: 13px">
-<div style="padding: 4px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Convert to <span style="text-transform: none; letter-spacing: 0; font-weight: 400">· keeps content, id, links and the file’s folder (D-372)</span></div>
-<sc-for list="{{convertTo}}" as="c" hint-placeholder-count="5">
-<button role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{c.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg><span style="flex: 1">{{c.label}}</span><span style="font-size: 11px; color: var(--muted)">{{c.key}}</span></button>
+<div style="padding: 4px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Convert to <span style="text-transform: none; letter-spacing: 0; font-weight: 400">· keeps content, id, links</span></div>
+<sc-for list="{{convertTo}}" as="c" hint-placeholder-count="7">
+<button role="menuitemradio" aria-checked="{{c.checked}}" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; text-align: left; background: {{c.bg}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{c.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg><span style="flex: 1">{{c.label}}</span><span style="font-size: 12px; color: var(--muted)">{{c.mark}}</span></button>
 </sc-for>
 <div aria-hidden="true" style="height: 1px; background: var(--border); margin: 5px 2px"></div>
-<sc-for list="{{actions}}" as="a" hint-placeholder-count="4">
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="1">
 <button role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; text-align: left; color: {{a.fg}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg><span style="flex: 1">{{a.label}}</span><span style="font-size: 11px; color: var(--muted); min-width: 16px; text-align: center; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px">{{a.key}}</span></button>
 </sc-for>
 </div>
@@ -176,10 +176,7 @@ Inbox
 <span><b style="color: var(--text); font-weight: 600">←↑↓→</b> move</span>
 <span><b style="color: var(--text); font-weight: 600">R</b> reviewed</span>
 <span><b style="color: var(--text); font-weight: 600">C</b> convert</span>
-<span><b style="color: var(--text); font-weight: 600">M</b> merge</span>
-<span><b style="color: var(--text); font-weight: 600">L</b> link</span>
-<span><b style="color: var(--text); font-weight: 600">#</b> tags</span>
-<span><b style="color: var(--text); font-weight: 600">⌫</b> trash</span>
+<span><b style="color: var(--text); font-weight: 600">⌘⌫</b> trash</span>
 <span><b style="color: var(--text); font-weight: 600">↩</b> open</span>
 </div>
 </div>
@@ -239,7 +236,7 @@ const nav = [
 { label: 'Tasks', d: I.task, meta: '3' }
 ].map((n) => ({ ...n, bg: n.active ? 'var(--hover)' : 'transparent', weight: n.active ? '600' : '400' }));
 const types = [
-['Pages', 'page', '128'], ['Tasks', 'task', '46'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
+['Pages', 'page', '128'], ['Quick Notes', 'quick', '212'], ['Daily Notes', 'daily', '340'],
 ['Ideas', 'idea', '10'], ['Meetings', 'meet', '58'], ['Projects', 'proj', '9'], ['People', 'person', '31']
 ].map(([label, k, c]) => ({ label, count: c, d: T[k][0], color: T[k][1] }));
 const sideTags = [
@@ -281,13 +278,11 @@ item('d', 'quick', 'Book tip from Petr', '“The Organized Mind”, he says chap
 ] }
 ];
 const left = 4 - Object.values(rev).filter(Boolean).length;
-const convertTo = [['idea', '1'], ['task', '2'], ['page', '3'], ['meet', '4'], ['proj', '5']].map(([k, key]) => ({ label: T[k][3], d: T[k][0], color: T[k][1], key }));
+// Same menu as the note page ⋯ menu: Convert to (current type marked) + Move to trash.
+const convertTo = [['quick', true], ['page'], ['task'], ['idea'], ['meet'], ['proj'], ['person']].map(([k, cur]) => ({ label: T[k][3], d: T[k][0], color: T[k][1], checked: cur ? 'true' : 'false', mark: cur ? 'current' : '', bg: cur ? 'var(--hover)' : 'transparent' }));
 const actions = [
-{ label: 'Merge into / append to…', key: 'M', fg: 'var(--text)', d: 'M6 4v6a4 4 0 0 0 4 4h8M14 10l4 4-4 4' },
-{ label: 'Link to…', key: 'L', fg: 'var(--text)', d: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1' },
-{ label: 'Add tags…', key: '#', fg: 'var(--text)', d: 'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16' },
-{ label: 'Move to trash', key: '⌫', fg: 'var(--danger)', d: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13' }
-];
+{ label: 'Move to trash', key: '⌘⌫', fg: 'var(--danger)', d: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13' }
+]
 return {
 themeClass: dark ? 'dark' : '', nav, types, sideTags, filters, groups, convertTo, actions,
 bulk, empty, hasItems: !empty,

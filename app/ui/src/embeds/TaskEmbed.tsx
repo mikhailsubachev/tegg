@@ -3,7 +3,8 @@
 // editable in place. The header is computed from the text the embed already loaded (`taskHeader`); every control
 // writes the task file only, through the one task write path (tasks/write.ts, §5).
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { parse } from '@tegg/doc';
+import { localDate, parse, parseInstant } from '@tegg/doc';
+import { formatDate } from '../read/PropertiesStrip';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
@@ -92,6 +93,7 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
   const why = readOnly ? t('task.readOnly') : undefined;
   const name = h.title || title;
   const done = h.state === 'done';
+  const closed = h.state === 'done' || h.state === 'cancelled';
   const row = {
     path: note.path, id: null, title: name, status: h.status, state: h.state, statusKnown: h.statusKnown, priority: h.priority, priorityRank: 0,
     dueRaw: h.dueRaw, due: h.due, completed: h.completed, tags: [], fmTags: [], source: null, excerpt: '', created: null, modified: null,
@@ -118,6 +120,8 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
   const close = (back: HTMLElement | null) => { setMenu(null); back?.focus(); };
 
   const due = dueLabel(row, today, region, zone);
+  const completedMs = h.completed ? parseInstant(h.completed, zone) : null;
+  const completedOn = completedMs !== null ? localDate(completedMs, zone) : null;
   const overdue = due.tone === 'overdue';
   const dueName = t('task.dueButton', { label: due.text || t('task.none') }) + (overdue ? `, ${t('task.overdueWord')}` : '');
   const statusColor = d.statuses.find((s) => s.label === h.status)?.color ?? null;
@@ -173,8 +177,11 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
           children: <><span className="dot" data-color={statusColor ?? ''} style={statusColor ? { background: `var(--type-${statusColor})` } : undefined} /><span data-user-content>{h.status ?? t('task.none')}</span></> })}
         {button({ ref: priorityBtn, which: 'priority', name: t('task.priorityButton', { label: h.priority ?? t('task.none') }), command: 'task.setPriority', attrs: { 'data-priority': h.priority ?? '' },
           children: <><Icon name="flag" size={12} /><span data-user-content>{h.priority ?? t('task.none')}</span></> })}
-        {button({ ref: dueBtn, which: 'due', name: dueName, command: 'task.setDue', attrs: { 'data-due': h.dueRaw ?? '', 'data-tone': due.tone },
-          children: <><Icon name="calendar" size={12} /><span>{due.text || t('task.none')}</span></> })}
+        {closed
+          // D-599: a done or cancelled task shows when it was completed instead of its due date.
+          ? completedOn && <span className="task-completed" data-completed={completedOn}>{t('task.completedLabel', { date: formatDate(completedOn) })}</span>
+          : button({ ref: dueBtn, which: 'due', name: dueName, command: 'task.setDue', attrs: { 'data-due': h.dueRaw ?? '', 'data-tone': due.tone },
+            children: <><Icon name="calendar" size={12} /><span>{due.text || t('task.none')}</span></> })}
         {openButton}
         {modeMenu}
       </div>

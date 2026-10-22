@@ -119,6 +119,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
       depth: 1,
       editable: true,
       text: () => ed.text(),
+      mark: (m) => { ed.commands.toggleMark(m); ed.view.focus(); },
       dirty: () => ed.dirty() || s.pending,
       historyDepth: () => ed.historyDepth(),
       state: () => s.state,

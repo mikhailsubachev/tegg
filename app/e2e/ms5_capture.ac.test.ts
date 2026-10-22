@@ -28,6 +28,8 @@ process.on('exit', appiumDown);
 // D-504: the test clock starts at TEGG_NOW and runs on, so a stamp a few seconds later is the same test minute.
 const clk = (t: string | null) => t?.replace(/^(captured|created|modified): (\d{4}-\d\d-\d\dT\d\d:\d\d):\d\d([+-]\d\d:\d\d)$/gm, (_m, k, hm, o) => `${k}: ${hm}:00${o}`) ?? null;
 const stamps = (now = NOW) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n`; // D-595: no `captured`
+/** D-604: a Task capture (review workflow off) has no `review` line. */
+const plain = (now = NOW) => `created: ${now}\nmodified: ${now}\n`;
 type Ctx = { base: string; vault: string; sup: string; log: string; d?: Driver };
 function fresh(name: string, o: { shell?: { showStatusItem: boolean; openAtLogin: boolean }; ui?: Record<string, unknown> } = {}): Ctx {
   const base = tmp(name);
@@ -72,7 +74,7 @@ test('fr_cap_01_ac1_the_status_item_and_its_menu', { timeout: 300_000 }, async (
     await item.click();
     assert.ok(await waitFor(() => captureOpen(d), 1000), 'Quick Capture within 1 s');
     assert.ok(await shown(d, 'Type: Quick Note', 1000) && await shown(d, 'Saves to Doručené', 1000), 'Type: Quick Note, Saves to <vault>');
-    assert.ok(!(await shown(d, 'Due: None', 300)), 'no Due control');
+    assert.ok(!(await shown(d, 'Due: No date', 300)), 'no Due control'); // D-602 label
     assert.equal(await mainOpen(d), false, 'the main window stays hidden');
     press('escape');
     await d.execute('macos: rightClick', { elementId: (await statusItem(d)).elementId });
@@ -331,8 +333,9 @@ test('fr_cap_03_ac4_capture_while_the_initial_index_runs', { timeout: 1_800_000 
     await typeCapture('Za běhu indexu');
     press('enter', ['command']);
     assert.ok(await waitFile(join(out, 'Pages/Za běhu indexu.md'), (t) => t !== null, 5000), 'written while the index runs (the vault default type is Page)');
-    palette('Go to Inbox');
-    assert.ok(await shown(d, 'Page: Za běhu indexu', 120_000), 'in the Inbox when indexing has finished');
+    // D-604: a Page capture (review off) isn't an Inbox item; it is on the Pages type page once indexed.
+    palette('Go to type: Pages');
+    assert.ok(await shown(d, 'Za běhu indexu', 120_000), 'on the Pages type page when indexing has finished');
   } finally { await end(d); rmSync(base, { recursive: true, force: true }); }
 });
 
@@ -417,7 +420,7 @@ test('fr_cap_05_ac2_new_task_hotkey', { timeout: 300_000 }, async () => {
   try {
     const d = await launch(c);
     await openByHotkey(d, 'task');
-    for (const l of ['Type: Task', 'Due: None', 'Priority: None']) assert.ok(await shown(d, l, 1000), l);
+    for (const l of ['Type: Task', 'Due: No date', 'Priority: None']) assert.ok(await shown(d, l, 1000), l);
   } finally { await cleanup(c); }
 });
 
@@ -521,7 +524,7 @@ test('fr_tsk_10_ac9_the_task_bytes_on_disk', { timeout: 300_000 }, async () => {
     await typeCapture('Zavolat kominíkovi tomorrow !high #doma');
     press('enter', ['command']);
     const t = await waitFile(join(c.vault, 'Tasks/Zavolat kominíkovi.md'), (x) => x !== null, 3000);
-    assert.equal(clk(maskId(t)), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps()}---\n`, 'FR-TSK-10 AC-9 bytes');
+    assert.equal(clk(maskId(t)), `---\nid: <ULID>\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${plain()}---\n`, 'FR-TSK-10 AC-9 bytes');
   } finally { await cleanup(c); }
 });
 
@@ -533,7 +536,8 @@ test('fr_tsk_10_ac12_the_task_on_tasks_and_in_the_inbox', { timeout: 300_000 }, 
     await openByHotkey(d, 'task');
     await typeCapture('Zavolat kominíkovi tomorrow !high #doma');
     press('enter', ['command']);
-    assert.ok(await shown(d, 'Task: Zavolat kominíkovi', 2000), 'at the top of Today in the Inbox');
+    // D-604: Task's review workflow is off, so the capture is not an Inbox item; it is on the Tasks page.
+    assert.ok(await waitFile(join(c.vault, 'Tasks/Zavolat kominíkovi.md'), (t) => t !== null, 3000), 'written');
     palette('Go to Tasks');
     assert.ok(await waitMark(c.log, 'route-ready:tasks', 3000), 'Tasks');
     assert.ok(await shown(d, 'Task: Zavolat kominíkovi', 2000), 'on the Tasks page');

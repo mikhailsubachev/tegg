@@ -65,6 +65,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `settings/date-time` | Settings: Date & time | TBD | MS3 (3E) | FR-SET-03 | — | Settings section list, palette |
 | `settings/vault` | Settings: Vault | TBD | MS5 | FR-SET-01 | — | Settings section list, palette |
 | `settings/shortcuts` | Settings: Shortcuts | TBD | MS5 | FR-SET-04 | — | Settings section list, palette |
+| `help/shortcuts` | Keyboard shortcuts | built (D-608) | MS5 | FR-UX-03 | — | Help › Keyboard Shortcuts, palette `Keyboard shortcuts`, ⇧⌘/ (no `Go to` command) |
 | `settings/menu-bar` | Settings: Menu bar and startup | TBD | MS5 | FR-SET-05 | — | Settings section list, palette |
 | `settings/trash-history` | Settings: Trash and history | TBD | v1.0 | FR-SET-06 | — | Settings section list, palette |
 | `settings/previews` | Settings: Previews | TBD | v1.0 | FR-SET-07 | — | Settings section list, palette |
@@ -105,6 +106,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌃⌘S | Toggle sidebar | proposed, AP-70 |
 | ⌘⇧\ | Toggle focus mode (Esc also leaves it) | proposed, AP-70 |
 | ⌘, | Go to Settings | proposed, AP-70 |
+| ⇧⌘/ | Keyboard shortcuts | D-608 |
 | ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
 | ⌘[ and ⌘] | Go back, Go forward | FR-NAV-03 (3B.1, D-165, D-166) |
@@ -158,6 +160,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 - **AC-11** **Focus after navigation (AP-74).** After a route change by sidebar, palette or shortcut, the focus is on the new page's heading in the centre pane (not on `body`, not left in the sidebar), so the next Tab starts in the page. *(L5)*
 - **AC-12** **Keys work at launch.** In the built app, right after launch on the fixture and without any click, `⌘K` opens `Command palette` and Esc closes it; then `⌘O` opens `Quick switcher`. *(L6)*
 - **AC-13** **Focus indicator (D-594, extends D-266).** On Home, Inbox, Tasks (Schedule and Kanban), a type page, a note page and Settings: (a) clicking a sidebar entry, a tab (`Kanban`, `Status`), a button, a task card, an Inbox card, a table row and a menu item with the pointer leaves it with no focus ring: computed `outline-style` is `none` or `outline-width` 0, and no `box-shadow` ring; (b) reaching the same elements with Tab or arrows shows an indicator: a ≥ 2 px outline in the `focus` token on buttons, tabs, links and chips, or the neutral `hover` background on rows, cards and menu items; (c) a focused text field (quick-add, tag filter, dialog inputs, property fields) has no outline ring, whether reached by click or Tab. No computed `outline-color` on any route equals the old blue focus values (`#1D5CCB`, `#86AEFF`). *(L5)*
+- **AC-14** **Keyboard shortcuts in Help (D-608; v0.52 feedback).** The palette command `Keyboard shortcuts` and ⇧⌘/ open `help/shortcuts` (heading `Keyboard shortcuts`), which lists every shortcut of the registry with its command title in groups `General`, `Navigation`, `Editor`, `Daily Notes`, `Tasks`, `Inbox` (each registry shortcut exactly once), the global shortcuts (`⌃⌥Space` Quick Capture, `⌃⌥T` New Task) with their state, and the typing triggers `[[`, `@`, `/`, `#`, `![[`. In the built app the menu bar's `Help` menu has `Keyboard Shortcuts`, which opens that page in the main window. *(L5; L6 for the menu item)*
 
 ### FR-UX-05 Light and dark themes with equal quality
 

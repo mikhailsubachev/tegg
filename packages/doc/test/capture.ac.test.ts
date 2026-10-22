@@ -75,6 +75,8 @@ async function captureBytes(o: { type: Record<string, unknown>; text: string; ch
   return m.newObject({ type: o.type, title: p.title === '' ? 'Untitled' : p.title, template: o.template ?? null, now, capture: true, newId: () => ID, values, body: p.body }) as string
 }
 const stamps = (now: string) => `review: unreviewed\ncreated: ${now}\nmodified: ${now}\n` // D-595: no `captured`
+/** D-604: types without the review workflow (Page, Schůzka, Task) get no `review` line. */
+const plain = (now: string) => `created: ${now}\nmodified: ${now}\n`
 
 // ------------------------------------------------------------------------------------------------ FR-CAP-04 AC-1
 
@@ -88,8 +90,8 @@ test('fr_cap_04_ac1_a_captured_quick_note_has_exactly_these_bytes', async () => 
 test('fr_cap_04_ac2_page_and_schuzka_get_the_same_review_and_stamps', async () => {
   const text = 'Koupit dárek pro Janu\nNěco do 500 Kč, viz [[Plán webu]].'
   const body = 'Něco do 500 Kč, viz [[Plán webu]].\n'
-  assert.equal(await captureBytes({ type: PAGE, text, chips: ['nákup'] }), `---\nid: ${ID}\ntype: page\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${stamps(NOW)}---\n${body}`, 'Page: review off, still unreviewed (FR-CAP-04)')
-  assert.equal(await captureBytes({ type: SCHUZKA, text, chips: ['nákup'] }), `---\nid: ${ID}\ntype: schůzka\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${stamps(NOW)}---\n${body}`, 'Schůzka likewise (no `datum` default)')
+  assert.equal(await captureBytes({ type: PAGE, text, chips: ['nákup'] }), `---\nid: ${ID}\ntype: page\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${plain(NOW)}---\n${body}`, 'Page: review off, no review line (D-604)')
+  assert.equal(await captureBytes({ type: SCHUZKA, text, chips: ['nákup'] }), `---\nid: ${ID}\ntype: schůzka\ntitle: Koupit dárek pro Janu\ntags: [nákup]\n${plain(NOW)}---\n${body}`, 'Schůzka likewise (no `datum` default)')
 })
 
 test('fr_cap_04_ac2_napad_takes_the_template_frontmatter_not_its_body', async () => {
@@ -199,14 +201,14 @@ test('fr_cap_01_ac5_markdown_in_the_body_is_kept_byte_for_byte', async () => {
 
 test('fr_tsk_10_ac9_a_captured_task_has_exactly_these_bytes', async () => {
   const got = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', chips: ['doma'], priority: 'High', due: '2026-10-15' })
-  assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps(NOW)}---\n`, 'AC-9 bytes, empty body')
+  assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${plain(NOW)}---\n`, 'AC-9 bytes, empty body')
 })
 
 test('fr_tsk_10_ac9_no_priority_none_and_cleared_due', async () => {
   const none = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', priority: null, due: null })
-  assert.equal(none, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\n${stamps(NOW)}---\n`, '`No priority` and a cleared Due write neither key')
+  assert.equal(none, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\n${plain(NOW)}---\n`, '`No priority` and a cleared Due write neither key')
   const opt = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', priority: 'None' })
-  assert.equal(opt, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: None\n${stamps(NOW)}---\n`, 'the option None is a value')
+  assert.equal(opt, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: None\n${plain(NOW)}---\n`, 'the option None is a value')
 })
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-10 AC-10
@@ -215,7 +217,7 @@ test('fr_tsk_10_ac10_tokens_only_for_task_trailing_tags_for_other_types', async 
   // With type Task the capture page moves the D-483 tokens of the first line into Due, Priority and chips (quickAdd.ts,
   // tested in app/test/capture_ui.ac.test.ts); what is left is saved as for AC-9.
   const task = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', chips: ['doma'], priority: 'High', due: '2026-10-15' })
-  assert.equal(task, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${stamps(NOW)}---\n`, 'AC-9 bytes')
+  assert.equal(task, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\npriority: High\ndue: 2026-10-15\ntags: [doma]\n${plain(NOW)}---\n`, 'AC-9 bytes')
   const line = 'Zavolat kominíkovi tomorrow !high #doma'
   const qn = await parts(line)
   assert.deepEqual([qn.title, qn.tags], ['Zavolat kominíkovi tomorrow !high', ['doma']], 'as a Quick Note: only the trailing tag moves (R57)')
@@ -232,6 +234,6 @@ test('fr_tsk_10_ac11_tomorrow_and_stamps_follow_the_zone', async () => {
     assert.equal(tomorrow, due, `${zone}: tomorrow is ${due} (the page parses the token against the local date)`)
     const stamp = m.localIso(at, zone) as string
     const got = await captureBytes({ type: TASK, text: 'Zavolat kominíkovi', due: tomorrow, now: stamp })
-    assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${stamps(now)}---\n`, `${zone}: due ${due}, created ${now}`)
+    assert.equal(got, `---\nid: ${ID}\ntype: task\ntitle: Zavolat kominíkovi\nstatus: To do\ndue: ${due}\n${plain(now)}---\n`, `${zone}: due ${due}, created ${now}`)
   }
 })

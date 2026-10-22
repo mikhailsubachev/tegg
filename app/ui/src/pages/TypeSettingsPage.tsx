@@ -866,7 +866,7 @@ function EmbedsSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
   return (
     <section id="ts-embeds" aria-label={t('typeSettings.embeds')} className="ts-section">
       <h2>{t('typeSettings.embeds')}</h2>
-      <div role="radiogroup" aria-label={t('typeSettings.embedMode')} className="ts-field row" onKeyDown={onKey}>
+      <div role="radiogroup" aria-label={t('typeSettings.embedMode')} className="ts-field row segmented ts-embed-modes" onKeyDown={onKey}>
         {EMBED_MODES.map((m, i) => (
           <span key={m} ref={(el) => { refs.current[i] = el; }} role="radio" aria-checked={m === mode} tabIndex={m === mode ? 0 : -1}
             aria-disabled={ro || undefined} className={`ts-radio ${m === mode ? 'on' : ''}`} data-command="typeSettings.embedMode"

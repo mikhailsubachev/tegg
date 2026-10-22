@@ -27,6 +27,10 @@ export class Saver {
   /** A rename of this note is running: writes wait for it (its `moved`, or `release` when it renamed nothing). */
   private holding = false;
   state: SaveState = 'saved';
+  /** FR-SYN-03 AC-21 (v0.52 H9): the text of the write on its way, and of the last one that landed. The watcher reports
+   *  these writes too; a disk text equal to either is this note's own save, not an external change. */
+  writing: string | null = null;
+  lastWritten: string | null = null;
   failure: Failure = null;
   /** 4B (ms4-daily §4.1): while a Daily Note is virtual, its first save is this call instead of `note_write`;
    *  it returns the new path and version, and is cleared once it succeeds. */
@@ -144,6 +148,7 @@ export class Saver {
     }
     const path = this.path;
     const gen = this.generation;
+    this.writing = text;
     try {
       let r: { version: VersionDto };
       if (this.create) {
@@ -154,6 +159,8 @@ export class Saver {
       } else {
         r = await ipc.noteWrite(path, text, this.base);
       }
+      this.writing = null;
+      this.lastWritten = text;
       if (gen !== this.generation) { this.schedule(); return; }
       this.base = r.version;
       this.ed.markSaved(text);
@@ -161,6 +168,7 @@ export class Saver {
       if (this.changes === mark) this.set('saved');
       else this.schedule();
     } catch (err) {
+      this.writing = null;
       const e = err as { kind?: string; theirs?: string; theirsVersion?: VersionDto };
       // The note moved while this write was on its way (a rename, its undo or redo): write again at the new path.
       if (gen !== this.generation) { this.schedule(); return; }

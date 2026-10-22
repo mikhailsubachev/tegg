@@ -560,6 +560,16 @@ pub struct LinkTargetDto {
     #[serde(rename = "type")]
     #[ts(rename = "type")]
     pub type_key: Option<String>,
+    /// D-601: the target's `review`, `status`, `due` and `completed` (trimmed strings), for its chip. Only
+    /// `link_resolve` fills them; other payloads send null.
+    #[ts(optional = nullable)]
+    pub review: Option<String>,
+    #[ts(optional = nullable)]
+    pub status: Option<String>,
+    #[ts(optional = nullable)]
+    pub due: Option<String>,
+    #[ts(optional = nullable)]
+    pub completed: Option<String>,
 }
 
 // ---------------------------------------------------------------- MS4 slice 4A (ms4-links §4)
@@ -973,9 +983,27 @@ pub struct CaptureTypeDto {
     pub attributes: Vec<AttributeDto>,
     /// D-567: the default template's frontmatter block only, `---` lines included, no body.
     pub template_head: Option<String>,
+    /// D-604: the type's plural, for `Saves to <plural>` on types without the review workflow.
+    #[ts(optional)]
+    pub plural: Option<String>,
 }
 
 /// ms5-capture §2.2 (D-553): everything the capture window may read.
+/// D-603 (amends D-553): one link suggestion of the capture window: never a body, an excerpt or a path field.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureSuggestDto {
+    /// The link text to insert (the stem when it is unique in the vault, else the path without `.md`).
+    pub link: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    /// The matched alias, if the match was by alias.
+    pub alias: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
@@ -1152,6 +1180,7 @@ pub fn typescript() -> String {
         CaptureVaultDto::decl(),
         CaptureTypeDto::decl(),
         CaptureContextDto::decl(),
+        CaptureSuggestDto::decl(),
         CapturedDto::decl(),
         CaptureDraftDto::decl(),
         DefaultTypeDto::decl(),

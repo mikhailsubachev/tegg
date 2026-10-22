@@ -71,6 +71,8 @@ export const ROUTES: RouteDef[] = [
   { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: null },
   { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: null },
   { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
+  // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
+  { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
   { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: tbd('v1.0'), reqs: ['FR-SET-07'], design: null },
 ];
 
@@ -133,6 +135,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌃⌘S', command: 'view.toggleSidebar' },
   { keys: '⇧⌘\\', command: 'view.toggleFocus' },
   { keys: '⌘,', command: 'goto.settings/appearance' },
+  { keys: '⇧⌘/', command: 'help.shortcuts' },
   { keys: '⌥⌘U', command: 'note.toggleSource' },
   { keys: '⌘T', command: 'nav.newTab' },
   { keys: '⌘[', command: 'nav.back' },

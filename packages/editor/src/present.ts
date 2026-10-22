@@ -6,10 +6,17 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
-import { isAttachmentTarget } from '@tegg/doc'
+import { displayTable, isAttachmentTarget } from '@tegg/doc'
 import { wikiLabel } from './schema'
 
-export type LinkInfo = { kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null; title?: string | null }
+export type LinkInfo = {
+  kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null; title?: string | null
+  /** D-601: the target's `review`, `status`, `due`, `completed` for its chip (D-600). */
+  review?: string | null; status?: string | null; due?: string | null; completed?: string | null
+}
+/** D-600: what the app adds to a resolved chip: data attributes, a description, an icon in place of the type's, and
+ *  the suffix after the title. */
+export type ChipExtra = { attrs: Record<string, string>; description: string | null; icon: Element | null; suffix: Element | null }
 
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
@@ -22,6 +29,12 @@ export interface EditorUi {
   checkbox?: string
   /** The type icon shown in a link chip (the read view's chip, D-217: the type's icon), or null for none. */
   chipIcon?: (type: string | null) => Element | null
+  /** D-606: renders `markdown` (a table normalized by `displayTable`) read-only into `dom`. */
+  readOnlyTable?: (markdown: string, dom: HTMLElement) => { destroy(): void }
+  /** D-606: the description of such a table (`Edit in the source view`). */
+  readOnlyTableHint?: string
+  /** D-600: the Unreviewed mark and a task's suffix of a resolved chip, or null for a plain chip. */
+  chipExtra?: (info: LinkInfo) => ChipExtra | null
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
   /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */
@@ -87,6 +100,8 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
         'data-command': 'edit.openOrToggle',
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
         'data-link-kind': info?.kind ?? 'unresolved', // FR-LNK-07 (D-306): the same attribute in every context
+        // D-600: a changed review or task state changes the decoration, so the chip's view draws it again.
+        'data-chip-sig': info ? `${info.review ?? ''}|${info.status ?? ''}|${info.due ?? ''}|${info.completed ?? ''}|${info.title ?? ''}` : '',
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
       }))
       return false
@@ -128,6 +143,7 @@ function noteEmbed(source: string): string | null {
 class RawBlockView implements NodeView {
   dom: HTMLElement
   private handle: EmbedHandle | null = null
+  private table: { destroy(): void } | null = null
   constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined) {
     this.dom = document.createElement('div')
     this.dom.contentEditable = 'false'
@@ -156,6 +172,8 @@ class RawBlockView implements NodeView {
       this.handle.destroy()
       this.handle = null
     }
+    this.table?.destroy()
+    this.table = null
     this.dom.replaceChildren()
     if (kind === 'embed' || kind === 'query' || kind === 'mindmap') {
       const ph = ui.placeholder(kind as 'embed', source)
@@ -168,6 +186,17 @@ class RawBlockView implements NodeView {
     } else {
       this.dom.setAttribute('role', 'group')
       this.dom.setAttribute('aria-label', ui.sourceBlock)
+      // D-606: a table the editor can't edit losslessly is drawn as a read-only table (the app renders it).
+      const table = kind === 'raw' && ui.readOnlyTable ? displayTable(source) : null
+      if (table) {
+        this.dom.className = 'source-block source-table'
+        this.dom.setAttribute('data-table-readonly', '')
+        if (ui.readOnlyTableHint) this.dom.setAttribute('aria-description', ui.readOnlyTableHint)
+        this.table = ui.readOnlyTable!(table, this.dom)
+        return
+      }
+      this.dom.removeAttribute('data-table-readonly')
+      this.dom.removeAttribute('aria-description')
       this.dom.className = 'source-block'
       const pre = document.createElement('pre')
       pre.textContent = source
@@ -203,6 +232,8 @@ class RawBlockView implements NodeView {
   update(node: PMNode) {
     if (node.type !== this.node.type) return false
     if (this.handle && String(node.attrs.kind) !== 'embed') return false
+    // D-606: a read-only table keeps its rendered root while its source is the same.
+    if (this.table && node.attrs.source === this.node.attrs.source && node.attrs.kind === this.node.attrs.kind) { this.node = node; return true }
     this.node = node
     this.render()
     return true
@@ -218,6 +249,8 @@ class RawBlockView implements NodeView {
   destroy() {
     this.handle?.destroy()
     this.handle = null
+    this.table?.destroy()
+    this.table = null
   }
   stopEvent(e: Event) {
     if (this.handle) {
@@ -249,6 +282,7 @@ function chipLabel(value: string, info: LinkInfo | undefined): string {
 /** A link chip as in the read view: the target type's icon, then the shown text (FR-EDT-02 AC-16). */
 class WikiLinkView implements NodeView {
   dom: HTMLElement
+  private extraAttrs: string[] = []
   constructor(private node: PMNode, private ui: EditorUi) {
     this.dom = document.createElement('span')
     this.render()
@@ -257,10 +291,21 @@ class WikiLinkView implements NodeView {
     const v = String(this.node.attrs.value)
     this.dom.setAttribute('data-wikilink', v)
     this.dom.replaceChildren()
+    // Only what this view set before: a decoration owns `aria-description` of a broken chip.
+    for (const a of this.extraAttrs) this.dom.removeAttribute(a)
+    this.extraAttrs = []
+    let suffix: Element | null = null
     if (!this.node.attrs.embed) {
       const info = this.ui.resolve(linkTarget(v).target)
       this.dom.setAttribute('data-link-kind', info?.kind ?? 'unresolved') // from the first paint (FR-LNK-07)
-      const icon = info && (info.kind === 'note' || info.kind === 'daily') ? this.ui.chipIcon?.(info.type ?? 'page') : null
+      const ok = info && (info.kind === 'note' || info.kind === 'daily')
+      const extra = ok ? this.ui.chipExtra?.(info!) ?? null : null
+      if (extra) {
+        for (const [k, val] of Object.entries(extra.attrs)) { this.dom.setAttribute(k, val); this.extraAttrs.push(k) }
+        if (extra.description) { this.dom.setAttribute('aria-description', extra.description); this.extraAttrs.push('aria-description') }
+        suffix = extra.suffix
+      }
+      const icon = extra?.icon ?? (ok ? this.ui.chipIcon?.(info!.type ?? 'page') : null)
       if (icon) this.dom.appendChild(icon)
     }
     const chip = this.node.attrs.embed && !isAttachmentTarget(linkTarget(v).target) ? this.ui.embedChip?.(v) : undefined
@@ -273,6 +318,7 @@ class WikiLinkView implements NodeView {
     label.setAttribute('data-user-content', '')
     label.textContent = chip ? chip.title : this.node.attrs.embed ? wikiLabel(v, true) : chipLabel(v, this.ui.resolve(linkTarget(v).target))
     this.dom.appendChild(label)
+    if (suffix) this.dom.appendChild(suffix)
   }
   update(node: PMNode, decos: readonly Decoration[]) {
     if (node.type !== this.node.type) return false

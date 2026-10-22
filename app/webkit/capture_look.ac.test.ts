@@ -136,7 +136,7 @@ for (const theme of ['light', 'dark'] as const) {
       assert.equal(dashed, true, 'the drop zone has a dashed border');
       // Footer: the box holding the hints and Save has a top border.
       const footer = await (await must(saveBtn(page), 'Save capture')).evaluate((save) => {
-        const hint = [...document.querySelectorAll('body *')].find((e) => e.children.length === 0 && (e.textContent ?? '').includes('Lands in the Inbox')) ?? null;
+        const hint = [...document.querySelectorAll('body *')].find((e) => e.children.length === 0 && ['Lands in the Inbox · unreviewed', 'Saves to Tasks'].includes((e.textContent ?? '').trim())) ?? null; // D-604: a Task's hint is `Saves to Tasks`
         if (!hint) return 'no hint';
         let a: Element | null = save.parentElement;
         while (a && !a.contains(hint)) a = a.parentElement;
@@ -154,7 +154,7 @@ for (const theme of ['light', 'dark'] as const) {
       assert.deepEqual(await lowContrast(page), [], `no text below 4.5:1 in ${theme}`);
       // The DOM keeps R55's names, roles and Tab order.
       const want = kind === 'task'
-        ? ['Due: None', 'Priority: None', 'Add tag…', 'Add an image or PDF', 'Save capture']
+        ? ['Due: No date', 'Priority: None', 'Add tag…', 'Add an image or PDF', 'Save capture'] // `No date`: D-602
         : ['Add tag…', 'Add an image or PDF', 'Save capture'];
       const order = await tabOrder(page);
       assert.deepEqual({ forward: order.forward.slice(0, want.length), back: order.back }, { forward: want, back: ['Discard', `Type: ${type}`] }, 'R55 Tab order');
@@ -178,13 +178,13 @@ test('fr_cap_01_ac17_the_page_background_is_transparent', async ({ browser }) =>
   }
 });
 
-type Line = { found: boolean; weight: string; dx: number; dy: number };
+type Line = { found: boolean; weight: string; bold: boolean; dx: number; dy: number };
 /** The mirror's rendering of `needle` (on textarea line `line`): its font weight and its offset from where the
  *  textarea draws that line (left of the content box; the line box top from the line height, scroll included). */
 async function mirrorLine(page: Page, needle: string, line: number): Promise<Line> {
   const ta = await must(capText(page), 'textbox "Capture text"');
   return ta.evaluate((t, [nd, ln]) => {
-    const none = { found: false, weight: '', dx: Infinity, dy: Infinity };
+    const none = { found: false, weight: '', bold: false, dx: Infinity, dy: Infinity };
     const mirrors = [...document.querySelectorAll('[aria-hidden="true"]')].filter((m) => (m.textContent ?? '').normalize('NFC').includes(nd as string) && !m.contains(t));
     const m = mirrors[mirrors.length - 1];
     if (!m) return none;
@@ -203,7 +203,10 @@ async function mirrorLine(page: Page, needle: string, line: number): Promise<Lin
     const left = box.left + parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft);
     const top = box.top + parseFloat(s.borderTopWidth) + parseFloat(s.paddingTop) - t.scrollTop + (ln as number) * lh;
     const glyphTop = g.top - (lh - g.height) / 2;
-    return { found: true, weight: getComputedStyle(node.parentElement!).fontWeight, dx: Math.abs(g.left - left), dy: Math.abs(glyphTop - top) };
+    const ps = getComputedStyle(node.parentElement!);
+    // D-592 fix (v0.52): the title is drawn heavier by a text stroke at the body's weight, so glyph widths stay.
+    const bold = parseFloat(ps.fontWeight) >= 600 || parseFloat((ps as any).webkitTextStrokeWidth || '0') > 0;
+    return { found: true, weight: ps.fontWeight, bold, dx: Math.abs(g.left - left), dy: Math.abs(glyphTop - top) };
   }, [needle, line] as const);
 }
 
@@ -214,8 +217,8 @@ test('fr_cap_01_ac17_the_first_line_is_bold_through_a_mirror', async ({ page }) 
   const first = await mirrorLine(page, 'Koupit chleba', 0);
   const second = await mirrorLine(page, 'a máslo', 1);
   assert.equal(first.found, true, 'an aria-hidden mirror layer shows the text');
-  assert.equal(first.weight, '650', 'the first line at weight 650');
-  assert.equal(second.weight, '400', 'the second line at 400');
+  assert.equal(first.bold, true, 'the first line is drawn heavier (a stroke at the body weight, D-592 fix)');
+  assert.deepEqual([second.weight, second.bold], ['400', false], 'the second line at 400, no stroke');
   for (const [l, n] of [[first, 'Koupit chleba'], [second, 'a máslo']] as const) {
     assert.ok(l.dx <= 1 && l.dy <= 1, `${n}: exactly over the textarea's text (dx ${l.dx}, dy ${l.dy})`);
   }
@@ -253,6 +256,6 @@ test('fr_cap_01_ac17_an_empty_first_line_makes_the_next_line_bold', async ({ pag
   await sleep(100);
   const title = await mirrorLine(page, 'Koupit chleba', 2);
   const rest = await mirrorLine(page, 'a máslo', 3);
-  assert.deepEqual([title.found, title.weight, rest.weight], [true, '650', '400'], 'the first non-empty line is bold (AP-467 title rule), the next at 400');
+  assert.deepEqual([title.found, title.bold, rest.weight, rest.bold], [true, true, '400', false], 'the first non-empty line is drawn heavier (AP-467 title rule), the next at 400');
   assert.ok(title.dx <= 1 && title.dy <= 1, `aligned (dx ${title.dx}, dy ${title.dy})`);
 });
