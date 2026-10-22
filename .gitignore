@@ -35,3 +35,6 @@ qa/coverage/
 test-results/
 playwright-report/
 app/e2e/.appium/
+
+# Owner's preview feedback notes (exported from a vault, kept local)
+/docs/feedback/Tegg v 0.52 feedback/

@@ -10,11 +10,11 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
 <style>
-.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF;--unrev:#F0B34A;--unrev-bg:#33270F;--unrev-ring:#7A5A1E;--chip-div:#3A4C6E}
 body{margin:0;background:#FFFFFF}
 body:has(.tg.dark){background:#1C1C1E}
 a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
-.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--embed:#F7F7F5;--sel:#D3E3FF;--broken:#B3261E;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--call:#EDF3FE;--call-b:#BFD3F8}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--embed:#F7F7F5;--sel:#D3E3FF;--broken:#B3261E;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--call:#EDF3FE;--call-b:#BFD3F8;--unrev:#B06F00;--unrev-bg:#FFF6E5;--unrev-ring:#F2C46B;--chip-div:#C3D2EE}
 .tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--accent-bg:#17332E;--embed:#232326;--sel:#2A4677;--broken:#FF8A85;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--call:#1D2636;--call-b:#33466A}
 .tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 </style>
@@ -404,14 +404,14 @@ plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
 <button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-EDT-11, D-376)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Outline</button>
 <button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-GRP)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Graph</button>
 </div>
-<div style="font-size: 13px; color: var(--muted)">3 objects link here</div>
+<div style="font-size: 13px; color: var(--muted)">{{backlinkCount}}</div>
 <!-- Chips only, grouped by type (D-368): no excerpts, no attribute labels -->
 <sc-for list="{{backlinks}}" as="b" hint-placeholder-count="3">
 <div style="display: flex; flex-direction: column; gap: 6px">
 <div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">{{b.group}}</div>
-<div style="display: flex; flex-wrap: wrap; gap: 6px">
-<sc-for list="{{b.items}}" as="i" hint-placeholder-count="1">
-<a href="#" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 13px; background: var(--bg); border: 1px solid var(--border); font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{b.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.d}}"></path></svg><span>{{i.title}}</span></a>
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 5px">
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="2">
+<a href="#" title="{{i.tip}}" style="display: inline-flex; align-items: flex-start; gap: 5px; max-width: 100%; box-sizing: border-box; padding: 2px 7px; border-radius: 5px; background: {{i.bg}}; color: {{i.fg}}; box-shadow: {{i.ring}}; font-size: 13px; line-height: 1.45; text-decoration: none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{i.iconColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 3px"><path d="{{i.d}}"></path></svg><span style="min-width: 0; overflow-wrap: anywhere"><span style="text-decoration: {{i.deco}}">{{i.title}}</span><sc-if value="{{i.unrev}}" hint-placeholder-val="{{ false }}"><span aria-label="unreviewed" style="display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 5px; vertical-align: 1px"></span></sc-if><sc-if value="{{i.isTask}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--chip-div); vertical-align: 1px"><sc-if value="{{i.hasDue}}" hint-placeholder-val="{{ false }}"><span style="color: {{i.dueFg}}; font-weight: {{i.dueWeight}}">{{i.due}}</span><span style="color: var(--faint)">·</span></sc-if><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--muted)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: {{i.statusColor}}"></span>{{i.status}}</span></span></sc-if></span></a>
 </sc-for>
 </div>
 </div>
@@ -530,21 +530,43 @@ const slash = [
 { item: true, label: 'Table', d: I.table, color: 'var(--muted)', key: '' },
 { item: true, label: 'Query', d: I.query, color: 'var(--muted)', key: '' }
 ].map((s) => ({ head: !!s.head, item: !!s.item, label: s.label, d: s.d || '', color: s.color || '', key: s.key || '', sel: s.selected ? 'true' : 'false', bg: s.selected ? 'var(--hover)' : 'transparent' }));
+// Backlinks use the link chip variants (LinkChips board): regular, unreviewed, and task chips with due · status.
+const T_BOX = 'M5 5h14v14H5z', T_DONE = 'M5 5h14v14H5zM9 12l2 2 4-4', T_CANC = 'M5 5h14v14H5zM9 9l6 6M15 9l-6 6';
+const SC = { 'To do': 'var(--faint)', 'In progress': 'var(--link)', 'Waiting': 'var(--o)', 'Done': 'var(--t)', 'Cancelled': 'var(--faint)' };
+const chip = (d, title, o = {}) => {
+const closed = o.status === 'Done' || o.status === 'Cancelled';
+return {
+title, d: o.status ? (o.status === 'Done' ? T_DONE : o.status === 'Cancelled' ? T_CANC : T_BOX) : d,
+iconColor: o.status === 'Done' ? 'var(--t)' : 'currentColor',
+bg: closed ? 'var(--hover)' : 'var(--link-bg)', fg: closed ? 'var(--muted)' : 'var(--link)',
+ring: o.unrev ? 'inset 0 0 0 1px var(--unrev-ring)' : 'none', unrev: !!o.unrev,
+tip: o.unrev ? 'Unreviewed · still in the Inbox' : (o.status ? 'Task · ' + o.status : 'Click previews, double-click opens'),
+deco: closed ? 'line-through' : 'none',
+isTask: !!o.status, status: o.status || '', statusColor: SC[o.status] || '',
+hasDue: !!o.due && !closed, due: o.due || '',
+dueFg: o.when === 'over' ? 'var(--broken)' : o.when === 'today' ? 'var(--link)' : 'var(--muted)', dueWeight: o.when ? '600' : '400'
+};
+};
 const backlinks = [
-{ group: 'Projects', d: I.proj, color: 'var(--o)', items: [
-{ title: 'Q4 Budget' }
-] },
-{ group: 'Tasks', d: I.task, color: 'var(--link)', items: [
-{ title: 'Send budget draft to finance' }
-] },
-{ group: 'Daily Notes', d: I.cal, color: 'var(--muted)', items: [
-{ title: '2026-10-07' }
+{ group: 'Projects', items: [chip(I.proj, 'Q4 Budget')] },
+{ group: 'Quick Notes', items: [chip(I.bolt, 'Budget question for Jana', { unrev: true })] },
+{ group: 'Daily Notes', items: [chip(I.cal, '2026-10-07'), chip(I.cal, '2026-10-19', { unrev: true })] },
+{ group: 'Tasks', items: [
+chip(I.task, 'Send budget draft to finance', { status: 'To do', due: 'Fri 16 Oct', when: 'over' }),
+chip(I.task, 'Review the travel line', { status: 'In progress', due: 'Today', when: 'today' }),
+chip(I.task, 'Prepare notes for the next sync', { status: 'To do', due: 'Fri 23 Oct' }),
+chip(I.task, 'Ask Petr for the Q3 actuals', { status: 'Waiting', due: 'Thu 22 Oct' }),
+chip(I.task, 'Clean up the budget tags', { status: 'To do' }),
+chip(I.task, 'Compare last year’s offsite costs with the three venue quotes and write a one-page summary for finance before the review', { status: 'In progress', due: 'Mon 26 Oct' }),
+chip(I.task, 'Collect flight prices to Lisbon', { status: 'Done' }),
+chip(I.task, 'Book the hotel shuttle', { status: 'Cancelled' })
 ] }
 ];
+const backlinkCount = backlinks.reduce((n, g) => n + g.items.length, 0) + ' objects link here';
 return {
 themeClass: dark ? 'dark' : '',
 showChrome: !focus,
-nav, types, tags, tasks, slash, backlinks,
+nav, types, tags, tasks, slash, backlinks, backlinkCount,
 showSlash: overlay === 'slash menu',
 showObjMenu: overlay === 'object menu', objMenuAttr: overlay === 'object menu' ? 'true' : 'false', objMenuBg: overlay === 'object menu' ? 'var(--hover)' : 'transparent',
 showEmptyHint: overlay !== 'slash menu',
