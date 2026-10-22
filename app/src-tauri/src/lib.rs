@@ -322,6 +322,9 @@ fn forward_events(app: AppHandle, core: &Core) {
                 CoreEvent::VaultChanged { paths } => {
                     // The capture window gets no paths (NFR-SEC-03): only a hint to re-read its context (§2.2).
                     shell5b::context_maybe_changed(&app, &paths);
+                    if paths.iter().any(|p| p == ".trash" || p.starts_with(".trash/")) {
+                        shell6a::trash_changed(&app);
+                    }
                     let _ = app.emit_to("main", "vault:changed", ChangedDto { paths });
                     shell5b::inbox_count_changed(&app);
                 }
@@ -1555,6 +1558,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
+        // ms6-trash-media §3.6 (D-622): vault media for the webviews, read-only.
+        .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
         .setup(|app| {
             let handle = app.handle().clone();
             // FR-CNV-03 AC-7 (test build): `TEGG_TEST_HOLD=during-source-save:<vault path>` holds that file's next

@@ -394,7 +394,7 @@ pub(crate) async fn capture_context(state: State<'_, AppState>) -> Result<Captur
 }
 
 #[tauri::command]
-pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#type: String, title: String, text: String) -> Result<CapturedDto, IpcError> {
+pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#type: String, title: String, text: String, media: Option<Vec<String>>) -> Result<CapturedDto, IpcError> {
     let Some(current) = vault_token(&state) else { return Err(err("NoVault", "no vault is open")) };
     if current.id != vault {
         return Err(err("VaultChanged", "the vault isn't open any more"));
@@ -404,6 +404,22 @@ pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#
     static FAILED_ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if test_var("TEGG_TEST_FAIL_CAPTURE").as_deref() == Some("io") && !FAILED_ONCE.swap(true, Ordering::SeqCst) {
         return Err(err("Io", "test: the capture write failed"));
+    }
+    // ms6-trash-media §5 (D-620): the staged files first (pairs, create-exclusive), then the note embedding them.
+    let mut text = text;
+    let media = media.unwrap_or_default();
+    if !media.is_empty() {
+        let key = tegg_format::type_key(&r#type);
+        let folder = core.type_get(&key).map(|t| t.folder).unwrap_or_default();
+        let owner = format!("{folder}/{}.md", tegg_format::sanitize_file_stem(title.trim()));
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let embeds = crate::shell6a::write_staged(&core, &media, &owner, title.trim(), &date)?;
+        let body: String = embeds.iter().map(|e| format!("![[{e}]]\n")).collect::<Vec<_>>().join("\n");
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push('\n');
+        text.push_str(&body);
     }
     let path = core.capture_create(&r#type, &title, text.as_bytes()).map_err(core_err)?;
     let type_name = core.type_get(&tegg_format::type_key(&r#type)).map(|t| t.name).unwrap_or(r#type);

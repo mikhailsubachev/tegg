@@ -673,6 +673,11 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
 /// trusted, and a folder is reconciled both ways. Emits `VaultChanged` with the note paths that changed.
 fn apply_paths(s: &Shared, paths: Vec<String>) {
     *lock(&s.files) = None;
+    // ms6-trash-media §4 (6A): changes under `.trash/` are reported too (the Trash page and trashed chips follow them).
+    let trashed: Vec<String> = paths.iter().map(|p| nfc(p.trim_matches('/'))).filter(|p| p == ".trash" || p.starts_with(".trash/")).collect();
+    if !trashed.is_empty() {
+        s.emit(CoreEvent::VaultChanged { paths: trashed });
+    }
     let paths: BTreeSet<String> = paths.into_iter().map(|p| nfc(p.trim_matches('/'))).filter(|p| !p.is_empty()).collect();
     let mut changed: BTreeSet<String> = BTreeSet::new();
     if paths.iter().any(|p| p.starts_with(".tegg/")) {
