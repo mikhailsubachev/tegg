@@ -29,10 +29,11 @@ function attr(attrs: string, name: string): string {
 
 export function parseJunit(xml: string): TestCase[] {
   const cases: TestCase[] = [];
-  const re = /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g;
+  // Attribute values may contain `>` and `/>` (a message quoting XML), so tags are matched attribute by attribute.
+  const re = /<testcase\b((?:"[^"]*"|[^">])*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g;
   for (let m = re.exec(xml); m; m = re.exec(xml)) {
     const body = m[2] ?? '';
-    const fail = /<(failure|error)\b[\s\S]*?(?:\/>|<\/\1>)/.exec(body);
+    const fail = /<(failure|error)\b(?:"[^"]*"|[^">])*?(?:\/>|>[\s\S]*?<\/\1>)/.exec(body);
     cases.push({
       name: attr(m[1], 'name'),
       classname: attr(m[1], 'classname'),

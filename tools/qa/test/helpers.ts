@@ -144,6 +144,10 @@ export type Step = {
   dir?: string;
   changedOnly?: boolean;
   cargoCache?: boolean;
+  /** CONTRACT §3.2.2 (D-609): steps of one lane run in config order, lanes run concurrently. */
+  lane?: string;
+  /** CONTRACT §3.2.3 (D-611): repository-relative paths the step depends on (step memo). */
+  inputs?: string[];
 };
 
 export type Config = {
@@ -286,6 +290,26 @@ export function junitXml(cases: Case[]): string {
 /** Step command that appends one line to an absolute marker file, then runs `rest`. */
 export function markStep(marker: string, rest = 'true'): string {
   return `echo ran >> ${sq(marker)}; ${rest}`;
+}
+
+/**
+ * Step command that appends `start <ms>` to the absolute marker file, sleeps `seconds`, then appends `end <ms>`.
+ * Uses node for millisecond timestamps (macOS `date` has no `%N`; node is on PATH in `cleanEnv`).
+ */
+export function stampStep(marker: string, seconds: number): string {
+  const stamp = (label: string) =>
+    `node -e 'require("fs").appendFileSync(process.argv[1], "${label} " + Date.now() + "\\n")' ${sq(marker)}`;
+  return `${stamp('start')}; sleep ${seconds}; ${stamp('end')}`;
+}
+
+/** Reads the `start`/`end` timestamps written by `stampStep`. Missing lines give NaN (the assertion then fails). */
+export function readStamps(marker: string): { start: number; end: number } {
+  const text = fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8') : '';
+  const pick = (label: string) => {
+    const m = text.match(new RegExp(`^${label} (\\d+)$`, 'm'));
+    return m ? Number(m[1]) : Number.NaN;
+  };
+  return { start: pick('start'), end: pick('end') };
 }
 
 export function countLines(file: string): number {

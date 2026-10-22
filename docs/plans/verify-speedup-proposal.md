@@ -1,6 +1,6 @@
 # Proposal: faster `./verify push` (G1) without losing coverage
 
-Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are still proposals.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
+Status: **items 1–3 implemented (D-343, 2026-10-16); items 4–6 are superseded by D-609…D-612 (2026-10-22): concurrent lanes (item 6), a content-addressed step memo with declared inputs instead of range-based skipping (item 4), batched multi-threaded Rust AC runs, and `./verify merge`. Measured before D-609: push 770–870 s, `app-webkit` ~320 s, `core-rust-test` ~270 s, half of the last 60 runs failed.** Item 1 as built moves only the latency-measuring tests, not whole files: per-test timing showed the switcher tests at ~60 s each and the functional ACs in `ac_perf.rs` at 3–8 s, so those stay in push. Measured on 2026-10-16 from `.verify/runs/` and a warm re-run in the main checkout.
 
 ## 1. What the measurements say
 
@@ -93,3 +93,28 @@ Push would be back inside the 600 s budget (TS-G4) with the same functional AC c
 - Skipping AC tests by changed path in push. The fresh-worktree, whole-repo G1 is the only clean-machine check the project has (test-strategy §12); keep it whole.
 - Release builds of Tegg crates for faster perf tests: would hide debug-assertion failures.
 - Hosted CI: D-60 says local only.
+
+## 5. Measured after D-609…D-612 (2026-10-22)
+
+Branch `qa/verify-speedup`, same Mac, but shared with another session running Rust and app tests (load average 13–19 on 12 cores during every run; the sequential gate's 770–870 s above were measured on a quiet machine):
+
+| Run | Wall time | Notes |
+| --- | ---: | --- |
+| `verify push --all` (every step) | 441 s | lanes: cargo 439 s, browser 319 s, node 232 s; the cargo lane is the critical path on a full run |
+| `verify push` after a tooling-only change (memo skips 13 of 26 steps) | 296–338 s | the browser lane alone: `app-webkit` ~285–335 s |
+| Rust AC steps with `--threads 4`, alone | core 176 s, jobs 36 s | sequential one-thread runner: 245–275 s and ~70 s |
+
+Under that load a handful of timing-sensitive WebKit tests (`broken_links_ac13`, `bug_36_review_findings`, `fr_edt_02_ac13`) and the 5-second embeds property test failed in the gate while passing when run alone; moving `app-ui-test` into the browser lane removed the vitest failure and left one WebKit failure per run. A quiet-machine run is still owed (the owner's `./verify push --all`), and the remaining lever on a full run is the cargo lane (a second Cargo lane for the frozen spikes, or fewer Rust tests per push through the memo, which already skips them when nothing under `spikes/` changed).
+
+### 5.1 Quiet-machine runs (later on 2026-10-22, load < 5 at start)
+
+| Run | Wall time | Result |
+| --- | ---: | --- |
+| `verify push --all`, lanes at 4 Rust threads / 4 vitest workers | 413 s | 2 timing failures (a 5 s embeds property test at 5.2 s, one create-link WebKit test) |
+| same, cargo and node lanes at `nice 10` | 412 s | worse: FR-UX-07 AC-1's 500 ms progress-gap bound and the lane timing ACs failed too; niceness dropped again |
+| same, 2 Rust threads / 2 vitest workers (current config) | 429 s | everything green except `app-webkit`: 3 timing failures (`bug_36_review_findings` ×2, `fr_ux_03_ac5`) |
+| `app-webkit` alone, 8 workers, no other lane | 277 s | 1 failure (`fr_edt_02_ac13`), load 17 from WebKit itself |
+
+So the WebKit suite is already timing-flaky at 8 workers on its own (D-343's setting), and the lanes add one or two more such failures per run. The open decision for the owner: quarantine or fix the create-link and placeholder tests (test-strategy §8.4, an `AC-Test-Change`), or run WebKit at 6 workers under the gate (≈ +100 s on the browser lane). Until a push gate passes, `.verify/last-pass` stays empty and the branch cannot be pushed.
+
+**Outcome (owner, 2026-10-22):** WebKit runs on 6 workers under the gate. With that, `verify push --all` on a quiet machine passed in **411 s** (browser lane 362 s, cargo 408 s, node 203 s), against 770–870 s for the sequential gate.
