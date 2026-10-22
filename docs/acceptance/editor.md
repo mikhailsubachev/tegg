@@ -78,7 +78,7 @@ Order and groups as in the Main board (Objects first). "Writes" is the Markdown 
 | Media | PDF | — | MS6 | FR-ATT-02 |
 | Advanced | Block embed | `![[…#^…]]` | MS4 | FR-EMB-04 |
 | Advanced | Query | ```` ```query ```` | v1.0 | FR-QRY-06, FR-FMT-06 |
-| Advanced | Mindmap | ```` ```mermaid ```` `mindmap` | v1.0 | FR-MMP-01 |
+| Advanced | Mindmap | `> [!mindmap]` with one empty list item (D-685; was a ```` ```mermaid ```` fence until D-679) | v1.0; MS5 when slice MM starts | FR-MMP-01 |
 
 ### R7. Markdown shortcuts (FR-EDT-04)
 

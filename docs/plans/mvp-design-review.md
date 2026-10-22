@@ -34,7 +34,7 @@ Ordered as the slices run. "Small" means a dialog or a strip inside an existing 
 | 6A | **Trash view** (restore, delete permanently) and the `moved to trash` placeholder in notes (D-27) | page | FR-HIS-01, FR-STO-08 |
 | 6A | Image and PDF **object pages** (a note whose body is the file; the card exists in TypeCards) and the paste-image flow (object + file + embed) | page | FR-ATT-01, -02, -07, -08 |
 | 4D-lite | **Tag page** (description, objects grouped by type, no colour); tag rename/delete dialogs with the D-? two choices (FR-TAG-08) | page | FR-TAG-06, -08 |
-| MM | the mindmap block is drawn in Main; nothing missing for the MVP subset | — | FR-MMP-01, -02 |
+| MM | rechecked 2026-10-22: Main edits on the canvas, not as the D-377 outline; zoom, full screen and the collapsed badge are v1.0 but unmarked; empty, invalid, read-view and source-editing states are not drawn. Decided D-679…D-687: Mermaid is dropped for a list in a `[!mindmap]` callout (`mm-mindmap-as-list.md`); redraw the block on Main and MainUnreviewed with `Map` / `List`, the empty state and the not-one-list hint | small | FR-MMP-01, -02 |
 | any | Empty states beyond Inbox zero (empty type page, no backlinks, empty Tasks, empty vault Home) | small | FR-UX-06 (MS8) |
 
 Already built without a board and working: vault chooser (FR-VLT-01/-02), Search page, Conflicts view, Daily Note page, Broken links page, Type settings for system types.

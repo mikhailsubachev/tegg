@@ -40,7 +40,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-FMT-02 | Every object has a stable `id` in frontmatter (e.g. ULID), so identity survives renames and external edits. Th… | 4 ACs |
 | FR-FMT-03 | Links are `[[Note Name]]`, `[[Note Name\|alias]]`, `[[Note Name#Heading]]` and `[[Note Name#^blockid]]`. Relat… | 4 ACs, 4 proven in a spike |
 | FR-FMT-04 | Embeds are `![[Note Name]]`, `![[Note Name#^blockid]]`, `![[image.png\|400]]` and `![[file.pdf#page=3]]`. | 4 ACs, 4 proven in a spike |
-| FR-FMT-05 | Mindmaps are stored as fenced ` ```mermaid ` blocks using Mermaid `mindmap` syntax. | 3 ACs |
+| FR-FMT-05 | Mindmaps are stored as a `> [!mindmap]` callout holding one list (D-679). | 3 ACs |
 | FR-FMT-06 | Embedded queries are stored as a fenced code block (e.g. ` ```query `) with a readable YAML definition. In oth… | 3 ACs |
 | FR-FMT-07 | Round-trip safety: opening and saving a file without edits must not change it, byte for byte. Markdown the edi… | 7 ACs, 5 proven in a spike |
 | FR-FMT-08 | The file name is the object title, sanitized to be valid on macOS/Windows/iOS/Android (D-36). If the title con… | 6 ACs, 1 proven in a spike |
@@ -63,7 +63,7 @@ Requirements in several milestones are built in the first and gated again later 
 | FR-TYP-15 | Reserved attribute keys: `id, type, title, description, aliases, tags, created, modified, source, review, icon… | 3 ACs |
 | FR-VLT-01 | On first launch the user can create a new vault or open an existing folder (including one inside Dropbox/Googl… | 8 ACs |
 | FR-VLT-02 | When creating a new vault the user chooses: Empty vault (system types only: Page, Task, Quick Note, Daily Note… | 5 ACs |
-| NFR-POR-01 | A vault created by the app opens in Obsidian with content, links, embeds, images, attributes and mindmaps (as … | 2 ACs |
+| NFR-POR-01 | A vault created by the app opens in Obsidian with content, links, embeds, images, attributes and mindmaps (as a `[!mindmap]` callout, D-686) … | 2 ACs |
 | NFR-POR-02 | File names are valid on macOS, Windows, iOS and Android (no `: \ / * ? " < > \|`, length ≤ 200 UTF-8 bytes, D-… | 3 ACs |
 | NFR-POR-03 | No information required to understand a note is stored only in the index. | 1 ACs |
 | NFR-REL-01 | Zero data loss: crash, force quit or power loss must never corrupt or truncate a note (atomic writes; FR-SYN-0… | 5 ACs |
@@ -214,7 +214,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-VLT-05 | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | no ACs yet |
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
 | NFR-SEC-03 | The share extension and capture window only write to the vault; they never read content back to other apps. | no ACs yet |
-| FR-MMP-01 | A mindmap block can be inserted into any note; it is stored as a Mermaid `mindmap` code block. | no ACs yet (slice MM, D-377) |
+| FR-MMP-01 | A mindmap block can be inserted into any note; it is a `> [!mindmap]` callout holding one list (D-679). | no ACs yet (slice MM, D-377) |
 | FR-MMP-02 | Visual editing (D-36): add child/sibling node with Tab/Enter, edit text inline, drag to re-parent, collapse br… | no ACs yet; render + outline editing in the MVP, drag/collapse/zoom/pan v1.0 (D-377) |
 | FR-MMP-04 | Per object type, the mindmap block can be included by default via the template ("optional per type"). | no ACs yet (slice MM, D-377) |
 
@@ -359,7 +359,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-QRY-07 | M | Each type has default views (FR-TYP-09); users can add more views per type (e.g. Books: "Currently reading" bo… | Query builder and views (§11) |
 | FR-QRY-08 | S | Creating an object from within a query view pre-fills the attributes that match the filters (e.g. a new card i… | Query builder and views (§11) |
 | FR-QRY-09 | M | Query results update live when files change (including external edits). | Query builder and views (§11) |
-| FR-MMP-03 | S | Mindmap nodes may contain `[[links]]`. A node can be converted into an object (like FR-CNV). | Mindmap editor (§11) |
+| FR-MMP-03 | S | Mindmap nodes may contain `[[links]]`. A node can be converted into an object (FR-CNV on its list item, D-687). | Mindmap editor (§11) |
 | FR-MMP-05 | M | Exports render the mindmap as an image (FR-EXP). | Mindmap editor (§11) |
 | FR-ATT-04 | S | Deleting the last reference to an attachment does not delete the file; an "Unused attachments" tool lists orph… | D-87 (AP-34) |
 | FR-ATT-05 | S | Warn on files > 20 MB (configurable). | D-87 (AP-34) |
@@ -375,7 +375,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-IMP-18 | S | Option to convert imported checklist items (`- [ ]`) into Task objects (default: keep them as checklists, D-28… | §11.1 table: checklist → Task option in v1.0 |
 | FR-EXP-01 | M | Export a single note, a selection, a query result, or a note with its embeds/links up to depth N. | Export, all 4 formats (§11) |
 | FR-EXP-02 | M | Formats: PDF, HTML (single file, or a static linked site for multi-note export), DOCX, Markdown bundle (.zip) … | Export, all 4 formats (§11) |
-| FR-EXP-03 | M | On export, embeds are inlined, Mermaid mindmaps rendered as images, and query blocks rendered as static tables… | Export, all 4 formats (§11) |
+| FR-EXP-03 | M | On export, embeds are inlined, mindmaps rendered as images (D-683), and query blocks rendered as static tables… | Export, all 4 formats (§11) |
 | FR-EXP-04 | S | Option to include/exclude the attribute block in exports. | Export, all 4 formats (§11) |
 | FR-EXP-05 | S | PDF: page size (A4/Letter), light theme, page breaks before H1 (optional). | Export, all 4 formats (§11) |
 | FR-EXP-06 | M | Whole-vault export is lossless: a Markdown bundle of the whole vault includes type definitions, saved-query de… | Export, all 4 formats (§11) |
