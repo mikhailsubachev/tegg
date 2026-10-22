@@ -195,7 +195,12 @@ async function entryFor(ctx: Ctx, o: Obj, isHere: (l: any, r: Res) => boolean) {
   });
   if (!occurrences.length) return null;
   const modified = typeof o.attributes.modified === 'string' ? o.attributes.modified : null;
-  return { source: o.path, title: o.title, type: o.type, modified, readOnly: o.frontmatterError, occurrences, raw: o.raw };
+  // D-633 (ms4-links §9.1): the source's chip fields as D-601, the trimmed frontmatter strings or null.
+  const chip = (k: string) => (typeof o.attributes[k] === 'string' ? (o.attributes[k] as string).trim() : null);
+  return {
+    source: o.path, title: o.title, type: o.type, modified, readOnly: o.frontmatterError, occurrences, raw: o.raw,
+    review: chip('review'), status: chip('status'), due: chip('due'), completed: chip('completed'),
+  };
 }
 
 const instant = (v: string | null) => {
