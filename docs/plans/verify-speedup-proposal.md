@@ -93,3 +93,15 @@ Push would be back inside the 600 s budget (TS-G4) with the same functional AC c
 - Skipping AC tests by changed path in push. The fresh-worktree, whole-repo G1 is the only clean-machine check the project has (test-strategy §12); keep it whole.
 - Release builds of Tegg crates for faster perf tests: would hide debug-assertion failures.
 - Hosted CI: D-60 says local only.
+
+## 5. Measured after D-524…D-527 (2026-10-22)
+
+Branch `qa/verify-speedup`, same Mac, but shared with another session running Rust and app tests (load average 13–19 on 12 cores during every run; the sequential gate's 770–870 s above were measured on a quiet machine):
+
+| Run | Wall time | Notes |
+| --- | ---: | --- |
+| `verify push --all` (every step) | 441 s | lanes: cargo 439 s, browser 319 s, node 232 s; the cargo lane is the critical path on a full run |
+| `verify push` after a tooling-only change (memo skips 13 of 26 steps) | 296–338 s | the browser lane alone: `app-webkit` ~285–335 s |
+| Rust AC steps with `--threads 4`, alone | core 176 s, jobs 36 s | sequential one-thread runner: 245–275 s and ~70 s |
+
+Under that load a handful of timing-sensitive WebKit tests (`broken_links_ac13`, `bug_36_review_findings`, `fr_edt_02_ac13`) and the 5-second embeds property test failed in the gate while passing when run alone; moving `app-ui-test` into the browser lane removed the vitest failure and left one WebKit failure per run. A quiet-machine run is still owed (the owner's `./verify push --all`), and the remaining lever on a full run is the cargo lane (a second Cargo lane for the frozen spikes, or fewer Rust tests per push through the memo, which already skips them when nothing under `spikes/` changed).
