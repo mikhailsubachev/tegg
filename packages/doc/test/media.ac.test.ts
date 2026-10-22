@@ -61,7 +61,7 @@ test('fr_att_01_ac4_taken_names_numbers_nfc_and_sanitizing', async () => {
   assert.equal(mediaNames(taken('Images/Plán zahrady 1.md'), req(p, PNG)).title, 'Plán zahrady 2', 'the title follows')
   const nfd = 'Záhon 2.png'
   assert.equal(mediaNames(taken(), req(nfd, PNG)).file, '_attachments/Záhon 2.png'.normalize('NFC'), 'NFC')
-  assert.equal(mediaNames(taken(), req('Plán: jaro?.png', PNG)).file, '_attachments/Plán jaro.png', 'D-51: forbidden characters → space, collapsed, trimmed')
+  assert.deepEqual(mediaNames(taken(), req('Plán: jaro?.png', PNG)), { file: '_attachments/Plán jaro.png', object: 'Images/Plán jaro.md', title: 'Plán: jaro?' }, 'D-51 sanitizing changes paths only (§11, AP-556)')
   assert.equal(mediaNames(taken(), req('Obrázek', PNG)).file, '_attachments/Obrázek.png', 'no extension: MediaInfo.ext is added')
   const long = mediaNames(taken(), req(`${'Ř'.repeat(150)}.png`, PNG)).file.split('/').pop()!
   assert.ok(Buffer.byteLength(long, 'utf8') <= 200 && long.endsWith('.png'), `≤ 200 UTF-8 bytes keeping the extension: ${Buffer.byteLength(long)}`)

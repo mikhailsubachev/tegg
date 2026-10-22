@@ -114,7 +114,7 @@ export type FakeCoreHandle = {
    *  the logical `position`, as a Finder drop on the window. */
   dropFiles(paths: string[], position: { x: number; y: number }): Promise<void>;
   /** Dispatches a synthetic `paste` on the focused element with `clipboardData.files` (and `text/plain` when given). */
-  paste(o: { files: { name: string; type: string; bytes: Uint8Array }[]; text?: string }): Promise<void>;
+  paste(page: Page, o: { files: { name: string; type: string; bytes: Uint8Array }[]; text?: string }): Promise<void>;
   /** Files staged by the capture window (`capture_media_add`), in order. */
   staged(): Promise<{ token: string; name: string }[]>;
 };
@@ -316,7 +316,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       await f.emit('tauri://drag-over', { position: pos });
       await f.emit('tauri://drag-drop', { paths: ps, position: pos });
     }, [paths.map((p) => p.normalize('NFC')), position] as const),
-    paste: (o) => page.evaluate(([files, text]) => {
+    paste: (target, o) => target.evaluate(([files, text]) => {
       const dt = new DataTransfer();
       for (const f of files) dt.items.add(new File([Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0))], f.name, { type: f.type }));
       if (text !== null) dt.setData('text/plain', text);

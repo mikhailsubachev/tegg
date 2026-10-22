@@ -51,7 +51,7 @@ test('fr_cap_01_ac12_a_pasted_image_is_saved_with_the_capture', async ({ page })
   const core = await open(page);
   await typeInCapture(page, 'Semínka na jaro');
   await (await must(capText(page), 'Capture text')).focus();
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
   await must(removeBtns(page), 'the pasted image is staged as a thumbnail', 3000);
   assert.deepEqual(await core.writesTo(), [], 'staging writes nothing');
   await page.keyboard.press('Meta+Enter');
@@ -86,7 +86,7 @@ test('fr_att_01_ac11_untitled_capture_names_and_refused_files', async ({ page })
   await core.dropFiles([`${DESK}/Záhon 2.PNG`], { x: 200, y: 120 });
   await must(removeBtns(page), 'staged', 3000);
   await (await must(capText(page), 'Capture text')).focus();
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
   assert.equal(await eventually(() => removeBtns(page).count(), (n) => n === 2, 3000), 2, 'two staged');
   await page.keyboard.press('Meta+Enter');
   const w = await eventually(() => core.writesTo(), (x) => x.length >= 5, 3000);

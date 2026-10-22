@@ -57,7 +57,7 @@ async function dropOn(page: Page, core: FakeCoreHandle, n: number, paths: string
 test('fr_att_01_ac1_paste_a_screenshot', async ({ page }) => {
   const core = await openPlan(page);
   await caretIn(page, 1, 'Záhon u plotu.');
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
   const want = planBody().replace('Záhon u plotu.\n\n', `Záhon u plotu.\n\n![[${PASTED}]]\n\n`);
   const text = await planText(core, (t) => t !== undefined && t.includes(PASTED), 3000);
   assert.equal(text?.replace(/^modified: .*$/m, 'modified: <x>'), want.replace(/^modified: .*$/m, 'modified: <x>'), 'Plán gets the new paragraph after the caret\'s block');
@@ -73,7 +73,7 @@ test('fr_att_01_ac1_paste_a_screenshot', async ({ page }) => {
 test('fr_att_01_ac1_the_image_wins_over_text', async ({ page }) => {
   const core = await openPlan(page);
   await caretIn(page, 1, 'Záhon u plotu.');
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }], text: 'Jen text ze schránky' });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }], text: 'Jen text ze schránky' });
   const text = await planText(core, (t) => t !== undefined && t.includes(PASTED), 3000);
   assert.ok(text?.includes(`![[${PASTED}]]`), 'the image is added (D-186 changed)');
   assert.ok(!text?.includes('Jen text ze schránky'), 'the text is not pasted');
@@ -156,10 +156,10 @@ for (const [tz, stamp] of [['Europe/Prague', '20261022100000'], ['America/Los_An
     test(`fr_att_01_ac4_pasted_names_and_titles_${tz.replace(/\W/g, '_')}`, async ({ page }) => {
       const core = await openPlan(page);
       await caretIn(page, 1, 'Záhon u plotu.');
-      await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+      await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
       await eventually(() => core.writesTo(), (w) => w.length >= 2, 3000);
       await caretIn(page, 1, 'Záhon u plotu.');
-      await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+      await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
       const w = await eventually(() => core.writesTo(), (x) => x.filter((p) => !p.startsWith('Pages/')).length >= 4, 3000);
       assert.deepEqual(w.filter((p) => !p.startsWith('Pages/')), [
         `_attachments/Pasted image ${stamp}.png`, 'Images/Plán zahrady 1.md', `_attachments/Pasted image ${stamp} (2).png`, 'Images/Plán zahrady 2.md',
@@ -218,7 +218,7 @@ test('fr_att_01_ac7_a_failed_note_write_keeps_the_pair', async ({ page }) => {
 test('fr_att_01_ac8_undo_removes_the_paragraph_only', async ({ page }) => {
   const core = await openPlan(page);
   await caretIn(page, 1, 'Záhon u plotu.');
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
   await planText(core, (t) => !!t && t.includes(PASTED), 3000);
   await page.keyboard.press('Meta+z');
   const back = await planText(core, (t) => !!t && !t.includes(PASTED), 3000);
@@ -235,7 +235,7 @@ test('fr_att_01_ac9_the_attachments_folder_setting', async ({ page }) => {
   const vault = tmVault((f) => { f['.tegg/vault.yml'] = f['.tegg/vault.yml'].replace('attachments: _attachments', 'attachments: Přílohy'); });
   const core = await openPlan(page, { vault });
   await caretIn(page, 1, 'Záhon u plotu.');
-  await core.paste({ files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
+  await core.paste(page, { files: [{ name: 'image.png', type: 'image/png', bytes: PNG() }] });
   const w = await eventually(() => core.writesTo(), (x) => x.length >= 2, 3000);
   assert.equal(w[0], `Přílohy/${PASTED}`, 'new files go to Přílohy/');
   assert.ok((await core.binary())[nfc(TM.png)], 'existing files are not moved');

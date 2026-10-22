@@ -41,7 +41,7 @@ for (const view of ['editor', 'read view'] as const) {
     assert.ok(s.src.startsWith(`${origin}/__media/`), `loaded through the media URL (fake base for tegg-media://): ${s.src}`);
     assert.equal(decodeURIComponent(new URL(s.src).pathname.replace(/^\/__media\//, '')).normalize('NFC'), nfc(TM.png), 'the vault file');
     const card = await must(pdfCard(main(page), 'Rozpočet'), 'the PDF link card', 3000);
-    assert.match(flat(await card.innerText()), /Rozpočet.*2 pages · \S+/, 'title and `2 pages · <size>`');
+    assert.match(flat(await card.innerText()), /Rozpočet.*2 pages · 844 bytes/, 'title and `2 pages · 844 bytes` (§11, AP-560)');
     assert.deepEqual(requests.filter((u) => !u.startsWith(origin)), [], 'no other scheme, no network');
   });
 }

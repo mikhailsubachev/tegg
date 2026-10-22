@@ -101,8 +101,9 @@ fn fr_att_01_ac6_refused_content() {
     let before = snap(&root);
     let r = core.media_add(add("text.png", sample("text.png"), Some((PLAN, "Plán zahrady"))));
     assert!(matches!(r, Err(CoreError::Refused)), "media_add refuses: {r:?}");
-    let big = core.media_add(add("velký.png", { let mut v = fixture(PNG); v.resize(210_000_000, 0); v }, Some((PLAN, "Plán zahrady"))));
-    assert!(matches!(big, Err(CoreError::TooLarge)), "over 200 MB is refused (D-621): {:?}", big.as_ref().err());
+    // §11 (AP-554): 200 MB = 200 × 1024 × 1024 bytes; one byte more is refused.
+    let big = core.media_add(add("velký.png", { let mut v = fixture(PNG); v.resize(200 * 1024 * 1024 + 1, 0); v }, Some((PLAN, "Plán zahrady"))));
+    assert!(matches!(big, Err(CoreError::TooLarge)), "over 200 MiB is refused (D-621): {:?}", big.as_ref().err());
     assert_eq!(changed(&before, &snap(&root)), Vec::<String>::new(), "nothing is written");
 }
 
