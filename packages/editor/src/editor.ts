@@ -335,6 +335,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     ...opts.ui,
     ...(opts.emptyHint !== undefined ? { hint: opts.emptyHint } : {}),
     embed: opts.ui.embed && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.embed!(source, dom, getPos))),
+    media: opts.ui.media && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.media!(source, dom, getPos))),
   }
 
   const editor = new Editor({
@@ -355,6 +356,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         const html = dt.getData('text/html')
         const plain = dt.getData('text/plain')
         if (inSourceBlock(view.state)) return true
+        // 6A (FR-ATT-01 AC-1): files on the clipboard are added as media; an image wins over text (D-186 changed).
+        if (files.length > 0 && opts.ui?.onFiles?.(files, view.state.selection.from)) return true
         if (hasImage && !plain && !html) {
           opts.onImagePaste?.()
           return true

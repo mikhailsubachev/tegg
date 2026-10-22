@@ -12,6 +12,7 @@ import type { EmbedTree } from '../embeds/tree';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
 import { InNotePlaceholder } from './InNotePlaceholder';
+import { MediaView } from '../media/MediaView';
 import { openDate } from '../daily/open';
 
 export type ReadViewProps = {
@@ -83,7 +84,7 @@ function walk(n: Any, f: (n: Any) => void) {
 export function linkTargets(text: string): string[] {
   const out: string[] = [];
   const add = (t: string) => {
-    if (t !== '' && !isAttachment(t) && !out.includes(t)) out.push(t);
+    if (t !== '' && !out.includes(t)) out.push(t); // 6A: file embeds resolve too (R77)
   };
   const doc = parse(text);
   for (const l of wikilinks(doc)) add(l.target.trim());
@@ -162,6 +163,11 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title);
     return <Chip kind={info.kind} name={name} type={info.type} info={info} onActivate={() => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); }} />;
   }
+  if (info?.kind === 'trashed' && info.path) {
+    // 6A (R74): only in the trash: struck through, `In trash`; opens the Trash with its row focused.
+    const name = shown ?? info.title ?? target;
+    return <Chip kind="trashed" name={name} type={info.type} info={info} onActivate={() => c.onOpen(info.path!)} />;
+  }
   if (info?.kind === 'date-missing') {
     // FR-DLY-08 AC-5, AC-6 (D-142 ended): never broken; opens the virtual Daily Note.
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target);
@@ -174,17 +180,12 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
 function embedPlaceholder(c: Ctx, value: string, inline: boolean, line = 0): ReactNode {
   const { target, subpath } = splitWikilink(value);
   const file = target.split('/').pop() ?? target;
-  if (IMAGE_EXT.test(target)) return <InNotePlaceholder id="embed-image" inline={inline}><span data-user-content>{file}</span></InNotePlaceholder>;
-  if (/\.pdf$/i.test(target)) {
-    const page = subpath && /^page=(\d+)$/.exec(subpath)?.[1];
-    return (
-      <InNotePlaceholder id="embed-pdf" inline={inline}>
-        <span data-user-content>{file}</span>{page && ' '}
-        {page && <span className="ph-page">{t('ph.page', { page })}</span>}
-      </InNotePlaceholder>
-    );
+  // 6A (R77, D-626): files render as figures, PDF cards, file cards or `Can't find`; trashed ones as the placeholder.
+  if (isAttachment(target) || IMAGE_EXT.test(target)) {
+    void subpath; void file;
+    const view = <MediaView target={target} info={linkInfo(c, target) as never} onOpen={(p) => c.onOpen(p)} />;
+    return inline ? <span className="media-inline">{view}</span> : <div className="media-block">{view}</div>;
   }
-  if (isAttachment(target)) return <InNotePlaceholder id="embed-other" inline={inline}><span data-user-content>{file}</span></InNotePlaceholder>;
   // 4F (ms4-embeds §6): note embeds are rendered by the embed renderer; without one, as a link-mode embed.
   if (c.renderEmbed) return c.renderEmbed(value, line, inline);
   return <LinkModeEmbed c={c} value={value} />;
@@ -214,14 +215,11 @@ function LinkModeEmbed({ c, value }: { c: Ctx; value: string }) {
   );
 }
 
+/** A Markdown image (`![alt](url)`): its alt text or file name, never loaded (no network, NFR-SEC-01; D-626). */
 function imagePlaceholder(n: Any, inline: boolean): ReactNode {
   const file = decode(String(n.url).split(/[?#]/)[0]).split('/').pop() || n.url;
-  return (
-    <InNotePlaceholder id="embed-image" inline={inline}>
-      <span data-user-content>{file}</span>{n.alt && ' '}
-      {n.alt && <span className="ph-alt" data-user-content>{n.alt}</span>}
-    </InNotePlaceholder>
-  );
+  const text = <span className="md-image" data-user-content>{n.alt || file}</span>;
+  return inline ? text : <p className="md-image-block">{text}</p>;
 }
 
 const src = (c: Ctx, n: Any) => c.src.slice(n.position!.start.offset!, n.position!.end.offset!);

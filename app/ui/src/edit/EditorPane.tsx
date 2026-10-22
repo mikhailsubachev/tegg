@@ -8,6 +8,7 @@ import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, t
 import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
+import { mountMedia } from '../media/mount';
 import { isAttachmentTarget } from '@tegg/doc';
 import type { EmbedStore } from '../embeds/store';
 import { mountEmbed } from '../embeds/slot';
@@ -140,6 +141,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const [, setTick] = useState(0);
   const rerender = useCallback(() => setTick((n) => n + 1), []);
   const links = useRef(new Map<string, LinkInfo & { path?: string | null }>());
+  const mediaViews = useRef(new Set<() => void>());
   const pathRef = useRef(path);
   pathRef.current = path;
   const cbSave = useRef(onSaveNow);
@@ -192,6 +194,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       onExternal: (url) => cb.current.onExternal(url),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
+      // 6A (R77, D-618): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
+      media: (source, dom) => mountMedia(dom, source, (tg) => links.current.get(tg), (p) => cb.current.onOpen(p), mediaViews.current),
       embedChip: embeds ? (value) => {
         const n = embeds.inlineNode(value);
         if (!n) return undefined;
@@ -243,12 +247,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     ed.view.state.doc.descendants((n) => {
       if (n.type.name === 'wikiLink' && (!n.attrs.embed || embeds)) {
         const tg = linkTarget(String(n.attrs.value)).target.normalize('NFC');
-        if (tg && !links.current.has(tg) && !(n.attrs.embed && isAttachmentTarget(tg))) targets.add(tg);
+        if (tg && !links.current.has(tg)) targets.add(tg); // 6A: inline file embeds resolve too (R77)
       }
       // 4F: block embeds resolve in the same batch as the links (FR-EMB-01 AC-2, NFR-PERF-05 AC-3).
       if (embeds && n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
         const tg = linkTarget(String(n.attrs.source).trim().replace(/^!\[\[|\]\]$/g, '')).target.normalize('NFC');
-        if (tg && !links.current.has(tg) && !isAttachmentTarget(tg)) targets.add(tg);
+        if (tg && !links.current.has(tg)) targets.add(tg); // 6A: file embeds resolve too (R77)
       }
       return true;
     });
@@ -256,8 +260,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     resolving.current = true;
     try {
       const res = await ipc.linkResolve(pathRef.current, [...targets]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null, object: r.object ?? null });
       edRef.current?.refreshUi();
+      mediaViews.current.forEach((f) => f());
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
     }
@@ -298,7 +303,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     for (const s of embedSources()) {
       const v = s.slice(2).trim().replace(/^!\[\[|\]\]$/g, '');
       const tg = linkTarget(v).target.normalize('NFC');
-      if (tg && !isAttachmentTarget(tg)) targets.add(tg);
+      if (tg) targets.add(tg); // 6A: file embeds follow their files (R74, R77)
     }
     // D-600, FR-LNK-07 AC-10: a changed target changes its chip (Unreviewed, a task's status and dates).
     ed.view.state.doc.descendants((n) => {
@@ -307,10 +312,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     });
     if (targets.size) {
       const res = await ipc.linkResolve(pathRef.current, [...targets]).catch(() => [] as LinkTargetDto[]);
-      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null });
+      for (const r of res) links.current.set(r.target.normalize('NFC'), { kind: r.kind as LinkInfo['kind'], path: r.path, type: r.type, title: r.title, review: r.review ?? null, status: r.status ?? null, due: r.due ?? null, completed: r.completed ?? null, object: r.object ?? null });
     }
     buildEmbeds(true);
     edRef.current?.refreshUi();
+    mediaViews.current.forEach((f) => f());
   }, []);
   useEffect(() => {
     if (!embeds) return;

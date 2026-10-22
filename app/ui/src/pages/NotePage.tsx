@@ -2,6 +2,7 @@
 // (FR-EDT-01, FR-EDT-08), the title is editable (D-173), external changes reload a clean note and open the merge
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
+import { MediaObjectView } from '../media/MediaObjectView';
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Ref } from 'react';
 import { EmbedStore } from '../embeds/store';
 import { Embed } from '../embeds/Embed';
@@ -905,6 +906,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <h1 ref={heading} tabIndex={-1} className="note-title">
             <span data-user-content>{meta.title}</span>
           </h1>
+        )}
+        {(chipKey === 'image' || chipKey === 'pdf') && !draft && (
+          <MediaObjectView path={path} type={chipKey} title={meta.title} data={fmData as Record<string, unknown>} />
         )}
         {draft && saver.current?.create !== null && !daily && <p role="status" className="daily-virtual">{t('newObject.notSaved')}</p>}
         {loaded.mode === 'utf8' && (

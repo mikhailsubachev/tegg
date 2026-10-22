@@ -43,7 +43,7 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
       {linkParts(text).map((p, i) => {
         if ('text' in p) return <span key={i} aria-hidden="true" data-user-content>{p.text}</span>;
         const info = ctx.links.get(nfc(p.target));
-        const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily');
+        const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed');
         const dated = info?.kind === 'date-missing'; // never broken (FR-DLY-08 AC-8)
         const shown = p.alias ?? (ok ? info!.title ?? p.target : p.target);
         const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));

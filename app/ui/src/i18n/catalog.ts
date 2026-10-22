@@ -1214,6 +1214,8 @@ export const en: Catalog = {
   'media.bytes': { one: '{count} byte', other: '{count} bytes' },
   'trash.dialogCancel': 'Cancel',
   'trash.dismiss': 'Dismiss',
+  'media.open': 'Open',
+  'media.menu': 'Image actions',
   'trash.placeholder': '"{title}" was moved to the trash',
   'typePage.rowMenu': 'Object actions',
 };

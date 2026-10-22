@@ -954,3 +954,16 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .trash-zero-title { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
 .trash-banner { display: flex; align-items: center; gap: 12px; }
 .trash-toast { margin: 8px 16px 0; }
+
+/* 6A (trash-media.md R76, R77): media in notes. */
+.media-figure { margin: 4px 0; }
+.media-figure img { display: block; max-width: 100%; height: auto; border-radius: 4px; cursor: default; }
+.media-pdf-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--embed-border); border-radius: 8px; background: var(--embed-bg); color: var(--text); text-align: left; cursor: pointer; }
+.media-pdf-text { display: flex; flex-direction: column; }
+.media-pdf-title { font-weight: 600; }
+.media-pdf-meta { font-size: 12px; }
+.media-file-card { display: inline-flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--embed-border); border-radius: 8px; }
+.media-missing { color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; margin: 4px 0; }
+.media-object { margin: 8px 0 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.media-object-actions { display: flex; gap: 8px; }
+.media-inline { display: inline-block; vertical-align: middle; }

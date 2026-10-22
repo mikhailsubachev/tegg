@@ -14,6 +14,8 @@ export type LinkInfo = {
   kind: 'note' | 'daily' | 'unresolved' | 'date-missing' | 'trashed' | 'media'; path?: string | null; type?: string | null; title?: string | null
   /** D-601: the target's `review`, `status`, `due`, `completed` for its chip (D-600). */
   review?: string | null; status?: string | null; due?: string | null; completed?: string | null
+  /** 6A (ms6-trash-media §3.2): with kind `media`, the file's live Image or PDF object. */
+  object?: string | null
 }
 /** D-600: what the app adds to a resolved chip: data attributes, a description, an icon in place of the type's, and
  *  the suffix after the title. */
@@ -48,9 +50,9 @@ export interface EditorUi {
   hideBlockIds?: boolean
   /** 4F (D-419): an inline embed as a link-mode embed; undefined while unknown. */
   embedChip?(value: string): { title: string; type: string | null; state: 'ok' | 'broken' | 'too-deep'; description: string; target?: string } | undefined
-  /** 6A (ms6-trash-media §6.1): renders a block embed whose target resolved to kind `media` into `block` (the app draws
-   *  the figure or the PDF card; the editor owns no `img`). 6A stub: never called yet. */
-  media?(target: LinkInfo, block: HTMLElement): void
+  /** 6A (ms6-trash-media §6.1): renders a block embed of a file (`![[photo.png]]`, an image or PDF; R77) into `dom`;
+   *  the editor owns no `img`. Null leaves the placeholder. */
+  media?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null | void
   /** 6A (ms6-trash-media §6.1, FR-ATT-01 AC-1): called first by `handlePaste` when the clipboard has files (image
    *  items win over text); `true` consumes the paste. 6A stub: never called yet. */
   onFiles?(files: File[], pos: number): boolean
@@ -175,6 +177,21 @@ class RawBlockView implements NodeView {
       this.handle = ui.embed(source, this.dom, this.getPos)
       if (this.handle) return
     }
+    // 6A (R77): a file embed is drawn by the app (figure, PDF card, missing file).
+    if (kind === 'embed' && ui.media && noteEmbed(source) === null) {
+      if (this.handle && this.handle !== PENDING_EMBED && this.dom.classList.contains('media-block')) {
+        this.handle.update(source)
+        return
+      }
+      if (this.handle) this.handle.destroy()
+      this.dom.className = 'embed-block media-block'
+      this.dom.removeAttribute('role')
+      this.dom.removeAttribute('aria-label')
+      this.dom.removeAttribute('data-placeholder')
+      this.dom.replaceChildren()
+      this.handle = ui.media(source, this.dom, this.getPos) ?? null
+      if (this.handle) return
+    }
     if (this.handle) {
       this.handle.destroy()
       this.handle = null
@@ -290,12 +307,26 @@ function chipLabel(value: string, info: LinkInfo | undefined): string {
 class WikiLinkView implements NodeView {
   dom: HTMLElement
   private extraAttrs: string[] = []
+  private media: EmbedHandle | null = null
   constructor(private node: PMNode, private ui: EditorUi) {
     this.dom = document.createElement('span')
     this.render()
   }
+  destroy() {
+    this.media?.destroy()
+    this.media = null
+  }
   private render() {
     const v = String(this.node.attrs.value)
+    // 6A (R77): an inline file embed (`… a ![[Rozpočet.pdf]].`) is drawn by the app like a block one.
+    if (this.node.attrs.embed && isAttachmentTarget(linkTarget(v).target) && this.ui.media) {
+      this.dom.setAttribute('data-wikilink', v)
+      this.dom.className = 'media-inline'
+      if (this.media) { this.media.update(`![[${v}]]`); return }
+      this.dom.replaceChildren()
+      this.media = this.ui.media(`![[${v}]]`, this.dom, () => undefined) ?? null
+      if (this.media) return
+    }
     this.dom.setAttribute('data-wikilink', v)
     this.dom.replaceChildren()
     // Only what this view set before: a decoration owns `aria-description` of a broken chip.
