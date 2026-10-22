@@ -32,7 +32,9 @@ export const R1: R1Row[] = [
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
   { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
-  { id: 'tags', page: 'Tags', built: false, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'Main', goto: 'Go to Tags' },
+  // 4D-lite (tags.md R87): All tags is built (board TagsAll); the tag page and Settings › Backups are new built routes.
+  { id: 'tags', page: 'Tags', built: true, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'TagsAll', goto: 'Go to Tags' },
+  { id: 'tag/<key>', page: 'Tag page', built: true, due: d('MS4'), reqs: 'FR-TAG-06', design: 'TagPage', goto: null },
   { id: 'pinned', page: 'Pinned', built: false, due: d('v1.0'), reqs: 'FR-HOM-02', design: null, goto: 'Go to Pinned' }, // 5B R62 (D-376)
   { id: 'saved-queries', page: 'Saved queries', built: false, due: d('v1.0'), reqs: 'FR-QRY-06', design: null, goto: 'Go to Saved queries' },
   { id: 'note/<path>', page: 'Edit note', built: true, due: d('MS3'), reqs: '', design: 'Main', goto: null },
@@ -54,6 +56,7 @@ export const R1: R1Row[] = [
   // v0.52 (D-608): Help › Keyboard Shortcuts; no `Go to` command (palette `Keyboard shortcuts`, ⇧⌘/).
   { id: 'help/shortcuts', page: 'Keyboard shortcuts', built: true, due: d('MS5'), reqs: 'FR-UX-03', design: null, goto: 'Keyboard shortcuts' },
   { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: null, goto: 'Go to Settings: Menu bar and startup' },
+  { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: null, goto: 'Go to Settings: Backups' },
   { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: null, goto: 'Go to Settings: Trash and history' },
   { id: 'settings/previews', page: 'Settings: Previews', built: false, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
 ];
@@ -87,7 +90,7 @@ export const R3: R3Control[] = [
   { label: 'Add view', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   // 6A (trash-media.md R75): the `File` row (`ctl.rowFile`) is built.
-  { label: 'color', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05', route: 'note/<path>' },
+  // 4D-lite (R87): the Tag `color` row is removed (a Tag has no note page, D-638).
   { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
   // 5A-1 (tasks.md R45 R3).
   { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
@@ -101,7 +104,7 @@ export const R3: R3Control[] = [
   // 6A (R75): the Inbox's `Move to trash` and the capture drop zone `Add an image or PDF` are built.
   { label: 'Change…', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04', route: 'settings/shortcuts' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05), `ctl.typePickerLink` removed.
-  { label: 'Merge…', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14', route: 'duplicate-titles' },
+  // 4D-lite (R87, D-651): `Merge…` on the Duplicate titles page is built (FR-LNK-14 AC-11).
   // D-635: `Unlinked mentions` (Backlinks panel, v1.x, FR-LNK-05) is removed from the panel and from R3.
 ];
 

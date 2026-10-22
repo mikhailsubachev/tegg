@@ -81,8 +81,8 @@ export const editorBody = (page: Page) => page.getByRole('textbox', { name: /^โ
 export const titleField = (page: Page) => page.getByRole('textbox', { name: 'Title', exact: true });
 /** The job status element (FR-UX-07 AC-9): `role="status"` with the given text. */
 export const jobStatus = (page: Page, text: string | RegExp) => page.getByRole('status').filter({ hasText: text });
-/** The status-area entry `<n> links not updated` (FR-LNK-03 AC-16). */
-export const notUpdatedEntry = (page: Page) => page.getByRole('button', { name: /^\d+ links? not updated$/ }).or(page.getByRole('link', { name: /^\d+ links? not updated$/ }));
+/** The status-area entry `<n> notes not updated` (FR-LNK-03 AC-16; `notes` for every job kind since 4D-lite, D-677). */
+export const notUpdatedEntry = (page: Page) => page.getByRole('button', { name: /^\d+ notes? not updated$/ }).or(page.getByRole('link', { name: /^\d+ notes? not updated$/ }));
 /** The non-modal list `Links not updated` (ms4-jobs ยง10). */
 export const notUpdatedList = (page: Page) =>
   page.getByRole('list', { name: 'Links not updated', exact: true }).or(page.getByRole('region', { name: 'Links not updated', exact: true })).or(page.getByRole('dialog', { name: 'Links not updated', exact: true }));

@@ -349,14 +349,15 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
 });
 
 test('fr_edt_02_ac9_tag_opens_the_tag_page', async ({ page }) => {
-  // D-218 (supersedes D-143): a tag opens its tag page; until MS4 (FR-TAG-06) that is the Tags placeholder.
+  // D-218 (supersedes D-143): a tag opens its tag page `tag/<key>` (4D-lite, tags.md FR-TAG-06 AC-1, R82, D-649).
+  const tagPage = (name: string) => page.getByRole('main').filter({ has: page.getByRole('link', { name: '‹ All tags', exact: true }) }).getByRole('heading', { level: 1, name, exact: true });
   await openAt(page, R.odkazy);
   const art = await mustArticle(page, 'Odkazy');
   await (await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa')).click();
-  await mustBeOn(page, 'Tags', 'tag activation');
+  await must(tagPage('Projekt/alfa'), 'tag activation opens tag/projekt%2Falfa (one tag, R87)', 3000);
   await openNote(page, 'Odkazy');
   await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)')).click();
-  await mustBeOn(page, 'Tags', 'NFD tag activation');
+  await must(tagPage('Čeština'), 'NFD tag activation opens tag/čeština', 3000);
 });
 
 test('fr_edt_02_ac10_external_links_open_outside_and_no_network', async ({ page }) => {

@@ -20,7 +20,8 @@ test('fr_nav_04_ac6_sidebar_without_home', async ({ page }) => {
   const parts: [string, ReturnType<typeof entry>][] = [
     ['Search or jump to…', sb.getByRole('button', { name: 'Search or jump to…' })], ['New object', sb.getByRole('button', { name: 'New object' })],
     ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')], ['Types', sb.getByRole('list', { name: 'Types' })],
-    ['Tags', entry(page, 'Tags')], ['Pinned', entry(page, 'Pinned')], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
+    // 4D-lite (tags.md FR-NAV-04 AC-8, R83): the Tags section (header `Tags, all <n>`) instead of a bottom Tags entry.
+    ['Tags section', sb.getByRole('button', { name: /^Tags, all \d+$/ })], ['Pinned', entry(page, 'Pinned')], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
   ];
   let last = -1;
   for (const [name, loc] of parts) {
