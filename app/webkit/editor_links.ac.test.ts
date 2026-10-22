@@ -132,7 +132,12 @@ for (const [q, file, link] of [
     const created = (await core.calls()).filter((c) => c.cmd === 'note_create');
     assert.equal(created.length, 1, 'note_create used (same path as New object)');
     assert.match(String((created[0].args as any).text), /^---\nid: \S+\ntype: quick-note\n/, 'default type Quick Note');
-    assert.deepEqual(await core.writesTo(), [file, E.prazdna], 'exactly two files written: the new note, then the edited note');
+    // Two files, not two writes: autosave may write the edited note more than once, also while the query is typed
+    // (D-179, 300 ms idle / 1 s max wait). The new note is written once, before the edited note's last write.
+    const w = await core.writesTo();
+    assert.deepEqual([...new Set(w)].sort(), [file, E.prazdna].sort(), `exactly two files written: ${w.join(' | ')}`);
+    assert.equal(w.filter((p) => p === file).length, 1, `the new note is written once: ${w.join(' | ')}`);
+    assert.equal(w.at(-1), E.prazdna, `the edited note is written last, after the new note: ${w.join(' | ')}`);
   });
 }
 
