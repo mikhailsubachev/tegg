@@ -105,3 +105,14 @@ Branch `qa/verify-speedup`, same Mac, but shared with another session running Ru
 | Rust AC steps with `--threads 4`, alone | core 176 s, jobs 36 s | sequential one-thread runner: 245–275 s and ~70 s |
 
 Under that load a handful of timing-sensitive WebKit tests (`broken_links_ac13`, `bug_36_review_findings`, `fr_edt_02_ac13`) and the 5-second embeds property test failed in the gate while passing when run alone; moving `app-ui-test` into the browser lane removed the vitest failure and left one WebKit failure per run. A quiet-machine run is still owed (the owner's `./verify push --all`), and the remaining lever on a full run is the cargo lane (a second Cargo lane for the frozen spikes, or fewer Rust tests per push through the memo, which already skips them when nothing under `spikes/` changed).
+
+### 5.1 Quiet-machine runs (later on 2026-10-22, load < 5 at start)
+
+| Run | Wall time | Result |
+| --- | ---: | --- |
+| `verify push --all`, lanes at 4 Rust threads / 4 vitest workers | 413 s | 2 timing failures (a 5 s embeds property test at 5.2 s, one create-link WebKit test) |
+| same, cargo and node lanes at `nice 10` | 412 s | worse: FR-UX-07 AC-1's 500 ms progress-gap bound and the lane timing ACs failed too; niceness dropped again |
+| same, 2 Rust threads / 2 vitest workers (current config) | 429 s | everything green except `app-webkit`: 3 timing failures (`bug_36_review_findings` ×2, `fr_ux_03_ac5`) |
+| `app-webkit` alone, 8 workers, no other lane | 277 s | 1 failure (`fr_edt_02_ac13`), load 17 from WebKit itself |
+
+So the WebKit suite is already timing-flaky at 8 workers on its own (D-343's setting), and the lanes add one or two more such failures per run. The open decision for the owner: quarantine or fix the create-link and placeholder tests (test-strategy §8.4, an `AC-Test-Change`), or run WebKit at 6 workers under the gate (≈ +100 s on the browser lane). Until a push gate passes, `.verify/last-pass` stays empty and the branch cannot be pushed.
