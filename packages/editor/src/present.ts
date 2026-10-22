@@ -10,7 +10,8 @@ import { displayTable, isAttachmentTarget } from '@tegg/doc'
 import { wikiLabel } from './schema'
 
 export type LinkInfo = {
-  kind: 'note' | 'daily' | 'unresolved' | 'date-missing'; path?: string | null; type?: string | null; title?: string | null
+  /** 6A (ms6-trash-media §2, §3.2): `trashed` resolves only in `.trash/`; `media` is a file (an image, a PDF). */
+  kind: 'note' | 'daily' | 'unresolved' | 'date-missing' | 'trashed' | 'media'; path?: string | null; type?: string | null; title?: string | null
   /** D-601: the target's `review`, `status`, `due`, `completed` for its chip (D-600). */
   review?: string | null; status?: string | null; due?: string | null; completed?: string | null
 }
@@ -280,7 +281,7 @@ function chipLabel(value: string, info: LinkInfo | undefined): string {
   const target = hash >= 0 ? value.slice(0, hash) : value
   const sub = hash >= 0 ? value.slice(hash + 1) : ''
   if (!target && sub) return sub
-  const ok = info && (info.kind === 'note' || info.kind === 'daily')
+  const ok = info && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed' || info.kind === 'media')
   const base = ok && info!.title ? info!.title : target
   return sub && !sub.startsWith('^') ? `${base} › ${sub}` : base
 }
@@ -304,7 +305,9 @@ class WikiLinkView implements NodeView {
     if (!this.node.attrs.embed) {
       const info = this.ui.resolve(linkTarget(v).target)
       this.dom.setAttribute('data-link-kind', info?.kind ?? 'unresolved') // from the first paint (FR-LNK-07)
-      const ok = info && (info.kind === 'note' || info.kind === 'daily')
+      const ok = info && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed' || info.kind === 'media')
+      // 6A (R74): every chip says whether its target is live, broken or in the trash.
+      this.dom.setAttribute('data-link-state', info?.kind === 'trashed' ? 'trashed' : ok ? 'ok' : 'broken')
       const extra = ok ? this.ui.chipExtra?.(info!) ?? null : null
       if (extra) {
         for (const [k, val] of Object.entries(extra.attrs)) { this.dom.setAttribute(k, val); this.extraAttrs.push(k) }

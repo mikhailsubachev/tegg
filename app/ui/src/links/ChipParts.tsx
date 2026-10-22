@@ -2,7 +2,7 @@
 // type icon, and the suffix after the title, for the read view, embeds and relation values.
 import type { ReactNode } from 'react';
 import { Icon } from '../shell/Icon';
-import { chipAttrs, chipState, taskGlyph, taskIconDef, unreviewedText, type ChipState, type ChipTarget } from './chip';
+import { chipAttrs, chipState, taskGlyph, taskIconDef, trashedText, unreviewedText, type ChipState, type ChipTarget } from './chip';
 
 export type ChipParts = { state: ChipState; attrs: Record<string, string>; description: string | null; icon: ReactNode | null; suffix: ReactNode | null };
 
@@ -12,7 +12,7 @@ export function chipParts(info: ChipTarget | null | undefined, size = 13): ChipP
   return {
     state,
     attrs: chipAttrs(state),
-    description: state.unreviewed ? unreviewedText() : null,
+    description: state.link === 'trashed' ? trashedText() : state.unreviewed ? unreviewedText() : null,
     icon: glyph ? <Icon name={glyph} dataIcon={taskIconDef(state)} size={size} /> : null,
     suffix: <ChipSuffix state={state} />,
   };

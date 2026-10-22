@@ -9,6 +9,7 @@ import type {
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
   InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
+  TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto,
 } from './types';
 
 export const ipc = {
@@ -37,6 +38,22 @@ export const ipc = {
   noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),
   noteCreateExact: (path: string, text: string) => invoke<VersionDto>('note_create_exact', { path, text }),
   noteTrash: (path: string, base: VersionDto) => invoke<string>('note_trash', { path, base }),
+  // 6A (ms6-trash-media §4).
+  trashList: () => invoke<TrashEntryDto[]>('trash_list'),
+  objectTrash: (path: string, base: VersionDto) => invoke<MovedDto[]>('object_trash', { path, base }),
+  trashRestore: (path: string) => invoke<MovedDto[]>('trash_restore', { path }),
+  trashDelete: (paths: string[]) => invoke<TrashRemovalDto>('trash_delete', { paths }),
+  trashEmpty: () => invoke<TrashRemovalDto>('trash_empty'),
+  mediaAdd: (bytes: Uint8Array, name: string, owner: { path: string; title: string } | null, date: string) =>
+    invoke<MediaAddedDto>('media_add', bytes, { headers: { 'x-tegg-name': encodeURIComponent(name), 'x-tegg-date': date, ...(owner ? { 'x-tegg-owner': encodeURIComponent(owner.path), 'x-tegg-owner-title': encodeURIComponent(owner.title) } : {}) } }),
+  mediaAddPaths: (paths: string[], owner: { path: string; title: string } | null, date: string) =>
+    invoke<MediaAddResultDto[]>('media_add_paths', { paths, owner: owner?.path ?? null, ownerTitle: owner?.title ?? null, date }),
+  mediaPick: (kind: 'any' | 'image' | 'pdf') => invoke<string[]>('media_pick', { kind }),
+  mediaOpen: (path: string) => invoke<void>('media_open', { path }),
+  mediaReveal: (path: string) => invoke<void>('media_reveal', { path }),
+  captureMediaBytes: (bytes: Uint8Array, name: string) => invoke<StagedMediaResultDto[]>('capture_media_add', bytes, { headers: { 'x-tegg-name': encodeURIComponent(name) } }),
+  captureMediaPaths: (paths: string[]) => invoke<StagedMediaResultDto[]>('capture_media_add', { paths }),
+  captureMediaPick: () => invoke<StagedMediaResultDto[]>('capture_media_add', { pick: true }),
   /** ms5-tasks §11.6 (D-492): deletes a note only while it is still `base` (a conversion's undo). */
   noteDiscard: (path: string, base: VersionDto) => invoke<void>('note_discard', { path, base }),
   tags: () => invoke<TagDto[]>('index_tags'),
@@ -108,6 +125,7 @@ export type JobTransformEvent = { requestId: number; source: string; text: strin
 export const events = {
   progress: (f: (p: ProgressDto) => void): Promise<UnlistenFn> => listen<ProgressDto>('index:progress', (e) => f(e.payload)),
   changed: (f: (c: ChangedDto) => void): Promise<UnlistenFn> => listen<ChangedDto>('vault:changed', (e) => f(e.payload)),
+  trashChanged: (f: () => void): Promise<UnlistenFn> => listen('trash:changed', () => f()),
   conflict: (f: (c: ConflictDto) => void): Promise<UnlistenFn> => listen<ConflictDto>('note:conflict', (e) => f(e.payload)),
   /** The mouse's back/forward buttons, caught natively (WKWebView doesn't pass them to the page, FR-NAV-03). */
   navMouse: (f: (dir: 'back' | 'forward') => void): Promise<UnlistenFn> => listen<'back' | 'forward'>('nav:mouse', (e) => f(e.payload)),

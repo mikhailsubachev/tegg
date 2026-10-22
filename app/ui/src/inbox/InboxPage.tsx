@@ -7,6 +7,7 @@ import { CardText } from './CardText';
 import { TagField } from '../capture/TagField';
 import { firstDay } from '../i18n/dates';
 import { collator, region as regionOf } from '../i18n/collate';
+import { moveToTrash } from '../trash/moveToTrash';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { DateTimeUiDto, InboxRowDto, TypeDefDto } from '../ipc/types';
@@ -331,6 +332,16 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     } else if (id === 'inbox.append') setPicker({ verb: 'append', paths });
     else if (id === 'inbox.link') setPicker({ verb: 'link', paths });
     else if (id === 'inbox.tags') setTagging(paths);
+    else if (id === 'inbox.trash') void trash(paths);
+  };
+
+  /** 6A (FR-INB-02 AC-10, FR-HIS-01 AC-3; D-616): one rename per item, the toast with Undo; read-only items are left. */
+  const trash = async (paths: string[]) => {
+    const rows = paths.map(rowOf).filter((r): r is InboxRowDto => !!r && !r.readOnly);
+    if (!rows.length) return;
+    setSelection([]);
+    await moveToTrash(rows.map((r) => ({ path: r.path, base: r.version, title: r.title })), { onUndone: () => void load() });
+    void load();
   };
 
   const onCardKey = (e: React.KeyboardEvent<HTMLElement>, r: InboxRowDto) => {
@@ -359,7 +370,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     else if (key === 'a' || key === 'A') { e.preventDefault(); setPicker({ verb: 'append', paths: subject() }); }
     else if (key === 'l' || key === 'L') { e.preventDefault(); setPicker({ verb: 'link', paths: subject() }); }
     else if (key === '#') { e.preventDefault(); setTagging(subject()); }
-    else if (key === 'Backspace' || key === 'Delete') e.preventDefault(); // Move to trash comes with MS6 (D-560)
+    else if (key === 'Backspace' || key === 'Delete') { e.preventDefault(); void trash(subject()); } // 6A (FR-INB-02 AC-10)
   };
   const isReviewed = (r: InboxRowDto) => reviewedHere(r.path) || r.reviewRaw === 'reviewed';
 
@@ -476,7 +487,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
               <button type="button" tabIndex={0} data-command="inbox.append" onClick={() => setPicker({ verb: 'append', paths: selection })}>{t('inbox.append')}</button>
               <button type="button" tabIndex={0} data-command="inbox.link" onClick={() => setPicker({ verb: 'link', paths: selection })}>{t('inbox.link')}</button>
               <button type="button" tabIndex={0} data-command="inbox.tags" onClick={() => setTagging(selection)}>{t('inbox.addTags')}</button>
-              <button type="button" tabIndex={0} aria-disabled="true" aria-description={t('due.coming', { milestone: 'MS6' })} data-command="inbox.trash">{t('inbox.trash')}</button>
+              <button type="button" tabIndex={0} data-command="inbox.trash" onClick={() => void trash(selection)}>{t('inbox.trash')}</button>
               <button type="button" tabIndex={0} data-command="inbox.clearSelection" onClick={() => setSelection([])}>{t('inbox.clearSelection')}</button>
             </div>
           )}
@@ -524,6 +535,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           onAppend={() => { const p = menu.path; setMenu(null); setPicker({ verb: 'append', paths: [p] }); }}
           onLink={() => { const p = menu.path; setMenu(null); setPicker({ verb: 'link', paths: [p] }); }}
           onTags={() => { const p = menu.path; setMenu(null); setTagging([p]); }}
+          onTrash={() => { const p = menu.path; setMenu(null); void trash([p]); }}
           onOpen={() => { const r = rowOf(menu.path)!; setMenu(null); open(r); }} />
       )}
       {picker && (
@@ -551,9 +563,9 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
 
 // ------------------------------------------------------------------------------------------------ triage menu (R60)
 
-function TriageMenu({ row, convertFirst, targets, onClose, onConvert, onAppend, onLink, onTags, onOpen }: {
+function TriageMenu({ row, convertFirst, targets, onClose, onConvert, onAppend, onLink, onTags, onTrash, onOpen }: {
   row: InboxRowDto; convertFirst: boolean; targets: TypeDefDto[]; onClose: () => void; onConvert: (key: string) => void;
-  onAppend: () => void; onLink: () => void; onTags: () => void; onOpen: () => void;
+  onAppend: () => void; onLink: () => void; onTags: () => void; onTrash: () => void; onOpen: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const daily = row.type === 'daily-note';
@@ -592,7 +604,7 @@ function TriageMenu({ row, convertFirst, targets, onClose, onConvert, onAppend, 
         {item(t('inbox.append'), onAppend, off ? t('inbox.readOnly') : undefined)}
         {item(t('inbox.link'), onLink, off ? t('inbox.readOnly') : undefined)}
         {item(t('inbox.addTags'), onTags, off ? t('inbox.readOnly') : undefined)}
-        {item(t('inbox.trash'), () => {}, t('due.coming', { milestone: 'MS6' }))}
+        {item(t('inbox.trash'), onTrash, row.readOnly ? t('inbox.readOnly') : undefined)}
         {item(t('inbox.open'), onOpen)}
       </div>
     </div>

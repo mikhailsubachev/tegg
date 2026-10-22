@@ -5,7 +5,7 @@
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
-import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, unreviewedText } from '../links/chip';
+import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
 import { isAttachmentTarget } from '@tegg/doc';
@@ -68,9 +68,9 @@ function chipIconElement(type: string): Element {
 /** D-600: the Unreviewed mark and a task's box and suffix on an editor chip (links/chip.ts). */
 function chipExtraOf(info: LinkInfo): ChipExtra | null {
   const s = chipState(info);
-  if (!s.unreviewed && !s.task) return null;
+  if (!s.unreviewed && !s.task && s.link === 'ok') return null;
   const glyph = taskGlyph(s);
-  return { attrs: chipAttrs(s), description: s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
+  return { attrs: chipAttrs(s), description: s.link === 'trashed' ? trashedText() : s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
@@ -185,7 +185,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
         if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
-        if (r?.path && (r.kind === 'note' || r.kind === 'daily')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
+        if (r?.path && (r.kind === 'note' || r.kind === 'daily' || r.kind === 'trashed')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
         else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
       },
       onTag: (v) => cb.current.onTag(v.normalize('NFC').toLowerCase()),

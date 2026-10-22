@@ -3,7 +3,7 @@
 import { embedParts, embedSection, embedsIn, parse, type EmbedMode, type Section } from '@tegg/doc';
 import type { EmbedNoteDto, LinkTargetDto, TypeDto } from '../ipc/types';
 
-export type EmbedState = 'ok' | 'broken' | 'missing-section' | 'date-missing' | 'circular' | 'too-deep';
+export type EmbedState = 'ok' | 'broken' | 'missing-section' | 'date-missing' | 'circular' | 'too-deep' | 'trashed';
 export type EmbedNode = {
   value: string;
   line: number;
@@ -92,6 +92,12 @@ export async function buildEmbedTree(
       value: e.value, line: e.line, inline: e.inline, depth, mode: 'link', state: 'ok', target, subpath: parts.subpath,
       note: null, section: null, readOnly: true, children: [],
     };
+    // 6A (R74, D-27): the target is only in the trash: the placeholder with Restore.
+    if (target.kind === 'trashed') {
+      node.state = 'trashed';
+      node.mode = embedModeFor(e.value, target.type, types, e.inline);
+      return node;
+    }
     if (target.kind === 'unresolved') {
       node.state = 'broken';
       node.mode = embedModeFor(e.value, null, types, e.inline);

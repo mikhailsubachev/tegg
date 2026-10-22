@@ -2,6 +2,7 @@
 // embed, a card, a link-mode embed, or a frame for a state that can't show content (R30a). Strings from R33.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { parse, type EmbedMode } from '@tegg/doc';
+import { ipc } from '../ipc/client';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../ipc/types';
 import { chipIcon, chipTypes } from '../links/icons';
@@ -313,6 +314,18 @@ export function Embed(props: EmbedProps): ReactNode {
       if (card && e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); open(node, props.onOpen); }
     },
   };
+  if (node.state === 'trashed') {
+    const title = node.target.title ?? node.target.target;
+    const from = node.target.path ?? '';
+    return (
+      <section {...base} className="embed embed-trashed" aria-label={title} data-embed-state="trashed" data-embed-target={from}>
+        <p className="embed-trashed-text">
+          {t('trash.placeholder', { title })}{' '}
+          <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button>
+        </p>
+      </section>
+    );
+  }
   if (node.state === 'broken') {
     const target = node.target.target;
     return (

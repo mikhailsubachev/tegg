@@ -12,6 +12,8 @@ import { chipTypes } from './icons';
 export type ChipTarget = { kind: string; type?: string | null; review?: string | null; status?: string | null; due?: string | null; completed?: string | null };
 export type TaskState = 'open' | 'in-progress' | 'done' | 'cancelled';
 export type ChipState = {
+  /** 6A (R74): `data-link-state`: a live target, none, or one only in the trash. */
+  link: 'ok' | 'broken' | 'trashed';
   unreviewed: boolean;
   task: null | { state: TaskState; status: string; color: string | null; date: string | null; tone: 'none' | 'today' | 'overdue' | 'done' };
 };
@@ -38,9 +40,11 @@ export function isUnreviewed(info: ChipTarget): boolean {
 }
 
 export function chipState(info: ChipTarget | undefined | null, types: TypeDto[] = chipTypes() as TypeDto[], now = Date.now()): ChipState {
-  if (!info) return { unreviewed: false, task: null };
+  if (!info) return { link: 'broken', unreviewed: false, task: null };
+  const link = info.kind === 'trashed' ? 'trashed' : ['note', 'daily', 'media'].includes(info.kind) ? 'ok' : 'broken';
+  if (link === 'trashed') return { link, unreviewed: false, task: null };
   const unreviewed = isUnreviewed(info);
-  if (info.kind !== 'note' || info.type !== 'task' || !info.status) return { unreviewed, task: null };
+  if (info.kind !== 'note' || info.type !== 'task' || !info.status) return { link, unreviewed, task: null };
   const zone = appZone();
   const today = localDate(now, zone);
   const region = currentRegion();
@@ -49,17 +53,17 @@ export function chipState(info: ChipTarget | undefined | null, types: TypeDto[] 
     // D-599: the completion date in the vault zone, else nothing.
     const ms = info.completed ? parseInstant(info.completed, zone) : null;
     const day = ms !== null ? localDate(ms, zone) : null;
-    return { unreviewed, task: { state, status: info.status, color, date: day ? shortDate(day, region) : null, tone: 'done' } };
+    return { link, unreviewed, task: { state, status: info.status, color, date: day ? shortDate(day, region) : null, tone: 'done' } };
   }
   const due = info.due && DATE.test(info.due) ? info.due : null;
-  if (!due) return { unreviewed, task: { state, status: info.status, color, date: null, tone: 'none' } };
-  if (due === today) return { unreviewed, task: { state, status: info.status, color, date: t('task.due.today'), tone: 'today' } };
-  return { unreviewed, task: { state, status: info.status, color, date: shortDate(due, region), tone: due < today ? 'overdue' : 'none' } };
+  if (!due) return { link, unreviewed, task: { state, status: info.status, color, date: null, tone: 'none' } };
+  if (due === today) return { link, unreviewed, task: { state, status: info.status, color, date: t('task.due.today'), tone: 'today' } };
+  return { link, unreviewed, task: { state, status: info.status, color, date: shortDate(due, region), tone: due < today ? 'overdue' : 'none' } };
 }
 
 /** The chip's data attributes (ms3-shell §16.1). */
 export function chipAttrs(s: ChipState): Record<string, string> {
-  const a: Record<string, string> = {};
+  const a: Record<string, string> = { 'data-link-state': s.link };
   if (s.unreviewed) a['data-review'] = 'unreviewed';
   if (s.task) a['data-task-state'] = s.task.state;
   return a;
@@ -120,6 +124,11 @@ export function chipSuffix(s: ChipState): HTMLElement | null {
 /** `data-icon` of the state box: the board's names (an empty, a ticked and a crossed square). */
 export function taskIconDef(s: ChipState): string {
   return s.task?.state === 'done' ? 'check-square' : s.task?.state === 'cancelled' ? 'x-square' : 'square';
+}
+
+/** 6A (R74): the description of a chip whose target is only in the trash. */
+export function trashedText(): string {
+  return t('trash.inTrash');
 }
 
 /** The accessible description an Unreviewed chip adds (joined to any other). */

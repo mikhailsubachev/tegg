@@ -1213,6 +1213,9 @@ export const en: Catalog = {
   'media.tooLarge': `"{name}" isn't an image or PDF Tegg can add.`,
   'media.bytes': { one: '{count} byte', other: '{count} bytes' },
   'trash.dialogCancel': 'Cancel',
+  'trash.dismiss': 'Dismiss',
+  'trash.placeholder': '"{title}" was moved to the trash',
+  'typePage.rowMenu': 'Object actions',
 };
 
 let current: Catalog = en;

@@ -89,6 +89,13 @@ export type NotePageApi = {
   title: () => string;
   /** 5B (FR-VLT-05 AC-4): drop an unwritten draft without writing it (its type changes). */
   discardDraft: () => void;
+  /** 6A (FR-HIS-01 AC-1, D-196): saves first, then what Move to trash needs; null when the save failed or there is
+   *  no file (a virtual Daily Note, an unsaved object). */
+  trashTarget: () => Promise<{ path: string; base: VersionDto; title: string } | null>;
+  /** 6A (FR-HIS-01 AC-3): why there is nothing to trash, or null. */
+  trashBlocked: () => string | null;
+  /** 6A (FR-HIS-01 AC-2): re-reads the file after a refused trash. */
+  reload: () => void;
 };
 
 const headOf = (text: string): string => text.slice(0, parse(text).bodyStart);
@@ -208,7 +215,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const doc = parse(n.text.replace(/^﻿/, ''));
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
       const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
-      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView ? 'readView' : 'edit';
+      // 6A (FR-HIS-01 AC-6): an object in the trash is shown read-only, never edited.
+      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || path.startsWith('.trash/') ? 'readView' : 'edit';
       // The read-only views resolve their links here; the editor resolves its own chips.
       let links = new Map<string, LinkTargetDto>();
       if (mode !== 'edit') {
@@ -378,6 +386,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
     title: () => titleRef.current,
+    trashTarget: async () => {
+      if (live.current.daily?.virtual || live.current.draft) return null;
+      await flush();
+      if (saver.current?.pending) return null;
+      const base = saver.current?.base ?? live.current.loaded?.version ?? null;
+      if (!base) return null;
+      const stem = path.split('/').pop()!.replace(/\.md$/i, '');
+      return { path, base, title: live.current.daily?.date ?? (titleRef.current.trim() || stem) };
+    },
+    trashBlocked: () => (live.current.daily?.virtual || live.current.draft ? t('trash.nothing') : null),
+    reload: () => { void externalRef.current(); },
     discardDraft: () => { if (isDraft()) saver.current?.discard(); },
     // D-494: only the note's own editor converts; the read view, the source view and read-only files don't.
     convertBlocked: () => (pane.current && live.current.loaded?.mode === 'edit' ? pane.current.convertBlocked() : t('convert.readOnly')),
@@ -893,6 +912,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         )}
         {loaded.mode === 'editorFailed' && <div role="alert" className="fm-warning">{t('readOnly.editorFailed')}</div>}
         <PageAlerts />
+        {path.startsWith('.trash/') && (
+          <div role="status" className="banner trash-banner">
+            <span>{t('trash.readOnly')}</span>
+            <button type="button" onClick={() => { void ipc.trashRestore(path).then((m) => { const to = m[0]?.to; if (to) onOpen(to); }, () => {}); }}>{t('cmd.trashRestore')}</button>
+          </div>
+        )}
         {save.state === 'failed' && save.failure === 'io' && (
           <div role="alert" className="save-alert">
             <span>{t('save.ioFailed')}</span>
