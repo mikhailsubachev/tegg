@@ -169,8 +169,11 @@ export class EmbedStore {
   }
 }
 
-/** The scroll position the last correction set: overlapping corrections (two builds, nested stores) know each other's. */
-let lastFix: number | null = null;
+/**
+ * The scroll position a correction still running set, so overlapping corrections (two builds, nested stores) know each
+ * other's. Released when that correction finishes or stops: a later scroll to the same place is the user's (#64).
+ */
+let lastFix: { top: number; by: object } | null = null;
 
 /** Notes the first body block on screen and, once the change has painted, scrolls so it is where it was (D-456). */
 function keepOnScreen(): () => void {
@@ -184,17 +187,26 @@ function keepOnScreen(): () => void {
   const before = anchor.getBoundingClientRect().top;
   // D-689: only this correction may move the scroll; a scroll made meanwhile (the caret moved, the user scrolled)
   // wins, and the correction stops.
+  const me = {};
   let expected = main.scrollTop;
   let stopped = false;
+  const stop = () => {
+    stopped = true;
+    if (lastFix?.by === me) lastFix = null;
+  };
   return () => {
-    const fix = () => {
-      if (stopped || !anchor.isConnected) return;
+    const fix = (last = false) => {
+      if (stopped) return;
+      if (!anchor.isConnected) return stop();
       const now = main.scrollTop;
-      if (Math.abs(now - expected) > 1 && (lastFix === null || Math.abs(now - lastFix) > 1)) { stopped = true; return; }
+      const byOther = lastFix !== null && lastFix.by !== me && Math.abs(now - lastFix.top) <= 1;
+      if (Math.abs(now - expected) > 1 && !byOther) return stop();
       const d = anchor.getBoundingClientRect().top - before;
       if (Math.abs(d) > 1) main.scrollTop += d;
-      expected = lastFix = main.scrollTop;
+      expected = main.scrollTop;
+      lastFix = { top: expected, by: me };
+      if (last) stop();
     };
-    requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); setTimeout(fix, 150); });
+    requestAnimationFrame(() => { fix(); requestAnimationFrame(() => fix()); setTimeout(() => fix(true), 150); });
   };
 }

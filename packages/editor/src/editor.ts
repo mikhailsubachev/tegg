@@ -5,7 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
-import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Selection, type Transaction } from '@tiptap/pm/state'
+import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
@@ -229,31 +229,57 @@ function sameIgnoringSrc(a: PMNode, b: PMNode): boolean {
   return true
 }
 
+const isEmptyParagraph = (n: PMNode) => n.type.name === 'paragraph' && n.content.size === 0
+
 /**
  * D-689: `sel` (in `before`) carried over to `after`, which a conversion made from `before` by replacing some top-level
- * blocks. The unchanged blocks are found from both ends, ignoring `srcIndex`; a position in a block before the replaced
- * ones stays, one after them shifts by their change in size. Null when the selection touches the replaced blocks or is
- * not a text or node selection (the caller then selects the embed).
+ * blocks and reloading the rest. The blocks are aligned from both ends, ignoring `srcIndex`; an empty paragraph of
+ * `before` with no counterpart was dropped by the reload (it is never written, #64) and maps to where it was. A position
+ * in an aligned block keeps its offset in it; a text selection with an end in a dropped paragraph becomes a caret in the
+ * nearest text block (after that place first), never a selected block: the next keystroke would replace it. A node
+ * selection is kept inside its aligned block. Null when the selection touches the replaced blocks or is not a text or
+ * node selection (the caller then selects the embed).
  */
 function keptSelection(before: PMNode, after: PMNode, sel: Selection): Selection | null {
-  const n = Math.min(before.childCount, after.childCount)
-  let head = 0
-  while (head < n && sameIgnoringSrc(before.child(head), after.child(head))) head++
-  let tail = 0
-  while (tail < n - head && sameIgnoringSrc(before.child(before.childCount - 1 - tail), after.child(after.childCount - 1 - tail))) tail++
-  const posOf = (doc: PMNode, index: number) => { let p = 0; for (let i = 0; i < index; i++) p += doc.child(i).nodeSize; return p }
-  const startA = posOf(before, head)
-  const endA = posOf(before, before.childCount - tail)
-  const endB = posOf(after, after.childCount - tail)
-  const map = (p: number) => (p <= startA ? p : p >= endA ? p - endA + endB : null)
+  const nb = before.childCount
+  const na = after.childCount
+  // For each block of `before`: its block in `after`, or { at } (dropped: the index in `after` it stood before).
+  const to: (number | { at: number } | undefined)[] = new Array(nb)
+  let i = 0
+  let j = 0
+  for (; i < nb && j < na; i++) {
+    if (sameIgnoringSrc(before.child(i), after.child(j))) to[i] = j++
+    else if (isEmptyParagraph(before.child(i))) to[i] = { at: j }
+    else break
+  }
+  for (let a = nb - 1, b = na - 1; a >= i; a--) {
+    if (b >= j && sameIgnoringSrc(before.child(a), after.child(b))) to[a] = b--
+    else if (isEmptyParagraph(before.child(a))) to[a] = { at: b + 1 }
+    else break
+  }
+  const starts = (doc: PMNode) => { const s = [0]; doc.forEach((c) => s.push(s[s.length - 1] + c.nodeSize)); return s }
+  const sa = starts(before)
+  const sb = starts(after)
+  // The block of `before` holding `p` (a position between blocks belongs to the one after it).
+  const blockOf = (p: number) => { let k = 0; while (k < nb - 1 && sa[k + 1] <= p) k++; return k }
+  const map = (p: number): { pos: number; exact: boolean } | null => {
+    const k = blockOf(p)
+    const t = to[k]
+    if (t === undefined) return null
+    return typeof t === 'number' ? { pos: sb[t] + (p - sa[k]), exact: true } : { pos: sb[t.at], exact: false }
+  }
   if (sel instanceof NodeSelection) {
-    const f = map(sel.from)
-    return f === null || map(sel.to) === null ? null : NodeSelection.create(after, f)
+    const k = blockOf(sel.from)
+    const t = to[k]
+    return typeof t === 'number' && sel.to <= sa[k + 1] ? NodeSelection.create(after, sb[t] + (sel.from - sa[k])) : null
   }
   if (!(sel instanceof TextSelection)) return null
   const x = map(sel.anchor)
   const y = map(sel.head)
-  return x === null || y === null ? null : TextSelection.create(after, x, y)
+  if (!x || !y) return null
+  if (x.exact && y.exact) return TextSelection.create(after, x.pos, y.pos)
+  const $p = after.resolve(Math.min(y.pos, after.content.size))
+  return Selection.findFrom($p, 1, true) ?? Selection.findFrom($p, -1, true)
 }
 
 function endOf(doc: PMNode, k: number): number {
