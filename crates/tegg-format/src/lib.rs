@@ -11,7 +11,7 @@ pub mod daily;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
-pub use extract::{body_start, parse_yaml_value, Extracted, FrontmatterError, Link};
+pub use extract::{body_start, parse_yaml_value, tag_key, Extracted, FrontmatterError, Link};
 pub use excerpt::{At, BlockKind, BlockText, Excerpt, LinkTargetInfo, Mark, RSeg, Segment, TargetKind};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).
@@ -148,8 +148,29 @@ impl TagNameError {
     }
 }
 
-/// D-642, D-658: drops one leading `#`; NFC; then dialect §5 tag text. 4D-lite stub: refuses every name (TS-I1).
+/// D-642, D-658: drops one leading `#`; NFC; then dialect §5 tag text (the TS twin's rule, `packages/doc/src/tags.ts`).
 pub fn tag_name(input: &str) -> Result<TagName, TagNameError> {
-    let _ = input;
-    Err(TagNameError::Empty)
+    static CHAR: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static DIGITS: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let ok = CHAR.get_or_init(|| regex::Regex::new(r"^[\p{L}\p{M}\p{N}_\-/]$").expect("tag char"));
+    let digits = DIGITS.get_or_init(|| regex::Regex::new(r"^\p{N}+$").expect("digits"));
+    let mut name = nfc(input);
+    if name.starts_with('#') {
+        name.remove(0);
+    }
+    if name.is_empty() {
+        return Err(TagNameError::Empty);
+    }
+    if name.chars().any(|c| c.is_whitespace() || matches!(c, '\u{00A0}' | '\u{200B}' | '\u{FEFF}')) {
+        return Err(TagNameError::Space);
+    }
+    let mut buf = [0u8; 4];
+    if let Some(c) = name.chars().find(|c| !ok.is_match(c.encode_utf8(&mut buf))) {
+        return Err(TagNameError::Char(c));
+    }
+    if digits.is_match(&name) {
+        return Err(TagNameError::Digits);
+    }
+    let key = extract::tag_key(&name);
+    Ok(TagName { name, key })
 }

@@ -431,9 +431,9 @@ impl Core {
         Ok(NoteRead { bytes, version, utf8 })
     }
 
-    /// D-185: tags of indexed objects with their most frequent spelling.
+    /// D-185: tags with their display name (ms4-tags §1.2): every tag of `tag_rows`, count-0 Tag files included.
     pub fn tags(&self) -> Vec<TagInfo> {
-        self.index().tags()
+        self.tag_rows().into_iter().map(|r| TagInfo { key: r.key, spelling: r.name, count: r.count }).collect()
     }
 
     /// D-194: a new file at exactly `path` (`Keep both`); `NameTaken` if the name exists.
