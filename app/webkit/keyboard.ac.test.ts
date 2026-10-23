@@ -212,8 +212,12 @@ test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
   assert.ok(await absent(paletteDialog(page)), '⏎ closes the palette');
   const target = opts[2].replace(/^Go to (type: )?/, '');
   await mustBeOn(page, target === 'Settings' ? 'Settings: Appearance' : target, '⏎ runs the selected command');
+  // The page takes the focus a frame after it shows (its heading or field); wait for that before focusing the entry,
+  // or it takes the focus back from the entry under load.
+  assert.ok((await eventually(() => focused(page), (f) => f.inMain)).inMain, 'the new page takes the focus');
   await sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */.focus();
   await page.keyboard.press('Meta+k');
+  await must(paletteDialog(page), 'Command palette (second open)');
   await page.keyboard.press('Escape');
   assert.ok(await absent(paletteDialog(page)), 'Esc closes');
   assert.deepEqual(await focused(page), before, 'focus returns to the element that had it');

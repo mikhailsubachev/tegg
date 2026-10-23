@@ -198,7 +198,9 @@ test('fr_lnk_03_ac14_undo_from_the_editor_the_palette_and_the_toast', async ({ p
     } else if (how === 'palette') {
       await runCommand(p, 'Undo rename');
     } else {
-      const toast = await must(jobStatus(p, /^Updated links in 5 notes/), 'the done status with Undo', 3000);
+      // 4.5 s: the status shows when the job's report arrives and stays 5 s (ms4-jobs §10); under the push gate the
+      // report can come later than 3 s after Pages/Gama.md exists.
+      const toast = await must(jobStatus(p, /^Updated links in 5 notes/), 'the done status with Undo', 4500);
       await (await needButton(toast, 'Undo')).click();
     }
     const u = await eventually(() => callsOf(core, 'job_undo'), (c) => c.length > 0, 2000);

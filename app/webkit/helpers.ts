@@ -33,8 +33,10 @@ export async function start(page: Page, o: StartOptions = {}): Promise<FakeCoreH
   const core = await installFakeCore(page, vault, o);
   await page.goto('/');
   const frame = o.frame ?? (vault ? 'vault' : 'chooser');
-  if (frame === 'vault') await must(sidebar(page), 'the frame (navigation "Sidebar")', 5000);
-  if (frame === 'chooser') await must(page.getByRole('main', { name: 'Choose a vault' }), 'the chooser (main "Choose a vault")', 5000);
+  // 10 s: the fake core ships the whole vault to Node on every call, so a 1,000-note vault (FR-LNK-01 AC-16) can take
+  // more than 5 s to show the frame while the push gate runs its Rust lanes.
+  if (frame === 'vault') await must(sidebar(page), 'the frame (navigation "Sidebar")', 10_000);
+  if (frame === 'chooser') await must(page.getByRole('main', { name: 'Choose a vault' }), 'the chooser (main "Choose a vault")', 10_000);
   return core;
 }
 
@@ -141,7 +143,9 @@ export async function onPage(page: Page, name: string, ms = 3000): Promise<boole
   return (await eventually(() => mainName(page), (n) => n === name, ms)) === name;
 }
 
-export async function mustBeOn(page: Page, name: string, how: string, ms = 3000) {
+// 5 s: a route that follows core work (a rename job, a big vault) can take longer than 3 s while the push gate runs
+// its Rust lanes beside WebKit; a passing wait still returns at once.
+export async function mustBeOn(page: Page, name: string, how: string, ms = 5000) {
   const got = await eventually(() => mainName(page), (n) => n === name, ms);
   assert.equal(got, name, `${how}: centre pane should be "${name}"`);
 }
