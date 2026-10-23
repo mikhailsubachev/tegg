@@ -5,7 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
-import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Selection, type Transaction } from '@tiptap/pm/state'
+import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
@@ -235,8 +235,10 @@ const isEmptyParagraph = (n: PMNode) => n.type.name === 'paragraph' && n.content
  * D-689: `sel` (in `before`) carried over to `after`, which a conversion made from `before` by replacing some top-level
  * blocks and reloading the rest. The blocks are aligned from both ends, ignoring `srcIndex`; an empty paragraph of
  * `before` with no counterpart was dropped by the reload (it is never written, #64) and maps to where it was. A position
- * in an aligned block keeps its offset in it; one in a dropped paragraph becomes a caret near that place. Null when the
- * selection touches the replaced blocks or is not a text or node selection (the caller then selects the embed).
+ * in an aligned block keeps its offset in it; a text selection with an end in a dropped paragraph becomes a caret in the
+ * nearest text block (after that place first), never a selected block: the next keystroke would replace it. A node
+ * selection is kept inside its aligned block. Null when the selection touches the replaced blocks or is not a text or
+ * node selection (the caller then selects the embed).
  */
 function keptSelection(before: PMNode, after: PMNode, sel: Selection): Selection | null {
   const nb = before.childCount
@@ -269,14 +271,15 @@ function keptSelection(before: PMNode, after: PMNode, sel: Selection): Selection
   if (sel instanceof NodeSelection) {
     const k = blockOf(sel.from)
     const t = to[k]
-    return typeof t === 'number' && sa[k] === sel.from ? NodeSelection.create(after, sb[t]) : null
+    return typeof t === 'number' && sel.to <= sa[k + 1] ? NodeSelection.create(after, sb[t] + (sel.from - sa[k])) : null
   }
   if (!(sel instanceof TextSelection)) return null
   const x = map(sel.anchor)
   const y = map(sel.head)
   if (!x || !y) return null
   if (x.exact && y.exact) return TextSelection.create(after, x.pos, y.pos)
-  return TextSelection.near(after.resolve(Math.min(y.pos, after.content.size)), -1)
+  const $p = after.resolve(Math.min(y.pos, after.content.size))
+  return Selection.findFrom($p, 1, true) ?? Selection.findFrom($p, -1, true)
 }
 
 function endOf(doc: PMNode, k: number): number {
