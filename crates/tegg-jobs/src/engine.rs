@@ -550,7 +550,7 @@ impl Inner {
             let (me, stop) = (Arc::downgrade(self), stop.clone());
             std::thread::spawn(move || {
                 while !stop.load(Ordering::SeqCst) {
-                    std::thread::sleep(HEARTBEAT);
+                    std::thread::park_timeout(HEARTBEAT); // woken by the job's end, so the report never waits a beat
                     if stop.load(Ordering::SeqCst) {
                         break;
                     }
@@ -583,6 +583,7 @@ impl Inner {
             self.finish_manifest(&run);
         }
         stop.store(true, Ordering::SeqCst);
+        beat.thread().unpark();
         let _ = beat.join();
         let (phase, error) = match result {
             Ok(Phase::Cancelled) => (Phase::Cancelled, None),
