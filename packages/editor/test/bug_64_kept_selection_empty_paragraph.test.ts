@@ -76,3 +76,42 @@ test('bug_64_fr_cnv_03_an_empty_paragraph_between_the_caret_and_the_unit_keeps_t
   assert.equal(caretText(ed), 'Ods', 'the caret stays in its paragraph');
   assert.deepEqual(scrolls.filter(Boolean), [], 'nothing asks to scroll');
 });
+
+// QA review of PR #65: the empty paragraph right after the converted block sits next to the new embed; the caret must
+// stay a caret there, never select the embed (the next keystroke would replace it).
+for (const [where, needle] of [['at the end of the note', 'Závěrečný odstavec.'], ['in the middle', 'Úvodní odstavec.']] as const) {
+  test(`bug_64_fr_cnv_03_enter_after_the_unit_keeps_a_caret_${where.replace(/ /g, '_')}`, async () => {
+    const { ed, scrolls } = await open();
+    setCaret(ed, textPos(ed, needle));
+    const unit = ed.conversionUnit();
+    assert.ok(unit, `a unit for "${needle}"`);
+    setCaret(ed, textPos(ed, needle) + needle.length);
+    enter(ed);
+    assert.equal(ed.view.state.selection.$head.parent.content.size, 0, 'the caret is in a new empty paragraph');
+    scrolls.length = 0;
+    assert.equal(typeof ed.commands.convertUnit(unit, needle, rec, { keepSelection: true }), 'number', 'converted');
+    const sel = ed.view.state.selection;
+    assert.ok(sel.empty && sel.$head.parent.isTextblock, `a caret in a text block, not the embed selected (${sel.constructor.name})`);
+    assert.deepEqual(scrolls.filter(Boolean), [], 'nothing asks to scroll');
+  });
+}
+
+test('bug_64_fr_cnv_03_a_nested_node_selection_in_an_unchanged_block_stays', async () => {
+  const { ed, scrolls } = await open();
+  setCaret(ed, textPos(ed, 'Úvodní odstavec.'));
+  const unit = ed.conversionUnit();
+  // Select the nested list item `zjistit cenu` as a node.
+  const m: any = await import(/* @vite-ignore */ String('@tiptap/pm/state'));
+  let item = -1;
+  ed.view.state.doc.descendants((n: any, p: number) => {
+    if (item < 0 && n.type.name === 'listItem' && n.textContent.trim() === 'zjistit cenu') item = p;
+    return item < 0;
+  });
+  assert.ok(item > 0, 'the nested item');
+  ed.view.dispatch(ed.view.state.tr.setSelection(m.NodeSelection.create(ed.view.state.doc, item)));
+  scrolls.length = 0;
+  assert.equal(typeof ed.commands.convertUnit(unit, 'Úvodní odstavec.', rec, { keepSelection: true }), 'number', 'converted');
+  const sel = ed.view.state.selection;
+  assert.ok(sel instanceof m.NodeSelection && sel.node.textContent.trim() === 'zjistit cenu', 'the same item stays selected');
+  assert.deepEqual(scrolls.filter(Boolean), [], 'nothing asks to scroll');
+});
