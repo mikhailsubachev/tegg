@@ -1,6 +1,6 @@
 # Open items for the next slices
 
-Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Item 20 added on 2026-10-23 (push-gate flakes). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
@@ -73,6 +73,10 @@ below ran on the real app for the first time. Logs stay local (not committed).
     (`crates/tegg-core/tests/ac_perf.rs`, debug build, the WebKit lane running beside it). It is a requirement-level
     timing AC, so the limit stays. Next: decide whether `ac_perf.rs` runs in the nightly gate or in a release build
     instead of the debug push gate (a D-343/D-609 gate change).
+21. **Existing WebKit sleeps before actions (D-688, 2026-10-23).** `app/webkit` has ~480 `await sleep(` calls; the
+    test-strategy §8.4 rule (wait for state, not time) binds new and touched tests. A scan found ~237 reads right after
+    start or navigation without a wait, and three pickers (tags, relation) still sleep before ⏎. Next: fix a test when
+    it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59).
 
 ## Product and accessibility
 

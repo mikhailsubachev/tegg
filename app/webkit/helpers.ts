@@ -150,17 +150,23 @@ export async function mustBeOn(page: Page, name: string, how: string, ms = 5000)
   assert.equal(got, name, `${how}: centre pane should be "${name}"`);
 }
 
-const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+// Accents, case, punctuation and the pseudo-locale's ⟦⟧ aside (NFR-OTH-02 AC-3), so `Go to type Osoby` matches
+// `Go to type: Osoby`.
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 /**
  * Waits until the selected option of `list` (the palette's `Commands` or the switcher's `Switcher results`) answers
  * `query`: its first line contains the query, accents and case aside. The switcher asks the core for its results, so
  * right after typing the list can still show the previous query's; ⏎ then opens the wrong note. A fixed sleep was not
- * enough under the push gate's load. Gives up after `ms` without failing, for fuzzy queries no option spells out.
+ * enough under the push gate's load. Gives up after `ms` without failing, for fuzzy queries no option spells out (the
+ * test's next assertion still decides), and logs that it did.
  */
-export async function settled(page: Page, list: string, query: string, ms = 3000): Promise<void> {
+export async function settled(page: Page, list: string, query: string, ms = 3000): Promise<boolean> {
   const want = fold(query);
-  const sel = page.getByRole('listbox', { name: list, exact: true }).getByRole('option', { selected: true }).first();
-  await eventually(() => sel.innerText({ timeout: 200 }).then((t) => fold(t.split('\n')[0]), () => ''), (t) => t.includes(want), ms);
+  const name = new RegExp(`^⟦?${list.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}⟧?$`); // the pseudo-locale wraps it in ⟦⟧
+  const sel = page.getByRole('listbox', { name }).getByRole('option', { selected: true }).first();
+  const got = await eventually(() => sel.innerText({ timeout: 200 }).then((t) => fold(t.split('\n')[0]), () => ''), (t) => t.includes(want), ms);
+  if (!got.includes(want)) console.warn(`settled: no selected option of "${list}" matched ${JSON.stringify(query)} within ${ms} ms (last: ${JSON.stringify(got)})`);
+  return got.includes(want);
 }
 
 /** Opens the palette with ⌘K, types `query`, runs the first result with ⏎. */

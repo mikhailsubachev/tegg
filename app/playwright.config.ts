@@ -19,8 +19,8 @@ export default defineConfig({
   fullyParallel: true,
   workers: gate ? 6 : undefined,
   // test-strategy §8.4: quarantined tests (`@flaky`, each with an issue) stay out of the gates' main run; the nightly
-  // step `app-webkit-flaky` runs only them (`--grep @flaky` on the command line overrides this).
-  grepInvert: gate && !process.argv.includes('--grep') ? /@flaky/ : undefined,
+  // step `app-webkit-flaky` sets VERIFY_FLAKY=1 and runs only them.
+  grepInvert: gate && !process.env.VERIFY_FLAKY ? /@flaky/ : undefined,
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
