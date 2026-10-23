@@ -174,7 +174,7 @@ export async function gotoType(page: Page, plural: string) {
   await mustBeOn(page, plural, `Go to type: ${plural}`);
 }
 
-/** `tag/<key>`'s example parameter in the R1 route tours (AP-622, D-693): the shell fixture plus one note tagged `účty`. */
+/** `tag/<key>`'s example parameter in the R1 route tours (AP-685, D-747): the shell fixture plus one note tagged `účty`. */
 export const TAG_ROUTE_KEY = 'účty';
 export function shellVaultWithTag(base: FakeVault = shellVault()): FakeVault {
   const files = { ...base.files };
@@ -240,7 +240,7 @@ export const READ_COMMANDS = new Set([
   'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only (the sidebar's Tasks count reads on every route)
   'inbox_list', 'inbox_count', 'index_versions', 'hotkeys', 'vault_settings', 'shell_settings', // 5B (ms5-capture §5, §7): read-only
   'trash_list', // 6A (ms6-trash-media §4, D-632): read-only
-  'tag_objects', // 4D-lite (ms4-tags §3; D-649, AP-622/D-693): the tag page's rows, read-only
+  'tag_objects', // 4D-lite (ms4-tags §3; D-703, AP-685/D-747): the tag page's rows, read-only
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

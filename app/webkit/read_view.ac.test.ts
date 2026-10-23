@@ -349,7 +349,7 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
 });
 
 test('fr_edt_02_ac9_tag_opens_the_tag_page', async ({ page }) => {
-  // D-218 (supersedes D-143): a tag opens its tag page `tag/<key>` (4D-lite, tags.md FR-TAG-06 AC-1, R82, D-649).
+  // D-218 (supersedes D-143): a tag opens its tag page `tag/<key>` (4D-lite, tags.md FR-TAG-06 AC-1, R82, D-703).
   const tagPage = (name: string) => page.getByRole('main').filter({ has: page.getByRole('link', { name: '‹ All tags', exact: true }) }).getByRole('heading', { level: 1, name, exact: true });
   await openAt(page, R.odkazy);
   const art = await mustArticle(page, 'Odkazy');
@@ -406,7 +406,7 @@ test('fr_edt_02_ac13_placeholders_send_nothing_and_note_embed_opens', async ({ p
     'embed_load', // 4F (D-431): note embeds load their content; attachments still read nothing
     'task_list', // 5A-1 (D-481, D-489): the sidebar's Tasks count, read when the vault opens
     'inbox_count', 'hotkeys', // 5B (R62, FR-NAV-04 AC-2; FR-CAP-05 AC-5): the sidebar's Inbox count and the hotkey state
-    'index_tags', 'tag_objects']); // 4D-lite (D-646, D-649; AP-622/D-693): the sidebar's Tags section and the tag page read
+    'index_tags', 'tag_objects']); // 4D-lite (D-700, D-703; AP-685/D-747): the sidebar's Tags section and the tag page read
   assert.deepEqual(sent.filter((c) => !allowed.has(c)), [], 'no other IPC command while rendering placeholders');
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));
   assert.deepEqual(reads, [R.odkazy], 'no attachment or embedded note is read');

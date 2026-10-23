@@ -118,7 +118,7 @@ test.describe('Duplicate titles page', () => {
     assert.ok(await eventually(() => seen(group(page, /^Senior Product Manager, 3$/), 100), (x) => x, 2000), 'the group shows 3 within 2 s');
   });
 
-  // 4D-lite (tags.md FR-LNK-14 AC-11, D-651, replaces backlinks.md AC-9): Merge… is built and opens its dialog.
+  // 4D-lite (tags.md FR-LNK-14 AC-11, D-705, replaces backlinks.md AC-9): Merge… is built and opens its dialog.
   test('fr_lnk_14_ac9_merge_is_enabled_and_opens_its_dialog', async ({ page }) => {
     const core = await openLinks(page, B.osamela, { region: 'en-US' });
     await gotoDuplicates(page);
@@ -131,7 +131,7 @@ test.describe('Duplicate titles page', () => {
     await page.keyboard.press('Escape');
     await sleep(300);
     assert.ok(await seen(group(page, /^Senior Product Manager, 4$/), 500), 'Esc: the group stays');
-    // AP-620 (D-691): opening the dialog starts a merge job (merge.ac FR-LNK-14 AC-11 reads its job_plan); those write nothing.
+    // AP-683 (D-745): opening the dialog starts a merge job (merge.ac FR-LNK-14 AC-11 reads its job_plan); those write nothing.
     assert.deepEqual((await writeCalls(core)).filter((c) => !['merge_start', 'job_plan', 'job_cancel'].includes(c)), [], 'nothing written');
   });
 });

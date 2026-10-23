@@ -449,7 +449,7 @@ test('fr_typ_02_ac4_system_only_types_are_read_only', async ({ page }) => {
     // D-381, D-489: Task recurrence is v1.0 (`Coming in v1.0`).
     assert.equal(await description(row), 'Coming in v1.0', `${label}: description`);
   }
-  // Changed by 4D-lite (tags.md R87, D-638): a Tag has no note page, so its `color` row is gone; the Tag file opens its
+  // Changed by 4D-lite (tags.md R87, D-692): a Tag has no note page, so its `color` row is gone; the Tag file opens its
   // tag page, without an attribute panel.
   await page.keyboard.press('Meta+o');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('rozpočet');

@@ -370,7 +370,7 @@ impl Jobs {
         Ok(r)
     }
 
-    /// ms4-tags §5.2 (D-679): the open vault's zips, newest first, with their manifest labels.
+    /// ms4-tags §5.2 (D-733): the open vault's zips, newest first, with their manifest labels.
     pub fn backups(&self) -> Vec<crate::BackupInfo> {
         match &self.inner.host {
             Some(h) => tagjobs::backups(h.as_ref()),
@@ -1266,7 +1266,7 @@ impl Inner {
         let host = self.host();
         let dir = host.app_dir().join("backups").join(host.vault_key());
         let mut entries = Vec::new();
-        // ms4-tags §5.1 (D-670): the manifest is the first entry.
+        // ms4-tags §5.1 (D-724): the manifest is the first entry.
         if let Some(m) = manifest {
             entries.push((tagjobs::MANIFEST.to_string(), serde_json::to_vec_pretty(m).map_err(|e| e.to_string())?));
         }
@@ -1294,7 +1294,7 @@ impl Inner {
         // Atomic, through tegg-vault (AR-04 AC-1); a read-only backups folder fails here and nothing is written.
         host.local_write(&path, &zip).map_err(|e| e.to_string())?;
         // Keep the newest ten (names start with the UTC time).
-        // D-671: the zip being restored is exempt from the rotation its pre-restore backup triggers.
+        // D-725: the zip being restored is exempt from the rotation its pre-restore backup triggers.
         let mut zips: Vec<PathBuf> = host.local_list(&dir).into_iter().filter(|p| p.extension().is_some_and(|x| x == "zip") && Some(p.as_path()) != keep).collect();
         zips.sort();
         while zips.len() > KEEP_BACKUPS {

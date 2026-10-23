@@ -22,7 +22,7 @@ export function parseRoute(s: string): Route | null {
     const head = str.slice(0, slash);
     let rest = str.slice(slash + 1);
     if (head === 'search') return rest.startsWith('tag:') && rest.length > 4 ? { id: 'search', param: rest } : null;
-    // 4D-lite (D-682): `tag/` + the encoded key, so `a/b` is one parameter.
+    // 4D-lite (D-736): `tag/` + the encoded key, so `a/b` is one parameter.
     if (head === 'tag') {
       let key = rest;
       try { key = decodeURIComponent(rest); } catch { /* a literal % */ }

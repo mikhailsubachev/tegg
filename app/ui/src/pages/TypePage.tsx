@@ -311,7 +311,7 @@ function columnEntries(type: TypeDto, write: (keys: string[]) => void, onNewProp
     });
   }
   out.push({ kind: 'separator' });
-  // D-639: no new property on the Tag type.
+  // D-693: no new property on the Tag type.
   if (type.key !== 'tag') out.push({ kind: 'item', key: 'new', label: t('typePage.newProperty'), content: <span className="menu-title">{t('typePage.newProperty')}</span>, onChoose: onNewProperty });
   return out;
 }

@@ -215,10 +215,10 @@ test('fr_lnk_03_ac15_skipped_file_listed_with_its_reason_and_retry_keeps_the_ext
   await core.skipOnWrite(R.odkazy, 'changed');
   const job = await renameAlfa(page, core);
   assert.equal(await fileText(core, R.odkazy), original(R.odkazy), 'Odkazy is not written');
-  const entry = await must(notUpdatedEntry(page), 'status entry "1 note not updated" (D-677)', 5000);
+  const entry = await must(notUpdatedEntry(page), 'status entry "1 note not updated" (D-731)', 5000);
   assert.equal((await entry.innerText()).trim(), '1 note not updated');
   await entry.click();
-  const list = await must(notUpdatedList(page), '"Notes not updated" list (D-683)');
+  const list = await must(notUpdatedList(page), '"Notes not updated" list (D-737)');
   assert.equal(await anyModal(page).count(), 0, 'the list is non-modal');
   const row = list.getByRole('listitem').filter({ hasText: 'Odkazy' });
   await must(row, 'row Odkazy');
@@ -240,10 +240,10 @@ test('fr_lnk_03_ac15_missing_and_not_downloaded_reasons_retry_disabled_for_missi
   await core.skipOnWrite(R.odkazy, 'missing');
   await core.skipOnWrite(R.windows, 'placeholder');
   await renameAlfa(page, core);
-  const entry = await must(notUpdatedEntry(page), 'status entry "2 notes not updated" (D-677)', 5000);
+  const entry = await must(notUpdatedEntry(page), 'status entry "2 notes not updated" (D-731)', 5000);
   assert.equal((await entry.innerText()).trim(), '2 notes not updated');
   await entry.click();
-  const list = await must(notUpdatedList(page), '"Notes not updated" list (D-683)');
+  const list = await must(notUpdatedList(page), '"Notes not updated" list (D-737)');
   const odk = list.getByRole('listitem').filter({ hasText: 'Odkazy' });
   const win = list.getByRole('listitem').filter({ hasText: 'Windows' });
   assert.ok((await odk.first().innerText()).includes('missing'), 'Odkazy: reason missing');
@@ -259,7 +259,7 @@ test('fr_lnk_03_ac16_list_survives_navigation_retry_all_and_palette', async ({ p
   await core.skipOnWrite(R.windows, 'changed');
   const job = await renameAlfa(page, core);
   const entry = await must(notUpdatedEntry(page), 'status entry', 5000);
-  assert.equal((await entry.innerText()).trim(), '2 notes not updated', 'plural catalog key (D-677)');
+  assert.equal((await entry.innerText()).trim(), '2 notes not updated', 'plural catalog key (D-731)');
   await gotoNote(page, 'Beta');
   await gotoNote(page, 'Kód');
   await must(notUpdatedEntry(page), 'the entry survives navigation', 2000);

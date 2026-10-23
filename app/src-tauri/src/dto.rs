@@ -511,11 +511,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<InboxUiDto>,
-    /// ms4-tags §6.1 (D-649): the tag page's sort, Type filter and grouping, shared by all tags.
+    /// ms4-tags §6.1 (D-703): the tag page's sort, Type filter and grouping, shared by all tags.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tag_page: Option<TagPageUiDto>,
-    /// ms4-tags §6.1 (D-649): the All tags sort.
+    /// ms4-tags §6.1 (D-703): the All tags sort.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tags_sort: Option<SortUiDto>,
@@ -924,7 +924,7 @@ pub struct BackupDto {
     pub kind: String,
     /// ISO 8601 with offset.
     pub time: String,
-    /// ms4-tags §5.2 (D-670): the catalog key and arguments of the operation label.
+    /// ms4-tags §5.2 (D-724): the catalog key and arguments of the operation label.
     pub label: BackupLabelDto,
     pub files: u32,
 }
@@ -1068,7 +1068,7 @@ pub struct CaptureContextDto {
     pub vault: Option<CaptureVaultDto>,
     pub types: Vec<CaptureTypeDto>,
     pub default_type: String,
-    // D-655: name and colour of every tag (count ≥ 1 or a Tag file).
+    // D-709: name and colour of every tag (count ≥ 1 or a Tag file).
     pub tags: Vec<CaptureTagDto>,
 }
 
@@ -1304,7 +1304,7 @@ pub struct TagNewPathDto {
     pub path: String,
 }
 
-/// `capture_context` tags once 4D-lite is built (D-655): name and colour only.
+/// `capture_context` tags once 4D-lite is built (D-709): name and colour only.
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct CaptureTagDto {
     pub name: String,
@@ -1325,14 +1325,14 @@ pub struct RenamePairDto {
     pub to: String,
 }
 
-/// `{ kind: 'duplicateTagFile', path }` (D-664).
+/// `{ kind: 'duplicateTagFile', path }` (D-718).
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct PlanWarningDto {
     pub kind: String,
     pub path: String,
 }
 
-/// A merge conflict: the kept value and the others' values (D-673).
+/// A merge conflict: the kept value and the others' values (D-727).
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct MergeConflictDto {
     pub key: String,

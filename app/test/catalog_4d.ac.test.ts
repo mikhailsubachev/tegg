@@ -1,7 +1,7 @@
 // MS4 slice 4D-lite, L1: the strings of tags, backups and merge (docs/acceptance/tags.md R88; docs/contracts/
 // ms4-tags.md §7). FR-TAG-06 AC-10 (every text is an R88 key with its English text, plural forms), FR-TAG-04 AC-8 and
-// FR-TAG-08 AC-5 (the job strings, one not-updated list for every kind, D-672, D-677), FR-HIS-04 AC-7 (the backup
-// labels per kind, AP-600), FR-TAG-05 AC-4 (`Unknown colour "magenta"`, D-669). The pairs are read from the approved
+// FR-TAG-08 AC-5 (the job strings, one not-updated list for every kind, D-726, D-731), FR-HIS-04 AC-7 (the backup
+// labels per kind, AP-663), FR-TAG-05 AC-4 (`Unknown colour "magenta"`, D-723). The pairs are read from the approved
 // criteria. Written from the ACs and the contract only (D-61). Modules load inside the tests (TS-I1).
 import { afterEach, test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -78,7 +78,7 @@ test('fr_tag_06_ac10_plural_forms_of_the_counts', async () => {
 
 test('fr_tag_04_ac8_one_not_updated_list_for_every_job_kind', async () => {
   const cat = await catalog();
-  assert.equal(cat.t('job.notUpdated.count', { count: 2 }), '2 notes not updated', 'job.notUpdated.count is `{count} notes not updated` (D-677)');
+  assert.equal(cat.t('job.notUpdated.count', { count: 2 }), '2 notes not updated', 'job.notUpdated.count is `{count} notes not updated` (D-731)');
   assert.equal(cat.t('job.notUpdated.count', { count: 1 }), '1 note not updated', 'plural forms');
   assert.equal(cat.t('job.tag.renamed', { from: 'Účty', to: 'Výdaje', count: 6 }), 'Renamed #Účty to #Výdaje in 6 notes', 'job.tag.renamed');
   assert.equal(cat.t('job.tag.running', { tag: 'Účty', count: 6 }), 'Updating #Účty in 6 notes', 'job.tag.running');
@@ -99,7 +99,7 @@ test('fr_his_04_ac7_backup_labels_per_kind', async () => {
     ['backups.label.unknown', { kind: 'test-backup' }, 'Backup (test-backup)'],
   ];
   const bad = want.filter(([k, v, w]) => !(k in cat.en) || cat.t(k, v) !== w).map(([k, v, w]) => `${k}: want ${w}, got ${k in cat.en ? cat.t(k, v) : 'missing'}`);
-  assert.deepEqual(bad, [], 'labels (AP-600, ms4-tags §7)');
+  assert.deepEqual(bad, [], 'labels (AP-663, ms4-tags §7)');
 });
 
 test('fr_tag_05_ac4_contract_strings_of_colour_and_duplicates', async () => {
@@ -109,5 +109,5 @@ test('fr_tag_05_ac4_contract_strings_of_colour_and_duplicates', async () => {
     ['tag.duplicateWarning', 'Another Tag file for #{tag} exists: {path}. Merge them on Duplicate titles first.'],
     ['tag.renameTemplates', 'Updates {count} notes and {templates} templates. A backup is made first.'],
   ]), [], 'ms4-tags §7 keys');
-  assert.equal(cat.t('tag.unknownColour', { value: 'magenta' }), 'Unknown colour "magenta"', 'D-669');
+  assert.equal(cat.t('tag.unknownColour', { value: 'magenta' }), 'Unknown colour "magenta"', 'D-723');
 });

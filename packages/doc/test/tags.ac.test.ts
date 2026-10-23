@@ -36,14 +36,14 @@ test('fr_tag_03_ac3_name_rules_from_the_shared_table', async () => {
     const g = got.ok ? { ok: true, name: got.name, key: got.key } : got.char !== undefined ? { ok: false, error: got.error, char: got.char } : { ok: false, error: got.error }
     if (JSON.stringify(g) !== JSON.stringify(want)) bad.push(`${JSON.stringify(r.input)}: want ${JSON.stringify(want)}, got ${JSON.stringify(g)}`)
   }
-  assert.deepEqual(bad, [], 'tagName per row (D-642, D-658)')
+  assert.deepEqual(bad, [], 'tagName per row (D-696, D-712)')
 })
 
 test('fr_tag_03_ac3_one_leading_hash_is_dropped_and_names_are_nfc', async () => {
   const { tagName } = await doc()
   assert.deepEqual(tagName('#Účty'), { ok: true, name: 'Účty', key: 'účty' }, '#Účty → Účty')
   assert.deepEqual(tagName('Účty'.normalize('NFD')), { ok: true, name: 'Účty', key: 'účty' }, 'NFD input → NFC name')
-  assert.deepEqual(tagName('##x'), { ok: false, error: 'char', char: '#' }, '##x: only one # is dropped (AP-588)')
+  assert.deepEqual(tagName('##x'), { ok: false, error: 'char', char: '#' }, '##x: only one # is dropped (AP-651)')
   assert.deepEqual(tagName('#'), { ok: false, error: 'empty' }, '# only is empty')
   assert.deepEqual(tagName('moje štítky'), { ok: false, error: 'space' }, 'a non-breaking space is a space')
 })

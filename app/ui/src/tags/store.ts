@@ -49,20 +49,20 @@ export function useTags(): TagRowDto[] {
   return r;
 }
 
-/** The colour of a tag by name or key (D-653), or null. */
+/** The colour of a tag by name or key (D-707), or null. */
 export function colourOf(nameOrKey: string): string | null {
   const k = tagKey(nameOrKey);
   return rows.find((r) => r.key === k)?.color ?? null;
 }
 
-/** The tag a Tag file belongs to (D-638): winners and losers. */
+/** The tag a Tag file belongs to (D-692): winners and losers. */
 export function tagOfFile(path: string): string | null {
   const p = path.normalize('NFC');
   const r = rows.find((x) => x.file?.path.normalize('NFC') === p || x.losers.some((l) => l.normalize('NFC') === p));
   return r ? r.key : null;
 }
 
-/** Inline `#tags` in the editor and the read view carry `data-tag-key`; one style sheet colours them (D-655). */
+/** Inline `#tags` in the editor and the read view carry `data-tag-key`; one style sheet colours them (D-709). */
 function applyColours(list: TagRowDto[]) {
   if (typeof document === 'undefined') return;
   let el = document.getElementById('tegg-tag-colours') as HTMLStyleElement | null;
@@ -78,7 +78,7 @@ function applyColours(list: TagRowDto[]) {
     .join('\n');
 }
 
-/** D-655, D-657: a tag's display name and chip style by name or key, re-rendering when the tags change. */
+/** D-709, D-711: a tag's display name and chip style by name or key, re-rendering when the tags change. */
 export function useTagLook(): (nameOrKey: string) => { name: string; style: CSSProperties } {
   const list = useTags();
   return (n: string) => {

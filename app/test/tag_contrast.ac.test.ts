@@ -1,4 +1,4 @@
-// MS4 slice 4D-lite, L1: the tag colours (docs/acceptance/tags.md FR-TAG-05 AC-7, D-129, FR-UX-05 AC-3, AC-4; D-655):
+// MS4 slice 4D-lite, L1: the tag colours (docs/acceptance/tags.md FR-TAG-05 AC-7, D-129, FR-UX-05 AC-3, AC-4; D-709):
 // every tag surface takes its colours from `tagChipStyle` (docs/contracts/ms4-tags.md §6.2), and for each of the eight
 // R14 colours the token on its `-bg` tint, on `bg` and on `side` is ≥ 4.5:1 in both themes; the neutral chip too.
 // Written from the AC and the contract only (D-61). Modules load inside the tests (TS-I1).

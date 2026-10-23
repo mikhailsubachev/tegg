@@ -14,7 +14,7 @@ const MAX_OPTIONS = 12;
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 export function TagFilter({ tags, selected, onChange, colors, allHint }: {
-  /** D-655: chip colours by key (Search, the Tasks page). */
+  /** D-709: chip colours by key (Search, the Tasks page). */
   colors?: Record<string, string | null>;
   /** The hint under two or more chips; the Tasks text by default. */
   allHint?: string;

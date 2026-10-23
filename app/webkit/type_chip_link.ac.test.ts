@@ -58,14 +58,14 @@ const CASES: [string, string, string, string][] = [
   ['undefined_recept_to_type_recept', EXTRA.recept, 'Type: recept', 'type/recept'],
   ['read_only_file_to_its_type_page', P.neplatna, 'Type: Page', 'type/page'],
 ];
-// AC-Test-Change (AP-622, D-693): a Tag object has no note page; opening Tags/čajovna.md opens its tag page tag/čajovna
-// (D-638), so the Tag case is its own test below.
+// AC-Test-Change (AP-685, D-747): a Tag object has no note page; opening Tags/čajovna.md opens its tag page tag/čajovna
+// (D-692), so the Tag case is its own test below.
 const tagPageHeading = (page: Page, name: string) =>
   main(page).filter({ has: page.getByRole('link', { name: /^⟦?‹ All tags⟧?$/ }) }).getByRole('heading', { level: 1, name, exact: true });
-/** Opens the Tag file `Tags/čajovna.md` and waits for its tag page (D-638). */
+/** Opens the Tag file `Tags/čajovna.md` and waits for its tag page (D-692). */
 async function openTagFile(page: Page) {
   const core = await openTypes(page, EXTRA.tag, { vault: chipVault() });
-  await must(tagPageHeading(page, 'čajovna'), 'Tags/čajovna.md opens its tag page tag/čajovna (D-638)', 5000);
+  await must(tagPageHeading(page, 'čajovna'), 'Tags/čajovna.md opens its tag page tag/čajovna (D-692)', 5000);
   return core;
 }
 
@@ -95,7 +95,7 @@ for (const [slug, at, name, route] of CASES) {
 }
 
 test('fr_typ_07_ac11_chip_links_tag_to_type_tag', async ({ page }) => {
-  // AC-Test-Change (AP-622, D-693): the Tag object's route is its tag page, which has no note header and so no type chip.
+  // AC-Test-Change (AP-685, D-747): the Tag object's route is its tag page, which has no note header and so no type chip.
   const core = await openTagFile(page);
   const before = JSON.stringify(await core.files());
   const routes = (await callsOf(core, 'nav_opened')).map((c) => String((c.args as any)?.route ?? '').normalize('NFC'));
@@ -189,7 +189,7 @@ for (const [slug, at, reason] of FIXED) {
 }
 
 test('fr_typ_07_ac12_change_type_is_disabled_on_tag', async ({ page }) => {
-  // AC-Test-Change (AP-622, D-693): a Tag object opens its tag page (D-638), which has no note `More` menu; the palette's
+  // AC-Test-Change (AP-685, D-747): a Tag object opens its tag page (D-692), which has no note `More` menu; the palette's
   // `Change type…` is not run there (D-127).
   const core = await openTagFile(page);
   assert.equal(await moreButton(page).count(), 0, 'no note More menu on the tag page');

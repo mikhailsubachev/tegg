@@ -23,7 +23,7 @@ test('fr_edt_15_ac5_suggestions_with_colours_and_display_names', async ({ page }
   await must(tagSuggestions(page), 'listbox "Tag suggestions"');
   const texts = (await options(page).allInnerTexts()).map((t) => flat(t));
   for (const want of ['#Účty', '#účty/archiv', '#účty-2026']) assert.ok(texts.some((t) => t.startsWith(want)), `${want} listed: ${texts.join(' | ')}`);
-  assert.ok(!texts.some((t) => t.startsWith('#účty ') || t === '#účty'), 'the display name Účty, not the most frequent spelling (R79, D-657)');
+  assert.ok(!texts.some((t) => t.startsWith('#účty ') || t === '#účty'), 'the display name Účty, not the most frequent spelling (R79, D-711)');
   const ucty = options(page).filter({ hasText: /^#Účty/ }).first();
   const c = await chipColours(ucty.locator('[data-tag], mark, span').first().or(ucty), 'blue');
   assert.deepEqual([c.fg], [c.wantFg], '#Účty is blue (FR-TAG-05 AC-6)');

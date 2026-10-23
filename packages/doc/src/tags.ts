@@ -1,5 +1,5 @@
 // Slice 4D-lite (docs/contracts/ms4-tags.md §2): tag names and Tag file bytes. The name rule is the micromark tag
-// construct's (tag.ts, dialect §5), so a name `New tag` accepts is exactly a tag the editor recognises (D-658).
+// construct's (tag.ts, dialect §5), so a name `New tag` accepts is exactly a tag the editor recognises (D-712).
 
 import { formatScalar, setAttribute, removeAttribute } from './edit.js'
 import { parse } from './parse.js'
@@ -18,7 +18,7 @@ export function tagKey(name: string): string {
   return name.normalize('NFC').toLowerCase()
 }
 
-/** D-642, D-658. Drops one leading `#`; NFC; then dialect §5 tag text. */
+/** D-696, D-712. Drops one leading `#`; NFC; then dialect §5 tag text. */
 export function tagName(input: string): TagNameResult {
   let name = input.normalize('NFC')
   if (name.startsWith('#')) name = name.slice(1)
@@ -29,7 +29,7 @@ export function tagName(input: string): TagNameResult {
   return { ok: true, name, key: tagKey(name) }
 }
 
-/** D-641, R86. `now` is ISO 8601 with offset (the UI's clock, ms5-tasks §1). Ends with `---\n`. */
+/** D-695, R86. `now` is ISO 8601 with offset (the UI's clock, ms5-tasks §1). Ends with `---\n`. */
 export function tagFile(f: { id: string; title: string; color?: string; now: string }): string {
   const lines = [`id: ${f.id}`, 'type: tag', `title: ${formatScalar(f.title.normalize('NFC'))}`]
   if (f.color) lines.push(`color: ${f.color}`)
@@ -37,7 +37,7 @@ export function tagFile(f: { id: string; title: string; color?: string; now: str
   return `---\n${lines.join('\n')}\n---\n`
 }
 
-/** D-653: sets or removes `color` and touches `modified` (only those lines change). The same colour again returns the
+/** D-707: sets or removes `color` and touches `modified` (only those lines change). The same colour again returns the
  *  input unchanged, so the UI writes nothing. A new `color` goes after `title` (R86 order). */
 export function setTagColor(text: string, color: string | null, now: string): string {
   const doc = parse(text)

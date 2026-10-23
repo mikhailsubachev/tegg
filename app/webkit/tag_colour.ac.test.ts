@@ -1,7 +1,7 @@
-// MS4 slice 4D-lite L5 (WebKit, fake core): tag colours (docs/acceptance/tags.md R84 Colour, D-653…D-656):
+// MS4 slice 4D-lite L5 (WebKit, fake core): tag colours (docs/acceptance/tags.md R84 Colour, D-707…D-710):
 // FR-TAG-05 AC-1 (the three ways to the popover; arrows and ⏎, a click; one write with the last-read version as base;
 // the checked colour and Esc write nothing), AC-2 (None removes the key), AC-3 (a virtual tag gets its file), AC-4
-// (unknown `magenta`: nothing checked, `Unknown colour "magenta"`, D-669), AC-5 (an external change wins), AC-6 (every
+// (unknown `magenta`: nothing checked, `Unknown colour "magenta"`, D-723), AC-5 (an external change wins), AC-6 (every
 // surface shows the colour through `tagChipStyle`, light and dark), AC-7 (axe `color-contrast` with each colour).
 // Interface docs/contracts/ms4-tags.md §2 (`setTagColor`, `tagFile`), §3 (`note_read` / `note_write` /
 // `note_create_exact`), §6.2 (`tagChipStyle`, `useTags`). Written from the ACs and the contract only (D-61).
@@ -82,8 +82,8 @@ test('fr_tag_05_ac4_unknown_colour_shows_neutral', async ({ page }) => {
   assert.equal(await (await must(colourTile(page), 'tile')).getAttribute('data-color'), 'none', 'neutral everywhere');
   await colourTile(page).click();
   await must(colourPopover(page), 'popover');
-  assert.deepEqual(await checkedSwatches(page), [], 'no radio checked (AP-599)');
-  assert.ok((await description(colourPopover(page))).includes('Unknown colour "magenta"') || (await seen(colourPopover(page).getByText('Unknown colour "magenta"'), 300)), 'Unknown colour "magenta" (D-669)');
+  assert.deepEqual(await checkedSwatches(page), [], 'no radio checked (AP-662)');
+  assert.ok((await description(colourPopover(page))).includes('Unknown colour "magenta"') || (await seen(colourPopover(page).getByText('Unknown colour "magenta"'), 300)), 'Unknown colour "magenta" (D-723)');
   await page.keyboard.press('Escape');
   assert.deepEqual(await vaultWrites(core), [], 'opening and closing writes nothing');
   await click(colourTile(page), 'tile');
@@ -100,7 +100,7 @@ test('fr_tag_05_ac5_an_external_change_wins', async ({ page }) => {
   await click(swatch(page, 'Green'), 'Green');
   await must(page.getByText('"Účty" changed outside Tegg. The colour wasn\'t changed.', { exact: true }), 'tag.changedOutside');
   assert.equal((await core.files())[P.fUcty], swap(original(P.fUcty), 'color: blue', 'color: red'), 'nothing written');
-  assert.deepEqual(await eventually(() => checkedSwatches(page), (c) => c[0] === 'Red', 1500), ['Red'], 'the popover shows the disk state and stays open (AP-599)');
+  assert.deepEqual(await eventually(() => checkedSwatches(page), (c) => c[0] === 'Red', 1500), ['Red'], 'the popover shows the disk state and stays open (AP-662)');
 });
 
 const SURFACES = async (page: Page, colour: string, name: string): Promise<string[]> => {
@@ -140,7 +140,7 @@ for (const theme of ['light', 'dark'] as const) {
     await want('Inbox card of Faktura #účty', chip(main(page).getByRole('article').filter({ hasText: 'Faktura' }), 'Účty').or(chip(main(page).getByRole('article').filter({ hasText: 'Faktura' }), 'účty')).first(), 'blue');
     await runCommand(page, 'Go to Tasks');
     await want('task card #Účty (Zavolat bance)', chip(main(page).getByRole('article', { name: 'Task: Zavolat bance', exact: true }), 'Účty').or(chip(main(page).getByRole('article', { name: 'Task: Zavolat bance', exact: true }), 'účty')).first(), 'blue');
-    assert.deepEqual(bad, [], 'every surface: blue-bg / blue for účty, red for dvojí, the neutral chip for a/b and virtual tags (D-655)');
+    assert.deepEqual(bad, [], 'every surface: blue-bg / blue for účty, red for dvojí, the neutral chip for a/b and virtual tags (D-709)');
   });
 }
 

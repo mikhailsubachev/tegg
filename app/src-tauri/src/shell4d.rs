@@ -1,4 +1,4 @@
-//! Slice 4D-lite shell (docs/contracts/ms4-tags.md §3, §4.4, §5.2; D-636…D-686): the tag, merge and backup IPC
+//! Slice 4D-lite shell (docs/contracts/ms4-tags.md §3, §4.4, §5.2; D-690…D-740): the tag, merge and backup IPC
 //! commands of the main window.
 
 use tauri::State;
@@ -51,7 +51,7 @@ pub async fn tag_usage(state: State<'_, AppState>, key: String) -> Result<TagUsa
     Ok(TagUsageDto { notes: u.notes as u32, templates: u.templates as u32, file: u.file, losers: u.losers })
 }
 
-/// `<Tag folder>/<free stem of the sanitized name>.md` (D-51, ms4-links §3.1, D-665).
+/// `<Tag folder>/<free stem of the sanitized name>.md` (D-51, ms4-links §3.1, D-719).
 #[tauri::command]
 pub async fn tag_new_path(state: State<'_, AppState>, name: String) -> Result<TagNewPathDto, IpcError> {
     let core = core(&state)?;

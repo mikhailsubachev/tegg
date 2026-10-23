@@ -25,14 +25,14 @@ export type QuickAddProps = {
   label?: string;
 };
 
-/** D-643 (D-668 (e)): `New with #tag` on a tag page opens the quick-add with ` #<tag>` and the caret before it. */
+/** D-697 (D-722 (e)): `New with #tag` on a tag page opens the quick-add with ` #<tag>` and the caret before it. */
 let prefill: string | null = null;
 export function prefillQuickAdd(text: string): void {
   prefill = text;
 }
 
 export function QuickAdd({ presets, today, region, priorities, onCreate, autoFocus, inline, onClose, hint, label }: QuickAddProps) {
-  // D-668 (e): a prefilled row puts the caret before the tag, also when it is focused before it renders. The prefill is
+  // D-722 (e): a prefilled row puts the caret before the tag, also when it is focused before it renders. The prefill is
   // consumed after mounting (render functions may run twice).
   const caretStart = useRef(!inline && prefill !== null);
   const [text, setText] = useState(() => (inline ? '' : prefill ?? ''));

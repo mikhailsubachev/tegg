@@ -10,7 +10,7 @@ type Vers = Record<string, VersionDto>;
 
 const nfc = (s: string) => s.normalize('NFC');
 const low = (s: string) => nfc(s).toLowerCase();
-/** The eight R14 colour tokens (D-236, D-653). */
+/** The eight R14 colour tokens (D-236, D-707). */
 export const TOKENS = ['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow'];
 let docMod: any = null;
 const doc = async () => (docMod ??= await import('@tegg/doc'));
@@ -20,7 +20,7 @@ const folderOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')
 /** Indexed objects: `.md` outside `_templates/` and dot-folders (`.trash/`, `.tegg/`). */
 export const indexed = (p: string) => /\.md$/i.test(p) && !p.split('/').some((seg, i, a) => i < a.length - 1 && (seg.startsWith('.') || seg === '_templates'));
 export const isTemplate = (p: string) => /\.md$/i.test(p) && p.startsWith('_templates/');
-/** NFC, UTF-8 byte order (D-640 "path order"). */
+/** NFC, UTF-8 byte order (D-694 "path order"). */
 export const byBytes = (a: string, b: string) => Buffer.compare(Buffer.from(nfc(a)), Buffer.from(nfc(b)));
 const byCodePoint = (a: string, b: string) => {
   const x = [...a].map((c) => c.codePointAt(0)!), y = [...b].map((c) => c.codePointAt(0)!);
@@ -70,7 +70,7 @@ export function objectsOf(files: Files, d: any, filter: (p: string) => boolean =
   });
 }
 
-/** The Tag type's folder (`.tegg/types/tag.yml` `folder:`, D-665). */
+/** The Tag type's folder (`.tegg/types/tag.yml` `folder:`, D-719). */
 export function tagFolder(files: Files): string {
   const y = files['.tegg/types/tag.yml'] ?? '';
   const m = /^folder:\s*(.+?)\s*$/m.exec(y);
@@ -180,7 +180,7 @@ export type TagPlan = {
   files: PlannedFile[]; trashes: string[]; renames: { from: string; to: string }[];
   warnings: { kind: 'duplicateTagFile'; path: string }[]; conflicts: { key: string; kept: string; others: string[] }[];
   label: { key: string; args: Record<string, string | number> }; notes: number; templates: number;
-  /** merge: the kept and merged files with their planned text (checked before any write, D-673). */
+  /** merge: the kept and merged files with their planned text (checked before any write, D-727). */
   check?: string[]; tag?: string; to?: string;
 };
 
@@ -198,7 +198,7 @@ export async function handle(cmd: string, a: any, files: Files, vers: Vers): Pro
   switch (cmd) {
     case 'index_tags': return { result: rows() };
     case 'tag_objects': return { result: objectRows(files, String(a.key ?? ''), d) };
-    // Fake-internal (AP-621, D-692): the paths whose tag keys (frontmatter and inline, NFC lower case) include every key.
+    // Fake-internal (AP-684, D-746): the paths whose tag keys (frontmatter and inline, NFC lower case) include every key.
     case 'search_tag_paths': {
       const keys = ((a.keys ?? []) as unknown[]).map((k) => d.tagKey(String(k)) as string);
       return { result: objectsOf(files, d).filter((o) => keys.every((k) => o.occ.some((t) => t.key === k))).map((o) => o.path) };

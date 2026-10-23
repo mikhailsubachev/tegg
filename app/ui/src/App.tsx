@@ -108,7 +108,7 @@ export function App() {
   /** FR-VLT-05 AC-4: the `Type` menu of an unwritten draft, and the title it carries to the new type. */
   const [draftType, setDraftType] = useState<{ at: { left: number; top: number } } | null>(null);
   const carryTitle = useRef<string | null>(null);
-  /** D-643: `New with #tag` presets the draft's tags. */
+  /** D-697: `New with #tag` presets the draft's tags. */
   const carryTags = useRef<string[] | null>(null);
   const tagCommand = useRef<((id: string) => void) | null>(null);
   const newTagCommand = useRef<(() => void) | null>(null);
@@ -340,9 +340,9 @@ export function App() {
       }
     }, () => {});
   }, []);
-  // D-218, D-649: a tag opens its tag page.
+  // D-218, D-703: a tag opens its tag page.
   const openTag = useCallback((key: string) => { void go({ id: 'tag/<key>', param: tagKey(key) }); }, [go]);
-  /** Replaces the current history entry (FR-TAG-04 AC-9: a renamed tag; D-666: a removed one). */
+  /** Replaces the current history entry (FR-TAG-04 AC-9: a renamed tag; D-720: a removed one). */
   const replaceRoute = useCallback((r: Route) => {
     history.current.replace(r);
     setNavKey((n) => n + 1);
@@ -442,7 +442,7 @@ export function App() {
   const taskBadge = useTaskBadge(refresh, !!vault);
   const inboxCount = useInboxCount(refresh, !!vault);
   const tagList = useTags();
-  // D-638: every way of opening a Tag object opens its tag page.
+  // D-692: every way of opening a Tag object opens its tag page.
   useEffect(() => {
     if (route?.id !== 'note/<path>' || !route.param) return;
     const k = tagOfFile(route.param);

@@ -16,10 +16,10 @@ use crate::{
     TextOp, Transformed,
 };
 
-/// The manifest's entry name, first in every 4D-lite zip (§5.1, D-670).
+/// The manifest's entry name, first in every 4D-lite zip (§5.1, D-724).
 pub(crate) const MANIFEST: &str = "tegg-backup.json";
 
-/// What a job really moved or created, for the manifest's `done` (§5.1) and a later restore (§5.3, D-671).
+/// What a job really moved or created, for the manifest's `done` (§5.1) and a later restore (§5.3, D-725).
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Moved {
     pub renames: Vec<(String, String, String)>,
@@ -65,7 +65,7 @@ fn templates_with(host: &dyn Host, key: &str) -> Vec<String> {
     v
 }
 
-/// §4.1 start-time refusals of a rename (D-645, D-658, D-684).
+/// §4.1 start-time refusals of a rename (D-699, D-712, D-738).
 pub(crate) fn check_rename(host: &dyn Host, from: &str, to: &str) -> Result<JobKind, JobError> {
     let name = tag_name(to).map_err(invalid)?;
     let tags = host.tags();
@@ -163,7 +163,7 @@ impl Inner {
             let mut fops = vec![TextOp::SetTitle { title: to.clone(), now: host.now() }];
             fops.extend(ops.remove(&f).unwrap_or_default());
             if to_path != f {
-                // D-660: links to the Tag file follow it in the same job.
+                // D-714: links to the Tag file follow it in the same job.
                 let rt = self.retarget(&f, &old_title, &to_path, &to);
                 for l in host.linking(&f) {
                     if nfc(&l) != f {
@@ -204,7 +204,7 @@ impl Inner {
         let keep = nfc(keep);
         let (kb, kv) = host.read(&keep).map_err(|e| format!("{e:?}"))?;
         let keep_title = title_of(&kb, &keep);
-        // D-673: the others in the group's order, `created` ascending (then path).
+        // D-727: the others in the group's order, `created` ascending (then path).
         let mut rows = Vec::new();
         for o in others.iter().map(|o| nfc(o)) {
             let (b, _) = host.read(&o).map_err(|e| format!("{e:?}"))?;
@@ -339,7 +339,7 @@ impl Inner {
         }
     }
 
-    /// D-673: the kept and merged files are checked before any write; a change to one of them stops the job.
+    /// D-727: the kept and merged files are checked before any write; a change to one of them stops the job.
     pub(super) fn write_merge(&self, run: &mut Run, plan: &JobPlan) -> Result<(), String> {
         let host = self.host().clone();
         let keep = &plan.files[0];
@@ -471,7 +471,7 @@ impl Inner {
     // -------------------------------------------------------------------------------------------- manifest (§5.1)
 
     /// The manifest of a 4D-lite job's zip (none for the 4C and 5B kinds) and, for a restore, the zip exempt from
-    /// the rotation (D-671).
+    /// the rotation (D-725).
     pub(super) fn manifest_for(&self, run: &Run, op: &JobOp, plan: &JobPlan) -> (Option<Value>, Option<PathBuf>) {
         let host = self.host();
         let tags = || host.tags();

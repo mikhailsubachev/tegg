@@ -8,7 +8,7 @@ import { t } from '../i18n/catalog';
 import { addChip, tagSuggestions } from './tags';
 import { tagChipStyle } from '../theme/tagChip';
 
-/** `colors`: the tag colour per key (D-655), for the chips and the suggestions. */
+/** `colors`: the tag colour per key (D-709), for the chips and the suggestions. */
 export function TagField({ chips, onChange, tags, autoFocus, colors }: { chips: string[]; onChange: (chips: string[]) => void; tags: string[]; autoFocus?: boolean; colors?: Record<string, string | null> }) {
   const [typed, setTyped] = useState('');
   const [active, setActive] = useState(0);

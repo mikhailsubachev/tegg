@@ -61,7 +61,7 @@ test('fr_lnk_14_ac9_r3_controls_added_by_4a', async () => {
   const { reg, cat } = await mods();
   const controls = (reg.DISABLED_CONTROLS as any[]).map((c) => ({ label: text(cat, c.label), due: reg.showDue(c.due) as string, req: c.req }));
   const find = (label: string) => controls.find((c) => c.label === label);
-  // 4D-lite (tags.md R87, FR-LNK-14 AC-11, D-651): Merge… is built, so it is no longer a disabled control.
+  // 4D-lite (tags.md R87, FR-LNK-14 AC-11, D-705): Merge… is built, so it is no longer a disabled control.
   assert.equal(find('Merge…'), undefined, 'Merge… is built in 4D-lite');
   // D-635 (supersedes D-283, AP-211): the panel has no Unlinked mentions section and R3 no longer lists it.
   assert.equal(find('Unlinked mentions'), undefined, 'Unlinked mentions is not a disabled control (D-635)');

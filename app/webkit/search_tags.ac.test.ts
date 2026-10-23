@@ -31,7 +31,7 @@ test('fr_src_02_ac10_the_tag_filter_control', async ({ page }) => {
   const opts = (await list(page).getByRole('option').allInnerTexts()).map((o) => flat(o));
   assert.equal(opts.length, 8, `every tag with count ≥ 1 (no prázdný, no cizí): ${opts.join(' | ')}`);
   assert.match(opts[0], /^#Účty\b.*6/, 'most used first, with its count');
-  assert.ok(!opts.some((o) => /prázdný|cizí/.test(o)), 'count-0 tags are not offered (AP-598 (f))');
+  assert.ok(!opts.some((o) => /prázdný|cizí/.test(o)), 'count-0 tags are not offered (AP-661 (f))');
   await page.keyboard.type('ucty');
   await sleep(100);
   await page.keyboard.press('Enter');
@@ -65,7 +65,7 @@ test('fr_src_02_ac12_a_tag_chip_in_a_result_adds_it_and_elsewhere_opens_the_tag_
   const hit = main(page).getByRole('link', { name: /^#účty$/i }).or(main(page).getByRole('button', { name: /^#účty$/i }));
   if (await seen(hit, 2000)) {
     await hit.first().click();
-    await must(main(page).getByRole('button', { name: 'Remove #Účty', exact: true }), 'activating #účty in a result adds it to the filter (D-652)');
+    await must(main(page).getByRole('button', { name: 'Remove #Účty', exact: true }), 'activating #účty in a result adds it to the filter (D-706)');
   } // else: Search shows no #tag chip in this result (the AC's "when Search shows one").
   const p2 = await page.context().newPage();
   const c2 = await openNote(p2, P.faktura, 'Faktura', { readView: true });

@@ -127,7 +127,7 @@ pub struct TagName {
     pub key: String,
 }
 
-/// Why a name isn't a tag (D-642, D-658); `Char` names the first refused character.
+/// Why a name isn't a tag (D-696, D-712); `Char` names the first refused character.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TagNameError {
     Empty,
@@ -148,7 +148,7 @@ impl TagNameError {
     }
 }
 
-/// D-642, D-658: drops one leading `#`; NFC; then dialect §5 tag text (the TS twin's rule, `packages/doc/src/tags.ts`).
+/// D-696, D-712: drops one leading `#`; NFC; then dialect §5 tag text (the TS twin's rule, `packages/doc/src/tags.ts`).
 pub fn tag_name(input: &str) -> Result<TagName, TagNameError> {
     static CHAR: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     static DIGITS: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();

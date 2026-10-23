@@ -280,7 +280,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               onCommit={(v) => set('description', v.trim() === '' ? null : v, t('ts.description'))} />
           </section>
 
-          {/* D-639, D-674: the Tag type has no properties in the MVP; its colour is set on the tag page. */}
+          {/* D-693, D-728: the Tag type has no properties in the MVP; its colour is set on the tag page. */}
           {type.key === 'tag' ? (
             <section id="ts-properties" aria-label={t('ts.properties')} className="ts-section">
               <h2>{t('ts.properties')}</h2>

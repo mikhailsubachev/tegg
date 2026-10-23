@@ -195,7 +195,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     h.iter().map(|x| format!("{x:08x}")).collect()
 }
 
-/// Makes `backups/` and every vault folder already in it (`backups/<vault>/`) read-only (AP-616, D-687):
+/// Makes `backups/` and every vault folder already in it (`backups/<vault>/`) read-only (AP-679, D-741):
 /// a folder a job already created stays writable under Unix permissions if only its parent is read-only.
 pub fn read_only_backups(dirs: &AppDirs) {
     use std::os::unix::fs::PermissionsExt;

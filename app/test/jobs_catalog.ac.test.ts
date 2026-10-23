@@ -1,5 +1,5 @@
 // MS4 slice 4C, L1: catalog strings and palette commands of the rename job (docs/contracts/ms4-jobs.md §10).
-// FR-LNK-03 AC-16 (`{count} notes not updated` since 4D-lite, D-677; plural, D-133; the skip reasons), FR-UX-07 AC-9 (the status texts and
+// FR-LNK-03 AC-16 (`{count} notes not updated` since 4D-lite, D-731; plural, D-133; the skip reasons), FR-UX-07 AC-9 (the status texts and
 // `Undo`), FR-LNK-03 AC-14 (palette `Undo rename`), FR-LNK-03 AC-17 (the interrupted banner, D-387). Exact English
 // texts are those of docs/acceptance/rename.md. Written from the ACs and the contract only (D-61). Modules load inside
 // the tests (TS-I1); a new file, so existing catalog tests are unchanged (TS-I3).
@@ -22,8 +22,8 @@ test('fr_lnk_03_ac16_links_not_updated_strings_and_plurals', async () => {
     assert.ok(k in en, `catalog key ${k}`);
   }
   assert.equal(typeof en['job.notUpdated.count'], 'object', 'job.notUpdated.count is a plural message (D-133)');
-  // 4D-lite (D-672, D-677): one list for every job kind.
-  assert.equal(cat.t('job.notUpdated.count', v(3)), '3 notes not updated', 'AC-16 (D-677)');
+  // 4D-lite (D-726, D-731): one list for every job kind.
+  assert.equal(cat.t('job.notUpdated.count', v(3)), '3 notes not updated', 'AC-16 (D-731)');
   assert.equal(cat.t('job.notUpdated.count', v(1)), '1 note not updated', 'singular');
   assert.equal(cat.t('job.skip.changed'), 'changed by another app', 'AC-15 reason');
   assert.equal(cat.t('job.skip.missing'), 'missing', 'AC-15 reason (as written in the AC)');

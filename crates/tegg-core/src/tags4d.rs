@@ -1,6 +1,6 @@
 //! MS4 slice 4D-lite (docs/contracts/ms4-tags.md §1): tags in the index — Tag files, display names, colours, counts
-//! and Last used (D-640, D-647, D-653, D-657, D-665, D-667). Everything is derived from the index's objects, which are
-//! rebuilt from the files (AR-01); only `tag_usage` reads templates from disk (they aren't indexed, D-660).
+//! and Last used (D-694, D-701, D-707, D-711, D-719, D-721). Everything is derived from the index's objects, which are
+//! rebuilt from the files (AR-01); only `tag_usage` reads templates from disk (they aren't indexed, D-714).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -36,19 +36,19 @@ pub struct TagFileRef {
 pub struct TagRow {
     /// `tag_key`: NFC, lower case.
     pub key: String,
-    /// Display name (D-657): the winner's title (stem when missing), else the most frequent spelling (D-185).
+    /// Display name (D-711): the winner's title (stem when missing), else the most frequent spelling (D-185).
     pub name: String,
     /// The winning Tag file.
     pub file: Option<TagFileRef>,
     /// Other Tag files of the key, in winner order.
     pub losers: Vec<String>,
-    /// One of the eight R14 tokens, else None (unknown, empty, missing, virtual; D-653).
+    /// One of the eight R14 tokens, else None (unknown, empty, missing, virtual; D-707).
     pub color: Option<String>,
-    /// The winner's raw `color` (D-669).
+    /// The winner's raw `color` (D-723).
     pub color_raw: Option<String>,
-    /// Objects with an occurrence, one per object (D-647).
+    /// Objects with an occurrence, one per object (D-701).
     pub count: usize,
-    /// Newest valid `modified` among them, as written (D-667).
+    /// Newest valid `modified` among them, as written (D-721).
     pub last_used: Option<String>,
     /// The same instant (ns since the epoch) for sorting.
     pub last_used_ns: Option<i128>,
@@ -126,7 +126,7 @@ fn rows_with(shared: &crate::Shared) -> (Vec<TagRow>, HashMap<String, Vec<String
             });
         }
         let by_path: HashMap<&str, &tegg_index::ObjectInfo> = objs.iter().map(|o| (o.path.as_str(), o)).collect();
-        // Last used per key: the newest valid `modified` among the objects carrying it (D-667).
+        // Last used per key: the newest valid `modified` among the objects carrying it (D-721).
         let mut last: HashMap<&str, (i128, String)> = HashMap::new();
         for o in &objs {
             let Some(ns) = instant_ns(o.attributes.get("modified")) else { continue };
@@ -218,7 +218,7 @@ impl Core {
             .collect()
     }
 
-    /// §1.4: counts for the rename and delete dialogs; templates are read from disk (D-660).
+    /// §1.4: counts for the rename and delete dialogs; templates are read from disk (D-714).
     pub fn tag_usage(&self, key: &str) -> TagUsage {
         let key = tegg_format::tag_key(key);
         let row = self.tag_rows().into_iter().find(|r| r.key == key);
@@ -237,7 +237,7 @@ impl Core {
         }
     }
 
-    /// ms4-tags §5.2 (D-679): the open vault's backups, newest first.
+    /// ms4-tags §5.2 (D-733): the open vault's backups, newest first.
     pub fn backups(&self) -> Vec<tegg_jobs::BackupInfo> {
         self.jobs().backups()
     }
@@ -246,7 +246,7 @@ impl Core {
         self.jobs().backup_dir().unwrap_or_default()
     }
 
-    /// The Tag type's folder (D-665), where new Tag files go.
+    /// The Tag type's folder (D-719), where new Tag files go.
     pub fn tag_folder(&self) -> String {
         self.types().into_iter().find(|t| t.key == "tag").map(|t| t.folder).filter(|f| !f.is_empty()).unwrap_or_else(|| "Tags".into())
     }

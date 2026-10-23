@@ -59,7 +59,7 @@ test('fr_lnk_14_ac11_merge_and_the_colour_row_are_no_longer_disabled', async () 
   const { reg } = await mods();
   const labels = (reg.DISABLED_CONTROLS as any[]).map((c) => c.label);
   assert.ok(!labels.includes('duplicates.merge'), 'Merge… is built (R3)');
-  assert.ok(!labels.includes('ctl.rowColor'), 'the Tag color row is removed (a Tag has no note page, D-638)');
+  assert.ok(!labels.includes('ctl.rowColor'), 'the Tag color row is removed (a Tag has no note page, D-692)');
   assert.ok(!(reg.DISABLED_CONTROLS as any[]).some((c) => String(c.req).startsWith('FR-TAG-')), 'no disabled FR-TAG control');
 });
 

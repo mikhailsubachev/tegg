@@ -78,7 +78,7 @@ pub trait Host: Send + Sync {
     // -------------------------------------------------------------------------------- 4D-lite (ms4-tags §4.3)
     // Default bodies are the 4D-lite stubs (TS-I1): nothing is found, every write is refused.
 
-    /// `_templates/**/*.md` (tag jobs rewrite templates, D-660).
+    /// `_templates/**/*.md` (tag jobs rewrite templates, D-714).
     fn template_paths(&self) -> Vec<String> {
         Vec::new()
     }
@@ -97,7 +97,7 @@ pub trait Host: Send + Sync {
         let _ = (path, bytes);
         Err(WriteError::Io("4D-lite stub: Host::create".into()))
     }
-    /// The Tag type's folder (D-665).
+    /// The Tag type's folder (D-719).
     fn tag_folder(&self) -> String {
         String::new()
     }
@@ -105,7 +105,7 @@ pub trait Host: Send + Sync {
     fn tags(&self) -> Vec<HostTag> {
         Vec::new()
     }
-    /// The vault's name (the backup manifest, D-670).
+    /// The vault's name (the backup manifest, D-724).
     fn vault_name(&self) -> String {
         String::new()
     }
@@ -115,9 +115,9 @@ pub trait Host: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HostTag {
     pub key: String,
-    /// The display name (D-657).
+    /// The display name (D-711).
     pub name: String,
-    /// The winning Tag file and the losers (D-640, D-664).
+    /// The winning Tag file and the losers (D-694, D-718).
     pub file: Option<String>,
     pub losers: Vec<String>,
     /// Indexed objects with an occurrence (no templates, no `.trash/`), in path order.

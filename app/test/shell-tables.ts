@@ -90,7 +90,7 @@ export const R3: R3Control[] = [
   { label: 'Add view', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   // 6A (trash-media.md R75): the `File` row (`ctl.rowFile`) is built.
-  // 4D-lite (R87): the Tag `color` row is removed (a Tag has no note page, D-638).
+  // 4D-lite (R87): the Tag `color` row is removed (a Tag has no note page, D-692).
   { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
   // 5A-1 (tasks.md R45 R3).
   { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
@@ -104,7 +104,7 @@ export const R3: R3Control[] = [
   // 6A (R75): the Inbox's `Move to trash` and the capture drop zone `Add an image or PDF` are built.
   { label: 'Change…', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04', route: 'settings/shortcuts' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05), `ctl.typePickerLink` removed.
-  // 4D-lite (R87, D-651): `Merge…` on the Duplicate titles page is built (FR-LNK-14 AC-11).
+  // 4D-lite (R87, D-705): `Merge…` on the Duplicate titles page is built (FR-LNK-14 AC-11).
   // D-635: `Unlinked mentions` (Backlinks panel, v1.x, FR-LNK-05) is removed from the panel and from R3.
 ];
 

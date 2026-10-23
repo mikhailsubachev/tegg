@@ -6,7 +6,7 @@
 // survives a relaunch), FR-HIS-04 AC-8 (once: restore from Settings › Backups), FR-LNK-14 AC-12 (once: Merge…),
 // FR-NAV-04 AC-8 (the sidebar order), FR-SYN-06 AC-31 (a browsing tour writes nothing), AC-32 (each action writes only
 // its files). Interface docs/contracts/ms4-tags.md §3…§6 and ms3-shell §1 (`TEGG_ROUTE`, `route-ready:<route>`; the
-// route of a tag page is `tag/<encodeURIComponent(key)>`, §6.1, red-test point AP-611 for the mark's spelling).
+// route of a tag page is `tag/<encodeURIComponent(key)>`, §6.1, red-test point AP-674 for the mark's spelling).
 // Always TEGG_TEST=1 with TEGG_NOW, a temporary Application Support and a temporary copy of the synthetic tags fixture
 // (D-62). Written from the ACs and the contracts only (D-61). Shared helpers: app/e2e/helpers/capture.ts.
 import { after, test } from 'node:test';
@@ -44,7 +44,7 @@ function fresh(name: string, ui: Record<string, unknown> = {}): Ctx {
   const base = tmp(`4d-${name}`);
   return { base, vault: tagsCopy(base), sup: support(base, { ui }), log: join(base, 'perf.jsonl') };
 }
-/** `route-ready:<route>`, accepting the decoded or the encoded spelling of a tag key (AP-611). */
+/** `route-ready:<route>`, accepting the decoded or the encoded spelling of a tag key (AP-674). */
 async function waitRoute(log: string, route: string, ms = 20_000): Promise<boolean> {
   const alt = route.startsWith('tag/') ? `tag/${decodeURIComponent(route.slice(4))}` : route;
   const endAt = Date.now() + ms;
@@ -161,7 +161,7 @@ test('fr_tag_05_ac6_the_capture_window_shows_tag_colours', { timeout: 300_000 },
     press('space');
     const chipEl = await need(d, '#Účty', 3000);
     const cols = pngColours(await d.takeElementScreenshot(chipEl.elementId));
-    assert.ok(near(cols, '#EAF0FB') && near(cols, '#1D5CCB'), 'the capture window\'s #Účty chip has the blue-bg tint and blue text (light theme tokens, D-655)');
+    assert.ok(near(cols, '#EAF0FB') && near(cols, '#1D5CCB'), 'the capture window\'s #Účty chip has the blue-bg tint and blue text (light theme tokens, D-709)');
     press('escape');
   } finally { await cleanup(c); }
 });
@@ -218,7 +218,7 @@ test('fr_tag_07_ac1_all_tags_sort_survives_relaunch', { timeout: 300_000 }, asyn
     await (await need(d, 'Name')).click();
     await end(d);
     c.d = undefined;
-    assert.deepEqual(uiState(c.sup).tagsSort, { column: 'name', dir: 'asc' }, 'machine-local, shared (D-649)');
+    assert.deepEqual(uiState(c.sup).tagsSort, { column: 'name', dir: 'asc' }, 'machine-local, shared (D-703)');
     const d2 = await launch({ ...c, log: join(c.base, 'perf2.jsonl') } as Ctx, 'tags');
     c.d = d2;
     assert.ok(await shown(d2, 'Name ↑', 3000), 'the sort survives relaunch');

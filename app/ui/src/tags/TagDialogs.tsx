@@ -1,5 +1,5 @@
-// The tag dialogs and the colour popover (docs/acceptance/tags.md R84; ms4-tags §3, §4.4): New tag (D-642), Rename
-// (D-645, D-660), Delete (D-644, D-678) and the swatches (D-653, D-654, D-669). Writes: one create-exclusive Tag file,
+// The tag dialogs and the colour popover (docs/acceptance/tags.md R84; ms4-tags §3, §4.4): New tag (D-696), Rename
+// (D-699, D-714), Delete (D-698, D-732) and the swatches (D-707, D-708, D-723). Writes: one create-exclusive Tag file,
 // one colour write with the row's version as base, or a job the dialog's button confirms.
 import { useEffect, useRef, useState } from 'react';
 import { setTagColor, tagFile, tagName, type TagNameResult } from '@tegg/doc';
@@ -22,7 +22,7 @@ function nameError(r: TagNameResult): string | null {
   return t('tag.err.chars', { char: r.char ?? '' });
 }
 
-/** D-642: a name whose key exists opens that tag; otherwise one create-exclusive Tag file (R86). */
+/** D-696: a name whose key exists opens that tag; otherwise one create-exclusive Tag file (R86). */
 export function NewTagDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (key: string) => void }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export function NewTagDialog({ onClose, onOpen }: { onClose: () => void; onOpen:
   );
 }
 
-/** D-645: refused onto another existing key; the rename is a `tag-rename` job the button confirms. */
+/** D-699: refused onto another existing key; the rename is a `tag-rename` job the button confirms. */
 export function RenameTagDialog({ row, usage, onClose, onRenamed }: { row: TagRowDto; usage: TagUsageDto | null; onClose: () => void; onRenamed: (key: string) => void }) {
   const [value, setValue] = useState(row.name);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +125,7 @@ export function RenameTagDialog({ row, usage, onClose, onRenamed }: { row: TagRo
   );
 }
 
-/** D-644: `Remove from <n> objects` (a `tag-delete` job) or, with a Tag file, `Delete only the tag` (one trash move). */
+/** D-698: `Remove from <n> objects` (a `tag-delete` job) or, with a Tag file, `Delete only the tag` (one trash move). */
 export function DeleteTagDialog({ row, onClose, onRemoved }: { row: TagRowDto; onClose: () => void; onRemoved: () => void }) {
   const cancel = useRef<HTMLButtonElement | null>(null);
   useEffect(() => { cancel.current?.focus(); }, []);
@@ -161,7 +161,7 @@ export function DeleteTagDialog({ row, onClose, onRemoved }: { row: TagRowDto; o
 
 const LABEL: Record<string, string> = { none: 'tag.colour.none', gray: 'color.gray', blue: 'color.blue', green: 'color.green', orange: 'color.orange', purple: 'color.purple', red: 'color.red', teal: 'color.teal', yellow: 'color.yellow' };
 
-/** D-654: `None` + the eight colours as a radiogroup; arrows move, ⏎ / Space choose and close, Esc closes. One write. */
+/** D-708: `None` + the eight colours as a radiogroup; arrows move, ⏎ / Space choose and close, Esc closes. One write. */
 export function ColourPopover({ row, anchor, onClose }: { row: TagRowDto; anchor: HTMLElement | null; onClose: () => void }) {
   const [current, setCurrent] = useState<string | null>(row.color);
   const [raw, setRaw] = useState<string | null>(row.colorRaw);

@@ -243,11 +243,11 @@ dateTime?: DateTimeUiDto,
  */
 inbox?: InboxUiDto, 
 /**
- * ms4-tags §6.1 (D-649): the tag page's sort, Type filter and grouping, shared by all tags.
+ * ms4-tags §6.1 (D-703): the tag page's sort, Type filter and grouping, shared by all tags.
  */
 tagPage?: TagPageUiDto, 
 /**
- * ms4-tags §6.1 (D-649): the All tags sort.
+ * ms4-tags §6.1 (D-703): the All tags sort.
  */
 tagsSort?: SortUiDto, };
 export type LinkTargetDto = { target: string, 
@@ -350,7 +350,7 @@ export type BackupDto = { name: string, kind: string,
  */
 time: string, 
 /**
- * ms4-tags §5.2 (D-670): the catalog key and arguments of the operation label.
+ * ms4-tags §5.2 (D-724): the catalog key and arguments of the operation label.
  */
 label: BackupLabelDto, files: number, };
 export type TasksUiDto = { 

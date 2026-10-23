@@ -48,7 +48,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
   { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
-  // 4D-lite (tags.md R87): All tags, the tag page (D-649) and Settings › Backups (D-651).
+  // 4D-lite (tags.md R87): All tags, the tag page (D-703) and Settings › Backups (D-705).
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
   { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },
   { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('v1.0'), reqs: ['FR-HOM-02'], design: null }, // 5B R62 (D-376)

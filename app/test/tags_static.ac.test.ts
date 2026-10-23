@@ -1,5 +1,5 @@
 // MS4 slice 4D-lite, L0: the capture window reads tag colours only (docs/acceptance/tags.md FR-TAG-05 AC-8, D-553,
-// D-655; NFR-SEC-03): its capability file gains no other read, and its tag command answers `{ name, color }` per tag
+// D-709; NFR-SEC-03): its capability file gains no other read, and its tag command answers `{ name, color }` per tag
 // (`CaptureContextDto.tags: CaptureTagDto[]`, docs/contracts/ms4-tags.md §3, generated app/ui/src/ipc/types.ts).
 // Written from the AC and the contract only (D-61).
 import { test } from 'vitest';

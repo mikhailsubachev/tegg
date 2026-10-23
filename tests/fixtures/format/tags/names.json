@@ -1,5 +1,5 @@
 {
-  "//": "Shared tag-name table (docs/contracts/ms4-tags.md §2; D-642, D-658; tags.md FR-TAG-03 AC-3). @tegg/doc tagName and tegg_format::tag_name give the same result for every row. `char` is the first refused character.",
+  "//": "Shared tag-name table (docs/contracts/ms4-tags.md §2; D-696, D-712; tags.md FR-TAG-03 AC-3). @tegg/doc tagName and tegg_format::tag_name give the same result for every row. `char` is the first refused character.",
   "rows": [
     {
       "input": "Účetnictví",

@@ -1,4 +1,4 @@
-// The tag pages' view model (docs/contracts/ms4-tags.md §6.2, D-681): sorting, finding and grouping the rows that
+// The tag pages' view model (docs/contracts/ms4-tags.md §6.2, D-735): sorting, finding and grouping the rows that
 // `index_tags` and `tag_objects` return. Name orders use the region collator (D-122); folding as the switcher.
 import type { TagObjectRowDto, TagRowDto } from '../ipc/types';
 
@@ -33,7 +33,7 @@ export function allTagsRows(rows: TagRowDto[], sort: TagsSort, find: string, col
   });
 }
 
-/** R83, D-646, D-667: the five most recently used tags with count ≥ 1, ties by name. */
+/** R83, D-700, D-721: the five most recently used tags with count ≥ 1, ties by name. */
 export function sidebarTags(rows: TagRowDto[], collator: Intl.Collator): TagRowDto[] {
   return rows
     .filter((r) => r.count >= 1)
@@ -41,7 +41,7 @@ export function sidebarTags(rows: TagRowDto[], collator: Intl.Collator): TagRowD
     .slice(0, 5);
 }
 
-/** `<n> objects of <k> types`, always unfiltered (D-668 (c)). */
+/** `<n> objects of <k> types`, always unfiltered (D-722 (c)). */
 export function summary(rows: TagObjectRowDto[]): { objects: number; types: number } {
   return { objects: new Set(rows.map((r) => r.path)).size, types: new Set(rows.map((r) => r.type)).size };
 }
@@ -55,7 +55,7 @@ export function typeOptions(rows: TagObjectRowDto[], typeNames: Record<string, s
   return [...n].map(([type, count]) => ({ type, name: typeName(type, typeNames), count })).sort((a, b) => collator.compare(a.name, b.name));
 }
 
-/** R82: the filtered, sorted rows, in one `type: null` group or one group per type (D-636, D-648, D-668). */
+/** R82: the filtered, sorted rows, in one `type: null` group or one group per type (D-690, D-702, D-722). */
 export function tagPageRows(rows: TagObjectRowDto[], ui: TagPageUi, filter: string, typeNames: Record<string, string>, collator: Intl.Collator): { groups: { type: string | null; rows: TagObjectRowDto[] }[] } {
   const q = fold(filter.trim());
   let kept = rows.filter((r) => (ui.type === null || r.type === ui.type) && (!q || fold(r.title).includes(q)));

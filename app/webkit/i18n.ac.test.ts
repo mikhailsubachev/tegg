@@ -40,7 +40,7 @@ async function go(page: Page, query: string) {
 
 test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }) => {
   test.setTimeout(240_000);
-  await start(page, { prelude: pseudoLocale, placeholders: 3, vault: shellVaultWithTag() }); // AP-622 (D-693): a tag for tag/<key>
+  await start(page, { prelude: pseudoLocale, placeholders: 3, vault: shellVaultWithTag() }); // AP-685 (D-747): a tag for tag/<key>
   const failures: string[] = [];
   const check = async (what: string) => { const u = await unmarked(page); if (u.length) failures.push(`${what}: ${u.slice(0, 12).join(' ')}`); };
   await must(sidebar(page), 'frame');
@@ -48,7 +48,7 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
   for (const row of R1) {
     if (row.id === 'chooser') { await go(page, 'Open vault'); await check('chooser'); await page.keyboard.press('Escape'); continue; }
     if (row.id === 'type/<type>') { await go(page, 'Go to type Quick Notes'); await check('type page'); continue; }
-    if (row.id === 'tag/<key>') { // AP-622 (D-693): tag/účty through Go to Tags and its row
+    if (row.id === 'tag/<key>') { // AP-685 (D-747): tag/účty through Go to Tags and its row
       const name = await gotoTagPage(page).catch(() => { failures.push('tag/<key>: not opened'); return ''; });
       if (name && !(await onPage(page, name, 2000))) failures.push(`tag/<key>: not reached`);
       await check('tag page');

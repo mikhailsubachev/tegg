@@ -148,7 +148,7 @@ const BOTTOM: Entry[] = [
 
 let savedScroll = 0;
 
-/** R83 (D-646): the Tags header (`All <n> ›`, opens `tags`) and the five most recently used tags with their counts. */
+/** R83 (D-700): the Tags header (`All <n> ›`, opens `tags`) and the five most recently used tags with their counts. */
 function SidebarTags({ route, onGo }: { route: Route; onGo: (r: Route) => void }) {
   const tags = useTags();
   const five = sidebarTags(tags, collator());

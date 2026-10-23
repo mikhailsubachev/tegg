@@ -1,11 +1,11 @@
 // MS4 slice 4D-lite, L1: the tag model of the UI (docs/contracts/ms4-tags.md §6.2 `tags/model.ts`) on R80's rows and
 // the rows of `tag/účty` (docs/acceptance/tags.md R81…R83): FR-TAG-07 AC-1 (All tags sorts: Most used, Name, Last used,
-// each both directions, empty Last used last; the summary's distinct objects, AP-597), AC-2 (find: folded, leading `#`
-// ignored), AC-4 (the sidebar's five), FR-TAG-06 AC-3 (the tag page comparators: Title, Type, Other tags per AP-598,
+// each both directions, empty Last used last; the summary's distinct objects, AP-660), AC-2 (find: folded, leading `#`
+// ignored), AC-4 (the sidebar's five), FR-TAG-06 AC-3 (the tag page comparators: Title, Type, Other tags per AP-661,
 // Modified with missing values last), AC-5 (Type filter, grouping by type in D-122 order), AC-2 (summary unfiltered,
-// AP-598 (c)). **(C)**: run with region `cs` and `en` (D-122 collation through `i18n/collate.ts`). The shapes of the
+// AP-661 (c)). **(C)**: run with region `cs` and `en` (D-122 collation through `i18n/collate.ts`). The shapes of the
 // results beyond the contract's names (row arrays, `{ groups: { type, rows }[] }`, type options with a count) are
-// red-test point AP-610. Written from the ACs and the contract only (D-61). Modules load inside the tests (TS-I1).
+// red-test point AP-673. Written from the ACs and the contract only (D-61). Modules load inside the tests (TS-I1).
 import { afterEach, test } from 'vitest';
 import assert from 'node:assert/strict';
 
@@ -85,7 +85,7 @@ for (const locale of ['cs', 'en']) {
     const { m } = await mods(locale);
     const objects = [...UCTY.map((o) => o.path), 'Projekty/Web.md', 'Pages/Lomítko.md', 'Pages/Kód.md', 'Pages/Kniha.md', 'Pages/schůzka (2).md'];
     const s = m.summary(objects.map((p) => obj(p, p, 'page', [], null)));
-    assert.equal(s.objects, 11, '11 tagged objects (distinct, AP-597)');
+    assert.equal(s.objects, 11, '11 tagged objects (distinct, AP-660)');
   });
 
   test(`fr_tag_07_ac2_find_a_tag_is_folded (${locale})`, async () => {
@@ -101,7 +101,7 @@ for (const locale of ['cs', 'en']) {
     const { m, collator } = await mods(locale);
     assert.deepEqual(m.sidebarTags(R80, collator).map((r: any) => [r.name, r.count]), [['Účty', 6], ['finance', 2], ['dvojí', 1], ['a/b', 1], ['účty/archiv', 1]], 'R83: count ≥ 1, newest Last used first, 5');
     const tie = [...R80, row('nový', 'nový', null, null, 1, '2026-10-22T08:00')];
-    assert.deepEqual(m.sidebarTags(tie, collator).slice(0, 2).map((r: any) => r.name), [...['Účty', 'nový']].sort(collator.compare), 'ties by D-122 name (AP-597)');
+    assert.deepEqual(m.sidebarTags(tie, collator).slice(0, 2).map((r: any) => r.name), [...['Účty', 'nový']].sort(collator.compare), 'ties by D-122 name (AP-660)');
   });
 
   test(`fr_tag_06_ac3_tag_page_comparators (${locale})`, async () => {
@@ -118,7 +118,7 @@ for (const locale of ['cs', 'en']) {
     assert.deepEqual([...new Set(t.map(typeOf))], typeOrder, 'Type ↑ by type name (D-122)');
     const other = sorted('otherTags', 'asc');
     assert.deepEqual(other.slice(0, 2), ['Rozpočet', 'Dvakrát'].sort((a, b) => collator.compare(UCTY.find((o) => o.title === a)!.tags[0], UCTY.find((o) => o.title === b)!.tags[0])), 'Other tags ↑ by the first other tag (finance, účty/archiv)');
-    assert.equal(other.length, 6, 'rows without other tags last (AP-598)');
+    assert.equal(other.length, 6, 'rows without other tags last (AP-661)');
     const missing = [...UCTY, obj('Pages/Bez data.md', 'Bez data', 'page', [], null)];
     for (const dir of ['asc', 'desc'] as const) {
       const r = titles(flatRows(m.tagPageRows(missing, ui('modified', dir), '', TYPE_NAMES, collator)));
@@ -144,7 +144,7 @@ for (const locale of ['cs', 'en']) {
 
   test(`fr_tag_06_ac2_summary_is_unfiltered (${locale})`, async () => {
     const { m } = await mods(locale);
-    assert.deepEqual(m.summary(UCTY), { objects: 6, types: 4 }, '6 objects of 4 types (AP-598 (c))');
+    assert.deepEqual(m.summary(UCTY), { objects: 6, types: 4 }, '6 objects of 4 types (AP-661 (c))');
     assert.deepEqual(m.summary([]), { objects: 0, types: 0 }, 'a new tag: 0 objects of 0 types');
   });
 }

@@ -23,7 +23,7 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
     return (
       <span className="cell-title">
         <Icon name={typeIconName(typeKey, type?.icon)} size={14} />
-        {/* D-638: a Tag object's row is a link to its tag page. */}
+        {/* D-692: a Tag object's row is a link to its tag page. */}
         {typeKey === 'tag'
           ? <a href="#" tabIndex={-1} data-user-content onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(row.path); }}>{row.title}</a>
           : <span data-user-content>{row.title}</span>}

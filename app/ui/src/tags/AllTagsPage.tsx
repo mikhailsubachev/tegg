@@ -1,5 +1,5 @@
-// All tags (`tags`; docs/acceptance/tags.md R81, board `TagsAll`, no descriptions, D-637): every tag with its colour
-// chip, count and Last used, `Find a tag…`, the remembered sort (D-649), and `New tag` (D-642). Viewing writes nothing.
+// All tags (`tags`; docs/acceptance/tags.md R81, board `TagsAll`, no descriptions, D-691): every tag with its colour
+// chip, count and Last used, `Find a tag…`, the remembered sort (D-703), and `New tag` (D-696). Viewing writes nothing.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
@@ -38,7 +38,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
     commandRef.current = f;
     return () => { if (commandRef.current === f) commandRef.current = null; };
   });
-  // `<m> tagged objects`: distinct objects (D-667), from the tags' objects.
+  // `<m> tagged objects`: distinct objects (D-721), from the tags' objects.
   useEffect(() => {
     let live = true;
     const keys = tags.filter((r) => r.count > 0).map((r) => r.key);

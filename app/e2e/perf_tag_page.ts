@@ -2,7 +2,7 @@
 // ms3-shell §1 marks): on the reference vault (tools/gen-vault --seed 1 --small-images) with one tag on 1,000 objects,
 // `tag/<key>` paints its first rows (`route-ready:tag/<key>`) within NFR-PERF-07's budget and keeps at most 100 row
 // elements in the DOM (virtualized; the test build writes `tag-rows:<n>` with the row elements it rendered, a mark
-// whose name is red-test point AP-611). Synthetic data only; never the owner's Application Support or vault (D-62).
+// whose name is red-test point AP-674). Synthetic data only; never the owner's Application Support or vault (D-62).
 // Used by nfr_perf_tag_page.ac.test.ts and nightly_tag_crash.ac.test.ts; no assertions here.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';

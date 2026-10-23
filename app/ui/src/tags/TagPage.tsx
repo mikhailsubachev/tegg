@@ -1,6 +1,6 @@
-// The tag page `tag/<key>` (docs/acceptance/tags.md R82; board `TagPage`, table only, D-650): the breadcrumb, the colour
+// The tag page `tag/<key>` (docs/acceptance/tags.md R82; board `TagPage`, table only, D-704): the breadcrumb, the colour
 // tile, the heading and its unfiltered summary, Tag actions, `New with #tag`, the text and Type filters, the sort and the
-// grouping (D-636, D-648, D-649), and one table of every object carrying the tag. Viewing writes nothing (FR-SYN-06).
+// grouping (D-690, D-702, D-703), and one table of every object carrying the tag. Viewing writes nothing (FR-SYN-06).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '@tegg/doc';
 import { t } from '../i18n/catalog';
@@ -30,7 +30,7 @@ export type TagPageProps = {
   onOpen: (path: string) => void;
   onTag: (key: string) => void;
   onAll: () => void;
-  /** After a rename the route is replaced by the new key's (FR-TAG-04 AC-9); after a removal it is `tags` (D-666). */
+  /** After a rename the route is replaced by the new key's (FR-TAG-04 AC-9); after a removal it is `tags` (D-720). */
   onRenamed: (key: string) => void;
   onRemoved: () => void;
   onNewWith: (typeKey: string, name: string) => void;

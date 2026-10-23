@@ -9,7 +9,7 @@ import { TagFilter } from './tasks/TagFilter';
 import { useTags } from './tags/store';
 import { tagKey } from './tags/keys';
 
-/** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet, and the tag filter (D-652: any
+/** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet, and the tag filter (D-706: any
  *  number of tags, all must match). `tag` presets it (an old `search/tag:<x>` route, ms4-tags §1.5). */
 export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: string) => void; refresh: number; inputRef: React.RefObject<HTMLInputElement | null>; tag?: string }) {
   const [text, setText] = useState('');

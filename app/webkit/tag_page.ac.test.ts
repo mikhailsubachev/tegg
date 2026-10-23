@@ -1,7 +1,7 @@
 // MS4 slice 4D-lite L5 (WebKit, fake core): the tag page `tag/<key>` (docs/acceptance/tags.md R82): FR-TAG-06 AC-1
-// (every way in, D-638), AC-2 (header and table), AC-3 (sort **(C)**), AC-4 (text filter), AC-5 (Type filter and
+// (every way in, D-692), AC-2 (header and table), AC-3 (sort **(C)**), AC-4 (text filter), AC-5 (Type filter and
 // grouping **(C)**), AC-6 (remembered and shared, machine-local), AC-7 (rows open their object), AC-8 (`New with #tag`),
-// AC-9 (live rows, unknown keys, D-666), AC-10 (keyboard, strings, themes); FR-TAG-01 AC-2 (no description or
+// AC-9 (live rows, unknown keys, D-720), AC-10 (keyboard, strings, themes); FR-TAG-01 AC-2 (no description or
 // properties); FR-TAG-02 AC-4 (applying a tag in the attribute panel); FR-SYN-06 AC-31 (a browsing tour sends no write
 // command). Interface docs/contracts/ms4-tags.md §1.3, §6.1, §6.2, §8.1. Written from the ACs and the contract only
 // (D-61).
@@ -36,7 +36,7 @@ test('fr_tag_06_ac1_every_way_in_opens_the_tag_page', async ({ page }) => {
   for (const [how, go] of ways) {
     await go();
     await must(tagHeading(page, 'Účty'), `${how}: tag/účty`, 3000);
-    assert.equal(await isEditor(page).count(), 0, `${how}: no editor on the Tag file (D-638)`);
+    assert.equal(await isEditor(page).count(), 0, `${how}: no editor on the Tag file (D-692)`);
     await runCommand(page, 'Go to Inbox');
     await sleep(200);
   }
@@ -94,7 +94,7 @@ test('fr_tag_06_ac2_header_and_table', async ({ page }) => {
   const cols = (await table.getByRole('columnheader').allInnerTexts()).map((h) => flat(h).replace(/ [↑↓]$/, ''));
   assert.deepEqual(cols, ['Title', 'Type', 'Other tags', 'Modified'], 'exactly the four columns');
   for (const n of ['Add column', 'Columns']) assert.equal(await main(page).getByRole('button', { name: n, exact: true }).count(), 0, `no ${n}`);
-  assert.equal(await main(page).getByRole('tablist').count(), 0, 'no view tabs (D-650)');
+  assert.equal(await main(page).getByRole('tablist').count(), 0, 'no view tabs (D-704)');
   assert.deepEqual(await rowPaths(page, 'Účty'), UCTY_MODIFIED_DESC, 'rows by Modified ↓');
   const den = await textOfRow(page, P.den);
   assert.ok(den.includes('2026-10-20') && den.includes('Daily Note'), `Den row: ${den}`);
@@ -128,7 +128,7 @@ for (const region of ['cs', 'en']) {
     assert.ok(m.join() === UCTY_MODIFIED_DESC.join() || m.join() === [...UCTY_MODIFIED_DESC].reverse().join(), 'Modified by instant');
     await click(head('Other tags'), 'Other tags header');
     const o = await rowPaths(page, 'Účty');
-    assert.deepEqual(o.slice(0, 2), [P.rozpocet, P.dvakrat], 'Other tags ↑: finance, účty/archiv, rows without other tags last (AP-598)');
+    assert.deepEqual(o.slice(0, 2), [P.rozpocet, P.dvakrat], 'Other tags ↑: finance, účty/archiv, rows without other tags last (AP-661)');
     await click(head('Type'), 'Type header');
     const t = await rowPaths(page, 'Účty');
     assert.equal(t.length, 6, 'Type sort keeps the six');
@@ -183,10 +183,10 @@ test('fr_tag_06_ac6_sort_filter_and_grouping_are_remembered_and_shared', async (
   await chooseRadio(page, typeFilterBtn(page), 'Task', 'Type filter');
   await chooseRadio(page, groupingBtn(page), 'Type', 'grouping');
   const st = await eventually(() => core.uiState(), (s) => !!(s as any)?.tagPage?.type, 2000);
-  assert.deepEqual((st as any)?.tagPage, { sort: { column: 'title', dir: 'asc' }, type: 'task', grouping: 'type' }, 'UiStateDto.tagPage (D-649)');
+  assert.deepEqual((st as any)?.tagPage, { sort: { column: 'title', dir: 'asc' }, type: 'task', grouping: 'type' }, 'UiStateDto.tagPage (D-703)');
   await click(sidebar(page).getByRole('link', { name: /^#finance/ }), 'sidebar #finance');
   await must(tagHeading(page, 'finance'), 'tag/finance');
-  assert.equal(flat(await typeFilterBtn(page).textContent()), 'Type: Task', 'the same Type filter, kept on a tag without tasks (AP-598 (g))');
+  assert.equal(flat(await typeFilterBtn(page).textContent()), 'Type: Task', 'the same Type filter, kept on a tag without tasks (AP-661 (g))');
   assert.equal(flat(await groupingBtn(page).textContent()), 'Grouped by type', 'the same grouping');
   assert.equal(await objectsTable(page, 'finance').getByRole('columnheader', { name: /^Title/ }).getAttribute('aria-sort'), 'ascending', 'the same sort');
   assert.deepEqual(await rowPaths(page, 'finance'), [], 'an empty table');
@@ -219,7 +219,7 @@ test('fr_tag_06_ac8_new_with_tag_page_and_task', async ({ page }) => {
   const menu = page.getByRole('menu');
   await must(menu, 'the New object type menu');
   const items = (await menu.getByRole('menuitem').allInnerTexts()).map((x) => flat(x));
-  for (const t of ['Page', 'Task', 'Quick Note', 'Projekt']) assert.ok(items.includes(t), `${t} offered (capture targets, AP-598): ${items}`);
+  for (const t of ['Page', 'Task', 'Quick Note', 'Projekt']) assert.ok(items.includes(t), `${t} offered (capture targets, AP-661): ${items}`);
   for (const t of ['Daily Note', 'Tag', 'Image', 'PDF']) assert.ok(!items.includes(t), `${t} not offered`);
   const before = (await vaultWrites(core)).length;
   await menu.getByRole('menuitem', { name: 'Page', exact: true }).click();
@@ -237,7 +237,7 @@ test('fr_tag_06_ac8_new_with_tag_page_and_task', async ({ page }) => {
   await click(newWithBtn(page, 'Účty'), 'New with #Účty again');
   await page.getByRole('menu').getByRole('menuitem', { name: 'Task', exact: true }).click();
   const qa = await must(main(page).getByRole('textbox', { name: 'Add a task…', exact: true }), 'the Tasks quick-add');
-  assert.equal(await qa.inputValue(), ' #Účty', 'prefilled with #Účty at the end (AP-598 (e))');
+  assert.equal(await qa.inputValue(), ' #Účty', 'prefilled with #Účty at the end (AP-661 (e))');
   assert.equal(await qa.evaluate((e) => (e as HTMLInputElement).selectionStart), 0, 'the caret before it');
   await page.keyboard.type('Zaplatit pojistku');
   await page.keyboard.press('Enter');
@@ -256,7 +256,7 @@ test('fr_tag_06_ac9_live_rows_and_a_tag_that_does_not_exist', async ({ page }) =
   assert.ok(!(await rowsWhen(page, 'Účty', (r) => !r.includes(P.faktura))).includes(P.faktura), 'losing it leaves within 2 s');
   const p2 = await page.context().newPage();
   await openTagPage(p2, 'neexistuje');
-  await must(p2.getByText('No objects have #neexistuje yet.', { exact: true }), 'D-666: the empty tag page');
+  await must(p2.getByText('No objects have #neexistuje yet.', { exact: true }), 'D-720: the empty tag page');
   await must(newWithBtn(p2, 'neexistuje'), 'New with #neexistuje');
   assert.equal(await tagActionsBtn(p2).count(), 0, 'no Tag actions');
   assert.equal(await colourTile(p2).count(), 0, 'no colour tile');
@@ -300,9 +300,9 @@ for (const theme of ['light', 'dark'] as const) {
 test('fr_tag_01_ac2_no_description_or_properties_on_the_tag_page', async ({ page }) => {
   await openTagPage(page, 'neznámá');
   await must(tagHeading(page, 'neznámá'), 'tag/neznámá');
-  assert.equal(await main(page).getByText('Stará poznámka.').count(), 0, 'no description text (D-637)');
+  assert.equal(await main(page).getByText('Stará poznámka.').count(), 0, 'no description text (D-691)');
   assert.equal(await main(page).getByText(/x-extra/).count(), 0, 'no x-extra');
-  assert.equal(await page.getByRole('region', { name: 'Properties', exact: true }).count(), 0, 'no Properties region (D-639)');
+  assert.equal(await page.getByRole('region', { name: 'Properties', exact: true }).count(), 0, 'no Properties region (D-693)');
   assert.equal(await page.getByPlaceholder(/description/i).count(), 0, 'no description field');
 });
 
@@ -334,7 +334,7 @@ test('fr_syn_06_ac31_browsing_tags_sends_no_write_command', async ({ page }) => 
   const p2 = await page.context().newPage();
   const c2 = await startTags(p2, { route: 'type/tag' });
   await must(main(p2).getByRole('table', { name: 'Tags', exact: true }), 'type/tag', 5000);
-  const writes2 = await vaultWrites(c2); // AP-617 (D-688): read c2's calls before closing p2
+  const writes2 = await vaultWrites(c2); // AP-680 (D-742): read c2's calls before closing p2
   await p2.close();
   assert.deepEqual([...(await vaultWrites(core)), ...writes2], [], 'zero write commands');
 });

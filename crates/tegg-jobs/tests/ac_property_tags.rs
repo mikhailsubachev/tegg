@@ -1,6 +1,6 @@
 //! MS4 slice 4D-lite property tests (L2) of the tag jobs end to end, through the real `@tegg/doc` engine
 //! (`NodeTransformer`, D-82) and an in-memory `VaultFs` (`MemFs`): docs/acceptance/tags.md FR-TAG-04 AC-11 (a) the
-//! changed files ⊆ files with an occurrence of K plus K's Tag file (and links to it, D-660), (c) the tag query
+//! changed files ⊆ files with an occurrence of K plus K's Tag file (and links to it, D-714), (c) the tag query
 //! afterwards has K′ with K's old count and no K, (d) renaming back returns every file to its original bytes (except
 //! the Tag file's `modified`) when K had a single spelling; FR-TAG-08 AC-6 (removal changes only the files with an
 //! occurrence and moves K's Tag file; afterwards no file has an occurrence of K; every other tag's count is unchanged);

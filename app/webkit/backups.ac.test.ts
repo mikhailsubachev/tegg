@@ -1,4 +1,4 @@
-// MS4 slice 4D-lite L5 (WebKit, fake core): Settings › Backups (docs/acceptance/tags.md R85; D-396, D-651):
+// MS4 slice 4D-lite L5 (WebKit, fake core): Settings › Backups (docs/acceptance/tags.md R85; D-396, D-705):
 // FR-HIS-04 AC-7 (the list after a rename and a removal, newest first, labels, D-160 date-times **(TZ)**, Show in Finder,
 // the open vault only, opening writes nothing), AC-8 (the Restore dialog, Cancel, Restore: the pre-restore zip, the
 // files back, the status), AC-10 (restore is a job, cancellable before writing). Interface docs/contracts/ms4-tags.md
@@ -85,7 +85,7 @@ test('fr_his_04_ac8_restore_dialog_and_restore', async ({ page }) => {
   await click(page.getByRole('alertdialog', { name: 'Restore this backup?', exact: true }).getByRole('button', { name: 'Restore', exact: true }), 'Restore');
   await must(jobStatus(page, /^Restored \d+ notes? from the backup$/), 'Restored <n> notes from the backup', 5000);
   const files = await core.files();
-  assert.equal(files[P.fUcty], original(P.fUcty), 'Tags/Výdaje.md is Tags/Účty.md again (AP-601)');
+  assert.equal(files[P.fUcty], original(P.fUcty), 'Tags/Výdaje.md is Tags/Účty.md again (AP-664)');
   assert.equal(files['Tags/Výdaje.md'], undefined, 'no Tags/Výdaje.md');
   assert.equal(files[P.rozpocet], original(P.rozpocet), 'files get their zipped bytes');
   const rows = await eventually(() => backupRows(page), (r) => r.some((x) => x.includes('Before restoring')), 3000);

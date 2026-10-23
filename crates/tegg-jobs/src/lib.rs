@@ -143,7 +143,7 @@ pub enum JobOp {
     /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).
     Inbox { paths: Vec<String>, change: InboxJobChange },
     /// ms4-tags §5.3 (4D-lite): restore the backup zip `name` (a file name in the open vault's backup folder). The
-    /// op's name is a red-test point (AP-608): the contract names only the IPC command `backup_restore(name)`.
+    /// op's name is a red-test point (AP-671): the contract names only the IPC command `backup_restore(name)`.
     Restore { name: String },
 }
 
@@ -172,18 +172,18 @@ pub struct JobPlan {
     pub creates: Vec<String>,
     pub trashes: Vec<String>,
     pub counts: PlanCounts,
-    /// ms4-tags §4.1 (D-664): e.g. a losing Tag file of the key.
+    /// ms4-tags §4.1 (D-718): e.g. a losing Tag file of the key.
     pub warnings: Vec<PlanWarning>,
 }
 
 /// ms4-tags §4.1.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlanWarning {
-    /// Another Tag file of the key, left alone by the job (D-664).
+    /// Another Tag file of the key, left alone by the job (D-718).
     DuplicateTagFile { path: String },
 }
 
-/// ms4-tags §5.2 (D-679): one backup zip of the open vault.
+/// ms4-tags §5.2 (D-733): one backup zip of the open vault.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackupInfo {
     pub name: String,
@@ -195,7 +195,7 @@ pub struct BackupInfo {
     pub files: usize,
 }
 
-/// The catalog key and arguments of a backup's operation label (D-670).
+/// The catalog key and arguments of a backup's operation label (D-724).
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackupLabel {
     pub key: String,
@@ -248,11 +248,11 @@ pub enum TextOp {
     /// D-573: `[[<D-184 text of to_path from the source>]]`; `paths` are the vault's note paths (D-291 resolution in
     /// `@tegg/doc`, as `RetargetLinks`).
     AppendLinkTo { to_path: String, to_title: String, paths: Vec<String>, now: String },
-    /// ms4-tags §4.2 (4D-lite): every occurrence of tag `key` gets the name `to` (D-645, D-659: no `modified` change).
+    /// ms4-tags §4.2 (4D-lite): every occurrence of tag `key` gets the name `to` (D-699, D-713: no `modified` change).
     RenameTag { key: String, to: String },
-    /// Every occurrence of tag `key` is removed (D-644, D-661, D-662).
+    /// Every occurrence of tag `key` is removed (D-698, D-715, D-716).
     RemoveTag { key: String },
-    /// The kept object of a merge (D-290, D-673).
+    /// The kept object of a merge (D-290, D-727).
     MergeInto { others: Vec<MergeOther>, now: String },
     /// Restore through an open editor (ms4-tags §5.3).
     Replace { text: String },
@@ -378,9 +378,9 @@ pub enum JobError {
     BackupFailed(String),
     /// ms4-tags §4.1: a refused tag name (§2); `error` is `empty`, `space`, `digits` or `char`.
     InvalidName { error: String, char: Option<String> },
-    /// ms4-tags §4.1 (D-645): the new name is another existing tag.
+    /// ms4-tags §4.1 (D-699): the new name is another existing tag.
     TagExists { name: String },
-    /// ms4-tags §11 (D-684): a tag rename to the same spelling; no job runs.
+    /// ms4-tags §11 (D-738): a tag rename to the same spelling; no job runs.
     NothingToDo,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),

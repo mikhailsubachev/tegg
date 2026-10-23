@@ -83,7 +83,7 @@ function splitFlow(text: string, from: number, to: number): Item[] {
 
 const keyOf = (v: string) => tagKey(v.replace(/^#/, ''))
 
-/** `rename-tag` (D-645, D-659): the name bytes of every occurrence become `to` (NFC). */
+/** `rename-tag` (D-699, D-713): the name bytes of every occurrence become `to` (NFC). */
 export function renameTagPatches(doc: Doc, key: string, to: string): Patch[] {
   const out: Patch[] = []
   const name = to.normalize('NFC')
@@ -101,7 +101,7 @@ export function renameTagPatches(doc: Doc, key: string, to: string): Patch[] {
   return out
 }
 
-/** `remove-tag` (D-644, D-661, D-662). */
+/** `remove-tag` (D-698, D-715, D-716). */
 export function removeTagPatches(doc: Doc, key: string): Patch[] {
   const text = doc.text
   const out: Patch[] = []
@@ -196,7 +196,7 @@ function union(a: string[], b: string[], key: (s: string) => string): string[] {
   return out
 }
 
-/** `merge-into` (D-290, D-673, D-680): the kept text with the others' bodies, missing attributes and list unions. */
+/** `merge-into` (D-290, D-727, D-734): the kept text with the others' bodies, missing attributes and list unions. */
 export function mergeInto(text: string, others: { path: string; title: string; text: string }[], now: string): string {
   let doc = parse(text)
   const data = (doc.frontmatter?.data ?? {}) as Record<string, unknown>

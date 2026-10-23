@@ -1,4 +1,4 @@
-// FR-LNK-14 AC-11, AC-12 (D-290, D-392, D-673): `Merge…` of a duplicate-title group. The dialog starts a `merge` job,
+// FR-LNK-14 AC-11, AC-12 (D-290, D-392, D-727): `Merge…` of a duplicate-title group. The dialog starts a `merge` job,
 // which waits in `confirm`; its plan's conflicts (`job_plan`) are listed; `Merge <n> objects` confirms it, Cancel and
 // Esc cancel it (nothing written). Changing the kept object restarts the job with it. No Undo (D-395).
 import { useEffect, useRef, useState } from 'react';

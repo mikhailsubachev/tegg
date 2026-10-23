@@ -1,8 +1,8 @@
 // MS4 slice 4D-lite, L1: the text ops of the tag jobs and merge (`transform`, docs/contracts/ms4-tags.md §4.2) as
 // table tests on the tags fixture (docs/acceptance/tags.md): FR-TAG-04 AC-4 (`rename-tag`: every occurrence, exact
-// bytes, list style, CRLF, NFD written NFC, near misses untouched, no `modified` change, D-645, D-659), FR-TAG-08 AC-2
+// bytes, list style, CRLF, NFD written NFC, near misses untouched, no `modified` change, D-699, D-713), FR-TAG-08 AC-2
 // (`remove-tag`: entries with their separators, an emptied `tags:` key, the following / preceding space, a tag-only
-// line, D-661, D-662), FR-LNK-14 AC-12 (`merge-into`, D-673), FR-TAG-10 AC-1 (`#účty/archiv` is another tag). The same
+// line, D-715, D-716), FR-LNK-14 AC-12 (`merge-into`, D-727), FR-TAG-10 AC-1 (`#účty/archiv` is another tag). The same
 // ops run end to end in crates/tegg-jobs/tests/ac_tag_jobs.rs. Written from the ACs and the contract only (D-61).
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
@@ -56,7 +56,7 @@ test('fr_tag_04_ac4_rename_tag_exact_bytes_per_file', async () => {
     const got = await run(path, text, RENAME)
     if (got !== want) bad.push(`${path}: ${JSON.stringify(got)}`)
   }
-  assert.deepEqual(bad, [], 'only the tag bytes change; list style, CRLF, missing final newline, `modified` kept (D-659)')
+  assert.deepEqual(bad, [], 'only the tag bytes change; list style, CRLF, missing final newline, `modified` kept (D-713)')
 })
 
 test('fr_tag_04_ac4_near_misses_and_other_keys_are_untouched', async () => {
@@ -104,7 +104,7 @@ test('fr_tag_08_ac2_remove_tag_exact_bytes_per_file', async () => {
     const got = await run(path, text, REMOVE)
     if (got !== want) bad.push(`${path}: ${JSON.stringify(got)}`)
   }
-  assert.deepEqual(bad, [], 'entries with their separators, emptied tags: keys (D-661), spaces and tag-only lines (D-662)')
+  assert.deepEqual(bad, [], 'entries with their separators, emptied tags: keys (D-715), spaces and tag-only lines (D-716)')
 })
 
 test('fr_tag_08_ac2_remove_keeps_near_misses_and_other_tags', async () => {
@@ -117,7 +117,7 @@ test('fr_tag_08_ac2_remove_keeps_near_misses_and_other_tags', async () => {
 
 test('fr_tag_08_ac2_preceding_space_when_no_following_one', async () => {
   const text = '---\nid: x\ntype: page\ntitle: X\n---\nKonec věty #účty\nDalší #účty, čárka.\n'
-  assert.equal(await run('Pages/X.md', text, REMOVE), '---\nid: x\ntype: page\ntitle: X\n---\nKonec věty\nDalší, čárka.\n', 'D-662: the preceding space when no space follows')
+  assert.equal(await run('Pages/X.md', text, REMOVE), '---\nid: x\ntype: page\ntitle: X\n---\nKonec věty\nDalší, čárka.\n', 'D-716: the preceding space when no space follows')
 })
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-14 AC-12
@@ -144,7 +144,7 @@ test('fr_lnk_14_ac12_merge_into_schuzka', async () => {
     'Zápis B.',
     '',
   ].join('\n')
-  assert.equal(got, want, 'missing values added (x-místo kept), aliases and tags unions, no case-only alias, the body section (D-673; AP-609 for the aliases position)')
+  assert.equal(got, want, 'missing values added (x-místo kept), aliases and tags unions, no case-only alias, the body section (D-727; AP-672 for the aliases position)')
 })
 
 test('fr_lnk_14_ac12_merge_into_empty_bodies_add_no_heading', async () => {

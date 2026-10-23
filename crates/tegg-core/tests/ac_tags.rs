@@ -66,7 +66,7 @@ fn fr_tag_01_ac1_fixture_tags_are_r80() {
     }
     let ucty = row(&rows, "účty");
     assert_eq!(ucty.map(|r| r.losers.clone()), Some(vec![]), "účty: one Tag file");
-    assert_eq!(row(&rows, "neznámá").and_then(|r| r.color_raw.clone()), Some("magenta".into()), "the raw colour is kept for the popover (D-669)");
+    assert_eq!(row(&rows, "neznámá").and_then(|r| r.color_raw.clone()), Some("magenta".into()), "the raw colour is kept for the popover (D-723)");
     let ns = ucty.and_then(|r| r.last_used_ns);
     let want = chrono::DateTime::parse_from_rfc3339(&at("2026-10-22T08:00")).map(|d| d.timestamp_nanos_opt().unwrap_or(0) as i128).ok();
     assert_eq!(ns, want, "last_used_ns is the instant of last_used");
@@ -85,7 +85,7 @@ fn fr_tag_01_ac1_counts_are_per_object_and_spellings_are_one_key() {
     assert_eq!(obj_paths(&core, "ÚČTY"), obj_paths(&core, "účty"), "the key folds case");
     assert_eq!(obj_paths(&core, &"účty".chars().flat_map(|c| match c { 'ú' => vec!['u', '\u{301}'], 'č' => vec!['c', '\u{30C}'], c => vec![c] }).collect::<String>()), obj_paths(&core, "účty"), "and NFC");
     let u = core.tag_usage("účty");
-    assert_eq!((u.notes, u.templates, u.file.clone()), (6, 1, Some(F_UCTY.to_string())), "tag_usage: 6 notes, 1 template (D-660), the Tag file");
+    assert_eq!((u.notes, u.templates, u.file.clone()), (6, 1, Some(F_UCTY.to_string())), "tag_usage: 6 notes, 1 template (D-714), the Tag file");
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn fr_tag_02_ac1_which_file_belongs_to_which_tag() {
     assert_eq!(file(&rows, "účty"), Some(F_UCTY.into()), "title key");
     assert_eq!(file(&rows, "a/b"), Some(F_AB.into()), "F-ab belongs to a/b");
     assert!(row(&rows, "a b").is_none(), "not to `a b`");
-    assert_eq!(file(&rows, "prázdný"), Some(F_PRAZDNY.into()), "no title: the stem (D-640)");
+    assert_eq!(file(&rows, "prázdný"), Some(F_PRAZDNY.into()), "no title: the stem (D-694)");
     let d = row(&rows, "dvojí");
     assert_eq!(d.map(|r| (r.file.as_ref().map(|f| f.path.clone()), r.color.clone(), r.losers.clone())), Some((Some(F_DVOJI.into()), Some("red".into()), vec![F_DVOJI2.into()])), "the older created wins: red");
     assert!(rows.iter().all(|r| r.file.as_ref().map(|f| f.path.as_str()) != Some(F_KOS)), "F-koš in .trash/ is no Tag file (D-102)");
@@ -416,7 +416,7 @@ fn fr_tag_06_ac9_live_rows_and_unknown_keys() {
     let sb = sandbox();
     let root = tags_vault(&sb);
     let core = open(&root, &sb.dirs, true);
-    assert_eq!(core.tag_objects("neexistuje"), vec![], "an unknown key gives no rows (D-666)");
+    assert_eq!(core.tag_objects("neexistuje"), vec![], "an unknown key gives no rows (D-720)");
     write(&root, &vypln(5), &format!("{}#účty\n", fixture(&vypln(5))));
     assert!(wait_until(Duration::from_secs(2), || obj_paths(&core, "účty").contains(&vypln(5))).is_some(), "an object gaining #účty appears within 2 s");
     write(&root, FAKTURA, &fixture(FAKTURA).replace(&"Poslat #účty dnes.".chars().flat_map(|c| match c { 'ú' => vec!['u', '\u{301}'], 'č' => vec!['c', '\u{30C}'], c => vec![c] }).collect::<String>(), "Poslat dnes."));
@@ -455,11 +455,11 @@ fn fr_tag_07_ac5_counts_and_last_used_rules() {
     let (_, b) = core.read_note(BANKA, SystemTime::now()).expect("setup: read Banka");
     let done = fixture(BANKA).replace("status: To do", "status: Done");
     assert!(core.write_note(BANKA, done.as_bytes(), Some(&b)).is_ok(), "Banka Done");
-    assert_eq!(get(&core, "účty").map(|x| x.0), Some(6), "Done keeps účty 6 (D-647)");
+    assert_eq!(get(&core, "účty").map(|x| x.0), Some(6), "Done keeps účty 6 (D-701)");
     let no_mod = fixture(&vypln(4)).replace("modified: 2026-09-01T09:00:00+02:00\n", "").replace("title: Výplň 04\n", "title: Výplň 04\ntags: [finance]\n");
     let (_, b4) = core.read_note(&vypln(4), SystemTime::now()).expect("setup: read Výplň 04");
     assert!(core.write_note(&vypln(4), no_mod.as_bytes(), Some(&b4)).is_ok(), "Výplň 04 with finance and no modified");
-    assert_eq!(get(&core, "finance"), Some((3, Some(at("2026-10-21T09:00")))), "it counts and doesn't change Last used (D-667)");
+    assert_eq!(get(&core, "finance"), Some((3, Some(at("2026-10-21T09:00")))), "it counts and doesn't change Last used (D-721)");
 }
 
 // ------------------------------------------------------------------------------------------------ FR-TAG-08 AC-3
@@ -519,7 +519,7 @@ fn fr_edt_15_ac6_count_zero_tags_are_offered() {
     let core = open(&root, &sb.dirs, true);
     let tags = core.tags();
     assert!(tags.iter().any(|t| t.key == "prázdný" && t.spelling == "prázdný" && t.count == 0), "Core::tags offers prázdný with count 0 (§1.2)");
-    assert!(tags.iter().any(|t| t.key == "účty" && t.spelling == "Účty"), "the display name, not the most frequent spelling (D-657)");
+    assert!(tags.iter().any(|t| t.key == "účty" && t.spelling == "Účty"), "the display name, not the most frequent spelling (D-711)");
     write(&root, &vypln(6), &format!("{}#prázdný\n", fixture(&vypln(6))));
     assert!(wait_until(Duration::from_secs(2), || core.tags().iter().any(|t| t.key == "prázdný" && t.count == 1)).is_some(), "count 1 within 2 s");
 }

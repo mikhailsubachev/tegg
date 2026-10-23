@@ -3,7 +3,7 @@
 // the file appearing meanwhile), AC-6 (no other path writes a Tag file); FR-TAG-04 AC-6 (rename refused onto an
 // existing key), AC-7 (the dialog, confirm, Cancel, cancel while planning), AC-8 (status, the not-updated list, Retry,
 // an open note through its editor), AC-9 (after the rename); FR-TAG-08 AC-1 (the delete dialogs), AC-3 (Delete only
-// the tag, D-678), AC-5 (status, list, cancel). Interface docs/contracts/ms4-tags.md §2 (R86 bytes through
+// the tag, D-732), AC-5 (status, list, cancel). Interface docs/contracts/ms4-tags.md §2 (R86 bytes through
 // `note_create_exact`), §3, §4.4 (`tag_rename`, `tag_delete`, `job_plan`, `job_confirm`), §6.2, §8.1. Written from the
 // ACs and the contract only (D-61).
 import { test } from '@playwright/test';
@@ -146,7 +146,7 @@ test('fr_tag_04_ac7_the_dialog_confirms_and_cancel_writes_nothing', async ({ pag
   const box = d.getByRole('textbox', { name: 'New name', exact: true });
   assert.equal(await box.inputValue(), 'Účty', 'prefilled with the display name');
   assert.deepEqual(await box.evaluate((e) => [(e as HTMLInputElement).selectionStart, (e as HTMLInputElement).selectionEnd]), [0, 4], 'all selected');
-  await must(d.getByText(/^Updates 6 notes( and 1 template)?\. A backup is made first\.$/), 'Updates 6 notes… (D-660 adds the template)');
+  await must(d.getByText(/^Updates 6 notes( and 1 template)?\. A backup is made first\.$/), 'Updates 6 notes… (D-714 adds the template)');
   await click(d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel');
   assert.deepEqual(await core.backups(), [], 'Cancel makes no zip');
   assert.deepEqual(await vaultWrites(core), [], 'and writes nothing');
@@ -189,7 +189,7 @@ test('fr_tag_04_ac8_status_list_and_retry', async ({ page }) => {
   assert.equal(await page.locator('[aria-modal="true"]').count(), 0, 'non-modal');
   const entry = page.getByRole('button', { name: /^1 note not updated$/ }).or(page.getByRole('link', { name: /^1 note not updated$/ }));
   await click(entry, '1 note not updated (plural forms)');
-  // The list's name: ms4-jobs §10 `Links not updated`; D-677 renames only the status entry (red-test point AP-612).
+  // The list's name: ms4-jobs §10 `Links not updated`; D-731 renames only the status entry (red-test point AP-675).
   const nm = /^(Links|Notes) not updated$/;
   const list = page.getByRole('list', { name: nm }).or(page.getByRole('region', { name: nm })).or(page.getByRole('dialog', { name: nm }));
   await must(list, 'the not-updated list');
@@ -219,7 +219,7 @@ test('fr_tag_04_ac9_after_the_rename', async ({ page }) => {
   await runCommand(page, 'Go to Tags');
   await must(tagRowEl(page, 'výdaje'), 'All tags lists Výdaje');
   assert.equal(await tagRowEl(page, 'účty').count(), 0, 'and no účty');
-  assert.equal((await core.files())[P.odkaz], original(P.odkaz).replace('[[Účty]]', '[[Výdaje]]'), 'links to the Tag file follow it (D-660)');
+  assert.equal((await core.files())[P.odkaz], original(P.odkaz).replace('[[Účty]]', '[[Výdaje]]'), 'links to the Tag file follow it (D-714)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TAG-08
@@ -256,7 +256,7 @@ test('fr_tag_08_ac3_delete_only_the_tag', async ({ page }) => {
   await click(deleteDialog(page, 'Účty').getByRole('button', { name: 'Delete only the tag', exact: true }), 'Delete only the tag');
   assert.deepEqual(await eventually(() => core.moves(), (m) => m.length > 0, 2000), [{ kind: 'trash', from: P.fUcty, to: `.trash/${P.fUcty}` }], 'one trash move');
   assert.deepEqual(await core.backups(), [], 'no zip');
-  await must(page.getByRole('status').filter({ hasText: 'Moved "Účty" to the trash' }).getByRole('button', { name: 'Undo', exact: true }), 'the D-620 toast with Undo (D-678; trash.moved, AP-618, D-689)');
+  await must(page.getByRole('status').filter({ hasText: 'Moved "Účty" to the trash' }).getByRole('button', { name: 'Undo', exact: true }), 'the D-620 toast with Undo (D-732; trash.moved, AP-681, D-743)');
   await must(tagHeading(page, 'účty'), 'the tag stays, virtual: display name účty within 2 s', 2500);
   assert.equal(await main(page).getByRole('button', { name: 'Tag colour', exact: true }).getAttribute('data-color'), 'none', 'colour None');
   await page.getByRole('status').getByRole('button', { name: 'Undo', exact: true }).click();
@@ -273,7 +273,7 @@ test('fr_tag_08_ac5_removal_status_and_cancel', async ({ page }) => {
   const jobs = await jobsWhen(core, 1);
   assert.equal(jobs[0]?.kind, 'tag-delete', 'kind tag-delete');
   await must(page.getByRole('button', { name: /^1 note not updated$/ }).or(page.getByRole('link', { name: /^1 note not updated$/ })), 'the not-updated entry');
-  await must(page.getByRole('heading', { level: 1, name: /^⟦?Tags⟧?$/ }), 'the app goes to tags (AP-596)');
+  await must(page.getByRole('heading', { level: 1, name: /^⟦?Tags⟧?$/ }), 'the app goes to tags (AP-659)');
   const p2 = await page.context().newPage();
   const c2 = await openTagPage(p2, 'finance');
   const release = await c2.holdJob('planning');

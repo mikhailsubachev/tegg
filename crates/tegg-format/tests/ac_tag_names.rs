@@ -1,6 +1,6 @@
 //! MS4 slice 4D-lite AC test (L1 twin, Rust side): `tegg_format::tag_name` gives the same result as `@tegg/doc`
 //! `tagName` for every row of the shared table tests/fixtures/format/tags/names.json (docs/contracts/ms4-tags.md §2;
-//! docs/acceptance/tags.md FR-TAG-03 AC-3, D-642, D-658; FR-TAG-10 AC-1 for `/`). The planner's refusal of a rename
+//! docs/acceptance/tags.md FR-TAG-03 AC-3, D-696, D-712; FR-TAG-10 AC-1 for `/`). The planner's refusal of a rename
 //! (`JobError::InvalidName`) uses this function. Written from the AC and the contract only (D-61).
 
 use std::path::PathBuf;
@@ -35,7 +35,7 @@ fn fr_tag_03_ac3_tag_name_matches_the_shared_table() {
             bad.push(format!("{input:?}: want {want:?}, got {got:?}"));
         }
     }
-    assert!(bad.is_empty(), "tag_name per row (D-642, D-658):\n{}", bad.join("\n"));
+    assert!(bad.is_empty(), "tag_name per row (D-696, D-712):\n{}", bad.join("\n"));
 }
 
 #[test]

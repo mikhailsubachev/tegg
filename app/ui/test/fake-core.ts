@@ -928,13 +928,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
   const sha = async (t: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)));
   const utcName = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-  /** §5.1 (ms4-jobs §6): every `.md` and `.tegg/` file, before the first vault write; 10 kept (`exempt` too, D-671). */
+  /** §5.1 (ms4-jobs §6): every `.md` and `.tegg/` file, before the first vault write; 10 kept (`exempt` too, D-725). */
   const makeZip = (kind: string, jobId: number, label: any, planned: any, exempt: string | null = null): BackupRecord | null => {
     if (state.backupFail) return null;
     const files = state.vault!.files;
     const entries: Record<string, string> = {};
     for (const p of Object.keys(files)) if (p.endsWith('.md') || p.startsWith('.tegg/')) entries[p.normalize('NFC')] = files[p];
-    // AP-619 (D-690): a zip made in a second that already has one takes the next free second (as the core's `backup`),
+    // AP-682 (D-744): a zip made in a second that already has one takes the next free second (as the core's `backup`),
     // so name order stays newest first under the fixed clock.
     let at = Date.now();
     while (state.backups.some((b) => b.name.startsWith(`${utcName(at)}-`))) at += 1000;
@@ -1193,7 +1193,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map((o) => ({ path: o.path, id: o.id, title: o.title, type: o.type, modified: o.modified })),
     index_search: async (a) => {
       // §15.8: words in tiers (D-253), quoted phrases strict, `-word` excluded, file stems searched (D-254). No typos.
-      // AP-621 (D-692): `query.tags` requires every key (all of); tags without text list every matching object.
+      // AP-684 (D-746): `query.tags` requires every key (all of); tags without text list every matching object.
       const tagKeys = ((a.query?.tags ?? []) as unknown[]).map(String);
       const tagged = tagKeys.length && state.vault
         ? new Set(((await w.__teggTags('search_tag_paths', { keys: tagKeys }, state.vault.files, {})).result ?? []) as string[])
@@ -1727,7 +1727,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     capture_context: async () => {
       if (!state.vault) return { vault: null, types: [], defaultType: 'quick-note', tags: [] };
       const r = await w.__teggSettings('capture_context', {}, state.vault.files, {});
-      const tags = (await w.__teggTags('capture_tags', {}, state.vault.files, {})).result; // 4D-lite: CaptureTagDto[] (D-655)
+      const tags = (await w.__teggTags('capture_tags', {}, state.vault.files, {})).result; // 4D-lite: CaptureTagDto[] (D-709)
       return { vault: { id: `vault-${state.vaultId}`, name: state.vault.name, color: null }, types: r.result.types, defaultType: r.result.defaultType, tags };
     },
     capture_create: async (a) => {

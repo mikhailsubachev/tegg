@@ -18,7 +18,7 @@ async function reached(page: Page, name: string, ms: number): Promise<boolean> {
   return name === DRAFT ? isDraft(page, ms) : onPage(page, name, ms);
 }
 
-/** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-622, D-693: `tag/účty`). */
+/** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-685, D-747: `tag/účty`). */
 const startFor = (page: Page, row: (typeof R1)[number]) => start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : {});
 
 /** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
@@ -26,7 +26,7 @@ async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'chooser') { await runCommand(page, 'Open vault…'); return 'Choose a vault'; }
   if (row.id === 'new/<type>') { await page.keyboard.press('Meta+n'); return DRAFT; } // D-520: New object (⌘N)
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
-  if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-622 (D-693): tag/účty, on startFor's vault
+  if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-685 (D-747): tag/účty, on startFor's vault
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
   if (row.id === 'type-settings/<type>') {
     await gotoType(page, 'Quick Notes');

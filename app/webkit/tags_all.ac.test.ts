@@ -25,7 +25,7 @@ async function mostUsed(page: import('@playwright/test').Page): Promise<string[]
 for (const region of ['cs', 'en']) {
   test(`fr_tag_07_ac1_all_tags_rows_summary_and_sorts (${region})`, async ({ page }) => {
     const core = await openAllTags(page, { region });
-    await must(main(page).getByText('10 tags · 11 tagged objects', { exact: true }), 'the summary (distinct objects, AP-597)');
+    await must(main(page).getByText('10 tags · 11 tagged objects', { exact: true }), 'the summary (distinct objects, AP-660)');
     await must(tagsTable(page), 'table "Tags"');
     const want = await mostUsed(page);
     assert.deepEqual(want.slice(0, 3), ['účty', 'čtení', 'finance'], 'setup: Účty 6, čtení 2, finance 2 first');
@@ -57,7 +57,7 @@ test('fr_tag_07_ac1_sort_menu_and_remembered_sort', async ({ page }) => {
   for (const item of ['Most used', 'Name', 'Last used']) await must(page.getByRole('menuitemradio', { name: item, exact: true }), `menuitemradio ${item}`);
   await click(page.getByRole('menuitemradio', { name: 'Name', exact: true }), 'Name');
   const st = await eventually(() => core.uiState(), (s) => !!(s as any)?.tagsSort, 2000);
-  assert.deepEqual((st as any)?.tagsSort, { column: 'name', dir: 'asc' }, 'UiStateDto.tagsSort, machine-local (D-649)');
+  assert.deepEqual((st as any)?.tagsSort, { column: 'name', dir: 'asc' }, 'UiStateDto.tagsSort, machine-local (D-703)');
   assert.deepEqual(await vaultWrites(core), [], 'nothing in the vault');
 });
 
@@ -129,7 +129,7 @@ test('fr_tag_01_ac2_no_description_column', async ({ page }) => {
   await openAllTags(page);
   await must(tagsTable(page), 'table "Tags"');
   const headers = (await tagsTable(page).getByRole('columnheader').allInnerTexts()).map((h) => h.replace(/\s+/g, ' ').trim());
-  assert.deepEqual(headers.map((h) => h.replace(/ [↑↓]$/, '')), ['Tag', 'Objects', 'Last used'], 'columns Tag, Objects, Last used; no description (D-637)');
+  assert.deepEqual(headers.map((h) => h.replace(/ [↑↓]$/, '')), ['Tag', 'Objects', 'Last used'], 'columns Tag, Objects, Last used; no description (D-691)');
   assert.equal(await main(page).getByText('Stará poznámka.').count(), 0, 'F-neznámá\'s description is shown nowhere');
 });
 
@@ -139,10 +139,10 @@ test('fr_tag_01_ac3_type_settings_of_tag_have_no_properties', async ({ page }) =
     f[P.fAb] = swap(f[P.fAb], 'title: a/b\n', 'title: a/b\nx-poznámka: a\n');
   });
   const core = await startTags(page, { vault, route: 'type-settings/tag' });
-  await must(main(page).getByText('Tags have no properties', { exact: true }), 'the hint "Tags have no properties" (D-639, AP-604)');
+  await must(main(page).getByText('Tags have no properties', { exact: true }), 'the hint "Tags have no properties" (D-693, AP-667)');
   assert.equal(await main(page).getByRole('button', { name: /^(Add property|New property…)$/ }).count(), 0, 'no Add property / New property…');
   assert.equal(await main(page).getByText('Poznámka', { exact: true }).count(), 0, 'the runtime attribute shows no row');
-  assert.equal(await main(page).getByRole('region', { name: 'Preview properties', exact: true }).count(), 0, 'no Preview properties section (AP-604)');
+  assert.equal(await main(page).getByRole('region', { name: 'Preview properties', exact: true }).count(), 0, 'no Preview properties section (AP-667)');
   // `type/tag` (no `Go to type` command for Tag, D-121): its own page.
   const p2 = await page.context().newPage();
   const c2 = await startTags(p2, { vault, route: 'type/tag' });
@@ -170,7 +170,7 @@ test('fr_tag_03_ac5_a_count_zero_tag_is_listed', async ({ page }) => {
   await must(main(page).getByText('11 tags · 11 tagged objects', { exact: true }), '11 tags');
   const row = (await tagRowsText(page)).find((r) => r[0] === '#Účetnictví');
   assert.deepEqual(row?.slice(1, 3), ['0', ''], 'count 0, empty Last used');
-  assert.deepEqual(await sidebarTagLinks(page), ['#Účty 6', '#finance 2', '#dvojí 1', '#a/b 1', '#účty/archiv 1'], 'the sidebar\'s five are unchanged (D-646)');
+  assert.deepEqual(await sidebarTagLinks(page), ['#Účty 6', '#finance 2', '#dvojí 1', '#a/b 1', '#účty/archiv 1'], 'the sidebar\'s five are unchanged (D-700)');
 });
 
 test('fr_tag_02_ac3_all_tags_follows_the_files', async ({ page }) => {

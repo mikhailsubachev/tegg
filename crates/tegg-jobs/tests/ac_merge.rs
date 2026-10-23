@@ -1,6 +1,6 @@
 //! MS4 slice 4D-lite AC tests of the `merge` job (L4): docs/acceptance/tags.md FR-LNK-14 AC-12 (what merge writes,
 //! by byte diff), AC-13 (conflicts at job points; a change to the kept or merged object stops the merge before any
-//! write, D-673), AC-14 (Tag files merge too), on a temporary copy of the tags fixture with the real `@tegg/doc`
+//! write, D-727), AC-14 (Tag files merge too), on a temporary copy of the tags fixture with the real `@tegg/doc`
 //! engine (`NodeTransformer`). Interface: docs/contracts/ms4-tags.md §4.1 (`JobOp::Merge`, the merge planner,
 //! `merge-into`, `RetargetLinks`, trash moves), ms4-jobs §4, §5 (retry, job points). Written from the ACs and the
 //! contracts only (D-61).
@@ -23,7 +23,7 @@ fn merge_op(keep: &str, others: &[&str]) -> JobOp {
 fn files_only(s: BTreeSet<String>) -> BTreeSet<String> {
     s.into_iter().filter(|p| !p.ends_with('/')).collect()
 }
-/// Schůzka after the merge (D-673; the `aliases` position is red-test point AP-609), `modified` blanked.
+/// Schůzka after the merge (D-727; the `aliases` position is red-test point AP-672), `modified` blanked.
 fn schuzka_merged() -> String {
     no_modified(
         &[
@@ -117,7 +117,7 @@ fn fr_lnk_14_ac13_a_change_to_the_merged_object_stops_the_merge() {
         let before = snapshot(&root);
         let (_, report) = ok!(run_confirmed(&core, merge_op(SCHUZKA, &[SCHUZKA2])), "merge");
         assert_eq!(report.phase, Phase::Failed, "{what}: the merge stops `failed`: {report:?}");
-        assert_eq!(report.error.as_deref(), Some(format!("changed:{target}").as_str()), "{what}: the alert says which changed (D-673)");
+        assert_eq!(report.error.as_deref(), Some(format!("changed:{target}").as_str()), "{what}: the alert says which changed (D-727)");
         assert_eq!(files_only(changed(&before, &snapshot(&root))), [target.to_string()].into(), "{what}: nothing written by Tegg; only the external change");
     }
 }

@@ -2,7 +2,7 @@
 //! to Rozpočet at each job point skips it `changed`, its bytes stay the external version, the rest is rewritten,
 //! `Retry` re-reads and rewrites only the tag bytes; deleted (`missing`) and online-only (`placeholder`) files are
 //! skipped the same way) and FR-TAG-08 AC-5 (the same rules for `tag-delete`). Interface: docs/contracts/ms4-tags.md
-//! §4.4 (D-672: Retry re-applies the row's own op), ms4-jobs §4 (`Jobs::retry`), §5 (skip reasons, job points).
+//! §4.4 (D-726: Retry re-applies the row's own op), ms4-jobs §4 (`Jobs::retry`), §5 (skip reasons, job points).
 //! The online-only placeholder is simulated by a `VaultFs` wrapper, as in ac_sync_rename.rs. Written from the ACs
 //! and the contracts only (D-61).
 
@@ -169,5 +169,5 @@ fn fr_tag_08_ac5_tag_delete_follows_the_same_skip_and_retry_rules() {
     let retry = ok!(r.core.jobs().retry(r.job, ROZPOCET), "Retry");
     assert_eq!(retry, RetryOutcome::Written, "Retry writes");
     let external = format!("{}{EXTERNAL}", tx(ROZPOCET));
-    assert_eq!(read_text(&r.root, ROZPOCET), Some(external.replacen("tags: [účty, finance]", "tags: [finance]", 1)), "Retry re-applies remove-tag to the current bytes (D-672)");
+    assert_eq!(read_text(&r.root, ROZPOCET), Some(external.replacen("tags: [účty, finance]", "tags: [finance]", 1)), "Retry re-applies remove-tag to the current bytes (D-726)");
 }

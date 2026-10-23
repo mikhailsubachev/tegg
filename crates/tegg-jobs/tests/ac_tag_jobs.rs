@@ -65,11 +65,11 @@ fn fr_tag_04_ac4_rename_every_occurrence_exact_bytes() {
             bad.push(format!("{p}: {:?}", read_text(&root, p)));
         }
     }
-    assert_eq!(bad, Vec::<String>::new(), "only the tag bytes change (flow / block list, CRLF, no final newline, NFD written NFC; D-659 no modified change)");
+    assert_eq!(bad, Vec::<String>::new(), "only the tag bytes change (flow / block list, CRLF, no final newline, NFD written NFC; D-713 no modified change)");
     assert!(!root.join(F_UCTY).exists(), "Tags/Účty.md is gone");
     let v = read_text(&root, "Tags/Výdaje.md").unwrap_or_default();
     assert_eq!(no_modified(&v), no_modified(&tx(F_UCTY).replace("title: Účty", "title: Výdaje")), "Tags/Výdaje.md: title Výdaje, color: blue kept, same id");
-    assert_ne!(modified_of(&v), modified_of(&tx(F_UCTY)), "the Tag file's own modified changes (D-659)");
+    assert_ne!(modified_of(&v), modified_of(&tx(F_UCTY)), "the Tag file's own modified changes (D-713)");
     let mut want: BTreeSet<String> = after_vydaje().into_iter().map(|(p, _)| p.to_string()).collect();
     want.insert(F_UCTY.into());
     want.insert("Tags/Výdaje.md".into());
@@ -91,7 +91,7 @@ fn fr_tag_04_ac4_the_losing_tag_file_is_left_alone() {
         std::thread::sleep(Duration::from_millis(10));
     }
     let plan = some!(plan, "the plan");
-    assert_eq!(plan.warnings, vec![PlanWarning::DuplicateTagFile { path: F_DVOJI2.into() }], "the loser is a warning (D-664)");
+    assert_eq!(plan.warnings, vec![PlanWarning::DuplicateTagFile { path: F_DVOJI2.into() }], "the loser is a warning (D-718)");
     ok!(confirm_when_asked(&core, job), "confirm");
     let report = some!(core.jobs().wait(job, Duration::from_secs(60)), "report");
     assert_eq!(report.phase, Phase::Done, "{report:?}");
@@ -159,7 +159,7 @@ fn fr_tag_04_ac6_refused_onto_an_existing_key_or_an_invalid_name() {
     let before = snapshot(&root);
     for to in ["finance", "FINANCE", "prázdný", "a/b", &nfd("čtení")] {
         let r = core.jobs().start(rename_op("účty", to));
-        assert!(matches!(r, Err(JobError::TagExists { .. })), "{to:?}: TagExists (D-645), got {r:?}");
+        assert!(matches!(r, Err(JobError::TagExists { .. })), "{to:?}: TagExists (D-699), got {r:?}");
     }
     match core.jobs().start(rename_op("účty", "finance")) {
         Err(JobError::TagExists { name }) => assert_eq!(name, "finance", "the existing tag's name"),
@@ -302,7 +302,7 @@ fn fr_tag_04_ac9_after_the_rename() {
     assert_eq!(v.map(|r| (r.name.clone(), r.count, r.color.clone())), Some(("Výdaje".into(), 6, Some("blue".into()))), "Výdaje 6, blue");
     assert!(rows.iter().all(|r| r.key != "účty"), "no účty");
     assert_eq!(core.tag_objects("výdaje").len(), 6, "the six objects carry #Výdaje (Search's filter runs on the same keys)");
-    assert_eq!(read_text(&root, ODKAZ), Some(tx_swap(ODKAZ, &[("[[Účty]]", "[[Výdaje]]")])), "links to the Tag file follow it (D-660, ms4-tags §4.1)");
+    assert_eq!(read_text(&root, ODKAZ), Some(tx_swap(ODKAZ, &[("[[Účty]]", "[[Výdaje]]")])), "links to the Tag file follow it (D-714, ms4-tags §4.1)");
 }
 
 // ------------------------------------------------------------------------------------------------ FR-TAG-08 AC-2, AC-4
@@ -334,7 +334,7 @@ fn fr_tag_08_ac2_remove_from_all_objects_exact_bytes() {
             bad.push(format!("{p}: {:?}", read_text(&root, p)));
         }
     }
-    assert_eq!(bad, Vec::<String>::new(), "only these bytes change (D-661, D-662)");
+    assert_eq!(bad, Vec::<String>::new(), "only these bytes change (D-715, D-716)");
     let after = snapshot(&root);
     assert_eq!(after.get(&format!(".trash/{F_UCTY}")).map(|e| (&e.bytes, e.mtime_ns)), before.get(F_UCTY).map(|e| (&e.bytes, e.mtime_ns)), "F-účty moved to .trash/Tags/Účty.md, bytes and mtime unchanged");
     let mut ch: BTreeSet<String> = want.iter().map(|(p, _)| p.to_string()).collect();

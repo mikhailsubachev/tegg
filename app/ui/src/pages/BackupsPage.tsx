@@ -1,4 +1,4 @@
-// Settings › Backups (docs/acceptance/tags.md R85; D-396, D-651, D-670, D-671): the open vault's zips newest first
+// Settings › Backups (docs/acceptance/tags.md R85; D-396, D-705, D-724, D-725): the open vault's zips newest first
 // with their operation labels, `Restore "<label>"…` (a `restore` job after a confirmation) and `Show in Finder`.
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
@@ -9,7 +9,7 @@ import { showAlert } from '../trash/toast';
 import { dateTimeText } from '../types/util';
 import { Dialog } from './TypeSettingsPage';
 
-/** The label of a zip (AP-600): catalog key and arguments; a `restore` zip's time is shown in the D-160 format. */
+/** The label of a zip (AP-663): catalog key and arguments; a `restore` zip's time is shown in the D-160 format. */
 export function backupLabel(b: BackupDto): string {
   const args = { ...(b.label?.args ?? {}) } as Record<string, string | number>;
   if (b.label?.key === 'backups.label.restore' && typeof args.time === 'string') args.time = dateTimeText(args.time);

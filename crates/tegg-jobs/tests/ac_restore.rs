@@ -4,7 +4,7 @@
 //! work is never lost silently), AC-10 (restore is a job: cancel before writing, external changes skipped), on a
 //! temporary copy of the tags fixture with the real `@tegg/doc` engine. Interface: docs/contracts/ms4-tags.md §5.1
 //! (manifest), §5.3 (restore steps), ms4-jobs §6 (backups). The restore op is `JobOp::Restore { name }` (the contract
-//! names only the IPC command `backup_restore(name)`; red-test point AP-608). Written from the ACs and the contracts
+//! names only the IPC command `backup_restore(name)`; red-test point AP-671). Written from the ACs and the contracts
 //! only (D-61).
 
 #[macro_use]
@@ -48,7 +48,7 @@ fn fr_his_04_ac7_each_zip_has_its_manifest_first() {
     let m1 = some!(manifest(&z[0]), "the first entry of the rename's zip is tegg-backup.json");
     let m2 = some!(manifest(&z[1]), "the first entry of the removal's zip is tegg-backup.json");
     assert_eq!((m1["version"].as_u64(), m1["kind"].as_str(), m1["job"].as_u64()), (Some(1), Some("tag-rename"), Some(j1)), "version, kind, job");
-    assert_eq!(m1["label"], serde_json::json!({ "key": "backups.label.tagRename", "args": { "from": "Účty", "to": "Výdaje" } }), "label `Rename #Účty to #Výdaje` (AP-600)");
+    assert_eq!(m1["label"], serde_json::json!({ "key": "backups.label.tagRename", "args": { "from": "Účty", "to": "Výdaje" } }), "label `Rename #Účty to #Výdaje` (AP-663)");
     assert_eq!(m1["vault"].as_str(), Some("Štítky"), "the vault name");
     assert!(m1["time"].as_str().is_some_and(|t| t.ends_with('Z') && t.starts_with("20")), "time, UTC: {}", m1["time"]);
     assert_eq!(m1["planned"]["renames"], serde_json::json!([[F_UCTY, "Tags/Výdaje.md"]]), "planned renames");
@@ -101,7 +101,7 @@ fn fr_his_04_ac8_restore_the_rename() {
     assert_eq!(m["label"]["args"]["time"].as_str(), manifest(&zip).and_then(|x| x["time"].as_str().map(str::to_string)).as_deref(), "with the restored zip's time");
     let pre_md: BTreeMap<String, Vec<u8>> = zip_entries(pre).into_iter().filter(|(n, _)| n != "tegg-backup.json").collect();
     assert_eq!(pre_md.get("Tags/Výdaje.md"), before_restore.get("Tags/Výdaje.md"), "the pre-restore zip holds the state before the restore");
-    assert_eq!(vault_bytes(&root), original, "every file has its pre-job bytes; Tags/Výdaje.md is renamed back to Tags/Účty.md (AP-601)");
+    assert_eq!(vault_bytes(&root), original, "every file has its pre-job bytes; Tags/Výdaje.md is renamed back to Tags/Účty.md (AP-664)");
     let rows = core.tag_rows();
     let u = rows.iter().find(|r| r.key == "účty");
     assert_eq!(u.map(|r| (r.count, r.color.clone())), Some((6, Some("blue".into()))), "the tag query equals R80 again (účty blue, 6)");
@@ -144,7 +144,7 @@ fn fr_his_04_ac9_restore_never_loses_newer_work() {
     assert!(core.wait_idle(Duration::from_secs(10)), "setup: idle");
     let (_, rr) = ok!(run_confirmed(&core, restore_op(&zip)), "restore");
     assert_eq!(rr.phase, Phase::Done, "{rr:?}");
-    assert_eq!(read_text(&root, "Pages/Nová.md"), Some(nova.to_string()), "a note created after the backup is untouched (AP-601)");
+    assert_eq!(read_text(&root, "Pages/Nová.md"), Some(nova.to_string()), "a note created after the backup is untouched (AP-664)");
     assert_eq!(read_text(&root, ROZPOCET), Some(tx(ROZPOCET)), "a note changed after the backup gets the zipped bytes");
     let pre = some!(zips(&sb.dirs).into_iter().find(|z| zip_name(z).ends_with("-restore.zip")), "the pre-restore zip");
     let held = zip_entries(&pre).into_iter().find(|(n, _)| n == ROZPOCET).map(|(_, b)| sha256_hex(&b));

@@ -424,8 +424,8 @@ export const en: Catalog = {
   'job.undo': 'Undo',
   'job.finish': 'Finish',
   'job.interrupted': 'Renaming "{old}" was interrupted: {done} of {total} links updated',
-  'job.notUpdated.count': { one: '{count} note not updated', other: '{count} notes not updated' }, // D-677
-  'job.notUpdated.title': 'Notes not updated', // D-683
+  'job.notUpdated.count': { one: '{count} note not updated', other: '{count} notes not updated' }, // D-731
+  'job.notUpdated.title': 'Notes not updated', // D-737
   'job.skip.changed': 'changed by another app',
   'job.skip.missing': 'missing',
   'job.skip.placeholder': 'not downloaded',
@@ -437,7 +437,7 @@ export const en: Catalog = {
   'job.retryAll': 'Retry all',
   'job.close': 'Close',
   'cmd.undoRename': 'Undo rename',
-  'cmd.showNotUpdated': 'Show notes not updated', // D-683
+  'cmd.showNotUpdated': 'Show notes not updated', // D-737
   'search.typo': 'similar spelling',
   'search.fileName': 'File name: {stem}',
   'switcher.label': 'Quick switcher',
