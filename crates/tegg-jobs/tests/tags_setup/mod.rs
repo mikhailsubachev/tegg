@@ -195,15 +195,29 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     h.iter().map(|x| format!("{x:08x}")).collect()
 }
 
+/// Makes `backups/` and every vault folder already in it (`backups/<vault>/`) read-only (AP-616, D-687):
+/// a folder a job already created stays writable under Unix permissions if only its parent is read-only.
 pub fn read_only_backups(dirs: &AppDirs) {
     use std::os::unix::fs::PermissionsExt;
     let b = dirs.root.join("backups");
     std::fs::create_dir_all(&b).expect("setup: backups dir");
+    for d in backup_subdirs(&b) {
+        std::fs::set_permissions(&d, std::fs::Permissions::from_mode(0o555)).expect("setup: read-only vault backups");
+    }
     std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o555)).expect("setup: read-only backups");
 }
 pub fn writable_again(dirs: &AppDirs) {
     use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(dirs.root.join("backups"), std::fs::Permissions::from_mode(0o755));
+    let b = dirs.root.join("backups");
+    let _ = std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o755));
+    for d in backup_subdirs(&b) {
+        let _ = std::fs::set_permissions(&d, std::fs::Permissions::from_mode(0o755));
+    }
+}
+fn backup_subdirs(b: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(b)
+        .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect())
+        .unwrap_or_default()
 }
 
 /// LocalFs that notes, at the first vault write, whether a zip already existed in the backups folder.
