@@ -256,7 +256,7 @@ test('fr_tag_08_ac3_delete_only_the_tag', async ({ page }) => {
   await click(deleteDialog(page, 'Účty').getByRole('button', { name: 'Delete only the tag', exact: true }), 'Delete only the tag');
   assert.deepEqual(await eventually(() => core.moves(), (m) => m.length > 0, 2000), [{ kind: 'trash', from: P.fUcty, to: `.trash/${P.fUcty}` }], 'one trash move');
   assert.deepEqual(await core.backups(), [], 'no zip');
-  await must(page.getByRole('status').filter({ hasText: 'Moved to trash' }).getByRole('button', { name: 'Undo', exact: true }), 'the D-620 toast with Undo (D-678)');
+  await must(page.getByRole('status').filter({ hasText: 'Moved "Účty" to the trash' }).getByRole('button', { name: 'Undo', exact: true }), 'the D-620 toast with Undo (D-678; trash.moved, AP-618, D-689)');
   await must(tagHeading(page, 'účty'), 'the tag stays, virtual: display name účty within 2 s', 2500);
   assert.equal(await main(page).getByRole('button', { name: 'Tag colour', exact: true }).getAttribute('data-color'), 'none', 'colour None');
   await page.getByRole('status').getByRole('button', { name: 'Undo', exact: true }).click();

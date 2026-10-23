@@ -334,8 +334,9 @@ test('fr_syn_06_ac31_browsing_tags_sends_no_write_command', async ({ page }) => 
   const p2 = await page.context().newPage();
   const c2 = await startTags(p2, { route: 'type/tag' });
   await must(main(p2).getByRole('table', { name: 'Tags', exact: true }), 'type/tag', 5000);
+  const writes2 = await vaultWrites(c2); // AP-617 (D-688): read c2's calls before closing p2
   await p2.close();
-  assert.deepEqual([...(await vaultWrites(core)), ...(await vaultWrites(c2))], [], 'zero write commands');
+  assert.deepEqual([...(await vaultWrites(core)), ...writes2], [], 'zero write commands');
 });
 
 void tagsVault; void swap; void tagSuggestions;
