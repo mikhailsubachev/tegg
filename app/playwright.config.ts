@@ -18,6 +18,9 @@ export default defineConfig({
   // concurrently, D-609; 4 was tried and didn't help, D-688); otherwise Playwright's default.
   fullyParallel: true,
   workers: gate ? 6 : undefined,
+  // test-strategy §8.4: quarantined tests (`@flaky`, each with an issue) stay out of the gates' main run; the nightly
+  // step `app-webkit-flaky` runs only them (`--grep @flaky` on the command line overrides this).
+  grepInvert: gate && !process.argv.includes('--grep') ? /@flaky/ : undefined,
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },

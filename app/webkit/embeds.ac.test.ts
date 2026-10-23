@@ -868,7 +868,8 @@ test('fr_emb_02_ac9_open_section_scrolls_to_the_heading', async ({ page }) => {
   assert.ok(d !== null && d <= 8, `Úvod at the top of the centre pane (± 8 px), off by ${d}`);
 });
 
-test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
+// Quarantined (test-strategy §8.4): the click on the link-mode embed after Back is sometimes lost, issue #59.
+test('fr_emb_02_ac9_card_and_link_mode_open_their_target', { tag: '@flaky' }, async ({ page }) => {
   const core = await openEmbeds(page, M.rezimy);
   const jana = await needTop(main(page), 1, "Jana's card");
   await (await must(jana.locator(':scope > :first-child').getByText('Jana Nováková', { exact: true }), "the card's title")).click();
