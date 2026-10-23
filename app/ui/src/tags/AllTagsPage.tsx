@@ -66,11 +66,11 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
         </div>
       </header>
       <div className="page-toolbar type-toolbar">
-        <input type="text" className="type-filter" aria-label={t('tags.find')} placeholder={t('tags.findPlaceholder')} value={find} spellCheck={false} autoComplete="off"
+        <input data-command="tagsPage.c5" type="text" className="type-filter" aria-label={t('tags.find')} placeholder={t('tags.findPlaceholder')} value={find} spellCheck={false} autoComplete="off"
           onChange={(e) => setFind(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFind(''); } }} />
         <span className="spacer" />
-        <button ref={sortBtn} tabIndex={0} type="button" className="text-button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
+        <button data-command="tagsPage.c4" ref={sortBtn} tabIndex={0} type="button" className="text-button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
           {`${sortName} ${sort.dir === 'asc' ? '↑' : '↓'}`}
         </button>
       </div>
@@ -83,13 +83,13 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
               {COLUMNS.map((c) => {
                 const on = sort.column === c.key;
                 return (
-                  <th key={c.key} role="columnheader" tabIndex={0} aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={on ? 'sorted' : ''}
+                  <th data-command="tagsPage.c3" key={c.key} role="columnheader" tabIndex={0} aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={on ? 'sorted' : ''}
                     onClick={() => by(c.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); by(c.key); } }}>
                     {t(c.label)}
                   </th>
                 );
               })}
-              <th aria-hidden="true" />
+              <th data-command="tagsPage.c2" aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
@@ -101,7 +101,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus(); }
                   else if (e.key === 'Enter') { e.preventDefault(); onOpen(r.key); }
                 }}>
-                <td><a href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(r.key); }}><span data-user-content>#{r.name}</span></a></td>
+                <td><a data-command="tagsPage.c1" href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(r.key); }}><span data-user-content>#{r.name}</span></a></td>
                 <td className="num">{r.count}</td>
                 <td>{r.lastUsed ? dateTimeText(r.lastUsed) : ''}</td>
                 <td aria-hidden="true" className="chevron">›</td>

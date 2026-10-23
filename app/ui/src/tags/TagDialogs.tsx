@@ -61,15 +61,15 @@ export function NewTagDialog({ onClose, onOpen }: { onClose: () => void; onOpen:
       <h2>{t('tag.newDialog')}</h2>
       <label className="field">
         <span>{t('tag.name')}</span>
-        <input ref={input} type="text" aria-label={t('tag.name')} aria-description={t('tag.nameHint')} value={value} spellCheck={false} autoComplete="off"
+        <input data-command="tagDialog.c10" ref={input} type="text" aria-label={t('tag.name')} aria-description={t('tag.nameHint')} value={value} spellCheck={false} autoComplete="off"
           onChange={(e) => { setValue(e.target.value); setError(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void create(); } }} />
       </label>
       <p className="hint">{t('tag.nameHint')}</p>
       {error && <p role="alert" className="warning-text">{error}</p>}
       <div className="dialog-buttons">
-        <button tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
-        <button tabIndex={0} type="button" className="text-button primary" aria-disabled={value.trim() ? undefined : 'true'} onClick={() => void create()}>{t('tag.create')}</button>
+        <button data-command="tagDialog.c9" tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
+        <button data-command="tagDialog.c8" tabIndex={0} type="button" className="text-button primary" aria-disabled={value.trim() ? undefined : 'true'} onClick={() => void create()}>{t('tag.create')}</button>
       </div>
     </Dialog>
   );
@@ -110,7 +110,7 @@ export function RenameTagDialog({ row, usage, onClose, onRenamed }: { row: TagRo
       <h2>{t('tag.renameDialog', { tag: row.name })}</h2>
       <label className="field">
         <span>{t('tag.newName')}</span>
-        <input ref={input} type="text" aria-label={t('tag.newName')} value={value} spellCheck={false} autoComplete="off"
+        <input data-command="tagDialog.c7" ref={input} type="text" aria-label={t('tag.newName')} value={value} spellCheck={false} autoComplete="off"
           onChange={(e) => { setValue(e.target.value); setError(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void rename(); } }} />
       </label>
@@ -118,8 +118,8 @@ export function RenameTagDialog({ row, usage, onClose, onRenamed }: { row: TagRo
       {usage && usage.losers.length > 0 && <p className="hint">{t('tag.duplicateWarning', { tag: row.name, path: usage.losers[0] })}</p>}
       {error && <p role="alert" className="warning-text">{error}</p>}
       <div className="dialog-buttons">
-        <button tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
-        <button tabIndex={0} type="button" className="text-button primary" onClick={() => void rename()}>{t('tag.renameOk')}</button>
+        <button data-command="tagDialog.c6" tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
+        <button data-command="tagDialog.c5" tabIndex={0} type="button" className="text-button primary" onClick={() => void rename()}>{t('tag.renameOk')}</button>
       </div>
     </Dialog>
   );
@@ -151,9 +151,9 @@ export function DeleteTagDialog({ row, onClose, onRemoved }: { row: TagRowDto; o
       <h2>{t('tag.deleteTitle', { tag: row.name })}</h2>
       <p>{t('tag.deleteUsed', { tag: row.name, count: n })}</p>
       <div className="dialog-buttons stacked">
-        <button tabIndex={0} type="button" className="text-button danger" aria-description={t('tag.removeDesc')} onClick={() => void remove()}>{t('tag.removeFrom', { count: n })}</button>
-        {row.file && <button tabIndex={0} type="button" className="text-button" aria-description={t('tag.deleteOnlyDesc')} onClick={() => void only()}>{t('tag.deleteOnly')}</button>}
-        <button ref={cancel} tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
+        <button data-command="tagDialog.c4" tabIndex={0} type="button" className="text-button danger" aria-description={t('tag.removeDesc')} onClick={() => void remove()}>{t('tag.removeFrom', { count: n })}</button>
+        {row.file && <button data-command="tagDialog.c3" tabIndex={0} type="button" className="text-button" aria-description={t('tag.deleteOnlyDesc')} onClick={() => void only()}>{t('tag.deleteOnly')}</button>}
+        <button data-command="tagDialog.c2" ref={cancel} tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
       </div>
     </Dialog>
   );
@@ -215,7 +215,7 @@ export function ColourPopover({ row, anchor, onClose }: { row: TagRowDto; anchor
         }}>
         <div role="radiogroup" aria-label={t('tag.colour')} aria-description={unknown ? t('tag.unknownColour', { value: raw ?? '' }) : undefined} className="swatches">
           {options.map((o, i) => (
-            <button key={o} type="button" role="radio" aria-checked={checked === o} aria-label={t(LABEL[o])} tabIndex={i === focus ? 0 : -1}
+            <button data-command="tagDialog.c1" key={o} type="button" role="radio" aria-checked={checked === o} aria-label={t(LABEL[o])} tabIndex={i === focus ? 0 : -1}
               className="swatch" data-color={o} style={tagChipStyle(o === 'none' ? null : o)}
               onClick={() => void choose(o)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void choose(o); } }}>

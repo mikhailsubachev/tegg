@@ -55,7 +55,7 @@ export function MergeDialog({ group, onClose, onDone }: { group: DuplicateGroupD
       <h2>{t('merge.title', { title: kept.title })}</h2>
       <div role="radiogroup" aria-label={t('merge.keep')} className="merge-keep">
         {group.objects.map((o, i) => (
-          <button key={o.path} tabIndex={o.path === keep ? 0 : -1} type="button" role="radio" aria-checked={o.path === keep} className="merge-option"
+          <button data-command="merge.c3" key={o.path} tabIndex={o.path === keep ? 0 : -1} type="button" role="radio" aria-checked={o.path === keep} className="merge-option"
             aria-label={`${o.title}, ${o.path}`} autoFocus={i === 0}
             onClick={() => setKeep(o.path)}>
             <span data-user-content>{o.title}</span> <span className="meta" data-user-content>{o.path}</span>
@@ -74,8 +74,8 @@ export function MergeDialog({ group, onClose, onDone }: { group: DuplicateGroupD
       )}
       <p className="hint">{t('merge.line', { count: others.length })}</p>
       <div className="dialog-buttons">
-        <button tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
-        <button tabIndex={0} type="button" className="text-button primary" aria-disabled={plan ? undefined : 'true'} onClick={() => void merge()}>{t('merge.ok', { count: group.objects.length })}</button>
+        <button data-command="merge.c2" tabIndex={0} type="button" className="text-button" onClick={onClose}>{t('ts.cancel')}</button>
+        <button data-command="merge.c1" tabIndex={0} type="button" className="text-button primary" aria-disabled={plan ? undefined : 'true'} onClick={() => void merge()}>{t('merge.ok', { count: group.objects.length })}</button>
       </div>
     </Dialog>
   );

@@ -151,7 +151,7 @@ export function TagPage(p: TagPageProps) {
       suffix = [d.text, r.status].filter(Boolean).join(' · ');
     }
     return (
-      <a href="#" className="tag-row-title" data-state={st.task?.state} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onOpen(r.path); }} tabIndex={-1}>
+      <a data-command="tagPage.c13" href="#" className="tag-row-title" data-state={st.task?.state} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onOpen(r.path); }} tabIndex={-1}>
         <span className="type-icon" aria-hidden="true" style={{ color: `var(--type-${tp?.color ?? 'gray'})` }}>
           <Icon name={glyph ?? typeIconName(r.type, tp?.icon)} size={14} />
         </span>
@@ -165,7 +165,7 @@ export function TagPage(p: TagPageProps) {
   return (
     <div className="page-column tag-page">
       <nav aria-label={t('tag.breadcrumbNav')} className="breadcrumb">
-        <a href="#" tabIndex={0} onClick={(e) => { e.preventDefault(); p.onAll(); }}>{t('tag.breadcrumbAll')}</a>
+        <a data-command="tagPage.c12" href="#" tabIndex={0} onClick={(e) => { e.preventDefault(); p.onAll(); }}>{t('tag.breadcrumbAll')}</a>
         <span aria-hidden="true"> / </span>
         <span data-user-content>#{name}</span>
       </nav>
@@ -176,26 +176,26 @@ export function TagPage(p: TagPageProps) {
           <p className="type-count">{t('tag.summary', { objects: s.objects, types: s.types })}</p>
         </div>
         {row ? (
-          <button ref={tile} tabIndex={0} type="button" className="tag-tile" aria-label={t('tag.colour')} aria-haspopup="dialog" data-color={row.color ?? 'none'}
+          <button data-command="tagPage.c11" ref={tile} tabIndex={0} type="button" className="tag-tile" aria-label={t('tag.colour')} aria-haspopup="dialog" data-color={row.color ?? 'none'}
             style={{ ...tagChipStyle(row.color), order: -1 }} onClick={() => setDialog('colour')}>#</button>
         ) : <span className="tag-tile" aria-hidden="true" style={{ order: -1 }}>#</span>}
         <div className="page-actions">
           {row && (
-            <button tabIndex={0} type="button" className="icon-button bordered" aria-label={t('tag.actions')} title={t('tag.actions')} aria-haspopup="menu" aria-expanded={menu === 'actions'} onClick={open('actions')}>
+            <button data-command="tagPage.c10" tabIndex={0} type="button" className="icon-button bordered" aria-label={t('tag.actions')} title={t('tag.actions')} aria-haspopup="menu" aria-expanded={menu === 'actions'} onClick={open('actions')}>
               <Icon name="more-horizontal" size={16} />
             </button>
           )}
-          <button tabIndex={0} type="button" className="text-button primary" aria-haspopup="menu" onClick={open('new')}>{newWithLabel}</button>
+          <button data-command="tagPage.c9" tabIndex={0} type="button" className="text-button primary" aria-haspopup="menu" onClick={open('new')}>{newWithLabel}</button>
         </div>
       </header>
       <div className="page-toolbar type-toolbar">
         <span className="spacer" />
-        <input type="text" className="type-filter" aria-label={t('tag.filter')} placeholder={t('tag.filterPlaceholder')} value={filter} spellCheck={false} autoComplete="off"
+        <input data-command="tagPage.c8" type="text" className="type-filter" aria-label={t('tag.filter')} placeholder={t('tag.filterPlaceholder')} value={filter} spellCheck={false} autoComplete="off"
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
-        <button tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('type')}>{typeLabel}</button>
-        <button tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('sort')}>{sortLabel}</button>
-        <button tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('group')}>{ui.grouping === 'type' ? t('tag.groupedByType') : t('tag.noGrouping')}</button>
+        <button data-command="tagPage.c7" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('type')}>{typeLabel}</button>
+        <button data-command="tagPage.c6" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('sort')}>{sortLabel}</button>
+        <button data-command="tagPage.c5" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('group')}>{ui.grouping === 'type' ? t('tag.groupedByType') : t('tag.noGrouping')}</button>
       </div>
       {objects && filter.trim() && flat.length === 0 && <p role="status" className="empty">{t('tag.noMatch', { text: filter.trim() })}</p>}
       <div className="table-scroll">
@@ -205,7 +205,7 @@ export function TagPage(p: TagPageProps) {
               {COLUMNS.map((c) => {
                 const on = ui.sort.column === c.key;
                 return (
-                  <th key={c.key} role="columnheader" tabIndex={0} aria-sort={on ? (ui.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={on ? 'sorted' : ''}
+                  <th data-command="tagPage.c4" key={c.key} role="columnheader" tabIndex={0} aria-sort={on ? (ui.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={on ? 'sorted' : ''}
                     onClick={() => sortBy(c.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(c.key); } }}>
                     {t(c.label)}
                   </th>
@@ -230,7 +230,7 @@ export function TagPage(p: TagPageProps) {
                   <td>
                     <div className="tag-chips">
                       {[...r.tags].sort(collator().compare).map((k) => (
-                        <a key={k} href="#" className="tag-chip" style={tagChipStyle(colourOf(k))} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onTag(k); }}>#{tagName(k)}</a>
+                        <a data-command="tagPage.c3" key={k} href="#" className="tag-chip" style={tagChipStyle(colourOf(k))} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onTag(k); }}>#{tagName(k)}</a>
                       ))}
                     </div>
                   </td>
@@ -240,14 +240,14 @@ export function TagPage(p: TagPageProps) {
             });
             return g.type === null ? <tbody key="all">{body}</tbody> : (
               <tbody key={g.type} role="rowgroup">
-                <tr role="row" className="group-row"><th colSpan={4} scope="rowgroup"><span data-user-content>{typeNames[g.type] ?? g.type}</span> {g.rows.length}</th></tr>
+                <tr role="row" className="group-row"><th data-command="tagPage.c2" colSpan={4} scope="rowgroup"><span data-user-content>{typeNames[g.type] ?? g.type}</span> {g.rows.length}</th></tr>
                 {body}
               </tbody>
             );
           })}
           <tbody>
             <tr className="new-row"><td colSpan={4}>
-              <button tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('new')}><Icon name="plus" size={12} />{newWithLabel}</button>
+              <button data-command="tagPage.c1" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('new')}><Icon name="plus" size={12} />{newWithLabel}</button>
             </td></tr>
           </tbody>
         </table>

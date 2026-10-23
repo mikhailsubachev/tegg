@@ -283,4 +283,17 @@ R88's keys go into `app/ui/src/i18n/catalog.ts`; plural keys use the existing `{
 7. **D-685:** FR-TAG-05 AC-6 at L6 by element-screenshot pixels against the light tokens.
 8. **D-686:** FR-TAG-04 AC-7's dialog text includes the template (`tag.renameTemplates`).
 
-Points found while building are added here as AP-616 onwards.
+## 12. Points found while building (AP-616 onwards, pending the owner)
+
+Each is a red test that can't pass as written; the build follows the ACs and the contract, and the test needs an
+`AC-Test-Change` approved by the owner (or the fake core a fix, which is test code).
+
+| # | Test | Problem | Recommendation |
+| --- | --- | --- | --- |
+| AP-616 | `crates/tegg-jobs/tests/ac_restore.rs` `fr_his_04_ac8_failed_pre_restore_zip_restores_nothing` | Makes `backups/` read-only after a job already created `backups/<vault>/`, which stays writable (Unix permissions), so the pre-restore zip succeeds. | Make `backups/<vault>/` read-only too (the helper `read_only_backups` takes the vault's folder). |
+| AP-617 | `app/webkit/tag_page.ac.test.ts` `fr_syn_06_ac31_browsing_tags_sends_no_write_command` | Reads `vaultWrites(c2)` after `p2.close()`, so it always throws. | Read `c2`'s calls before closing `p2`. |
+| AP-618 | `app/webkit/tag_dialogs.ac.test.ts` `fr_tag_08_ac3_delete_only_the_tag` | Looks for a status with the text `Moved to trash`; the D-620 toast reads `Moved "<title>" to the trash` (`trash.moved`). | Match `Moved "Účty" to the trash`. |
+| AP-619 | `app/webkit/backups.ac.test.ts` `fr_his_04_ac7_jobs_list_their_zips_with_labels`, `fr_his_04_ac8_restore_dialog_and_restore` | The fake core names two zips of the same (fixed) second by time and kind only, so "newest first" is the kind's name order; the core moves a later zip to the next free second. | The fake core takes the next free second as the core does. |
+| AP-620 | `app/webkit/duplicates.ac.test.ts` `fr_lnk_14_ac9_merge_is_enabled_and_opens_its_dialog` vs `app/webkit/merge.ac.test.ts` `fr_lnk_14_ac11_…` | The first counts every non-read command (`merge_start`, `job_plan`, `job_cancel`) as a write; the second requires the dialog to read `job_plan` (so a job must start when it opens). | The first excludes `merge_start`, `job_plan`, `job_cancel` (as `merge.ac` excludes `merge_start`); they write nothing. |
+| AP-621 | `app/webkit/search_tags.ac.test.ts` `fr_src_02_ac11_all_selected_tags_must_match` | The fake core's `index_search` returns nothing without text and ignores `tags`; the core answers a tag-only query (`SearchQuery::has_filters`). | The fake core applies `tags` (all must match) and answers a filter-only query. |
+| AP-622 | Older tests whose expectations approved decisions overturn, outside D-675's list: `rename.ac` FR-LNK-03 AC-15 (two), AC-16 (the list is `Notes not updated`, D-683); `type_chip_link.ac` FR-TYP-07 AC-11, AC-12 (`Tags/čajovna.md` opens its tag page, D-638); `read_view.ac` FR-EDT-02 AC-13, FR-SYN-06 AC-6 and `attribute_panel.ac` FR-TYP-02 AC-4 (`index_tags` and `tag_objects` are reads: the sidebar's tags and the tag page, D-646, D-649); `keyboard.ac` FR-UX-03 AC-1, AC-8, AC-9 and `i18n.ac` NFR-OTH-02 AC-3 for `tag/<key>` (the route table has no way in to a parameter route). | Update them to the decisions with `AC-Test-Change: …; approved-by: owner` (test-author): the new list name, the tag page for Tag files, `index_tags`/`tag_objects` in the read sets, and `tag/účty` as `tag/<key>`'s example parameter. |

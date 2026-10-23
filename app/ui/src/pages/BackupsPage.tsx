@@ -44,8 +44,8 @@ export function BackupsSection() {
               <span className="backup-label" data-user-content>{label}</span>
               <span className="backup-time">{dateTimeText(b.time)}</span>
               <span className="spacer" />
-              <button tabIndex={0} type="button" className="text-button" onClick={() => setAsk(b)}>{t('backups.restore', { label })}</button>
-              <button tabIndex={0} type="button" className="text-button" onClick={() => void ipc.backupReveal(b.name).catch(() => {})}>{t('backups.show')}</button>
+              <button data-command="backups.c4" tabIndex={0} type="button" className="text-button" onClick={() => setAsk(b)}>{t('backups.restore', { label })}</button>
+              <button data-command="backups.c3" tabIndex={0} type="button" className="text-button" onClick={() => void ipc.backupReveal(b.name).catch(() => {})}>{t('backups.show')}</button>
             </li>
           );
         })}
@@ -55,8 +55,8 @@ export function BackupsSection() {
           <h2>{t('backups.confirmTitle')}</h2>
           <p>{t('backups.confirm')}</p>
           <div className="dialog-buttons">
-            <button ref={cancel} autoFocus tabIndex={0} type="button" className="text-button" onClick={() => setAsk(null)}>{t('ts.cancel')}</button>
-            <button tabIndex={0} type="button" className="text-button primary" onClick={() => void restore(ask)}>{t('backups.ok')}</button>
+            <button data-command="backups.c2" ref={cancel} autoFocus tabIndex={0} type="button" className="text-button" onClick={() => setAsk(null)}>{t('ts.cancel')}</button>
+            <button data-command="backups.c1" tabIndex={0} type="button" className="text-button primary" onClick={() => void restore(ask)}>{t('backups.ok')}</button>
           </div>
         </Dialog>
       )}

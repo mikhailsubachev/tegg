@@ -163,7 +163,7 @@ function SidebarTags({ route, onGo }: { route: Route; onGo: (r: Route) => void }
       {five.map((r) => {
         const current = route.id === 'tag/<key>' && route.param === r.key;
         return (
-          <a key={r.key} href="#" tabIndex={0} className={`entry tag-entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} aria-label={`#${r.name} ${r.count}`} style={r.color ? tagChipStyle(r.color) : undefined}
+          <a key={r.key} href="#" tabIndex={0} data-command="tags.sidebarTag" className={`entry tag-entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} aria-label={`#${r.name} ${r.count}`} style={r.color ? tagChipStyle(r.color) : undefined}
             onClick={(ev) => { ev.preventDefault(); onGo({ id: 'tag/<key>', param: r.key }); }}>
             <span className="tag-hash" style={r.color ? { color: `var(--type-${r.color})` } : undefined}>#</span>
             <span className="entry-label" data-user-content>{r.name}<span className="count">{'\u00a0'}{r.count}</span></span>

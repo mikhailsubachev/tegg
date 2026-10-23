@@ -702,8 +702,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const ed = edRef.current;
       const s = saver.current;
       if (!ed || !s) return;
-      const r = transform(p, ed.text(), ops as TextOp[]);
+      const cur = ed.text();
+      const r = transform(p, cur, ops as TextOp[]);
       if (r.kind !== 'bytes') return;
+      // 4D-lite: a change of the frontmatter only (a tag in `tags:`) is one frontmatter edit, as the attribute panel's.
+      if (r.text.slice(headOf(r.text).length) === cur.slice(headOf(cur).length)) {
+        ed.applyFrontmatter(r.text);
+        setHead(headOf(r.text));
+        s.changed();
+        return;
+      }
       ed.reload(r.text);
       ed.markSaved(diskTextRef.current);
       s.changed();
