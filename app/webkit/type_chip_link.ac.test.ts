@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   P, callsOf, changeTypeMenu, description, eventually, lastWrite, main, must, nonReadCalls, openTypes, runCommand, seen, sleep, typesVault,
 } from './types-helpers';
-import { mustBeOn } from './helpers';
+import { mainName, mustBeOn } from './helpers';
 
 const mustBeOnName = (page: Page, name: string, how: string) => mustBeOn(page, name, how, 5000);
 
@@ -53,12 +53,21 @@ const CASES: [string, string, string, string][] = [
   ['porada_to_type_schuzka', P.porada, 'Type: Schůzka', 'type/schůzka'],
   ['untyped_bez_hlavicky_to_type_page', P.bez, 'Type: Page', 'type/page'],
   ['daily_note_to_type_daily_note', P.denni, 'Type: Daily Note', 'type/daily-note'],
-  ['tag_to_type_tag', EXTRA.tag, 'Type: Tag', 'type/tag'],
   ['image_to_type_image', EXTRA.image, 'Type: Image', 'type/image'],
   ['pdf_to_type_pdf', EXTRA.pdf, 'Type: PDF', 'type/pdf'],
   ['undefined_recept_to_type_recept', EXTRA.recept, 'Type: recept', 'type/recept'],
   ['read_only_file_to_its_type_page', P.neplatna, 'Type: Page', 'type/page'],
 ];
+// AC-Test-Change (AP-622, D-693): a Tag object has no note page; opening Tags/čajovna.md opens its tag page tag/čajovna
+// (D-638), so the Tag case is its own test below.
+const tagPageHeading = (page: Page, name: string) =>
+  main(page).filter({ has: page.getByRole('link', { name: /^⟦?‹ All tags⟧?$/ }) }).getByRole('heading', { level: 1, name, exact: true });
+/** Opens the Tag file `Tags/čajovna.md` and waits for its tag page (D-638). */
+async function openTagFile(page: Page) {
+  const core = await openTypes(page, EXTRA.tag, { vault: chipVault() });
+  await must(tagPageHeading(page, 'čajovna'), 'Tags/čajovna.md opens its tag page tag/čajovna (D-638)', 5000);
+  return core;
+}
 
 for (const [slug, at, name, route] of CASES) {
   test(`fr_typ_07_ac11_chip_links_${slug}`, async ({ page }) => {
@@ -84,6 +93,21 @@ for (const [slug, at, name, route] of CASES) {
     assert.equal(JSON.stringify(await core.files()), before, 'every vault file keeps its bytes');
   });
 }
+
+test('fr_typ_07_ac11_chip_links_tag_to_type_tag', async ({ page }) => {
+  // AC-Test-Change (AP-622, D-693): the Tag object's route is its tag page, which has no note header and so no type chip.
+  const core = await openTagFile(page);
+  const before = JSON.stringify(await core.files());
+  const routes = (await callsOf(core, 'nav_opened')).map((c) => String((c.args as any)?.route ?? '').normalize('NFC'));
+  assert.ok(!routes.some((r) => r.startsWith('note/')), `no note page is opened for a Tag file: ${routes.join(', ')}`);
+  assert.equal(await mainName(page), '#čajovna', 'the centre pane is the tag page #čajovna');
+  assert.equal(await typeLink(page).count(), 0, 'no type chip link on the tag page');
+  // (`Type: all` is the tag page's Type filter, FR-TAG-06; no `Type: Tag` header button.)
+  assert.equal(await page.getByRole('button', { name: /^Type: Tag$/ }).count(), 0, 'no type button on the tag page');
+  assert.equal(await changeTypeMenu(page).count(), 0, 'the Change type menu does not open');
+  assert.deepEqual(await nonReadCalls(core), [], 'no write command');
+  assert.equal(JSON.stringify(await core.files()), before, 'every vault file keeps its bytes');
+});
 
 // ------------------------------------------------------------------------------------------------ AC-12
 
@@ -142,7 +166,6 @@ test('fr_typ_07_ac12_palette_change_type_opens_the_same_menu', async ({ page }) 
 
 const FIXED: [string, string, RegExp | null][] = [
   ['daily_note', P.denni, /^The type of Daily Note objects can't be changed$/],
-  ['tag', EXTRA.tag, /^The type of Tag objects can't be changed$/],
   ['image', EXTRA.image, /^The type of Image objects can't be changed$/],
   ['pdf', EXTRA.pdf, /^The type of PDF objects can't be changed$/],
   ['read_only_file', P.neplatna, /^This note is read-only, so its type can’t be changed$/],
@@ -164,3 +187,17 @@ for (const [slug, at, reason] of FIXED) {
     assert.deepEqual(await nonReadCalls(core), [], 'no write');
   });
 }
+
+test('fr_typ_07_ac12_change_type_is_disabled_on_tag', async ({ page }) => {
+  // AC-Test-Change (AP-622, D-693): a Tag object opens its tag page (D-638), which has no note `More` menu; the palette's
+  // `Change type…` is not run there (D-127).
+  const core = await openTagFile(page);
+  assert.equal(await moreButton(page).count(), 0, 'no note More menu on the tag page');
+  assert.equal(await changeTypeItem(page).count(), 0, 'no Change type… item');
+  await runCommand(page, 'Change type…');
+  await sleep(300);
+  assert.equal(await changeTypeMenu(page).count(), 0, 'the palette command is not run (D-127)');
+  await page.keyboard.press('Escape');
+  assert.ok(await seen(tagPageHeading(page, 'čajovna'), 1000), 'the tag page stays');
+  assert.deepEqual(await nonReadCalls(core), [], 'no write');
+});

@@ -1,5 +1,5 @@
 // Helpers for the MS4 slice 4C WebKit tests (L5): the rename fixture in the fake core, the title commit gestures, and
-// locators from docs/contracts/ms4-jobs.md §10 (status element, "Links not updated" list) and ms3-shell §13.5. No AC
+// locators from docs/contracts/ms4-jobs.md §10 (status element, "Notes not updated" list, D-683) and ms3-shell §13.5. No AC
 // assertions here except `must` (re-exported) and the `need*` lookups, which turn a missing element into an
 // AssertionError instead of a Playwright timeout (TS-I1).
 import type { Locator, Page } from '@playwright/test';
@@ -83,9 +83,9 @@ export const titleField = (page: Page) => page.getByRole('textbox', { name: 'Tit
 export const jobStatus = (page: Page, text: string | RegExp) => page.getByRole('status').filter({ hasText: text });
 /** The status-area entry `<n> notes not updated` (FR-LNK-03 AC-16; `notes` for every job kind since 4D-lite, D-677). */
 export const notUpdatedEntry = (page: Page) => page.getByRole('button', { name: /^\d+ notes? not updated$/ }).or(page.getByRole('link', { name: /^\d+ notes? not updated$/ }));
-/** The non-modal list `Links not updated` (ms4-jobs §10). */
+/** The non-modal list `Notes not updated` (ms4-jobs §10; renamed for every job kind by D-683, AP-622/D-693). */
 export const notUpdatedList = (page: Page) =>
-  page.getByRole('list', { name: 'Links not updated', exact: true }).or(page.getByRole('region', { name: 'Links not updated', exact: true })).or(page.getByRole('dialog', { name: 'Links not updated', exact: true }));
+  page.getByRole('list', { name: 'Notes not updated', exact: true }).or(page.getByRole('region', { name: 'Notes not updated', exact: true })).or(page.getByRole('dialog', { name: 'Notes not updated', exact: true }));
 export const anyModal = (page: Page) => page.locator('[aria-modal="true"]');
 
 // ------------------------------------------------------------------------------------------------ gestures

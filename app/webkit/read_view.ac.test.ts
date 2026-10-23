@@ -405,7 +405,8 @@ test('fr_edt_02_ac13_placeholders_send_nothing_and_note_embed_opens', async ({ p
     'index_conflicts', // 3C: the sidebar's Conflicts count, read when the vault opens (D-177)
     'embed_load', // 4F (D-431): note embeds load their content; attachments still read nothing
     'task_list', // 5A-1 (D-481, D-489): the sidebar's Tasks count, read when the vault opens
-    'inbox_count', 'hotkeys']); // 5B (R62, FR-NAV-04 AC-2; FR-CAP-05 AC-5): the sidebar's Inbox count and the hotkey state
+    'inbox_count', 'hotkeys', // 5B (R62, FR-NAV-04 AC-2; FR-CAP-05 AC-5): the sidebar's Inbox count and the hotkey state
+    'index_tags', 'tag_objects']); // 4D-lite (D-646, D-649; AP-622/D-693): the sidebar's Tags section and the tag page read
   assert.deepEqual(sent.filter((c) => !allowed.has(c)), [], 'no other IPC command while rendering placeholders');
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));
   assert.deepEqual(reads, [R.odkazy], 'no attachment or embedded note is read');

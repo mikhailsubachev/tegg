@@ -174,6 +174,22 @@ export async function gotoType(page: Page, plural: string) {
   await mustBeOn(page, plural, `Go to type: ${plural}`);
 }
 
+/** `tag/<key>`'s example parameter in the R1 route tours (AP-622, D-693): the shell fixture plus one note tagged `účty`. */
+export const TAG_ROUTE_KEY = 'účty';
+export function shellVaultWithTag(base: FakeVault = shellVault()): FakeVault {
+  const files = { ...base.files };
+  files['Pages/Rozpočet.md'] = '---\nid: 01JB0K0000000000000000T001\ntype: page\ntitle: Rozpočet\ntags: [účty]\n---\nMěsíční přehled.\n';
+  return { ...base, files };
+}
+/** Opens `tag/účty` the app's way: `Go to Tags`, then its All tags row (FR-TAG-06 AC-1). Returns the centre-pane name. */
+export async function gotoTagPage(page: Page): Promise<string> {
+  await runCommand(page, 'Go to Tags');
+  const row = page.getByRole('main').getByRole('table').first().locator(`[data-tag="${TAG_ROUTE_KEY}"]`);
+  await must(row, `All tags row ${TAG_ROUTE_KEY}`, 5000);
+  await row.first().click();
+  return `#${TAG_ROUTE_KEY}`;
+}
+
 /** Visible Types list entries as [label, count] (count = last integer in the entry, 0 if none). */
 export async function typeEntries(page: Page): Promise<[string, number][]> {
   const items = await typesList(page).getByRole('listitem').allInnerTexts();
@@ -224,6 +240,7 @@ export const READ_COMMANDS = new Set([
   'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only (the sidebar's Tasks count reads on every route)
   'inbox_list', 'inbox_count', 'index_versions', 'hotkeys', 'vault_settings', 'shell_settings', // 5B (ms5-capture §5, §7): read-only
   'trash_list', // 6A (ms6-trash-media §4, D-632): read-only
+  'tag_objects', // 4D-lite (ms4-tags §3; D-649, AP-622/D-693): the tag page's rows, read-only
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));
