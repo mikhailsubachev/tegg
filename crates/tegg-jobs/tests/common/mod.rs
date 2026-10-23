@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use tegg_core::{Core, CoreOptions};
@@ -131,6 +131,14 @@ pub fn read_bytes(root: &Path, rel: &str) -> Option<Vec<u8>> {
     std::fs::read(root.join(rel)).ok()
 }
 
+/// One `NodeTransformer` per test binary (D-749): it answers each request on its own, so cores can share it, and a
+/// property test opening thousands of cores no longer starts a Node process for each.
+pub fn transformer() -> Result<Arc<NodeTransformer>, String> {
+    static T: OnceLock<Result<Arc<NodeTransformer>, String>> = OnceLock::new();
+    T.get_or_init(|| NodeTransformer::from_repo(&repo_root()).map(Arc::new).map_err(|e| format!("NodeTransformer (npm run build --prefix packages/doc): {e}")))
+        .clone()
+}
+
 /// Opens the core (no watcher unless asked), waits for the index, and installs the real `@tegg/doc` transformer
 /// (`NodeTransformer`, ms4-jobs §2.2). Returns the transformer start result for the test to assert on.
 pub fn open_core(root: &Path, dirs: &AppDirs, watch: bool) -> Result<Core, String> {
@@ -138,8 +146,7 @@ pub fn open_core(root: &Path, dirs: &AppDirs, watch: bool) -> Result<Core, Strin
     if !core.wait_idle(Duration::from_secs(120)) {
         return Err("indexing did not become idle within 120 s".into());
     }
-    let t = NodeTransformer::from_repo(&repo_root()).map_err(|e| format!("NodeTransformer (npm run build --prefix packages/doc): {e}"))?;
-    core.jobs().set_transformer(Arc::new(t));
+    core.jobs().set_transformer(transformer()?);
     Ok(core)
 }
 pub fn open_core_with(fs: Arc<dyn VaultFs>, dirs: &AppDirs) -> Result<Core, String> {
@@ -147,8 +154,7 @@ pub fn open_core_with(fs: Arc<dyn VaultFs>, dirs: &AppDirs) -> Result<Core, Stri
     if !core.wait_idle(Duration::from_secs(120)) {
         return Err("indexing did not become idle within 120 s".into());
     }
-    let t = NodeTransformer::from_repo(&repo_root()).map_err(|e| format!("NodeTransformer (npm run build --prefix packages/doc): {e}"))?;
-    core.jobs().set_transformer(Arc::new(t));
+    core.jobs().set_transformer(transformer()?);
     Ok(core)
 }
 

@@ -16,6 +16,8 @@ const scale = Number(process.env.QA_PROPERTY_SCALE ?? '1') || 1
 const randomSeed = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31
 const seeds = scale >= 100 ? Array.from({ length: 10 }, (_, i) => (i === 0 ? FIXED_SEED : randomSeed + i)) : [FIXED_SEED, randomSeed]
 const runs = scale >= 100 ? 1000 : 100
+// D-749: at scale ≥ 100 the 10 seeds outrun Vitest's 5 s default.
+const timeout = scale >= 100 ? 600_000 : 5_000
 
 function rng(seed: number) {
   let x = (seed >>> 0) || 1
@@ -105,7 +107,7 @@ function outsideEqual(inB: Buffer, outB: Buffer, edits: { start: number; end: nu
   return inB.equals(outB)
 }
 
-test('fr_lnk_03_ac20_rewrite_is_local_and_idempotent', () => {
+test('fr_lnk_03_ac20_rewrite_is_local_and_idempotent', { timeout }, () => {
   const problems: string[] = []
   for (const seed of seeds) {
     console.log(`FR-LNK-03 AC-20 seed = ${seed}`)

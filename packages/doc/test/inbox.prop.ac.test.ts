@@ -22,6 +22,8 @@ const scale = Number(process.env.QA_PROPERTY_SCALE ?? '1') || 1
 const randomSeed = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31
 const seeds = scale >= 100 ? Array.from({ length: 10 }, (_, i) => (i === 0 ? FIXED_SEED : randomSeed + i)) : [FIXED_SEED, randomSeed]
 const runs = scale >= 100 ? 500 : 60
+// D-749: at scale ≥ 100 the 10 seeds outrun Vitest's 5 s default.
+const timeout = scale >= 100 ? 600_000 : 5_000
 
 type Mod = Record<string, any>
 async function doc(): Promise<Mod> {
@@ -134,7 +136,7 @@ const noTrail = (t: string) => t.replace(/(\r?\n)+$/, '')
 const fmValue = (m: Mod, t: string, k: string) => m.parse(t).frontmatter?.data?.[k]
 const envelopeOf = (t: string) => ({ bom: t.startsWith('﻿'), crlf: /\r\n/.test(t), lf: /(^|[^\r])\n/.test(t), finalNewline: /\n$/.test(t) })
 
-test('fr_fmt_07_ac21_inbox_changes_touch_only_their_lines', async () => {
+test('fr_fmt_07_ac21_inbox_changes_touch_only_their_lines', { timeout }, async () => {
   const m = await doc()
   const notes = corpus(m)
   assert.ok(notes.length >= 5, `corpus notes with valid frontmatter: ${notes.length}`)
@@ -175,7 +177,7 @@ test('fr_fmt_07_ac21_inbox_changes_touch_only_their_lines', async () => {
   }
 })
 
-test('fr_fmt_07_ac21_reviewed_then_unreviewed_gives_the_original_bytes', async () => {
+test('fr_fmt_07_ac21_reviewed_then_unreviewed_gives_the_original_bytes', { timeout }, async () => {
   const m = await doc()
   const notes = corpus(m)
   for (const seed of seeds) {
@@ -195,7 +197,7 @@ test('fr_fmt_07_ac21_reviewed_then_unreviewed_gives_the_original_bytes', async (
   }
 })
 
-test('fr_inb_04_ac3_convert_changes_only_type_review_modified_and_keeps_links', async () => {
+test('fr_inb_04_ac3_convert_changes_only_type_review_modified_and_keeps_links', { timeout }, async () => {
   const m = await doc()
   const notes = corpus(m)
   const TARGETS = ['page', 'task', 'quick-note', 'nápad', 'schůzka']
