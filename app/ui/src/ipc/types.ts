@@ -241,7 +241,15 @@ dateTime?: DateTimeUiDto,
 /**
  * ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter.
  */
-inbox?: InboxUiDto, };
+inbox?: InboxUiDto, 
+/**
+ * ms4-tags §6.1 (D-649): the tag page's sort, Type filter and grouping, shared by all tags.
+ */
+tagPage?: TagPageUiDto, 
+/**
+ * ms4-tags §6.1 (D-649): the All tags sort.
+ */
+tagsSort?: SortUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -379,6 +387,8 @@ export type TaskListDto = { tasks: Array<TaskRowDto>, defs: TaskDefsDto, };
 export type DailyTasksDto = { overdue: Array<TaskRowDto>, due: Array<TaskRowDto>, completed: Array<TaskRowDto>, total: number, };
 export type DateTimeUiDto = { date: string, time: string, week: string, };
 export type InboxUiDto = { filter: string, };
+export type SortUiDto = { column: string, dir: string, };
+export type TagPageUiDto = { sort: SortUiDto, type: string | null, grouping: string, };
 export type CaptureVaultDto = { id: string, name: string, color: string | null, };
 export type CaptureTypeDto = { key: string, name: string, icon: string, color: string, folder: string, 
 /**

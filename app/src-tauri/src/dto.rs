@@ -511,6 +511,29 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<InboxUiDto>,
+    /// ms4-tags §6.1 (D-649): the tag page's sort, Type filter and grouping, shared by all tags.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tag_page: Option<TagPageUiDto>,
+    /// ms4-tags §6.1 (D-649): the All tags sort.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tags_sort: Option<SortUiDto>,
+}
+
+/// `column` and `dir` (`asc` | `desc`) of a remembered sort.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct SortUiDto {
+    pub column: String,
+    pub dir: String,
+}
+
+/// ms4-tags §6.1: `type` is a type key or null (all types); `grouping` `none` | `type`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct TagPageUiDto {
+    pub sort: SortUiDto,
+    pub r#type: Option<String>,
+    pub grouping: String,
 }
 
 /// ms5-capture §5.2 (FR-SET-03, D-566): `date` `region` | `iso` | `long`; `time` `region` | `24` | `12`; `week`
@@ -986,7 +1009,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None }
     }
 }
 
@@ -1413,6 +1436,8 @@ pub fn typescript() -> String {
         DailyTasksDto::decl(),
         DateTimeUiDto::decl(),
         InboxUiDto::decl(),
+        SortUiDto::decl(),
+        TagPageUiDto::decl(),
         CaptureVaultDto::decl(),
         CaptureTypeDto::decl(),
         CaptureContextDto::decl(),

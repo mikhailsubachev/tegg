@@ -18,6 +18,10 @@ import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
+import { useTags } from '../tags/store';
+import { tagChipStyle } from '../theme/tagChip';
+import { sidebarTags } from '../tags/model';
+import { collator } from '../i18n/collate';
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
 export type VaultSwitcherProps = {
@@ -136,7 +140,6 @@ const TOP: Entry[] = [
   { id: 'tasks', label: 'route.tasks', icon: 'task' },
 ];
 const BOTTOM: Entry[] = [
-  { id: 'tags', label: 'frame.tags', icon: 'tag' },
   { id: 'pinned', label: 'route.pinned', icon: 'pin' },
   { id: 'saved-queries', label: 'route.savedQueries', icon: 'query' },
   // 6A (D-618): the Trash, last, without a count.
@@ -144,6 +147,32 @@ const BOTTOM: Entry[] = [
 ];
 
 let savedScroll = 0;
+
+/** R83 (D-646): the Tags header (`All <n> ›`, opens `tags`) and the five most recently used tags with their counts. */
+function SidebarTags({ route, onGo }: { route: Route; onGo: (r: Route) => void }) {
+  const tags = useTags();
+  const five = sidebarTags(tags, collator());
+  const onAll = route.id === 'tags';
+  return (
+    <section className="sidebar-tags" aria-label={t('frame.tags')}>
+      <button tabIndex={0} type="button" className={`section-head section-button ${onAll ? 'current' : ''}`} aria-label={t('tags.sidebarHeader', { count: tags.length })}
+        aria-current={onAll ? 'page' : undefined} data-command="tags.go" onClick={() => onGo({ id: 'tags' })}>
+        <span>{t('frame.tags')}</span>
+        <span className="section-all">{t('tags.sidebarAll', { count: tags.length })}</span>
+      </button>
+      {five.map((r) => {
+        const current = route.id === 'tag/<key>' && route.param === r.key;
+        return (
+          <a key={r.key} href="#" tabIndex={0} className={`entry tag-entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} aria-label={`#${r.name} ${r.count}`} style={r.color ? tagChipStyle(r.color) : undefined}
+            onClick={(ev) => { ev.preventDefault(); onGo({ id: 'tag/<key>', param: r.key }); }}>
+            <span className="tag-hash" style={r.color ? { color: `var(--type-${r.color})` } : undefined}>#</span>
+            <span className="entry-label" data-user-content>{r.name}<span className="count">{'\u00a0'}{r.count}</span></span>
+          </a>
+        );
+      })}
+    </section>
+  );
+}
 
 /** Today's local date, re-read every 30 s so the sidebar follows midnight within 60 s (D-327). */
 function useToday(): string {
@@ -298,6 +327,7 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
             );
           })}
         </ul>
+        <SidebarTags route={route} onGo={onGo} />
         <div className="sidebar-group">{BOTTOM.map(link)}</div>
       </div>
       <LogoMenu onAbout={onAbout} onSettings={() => onGo({ id: 'settings/appearance' })} />

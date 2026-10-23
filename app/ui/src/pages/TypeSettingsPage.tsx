@@ -33,8 +33,8 @@ function withUser(key: string, name: string, value: string, vars: Record<string,
 }
 
 /** A dialog shell: `aria-modal`, Esc = Cancel, the focus returns to the opener (§14.7.3). */
-export function Dialog({ label, onCancel, children, className, restore }: {
-  label: string; onCancel: () => void; children: React.ReactNode; className?: string;
+export function Dialog({ label, onCancel, children, className, restore, role = 'dialog' }: {
+  label: string; onCancel: () => void; children: React.ReactNode; className?: string; role?: 'dialog' | 'alertdialog';
   /** Set to false before closing when the dialog's action navigates (the new page takes the focus, D-130). */
   restore?: React.MutableRefObject<boolean>;
 }) {
@@ -47,7 +47,7 @@ export function Dialog({ label, onCancel, children, className, restore }: {
   }, []);
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={label} className={`dialog ${className ?? ''}`}
+      <div ref={ref} role={role} aria-modal="true" aria-label={label} className={`dialog ${className ?? ''}`}
         onKeyDown={(e) => {
           if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); }
           if (e.key === 'Tab') {
@@ -280,7 +280,13 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               onCommit={(v) => set('description', v.trim() === '' ? null : v, t('ts.description'))} />
           </section>
 
-          <PropertiesSection type={type} types={types} usage={usage} ro={ro} w={w} setType={setType} />
+          {/* D-639, D-674: the Tag type has no properties in the MVP; its colour is set on the tag page. */}
+          {type.key === 'tag' ? (
+            <section id="ts-properties" aria-label={t('ts.properties')} className="ts-section">
+              <h2>{t('ts.properties')}</h2>
+              <p className="hint">{t('ts.tagNoProperties')}</p>
+            </section>
+          ) : <PropertiesSection type={type} types={types} usage={usage} ro={ro} w={w} setType={setType} />}
 
           <section id="ts-builtIn" aria-label={t('ts.builtIn')} className="ts-section">
             <h2>{t('ts.builtIn')}</h2>
@@ -288,9 +294,9 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
             <ul className="builtin-list">{BUILT_IN_ROWS.map((k) => <li key={k}><code data-user-content>{k}</code></li>)}</ul>
           </section>
 
-          <PreviewSection type={type} ro={ro} w={w} setType={setType} />
+          {type.key !== 'tag' && <PreviewSection type={type} ro={ro} w={w} setType={setType} />}
 
-          <HiddenSection type={type} ro={ro} w={w} setType={setType} />
+          {type.key !== 'tag' && <HiddenSection type={type} ro={ro} w={w} setType={setType} />}
 
           <EmbedsSection type={type} ro={ro} w={w} setType={setType} />
 
@@ -317,7 +323,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
             </div>
           </section>
 
-          <section id="ts-views" aria-label={t('ts.views')} className="ts-section">
+          {type.key !== 'tag' && <section id="ts-views" aria-label={t('ts.views')} className="ts-section">
             <h2>{t('ts.views')}</h2>
             <div className="ts-row">
               <span data-user-content>{t('typePage.allView', { plural: type.plural })}</span><span className="badge">{t('ts.defaultMark')}</span>
@@ -325,7 +331,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               <Disabled control="ctl.addViewSettings" />
               <Disabled control="ctl.editView" />
             </div>
-          </section>
+          </section>}
 
           <section id="ts-delete" aria-label={t('ts.delete')} className="ts-section">
             <h2>{t('ts.delete')}</h2>

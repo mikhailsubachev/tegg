@@ -7,6 +7,7 @@ import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
 import { Icon } from '../shell/Icon';
 import { dueLabel, shortDate } from './views';
+import { useTagLook } from '../tags/store';
 
 export type TaskNav = {
   openNote: (path: string) => void;
@@ -105,6 +106,7 @@ export type CardProps = {
 };
 
 export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStatus, onToggle, onMenu, onKey, dragProps }: CardProps) {
+  const look = useTagLook();
   const done = isDone(row);
   const firstStatus = defs.statuses[0]?.label ?? null;
   // D-589: the Kanban by status names the status in its column; a value that isn't a status still shows (`No status`).
@@ -140,7 +142,7 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
       </div>
       {shownTags.length > 0 && (
         <div className="task-tags">
-          {shownTags.slice(0, 3).map((x) => <span key={x} className="task-chip tag" data-user-content>#{x}</span>)}
+          {shownTags.slice(0, 3).map((x) => <span key={x} className="task-chip tag" style={look(x).style} data-user-content>#{look(x).name}</span>)}
           {shownTags.length > 3 && <span className="task-chip tag">+{shownTags.length - 3}</span>}
         </div>
       )}

@@ -9,17 +9,24 @@ import { attrTypeLabel, dateText, dateTimeText, nfc, rawText, wiki } from './uti
 
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
+import { tagChipStyle } from '../theme/tagChip';
+import { useTagLook } from '../tags/store';
+
 export type TypeColumn = { key: string; label: string; attr: AttributeDto | null; userNamed: boolean };
 type Column = TypeColumn;
 
 export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
   row: TypeRowDto; col: Column; type: TypeDto | undefined; types: TypeDto[]; onOpen: (p: string) => void; onTag: (k: string) => void; typeKey: string;
 }) {
+  const look = useTagLook();
   if (col.key === 'title') {
     return (
       <span className="cell-title">
         <Icon name={typeIconName(typeKey, type?.icon)} size={14} />
-        <span data-user-content>{row.title}</span>
+        {/* D-638: a Tag object's row is a link to its tag page. */}
+        {typeKey === 'tag'
+          ? <a href="#" tabIndex={-1} data-user-content onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(row.path); }}>{row.title}</a>
+          : <span data-user-content>{row.title}</span>}
       </span>
     );
   }
@@ -29,8 +36,8 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
     return (
       <span className="chips">
         {list.map((x) => (
-          <a data-command="typePage.a0" key={x} href="#" className="chip tag-chip" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTag(nfc(x.replace(/^#/, '')).toLowerCase()); }}>
-            <span data-user-content>#{x.replace(/^#/, '')}</span>
+          <a data-command="typePage.a0" key={x} href="#" className="chip tag-chip" style={look(x).style} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTag(nfc(x.replace(/^#/, '')).toLowerCase()); }}>
+            <span data-user-content>#{look(x).name}</span>
           </a>
         ))}
       </span>

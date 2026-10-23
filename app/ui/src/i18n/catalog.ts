@@ -1308,7 +1308,7 @@ export const en: Catalog = {
   'backups.label.unknown': 'Backup ({kind})',
   'tag.duplicateWarning': 'Another Tag file for #{tag} exists: {path}. Merge them on Duplicate titles first.',
   'tag.unknownColour': 'Unknown colour "{value}"',
-  'tag.renameTemplates': { one: 'Updates {count} notes and {templates} template. A backup is made first.', other: 'Updates {count} notes and {templates} templates. A backup is made first.' },
+  'tag.renameTemplates': { text: 'Updates {count} and {templates}. A backup is made first.', count: { one: '{n} note', other: '{n} notes' }, templates: { one: '{n} template', other: '{n} templates' } },
   'route.tag': 'Tag',
   'purpose.tag': 'One tag and every object that uses it.',
   'route.settings.backups': 'Settings: Backups',
@@ -1325,6 +1325,10 @@ export const en: Catalog = {
   'tags.sidebarHeader': 'Tags, all {count}',
   'tags.sidebarAll': 'All {count} ›',
   'tag.existsNow': '#{name} exists now.',
+  'tag.breadcrumbNav': 'Breadcrumb',
+  'ts.tagNoProperties': 'Tags have no properties',
+  'tag.sortMenu': 'Sort',
+  'job.backupFailed': 'The backup failed, so nothing was changed.',
   'tag.colour.gray': 'Gray',
 };
 
@@ -1351,8 +1355,9 @@ export function t(key: string, vars: Record<string, string | number> = {}): stri
     return forms.text.replace(/\{(\w+)\}/g, (x, k: string) => {
       const f = forms[k];
       if (!f || typeof f !== 'object' || !(k in vars)) return k in vars ? String(vars[k]) : x;
-      const n = Number(vars[k]);
-      return fill(f[plural.select(n)] ?? f.other, { n });
+      const v = vars[k];
+      const n = Number(v);
+      return fill((Number.isFinite(n) ? f[plural.select(n)] : undefined) ?? f.other, { n: v });
     });
   }
   const n = Number(vars.count ?? 0);

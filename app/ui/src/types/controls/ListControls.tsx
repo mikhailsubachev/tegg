@@ -13,6 +13,7 @@ import { RelationPicker } from '../RelationPicker';
 import { nfc, rawText, wiki } from '../util';
 import { EmptyMark, WarnIcon, type Value } from './common';
 import { TextControl } from './TextControl';
+import { useTagLook } from '../../tags/store';
 
 const asList = (raw: unknown): unknown[] => (raw === null || raw === undefined || raw === '' ? [] : Array.isArray(raw) ? raw : [raw]);
 
@@ -120,6 +121,7 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
   onTag: (key: string) => void;
   inputRef?: (el: HTMLElement | null) => void;
 }) {
+  const look = useTagLook();
   const list = asList(raw).map((x) => rawText(x));
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
@@ -150,10 +152,10 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
       {list.map((x, i) => {
         const name = x.replace(/^#/, '');
         return (
-          <span key={`${i}:${x}`} className="chip tag-chip">
-            <a data-command="panel.list.a4" href="#" data-tag={nfc(name).toLowerCase()} onClick={(e) => { e.preventDefault(); onTag(nfc(name).toLowerCase()); }}
+          <span key={`${i}:${x}`} className="chip tag-chip" style={look(name).style}>
+            <a data-command="panel.list.a4" href="#" data-tag={nfc(name).toLowerCase()} style={look(name).style} onClick={(e) => { e.preventDefault(); onTag(nfc(name).toLowerCase()); }}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); onValue(list.filter((_, j) => j !== i)); } }}>
-              <span data-user-content>#{name}</span>
+              <span data-user-content>#{look(name).name}</span>
             </a>
             {!disabled && (
               <button data-command="panel.list.button5" type="button" tabIndex={-1} className="chip-remove" aria-label={t('panel.removeTag', { name })} onClick={() => onValue(list.filter((_, j) => j !== i))}>
@@ -184,7 +186,7 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
             {sugg.map((x, i) => (
               <div key={x.key} role="option" aria-selected={i === sel} className={`option ${i === sel ? 'selected' : ''}`}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => commit(x.name)}>
-                <span data-user-content>#{x.name}</span>
+                <span data-user-content style={look(x.name).style}>#{x.name}</span>
               </div>
             ))}
             {query && !has(query) && !sugg.some((x) => nfc(x.name).toLowerCase() === query.toLowerCase()) && (

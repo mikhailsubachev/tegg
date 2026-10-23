@@ -60,6 +60,12 @@ import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
 import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
+import { TagPage } from './tags/TagPage';
+import { AllTagsPage } from './tags/AllTagsPage';
+import { refreshTags, tagOfFile, useTags } from './tags/store';
+import { tagKey } from './tags/keys';
+import type { TagPageUi, TagsSort } from './tags/model';
+import { prefillQuickAdd } from './tasks/QuickAddRow';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
@@ -102,6 +108,12 @@ export function App() {
   /** FR-VLT-05 AC-4: the `Type` menu of an unwritten draft, and the title it carries to the new type. */
   const [draftType, setDraftType] = useState<{ at: { left: number; top: number } } | null>(null);
   const carryTitle = useRef<string | null>(null);
+  /** D-643: `New with #tag` presets the draft's tags. */
+  const carryTags = useRef<string[] | null>(null);
+  const tagCommand = useRef<((id: string) => void) | null>(null);
+  const newTagCommand = useRef<(() => void) | null>(null);
+  const mergeCommand = useRef<(() => void) | null>(null);
+  const pendingNewTag = useRef(false);
   /** D-520: New Task lands on the Tasks page with the caret in the quick-add row. */
   const focusQuickAdd = useRef(false);
   /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
@@ -328,8 +340,14 @@ export function App() {
       }
     }, () => {});
   }, []);
-  // D-218: a tag opens its tag page; until tag pages (FR-TAG-06, MS4) that is the Tags placeholder.
-  const openTag = useCallback((_key: string) => { void go({ id: 'tags' }); }, [go]);
+  // D-218, D-649: a tag opens its tag page.
+  const openTag = useCallback((key: string) => { void go({ id: 'tag/<key>', param: tagKey(key) }); }, [go]);
+  /** Replaces the current history entry (FR-TAG-04 AC-9: a renamed tag; D-666: a removed one). */
+  const replaceRoute = useCallback((r: Route) => {
+    history.current.replace(r);
+    setNavKey((n) => n + 1);
+    setRoute(r);
+  }, []);
 
   const routeKey = route ? routeString(route) : '';
   const shownRoute = useRef(routeKey);
@@ -399,7 +417,9 @@ export function App() {
       };
       const carried = carryTitle.current ?? '';
       carryTitle.current = null;
-      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp), stamp, onCreate } });
+      const presetTags = carryTags.current;
+      carryTags.current = null;
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp, presetTags ? [['tags', presetTags]] : undefined), stamp, onCreate } });
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
@@ -421,6 +441,14 @@ export function App() {
   // ------------------------------------------------------------------ layout
   const taskBadge = useTaskBadge(refresh, !!vault);
   const inboxCount = useInboxCount(refresh, !!vault);
+  const tagList = useTags();
+  // D-638: every way of opening a Tag object opens its tag page.
+  useEffect(() => {
+    if (route?.id !== 'note/<path>' || !route.param) return;
+    const k = tagOfFile(route.param);
+    if (k) replaceRoute({ id: 'tag/<key>', param: k });
+  }, [routeKey, tagList]);
+  useEffect(() => { if (vault) void refreshTags(); }, [vault?.path, refresh]);
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -498,6 +526,13 @@ export function App() {
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
     taskCommand: (id: string) => taskCommand.current?.(id),
+    tagCommand: (id: string) => tagCommand.current?.(id),
+    mergeFocused: () => mergeCommand.current?.(),
+    newTag: () => {
+      if (newTagCommand.current) { newTagCommand.current(); return; }
+      pendingNewTag.current = true;
+      void go({ id: 'tags' });
+    },
     // 5B (inbox.md R62; D-562, D-578).
     inboxCommand: (id: string) => inboxCommand.current?.(id),
     capture: (kind: 'default' | 'task') => { void ipc.captureOpen(kind).catch(() => {}); },
@@ -674,6 +709,7 @@ export function App() {
     route?.id === DAILY ? (route.param ?? '')
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
+      : route?.id === 'tag/<key>' ? `#${tagList.find((x) => x.key === route.param)?.name ?? route.param ?? ''}`
         // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
         : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
@@ -813,6 +849,27 @@ export function App() {
       ? <AllTasks key={key} {...page} go={(v) => { void go(tasksRoute(v)); }}
           onShown={() => updateUi((u) => (u.tasks?.view === 'all' ? u : { ...u, tasks: { ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}), view: 'all' } }))} />
       : <TypePage key={key} {...page} />;
+  } else if (route?.id === 'tags' && vault) {
+    body = (
+      <AllTagsPage heading={heading} sort={ui.tagsSort as TagsSort | undefined} onSort={(x) => updateUi((u) => ({ ...u, tagsSort: x }))}
+        onOpen={(k) => { void go({ id: 'tag/<key>', param: tagKey(k) }); }} commandRef={newTagCommand} />
+    );
+    if (pendingNewTag.current) { pendingNewTag.current = false; setTimeout(() => newTagCommand.current?.(), 0); }
+  } else if (route?.id === 'tag/<key>' && route.param && vault) {
+    const key = route.param;
+    body = (
+      <TagPage key={key} tagKey={key} types={types} refresh={refresh} heading={heading}
+        ui={ui.tagPage as TagPageUi | undefined} onUi={(x) => updateUi((u) => ({ ...u, tagPage: { sort: x.sort, type: x.type, grouping: x.grouping } }))}
+        onOpen={openNote} onTag={openTag} onAll={() => { void go({ id: 'tags' }); }}
+        onRenamed={(k) => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tag/<key>', param: k }); }}
+        onRemoved={() => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tags' }); }}
+        onNewWith={(typeKey, name) => {
+          if (typeKey === 'task') { prefillQuickAdd(` #${name}`); actions.newObjectOfType?.('task'); return; }
+          carryTags.current = [name];
+          actions.newObjectOfType?.(typeKey);
+        }}
+        commandRef={tagCommand} />
+    );
   } else if (route?.id === 'type-settings/<type>' && route.param) {
     const key = route.param;
     body = (

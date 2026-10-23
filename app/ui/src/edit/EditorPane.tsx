@@ -39,6 +39,7 @@ import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
 import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
 import { conversionHooks, convert as runConvert, type ConvertHost } from '../convert/flow';
 import { convertPrefs, setConvertPrefs } from '../convert/prefs';
+import { tagChipStyle } from '../theme/tagChip';
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
@@ -1403,8 +1404,9 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
       <div role="listbox" aria-label={t('suggest.tags')}>
         {s.items.map((it, i) => (
           <div key={it.key} role="option" aria-selected={i === s.sel} className={`option ${i === s.sel ? 'selected' : ''}`}
+            style={it.color ? { color: `var(--type-${it.color})` } : undefined}
             onMouseDown={(e) => e.preventDefault()} onClick={() => onTag(it.name)}>
-            <span data-user-content>#{it.name}</span>
+            <span data-user-content style={tagChipStyle(it.color)}>#{it.name}</span>
           </div>
         ))}
         <div role="option" aria-selected={s.sel === s.items.length} aria-label={t('suggest.createTag', { query: s.query })}
