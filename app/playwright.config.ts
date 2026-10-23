@@ -15,9 +15,12 @@ export default defineConfig({
   timeout: 60_000,
   // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
   // shares state. Under ./verify 6 workers (12-core reference Mac; 8 saturated the machine once the gate ran its lanes
-  // concurrently, D-609); otherwise Playwright's default.
+  // concurrently, D-609; 4 was tried and didn't help, D-688); otherwise Playwright's default.
   fullyParallel: true,
   workers: gate ? 6 : undefined,
+  // test-strategy §8.4: quarantined tests (`@flaky`, each with an issue) stay out of the gates' main run; the nightly
+  // step `app-webkit-flaky` sets VERIFY_FLAKY=1 and runs only them.
+  grepInvert: gate && !process.env.VERIFY_FLAKY ? /@flaky/ : undefined,
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },

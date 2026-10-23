@@ -94,4 +94,4 @@ test('fr_fmt_07_property_random_edits_touch_only_their_range', () => {
   // Guard against a vacuous pass: the runs must really have edited blocks and attributes.
   expect(counts.block).toBeGreaterThan(500)
   expect(counts.attr).toBeGreaterThan(500)
-})
+}, 30_000) // 1,000 runs: near vitest's 5 s default when the push gate's Rust lanes run beside it

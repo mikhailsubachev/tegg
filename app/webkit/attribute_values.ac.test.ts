@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {
   P, append, callsOf, control, eventually, lastWrite, must, noModified, openTypes, original, props, sleep, swap, typesVault,
 } from './types-helpers';
+import { settled } from './helpers';
 
 type Core = Awaited<ReturnType<typeof openTypes>>;
 const written = (core: Core, path: string, ok: (t: string) => boolean, ms = 2000) => eventually(() => lastWrite(core, path), (t) => t !== null && ok(t), ms);
@@ -177,7 +178,7 @@ for (const [tz, start] of [['America/Los_Angeles', '0:30'], ['Europe/Prague', '9
       assert.ok((await g.getByRole('textbox', { name: 'Začátek time' }).inputValue()).replace(/^0(?=\d:)/, '') === start, `začátek shows the instant in ${tz}`);
       await page.keyboard.press('Meta+o');
       await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Zavolat Janě');
-      await sleep(150);
+      await settled(page, 'Switcher results', 'Zavolat Janě');
       await page.keyboard.press('Enter');
       const due = await must(props(page).getByRole('textbox', { name: 'Due date', exact: true }), 'Due date');
       assert.equal(await due.inputValue(), '9. 10. 2026', '9 Oct 2026');

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
   absent, draftStatus, eventually, focused, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
-  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState,
+  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
 } from './helpers';
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
@@ -212,8 +212,12 @@ test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
   assert.ok(await absent(paletteDialog(page)), '⏎ closes the palette');
   const target = opts[2].replace(/^Go to (type: )?/, '');
   await mustBeOn(page, target === 'Settings' ? 'Settings: Appearance' : target, '⏎ runs the selected command');
+  // The page takes the focus a frame after it shows (its heading or field); wait for that before focusing the entry,
+  // or it takes the focus back from the entry under load.
+  assert.ok((await eventually(() => focused(page), (f) => f.inMain)).inMain, 'the new page takes the focus');
   await sidebar(page).getByRole('link', { name: 'Inbox', exact: true }) /* 5B: the entry may show its count */.focus();
   await page.keyboard.press('Meta+k');
+  await must(paletteDialog(page), 'Command palette (second open)');
   await page.keyboard.press('Escape');
   assert.ok(await absent(paletteDialog(page)), 'Esc closes');
   assert.deepEqual(await focused(page), before, 'focus returns to the element that had it');
@@ -370,7 +374,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'switcher');
   await page.keyboard.insertText('Porada');
-  await sleep(150);
+  await settled(page, 'Switcher results', 'Porada');
   await page.keyboard.press('Enter');
   await mustBeOn(page, '2026-10-07 Porada', 'keyboard: switcher');
   await page.keyboard.press('Control+Meta+s');

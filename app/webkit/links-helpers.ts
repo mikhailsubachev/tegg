@@ -5,7 +5,7 @@
 import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
-import { READ_COMMANDS, eventually, must, mustBeOn, runCommand, seen, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { READ_COMMANDS, eventually, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
 
 export { eventually, must, mustBeOn, runCommand, seen, sleep };
 export type { FakeCoreHandle };
@@ -185,7 +185,7 @@ export function swap(text: string | undefined, from: string, to: string): string
 export async function gotoNote(page: Page, title: string) {
   await page.keyboard.press('Meta+o');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await sleep(200);
+  await settled(page, 'Switcher results', title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}"`, 5000);
 }

@@ -43,7 +43,10 @@ export function ConvertPopover({ at, types, title: initial, type: preselect, cou
   const convert = () => { if (ok) onConvert({ title: title.normalize('NFC').trim(), type: chosen! }); };
   const pick = (key: string) => {
     setType(key);
-    requestAnimationFrame(() => group.current?.querySelector<HTMLElement>(`[data-type="${CSS.escape(key)}"]`)?.focus());
+    // #63: the focus follows the choice only while it is still in the group; the user may have moved on before the frame.
+    requestAnimationFrame(() => {
+      if (group.current?.contains(document.activeElement)) group.current.querySelector<HTMLElement>(`[data-type="${CSS.escape(key)}"]`)?.focus();
+    });
   };
   const onKey = (e: React.KeyboardEvent) => {
     e.stopPropagation();

@@ -14,7 +14,7 @@ import {
   notUpdatedEntry, notUpdatedList, odkazyAfterGama, oneRename, openRename, original, runCommand, seen, sleep, titleField, typeTitle,
   type FakeCoreHandle,
 } from './rename-helpers';
-import { absent, nonReadCalls } from './helpers';
+import { absent, nonReadCalls, settled } from './helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -154,7 +154,7 @@ test('fr_fmt_08_ac9_read_only_files_offer_no_rename', async ({ page }) => {
   await core.setFile('Pages/Rozbitý.md', Uint8Array.from([0x2d, 0x2d, 0x2d, 0x0a, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x3a, 0x20, 0x52, 0x0a, 0x2d, 0x2d, 0x2d, 0x0a, 0xff, 0xfe, 0x0a]));
   await page.keyboard.press('Meta+o');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Rozbitý');
-  await sleep(300);
+  await settled(page, 'Switcher results', 'Rozbitý');
   await page.keyboard.press('Enter');
   await must(page.getByRole('alert').filter({ hasText: "This file isn't valid UTF-8" }), 'the read-only warning (NFR-REL-03 AC-7)', 5000);
   await triesToRename(page, core, 'read-only file');
@@ -198,7 +198,9 @@ test('fr_lnk_03_ac14_undo_from_the_editor_the_palette_and_the_toast', async ({ p
     } else if (how === 'palette') {
       await runCommand(p, 'Undo rename');
     } else {
-      const toast = await must(jobStatus(p, /^Updated links in 5 notes/), 'the done status with Undo', 3000);
+      // 4.5 s: the status shows when the job's report arrives and stays 5 s (ms4-jobs §10); under the push gate the
+      // report can come later than 3 s after Pages/Gama.md exists.
+      const toast = await must(jobStatus(p, /^Updated links in 5 notes/), 'the done status with Undo', 4500);
       await (await needButton(toast, 'Undo')).click();
     }
     const u = await eventually(() => callsOf(core, 'job_undo'), (c) => c.length > 0, 2000);
