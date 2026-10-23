@@ -131,7 +131,8 @@ test.describe('Duplicate titles page', () => {
     await page.keyboard.press('Escape');
     await sleep(300);
     assert.ok(await seen(group(page, /^Senior Product Manager, 4$/), 500), 'Esc: the group stays');
-    assert.deepEqual(await writeCalls(core), [], 'nothing written');
+    // AP-620 (D-691): opening the dialog starts a merge job (merge.ac FR-LNK-14 AC-11 reads its job_plan); those write nothing.
+    assert.deepEqual((await writeCalls(core)).filter((c) => !['merge_start', 'job_plan', 'job_cancel'].includes(c)), [], 'nothing written');
   });
 });
 
