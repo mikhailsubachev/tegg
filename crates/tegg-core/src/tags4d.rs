@@ -81,10 +81,33 @@ pub struct TagUsage {
     pub losers: Vec<String>,
 }
 
-impl Core {
-    /// §1.2: rows for every key with count ≥ 1 and every winning Tag file, in key order.
-    pub fn tag_rows(&self) -> Vec<TagRow> {
-        let idx = lock(&self.shared.index);
+/// §1.2 over the shared state (the core and the job host).
+pub(crate) fn rows(shared: &crate::Shared) -> Vec<TagRow> {
+    rows_with(shared).0
+}
+
+/// The tag planners' view (ms4-tags §4.1): every tag with the objects carrying it.
+pub(crate) fn host_tags(shared: &crate::Shared) -> Vec<tegg_jobs::host::HostTag> {
+    let (rows, holders) = rows_with(shared);
+    rows.into_iter()
+        .map(|r| tegg_jobs::host::HostTag {
+            holders: holders.get(&r.key).cloned().unwrap_or_default(),
+            key: r.key,
+            name: r.name,
+            file: r.file.map(|f| f.path),
+            losers: r.losers,
+        })
+        .collect()
+}
+
+pub(crate) fn tag_folder_of(shared: &crate::Shared) -> String {
+    let _ = shared;
+    "Tags".into()
+}
+
+fn rows_with(shared: &crate::Shared) -> (Vec<TagRow>, HashMap<String, Vec<String>>) {
+    {
+        let idx = lock(&shared.index);
         let objs = idx.objects();
         let infos = idx.tags();
         // Tag files per key (§1.1): the oldest valid `created`, then path order.
@@ -124,7 +147,8 @@ impl Core {
         keys.extend(files.keys().cloned());
         keys.sort();
         keys.dedup();
-        keys.into_iter()
+        let rows: Vec<TagRow> = keys
+            .into_iter()
             .map(|key| {
                 let tf = files.get(&key);
                 let winner = tf.and_then(|v| v.first()).and_then(|(_, p)| by_path.get(p.as_str()).copied());
@@ -143,7 +167,24 @@ impl Core {
                 };
                 TagRow { key, name, file, losers, color, color_raw, count, last_used, last_used_ns }
             })
-            .collect()
+            .collect();
+        let mut holders: HashMap<String, Vec<String>> = HashMap::new();
+        for o in &objs {
+            let mut seen = HashSet::new();
+            for k in &o.tags {
+                if seen.insert(k.clone()) {
+                    holders.entry(k.clone()).or_default().push(o.path.clone());
+                }
+            }
+        }
+        (rows, holders)
+    }
+}
+
+impl Core {
+    /// §1.2: rows for every key with count ≥ 1 and every winning Tag file, in key order.
+    pub fn tag_rows(&self) -> Vec<TagRow> {
+        rows(&self.shared)
     }
 
     /// §1.3: one row per object with an occurrence of `key`, in path order.

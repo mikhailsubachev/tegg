@@ -101,4 +101,25 @@ pub trait Host: Send + Sync {
     fn tag_folder(&self) -> String {
         String::new()
     }
+    /// Every tag of the index (ms4-tags §1.2) with the objects carrying it.
+    fn tags(&self) -> Vec<HostTag> {
+        Vec::new()
+    }
+    /// The vault's name (the backup manifest, D-670).
+    fn vault_name(&self) -> String {
+        String::new()
+    }
+}
+
+/// One tag as the tag planners see it (ms4-tags §1.2, §4.1).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HostTag {
+    pub key: String,
+    /// The display name (D-657).
+    pub name: String,
+    /// The winning Tag file and the losers (D-640, D-664).
+    pub file: Option<String>,
+    pub losers: Vec<String>,
+    /// Indexed objects with an occurrence (no templates, no `.trash/`), in path order.
+    pub holders: Vec<String>,
 }

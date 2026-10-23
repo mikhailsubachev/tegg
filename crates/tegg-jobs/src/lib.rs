@@ -361,6 +361,8 @@ pub enum JobError {
     InvalidName { error: String, char: Option<String> },
     /// ms4-tags §4.1 (D-645): the new name is another existing tag.
     TagExists { name: String },
+    /// ms4-tags §11 (D-684): a tag rename to the same spelling; no job runs.
+    NothingToDo,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),
 }
