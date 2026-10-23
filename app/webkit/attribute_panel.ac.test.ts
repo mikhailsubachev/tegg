@@ -444,12 +444,19 @@ test('fr_typ_02_ac4_system_only_types_are_read_only', async ({ page }) => {
     f['Images/Fotka.md'] = '---\nid: 01JB0T0000000000000000T096\ntype: image\ntitle: Fotka\nfile: "[[photo.png]]"\n---\n';
   });
   const core = await openTypes(page, 'Tasks/Opakovaný.md', { vault });
-  for (const [title, label, raw, ms] of [['Opakovaný', 'Recurrence', 'every week', 'v1.0'], ['rozpočet', 'Color', 'red', 'MS4']] as const) {
-    if (title !== 'Opakovaný') await openNoteByTitle(page, title);
+  for (const [label, raw] of [['Recurrence', 'every week']] as const) {
     const row = await must(props(page).locator('[tabindex="0"]').filter({ hasText: raw }), `${label}: raw text, focusable`);
-    // D-381, D-489: Task recurrence is v1.0 (`Coming in v1.0`); the others keep `Editing comes in <milestone>`.
-    assert.equal(await description(row), ms === 'v1.0' ? 'Coming in v1.0' : `Editing comes in ${ms}`, `${label}: description`);
+    // D-381, D-489: Task recurrence is v1.0 (`Coming in v1.0`).
+    assert.equal(await description(row), 'Coming in v1.0', `${label}: description`);
   }
+  // Changed by 4D-lite (tags.md R87, D-692): a Tag has no note page, so its `color` row is gone; the Tag file opens its
+  // tag page, without an attribute panel.
+  await page.keyboard.press('Meta+o');
+  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('rozpočet');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Enter');
+  await must(page.getByRole('main').filter({ has: page.getByRole('link', { name: '‹ All tags', exact: true }) }).getByRole('heading', { level: 1, name: 'rozpočet', exact: true }), 'the Tag file opens tag/rozpočet', 3000);
+  assert.equal(await props(page).count(), 0, 'no attribute panel on a Tag (no Color row)');
   // Changed by 6A (trash-media.md R75): the File row (`ctl.rowFile`) is built: no longer `Editing comes in MS6`.
   await openNoteByTitle(page, 'Fotka');
   const file = await must(props(page).locator('[tabindex="0"]').filter({ hasText: 'photo.png' }), 'File: the file, focusable');

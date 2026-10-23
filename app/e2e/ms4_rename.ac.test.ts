@@ -353,10 +353,10 @@ test('fr_lnk_03_ac16_one_skipped_file_listed_and_retried_real_app', { timeout: 3
     await renameAlfaToGama(d, vault, log);
     await waitFile(join(vault, 'Pages/Windows.md'), (t) => (t ?? '').includes('[[Gama]]'), 5000);
     assert.equal(read(vault, DEN), fixture(DEN), 'Den is not written');
-    assert.ok(await shown(d, '1 link not updated', 5000), 'the status area shows "1 link not updated"');
-    const entry = await firstShown(d, '1 link not updated');
+    assert.ok(await shown(d, '1 note not updated', 5000), 'the status area shows "1 note not updated" (D-731)');
+    const entry = await firstShown(d, '1 note not updated');
     await entry.click();
-    assert.ok(await shown(d, 'Links not updated', 3000), 'the non-modal list "Links not updated"');
+    assert.ok(await shown(d, 'Notes not updated', 3000), 'the non-modal list "Notes not updated"');
     // The row's texts sit too deep for XCUITest's predicate search; the page source has them (AC-Test-Change).
     assert.ok(await firstShown(d, 'Retry 2026-10-14'), 'a row for Den with its Retry button');
     assert.ok((await d.getPageSource()).includes(`value="${DEN}"`), 'a row with the path');

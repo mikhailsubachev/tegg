@@ -278,7 +278,7 @@ function inline(c: Ctx, n: Any): ReactNode {
         c.onTag(key);
       };
       return (
-        <a href="#" className="chip tag-chip" data-tag={key} onClick={act} onKeyDown={(e) => e.key === 'Enter' && act(e)}>
+        <a href="#" className="chip tag-chip" data-tag={key} data-tag-key={key} onClick={act} onKeyDown={(e) => e.key === 'Enter' && act(e)}>
           <span data-user-content>#{String(n.value).normalize('NFC')}</span>
         </a>
       );

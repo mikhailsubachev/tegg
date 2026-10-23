@@ -244,6 +244,53 @@ impl Host for CoreHost {
     fn local_list(&self, dir: &Path) -> Vec<PathBuf> {
         tegg_vault::list_local_dir(dir)
     }
+
+    // ---------------------------------------------------------------- 4D-lite (ms4-tags §4.3)
+
+    fn template_paths(&self) -> Vec<String> {
+        self.note_paths().into_iter().filter(|p| p.starts_with("_templates/")).collect()
+    }
+
+    fn trash(&self, path: &str, base: &FileVersion) -> Result<String, WriteError> {
+        let path = nfc(path);
+        let to = self.shared.vault.trash_checked(&path, base).map_err(write_error)?;
+        let _ = lock(&self.shared.index).remove(&path);
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path, to.clone()] });
+        Ok(to)
+    }
+
+    fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
+        let (trashed, to) = (nfc(trashed), nfc(to));
+        if self.version(&to).is_some() {
+            return Err(WriteError::NameTaken);
+        }
+        self.shared.vault.move_back(&trashed, &to).map_err(write_error)?;
+        if let Ok((bytes, v)) = self.shared.vault.read(&to) {
+            self.index_written(&to, &bytes, &v);
+        }
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![trashed, to] });
+        Ok(())
+    }
+
+    fn create(&self, path: &str, bytes: &[u8]) -> Result<FileVersion, WriteError> {
+        let path = nfc(path);
+        let v = self.shared.vault.create_exact(&path, bytes).map_err(write_error)?;
+        self.index_written(&path, bytes, &v);
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path] });
+        Ok(v)
+    }
+
+    fn tag_folder(&self) -> String {
+        crate::tags4d::tag_folder_of(&self.shared)
+    }
+
+    fn tags(&self) -> Vec<tegg_jobs::host::HostTag> {
+        crate::tags4d::host_tags(&self.shared)
+    }
+
+    fn vault_name(&self) -> String {
+        self.shared.vault.root().file_name().map(|n| nfc(&n.to_string_lossy())).unwrap_or_default()
+    }
 }
 
 fn write_error(e: VaultError) -> WriteError {

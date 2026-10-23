@@ -431,9 +431,9 @@ impl Core {
         Ok(NoteRead { bytes, version, utf8 })
     }
 
-    /// D-185: tags of indexed objects with their most frequent spelling.
+    /// D-185: tags with their display name (ms4-tags §1.2): every tag of `tag_rows`, count-0 Tag files included.
     pub fn tags(&self) -> Vec<TagInfo> {
-        self.index().tags()
+        self.tag_rows().into_iter().map(|r| TagInfo { key: r.key, spelling: r.name, count: r.count }).collect()
     }
 
     /// D-194: a new file at exactly `path` (`Keep both`); `NameTaken` if the name exists.
@@ -1053,3 +1053,8 @@ pub mod media6a;
 pub use media6a::{media_info, media_names, media_object, MediaAdd, MediaAdded, MediaInfo, MediaNames, MediaObjectFields, NameRequest, OwnerRef};
 pub use tegg_vault::SystemTrash;
 pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};
+
+// ------------------------------------------------------------------------------------------------ slice 4D-lite
+// docs/contracts/ms4-tags.md §1: tags in the index (`tags4d.rs`).
+mod tags4d;
+pub use tags4d::{TagFileRef, TagObjectRow, TagRow, TagUsage};

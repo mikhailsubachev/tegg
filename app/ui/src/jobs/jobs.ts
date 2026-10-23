@@ -4,13 +4,18 @@
 import { useSyncExternalStore } from 'react';
 import { errorKind, events, ipc } from '../ipc/client';
 import type { JobProgressDto, JobReportDto, NoteRenameDto } from '../ipc/types';
+import { t as t_ } from '../i18n/catalog';
 
 export type SkipRow = { jobId: number; path: string; title: string; reason: string };
 /** A finished rename, undo or redo that moved a note (the open note page follows it). */
 export type Moved = { jobId: number; from: string; to: string };
 
-type Status = { phase: 'running' | 'done'; count: number; jobId: number } | null;
-type Tracked = { kind: 'rename' | 'undo' | 'redo'; of?: number; path: string; done?: (r: JobReportDto | null) => void };
+/** `text`: a 4D-lite job's own status line (no Undo, D-395). */
+type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean } | null;
+type Tracked = {
+  kind: 'rename' | 'undo' | 'redo' | 'confirmed'; of?: number; path: string; done?: (r: JobReportDto | null) => void;
+  running?: (count: number) => string; doneText?: (r: JobReportDto) => string | null; count?: number;
+};
 
 type State = {
   status: Status;
@@ -51,6 +56,7 @@ export function startJobs(): void {
 async function onProgress(p: JobProgressDto) {
   const t = tracked.get(p.jobId);
   if (!t) return;
+  if (t.kind === 'confirmed') return confirmedProgress(p, t);
   const others = Math.max(0, p.total - 1);
   if (p.phase === 'writing' && others > 0 && t.kind === 'rename') set({ status: { phase: 'running', count: others, jobId: p.jobId } });
   if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
@@ -182,4 +188,69 @@ export function useJobs(): State {
 export function resetJobs(): void {
   tracked.clear();
   set({ status: null, rows: [], listOpen: false, last: null });
+}
+
+// ---------------------------------------------------------------- 4D-lite (ms4-tags §4.4): jobs a dialog confirmed
+
+async function confirmedProgress(p: JobProgressDto, t: Tracked) {
+  const n = t.count ?? p.total;
+  if (p.phase === 'writing' && t.running) set({ status: { phase: 'running', count: n, jobId: p.jobId, text: t.running(n) } });
+  if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
+  tracked.delete(p.jobId);
+  const r = await ipc.jobReport(p.jobId).catch(() => null);
+  confirmedFinished(p.jobId, t, r);
+}
+
+function confirmedFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
+  if (!r) { t.done?.(null); return; }
+  const rows = state.rows.filter((x) => !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
+  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason });
+  const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
+  const text = r.phase === 'done' ? t.doneText?.(r) ?? null : failed ? t_('job.backupFailed') : null;
+  const patch: Partial<State> = { rows };
+  if (text) {
+    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed };
+    if (doneTimer) clearTimeout(doneTimer);
+    doneTimer = setTimeout(() => { if (state.status?.jobId === jobId) set({ status: null }); }, 5000);
+  } else if (state.status?.jobId === jobId) patch.status = null;
+  set(patch);
+  if (r.renamed) for (const f of movedListeners) f({ jobId, from: r.renamed.from.normalize('NFC'), to: r.renamed.to.normalize('NFC') });
+  t.done?.(r);
+}
+
+/** Starts a job that waits in `confirm` and confirms it at once: the dialog's button was the confirmation (tag rename,
+ *  tag delete, merge). Resolves with the job id (null when nothing starts) once the job is confirmed; `done` gets the
+ *  report when it has finished. Start errors are thrown to the dialog. */
+export async function runConfirmed(start: () => Promise<{ jobId: number | null }>, o: { count?: number; running?: (count: number) => string; done?: (r: JobReportDto) => string | null; finished?: (r: JobReportDto | null) => void; confirm?: boolean; started?: (jobId: number) => void }): Promise<number | null> {
+  startJobs();
+  const { jobId } = await start();
+  if (jobId === null) { o.finished?.(null); return null; }
+  o.started?.(jobId);
+  const t: Tracked = { kind: 'confirmed', path: '', running: o.running, doneText: o.done, done: o.finished, count: o.count };
+  tracked.set(jobId, t);
+  // Until it writes, the job can be cancelled from its status (ms4-jobs §1: planning, confirm, backup).
+  if (o.running) set({ status: { phase: 'running', count: o.count ?? 0, jobId, text: o.running(o.count ?? 0), cancel: true } });
+  if (o.confirm !== false) {
+    const end = Date.now() + 30_000;
+    for (;;) {
+      const ok = await ipc.jobConfirm(jobId).then(() => true, () => false);
+      if (ok || !tracked.has(jobId) || Date.now() > end) break;
+      const rep = await ipc.jobReport(jobId).catch(() => null);
+      if (rep) break;
+      await new Promise((r) => setTimeout(r, 30));
+    }
+  }
+  const early = seen.get(jobId);
+  if (early && tracked.has(jobId)) void onProgress(early);
+  const rep = await ipc.jobReport(jobId).catch(() => null);
+  if (rep && tracked.has(jobId)) { tracked.delete(jobId); confirmedFinished(jobId, t, rep); }
+  return jobId;
+}
+
+/** The status's `Cancel` of a confirmed job that hasn't started writing. */
+export function cancelStatusJob(): void {
+  const st = state.status;
+  if (!st?.cancel) return;
+  void ipc.jobCancel(st.jobId).catch(() => {});
+  set({ status: null });
 }

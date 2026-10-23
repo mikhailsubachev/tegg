@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
-  SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
+  SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
@@ -56,7 +56,16 @@ export const ipc = {
   captureMediaPick: () => invoke<StagedMediaResultDto[]>('capture_media_add', { pick: true }),
   /** ms5-tasks §11.6 (D-492): deletes a note only while it is still `base` (a conversion's undo). */
   noteDiscard: (path: string, base: VersionDto) => invoke<void>('note_discard', { path, base }),
-  tags: () => invoke<TagDto[]>('index_tags'),
+  tags: () => invoke<TagRowDto[]>('index_tags'),
+  // 4D-lite (ms4-tags §3, §4.4, §5.2).
+  tagObjects: (key: string) => invoke<TagObjectRowDto[]>('tag_objects', { key }),
+  tagUsage: (key: string) => invoke<TagUsageDto>('tag_usage', { key }),
+  tagNewPath: (name: string) => invoke<TagNewPathDto>('tag_new_path', { name }),
+  tagRename: (from: string, to: string) => invoke<JobStartDto>('tag_rename', { from, to }),
+  tagDelete: (key: string) => invoke<JobStartDto>('tag_delete', { key }),
+  mergeStart: (keep: string, others: string[]) => invoke<JobStartDto>('merge_start', { keep, others }),
+  jobPlan: (jobId: number) => invoke<JobPlanDto | null>('job_plan', { jobId }),
+  backupReveal: (name: string) => invoke<void>('backup_reveal', { name }),
   conflicts: () => invoke<ConflictRowDto[]>('index_conflicts'),
   /** The open note is saved, or the user chose to quit anyway (D-196). */
   appQuit: () => invoke<void>('app_quit'),
@@ -96,6 +105,9 @@ export const ipc = {
   jobUndo: (jobId: number) => invoke<JobIdDto>('job_undo', { jobId }),
   jobRedo: (jobId: number) => invoke<JobIdDto>('job_redo', { jobId }),
   jobCancel: (jobId: number) => invoke<void>('job_cancel', { jobId }),
+  jobConfirm: (jobId: number) => invoke<void>('job_confirm', { jobId }),
+  backupsList: () => invoke<BackupDto[]>('backups_list'),
+  backupRestore: (name: string) => invoke<JobIdDto>('backup_restore', { name }),
   jobTransformResult: (requestId: number, result: unknown) => invoke<void>('job_transform_result', { requestId, result }),
   jobInterrupted: () => invoke<InterruptedDto[]>('job_interrupted'),
   jobResolveInterrupted: (jobId: number, choice: 'finish' | 'undo') => invoke<JobIdDto>('job_resolve_interrupted', { jobId, choice }),

@@ -216,6 +216,18 @@ pub struct IpcError {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub now: Option<Box<LinkCreatePlanDto>>,
+    /// With `InvalidName` (ms4-tags §4.1): `empty`, `space`, `digits` or `char`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error: Option<String>,
+    /// With `InvalidName` `char`: the first refused character.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub char: Option<String>,
+    /// With `TagExists`: the existing tag's display name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub name: Option<String>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
@@ -499,6 +511,29 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<InboxUiDto>,
+    /// ms4-tags §6.1 (D-703): the tag page's sort, Type filter and grouping, shared by all tags.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tag_page: Option<TagPageUiDto>,
+    /// ms4-tags §6.1 (D-703): the All tags sort.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tags_sort: Option<SortUiDto>,
+}
+
+/// `column` and `dir` (`asc` | `desc`) of a remembered sort.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct SortUiDto {
+    pub column: String,
+    pub dir: String,
+}
+
+/// ms4-tags §6.1: `type` is a type key or null (all types); `grouping` `none` | `type`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct TagPageUiDto {
+    pub sort: SortUiDto,
+    pub r#type: Option<String>,
+    pub grouping: String,
 }
 
 /// ms5-capture §5.2 (FR-SET-03, D-566): `date` `region` | `iso` | `long`; `time` `region` | `24` | `12`; `week`
@@ -889,6 +924,16 @@ pub struct BackupDto {
     pub kind: String,
     /// ISO 8601 with offset.
     pub time: String,
+    /// ms4-tags §5.2 (D-724): the catalog key and arguments of the operation label.
+    pub label: BackupLabelDto,
+    pub files: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BackupLabelDto {
+    pub key: String,
+    #[ts(type = "Record<string, string | number>")]
+    pub args: serde_json::Value,
 }
 // ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
 
@@ -964,7 +1009,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None }
     }
 }
 
@@ -1023,7 +1068,8 @@ pub struct CaptureContextDto {
     pub vault: Option<CaptureVaultDto>,
     pub types: Vec<CaptureTypeDto>,
     pub default_type: String,
-    pub tags: Vec<String>,
+    // D-709: name and colour of every tag (count ≥ 1 or a Tag file).
+    pub tags: Vec<CaptureTagDto>,
 }
 
 /// ms5-capture §2.2: what `capture_create` wrote.
@@ -1199,6 +1245,116 @@ pub enum StagedMediaResultDto {
     Err { error: String, name: String },
 }
 
+// ---------------------------------------------------------------- slice 4D-lite (ms4-tags §3, §4.4)
+
+/// The winning Tag file of a tag (§1.2).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagFileDto {
+    pub path: String,
+    pub version: VersionDto,
+}
+
+/// One tag (§1.2; `index_tags` returns these once 4D-lite is built).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TagRowDto {
+    pub key: String,
+    pub name: String,
+    pub file: Option<TagFileDto>,
+    pub losers: Vec<String>,
+    pub color: Option<String>,
+    pub color_raw: Option<String>,
+    pub count: u32,
+    pub last_used: Option<String>,
+    /// i128 as a decimal string.
+    pub last_used_ns: Option<String>,
+}
+
+/// One object of a tag page (§1.3).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct TagObjectRowDto {
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub r#type: String,
+    pub modified: Option<String>,
+    pub modified_ns: Option<String>,
+    pub tags: Vec<String>,
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
+}
+
+/// §1.4.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagUsageDto {
+    pub notes: u32,
+    pub templates: u32,
+    pub file: Option<String>,
+    pub losers: Vec<String>,
+}
+
+/// `tag_new_path`.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct TagNewPathDto {
+    pub path: String,
+}
+
+/// `capture_context` tags once 4D-lite is built (D-709): name and colour only.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct CaptureTagDto {
+    pub name: String,
+    pub color: Option<String>,
+}
+
+/// `tag_rename`, `tag_delete`, `merge_start`: `null` when no job starts (FR-TAG-04 AC-5).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobStartDto {
+    pub job_id: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RenamePairDto {
+    pub from: String,
+    pub to: String,
+}
+
+/// `{ kind: 'duplicateTagFile', path }` (D-718).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct PlanWarningDto {
+    pub kind: String,
+    pub path: String,
+}
+
+/// A merge conflict: the kept value and the others' values (D-727).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct MergeConflictDto {
+    pub key: String,
+    pub kept: String,
+    pub others: Vec<String>,
+}
+
+/// `job_plan` (§4.4): the plan once the job is in `confirm`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct JobPlanDto {
+    pub job_id: u32,
+    pub kind: String,
+    pub files: u32,
+    pub templates: u32,
+    pub renames: Vec<RenamePairDto>,
+    pub trashes: Vec<String>,
+    pub warnings: Vec<PlanWarningDto>,
+    pub conflicts: Vec<MergeConflictDto>,
+}
+
 /// The generated `types.ts`, in a fixed order.
 pub fn typescript() -> String {
     let decls = [
@@ -1268,6 +1424,7 @@ pub fn typescript() -> String {
         EditDto::decl(),
         TransformedDto::decl(),
         InterruptedDto::decl(),
+        BackupLabelDto::decl(),
         BackupDto::decl(),
         TasksUiDto::decl(),
         ConvertUiDto::decl(),
@@ -1279,6 +1436,8 @@ pub fn typescript() -> String {
         DailyTasksDto::decl(),
         DateTimeUiDto::decl(),
         InboxUiDto::decl(),
+        SortUiDto::decl(),
+        TagPageUiDto::decl(),
         CaptureVaultDto::decl(),
         CaptureTypeDto::decl(),
         CaptureContextDto::decl(),
@@ -1298,6 +1457,17 @@ pub fn typescript() -> String {
         MediaAddResultDto::decl(),
         StagedMediaDto::decl(),
         StagedMediaResultDto::decl(),
+        TagFileDto::decl(),
+        TagRowDto::decl(),
+        TagObjectRowDto::decl(),
+        TagUsageDto::decl(),
+        TagNewPathDto::decl(),
+        CaptureTagDto::decl(),
+        JobStartDto::decl(),
+        RenamePairDto::decl(),
+        PlanWarningDto::decl(),
+        MergeConflictDto::decl(),
+        JobPlanDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

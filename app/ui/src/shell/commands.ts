@@ -53,6 +53,10 @@ export type ShellActions = {
   showNotUpdated?: () => void;
   /** 5B (inbox.md R62, D-578): open the capture window (`default` or `task`). */
   capture?: (kind: 'default' | 'task') => void;
+  /** 4D-lite (tags.md R87): `New tag…`; a tag page command on `tag/<key>`; `Merge…` of the focused duplicate group. */
+  newTag?: () => void;
+  tagCommand?: (id: string) => void;
+  mergeFocused?: () => void;
   /** 5B (R62): run an Inbox command on the focused card or the selection; nothing without either. */
   inboxCommand?: (id: string) => void;
   /** 5B (D-562): mark the open note reviewed or unreviewed. */
@@ -111,18 +115,16 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.editTemplate': 'typeSettings.editTemplate',
   'ctl.addViewSettings': 'typeSettings.addView',
   'ctl.editView': 'typeSettings.editView',
-  'ctl.rowColor': 'panel.editColor',
   'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
   'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
-  'duplicates.merge': 'duplicates.merge',
   'tasks.sort': 'tasks.sort',
 };
 
-const NO_GOTO = new Set(['help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -175,6 +177,25 @@ export function commands(ctx: ShellContext): Command[] {
       ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
     ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
   );
+  // 4D-lite (tags.md R87, D-234: no shortcuts): Tags, New tag and Backups everywhere; tag page commands run on
+  // `tag/<key>` only (elsewhere they do nothing); Merge… on `duplicate-titles`.
+  const onTag = (id: string) => (c: ShellContext) => (c.route?.id === 'tag/<key>' ? a(c)?.tagCommand?.(id) : undefined);
+  list.push(
+    { id: 'tags.go', title: 'cmd.tagsGo', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tags' }) },
+    { id: 'tags.new', title: 'cmd.tagsNew', section: 'create', needsVault: true, run: (c) => a(c)?.newTag?.() },
+    { id: 'settings.backups', title: 'cmd.settingsBackups', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'settings/backups' }) },
+  );
+  if (ctx.route?.id === 'tag/<key>') {
+    list.push(
+      ...([
+        ['tag.rename', 'cmd.tagRename', 'edit'], ['tag.delete', 'cmd.tagDelete', 'edit'], ['tag.colour', 'cmd.tagColour', 'edit'],
+        ['tag.newWith', 'cmd.tagNewWith', 'create'], ['tag.groupType', 'cmd.tagGroupType', 'view'], ['tag.groupNone', 'cmd.tagGroupNone', 'view'],
+      ] as const).map(([id, title, section]): Command => ({ id, title, section, needsVault: true, run: onTag(id) })),
+    );
+  }
+  if (ctx.route?.id === 'duplicate-titles') {
+    list.push({ id: 'duplicates.merge', title: 'duplicates.merge', section: 'edit', needsVault: true, run: (c) => a(c)?.mergeFocused?.() });
+  }
   // 5B (inbox.md R62): capture from the palette (D-578); Inbox commands on `inbox` (D-561); review on notes (D-562).
   list.push(
     { id: 'capture.quick', title: 'cmd.quickCapture', section: 'create', needsVault: true, run: (c) => a(c)?.capture?.('default') },

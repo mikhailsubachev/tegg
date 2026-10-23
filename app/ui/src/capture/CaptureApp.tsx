@@ -526,7 +526,7 @@ export function CaptureApp() {
           </div>
         </div>
       )}
-      <TagField chips={chips} onChange={setChips} tags={ctx?.tags ?? []} />
+      <TagField chips={chips} onChange={setChips} tags={(ctx?.tags ?? []).map((x) => x.name)} colors={Object.fromEntries((ctx?.tags ?? []).map((x) => [x.name.normalize('NFC').toLowerCase(), x.color]))} />
       <div className="capture-drop-row">
         {staged.map((m) => (
           <span key={m.token} className="capture-thumb" data-user-content>

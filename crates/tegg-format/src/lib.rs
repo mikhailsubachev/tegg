@@ -11,7 +11,7 @@ pub mod daily;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
-pub use extract::{body_start, parse_yaml_value, Extracted, FrontmatterError, Link};
+pub use extract::{body_start, parse_yaml_value, tag_key, Extracted, FrontmatterError, Link};
 pub use excerpt::{At, BlockKind, BlockText, Excerpt, LinkTargetInfo, Mark, RSeg, Segment, TargetKind};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).
@@ -114,4 +114,63 @@ pub fn extract(bytes: &[u8], stem: &str) -> Extracted {
 /// whitespace run as `-`. `Quick Note` → `quick-note`. Used by `tegg-schema` (type files) and the index (matching).
 pub fn type_key(name: &str) -> String {
     nfc(name).split_whitespace().collect::<Vec<_>>().join("-").to_lowercase()
+}
+
+// ------------------------------------------------------------------------------------------------ slice 4D-lite
+// docs/contracts/ms4-tags.md §2: the Rust twin of `@tegg/doc` `tagName` (shared table
+// tests/fixtures/format/tags/names.json).
+
+/// A valid tag name: `name` as written (NFC, one leading `#` dropped), `key` = its `tag_key`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagName {
+    pub name: String,
+    pub key: String,
+}
+
+/// Why a name isn't a tag (D-696, D-712); `Char` names the first refused character.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TagNameError {
+    Empty,
+    Space,
+    Digits,
+    Char(char),
+}
+
+impl TagNameError {
+    /// `empty`, `space`, `digits` or `char` (the `error` of the TS twin and of `JobError::InvalidName`).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TagNameError::Empty => "empty",
+            TagNameError::Space => "space",
+            TagNameError::Digits => "digits",
+            TagNameError::Char(_) => "char",
+        }
+    }
+}
+
+/// D-696, D-712: drops one leading `#`; NFC; then dialect §5 tag text (the TS twin's rule, `packages/doc/src/tags.ts`).
+pub fn tag_name(input: &str) -> Result<TagName, TagNameError> {
+    static CHAR: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static DIGITS: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let ok = CHAR.get_or_init(|| regex::Regex::new(r"^[\p{L}\p{M}\p{N}_\-/]$").expect("tag char"));
+    let digits = DIGITS.get_or_init(|| regex::Regex::new(r"^\p{N}+$").expect("digits"));
+    let mut name = nfc(input);
+    if name.starts_with('#') {
+        name.remove(0);
+    }
+    if name.is_empty() {
+        return Err(TagNameError::Empty);
+    }
+    if name.chars().any(|c| c.is_whitespace() || matches!(c, '\u{00A0}' | '\u{200B}' | '\u{FEFF}')) {
+        return Err(TagNameError::Space);
+    }
+    let mut buf = [0u8; 4];
+    if let Some(c) = name.chars().find(|c| !ok.is_match(c.encode_utf8(&mut buf))) {
+        return Err(TagNameError::Char(c));
+    }
+    if digits.is_match(&name) {
+        return Err(TagNameError::Digits);
+    }
+    let key = extract::tag_key(&name);
+    Ok(TagName { name, key })
 }

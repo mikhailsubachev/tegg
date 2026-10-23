@@ -1,7 +1,9 @@
 // The string catalog (NFR-OTH-02, docs/contracts/ms3-shell.md §3.1, §10): every user-visible UI text lives here.
 // Count messages carry plural forms chosen by Intl.PluralRules (D-133); `{name}` placeholders are filled by `t`.
 
-export type Message = string | { one?: string; few?: string; many?: string; other: string };
+export type Plural = { one?: string; few?: string; many?: string; other: string };
+/** A plain text, plural forms by `count`, or (`text`) a text whose `{var}`s each take their own plural form. */
+export type Message = string | Plural | { text: string; [count: string]: string | Plural };
 export type Catalog = Record<string, Message>;
 
 export const en: Catalog = {
@@ -261,7 +263,7 @@ export const en: Catalog = {
   'suggest.createTag': 'Create tag "{query}"',
   'suggest.created': 'created {date}',
   'paste.images': 'Pasting images comes in MS6',
-  'merge.title': 'Note changed outside Tegg',
+  'mergeNote.title': 'Note changed outside Tegg',
   'merge.body': 'Another app changed this note while you had unsaved edits. Nothing has been overwritten.',
   'merge.keepMine': 'Keep mine',
   'merge.keepTheirs': 'Keep theirs',
@@ -422,8 +424,8 @@ export const en: Catalog = {
   'job.undo': 'Undo',
   'job.finish': 'Finish',
   'job.interrupted': 'Renaming "{old}" was interrupted: {done} of {total} links updated',
-  'job.notUpdated.count': { one: '{count} link not updated', other: '{count} links not updated' },
-  'job.notUpdated.title': 'Links not updated',
+  'job.notUpdated.count': { one: '{count} note not updated', other: '{count} notes not updated' }, // D-731
+  'job.notUpdated.title': 'Notes not updated', // D-737
   'job.skip.changed': 'changed by another app',
   'job.skip.missing': 'missing',
   'job.skip.placeholder': 'not downloaded',
@@ -435,7 +437,7 @@ export const en: Catalog = {
   'job.retryAll': 'Retry all',
   'job.close': 'Close',
   'cmd.undoRename': 'Undo rename',
-  'cmd.showNotUpdated': 'Show links not updated',
+  'cmd.showNotUpdated': 'Show notes not updated', // D-737
   'search.typo': 'similar spelling',
   'search.fileName': 'File name: {stem}',
   'switcher.label': 'Quick switcher',
@@ -1219,6 +1221,117 @@ export const en: Catalog = {
   'media.menu': 'Image actions',
   'trash.placeholder': '"{title}" was moved to the trash',
   'typePage.rowMenu': 'Object actions',
+  // 4D-lite (tags.md R88; ms4-tags §7).
+  'tags.title': 'Tags',
+  'tags.summary': { text: '{tags} · {objects}', tags: { one: '{n} tag', other: '{n} tags' }, objects: { one: '{n} tagged object', other: '{n} tagged objects' } },
+  'tags.new': 'New tag',
+  'tags.find': 'Find a tag',
+  'tags.findPlaceholder': 'Find a tag…',
+  'tags.sort.mostUsed': 'Most used',
+  'tags.sort.name': 'Name',
+  'tags.sort.lastUsed': 'Last used',
+  'tags.col.tag': 'Tag',
+  'tags.col.objects': 'Objects',
+  'tags.col.lastUsed': 'Last used',
+  'tags.noMatch': 'No tags match "{text}"',
+  'tags.empty': 'No tags yet. Type # in a note or use New tag.',
+  'tag.breadcrumbAll': '‹ All tags',
+  'tag.summary': { text: '{objects} of {types}', objects: { one: '{n} object', other: '{n} objects' }, types: { one: '{n} type', other: '{n} types' } },
+  'tag.colour': 'Tag colour',
+  'tag.actions': 'Tag actions',
+  'tag.rename': 'Rename tag…',
+  'tag.renameUpdates': { one: 'updates {count} note', other: 'updates {count} notes' },
+  'tag.colourMenu': 'Colour…',
+  'tag.delete': 'Delete tag…',
+  'tag.newWith': 'New with #{tag}',
+  'tag.filter': 'Filter by text',
+  'tag.filterPlaceholder': 'Filter…',
+  'tag.typeAll': 'Type: all',
+  'tag.typeOne': 'Type: {type}',
+  'tag.allTypes': 'All types',
+  'tag.noGrouping': 'No grouping',
+  'tag.groupedByType': 'Grouped by type',
+  'tag.groupType': 'Type',
+  'tag.table': 'Objects with #{tag}',
+  'tag.col.title': 'Title',
+  'tag.col.type': 'Type',
+  'tag.col.otherTags': 'Other tags',
+  'tag.col.modified': 'Modified',
+  'tag.noMatch': 'No objects match "{text}"',
+  'tag.none': 'No objects have #{tag} yet.',
+  'tag.newDialog': 'New tag',
+  'tag.name': 'Tag name',
+  'tag.nameHint': 'Letters, digits, - _ /. No spaces.',
+  'tag.create': 'Create',
+  'tag.err.empty': 'Enter a tag name.',
+  'tag.err.space': 'Tag names can\'t contain spaces.',
+  'tag.err.chars': '"{char}" can\'t be part of a tag.',
+  'tag.err.digits': 'A tag needs at least one letter.',
+  'tag.renameDialog': 'Rename #{tag}',
+  'tag.newName': 'New name',
+  'tag.renameLine': { one: 'Updates {count} note. A backup is made first.', other: 'Updates {count} notes. A backup is made first.' },
+  'tag.renameOk': 'Rename',
+  'tag.err.exists': '#{name} already exists. Merging tags comes in v1.0.',
+  'tag.deleteTitle': 'Delete #{tag}?',
+  'tag.deleteUsed': { one: '#{tag} is used by {count} object.', other: '#{tag} is used by {count} objects.' },
+  'tag.removeFrom': { one: 'Remove from {count} object', other: 'Remove from {count} objects' },
+  'tag.removeDesc': 'Removes the tag from every note. A backup is made first.',
+  'tag.deleteOnly': 'Delete only the tag',
+  'tag.deleteOnlyDesc': 'The tag stays in your notes, without colour.',
+  'tag.colour.none': 'None',
+  'job.tag.running': { one: 'Updating #{tag} in {count} note', other: 'Updating #{tag} in {count} notes' },
+  'job.tag.renamed': { one: 'Renamed #{from} to #{to} in {count} note', other: 'Renamed #{from} to #{to} in {count} notes' },
+  'job.tag.removed': { one: 'Removed #{tag} from {count} note', other: 'Removed #{tag} from {count} notes' },
+  'job.tag.notUpdated': { one: '{count} note not updated', other: '{count} notes not updated' },
+  'tag.changedOutside': '"{title}" changed outside Tegg. The colour wasn\'t changed.',
+  'search.tagFilter': 'Filter by tag',
+  'backups.title': 'Backups',
+  'backups.intro': 'Tegg makes a backup before every change to many notes. The newest 10 are kept.',
+  'backups.list': 'Backups',
+  'backups.restore': 'Restore "{label}"…',
+  'backups.show': 'Show in Finder',
+  'backups.empty': 'No backups yet.',
+  'backups.confirmTitle': 'Restore this backup?',
+  'backups.confirm': 'Notes saved in this backup get their saved text back. Tegg backs up the current state first.',
+  'backups.ok': 'Restore',
+  'backups.restored': { one: 'Restored {count} note from the backup', other: 'Restored {count} notes from the backup' },
+  'merge.title': 'Merge "{title}"',
+  'merge.keep': 'Keep',
+  'merge.conflicts': 'Different values: the kept object\'s value stays',
+  'merge.line': 'The other {count} objects are added to the kept one and moved to the trash. Links to them are changed. A backup is made first. This can\'t be undone.',
+  'merge.ok': 'Merge {count} objects',
+  'merge.done': 'Merged into "{title}"',
+  'backups.label.tagRename': 'Rename #{from} to #{to}',
+  'backups.label.tagDelete': { one: 'Remove #{tag} from {count} object', other: 'Remove #{tag} from {count} objects' },
+  'backups.label.merge': 'Merge {count} objects into "{title}"',
+  'backups.label.restore': 'Before restoring {time}',
+  'backups.label.unknown': 'Backup ({kind})',
+  'tag.duplicateWarning': 'Another Tag file for #{tag} exists: {path}. Merge them on Duplicate titles first.',
+  'tag.unknownColour': 'Unknown colour "{value}"',
+  'tag.renameTemplates': { text: 'Updates {count} and {templates}. A backup is made first.', count: { one: '{n} note', other: '{n} notes' }, templates: { one: '{n} template', other: '{n} templates' } },
+  'route.tag': 'Tag',
+  'purpose.tag': 'One tag and every object that uses it.',
+  'route.settings.backups': 'Settings: Backups',
+  'purpose.settings.backups': 'The backups Tegg makes before changing many notes.',
+  'cmd.tagsGo': 'Go to Tags',
+  'cmd.tagsNew': 'New tag…',
+  'cmd.settingsBackups': 'Go to Settings: Backups',
+  'cmd.tagRename': 'Rename tag…',
+  'cmd.tagDelete': 'Delete tag…',
+  'cmd.tagColour': 'Change tag colour…',
+  'cmd.tagNewWith': 'New with tag…',
+  'cmd.tagGroupType': 'Group by type',
+  'cmd.tagGroupNone': 'No grouping',
+  'tags.sidebarHeader': 'Tags, all {count}',
+  'tags.sidebarAll': 'All {count} ›',
+  'tag.existsNow': '#{name} exists now.',
+  'tag.breadcrumbNav': 'Breadcrumb',
+  'search.tagAll': 'Objects with all selected tags',
+  'backups.restoring': 'Restoring the backup…',
+  'ts.tagNoProperties': 'Tags have no properties',
+  'tag.sortMenu': 'Sort',
+  'job.backupFailed': 'The backup failed, so nothing was changed.',
+  'tag.colour.gray': 'Gray',
 };
 
 let current: Catalog = en;
@@ -1238,9 +1351,21 @@ export function t(key: string, vars: Record<string, string | number> = {}): stri
   const m = current[key] ?? en[key];
   if (m === undefined) return key;
   if (typeof m === 'string') return fill(m, vars);
+  // A message with two counts (`tags.summary`, `tag.summary`): each `{var}` of `text` takes its own plural form.
+  if ('text' in m) {
+    const forms = m as Record<string, string | Record<string, string>> & { text: string };
+    return forms.text.replace(/\{(\w+)\}/g, (x, k: string) => {
+      const f = forms[k];
+      if (!f || typeof f !== 'object' || !(k in vars)) return k in vars ? String(vars[k]) : x;
+      const v = vars[k];
+      const n = Number(v);
+      return fill((Number.isFinite(n) ? f[plural.select(n)] : undefined) ?? f.other, { n: v });
+    });
+  }
   const n = Number(vars.count ?? 0);
   const form = plural.select(n) as 'one' | 'few' | 'many' | 'other';
-  return fill(m[form] ?? m.other, vars);
+  const p = m as Plural;
+  return fill(p[form] ?? p.other, vars);
 }
 
 /** Wraps every message in ⟦ ⟧ so a test can find UI text that bypasses the catalog (NFR-OTH-02 AC-3). */
@@ -1248,6 +1373,7 @@ export function pseudo(c: Catalog): Catalog {
   const out: Catalog = {};
   for (const [k, m] of Object.entries(c)) {
     if (typeof m === 'string') out[k] = `⟦${m}⟧`;
+    else if ('text' in m) out[k] = { ...(m as Record<string, string | Plural>), text: `⟦${m.text}⟧` } as Message;
     else out[k] = Object.fromEntries(Object.entries(m).map(([f, s]) => [f, `⟦${s}⟧`])) as Message;
   }
   return out;

@@ -4,8 +4,8 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
-  absent, draftStatus, eventually, focused, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
-  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
+  absent, draftStatus, eventually, focused, gotoTagPage, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
+  paletteDialog, paletteOptions, runCommand, seen, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
 } from './helpers';
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
@@ -18,11 +18,15 @@ async function reached(page: Page, name: string, ms: number): Promise<boolean> {
   return name === DRAFT ? isDraft(page, ms) : onPage(page, name, ms);
 }
 
+/** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-685, D-747: `tag/účty`). */
+const startFor = (page: Page, row: (typeof R1)[number]) => start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : {});
+
 /** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
 async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'chooser') { await runCommand(page, 'Open vault…'); return 'Choose a vault'; }
   if (row.id === 'new/<type>') { await page.keyboard.press('Meta+n'); return DRAFT; } // D-520: New object (⌘N)
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
+  if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-685 (D-747): tag/účty, on startFor's vault
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
   if (row.id === 'type-settings/<type>') {
     await gotoType(page, 'Quick Notes');
@@ -45,7 +49,7 @@ async function paletteOpensWithCursor(page: Page, keys: string, where: string) {
 // One test per route so Playwright spreads the routes over workers (D-343); each starts from a fresh app.
 for (const row of R1) {
   test(`fr_ux_03_ac1_palette_opens_from_every_route_and_focus: ${row.id}`, async ({ page }) => {
-    await start(page);
+    await startFor(page, row);
     const name = await goRoute(page, row);
     if (name === DRAFT) await mustBeDraft(page, `route ${row.id}`);
     else await mustBeOn(page, name, `route ${row.id}`);
@@ -271,7 +275,7 @@ async function controlsWithoutCommand(page: Page): Promise<string[]> {
 
 for (const row of R1) {
   test(`fr_ux_03_ac8_every_control_carries_a_command: ${row.id}`, async ({ page }) => {
-    await start(page);
+    await startFor(page, row);
     const failures: string[] = [];
     const name = await goRoute(page, row);
     assert.ok(await reached(page, name, 2000), `${row.id}: not reached`);
@@ -290,7 +294,7 @@ const ac9Reset = async (page: Page) => { for (let i = 0; i < 3; i++) await page.
 
 for (const row of R1.filter((r) => r.id !== 'chooser')) {
   test(`fr_ux_03_ac9_global_shortcuts_from_every_route: ${row.id}`, async ({ page }) => {
-    const core = await start(page);
+    const core = await startFor(page, row);
     const failures: string[] = [];
     const reset = () => ac9Reset(page);
     for (const r4 of R4.filter((x) => x.enabled)) {

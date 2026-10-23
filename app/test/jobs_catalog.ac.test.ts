@@ -1,5 +1,5 @@
 // MS4 slice 4C, L1: catalog strings and palette commands of the rename job (docs/contracts/ms4-jobs.md §10).
-// FR-LNK-03 AC-16 (`{count} links not updated`, plural, D-133; the skip reasons), FR-UX-07 AC-9 (the status texts and
+// FR-LNK-03 AC-16 (`{count} notes not updated` since 4D-lite, D-731; plural, D-133; the skip reasons), FR-UX-07 AC-9 (the status texts and
 // `Undo`), FR-LNK-03 AC-14 (palette `Undo rename`), FR-LNK-03 AC-17 (the interrupted banner, D-387). Exact English
 // texts are those of docs/acceptance/rename.md. Written from the ACs and the contract only (D-61). Modules load inside
 // the tests (TS-I1); a new file, so existing catalog tests are unchanged (TS-I3).
@@ -22,8 +22,9 @@ test('fr_lnk_03_ac16_links_not_updated_strings_and_plurals', async () => {
     assert.ok(k in en, `catalog key ${k}`);
   }
   assert.equal(typeof en['job.notUpdated.count'], 'object', 'job.notUpdated.count is a plural message (D-133)');
-  assert.equal(cat.t('job.notUpdated.count', v(3)), '3 links not updated', 'AC-16');
-  assert.equal(cat.t('job.notUpdated.count', v(1)), '1 link not updated', 'singular');
+  // 4D-lite (D-726, D-731): one list for every job kind.
+  assert.equal(cat.t('job.notUpdated.count', v(3)), '3 notes not updated', 'AC-16 (D-731)');
+  assert.equal(cat.t('job.notUpdated.count', v(1)), '1 note not updated', 'singular');
   assert.equal(cat.t('job.skip.changed'), 'changed by another app', 'AC-15 reason');
   assert.equal(cat.t('job.skip.missing'), 'missing', 'AC-15 reason (as written in the AC)');
   assert.equal(cat.t('job.skip.placeholder'), 'not downloaded', 'AC-15 reason');
@@ -47,7 +48,7 @@ test('fr_lnk_03_ac14_palette_commands_undo_rename_and_show_links_not_updated', a
   assert.ok(cmd, 'commands module loads');
   const ctx = { vault: { name: 'Přejmenování', path: '/tmp/Přejmenování', placeholders: 0 }, types: [], counts: {}, route: { id: 'note/<path>', path: 'Pages/Alfa.md' } };
   const list = cmd!.commands(ctx) as { id: string; title: string; needsVault: boolean; vars?: Record<string, unknown> }[];
-  for (const [id, title] of [['job.undoRename', 'Undo rename'], ['job.showNotUpdated', 'Show links not updated']] as const) {
+  for (const [id, title] of [['job.undoRename', 'Undo rename'], ['job.showNotUpdated', 'Show notes not updated']] as const) {
     const c = list.find((x) => x.id === id);
     assert.ok(c, `${id} is registered (FR-UX-03)`);
     assert.ok(c!.title in (cat.en as object), `${id}: title is a catalog key`);

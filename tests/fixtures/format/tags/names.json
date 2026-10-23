@@ -1,0 +1,148 @@
+{
+  "//": "Shared tag-name table (docs/contracts/ms4-tags.md §2; D-696, D-712; tags.md FR-TAG-03 AC-3). @tegg/doc tagName and tegg_format::tag_name give the same result for every row. `char` is the first refused character.",
+  "rows": [
+    {
+      "input": "Účetnictví",
+      "ok": true,
+      "name": "Účetnictví",
+      "key": "účetnictví"
+    },
+    {
+      "input": "#Účetnictví",
+      "ok": true,
+      "name": "Účetnictví",
+      "key": "účetnictví"
+    },
+    {
+      "input": "účty",
+      "ok": true,
+      "name": "účty",
+      "key": "účty"
+    },
+    {
+      "input": "#Účty",
+      "ok": true,
+      "name": "Účty",
+      "key": "účty"
+    },
+    {
+      "input": "ÚČTY",
+      "ok": true,
+      "name": "ÚČTY",
+      "key": "účty"
+    },
+    {
+      "input": "a/b",
+      "ok": true,
+      "name": "a/b",
+      "key": "a/b"
+    },
+    {
+      "input": "a//b",
+      "ok": true,
+      "name": "a//b",
+      "key": "a//b"
+    },
+    {
+      "input": "x/y",
+      "ok": true,
+      "name": "x/y",
+      "key": "x/y"
+    },
+    {
+      "input": "účty-2026",
+      "ok": true,
+      "name": "účty-2026",
+      "key": "účty-2026"
+    },
+    {
+      "input": "x_y",
+      "ok": true,
+      "name": "x_y",
+      "key": "x_y"
+    },
+    {
+      "input": "2026a",
+      "ok": true,
+      "name": "2026a",
+      "key": "2026a"
+    },
+    {
+      "input": "Rozpočet",
+      "ok": true,
+      "name": "Rozpočet",
+      "key": "rozpočet"
+    },
+    {
+      "input": "Výdaje",
+      "ok": true,
+      "name": "Výdaje",
+      "key": "výdaje"
+    },
+    {
+      "input": "",
+      "ok": false,
+      "error": "empty"
+    },
+    {
+      "input": "#",
+      "ok": false,
+      "error": "empty"
+    },
+    {
+      "input": "moje štítky",
+      "ok": false,
+      "error": "space"
+    },
+    {
+      "input": "a\tb",
+      "ok": false,
+      "error": "space"
+    },
+    {
+      "input": "a b",
+      "ok": false,
+      "error": "space"
+    },
+    {
+      "input": "#2026",
+      "ok": false,
+      "error": "digits"
+    },
+    {
+      "input": "2026",
+      "ok": false,
+      "error": "digits"
+    },
+    {
+      "input": "C++",
+      "ok": false,
+      "error": "char",
+      "char": "+"
+    },
+    {
+      "input": "a:b",
+      "ok": false,
+      "error": "char",
+      "char": ":"
+    },
+    {
+      "input": "[[x]]",
+      "ok": false,
+      "error": "char",
+      "char": "["
+    },
+    {
+      "input": "##x",
+      "ok": false,
+      "error": "char",
+      "char": "#"
+    },
+    {
+      "input": "a.b",
+      "ok": false,
+      "error": "char",
+      "char": "."
+    }
+  ]
+}

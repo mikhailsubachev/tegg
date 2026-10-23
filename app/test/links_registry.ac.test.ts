@@ -61,7 +61,8 @@ test('fr_lnk_14_ac9_r3_controls_added_by_4a', async () => {
   const { reg, cat } = await mods();
   const controls = (reg.DISABLED_CONTROLS as any[]).map((c) => ({ label: text(cat, c.label), due: reg.showDue(c.due) as string, req: c.req }));
   const find = (label: string) => controls.find((c) => c.label === label);
-  assert.deepEqual(find('Merge…'), { label: 'Merge…', due: 'MS4 (4C)', req: 'FR-LNK-14' }, 'Merge… on the Duplicate titles page (AP-218, AP-220)');
+  // 4D-lite (tags.md R87, FR-LNK-14 AC-11, D-705): Merge… is built, so it is no longer a disabled control.
+  assert.equal(find('Merge…'), undefined, 'Merge… is built in 4D-lite');
   // D-635 (supersedes D-283, AP-211): the panel has no Unlinked mentions section and R3 no longer lists it.
   assert.equal(find('Unlinked mentions'), undefined, 'Unlinked mentions is not a disabled control (D-635)');
   // 5B (capture.md, FR-VLT-05 AC-3, D-550): the Create offer's type picker is built, so it is no longer a disabled control.
@@ -73,7 +74,8 @@ test('fr_lnk_14_ac9_ms4_slices_show_and_count_as_ms4', async () => {
   assert.equal(reg.showDue({ milestone: 'MS4', slice: '4C' }), 'MS4 (4C)', 'D-292');
   assert.equal(reg.showDue({ milestone: 'MS4', slice: '4F' }), 'MS4 (4F)');
   const ms4 = (reg.overdue('MS4') as string[]).join('\n');
-  assert.ok(ms4.includes('Merge…') || ms4.includes('duplicates.merge'), `overdue('MS4') lists Merge… (MS4 (4C) counts as MS4):\n${ms4}`);
+  // 4D-lite (R87): Merge… is built, so overdue('MS4') no longer lists it.
+  assert.ok(!ms4.includes('Merge…') && !ms4.includes('duplicates.merge'), `overdue('MS4') doesn't list Merge… (built in 4D-lite):\n${ms4}`);
   const ms3 = (reg.overdue('MS3') as string[]).join('\n');
   assert.ok(!ms3.includes('Merge…') && !ms3.includes('duplicates.merge'), `overdue('MS3') doesn't list Merge…:\n${ms3}`);
   // 4F built the note embed: R5 has no embed-note row any more (R32, D-431).

@@ -6,13 +6,16 @@ import { Icon } from '../shell/Icon';
 import { region } from '../i18n/collate';
 import { t } from '../i18n/catalog';
 import { addChip, tagSuggestions } from './tags';
+import { tagChipStyle } from '../theme/tagChip';
 
-export function TagField({ chips, onChange, tags, autoFocus }: { chips: string[]; onChange: (chips: string[]) => void; tags: string[]; autoFocus?: boolean }) {
+/** `colors`: the tag colour per key (D-709), for the chips and the suggestions. */
+export function TagField({ chips, onChange, tags, autoFocus, colors }: { chips: string[]; onChange: (chips: string[]) => void; tags: string[]; autoFocus?: boolean; colors?: Record<string, string | null> }) {
   const [typed, setTyped] = useState('');
   const [active, setActive] = useState(0);
   const id = useId();
   const input = useRef<HTMLInputElement | null>(null);
   const key = (s: string) => s.normalize('NFC').toLowerCase();
+  const tint = (s: string) => tagChipStyle(colors?.[key(s)]);
   const suggestions = tagSuggestions(typed, tags, region() ?? navigator.language).filter((s) => !chips.some((c) => key(c) === key(s)));
   const open = suggestions.length > 0;
   const add = (tag: string) => {
@@ -35,7 +38,7 @@ export function TagField({ chips, onChange, tags, autoFocus }: { chips: string[]
     <div className="tag-field">
       <span className="tag-field-icon"><Icon name="hash" size={13} /></span>
       {chips.map((c) => (
-        <span key={c} className="tag-field-chip">
+        <span key={c} className="tag-field-chip" style={tint(c)}>
           <span data-user-content>#{c}</span>
           <button type="button" tabIndex={0} className="tag-field-remove" aria-label={t('capture.removeTag', { tag: c })} onClick={() => { onChange(chips.filter((x) => x !== c)); input.current?.focus(); }}>×</button>
         </span>
@@ -82,7 +85,7 @@ export function TagField({ chips, onChange, tags, autoFocus }: { chips: string[]
           {suggestions.map((s, i) => (
             <li key={s} id={`${id}-${i}`} role="option" aria-selected={i === active} className={i === active ? 'active' : undefined}
               onMouseDown={(e) => { e.preventDefault(); add(s); }}>
-              <span data-user-content>#{s}</span>
+              <span data-user-content style={tint(s)}>#{s}</span>
             </li>
           ))}
         </ul>

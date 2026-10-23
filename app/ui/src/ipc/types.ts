@@ -119,7 +119,19 @@ path?: string,
 /**
  * With `PlanChanged` from `link_create`: the plan as the core makes it now.
  */
-now?: LinkCreatePlanDto, };
+now?: LinkCreatePlanDto, 
+/**
+ * With `InvalidName` (ms4-tags §4.1): `empty`, `space`, `digits` or `char`.
+ */
+error?: string, 
+/**
+ * With `InvalidName` `char`: the first refused character.
+ */
+char?: string, 
+/**
+ * With `TagExists`: the existing tag's display name.
+ */
+name?: string, };
 export type TypeDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, 
 /**
  * False: a system type with built-in defaults, no file (D-90).
@@ -229,7 +241,15 @@ dateTime?: DateTimeUiDto,
 /**
  * ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter.
  */
-inbox?: InboxUiDto, };
+inbox?: InboxUiDto, 
+/**
+ * ms4-tags §6.1 (D-703): the tag page's sort, Type filter and grouping, shared by all tags.
+ */
+tagPage?: TagPageUiDto, 
+/**
+ * ms4-tags §6.1 (D-703): the All tags sort.
+ */
+tagsSort?: SortUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -323,11 +343,16 @@ export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
 export type InterruptedDto = { jobId: number, from: string, to: string, done: number, total: number, };
+export type BackupLabelDto = { key: string, args: Record<string, string | number>, };
 export type BackupDto = { name: string, kind: string, 
 /**
  * ISO 8601 with offset.
  */
-time: string, };
+time: string, 
+/**
+ * ms4-tags §5.2 (D-724): the catalog key and arguments of the operation label.
+ */
+label: BackupLabelDto, files: number, };
 export type TasksUiDto = { 
 /**
  * `schedule` or `kanban`.
@@ -362,6 +387,8 @@ export type TaskListDto = { tasks: Array<TaskRowDto>, defs: TaskDefsDto, };
 export type DailyTasksDto = { overdue: Array<TaskRowDto>, due: Array<TaskRowDto>, completed: Array<TaskRowDto>, total: number, };
 export type DateTimeUiDto = { date: string, time: string, week: string, };
 export type InboxUiDto = { filter: string, };
+export type SortUiDto = { column: string, dir: string, };
+export type TagPageUiDto = { sort: SortUiDto, type: string | null, grouping: string, };
 export type CaptureVaultDto = { id: string, name: string, color: string | null, };
 export type CaptureTypeDto = { key: string, name: string, icon: string, color: string, folder: string, 
 /**
@@ -376,7 +403,7 @@ templateHead: string | null,
  * D-604: the type's plural, for `Saves to <plural>` on types without the review workflow.
  */
 plural?: string, };
-export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<string>, };
+export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<CaptureTagDto>, };
 export type CaptureSuggestDto = { 
 /**
  * The link text to insert (the stem when it is unique in the vault, else the path without `.md`).
@@ -421,4 +448,19 @@ export type StagedMediaDto = { token: string, name: string, mediaType: string,
  */
 size: number, width: number | null, height: number | null, pages: number | null, };
 export type StagedMediaResultDto = { ok: StagedMediaDto, } | { error: string, name: string, };
+export type TagFileDto = { path: string, version: VersionDto, };
+export type TagRowDto = { key: string, name: string, file: TagFileDto | null, losers: Array<string>, color: string | null, colorRaw: string | null, count: number, lastUsed: string | null, 
+/**
+ * i128 as a decimal string.
+ */
+lastUsedNs: string | null, };
+export type TagObjectRowDto = { path: string, id: string | null, title: string, type: string, modified: string | null, modifiedNs: string | null, tags: Array<string>, review: string | null, status: string | null, due: string | null, completed: string | null, };
+export type TagUsageDto = { notes: number, templates: number, file: string | null, losers: Array<string>, };
+export type TagNewPathDto = { path: string, };
+export type CaptureTagDto = { name: string, color: string | null, };
+export type JobStartDto = { jobId: number | null, };
+export type RenamePairDto = { from: string, to: string, };
+export type PlanWarningDto = { kind: string, path: string, };
+export type MergeConflictDto = { key: string, kept: string, others: Array<string>, };
+export type JobPlanDto = { jobId: number, kind: string, files: number, templates: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
 export type TypeDefDto = TypeDto;

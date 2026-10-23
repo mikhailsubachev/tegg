@@ -17,6 +17,15 @@ pub fn op_json(op: &TextOp) -> Value {
         TextOp::AddTags { tags, now } => json!({ "op": "add-tags", "tags": tags, "now": now }),
         TextOp::AppendLink { target, now } => json!({ "op": "append-link", "target": target, "now": now }),
         TextOp::AppendLinkTo { to_path, to_title, paths, now } => json!({ "op": "append-link-to", "toPath": to_path, "toTitle": to_title, "paths": paths, "now": now }),
+        // ms4-tags §4.2 (4D-lite).
+        TextOp::RenameTag { key, to } => json!({ "op": "rename-tag", "key": key, "to": to }),
+        TextOp::RemoveTag { key } => json!({ "op": "remove-tag", "key": key }),
+        TextOp::MergeInto { others, now } => json!({
+            "op": "merge-into",
+            "others": others.iter().map(|o| json!({ "path": o.path, "title": o.title, "text": o.text })).collect::<Vec<_>>(),
+            "now": now,
+        }),
+        TextOp::Replace { text } => json!({ "op": "replace", "text": text }),
     }
 }
 
@@ -43,6 +52,17 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
             now: s("now")?,
         }),
+        "rename-tag" => Some(TextOp::RenameTag { key: s("key")?, to: s("to")? }),
+        "remove-tag" => Some(TextOp::RemoveTag { key: s("key")? }),
+        "merge-into" => Some(TextOp::MergeInto {
+            others: v["others"]
+                .as_array()?
+                .iter()
+                .filter_map(|o| Some(crate::MergeOther { path: o["path"].as_str()?.to_string(), title: o["title"].as_str()?.to_string(), text: o["text"].as_str()?.to_string() }))
+                .collect(),
+            now: s("now")?,
+        }),
+        "replace" => Some(TextOp::Replace { text: s("text")? }),
         _ => None,
     }
 }

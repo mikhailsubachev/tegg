@@ -118,17 +118,21 @@ test.describe('Duplicate titles page', () => {
     assert.ok(await eventually(() => seen(group(page, /^Senior Product Manager, 3$/), 100), (x) => x, 2000), 'the group shows 3 within 2 s');
   });
 
-  test('fr_lnk_14_ac9_merge_is_disabled_until_4c', async ({ page }) => {
+  // 4D-lite (tags.md FR-LNK-14 AC-11, D-705, replaces backlinks.md AC-9): Merge… is built and opens its dialog.
+  test('fr_lnk_14_ac9_merge_is_enabled_and_opens_its_dialog', async ({ page }) => {
     const core = await openLinks(page, B.osamela, { region: 'en-US' });
     await gotoDuplicates(page);
     const g = await must(group(page, /^Senior Product Manager, 4$/), 'group');
     const merge = await must(g.getByRole('button', { name: 'Merge…', exact: true }), 'button Merge…');
-    assert.equal(await isDisabled(merge), true, 'aria-disabled');
-    assert.equal(await description(merge), 'Coming in MS4 (4C)');
-    await merge.click({ force: true });
+    assert.equal(await isDisabled(merge), false, 'enabled');
+    assert.notEqual(await description(merge), 'Coming in MS4 (4C)', 'no Coming in');
+    await merge.click();
+    await must(page.getByRole('dialog', { name: 'Merge "Senior Product Manager"', exact: true }), 'the merge dialog');
+    await page.keyboard.press('Escape');
     await sleep(300);
-    assert.ok(await seen(group(page, /^Senior Product Manager, 4$/), 500), 'nothing happens');
-    assert.deepEqual(await writeCalls(core), [], 'nothing written');
+    assert.ok(await seen(group(page, /^Senior Product Manager, 4$/), 500), 'Esc: the group stays');
+    // AP-683 (D-745): opening the dialog starts a merge job (merge.ac FR-LNK-14 AC-11 reads its job_plan); those write nothing.
+    assert.deepEqual((await writeCalls(core)).filter((c) => !['merge_start', 'job_plan', 'job_cancel'].includes(c)), [], 'nothing written');
   });
 });
 

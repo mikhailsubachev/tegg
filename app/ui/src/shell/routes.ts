@@ -22,6 +22,12 @@ export function parseRoute(s: string): Route | null {
     const head = str.slice(0, slash);
     let rest = str.slice(slash + 1);
     if (head === 'search') return rest.startsWith('tag:') && rest.length > 4 ? { id: 'search', param: rest } : null;
+    // 4D-lite (D-736): `tag/` + the encoded key, so `a/b` is one parameter.
+    if (head === 'tag') {
+      let key = rest;
+      try { key = decodeURIComponent(rest); } catch { /* a literal % */ }
+      return key ? { id: 'tag/<key>', param: key.normalize('NFC').toLowerCase() } : null;
+    }
     // 4B (D-321): a valid date only.
     if (head === 'daily') return parseDate(rest) ? { id: 'daily/YYYY-MM-DD', param: rest } : null;
     if (PARAM_ROUTES.includes(head)) {
@@ -39,6 +45,7 @@ export function parseRoute(s: string): Route | null {
 
 export function routeString(r: Route): string {
   if (r.param === undefined) return r.id;
+  if (r.id === 'tag/<key>') return `tag/${encodeURIComponent(r.param.normalize('NFC'))}`;
   const head = r.id.includes('/') ? r.id.slice(0, r.id.indexOf('/')) : r.id;
   return `${head}/${r.param.normalize('NFC')}${r.fragment ? `#${r.fragment.normalize('NFC')}` : ''}`;
 }

@@ -74,4 +74,52 @@ pub trait Host: Send + Sync {
     fn local_read(&self, path: &Path) -> Option<Vec<u8>>;
     fn local_remove(&self, path: &Path);
     fn local_list(&self, dir: &Path) -> Vec<PathBuf>;
+
+    // -------------------------------------------------------------------------------- 4D-lite (ms4-tags §4.3)
+    // Default bodies are the 4D-lite stubs (TS-I1): nothing is found, every write is refused.
+
+    /// `_templates/**/*.md` (tag jobs rewrite templates, D-714).
+    fn template_paths(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// ms6-trash-media §1.4: renames `path` into `.trash/` if it is still `base`; returns the new path.
+    fn trash(&self, path: &str, base: &FileVersion) -> Result<String, WriteError> {
+        let _ = (path, base);
+        Err(WriteError::Io("4D-lite stub: Host::trash".into()))
+    }
+    /// Restore (§5.3): moves `trashed` back to `to`; `NameTaken` when `to` exists.
+    fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
+        let _ = (trashed, to);
+        Err(WriteError::Io("4D-lite stub: Host::untrash".into()))
+    }
+    /// Create-exclusive (restore of a file the job renamed away).
+    fn create(&self, path: &str, bytes: &[u8]) -> Result<FileVersion, WriteError> {
+        let _ = (path, bytes);
+        Err(WriteError::Io("4D-lite stub: Host::create".into()))
+    }
+    /// The Tag type's folder (D-719).
+    fn tag_folder(&self) -> String {
+        String::new()
+    }
+    /// Every tag of the index (ms4-tags §1.2) with the objects carrying it.
+    fn tags(&self) -> Vec<HostTag> {
+        Vec::new()
+    }
+    /// The vault's name (the backup manifest, D-724).
+    fn vault_name(&self) -> String {
+        String::new()
+    }
+}
+
+/// One tag as the tag planners see it (ms4-tags §1.2, §4.1).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HostTag {
+    pub key: String,
+    /// The display name (D-711).
+    pub name: String,
+    /// The winning Tag file and the losers (D-694, D-718).
+    pub file: Option<String>,
+    pub losers: Vec<String>,
+    /// Indexed objects with an occurrence (no templates, no `.trash/`), in path order.
+    pub holders: Vec<String>,
 }

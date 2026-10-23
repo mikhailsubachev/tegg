@@ -215,3 +215,7 @@ export { cardBlocks, type CardBlock, type CardItem, type CardMark, type CardSpan
 // ---------------------------------------------------------------- slice 6A (ms6-trash-media §3.1, §3.3, §3.5)
 
 export { mediaInfo, mediaNames, mediaObject, isGenericName, pastedImageName, type MediaInfo, type MediaNames, type MediaObjectFields, type NameRequest } from './media.js'
+
+// ---------------------------------------------------------------- slice 4D-lite (ms4-tags §2)
+
+export { tagName, tagFile, setTagColor, type TagNameResult } from './tags.js'

@@ -18,6 +18,7 @@ import { appendItem, changeItem, linkTextFrom, type AppendTarget } from './actio
 import { DEFAULT_METRICS, cardTop, columns, windowOf, type Metrics } from './virtual';
 import { inboxGroups, inboxOrder, type InboxGroup } from './bucket';
 import { cardFooter, cardTags } from './card';
+import { useTagLook } from '../tags/store';
 
 const ORDER = ['page', 'task', 'quick-note', 'daily-note'];
 const GROUPS: [InboxGroup, string][] = [['today', 'inbox.group.today'], ['yesterday', 'inbox.group.yesterday'], ['week', 'inbox.group.week'], ['older', 'inbox.group.older']];
@@ -45,6 +46,7 @@ export type InboxProps = {
 };
 
 export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime, nav, commandRef }: InboxProps) {
+  const look = useTagLook();
   const [rows, setRows] = useState<InboxRowDto[] | null>(() => (returnTo ? lastRows : null));
   const [kept, setKept] = useState<Map<string, InboxRowDto>>(new Map());
   const [selection, setSelection] = useState<string[]>([]);
@@ -408,7 +410,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         <a href="#" className="inbox-card-title" data-command="inbox.open" onClick={(e) => { e.preventDefault(); open(r); }} data-user-content>{r.title}</a>
         {(tags.shown.length > 0 || tags.more > 0) && (
           <div className="inbox-card-tags">
-            {tags.shown.map((x) => <span key={x} className="tag-chip" data-user-content>#{x}</span>)}
+            {tags.shown.map((x) => <span key={x} className="tag-chip" style={look(x).style} data-user-content>#{look(x).name}</span>)}
             {tags.more > 0 && <span className="muted">+{tags.more}</span>}
           </div>
         )}
@@ -693,7 +695,7 @@ function TagDialog({ onApply, onClose }: { onApply: (tags: string[]) => void; on
   const [tags, setTags] = useState<string[]>([]);
   const chipsRef = useRef(chips);
   chipsRef.current = chips;
-  useEffect(() => { void ipc.tags().then((ts) => setTags(ts.map((x) => x.spelling)), () => {}); }, []);
+  useEffect(() => { void ipc.tags().then((ts) => setTags(ts.map((x) => x.name)), () => {}); }, []);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-label={t('inbox.addTags')} className="dialog inbox-tags"

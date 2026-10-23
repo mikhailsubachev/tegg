@@ -9,6 +9,7 @@ mod strings;
 
 pub use shell5b::{acl_probe, AclProbe};
 pub use shell6a::{media_scheme_probe, MediaResponse};
+mod shell4d;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -159,7 +160,7 @@ fn mark(app: &AppHandle, name: &str) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
@@ -509,11 +510,11 @@ async fn note_discard(state: State<'_, AppState>, path: String, base: VersionDto
     core.discard_note(&path, &version_from(&base)?).map_err(core_err)
 }
 
-/// D-185.
+/// D-185, ms4-tags §1.2.
 #[tauri::command]
-async fn index_tags(state: State<'_, AppState>) -> Result<Vec<TagDto>, IpcError> {
+async fn index_tags(state: State<'_, AppState>) -> Result<Vec<TagRowDto>, IpcError> {
     let core = core(&state)?;
-    Ok(core.tags().into_iter().map(|t| TagDto { key: t.key, spelling: t.spelling, count: t.count as u32 }).collect())
+    Ok(core.tag_rows().into_iter().map(shell4d::tag_row_dto).collect())
 }
 
 /// ms3-shell §13.2: `Core::conflicts()` with versions.
@@ -967,6 +968,9 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::NotFound => err("NotFound", "no such job"),
         JobError::NotImplemented => err("NotImplemented", "not available"),
         JobError::BackupFailed(m) => err("BackupFailed", m),
+        JobError::InvalidName { error, char } => IpcError { error: Some(error.clone()), char, ..err("InvalidName", error) },
+        JobError::TagExists { name } => IpcError { name: Some(name.clone()), ..err("TagExists", format!("#{name} already exists")) },
+        JobError::NothingToDo => err("NothingToDo", "nothing to do"),
         JobError::Core(m) => err("Io", m),
     }
 }
@@ -1088,14 +1092,19 @@ async fn job_resolve_interrupted(state: State<'_, AppState>, job_id: u32, choice
 /// Settings › Backups ships with 4D-lite (D-396); 4C makes no zip for a note rename (D-269).
 #[tauri::command]
 async fn backups_list(state: State<'_, AppState>) -> Result<Vec<BackupDto>, IpcError> {
-    let _ = core(&state)?;
-    Ok(Vec::new())
+    let core = core(&state)?;
+    Ok(core
+        .backups()
+        .into_iter()
+        .map(|b| BackupDto { name: b.name, kind: b.kind, time: b.time, label: BackupLabelDto { key: b.label.key, args: b.label.args }, files: b.files as u32 })
+        .collect())
 }
 
 #[tauri::command]
 async fn backup_restore(state: State<'_, AppState>, name: String) -> Result<JobIdDto, IpcError> {
-    let _ = (core(&state)?, name);
-    Err(err("NotImplemented", "restoring a backup comes with 4D-lite (D-396)"))
+    let core = core(&state)?;
+    let id = core.jobs().start(JobOp::Restore { name }).map_err(job_err)?;
+    Ok(JobIdDto { job_id: id as u32 })
 }
 
 /// ms4-jobs §9 (D-386): the UI opened / closed `path` in an editor.
@@ -1651,7 +1660,9 @@ pub fn run() {
             shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions,
             shell6a::trash_list, shell6a::object_trash, shell6a::trash_restore, shell6a::trash_delete, shell6a::trash_empty,
             shell6a::media_add, shell6a::media_add_paths, shell6a::media_pick, shell6a::media_open, shell6a::media_reveal,
-            shell6a::capture_media_add
+            shell6a::capture_media_add,
+            shell4d::tag_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
+            shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal
         ])
         .build(context())
         .expect("error while building Tegg")

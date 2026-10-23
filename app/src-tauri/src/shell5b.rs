@@ -332,8 +332,8 @@ pub(crate) fn context_maybe_changed(app: &AppHandle, paths: &[String]) {
     let state = app.state::<AppState>();
     let Ok(core) = core(&state) else { return };
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    for t in core.tags() {
-        t.spelling.hash(&mut h);
+    for t in core.tag_rows() {
+        (t.name, t.color).hash(&mut h);
     }
     let sig = h.finish();
     let tags_changed = TAGS.lock().unwrap_or_else(|p| p.into_inner()).replace(sig) != Some(sig);
@@ -389,7 +389,7 @@ pub(crate) async fn capture_context(state: State<'_, AppState>) -> Result<Captur
         .collect();
     let d = core.vault_settings().default_type;
     let default_type = if d.valid && d.key != "daily-note" { d.key } else { "quick-note".into() };
-    let tags = core.tags().into_iter().map(|t| t.spelling).collect();
+    let tags = core.tag_rows().into_iter().filter(|t| t.count >= 1 || t.file.is_some()).map(|t| CaptureTagDto { name: t.name, color: t.color }).collect();
     Ok(CaptureContextDto { vault, types, default_type, tags })
 }
 

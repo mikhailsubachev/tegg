@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-job-plan"
+description = "Enables the job_plan command without any pre-configured scope."
+commands.allow = ["job_plan"]
+
+[[permission]]
+identifier = "deny-job-plan"
+description = "Denies the job_plan command without any pre-configured scope."
+commands.deny = ["job_plan"]

@@ -13,7 +13,7 @@ export type Prepared = {
   folder: string;
   create: (title: string, values?: [string, Value][]) => Promise<string /* path */>;
   /** The bytes `create` would send, stamped `now` (a draft's text, D-520; ms5-tasks §12.2). */
-  render: (title: string, now: string) => string;
+  render: (title: string, now: string, values?: [string, Value][]) => string;
   /** 5A-2 (ms5-tasks §11.2, D-524): the conversion's create: `body` replaces the template's body; returns the bytes
    *  written too (the conversion's undo deletes the file only while it still has them, D-492). */
   createWithBody: (title: string, values: [string, Value][], body: string) => Promise<{ path: string; text: string }>;
@@ -42,7 +42,7 @@ export async function prepareObject(typeKey: string): Promise<Prepared> {
       const clean = title.normalize('NFC').trim();
       return ipc.noteCreate(k, clean, render(clean, localIso(new Date(Date.now())), values));
     },
-    render: (title: string, now: string) => render(title, now),
+    render: (title: string, now: string, values?: [string, Value][]) => render(title, now, values),
     createWithBody: async (title: string, values: [string, Value][], body: string) => {
       const clean = title.normalize('NFC').trim();
       const text = render(clean, localIso(new Date(Date.now())), values, body);

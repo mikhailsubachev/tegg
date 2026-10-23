@@ -62,14 +62,15 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     sb.getByText('Tasks', { exact: true }).first(),
     sb.getByRole('button', { name: 'New type' }),
     sb.getByRole('list', { name: 'Types' }),
-    sb.getByText('Tags', { exact: true }),
+    // 4D-lite (tags.md R83, FR-NAV-04 AC-8): the Tags section (header `Tags, all <n>`) replaces the bottom Tags entry.
+    sb.getByRole('button', { name: /^Tags, all \d+$/ }),
     sb.getByText('Pinned', { exact: true }),
     sb.getByText('Saved queries', { exact: true }),
     sb.getByText('Trash', { exact: true }),
     sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true }),
   ];
   // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home; Trash at the bottom.
-  const names = ['switcher field', 'New object', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags', 'Pinned', 'Saved queries', 'Trash', 'logo button'];
+  const names = ['switcher field', 'New object', 'Inbox', 'Today', 'Tasks', 'New type', 'Types list', 'Tags section', 'Pinned', 'Saved queries', 'Trash', 'logo button'];
   const tops: number[] = [];
   for (let i = 0; i < parts.length; i++) {
     const b = await box(parts[i]);
@@ -298,11 +299,14 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
   }
   // Other means from the "Reached by" column.
   // 6A (D-613): no Home entry; Trash is reached from the sidebar (R75).
-  const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Pinned', 'pinned'], ['Saved queries', 'saved-queries'], ['Tags', 'tags']];
+  const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Pinned', 'pinned'], ['Saved queries', 'saved-queries']];
   for (const [entry, id] of viaSidebar) {
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
     await check(R1.find((r) => r.id === id)!, `sidebar ${entry}`);
   }
+  // 4D-lite (tags.md R83): `tags` is reached by the sidebar Tags section header.
+  await sidebar(page).getByRole('button', { name: /^Tags, all \d+$/ }).click().catch(() => failures.push('tags: sidebar Tags section header missing'));
+  await check(R1.find((r) => r.id === 'tags')!, 'sidebar Tags section header');
   for (const [keys, id] of [['Meta+d', 'today'], ['Meta+Shift+i', 'inbox'], ['Meta+Shift+f', 'search'], ['Meta+Comma', 'settings/appearance']] as const) {
     await page.locator('body').click({ position: { x: 700, y: 600 } }).catch(() => {});
     await page.keyboard.press(keys);

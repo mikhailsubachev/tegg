@@ -702,8 +702,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const ed = edRef.current;
       const s = saver.current;
       if (!ed || !s) return;
-      const r = transform(p, ed.text(), ops as TextOp[]);
+      const cur = ed.text();
+      const r = transform(p, cur, ops as TextOp[]);
       if (r.kind !== 'bytes') return;
+      // 4D-lite: a change of the frontmatter only (a tag in `tags:`) is one frontmatter edit, as the attribute panel's.
+      if (r.text.slice(headOf(r.text).length) === cur.slice(headOf(cur).length)) {
+        ed.applyFrontmatter(r.text);
+        setHead(headOf(r.text));
+        s.changed();
+        return;
+      }
       ed.reload(r.text);
       ed.markSaved(diskTextRef.current);
       s.changed();
@@ -1058,7 +1066,7 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
   }, []);
   return (
     <div className="dialog-backdrop">
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('merge.title')} aria-description={description} className="dialog merge-dialog"
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('mergeNote.title')} aria-description={description} className="dialog merge-dialog"
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === 'Escape') e.preventDefault(); // Esc doesn't close it (D-176)
@@ -1069,7 +1077,7 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
             bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]?.focus();
           }
         }}>
-        <h2>{t('merge.title')}</h2>
+        <h2>{t('mergeNote.title')}</h2>
         <p>{t('merge.body')}</p>
         {merge.compare && <Compare left={merge.mine} right={merge.theirs} leftLabel={t('compare.mine')} rightLabel={t('compare.theirs')} />}
         <div className="dialog-buttons">

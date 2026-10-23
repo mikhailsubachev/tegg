@@ -9,6 +9,9 @@ use std::time::{Duration, Instant};
 
 use tegg_format::{extract, nfc, sanitize_file_stem};
 
+#[path = "tagjobs.rs"]
+mod tagjobs;
+
 use crate::host::{Host, ReadError, WriteError, Wrote};
 use crate::{
     InboxJobChange,
@@ -80,6 +83,8 @@ struct JobState {
     undo: Option<UndoRecord>,
     /// An undo of this rename has run (and no redo since): its rows can't be retried (D-433).
     undone: bool,
+    /// The user confirmed the plan (kinds with `needs_confirm`, ms4-tags §4.4).
+    confirmed: bool,
     progress: JobProgress,
 }
 
@@ -201,6 +206,10 @@ impl Jobs {
             }
             JobOp::TestBackup { .. } => JobKind::TestBackup,
             JobOp::Inbox { .. } => JobKind::Inbox,
+            JobOp::TagRename { from, to } => tagjobs::check_rename(host.as_ref(), from, to)?,
+            JobOp::TagDelete { tag, .. } => tagjobs::check_delete(host.as_ref(), tag)?,
+            JobOp::Merge { keep, others } => tagjobs::check_merge(host.as_ref(), keep, others)?,
+            JobOp::Restore { name } => tagjobs::check_restore(host.as_ref(), name)?,
             _ => return Err(JobError::NotImplemented),
         };
         let mut s = lock(&self.inner.state);
@@ -224,6 +233,7 @@ impl Jobs {
                 cancel: false,
                 undo: None,
                 undone: false,
+                confirmed: false,
                 progress,
             },
         );
@@ -247,13 +257,20 @@ impl Jobs {
             .and_then(|j| j.plan.clone())
     }
 
-    /// No 4C kind needs confirmation (§1).
+    /// Kinds with `needs_confirm` wait in `confirm` for this (ms4-tags §4.4); `Busy` before they get there.
     pub fn confirm(&self, job: JobId) -> Result<(), JobError> {
-        if lock(&self.inner.state).jobs.contains_key(&job) {
-            Err(JobError::NotImplemented)
-        } else {
-            Err(JobError::NotFound)
+        let mut s = lock(&self.inner.state);
+        let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
+        if !j.kind.flags().needs_confirm {
+            return Err(JobError::NotImplemented);
         }
+        if j.phase != Phase::Confirm {
+            return Err(JobError::Busy);
+        }
+        j.confirmed = true;
+        drop(s);
+        self.inner.changed.notify_all();
+        Ok(())
     }
 
     /// `NotCancellable` outside the kind's cancellable phases.
@@ -351,6 +368,19 @@ impl Jobs {
             }
         }
         Ok(r)
+    }
+
+    /// ms4-tags §5.2 (D-733): the open vault's zips, newest first, with their manifest labels.
+    pub fn backups(&self) -> Vec<crate::BackupInfo> {
+        match &self.inner.host {
+            Some(h) => tagjobs::backups(h.as_ref()),
+            None => Vec::new(),
+        }
+    }
+
+    /// The open vault's backup folder (`<Application Support>/Tegg/backups/<vault key>`).
+    pub fn backup_dir(&self) -> Option<PathBuf> {
+        self.inner.host.as_ref().map(|h| h.app_dir().join("backups").join(h.vault_key()))
     }
 
     pub fn last_undoable(&self) -> Option<JobId> {
@@ -456,6 +486,9 @@ struct Run {
     skipped: Vec<Skipped>,
     renamed: Option<(String, String)>,
     undo: UndoRecord,
+    /// ms4-tags §5.1: the backup zip and what the job really moved, for the manifest's `done`.
+    zip: Option<(PathBuf, serde_json::Value)>,
+    moved: tagjobs::Moved,
 }
 
 impl Run {
@@ -542,8 +575,13 @@ impl Inner {
             skipped: Vec::new(),
             renamed: None,
             undo: UndoRecord::default(),
+            zip: None,
+            moved: tagjobs::Moved::default(),
         };
         let result = self.execute(&mut run, &op, from_title);
+        if result.is_ok() {
+            self.finish_manifest(&run);
+        }
         stop.store(true, Ordering::SeqCst);
         let _ = beat.join();
         let (phase, error) = match result {
@@ -628,8 +666,13 @@ impl Inner {
                     files: paths.len(),
                     links: 0,
                 },
+                warnings: Vec::new(),
             },
             JobOp::Inbox { paths, change } => self.plan_inbox(id, run, paths, change),
+            JobOp::TagRename { from, to } => self.plan_tag_rename(id, from, to)?,
+            JobOp::TagDelete { tag, .. } => self.plan_tag_delete(id, tag)?,
+            JobOp::Merge { keep, others } => self.plan_merge(id, keep, others)?,
+            JobOp::Restore { name } => self.plan_restore(id, name)?,
             _ => return Err("NotImplemented".into()),
         };
         let total = plan.files.len();
@@ -641,12 +684,32 @@ impl Inner {
         if self.cancelled(id) {
             return Ok(Phase::Cancelled);
         }
+        if run.kind.flags().needs_confirm {
+            self.set_phase(id, Phase::Confirm, 0, total);
+            loop {
+                let s = lock(&self.state);
+                match s.jobs.get(&id) {
+                    Some(j) if j.cancel => return Ok(Phase::Cancelled),
+                    Some(j) if j.confirmed => break,
+                    None => return Ok(Phase::Cancelled),
+                    _ => {}
+                }
+                if self.stop.load(Ordering::SeqCst) {
+                    return Ok(Phase::Cancelled);
+                }
+                let _ = self.changed.wait_timeout(s, Duration::from_millis(100));
+            }
+        }
         // D-561: of the Inbox actions only a bulk convert makes a backup zip first.
         let inbox_backup = matches!(op, JobOp::Inbox { change: InboxJobChange::SetType { .. }, .. });
         if run.kind.flags().backup || inbox_backup {
             self.set_phase(id, Phase::Backup, 0, total);
-            self.backup(run.kind)
+            let (manifest, keep) = self.manifest_for(run, op, &plan);
+            let zip = self.backup(run.kind, manifest.as_ref(), keep.as_deref())
                 .map_err(|e| format!("BackupFailed: {e}"))?;
+            if let Some(m) = manifest {
+                run.zip = Some((zip, m));
+            }
             if self.cancelled(id) {
                 return Ok(Phase::Cancelled);
             }
@@ -662,6 +725,9 @@ impl Inner {
                     self.step(id, i + 1);
                 }
             }
+            JobOp::TagRename { .. } | JobOp::TagDelete { .. } => self.write_tag_job(run, &plan),
+            JobOp::Merge { .. } => self.write_merge(run, &plan)?,
+            JobOp::Restore { name } => self.write_restore(run, name, &plan),
             _ => {}
         }
         Ok(Phase::Done)
@@ -692,7 +758,7 @@ impl Inner {
             }
         }
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 } }
+        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
     }
 
     // -------------------------------------------------------------------------------------------- note rename
@@ -719,6 +785,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts::default(),
+            warnings: Vec::new(),
         };
         let from_title = from_title
             .map(|t| nfc(t.trim()))
@@ -783,6 +850,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts { files: n, links: 0 },
+            warnings: Vec::new(),
         })
     }
 
@@ -1048,6 +1116,7 @@ impl Inner {
             creates: Vec::new(),
             trashes: Vec::new(),
             counts: PlanCounts { files: n, links: 0 },
+            warnings: Vec::new(),
         })
     }
 
@@ -1193,10 +1262,14 @@ impl Inner {
 
     // -------------------------------------------------------------------------------------------- backup (§6)
 
-    fn backup(&self, kind: JobKind) -> Result<PathBuf, String> {
+    fn backup(&self, kind: JobKind, manifest: Option<&serde_json::Value>, keep: Option<&std::path::Path>) -> Result<PathBuf, String> {
         let host = self.host();
         let dir = host.app_dir().join("backups").join(host.vault_key());
         let mut entries = Vec::new();
+        // ms4-tags §5.1 (D-724): the manifest is the first entry.
+        if let Some(m) = manifest {
+            entries.push((tagjobs::MANIFEST.to_string(), serde_json::to_vec_pretty(m).map_err(|e| e.to_string())?));
+        }
         for p in host.backup_files() {
             match host.read(&p) {
                 Ok((b, _)) => entries.push((nfc(&p), b)),
@@ -1206,12 +1279,23 @@ impl Inner {
         }
         let mut zip = Vec::new();
         crate::zip::write_zip(&mut zip, &entries).map_err(|e| e.to_string())?;
-        let name = format!("{}-{}.zip", chrono::Utc::now().format("%Y%m%d-%H%M%S"), kind.as_str());
-        let path = dir.join(&name);
+        // Two jobs in one UTC second would share a name: the later one takes the next free second.
+        // Any zip of that second, whatever its kind, moves this one on (names sort newest last, ms4-tags §5.2).
+        let taken: HashSet<String> = host
+            .local_list(&dir)
+            .into_iter()
+            .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().chars().take(15).collect()))
+            .collect();
+        let mut t = chrono::Utc::now();
+        while taken.contains(&t.format("%Y%m%d-%H%M%S").to_string()) {
+            t += chrono::Duration::seconds(1);
+        }
+        let path = dir.join(format!("{}-{}.zip", t.format("%Y%m%d-%H%M%S"), kind.as_str()));
         // Atomic, through tegg-vault (AR-04 AC-1); a read-only backups folder fails here and nothing is written.
         host.local_write(&path, &zip).map_err(|e| e.to_string())?;
         // Keep the newest ten (names start with the UTC time).
-        let mut zips: Vec<PathBuf> = host.local_list(&dir).into_iter().filter(|p| p.extension().is_some_and(|x| x == "zip")).collect();
+        // D-725: the zip being restored is exempt from the rotation its pre-restore backup triggers.
+        let mut zips: Vec<PathBuf> = host.local_list(&dir).into_iter().filter(|p| p.extension().is_some_and(|x| x == "zip") && Some(p.as_path()) != keep).collect();
         zips.sort();
         while zips.len() > KEEP_BACKUPS {
             host.local_remove(&zips.remove(0));

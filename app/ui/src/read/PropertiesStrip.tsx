@@ -12,6 +12,7 @@ import { openDate } from '../daily/open';
 import { dateTimeSetting, formatDate as formatDateWith, formatDateTime as formatDateTimeWith } from '../i18n/dates';
 import { appZone } from '../zone';
 import { attributeRows, type AttrRow } from './properties';
+import { useTagLook } from '../tags/store';
 
 const locale = () => region() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
 
@@ -71,6 +72,7 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
 }
 
 function Value({ row, p }: { row: AttrRow; p: Props }) {
+  const look = useTagLook();
   const v = row.value;
   switch (v.kind) {
     case 'text':
@@ -90,8 +92,8 @@ function Value({ row, p }: { row: AttrRow; p: Props }) {
           {v.tags.map((tag) => {
             const key = tag.normalize('NFC').toLowerCase();
             return (
-              <a key={tag} href="#" className="chip tag-chip" data-tag={key} onClick={(e) => { e.preventDefault(); p.onTag(key); }}>
-                <span data-user-content>#{tag}</span>
+              <a key={tag} href="#" className="chip tag-chip" data-tag={key} style={look(tag).style} onClick={(e) => { e.preventDefault(); p.onTag(key); }}>
+                <span data-user-content>#{look(tag).name}</span>
               </a>
             );
           })}

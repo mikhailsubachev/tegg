@@ -7,6 +7,7 @@ import { Placeholder } from '../shell/Placeholder';
 import { ROUTES, routeDef } from '../shell/registry';
 import type { DateTimeUiDto, TypeDefDto, VaultInfo } from '../ipc/types';
 import { DateTimeSettings, MenuBarSettings, ShortcutsSettings, VaultSettings } from './settings5b';
+import { BackupsSection } from './BackupsPage';
 
 const SECTIONS: [string, string][] = [
   ['settings/appearance', 'settings.appearance'],
@@ -14,6 +15,7 @@ const SECTIONS: [string, string][] = [
   ['settings/vault', 'settings.vault'],
   ['settings/shortcuts', 'settings.shortcuts'],
   ['settings/menu-bar', 'settings.menuBar'],
+  ['settings/backups', 'backups.title'],
   ['settings/trash-history', 'settings.trashHistory'],
   ['settings/previews', 'settings.previews'],
 ];
@@ -38,7 +40,7 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   const def = routeDef(id) ?? ROUTES.find((r) => r.id === 'settings/appearance')!;
   return (
     <div className="page-column settings">
-      <h1 ref={heading} tabIndex={-1}>{t(def.name)}</h1>
+      <h1 ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : t(def.name)}</h1>
       <nav className="settings-sections" aria-label={t('frame.settingsSections')}>
         {SECTIONS.map(([sid, key]) => (
           <a
@@ -90,6 +92,8 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
         <MenuBarSettings />
       ) : id === 'settings/shortcuts' ? (
         <ShortcutsSettings commandTitle={commandTitle} />
+      ) : id === 'settings/backups' ? (
+        <BackupsSection />
       ) : id === 'settings/date-time' ? (
         <DateTimeSettings value={dateTime} onChange={onDateTime} />
       ) : (

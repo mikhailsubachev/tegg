@@ -7,6 +7,7 @@ import { applyPatches, entryKeyText, formatEntry, type Patch, type Value } from 
 import { wikilinks } from './links.js'
 import { parse, type Doc, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
+import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
 
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
@@ -18,6 +19,11 @@ export type TextOp =
   | { op: 'append-link'; target: string; now: string }
   // D-573: a bulk `Link to…`; each file gets the D-184 text of `toPath` from its own folder (D-291 over `paths`).
   | { op: 'append-link-to'; toPath: string; toTitle: string; paths: string[]; now: string }
+  // Slice 4D-lite (ms4-tags §4.2): tag jobs, merge and restore through an open editor.
+  | { op: 'rename-tag'; key: string; to: string }
+  | { op: 'remove-tag'; key: string }
+  | { op: 'merge-into'; others: { path: string; title: string; text: string }[]; now: string }
+  | { op: 'replace'; text: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -25,6 +31,15 @@ type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
+  // 4D-lite (ms4-tags §4.2): merge and replace are whole-text changes; the edit is the changed span.
+  if (ops.some((o) => o.op === 'merge-into' || o.op === 'replace')) {
+    let out = text
+    for (const o of ops) {
+      if (o.op === 'replace') out = o.text
+      else if (o.op === 'merge-into') out = mergeInto(out, o.others, o.now)
+    }
+    return span(text, out)
+  }
   // 5B Inbox ops (ms5-capture §7.3) are whole-text changes of `applyInboxChange`; the edit is the changed span.
   if (ops.length > 0 && ops.every((o) => o.op === 'set-review' || o.op === 'set-type' || o.op === 'add-tags' || o.op === 'append-link' || o.op === 'append-link-to')) {
     let out = text
@@ -46,6 +61,8 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   for (const op of ops) {
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
     else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
+    else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))
+    else if (op.op === 'remove-tag') patches.push(...removeTagPatches(doc, op.key))
   }
   const changed = patches.filter((p) => text.slice(p.range[0], p.range[1]) !== p.text)
   if (changed.length === 0) return { kind: 'unchanged' }
@@ -275,4 +292,15 @@ function resolvesTo(source: string, target: string, markdown: boolean, op: Retar
 function byteOffsets(text: string): (i: number) => number {
   const enc = new TextEncoder()
   return (i) => enc.encode(text.slice(0, i)).length
+}
+
+/** A whole-text change as one edit over the changed span (byte offsets of the input). */
+function span(text: string, out: string): Transformed {
+  if (out === text) return { kind: 'unchanged' }
+  let a = 0
+  while (a < text.length && a < out.length && text[a] === out[a]) a++
+  let b = 0
+  while (b < text.length - a && b < out.length - a && text[text.length - 1 - b] === out[out.length - 1 - b]) b++
+  const bytes = byteOffsets(text)
+  return { kind: 'bytes', text: out, edits: [{ start: bytes(a), end: bytes(text.length - b) }] }
 }

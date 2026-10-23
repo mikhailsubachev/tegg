@@ -119,7 +119,9 @@ export const Tag = Node.create({
     return [{ tag: 'span[data-tag]', getAttrs: (el) => ({ value: el.getAttribute('data-tag') }) }]
   },
   renderHTML({ node, HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes, { 'data-tag': node.attrs.value, class: 'tag' }), `#${node.attrs.value}`]
+    // D-709: `data-tag-key` (NFC, lower case) lets the app colour the tag with one style sheet, no transaction.
+    const key = String(node.attrs.value).normalize('NFC').toLowerCase()
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-tag': node.attrs.value, 'data-tag-key': key, class: 'tag' }), `#${node.attrs.value}`]
   },
   renderText: ({ node }) => `#${node.attrs.value}`,
 })

@@ -144,7 +144,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 
 ### MS4: Links, tags, renames, daily notes
 
-26 requirements (D-370, D-372 moved 4 to v1.0) · 8 with ACs · 2 with spike evidence · 0 implemented
+26 requirements (D-372 moved 3 to v1.0; D-707 brought FR-TAG-05 back from v1.0, D-370) · 8 with ACs · 2 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
@@ -382,7 +382,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-06 | S | Trash retention (default 30 days), version history retention (default 90 days). | Retention settings, with version history |
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
-| FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370: tag colour to v1.0 |
+| FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275) |
 | FR-STO-04 | M | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | D-372: type moves to v1.0 |
 | FR-TYP-04 | M | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | D-372: schema rewrites to v1.0 |
 | FR-TYP-07 | M | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | D-372: the file-move part to v1.0; the type change itself stays MS3 (D-224) |
