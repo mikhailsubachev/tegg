@@ -215,7 +215,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
 | NFR-SEC-03 | The share extension and capture window only write to the vault; they never read content back to other apps. | no ACs yet |
 | FR-MMP-01 | A mindmap block can be inserted into any note; it is a `> [!mindmap]` callout holding one list (D-679). | no ACs yet (slice MM, D-377) |
-| FR-MMP-02 | Visual editing (D-36): add child/sibling node with Tab/Enter, edit text inline, drag to re-parent, collapse br… | no ACs yet; render + outline editing in the MVP, drag/collapse/zoom/pan v1.0 (D-377) |
+| FR-MMP-02 | Editing (D-684): the list is edited as an ordinary list and drawn as a map by Tegg; a Map / List toggle switches the view… | no ACs yet; list editing + map in the MVP (slice MM, D-684), editing on the map, drag/collapse/zoom/pan v1.0 (D-377, D-687) |
 | FR-MMP-04 | Per object type, the mindmap block can be included by default via the template ("optional per type"). | no ACs yet (slice MM, D-377) |
 
 ### MS6: Images, PDFs, trash
@@ -360,7 +360,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-QRY-08 | S | Creating an object from within a query view pre-fills the attributes that match the filters (e.g. a new card i… | Query builder and views (§11) |
 | FR-QRY-09 | M | Query results update live when files change (including external edits). | Query builder and views (§11) |
 | FR-MMP-03 | S | Mindmap nodes may contain `[[links]]`. A node can be converted into an object (FR-CNV on its list item, D-687). | Mindmap editor (§11) |
-| FR-MMP-05 | M | Exports render the mindmap as an image (FR-EXP). | Mindmap editor (§11) |
+| FR-MMP-05 | M | Exports render the mindmap as an image (FR-EXP), from Tegg's own drawing (D-683). | Mindmap editor (§11) |
 | FR-ATT-04 | S | Deleting the last reference to an attachment does not delete the file; an "Unused attachments" tool lists orph… | D-87 (AP-34) |
 | FR-ATT-05 | S | Warn on files > 20 MB (configurable). | D-87 (AP-34) |
 | FR-TPL-01 | M | Each type can have multiple templates, one marked default. A template is a `.md` file in `_templates/<Type>/`. | Templates (§11) |

@@ -71,7 +71,10 @@ A mindmap block is a callout of type `mindmap` whose body is one list. The title
 - `app/test/shell-tables.ts` and `app/test/embeds_registry.ac.test.ts`: R5 loses the `mindmap` row.
 - `app/test/read_view.ac.test.ts`: Bloky's placeholders become `['query']`; its two Mermaid blocks show as code.
 - `app/test/editor_registry.ac.test.ts`: the slash row `Mindmap` moves from v1.0 to MS5.
+- `packages/doc/test/corpus.static.ac.test.ts` `ar_06_ac1_tegg_notes_use_every_mvp_block_type`: its mindmap pattern becomes the callout.
 
-**Code** (MS1–MS3, small): `packages/doc/src/parse.ts` stops classifying Mermaid fences as `mindmap` (they become `raw`/`code`) and recognises the callout; the `ph.mindmap` placeholder paths in `ReadView.tsx`, `EditorPane.tsx`, `EmbedEditor.tsx`, `present.ts` and `registry.ts` go. The contracts follow: `docs/contracts/ms1-core.md` (block kinds) and `docs/contracts/ms3-shell.md` (`IN_NOTE_PLACEHOLDERS`).
+**Fixtures that change** (a `Fixture-Change:` trailer, TS-D4): `tests/fixtures/format/roundtrip/tegg/Pages/Every block type.md` and its README row; the Obsidian-check vault `tests/fixtures/vaults/obsidian-check/Pages/Myšlenková mapa a dotaz.md` and `packages/doc/scripts/make-obsidian-check.ts` (the owner's D-686 recheck of FR-FMT-05 AC-3 uses it); the read-view fixture `Bloky.md` ("two Mermaid blocks").
+
+**Code** (MS1–MS3, small): `packages/doc/src/parse.ts` stops classifying Mermaid `mindmap` fences as `mindmap` (they become `raw`; other Mermaid fences stay `code`) and recognises the callout; the `ph.mindmap` placeholder paths in `ReadView.tsx`, `EditorPane.tsx`, `EmbedEditor.tsx`, `present.ts` and `registry.ts` go. The contracts follow: `docs/contracts/ms1-core.md` (block kinds) and `docs/contracts/ms3-shell.md` (`IN_NOTE_PLACEHOLDERS`).
 
 **Design boards:** Main and MainUnreviewed redraw the block: callout header with `Map` / `List`, the list under the map in List mode, no zoom or full-screen buttons, no collapsed badge, slash row text `Edit as a list, shown as a map`. The empty state of AP-622 and the non-list hint of AP-621 are new small states.
