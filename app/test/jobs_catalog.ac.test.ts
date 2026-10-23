@@ -48,7 +48,7 @@ test('fr_lnk_03_ac14_palette_commands_undo_rename_and_show_links_not_updated', a
   assert.ok(cmd, 'commands module loads');
   const ctx = { vault: { name: 'Přejmenování', path: '/tmp/Přejmenování', placeholders: 0 }, types: [], counts: {}, route: { id: 'note/<path>', path: 'Pages/Alfa.md' } };
   const list = cmd!.commands(ctx) as { id: string; title: string; needsVault: boolean; vars?: Record<string, unknown> }[];
-  for (const [id, title] of [['job.undoRename', 'Undo rename'], ['job.showNotUpdated', 'Show links not updated']] as const) {
+  for (const [id, title] of [['job.undoRename', 'Undo rename'], ['job.showNotUpdated', 'Show notes not updated']] as const) {
     const c = list.find((x) => x.id === id);
     assert.ok(c, `${id} is registered (FR-UX-03)`);
     assert.ok(c!.title in (cat.en as object), `${id}: title is a catalog key`);
