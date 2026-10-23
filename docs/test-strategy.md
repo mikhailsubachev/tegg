@@ -277,6 +277,7 @@ Without hosted CI nothing independent enforces the gates, so:
 - A test that fails and then passes on rerun is **flaky**, not green. It's quarantined (`@flaky` tag, separate report) within a day and gets an issue.
 - T1 tests may not stay quarantined past the current milestone.
 - File-watcher and timing tests use explicit event waits with generous upper bounds, never fixed sleeps.
+- **UI tests wait for state, not for time (D-688).** A WebKit or L6 test waits for the state it acts on or reads before acting: a list showing the typed query (`settled`), a value the core sends (`eventually`), an element (`must`), the embeds of a page it went Back to. A fixed `sleep` is only allowed before asserting that *nothing* happened. Under the push gate's lanes a fixed sleep or a single read is a flaky test.
 
 ---
 
