@@ -934,10 +934,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     const files = state.vault!.files;
     const entries: Record<string, string> = {};
     for (const p of Object.keys(files)) if (p.endsWith('.md') || p.startsWith('.tegg/')) entries[p.normalize('NFC')] = files[p];
-    let name = `${utcName(Date.now())}-${kind}.zip`;
-    for (let n = 2; state.backups.some((b) => b.name === name); n++) name = `${utcName(Date.now())}-${kind}-${n}.zip`;
+    // AP-619 (D-690): a zip made in a second that already has one takes the next free second (as the core's `backup`),
+    // so name order stays newest first under the fixed clock.
+    let at = Date.now();
+    while (state.backups.some((b) => b.name.startsWith(`${utcName(at)}-`))) at += 1000;
+    const name = `${utcName(at)}-${kind}.zip`;
     const manifest: BackupManifest = { version: 1, kind, label, vault: state.vault!.name, time: new Date(Date.now()).toISOString().replace(/\.\d+Z$/, 'Z'), job: jobId, planned, done: null };
-    const rec: BackupRecord = { name, kind, time: isoLocal(Date.now()), label, files: Object.keys(entries).length, manifest, entries };
+    const rec: BackupRecord = { name, kind, time: isoLocal(at), label, files: Object.keys(entries).length, manifest, entries };
     state.backups.push(rec);
     const others = state.backups.filter((b) => b.name !== exempt).sort((p, q) => (p.name < q.name ? -1 : 1));
     while (others.length > 10) { const old = others.shift()!; state.backups = state.backups.filter((b) => b !== old); }
@@ -1188,8 +1191,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return out;
     },
     index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map((o) => ({ path: o.path, id: o.id, title: o.title, type: o.type, modified: o.modified })),
-    index_search: (a) => {
+    index_search: async (a) => {
       // §15.8: words in tiers (D-253), quoted phrases strict, `-word` excluded, file stems searched (D-254). No typos.
+      // AP-621 (D-692): `query.tags` requires every key (all of); tags without text list every matching object.
+      const tagKeys = ((a.query?.tags ?? []) as unknown[]).map(String);
+      const tagged = tagKeys.length && state.vault
+        ? new Set(((await w.__teggTags('search_tag_paths', { keys: tagKeys }, state.vault.files, {})).result ?? []) as string[])
+        : null;
+      const inTags = (p: string) => !tagged || tagged.has(p.normalize('NFC'));
       const words = (t: string) => [...t.normalize('NFC').matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => ({ at: m.index!, end: m.index! + m[0].length, w: fold(m[0]) }));
       const toks = (t: string) => words(t).map((x) => x.w);
       const items: { toks: string[]; neg: boolean; quoted: boolean }[] = [];
@@ -1198,13 +1207,20 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         if (tk.length) items.push({ toks: tk, neg: m[1] === '-' && (m[2] !== undefined || (m[3] ?? '').length > 0), quoted: m[2] !== undefined });
       }
       const pos = items.filter((i) => !i.neg);
+      const seqIn = (hay: string[], need: string[]) => hay.some((_, k) => need.every((x, j) => hay[k + j] === x));
+      if (!pos.length && tagged) {
+        const only = objects().filter((o) => inTags(o.path) && !items.some((i) => i.neg && [o.title, o.path.split('/').pop()!.replace(/\.md$/, ''), state.vault!.files[o.path]].some((t) => seqIn(toks(t), i.toks))))
+          .sort((x, y) => x.title.localeCompare(y.title) || x.path.localeCompare(y.path))
+          .map((o) => ({ path: o.path, type: o.type, title: o.title, matched_in: 'title', tier: 'phrase', typo: false, snippet: null, file_name: null }));
+        return { results: only, total: only.length };
+      }
       if (!pos.length) return { results: [], total: 0 };
       const seq = (hay: string[], its: { toks: string[] }[]) => {
         const need = its.flatMap((i) => i.toks);
         return hay.some((_, k) => need.every((w, j) => hay[k + j] === w));
       };
       const unq = pos.filter((i) => !i.quoted);
-      const rows = objects().flatMap((o) => {
+      const rows = objects().filter((o) => inTags(o.path)).flatMap((o) => {
         const text = state.vault!.files[o.path];
         const fm = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(text);
         const body = fm ? text.slice(fm[0].length) : text;
