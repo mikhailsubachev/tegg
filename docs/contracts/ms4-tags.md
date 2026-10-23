@@ -1,6 +1,6 @@
 # MS4 Tags Interface Contract (slice 4D-lite)
 
-- **Status:** draft, 2026-10-22. Written before the 4D-lite red tests (as D-430, D-552). Follows D-636…D-686 (BRD v1.84).
+- **Status:** draft, 2026-10-22. Written before the 4D-lite red tests (as D-430, D-552). Follows D-636…D-693 (BRD v1.85).
 - **ACs:** [docs/acceptance/tags.md](../acceptance/tags.md) (FR-TAG-01…08, -10; FR-SRC-02 AC-10…AC-12; FR-EDT-15 AC-5, AC-6; FR-HIS-04 AC-7…AC-10; FR-LNK-14 AC-11…AC-14; FR-NAV-04 AC-8; FR-FMT-07 AC-23; FR-SYN-06 AC-31, AC-32) and the earlier criteria it changes (D-675). Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Builds on** [ms4-jobs.md](ms4-jobs.md) (the job engine, text ops, backups, the not-updated list), [ms4-links.md](ms4-links.md) (§1 resolution, §3.1 free stems), [ms3-shell.md](ms3-shell.md) (§5 fake core, §13 `note_read` / `note_write` / `note_create_exact`, §14 types), [ms5-tasks.md](ms5-tasks.md) (the tag filter control, quick-add), [ms5-capture.md](ms5-capture.md) (capture ACL), [ms6-trash-media.md](ms6-trash-media.md) (§1.4 trash moves). Everything there stays valid unless this contract changes it.
 - **Writes.** `New tag` and a colour choice are single note writes from the UI with `@tegg/doc` bytes (one text engine, D-82). Rename, `Remove from…`, merge and restore are jobs with a backup zip first. `Delete only the tag` is one trash move (ms6-trash-media §1.4). Viewing anything writes nothing (FR-SYN-06 AC-31).
@@ -283,7 +283,7 @@ R88's keys go into `app/ui/src/i18n/catalog.ts`; plural keys use the existing `{
 7. **D-685:** FR-TAG-05 AC-6 at L6 by element-screenshot pixels against the light tokens.
 8. **D-686:** FR-TAG-04 AC-7's dialog text includes the template (`tag.renameTemplates`).
 
-## 12. Points found while building (AP-616 onwards, pending the owner)
+## 12. Points found while building (AP-616…AP-622, decided as D-687…D-693, BRD v1.85)
 
 Each is a red test that can't pass as written; the build follows the ACs and the contract, and the test needs an
 `AC-Test-Change` approved by the owner (or the fake core a fix, which is test code).

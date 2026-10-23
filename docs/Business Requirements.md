@@ -100,6 +100,7 @@
 | v1.82   | 2026-10-22 | 4D-lite ACs (`docs/acceptance/tags.md`) approved: owner decisions D-657…D-674 (AP-587…AP-604, each as recommended): tag display names, name rules, no `modified` churn from tag jobs, templates and Tag-file links in tag jobs, empty `tags:` removed, inline tag removal, duplicate Tag files, Tag folder, missing tags, ties and counts, tag page details, colour popover edge cases, backup manifest and restore of created and renamed files, the not-updated list, merge details, Type settings of Tag; D-675 approves the listed AC-test changes. |
 | v1.83   | 2026-10-22 | 4D-lite contract (`docs/contracts/ms4-tags.md`): owner decisions D-676…D-678 (AP-605…AP-607): remembered tag selections follow tag jobs, one not-updated wording for every job, the Undo toast after `Delete only the tag`. |
 | v1.84   | 2026-10-23 | 4D-lite red-test decisions D-679…D-686 (AP-608…AP-615): the Rust restore and backups interface, the key order of attributes a merge adds, the tag view model shapes, encoded tag routes and the `tag-rows` mark, `Notes not updated`, `NothingToDo` for a no-op tag rename, the pixel colour check at L6, the rename dialog text with templates. |
+| v1.85   | 2026-10-23 | 4D-lite build test fixes D-687…D-693 (AP-616…AP-622, each as recommended): red tests and fake-core gaps that couldn't pass as written, and older tests overturned by D-638, D-646, D-649, D-683. |
 
 ---
 
@@ -819,6 +820,13 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-684 | A tag rename with nothing to do (AP-613, owner, 2026-10-23; 4D-lite red tests, `docs/contracts/ms4-tags.md`) | `Jobs::start` returns `JobError::NothingToDo` for a tag rename to the same spelling; `tag_rename` maps it to `{ jobId: null }`; no zip, no write (FR-TAG-04 AC-5) |
 | D-685 | Colour check in the real app (AP-614, owner, 2026-10-23; 4D-lite red tests, `docs/contracts/ms4-tags.md`) | The L6 part of FR-TAG-05 AC-6 compares pixels of an element screenshot with the light-theme tokens (`#EAF0FB` background, `#1D5CCB` text for blue); computed styles stay the L5 check |
 | D-686 | Rename dialog text with templates (AP-615, owner, 2026-10-23; 4D-lite red tests, `docs/contracts/ms4-tags.md`) | FR-TAG-04 AC-7 quotes D-660's text: `Updates 6 notes and 1 template. A backup is made first.` on the fixture (`účty` is in one template) |
+| D-687 | Restore test with a read-only backup folder (AP-616, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The test makes the vault's own backup folder read-only too, so the pre-restore zip fails |
+| D-688 | Browsing-tour test reads a closed page (AP-617, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The test reads the second page's calls before closing it |
+| D-689 | Toast text after Delete only the tag (AP-618, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The test matches the D-620 toast `Moved "Účty" to the trash` |
+| D-690 | Backups made in one second in the fake core (AP-619, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The fake core moves a later zip to the next free second, as the core does |
+| D-691 | Merge dialog reads its plan (AP-620, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The Duplicate titles test excludes `merge_start`, `job_plan` and `job_cancel` from its writes |
+| D-692 | Tag-only search in the fake core (AP-621, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The fake core applies `tags` (all must match) and answers a filter-only query |
+| D-693 | Older tests overturned by D-638, D-646, D-649, D-683 (AP-622, owner, 2026-10-23; 4D-lite build, `docs/contracts/ms4-tags.md` §12) | The listed rename, type-chip, read-view, attribute-panel, keyboard and i18n tests follow those decisions (`Notes not updated`, Tag files open their tag page, `index_tags`/`tag_objects` are reads, `tag/účty` as the route example) |
 
 ---
 
