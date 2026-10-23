@@ -24,7 +24,8 @@ async function tasksCount(page: Page): Promise<string> {
 test('fr_tsk_04_ac18_the_sidebar_count_is_the_open_tasks', async ({ page, browser }) => {
   await startTasks(page);
   // Landed on Home: no visit to `tasks` yet (the count needs none).
-  assert.equal(await tasksCount(page), '15', 'the sidebar shows the open tasks (Open or In progress: 15), not overdue + due today (D-588)');
+  // The count comes from the core after the frame shows: wait for it rather than reading at once.
+  assert.equal(await eventually(() => tasksCount(page), (c) => c === '15', 5000), '15', 'the sidebar shows the open tasks (Open or In progress: 15), not overdue + due today (D-588)');
   assert.equal(await description(sidebarTasks(page)), '15 open tasks', 'with the description "15 open tasks"');
   await runCommand(page, 'Go to type: Projekty');
   await sleep(300);

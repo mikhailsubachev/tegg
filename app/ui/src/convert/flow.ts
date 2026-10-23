@@ -46,9 +46,39 @@ export async function embedTargetFor(source: string, path: string, title: string
   return embedTarget({ path, title, fromPath: source, stemResolves });
 }
 
+/**
+ * Removes a conversion's new file: discarded while it is still `created`, otherwise moved to the trash with an alert
+ * (FR-CNV-06 AC-3: a changed file is never deleted). True when it was discarded or is already gone.
+ */
+async function dropNew(path: string, created: string, title: string): Promise<boolean> {
+  let note;
+  try {
+    note = await ipc.noteRead(path);
+  } catch {
+    return true; // FR-CNV-06 AC-5: already gone
+  }
+  if (note.utf8 && note.text === created) {
+    try {
+      await ipc.noteDiscard(path, note.version);
+      return true;
+    } catch (e) {
+      if ((e as { kind?: string })?.kind === 'NotFound') return true;
+    }
+  }
+  try {
+    const now = await ipc.noteRead(path);
+    await ipc.noteTrash(path, now.version);
+    pushAlert(t('convert.trashedOnUndo', { title }));
+  } catch { /* gone meanwhile */ }
+  return false;
+}
+
 /** Converts `unit` (null: the caret's empty paragraph, `/task` there) into a new object of `type` titled `title`. */
 export async function convert(host: ConvertHost, unit: ConvertUnit | null, title: string, type: TypeDefDto): Promise<boolean> {
   const text = host.ed.text();
+  // D-689: the selection at Convert; if it has changed when the embed lands, the user moved on. A transaction that only
+  // maps the selection (one not made by the user) also counts as moved: the embed is then not selected, nothing else.
+  const startSel = host.ed.view.state.selection;
   const obj = unit ? objectFromUnit(text, unit, host.linkTitle) : { title: '', tags: [], body: '', checked: null };
   let made: { path: string; text: string };
   let key: string;
@@ -71,8 +101,14 @@ export async function convert(host: ConvertHost, unit: ConvertUnit | null, title
   }
   const target = await embedTargetFor(host.source, made.path, title);
   const record: ConversionRecord = { path: made.path, created: made.text, type: key, title };
-  if (unit) host.ed.commands.convertUnit(unit, target, record);
-  else {
+  if (unit) {
+    const moved = !host.ed.view.state.selection.eq(startSel);
+    if (host.ed.commands.convertUnit(unit, target, record, { keepSelection: moved }) === false) {
+      // D-689: the blocks changed while the object was created: the new file goes, nothing in the source changed.
+      if (await dropNew(made.path, made.text, title)) pushAlert(t('convert.failed', { title }));
+      return false;
+    }
+  } else {
     const at = host.ed.view.state.selection.from;
     host.ed.commands.insertEmbed(at, at, target);
   }
@@ -88,26 +124,7 @@ export function conversionHooks(host: () => ConvertHost | null) {
       void (async () => {
         const h = host();
         if (h) await h.flush(); // the source first: it never names a missing file
-        let note;
-        try {
-          note = await ipc.noteRead(r.path);
-        } catch {
-          return; // FR-CNV-06 AC-5: already gone
-        }
-        if (note.utf8 && note.text === r.created) {
-          try {
-            await ipc.noteDiscard(r.path, note.version);
-            return;
-          } catch (e) {
-            if ((e as { kind?: string })?.kind === 'NotFound') return;
-          }
-        }
-        // FR-CNV-06 AC-3: changed since its creation: never deleted, moved to the trash.
-        try {
-          const now = await ipc.noteRead(r.path);
-          await ipc.noteTrash(r.path, now.version);
-          pushAlert(t('convert.trashedOnUndo', { title: r.title }));
-        } catch { /* gone meanwhile */ }
+        await dropNew(r.path, r.created, r.title);
       })();
     },
     async beforeRedo(r: ConversionRecord): Promise<string | false> {

@@ -10,7 +10,7 @@ import {
   D, NOW, NOW_IN, ZONES, absent, bodyOf, btn, callsOf, caretAtEnd, cmdD, dailyVault, description, duplicateNotice, editorBody, eventually,
   fileText, fileWhen, flat, gotoDaily, gotoNote, isDisabled, keysOf, main, mainName, must, mustBeOn, mustDaily, nextDay, original, pickDate,
   prevDay, reviewToggle, runCommand, saveState, seen, sidebarToday, sleep, startDaily, stateIs, swap, templateBody, titleField, titleText,
-  changeTypeItem, moreButton, todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
+  changeTypeItem, linkSuggestions, moreButton, todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
 } from './daily-helpers';
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
@@ -369,13 +369,16 @@ test.describe('virtual note', () => {
     // (D-258); elsewhere Esc would select the block (D-183) and Backspace delete it.
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Meta+ArrowLeft');
+    // Esc must reach the open list: with no list open it selects the block (D-183), and Backspace then deletes it.
     await page.keyboard.type('@');
-    await sleep(200);
+    await must(linkSuggestions(page), 'the @ list');
     await page.keyboard.press('Escape');
+    assert.ok(await absent(linkSuggestions(page)), 'Esc closes the @ list');
     await page.keyboard.press('Backspace');
     await page.keyboard.type('[[');
-    await sleep(200);
+    await must(linkSuggestions(page), 'the [[ list');
     await page.keyboard.press('Escape');
+    assert.ok(await absent(linkSuggestions(page)), 'Esc closes the [[ list');
     await page.keyboard.press('Backspace');
     await page.keyboard.press('Backspace');
     await sleep(1500);

@@ -1,6 +1,6 @@
 # Open items for the next slices
 
-Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
@@ -9,11 +9,11 @@ what is open and the next step. Remove an item once it is done or decided.
 Full `app-e2e` set (no `nfr_perf_*`, `nightly_*`): 158 tests, **147 pass, 11 fail**, 46 min. The four 6A media tests
 below ran on the real app for the first time. Logs stay local (not committed).
 
-14. **A pasted image in Quick Capture is saved twice (T2, likely a real bug).** `fr_cap_01_ac12` and
-    `fr_att_01_ac11`: one capture with one pasted image writes two Image objects (`Obrazek z menu 1.md`, `… 2.md`) and
-    two files (`Pasted image …0001.png`, `…0004.png`) instead of one each; the capture window shows no thumbnail with
-    `Remove`. Next: a `bug_…_fr_cap_01_…` regression test (the paste handler likely fires twice: the native paste hook
-    and the webview paste event), then the fix.
+14. **A pasted image in Quick Capture "saved twice": done (branch `ms6/capture-paste-twice`).** Not a double save:
+    `fr_cap_01_ac12` pasted, pressed Esc and pasted again, and staged images survive Esc (D-636, AP-566), so both were
+    saved; the test now uses Discard. `fr_att_01_ac11` looked for a button named exactly `Remove` (it is
+    `Remove "<name>"`). Found on the way: Discard kept the staged images (`bug_v055_fr_cap_01_discard_drops_staged_media`,
+    fixed).
 15. **Drop and double-click on media in the real app.** `fr_att_01_ac2` (two dropped files don't land as two
     paragraphs at the drop point, in drop order) and `fr_att_01_ac13` (a double-click on the image doesn't open
     `note/Images/Záhon.md`). Both pass at L5 on the fake core. Next: reproduce in the built app; decide app bug vs. L6
@@ -68,6 +68,15 @@ below ran on the real app for the first time. Logs stay local (not committed).
     `fr_lnk_01_ac16` (backlinks warm-up mark not reached) and `fr_tsk_04_ac14` (the generated reference vault has 0
     tasks). Not checked against a build before D-516…D-523. Next: run `./verify nightly` on `main` to see whether they
     fail there too; investigate `fr_lnk_03_ac17` first (rename crash safety, FR-SYN-02).
+20. **`fr_ux_07_ac1` can fail under push-gate contention (owner, 2026-10-23).** In a `./verify push --all` run on
+    `qa/webkit-flakes`, the largest gap between index progress events was 508.6 ms against D-110's 500 ms
+    (`crates/tegg-core/tests/ac_perf.rs`, debug build, the WebKit lane running beside it). It is a requirement-level
+    timing AC, so the limit stays. Next: decide whether `ac_perf.rs` runs in the nightly gate or in a release build
+    instead of the debug push gate (a D-343/D-609 gate change).
+21. **Existing WebKit sleeps before actions (D-688, 2026-10-23).** `app/webkit` has ~480 `await sleep(` calls; the
+    test-strategy §8.4 rule (wait for state, not time) binds new and touched tests. A scan found ~237 reads right after
+    start or navigation without a wait, and three pickers (tags, relation) still sleep before ⏎. Next: fix a test when
+    it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59).
 
 ## Product and accessibility
 

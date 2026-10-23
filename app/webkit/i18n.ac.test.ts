@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { R1, R2 } from '../test/shell-tables';
 import {
   absent, gotoTagPage, must, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, shellVaultWithTag, sidebar, sleep, start,
-  switcherDialog,
+  switcherDialog, settled,
 } from './helpers';
 
 /** Visible text outside ⟦ ⟧ that isn't user content, whitespace, digits, punctuation or symbols. */
@@ -33,7 +33,7 @@ async function go(page: Page, query: string) {
   await page.keyboard.press('Meta+k');
   await must(paletteDialog(page), `palette (${query})`);
   await page.getByRole('combobox', { name: 'Command query' }).fill(query);
-  await sleep(60);
+  await settled(page, 'Commands', query);
   await page.keyboard.press('Enter');
   await sleep(150);
 }

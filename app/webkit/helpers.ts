@@ -33,8 +33,10 @@ export async function start(page: Page, o: StartOptions = {}): Promise<FakeCoreH
   const core = await installFakeCore(page, vault, o);
   await page.goto('/');
   const frame = o.frame ?? (vault ? 'vault' : 'chooser');
-  if (frame === 'vault') await must(sidebar(page), 'the frame (navigation "Sidebar")', 5000);
-  if (frame === 'chooser') await must(page.getByRole('main', { name: 'Choose a vault' }), 'the chooser (main "Choose a vault")', 5000);
+  // 10 s: the fake core ships the whole vault to Node on every call, so a 1,000-note vault (FR-LNK-01 AC-16) can take
+  // more than 5 s to show the frame while the push gate runs its Rust lanes.
+  if (frame === 'vault') await must(sidebar(page), 'the frame (navigation "Sidebar")', 10_000);
+  if (frame === 'chooser') await must(page.getByRole('main', { name: 'Choose a vault' }), 'the chooser (main "Choose a vault")', 10_000);
   return core;
 }
 
@@ -141,9 +143,30 @@ export async function onPage(page: Page, name: string, ms = 3000): Promise<boole
   return (await eventually(() => mainName(page), (n) => n === name, ms)) === name;
 }
 
-export async function mustBeOn(page: Page, name: string, how: string, ms = 3000) {
+// 5 s: a route that follows core work (a rename job, a big vault) can take longer than 3 s while the push gate runs
+// its Rust lanes beside WebKit; a passing wait still returns at once.
+export async function mustBeOn(page: Page, name: string, how: string, ms = 5000) {
   const got = await eventually(() => mainName(page), (n) => n === name, ms);
   assert.equal(got, name, `${how}: centre pane should be "${name}"`);
+}
+
+// Accents, case, punctuation and the pseudo-locale's ⟦⟧ aside (NFR-OTH-02 AC-3), so `Go to type Osoby` matches
+// `Go to type: Osoby`.
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+/**
+ * Waits until the selected option of `list` (the palette's `Commands` or the switcher's `Switcher results`) answers
+ * `query`: its first line contains the query, accents and case aside. The switcher asks the core for its results, so
+ * right after typing the list can still show the previous query's; ⏎ then opens the wrong note. A fixed sleep was not
+ * enough under the push gate's load. Gives up after `ms` without failing, for fuzzy queries no option spells out (the
+ * test's next assertion still decides), and logs that it did.
+ */
+export async function settled(page: Page, list: string, query: string, ms = 3000): Promise<boolean> {
+  const want = fold(query);
+  const name = new RegExp(`^⟦?${list.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}⟧?$`); // the pseudo-locale wraps it in ⟦⟧
+  const sel = page.getByRole('listbox', { name }).getByRole('option', { selected: true }).first();
+  const got = await eventually(() => sel.innerText({ timeout: 200 }).then((t) => fold(t.split('\n')[0]), () => ''), (t) => t.includes(want), ms);
+  if (!got.includes(want)) console.warn(`settled: no selected option of "${list}" matched ${JSON.stringify(query)} within ${ms} ms (last: ${JSON.stringify(got)})`);
+  return got.includes(want);
 }
 
 /** Opens the palette with ⌘K, types `query`, runs the first result with ⏎. */
@@ -151,7 +174,7 @@ export async function runCommand(page: Page, query: string) {
   await page.keyboard.press('Meta+k');
   await must(paletteDialog(page), `Command palette (for "${query}")`);
   await page.getByRole('combobox', { name: 'Command query' }).fill(query);
-  await sleep(50);
+  await settled(page, 'Commands', query);
   await page.keyboard.press('Enter');
 }
 
@@ -164,7 +187,7 @@ export async function openNote(page: Page, title: string) {
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'Quick switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await sleep(150);
+  await settled(page, 'Switcher results', title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}" from the switcher`);
 }

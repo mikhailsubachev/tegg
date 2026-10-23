@@ -71,10 +71,10 @@ A **block** is a top-level CommonMark/GFM construct. Text between blocks (blank 
 | Code block | fenced ```` ``` ```` / `~~~`, indented | fenced ```` ``` ```` |
 | Divider | `---`, `***`, `___` | `---` |
 | Table | GFM; `\|` escapes a pipe inside cells (also inside links) | GFM |
-| Mindmap (FR-FMT-05) | fenced `mermaid` whose first non-empty line is `mindmap` | same |
+| Mindmap (FR-FMT-05) | until slice MM: fenced `mermaid` whose first non-empty line is `mindmap`. From slice MM (D-679, D-680): a callout of type `mindmap` (case-insensitive) whose body is exactly one list (any other body is an ordinary callout); a `mermaid` `mindmap` fence is then raw | same |
 | Query (FR-FMT-06) | fenced `query` containing YAML | same |
 | Embed block | a paragraph containing only `![[…]]` | `![[…]]` |
-| Raw (preserved) | HTML blocks, footnote definitions `[^1]:`, math `$$…$$`, comment blocks `%%…%%`, unknown fences (`dataview`, …) | never rewritten |
+| Raw (preserved) | HTML blocks, footnote definitions `[^1]:`, math `$$…$$`, comment blocks `%%…%%`, unknown fences (`dataview`, …); from slice MM also `mermaid` `mindmap` fences (D-679) | never rewritten |
 
 ## 5. Inline syntax
 

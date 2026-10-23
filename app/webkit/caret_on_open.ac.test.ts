@@ -6,7 +6,7 @@
 // (types.md FR-TYP-09 AC-17); the title is typed there and ↩ creates the note and moves the caret to the body.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { eventually, focused, mustBeDraft, mustBeOn, openNote, sidebar, switcherDialog, typesList } from './helpers';
+import { eventually, focused, mustBeDraft, mustBeOn, openNote, sidebar, switcherDialog, typesList, settled } from './helpers';
 import {
   E, TITLES, bodyOf, editorBody, editorVault, fileText, must, mustBeSaved, noModified, openEditor, original, sleep, titleField, writes,
   type FakeCoreHandle,
@@ -112,7 +112,7 @@ test('fr_edt_01_ac11_a_read_only_file_keeps_the_heading_focus', async ({ page })
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'switcher');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Chyba uvozovky');
-  await sleep(150);
+  await settled(page, 'Switcher results', 'Chyba uvozovky');
   await page.keyboard.press('Enter');
   await sleep(500);
   assert.equal(await focusTarget(page), 'heading', 'data-focus-target="heading" on a file opened read-only (D-130)');
