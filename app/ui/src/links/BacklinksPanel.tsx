@@ -67,6 +67,14 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     setScroll(s);
   }, [panel, path]);
 
+  // ms4-links §5 (FR-LNK-01 AC-16 benchmark, D-749): `backlinks-painted:<path>` once the first group has painted.
+  const painted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!panel || painted.current === path) return;
+    painted.current = path;
+    requestAnimationFrame(() => requestAnimationFrame(() => void ipc.perfMark(`backlinks-painted:${path}`).catch(() => {})));
+  }, [panel, path]);
+
   useEffect(() => {
     if (!panel || focusFirst <= focusConsumed) return;
     focusConsumed = focusFirst;
