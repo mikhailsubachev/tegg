@@ -1280,13 +1280,17 @@ impl Inner {
         let mut zip = Vec::new();
         crate::zip::write_zip(&mut zip, &entries).map_err(|e| e.to_string())?;
         // Two jobs in one UTC second would share a name: the later one takes the next free second.
-        let existing: HashSet<PathBuf> = host.local_list(&dir).into_iter().collect();
+        // Any zip of that second, whatever its kind, moves this one on (names sort newest last, ms4-tags §5.2).
+        let taken: HashSet<String> = host
+            .local_list(&dir)
+            .into_iter()
+            .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().chars().take(15).collect()))
+            .collect();
         let mut t = chrono::Utc::now();
-        let mut path = dir.join(format!("{}-{}.zip", t.format("%Y%m%d-%H%M%S"), kind.as_str()));
-        while existing.contains(&path) {
+        while taken.contains(&t.format("%Y%m%d-%H%M%S").to_string()) {
             t += chrono::Duration::seconds(1);
-            path = dir.join(format!("{}-{}.zip", t.format("%Y%m%d-%H%M%S"), kind.as_str()));
         }
+        let path = dir.join(format!("{}-{}.zip", t.format("%Y%m%d-%H%M%S"), kind.as_str()));
         // Atomic, through tegg-vault (AR-04 AC-1); a read-only backups folder fails here and nothing is written.
         host.local_write(&path, &zip).map_err(|e| e.to_string())?;
         // Keep the newest ten (names start with the UTC time).

@@ -713,7 +713,7 @@ export function App() {
         // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
         : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
-  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY;
+  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY || route?.id === 'tag/<key>';
 
   // Focus moves to the new page's heading after navigation (D-130); `route-ready:` marks for Appium (§1).
   useEffect(() => {
