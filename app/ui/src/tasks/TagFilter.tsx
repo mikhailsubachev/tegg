@@ -6,13 +6,18 @@
 import { useId, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
+import { tagChipStyle } from '../theme/tagChip';
 
 type Tag = { key: string; label: string; count: number };
 
 const MAX_OPTIONS = 12;
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-export function TagFilter({ tags, selected, onChange }: {
+export function TagFilter({ tags, selected, onChange, colors, allHint }: {
+  /** D-655: chip colours by key (Search, the Tasks page). */
+  colors?: Record<string, string | null>;
+  /** The hint under two or more chips; the Tasks text by default. */
+  allHint?: string;
   /** `counts(...).tags`: every listed tag with the number of tasks it would leave. */
   tags: Tag[];
   /** The selected tag keys, in the order they were added. */
@@ -68,7 +73,7 @@ export function TagFilter({ tags, selected, onChange }: {
       <div className={`tf-box ${open ? 'open' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); input.current?.focus(); if (open) close(); else show(); } }}>
         <Icon name="search" size={13} />
         {selected.map((k) => (
-          <span key={k} className="tf-chip" data-tag={k}>
+          <span key={k} className="tf-chip" data-tag={k} style={colors ? tagChipStyle(colors[k]) : undefined}>
             <span data-user-content>#{labelOf(k)}</span>
             <button type="button" className="tf-chip-remove" data-command="tasks.tagFilter" aria-label={t('tasks.tagRemove', { tag: labelOf(k) })}
               onClick={() => { onChange(selected.filter((x) => x !== k)); input.current?.focus(); }}>×</button>
@@ -105,7 +110,7 @@ export function TagFilter({ tags, selected, onChange }: {
           <div className="tf-menu-keys">{t('tasks.tagKeys')}</div>
         </div>
       )}
-      {selected.length > 1 && <span className="hint">{t('tasks.tagAll')}</span>}
+      {selected.length > 1 && <span className="hint">{allHint ?? t('tasks.tagAll')}</span>}
     </div>
   );
 }

@@ -921,7 +921,7 @@ export function App() {
   } else if (route?.id === 'broken-links') {
     body = <BrokenLinksPage heading={heading} refresh={refresh} onOpen={(s, o) => openMention(s, o)} />;
   } else if (route?.id === 'duplicate-titles') {
-    body = <DuplicateTitlesPage heading={heading} refresh={refresh} types={types} onOpen={(p) => openNote(p)} />;
+    body = <DuplicateTitlesPage heading={heading} refresh={refresh} types={types} onOpen={(p) => openNote(p)} mergeRef={mergeCommand} />;
   } else if (route?.id === 'help/shortcuts') {
     body = <ShortcutsPage heading={heading} commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (route?.id === 'conflicts') {

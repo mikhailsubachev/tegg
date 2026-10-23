@@ -1326,6 +1326,8 @@ export const en: Catalog = {
   'tags.sidebarAll': 'All {count} ›',
   'tag.existsNow': '#{name} exists now.',
   'tag.breadcrumbNav': 'Breadcrumb',
+  'search.tagAll': 'Objects with all selected tags',
+  'backups.restoring': 'Restoring the backup…',
   'ts.tagNoProperties': 'Tags have no properties',
   'tag.sortMenu': 'Sort',
   'job.backupFailed': 'The backup failed, so nothing was changed.',
