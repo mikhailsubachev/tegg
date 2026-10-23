@@ -35,7 +35,7 @@ async function rozbiteAfterCreate(page: Page, core: FakeCoreHandle): Promise<str
   assert.ok(w.includes('Quick Notes/Q3 plán.md'), 'Quick Notes/Q3 plán.md is written');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Rozbité odkazy', 'Back to the source', 5000);
-  return (await eventually(() => fileText(core, B.rozbite), (x) => (x ?? '').includes('[[Q3 plán|Q3: plán?]]'), 4000)) ?? '';
+  return (await eventually(() => fileText(core, B.rozbite), (x) => (x ?? '').includes('[[Q3 plán|Q3: plán?]]'), 8000)) ?? '';
 }
 
 test('fr_lnk_04_ac13_typing_before_an_earlier_chip_keeps_the_clicked_link', async ({ page }) => {

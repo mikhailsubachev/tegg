@@ -310,8 +310,9 @@ export interface TeggEditor {
     // …existing
     /** D-490, D-492: replaces `unit` (as computed on the current text) by `replaceUnitWithEmbed(text, unit, target)`
      *  as ONE undo step tagged with `record`, selects the new embed as a block (FR-CNV-01 AC-7), and returns its pos.
-     *  Afterwards `text()` equals the helper's result byte for byte. False (nothing changed) if the text moved on. */
-    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord): number | false
+     *  Afterwards `text()` equals the helper's result byte for byte. False (nothing changed) if the text moved on.
+     *  `keepSelection` (D-689): keep the current selection (mapped past the replaced blocks) and don't scroll. */
+    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord, opts?: { keepSelection?: boolean }): number | false
   }
 }
 export type ConversionRecord = { path: string; created: string /* the bytes note_create wrote */; type: string; title: string }
@@ -340,7 +341,7 @@ export interface EditorOptions {
 | Module | What it is |
 | --- | --- |
 | `ConvertPopover.tsx` | R50: `dialog` `Turn into object`, Title textbox (selected), `Type` radiogroup (Page, Task, Quick Note, user types in D-122 order; ↑/↓ and first letter), summary (plural messages), `Convert` / `Cancel`. Esc and Cancel return focus to where it was; a typed `/turn` or `/task` is removed on close either way. |
-| `convert.ts` | `convertSelection(editor, page, opts: { preselect: 'task' \| 'last' })`: unit → `link_resolve` for link titles → popover → `prepareObject(type).create(title, values)` with `body` (§11.2; one creation path, D-245) → on success `link_resolve` for the embed target → `editor.commands.convertUnit` → `page.flushSave()` at once (not the 1 s autosave, AC-6). On a failed create: the `convert.failed` alert, nothing else. A source save failure or `Conflict` follows editor.md's rules; the new file stays. A virtual Daily Note's flush is its first write (`daily_create`). Writes `UiStateDto.convert.lastType`. |
+| `convert.ts` | `convertSelection(editor, page, opts: { preselect: 'task' \| 'last' })`: unit → `link_resolve` for link titles → popover → `prepareObject(type).create(title, values)` with `body` (§11.2; one creation path, D-245) → on success `link_resolve` for the embed target → `editor.commands.convertUnit` (with `keepSelection` when the selection changed since Convert, D-689) → `page.flushSave()` at once (not the 1 s autosave, AC-6). If `convertUnit` returns false (the blocks changed meanwhile), the new file is discarded while still as created and the `convert.failed` alert shows; changed since, it is moved to the trash with `convert.trashedOnUndo`, as undo does (D-689, FR-CNV-06 AC-3). On a failed create: the `convert.failed` alert, nothing else. A source save failure or `Conflict` follows editor.md's rules; the new file stays. A virtual Daily Note's flush is its first write (`daily_create`). Writes `UiStateDto.convert.lastType`. |
 | `undo.ts` | `afterUndo`: flush the source save, then `note_read(path)`: missing → nothing (AC-5); text equal to `created` → `note_discard(path, version)`; else (or `Conflict` from discard) → `note_trash(path, version)` and the `convert.trashedOnUndo` alert. `beforeRedo`: `note_create_exact(path, created)`; `Exists` → `note_create(type, title, created)` (next free stem, same `id`); then the embed target as in §11.2. |
 | `removeGuard.ts` | `guardEmbedRemoval`: null when `convert.skipRemoveConfirm` is set or none of the embeds is a converted object; a converted object is a resolved target whose frontmatter `source` resolves (`link_resolve` from the target) to the host path. Else the `alertdialog` (one for several, plural message); `Don't ask again` sets `convert.skipRemoveConfirm`. |
 

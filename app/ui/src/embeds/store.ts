@@ -169,6 +169,9 @@ export class EmbedStore {
   }
 }
 
+/** The scroll position the last correction set: overlapping corrections (two builds, nested stores) know each other's. */
+let lastFix: number | null = null;
+
 /** Notes the first body block on screen and, once the change has painted, scrolls so it is where it was (D-456). */
 function keepOnScreen(): () => void {
   const main = typeof document !== 'undefined' ? document.querySelector('main') : null;
@@ -179,11 +182,18 @@ function keepOnScreen(): () => void {
   const anchor = blocks.find((b) => b.getBoundingClientRect().top >= top - 1) ?? blocks.find((b) => b.getBoundingClientRect().bottom > top + 1);
   if (!anchor) return () => {};
   const before = anchor.getBoundingClientRect().top;
+  // D-689: only this correction may move the scroll; a scroll made meanwhile (the caret moved, the user scrolled)
+  // wins, and the correction stops.
+  let expected = main.scrollTop;
+  let stopped = false;
   return () => {
     const fix = () => {
-      if (!anchor.isConnected) return;
+      if (stopped || !anchor.isConnected) return;
+      const now = main.scrollTop;
+      if (Math.abs(now - expected) > 1 && (lastFix === null || Math.abs(now - lastFix) > 1)) { stopped = true; return; }
       const d = anchor.getBoundingClientRect().top - before;
       if (Math.abs(d) > 1) main.scrollTop += d;
+      expected = lastFix = main.scrollTop;
     };
     requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); setTimeout(fix, 150); });
   };

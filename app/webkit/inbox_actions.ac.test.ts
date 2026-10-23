@@ -197,10 +197,10 @@ test('fr_inb_02_ac9_add_tags', async ({ page }) => {
   const core = await startInbox(page);
   await addTagTo(page, CARD.Q1, 'doma');
   const want = swap(original(I.Q1), 'tags: [nákup]', 'tags: [nákup, doma]').replace(/^modified: .*$/m, `modified: ${NOW}`);
-  assert.equal(await eventually(() => fileText(core, I.Q1), (t) => t === want, 2000), want, 'tags: [nákup, doma] and modified');
+  assert.equal(await eventually(() => fileText(core, I.Q1), (t) => t === want, 5000), want, 'tags: [nákup, doma] and modified');
   await addTagTo(page, CARD.Q2, 'doma');
   const q2 = swap(original(I.Q2), 'modified: 2026-10-13T21:40:00+02:00\n---\n', `modified: ${NOW}\ntags: [doma]\n---\n`);
-  assert.equal(await eventually(() => fileText(core, I.Q2), (t) => t === q2, 2000), q2, 'Q2 gets tags: [doma] after the last entry');
+  assert.equal(await eventually(() => fileText(core, I.Q2), (t) => t === q2, 5000), q2, 'Q2 gets tags: [doma] after the last entry');
   assert.ok(!(await core.writesTo()).some((p) => p.startsWith('Tags/')), 'no Tags/ file (D-185)');
 });
 

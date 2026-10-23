@@ -7,7 +7,7 @@
 import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import type { CallRecord, FakeVault, UiStateDto } from '../ui/test/fake-core';
-import { READ_COMMANDS, absent, eventually, mainName, must, mustBeOn, runCommand, seen, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { READ_COMMANDS, absent, eventually, mainName, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
 import { tasksVault } from './tasks-helpers';
 import {
   embedList, topEmbeds, blockMenu, caretAt, description, displayAsButton, editorBody, embedBody, focusInside, frame, hostBlock, isDisabled, linkEmbed, mergeDialog, nestedEditors,
@@ -177,7 +177,7 @@ export async function switchTo(page: Page, title: string) {
   await page.keyboard.press('Meta+o');
   await must(page.getByRole('dialog', { name: 'Quick switcher' }), `Quick switcher (for "${title}")`);
   await (await must(page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })), 'Switcher query')).fill(title);
-  await sleep(200);
+  await settled(page, 'Switcher results', title);
   await page.keyboard.press('Enter');
 }
 /** Caret after the first occurrence of `text` in the host editor (any block, list items included). */
