@@ -53,7 +53,8 @@ below ran on the real app for the first time. Logs stay local (not committed).
    `caffeinate -dimsu`. Next: an L6 preflight that fails fast with a clear message when `IOConsoleLocked = Yes` or the
    display is off.
 7. **The push gate is over budget.** It took 769 s against the 600 s budget; the slowest steps were app-webkit (291 s),
-   core-rust-test (244 s) and jobs-test (69 s). Next: a speed-up pass (see `verify-speedup-proposal.md`).
+   core-rust-test (244 s) and jobs-test (69 s). Next: a speed-up pass (see `verify-speedup-proposal.md`). WebKit on 4
+   workers instead of 6 (D-688, 2026-10-23) adds to it.
 8. **Perf marks are written once per process** (ms2-shell §1). A test that needs a second `note-ready` in one launch
    can't get it, so fr_emb_04_ac8 now launches once per note. Next: decide whether ACs may need repeated marks (for
    example a test-mode counter mark). If so, it needs a contract decision (AP point).
