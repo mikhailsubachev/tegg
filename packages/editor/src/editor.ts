@@ -4,7 +4,7 @@
 // change (FR-FMT-02 AC-5…AC-7, D-174). Pure TypeScript: no Tauri, no app imports (AR-03 AC-2).
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
-import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Selection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
@@ -220,27 +220,40 @@ function startOf(doc: PMNode, k: number): number {
   return TextSelection.near(doc.resolve(Math.min(pos + 1, doc.content.size))).from
 }
 
+/** Same node, ignoring `srcIndex` (load bookkeeping: a reloaded document numbers its blocks afresh, a live one doesn't). */
+function sameIgnoringSrc(a: PMNode, b: PMNode): boolean {
+  if (a.type !== b.type || a.text !== b.text || !Mark.sameSet(a.marks, b.marks) || a.childCount !== b.childCount) return false
+  const keys = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)])
+  for (const k of keys) if (k !== 'srcIndex' && JSON.stringify(a.attrs[k]) !== JSON.stringify(b.attrs[k])) return false
+  for (let i = 0; i < a.childCount; i++) if (!sameIgnoringSrc(a.child(i), b.child(i))) return false
+  return true
+}
+
 /**
- * D-689: `sel` (in `before`) carried over to `after`, which differs from `before` only in one replaced range (a
- * conversion). Positions before the range stay, positions after it shift by its change in size; null when the
- * selection touches the replaced range or isn't a text or node selection (the caller then selects the embed).
+ * D-689: `sel` (in `before`) carried over to `after`, which a conversion made from `before` by replacing some top-level
+ * blocks. The unchanged blocks are found from both ends, ignoring `srcIndex`; a position in a block before the replaced
+ * ones stays, one after them shifts by their change in size. Null when the selection touches the replaced blocks or is
+ * not a text or node selection (the caller then selects the embed).
  */
 function keptSelection(before: PMNode, after: PMNode, sel: Selection): Selection | null {
-  const start = before.content.findDiffStart(after.content)
-  if (start === null) return sel instanceof NodeSelection ? NodeSelection.create(after, sel.from) : TextSelection.create(after, sel.anchor, sel.head)
-  const end = before.content.findDiffEnd(after.content)
-  if (!end) return null
-  const endA = Math.max(end.a, start)
-  const shift = end.b - end.a
-  const map = (p: number) => (p <= start ? p : p >= endA ? p + shift : null)
+  const n = Math.min(before.childCount, after.childCount)
+  let head = 0
+  while (head < n && sameIgnoringSrc(before.child(head), after.child(head))) head++
+  let tail = 0
+  while (tail < n - head && sameIgnoringSrc(before.child(before.childCount - 1 - tail), after.child(after.childCount - 1 - tail))) tail++
+  const posOf = (doc: PMNode, index: number) => { let p = 0; for (let i = 0; i < index; i++) p += doc.child(i).nodeSize; return p }
+  const startA = posOf(before, head)
+  const endA = posOf(before, before.childCount - tail)
+  const endB = posOf(after, after.childCount - tail)
+  const map = (p: number) => (p <= startA ? p : p >= endA ? p - endA + endB : null)
   if (sel instanceof NodeSelection) {
     const f = map(sel.from)
     return f === null || map(sel.to) === null ? null : NodeSelection.create(after, f)
   }
   if (!(sel instanceof TextSelection)) return null
-  const a = map(sel.anchor)
-  const h = map(sel.head)
-  return a === null || h === null ? null : TextSelection.create(after, a, h)
+  const x = map(sel.anchor)
+  const y = map(sel.head)
+  return x === null || y === null ? null : TextSelection.create(after, x, y)
 }
 
 function endOf(doc: PMNode, k: number): number {

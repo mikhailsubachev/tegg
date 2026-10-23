@@ -169,6 +169,9 @@ export class EmbedStore {
   }
 }
 
+/** The scroll position the last correction set: overlapping corrections (two builds, nested stores) know each other's. */
+let lastFix: number | null = null;
+
 /** Notes the first body block on screen and, once the change has painted, scrolls so it is where it was (D-456). */
 function keepOnScreen(): () => void {
   const main = typeof document !== 'undefined' ? document.querySelector('main') : null;
@@ -186,10 +189,11 @@ function keepOnScreen(): () => void {
   return () => {
     const fix = () => {
       if (stopped || !anchor.isConnected) return;
-      if (Math.abs(main.scrollTop - expected) > 1) { stopped = true; return; }
+      const now = main.scrollTop;
+      if (Math.abs(now - expected) > 1 && (lastFix === null || Math.abs(now - lastFix) > 1)) { stopped = true; return; }
       const d = anchor.getBoundingClientRect().top - before;
       if (Math.abs(d) > 1) main.scrollTop += d;
-      expected = main.scrollTop;
+      expected = lastFix = main.scrollTop;
     };
     requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); setTimeout(fix, 150); });
   };

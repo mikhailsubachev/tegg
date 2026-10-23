@@ -64,7 +64,12 @@ test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret
     const inv = w.__TAURI_INTERNALS__.invoke;
     w.__held = new Promise<void>((r) => { w.__release = r; });
     w.__TAURI_INTERNALS__.invoke = async (cmd: string, a: any, o: unknown) => {
-      if (cmd === 'embed_load' && Array.isArray(a?.paths) && a.paths.some((p: string) => p.normalize('NFC').startsWith('Quick Notes/'))) await w.__held;
+      if (cmd === 'embed_load' && Array.isArray(a?.paths) && a.paths.some((p: string) => p.normalize('NFC').startsWith('Quick Notes/'))) {
+        await w.__held;
+        const r = await inv(cmd, a, o);
+        w.__loaded = true;
+        return r;
+      }
       return inv(cmd, a, o);
     };
     const raf = window.requestAnimationFrame.bind(window);
@@ -75,7 +80,7 @@ test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret
   await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec.]]'), 5000);
   await page.evaluate(() => { const w = window as any; w.__slowRaf = true; w.__release(); });
   const atEmbed = await scrollTop(page);
-  await page.waitForTimeout(100); // the embed loads; the scroll correction waits for its (slow) frames
+  await page.waitForFunction(() => (window as any).__loaded); // the embed loaded; the scroll correction waits for its (slow) frames
   // The user goes back to the first paragraph and opens the conversion popover there (it scrolls the caret into view).
   await popoverAt(page, 'Úvodní odstavec.', 'Meta+Shift+o');
   const moved = await scrollTop(page);
@@ -83,4 +88,23 @@ test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret
   await page.waitForTimeout(1200);
   await page.evaluate(() => { (window as any).__slowRaf = false; });
   assert.ok(Math.abs((await scrollTop(page)) - moved) <= 2, `the caret move's scroll stays (${moved} → ${await scrollTop(page)})`);
+});
+
+test('bug_61_fr_cnv_06_a_refused_conversion_trashes_a_file_changed_since_it_was_created', async ({ page }) => {
+  // D-689, FR-CNV-06 AC-3: the new file is never deleted once it differs from what the conversion created.
+  const core = await openConvert(page, C.bloky);
+  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec.');
+  await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
+  await confirm(page, { type: 'Quick Note' });
+  const [made] = await eventually(() => newPaths(core), (p) => p.length === 1, 5000);
+  assert.ok(made, 'the Quick Note is created');
+  await core.setFile(made, new TextEncoder().encode(`${(await fileText(core, made)) ?? ''}Doplněno jinde.\n`));
+  await caretAfter(page, 'Závěrečný odstavec.');
+  await page.keyboard.type(' Y');
+  await hold.release();
+  assert.ok((await eventually(() => alertWith(page, 'was changed after it was created').count(), (n) => n > 0, 5000)) > 0, 'the moved-to-trash alert');
+  assert.equal(await eventually(() => fileText(core, made), (t) => t === undefined, 5000), undefined, `${made} is no longer in place`);
+  const trashed = (await newPaths(core)).filter((p) => p.startsWith('.trash/'));
+  assert.equal(trashed.length, 1, `it is in .trash/: ${JSON.stringify(await newPaths(core))}`);
+  assert.equal(await alertWith(page, 'Couldn’t create').count(), 0, 'no "Nothing was changed" alert');
 });
