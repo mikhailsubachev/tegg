@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
-  SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
+  SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
   AttributeInputDto, UiStateDto, VaultInfo, VersionDto, WriteResultDto, BacklinksPanelDto, BrokenLinksDto, DuplicateGroupDto,
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
@@ -56,7 +56,7 @@ export const ipc = {
   captureMediaPick: () => invoke<StagedMediaResultDto[]>('capture_media_add', { pick: true }),
   /** ms5-tasks §11.6 (D-492): deletes a note only while it is still `base` (a conversion's undo). */
   noteDiscard: (path: string, base: VersionDto) => invoke<void>('note_discard', { path, base }),
-  tags: () => invoke<TagDto[]>('index_tags'),
+  tags: () => invoke<TagRowDto[]>('index_tags'),
   conflicts: () => invoke<ConflictRowDto[]>('index_conflicts'),
   /** The open note is saved, or the user chose to quit anyway (D-196). */
   appQuit: () => invoke<void>('app_quit'),

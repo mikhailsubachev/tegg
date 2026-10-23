@@ -4,7 +4,7 @@ import { chipParts } from '../../links/ChipParts';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
-import type { LinkTargetDto, TagDto, TypeDto } from '../../ipc/types';
+import type { LinkTargetDto, TagRowDto, TypeDto } from '../../ipc/types';
 import { Icon } from '../../shell/Icon';
 import { chipIcon } from '../../links/icons';
 import { requestOffer } from '../../links/offer';
@@ -123,7 +123,7 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
   const list = asList(raw).map((x) => rawText(x));
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
-  const [all, setAll] = useState<TagDto[]>([]);
+  const [all, setAll] = useState<TagRowDto[]>([]);
   const [sel, setSel] = useState(-1);
   const add = useRef<HTMLButtonElement | null>(null);
   const field = useRef<HTMLInputElement | null>(null);
@@ -135,7 +135,7 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
   const has = (name: string) => list.some((x) => nfc(x.replace(/^#/, '')).toLowerCase() === nfc(name).toLowerCase());
   const query = nfc(q.trim().replace(/^#+/, ''));
   const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-  const sugg = all.filter((x) => !has(x.spelling) && (!query || fold(x.spelling).includes(fold(query)))).slice(0, 8);
+  const sugg = all.filter((x) => !has(x.name) && (!query || fold(x.name).includes(fold(query)))).slice(0, 8);
   const commit = (name: string) => {
     const n = nfc(name.trim().replace(/^#+/, ''));
     setAdding(false);
@@ -178,16 +178,16 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
             onKeyDown={(e) => {
               if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setAdding(false); setQ(''); add.current?.focus(); }
               else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(-1, Math.min(sugg.length, s + (e.key === 'ArrowDown' ? 1 : -1)))); }
-              else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(sel >= 0 && sel < sugg.length ? sugg[sel].spelling : q); }
+              else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(sel >= 0 && sel < sugg.length ? sugg[sel].name : q); }
             }} />
           <div role="listbox" aria-label={t('suggest.tags')} className="popover suggestions tag-suggestions">
             {sugg.map((x, i) => (
               <div key={x.key} role="option" aria-selected={i === sel} className={`option ${i === sel ? 'selected' : ''}`}
-                onMouseDown={(e) => e.preventDefault()} onClick={() => commit(x.spelling)}>
-                <span data-user-content>#{x.spelling}</span>
+                onMouseDown={(e) => e.preventDefault()} onClick={() => commit(x.name)}>
+                <span data-user-content>#{x.name}</span>
               </div>
             ))}
-            {query && !has(query) && !sugg.some((x) => nfc(x.spelling).toLowerCase() === query.toLowerCase()) && (
+            {query && !has(query) && !sugg.some((x) => nfc(x.name).toLowerCase() === query.toLowerCase()) && (
               <div role="option" aria-selected={sel === sugg.length} className={`option ${sel === sugg.length ? 'selected' : ''}`}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => commit(query)}>
                 {t('suggest.createTag', { query })}

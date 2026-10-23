@@ -183,6 +183,25 @@ pub enum PlanWarning {
     DuplicateTagFile { path: String },
 }
 
+/// ms4-tags §5.2 (D-679): one backup zip of the open vault.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackupInfo {
+    pub name: String,
+    pub kind: String,
+    /// ISO 8601 (the manifest's UTC time, else the name's).
+    pub time: String,
+    pub label: BackupLabel,
+    /// Vault files in the zip (the manifest not counted).
+    pub files: usize,
+}
+
+/// The catalog key and arguments of a backup's operation label (D-670).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackupLabel {
+    pub key: String,
+    pub args: serde_json::Value,
+}
+
 /// ms4-tags §4.2 `merge-into`: one merged object's current text, in the group's order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeOther {

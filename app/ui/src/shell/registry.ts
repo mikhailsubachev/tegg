@@ -48,7 +48,9 @@ export const ROUTES: RouteDef[] = [
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
   { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
-  { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: tbd('MS4'), reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'Main' },
+  // 4D-lite (tags.md R87): All tags, the tag page (D-649) and Settings › Backups (D-651).
+  { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
+  { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },
   { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('v1.0'), reqs: ['FR-HOM-02'], design: null }, // 5B R62 (D-376)
   { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
@@ -67,6 +69,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: null },
   { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: null },
   { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: null },
+  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: null },
   { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
   // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
   { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
@@ -97,7 +100,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.editTemplate', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01' },
   { label: 'ctl.addViewSettings', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
   { label: 'ctl.editView', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
-  { label: 'ctl.rowColor', where: 'attribute panel row', due: d('MS4'), req: 'FR-TAG-05' },
   { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01' }, // D-381
   // 5A-1 (tasks.md R45 R3).
   { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },
@@ -110,7 +112,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   // File row are built.
   { label: 'settings.shortcuts.change', where: 'Settings: Shortcuts', due: d('v1.0'), req: 'FR-SET-04' },
   // 4A (backlinks.md R16). 5B R62: the Create offer's type picker is built (FR-VLT-05).
-  { label: 'duplicates.merge', where: 'Duplicate titles page', due: d('MS4', '4C'), req: 'FR-LNK-14' },
 ];
 
 export const SHORTCUTS: ShortcutDef[] = [

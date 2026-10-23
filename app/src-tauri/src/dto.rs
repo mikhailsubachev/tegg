@@ -216,6 +216,18 @@ pub struct IpcError {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub now: Option<Box<LinkCreatePlanDto>>,
+    /// With `InvalidName` (ms4-tags §4.1): `empty`, `space`, `digits` or `char`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error: Option<String>,
+    /// With `InvalidName` `char`: the first refused character.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub char: Option<String>,
+    /// With `TagExists`: the existing tag's display name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub name: Option<String>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
@@ -889,6 +901,16 @@ pub struct BackupDto {
     pub kind: String,
     /// ISO 8601 with offset.
     pub time: String,
+    /// ms4-tags §5.2 (D-670): the catalog key and arguments of the operation label.
+    pub label: BackupLabelDto,
+    pub files: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BackupLabelDto {
+    pub key: String,
+    #[ts(type = "Record<string, string | number>")]
+    pub args: serde_json::Value,
 }
 // ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §3)
 
@@ -1023,7 +1045,8 @@ pub struct CaptureContextDto {
     pub vault: Option<CaptureVaultDto>,
     pub types: Vec<CaptureTypeDto>,
     pub default_type: String,
-    pub tags: Vec<String>,
+    // D-655: name and colour of every tag (count ≥ 1 or a Tag file).
+    pub tags: Vec<CaptureTagDto>,
 }
 
 /// ms5-capture §2.2: what `capture_create` wrote.
@@ -1378,6 +1401,7 @@ pub fn typescript() -> String {
         EditDto::decl(),
         TransformedDto::decl(),
         InterruptedDto::decl(),
+        BackupLabelDto::decl(),
         BackupDto::decl(),
         TasksUiDto::decl(),
         ConvertUiDto::decl(),

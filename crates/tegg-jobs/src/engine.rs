@@ -370,6 +370,19 @@ impl Jobs {
         Ok(r)
     }
 
+    /// ms4-tags §5.2 (D-679): the open vault's zips, newest first, with their manifest labels.
+    pub fn backups(&self) -> Vec<crate::BackupInfo> {
+        match &self.inner.host {
+            Some(h) => tagjobs::backups(h.as_ref()),
+            None => Vec::new(),
+        }
+    }
+
+    /// The open vault's backup folder (`<Application Support>/Tegg/backups/<vault key>`).
+    pub fn backup_dir(&self) -> Option<PathBuf> {
+        self.inner.host.as_ref().map(|h| h.app_dir().join("backups").join(h.vault_key()))
+    }
+
     pub fn last_undoable(&self) -> Option<JobId> {
         lock(&self.inner.state).last_undoable
     }

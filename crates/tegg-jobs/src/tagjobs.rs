@@ -542,3 +542,28 @@ impl Inner {
         }
     }
 }
+
+/// §5.2: every zip of the vault's backup folder, newest first.
+pub(crate) fn backups(host: &dyn Host) -> Vec<crate::BackupInfo> {
+    let dir = host.app_dir().join("backups").join(host.vault_key());
+    let mut zips: Vec<PathBuf> = host.local_list(&dir).into_iter().filter(|p| p.extension().is_some_and(|x| x == "zip")).collect();
+    zips.sort();
+    zips.reverse();
+    zips.into_iter()
+        .filter_map(|p| {
+            let name = p.file_name()?.to_string_lossy().into_owned();
+            let stem = name.strip_suffix(".zip")?;
+            let kind = stem.get(16..).unwrap_or("").to_string();
+            let entries = host.local_read(&p).and_then(|d| read_zip(&d).ok()).unwrap_or_default();
+            let m = manifest_of(&entries);
+            let from_name = chrono::NaiveDateTime::parse_from_str(stem.get(..15).unwrap_or(""), "%Y%m%d-%H%M%S").ok().map(|t| t.and_utc().format("%Y-%m-%dT%H:%M:%SZ").to_string());
+            let time = m.as_ref().and_then(|m| m["time"].as_str().map(str::to_string)).or(from_name).unwrap_or_default();
+            let label = match m.as_ref().filter(|m| m["label"]["key"].is_string()) {
+                Some(m) => crate::BackupLabel { key: m["label"]["key"].as_str().unwrap_or_default().to_string(), args: m["label"]["args"].clone() },
+                None => crate::BackupLabel { key: "backups.label.unknown".into(), args: json!({ "kind": kind }) },
+            };
+            let files = entries.iter().filter(|(n, _)| n != MANIFEST && !n.ends_with('/')).count();
+            Some(crate::BackupInfo { name, kind, time, label, files })
+        })
+        .collect()
+}

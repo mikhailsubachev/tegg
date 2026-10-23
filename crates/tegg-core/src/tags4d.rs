@@ -237,6 +237,15 @@ impl Core {
         }
     }
 
+    /// ms4-tags §5.2 (D-679): the open vault's backups, newest first.
+    pub fn backups(&self) -> Vec<tegg_jobs::BackupInfo> {
+        self.jobs().backups()
+    }
+
+    pub fn backup_dir(&self) -> std::path::PathBuf {
+        self.jobs().backup_dir().unwrap_or_default()
+    }
+
     /// The Tag type's folder (D-665), where new Tag files go.
     pub fn tag_folder(&self) -> String {
         self.types().into_iter().find(|t| t.key == "tag").map(|t| t.folder).filter(|f| !f.is_empty()).unwrap_or_else(|| "Tags".into())

@@ -119,7 +119,19 @@ path?: string,
 /**
  * With `PlanChanged` from `link_create`: the plan as the core makes it now.
  */
-now?: LinkCreatePlanDto, };
+now?: LinkCreatePlanDto, 
+/**
+ * With `InvalidName` (ms4-tags §4.1): `empty`, `space`, `digits` or `char`.
+ */
+error?: string, 
+/**
+ * With `InvalidName` `char`: the first refused character.
+ */
+char?: string, 
+/**
+ * With `TagExists`: the existing tag's display name.
+ */
+name?: string, };
 export type TypeDto = { key: string, name: string, plural: string, folder: string, icon: string, color: string, system: boolean, invalid: boolean, 
 /**
  * False: a system type with built-in defaults, no file (D-90).
@@ -323,11 +335,16 @@ export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
 export type InterruptedDto = { jobId: number, from: string, to: string, done: number, total: number, };
+export type BackupLabelDto = { key: string, args: Record<string, string | number>, };
 export type BackupDto = { name: string, kind: string, 
 /**
  * ISO 8601 with offset.
  */
-time: string, };
+time: string, 
+/**
+ * ms4-tags §5.2 (D-670): the catalog key and arguments of the operation label.
+ */
+label: BackupLabelDto, files: number, };
 export type TasksUiDto = { 
 /**
  * `schedule` or `kanban`.
@@ -376,7 +393,7 @@ templateHead: string | null,
  * D-604: the type's plural, for `Saves to <plural>` on types without the review workflow.
  */
 plural?: string, };
-export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<string>, };
+export type CaptureContextDto = { vault: CaptureVaultDto | null, types: Array<CaptureTypeDto>, defaultType: string, tags: Array<CaptureTagDto>, };
 export type CaptureSuggestDto = { 
 /**
  * The link text to insert (the stem when it is unique in the vault, else the path without `.md`).

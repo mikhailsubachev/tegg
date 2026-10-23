@@ -1058,7 +1058,7 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
   }, []);
   return (
     <div className="dialog-backdrop">
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('merge.title')} aria-description={description} className="dialog merge-dialog"
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('mergeNote.title')} aria-description={description} className="dialog merge-dialog"
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === 'Escape') e.preventDefault(); // Esc doesn't close it (D-176)
@@ -1069,7 +1069,7 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
             bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]?.focus();
           }
         }}>
-        <h2>{t('merge.title')}</h2>
+        <h2>{t('mergeNote.title')}</h2>
         <p>{t('merge.body')}</p>
         {merge.compare && <Compare left={merge.mine} right={merge.theirs} leftLabel={t('compare.mine')} rightLabel={t('compare.theirs')} />}
         <div className="dialog-buttons">

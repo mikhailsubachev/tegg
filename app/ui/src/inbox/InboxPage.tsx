@@ -693,7 +693,7 @@ function TagDialog({ onApply, onClose }: { onApply: (tags: string[]) => void; on
   const [tags, setTags] = useState<string[]>([]);
   const chipsRef = useRef(chips);
   chipsRef.current = chips;
-  useEffect(() => { void ipc.tags().then((ts) => setTags(ts.map((x) => x.spelling)), () => {}); }, []);
+  useEffect(() => { void ipc.tags().then((ts) => setTags(ts.map((x) => x.name)), () => {}); }, []);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-label={t('inbox.addTags')} className="dialog inbox-tags"

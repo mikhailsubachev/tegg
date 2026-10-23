@@ -22,7 +22,7 @@ import { DuplicateDetails } from '../links/DuplicateDetails';
 import { chipIcon } from '../links/icons';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { LinkTargetDto, SwitcherItemDto, TagDto, TypeDefDto } from '../ipc/types';
+import type { LinkTargetDto, SwitcherItemDto, TagRowDto, TypeDefDto } from '../ipc/types';
 import { localIso, ulid } from '../newNote';
 import { openDate } from '../daily/open';
 import { Calendar } from '../daily/Calendar';
@@ -102,7 +102,7 @@ type Slash = { from: number; query: string; sel: number };
 /** 4B (D-331, ms4-daily §6.4): the `@` list adds date rows and `Pick a date…` (rows of kind `date` / `pickDate`). */
 type Row = SwitcherItemDto | { kind: 'date'; title: string; date: string; path: null; type: 'daily-note'; matched_alias: null; duplicate: null } | { kind: 'pickDate'; title: string; path: null; type: ''; matched_alias: null; duplicate: null };
 type Suggest = { kind: 'link'; from: number; to: number; query: string; items: Row[]; sel: number; at?: boolean }
-  | { kind: 'tag'; from: number; to: number; query: string; items: TagDto[]; sel: number };
+  | { kind: 'tag'; from: number; to: number; query: string; items: TagRowDto[]; sel: number };
 type Menu = { block: number; sub: null | 'turnInto' | 'calloutType'; x: number; y: number } | null;
 type LinkField = { query: string; items: SwitcherItemDto[]; sel: number; error: boolean; onLink: boolean } | null;
 
@@ -1006,7 +1006,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (e.key === 'Enter' || e.key === 'Tab') {
         stop();
         if (L.suggest.kind === 'link') { const it = L.suggest.items[L.suggest.sel]; if (it) void chooseLink(it); }
-        else { const it = L.suggest.items[L.suggest.sel]; chooseTag(it ? it.spelling : L.suggest.query); }
+        else { const it = L.suggest.items[L.suggest.sel]; chooseTag(it ? it.name : L.suggest.query); }
         return;
       }
       if (e.key === 'Escape') {
@@ -1403,8 +1403,8 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
       <div role="listbox" aria-label={t('suggest.tags')}>
         {s.items.map((it, i) => (
           <div key={it.key} role="option" aria-selected={i === s.sel} className={`option ${i === s.sel ? 'selected' : ''}`}
-            onMouseDown={(e) => e.preventDefault()} onClick={() => onTag(it.spelling)}>
-            <span data-user-content>#{it.spelling}</span>
+            onMouseDown={(e) => e.preventDefault()} onClick={() => onTag(it.name)}>
+            <span data-user-content>#{it.name}</span>
           </div>
         ))}
         <div role="option" aria-selected={s.sel === s.items.length} aria-label={t('suggest.createTag', { query: s.query })}
