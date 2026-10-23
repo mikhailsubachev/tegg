@@ -11,7 +11,7 @@ import {
   focusInside, frame, frontOf, gotoNote, gotoSettings, headerText, hostBlock, idOf, isDisabled, linkSuggestions, main, mainName,
   modeItem, must, mustBeOn, mustBeSaved, mustCaret, navs, needFrame, needTop, nfc, nfd, noModified, openButton, openEmbeds, openPicker, original,
   paragraphBelow, pathOf, pickerList, pickerOptions, pickerQuery, picker, runCommand, seen, selectEmbedBlock, selectedBlocks, sleep, slashBelow, slashMenu, swap,
-  topEmbed, topEmbeds, writeCalls, writePaths, writes, type EmbedInfo, type FakeCoreHandle,
+  scrollSteady, topEmbed, topEmbeds, writeCalls, writePaths, writes, type EmbedInfo, type FakeCoreHandle,
 } from './embeds-helpers';
 import { settled } from './helpers';
 
@@ -868,8 +868,9 @@ test('fr_emb_02_ac9_open_section_scrolls_to_the_heading', async ({ page }) => {
   assert.ok(d !== null && d <= 8, `Úvod at the top of the centre pane (± 8 px), off by ${d}`);
 });
 
-// Quarantined (test-strategy §8.4): the click on the link-mode embed after Back is sometimes lost, issue #59.
-test('fr_emb_02_ac9_card_and_link_mode_open_their_target', { tag: '@flaky' }, async ({ page }) => {
+// Issue #59: a click while Back still restores the scroll lost its mouse-up to another embed; the test waits for the
+// scroll to settle (D-688).
+test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
   const core = await openEmbeds(page, M.rezimy);
   const jana = await needTop(main(page), 1, "Jana's card");
   await (await must(jana.locator(':scope > :first-child').getByText('Jana Nováková', { exact: true }), "the card's title")).click();
@@ -877,17 +878,20 @@ test('fr_emb_02_ac9_card_and_link_mode_open_their_target', { tag: '@flaky' }, as
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
   await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
+  await scrollSteady(page, 'the host note after Back');
   await (await needTop(main(page), 1, "Jana's card")).focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Jana Nováková', '⏎ on the card opens Jana');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
   await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
+  await scrollSteady(page, 'the host note after Back');
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();
   await mustBeOn(page, 'Saturnin', 'a click on the link-mode embed opens Saturnin');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
   await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
+  await scrollSteady(page, 'the host note after Back');
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Saturnin', '⏎ on the link-mode embed opens Saturnin');
@@ -907,6 +911,8 @@ test('fr_emb_02_ac9_cmd_enter_on_a_selected_embed_and_back_keeps_scroll', async 
   await mustBeOn(page, 'Cíl', '⌘↩ opens the selected embed’s target (D-209)');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
+  await needEmbeds(main(page), 12, 'the host note after Back');
+  await scrollSteady(page, 'the host note after Back');
   const last = await needTop(main(page), 11, '![[Cíl|jiný text]]');
   await last.scrollIntoViewIfNeeded();
   const scrollTop = () => page.evaluate(() => {
