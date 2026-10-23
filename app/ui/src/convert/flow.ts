@@ -49,6 +49,8 @@ export async function embedTargetFor(source: string, path: string, title: string
 /** Converts `unit` (null: the caret's empty paragraph, `/task` there) into a new object of `type` titled `title`. */
 export async function convert(host: ConvertHost, unit: ConvertUnit | null, title: string, type: TypeDefDto): Promise<boolean> {
   const text = host.ed.text();
+  // D-689: the selection at Convert; if it has changed when the embed lands, the user moved on.
+  const startSel = host.ed.view.state.selection;
   const obj = unit ? objectFromUnit(text, unit, host.linkTitle) : { title: '', tags: [], body: '', checked: null };
   let made: { path: string; text: string };
   let key: string;
@@ -71,8 +73,16 @@ export async function convert(host: ConvertHost, unit: ConvertUnit | null, title
   }
   const target = await embedTargetFor(host.source, made.path, title);
   const record: ConversionRecord = { path: made.path, created: made.text, type: key, title };
-  if (unit) host.ed.commands.convertUnit(unit, target, record);
-  else {
+  if (unit) {
+    const moved = !host.ed.view.state.selection.eq(startSel);
+    if (host.ed.commands.convertUnit(unit, target, record, { keepSelection: moved }) === false) {
+      // D-689: the blocks changed while the object was created. Discard it while it is still as created.
+      const note = await ipc.noteRead(made.path).catch(() => null);
+      if (note && note.utf8 && note.text === made.text) await ipc.noteDiscard(made.path, note.version).catch(() => {});
+      pushAlert(t('convert.failed', { title }));
+      return false;
+    }
+  } else {
     const at = host.ed.view.state.selection.from;
     host.ed.commands.insertEmbed(at, at, target);
   }

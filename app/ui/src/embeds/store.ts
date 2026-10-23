@@ -179,11 +179,17 @@ function keepOnScreen(): () => void {
   const anchor = blocks.find((b) => b.getBoundingClientRect().top >= top - 1) ?? blocks.find((b) => b.getBoundingClientRect().bottom > top + 1);
   if (!anchor) return () => {};
   const before = anchor.getBoundingClientRect().top;
+  // D-689: only this correction may move the scroll; a scroll made meanwhile (the caret moved, the user scrolled)
+  // wins, and the correction stops.
+  let expected = main.scrollTop;
+  let stopped = false;
   return () => {
     const fix = () => {
-      if (!anchor.isConnected) return;
+      if (stopped || !anchor.isConnected) return;
+      if (Math.abs(main.scrollTop - expected) > 1) { stopped = true; return; }
       const d = anchor.getBoundingClientRect().top - before;
       if (Math.abs(d) > 1) main.scrollTop += d;
+      expected = main.scrollTop;
     };
     requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); setTimeout(fix, 150); });
   };

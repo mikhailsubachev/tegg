@@ -5,7 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
-import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Selection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
@@ -116,8 +116,10 @@ export interface TeggEditor {
     insertEmbed(from: number, to: number, linkText: string): boolean
     /** 4F (D-428): selects the top-level block at `index` as a block. */
     selectBlockAt(index: number): boolean
-    /** 5A-2 (ms5-tasks §11.3, D-490, D-492): replaces `unit` by its embed as one undo step; the embed's pos or false. */
-    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord): number | false
+    /** 5A-2 (ms5-tasks §11.3, D-490, D-492): replaces `unit` by its embed as one undo step; the embed's pos or false.
+     *  `keepSelection` (D-689): the user moved on while the object was created, so their selection stays (mapped past
+     *  the replaced blocks) and nothing scrolls; otherwise the embed is selected and scrolled into view. */
+    convertUnit(unit: ConvertUnit, target: string, record: ConversionRecord, opts?: { keepSelection?: boolean }): number | false
     setUrlLink(href: string): boolean
     removeLink(): boolean
     pasteText(text: string, plain?: boolean): boolean
@@ -216,6 +218,29 @@ function topIndex(state: EditorState, pos?: number): number {
 function startOf(doc: PMNode, k: number): number {
   const pos = blockPos(doc, k)
   return TextSelection.near(doc.resolve(Math.min(pos + 1, doc.content.size))).from
+}
+
+/**
+ * D-689: `sel` (in `before`) carried over to `after`, which differs from `before` only in one replaced range (a
+ * conversion). Positions before the range stay, positions after it shift by its change in size; null when the
+ * selection touches the replaced range or isn't a text or node selection (the caller then selects the embed).
+ */
+function keptSelection(before: PMNode, after: PMNode, sel: Selection): Selection | null {
+  const start = before.content.findDiffStart(after.content)
+  if (start === null) return sel instanceof NodeSelection ? NodeSelection.create(after, sel.from) : TextSelection.create(after, sel.anchor, sel.head)
+  const end = before.content.findDiffEnd(after.content)
+  if (!end) return null
+  const endA = Math.max(end.a, start)
+  const shift = end.b - end.a
+  const map = (p: number) => (p <= start ? p : p >= endA ? p + shift : null)
+  if (sel instanceof NodeSelection) {
+    const f = map(sel.from)
+    return f === null || map(sel.to) === null ? null : NodeSelection.create(after, f)
+  }
+  if (!(sel instanceof TextSelection)) return null
+  const a = map(sel.anchor)
+  const h = map(sel.head)
+  return a === null || h === null ? null : TextSelection.create(after, a, h)
 }
 
 function endOf(doc: PMNode, k: number): number {
@@ -1120,7 +1145,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       dispatch(closeHistory(tr).scrollIntoView())
       return true
     },
-    convertUnit(unit, target, record) {
+    convertUnit(unit, target, record, opts) {
       // D-82: the bytes come from @tegg/doc; the editor then shows the result's blocks as one undo step, with the
       // result as its source model, so every unchanged block is written back byte for byte (D-490, D-492).
       let text: string
@@ -1139,13 +1164,17 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       let pos = 0
       tr.doc.forEach((n, p, i) => { if (n.attrs.srcIndex === at) { k = i; pos = p } })
       const block = unit.kind !== 'nested-item'
-      if (block) tr.setMeta(blockSelKey, { anchor: k, head: k })
-      tr.setSelection(block ? NodeSelection.create(tr.doc, pos) : TextSelection.near(tr.doc.resolve(pos + 1)))
+      const kept = opts?.keepSelection ? keptSelection(before, tr.doc, editor.state.selection) : null
+      if (kept) tr.setSelection(kept)
+      else {
+        if (block) tr.setMeta(blockSelKey, { anchor: k, head: k })
+        tr.setSelection(block ? NodeSelection.create(tr.doc, pos) : TextSelection.near(tr.doc.resolve(pos + 1)))
+      }
       const loadedBefore = loaded
       loaded = next
       conversions = conversions.filter((c) => c.state === 'done')
       conversions.push({ record, target: value, before, after: tr.doc, loadedBefore, loadedAfter: next, state: 'done', pending: false })
-      dispatch(tr.setMeta('teggConvert', true).scrollIntoView())
+      dispatch(kept ? tr.setMeta('teggConvert', true) : tr.setMeta('teggConvert', true).scrollIntoView())
       dispatch(closeHistory(editor.state.tr))
       return pos
     },

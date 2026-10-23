@@ -55,3 +55,32 @@ test('bug_61_fr_cnv_06_a_conversion_whose_blocks_changed_discards_its_file', asy
   const src = await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec. Y'), 5000);
   assert.ok(src?.includes('Závěrečný odstavec. Y') && !src.includes('Závěrečný odstavec.]]'), 'the edited paragraph stays, no embed');
 });
+
+test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret_move', async ({ page }) => {
+  // D-456 keeps what is on screen in place while embeds change size; D-689: a scroll made meanwhile wins.
+  const core = await openConvert(page, C.bloky);
+  await page.evaluate(() => {
+    const w = window as any;
+    const inv = w.__TAURI_INTERNALS__.invoke;
+    w.__held = new Promise<void>((r) => { w.__release = r; });
+    w.__TAURI_INTERNALS__.invoke = async (cmd: string, a: any, o: unknown) => {
+      if (cmd === 'embed_load' && Array.isArray(a?.paths) && a.paths.some((p: string) => p.normalize('NFC').startsWith('Quick Notes/'))) await w.__held;
+      return inv(cmd, a, o);
+    };
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => (w.__slowRaf ? (setTimeout(() => raf(cb), 400) as unknown as number) : raf(cb));
+  });
+  await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
+  await confirm(page, { type: 'Quick Note' });
+  await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec.]]'), 5000);
+  await page.evaluate(() => { const w = window as any; w.__slowRaf = true; w.__release(); });
+  const atEmbed = await scrollTop(page);
+  await page.waitForTimeout(100); // the embed loads; the scroll correction waits for its (slow) frames
+  // The user goes back to the first paragraph and opens the conversion popover there (it scrolls the caret into view).
+  await popoverAt(page, 'Úvodní odstavec.', 'Meta+Shift+o');
+  const moved = await scrollTop(page);
+  assert.ok(moved < atEmbed - 100, `the caret move scrolls up (${atEmbed} → ${moved})`);
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => { (window as any).__slowRaf = false; });
+  assert.ok(Math.abs((await scrollTop(page)) - moved) <= 2, `the caret move's scroll stays (${moved} → ${await scrollTop(page)})`);
+});
