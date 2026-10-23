@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtureVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
-import { eventually, must, mustBeOn, nonReadCalls, runCommand, seen, sidebar, sleep, start, typesList, type FakeCoreHandle, type StartOptions } from './helpers';
+import { eventually, must, mustBeOn, nonReadCalls, runCommand, seen, settled, sidebar, sleep, start, typesList, type FakeCoreHandle, type StartOptions } from './helpers';
 
 export { eventually, must, nonReadCalls, runCommand, seen, sidebar, sleep, typesList };
 export type { FakeCoreHandle };
@@ -113,7 +113,7 @@ export async function gotoSettings(page: Page, plural: string, name: string) {
 export async function openNoteByTitle(page: Page, title: string) {
   await page.keyboard.press('Meta+o');
   await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await sleep(150);
+  await settled(page, 'Switcher results', title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}"`, 5000);
 }

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
   absent, draftStatus, eventually, focused, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
-  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState,
+  paletteDialog, paletteOptions, runCommand, seen, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
 } from './helpers';
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
@@ -374,7 +374,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
   await page.keyboard.press('Meta+o');
   await must(switcherDialog(page), 'switcher');
   await page.keyboard.insertText('Porada');
-  await sleep(150);
+  await settled(page, 'Switcher results', 'Porada');
   await page.keyboard.press('Enter');
   await mustBeOn(page, '2026-10-07 Porada', 'keyboard: switcher');
   await page.keyboard.press('Control+Meta+s');

@@ -13,6 +13,7 @@ import {
   paragraphBelow, pathOf, pickerList, pickerOptions, pickerQuery, picker, runCommand, seen, selectEmbedBlock, selectedBlocks, sleep, slashBelow, slashMenu, swap,
   topEmbed, topEmbeds, writeCalls, writePaths, writes, type EmbedInfo, type FakeCoreHandle,
 } from './embeds-helpers';
+import { settled } from './helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -414,7 +415,7 @@ test('fr_emb_01_ac9_bang_brackets_suggestions_write_an_embed', async ({ page }) 
   await page.keyboard.type('![[');
   await must(linkSuggestions(page), 'listbox "Link suggestions" after ![[');
   await page.keyboard.type('Cíl');
-  await sleep(250);
+  await settled(page, 'Link suggestions', 'Cíl');
   await page.keyboard.press('Enter');
   await needFrame(main(page), 'Cíl', 'the chosen Cíl becomes an embed', 0, 3000);
   const t = await savedFile(page, core, M.vkladani, (x) => (x ?? '').includes('![[Cíl'));
@@ -874,15 +875,18 @@ test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
   await mustBeOn(page, 'Jana Nováková', 'a click on the card outside its strip opens Jana');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
+  await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
   await (await needTop(main(page), 1, "Jana's card")).focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Jana Nováková', '⏎ on the card opens Jana');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
+  await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();
   await mustBeOn(page, 'Saturnin', 'a click on the link-mode embed opens Saturnin');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
+  await needEmbeds(main(page), 12, 'the host note after Back'); // its embeds load after the page shows
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Saturnin', '⏎ on the link-mode embed opens Saturnin');
