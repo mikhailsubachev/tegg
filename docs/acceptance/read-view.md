@@ -46,7 +46,7 @@ Parts of a note the read view can't show yet. Each is rendered as a framed place
 | `embed-pdf` | `![[file.pdf]]`, `![[file.pdf#page=3]]` | MS6 | FR-ATT-02 | the file name and page |
 | `embed-other` | `![[file.ext]]` for other attachments | MS6 | FR-ATT-07 | the file name |
 | `query` | a fenced `query` block | v1.0 | FR-QRY-01, FR-FMT-06 | its YAML as a code block |
-| `mindmap` | a fenced `mermaid` block whose first non-empty line is `mindmap` | v1.0 | FR-MMP-01, -02, FR-FMT-05 | its source as a code block (plan §4.2) |
+| `mindmap` | a fenced `mermaid` block whose first non-empty line is `mindmap` | v1.0 | FR-MMP-01, -02, FR-FMT-05 | its source as a code block (plan §4.2). **Removed in slice MM (D-679):** Mermaid fences then show as code like any unknown fence, and `[!mindmap]` callouts render as maps (D-684) |
 
 ### R3 and R1 changes (made in the commit that builds 3B)
 

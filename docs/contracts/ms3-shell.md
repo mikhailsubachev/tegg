@@ -554,7 +554,7 @@ export function applyOperation(ed: TeggEditor, op: string, block: number): boole
 | Title field | `textbox` | `Title` |
 | Save state | `status` (polite) | `Save state`; text from R9 |
 | Block buttons | `button` | `Add block below`, `Drag to move, click for block menu` |
-| Block menu | `menu` | `Block actions`; items `Turn into`, `Callout type`, `Duplicate`, `Delete`, `Copy link to block` (disabled), `Turn into object` (disabled), `Add row below`, `Add column right`, `Delete row`, `Delete column` |
+| Block menu | `menu` | `Block actions`; items `Turn into` (with `Mindmap` from slice MM, D-685), `Callout type`, `Duplicate`, `Delete`, `Copy link to block` (disabled), `Turn into object` (disabled), `Add row below`, `Add column right`, `Delete row`, `Delete column` |
 | Selected block | element with `data-block-selected` | — |
 | Source block | `group` | `Source block` |
 | Slash menu | `listbox` | `Insert block`; empty state `No matching blocks` |
