@@ -1,6 +1,6 @@
 # MS4 Tags Interface Contract (slice 4D-lite)
 
-- **Status:** draft, 2026-10-22. Written before the 4D-lite red tests (as D-430, D-552). Follows D-636…D-678 (BRD v1.83).
+- **Status:** draft, 2026-10-22. Written before the 4D-lite red tests (as D-430, D-552). Follows D-636…D-686 (BRD v1.84).
 - **ACs:** [docs/acceptance/tags.md](../acceptance/tags.md) (FR-TAG-01…08, -10; FR-SRC-02 AC-10…AC-12; FR-EDT-15 AC-5, AC-6; FR-HIS-04 AC-7…AC-10; FR-LNK-14 AC-11…AC-14; FR-NAV-04 AC-8; FR-FMT-07 AC-23; FR-SYN-06 AC-31, AC-32) and the earlier criteria it changes (D-675). Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Builds on** [ms4-jobs.md](ms4-jobs.md) (the job engine, text ops, backups, the not-updated list), [ms4-links.md](ms4-links.md) (§1 resolution, §3.1 free stems), [ms3-shell.md](ms3-shell.md) (§5 fake core, §13 `note_read` / `note_write` / `note_create_exact`, §14 types), [ms5-tasks.md](ms5-tasks.md) (the tag filter control, quick-add), [ms5-capture.md](ms5-capture.md) (capture ACL), [ms6-trash-media.md](ms6-trash-media.md) (§1.4 trash moves). Everything there stays valid unless this contract changes it.
 - **Writes.** `New tag` and a colour choice are single note writes from the UI with `@tegg/doc` bytes (one text engine, D-82). Rename, `Remove from…`, merge and restore are jobs with a backup zip first. `Delete only the tag` is one trash move (ms6-trash-media §1.4). Viewing anything writes nothing (FR-SYN-06 AC-31).
@@ -272,4 +272,15 @@ R88's keys go into `app/ui/src/i18n/catalog.ts`; plural keys use the existing `{
 2. **D-677 (AP-606):** `job.notUpdated.count` is `{count} notes not updated` for every kind (§4.4); rename.md FR-LNK-03 AC-16's test changes with `AC-Test-Change`.
 3. **D-678 (AP-607):** `Delete only the tag` shows the D-620 toast (`Moved to trash`, `Undo`); Undo is `trash_restore` of the Tag file.
 
-Points found while writing the red tests are added here as AP-608 onwards.
+## 11. Red-test decisions (D-679…D-686, BRD v1.84)
+
+1. **D-679:** `JobOp::Restore { name }`, `JobKind::Restore`; `Core::backups() -> Vec<BackupInfo { name, kind, time, label: BackupLabel { key, args }, files }>` behind `backups_list` (§5.2).
+2. **D-680:** `merge-into` adds missing attributes (`aliases` included) in the other's key order after the kept keys, before `tags`, then `review`, `created`, `modified` (§4.2).
+3. **D-681:** the §6.2 `tags/model.ts` shapes: `allTagsRows` and `sidebarTags` → row arrays; `tagPageRows` → `{ groups: { type: string | null; rows }[] }` (one `type: null` group when not grouped); `summary` → `{ objects, types }`; `typeOptions` → `{ type, name?, count }[]`; `typeNames: Record<key, name>`; `collator: Intl.Collator`.
+4. **D-682:** `tag/` + `encodeURIComponent(key)` everywhere, `route-ready:` included; test-build mark `tag-rows:<n>`.
+5. **D-683:** the list `Notes not updated`, the command `job.showNotUpdated` labelled `Show notes not updated`.
+6. **D-684:** `JobError::NothingToDo` from `Jobs::start` for a same-spelling tag rename; IPC `{ jobId: null }`.
+7. **D-685:** FR-TAG-05 AC-6 at L6 by element-screenshot pixels against the light tokens.
+8. **D-686:** FR-TAG-04 AC-7's dialog text includes the template (`tag.renameTemplates`).
+
+Points found while building are added here as AP-616 onwards.
