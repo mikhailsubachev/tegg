@@ -177,10 +177,27 @@ pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
 /// renamed note its old name too); anything changed since is left alone. Finish: the files not done yet get the job's
 /// change from their current bytes, if they are still what the job found; a rename whose note wasn't renamed yet
 /// renames it first. Removes the journal.
+/// D-755: the renamed note when a kill came after its rename but before its log line: still pending, gone from its
+/// old path, and at its target path with the same `id` (so the file there is the note, not another one).
+fn moved_unlogged<'a>(host: &dyn Host, l: &'a Loaded) -> Option<(&'a Entry, FileVersion)> {
+    let note = l.entries.iter().find(|e| e.at != e.to)?;
+    if l.done.iter().any(|d| nfc(d) == nfc(&note.at)) || host.read(&note.at).is_ok() {
+        return None;
+    }
+    let (now, v) = host.read(&note.to).ok()?;
+    // The frontmatter's `id:` line (between the opening and the closing `---`).
+    let id = |b: &[u8]| String::from_utf8_lossy(b).lines().skip(1).take_while(|x| x.trim_end() != "---").find(|x| x.starts_with("id:")).map(|x| x.trim().to_string());
+    (id(&note.pre).is_some() && id(&note.pre) == id(&now)).then_some((note, v))
+}
+
 pub(crate) fn resolve(host: &dyn Host, transformer: &dyn Transformer, job: JobId, choice: ResolveChoice) -> Result<(), JobError> {
     let l = load(host, job).ok_or(JobError::NotFound)?;
     match choice {
         ResolveChoice::Undo => {
+            // D-755: the note was renamed but not logged (no link was written yet): move it back with its old bytes.
+            if let Some((note, v)) = moved_unlogged(host, &l) {
+                let _ = host.rename(&note.to, &note.at, &note.pre, &v);
+            }
             // The note first (D-433): if it can't move back, no link is changed.
             let mut written = l.written.clone();
             written.sort_by_key(|(at, to, _, _)| nfc(at) == nfc(to));
@@ -231,7 +248,8 @@ fn finish_rest(host: &dyn Host, transformer: &dyn Transformer, l: &Loaded) {
         let Some(op) = l.op.clone() else { return };
         // The note first: links may only move to a name that exists.
         if let Some(note) = l.entries.iter().find(|e| e.at != e.to) {
-            if pending(note) {
+            // D-755: renamed before the kill but not logged: the note is where it should be, so only the links remain.
+            if pending(note) && moved_unlogged(host, l).is_none() {
                 let Some((b, v)) = unchanged(note) else { return };
                 let mut ops = Vec::new();
                 if let Some(t) = &l.title {
