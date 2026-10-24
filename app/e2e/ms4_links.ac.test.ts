@@ -215,7 +215,8 @@ const TITLES = [
   'Senior Product Manager', 'SPM Alfa', 'SPM velkými', 'Odkaz na SPM', 'Čtení', 'Čtení podruhé', 'Cteni', 'Plán', 'Další rozbitý',
 ];
 // `![[Chybí]]` is an R5 embed placeholder, not a chip (AP point in the red-commit report).
-const BROKEN = ['Neexistuje', 'neexistuje', 'Neexistuje › Kapitola', 'jiný popis', 'Q3: plán?', 'Projekty/Alfa', 'Osoby/Eva Malá', 'Šablona', 'Smazaná'];
+// D-615, D-628 (6A): `[[Smazaná]]` resolves to the trash, so it is a trashed chip, not a broken one.
+const BROKEN = ['Neexistuje', 'neexistuje', 'Neexistuje › Kapitola', 'jiný popis', 'Q3: plán?', 'Projekty/Alfa', 'Osoby/Eva Malá', 'Šablona'];
 
 // ---------------------------------------------------------------- tests
 

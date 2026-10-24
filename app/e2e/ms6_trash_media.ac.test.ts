@@ -143,7 +143,7 @@ test('fr_att_01_ac2_drop_files_through_the_drop_hook', { timeout: 300_000 }, asy
   writeFileSync(join(desk, 'Záhon 2.PNG'), fx(P.png));
   writeFileSync(join(desk, 'Rozpočet 2026.pdf'), fx('_attachments/Rozpočet.pdf'));
   try {
-    await launch(c, `note/${P.plan}`, { TEGG_TEST_DROP: `${join(desk, 'Záhon 2.PNG')}:${join(desk, 'Rozpočet 2026.pdf')}@400,260` });
+    await launch(c, `note/${P.plan}`, { TEGG_TEST_DROP: `${join(desk, 'Záhon 2.PNG')}:${join(desk, 'Rozpočet 2026.pdf')}@600,760` }); // D-751: a point in the note's body (it starts below the title and properties)
     const plan = await waitFile(join(c.vault, P.plan), (t) => !!t && t.includes('![[Rozpočet 2026.pdf]]'), 5000);
     assert.ok(plan?.includes('![[Záhon 2.PNG]]\n\n![[Rozpočet 2026.pdf]]'), 'two paragraphs at the drop point, in drop order');
     assert.ok(existsSync(join(c.vault, 'Images/Záhon 2.md')) && existsSync(join(c.vault, 'PDFs/Rozpočet 2026.md')), 'the objects');

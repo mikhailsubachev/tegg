@@ -15,7 +15,7 @@ import { cpSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import {
-  FX, appiumDown, changedPaths, end, hotkey, marks, need, palette, paste, press, read, ready, session, shown, sleep, support, testEnv, tmp, tree, typeAscii,
+  FX, appiumDown, changedPaths, end, hotkey, marks, need, needInGroup, needMenuItem, palette, paste, press, read, ready, session, shown, sleep, support, testEnv, tmp, tree, typeAscii,
   waitFile, type Driver, type Env,
 } from './helpers/capture.ts';
 
@@ -156,12 +156,15 @@ test('fr_tag_05_ac6_the_capture_window_shows_tag_colours', { timeout: 300_000 },
     const d = await launch(c, 'inbox');
     hotkey('quick');
     assert.ok(await shown(d, 'Capture text', 3000), 'the capture window');
-    typeAscii('Pozn #');
+    typeAscii('Pozn');
+    // The capture window's tag chips are in its `Add tag…` field (capture.md); `#Účty` in the text stays text (D-751).
+    await (await need(d, 'Add tag…')).click();
     paste('Účty');
-    press('space');
+    press('enter');
     const chipEl = await need(d, '#Účty', 3000);
     const cols = pngColours(await d.takeElementScreenshot(chipEl.elementId));
-    assert.ok(near(cols, '#EAF0FB') && near(cols, '#1D5CCB'), 'the capture window\'s #Účty chip has the blue-bg tint and blue text (light theme tokens, D-709)');
+    // Anti-aliased 12-px text never reaches the full token colour: the text gets a wider tolerance (D-751).
+    assert.ok(near(cols, '#EAF0FB') && near(cols, '#1D5CCB', 24), 'the capture window\'s #Účty chip has the blue-bg tint and blue text (light theme tokens, D-709)');
     press('escape');
   } finally { await cleanup(c); }
 });
@@ -178,7 +181,7 @@ test('fr_tag_06_ac6_tag_page_state_survives_relaunch', { timeout: 300_000 }, asy
     await (await need(d, 'Type: all')).click();
     await (await need(d, 'Task 2')).click();
     await (await need(d, 'No grouping')).click();
-    await (await need(d, 'Type')).click();
+    await (await needMenuItem(d, 'Type')).click(); // the menu and the Type column share the name (D-751)
     await end(d);
     c.d = undefined;
     const st = uiState(c.sup);
@@ -258,7 +261,7 @@ test('fr_lnk_14_ac12_merge_in_the_real_app', { timeout: 300_000 }, async () => {
   try {
     const d = await launch(c, 'duplicate-titles');
     const before = tree(c.vault);
-    await (await need(d, 'Merge…')).click();
+    await (await needInGroup(d, 'Schůzka, 2', 'Merge…')).click(); // the group of R87, not the first Merge… (D-751)
     await (await need(d, 'Merge 2 objects')).click();
     assert.ok(await waitFile(join(c.vault, `.trash/${P.schuzka2}`), (x) => x !== null, 10_000), 'schůzka (2) in .trash/');
     assert.deepEqual(files(before, tree(c.vault)), [P.naSchuzku, P.schuzka, `.trash/${P.schuzka2}`, P.schuzka2].sort(), 'exactly the kept object, the linking file and the trash move');
