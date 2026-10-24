@@ -283,10 +283,12 @@ export function clickable(d: Driver, e: any): any {
     },
   });
 }
-/** An XCUITest predicate: some element's text contains `text`. */
+/** An XCUITest predicate: some element's text contains `text`. D-752: `value` is compared only where it is text
+ *  (static text 48, text field 49, text view 52): a progress bar's or checkbox's value is a number, and CONTAINS on a
+ *  number throws in XCTest's agent inside the app, which kills the app. */
 export function textContains(text: string): string {
   const t = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  return `(label CONTAINS "${t}" OR value CONTAINS "${t}" OR title CONTAINS "${t}")`;
+  return `(label CONTAINS "${t}" OR title CONTAINS "${t}" OR (elementType IN {48, 49, 52} AND value CONTAINS "${t}"))`;
 }
 /** D-751: a menu item by name (XCUIElementTypeMenuItem): the open menu and a column header can carry the same name. */
 export async function needMenuItem(d: Driver, label: string, ms = 3000): Promise<any> {

@@ -502,7 +502,8 @@ test('fr_vlt_03_ac5_icloud_stub_banner_in_the_real_app', { timeout: 120_000 }, a
   try {
     d = await session(testEnv(join(base, 'support'), log, { TEGG_VAULT: vault }));
     assert.ok(await waitMark(log, 'ui-ready'), 'ui-ready');
-    const banner = await d.$('-ios predicate string:(label CONTAINS "1 file" OR value CONTAINS "1 file") AND NOT (label CONTAINS "files")');
+    // D-752: `value` only where it is text; CONTAINS on a number crashes the app (XCTest's agent).
+    const banner = await d.$('-ios predicate string:(label CONTAINS "1 file" OR (elementType IN {48, 49, 52} AND value CONTAINS "1 file")) AND NOT (label CONTAINS "files")');
     assert.ok(await banner.isExisting(), 'banner naming 1 file');
   } finally {
     await end(d);

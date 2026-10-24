@@ -185,7 +185,8 @@ async function containsShown(d: Driver, text: string, ms = 3000): Promise<boolea
   const t = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const endAt = Date.now() + ms;
   while (Date.now() < endAt) {
-    const els = await d.$$(`-ios predicate string:label CONTAINS "${t}" OR value CONTAINS "${t}" OR title CONTAINS "${t}"`).catch(() => [] as any[]);
+    // D-752: `value` only where it is text; CONTAINS on a number crashes the app (XCTest's agent).
+    const els = await d.$$(`-ios predicate string:label CONTAINS "${t}" OR title CONTAINS "${t}" OR (elementType IN {48, 49, 52} AND value CONTAINS "${t}")`).catch(() => [] as any[]);
     for (const e of els) if (await e.isDisplayed().catch(() => false)) return true;
     await sleep(100);
   }
