@@ -1520,7 +1520,9 @@ fn resolve(l: &Links, target: &str) -> Option<String> {
 }
 
 static DROPBOX_COPY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.+?) \([^()]*conflicted copy[^()]*\)$").expect("regex"));
-static NUMBERED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.+?) \((\d+)\)$").expect("regex"));
+// Google Drive's copy name is `Name (1)`; Tegg's own duplicate-title suffixes start at `(2)` (D-53), so `(2)` and up
+// are never a copy hint (FR-SYN-04 AC-2, FR-LNK-14 AC-5, D-757).
+static NUMBERED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.+?) \(1\)$").expect("regex"));
 static ICLOUD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.+?) (\d+)$").expect("regex"));
 
 /// FR-SYN-04 AC-2: the original name a sync client's copy name points to (Dropbox, Google Drive, iCloud).
