@@ -36,7 +36,9 @@ test('fr_cap_01_ac1_the_window_content_opened_from_the_status_item', async ({ pa
   assert.ok(await seen(page.getByText('Saves to Doručené', { exact: true }), 1000), 'Saves to <vault name>');
   assert.equal(await dueBtn(page).count(), 0, 'no Due control for a Quick Note');
   assert.equal(await prioBtn(page).count(), 0, 'no Priority control');
-  assert.deepEqual(await focusName(page), { role: 'textbox', name: 'Capture text' }, 'the focus is in Capture text');
+  // D-688: the window gets its focus a frame after it shows; wait for that state rather than read it once.
+  const focus = await eventually(() => focusName(page), (f) => f.name === 'Capture text', 2000);
+  assert.deepEqual(focus, { role: 'textbox', name: 'Capture text' }, 'the focus is in Capture text');
 });
 
 test('fr_cap_01_ac2_elements_roles_names_and_tab_order', async ({ page }) => {
