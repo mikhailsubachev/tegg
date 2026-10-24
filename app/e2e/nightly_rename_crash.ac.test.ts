@@ -154,7 +154,8 @@ test('fr_lnk_03_ac17_sigkill_during_the_hub_rename_cycles', { timeout: 6 * 60 * 
           if (!(await find(d, `elementType == 9 AND ${is('Undo')}`, 1000))) problems.push(`cycle ${c}: the banner has no Undo`);
           if (!finish) { problems.push(`cycle ${c}: the banner has no Finish`); continue; }
           await finish.click();
-          const endAt = Date.now() + 60_000;
+          // D-754 (AP-707): Finish rewrites up to 500 files at about 100 ms each, so it gets 3 minutes.
+          const endAt = Date.now() + 180_000;
           while (Date.now() < endAt && !(progressOnDisk(vault).rewritten === LINKS && progressOnDisk(vault).hubRenamed)) await sleep(200);
           const p = progressOnDisk(vault);
           if (!(p.rewritten === LINKS && p.hubRenamed)) problems.push(`cycle ${c}: Finish left ${p.rewritten} of ${LINKS} links, hub renamed ${p.hubRenamed}`);
