@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – local graph (dark)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--canvas:#FBFBFA;--dot:#E2E2DE;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--gray:#5E5E66;--gray-bg:#EDEDEA;--edge:#B9B9B3;--hl:#1D5CCB}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--canvas:#18181A;--dot:#2A2A2D;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--accent-bg:#17332E;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--gray:#B4B4BA;--gray-bg:#2C2C30;--edge:#4A4A50;--hl:#86AEFF}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Show sidebar" title="Show sidebar" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM9 5v14"></path></svg></button>
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6a2 2 0 1 0 0 .01M18 6a2 2 0 1 0 0 .01M12 18a2 2 0 1 0 0 .01M7.5 7.5l3.5 9M16.5 7.5l-3.5 9M8 6h8"></path></svg>
+Graph · 2026-10-07 Weekly Sync
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<!-- Toolbar -->
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 260px; font-size: 14px">
+<span style="font-weight: 650">Local graph of</span>
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>2026-10-07 Weekly Sync</a>
+<span style="color: var(--muted); font-size: 13px">· {{objectCount}} objects</span>
+</div>
+<div role="group" aria-label="Depth" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted)">
+Depth
+<div style="display: flex; padding: 3px; border-radius: 8px; background: var(--hover); gap: 2px">
+<button aria-pressed="{{d1.pressed}}" style="width: 32px; height: 26px; border-radius: 6px; font-size: 13px; font-weight: {{d1.weight}}; background: {{d1.bg}}; color: {{d1.color}}; box-shadow: {{d1.shadow}}">1</button>
+<button aria-pressed="{{d2.pressed}}" style="width: 32px; height: 26px; border-radius: 6px; font-size: 13px; font-weight: {{d2.weight}}; background: {{d2.bg}}; color: {{d2.color}}; box-shadow: {{d2.shadow}}">2</button>
+<button aria-pressed="false" style="width: 32px; height: 26px; border-radius: 6px; font-size: 13px; color: var(--muted)">3</button>
+</div>
+</div>
+<div role="group" aria-label="View" style="display: flex; padding: 3px; border-radius: 8px; background: var(--hover); gap: 2px">
+<button aria-pressed="true" style="height: 26px; padding: 0 12px; border-radius: 6px; font-size: 13px; font-weight: 600; background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08)">Graph</button>
+<button aria-pressed="false" style="height: 26px; padding: 0 12px; border-radius: 6px; font-size: 13px; color: var(--muted)">List</button>
+</div>
+<button style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>Recenter</button>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Filter panel (FR-GRP-02, legend FR-GRP-05) -->
+<aside aria-label="Graph filters" style="flex: 1 1 236px; max-width: 100%; background: var(--panel); border-right: 1px solid var(--border); padding: 16px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; font-size: 13px">
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Preset</span>
+<select style="height: 32px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; padding: 0 8px">
+<option>{{presetName}}</option>
+<option>{{presetOther}}</option>
+<option>Ideas only</option>
+</select>
+</label>
+<sc-if value="{{presetModified}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 6px; margin-top: -10px; font-size: 12px">
+<span style="flex: 1; color: var(--muted)">· modified</span>
+<button style="height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px">Update</button>
+<button style="height: 26px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--link)">Revert</button>
+</div>
+</sc-if>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+<legend style="display: flex; width: 100%; align-items: center; padding: 0 0 6px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span>
+<button style="font-size: 12px; color: var(--link); height: 24px; padding: 0 4px">All</button>
+<button style="font-size: 12px; color: var(--link); height: 24px; padding: 0 4px">None</button>
+</legend>
+<sc-for list="{{typeFilters}}" as="f" hint-placeholder-count="8">
+<label style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 4px; border-radius: 6px; color: {{f.fg}}">
+<input type="checkbox" checked="{{f.on}}" style="width: 16px; height: 16px; margin: 0; accent-color: var(--link)">
+<span aria-hidden="true" style="width: {{f.w}}px; height: 22px; border-radius: 11px; background: {{f.bg}}; border: 1.5px solid {{f.color}}; display: flex; align-items: center; justify-content: center; box-sizing: border-box; flex: none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{f.color}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{f.d}}"></path></svg></span>
+<span style="flex: 1">{{f.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{f.count}}</span>
+</label>
+</sc-for>
+</fieldset>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+<legend style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 0 6px">Connections</legend>
+<sc-for list="{{edgeFilters}}" as="f" hint-placeholder-count="4">
+<label style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 4px">
+<input type="checkbox" checked="{{true}}" style="width: 16px; height: 16px; margin: 0; accent-color: var(--link)">
+<span style="flex: 1">{{f.label}}</span>
+<span aria-hidden="true" style="width: 26px; height: 0; border-top: {{f.border}}"></span>
+</label>
+</sc-for>
+</fieldset>
+<label style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 4px; border-top: 1px solid var(--border); padding-top: 12px; box-sizing: content-box">
+<input type="checkbox" checked="{{sizeByLinks}}" style="width: 16px; height: 16px; margin: 0; accent-color: var(--link)">
+<span style="flex: 1">Size nodes by links</span>
+</label>
+</aside>
+
+<!-- Graph canvas -->
+<div style="flex: 999 1 560px; min-width: 0; position: relative; min-height: 700px; overflow: hidden; background-color: var(--canvas); background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 22px 22px">
+<div role="img" aria-label="{{graphLabel}}" style="position: absolute; left: 50%; top: 24px; width: 820px; height: 640px; margin-left: -410px">
+<sc-for list="{{edges}}" as="e" hint-placeholder-count="18">
+<div style="position: absolute; left: {{e.x}}px; top: {{e.y}}px; width: {{e.len}}px; height: 0; border-top: {{e.border}}; transform: rotate({{e.angle}}deg); transform-origin: 0 0; opacity: {{e.opacity}}"></div>
+</sc-for>
+<sc-for list="{{nodes}}" as="n" hint-placeholder-count="15">
+<sc-if value="{{n.notTag}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: {{n.left}}px; top: {{n.top}}px; width: {{n.size}}px; height: {{n.size}}px; opacity: {{n.opacity}}">
+<div style="width: {{n.size}}px; height: {{n.size}}px; border-radius: 50%; background: {{n.bg}}; border: 2px solid {{n.color}}; box-sizing: border-box; display: flex; align-items: center; justify-content: center; box-shadow: {{n.ring}}">
+<svg width="{{n.icon}}" height="{{n.icon}}" viewBox="0 0 24 24" fill="none" stroke="{{n.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+</div>
+<div style="position: absolute; top: {{n.labelTop}}px; left: 50%; width: 150px; margin-left: -75px; text-align: center; font-size: {{n.fontSize}}px; line-height: 1.3; font-weight: {{n.weight}}; color: var(--text)"><span style="background: var(--canvas); padding: 0 3px; border-radius: 3px">{{n.label}}</span></div>
+</div>
+</sc-if>
+<sc-if value="{{n.isTag}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: {{n.left}}px; top: {{n.top}}px; width: {{n.w}}px; height: 26px; border-radius: 13px; background: {{n.bg}}; border: 1.5px solid {{n.color}}; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: {{n.color}}; white-space: nowrap; box-shadow: {{n.ring}}; opacity: {{n.opacity}}">#{{n.label}}</div>
+</sc-if>
+</sc-for>
+</div>
+
+<!-- Zoom -->
+<div style="position: absolute; right: 16px; bottom: 16px; display: flex; flex-direction: column; background: var(--pop); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden">
+<button aria-label="Zoom in" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<button aria-label="Zoom out" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: var(--muted); border-top: 1px solid var(--border)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+<button aria-label="Fit to screen" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: var(--muted); border-top: 1px solid var(--border)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+</div>
+<div style="position: absolute; left: 16px; bottom: 16px; font-size: 12px; color: var(--muted)">Click to preview · double-click to open · ⌘-double-click opens in a new tab</div>
+</div>
+
+<!-- Preview (FR-GRP-06) -->
+<aside aria-label="Preview" style="flex: 1 1 340px; max-width: 100%; border-left: 1px solid var(--border); background: var(--bg); box-sizing: border-box; display: flex; flex-direction: column">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 8px; background: var(--o-bg); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--o)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3z"></path></svg></span>
+<div style="flex: 1">
+<div style="font-size: 18px; font-weight: 700; line-height: 1.2">Q4 Budget</div>
+<div style="font-size: 12px; color: var(--muted)">Project · 4 connections</div>
+<div style="font-size: 12px; color: var(--muted)">Linked from <b style="color: var(--text); font-weight: 500">2026-10-07 Weekly Sync</b> by relation <b style="color: var(--text); font-weight: 500">Project</b></div>
+</div>
+</div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border)">
+<span>Status <b style="color: var(--text); font-weight: 500">Active</b></span>
+<span>Due <b style="color: var(--text); font-weight: 500">2026-12-31</b></span>
+<span>Owner <b style="color: var(--text); font-weight: 500">Jana Nováková</b></span>
+</div>
+<div style="font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 650; font-size: 15px">Scope</div>
+<p style="margin: 0; color: var(--muted)">[Body of the selected object, rendered and scrollable: headings, images and embeds shown as cards.]</p>
+<div style="font-weight: 650; font-size: 15px">Open questions</div>
+<p style="margin: 0; color: var(--muted)">[More content…]</p>
+</div>
+<div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px">
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); font-size: 13px">Center graph here</button>
+<button style="height: 32px; padding: 0 12px; border-radius: 7px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600">Open ↩</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{noSel}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; text-align: center; color: var(--muted); font-size: 13px; min-height: 240px">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6a2 2 0 1 0 0 .01M18 6a2 2 0 1 0 0 .01M12 18a2 2 0 1 0 0 .01M7.5 7.5l3.5 9M16.5 7.5l-3.5 9M8 6h8"></path></svg>
+<div style="font-weight: 600; color: var(--text)">Click a node to preview it</div>
+<div>Its neighbours are highlighted; double-click opens the object.</div>
+</div>
+</sc-if>
+</aside>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"selection":{"editor":"boolean","default":true},"depth2":{"editor":"boolean","default":false},"sizeByLinks":{"editor":"boolean","default":false},"presetModified":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? true;
+const sel = (this.props.selection ?? true) ? 'q4' : null;
+const depth2 = this.props.depth2 ?? false;
+const sizeByLinks = this.props.sizeByLinks ?? false;
+const presetModified = this.props.presetModified ?? false;
+const I = {
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z',
+person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+task: 'M5 5h14v14H5zM9 12l2 2 4-4',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+tag: 'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5'
+};
+const T = {
+meeting: { d: I.meet, color: 'var(--accent)', bg: 'var(--accent-bg)', label: 'Meetings' },
+project: { d: I.proj, color: 'var(--o)', bg: 'var(--o-bg)', label: 'Projects' },
+person: { d: I.person, color: 'var(--p)', bg: 'var(--p-bg)', label: 'People' },
+task: { d: I.task, color: 'var(--link)', bg: 'var(--link-bg)', label: 'Tasks' },
+idea: { d: I.idea, color: 'var(--idea)', bg: 'var(--idea-bg)', label: 'Ideas' },
+daily: { d: I.cal, color: 'var(--gray)', bg: 'var(--gray-bg)', label: 'Daily Notes' },
+tag: { d: I.tag, color: 'var(--gray)', bg: 'var(--gray-bg)', label: 'Tags' },
+page: { d: I.page, color: 'var(--gray)', bg: 'var(--gray-bg)', label: 'Pages' }
+};
+const ALL = [
+{ id: 'ws', label: '2026-10-07 Weekly Sync', type: 'meeting', x: 410, y: 300, links: 11, depth: 0 },
+{ id: 'q4', label: 'Q4 Budget', type: 'project', x: 245, y: 175, links: 5, depth: 1 },
+{ id: 'lis', label: 'Lisbon Offsite 2026', type: 'project', x: 585, y: 165, links: 4, depth: 1 },
+{ id: 'jana', label: 'Jana Nováková', type: 'person', x: 190, y: 340, links: 4, depth: 1 },
+{ id: 'petr', label: 'Petr Dvořák', type: 'person', x: 255, y: 480, links: 2, depth: 1 },
+{ id: 'mike', label: 'Mike', type: 'person', x: 410, y: 520, links: 3, depth: 1 },
+{ id: 'task', label: 'Send budget draft to finance', type: 'task', x: 565, y: 470, links: 2, depth: 1 },
+{ id: 'day', label: '2026-10-07', type: 'daily', x: 640, y: 320, links: 3, depth: 1 },
+{ id: 'fin', label: 'finance', type: 'tag', x: 360, y: 105, links: 3, depth: 1, color: 'var(--o)', bg: 'var(--o-bg)' },
+{ id: 'q4t', label: 'q4', type: 'tag', x: 470, y: 105, links: 2, depth: 1, color: 'var(--p)', bg: 'var(--p-bg)' },
+{ id: 'rev', label: 'Reviews turn notes into decisions', type: 'idea', x: 705, y: 455, links: 2, depth: 1 },
+{ id: 'ws30', label: '2026-09-30 Weekly Sync', type: 'meeting', x: 85, y: 110, links: 2, depth: 2 },
+{ id: 'off', label: 'Offsites work when the agenda is written first', type: 'idea', x: 740, y: 75, links: 1, depth: 2 },
+{ id: 'fric', label: 'Friction at capture kills ideas', type: 'idea', x: 760, y: 250, links: 1, depth: 2 },
+{ id: 'cfo', label: 'Controlling', type: 'page', x: 70, y: 400, links: 1, depth: 2 }
+];
+const EALL = [
+['ws', 'q4', 'rel'], ['ws', 'lis', 'link'], ['ws', 'jana', 'rel'], ['ws', 'petr', 'rel'], ['ws', 'mike', 'rel'],
+['ws', 'task', 'embed'], ['ws', 'day', 'link'], ['ws', 'fin', 'tag'], ['ws', 'q4t', 'tag'], ['ws', 'rev', 'rel'],
+['q4', 'jana', 'rel'], ['q4', 'ws30', 'link'], ['q4', 'fin', 'tag'], ['lis', 'off', 'rel'], ['day', 'fric', 'rel'],
+['jana', 'cfo', 'link'], ['task', 'fin', 'tag']
+];
+const N = ALL.filter((n) => depth2 || n.depth < 2);
+const byId = {}; N.forEach((n) => { byId[n.id] = n; });
+const E = EALL.filter(([a, b]) => byId[a] && byId[b]);
+const nb = new Set();
+if (sel) { nb.add(sel); E.forEach(([a, b]) => { if (a === sel) nb.add(b); if (b === sel) nb.add(a); }); }
+const nodes = N.map((n) => {
+const t = T[n.type];
+const isTag = n.type === 'tag';
+const size = n.depth === 0 ? 68 : (sizeByLinks ? Math.round((n.depth === 2 ? 30 : 36) + Math.min(n.links, 6) * 2.5) : (n.depth === 2 ? 38 : 44));
+const w = isTag ? Math.round(24 + (n.label.length + 1) * 7.4) : size;
+const color = n.color || t.color, bg = n.bg || t.bg;
+const isSel = sel === n.id;
+const dim = sel && !nb.has(n.id);
+return {
+label: n.label, d: t.d, color, bg, size,
+left: n.x - (isTag ? w / 2 : size / 2), top: n.y - (isTag ? 13 : size / 2), w,
+isTag, notTag: !isTag,
+icon: Math.round(size * 0.42),
+labelTop: size + 6,
+fontSize: n.depth === 0 ? 14 : (n.depth === 2 ? 11 : 12),
+weight: n.depth === 0 || isSel ? '650' : '400',
+ring: isSel ? '0 0 0 4px var(--bg), 0 0 0 6px var(--hl)' : (n.depth === 0 ? '0 0 0 4px var(--bg), 0 0 0 5px ' + color : 'none'),
+opacity: dim ? '0.3' : (n.depth === 2 && !nb.has(n.id) ? '0.75' : '1')
+};
+});
+const STY = { link: '1.5px solid', rel: '1.5px dashed', embed: '3px solid', tag: '1px dotted' };
+const edges = E.map(([a, b, k]) => {
+const p = byId[a], q = byId[b];
+const dx = q.x - p.x, dy = q.y - p.y;
+const hl = sel && (a === sel || b === sel);
+const dim = sel && !hl;
+return {
+x: p.x, y: p.y,
+len: Math.round(Math.sqrt(dx * dx + dy * dy)),
+angle: (Math.atan2(dy, dx) * 180 / Math.PI).toFixed(2),
+border: STY[k] + ' ' + (hl ? 'var(--hl)' : 'var(--edge)'),
+opacity: dim ? '0.35' : '1'
+};
+});
+const counts = {}; N.forEach((n) => { counts[n.type] = (counts[n.type] || 0) + 1; });
+const typeFilters = ['meeting', 'project', 'person', 'task', 'idea', 'daily', 'tag', 'page'].map((k) => ({
+label: T[k].label, d: T[k].d, color: T[k].color, bg: T[k].bg,
+count: String(counts[k] || 0), on: true, fg: 'var(--text)', w: k === 'tag' ? 30 : 22
+}));
+const edgeFilters = [
+{ label: 'Links', border: '1.5px solid var(--muted)' },
+{ label: 'Relations', border: '1.5px dashed var(--muted)' },
+{ label: 'Embeds', border: '3px solid var(--muted)' },
+{ label: 'Tags', border: '1px dotted var(--muted)' }
+];
+const ON = { pressed: 'true', weight: '600', bg: 'var(--bg)', color: 'var(--text)', shadow: '0 1px 2px rgba(0,0,0,.08)' };
+const OFF = { pressed: 'false', weight: '400', bg: 'transparent', color: 'var(--muted)', shadow: 'none' };
+return {
+themeClass: dark ? 'dark' : '',
+nodes, edges, typeFilters, edgeFilters,
+objectCount: String(N.length),
+graphLabel: 'Local graph: 2026-10-07 Weekly Sync and the objects linked to it, ' + (depth2 ? 'two levels deep' : 'one level deep'),
+d1: depth2 ? OFF : ON, d2: depth2 ? ON : OFF,
+sizeByLinks, presetModified,
+presetName: presetModified ? 'People & meetings' : 'Default',
+presetOther: presetModified ? 'Default' : 'People & meetings',
+hasSel: !!sel, noSel: !sel
+};
+}
+}
+</script>
+</body>
+</html>
