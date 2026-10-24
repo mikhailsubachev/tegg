@@ -131,7 +131,8 @@ export function appPids(): string[] {
 export const KEY: Record<string, number> = {
   a: 0, d: 2, k: 40, n: 45, t: 17, v: 9, w: 13, q: 12, r: 15, space: 49, enter: 36, escape: 53, tab: 48, delete: 51, down: 125, up: 126, left: 123, right: 124, lbracket: 33, i: 34,
 };
-export const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+export { osa } from './osa.ts'; // D-758: ⌘Q/⌘W only while Tegg is frontmost
+import { osa } from './osa.ts';
 export function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
   osa(`tell application "System Events" to key code ${KEY[key]}${mods.length ? ` using {${mods.map((m) => `${m} down`).join(', ')}}` : ''}`);
 }
@@ -261,7 +262,63 @@ export async function need(d: Driver, label: string, ms = 3000): Promise<any> {
   let e = await firstShown(d, label);
   while (!e && Date.now() < endAt) { await sleep(100); e = await firstShown(d, label); }
   assert.ok(e, `"${label}" is shown`);
-  return e;
+  return clickable(d, e);
+}
+/** D-751: XCUITest's click does nothing on an element macOS reports as not hittable (a link inside a clickable table
+ *  row, for one), so `click()` falls back to a mouse click at the element's centre, as a user would click; its
+ *  double-click doesn't reach web content at all (an image in a note), so `doubleClick()` is always one at the centre. */
+export function clickable(d: Driver, e: any): any {
+  return new Proxy(e, {
+    get(target, prop) {
+      if (prop === 'click' || prop === 'doubleClick') {
+        return async () => {
+          // Only web content (link 42, image 43, text 48): a status-menu item isn't hittable either, but its click works.
+          const web = ['42', '43', '48'].includes(String(await target.getAttribute('elementType').catch(() => '')));
+          if (prop === 'click' && (!web || String(await target.getAttribute('hittable').catch(() => 'true')) !== 'false')) return target.click();
+          const r = await d.getElementRect(target.elementId);
+          await d.execute(prop === 'click' ? 'macos: click' : 'macos: doubleClick', { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
+        };
+      }
+      const v = Reflect.get(target, prop, target);
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+}
+/** An XCUITest predicate: some element's text contains `text`. D-752: `value` is compared only where it is text
+ *  (static text 48, text field 49, text view 52): a progress bar's or checkbox's value is a number, and CONTAINS on a
+ *  number throws in XCTest's agent inside the app, which kills the app. */
+export function textContains(text: string): string {
+  const t = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `(label CONTAINS "${t}" OR title CONTAINS "${t}" OR (elementType IN {48, 49, 52} AND value CONTAINS "${t}"))`;
+}
+/** D-751: a menu item by name (XCUIElementTypeMenuItem): the open menu and a column header can carry the same name. */
+export async function needMenuItem(d: Driver, label: string, ms = 3000): Promise<any> {
+  const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const endAt = Date.now() + ms;
+  while (true) {
+    for (const e of await d.$$(`-ios predicate string:elementType == 54 AND (label == "${l}" OR title == "${l}")`).catch(() => [] as any[])) {
+      if (await e.isDisplayed().catch(() => false)) return clickable(d, e);
+    }
+    if (Date.now() > endAt) break;
+    await sleep(100);
+  }
+  assert.fail(`menu item "${label}" is shown`);
+}
+/** D-751: a button by name inside the group (`role="group"`) whose name is `group` (case-insensitive). */
+export async function needInGroup(d: Driver, group: string, label: string, ms = 3000): Promise<any> {
+  const g = group.replace(/"/g, '\\"');
+  const l = label.replace(/"/g, '\\"');
+  const endAt = Date.now() + ms;
+  while (true) {
+    for (const box of await d.$$(`-ios predicate string:label ==[c] "${g}"`).catch(() => [] as any[])) {
+      for (const e of await box.$$(`-ios predicate string:label == "${l}" OR title == "${l}"`).catch(() => [] as any[])) {
+        if (await e.isDisplayed().catch(() => false)) return clickable(d, e);
+      }
+    }
+    if (Date.now() > endAt) break;
+    await sleep(100);
+  }
+  assert.fail(`"${label}" in the group "${group}" is shown`);
 }
 /** A window of the app by title (`main` is `Tegg`, the capture window `Quick Capture`). */
 export async function windowShown(d: Driver, title: string): Promise<boolean> {
@@ -289,8 +346,11 @@ export async function statusItem(d: Driver): Promise<any | null> {
 }
 /** Closes the main window with ⌘W (FR-CAP-03: it hides; the app keeps running). */
 export async function closeMain(d: Driver) {
+  // D-758: ⌘W goes to the frontmost app; after a capture over Finder that is Finder, so Tegg comes to the front first
+  // (it runs: the session started it, so activating it never launches another copy).
+  osa(`tell application id "${BUNDLE_ID}" to activate`);
   press('w', ['command']);
-  await waitFor(async () => !(await mainOpen(d)), 3000);
+  assert.ok(await waitFor(async () => !(await mainOpen(d)), 3000), 'the main window closes');
 }
 /** The text value of the capture field (WebKit exposes the textarea's value). */
 export async function captureValue(d: Driver): Promise<string> {

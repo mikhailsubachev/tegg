@@ -39,7 +39,7 @@ export function TagField({ chips, onChange, tags, autoFocus, colors }: { chips: 
       <span className="tag-field-icon"><Icon name="hash" size={13} /></span>
       {chips.map((c) => (
         <span key={c} className="tag-field-chip" style={tint(c)}>
-          <span data-user-content>#{c}</span>
+          <span data-user-content>{`#${c}`}</span>
           <button type="button" tabIndex={0} className="tag-field-remove" aria-label={t('capture.removeTag', { tag: c })} onClick={() => { onChange(chips.filter((x) => x !== c)); input.current?.focus(); }}>×</button>
         </span>
       ))}

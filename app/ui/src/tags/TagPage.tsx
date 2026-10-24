@@ -37,6 +37,10 @@ export type TagPageProps = {
   commandRef: React.MutableRefObject<((id: string) => void) | null>;
 };
 
+const WINDOW_FROM = 80;
+const ROW_EST = 33;
+const OVERSCAN = 10;
+
 const COLUMNS: { key: TagPageSort['column']; label: string }[] = [
   { key: 'title', label: 'tag.col.title' }, { key: 'type', label: 'tag.col.type' }, { key: 'otherTags', label: 'tag.col.otherTags' }, { key: 'modified', label: 'tag.col.modified' },
 ];
@@ -93,11 +97,60 @@ export function TagPage(p: TagPageProps) {
     const dir = ui.sort.column === column ? (ui.sort.dir === 'asc' ? 'desc' : 'asc') : 'asc';
     p.onUi({ ...ui, sort: { column, dir } });
   };
+  // FR-TAG-06 AC-11 (D-736): above WINDOW_FROM rows only the rows around the viewport are in the page; the rows have
+  // about one height (ROW_EST, then measured), so a row outside the window is scrolled to before it is focused.
+  const [view, setView] = useState({ top: 0, height: 900 });
+  const [rowH, setRowH] = useState(ROW_EST);
+  const pendingFocus = useRef<number | null>(null);
+  const windowed = flat.length > WINDOW_FROM;
+  const scroller = () => (tbody.current?.closest('main') as HTMLElement | null) ?? null;
+  const tableTop = (table: HTMLElement, main: HTMLElement) => table.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+  useEffect(() => {
+    const main = scroller();
+    if (!windowed || !main) return;
+    let frame = 0;
+    const measure = () => {
+      const table = tbody.current;
+      if (!table) return;
+      const next = { top: Math.round(main.scrollTop - tableTop(table, main)), height: main.clientHeight };
+      setView((v) => (v.top === next.top && v.height === next.height ? v : next));
+      const h = table.querySelector<HTMLElement>('tr[data-path]')?.getBoundingClientRect().height;
+      if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
+    };
+    const on = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); }); };
+    main.addEventListener('scroll', on, { passive: true });
+    window.addEventListener('resize', on);
+    measure();
+    return () => { main.removeEventListener('scroll', on); window.removeEventListener('resize', on); if (frame) cancelAnimationFrame(frame); };
+  }, [windowed, rowH]); // eslint-disable-line react-hooks/exhaustive-deps
+  const from = windowed ? Math.max(0, Math.floor(view.top / rowH) - OVERSCAN) : 0;
+  const to = windowed ? Math.min(flat.length, Math.ceil((view.top + view.height) / rowH) + OVERSCAN) : flat.length;
+  const rowAt = (i: number) => tbody.current?.querySelector<HTMLElement>(`tr[data-index="${i}"]`) ?? null;
   const focusRow = (i: number) => {
-    const rows = tbody.current?.querySelectorAll<HTMLElement>('tr[data-path]');
-    if (!rows?.length) return;
-    rows[Math.max(0, Math.min(rows.length - 1, i))].focus();
+    if (!flat.length) return;
+    const at = Math.max(0, Math.min(flat.length - 1, i));
+    const el = rowAt(at);
+    if (el) { el.focus(); return; }
+    const main = scroller();
+    const table = tbody.current;
+    if (!main || !table) return;
+    pendingFocus.current = at;
+    main.scrollTop = Math.max(0, tableTop(table, main) + at * rowH - main.clientHeight / 2);
+    setView({ top: Math.round(main.scrollTop - tableTop(table, main)), height: main.clientHeight });
   };
+  useLayoutEffect(() => {
+    if (pendingFocus.current === null) return;
+    const el = rowAt(pendingFocus.current);
+    if (el) { pendingFocus.current = null; el.focus(); }
+  });
+  // The test build's `tag-rows:<n>` (D-736): the row elements of the first paint with rows.
+  const marked = useRef<string | null>(null);
+  useEffect(() => {
+    if (objects === null || marked.current === p.tagKey) return;
+    marked.current = p.tagKey;
+    const n = tbody.current?.querySelectorAll('tr[data-path]').length ?? 0;
+    void ipc.perfMark(`tag-rows:${n}`).catch(() => {});
+  }, [objects, p.tagKey]);
   const today = localDate(Date.now(), appZone());
   const region = currentRegion();
   const typeFor = (k: string) => p.types.find((x) => x.key === k);
@@ -214,11 +267,15 @@ export function TagPage(p: TagPageProps) {
             </tr>
           </thead>
           {grouped.groups.map((g) => {
-            const body = g.rows.map((r) => {
+            const first = flat.indexOf(g.rows[0]);
+            const shown = g.rows.filter((_, k) => first + k >= from && first + k < to);
+            const before = shown.length ? flat.indexOf(shown[0]) - first : Math.max(0, Math.min(g.rows.length, from - first));
+            const after = g.rows.length - before - shown.length;
+            const body = shown.map((r) => {
               const i = flat.indexOf(r);
               const st = chipState({ kind: 'note', type: r.type, review: r.review, status: r.status, due: r.due, completed: r.completed });
               return (
-                <tr key={r.path} className="type-row" data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
+                <tr key={r.path} className="type-row" data-index={i} data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
                   onClick={() => p.onOpen(r.path)} onFocus={() => setCursor(i)}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;
@@ -238,10 +295,12 @@ export function TagPage(p: TagPageProps) {
                 </tr>
               );
             });
-            return g.type === null ? <tbody key="all">{body}</tbody> : (
+            const pad = (n: number, k: string) => n > 0 && <tr key={k} aria-hidden="true" className="spacer-row" style={{ height: n * rowH }}><td colSpan={4} /></tr>;
+            const rows = windowed ? [pad(before, 'before'), ...body, pad(after, 'after')] : body;
+            return g.type === null ? <tbody key="all">{rows}</tbody> : (
               <tbody key={g.type} role="rowgroup">
                 <tr role="row" className="group-row"><th data-command="tagPage.c2" colSpan={4} scope="rowgroup"><span data-user-content>{typeNames[g.type] ?? g.type}</span> {g.rows.length}</th></tr>
-                {body}
+                {rows}
               </tbody>
             );
           })}

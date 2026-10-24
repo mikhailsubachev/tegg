@@ -256,6 +256,31 @@ export async function needEmbeds(scope: Locator, n: number, what: string, ms = 5
   return l;
 }
 
+/** Waits until the centre pane's scroll position has held for 8 animation frames (D-688, issue #59): after Back the
+ *  scroll is restored while embeds load, and a click while the content still moves lands its mouse-up elsewhere. */
+export async function scrollSteady(page: Page, what: string, ms = 5000): Promise<void> {
+  const ok = await page.evaluate((ms) => new Promise<boolean>((done) => {
+    const end = performance.now() + ms;
+    const top = () => {
+      let s: Element | null = document.querySelector('main [data-embed-mode]') ?? document.querySelector('main');
+      while (s && !(s.scrollHeight > s.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(s).overflowY))) s = s.parentElement;
+      return s ? s.scrollTop : -1;
+    };
+    let last = top();
+    let same = 0;
+    const tick = () => {
+      const now = top();
+      same = now === last ? same + 1 : 0;
+      last = now;
+      if (same >= 8) done(true);
+      else if (performance.now() > end) done(false);
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), ms);
+  assert.ok(ok, `${what}: the scroll position settles within ${ms} ms`);
+}
+
 /** Visible text blocks (paragraphs, headings, list items) inside an element, in order. */
 export async function blockTexts(loc: Locator): Promise<string[]> {
   return loc.first().evaluate((root) =>

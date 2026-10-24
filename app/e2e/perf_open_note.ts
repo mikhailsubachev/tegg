@@ -6,6 +6,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 export const REPO = resolve(import.meta.dirname, '../..');
 export const APP = resolve(import.meta.dirname, '../src-tauri/target/release/bundle/macos/Tegg.app');
@@ -48,7 +49,7 @@ export function longestNote(vault: string): { path: string; title: string; text:
   return { path: best.path, title: m ? m[1] : best.path.split('/').pop()!.replace(/\.md$/, ''), text };
 }
 
-const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 
 /** One launch: wait for `ui-ready`, ⌘O, paste the title, ⏎; the app exits after `note-ready`. Returns the marks. */
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<Mark[]> {

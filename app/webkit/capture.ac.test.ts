@@ -36,7 +36,9 @@ test('fr_cap_01_ac1_the_window_content_opened_from_the_status_item', async ({ pa
   assert.ok(await seen(page.getByText('Saves to Doručené', { exact: true }), 1000), 'Saves to <vault name>');
   assert.equal(await dueBtn(page).count(), 0, 'no Due control for a Quick Note');
   assert.equal(await prioBtn(page).count(), 0, 'no Priority control');
-  assert.deepEqual(await focusName(page), { role: 'textbox', name: 'Capture text' }, 'the focus is in Capture text');
+  // D-688: the window gets its focus a frame after it shows; wait for that state rather than read it once.
+  const focus = await eventually(() => focusName(page), (f) => f.name === 'Capture text', 2000);
+  assert.deepEqual(focus, { role: 'textbox', name: 'Capture text' }, 'the focus is in Capture text');
 });
 
 test('fr_cap_01_ac2_elements_roles_names_and_tab_order', async ({ page }) => {
@@ -380,7 +382,8 @@ test('fr_cap_05_ac1_the_hotkey_opens_with_the_vault_default', async ({ page }) =
   const v = inboxVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: nápad'); });
   await startCapture(page, { vault: v, trigger: 'hotkey' });
   assert.equal(flat(await (await must(typeBtn(page), 'Type')).getAttribute('aria-label')), 'Type: Nápad', 'default-type: nápad');
-  assert.equal((await focusName(page)).name, 'Capture text', 'focus in Capture text');
+  // D-688: the window gets its focus a frame after it shows; wait for that state rather than read it once.
+  assert.equal((await eventually(() => focusName(page), (f) => f.name === 'Capture text', 2000)).name, 'Capture text', 'focus in Capture text');
 });
 
 test('fr_cap_05_ac2_new_task_opens_as_task_whatever_the_default', async ({ page }) => {

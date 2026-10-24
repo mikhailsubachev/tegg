@@ -105,4 +105,4 @@ See [README](README.md) for conventions. Synthetic fixtures live in `tests/fixtu
 
 ### FR-HIS-04 Backup before import (MVP)
 
-- **AC-1** Importing into a non-empty vault creates a backup zip first (NFR-REL-04 AC-1); importing into a new vault is the recommended default in the import wizard.
+- **AC-1** [MS7] Importing into a non-empty vault creates a backup zip first (NFR-REL-04 AC-1); importing into a new vault is the recommended default in the import wizard.

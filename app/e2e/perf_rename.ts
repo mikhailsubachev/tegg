@@ -9,6 +9,7 @@ import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 export const REPO = resolve(import.meta.dirname, '../..');
 export const APP = resolve(import.meta.dirname, '../src-tauri/target/release/bundle/macos/Tegg.app');
@@ -66,12 +67,13 @@ export function launch(vault: string, support: string, log: string, route: strin
   mkdirSync(support, { recursive: true });
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];
-  return spawn(EXE, [], { env: { ...clean, TEGG_TEST: '1', TEGG_APP_SUPPORT: support, TEGG_VAULT: vault, TEGG_ROUTE: route, TEGG_PERF_LOG: log }, stdio: 'ignore' });
+  return spawn(EXE, [], { env: { ...clean, TEGG_TEST: '1', TEGG_APP_SUPPORT: support, TEGG_VAULT: vault, TEGG_ROUTE: route, TEGG_PERF_LOG: log, TEGG_TEST_FOCUS_TITLE: '1' }, stdio: 'ignore' });
 }
 export function osa(...lines: string[]) {
-  execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+  guardedOsa(...lines); // D-758: ⌘Q/⌘W only while Tegg is frontmost
 }
-/** Replaces the focused title with `title` (pasted in one step) and commits it with ↩ (D-268). */
+/** Replaces the focused title with `title` (pasted in one step) and commits it with ↩ (D-268). `launch` sets
+ *  TEGG_TEST_FOCUS_TITLE, so the title has the focus once the note is ready (D-751); the body has it otherwise. */
 export function commitTitle(title: string) {
   osa('tell application "System Events" to keystroke "a" using {command down}');
   execFileSync('pbcopy', { input: title, env: { ...process.env, LANG: 'en_US.UTF-8' } });

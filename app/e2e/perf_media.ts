@@ -8,10 +8,11 @@ import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { EXE, p95, readMarks } from './perf_open_note.ts';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 export { EXE, p95, readMarks };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 const FX = resolve(import.meta.dirname, '../../tests/fixtures/vaults');
 
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();

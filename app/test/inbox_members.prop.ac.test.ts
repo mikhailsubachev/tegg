@@ -24,6 +24,8 @@ const scale = Number(process.env.QA_PROPERTY_SCALE ?? '1') || 1;
 const randomSeed = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31;
 const seeds = scale >= 100 ? Array.from({ length: 10 }, (_, i) => (i === 0 ? FIXED_SEED : randomSeed + i)) : [FIXED_SEED, randomSeed];
 const runs = scale >= 100 ? 300 : 40;
+// D-749: at scale ≥ 100 the 10 seeds outrun Vitest's 5 s default.
+const timeout = scale >= 100 ? 600_000 : 5_000;
 
 function rng(seed: number) {
   let x = (seed >>> 0) || 1;
@@ -75,7 +77,7 @@ function vault(r: R, doc: Mod, now: number, zone: string): Gen {
   return { files, members };
 }
 
-test('fr_syn_06_ac28_members_order_groups_and_counts_follow_r61', async () => {
+test('fr_syn_06_ac28_members_order_groups_and_counts_follow_r61', { timeout }, async () => {
   const doc = await load('@tegg/doc');
   const twin = await load('../ui/test/fake-inbox.ts');
   const b = await load('../ui/src/inbox/bucket.ts');

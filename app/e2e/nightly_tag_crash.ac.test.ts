@@ -62,7 +62,13 @@ test('fr_tag_04_ac10_crash_during_a_tag_rename', { timeout: 6 * 60 * 60_000 }, a
       press('a', ['command']);
       paste(NEW);
       press('enter');
-      await sleep(300 + Math.floor(Math.random() * 3000));
+      // AC-10 kills during `writing` (D-753): the zip is written first, so wait for the first rewritten file, then kill
+      // at a random time; a kill before any write had nothing to restore.
+      const writing = Date.now() + 60_000;
+      const started = () => [...tagged].some((p) => sha(readFileSync(join(v, p))) === post.get(p));
+      while (Date.now() < writing && !started()) await sleep(50);
+      assert.ok(started(), `cycle ${cycle}: the rename started writing`);
+      await sleep(Math.floor(Math.random() * 3000));
       child.kill('SIGKILL');
       await sleep(300);
       const now = shas(v);

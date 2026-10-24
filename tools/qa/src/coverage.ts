@@ -248,7 +248,8 @@ export function writeReport(root: string, resultsDir: string, realAppTests: stri
 
 export type MilestoneReqs = { reqs: Set<string>; prefixes: string[] };
 
-/** Expands a requirement list cell: `FR-STO-01…09, -06, -08…11, AR-01, All NFR-PERF (note)`. */
+/** Expands a requirement list cell: `FR-STO-01…09, -06, -08…11, AR-01, All NFR-PERF (note)`. Sentences end an item
+ *  (`NFR-REL-04. Starts after …`), and everything from `Moved to …` on lists requirements of later phases (D-750). */
 export function expandRequirements(cell: string): MilestoneReqs {
   const reqs = new Set<string>();
   const prefixes: string[] = [];
@@ -258,8 +259,9 @@ export function expandRequirements(cell: string): MilestoneReqs {
     const to = end === undefined ? from : Number(end);
     for (let n = from; n <= to; n++) reqs.add(`${prefix}-${String(n).padStart(start.length, '0')}`);
   };
-  for (const raw of cell.replace(/\([^)]*\)/g, '').split(',')) {
-    const item = raw.trim();
+  const listed = cell.replace(/\([^)]*\)/g, '').replace(/\bMoved to\b[\s\S]*$/, '');
+  for (const raw of listed.split(/,|\.\s+/)) {
+    const item = raw.trim().replace(/\.$/, '');
     if (!item) continue;
     const all = /^All\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)$/.exec(item);
     const full = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*)-(\d+)(?:\s*(?:…|\.\.\.)\s*(\d+))?$/.exec(item);

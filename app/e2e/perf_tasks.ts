@@ -28,11 +28,11 @@ function readMarks(file: string): Mark[] {
   if (!existsSync(file)) return [];
   return readFileSync(file, 'utf8').split('\n').filter((l) => l.trim() !== '').map((l) => JSON.parse(l) as Mark);
 }
-/** Task files of the vault (`type: task` in the frontmatter). */
+/** Task files of the vault (`type: task` in the frontmatter, any case like the app; the reference vault writes `Task`, D-749). */
 export function taskCount(vault: string): number {
   const dir = join(vault, 'Tasks');
   if (!existsSync(dir)) return 0;
-  return readdirSync(dir).filter((n) => n.endsWith('.md') && /^type: task$/m.test(readFileSync(join(dir, n), 'utf8'))).length;
+  return readdirSync(dir).filter((n) => n.endsWith('.md') && /^type: task$/im.test(readFileSync(join(dir, n), 'utf8'))).length;
 }
 
 /** The reference vault, generated into `base/vault`; null when it can't be generated. */

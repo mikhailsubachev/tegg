@@ -152,9 +152,35 @@ fn mark(app: &AppHandle, name: &str) {
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
         let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
     }
+    if name == "note-ready" {
+        test_drop(app);
+        if test_var("TEGG_TEST_FOCUS_TITLE").is_some() {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = app.emit("tegg://test-focus-title", ());
+            });
+        }
+    }
     if test_var("TEGG_EXIT_AFTER").as_deref() == Some(name) {
         app.exit(0);
     }
+}
+
+/// The test hook `TEGG_TEST_DROP=<path>:<path>…@<x>,<y>` (ms6-trash-media test table, FR-ATT-01 AC-2, D-751; a real Finder drag isn't
+/// automatable): once the first note is ready, the window gets the drag-drop event a Finder drop sends.
+fn test_drop(app: &AppHandle) {
+    let Some(spec) = test_var("TEGG_TEST_DROP") else { return };
+    let Some((paths, at)) = spec.rsplit_once('@') else { return };
+    let Some((x, y)) = at.split_once(',') else { return };
+    let (Ok(x), Ok(y)) = (x.trim().parse::<f64>(), y.trim().parse::<f64>()) else { return };
+    let paths: Vec<String> = paths.split(':').filter(|p| !p.is_empty()).map(String::from).collect();
+    let app = app.clone();
+    // The editor's listener is registered asynchronously after its first paint, so the drop comes a moment later.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(700));
+        let _ = app.emit("tauri://drag-drop", serde_json::json!({ "paths": paths, "position": { "x": x, "y": y } }));
+    });
 }
 
 // ---------------------------------------------------------------- vault and events

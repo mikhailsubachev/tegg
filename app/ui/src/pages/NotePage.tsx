@@ -2,6 +2,7 @@
 // (FR-EDT-01, FR-EDT-08), the title is editable (D-173), external changes reload a clean note and open the merge
 // dialog for a dirty one (FR-SYN-03 AC-12…AC-18), and files the editor can't open safely stay read-only (NFR-REL-03
 // AC-6…AC-9, D-117). Opening a note writes nothing (FR-FMT-07 AC-8).
+import { listen } from '@tauri-apps/api/event';
 import { MediaObjectView } from '../media/MediaObjectView';
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Ref } from 'react';
 import { EmbedStore } from '../embeds/store';
@@ -173,6 +174,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
   const [focusTarget, setFocusTarget] = useState<'body' | 'title' | 'heading' | null>(null);
+  // Test build only (D-751): the core sends `tegg://test-focus-title` under TEGG_TEST_FOCUS_TITLE once the note is ready,
+  // for the L6 tests that type a new title without Appium (FR-LNK-03 AC-17, FR-UX-07 AC-11).
+  useEffect(() => {
+    const un = listen('tegg://test-focus-title', () => (heading.current as HTMLElement | null)?.focus());
+    return () => void un.then((f) => f());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const wantFocus = useRef(false);
   const editorReady = useRef(false);
   const placeFocus = useRef<() => void>(() => {});

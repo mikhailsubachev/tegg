@@ -13,6 +13,7 @@ import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const APP = resolve(import.meta.dirname, '../src-tauri/target/release/bundle/macos/Tegg.app');
@@ -92,7 +93,7 @@ const KEY: Record<string, number> = {
   u: 32, a: 0, s: 1, d: 2, f: 3, i: 34, k: 40, n: 45, o: 31, p: 35, t: 17, v: 9, comma: 43, backslash: 42, lbracket: 33,
   rbracket: 30, enter: 36, escape: 53, tab: 48, space: 49, down: 125, up: 126,
 };
-const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
   osa(`tell application "System Events" to key code ${KEY[key]}${mods.length ? ` using {${mods.map((m) => `${m} down`).join(', ')}}` : ''}`);
 }

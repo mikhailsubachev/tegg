@@ -187,10 +187,10 @@ test('fr_typ_01_ac4_general_edits_write_only_the_type_file_and_update_the_ui', a
 test('fr_typ_01_ac5_folder_applies_to_new_objects_and_is_checked', async ({ page }) => {
   const core = await openSchuzka(page);
   const folder = await must(textbox(page, 'General', 'Folder in the vault'), 'Folder in the vault');
-  assert.equal(await description(folder), 'New objects go here. Moving existing objects comes in MS4.');
+  assert.equal(await description(folder), 'New objects go here. Moving existing objects comes in v1.0.');
   const move = await must(general(page).getByRole('button', { name: 'Move existing objects' }), 'Move existing objects');
   assert.equal(await move.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(move), 'Coming in MS4');
+  assert.equal(await description(move), 'Coming in v1.0'); // D-748
   for (const bad of ['', '/abs', '../ven', '.skryté', '_templates', '_attachments/x', '.trash', '.tegg/x', 'Pr:ce', 'Osoby', 'osoby']) {
     await commit(folder, bad);
     assert.ok(await seen(general(page).getByRole('alert'), 1000), `${JSON.stringify(bad)}: refused with a message`);
@@ -370,7 +370,7 @@ test('fr_typ_03_ac4_existing_key_is_read_only_and_name_writes_only_the_type_file
   const g = await expand(page, 'Místo');
   const key = await must(g.getByRole('textbox', { name: 'Key in frontmatter', exact: true }), 'Key in frontmatter');
   assert.equal(await isDisabled(key), true, 'key read-only');
-  assert.equal(await description(key), 'Renaming keys comes in MS4');
+  assert.equal(await description(key), 'Renaming keys comes in v1.0');
   await commit(g.getByRole('textbox', { name: 'Name', exact: true }), 'Místnost');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('Místnost')), swap(schuzka(), '    name: Místo\n', '    name: Místnost\n'));
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), []);
@@ -384,7 +384,7 @@ test('fr_typ_03_ac5_options_add_reorder_remove_and_used_labels', async ({ page }
   assert.ok(await seen(list.getByRole('listitem').filter({ hasText: 'Běží' }).getByText('Used by 1')), 'Běží: Used by 1');
   const used = list.getByRole('listitem').filter({ hasText: 'Běží' }).getByRole('textbox', { name: 'Option label' });
   assert.equal(await isDisabled(used), true, 'a used label is read-only');
-  assert.equal(await description(used), 'Renaming used options comes in MS4');
+  assert.equal(await description(used), 'Renaming used options comes in v1.0');
   await (await must(g.getByRole('button', { name: 'Add option', exact: true }), 'Add option')).click();
   await commit(list.getByRole('textbox', { name: 'Option label' }).last(), 'Pozastaveno');
   const added = await fileWhen(core, typeFile('projekt'), (t) => !!t?.includes('Pozastaveno'));
@@ -494,7 +494,7 @@ test('fr_typ_04_ac4_delete_property_keeps_the_values', async ({ page }) => {
   assert.equal(await description(keep), 'They stay in the files and show under Other properties.');
   const remove = await must(d.getByRole('button', { name: /^Remove values from \d+ notes?$/ }), 'Remove values from <n> notes');
   assert.equal(await remove.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(remove), 'Coming in MS4');
+  assert.equal(await description(remove), 'Coming in v1.0'); // D-748
   assert.equal((await focused(page)).label, 'Keep values in notes', 'default choice');
   await keep.click();
   const want = swap(schuzka(), '  - key: místo\n    name: Místo\n    type: text\n    description: Kde se schůzka konala\n', '');
@@ -551,7 +551,7 @@ test('fr_typ_05_ac3_a_type_with_objects_cannot_be_deleted_in_ms3', async ({ page
   for (const l of ['Change their type to…', 'Move them to the trash']) {
     const b = await must(d.getByRole('button', { name: l, exact: true }), l);
     assert.equal(await b.getAttribute('aria-disabled'), 'true');
-    assert.equal(await description(b), 'Coming in MS4');
+    assert.equal(await description(b), 'Coming in v1.0'); // D-748
   }
   assert.equal(await isDisabled(d.getByRole('button', { name: 'Delete type', exact: true })), true, 'Delete type disabled');
   await page.keyboard.press('Escape');

@@ -19,6 +19,8 @@ const scale = Number(process.env.QA_PROPERTY_SCALE ?? '1') || 1;
 const randomSeed = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31;
 const seeds = scale >= 100 ? Array.from({ length: 10 }, (_, i) => (i === 0 ? FIXED_SEED : randomSeed + i)) : [FIXED_SEED, randomSeed];
 const runs = scale >= 100 ? 1000 : 100;
+// D-749: at scale ≥ 100 the 10 seeds outrun Vitest's 5 s default.
+const timeout = scale >= 100 ? 600_000 : 5_000;
 
 function rng(seed: number) {
   let x = (seed >>> 0) || 1;
@@ -81,7 +83,7 @@ function textOf(s: Spec, n: number): string {
   return `---\n${lines.join('\n')}\n---\n${s.body}`;
 }
 
-test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', async () => {
+test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', { timeout }, async () => {
   const v = await load('../ui/src/tasks/views.ts');
   assert.ok(v && typeof v.schedule === 'function' && typeof v.kanban === 'function', 'ui/src/tasks/views.ts (§4)');
   let checkedOpen = 0;
@@ -143,7 +145,7 @@ function diff(a: string, b: string): { lines: string[]; bodySame: boolean } {
   return { lines: out, bodySame: x.body === y.body };
 }
 
-test('fr_syn_06_ac22_each_action_changes_one_file_in_its_lines_only', async () => {
+test('fr_syn_06_ac22_each_action_changes_one_file_in_its_lines_only', { timeout }, async () => {
   const d = await load('@tegg/doc');
   assert.ok(d && typeof d.applyTaskChange === 'function' && typeof d.completeTask === 'function', '@tegg/doc task writes (§5)');
   const DEFS = defs();

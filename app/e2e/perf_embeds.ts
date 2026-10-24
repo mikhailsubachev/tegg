@@ -12,11 +12,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EXE, generateVault, longestNote, p95, readMarks } from './perf_open_note.ts';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 export { EXE, generateVault, longestNote, p95 };
 export const PAINTED = 'embeds-painted';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 
 export type EmbedRun = { open: number | null; paint: number | null };
 
