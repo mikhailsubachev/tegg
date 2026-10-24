@@ -15,6 +15,7 @@ import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import { osa as guardedOsa } from './helpers/osa.ts';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const APP = resolve(import.meta.dirname, '../src-tauri/target/release/bundle/macos/Tegg.app');
@@ -94,7 +95,7 @@ async function waitExit(child: ChildProcess, ms = 10_000) {
 }
 
 const KEY: Record<string, number> = { a: 0, v: 9, k: 40, o: 31, n: 45, backslash: 42, lbracket: 33, enter: 36, escape: 53, tab: 48, space: 49, down: 125, end: 119 };
-const osa = (...lines: string[]) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8' });
+const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
   osa(`tell application "System Events" to key code ${KEY[key]}${mods.length ? ` using {${mods.map((m) => `${m} down`).join(', ')}}` : ''}`);
 }
