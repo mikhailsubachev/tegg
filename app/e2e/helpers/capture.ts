@@ -283,6 +283,11 @@ export function clickable(d: Driver, e: any): any {
     },
   });
 }
+/** An XCUITest predicate: some element's text contains `text`. */
+export function textContains(text: string): string {
+  const t = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `(label CONTAINS "${t}" OR value CONTAINS "${t}" OR title CONTAINS "${t}")`;
+}
 /** D-751: a menu item by name (XCUIElementTypeMenuItem): the open menu and a column header can carry the same name. */
 export async function needMenuItem(d: Driver, label: string, ms = 3000): Promise<any> {
   const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
