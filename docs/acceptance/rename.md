@@ -75,7 +75,7 @@ See [README](README.md) for conventions. Milestone MS4 (BRD §11.2), slice **4C 
 
 - **AC-4** **Note rename makes no zip (D-269).** A note rename creates no file in `~/Library/Application Support/Tegg/backups/` (directory listing unchanged). *(L4)*
 - **AC-5** **Every other job kind backs up first (engine).** A test-only job kind registered with `backup: true` (the flag every 4D/4E/merge planner sets) writes the zip before the first vault write; when the zip fails (Application Support made read-only), the job ends with `BackupFailed`, writes nothing, and the vault is byte-identical (data-safety AC-1). The zip holds every `.md` and `.tegg/` file of the vault, NFC names, and the 11th zip deletes the oldest (data-safety AC-2, AC-3). *(L4)*
-- **AC-6** **Restore from Settings.** [MS4] (with the first zip-backed client, AP-301) Settings › Backups lists each zip with its job name and time; `Restore…` restores every file in the zip to its zipped bytes after its own confirmation and makes a backup of the current state first. *(L5; L6)*
+- ~~**AC-6** **Restore from Settings.** [MS4] (with the first zip-backed client, AP-301) Settings › Backups lists each zip with its job name and time; `Restore…` restores every file in the zip to its zipped bytes after its own confirmation and makes a backup of the current state first. *(L5; L6)*~~ Verified by tags.md FR-HIS-04 AC-7 and AC-8, where it was built (D-756).
 
 ### FR-UX-07 Job progress and cancel (verifies search-navigation AC-3, AC-4)
 
