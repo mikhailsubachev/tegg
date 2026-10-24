@@ -346,8 +346,11 @@ export async function statusItem(d: Driver): Promise<any | null> {
 }
 /** Closes the main window with ⌘W (FR-CAP-03: it hides; the app keeps running). */
 export async function closeMain(d: Driver) {
+  // D-758: ⌘W goes to the frontmost app; after a capture over Finder that is Finder, so Tegg comes to the front first
+  // (it runs: the session started it, so activating it never launches another copy).
+  osa(`tell application id "${BUNDLE_ID}" to activate`);
   press('w', ['command']);
-  await waitFor(async () => !(await mainOpen(d)), 3000);
+  assert.ok(await waitFor(async () => !(await mainOpen(d)), 3000), 'the main window closes');
 }
 /** The text value of the capture field (WebKit exposes the textarea's value). */
 export async function captureValue(d: Driver): Promise<string> {
