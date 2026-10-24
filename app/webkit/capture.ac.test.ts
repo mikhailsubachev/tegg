@@ -382,7 +382,8 @@ test('fr_cap_05_ac1_the_hotkey_opens_with_the_vault_default', async ({ page }) =
   const v = inboxVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: nápad'); });
   await startCapture(page, { vault: v, trigger: 'hotkey' });
   assert.equal(flat(await (await must(typeBtn(page), 'Type')).getAttribute('aria-label')), 'Type: Nápad', 'default-type: nápad');
-  assert.equal((await focusName(page)).name, 'Capture text', 'focus in Capture text');
+  // D-688: the window gets its focus a frame after it shows; wait for that state rather than read it once.
+  assert.equal((await eventually(() => focusName(page), (f) => f.name === 'Capture text', 2000)).name, 'Capture text', 'focus in Capture text');
 });
 
 test('fr_cap_05_ac2_new_task_opens_as_task_whatever_the_default', async ({ page }) => {
