@@ -17,8 +17,10 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-STO-04 / FR-TYP-07 Type change moves the file
 
-- **AC-1** [MS4] Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
-- **AC-2** [MS4] If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
+AC-1 and AC-2 are v1.0 with slice 4E (D-372, D-750): checked at the release gate, not at MS4.
+
+- **AC-1** Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
+- **AC-2** If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
 - **AC-3** [MS3] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties". *(changed by D-228: was [MS4]; verified by types.md FR-TYP-07 AC-5)*
 
 ### FR-LNK-14 Duplicate titles
@@ -43,7 +45,9 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 ### FR-TYP-04 / FR-TAG-04 Bulk rewrites
 
-- **AC-1** [MS4] Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file; values, other keys and body bytes are unchanged (FR-FMT-07 AC-5). *(marker added by D-228)*
+The attribute-key rename (AC-1, AC-3's attribute part) is v1.0 with slice 4E (D-372, D-750); the tag rename (AC-2, AC-3's tag part) is built in 4D-lite.
+
+- ~~**AC-1** Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file.~~ Moved to v1.0 with slice 4E (D-372, D-750); it returns with 4E's ACs.
 - **AC-2** [MS4] Renaming tag `reading` → `čtení` changes `tags:` entries and inline `#reading` in every object that has it, and renames `Tags/reading.md`; `#reading-list` (a different tag) is unchanged. *(marker added by D-228)*
 - **AC-3** [MS4] Both operations show a confirmation with the number of affected files, show progress, create a backup first (NFR-REL-04 AC-1) and can be cancelled before writing starts. *(marker added by D-228)*
 
