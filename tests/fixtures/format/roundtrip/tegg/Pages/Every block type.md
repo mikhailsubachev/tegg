@@ -46,13 +46,11 @@ const x = 1;
 
 ![[Trip to Lisbon]]
 
-```mermaid
-mindmap
-  root((Trip))
-    Flights
-    Hotel
-      Booking
-```
+> [!mindmap] Trip
+> - Trip
+>   - Flights
+>   - Hotel
+>     - Booking
 
 ```query
 types: [task]

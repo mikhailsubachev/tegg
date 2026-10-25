@@ -213,10 +213,10 @@ export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7',
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
 /** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-630): `embed-image` and `embed-pdf` are retired
  *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
-export type R5Row = { id: 'query' | 'mindmap'; due: Due; reqs: string };
+/** Slice MM (D-679): the `mindmap` row is removed; a mindmap is a `[!mindmap]` callout drawn by Tegg. */
+export type R5Row = { id: 'query'; due: Due; reqs: string };
 export const R5: R5Row[] = [
   { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
-  { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
 ];
 
 // ------------------------------------------------------------------------------------------------ slice 3D tables

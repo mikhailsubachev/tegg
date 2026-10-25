@@ -118,11 +118,17 @@ test('fr_fmt_03_ac4_links_in_code_spans_and_code_blocks_are_not_links', () => {
 
 // ---------------------------------------------------------------- FR-FMT-05 / FR-FMT-06
 
-test('fr_fmt_05_ac1_mermaid_block_starting_with_mindmap_is_a_mindmap_block', () => {
+test('fr_fmt_05_ac1_mindmap_is_a_callout_holding_one_list', () => {
+  // Slice MM (D-679, D-680): a Mermaid fence starting `mindmap` is a raw block; a `> [!mindmap]` callout holding one list
+  // is the mindmap block.
   const text = '```mermaid\nmindmap\n  root((Řeka))\n    Prameny\n    Přítoky\n```\n\n```mermaid\ngraph TD\n  A-->B\n```\n'
   const doc = parse(text)
-  expect(doc.blocks.map((b) => b.kind)).toEqual(['mindmap', 'code'])
+  expect(doc.blocks.map((b) => b.kind)).toEqual(['raw', 'code'])
   expect(serialize(doc)).toBe(text)
+  const callout = '> [!mindmap] Řeka\n> - Řeka\n>   - Prameny\n>   - Přítoky\n'
+  const mm = parse(callout)
+  expect(mm.blocks.map((b) => b.kind)).toEqual(['mindmap'])
+  expect(serialize(mm)).toBe(callout)
 })
 
 test('fr_fmt_05_ac2_query_fence_is_a_query_block', () => {

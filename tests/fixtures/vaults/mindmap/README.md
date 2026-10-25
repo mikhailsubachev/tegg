@@ -2,7 +2,7 @@
 
 Synthetic vault for `docs/acceptance/mindmap.md` (FR-MMP-01, -02, -04; FR-FMT-05 AC-4…AC-6; FR-FMT-07 AC-24; FR-SYN-06 AC-33; FR-LNK-01 AC-27; FR-LNK-03 AC-21; FR-UX-03 AC-15; FR-UX-05 AC-10; NFR-OTH-02 AC-7). Hand-written from D-679…D-687 and the plan `docs/plans/mm-mindmap-as-list.md` (D-50); no real content.
 
-**Status: draft, 2026-10-25,** pending the owner's decisions on AP-726…AP-740 (end of `mindmap.md`). Rows marked *AP-n* expect the recommended answer; if the owner decides otherwise, the row and the file change with a `Fixture-Change:` trailer. Don't open and re-save these files in an editor.
+**Status: approved, 2026-10-25** (AP-726…AP-740 decided as recommended, D-765…D-779). Rows marked *AP-n* follow that decision; a later change to a file comes with a `Fixture-Change:` trailer. Don't open and re-save these files in an editor.
 
 The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (no file names clash; Task comes from there) next to the one type file below. This README is not a vault file and is never copied.
 
@@ -12,7 +12,7 @@ The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (no file names c
 
 | File | Content | Used by |
 | --- | --- | --- |
-| `projekt.yml` | `version: 1`, name `Projekt`, plural `Projekty`, folder `Projekty`, icon `folder`, colour `orange`, `review: false`, no attributes | FR-MMP-04 AC-1 (its default template holds a mindmap) |
+| `projekt.yml` | `version: 1`, name `Projekt`, plural `Projekty`, folder `Projekty`, icon `folder`, colour `orange`, `review: false`, default template `_templates/Projekt/Projekt.md` (Šablona), no attributes | FR-MMP-04 AC-1 (its default template holds a mindmap) |
 
 ## Notes
 

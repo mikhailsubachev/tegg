@@ -30,7 +30,8 @@ test('fr_edt_01_ac2_normalization_guard_is_exactly_the_ragged_table', async () =
       assert.ok(b, `${path}: readonlyBlocks() index ${i} is not a block of @tegg/doc parse`);
       // Raw blocks, embeds, queries and mindmaps are source blocks/placeholders by kind (FR-EDT-01 AC-8); the
       // normalization guard is about blocks of an editable kind the editor would rewrite on load.
-      if (['raw', 'embed', 'query', 'mindmap'].includes(b.kind)) continue;
+      // Slice MM (D-684): a mindmap is an editable callout now, so it is checked like any block.
+      if (['raw', 'embed', 'query'].includes(b.kind)) continue;
       guarded.push(`${path}#${i}:${b.kind}`);
     }
     ed.destroy();

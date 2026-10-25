@@ -59,7 +59,7 @@ test('ar_06_ac1_tegg_notes_use_every_mvp_block_type', () => {
     divider: /\n\n---\n\n/,
     table: /^\| --- \|/m,
     embed: /^!\[\[[^\]]+\]\]$/m,
-    mindmap: /^```mermaid\nmindmap$/m,
+    mindmap: /^> \[!mindmap\]/m, // slice MM (D-679): the callout, not the Mermaid fence
     query: /^```query\n/m,
   }
   const missing = Object.entries(blocks).filter(([, re]) => !re.test(t)).map(([k]) => k)

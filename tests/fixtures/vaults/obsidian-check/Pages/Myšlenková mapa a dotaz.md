@@ -7,15 +7,13 @@ modified: 2026-10-11T09:30:00+02:00
 ---
 ## Myšlenková mapa
 
-```mermaid
-mindmap
-  root((Řeka))
-    Pramen
-    Přítoky
-      Vltava
-      Berounka
-    Ústí
-```
+> [!mindmap] Řeka
+> - [[Řeka]]
+>   - Pramen
+>   - Přítoky
+>     - Vltava
+>     - Berounka
+>   - Ústí
 
 ## Dotaz
 

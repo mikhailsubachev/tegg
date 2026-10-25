@@ -161,6 +161,8 @@ pub const SYSTEM_TYPES: &[&str] = &["Page", "Task", "Quick Note", "Daily Note", 
 export type Range = readonly [start: number, end: number]
 export type BlockKind = 'paragraph' | 'heading' | 'list' | 'checklist' | 'quote' | 'callout'
   | 'code' | 'mindmap' | 'query' | 'divider' | 'table' | 'embed' | 'raw'
+  // slice MM (D-679, D-680, D-765; mm-mindmap.md §1.1): `mindmap` is a top-level `> [!mindmap]` callout whose body is one
+  // list or empty; a ```mermaid fence starting `mindmap` is `raw`; other `[!mindmap]` bodies are `callout`
 export interface Block { kind: BlockKind; range: Range; raw: string }
 export interface FrontmatterEntry { key: string; range: Range }
 export interface Frontmatter {

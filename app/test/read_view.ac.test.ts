@@ -145,6 +145,7 @@ test('fr_edt_02_ac4_code_tables_and_dividers', async () => {
   assert.ok(codes.includes('const a = "[[Kód]] #kód";'), `fenced code text exact; got ${JSON.stringify(codes)}`);
   assert.ok(codes.includes('odsazený kód'), 'indented code block');
   assert.ok(codes.includes('flowchart LR\n  A --> B'), 'a non-mindmap Mermaid block is code');
+  assert.ok(codes.includes('mindmap\n  root((Mapa))\n    Větev'), 'slice MM (D-679, AP-740): the Mermaid `mindmap` block is code too, text exact');
   assert.ok(codes.includes('LIST'), 'unknown fence (dataview) is a code block');
   const js = [...article.querySelectorAll('pre')].find((p) => text(p).includes('const a ='))!;
   assert.equal(linksIn(js).length, 0, 'no links inside code');
@@ -390,8 +391,9 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
   cleanup();
   const odkazy = await view(F.odkazy);
   const od = [...odkazy.article.querySelectorAll('[data-placeholder]')] as HTMLElement[];
-  // 6A (D-630): the media placeholders are retired; Bloky keeps mindmap and query (a remote image is never loaded).
-  assert.deepEqual(blIds, ['mindmap', 'query'], 'Bloky: mindmap, query');
+  // 6A (D-630): the media placeholders are retired; slice MM (D-679): the Mermaid mindmap fence is code, so Bloky keeps
+  // query only (a remote image is never loaded).
+  assert.deepEqual(blIds, ['query'], 'Bloky: query');
   // 4F (D-431): note embeds are no longer placeholders; without the embed renderer they are link-mode embeds.
   // 6A (D-630, trash-media.md R77): Odkazy's media are no longer placeholders.
   assert.deepEqual(od.map((p) => p.dataset.placeholder), [], 'Odkazy: no media placeholder');

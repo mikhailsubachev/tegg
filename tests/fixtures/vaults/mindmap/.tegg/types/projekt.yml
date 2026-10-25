@@ -7,4 +7,5 @@ folder: Projekty
 icon: folder
 color: orange
 review: false
+template: _templates/Projekt/Projekt.md
 attributes: []

@@ -41,7 +41,8 @@ const allTypes = newNote({
 })
 write('Pages/Všechny typy vlastností.md', setDateRange(parse(allTypes), 'cesta', '2026-07-01', '2026-07-14'))
 
-// FR-FMT-05 AC-3: mindmap renders, query block stays a plain code block.
+// FR-FMT-05 AC-3 (D-686): the mindmap is a `[!mindmap]` callout holding one list (title, one top-level item, two
+// levels below it, a [[link]]); the query block stays a plain code block.
 write(
   'Pages/Myšlenková mapa a dotaz.md',
   newNote({
@@ -50,15 +51,13 @@ write(
     body: [
       '## Myšlenková mapa',
       '',
-      '```mermaid',
-      'mindmap',
-      '  root((Řeka))',
-      '    Pramen',
-      '    Přítoky',
-      '      Vltava',
-      '      Berounka',
-      '    Ústí',
-      '```',
+      '> [!mindmap] Řeka',
+      '> - [[Řeka]]',
+      '>   - Pramen',
+      '>   - Přítoky',
+      '>     - Vltava',
+      '>     - Berounka',
+      '>   - Ústí',
       '',
       '## Dotaz',
       '',
