@@ -86,7 +86,7 @@ test('fr_tag_08_ac1_tag_page_commands_only_on_tag_pages', async () => {
   const title = (c: any) => cat.t(c.title, c.vars ?? {});
   const on = cmd.commands(ctx(TAG)) as any[];
   const want: [string, string][] = [
-    ['tag.rename', 'Rename tag…'], ['tag.delete', 'Delete tag…'], ['tag.colour', 'Change tag colour…'], ['tag.newWith', 'New with tag…'],
+    ['tag.rename', 'Rename tag…'], ['tag.delete', 'Delete tag…'], ['tag.colour', 'Change tag colour…'],
     ['tag.groupType', 'Group by type'], ['tag.groupNone', 'No grouping'],
   ];
   for (const [id, t] of want) {
