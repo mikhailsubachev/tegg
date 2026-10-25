@@ -452,6 +452,10 @@ class ListItemView implements NodeView {
 /** The node views of the open mindmap blocks, by their DOM, for `mindmapView` (mm-mindmap §3.2). */
 export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list' }>()
 
+/** The live mindmap node view of each block, per editor: a redraw (a save sets the frontmatter attribute, which
+ *  redraws the document) replaces node views, and a map's controls always act through the block's current one. */
+const liveMindmaps = new WeakMap<EditorView, Map<number, CalloutView>>()
+
 type CalloutKind = 'callout' | 'mindmap' | 'hint'
 function calloutKind(node: PMNode): CalloutKind {
   if (String(node.attrs.calloutType).toLowerCase() !== 'mindmap') return 'callout'
@@ -559,14 +563,23 @@ class CalloutView implements NodeView {
     fig.appendChild(this.mapBox)
     this.dom = fig
     mindmapViews.set(fig, this)
+    this.register()
+    const live = () => liveMindmaps.get(pm)?.get(this.at) ?? this
     this.handle = ui.mindmap?.(this.mapBox, {
-      markdown: () => this.markdown(),
-      view: () => this.view,
-      onNode: (path) => this.toItem(path),
+      markdown: () => live().markdown(),
+      view: () => live().view,
+      onNode: (path) => live().toItem(path),
       onLink: (target) => ui.onLink(target, null),
       readOnly: !pm.editable,
     }) ?? null
     this.render()
+  }
+  private at = -1
+  private register() {
+    this.at = this.index()
+    let m = liveMindmaps.get(this.pm)
+    if (!m) liveMindmaps.set(this.pm, (m = new Map()))
+    m.set(this.at, this)
   }
   private index(): number {
     const p = this.getPos()
@@ -621,10 +634,11 @@ class CalloutView implements NodeView {
     if (base === undefined) return
     const node = this.node
     let target: number | null = null
+    let atStart = false
     if (path === null) {
-      // The synthesized root: the title, or the first item when the root is the note title.
+      // The synthesized root: the end of the title, or the start of the first item when the root is the note title.
       if (node.firstChild && node.firstChild.content.size > 0) target = base + 1 + node.firstChild.nodeSize - 1
-      else path = [0]
+      else { path = [0]; atStart = true }
     }
     if (path !== null) {
       let pos = base + 1 + node.firstChild!.nodeSize
@@ -655,10 +669,10 @@ class CalloutView implements NodeView {
         if (!found) break
         list = item!
       }
-      if (item) target = itemPos + 1 + (item.firstChild?.nodeSize ?? 2) - 1
+      if (item) target = atStart ? itemPos + 2 : itemPos + 1 + (item.firstChild?.nodeSize ?? 2) - 1
     }
     if (target === null) return
-    const tr = this.pm.state.tr.setSelection(TextSelection.near(this.pm.state.doc.resolve(target), -1))
+    const tr = this.pm.state.tr.setSelection(TextSelection.near(this.pm.state.doc.resolve(target), atStart ? 1 : -1))
     this.pm.dispatch(tr.scrollIntoView())
     this.pm.focus()
   }
@@ -666,6 +680,7 @@ class CalloutView implements NodeView {
     if (node.type !== this.node.type || calloutKind(node) !== this.kind) return false
     if (this.kind !== 'mindmap' && String(node.attrs.calloutType).toLowerCase() !== String(this.node.attrs.calloutType).toLowerCase()) return false
     this.node = node
+    if (this.kind === 'mindmap') this.register()
     this.render()
     return true
   }

@@ -405,6 +405,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     ...opts.ui,
     ...(opts.emptyHint !== undefined ? { hint: opts.emptyHint } : {}),
     embed: opts.ui.embed && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.embed!(source, dom, getPos))),
+    // Slice MM: the map is drawn once the document is loaded (the load's own node views are replaced right after).
+    mindmap: opts.ui.mindmap && ((dom, ctl) => (loading ? null : opts.ui!.mindmap!(dom, ctl))),
     media: opts.ui.media && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.media!(source, dom, getPos))),
   }
 
@@ -1196,6 +1198,25 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       const made = make()
       if (!made) return false
       const nodes = Array.isArray(made) ? made : [made]
+      // Slice MM (FR-MMP-02 AC-22): a block typed in a mindmap's item nests in that item, after its text, so the
+      // mindmap keeps one list; another mindmap goes after the mindmap (D-769).
+      const mm = kind !== 'mindmap' && kind !== 'divider' ? mindmapItem(state) : null
+      if (mm) {
+        const $f = state.selection.$from
+        const item = $f.node(mm.item)
+        const idx = $f.index(mm.item - 1)
+        const tr = state.tr
+        let at: number
+        if (item.childCount === 1 && item.child(0).content.size === 0 && idx > 0) {
+          // An empty item (⏎ after `Porady`, then `/code`): the block goes into the item above, which it belongs to.
+          tr.delete($f.before(mm.item), $f.after(mm.item))
+          at = $f.before(mm.item) - 1
+        } else at = $f.after(mm.item + 1)
+        tr.insert(at, nodes)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(at + 1, tr.doc.content.size))))
+        dispatch(tr.scrollIntoView())
+        return true
+      }
       const start = blockPos(state.doc, k)
       const tr = state.tr
       let at: number
@@ -1565,7 +1586,7 @@ const MindmapKeys = Extension.create({
       const $f = state.selection.$from
       const start = $f.before(callout)
       const end = $f.after(callout)
-      const tr = state.tr.replaceWith(start, end, state.schema.nodes.paragraph.create())
+      const tr = closeHistory(state.tr).replaceWith(start, end, state.schema.nodes.paragraph.create())
       tr.setSelection(TextSelection.near(tr.doc.resolve(start + 1)))
       dispatch(tr.scrollIntoView())
       return true
@@ -1573,6 +1594,16 @@ const MindmapKeys = Extension.create({
     return {
       Enter: ({ editor }) => {
         const st = editor.state
+        // ⏎ in a mindmap's title moves the caret to the end of its first item (D-771).
+        const $t = st.selection.$from
+        if ($t.parent.type.name === 'calloutTitle' && $t.depth === 2 && String($t.node(1).attrs.calloutType).toLowerCase() === 'mindmap' && $t.node(1).childCount > 1) {
+          const list = $t.node(1).child(1)
+          if (/List$/.test(list.type.name) && list.firstChild?.firstChild) {
+            const at = $t.after(2) + 2 + list.firstChild.firstChild.nodeSize - 1
+            editor.view.dispatch(st.tr.setSelection(TextSelection.near(st.doc.resolve(at), -1)).scrollIntoView())
+            return true
+          }
+        }
         const m = mindmapItem(st)
         if (!m || !m.top) return false
         const $f = st.selection.$from

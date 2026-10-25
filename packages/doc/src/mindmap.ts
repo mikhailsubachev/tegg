@@ -158,29 +158,25 @@ export function unwrapMindmap(raw: string, to: 'bulletList' | 'orderedList' | 'c
   const parsed = markdownTree(list).children[0]
   const kind = parsed?.type === 'list' ? (parsed.ordered ? 'orderedList' : parsed.children.some((i) => i.checked !== null && i.checked !== undefined) ? 'checklist' : 'bulletList') : null
   if (to !== 'keep' && to !== kind) {
-    const counters: number[] = []
+    // Re-mark every item; nested items are re-indented to sit under the new marker's content column, so they stay
+    // nested (`1. ` needs 3 spaces where `- ` needed 2). Other lines move with their item.
+    const marker = to === 'bulletList' ? '-' : to === 'checklist' ? '- [ ]' : '1.'
+    const stack: { from: number; to: number; content: number; n: number }[] = []
+    let delta = 0
     list = list.split('\n').map((line) => {
-      const m = /^(\s*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?(?=[ \t]|$)[ \t]?(.*)$/.exec(line)
-      if (!m) return line
-      const indent = m[1]
-      const depth = indent.replace(/\t/g, '    ').length
-      while (counters.length && counters[counters.length - 1] > depth) counters.pop()
-      if (counters[counters.length - 1] !== depth) counters.push(depth)
-      const marker = to === 'bulletList' ? '-' : to === 'checklist' ? '- [ ]' : '1.'
-      return `${indent}${marker}${m[2] ? ` ${m[2]}` : ''}`
+      const m = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?(?=[ \t]|$)[ \t]?(.*)$/.exec(line)
+      if (!m) return line.trim() === '' ? line : ' '.repeat(Math.max(0, line.replace(/\t/g, '    ').search(/\S|$/) + delta)) + line.trimStart()
+      const from = m[1].replace(/\t/g, '    ').length
+      while (stack.length && stack[stack.length - 1].from >= from && !(stack[stack.length - 1].from === from)) stack.pop()
+      let n = 1
+      if (stack.length && stack[stack.length - 1].from === from) { const top = stack.pop()!; n = top.n + 1 }
+      const parent = stack[stack.length - 1]
+      const indent = parent ? parent.content : 0
+      const mark = to === 'orderedList' ? `${n}.` : marker
+      stack.push({ from, to: indent, content: indent + (to === 'orderedList' ? `${n}.`.length : 1) + 1, n })
+      delta = indent - from
+      return `${' '.repeat(indent)}${mark}${m[2] ? ` ${m[2]}` : ''}`
     }).join('\n')
-    if (to === 'orderedList') {
-      // Number each level's items 1, 2, … in order.
-      const seen = new Map<string, number>()
-      list = list.split('\n').map((line) => {
-        const m = /^(\s*)1\.(.*)$/.exec(line)
-        if (!m) return line
-        for (const k of [...seen.keys()]) if (k.length > m[1].length) seen.delete(k)
-        const n = (seen.get(m[1]) ?? 0) + 1
-        seen.set(m[1], n)
-        return `${m[1]}${n}.${m[2]}`
-      }).join('\n')
-    }
   }
   const title = h.title.trim()
   return title ? `${title}\n\n${list}` : list
