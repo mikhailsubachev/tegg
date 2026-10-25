@@ -6,6 +6,7 @@ import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
   absent, draftStatus, eventually, focused, gotoTagPage, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
   paletteDialog, paletteOptions, runCommand, seen, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
+  searchQueryField,
 } from './helpers';
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
@@ -70,15 +71,14 @@ for (const row of R1) {
   });
 }
 
-test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the switcher and New object', async ({ page }) => {
+test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the search field and New object', async ({ page }) => {
   await start(page);
-  // Over the switcher the palette replaces it. D-520: New object opens an unsaved draft (no dialog); the palette opens
-  // over it with the caret in the draft's title.
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'Quick switcher');
+  // D-760: the ⌘O switcher is gone; the palette opens over the Search page with the caret in its field. D-520: New
+  // object opens an unsaved draft (no dialog); the palette opens over it with the caret in the draft's title.
+  await page.keyboard.press('Meta+Shift+f');
+  await must(searchQueryField(page), 'Search query');
   await page.keyboard.press('Meta+k');
-  assert.ok(await seen(paletteDialog(page)), 'palette over switcher');
-  assert.ok(await absent(switcherDialog(page)), 'palette replaces the switcher');
+  assert.ok(await seen(paletteDialog(page)), 'palette over the search field');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+n');
   await mustBeDraft(page, 'New object');
@@ -112,7 +112,6 @@ async function checkEffect(page: Page, title: string, before: { main: string | n
     case 'Open vault…':
     case 'Create new vault…':
       return (await seen(page.getByRole('main', { name: 'Choose a vault' }), 1500)) || (await seen(page.getByRole('form', { name: 'New vault' }), 300)) ? null : `${title}: no chooser`;
-    case 'Open quick switcher': return (await seen(switcherDialog(page), 1500)) ? null : `${title}: no switcher`;
     // D-520: an unsaved draft with an empty title (the caret is checked in fr_nav_01_ac13 and fr_ux_03_ac1).
     // 3 s as `isDraft`: ⌘N reaches the draft through several async steps (switcher, flush, prepareObject).
     case 'New object': return (await seen(draftStatus(page), 3000)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
@@ -230,7 +229,7 @@ test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
 test('fr_ux_03_ac6_shortcut_display_and_disabled_commands', async ({ page }) => {
   const core = await start(page);
   const shown: [string, string][] = [
-    ['Go to Search', '⇧⌘F'], ['Toggle sidebar', '⌃⌘S'], ['Open quick switcher', '⌘O'], ['New object', '⌘N'],
+    ['Go to Search', '⇧⌘F'], ['Toggle sidebar', '⌃⌘S'], ['New object', '⌘N'], // D-760: no ⌘O
     ['Go to Today', '⌘D'], ['Go to Inbox', '⇧⌘I'], ['Toggle right panel', '⌘\\'], ['Toggle focus mode', '⇧⌘\\'],
   ];
   for (const [title, keys] of shown) {
@@ -326,7 +325,7 @@ test('fr_ux_03_ac9_global_shortcuts_from_every_route: dialogs and unbound keys',
   // While a dialog is open only its keys act.
   await reset();
   await runCommand(page, 'Go to Inbox');
-  for (const open of ['Meta+k', 'Meta+o']) { // D-520: ⌘N opens no dialog any more (it navigates to an unsaved draft)
+  for (const open of ['Meta+k']) { // D-520: ⌘N opens no dialog any more (an unsaved draft); D-760: no ⌘O switcher
     await page.keyboard.press(open);
     await page.keyboard.press('Meta+d');
     if ((await mainName(page)) !== 'Inbox') failures.push(`${open} dialog open: ⌘D navigated`);
@@ -375,12 +374,12 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     await page.keyboard.press('Enter');
     await mustBeOn(page, t, `keyboard: Types ${t}`);
   }
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
+  await page.keyboard.press('Meta+Shift+f'); // D-760: the Search page's Go to list replaces the ⌘O switcher
+  await must(searchQueryField(page), 'Search query');
   await page.keyboard.insertText('Porada');
-  await settled(page, 'Switcher results', 'Porada');
+  await settled(page, 'Go to', 'Porada');
   await page.keyboard.press('Enter');
-  await mustBeOn(page, '2026-10-07 Porada', 'keyboard: switcher');
+  await mustBeOn(page, '2026-10-07 Porada', 'keyboard: Go to');
   await page.keyboard.press('Control+Meta+s');
   assert.ok(await absent(sidebar(page)), 'keyboard: sidebar hidden');
   await page.keyboard.press('Control+Meta+s');

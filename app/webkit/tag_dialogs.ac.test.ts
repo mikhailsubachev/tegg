@@ -13,6 +13,7 @@ import {
   openNote, openTagPage, original, renameDialog, runCommand, seen, sidebarTagLinks, sleep, snapshot, startTags, tagAction, tagHeading, tagNameBox,
   tagRowEl, vaultWrites,
 } from './tags-helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const R86 = (title: string, now: string) => new RegExp(`^---\\nid: [0-9A-HJKMNP-TV-Z]{26}\\ntype: tag\\ntitle: ${title}\\ncreated: ${now.replace(/[+]/g, '\\+')}\\nmodified: ${now.replace(/[+]/g, '\\+')}\\n---\\n$`);
 const createBtn = (page: import('@playwright/test').Page) => newTagDialog(page).getByRole('button', { name: 'Create', exact: true });
@@ -215,7 +216,7 @@ test('fr_tag_04_ac9_after_the_rename', async ({ page }) => {
   await page.keyboard.press('Meta+BracketLeft');
   await sleep(300);
   assert.equal(await tagHeading(page, 'Účty').count(), 0, 'replaced, not pushed: Back does not return to a dead tag/účty');
-  assert.deepEqual((await sidebarTagLinks(page))[0], '#Výdaje 6', 'the sidebar shows #Výdaje 6');
+  // D-761: the sidebar lists no tags any more (one `Tags` entry), so the sidebar check is gone.
   await runCommand(page, 'Go to Tags');
   await must(tagRowEl(page, 'výdaje'), 'All tags lists Výdaje');
   assert.equal(await tagRowEl(page, 'účty').count(), 0, 'and no účty');
@@ -292,8 +293,7 @@ test('fr_tag_04_ac8_an_open_note_is_rewritten_through_its_editor', async ({ page
   const release = await core.holdJob('writing');
   await renameTo(page, 'Účty', 'Výdaje');
   await must(jobStatus(page, 'Updating #Účty in 6 notes'), 'the job runs, non-modal', 3000);
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Rozpočet');
+  await goToQuery(page, 'Rozpočet');
   await sleep(200);
   await page.keyboard.press('Enter');
   const body = page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });

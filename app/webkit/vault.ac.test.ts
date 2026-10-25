@@ -8,7 +8,9 @@ import { loadFixtureVault, newEmptyVault } from '../ui/test/fake-core';
 import {
   P, absent, eventually, focused, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote,
   paletteDialog, runCommand, seen, shellVault, sidebar, sleep, start, switcherDialog, titleState, typeEntries, typesList,
+  searchQueryField,
 } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const chooser = (page: Page) => page.getByRole('main', { name: 'Choose a vault' });
 const form = (page: Page) => page.getByRole('form', { name: 'New vault' });
@@ -137,9 +139,8 @@ test('fr_vlt_03_ac4_placeholder_banner_non_modal', async ({ browser }) => {
     await page.keyboard.press('Meta+k');
     assert.ok(await seen(paletteDialog(page)), 'palette works with the banner');
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Meta+o');
-    assert.ok(await seen(switcherDialog(page)), 'switcher works with the banner');
-    await page.keyboard.press('Escape');
+    await page.keyboard.press('Meta+Shift+f');
+    assert.ok(await seen(searchQueryField(page)), 'search works (D-760) with the banner');
     for (const e of ['Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) { // 6A: no Home entry (D-613)
       await sidebar(page).getByText(e, { exact: true }).click();
       await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `sidebar ${e} with the banner`); // 4B: named by its date
@@ -162,9 +163,8 @@ test('fr_ux_07_ac7_indexing_progress_without_modal', async ({ page }) => {
   await page.keyboard.press('Meta+k');
   assert.ok(await seen(paletteDialog(page)), 'palette works while indexing');
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+o');
-  assert.ok(await seen(switcherDialog(page)), 'switcher works while indexing');
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+Shift+f');
+  assert.ok(await seen(searchQueryField(page)), 'search works (D-760) while indexing');
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await mustBeOn(page, 'Inbox', 'sidebar works while indexing');
   await sidebar(page).getByRole('button', { name: 'New object' }).click();
@@ -176,27 +176,8 @@ test('fr_ux_07_ac7_indexing_progress_without_modal', async ({ page }) => {
   await must(page.getByText('Indexing paused'), '"Indexing paused"');
 });
 
-test('fr_nav_01_ac12_sidebar_search_field_opens_the_switcher', async ({ page }) => {
-  test.setTimeout(120_000);
-  await start(page);
-  const field = sidebar(page).getByRole('button', { name: 'Search or jump to…' });
-  await (await must(field, 'Search or jump to…')).click();
-  await must(switcherDialog(page), 'Quick switcher from click');
-  assert.equal((await focused(page)).label, 'Switcher query', 'cursor in Switcher query');
-  await page.keyboard.press('Escape');
-  assert.ok(await absent(switcherDialog(page)), 'Esc closes');
-  assert.equal((await focused(page)).label, 'Search or jump to…', 'focus returns to the field');
-  await page.keyboard.press('Enter');
-  await must(switcherDialog(page), 'Quick switcher from ⏎ on the field');
-  await page.keyboard.press('Escape');
-  for (const row of R1.filter((r) => r.goto)) {
-    await runCommand(page, row.goto!);
-    await page.keyboard.press('Meta+o');
-    assert.ok(await seen(switcherDialog(page), 1500), `⌘O on ${row.id}`);
-    await page.keyboard.press('Escape');
-  }
-  await openNote(page, '2026-10-07 Porada');
-});
+// FR-NAV-01 AC-12 (the sidebar field `Search or jump to…` and ⌘O) is superseded by D-759, D-760: its tests are
+// app/webkit/sidebar_v068.ac.test.ts (AC-14) and search_goto.ac.test.ts (search-navigation.md AC-15…AC-18).
 
 const mask = (s: string) => s.replace(/^(id|created|modified):.*$/gm, '$1: *');
 
@@ -264,8 +245,7 @@ test('fr_nav_01_ac13_a_nfd_title_writes_nothing_until_enter_then_one_nfc_file_li
   // The switcher's create item for the same title and type, on a second app (FR-NAV-01 AC-7).
   const p2 = await browser.newPage();
   const core2 = await start(p2);
-  await p2.keyboard.press('Meta+o');
-  await p2.getByRole('textbox', { name: 'Switcher query' }).or(p2.getByRole('combobox', { name: 'Switcher query' })).first().fill('Nový nápad');
+  await goToQuery(p2, 'Nový nápad');
   await sleep(150);
   // No object matches, so the Create item is the only one (D-106).
   await p2.keyboard.press('Enter');

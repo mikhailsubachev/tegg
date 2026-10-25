@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtureVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
 import { eventually, must, mustBeOn, nonReadCalls, runCommand, seen, settled, sidebar, sleep, start, typesList, type FakeCoreHandle, type StartOptions } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 export { eventually, must, nonReadCalls, runCommand, seen, sidebar, sleep, typesList };
 export type { FakeCoreHandle };
@@ -96,6 +97,29 @@ export async function isDisabled(loc: Locator): Promise<boolean> {
   return loc.first().evaluate((e) => (e as HTMLButtonElement).disabled === true || e.getAttribute('aria-disabled') === 'true' || (e as HTMLInputElement).readOnly === true);
 }
 
+/** D-763 (date-picker.md R89): a panel date is a button opener named `<prefix>: <date or No date>`, where `prefix` is the
+ *  attribute Name (Date), `<Name> date` (the date part of a Date-time) or `<Name> start` / `<Name> end` (Date range). */
+export const dateOpener = (page: Page, prefix: string) =>
+  props(page).getByRole('button', { name: new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: `) });
+export const pickDateDialog = (page: Page) => page.getByRole('dialog', { name: 'Pick date', exact: true });
+/** Opens `prefix`'s `Pick date` and returns the dialog. */
+export async function openDatePicker(page: Page, prefix: string): Promise<Locator> {
+  await (await must(dateOpener(page, prefix), `date opener "${prefix}: …" (D-763)`)).click();
+  return must(pickDateDialog(page), `dialog "Pick date" of ${prefix}`);
+}
+/** Opens `prefix`'s `Pick date`, types `text` in its `Date` field and commits it with ⏎ (R89 typed date). */
+export async function pickTyped(page: Page, prefix: string, text: string) {
+  const dlg = await openDatePicker(page, prefix);
+  const f = await must(dlg.getByRole('textbox', { name: 'Date', exact: true }), `textbox "Date" of ${prefix}'s picker`);
+  await f.fill(text);
+  await f.press('Enter');
+}
+/** Opens `prefix`'s `Pick date` and chooses `No date`. */
+export async function pickNoDate(page: Page, prefix: string) {
+  const dlg = await openDatePicker(page, prefix);
+  await (await must(dlg.getByRole('button', { name: 'No date', exact: true }), 'No date')).click();
+}
+
 // ------------------------------------------------------------------------------------------------ navigation
 
 /** `type/<key>` through the palette's `Go to type: <Plural>` command (3A). */
@@ -111,9 +135,7 @@ export async function gotoSettings(page: Page, plural: string, name: string) {
   await must(settingsHeading(page, name), `heading "${name} type settings"`, 5000);
 }
 export async function openNoteByTitle(page: Page, title: string) {
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await settled(page, 'Switcher results', title);
+  await goToQuery(page, title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}"`, 5000);
 }

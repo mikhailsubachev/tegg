@@ -14,6 +14,7 @@ import {
   objectsTable, openNote, openTagPage, original, pageSortBtn, rowEl, rowPaths, rowsWhen, runCommand, seen, sidebar, sleep, startTags, swap, tagActionsBtn,
   tagActionsMenu, tagHeading, tagRoute, tagRowEl, tagsVault, typeFilterBtn, vaultWrites, vypln,
 } from './tags-helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const UCTY_MODIFIED_DESC = [P.faktura, P.rozpocet, P.den, P.najem, P.dvakrat, P.banka];
 const isEditor = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
@@ -24,10 +25,9 @@ test('fr_tag_06_ac1_every_way_in_opens_the_tag_page', async ({ page }) => {
   const core = await openNote(page, P.faktura, 'Faktura', { readView: true });
   const ways: [string, () => Promise<void>][] = [
     ['the read view #účty chip', async () => { await click(main(page).getByRole('link', { name: /^#účty$/i }), '#účty in Faktura'); }],
-    ['the sidebar link', async () => { await click(sidebar(page).getByRole('link', { name: /^#Účty/ }), 'sidebar #Účty'); }],
-    ['the switcher result Účty (the Tag file)', async () => {
-      await page.keyboard.press('Meta+o');
-      await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Účty');
+    // D-761: the sidebar has no tag links any more (its `Tags` entry opens All tags, FR-TAG-07 AC-6).
+    ['the Go to row Účty (the Tag file; D-760)', async () => {
+      await goToQuery(page, 'Účty');
       await sleep(200);
       await page.keyboard.press('Enter');
     }],
@@ -59,8 +59,7 @@ test('fr_tag_06_ac1_links_and_routes_to_tag_files_redirect', async ({ page }) =>
   await mustOn(page, 'Odkaz na štítek');
   await click(main(page).getByRole('link', { name: /^a[ /]b$/ }), '[[a b]] in Odkaz');
   await must(tagHeading(page, 'a/b'), '[[a b]] opens tag/a%2Fb (one tag)');
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Dvojí');
+  await goToQuery(page, 'Dvojí');
   await sleep(200);
   const opt = page.getByRole('option').filter({ hasText: 'Dvojí (2)' }).or(page.getByRole('option').filter({ hasText: 'Tags/Dvojí (2).md' }));
   if (await seen(opt, 800)) await opt.first().click(); else await page.keyboard.press('Enter');
@@ -89,7 +88,7 @@ test('fr_tag_06_ac2_header_and_table', async ({ page }) => {
   assert.equal(await tile.getAttribute('aria-haspopup'), 'dialog', 'opens a dialog');
   await must(main(page).getByText('6 objects of 4 types', { exact: true }), '6 objects of 4 types');
   await must(tagActionsBtn(page), 'Tag actions');
-  await must(newWithBtn(page, 'Účty'), 'New with #Účty');
+  assert.equal(await newWithBtn(page, 'Účty').count(), 0, 'no New with button (D-762)');
   const table = await must(objectsTable(page, 'Účty'), 'table "Objects with #Účty"');
   const cols = (await table.getByRole('columnheader').allInnerTexts()).map((h) => flat(h).replace(/ [↑↓]$/, ''));
   assert.deepEqual(cols, ['Title', 'Type', 'Other tags', 'Modified'], 'exactly the four columns');
@@ -213,37 +212,7 @@ test('fr_tag_06_ac7_rows_open_their_object', async ({ page }) => {
   await must(tagHeading(page, 'finance'), 'the chip opens its tag page');
 });
 
-test('fr_tag_06_ac8_new_with_tag_page_and_task', async ({ page }) => {
-  const core = await openTagPage(page, 'účty');
-  await click(newWithBtn(page, 'Účty'), 'New with #Účty');
-  const menu = page.getByRole('menu');
-  await must(menu, 'the New object type menu');
-  const items = (await menu.getByRole('menuitem').allInnerTexts()).map((x) => flat(x));
-  for (const t of ['Page', 'Task', 'Quick Note', 'Projekt']) assert.ok(items.includes(t), `${t} offered (capture targets, AP-661): ${items}`);
-  for (const t of ['Daily Note', 'Tag', 'Image', 'PDF']) assert.ok(!items.includes(t), `${t} not offered`);
-  const before = (await vaultWrites(core)).length;
-  await menu.getByRole('menuitem', { name: 'Page', exact: true }).click();
-  await must(page.getByRole('textbox', { name: 'Title', exact: true }), 'new/page draft');
-  await must(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('link', { name: '#Účty' }).or(page.getByRole('group', { name: 'Tags' }).getByText('#Účty')), 'the Tags row shows #Účty');
-  assert.equal((await vaultWrites(core)).length, before, 'nothing written yet');
-  await page.keyboard.type('Plán');
-  await page.keyboard.press('Enter');
-  const plan = await eventually(async () => (await core.files())['Pages/Plán.md'], (t) => !!t, 3000);
-  assert.ok(plan && /\ntags: \[Účty\]\n/.test(plan), `Pages/Plán.md with tags: [Účty]: ${plan}`);
-  assert.equal((await core.writesTo()).filter((p) => p === 'Pages/Plán.md').length >= 1, true, 'written');
-  await runCommand(page, 'Go to Tags');
-  await click(tagRowEl(page, 'účty'), 'účty');
-  assert.ok((await rowsWhen(page, 'Účty', (r) => r.includes('Pages/Plán.md'))).includes('Pages/Plán.md'), 'Plán on tag/účty within 2 s');
-  await click(newWithBtn(page, 'Účty'), 'New with #Účty again');
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Task', exact: true }).click();
-  const qa = await must(main(page).getByRole('textbox', { name: 'Add a task…', exact: true }), 'the Tasks quick-add');
-  assert.equal(await qa.inputValue(), ' #Účty', 'prefilled with #Účty at the end (AP-661 (e))');
-  assert.equal(await qa.evaluate((e) => (e as HTMLInputElement).selectionStart), 0, 'the caret before it');
-  await page.keyboard.type('Zaplatit pojistku');
-  await page.keyboard.press('Enter');
-  const task = await eventually(async () => (await core.files())['Tasks/Zaplatit pojistku.md'], (t) => !!t, 3000);
-  assert.ok(task && /\ntags: \[Účty\]\n/.test(task), `the task with tags: [Účty]: ${task}`);
-});
+// FR-TAG-06 AC-8 (`New with #tag`, D-697) is superseded by D-762: tag_page_v068.ac.test.ts tests AC-12.
 
 // ------------------------------------------------------------------------------------------------ AC-9
 
@@ -257,7 +226,7 @@ test('fr_tag_06_ac9_live_rows_and_a_tag_that_does_not_exist', async ({ page }) =
   const p2 = await page.context().newPage();
   await openTagPage(p2, 'neexistuje');
   await must(p2.getByText('No objects have #neexistuje yet.', { exact: true }), 'D-720: the empty tag page');
-  await must(newWithBtn(p2, 'neexistuje'), 'New with #neexistuje');
+  assert.equal(await newWithBtn(p2, 'neexistuje').count(), 0, 'no New with #neexistuje (D-762: only the text)');
   assert.equal(await tagActionsBtn(p2).count(), 0, 'no Tag actions');
   assert.equal(await colourTile(p2).count(), 0, 'no colour tile');
   await p2.close();
@@ -272,7 +241,8 @@ test('fr_tag_06_ac10_keyboard_reach_and_pseudo_locale', async ({ page }) => {
     await page.keyboard.press('Tab');
     names.add(await page.evaluate(() => { const a = document.activeElement as HTMLElement | null; return (a?.getAttribute('aria-label') ?? a?.textContent ?? '').replace(/\s+/g, ' ').trim(); }));
   }
-  for (const n of ['Tag colour', 'Tag actions', 'New with #Účty', 'Filter by text']) assert.ok([...names].some((x) => x.startsWith(n)), `${n} is reachable by Tab: ${[...names].join(' | ')}`);
+  // D-762: no New with #Účty.
+  for (const n of ['Tag colour', 'Tag actions', 'Filter by text']) assert.ok([...names].some((x) => x.startsWith(n)), `${n} is reachable by Tab: ${[...names].join(' | ')}`);
   const p2 = await page.context().newPage();
   await startTags(p2, { route: tagRoute('účty'), prelude: `import { setCatalog as __tsc, pseudo as __tps, en as __ten } from '/src/i18n/catalog.ts'; __tsc(__tps(__ten), 'en');` });
   await must(p2.getByRole('table', { name: /^⟦Objects with #Účty⟧$/ }), 'the pseudo-locale table name (R88 key tag.table)', 5000);

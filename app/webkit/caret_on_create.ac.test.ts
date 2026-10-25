@@ -12,6 +12,7 @@ import { mustBeDraft, mustBeOn, runCommand, sidebar, switcherDialog, typesList }
 import { E, editorBody, eventually, fileText, must, noModified, openEditor, sleep, titleField, type FakeCoreHandle } from './editor-helpers';
 import { B, createOffer, chips, openLinks } from './links-helpers';
 import { D, callsOf, dailyVault, mustDaily, startDaily, swap } from './daily-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -98,11 +99,9 @@ test('fr_edt_01_ac13_palette_new_object_puts_the_caret_at_the_end_of_the_title',
 
 test('fr_edt_01_ac13_switcher_create_item_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
+  await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await expectTitleCaretThenType(page, core, 'Úplně nový', 'Quick Notes/Úplně nový.md', 'switcher create item');
 });
 

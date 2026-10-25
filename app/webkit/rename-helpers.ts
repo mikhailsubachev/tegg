@@ -6,6 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
 import { eventually, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 export { eventually, must, mustBeOn, runCommand, seen, sleep };
 export type { FakeCoreHandle };
@@ -125,9 +126,7 @@ export async function oneRename(core: FakeCoreHandle, ms = 2000): Promise<CallRe
   return calls[0];
 }
 export async function gotoNote(page: Page, title: string) {
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await settled(page, 'Switcher results', title);
+  await goToQuery(page, title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}"`, 5000);
 }

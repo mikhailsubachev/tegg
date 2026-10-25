@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   absent, eventually, focused, mainName, must, mustBeOn, nonReadCalls, openNote, paletteDialog, paletteOptions, runCommand,
   seen, sidebar, sleep, switcherDialog, theme,
+  searchQueryField,
 } from './helpers';
 import {
   IDS, R, TITLES, article, axeContrast, cmds, colourLeaks, firstVisibleBlockText, headingFn, lineFn, mustArticle, openAt,
@@ -556,9 +557,8 @@ test('nfr_rel_03_ac3_invalid_frontmatter_opens_in_source_with_a_warning', async 
     await page.keyboard.press('Meta+k');
     assert.ok(await seen(paletteDialog(page)), `${path}: palette works`);
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Meta+o');
-    assert.ok(await seen(switcherDialog(page)), `${path}: switcher works`);
-    await page.keyboard.press('Escape');
+    await page.keyboard.press('Meta+Shift+f'); // D-760: the Search page replaces the ⌘O switcher
+    assert.ok(await seen(searchQueryField(page)), `${path}: search works`);
     assert.ok(await seen(sidebar(page)), `${path}: sidebar shown`);
     assert.deepEqual(await nonReadCalls(core), [], `${path}: no write`);
     await page.close();

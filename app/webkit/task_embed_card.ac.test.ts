@@ -131,7 +131,8 @@ test('fr_cnv_05_ac3_priority_from_the_card', async ({ page }) => {
 test('fr_cnv_05_ac3_due_and_clear_from_the_card', async ({ page }) => {
   const { core, card } = await poradaCard(page);
   await (await must(dueButton(card), 'Due')).click();
-  const input = await must(page.getByRole('textbox', { name: 'Due date', exact: true }).last(), 'the attribute panel\'s date control');
+  // D-763: the card's Due opens the one date picker `Pick date`; the date is typed in its `Date` field.
+  const input = await must(page.getByRole('dialog', { name: 'Pick date', exact: true }).getByRole('textbox', { name: 'Date', exact: true }), 'the Date field of Pick date');
   await input.fill('20. 10. 2026');
   await input.press('Enter');
   const t = await fileWhen(core, T01, (x) => x !== T01_0);

@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-for (const file of ['Switcher.tsx', 'Search.tsx']) {
+// D-760: the Switcher is removed; the Search page's field takes ↑/↓ and Esc for its `Go to` list.
+for (const file of ['Search.tsx']) {
   test(`bug_ms2_fr_nav_01_${file.replace('.tsx', '').toLowerCase()}_input_has_no_autocorrect`, () => {
     const src = readFileSync(resolve(import.meta.dirname, '../ui/src', file), 'utf8');
     const input = src.slice(src.indexOf('<input'), src.indexOf('/>', src.indexOf('<input')));

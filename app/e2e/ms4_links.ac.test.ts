@@ -192,8 +192,8 @@ async function paletteRun(d: Driver, command: string) {
   await sleep(500);
 }
 async function openByTitle(d: Driver, title: string) {
-  press('o', ['command']);
-  assert.ok(await shown(d, 'Quick switcher'), `switcher for ${title}`);
+  press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+  assert.ok(await shown(d, 'Search query'), `switcher for ${title}`);
   paste(title);
   await sleep(300);
   press('enter');
@@ -261,7 +261,7 @@ test('fr_syn_06_ac9_keyboard_tour_writes_nothing_then_one_create', { timeout: 90
     await paletteRun(d, 'Go to Duplicate titles');
     assert.ok(await shown(d, 'Duplicate titles', 5000), 'Duplicate titles page');
     for (const q of ['senior', 'čtení']) {
-      press('o', ['command']);
+      press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
       paste(q);
       await sleep(500);
       press('escape');

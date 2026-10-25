@@ -366,8 +366,8 @@ test('fr_ux_03_ac12_keys_work_right_after_launch', { timeout: 120_000 }, async (
     press('escape');
     await sleep(300);
     assert.equal(await shown(d, 'Command palette', 500), false, 'Esc closes it');
-    press('o', ['command']);
-    assert.ok(await shown(d, 'Quick switcher'), '⌘O opens the switcher');
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+    assert.ok(await shown(d, 'Search query'), '⇧⌘F opens the Search page (D-760: in place of ⌘O and the switcher)');
   } finally {
     await end(d);
     rmSync(base, { recursive: true, force: true });
@@ -551,12 +551,12 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
     assert.deepEqual(tree(vaultA)[CTVRTEK], ctvrtek, '(b) Čtvrtek byte-identical');
     await end(d);
     d = undefined;
-    // The switcher's create item for the same title and type, on a second copy.
+    // The create item of the Search page's Go to list (D-760; before it, the switcher's) for the same title and type.
     const logB = join(base, 'perf-b.jsonl');
     d = await session(testEnv(join(base, 'support-b'), logB, { TEGG_VAULT: vaultB }));
     assert.ok(await waitMark(logB, 'ui-ready'), 'ui-ready (b)');
-    press('o', ['command']);
-    assert.ok(await shown(d, 'Quick switcher'), 'switcher');
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+    assert.ok(await shown(d, 'Search query'), 'switcher');
     paste('Nový nápad');
     await sleep(500);
     press('enter');
@@ -622,7 +622,7 @@ test('fr_syn_06_ac5_keyboard_tour_leaves_the_vault_untouched', { timeout: 600_00
     for (const g of GOTO) await palette(g);
     await palette('Open vault…'); press('escape'); await sleep(300);
     for (const t of TYPES) await palette(`Go to type: ${t}`);
-    for (const q of ['Porada', 'Zavolat Evě', 'Bez hlavičky']) { press('o', ['command']); await sleep(150); paste(q); await sleep(400); press('enter'); await sleep(500); }
+    for (const q of ['Porada', 'Zavolat Evě', 'Bez hlavičky']) { press('f', ['command', 'shift']); await sleep(150); /* D-760: ⇧⌘F and Go to replace ⌘O */ paste(q); await sleep(400); press('enter'); await sleep(500); }
     press('s', ['control', 'command']); press('s', ['control', 'command']);
     press('backslash', ['command']); press('backslash', ['command']);
     press('backslash', ['command', 'shift']); press('escape');

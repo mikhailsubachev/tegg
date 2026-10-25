@@ -2,7 +2,7 @@
 // L6-marked criterion: FR-TAG-02 AC-2 (once: the tags after deleting the index), FR-TAG-03 AC-1 (once: New tag writes
 // one file, by bytes, mtime and inode), FR-TAG-05 AC-1 (once: a colour choice is one write), AC-6 (the capture window's
 // tag chips take the colour), FR-TAG-06 AC-6 (the tag page's sort, Type filter and grouping survive a relaunch, stored
-// in Application Support), AC-8 (once: New with #Účty › Page writes Pages/Plán.md), FR-TAG-07 AC-1 (the All tags sort
+// in Application Support), (AC-8 removed by D-762), FR-TAG-07 AC-1 (the All tags sort
 // survives a relaunch), FR-HIS-04 AC-8 (once: restore from Settings › Backups), FR-LNK-14 AC-12 (once: Merge…),
 // FR-NAV-04 AC-8 (the sidebar order), FR-SYN-06 AC-31 (a browsing tour writes nothing), AC-32 (each action writes only
 // its files). Interface docs/contracts/ms4-tags.md §3…§6 and ms3-shell §1 (`TEGG_ROUTE`, `route-ready:<route>`; the
@@ -81,7 +81,7 @@ test('fr_tag_02_ac2_tags_are_the_same_after_deleting_the_index', { timeout: 300_
     const d2 = await launch({ ...c, log: join(c.base, 'perf2.jsonl') } as Ctx, 'tags');
     c.d = d2;
     assert.ok(await shown(d2, '10 tags · 11 tagged objects', 5000), 'the same tags after the rebuild (AR-01)');
-    assert.ok(await shown(d2, 'Tags, all 10', 2000), 'the sidebar section');
+    assert.ok(await shown(d2, 'Tags', 2000), 'the sidebar Tags entry (D-761)');
   } finally { await cleanup(c); }
 });
 
@@ -194,23 +194,7 @@ test('fr_tag_06_ac6_tag_page_state_survives_relaunch', { timeout: 300_000 }, asy
   } finally { await cleanup(c); }
 });
 
-test('fr_tag_06_ac8_new_with_tag_writes_one_page', { timeout: 300_000 }, async () => {
-  await ready();
-  const c = fresh('tag06ac8');
-  try {
-    const d = await launch(c, tagRoute('účty'));
-    const before = tree(c.vault);
-    await (await need(d, 'New with #Účty')).click();
-    await (await need(d, 'Page')).click();
-    await sleep(500);
-    assert.deepEqual(files(before, tree(c.vault)), [], 'the draft writes nothing');
-    paste('Plán');
-    press('enter');
-    const t = await waitFile(join(c.vault, 'Pages/Plán.md'), (x) => x !== null, 3000);
-    assert.ok(t && /\ntags: \[Účty\]\n/.test(t), `Pages/Plán.md with tags: [Účty]: ${t}`);
-    assert.deepEqual(files(before, tree(c.vault)), ['Pages/Plán.md'], 'written once, nothing else');
-  } finally { await cleanup(c); }
-});
+// FR-TAG-06 AC-8 (`New with #tag`) is superseded by D-762 (no way to add from the tag page, FR-TAG-06 AC-12, L5).
 
 test('fr_tag_07_ac1_all_tags_sort_survives_relaunch', { timeout: 300_000 }, async () => {
   await ready();
@@ -272,17 +256,7 @@ test('fr_lnk_14_ac12_merge_in_the_real_app', { timeout: 300_000 }, async () => {
 
 // ------------------------------------------------------------------------------------------------ FR-NAV-04, FR-SYN-06
 
-test('fr_nav_04_ac8_sidebar_tags_section_in_the_real_app', { timeout: 300_000 }, async () => {
-  await ready();
-  const c = fresh('nav04ac8');
-  try {
-    const d = await launch(c, 'inbox');
-    assert.ok(await shown(d, 'Tags, all 10', 3000), 'the Tags section header');
-    for (const t of ['#Účty', '#finance', '#dvojí', '#a/b', '#účty/archiv']) assert.ok(await shown(d, t, 1000) || await shown(d, `${t} ${t === '#Účty' ? 6 : t === '#finance' ? 2 : 1}`, 500), `${t} in the section`);
-    await (await need(d, 'Tags, all 10')).click();
-    assert.ok(await waitRoute(c.log, 'tags', 3000), 'the header opens tags');
-  } finally { await cleanup(c); }
-});
+// FR-NAV-04 AC-8 as changed by D-759, D-761 (the `New object` + `Search` row, one `Tags` entry): app/e2e/ms6_v068.ac.test.ts.
 
 test('fr_syn_06_ac31_a_browsing_tour_of_tags_writes_nothing', { timeout: 600_000 }, async () => {
   await ready();
@@ -292,6 +266,9 @@ test('fr_syn_06_ac31_a_browsing_tour_of_tags_writes_nothing', { timeout: 600_000
     const before = tree(c.vault);
     for (const label of ['Name', 'Last used', 'Most used ↓']) { const e = await need(d, label).catch(() => null); await e?.click(); await sleep(200); }
     for (const t of ['#Účty', '#finance', '#a/b', '#neznámá', '#prázdný']) {
+      // D-761: no tag links in the sidebar; each tag page is opened from its All tags row.
+      await (await need(d, 'Tags')).click();
+      await sleep(400);
       await (await need(d, t)).click();
       await sleep(500);
       const tile = await need(d, 'Tag colour', 1000).catch(() => null);

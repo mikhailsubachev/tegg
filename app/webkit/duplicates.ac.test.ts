@@ -7,6 +7,7 @@ import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mustBeDraft } from './helpers';
 import { B, description, editorBody, eventually, fileText, flat, gotoNote, isDisabled, main, must, mustBeOn, openLinks, props, runCommand, seen, sleep, swap, writeCalls } from './links-helpers';
+import { goToListbox, goToQuery, searchQueryField } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const DETAILS_PRAGUE: [RegExp, string][] = [
   [/^Senior Product Manager\b/, 'Page · Sep 1, 2026'],
@@ -32,14 +33,13 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles'] as const) {
     test(`fr_lnk_14_ac6_switcher_details_line_${tz.replace(/\W/g, '_')}`, async ({ page }) => {
       const core = await openLinks(page, B.osamela, { region: 'en-US' });
       const readsBefore = (await core.calls()).filter((c) => c.cmd === 'note_read').length; // the landing note's own read
-      await page.keyboard.press('Meta+o');
-      await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('senior');
+      await goToQuery(page, 'senior');
       await sleep(250);
-      const list = await must(page.getByRole('dialog', { name: 'Quick switcher' }).getByRole('listbox'), 'switcher results');
+      const list = await must(goToListbox(page), 'the Search page\'s Go to list (D-760)');
       const want = tz === 'Europe/Prague' ? prague : prague.map((d) => d.replace('Oct 2, 2026', 'Oct 1, 2026'));
       checkDetails(await optionTexts(list), want, 'switcher');
       assert.equal((await core.calls()).filter((c) => c.cmd === 'note_read').length - readsBefore, 0, 'details come with the results (no note_read)');
-      await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Odkaz na SPM');
+      await searchQueryField(page).fill('Odkaz na SPM');
       await sleep(250);
       const row = (await optionTexts(list)).find((o) => o.startsWith('Odkaz na SPM'));
       assert.ok(row && !row.includes(' · '), `a title nobody shares has no details line: ${row}`);

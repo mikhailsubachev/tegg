@@ -15,6 +15,7 @@ import {
   type FakeCoreHandle,
 } from './rename-helpers';
 import { absent, nonReadCalls, settled } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -152,9 +153,7 @@ test('fr_fmt_08_ac9_template_and_trash_title_edits_write_title_only', async ({ p
 test('fr_fmt_08_ac9_read_only_files_offer_no_rename', async ({ page }) => {
   const core = await openRename(page, R.beta);
   await core.setFile('Pages/Rozbitý.md', Uint8Array.from([0x2d, 0x2d, 0x2d, 0x0a, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x3a, 0x20, 0x52, 0x0a, 0x2d, 0x2d, 0x2d, 0x0a, 0xff, 0xfe, 0x0a]));
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Rozbitý');
-  await settled(page, 'Switcher results', 'Rozbitý');
+  await goToQuery(page, 'Rozbitý');
   await page.keyboard.press('Enter');
   await must(page.getByRole('alert').filter({ hasText: "This file isn't valid UTF-8" }), 'the read-only warning (NFR-REL-03 AC-7)', 5000);
   await triesToRename(page, core, 'read-only file');

@@ -13,6 +13,7 @@ import {
   embedList, topEmbeds, blockMenu, caretAt, description, displayAsButton, editorBody, embedBody, focusInside, frame, hostBlock, isDisabled, linkEmbed, mergeDialog, nestedEditors,
   openButton, saveState, selectedBlocks, slashMenu, addBelow,
 } from './embeds-helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 export { absent, eventually, mainName, must, mustBeOn, runCommand, seen, sleep };
 export { embedList, topEmbeds, blockMenu, caretAt, description, displayAsButton, editorBody, embedBody, focusInside, frame, hostBlock, isDisabled, linkEmbed, mergeDialog, nestedEditors, openButton, saveState, selectedBlocks, slashMenu, addBelow };
@@ -172,12 +173,9 @@ export async function click(loc: Locator, what: string, ms = 3000) {
 
 // ------------------------------------------------------------------------------------------------ caret and entry points
 
-/** Opens a note through the quick switcher (⌘O): asserts the switcher, types `title`, ⏎ (the caller checks the page). */
+/** Opens a note through the Search page's Go to list (D-760; before it the ⌘O switcher): asserts the switcher, types `title`, ⏎ (the caller checks the page). */
 export async function switchTo(page: Page, title: string) {
-  await page.keyboard.press('Meta+o');
-  await must(page.getByRole('dialog', { name: 'Quick switcher' }), `Quick switcher (for "${title}")`);
-  await (await must(page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })), 'Switcher query')).fill(title);
-  await settled(page, 'Switcher results', title);
+  await goToQuery(page, title);
   await page.keyboard.press('Enter');
 }
 /** Caret after the first occurrence of `text` in the host editor (any block, list items included). */

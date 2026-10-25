@@ -12,7 +12,7 @@ import {
   trashedPlaceholder, vaultWrites6a,
 } from './trash-media-helpers';
 import { C, ZAVOLAT, ZAVOLAT_PARA, ZAVOLAT_TASK, convertVault, openConvert, original as convertOriginal, swap } from './convert-helpers';
-import { settled } from './helpers';
+import { goToQuery, settled } from './helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -60,9 +60,7 @@ test('fr_his_01_ac11_read_view_and_relation_value', async ({ page }) => {
   });
   const core = await openTM(page, TM.odkazy, 'Odkazy', { vault, readView: true });
   assert.equal(await eventually(() => chipState(main(page), 'Stará poznámka'), (s) => s === 'trashed', 3000), 'trashed', 'the read view marks it too');
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('combobox', { name: 'Switcher query' }).or(page.getByRole('textbox', { name: 'Switcher query' })).first().fill('Koupit semínka');
-  await settled(page, 'Switcher results', 'Koupit semínka');
+  await goToQuery(page, 'Koupit semínka'); // D-760
   await page.keyboard.press('Enter');
   const panel = page.getByRole('list', { name: 'Properties' }).or(page.getByRole('region', { name: 'Properties' })).first();
   assert.equal(await eventually(() => chipState(panel, 'Stará poznámka'), (s) => s === 'trashed', 3000), 'trashed', 'a relation value (source) is a trashed chip');

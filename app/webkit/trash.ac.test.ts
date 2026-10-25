@@ -15,7 +15,7 @@ import {
   rowsWhen, runCommand, seen, sidebar, sleep, startTM, tmVault, toastWith, trashHeading, trashList, trashRow, undoIn, vaultWrites6a, ws, zeroRegion,
   type FakeCoreHandle,
 } from './trash-media-helpers';
-import { gotoType, openNote, pseudoLocale } from './helpers';
+import { goToListbox, goToQuery, gotoType, openNote, pseudoLocale } from './helpers';
 import { axeContrast } from './read-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -244,9 +244,8 @@ test('fr_his_01_ac5_restore_puts_the_file_back', async ({ page }) => {
   assert.equal(files['Quick Notes/Stará poznámka.md'], original(TM.t1), 'bytes untouched');
   assert.ok(!(await rowsWhen(page, (r) => !r.includes(TM.t1))).includes(TM.t1), 'the row leaves');
   assert.ok(await liveSays(page, 'Restored "Stará poznámka"'), 'the live region');
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('combobox', { name: 'Switcher query' }).or(page.getByRole('textbox', { name: 'Switcher query' })).first().fill('Stará');
-  assert.ok(await seen(page.getByRole('option', { name: /Stará poznámka/ }), 2000), 'in the switcher again');
+  await goToQuery(page, 'Stará'); // D-760: the Search page's Go to list replaces the ⌘O switcher
+  assert.ok(await seen(goToListbox(page).getByRole('option', { name: /Stará poznámka/ }), 2000), 'in the Go to list again');
 });
 
 test('fr_his_01_ac5_r_restores_the_focused_row', async ({ page }) => {

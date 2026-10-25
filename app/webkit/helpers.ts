@@ -77,6 +77,7 @@ export async function eventually<T>(get: () => Promise<T>, ok: (v: T) => boolean
 export const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Sidebar' });
 export const panel = (page: Page) => page.getByRole('complementary', { name: 'Context panel' });
 export const paletteDialog = (page: Page) => page.getByRole('dialog', { name: 'Command palette' });
+/** The `Quick switcher` dialog, removed by D-760: tests only assert that it is absent. */
 export const switcherDialog = (page: Page) => page.getByRole('dialog', { name: 'Quick switcher' });
 /** The `New object` dialog, removed by D-520 (ms5-tasks §12.2): tests only assert that it is absent. */
 export const newObjectDialog = (page: Page) => page.getByRole('dialog', { name: 'New object' });
@@ -154,8 +155,8 @@ export async function mustBeOn(page: Page, name: string, how: string, ms = 5000)
 // `Go to type: Osoby`.
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 /**
- * Waits until the selected option of `list` (the palette's `Commands` or the switcher's `Switcher results`) answers
- * `query`: its first line contains the query, accents and case aside. The switcher asks the core for its results, so
+ * Waits until the selected option of `list` (the palette's `Commands` or the Search page's `Go to`, D-760) answers
+ * `query`: its first line contains the query, accents and case aside. `Go to` asks the core for its results, so
  * right after typing the list can still show the previous query's; ⏎ then opens the wrong note. A fixed sleep was not
  * enough under the push gate's load. Gives up after `ms` without failing, for fuzzy queries no option spells out (the
  * test's next assertion still decides), and logs that it did.
@@ -183,13 +184,26 @@ export async function paletteOptions(page: Page): Promise<string[]> {
   return page.getByRole('listbox', { name: 'Commands' }).getByRole('option').allInnerTexts();
 }
 
+/** D-760 (search-navigation.md FR-NAV-01 AC-15…AC-18): ⌘O and the Quick switcher are gone; the Search page's field. */
+export const searchQueryField = (page: Page) =>
+  page.getByRole('searchbox', { name: /^⟦?Search query⟧?$/ }).or(page.getByRole('textbox', { name: /^⟦?Search query⟧?$/ })).first();
+/** The Search page's `Go to` list (D-760). Both accept the pseudo-locale's ⟦⟧ (NFR-OTH-02 AC-3). */
+export const goToListbox = (page: Page) => page.getByRole('listbox', { name: /^⟦?Go to⟧?$/ });
+/** ⇧⌘F, `query` typed in `Search query`, then waits until the selected `Go to` option answers it (D-760). The caret stays
+ *  in the field, so ⏎ opens the selected option and ↓/↑ move the selection. */
+export async function goToQuery(page: Page, query: string) {
+  await page.keyboard.press('Meta+Shift+f');
+  const q = await must(searchQueryField(page), `textbox "Search query" (⇧⌘F, for ${JSON.stringify(query)})`, 5000);
+  await q.fill(query);
+  await must(goToListbox(page), `listbox "Go to" (for ${JSON.stringify(query)})`, 3000);
+  await settled(page, 'Go to', query);
+}
+
+/** Opens a note through the Search page's `Go to` list (D-760; before it, the ⌘O switcher). */
 export async function openNote(page: Page, title: string) {
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'Quick switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await settled(page, 'Switcher results', title);
+  await goToQuery(page, title);
   await page.keyboard.press('Enter');
-  await mustBeOn(page, title, `open "${title}" from the switcher`);
+  await mustBeOn(page, title, `open "${title}" from the Search page's Go to list`);
 }
 
 export async function gotoType(page: Page, plural: string) {

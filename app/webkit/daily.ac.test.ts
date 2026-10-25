@@ -12,6 +12,7 @@ import {
   prevDay, reviewToggle, runCommand, saveState, seen, sidebarToday, sleep, startDaily, stateIs, swap, templateBody, titleField, titleText,
   changeTypeItem, linkSuggestions, moreButton, todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
 } from './daily-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
 const LONG_15_EN = 'Thursday, October 15, 2026';
@@ -260,10 +261,9 @@ test.describe('which note a date opens', () => {
     const core = await startDaily(page);
     await gotoDaily(page, '2026-10-09');
     assert.equal(await titleText(page), '2026-10-09', 'title field shows the date, not Pátek');
-    await page.keyboard.press('Meta+o');
-    await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Pátek');
-    const sw = page.getByRole('dialog', { name: 'Quick switcher' });
-    assert.ok(await seen(sw.getByRole('option', { name: /^2026-10-09\b/ }), 2000), 'the switcher finds Pátek and lists it as 2026-10-09 (D-334)');
+    await goToQuery(page, 'Pátek');
+    const sw = goToListbox(page); // D-760: the Search page's Go to list replaces the ⌘O switcher
+    assert.ok(await seen(sw.getByRole('option', { name: /^2026-10-09\b/ }), 2000), 'Go to finds Pátek and lists it as 2026-10-09 (D-334)');
     await page.keyboard.press('Escape');
     assert.deepEqual(await writeCalls(core), [], 'opening and reading write nothing');
     await caretAtEnd(page);

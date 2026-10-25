@@ -115,7 +115,7 @@ export type R4Row = { keys: string; press: string; command: string; enabled: boo
 export const R4: R4Row[] = [
   { keys: '⌘K', press: 'Meta+k', command: 'Open command palette', enabled: true },
   { keys: '⇧⌘P', press: 'Meta+Shift+p', command: 'Open command palette', enabled: true },
-  { keys: '⌘O', press: 'Meta+o', command: 'Open quick switcher', enabled: true },
+  // D-760 (search-navigation.md FR-NAV-01 AC-18): ⌘O is unbound and `Open quick switcher` is gone.
   { keys: '⌘N', press: 'Meta+n', command: 'New object', enabled: true },
   { keys: '⇧⌘F', press: 'Meta+Shift+f', command: 'Go to Search', enabled: true },
   { keys: '⌘D', press: 'Meta+d', command: 'Go to Today', enabled: true },
@@ -171,7 +171,7 @@ export const RESERVED = ['⌘Q', '⌘H', '⌥⌘H', '⌘M', '⌘Tab', '⌘Space'
 
 /** FR-UX-03 AC-3: the non-navigation commands every vault has. */
 export const STATIC_COMMANDS = [
-  'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'Open quick switcher', 'New object', 'Toggle sidebar', 'Toggle right panel',
+  'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'New object', 'Toggle sidebar', 'Toggle right panel',
   'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
 ];
 

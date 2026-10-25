@@ -51,7 +51,7 @@ export function longestNote(vault: string): { path: string; title: string; text:
 
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 
-/** One launch: wait for `ui-ready`, ⌘O, paste the title, ⏎; the app exits after `note-ready`. Returns the marks. */
+/** One launch: wait for `ui-ready`, ⇧⌘F (the Search page's Go to list, D-760), paste the title, ⏎; the app exits after `note-ready`. Returns the marks. */
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<Mark[]> {
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];
@@ -71,7 +71,7 @@ export async function oneRun(env: Record<string, string>, log: string, title: st
     osa(`tell application "System Events" to set frontmost of (first process whose unix id is ${child.pid}) to true`);
     await sleep(300);
     if (inFront()) {
-      osa('tell application "System Events" to keystroke "o" using {command down}');
+      osa('tell application "System Events" to keystroke "f" using {command down, shift down}');
       await sleep(300);
       execFileSync('pbcopy', { input: title, env: { ...process.env, LANG: 'en_US.UTF-8' } });
       if (inFront()) {
