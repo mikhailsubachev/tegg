@@ -2,6 +2,7 @@
 // TBD placeholders for later phases (D-116), the command palette and shortcuts (FR-UX-03), themes (FR-UX-05),
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
 import { ShortcutsPage } from './pages/ShortcutsPage';
+import { resetMindmapViews } from './mindmap/mount';
 import { registerConvertPrefs } from './convert/prefs';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
@@ -213,6 +214,7 @@ export function App() {
   liveVault.current = vault ?? null;
   const opened = useCallback((v: VaultInfo) => {
     resetJobs(); // D-385, D-398: undo and the list don't outlive the vault
+    resetMindmapViews(); // D-776: another vault opens every mindmap in Map
     setInterrupted(v.interrupted ?? []); // D-387: renames a crash interrupted, from the vault info (no extra call)
     setVault(v);
     setChooser(null);
@@ -604,6 +606,9 @@ export function App() {
     if (dialog) return;
     const back = pendingReturn.current;
     pendingReturn.current = null;
+    // A command that moved the focus itself (a mindmap's Map / List, D-776) keeps it; otherwise it goes back.
+    const now = document.activeElement;
+    if (now && now !== document.body && now.isConnected) return;
     if (back?.isConnected) back.focus();
   }, [dialog]);
 

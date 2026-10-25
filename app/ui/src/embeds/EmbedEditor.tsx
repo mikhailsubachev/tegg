@@ -2,6 +2,9 @@
 // embedded file (or one `#Heading` section of it) with its own base version, autosave, conflict and deleted handling
 // and undo history. Leaving it saves it; other instances of the same file reload from its writes.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { parse as parseDoc } from '@tegg/doc';
+import { mindmapUi } from '../mindmap/mount';
+import { noteTitle } from '../read/ReadView';
 import { createEditor, type EditorUi, type TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -58,7 +61,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
       hideBlockIds: true,
       placeholder: (kind, value) => {
         const v = value.replace(/^!\[\[|\]\]$/g, '');
-        const name = kind === 'query' ? t('ph.query') : kind === 'mindmap' ? t('ph.mindmap') : /\.pdf(\||#|$)/i.test(v) ? t('ph.embedPdf') : /\.[A-Za-z0-9]{1,6}(\||#|$)/.test(v) && !/\.md(\||#|$)/i.test(v) && !/\.(png|jpe?g|gif|webp|svg|heic|avif|bmp|tiff?)(\||#|$)/i.test(v) ? t('ph.embedOther') : t('ph.embedImage');
+        const name = kind === 'query' ? t('ph.query') : /\.pdf(\||#|$)/i.test(v) ? t('ph.embedPdf') : /\.[A-Za-z0-9]{1,6}(\||#|$)/.test(v) && !/\.md(\||#|$)/i.test(v) && !/\.(png|jpe?g|gif|webp|svg|heic|avif|bmp|tiff?)(\||#|$)/i.test(v) ? t('ph.embedOther') : t('ph.embedImage');
         const id = kind !== 'embed' ? kind : name === t('ph.embedPdf') ? 'embed-pdf' : name === t('ph.embedOther') ? 'embed-other' : 'embed-image';
         return { name, text: kind === 'embed' ? `${name}: ${v}` : name, id };
       },
@@ -68,6 +71,14 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
       },
       onTag: (v) => store.host?.onTag(nfc(v).toLowerCase()),
       onExternal: (url) => store.host?.onExternal(url),
+      // Slice MM (FR-MMP-02 AC-16, D-769): a top-level mindmap of the embedded note is drawn as in the note.
+      ...mindmapUi({
+        path: () => path,
+        title: () => { try { return noteTitle(parseDoc(disk.current), path); } catch { return path.split('/').pop()!.replace(/\.md$/, ''); } },
+        onOpen: (p) => store.host?.onOpen(p),
+        onTag: (k) => store.host?.onTag(k),
+        onExternal: (u) => store.host?.onExternal(u),
+      }),
       // Depth-2 embeds inside an editable embed are shown read-only (D-421).
       embed: (source, dom) => mountEmbed(store, source, dom, () => undefined, (value, k) => childEmbeds(value)[k] ?? null),
       embedChip: (value) => {

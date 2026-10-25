@@ -28,6 +28,8 @@ export type MindmapCtl = {
   /** The block's current Markdown (the app reads its tree with `mindmapTree`, mm-mindmap §1.2). */
   markdown: () => string
   view: () => 'map' | 'list'
+  /** Folded (D-680 `-`): no map is drawn. */
+  folded?: () => boolean
   onNode: (path: number[] | null) => void
   onLink: (target: string) => void
   readOnly: boolean
@@ -451,6 +453,8 @@ class ListItemView implements NodeView {
 
 /** The node views of the open mindmap blocks, by their DOM, for `mindmapView` (mm-mindmap §3.2). */
 export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list' }>()
+/** The figure of the map that last had the focus, per editor (the palette's commands act on it, FR-UX-03 AC-15). */
+export const focusedMindmap = new WeakMap<EditorView, HTMLElement>()
 
 /** The live mindmap node view of each block, per editor: a redraw (a save sets the frontmatter attribute, which
  *  redraws the document) replaces node views, and a map's controls always act through the block's current one. */
@@ -480,7 +484,7 @@ class CalloutView implements NodeView {
   contentDOM: HTMLElement
   private kind: CalloutKind
   private view: 'map' | 'list' = 'map'
-  private folded = false
+  folded = false
   private handle: MindmapHandle | null = null
   private titleEl: HTMLElement | null = null
   private mapBtn: HTMLButtonElement | null = null
@@ -526,10 +530,20 @@ class CalloutView implements NodeView {
     if (icon) head.appendChild(icon)
     this.titleEl = document.createElement('span')
     this.titleEl.className = 'mindmap-title'
+    // The `Mindmap` placeholder of an empty title: a click puts the caret in the title (List) (D-771).
+    this.titleEl.addEventListener('mousedown', (e) => {
+      if (this.view !== 'list') return
+      e.preventDefault()
+      const base = this.getPos()
+      if (base === undefined) return
+      this.pm.dispatch(this.pm.state.tr.setSelection(TextSelection.near(this.pm.state.doc.resolve(base + 2), 1)))
+      this.pm.focus()
+    })
     head.appendChild(this.titleEl)
     if (node.attrs.fold === '+' || node.attrs.fold === '-') {
       this.foldBtn = document.createElement('button')
       this.foldBtn.type = 'button'
+      this.foldBtn.tabIndex = 0 // WebKit tabs only to buttons with a tabindex (as the app's own buttons)
       this.foldBtn.className = 'icon-button small mindmap-fold'
       this.foldBtn.addEventListener('mousedown', (e) => e.preventDefault())
       this.foldBtn.addEventListener('click', (e) => { e.preventDefault(); this.folded = !this.folded; this.render() })
@@ -542,6 +556,7 @@ class CalloutView implements NodeView {
     const btn = (v: 'map' | 'list') => {
       const b = document.createElement('button')
       b.type = 'button'
+      b.tabIndex = 0
       b.textContent = text(v)
       b.setAttribute('data-command', v === 'map' ? 'mindmap.showMap' : 'mindmap.showList')
       b.addEventListener('mousedown', (e) => e.preventDefault())
@@ -560,6 +575,7 @@ class CalloutView implements NodeView {
     this.mapBox.className = 'mindmap-map'
     this.mapBox.contentEditable = 'false'
     this.mapBox.setAttribute('data-map-area', '')
+    this.mapBox.addEventListener('focusin', () => focusedMindmap.set(pm, fig))
     fig.appendChild(this.mapBox)
     this.dom = fig
     mindmapViews.set(fig, this)
@@ -568,6 +584,7 @@ class CalloutView implements NodeView {
     this.handle = ui.mindmap?.(this.mapBox, {
       markdown: () => live().markdown(),
       view: () => live().view,
+      folded: () => live().folded,
       onNode: (path) => live().toItem(path),
       onLink: (target) => ui.onLink(target, null),
       readOnly: !pm.editable,
@@ -598,7 +615,9 @@ class CalloutView implements NodeView {
     this.dom.classList.toggle('mm-view-map', this.view === 'map')
     this.dom.classList.toggle('mm-folded', this.folded)
     this.dom.classList.toggle('mm-empty', emptyMindmap(this.node))
-    this.titleEl!.textContent = title || text('untitled')
+    // In List the title is edited in place, so the header shows only the `Mindmap` placeholder of an empty title.
+    this.titleEl!.textContent = this.view === 'list' && title ? '' : title || text('untitled')
+    this.dom.classList.toggle('mm-untitled', !title)
     this.titleEl!.classList.toggle('untitled', !title)
     if (title) this.titleEl!.setAttribute('data-user-content', '')
     else this.titleEl!.removeAttribute('data-user-content')
@@ -620,8 +639,19 @@ class CalloutView implements NodeView {
     this.folded = false
     this.ui.mindmapState?.set(String(this.index()), v)
     this.render()
-    if (v === 'list') this.toItem([0], focus)
-    else if (focus) this.handle?.focusTree()
+    // The palette (`focus`) puts the caret in the root item (FR-UX-03 AC-15); the `List` button at the end of the
+    // header title, where it is edited (D-771), or in the root item when there is no title.
+    if (v === 'list') {
+      const title = this.node.firstChild
+      const base = this.getPos()
+      if (!focus && title && title.content.size > 0 && base !== undefined) {
+        this.pm.dispatch(this.pm.state.tr.setSelection(TextSelection.near(this.pm.state.doc.resolve(base + 1 + title.nodeSize - 1), -1)))
+        this.pm.focus()
+      } else this.toItem([0], focus)
+    } else if (focus) {
+      // After a palette command the palette gives the focus back; the tree takes it after that (FR-UX-03 AC-15).
+      this.handle?.focusTree()
+    }
   }
   /** D-776: a node click switches to List with the caret at the end of that item (`null`: the synthesized root, D-771). */
   private toItem(path: number[] | null, _focus = true) {

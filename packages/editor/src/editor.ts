@@ -16,7 +16,7 @@ import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { hintElement, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
+import { focusedMindmap, hintElement, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -701,6 +701,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     dirty = false
   }
   load(opts.text)
+  // Slice MM: the caret going into the text forgets the map that last had the focus (FR-UX-03 AC-15: the palette's
+  // mindmap commands act on a focused map, or on the mindmap holding the caret, and nowhere else).
+  view.dom.addEventListener('focusin', (e) => { if (!(e.target as Element | null)?.closest?.('[data-map-area]')) focusedMindmap.delete(view) })
 
   /** The frontmatter text in effect: the doc attribute (panel edits, §14.6), else the last saved text's. */
   function head(): string {
@@ -1338,10 +1341,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return commands.turnInto('callout', { calloutType: type })
     },
     mindmapView(v) {
+      // The mindmap holding the caret, else the one whose map has (or last had) the focus.
       const k = topIndex(editor.state)
       const node = editor.state.doc.child(k)
-      if (!isMindmap(node)) return false
-      const dom = view.nodeDOM(blockPos(editor.state.doc, k)) as HTMLElement | null
+      let dom = isMindmap(node) ? (view.nodeDOM(blockPos(editor.state.doc, k)) as HTMLElement | null) : null
+      if (!dom) {
+        const f = focusedMindmap.get(view)
+        const active = document.activeElement
+        if (f && f.isConnected && (f.contains(active) || !view.hasFocus())) dom = f
+      }
       const nv = dom ? mindmapViews.get(dom) : undefined
       if (!nv) return false
       nv.setView(v, true)

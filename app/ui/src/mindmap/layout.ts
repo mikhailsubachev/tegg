@@ -3,7 +3,8 @@
 // each parent centred on its children, elbow connectors. Nothing of it is stored (R-08).
 import type { MindInline, MindItem, MindmapTree } from '@tegg/doc';
 
-export type Measure = (text: string) => number;
+/** A text's width on one line; `depth` gives the node's weight (root 650, first level 600, deeper 400, R92). */
+export type Measure = (text: string, depth?: number) => number;
 export type Tone = 'root' | 'blue' | 'orange' | 'purple' | 'teal' | 'green' | 'yellow' | 'red' | 'plain';
 export type MindLayoutNode = { id: string; depth: number; x: number; y: number; w: number; h: number; lines: string[]; tone: Tone };
 export type MindConnector = { from: string; to: string; points: [number, number][] };
@@ -56,7 +57,8 @@ function tokens(inline: MindInline[], more: boolean, extra: ChipExtra): Token[] 
 }
 
 /** Greedy wrap at word boundaries within `WRAP` px; a word wider than that breaks between characters (R92). */
-function wrap(toks: Token[], measure: Measure): { lines: string[]; widest: number } {
+function wrap(toks: Token[], measure0: Measure, depth: number): { lines: string[]; widest: number } {
+  const measure = (s: string) => measure0(s, depth);
   const lines: string[] = [];
   let line = '';
   let lineW = 0;
@@ -98,8 +100,8 @@ export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipE
   const chipExtra = opts.chipExtra ?? 0;
   if (tree.root.kind === 'empty') return { width: 0, height: 0, nodes: [], connectors: [] };
 
-  const sizeOf = (toks: Token[]) => {
-    const { lines, widest } = wrap(toks, measure);
+  const sizeOf = (toks: Token[], depth: number) => {
+    const { lines, widest } = wrap(toks, measure, depth);
     // A text that had to wrap fills the node (200 px); one that fits is as wide as its widest line (R92).
     const segments = toks.filter((t) => t === 'break').length + 1;
     const w = lines.length > segments ? MAX_W : Math.min(MAX_W, Math.max(MIN_W, widest + 2 * PAD));
@@ -107,13 +109,13 @@ export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipE
   };
   const tone = (depth: number, i: number): Tone => (depth === 0 ? 'root' : depth === 1 ? PALETTE[i % PALETTE.length] : 'plain');
   const build = (it: MindItem, depth: number, i: number): Box => {
-    const s = sizeOf(tokens(it.inline, it.more, chipExtra));
+    const s = sizeOf(tokens(it.inline, it.more, chipExtra), depth);
     return { id: it.path.join('.'), depth, ...s, tone: tone(depth, i), kids: it.children.map((c, k) => build(c, depth + 1, k)), y: 0 };
   };
   let root: Box;
   if (tree.root.kind === 'item') root = build(tree.root.item, 0, 0);
   else {
-    const s = sizeOf(tokens([{ k: 'text', text: tree.root.text, marks: [] }], false, chipExtra));
+    const s = sizeOf(tokens([{ k: 'text', text: tree.root.text, marks: [] }], false, chipExtra), 0);
     root = { id: 'root', depth: 0, ...s, tone: 'root', kids: tree.items.map((c, k) => build(c, 1, k)), y: 0 };
   }
 

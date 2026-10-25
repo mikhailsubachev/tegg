@@ -40,7 +40,7 @@ import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
 import { conversionHooks, convert as runConvert, type ConvertHost } from '../convert/flow';
 import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 import { tagChipStyle } from '../theme/tagChip';
-import { mountMindmap } from '../mindmap/mount';
+import { mindmapUi } from '../mindmap/mount';
 import { noteTitle } from '../read/ReadView';
 
 export type EditAction =
@@ -79,8 +79,8 @@ function chipExtraOf(info: LinkInfo): ChipExtra | null {
   return { attrs: chipAttrs(s), description: s.link === 'trashed' ? trashedText() : s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
-/** D-776: each mindmap block's view while the app runs (`<note path>#<block index>`); never written. */
-const mindmapViewState = new Map<string, 'map' | 'list'>();
+/** R94: the second line of a slash row (board Main). */
+const SLASH_DESC: Record<string, string> = { mindmap: 'slash.mindmap.description' };
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -222,16 +222,19 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         return { name, text: kind === 'embed' ? `${name}: ${v}` : name, id, note: id === 'embed-note' };
       },
       // Slice MM (mm-mindmap §3.3, R91): the map of a mindmap block, its texts, icon and session view state (D-776).
-      mindmap: (dom, ctl) => mountMindmap(dom, ctl, {
+      ...mindmapUi({
         path: () => pathRef.current,
-        title: () => { const ed = edRef.current; try { return noteTitle(parse(ed ? ed.text() : ''), pathRef.current); } catch { return pathRef.current.split('/').pop()!.replace(/\.md$/, ''); } },
+        // The note title for a synthesized root (D-681): `title:` of the frontmatter in effect, else the file name.
+        title: () => {
+          const head = String(edRef.current?.view.state.doc.attrs.frontmatter ?? '');
+          const m = /^title:[ \t]*(.*)$/m.exec(head);
+          const v = m ? m[1].trim().replace(/^(['"])(.*)\1$/, '$2') : '';
+          return (v || pathRef.current.split('/').pop()!.replace(/\.md$/, '')).normalize('NFC');
+        },
         onOpen: (p, f) => cb.current.onOpen(p, f ? `#${f.replace(/^#/, '')}` : undefined),
         onTag: (k) => cb.current.onTag(k),
         onExternal: (u) => cb.current.onExternal(u),
       }),
-      mindmapState: { get: (k) => mindmapViewState.get(`${pathRef.current}#${k}`), set: (k, v) => { mindmapViewState.set(`${pathRef.current}#${k}`, v); } },
-      mindmapText: (k, title) => (k === 'figure' ? t('mindmap.figure', { title: title ?? '' }) : k === 'expand' || k === 'collapse' ? t(k === 'expand' ? 'callout.expand' : 'callout.collapse', { title: title ?? '' }) : t(`mindmap.${k}`)),
-      mindmapIcon: () => iconElement('mindmap', 15, 'mindmap'),
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
         if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
@@ -833,13 +836,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     document.addEventListener('focusin', on, true);
     return () => document.removeEventListener('focusin', on, true);
   }, []);
-  const convertBlocked = (): string | null => {
+  /** `whole`: the block menu, which converts the whole top-level block (D-778), not the item with the caret. */
+  const convertBlocked = (whole = false): string | null => {
     const e = edRef.current;
     if (!e || !e.editor.isEditable) return t('convert.readOnly');
     if (pathRef.current.startsWith('_templates/')) return t('convert.inTemplate');
     if (focusArea.current === 'embed') return t('convert.inEmbed');
     // D-778: an item of a mindmap becomes an object in v1.0; the whole block (a block selection) converts today.
-    if (!e.blockSelection()) {
+    if (!whole && !e.blockSelection()) {
       const $f = e.view.state.selection.$from;
       for (let d = $f.depth; d > 0; d--) {
         const n = $f.node(d);
@@ -904,8 +908,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     switch (a) {
       case 'turnIntoTask': openConvert('task'); break;
       // Slice MM (R94): the palette's `Show mindmap as map / list`.
-      case 'mindmapMap': ed?.commands.mindmapView('map'); break;
-      case 'mindmapList': ed?.commands.mindmapView('list'); break;
+      case 'mindmapMap': c.mindmapView('map'); break;
+      case 'mindmapList': c.mindmapView('list'); break;
       case 'turnIntoObject': openConvert('last'); break;
       case 'undo': c.undo(); break;
       case 'redo': c.redo(); break;
@@ -1004,6 +1008,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!ed || !host.current?.contains(e.target as Node)) return; // menus and fields handle their own keys
     // 4F: keys inside an embed (its nested editor, its menu) are the embed's own (D-428).
     if ((e.target as HTMLElement).closest?.('.embed-block') && host.current?.contains((e.target as HTMLElement).closest('.embed-block'))) return;
+    // Slice MM: keys on a mindmap's map or header (its nodes, Map / List) are the map's own (D-770), never the text's.
+    if ((e.target as HTMLElement).closest?.('[data-map-area], .mindmap-header')) return;
     const L = live.current;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
     if (L.slash) {
@@ -1086,6 +1092,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const first = card ? [...card.querySelectorAll<HTMLElement>('button, [role="checkbox"], a[href]')].find((x) => !x.closest('[data-embed-body]')) : null;
     if (first) { stop(); first.focus(); return; }
     if (e.key === 'Tab' && !e.metaKey) {
+      // D-772: ⇧Tab on a mindmap's top-level item does nothing (the mindmap keeps one list).
+      const $f = ed.view.state.selection.$from;
+      if (e.shiftKey && $f.depth === 4 && $f.node(1).type.name === 'callout' && String($f.node(1).attrs.calloutType).toLowerCase() === 'mindmap' && $f.node(3).type.name === 'listItem') { stop(); return; }
       // Lists nest and un-nest; elsewhere Tab stays in the editor.
       const c = ed.editor.can();
       if (e.shiftKey ? c.liftListItem('listItem') : c.sinkListItem('listItem')) {
@@ -1303,8 +1312,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           onClose={() => { setPick(null); focusEditor(); }} />
       )}
       {menu && e2 && (
-        <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect} convertWhy={convertBlocked()}
-          onConvert={() => { setMenu(null); focusEditor(); focusArea.current = 'body'; openConvert('last'); }}
+        <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect} convertWhy={convertBlocked(true)}
+          onConvert={() => { setMenu(null); focusEditor(); focusArea.current = 'body'; if (!e2.blockSelection()) e2.commands.selectBlockAt(menu.block); openConvert('last'); }}
           onSub={(sub) => setMenu({ ...menu, sub })}
           onClose={() => { setMenu(null); focusEditor(); }} />
       )}
@@ -1365,12 +1374,14 @@ function SlashMenu({ slash, pos, blocked, onPick, onSel }: { slash: Slash; pos: 
             <div key={it.id} role="presentation">
               {header && <div className="group-header" role="presentation">{header}</div>}
               <div role="option" aria-label={t(it.label)} aria-selected={i === slash.sel} aria-disabled={disabled || undefined}
-                aria-description={why ?? (disabled && it.due ? t('due.coming', { milestone: showDue(it.due) }) : undefined)}
+                aria-description={why ?? (disabled && it.due ? t('due.coming', { milestone: showDue(it.due) }) : SLASH_DESC[it.id] ? t(SLASH_DESC[it.id]) : undefined)}
                 className={`option ${i === slash.sel ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseMove={() => !disabled && i !== slash.sel && onSel(i)}
                 onClick={() => !disabled && onPick(it)}>
-                <span>{t(it.label)}</span>
+                {SLASH_DESC[it.id] && !disabled ? (
+                  <span className="slash-two-lines"><span>{t(it.label)}</span><span className="slash-desc">{t(SLASH_DESC[it.id])}</span></span>
+                ) : <span>{t(it.label)}</span>}
                 {why ? <span className="due">{why}</span> : disabled && <Due due={it.due} />}
               </div>
             </div>
@@ -1490,8 +1501,8 @@ function BlockMenu({ menu, ed, wrapRect, convertWhy, onConvert, onSub, onClose }
       (document.activeElement as HTMLElement | null)?.click();
     }
   };
-  const item = (label: string, onClick: (() => void) | null, opts: { disabled?: boolean; description?: string; key?: string } = {}) => (
-    <div key={opts.key ?? label} role="menuitem" tabIndex={-1} aria-label={label} aria-disabled={opts.disabled || undefined} aria-description={opts.description}
+  const item = (label: string, onClick: (() => void) | null, opts: { disabled?: boolean; description?: string; key?: string; checked?: boolean } = {}) => (
+    <div key={opts.key ?? label} role="menuitem" tabIndex={-1} aria-label={label} aria-disabled={opts.disabled || undefined} aria-description={opts.description} aria-checked={opts.checked}
       className={`option ${opts.disabled ? 'disabled' : ''}`}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => { if (!opts.disabled && onClick) onClick(); }}>
@@ -1529,7 +1540,12 @@ function BlockMenu({ menu, ed, wrapRect, convertWhy, onConvert, onSub, onClose }
             {item(t('blockMenu.calloutType'), () => onSub('calloutType'))}
           </>
         )}
-        {menu.sub === 'calloutType' && [...CALLOUT_TYPES, 'mindmap'].map((ty) => item(`${t(`callout.${ty}`)} (${ty})`, act(() => ed.commands.setCalloutType(ty)), { key: ty }))}
+        {menu.sub === 'calloutType' && (() => {
+          // R94: 14 entries, `Mindmap` last; the block's own type is checked.
+          const cur = state.doc.child(range.from);
+          const now = cur.type.name === 'callout' ? String(cur.attrs.calloutType).toLowerCase() : null;
+          return [...CALLOUT_TYPES, 'mindmap'].map((ty) => item(`${t(`callout.${ty}`)} (${ty})`, act(() => ed.commands.setCalloutType(ty)), { key: ty, checked: now === null ? undefined : now === ty }));
+        })()}
       </div>
     </div>
   );
