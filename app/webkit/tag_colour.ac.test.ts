@@ -46,8 +46,6 @@ test('fr_tag_05_ac1_choose_a_colour_three_ways', async ({ page }) => {
   const read = (await callsOf(core, 'note_read')).filter((c) => (c.args as any)?.path === P.fUcty);
   assert.ok(read.length >= 1 && (w[0].args as any)?.base, 'the file\'s last-read version as base');
   assert.equal(await eventually(() => colourTile(page).getAttribute('data-color'), (c) => c === 'green', 1000), 'green', 'the tile shows green within 1 s');
-  const side = await chipColours(sidebar(page).getByRole('link', { name: /^#Účty/ }), 'green');
-  assert.equal(side.fg, side.wantFg, 'the sidebar # shows green');
 });
 
 test('fr_tag_05_ac2_none_removes_the_key', async ({ page }) => {
@@ -110,7 +108,6 @@ const SURFACES = async (page: Page, colour: string, name: string): Promise<strin
     const c = await chipColours(loc, colour);
     if (c.bg !== c.wantBg || c.fg !== c.wantFg) bad.push(`${what}: ${c.fg} on ${c.bg}, want ${c.wantFg} on ${c.wantBg}`);
   };
-  await check('the sidebar link', sidebar(page).getByRole('link', { name: new RegExp(`^#${name}`) }).first());
   return bad;
 };
 

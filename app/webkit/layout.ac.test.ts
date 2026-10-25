@@ -304,9 +304,9 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
     await check(R1.find((r) => r.id === id)!, `sidebar ${entry}`);
   }
-  // 4D-lite (tags.md R83): `tags` is reached by the sidebar Tags section header.
-  await sidebar(page).getByRole('button', { name: /^Tags, all \d+$/ }).click().catch(() => failures.push('tags: sidebar Tags section header missing'));
-  await check(R1.find((r) => r.id === 'tags')!, 'sidebar Tags section header');
+  // D-761 (tags.md R83): `tags` is reached by the sidebar's Tags entry.
+  await sidebar(page).getByRole('link', { name: 'Tags', exact: true }).click().catch(() => failures.push('tags: sidebar Tags entry missing'));
+  await check(R1.find((r) => r.id === 'tags')!, 'sidebar Tags entry');
   for (const [keys, id] of [['Meta+d', 'today'], ['Meta+Shift+i', 'inbox'], ['Meta+Shift+f', 'search'], ['Meta+Comma', 'settings/appearance']] as const) {
     await page.locator('body').click({ position: { x: 700, y: 600 } }).catch(() => {});
     await page.keyboard.press(keys);

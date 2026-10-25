@@ -65,11 +65,13 @@ test('fr_fmt_08_ac5_back_returns_to_the_renamed_note_not_a_dead_entry', async ({
   const core = await openRename(page, R.alfa);
   await renameAlfa(page, core);
   await gotoNote(page, 'Beta');
+  const before = (await callsOf(core, 'note_read')).length;
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Gama', 'Back lands on Gama (the history entry was rewritten)');
   assert.equal(await seen(page.getByRole('alert'), 500), false, 'no "missing note" alert');
   const reads = (await callsOf(core, 'note_read')).map((c) => nfc(String(args(c).path)));
-  assert.ok(!reads.slice(-3).includes(R.alfa), 'Back never asks for the dead Pages/Alfa.md');
+  // Only the reads Back caused (the rename itself reads Alfa before it; D-760 removed the switcher's own reads).
+  assert.ok(!reads.slice(before).includes(R.alfa), 'Back never asks for the dead Pages/Alfa.md');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-FMT-08 AC-7

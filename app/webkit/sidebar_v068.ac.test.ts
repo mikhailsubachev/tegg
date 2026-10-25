@@ -85,7 +85,7 @@ test('fr_tag_07_ac6_one_tags_entry_with_icon_and_count', async ({ page }) => {
   assert.equal(await entry.locator('svg[data-icon="tags"]').count(), 1, 'the tags icon (data-icon="tags")');
   assert.equal(flat(await entry.innerText()).replace(/^Tags/, '').trim(), '10', 'the count 10 (R81 rows)');
   assert.equal(await description(tagsEntry(page)), '10 tags', 'description "10 tags"');
-  assert.equal(await entry.getAttribute('data-command'), 'goto.tags', 'data-command="goto.tags"');
+  assert.equal(await entry.getAttribute('data-command'), 'tags.go', 'data-command="tags.go"');
   const types = await rectOf(sidebar(page).getByRole('list', { name: 'Types', exact: true }), 'Types list');
   const tags = await rectOf(tagsEntry(page), 'Tags');
   const pinned = await rectOf(sidebar(page).getByText('Pinned', { exact: true }), 'Pinned');

@@ -200,7 +200,8 @@ for (const theme of ['light', 'dark'] as const) {
 test('fr_ux_05_ac9_every_r89_text_is_a_catalog_key', async ({ page }) => {
   await page.clock.setFixedTime(new Date(NOW10));
   await openTypes(page, P.porada, { region: 'cs', prelude: pseudoLocale });
-  await click(props(page).getByRole('button', { name: /Datum/ }).first(), 'the Datum opener');
+  // Under the pseudo-locale the `Properties` region is `⟦Properties⟧`, so the opener is found in the page.
+  await click(page.getByRole('main').getByRole('button', { name: /^Datum: / }).first(), 'the Datum opener');
   const dlg = await must(page.getByRole('dialog', { name: '⟦Pick date⟧', exact: true }), 'dialog "⟦Pick date⟧"');
   for (const b of [...QUICK_PICKS, 'No date']) await must(dlg.getByRole('button', { name: `⟦${b}⟧`, exact: true }), `button ⟦${b}⟧`);
   for (const b of ['Previous month', 'Next month']) await must(dlg.getByRole('button', { name: `⟦${b}⟧`, exact: true }), `button ⟦${b}⟧`);

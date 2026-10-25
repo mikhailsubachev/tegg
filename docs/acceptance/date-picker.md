@@ -14,7 +14,7 @@ Wednesday), Europe/Prague, region `cs` unless stated. Layers as in [types.md](ty
 
 | Element | Role | Accessible name / content |
 | --- | --- | --- |
-| Opener (attribute panel) | `button`, `aria-haspopup="dialog"`, `aria-expanded` | the calendar icon (`data-icon="calendar"`) and the date in the region format (D-133), or `No date` (faint) when empty; accessible name `<attribute name>: <date or No date>` |
+| Opener (attribute panel) | `button`, `aria-haspopup="dialog"`, `aria-expanded` | the calendar icon (`data-icon="calendar"`) and the date in the region format (D-133), or `No date` (muted text, faint icon; `faint` is only for decorative icons, FR-UX-05) when empty; accessible name `<attribute name>: <date or No date>` |
 | Dialog | `dialog` | `Pick date` (the capture keeps `Pick a due date`, FR-CAP-01 AC-19; the Daily Notes calendar keeps `Calendar`, R18); anchored below its opener, inside the window |
 | Date field | `textbox` `Date` | accepts every form of the D-537 typed date (`2026-10-20`, the region's numeric form, `fri`, `next week`, `tomorrow`); ⏎ commits; an unreadable text shows the field error `Not a date` and changes nothing |
 | Quick picks | `button`s | `Today`, `Tomorrow`, `Next week` (next Monday), `Fri` (the next Friday) (D-602) |

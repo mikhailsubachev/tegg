@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { R1 } from '../test/shell-tables';
 import { loadFixtureVault, type FakeVault } from '../ui/test/fake-core';
 import {
-  eventually, mainName, must, mustBeOn, nonReadCalls, paletteDialog, paletteOptions, runCommand, seen, settled, sidebar, sleep, start,
+  eventually, mainName, must, titleState, mustBeOn, nonReadCalls, paletteDialog, paletteOptions, runCommand, seen, settled, sidebar, sleep, start,
   type FakeCoreHandle,
 } from './helpers';
 import { flat, goToList, goToOptions, openSearch, searchBtn, searchQuery, searchResults } from './v068-helpers';
@@ -94,8 +94,9 @@ test('fr_nav_01_ac15_go_to_rows_above_the_results', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ AC-16
 
-test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_keeps_the_query', async ({ page }) => {
+test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_skips_search', async ({ page }) => {
   await startSearch(page);
+  const before = await mainName(page);
   await openSearch(page);
   await query(page, 'rozpo');
   const n = await goToList(page).getByRole('option').count();
@@ -115,8 +116,14 @@ test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_keeps_the_query', async ({ pa
   assert.match(titles[0], /^Rozpočet 2026/, 'rozpo: Rozpočet 2026 first (AC-15)');
   await mustBeOn(page, 'Rozpočet 2026', '⏎ opens the selected object (note/Pages/Rozpočet 2026.md)', 5000);
   await (await must(page.getByRole('button', { name: 'Back', exact: true }), 'title-bar Back')).click();
-  await mustBeOn(page, 'Search', 'Back returns to search', 3000);
-  assert.equal(await (await must(searchQuery(page), 'Search query')).inputValue(), 'rozpo', 'the query is kept');
+  // The jump replaced the Search entry (as the ⌘O switcher did, FR-NAV-03 AC-1): Back returns to the page before Search.
+  await mustBeOn(page, before ?? '', 'Back returns to the page Search was opened from', 3000);
+  // Esc in the field returns there too.
+  await openSearch(page);
+  await query(page, 'rozpo');
+  await page.keyboard.press('Escape');
+  await mustBeOn(page, before ?? '', 'Esc returns to the page Search was opened from', 3000);
+  await openSearch(page);
   // daily/<date> and tag/<key> (D-692) open from the list too.
   await query(page, '2026-10-12');
   await page.keyboard.press('Enter');
@@ -133,7 +140,7 @@ test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_keeps_the_query', async ({ pa
   await page.keyboard.press('Enter');
   await must(page.getByRole('main').getByRole('heading', { level: 1, name: /^Knihy$/i }), '⏎ on the Tag file opens tag/knihy (D-692)', 3000);
   assert.equal(await page.getByRole('main').getByRole('textbox', { name: /^⟦?Note body⟧?$/ }).count(), 0, 'not as a note page');
-  // Tab: the next control, then the full-text results; Esc clears the query.
+  // Tab: the next control, then the full-text results; Esc leaves Search (the field-level part is checked above).
   await openSearch(page);
   await query(page, 'rozpočet');
   await eventually(() => searchResults(page).getByRole('listitem').count(), (c) => c > 0, 2000);
@@ -146,8 +153,7 @@ test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_keeps_the_query', async ({ pa
   const f = await must(searchQuery(page), 'Search query');
   await f.focus();
   await page.keyboard.press('Escape');
-  assert.equal(await f.inputValue(), '', 'Esc in the field clears the query');
-  assert.ok((await eventually(() => goToList(page).count(), (c) => c === 0, 1000)) === 0, 'and the Go to list');
+  assert.ok((await eventually(() => goToList(page).count(), (c) => c === 0, 1000)) === 0, 'Esc leaves Search: no Go to list');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-17
@@ -166,7 +172,7 @@ test('fr_nav_01_ac17_create_from_go_to_and_its_type_menu', async ({ page }) => {
   const written = await eventually(() => core.writesTo(), (w) => w.includes('Quick Notes/Nová myšlenka.md'), 3000);
   assert.deepEqual(written.filter((p) => p === 'Quick Notes/Nová myšlenka.md'), ['Quick Notes/Nová myšlenka.md'], 'one write of Quick Notes/Nová myšlenka.md (the default type)');
   assert.deepEqual(written.filter((p) => p !== 'Quick Notes/Nová myšlenka.md'), [], 'nothing else written');
-  assert.ok(await eventually(() => page.evaluate(() => !!document.activeElement?.closest('[aria-label="Note body"]')), (v) => v, 2000), 'the caret is in the body (FR-EDT-02 AC-13)');
+  assert.ok((await eventually(() => titleState(page), (v) => v.focused, 2000)).focused, 'the caret is in the title (editor.md AC-13, D-367)');
   // The Type menu (D-550): another type before creating.
   await openSearch(page);
   await query(page, 'Výlet na Sněžku');

@@ -48,13 +48,13 @@ test('fr_typ_02_ac6_date_openers_not_textboxes', async ({ page }) => {
   const start = await must(g.getByRole('button', { name: 'Období start: No date', exact: true }), 'button "Období start: No date"');
   await must(g.getByRole('button', { name: 'Období end: No date', exact: true }), 'button "Období end: No date"');
   assert.equal(await g.getByRole('textbox').count(), 0, 'the Date range row has no textbox');
-  const faint = await tokenColour(p2, 'faint');
+  const muted = await tokenColour(p2, 'muted');
   const colour = await start.evaluate((e) => {
     const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
     for (let n = w.nextNode(); n; n = w.nextNode()) if ((n.textContent ?? '').includes('No date')) return getComputedStyle(n.parentElement!).color;
     return null;
   });
-  assert.equal(colour, faint, '`No date` is faint');
+  assert.equal(colour, muted, '`No date` is muted (R89: muted text, faint icon)');
   await p2.close();
 });
 

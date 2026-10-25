@@ -102,7 +102,18 @@ async function geometry(c: Locator, title: string) {
       clipped: !!titleEl && titleEl.scrollWidth > titleEl.clientWidth + 1,
       iconInFirstLine: !!icon && !!first && icon.top + icon.height / 2 >= first.top - 1 && icon.top + icon.height / 2 <= first.bottom + 1,
       suffix: suffix ? (suffix.innerText ?? '').replace(/\s+/g, ' ').trim() : null,
-      suffixLines: suffix ? tops(suffix).length : 0,
+      // Lines of the suffix's text (the 6 px status dot and the 12 px divider sit mid-line, so element boxes don't count).
+      suffixLines: suffix ? (() => {
+        const w = document.createTreeWalker(suffix, NodeFilter.SHOW_TEXT);
+        const ts = new Set<number>();
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          if (!(n.textContent ?? '').trim()) continue;
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          for (const x of r.getClientRects()) if (x.width > 0) ts.add(Math.round(x.bottom));
+        }
+        return ts.size;
+      })() : 0,
       inside: cr.right <= hr.right - parseFloat(hs.paddingRight) + 0.5 && cr.left >= hr.left - 0.5,
       tooltip: (el.getAttribute('title') ?? '').normalize('NFC'),
     };

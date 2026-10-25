@@ -183,7 +183,9 @@ test('fr_tag_06_ac6_sort_filter_and_grouping_are_remembered_and_shared', async (
   await chooseRadio(page, groupingBtn(page), 'Type', 'grouping');
   const st = await eventually(() => core.uiState(), (s) => !!(s as any)?.tagPage?.type, 2000);
   assert.deepEqual((st as any)?.tagPage, { sort: { column: 'title', dir: 'asc' }, type: 'task', grouping: 'type' }, 'UiStateDto.tagPage (D-703)');
-  await click(sidebar(page).getByRole('link', { name: /^#finance/ }), 'sidebar #finance');
+  // D-761: tag/finance through the sidebar's Tags entry and All tags (the sidebar has no tag links).
+  await click(sidebar(page).getByRole('link', { name: 'Tags', exact: true }), 'sidebar Tags');
+  await click(page.getByRole('main').getByRole('link', { name: '#finance', exact: true }).first(), 'All tags #finance');
   await must(tagHeading(page, 'finance'), 'tag/finance');
   assert.equal(flat(await typeFilterBtn(page).textContent()), 'Type: Task', 'the same Type filter, kept on a tag without tasks (AP-661 (g))');
   assert.equal(flat(await groupingBtn(page).textContent()), 'Grouped by type', 'the same grouping');
