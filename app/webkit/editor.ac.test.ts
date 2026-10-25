@@ -195,14 +195,15 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const core = await openEditor(page, E.surove);
   const orig = original(E.surove);
   const groups = sourceBlocks(page);
-  assert.equal(await groups.count(), 5, 'HTML, footnote, $$ math, comment block, dataview fence are source blocks');
+  // Slice MM (D-679): the Mermaid `mindmap` fence is a read-only source block too.
+  assert.equal(await groups.count(), 6, 'HTML, footnote, $$ math, comment block, dataview fence and the Mermaid mindmap fence are source blocks');
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
-  // 4F (D-431): a note embed is an embed now (embeds.md); queries and mindmaps stay R5 placeholders. 6A (D-630): image
-  // embeds are media blocks (trash-media.md R77), no longer placeholders.
+  // 4F (D-431): a note embed is an embed now (embeds.md); queries stay R5 placeholders (slice MM, D-679: the mindmap row
+  // is gone). 6A (D-630): image embeds are media blocks (trash-media.md R77), no longer placeholders.
   const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 2, 'query and mindmap are R5 placeholders');
+  assert.ok((await regions.count()) >= 1, 'the query is an R5 placeholder');
   assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();

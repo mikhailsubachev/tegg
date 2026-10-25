@@ -7,6 +7,7 @@ import type {
   BlockContent, Blockquote, Code, Heading, List, ListItem, Nodes, Paragraph, PhrasingContent,
   RootContent, Table, TableCell, TableRow,
 } from 'mdast'
+import { calloutBody, calloutHead, isMindmapBlock, markdownTree } from '@tegg/doc'
 
 type Mark = { type: string; attrs?: Record<string, unknown> }
 
@@ -75,8 +76,30 @@ export function blockToPM(node: RootContent, source: string): JSONContent {
   }
 }
 
+/** D-765 (mm-mindmap §3.1): a mindmap's body is read on its own, so an empty first item or a list starting at 2
+ *  right after the title is still its list; an empty mindmap gets one empty item to hold the caret. */
+function mindmapToPM(raw: string): JSONContent | null {
+  if (!isMindmapBlock(raw)) return null
+  const h = calloutHead(raw)!
+  const titleTree = markdownTree(h.title)
+  const first = titleTree.children[0]
+  const title = first && first.type === 'paragraph' ? inlines(first.children, [], h.title) : []
+  const body = calloutBody(raw)
+  const kids = markdownTree(body).children
+  const list: JSONContent[] = kids.length ? blocks(kids, body) : [{ type: 'bulletList', attrs: { spread: false }, content: [{ type: 'listItem', attrs: { checked: null, spread: false }, content: [{ type: 'paragraph' }] }] }]
+  // An item without text (`> -` with children) holds an empty paragraph, so it stays an item when written back.
+  const fill = (j: JSONContent) => {
+    if (j.type === 'listItem' && j.content?.[0]?.type !== 'paragraph') j.content = [{ type: 'paragraph' }, ...(j.content ?? [])]
+    j.content?.forEach(fill)
+  }
+  list.forEach(fill)
+  return { type: 'callout', attrs: { calloutType: h.type, fold: h.fold, joined: false }, content: [{ type: 'calloutTitle', content: title }, ...list] }
+}
+
 /** A blockquote whose first paragraph starts with `[!type]`: title = the rest of its first line. */
 function calloutToPM(q: Blockquote, source: string): JSONContent | null {
+  const mm = mindmapToPM(slice(q, source))
+  if (mm) return mm
   const first = q.children[0]
   if (!first || first.type !== 'paragraph') return null
   const lead = first.children[0]
@@ -164,6 +187,10 @@ export function pmToBlock(json: JSONContent): RootContent {
       const first: PhrasingContent[] = [head]
       if (titleKids.length) first.push({ type: 'text', value: ' ' } as PhrasingContent, ...titleKids)
       let rest = body
+      // D-765: a mindmap whose only item is empty is written as its title line alone (W1).
+      const isEmptyItem = (l: JSONContent | undefined) => !!l && /List$/.test(l.type ?? '') && l.content?.length === 1
+        && l.content[0].content?.length === 1 && l.content[0].content[0].type === 'paragraph' && !l.content[0].content[0].content?.length
+      if (String(attrs.calloutType ?? '').toLowerCase() === 'mindmap' && body.length === 1 && isEmptyItem(body[0])) rest = []
       if (attrs.joined && body[0]?.type === 'paragraph') {
         const kids = trimEdges(phrasing(body[0].content ?? []))
         if (kids.length) first.push({ type: 'text', value: '\n' } as PhrasingContent, ...kids)

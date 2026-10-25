@@ -1,6 +1,6 @@
 // Preview v0.55 panel feedback, L5 (WebKit + fake core): the Backlinks panel's chips. docs/acceptance/backlinks.md
 // FR-LNK-01 AC-22 (D-633: each panel chip is a D-600 chip with exactly the look of embeds.md FR-LNK-07 AC-9 (a)…(d) for
-// the same object; one line, the title truncated and never the suffix, `title` = the full title; an external change
+// the same object; the suffix never truncated (D-764: the title wraps instead of truncating, AC-25), `title` = the full title; an external change
 // updates it within 2 s (AC-9's timing); dark mode and axe colour-contrast), AC-23 (D-635: no `Unlinked mentions`, the
 // panel's tab order is the tab, the group headers and the chips). Interface docs/contracts/ms4-links.md §9.1, §9.2,
 // §9.4 (entries carry `review`, `status`, `due`, `completed`; the chip is built with `chipParts()` and keeps
@@ -183,36 +183,30 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-test('fr_lnk_01_ac22_one_line_title_truncated_suffix_whole_full_title_tooltip', async ({ page }) => {
+// D-764 amends AC-22's "one line, the title truncated": chips wrap (AC-25, backlinks_wrap.ac.test.ts). What stays: each
+// chip inside the panel, the full title as tooltip, the suffix whole.
+test('fr_lnk_01_ac22_chip_inside_the_panel_suffix_whole_full_title_tooltip', async ({ page }) => {
   await openCil(page);
   const panel = await mustPanel(page);
   const pw = (await panel.boundingBox())?.width ?? 0;
   assert.ok(pw > 0 && pw <= 289, `the panel is the default 288 px wide (tabpanel ${pw})`);
-  // Every chip: one line inside the panel, `title` = the full title.
   const bad: string[] = [];
   for (const t of ALL) {
     const c = await needPanelChip(page, t);
     const g = await c.evaluate((el) => {
       const r = el.getBoundingClientRect();
       const host = (el.closest('[role="tabpanel"]') as HTMLElement).getBoundingClientRect();
-      return { lines: el.getClientRects().length, inside: r.left >= host.left - 0.5 && r.right <= host.right + 0.5, title: (el.getAttribute('title') ?? '').normalize('NFC') };
+      return { inside: r.left >= host.left - 0.5 && r.right <= host.right + 0.5, title: (el.getAttribute('title') ?? '').normalize('NFC') };
     });
-    if (g.lines !== 1) bad.push(`${t}: ${g.lines} lines`);
     if (!g.inside) bad.push(`${t}: overflows the panel`);
     if (g.title !== nfc(t)) bad.push(`${t}: title attribute ${JSON.stringify(g.title)}`);
   }
-  assert.deepEqual(bad, [], 'each chip is one line inside the panel with its full title as tooltip');
-  // The long title is truncated with an ellipsis; its suffix is whole.
+  assert.deepEqual(bad, [], 'each chip is inside the panel with its full title as tooltip');
   const long = await needPanelChip(page, LONG);
-  const fit = await long.evaluate((el, t) => {
-    const titleEl = [...el.querySelectorAll('*')].find((e) => (e.textContent ?? '').trim().normalize('NFC') === t && ![...e.children].some((k) => (k.textContent ?? '').trim().normalize('NFC') === t)) as HTMLElement | undefined;
+  const fit = await long.evaluate((el) => {
     const suffix = el.querySelector('.chip-suffix') as HTMLElement | null;
-    return {
-      truncated: !!titleEl && titleEl.scrollWidth > titleEl.clientWidth, ellipsis: !!titleEl && getComputedStyle(titleEl).textOverflow === 'ellipsis',
-      suffixWhole: !!suffix && suffix.scrollWidth <= suffix.clientWidth + 1, suffix: suffix ? (suffix.innerText ?? '').replace(/\s+/g, ' ').trim() : null,
-    };
-  }, nfc(LONG));
-  assert.ok(fit.truncated && fit.ellipsis, `the long title is truncated with an ellipsis (${JSON.stringify(fit)})`);
+    return { suffixWhole: !!suffix && suffix.scrollWidth <= suffix.clientWidth + 1, suffix: suffix ? (suffix.innerText ?? '').replace(/\s+/g, ' ').trim() : null };
+  });
   assert.ok(fit.suffixWhole && fit.suffix === `${d('2026-10-23')} · To do`, `the suffix is shown whole (${fit.suffix})`);
 });
 

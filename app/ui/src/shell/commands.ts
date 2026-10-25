@@ -11,7 +11,8 @@ export type ThemeChoice = 'system' | 'light' | 'dark';
 export type ShellActions = {
   go: (r: Route) => void;
   openPalette: () => void;
-  openSwitcher: () => void;
+  /** D-760: the `search` route with the caret in its field and the query selected (⇧⌘F, the sidebar `Search`). */
+  openSearch: () => void;
   newObject: () => void;
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
@@ -73,7 +74,7 @@ export type ShellActions = {
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -131,7 +132,6 @@ export function commands(ctx: ShellContext): Command[] {
   const a = (ctx2: ShellContext) => ctx2.actions;
   const list: Command[] = [
     { id: 'app.palette', title: 'cmd.palette', section: 'app', shortcut: '⌘K', needsVault: false, run: (c) => a(c)?.openPalette() },
-    { id: 'app.switcher', title: 'cmd.switcher', section: 'navigate', shortcut: shortcutOf('app.switcher'), needsVault: true, run: (c) => a(c)?.openSwitcher() },
     { id: 'nav.back', title: 'cmd.goBack', section: 'navigate', shortcut: shortcutOf('nav.back'), needsVault: true, run: (c) => a(c)?.back() },
     { id: 'nav.forward', title: 'cmd.goForward', section: 'navigate', shortcut: shortcutOf('nav.forward'), needsVault: true, run: (c) => a(c)?.forward() },
     { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
@@ -140,7 +140,7 @@ export function commands(ctx: ShellContext): Command[] {
   for (const r of ROUTES) {
     if (NO_GOTO.has(r.id)) continue;
     const id = `goto.${r.id}`;
-    list.push({ id, title: gotoKey(r.id), section: 'navigate', shortcut: shortcutOf(id), needsVault: r.id !== 'settings/appearance', run: (c) => a(c)?.go({ id: r.id }) });
+    list.push({ id, title: gotoKey(r.id), section: 'navigate', shortcut: shortcutOf(id), needsVault: r.id !== 'settings/appearance', run: (c) => (r.id === 'search' ? a(c)?.openSearch() : a(c)?.go({ id: r.id })) });
   }
   for (const e of typeEntries(ctx.types, ctx.counts)) {
     list.push({ id: `goto.type:${e.key}`, title: 'cmd.gotoType', vars: { plural: e.plural }, section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'type/<type>', param: e.key }) });
@@ -189,7 +189,7 @@ export function commands(ctx: ShellContext): Command[] {
     list.push(
       ...([
         ['tag.rename', 'cmd.tagRename', 'edit'], ['tag.delete', 'cmd.tagDelete', 'edit'], ['tag.colour', 'cmd.tagColour', 'edit'],
-        ['tag.newWith', 'cmd.tagNewWith', 'create'], ['tag.groupType', 'cmd.tagGroupType', 'view'], ['tag.groupNone', 'cmd.tagGroupNone', 'view'],
+        ['tag.groupType', 'cmd.tagGroupType', 'view'], ['tag.groupNone', 'cmd.tagGroupNone', 'view'],
       ] as const).map(([id, title, section]): Command => ({ id, title, section, needsVault: true, run: onTag(id) })),
     );
   }
@@ -301,6 +301,8 @@ export function commands(ctx: ShellContext): Command[] {
     ['edit.displayEmbedAs', 'displayEmbedAs', 'commands.displayEmbedAs'],
     // 5A-2 (R53): ⇧⌘T, ⇧⌘O.
     ['edit.turnIntoTask', 'turnIntoTask', 'cmd.edit.turnIntoTask'], ['edit.turnIntoObject', 'turnIntoObject', 'cmd.edit.turnIntoObject'],
+    // Slice MM (R94, D-770): no shortcuts.
+    ['mindmap.showMap', 'mindmapMap', 'cmd.mindmap.showMap'], ['mindmap.showList', 'mindmapList', 'cmd.mindmap.showList'],
   ];
   for (const [id, action, title] of EDIT) {
     const convert = action === 'turnIntoTask' || action === 'turnIntoObject';

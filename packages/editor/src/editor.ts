@@ -11,11 +11,12 @@ import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
 import { conversionUnit as unitOf, replaceUnitWithEmbed, type ConvertUnit, type Doc } from '@tegg/doc'
+import { calloutHead, unwrapMindmap, wrapMindmap } from '@tegg/doc'
 import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { hintElement, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
+import { focusedMindmap, hintElement, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -97,6 +98,10 @@ export interface TeggEditor {
   conversionUnit(): ConvertUnit | null
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
+    /** Slice MM (mm-mindmap §3.2): switch the mindmap block holding the caret; false elsewhere. */
+    mindmapView(view: 'map' | 'list'): boolean
+    /** Slice MM (D-768): whether `Turn into › Mindmap` is offered for the current block or selection. */
+    canTurnIntoMindmap(): 'yes' | 'disabled' | 'no'
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
     moveBlock(dir: 'up' | 'down'): boolean
     duplicateBlock(): boolean
@@ -148,7 +153,8 @@ const HISTORY = 'history$'
 
 /** 5A-2 (D-492): a conversion step: the documents and source models on both sides, for undo and redo. */
 type Conversion = {
-  record: ConversionRecord
+  /** null: a slice MM source step (wrap, unwrap, type change), which has no file of its own to follow. */
+  record: ConversionRecord | null
   target: string
   before: PMNode
   after: PMNode
@@ -399,12 +405,14 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     ...opts.ui,
     ...(opts.emptyHint !== undefined ? { hint: opts.emptyHint } : {}),
     embed: opts.ui.embed && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.embed!(source, dom, getPos))),
+    // Slice MM: the map is drawn once the document is loaded (the load's own node views are replaced right after).
+    mindmap: opts.ui.mindmap && ((dom, ctl) => (loading ? null : opts.ui!.mindmap!(dom, ctl))),
     media: opts.ui.media && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.media!(source, dom, getPos))),
   }
 
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([embedKeys(() => api), TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     enableInputRules: false,
     enablePasteRules: false,
@@ -520,11 +528,11 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       const h = tr.getMeta(HISTORY) as { redo: boolean } | undefined
       if (h?.redo && opts.conversion) {
         const c = conversions.find((x) => x.state === 'undone' && x.before.content.eq(state.doc.content) && x.after.content.eq(tr.doc.content))
-        if (c) {
+        if (c && c.record) {
           if (allowRedo === c) { allowRedo = null; return true }
           if (!c.pending) {
             c.pending = true
-            void opts.conversion.beforeRedo(c.record).then((target) => {
+            void opts.conversion.beforeRedo(c.record!).then((target) => {
               c.pending = false
               if (target === false || !editor.state.doc.content.eq(c.before.content)) return
               allowRedo = c
@@ -557,7 +565,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       if (!c) return
       c.state = 'undone'
       loaded = c.loadedBefore
-      opts.conversion?.afterUndo(c.record)
+      if (c.record) opts.conversion?.afterUndo(c.record)
     } else {
       const c = conversions.find((x) => x.state === 'undone' && x.after.content.eq(doc.content))
       if (!c) return
@@ -693,6 +701,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     dirty = false
   }
   load(opts.text)
+  // Slice MM: the caret going into the text forgets the map that last had the focus (FR-UX-03 AC-15: the palette's
+  // mindmap commands act on a focused map, or on the mindmap holding the caret, and nowhere else).
+  view.dom.addEventListener('focusin', (e) => { if (!(e.target as Element | null)?.closest?.('[data-map-area]')) focusedMindmap.delete(view) })
 
   /** The frontmatter text in effect: the doc attribute (panel edits, §14.6), else the last saved text's. */
   function head(): string {
@@ -764,12 +775,63 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     return [k, k]
   }
 
+  // ---------------------------------------------------------------------------------------------- slice MM
+
+  const isMindmap = (n: PMNode | null | undefined) => !!n && n.type.name === 'callout' && String(n.attrs.calloutType).toLowerCase() === 'mindmap'
+  /** mm-mindmap §1.3, §3.2: replace top-level blocks `from…to` with Markdown made by @tegg/doc, as one undo step whose
+   *  source model is the result, so every byte the step didn't make is written back unchanged (as a conversion, D-492). */
+  function sourceStep(from: number, to: number, make: (raws: string[], gaps: string[]) => string, caret?: (doc: PMNode) => number | null): boolean {
+    let text: string
+    try { text = candidate() } catch { return false }
+    const map = sourceBlocks(text)
+    const hit = map.at.slice(from, to + 1)
+    if (hit.some((b) => b === null)) return false
+    const bs = hit as Doc['blocks']
+    const gaps = bs.slice(1).map((b, i) => text.slice(bs[i].range[1], b.range[0]))
+    const next = text.slice(0, bs[0].range[0]) + make(bs.map((b) => b.raw), gaps) + text.slice(bs[bs.length - 1].range[1])
+    const loadedNext = loadDoc(next, editor.schema)
+    const content = editor.schema.nodeFromJSON(loadedNext.json).content
+    const before = editor.state.doc
+    const tr = closeHistory(editor.state.tr).replaceWith(0, before.content.size, content)
+    const at = caret?.(tr.doc) ?? null
+    tr.setSelection(at === null ? TextSelection.near(tr.doc.resolve(Math.min(blockPos(tr.doc, Math.min(from, tr.doc.childCount - 1)) + 1, tr.doc.content.size))) : TextSelection.near(tr.doc.resolve(at)))
+    const loadedBefore = loaded
+    loaded = loadedNext
+    conversions = conversions.filter((c) => c.state === 'done')
+    conversions.push({ record: null, target: '', before, after: tr.doc, loadedBefore, loadedAfter: loadedNext, state: 'done', pending: false })
+    dispatch(tr.setMeta('teggConvert', true).scrollIntoView())
+    dispatch(closeHistory(editor.state.tr))
+    return true
+  }
+  /** D-768: `Mindmap` in `Turn into` for one list, one paragraph or heading, or a selection of only those text blocks. */
+  function mindmapOffer(): 'yes' | 'disabled' | 'no' {
+    const s = blockSel()
+    const doc = editor.state.doc
+    const [a, b] = s ? [Math.min(s.anchor, s.head), Math.max(s.anchor, s.head)] : [topIndex(editor.state), topIndex(editor.state)]
+    const kinds = []
+    for (let k = a; k <= b; k++) kinds.push(doc.child(k).type.name)
+    const text = (t: string) => t === 'paragraph' || t === 'heading'
+    const list = (t: string) => t === 'bulletList' || t === 'orderedList'
+    if (kinds.length === 1) return text(kinds[0]) || list(kinds[0]) ? 'yes' : 'no'
+    if (kinds.every(text)) return 'yes'
+    if (kinds.every((t) => text(t) || list(t))) return 'disabled'
+    return 'no'
+  }
+
   const commands: TeggEditor['commands'] = {
     turnInto(kind, o = {}) {
       const [from, to] = targetRange()
       const doc = editor.state.doc
       for (let k = from; k <= to; k++) if (doc.child(k).type.name === 'rawBlock') return false
       const node = doc.child(from)
+      // Slice MM (D-767): wrap in a mindmap, or unwrap one, at the source level so the list keeps its bytes.
+      if (kind === 'mindmap') {
+        if (mindmapOffer() !== 'yes') return false
+        return sourceStep(from, to, (raws, gaps) => wrapMindmap(raws, gaps), (d) => startOf(d, from))
+      }
+      if (from === to && isMindmap(node) && (kind === 'bulletList' || kind === 'orderedList' || kind === 'checklist')) {
+        return sourceStep(from, from, ([raw]) => unwrapMindmap(raw, kind))
+      }
       const start = blockPos(doc, from)
       const end = blockPos(doc, to) + doc.child(to).nodeSize
       const textSel = () => editor.chain().setTextSelection({ from: startOf(doc, from), to: endOf(doc, to) })
@@ -777,6 +839,11 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         if (from === to && node.type.name === 'callout') {
           if (!o.calloutType) return false
           if (String(node.attrs.calloutType).toLowerCase() === o.calloutType) return false
+          // D-767 (W7, W10): to or from `mindmap` only the type in the title line changes.
+          if (isMindmap(node) || o.calloutType === 'mindmap') {
+            const type = o.calloutType
+            return sourceStep(from, from, ([raw]) => { const h = calloutHead(raw); return h ? raw.replace(`[!${h.type}]`, `[!${type}]`) : raw })
+          }
           dispatch(editor.state.tr.setNodeMarkup(start, undefined, { ...node.attrs, calloutType: o.calloutType }))
           return true
         }
@@ -1021,6 +1088,27 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         dispatch(state.tr.replaceSelection(new Slice(content, 0, 0)).scrollIntoView())
         return true
       }
+      // Slice MM (D-773): in a mindmap's List, lists, paragraphs and headings become items after the caret's item; in
+      // Map nothing is pasted.
+      const mm = mindmapItem(state)
+      if (mm) {
+        const dom = view.nodeDOM($from.before(mm.callout)) as HTMLElement | null
+        if (dom && mindmapViews.get(dom)?.current() === 'map') return true
+        if (nodes.every((n) => /List$/.test(n.type.name) || n.type.name === 'paragraph' || n.type.name === 'heading')) {
+          const s = state.schema
+          const items: PMNode[] = []
+          for (const n of nodes) {
+            if (/List$/.test(n.type.name)) n.forEach((li) => items.push(li))
+            else items.push(s.nodes.listItem.create(null, s.nodes.paragraph.create(null, n.content)))
+          }
+          const at = $from.after(mm.item)
+          const tr2 = state.tr.insert(at, items)
+          const end = at + items.reduce((n, x) => n + x.nodeSize, 0)
+          tr2.setSelection(TextSelection.near(tr2.doc.resolve(end - 1), -1))
+          dispatch(tr2.scrollIntoView())
+          return true
+        }
+      }
       const tr = state.tr
       const atEmpty = $from.depth === 1 && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0
       if (atEmpty) {
@@ -1097,6 +1185,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
           case 'checklist': return s.nodes.bulletList.create(null, s.nodes.listItem.create({ checked: false }, s.nodes.paragraph.create()))
           case 'blockquote': return s.nodes.blockquote.create(null, s.nodes.paragraph.create())
           case 'callout': return s.nodes.callout.create({ calloutType: 'note', fold: '', joined: false }, s.nodes.calloutTitle.create())
+          // Slice MM (W1, D-765): an empty mindmap with one empty item for the caret; it opens in List (D-776).
+          case 'mindmap': return s.nodes.callout.create({ calloutType: 'mindmap', fold: '', joined: false }, [
+            s.nodes.calloutTitle.create(), s.nodes.bulletList.create(null, s.nodes.listItem.create(null, s.nodes.paragraph.create()))])
           case 'codeBlock': return s.nodes.codeBlock.create()
           case 'divider': return [s.nodes.horizontalRule.create(), s.nodes.paragraph.create()]
           case 'table': {
@@ -1110,13 +1201,33 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       const made = make()
       if (!made) return false
       const nodes = Array.isArray(made) ? made : [made]
+      // Slice MM (FR-MMP-02 AC-22): a block typed in a mindmap's item nests in that item, after its text, so the
+      // mindmap keeps one list; another mindmap goes after the mindmap (D-769).
+      const mm = kind !== 'mindmap' && kind !== 'divider' ? mindmapItem(state) : null
+      if (mm) {
+        const $f = state.selection.$from
+        const item = $f.node(mm.item)
+        const idx = $f.index(mm.item - 1)
+        const tr = state.tr
+        let at: number
+        if (item.childCount === 1 && item.child(0).content.size === 0 && idx > 0) {
+          // An empty item (⏎ after `Porady`, then `/code`): the block goes into the item above, which it belongs to.
+          tr.delete($f.before(mm.item), $f.after(mm.item))
+          at = $f.before(mm.item) - 1
+        } else at = $f.after(mm.item + 1)
+        tr.insert(at, nodes)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(at + 1, tr.doc.content.size))))
+        dispatch(tr.scrollIntoView())
+        return true
+      }
       const start = blockPos(state.doc, k)
       const tr = state.tr
       let at: number
       if (empty) { tr.replaceWith(start, start + cur.nodeSize, nodes); at = start }
       else { at = start + cur.nodeSize; tr.insert(at, nodes) }
-      // Caret: inside the first node's first text position (divider: the paragraph after it).
-      const focusAt = kind === 'divider' ? at + nodes[0].nodeSize : at
+      // Caret: inside the first node's first text position (divider: the paragraph after it; mindmap: its item).
+      const focusAt = kind === 'divider' ? at + nodes[0].nodeSize : kind === 'mindmap' ? at + nodes[0].firstChild!.nodeSize + 1 : at
+      if (kind === 'mindmap') ui?.mindmapState?.set(String(empty ? k : k + 1), 'list')
       tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(focusAt + 1, tr.doc.content.size))))
       dispatch(tr.scrollIntoView())
       return true
@@ -1228,6 +1339,24 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
     setCalloutType(type) {
       return commands.turnInto('callout', { calloutType: type })
+    },
+    mindmapView(v) {
+      // The mindmap holding the caret, else the one whose map has (or last had) the focus.
+      const k = topIndex(editor.state)
+      const node = editor.state.doc.child(k)
+      let dom = isMindmap(node) ? (view.nodeDOM(blockPos(editor.state.doc, k)) as HTMLElement | null) : null
+      if (!dom) {
+        const f = focusedMindmap.get(view)
+        const active = document.activeElement
+        if (f && f.isConnected && (f.contains(active) || !view.hasFocus())) dom = f
+      }
+      const nv = dom ? mindmapViews.get(dom) : undefined
+      if (!nv) return false
+      nv.setView(v, true)
+      return true
+    },
+    canTurnIntoMindmap() {
+      return mindmapOffer()
     },
     undo() {
       return editor.commands.undo()
@@ -1439,6 +1568,91 @@ function hasInline(node: PMNode): boolean {
   node.descendants((n) => { if (n.isInline && !n.isText) found = true; return !found })
   return found
 }
+
+/** Slice MM (D-772): list keys inside a mindmap keep its body one list. The caret's mindmap callout, the depth of its
+ *  list item and whether that item is top-level, or null outside a mindmap item. */
+function mindmapItem(state: EditorState): { callout: number; item: number; top: boolean } | null {
+  const { $from, empty } = state.selection
+  if (!empty || $from.parent.type.name !== 'paragraph') return null
+  for (let d = $from.depth - 1; d > 0; d--) {
+    const n = $from.node(d)
+    if (n.type.name === 'callout') {
+      if (String(n.attrs.calloutType).toLowerCase() !== 'mindmap' || d !== 1) return null
+      const item = $from.depth - 1
+      if ($from.node(item).type.name !== 'listItem') return null
+      return { callout: d, item, top: item === d + 2 }
+    }
+  }
+  return null
+}
+const MindmapKeys = Extension.create({
+  name: 'teggMindmapKeys',
+  priority: 1001,
+  addKeyboardShortcuts() {
+    /** The mindmap becomes one empty paragraph (its only item was empty). */
+    const toParagraph = (state: EditorState, dispatch: (tr: Transaction) => void, callout: number) => {
+      const $f = state.selection.$from
+      // D-780: a titled mindmap keeps its block and title; ⌫ goes to the end of the title (⏎ is handled by the caller).
+      const title = $f.node(callout).firstChild
+      if (title?.type.name === 'calloutTitle' && title.content.size > 0) {
+        const end = $f.before(callout) + 1 + title.nodeSize - 1
+        dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(end), -1)).scrollIntoView())
+        return true
+      }
+      const start = $f.before(callout)
+      const end = $f.after(callout)
+      const tr = closeHistory(state.tr).replaceWith(start, end, state.schema.nodes.paragraph.create())
+      tr.setSelection(TextSelection.near(tr.doc.resolve(start + 1)))
+      dispatch(tr.scrollIntoView())
+      return true
+    }
+    return {
+      Enter: ({ editor }) => {
+        const st = editor.state
+        // ⏎ in a mindmap's title moves the caret to the end of its first item (D-771).
+        const $t = st.selection.$from
+        if ($t.parent.type.name === 'calloutTitle' && $t.depth === 2 && String($t.node(1).attrs.calloutType).toLowerCase() === 'mindmap' && $t.node(1).childCount > 1) {
+          const list = $t.node(1).child(1)
+          if (/List$/.test(list.type.name) && list.firstChild?.firstChild) {
+            const at = $t.after(2) + 2 + list.firstChild.firstChild.nodeSize - 1
+            editor.view.dispatch(st.tr.setSelection(TextSelection.near(st.doc.resolve(at), -1)).scrollIntoView())
+            return true
+          }
+        }
+        const m = mindmapItem(st)
+        if (!m || !m.top) return false
+        const $f = st.selection.$from
+        const item = $f.node(m.item)
+        if (item.childCount !== 1 || item.child(0).content.size !== 0) return false
+        const list = $f.node(m.item - 1)
+        const titled = ($f.node(m.callout).firstChild?.type.name === 'calloutTitle') && $f.node(m.callout).firstChild!.content.size > 0
+        if (list.childCount === 1 && !titled) return toParagraph(st, editor.view.dispatch, m.callout)
+        // ⏎ on an empty top-level item: the caret moves to a new paragraph after the mindmap; the item goes, unless it
+        // is a titled mindmap's only item (D-780: it stays, the block keeps its title and nothing is written).
+        const tr = list.childCount === 1 ? st.tr : st.tr.delete($f.before(m.item), $f.after(m.item))
+        const after = tr.mapping.map($f.after(m.callout))
+        tr.insert(after, st.schema.nodes.paragraph.create())
+        tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)))
+        editor.view.dispatch(tr.scrollIntoView())
+        return true
+      },
+      'Shift-Tab': ({ editor }) => {
+        const m = mindmapItem(editor.state)
+        return !!m && m.top
+      },
+      Backspace: ({ editor }) => {
+        const st = editor.state
+        const m = mindmapItem(st)
+        if (!m || !m.top || st.selection.$from.parentOffset !== 0) return false
+        const $f = st.selection.$from
+        const list = $f.node(m.item - 1)
+        const item = $f.node(m.item)
+        if (list.childCount !== 1 || item.childCount !== 1 || item.child(0).content.size !== 0) return false
+        return toParagraph(st, editor.view.dispatch, m.callout)
+      },
+    }
+  },
+})
 
 /** 4F (D-428): keys on a selected block embed, and leaving a nested editor. Runs before every other keymap. */
 function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {

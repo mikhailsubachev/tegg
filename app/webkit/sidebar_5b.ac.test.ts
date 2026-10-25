@@ -19,9 +19,10 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
   const sb = sidebar(page);
   const parts: [string, ReturnType<typeof entry>][] = [
     // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home entry; `Trash` follows Saved queries (AP-534).
-    ['Search or jump to…', sb.getByRole('button', { name: 'Search or jump to…' })], ['New object', sb.getByRole('button', { name: 'New object' })],
+    // D-759 (tags.md FR-NAV-04 AC-8): the first row is `New object` + `Search`; no `Search or jump to…`.
+    ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
     ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')],
-    ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', entry(page, 'Tags')], ['Pinned', entry(page, 'Pinned')],
+    ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Pinned', entry(page, 'Pinned')],
     ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')], ['logo', sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true })],
   ];
   let last = -1;

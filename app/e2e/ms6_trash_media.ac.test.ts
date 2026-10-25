@@ -62,9 +62,9 @@ const fx = (rel: string) => readFileSync(join(FX, 'trash-media', rel));
 function pngToClipboard(path: string) {
   execFileSync('osascript', ['-e', `set the clipboard to (read (POSIX file "${path}") as «class PNGf»)`]);
 }
-/** The quick switcher (⌘O), the title pasted (non-ASCII through the pasteboard), ⏎. */
+/** The Search page's Go to list (⇧⌘F; D-760 replaced the ⌘O switcher), the title pasted (non-ASCII through the pasteboard), ⏎. */
 function openNote(title: string) {
-  osa('tell application "System Events" to keystroke "o" using {command down}');
+  osa('tell application "System Events" to keystroke "f" using {command down, shift down}');
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
   paste(title);
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);

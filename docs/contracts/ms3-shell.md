@@ -169,7 +169,7 @@ Labels from the ACs, for Playwright, Appium and the explorer agent. MS2 labels (
 | Vault menu | `menu`; recent vaults `menuitemradio`, actions `menuitem` | `Vaults`; `Open folder as vault…`, `Create new vault…`, `Vault settings…` |
 | Logo button (bottom left of the sidebar, D-220) | `button`, `aria-haspopup="menu"`, `aria-expanded` | `Tegg: About and Settings` |
 | Logo menu | `menu` with `menuitem`s | `About and Settings`; `About Tegg`, `Settings…` |
-| Sidebar switcher field | `button` | `Search or jump to…` |
+| Sidebar search button (D-759) | `button` | `Search` (tooltip `Search · ⇧⌘F`); beside the filled `New object` button |
 | New object | `button` | `New object` |
 | Types list | `list` | `Types` |
 | New type | `button`, `aria-disabled` | `New type` |
@@ -359,7 +359,7 @@ export function calloutType(raw: string /* first line: '> [!type]± Title' (D-15
 ```
 
 - **Rendering** goes through `@tegg/doc` `parse` for frontmatter and `markdownTree(body)` (new export, the mdast `parse` builds on, ms1-core §4) (unified/remark with the wikilink, embed, tag, callout, highlight, comment and math plugins of the dialect). It never uses `dangerouslySetInnerHTML` or a raw-HTML plugin: HTML and math nodes become text (D-145). A static rule (L0) fails on `dangerouslySetInnerHTML` and `rehype-raw` in `app/ui/src/**`.
-- **Registry** (`shell/registry.ts`): adds `IN_NOTE_PLACEHOLDERS: { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; name: string; due: Due; reqs: string[] }[]` equal to R5; `overdue()` includes them (FR-UX-02 AC-13, D-144). `read/InNotePlaceholder.tsx` renders one.
+- **Registry** (`shell/registry.ts`): adds `IN_NOTE_PLACEHOLDERS: { id: 'embed-note' | 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap'; name: string; due: Due; reqs: string[] }[]` equal to R5 (after 4F, 6A and slice MM it holds `query` only, D-431, D-630, D-679; the editor's `placeholder` kinds lose `'mindmap'`, mm-mindmap.md §3.3); `overdue()` includes them (FR-UX-02 AC-13, D-144). `read/InNotePlaceholder.tsx` renders one.
 - **Data attributes** for tests: link chips `data-link-kind="note|daily|date-missing|unresolved|external"`; tag chips `data-tag="<key>"`; placeholders `data-placeholder="<id>"`; callouts `data-callout="<type>"`; source lines `data-line="<n>"`.
 
 ### 11.4 Accessibility labels (added to §3.7)
@@ -554,7 +554,7 @@ export function applyOperation(ed: TeggEditor, op: string, block: number): boole
 | Title field | `textbox` | `Title` |
 | Save state | `status` (polite) | `Save state`; text from R9 |
 | Block buttons | `button` | `Add block below`, `Drag to move, click for block menu` |
-| Block menu | `menu` | `Block actions`; items `Turn into` (with `Mindmap` from slice MM, D-685), `Callout type`, `Duplicate`, `Delete`, `Copy link to block` (disabled), `Turn into object` (disabled), `Add row below`, `Add column right`, `Delete row`, `Delete column` |
+| Block menu | `menu` | `Block actions`; items `Turn into` (with `Mindmap` after `Checklist` from slice MM, D-685, D-768), `Callout type` (the 13 `CALLOUT_TYPES` then `mindmap`, D-680), `Duplicate`, `Delete`, `Copy link to block` (disabled), `Turn into object` (disabled), `Add row below`, `Add column right`, `Delete row`, `Delete column` |
 | Selected block | element with `data-block-selected` | — |
 | Source block | `group` | `Source block` |
 | Slash menu | `listbox` | `Insert block`; empty state `No matching blocks` |

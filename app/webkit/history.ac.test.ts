@@ -241,8 +241,9 @@ test('fr_nav_03_ac5_back_to_a_renamed_note_shows_it_at_its_new_path', async ({ p
 // ------------------------------------------------------------------------------------------------ AC-6
 
 // D-520: ⌘N no longer opens a dialog (it navigates to an unsaved draft), so the New object case is gone.
+// D-760: ⌘O and the Quick switcher dialog are removed, so the switcher case is gone too.
 for (const [dialog, key, loc] of [
-  ['palette', 'Meta+k', paletteDialog], ['switcher', 'Meta+o', switcherDialog],
+  ['palette', 'Meta+k', paletteDialog],
 ] as const) {
   test(`fr_nav_03_ac6_no_navigation_while_${dialog}_is_open`, async ({ page }) => {
     await start(page);

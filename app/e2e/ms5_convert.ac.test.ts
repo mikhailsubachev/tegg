@@ -239,8 +239,8 @@ async function caretAtEnd(d: Driver, ...labels: string[]) {
   assert.fail(`none of ${JSON.stringify(labels)} is shown`);
 }
 async function openBySwitcher(d: Driver, title: string) {
-  press('o', ['command']);
-  assert.ok(await shown(d, 'Quick switcher'), `switcher for ${title}`);
+  press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+  assert.ok(await shown(d, 'Search query'), `switcher for ${title}`);
   paste(title);
   await sleep(300);
   press('enter');

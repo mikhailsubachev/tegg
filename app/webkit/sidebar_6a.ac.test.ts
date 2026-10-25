@@ -18,10 +18,11 @@ test('fr_nav_04_ac6_sidebar_without_home', async ({ page }) => {
   const core = await startTM(page);
   const sb = sidebar(page);
   const parts: [string, ReturnType<typeof entry>][] = [
-    ['Search or jump to…', sb.getByRole('button', { name: 'Search or jump to…' })], ['New object', sb.getByRole('button', { name: 'New object' })],
+    // D-759 (tags.md FR-NAV-04 AC-8): the first row is `New object` + `Search`; no `Search or jump to…`.
+    ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
     ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')], ['Types', sb.getByRole('list', { name: 'Types' })],
-    // 4D-lite (tags.md FR-NAV-04 AC-8, R83): the Tags section (header `Tags, all <n>`) instead of a bottom Tags entry.
-    ['Tags section', sb.getByRole('button', { name: /^Tags, all \d+$/ })], ['Pinned', entry(page, 'Pinned')], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
+    // D-761 (tags.md FR-NAV-04 AC-8, R83): one `Tags` entry after the Types list.
+    ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Pinned', entry(page, 'Pinned')], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
   ];
   let last = -1;
   for (const [name, loc] of parts) {

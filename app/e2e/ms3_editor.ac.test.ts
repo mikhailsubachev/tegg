@@ -198,8 +198,8 @@ async function caretAtEnd(d: Driver, text: string) {
   await sleep(100);
 }
 async function openBySwitcher(d: Driver, title: string) {
-  press('o', ['command']);
-  assert.ok(await shown(d, 'Quick switcher'), `switcher for ${title}`);
+  press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+  assert.ok(await shown(d, 'Search query'), `switcher for ${title}`);
   paste(title);
   await sleep(300);
   press('enter');
@@ -469,7 +469,7 @@ test('fr_fmt_12_ac6_nfd_file_name_edit_keeps_one_file', { timeout: 300_000 }, as
     const names = readdirSync(join(vault, 'Pages')).filter((n) => n.normalize('NFC') === 'Cíl.md');
     assert.equal(names.length, 1, `exactly one file named Cíl.md under NFC: ${names.map((n) => JSON.stringify(n)).join(', ')}`);
     assert.ok(readFileSync(join(vault, 'Pages', names[0]), 'utf8').includes('Cílová stránka pro odkazy. NFD'), 'containing the edit');
-    press('o', ['command']);
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
     paste('Cíl');
     await sleep(600);
     // A switcher row exposes "<title> <folder>" as its title; the query field and the page also show "Cíl".
@@ -525,7 +525,7 @@ test('fr_syn_02_ac6_readers_never_see_a_partial_file', { timeout: 300_000 }, asy
     });
     assert.ok(lines.length > 2, `the reader saw saved versions: ${lines.length}`);
     assert.deepEqual(bad.length, 0, 'every read is complete and one of the saved versions (or the original)');
-    press('o', ['command']);
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
     paste('tegg-tmp');
     await sleep(600);
     assert.equal(await shown(d, 'Dlouhá.md.tegg-tmp', 500), false, 'the switcher never lists a .tegg-tmp file');

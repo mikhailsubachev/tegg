@@ -1,6 +1,6 @@
 // MS5 slice 5B preview feedback, L5 (WebKit + fake core): docs/acceptance/tasks.md FR-TSK-04 AC-18 (the sidebar count is
-// the open tasks, D-588), FR-TSK-05 AC-14 (no status chip on the Kanban by status, D-589) and FR-TSK-09 AC-4 (the
-// `Choose date` calendar button in the card menu's `Due date…`, D-587); docs/feedback/ms5-5b.md F4, F6, F2. Interface:
+// the open tasks, D-588), FR-TSK-05 AC-14 (no status chip on the Kanban by status, D-589) and FR-TSK-09 AC-4 (D-587; since
+// D-763 the card menu's `Due date…` opens the one date picker `Pick date`, date-picker.md FR-TSK-09 AC-5); docs/feedback/ms5-5b.md F4, F6, F2. Interface:
 // tasks.md R40, R43, types.md R10 (the `Choose date` month grid, ms3-shell §14 `dialog` `Choose date`), the fake core of
 // ms5-tasks §7. Clock 2026-10-14T12:00 Europe/Prague, region `cs`. Written from the ACs and the public interfaces only
 // (D-61). Every lookup goes through `must`, so a missing control fails an assertion (TS-I1).
@@ -82,73 +82,58 @@ test('fr_tsk_05_ac14_no_status_chip_on_the_board_by_status', async ({ page }) =>
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-09 AC-4
 
-const dueField = (page: Page) => page.getByRole('textbox', { name: 'Due date', exact: true });
-const chooseBtn = (page: Page) => page.getByRole('button', { name: 'Choose date', exact: true });
-const calendar = (page: Page) => page.getByRole('dialog', { name: 'Choose date', exact: true });
+// D-763 (date-picker.md FR-TSK-09 AC-5, replacing AC-4's `Choose date`): `Due date…` opens the one date picker
+// `Pick date` directly; its typed field is the textbox `Date`. The `Choose date` button and the `Due date` textbox go.
+const calendar = (page: Page) => page.getByRole('dialog', { name: 'Pick date', exact: true });
+const dueField = (page: Page) => calendar(page).getByRole('textbox', { name: 'Date', exact: true });
+/** Days are named by the long date (R89); `day(n)` matches the day number as a whole word in the name. */
+const day = (n: number) => new RegExp(`(^|\\D)${n}(\\D|$)`);
 
-/** Opens `More actions for "<title>"` › `Due date…` on the Schedule card. */
+/** Opens `More actions for "<title>"` › `Due date…` on the Schedule card: the dialog `Pick date`. */
 async function openDueDate(page: Page, title: string) {
   await click(moreBtn(card(page, title), title), `More actions for "${title}"`);
   await click(page.getByRole('menuitem', { name: 'Due date…', exact: true }), 'Due date…');
-  await must(dueField(page), 'textbox "Due date" of the card menu');
+  await must(calendar(page), 'dialog "Pick date" of the card menu (D-763)');
 }
-/** The focused grid cell's accessible name (or text), '' when the focus isn't on a day of the grid. */
+/** The focused grid day's accessible name, '' when the focus isn't on a day of the grid. */
 async function focusedDay(page: Page): Promise<string> {
   return page.evaluate(() => {
     const a = document.activeElement as HTMLElement | null;
-    const cell = a?.closest('[role="gridcell"]') ?? a?.querySelector?.('[role="gridcell"]') ?? null;
-    if (!a || !cell) return '';
-    return (cell.getAttribute('aria-label') ?? a.getAttribute('aria-label') ?? cell.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (!a || !a.closest('[role="grid"]')) return '';
+    return (a.getAttribute('aria-label') ?? a.closest('[role="gridcell"]')?.getAttribute('aria-label') ?? a.textContent ?? '').replace(/\s+/g, ' ').trim();
   });
 }
-async function tooltip(loc: Locator): Promise<string> {
-  const el = await must(loc, 'element with a tooltip');
-  const title = await el.getAttribute('title');
-  return title ?? (await description(loc));
-}
 
-test('fr_tsk_09_ac4_choose_date_button_and_its_dialog', async ({ page }) => {
+test('fr_tsk_09_ac4_due_date_opens_pick_date_and_choosing_writes_once', async ({ page }) => {
   const core = await startTasks(page);
   await gotoTasks(page);
   await openDueDate(page, titleOf(T.t03));
-  const btn = await must(chooseBtn(page), 'button "Choose date" in the card menu (D-587)');
-  const [f, b] = [await dueField(page).boundingBox(), await btn.boundingBox()];
-  assert.ok(f && b && b.x >= f.x + f.width - 1 && b.y < f.y + f.height && b.y + b.height > f.y, 'the button is right of the textbox, on its row');
-  assert.equal(await btn.locator('[data-icon="calendar"]').count(), 1, 'the calendar icon (data-icon="calendar")');
-  assert.equal(await tooltip(chooseBtn(page)), 'Choose date', 'tooltip "Choose date"');
-  // Tab to it and ⏎ opens the month grid with the due day (14 Oct) focused.
-  await dueField(page).focus();
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? ''), 'Choose date', 'Tab reaches Choose date');
-  await page.keyboard.press('Enter');
-  await must(calendar(page), 'dialog "Choose date"');
-  assert.match(await eventually(() => focusedDay(page), (d) => /^14\b/.test(d), 1000), /^14\b/, 'the due day (14) is focused');
+  assert.equal(await page.getByRole('button', { name: 'Choose date', exact: true }).count(), 0, 'no Choose date button (D-763)');
+  // The month of the current due date with the due day (14 Oct) focused; arrows move.
+  assert.match(await eventually(() => focusedDay(page), (d) => day(14).test(d), 1000), day(14), 'the due day (14) is focused');
   await page.keyboard.press('ArrowRight');
-  assert.match(await focusedDay(page), /^15\b/, '→ moves to 15');
+  assert.match(await focusedDay(page), day(15), '→ moves to 15');
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('ArrowDown');
-  assert.match(await focusedDay(page), /^21\b/, '↓ moves a week to 21');
+  assert.match(await focusedDay(page), day(21), '↓ moves a week to 21');
   await page.keyboard.press('ArrowUp');
-  assert.match(await focusedDay(page), /^14\b/, '↑ moves back to 14');
+  assert.match(await focusedDay(page), day(14), '↑ moves back to 14');
   await page.keyboard.press('Escape');
   assert.equal(await eventually(() => calendar(page).count(), (n) => n === 0, 1000), 0, 'Esc closes the dialog');
-  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? ''), 'Choose date', 'the focus returns to the button');
   assert.deepEqual(await writeCalls(core), [], 'nothing written yet');
   // Choosing 20 October: ↓ (21), ← (20), ⏎.
-  await click(chooseBtn(page), 'Choose date (click)');
-  await must(calendar(page), 'dialog "Choose date" again');
-  await eventually(() => focusedDay(page), (d) => /^14\b/.test(d), 1000);
+  await openDueDate(page, titleOf(T.t03));
+  await eventually(() => focusedDay(page), (d) => day(14).test(d), 1000);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowLeft');
-  assert.match(await focusedDay(page), /^20\b/, '20 is focused');
+  assert.match(await focusedDay(page), day(20), '20 is focused');
   await page.keyboard.press('Enter');
   const want = touched(swap(original(T.t03), 'due: 2026-10-14', 'due: 2026-10-20'));
   assert.equal(await fileWhen(core, T.t03, (t) => t !== original(T.t03)), want, 'Tasks/Zalít květiny.md: due: 2026-10-20 and modified, every other byte unchanged');
   await sleep(300);
   assert.equal((await writesOf(core, T.t03)).length, 1, 'written once');
   assert.equal(await page.getByRole('menu').count(), 0, 'the menu closes');
-  // 20 Oct is after the current week (Mon 12 – Sun 18 Oct in `cs`), so R41 puts it in Later; the AC text says
-  // "This week" (reported as an AC discrepancy; R41 is the rule the sections follow).
+  // 20 Oct is after the current week (Mon 12 – Sun 18 Oct in `cs`), so R41 puts it in Later.
   const later = await eventually(() => cardPaths(sectionOf(page, 'later')), (p) => p.includes(T.t03), 2000);
   assert.ok(later.includes(T.t03), 'the card moves to the section of 20 Oct (R41: Later)');
 });
@@ -158,20 +143,17 @@ test('fr_tsk_09_ac4_no_due_date_opens_today_and_typing_still_works', async ({ pa
   await gotoTasks(page);
   // T08 has no due date: the grid opens on today's month with today (14) focused.
   await openDueDate(page, titleOf(T.t08));
-  await click(chooseBtn(page), 'Choose date');
-  await must(calendar(page), 'dialog "Choose date"');
-  assert.match(await eventually(() => focusedDay(page), (d) => /^14\b/.test(d), 1000), /^14\b/, 'today (14) is focused');
-  await page.keyboard.press('Escape');
+  assert.match(await eventually(() => focusedDay(page), (d) => day(14).test(d), 1000), day(14), 'today (14) is focused');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
-  // Typing a date in the field and ⏎ still works (FR-TSK-02 AC-10's write path), on T07.
+  // Typing a date in the picker's `Date` field and ⏎ still works (FR-TSK-02 AC-10's write path), on T07.
   await openDueDate(page, titleOf(T.t07));
   await dueField(page).fill('16. 10. 2026');
   await dueField(page).press('Enter');
   assert.equal(await fileWhen(core, T.t07, (t) => t !== original(T.t07)), touched(swap(original(T.t07), 'due: 2026-12-01', 'due: 2026-10-16')), 'typed date: only due and modified');
-  // The quick-add `Due` chip is unchanged (a token only, no calendar button).
+  // The quick-add `Due` chip is unchanged (a token only, no picker opener).
   const qa = main(page).locator('[data-quick-add]');
-  assert.equal(await qa.getByRole('button', { name: 'Choose date', exact: true }).count(), 0, 'no Choose date in the quick-add row');
+  assert.equal(await qa.getByRole('button', { name: /Choose date|Pick date/ }).count(), 0, 'no picker in the quick-add row');
   assert.equal((await callsOf(core, 'note_write')).length, 1, 'one write in all');
 });

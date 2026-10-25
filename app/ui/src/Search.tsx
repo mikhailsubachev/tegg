@@ -8,10 +8,24 @@ import { collator } from './i18n/collate';
 import { TagFilter } from './tasks/TagFilter';
 import { useTags } from './tags/store';
 import { tagKey } from './tags/keys';
+import { GoTo, type GoToKeys } from './GoTo';
+import type { SwitcherItemDto } from './ipc/types';
+import type { Prepared } from './types/create';
 
 /** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet, and the tag filter (D-706: any
- *  number of tags, all must match). `tag` presets it (an old `search/tag:<x>` route, ms4-tags §1.5). */
-export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: string) => void; refresh: number; inputRef: React.RefObject<HTMLInputElement | null>; tag?: string }) {
+ *  number of tags, all must match). `tag` presets it (an old `search/tag:<x>` route, ms4-tags §1.5). Above the results
+ *  the `Go to` list jumps to an object by title or alias (FR-NAV-01, D-760). */
+export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, tag }: {
+  onOpen: (path: string) => void;
+  /** A `Go to` row: replaces the Search entry in the history (D-760). */
+  onGoTo: (path: string) => void;
+  /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
+  onLeave: () => boolean;
+  onCreate: (item: SwitcherItemDto, prepared?: Prepared | null) => void;
+  refresh: number;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  tag?: string;
+}) {
   const [text, setText] = useState('');
   const [tagFilter, setTagFilter] = useState<string[]>(tag ? [tagKey(tag)] : []);
   useEffect(() => setTagFilter(tag ? [tagKey(tag)] : []), [tag]);
@@ -20,6 +34,8 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
   const colors = Object.fromEntries(all.map((r) => [r.key, r.color]));
   const [page, setPage] = useState<SearchPageDto | null>(null);
   const seq = useRef(0);
+  const goto = useRef<GoToKeys>(null);
+  const [active, setActive] = useState<string | undefined>();
 
   useEffect(() => {
     const n = ++seq.current;
@@ -35,10 +51,17 @@ export function Search({ onOpen, refresh, inputRef, tag }: { onOpen: (path: stri
 
   return (
     <section className="search">
-      <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text} onChange={(e) => setText(e.target.value)} />
+      <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
+        aria-controls={active ? 'goto-list' : undefined} aria-activedescendant={active}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (goto.current?.onKey(e)) return;
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
+        }} />
       <div className="filters">
         <TagFilter tags={options} selected={tagFilter} onChange={setTagFilter} colors={colors} allHint={t('search.tagAll')} />
       </div>
+      <GoTo q={text} keys={goto} onActive={setActive} onOpen={onGoTo} onCreate={onCreate} onRefocus={() => inputRef.current?.focus()} />
       {page && <div className="count">{page.total === 0 ? t('search.none') : t('search.count', { count: page.total })}</div>}
       <ul aria-label={t('search.results')}>
         {page?.results.map((r) => (

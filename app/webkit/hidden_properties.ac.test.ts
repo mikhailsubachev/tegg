@@ -13,6 +13,7 @@ import {
   P, append, callsOf, dialog, eventually, fileWhen, fixture, gotoSettings, gotoTypePage, lastWrite, main, must, noModified, nonReadCalls,
   openTypes, original, otherProps, props, property, section, seen, sleep, swap, typeFile, typeTable, typesVault, writtenOutside,
 } from './types-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 type Core = Awaited<ReturnType<typeof openTypes>>;
 const UNIVERSAL = ['Tags', 'Aliases', 'Source', 'Review', 'Created', 'Modified'];
@@ -275,10 +276,8 @@ test('fr_typ_08_ac15_aliases_is_one_text_field_and_keeps_the_flow_list', async (
   const t = await written(core, P.styl, (x) => x.includes('Třetí'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.styl), 'aliases: [Styl, Hodnoty]\n', 'aliases: [Styl, Hodnoty, Třetí]\n')), 'flow list kept; only that entry and modified');
   assert.notEqual(/^modified: (.*)$/m.exec(t ?? '')?.[1], '2026-09-12T08:00:00+02:00', 'modified updated');
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('třetí');
-  assert.ok(await seen(switcherDialog(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s (FR-NAV-01)');
+  await goToQuery(page, 'třetí');
+  assert.ok(await seen(goToListbox(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s (FR-NAV-01)');
 });
 
 test('fr_typ_08_ac15_parsing_trims_drops_empty_parts_and_duplicates', async ({ page }) => {

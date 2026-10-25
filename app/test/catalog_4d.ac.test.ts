@@ -52,7 +52,7 @@ const R88 = () => pairs('docs/acceptance/tags.md', '`tags.title`');
 test('fr_tag_06_ac10_r88_strings_are_catalog_keys_with_the_exact_english', async () => {
   const cat = await catalog();
   const list = R88();
-  assert.equal(list.length, 79, `R88 has ${list.length} keys with text`);
+  assert.equal(list.length, 78, `R88 has ${list.length} keys with text`); // D-762 removed tag.newWith
   assert.deepEqual(check(cat, list.filter(([k]) => !TWO_NUMBERS.includes(k))), [], 'every R88 key with its English text');
   assert.equal(cat.t('tags.summary', { tags: 10, objects: 11 }), '10 tags · 11 tagged objects', 'tags.summary');
   assert.equal(cat.t('tags.summary', { tags: 1, objects: 1 }), '1 tag · 1 tagged object', 'tags.summary, plural forms each');

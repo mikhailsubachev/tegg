@@ -21,7 +21,7 @@ export type ShortcutDef = { keys: string; command: string };
 
 /** R5 in-note placeholders (read-view.md, D-144; ms3-shell §11.3). */
 export type InNotePlaceholderDef = {
-  id: 'embed-image' | 'embed-pdf' | 'embed-other' | 'query' | 'mindmap';
+  id: 'embed-image' | 'embed-pdf' | 'embed-other' | 'query';
   name: string;
   due: Due;
   reqs: string[];
@@ -32,7 +32,6 @@ const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, d
 export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
   // 6A (D-630): `embed-image` and `embed-pdf` are retired (trash-media.md R77 renders them); `embed-other` is a built card.
   { id: 'query', name: 'ph.query', due: { milestone: 'v1.0' }, reqs: ['FR-QRY-01', 'FR-FMT-06'] },
-  { id: 'mindmap', name: 'ph.mindmap', due: { milestone: 'v1.0' }, reqs: ['FR-MMP-01', '-02', 'FR-FMT-05'] },
 ];
 
 export const ROUTES: RouteDef[] = [
@@ -118,7 +117,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
 export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘K', command: 'app.palette' },
   { keys: '⇧⌘P', command: 'app.palette' },
-  { keys: '⌘O', command: 'app.switcher' },
   { keys: '⌘N', command: 'object.new' },
   { keys: '⇧⌘F', command: 'goto.search' },
   { keys: '⌘D', command: 'daily.today' },
@@ -193,7 +191,7 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('pdf', 'media', ['FR-ATT-02']),
   slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
   slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06'], d('v1.0')),
-  slash('mindmap', 'advanced', ['FR-MMP-01'], d('v1.0')),
+  slash('mindmap', 'advanced', ['FR-MMP-01']),
 ];
 
 const ORDER: Milestone[] = ['MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];

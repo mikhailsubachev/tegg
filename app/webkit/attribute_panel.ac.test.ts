@@ -9,8 +9,9 @@ import { editorVault } from './editor-helpers';
 import { focused, mainName, mustBeOn, switcherDialog } from './helpers';
 import {
   P, append, callsOf, control, description, dialog, eventually, fileText, isDisabled, lastWrite, main, must, noModified, nonReadCalls,
-  openNoteByTitle, openTypes, original, otherProps, props, runCommand, seen, sleep, swap, typeFile, typesVault,
+  dateOpener, openDatePicker, openNoteByTitle, openTypes, pickNoDate, pickTyped, original, otherProps, props, runCommand, seen, sleep, swap, typeFile, typesVault,
 } from './types-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const editorBody = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
 const titleField = (page: Page) => page.getByRole('textbox', { name: 'Title', exact: true });
@@ -206,7 +207,7 @@ test('fr_edt_07_ac9_existing_empty_entry_left_until_a_value_is_set', async ({ pa
   const core = await openTypes(page, P.porada);
   await (await textControl(page, 'Místo')).focus();
   await page.keyboard.press('Enter');
-  await (await must(control(page, 'checkbox', 'Datum').or(control(page, 'textbox', 'Datum')), 'Datum')).focus();
+  await (await must(control(page, 'checkbox', 'Datum').or(dateOpener(page, 'Datum')), 'Datum')).focus(); // D-763: a date opener
   await sleep(1300);
   assert.equal((await callsOf(core, 'note_write')).length, 0, '`místo:` is left as it is');
 });
@@ -315,8 +316,7 @@ test('fr_edt_07_ac17_contrast_light_and_dark_with_pickers_open', async ({ page }
     await (await must(props(page).getByRole('button', { name: 'Add Účastníci', exact: true }), 'Add Účastníci')).click();
     assert.deepEqual(await axeContrast(page), [], `relation picker ${theme}`);
     await page.keyboard.press('Escape');
-    await (await must(props(page).getByRole('button', { name: 'Choose date for Datum', exact: true }), 'date picker button')).click();
-    await must(page.getByRole('dialog', { name: 'Choose date' }), 'date picker');
+    await openDatePicker(page, 'Datum'); // D-763: the one date picker `Pick date`
     assert.deepEqual(await axeContrast(page), [], `date picker ${theme}`);
     await page.keyboard.press('Escape');
   }
@@ -374,10 +374,8 @@ test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {
   await al.press('Enter');
   const t = await written(core, P.styl, (x) => x.includes('Třetí'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.styl), 'aliases: [Styl, Hodnoty]\n', 'aliases: [Styl, Hodnoty, Třetí]\n')), 'flow list kept; key spelling and value style kept (FR-EDT-07 AC-8)');
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('třetí');
-  assert.ok(await seen(switcherDialog(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
+  await goToQuery(page, 'třetí');
+  assert.ok(await seen(goToListbox(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
 });
 
 test('fr_typ_08_ac11_review_select', async ({ page }) => {
@@ -411,21 +409,18 @@ test('fr_typ_08_ac12_created_and_modified_read_only_and_modified_updates', async
 test('fr_typ_02_ac3_date_range_is_one_row_with_two_fields', async ({ page }) => {
   const core = await openTypes(page, P.velka, { region: 'cs' });
   const g = await must(props(page).getByRole('group', { name: 'Období' }), 'group Období');
-  const [s, e] = [g.getByRole('textbox', { name: 'Období start' }), g.getByRole('textbox', { name: 'Období end' })];
-  await s.fill('31. 12. 2027');
-  await e.fill('1. 1. 2027');
-  await e.press('Enter');
+  // D-763: each half is a `Pick date` opener; dates are typed in the picker's `Date` field.
+  await pickTyped(page, 'Období start', '31. 12. 2027');
+  await pickTyped(page, 'Období end', '1. 1. 2027');
   await must(g.getByRole('alert').filter({ hasText: 'The end is before the start' }), 'refused');
   await sleep(1200);
   assert.equal((await callsOf(core, 'note_write')).length, 0, 'nothing written');
-  await s.fill('1. 1. 2027');
-  await e.fill('31. 12. 2027');
-  await e.press('Enter');
+  await pickTyped(page, 'Období start', '1. 1. 2027');
+  await pickTyped(page, 'Období end', '31. 12. 2027');
   const t = await written(core, P.velka, (x) => x.includes('období-end'));
   assert.equal(noModified(t ?? ''), noModified(append(original(P.velka), 'období-start: 2027-01-01\nobdobí-end: 2027-12-31\n')), 'two consecutive lines');
-  await s.fill('');
-  await e.fill('');
-  await e.press('Enter');
+  await pickNoDate(page, 'Období start');
+  await pickNoDate(page, 'Období end');
   assert.ok(!(await written(core, P.velka, (x) => !x.includes('období')))?.includes('období'), 'clearing both removes both keys');
 });
 
@@ -433,8 +428,8 @@ test('fr_typ_02_ac3_only_start_shows_an_empty_end_and_is_valid', async ({ page }
   const vault = typesVault((f) => { f[P.velka] = append(f[P.velka], 'období-start: 2027-01-01\n'); });
   await openTypes(page, P.velka, { vault, region: 'cs' });
   const g = await must(props(page).getByRole('group', { name: 'Období' }), 'group Období');
-  assert.equal(await g.getByRole('textbox', { name: 'Období end' }).inputValue(), '');
-  assert.ok(!(await description(g.getByRole('textbox', { name: 'Období start' }))).includes('Not a valid'), 'valid');
+  await must(g.getByRole('button', { name: 'Období end: No date', exact: true }), 'the end is empty (D-763 opener)');
+  assert.ok(!(await description(g.getByRole('button', { name: /^Období start: / }))).includes('Not a valid'), 'valid');
 });
 
 test('fr_typ_02_ac4_system_only_types_are_read_only', async ({ page }) => {
@@ -451,8 +446,7 @@ test('fr_typ_02_ac4_system_only_types_are_read_only', async ({ page }) => {
   }
   // Changed by 4D-lite (tags.md R87, D-692): a Tag has no note page, so its `color` row is gone; the Tag file opens its
   // tag page, without an attribute panel.
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('rozpočet');
+  await goToQuery(page, 'rozpočet');
   await page.waitForTimeout(200);
   await page.keyboard.press('Enter');
   await must(page.getByRole('main').filter({ has: page.getByRole('link', { name: '‹ All tags', exact: true }) }).getByRole('heading', { level: 1, name: 'rozpočet', exact: true }), 'the Tag file opens tag/rozpočet', 3000);

@@ -8,7 +8,7 @@ import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   NAMES, P, allTagsHeading, click, columnHeader, eventually, findBox, main, must, newTagBtn, newTagDialog, openAllTags, openTagPage, original, runCommand,
-  seen, sidebar, sidebarTagLinks, sidebarTagsHeader, sleep, snapshot, startTags, swap, tagHeading, tagKeys, tagNameBox, tagRowEl, tagRowsText, tagsSortBtn,
+  flat, seen, sidebar, sidebarTagLinks, sidebarTagsHeader, sleep, snapshot, startTags, swap, tagHeading, tagKeys, tagNameBox, tagRowEl, tagRowsText, tagsSortBtn,
   tagsTable, tagsVault, vaultWrites, vypln,
 } from './tags-helpers';
 
@@ -93,25 +93,8 @@ test('fr_tag_07_ac3_rows_open_the_tag', async ({ page }) => {
   await must(tagHeading(page, 'a/b'), 'a click on the count cell opens tag/a%2Fb (one tag, R87)');
 });
 
-test('fr_tag_07_ac4_sidebar_tags_section', async ({ page }) => {
-  const core = await openAllTags(page);
-  const head = await must(sidebarTagsHeader(page), 'sidebar button "Tags, all 10" (R83)');
-  assert.match((await head.textContent()) ?? '', /Tags[\s\S]*All 10 ›/, 'visible text All 10 ›');
-  assert.equal(await head.getAttribute('aria-current'), 'page', 'current on tags');
-  assert.deepEqual(await sidebarTagLinks(page), ['#Účty 6', '#finance 2', '#dvojí 1', '#a/b 1', '#účty/archiv 1'], 'the five by Last used; never prázdný or cizí');
-  await click(sidebar(page).getByRole('link', { name: /^#finance/ }), 'sidebar #finance');
-  await must(tagHeading(page, 'finance'), 'tag/finance');
-  assert.equal(await sidebar(page).getByRole('link', { name: /^#finance/ }).getAttribute('aria-current'), 'page', 'its link is current');
-  await core.setFile(vypln(3), swap(swap(original(vypln(3)), 'title: Výplň 03\n', 'title: Výplň 03\ntags: [čtení]\n'), 'modified: 2026-09-01T09:00:00+02:00', 'modified: 2026-10-22T09:00:00+02:00'));
-  assert.equal((await eventually(() => sidebarTagLinks(page), (l) => l[0] === '#čtení 3', 2500))[0], '#čtení 3', '#čtení 3 first within 2 s');
-});
+// FR-TAG-07 AC-4 (the D-700 sidebar section) is superseded by D-761: sidebar_v068.ac.test.ts tests AC-6.
 
-test('fr_tag_07_ac4_sidebar_link_of_a_tag_outside_the_five_is_not_current', async ({ page }) => {
-  await openTagPage(page, 'čtení');
-  await must(sidebarTagsHeader(page), 'the Tags section');
-  const current = await sidebar(page).locator('[aria-current="page"]').count();
-  assert.equal(current, 0, 'tag/čtení is not among the five: no link is current');
-});
 
 test('fr_tag_07_ac5_trash_and_restore_move_the_counts', async ({ page }) => {
   const core = await openAllTags(page);
@@ -170,7 +153,8 @@ test('fr_tag_03_ac5_a_count_zero_tag_is_listed', async ({ page }) => {
   await must(main(page).getByText('11 tags · 11 tagged objects', { exact: true }), '11 tags');
   const row = (await tagRowsText(page)).find((r) => r[0] === '#Účetnictví');
   assert.deepEqual(row?.slice(1, 3), ['0', ''], 'count 0, empty Last used');
-  assert.deepEqual(await sidebarTagLinks(page), ['#Účty 6', '#finance 2', '#dvojí 1', '#a/b 1', '#účty/archiv 1'], 'the sidebar\'s five are unchanged (D-700)');
+  // D-761 (FR-TAG-03 AC-5 as amended): the sidebar's Tags entry counts the tags.
+  assert.equal(flat(await sidebar(page).getByRole('link', { name: 'Tags', exact: true }).innerText()).replace(/^Tags/, '').trim(), '11', 'the sidebar Tags count reads 11');
 });
 
 test('fr_tag_02_ac3_all_tags_follows_the_files', async ({ page }) => {

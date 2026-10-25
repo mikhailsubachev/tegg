@@ -97,12 +97,7 @@ for (const locale of ['cs', 'en']) {
     assert.deepEqual(find('xyz'), [], 'no match');
   });
 
-  test(`fr_tag_07_ac4_sidebar_five_by_last_used (${locale})`, async () => {
-    const { m, collator } = await mods(locale);
-    assert.deepEqual(m.sidebarTags(R80, collator).map((r: any) => [r.name, r.count]), [['Účty', 6], ['finance', 2], ['dvojí', 1], ['a/b', 1], ['účty/archiv', 1]], 'R83: count ≥ 1, newest Last used first, 5');
-    const tie = [...R80, row('nový', 'nový', null, null, 1, '2026-10-22T08:00')];
-    assert.deepEqual(m.sidebarTags(tie, collator).slice(0, 2).map((r: any) => r.name), [...['Účty', 'nový']].sort(collator.compare), 'ties by D-122 name (AP-660)');
-  });
+  // FR-TAG-07 AC-4 (the sidebar's five recent tags, D-700) is superseded by D-761: no list of recent tags.
 
   test(`fr_tag_06_ac3_tag_page_comparators (${locale})`, async () => {
     const { m, collator } = await mods(locale);

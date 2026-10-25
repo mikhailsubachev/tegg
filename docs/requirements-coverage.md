@@ -214,9 +214,9 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-VLT-05 | Default type for new notes, set per vault (default: *Quick Note*, D-24). It is preselected for ⌘N, in Quick Ca… | no ACs yet |
 | NFR-PERF-10 | Quick Capture window open | 1 ACs |
 | NFR-SEC-03 | The share extension and capture window only write to the vault; they never read content back to other apps. | no ACs yet |
-| FR-MMP-01 | A mindmap block can be inserted into any note; it is a `> [!mindmap]` callout holding one list (D-679). | no ACs yet (slice MM, D-377) |
-| FR-MMP-02 | Editing (D-684): the list is edited as an ordinary list and drawn as a map by Tegg; a Map / List toggle switches the view… | no ACs yet; list editing + map in the MVP (slice MM, D-684), editing on the map, drag/collapse/zoom/pan v1.0 (D-377, D-687) |
-| FR-MMP-04 | Per object type, the mindmap block can be included by default via the template ("optional per type"). | no ACs yet (slice MM, D-377) |
+| FR-MMP-01 | A mindmap block can be inserted into any note; it is a `> [!mindmap]` callout holding one list (D-679). | 9 ACs (mindmap.md, slice MM) |
+| FR-MMP-02 | Editing (D-684): the list is edited as an ordinary list and drawn as a map by Tegg; a Map / List toggle switches the view… | 22 ACs (mindmap.md, slice MM): list editing + map in the MVP (D-684); editing on the map, drag/collapse/zoom/pan v1.0 (D-377, D-687) |
+| FR-MMP-04 | Per object type, the mindmap block can be included by default via the template ("optional per type"). | 1 AC (mindmap.md, slice MM) |
 
 ### MS6: Images, PDFs, trash
 

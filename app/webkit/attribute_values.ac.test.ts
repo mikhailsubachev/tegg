@@ -5,9 +5,10 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, append, callsOf, control, eventually, lastWrite, must, noModified, openTypes, original, props, sleep, swap, typesVault,
+  P, append, callsOf, control, dateOpener, eventually, lastWrite, must, noModified, openDatePicker, openTypes, original, pickTyped, props, sleep, swap, typesVault,
 } from './types-helpers';
 import { settled } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 type Core = Awaited<ReturnType<typeof openTypes>>;
 const written = (core: Core, path: string, ok: (t: string) => boolean, ms = 2000) => eventually(() => lastWrite(core, path), (t) => t !== null && ok(t), ms);
@@ -84,17 +85,19 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles', 'Asia/Tokyo', 'Pacific
     test.use({ timezoneId: tz });
     test(`fr_edt_07_ac5_e_date_same_bytes_in_${tz.replace(/\W/g, '_')}`, async ({ page }) => {
       const core = await openTypes(page, P.prazdna, { region: 'cs' });
+      // D-763: the date is typed in the `Date` field of the one date picker `Pick date`.
       for (const input of ['8. 10. 2026', '2026-10-08']) {
-        await commitText(page, 'Datum', input);
+        await pickTyped(page, 'Datum', input);
         const t = await written(core, P.prazdna, (x) => x.includes('datum: 2026-10-08'));
         assert.equal(noModified(t ?? ''), noModified(append(original(P.prazdna), 'datum: 2026-10-08\n')), `${input} in ${tz}`);
       }
-      await (await must(props(page).getByRole('button', { name: 'Choose date for Datum', exact: true }), 'date picker')).click();
-      const cal = await must(page.getByRole('dialog', { name: 'Choose date' }), 'Choose date');
-      await cal.getByRole('gridcell', { name: /^8\b/ }).first().click();
+      const cal = await openDatePicker(page, 'Datum');
+      const d8 = new Intl.DateTimeFormat('cs', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2026, 9, 8));
+      await cal.getByRole('grid').getByRole('button', { name: d8, exact: true }).or(cal.getByRole('gridcell', { name: d8, exact: true })).first().click();
       assert.ok((await written(core, P.prazdna, (x) => x.includes('datum: 2026-10-08')))?.includes('datum: 2026-10-08\n'), 'from the picker');
       const n = (await callsOf(core, 'note_write')).length;
-      await commitText(page, 'Datum', '31. 2. 2026');
+      await pickTyped(page, 'Datum', '31. 2. 2026');
+      await page.keyboard.press('Escape');
       await sleep(1300);
       assert.equal((await callsOf(core, 'note_write')).length, n, '31. 2. 2026 refused');
     });
@@ -104,16 +107,17 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles', 'Asia/Tokyo', 'Pacific
 test('fr_edt_07_ac5_f_date_time_gets_the_offset_of_that_moment', async ({ page }) => {
   const core = await openTypes(page, P.prazdna, { region: 'cs' });
   const g = await must(props(page).getByRole('group', { name: 'Začátek' }), 'group Začátek');
-  const [d, t] = [g.getByRole('textbox', { name: 'Začátek date' }), g.getByRole('textbox', { name: 'Začátek time' })];
+  // D-763: the date part is the `Začátek date: …` opener of `Pick date`; the time stays the textbox `Začátek time`.
+  const t = g.getByRole('textbox', { name: 'Začátek time' });
   for (const [day, time, want] of [['1. 12. 2026', '14:30', '2026-12-01T14:30:00+01:00'], ['1. 7. 2026', '14:30', '2026-07-01T14:30:00+02:00'], ['25. 10. 2026', '02:30', '2026-10-25T02:30:00+02:00']]) {
-    await d.fill(day);
     await t.fill(time);
+    await pickTyped(page, 'Začátek date', day);
     await t.press('Enter');
     assert.equal(entry(await written(core, P.prazdna, (x) => x.includes(want)), 'začátek'), `začátek: ${want}`, `${day} ${time}`);
   }
   const n = (await callsOf(core, 'note_write')).length;
-  await d.fill('28. 3. 2027');
   await t.fill('02:30');
+  await pickTyped(page, 'Začátek date', '28. 3. 2027');
   await t.press('Enter');
   await must(g.getByRole('alert').filter({ hasText: "This time doesn't exist in your time zone" }), 'refused');
   await sleep(1300);
@@ -172,16 +176,15 @@ for (const [tz, start] of [['America/Los_Angeles', '0:30'], ['Europe/Prague', '9
     test(`fr_edt_07_ac15_dates_never_shift_${tz.replace(/\W/g, '_')}`, async ({ page }) => {
       const vault = typesVault();
       await openTypes(page, P.porada, { vault, region: 'cs' });
-      const datum = await must(props(page).getByRole('textbox', { name: 'Datum', exact: true }), 'Datum');
-      assert.equal(await datum.inputValue(), '7. 10. 2026', '7 Oct 2026 in every zone');
+      // D-763: the date is shown on its `Pick date` opener, `Datum: 7. 10. 2026`.
+      const datum = await must(dateOpener(page, 'Datum'), 'Datum');
+      assert.equal((await datum.getAttribute('aria-label') ?? await datum.innerText()).replace(/\s+/g, ' ').trim(), 'Datum: 7. 10. 2026', '7 Oct 2026 in every zone');
       const g = await must(props(page).getByRole('group', { name: 'Začátek' }), 'Začátek');
       assert.ok((await g.getByRole('textbox', { name: 'Začátek time' }).inputValue()).replace(/^0(?=\d:)/, '') === start, `začátek shows the instant in ${tz}`);
-      await page.keyboard.press('Meta+o');
-      await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Zavolat Janě');
-      await settled(page, 'Switcher results', 'Zavolat Janě');
+      await goToQuery(page, 'Zavolat Janě');
       await page.keyboard.press('Enter');
-      const due = await must(props(page).getByRole('textbox', { name: 'Due date', exact: true }), 'Due date');
-      assert.equal(await due.inputValue(), '9. 10. 2026', '9 Oct 2026');
+      const due = await must(dateOpener(page, 'Due date'), 'Due date');
+      assert.equal((await due.getAttribute('aria-label') ?? await due.innerText()).replace(/\s+/g, ' ').trim(), 'Due date: 9. 10. 2026', '9 Oct 2026');
     });
   });
 }

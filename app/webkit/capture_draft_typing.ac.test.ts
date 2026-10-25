@@ -76,7 +76,7 @@ test('fr_cap_01_ac15_type_chip_due_and_priority_changes_are_stored', async ({ pa
   d = await draftWhen(core, (x) => JSON.stringify(x?.tags) === '["doma"]');
   assert.deepEqual(d?.tags, ['doma'], 'a chip is stored');
   await click(dueBtn(page), 'Due');
-  await (await must(page.getByRole('textbox', { name: 'Due date', exact: true }), 'textbox Due date')).fill('15. 10. 2026');
+  await (await must(page.getByRole('dialog', { name: 'Pick a due date', exact: true }).getByRole('textbox', { name: 'Date', exact: true }), 'textbox Date of Pick a due date (D-763)')).fill('15. 10. 2026');
   await page.keyboard.press('Enter');
   assert.equal(flat(await dueBtn(page).innerText()), 'Due: Tomorrow', 'Due set');
   d = await draftWhen(core, (x) => x?.due === '2026-10-15');

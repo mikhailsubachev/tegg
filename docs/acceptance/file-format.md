@@ -42,7 +42,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/format
 
 ### FR-FMT-05 / FR-FMT-06 Mindmap and query blocks
 
-- **AC-1** A mindmap block is stored as a ` ```mermaid ` block whose first line is `mindmap`. **From slice MM (D-679, D-680):** a mindmap block is a callout `> [!mindmap]` (optional title) whose body is one list; a ` ```mermaid ` `mindmap` fence is a preserved raw fence and other Mermaid fences stay code; the test `fr_fmt_05_ac1_…` changes then, with an `AC-Test-Change` trailer.
+- **AC-1** A mindmap block is a callout `> [!mindmap]` (optional title, optional fold marker, the type in any case) whose body is one list (D-679, D-680; recognition in mindmap.md R90); a ` ```mermaid ` fence whose first line is `mindmap` is a preserved raw fence and other Mermaid fences stay code. (Until slice MM a mindmap was a ` ```mermaid ` `mindmap` fence; test `fr_fmt_05_ac1_mindmap_is_a_callout_holding_one_list`.)
 - **AC-2** A query block is stored as a ` ```query ` block containing YAML; the YAML parses without the app.
 - **AC-3** [manual] Both blocks appear in Obsidian, the mindmap as a callout titled `Mindmap` (or its title) holding the list and the query as a plain code block, with no content lost (D-686).
 

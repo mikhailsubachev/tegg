@@ -19,9 +19,6 @@ const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
 import { useTags } from '../tags/store';
-import { tagChipStyle } from '../theme/tagChip';
-import { sidebarTags } from '../tags/model';
-import { collator } from '../i18n/collate';
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
 export type VaultSwitcherProps = {
@@ -149,28 +146,19 @@ const BOTTOM: Entry[] = [
 let savedScroll = 0;
 
 /** R83 (D-700): the Tags header (`All <n> ›`, opens `tags`) and the five most recently used tags with their counts. */
+/** D-761 (tags.md R83): one `Tags` entry with the number of tags; current on `tags` and every `tag/<key>`. */
 function SidebarTags({ route, onGo }: { route: Route; onGo: (r: Route) => void }) {
-  const tags = useTags();
-  const five = sidebarTags(tags, collator());
-  const onAll = route.id === 'tags';
+  const count = useTags().length;
+  const current = route.id === 'tags' || route.id === 'tag/<key>';
   return (
-    <section className="sidebar-tags" aria-label={t('frame.tags')}>
-      <button tabIndex={0} type="button" className={`section-head section-button ${onAll ? 'current' : ''}`} aria-label={t('tags.sidebarHeader', { count: tags.length })}
-        aria-current={onAll ? 'page' : undefined} data-command="tags.go" onClick={() => onGo({ id: 'tags' })}>
-        <span>{t('frame.tags')}</span>
-        <span className="section-all">{t('tags.sidebarAll', { count: tags.length })}</span>
-      </button>
-      {five.map((r) => {
-        const current = route.id === 'tag/<key>' && route.param === r.key;
-        return (
-          <a key={r.key} href="#" tabIndex={0} data-command="tags.sidebarTag" className={`entry tag-entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} aria-label={`#${r.name} ${r.count}`} style={r.color ? tagChipStyle(r.color) : undefined}
-            onClick={(ev) => { ev.preventDefault(); onGo({ id: 'tag/<key>', param: r.key }); }}>
-            <span className="tag-hash" style={r.color ? { color: `var(--type-${r.color})` } : undefined}>#</span>
-            <span className="entry-label" data-user-content>{r.name}<span className="count">{'\u00a0'}{r.count}</span></span>
-          </a>
-        );
-      })}
-    </section>
+    <div className="sidebar-group">
+      <a tabIndex={0} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command="tags.go"
+        aria-label={t('frame.tags')} aria-description={t('tags.sidebarCount', { count })} onClick={(ev) => { ev.preventDefault(); onGo({ id: 'tags' }); }}>
+        <Icon name="hash" dataIcon="tags" />
+        <span className="entry-label">{t('frame.tags')}</span>
+        <span className="count">{count}</span>
+      </a>
+    </div>
   );
 }
 
@@ -204,7 +192,7 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks }: {
+export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks }: {
   /** 5A-1 (R45 R1, D-481): overdue + due today, hidden at 0; the entry opens the last task view. */
   taskCount?: number;
   /** 5B (FR-NAV-04 AC-2): the Inbox query's count; none at 0. */
@@ -216,7 +204,8 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   route: Route;
   types: TypeEntry[];
   onGo: (r: Route) => void;
-  onSwitcher: () => void;
+  /** D-759: the `Search` button opens the `search` route with the caret in its field. */
+  onSearch: () => void;
   onNewObject: () => void;
   /** Open conflicts; the entry shows only while there are some (FR-SYN-04 AC-6, D-177). */
   conflicts?: number;
@@ -272,16 +261,18 @@ export function Sidebar({ route, types, onGo, onSwitcher, onNewObject, onNewType
   return (
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
       <div className="sidebar-scroll" ref={scroller}>
-        <button tabIndex={0} type="button" className="jump" aria-label={t('frame.searchOrJump')} data-command="app.switcher" onClick={(e) => { e.currentTarget.focus(); onSwitcher(); }}>
-          <Icon name="search" />
-          <span className="entry-label">{t('frame.searchOrJump')}</span>
-          <kbd>{keysOf('app.switcher')}</kbd>
-        </button>
-        <button tabIndex={0} type="button" className="jump" aria-label={t('cmd.newObject')} data-command="object.new" onClick={(e) => { e.currentTarget.focus(); onNewObject(); }}>
-          <Icon name="plus" />
-          <span className="entry-label">{t('cmd.newObject')}</span>
-          <kbd>{keysOf('object.new')}</kbd>
-        </button>
+        {/* D-759 (boards Main, TagsAll): a filled `New object` button and the `Search` icon button on one row. */}
+        <div className="sidebar-top">
+          <button tabIndex={0} type="button" className="sidebar-new" aria-label={t('cmd.newObject')} data-command="object.new" onClick={(e) => { e.currentTarget.focus(); onNewObject(); }}>
+            <Icon name="plus" size={14} />
+            <span className="entry-label">{t('cmd.newObject')}</span>
+            <kbd>{keysOf('object.new')}</kbd>
+          </button>
+          <button tabIndex={0} type="button" className="icon-button bordered search-button" aria-label={t('frame.search')} title={t('frame.searchTip', { keys: SHORTCUTS.find((s) => s.command === 'goto.search')?.keys ?? '' })}
+            data-command="goto.search" onClick={onSearch}>
+            <Icon name="search" size={15} />
+          </button>
+        </div>
         <div className="sidebar-group">
           {TOP.map(link)}
           {conflicts > 0 && (

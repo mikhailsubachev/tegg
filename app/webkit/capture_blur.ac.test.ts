@@ -36,7 +36,8 @@ async function lastSeq(core: FakeCoreHandle): Promise<number> {
 async function hides(core: FakeCoreHandle) {
   return (await core.captureLog()).hides;
 }
-const datePicker = (page: Page) => page.getByRole('textbox', { name: 'Due date', exact: true });
+// D-763: the capture's due calendar is the one date picker; its typed field is the textbox `Date` (R89).
+const datePicker = (page: Page) => page.getByRole('dialog', { name: 'Pick a due date', exact: true }).getByRole('textbox', { name: 'Date', exact: true });
 
 test('fr_cap_01_ac18_blur_with_text_stores_the_draft_then_hides', async ({ page }) => {
   const core = await startCapture(page);
@@ -79,7 +80,7 @@ test('fr_cap_01_ac18_menus_pickers_and_tab_never_hide_but_a_blur_while_open_does
   // Opening and closing the type menu (choosing Task), the date picker and Tab between controls never hide the window.
   await chooseType(page, 'Task');
   await click(dueBtn(page), 'button "Due: …"');
-  const field = await must(datePicker(page), 'the date picker (textbox "Due date")');
+  const field = await must(datePicker(page), 'the date picker (textbox "Date")');
   await field.fill('2026-10-15');
   await page.keyboard.press('Enter');
   await (await must(capText(page), 'Capture text')).focus();
@@ -101,7 +102,7 @@ test('fr_cap_01_ac18_menus_pickers_and_tab_never_hide_but_a_blur_while_open_does
   await must(capText(page), 'textbox "Capture text"');
   const before = await hides(core);
   await click(dueBtn(page), 'button "Due: …"');
-  await must(datePicker(page), 'the date picker (textbox "Due date")');
+  await must(datePicker(page), 'the date picker (textbox "Date")');
   await blurWindow(page);
   assert.ok((await eventually(() => hides(core), (n) => n > before, 2000)) > before, 'a blur with the date picker open hides the window');
   assert.ok(!(await seen(datePicker(page), 500)), 'and closes the date picker');

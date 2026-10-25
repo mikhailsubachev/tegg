@@ -24,7 +24,7 @@ const ITEMS: SlashItem[] = [
   { id: 'pdf', group: 'media', label: 'PDF' },
   { id: 'blockEmbed', group: 'advanced', label: 'Block embed', due: { milestone: 'v1.0' } },
   { id: 'query', group: 'advanced', label: 'Query', due: { milestone: 'v1.0' } },
-  { id: 'mindmap', group: 'advanced', label: 'Mindmap', due: { milestone: 'v1.0' } },
+  { id: 'mindmap', group: 'advanced', label: 'Mindmap' },
 ]
 
 export function slashItems(): SlashItem[] {

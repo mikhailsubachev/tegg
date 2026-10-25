@@ -6,6 +6,7 @@ import { R1, R2 } from '../test/shell-tables';
 import {
   absent, gotoTagPage, must, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, shellVaultWithTag, sidebar, sleep, start,
   switcherDialog, settled,
+  searchQueryField,
 } from './helpers';
 
 /** Visible text outside ⟦ ⟧ that isn't user content, whitespace, digits, punctuation or symbols. */
@@ -80,9 +81,9 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
     }
   } else failures.push('panel did not open');
   await page.keyboard.press('Meta+k'); await check('palette'); await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+o');
-  if (await seen(switcherDialog(page), 1000)) await check('switcher'); else failures.push('switcher missing');
-  await page.keyboard.press('Escape');
+  // D-760: the Search page (and its Go to list) replaces the ⌘O switcher.
+  await page.keyboard.press('Meta+Shift+f');
+  if (await seen(searchQueryField(page), 1000)) await check('search page'); else failures.push('search page missing');
   assert.deepEqual(failures, []);
 });
 

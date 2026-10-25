@@ -15,6 +15,7 @@ import {
   type FakeCoreHandle,
 } from './rename-helpers';
 import { absent, nonReadCalls, settled } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -64,11 +65,13 @@ test('fr_fmt_08_ac5_back_returns_to_the_renamed_note_not_a_dead_entry', async ({
   const core = await openRename(page, R.alfa);
   await renameAlfa(page, core);
   await gotoNote(page, 'Beta');
+  const before = (await callsOf(core, 'note_read')).length;
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Gama', 'Back lands on Gama (the history entry was rewritten)');
   assert.equal(await seen(page.getByRole('alert'), 500), false, 'no "missing note" alert');
   const reads = (await callsOf(core, 'note_read')).map((c) => nfc(String(args(c).path)));
-  assert.ok(!reads.slice(-3).includes(R.alfa), 'Back never asks for the dead Pages/Alfa.md');
+  // Only the reads Back caused (the rename itself reads Alfa before it; D-760 removed the switcher's own reads).
+  assert.ok(!reads.slice(before).includes(R.alfa), 'Back never asks for the dead Pages/Alfa.md');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-FMT-08 AC-7
@@ -152,9 +155,7 @@ test('fr_fmt_08_ac9_template_and_trash_title_edits_write_title_only', async ({ p
 test('fr_fmt_08_ac9_read_only_files_offer_no_rename', async ({ page }) => {
   const core = await openRename(page, R.beta);
   await core.setFile('Pages/Rozbitý.md', Uint8Array.from([0x2d, 0x2d, 0x2d, 0x0a, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x3a, 0x20, 0x52, 0x0a, 0x2d, 0x2d, 0x2d, 0x0a, 0xff, 0xfe, 0x0a]));
-  await page.keyboard.press('Meta+o');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Rozbitý');
-  await settled(page, 'Switcher results', 'Rozbitý');
+  await goToQuery(page, 'Rozbitý');
   await page.keyboard.press('Enter');
   await must(page.getByRole('alert').filter({ hasText: "This file isn't valid UTF-8" }), 'the read-only warning (NFR-REL-03 AC-7)', 5000);
   await triesToRename(page, core, 'read-only file');

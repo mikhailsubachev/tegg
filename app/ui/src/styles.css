@@ -55,13 +55,16 @@ main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 .logo { display: flex; align-items: center; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 .logo:hover, .logo[aria-expanded="true"] { background: var(--row); }
 .app-version { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; } /* D-597 */
-.jump {
-  display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px;
-  font-size: 13px; color: var(--muted); text-align: left;
+/* D-759 (boards Main, TagsAll): a filled New object button (dark in light, light in dark) and the Search button. */
+.sidebar-top { display: flex; gap: 6px; margin-bottom: 4px; }
+.sidebar-new {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left;
 }
-.jump:first-of-type { background: var(--bg); border: 1px solid var(--border); margin-bottom: 4px; }
-.jump .entry-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jump:hover, .entry:hover { background: var(--hover); color: var(--text); }
+.sidebar-new .entry-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-new kbd { font-size: 12px; font-weight: 400; color: inherit; opacity: .7; }
+.search-button { flex: none; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.entry:hover { background: var(--hover); color: var(--text); }
 .sidebar-group { display: flex; flex-direction: column; gap: 1px; margin: 8px 0; }
 .entry {
   display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px;
@@ -397,7 +400,7 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
 
 /* ------------------------------------------------------------ 3D: types and attributes (ms3-shell §14.7) */
-.options-popup, .date-picker { position: fixed; z-index: 60; }
+.options-popup { position: fixed; z-index: 60; }
 .option-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
 .note-type-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; }
 .type-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; }
@@ -454,14 +457,6 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .tag-suggestions { top: 32px; left: 0; min-height: 12px; }
 .other-props { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 0; color: var(--muted); font-size: 12px; }
 .other-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); column-gap: 12px; }
-.date-picker { width: 260px; padding: 8px; }
-.date-picker-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; color: var(--text); }
-.date-picker-title { font-weight: 600; font-size: 13px; }
-.date-row { display: grid; grid-template-columns: repeat(7, 1fr); }
-.date-wd { text-align: center; font-size: 11px; color: var(--muted); }
-.date-cell { text-align: center; padding: 4px 0; border-radius: 5px; color: var(--text); font-size: 13px; }
-.date-cell:hover, .date-cell:focus { background: var(--sel); outline: none; }
-.date-cell[aria-selected='true'] { background: var(--accent); color: var(--bg); }
 .range-sep { color: var(--muted); }
 .relation-picker { padding-bottom: 6px; }
 .relation-picker h2 { font-size: 15px; margin: 14px 16px 6px; }
@@ -898,6 +893,7 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .chip-unrev { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 4px; flex: none; }
 .link-chip[data-task-state="done"], .link-chip[data-task-state="cancelled"], .embed-chip.embed-link[data-task-state="done"], .embed-chip.embed-link[data-task-state="cancelled"] { --cbg: var(--hover); color: var(--muted); }
 .link-chip[data-task-state="done"] > [data-user-content], .link-chip[data-task-state="cancelled"] > [data-user-content],
+.link-chip[data-task-state="done"] > .chip-text > [data-user-content], .link-chip[data-task-state="cancelled"] > .chip-text > [data-user-content],
 .embed-chip.embed-link[data-task-state="done"] > [data-user-content], .embed-chip.embed-link[data-task-state="cancelled"] > [data-user-content] { text-decoration: line-through; }
 .link-chip[data-task-state="done"] > .icon, .embed-chip.embed-link[data-task-state="done"] > .icon { color: var(--accent); }
 .link-chip[data-task-state="cancelled"] > .icon, .embed-chip.embed-link[data-task-state="cancelled"] > .icon { color: var(--faint); }
@@ -913,25 +909,38 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .review-check.on .review-box { border-color: var(--accent); background: var(--accent); }
 .hidden-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .hidden-list label { display: inline-flex; align-items: center; gap: 8px; }
-/* D-602 (QuickCapture board state 4): the due calendar. */
+/* D-602, D-763 (boards QuickCapture, MainProperties; date-picker.md R89): the one date picker. */
+.calendar-backdrop { position: fixed; inset: 0; z-index: 59; }
 .capture-chip.open { border-color: var(--link); }
 .capture-chip-icon.due.none { color: var(--faint); }
 .capture-chip .faint { color: var(--muted); }
+.pick-date.popover { position: fixed; z-index: 60; width: 268px; max-width: calc(100vw - 16px); max-height: none; overflow: visible; padding: 10px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .capture-cal { width: 268px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.capture-cal input[type='text'] { height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.pick-date input[type='text'] { width: 100%; box-sizing: border-box; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
+.pick-date-field { display: flex; flex-direction: column; gap: 4px; }
+.pick-date-field .field-error { color: var(--danger); font-size: 12px; }
 .cal-quick { display: flex; flex-wrap: wrap; gap: 6px; }
-.cal-quick button { height: 26px; padding: 0 9px; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--text); }
+.cal-quick button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--text); }
 .cal-head { display: flex; align-items: center; gap: 2px; }
-.cal-head b { flex: 1; font-size: 13px; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
-.cal-wd { font-size: 11px; color: var(--muted); height: 22px; line-height: 22px; }
-.cal-day { height: 30px; border-radius: 7px; font-size: 12px; color: var(--text); background: transparent; }
-.cal-day:hover { background: var(--hover); }
-.cal-day.out, .cal-day.past { color: var(--muted); }
-.cal-day.today { box-shadow: inset 0 0 0 1.5px var(--link); font-weight: 700; }
-.cal-day.sel { background: var(--link); color: var(--bg); font-weight: 700; box-shadow: none; }
+.cal-month { flex: 1; margin: 0; font-size: 13px; font-weight: 700; }
+.cal-grid { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; text-align: center; }
+.cal-grid td, .cal-grid th { padding: 0; }
+.cal-wd { font-size: 11px; font-weight: 400; color: var(--muted); height: 22px; }
+.pick-date .cal-day { position: relative; width: 100%; height: 30px; padding: 0; border: 0; border-radius: 7px; font-size: 12px; color: var(--text); background: transparent; }
+.pick-date .cal-day:hover { background: var(--hover); }
+.pick-date .cal-day:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.pick-date .cal-day.out, .pick-date .cal-day.past { color: var(--muted); }
+.pick-date .cal-day.today { box-shadow: inset 0 0 0 1.5px var(--link); font-weight: 700; }
+.pick-date .cal-day.sel { background: var(--link); color: var(--bg); font-weight: 700; box-shadow: none; }
+.pick-date .cal-day.has-note::after { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 2px; background: currentColor; opacity: .7; }
 .cal-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
-.cal-foot .text-button { color: var(--link); }
+.cal-foot .text-button { color: var(--link); border: 0; background: none; height: 24px; padding: 0 8px; }
+.date-button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; }
+.date-button .icon { color: var(--link); }
+.date-button.empty { color: var(--muted); }
+.date-button.empty .icon { color: var(--faint); }
+.date-button[aria-expanded='true'] { border-color: var(--link); }
+.date-button.invalid > span { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
 .capture-suggest { position: absolute; z-index: 8; width: 280px; max-height: 260px; overflow-y: auto; }
 .capture-suggest .capture-menu-item { display: flex; align-items: center; gap: 8px; }
 .capture-suggest .capture-menu-item.sel { background: var(--hover); }
@@ -971,3 +980,109 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .media-object { margin: 8px 0 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .media-object-actions { display: flex; gap: 8px; }
 .media-inline { display: inline-block; vertical-align: middle; }
+
+/* D-760: the Search page's `Go to` list (search-navigation FR-NAV-01 AC-15…AC-18). */
+.search-section { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 16px 12px 4px; }
+.search .goto { margin: 0 0 8px; }
+.search .goto li { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.search .goto li.selected { background: var(--sel); }
+.search .goto .title { flex: 1; min-width: 0; }
+.search .goto .folder, .search .goto .alias { color: var(--muted); font-size: 12px; }
+.search .goto li.selected .folder, .search .goto li.selected .alias { color: var(--text); }
+
+/* Tag page and All tags to the boards TagPage, TagsAll (bug v0.68 F6; tags.md FR-TAG-06 AC-13). */
+.tag-page .breadcrumb, .tags-page .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.breadcrumb a { color: var(--link); text-decoration: none; }
+.tag-header { align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+.tag-header .type-header-text { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px; }
+.tag-header h1 { margin: 0; }
+.tag-header .type-count { margin: 0; font-size: 14px; }
+.tag-header .page-actions { margin-left: auto; }
+.tag-header .page-actions .icon-button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); }
+.tag-tile {
+  width: 48px; height: 48px; flex: none; box-sizing: border-box; padding: 0; border-radius: 12px; border: 1px solid transparent;
+  display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; background: var(--hover); color: var(--muted);
+}
+button.tag-tile { cursor: pointer; }
+.tag-page .type-toolbar, .tags-page .type-toolbar { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.tag-row-title { display: inline-flex; align-items: flex-start; gap: 8px; color: var(--text); text-decoration: none; font-size: 14px; }
+.tag-row-title .type-icon { display: inline-flex; flex: none; margin-top: 2px; }
+.tag-row-title .chip-unrev { margin-top: 7px; }
+.tag-row-suffix { white-space: nowrap; font-size: 12px; color: var(--muted); padding-left: 8px; border-left: 1px solid var(--border); margin-top: 2px; }
+.tag-row-suffix[data-tone="overdue"] { color: var(--danger); font-weight: 600; }
+.tag-row-suffix[data-tone="today"] { color: var(--link); font-weight: 600; }
+.tag-row-title .done-title { text-decoration: line-through; color: var(--muted); }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-table .tag-chip, .tags-table .tag-chip { height: 20px; padding: 0 7px; border-radius: 10px; font-size: 12px; display: inline-flex; align-items: center; text-decoration: none; }
+.tags-table .tag-chip { height: 24px; padding: 0 9px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+.tags-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tags-table .chevron { color: var(--muted); width: 30px; text-align: center; }
+.tag-table td, .tags-table td { padding: 8px 10px; vertical-align: middle; }
+.tag-table th, .tags-table th { padding: 8px 10px; font-weight: 500; }
+
+/* D-764 (board Main): Backlinks panel chips wrap; the icon stays at the top, the due · status suffix never breaks. */
+.backlink-entry .link-chip { white-space: normal; align-items: flex-start; padding: 2px 7px; line-height: 1.45; box-sizing: border-box; }
+.backlink-entry .link-chip > .icon, .backlink-entry .link-chip > svg { margin-top: 3px; }
+.backlink-entry .chip-text { min-width: 0; overflow-wrap: anywhere; }
+.backlink-entry .chip-text > [data-user-content] { overflow: visible; text-overflow: clip; }
+.backlink-entry .chip-suffix { display: inline-flex; white-space: nowrap; vertical-align: 1px; }
+
+/* Slice MM (docs/acceptance/mindmap.md R91, R92; board Main): the mindmap block, its header and Map / List switch, the
+   map drawn from `layoutMindmap` (nodes over SVG elbow connectors), and the hint callout. */
+.mindmap-block, .editor-host .ProseMirror figure.mindmap-block[data-callout] {
+  position: relative; margin: 0.6em 0; padding: 0; border: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; background: var(--bg);
+}
+.mindmap-header { display: flex; align-items: center; gap: 8px; min-height: 38px; box-sizing: border-box; padding: 4px 8px 4px 12px; border-bottom: 1px solid var(--border); background: var(--embed); font-size: 13px; }
+.mindmap-block { --mm-icon: var(--type-teal); }
+.mindmap-header > .icon { flex: none; color: var(--mm-icon); }
+.mindmap-title { flex: 1; min-width: 0; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mindmap-title.untitled { color: var(--muted); }
+.mindmap-switch { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); }
+.mindmap-switch button { height: 26px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; font-size: 12px; font-weight: 600; color: var(--muted); }
+.mindmap-switch button[aria-pressed='true'] { background: var(--bg); color: var(--text); }
+.mindmap-fold { color: var(--muted); }
+.mindmap-map { overflow-x: auto; overflow-y: hidden; }
+.mindmap-canvas { position: relative; }
+.mindmap-lines { position: absolute; inset: 0; pointer-events: none; }
+.mindmap-tree { position: absolute; inset: 0; }
+.mindmap-lines path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.mindmap-node { position: absolute; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; cursor: default; }
+.mindmap-node.one-line { white-space: nowrap; }
+.mindmap-node:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.mindmap-node.tone-root { background: var(--text); color: var(--bg); font-weight: 650; }
+.mindmap-node.tone-blue, .mindmap-node.tone-orange, .mindmap-node.tone-purple, .mindmap-node.tone-teal, .mindmap-node.tone-green, .mindmap-node.tone-yellow, .mindmap-node.tone-red { background: var(--mm-bg); color: var(--mm-fg); font-weight: 600; }
+.mindmap-node.tone-plain { padding: 6px 9px; background: var(--bg); color: var(--text); border: 1px solid var(--border); font-weight: 400; }
+.mindmap-node.tone-blue { --mm-bg: var(--type-blue-bg); --mm-fg: var(--type-blue); }
+.mindmap-node.tone-orange { --mm-bg: var(--type-orange-bg); --mm-fg: var(--type-orange); }
+.mindmap-node.tone-purple { --mm-bg: var(--type-purple-bg); --mm-fg: var(--type-purple); }
+.mindmap-node.tone-teal { --mm-bg: var(--type-teal-bg); --mm-fg: var(--type-teal); }
+.mindmap-node.tone-green { --mm-bg: var(--type-green-bg); --mm-fg: var(--type-green); }
+.mindmap-node.tone-yellow { --mm-bg: var(--type-yellow-bg); --mm-fg: var(--type-yellow); }
+.mindmap-node.tone-red { --mm-bg: var(--type-red-bg); --mm-fg: var(--type-red); }
+/* A chip is one unbreakable word of the layout (mindmap layout `chipExtra`): never wrapped or truncated in a node. */
+.mindmap-node .chip, .mindmap-node .embed-chip { white-space: nowrap; overflow-wrap: normal; font-weight: 400; }
+.mindmap-node .chip > [data-user-content], .mindmap-node .embed-chip > [data-user-content] { flex: none; overflow: visible; }
+.mindmap-node code { font-size: 12px; }
+.mindmap-box { display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; margin-right: 6px; border: 1px solid currentColor; border-radius: 3px; font-size: 10px; line-height: 1; vertical-align: -1px; }
+.mindmap-more { color: inherit; opacity: 0.8; }
+.mindmap-empty { margin: 16px; height: 32px; padding: 0 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 13px; }
+/* The editor: Map hides the list; List shows the list with the map below it; the title is edited in the header row. */
+.mindmap-block.mm-view-map > .mindmap-list { display: none; }
+.mindmap-block.mm-view-list > .mindmap-list { padding: 4px 12px 8px; }
+.mindmap-block.mm-view-list > .mindmap-list > [data-callout-title] {
+  position: absolute; top: 0; left: 35px; right: 150px; height: 38px; margin: 0; overflow: hidden; white-space: nowrap; line-height: 38px; font-size: 13px; font-weight: 600;
+}
+.mindmap-block.mm-view-list:not(.mm-untitled) .mindmap-title { visibility: hidden; }
+.mindmap-block.mm-view-list.mm-untitled > .mindmap-list > [data-callout-title] { pointer-events: none; }
+.mindmap-block.mm-empty > .mindmap-list li > p:has(> br:only-child)::before { content: var(--mm-empty); color: var(--muted); pointer-events: none; }
+.mindmap-block.mm-view-list > .mindmap-map { border-top: 1px solid var(--border); }
+.mindmap-block.mm-folded > .mindmap-list, .mindmap-block.mm-folded > .mindmap-map { display: none; }
+.mindmap-hint-text { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.editor-host .ProseMirror [data-callout].mindmap-hint { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; }
+.mindmap-hint { --mm-icon: var(--type-teal); }
+.mindmap-hint > .mindmap-hint-icon { color: var(--mm-icon); margin-top: 3px; }
+.mindmap-hint > .mindmap-hint-text { grid-column: 2; }
+
+.slash-two-lines { display: flex; flex-direction: column; gap: 2px; }
+.slash-desc { font-size: 12px; color: var(--muted); }

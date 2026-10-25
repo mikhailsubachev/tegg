@@ -234,10 +234,10 @@ test('fr_ux_03_ac13_text_fields_show_no_outline_ring', async ({ page }) => {
   const pal2 = await activeState(page, 'palette input (click)');
   if (pal2) states.push(pal2);
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+o');
+  await page.keyboard.press('Meta+Shift+f'); // D-760: the Search page's field replaces the ⌘O switcher input
   await sleep(150);
-  const sw = await activeState(page, 'switcher input (⌘O)');
-  assert.ok(sw && sw.textField, `the switcher input has the focus (${show(sw)})`);
+  const sw = await activeState(page, 'search input (⇧⌘F)');
+  assert.ok(sw && sw.textField, `the search input has the focus (${show(sw)})`);
   states.push(sw!);
   await page.keyboard.press('Escape');
   // A property field on a note page.

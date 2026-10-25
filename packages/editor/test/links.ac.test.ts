@@ -31,7 +31,7 @@ const R6: [string, string, string | null][] = [
   ['blocks', 'Bulleted list', null], ['blocks', 'Numbered list', null], ['blocks', 'Checklist', null], ['blocks', 'Quote', null],
   ['blocks', 'Callout', null], ['blocks', 'Code block', null], ['blocks', 'Divider', null], ['blocks', 'Table', null],
   ['media', 'Image', null], ['media', 'PDF', null], // built in 6A (trash-media.md R75)
-  ['advanced', 'Block embed', 'v1.0'], ['advanced', 'Query', 'v1.0'], ['advanced', 'Mindmap', 'v1.0'],
+  ['advanced', 'Block embed', 'v1.0'], ['advanced', 'Query', 'v1.0'], ['advanced', 'Mindmap', null], // built in slice MM (R94, D-685)
 ];
 
 test('fr_edt_03_ac5_slash_items_are_r6_with_milestones', async () => {

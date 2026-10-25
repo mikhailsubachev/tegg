@@ -400,7 +400,7 @@ async function taskCapture(page: Page, o: { title: string; due?: string; priorit
   await typeInCapture(page, o.title);
   if (o.due) {
     await click(dueBtn(page), 'Due');
-    const field = await must(page.getByRole('textbox', { name: 'Due date', exact: true }), 'textbox Due date');
+    const field = await must(page.getByRole('dialog', { name: 'Pick a due date', exact: true }).getByRole('textbox', { name: 'Date', exact: true }), 'textbox Date of Pick a due date (D-763)');
     await field.fill(o.due);
     await page.keyboard.press('Enter');
   }

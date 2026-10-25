@@ -2,6 +2,7 @@
 // TBD placeholders for later phases (D-116), the command palette and shortcuts (FR-UX-03), themes (FR-UX-05),
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
 import { ShortcutsPage } from './pages/ShortcutsPage';
+import { resetMindmapViews } from './mindmap/mount';
 import { registerConvertPrefs } from './convert/prefs';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
@@ -28,7 +29,6 @@ import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
 import { parseRoute, routeString, type Route, sameRoute } from './shell/routes';
 import { createdMarker, settleCreated } from './shell/created';
 import { typeEntries } from './shell/types';
-import { Switcher } from './Switcher';
 import { applyTheme } from './theme/apply';
 import { BrokenLinksPage } from './links/BrokenLinksPage';
 import { CreateLinkOffer } from './links/CreateLinkOffer';
@@ -65,7 +65,6 @@ import { AllTagsPage } from './tags/AllTagsPage';
 import { refreshTags, tagOfFile, useTags } from './tags/store';
 import { tagKey } from './tags/keys';
 import type { TagPageUi, TagsSort } from './tags/model';
-import { prefillQuickAdd } from './tasks/QuickAddRow';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
@@ -82,7 +81,7 @@ const PANEL_MIN = 240;
 const PANEL_MAX = 480;
 const MIN_CENTRE = 400; // D-136
 
-type Dialog = 'palette' | 'switcher' | 'newType' | 'starter' | null;
+type Dialog = 'palette' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
@@ -108,8 +107,6 @@ export function App() {
   /** FR-VLT-05 AC-4: the `Type` menu of an unwritten draft, and the title it carries to the new type. */
   const [draftType, setDraftType] = useState<{ at: { left: number; top: number } } | null>(null);
   const carryTitle = useRef<string | null>(null);
-  /** D-697: `New with #tag` presets the draft's tags. */
-  const carryTags = useRef<string[] | null>(null);
   const tagCommand = useRef<((id: string) => void) | null>(null);
   const newTagCommand = useRef<(() => void) | null>(null);
   const mergeCommand = useRef<(() => void) | null>(null);
@@ -217,6 +214,7 @@ export function App() {
   liveVault.current = vault ?? null;
   const opened = useCallback((v: VaultInfo) => {
     resetJobs(); // D-385, D-398: undo and the list don't outlive the vault
+    resetMindmapViews(); // D-776: another vault opens every mindmap in Map
     setInterrupted(v.interrupted ?? []); // D-387: renames a crash interrupted, from the vault info (no extra call)
     setVault(v);
     setChooser(null);
@@ -265,6 +263,8 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
+  /** D-760: a `Go to` jump from Search replaces the Search entry, so Back leaves it out as the ⌘O switcher did (FR-NAV-03). */
+  const jumpFrom = useRef<string | null>(null);
   const go = useCallback(async (r0: Route, o: { keepDialog?: boolean } = {}) => {
     const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
@@ -274,7 +274,9 @@ export function App() {
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
     history.current.saveScroll(centreScroll());
-    history.current.push(r);
+    if (jumpFrom.current !== null && jumpFrom.current === shownRoute.current) history.current.replace(r);
+    else history.current.push(r);
+    jumpFrom.current = null;
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
     justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
@@ -417,9 +419,7 @@ export function App() {
       };
       const carried = carryTitle.current ?? '';
       carryTitle.current = null;
-      const presetTags = carryTags.current;
-      carryTags.current = null;
-      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp, presetTags ? [['tags', presetTags]] : undefined), stamp, onCreate } });
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp), stamp, onCreate } });
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
@@ -491,7 +491,11 @@ export function App() {
   const actions: ShellActions = useMemo(() => ({
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
-    openSwitcher: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('switcher'); },
+    openSearch: () => {
+      void go({ id: 'search' });
+      // Also when Search is already shown: the caret goes to its field with the query selected (D-760).
+      requestAnimationFrame(() => { const i = searchInput.current; if (i && !live.current.dialog) { i.focus({ preventScroll: true }); i.select(); } });
+    },
     // D-520: New object opens an unsaved object of the vault's default type (D-131); a Daily Note opens today's
     // (D-353), a Task the quick-add row.
     newObject: () => {
@@ -602,6 +606,9 @@ export function App() {
     if (dialog) return;
     const back = pendingReturn.current;
     pendingReturn.current = null;
+    // A command that moved the focus itself (a mindmap's Map / List, D-776) keeps it; otherwise it goes back.
+    const now = document.activeElement;
+    if (now && now !== document.body && now.isConnected) return;
     if (back?.isConnected) back.focus();
   }, [dialog]);
 
@@ -863,11 +870,6 @@ export function App() {
         onOpen={openNote} onTag={openTag} onAll={() => { void go({ id: 'tags' }); }}
         onRenamed={(k) => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tag/<key>', param: k }); }}
         onRemoved={() => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tags' }); }}
-        onNewWith={(typeKey, name) => {
-          if (typeKey === 'task') { prefillQuickAdd(` #${name}`); actions.newObjectOfType?.('task'); return; }
-          carryTags.current = [name];
-          actions.newObjectOfType?.(typeKey);
-        }}
         commandRef={tagCommand} />
     );
   } else if (route?.id === 'type-settings/<type>' && route.param) {
@@ -927,7 +929,11 @@ export function App() {
   } else if (route?.id === 'conflicts') {
     body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {
-    body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
+    body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote}
+      onGoTo={(p) => { jumpFrom.current = shownRoute.current; openNote(p); }}
+      onCreate={(i, p) => { jumpFrom.current = shownRoute.current; createFrom(i, p); }}
+      onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
+      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}
@@ -955,7 +961,7 @@ export function App() {
             types={typeEntries(types, counts).filter((e) => e.key !== 'task') /* D-516: the Tasks entry covers it */}
             // A click on the entry of the page shown moves the focus to its heading, as a navigation would (FR-UX-03 AC-11).
             onGo={(r) => { if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
-            onSwitcher={actions.openSwitcher}
+            onSearch={actions.openSearch}
             onNewObject={actions.newObject}
             onNewType={() => actions.newType?.()}
             onAbout={actions.about}
@@ -1022,7 +1028,6 @@ export function App() {
           </div>
         </div>
       )}
-      {dialog === 'switcher' && <Switcher onOpen={openNote} onCreate={createFrom} onClose={closeDialog} />}
       {dialog === 'newType' && (
         <NewTypeDialog key={defineValue ?? ''} fromValue={defineValue ?? undefined} types={types} undefinedKeys={Object.keys(counts).filter((k) => !types.some((x) => x.key === k))} onClose={closeDialog}
           onCreated={(created) => { setDialog(null); loadTypes(); void go({ id: 'type-settings/<type>', param: created.key.normalize('NFC') }); }} />

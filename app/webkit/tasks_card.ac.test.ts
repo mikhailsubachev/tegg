@@ -283,7 +283,9 @@ test('fr_tsk_01_ac2_panel_rows_and_due_bytes', async ({ page }) => {
   assert.ok(pos.every((x) => x >= 0) && pos.every((v, i) => i === 0 || v > pos[i - 1]), `schema order, then Tags and Source: ${order.map((l, i) => `${l}@${pos[i]}`).join(' ')}`);
   assert.ok(text.includes('To do') && text.includes('High') && text.includes('práce') && text.includes('Porada'), 'the values');
   assert.equal(await p.locator('[data-overdue="true"]').count(), 1, 'Due date with the overdue highlight (FR-TSK-09 AC-2)');
-  const due = await must(p.getByRole('textbox', { name: 'Due date', exact: true }), 'Due date control');
+  // D-763: the panel's date is a `Pick date` opener `Due date: …`; the date is typed in the picker's `Date` field.
+  await (await must(p.getByRole('button', { name: /^Due date: / }), 'Due date opener')).click();
+  const due = await must(page.getByRole('dialog', { name: 'Pick date', exact: true }).getByRole('textbox', { name: 'Date', exact: true }), 'the Date field of Pick date');
   await due.fill('20. 10. 2026');
   await due.press('Enter');
   assert.equal(await fileWhen(core, T.t01, (t) => t !== original(T.t01)), touched(swap(original(T.t01), 'due: 2026-10-09', 'due: 2026-10-20')), 'only due (no time, no offset) and modified');

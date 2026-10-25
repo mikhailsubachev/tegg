@@ -12,7 +12,7 @@ See [README](README.md) for conventions. Milestone MS3 (BRD §11.2), slice **3B 
 
 | Short name | Path | What it holds |
 | --- | --- | --- |
-| Bloky | `Pages/Bloky.md` | every block type of the dialect (§4) and inline syntax (§5) in a fixed order: headings 1–6 and Setext, inline formatting, footnote, lists, checklist, quote, six callouts, fenced and indented code, dividers, table, two Mermaid blocks, query, unknown fence, HTML blocks, comment block, math block, block id, remote image |
+| Bloky | `Pages/Bloky.md` | every block type of the dialect (§4) and inline syntax (§5) in a fixed order: headings 1–6 and Setext, inline formatting, footnote, lists, checklist, quote, six callouts, fenced and indented code, dividers, table, two Mermaid code blocks (slice MM, D-679: shown as code; bytes unchanged, AP-740), query, unknown fence, HTML blocks, comment block, math block, block id, remote image |
 | Odkazy | `Pages/Odkazy.md` | every link, embed and tag form of AC lists below, one per line, plus non-links in code and math |
 | Cíl | `Pages/Cíl.md` | link target: headings `Úvod` and `Druhá kapitola` (below the first screen), a paragraph with block id `^blok1`, alias `Reading list` |
 | Dvojník (Pages) | `Pages/Dvojník.md` | same file name as the next row, for same-folder preference (dialect §6) |
@@ -46,7 +46,6 @@ Parts of a note the read view can't show yet. Each is rendered as a framed place
 | `embed-pdf` | `![[file.pdf]]`, `![[file.pdf#page=3]]` | MS6 | FR-ATT-02 | the file name and page |
 | `embed-other` | `![[file.ext]]` for other attachments | MS6 | FR-ATT-07 | the file name |
 | `query` | a fenced `query` block | v1.0 | FR-QRY-01, FR-FMT-06 | its YAML as a code block |
-| `mindmap` | a fenced `mermaid` block whose first non-empty line is `mindmap` | v1.0 | FR-MMP-01, -02, FR-FMT-05 | its source as a code block (plan §4.2). **Removed in slice MM (D-679):** Mermaid fences then show as code like any unknown fence, and `[!mindmap]` callouts render as maps (D-684) |
 
 ### R3 and R1 changes (made in the commit that builds 3B)
 

@@ -12,6 +12,7 @@ import { mathFromMarkdown } from 'mdast-util-math'
 import { inlineFromMarkdown, inlineSyntax, mathFromMarkdownObsidian, mathSyntax } from './inline.js'
 import { tagFromMarkdown, tagSyntax } from './tag.js'
 import { wikiLinkFromMarkdown, wikiLinkSyntax } from './wikilink.js'
+import { isMindmapBlock } from './mindmap.js'
 
 export type Range = readonly [start: number, end: number]
 
@@ -210,10 +211,12 @@ function classify(node: RootContent, raw: string): BlockKind {
     case 'footnoteDefinition': return 'raw'
     case 'definition': return 'raw'
     case 'math': return 'raw' // $$ … $$ display math, preserved
-    case 'blockquote': return /^>\s*\[!\w[\w-]*\][+-]?/.test(raw) ? 'callout' : 'quote'
+    // D-680, D-765: a `mindmap` callout holding one list (or nothing) is a mindmap; any other callout is a callout.
+    case 'blockquote': return /^>\s*\[!\w[\w-]*\][+-]?/.test(raw) ? (isMindmapBlock(raw) ? 'mindmap' : 'callout') : 'quote'
     case 'list': return node.children.some((i) => i.checked !== null && i.checked !== undefined) ? 'checklist' : 'list'
     case 'code': {
-      if (node.lang === 'mermaid' && /^\s*mindmap\b/.test(node.value)) return 'mindmap'
+      // D-679: a Mermaid `mindmap` fence is preserved as written, never drawn.
+      if (node.lang === 'mermaid' && /^\s*mindmap\b/.test(node.value)) return 'raw'
       if (node.lang === 'query') return 'query'
       // Only ordinary fenced code is editable as code; indented code and unknown
       // plugin fences (dataview, …) are preserved raw.

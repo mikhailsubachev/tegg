@@ -12,7 +12,7 @@ import {
   callsOf, click, eventually, fileText, flat, inboxVault, main, must, runCommand, seen, sleep, startCapture, startMain, swap, typeBtn,
   vaultWrites, type FakeCoreHandle,
 } from './capture-helpers';
-import { mustBeDraft, switcherDialog } from './helpers';
+import { goToListbox, mustBeDraft, searchQueryField } from './helpers';
 import { editorBody, linkSuggestions } from './editor-helpers';
 import { createOffer } from './links-helpers';
 
@@ -36,9 +36,10 @@ async function creates(core: FakeCoreHandle) {
   return (await callsOf(core, 'note_create')).map((c) => c.args as { type?: string; title: string; text: string });
 }
 async function switcherRows(page: Page, q: string): Promise<string[]> {
-  await page.keyboard.press('Meta+o');
-  const d = await must(switcherDialog(page), 'Quick switcher');
-  await (await must(d.getByRole('combobox', { name: 'Switcher query' }).or(d.getByRole('textbox', { name: 'Switcher query' })), 'Switcher query')).fill(q);
+  // D-760: the Search page's `Go to` list replaces the ⌘O switcher.
+  await page.keyboard.press('Meta+Shift+f');
+  await (await must(searchQueryField(page), 'Search query', 5000)).fill(q);
+  const d = await must(goToListbox(page), 'listbox "Go to"', 3000);
   await sleep(200);
   return (await d.getByRole('option').allInnerTexts()).map(flat);
 }
@@ -92,7 +93,7 @@ test('fr_vlt_05_ac2_with_default_napad_every_path_creates_a_napad', async ({ pag
   const core = await startMain(page, { vault: vault('nápad'), at: ROZBITA });
   // The switcher's create row.
   await switcherRows(page, 'Nový nápad');
-  await click(switcherDialog(page).getByRole('option', { name: /^Create "Nový nápad"$/ }), 'Create "Nový nápad"');
+  await click(goToListbox(page).getByRole('option', { name: /^Create "Nový nápad"$/ }), 'Create "Nový nápad"');
   const c = await eventually(() => creates(core), (x) => x.length === 1, 3000);
   assert.equal(c[0]?.type, 'nápad', 'note_create with the type nápad');
   const t = c[0]?.text ?? '';
@@ -127,7 +128,7 @@ test('fr_vlt_05_ac3_create_as_in_the_switcher', async ({ page }) => {
   const rows = await switcherRows(page, 'Výlet');
   const at = rows.findIndex((r) => r.startsWith('Create "Výlet"') && !r.includes('as…'));
   assert.ok(at >= 0 && rows[at + 1]?.startsWith('Create "Výlet" as…'), `Create "Výlet" as… below the create row: ${rows.join(' | ')}`);
-  await click(switcherDialog(page).getByRole('option', { name: 'Create "Výlet" as…', exact: true }), 'Create "Výlet" as…');
+  await click(goToListbox(page).getByRole('option', { name: 'Create "Výlet" as…', exact: true }), 'Create "Výlet" as…');
   const menu = await must(page.getByRole('menu', { name: 'Type', exact: true }), 'menu Type (the shared TypeMenu)');
   await click(menu.getByRole('menuitemradio', { name: 'Page', exact: true }), 'Page');
   const t = await eventually(() => fileText(core, 'Pages/Výlet.md'), (x) => x !== undefined, 3000);

@@ -115,7 +115,7 @@ export type R4Row = { keys: string; press: string; command: string; enabled: boo
 export const R4: R4Row[] = [
   { keys: '⌘K', press: 'Meta+k', command: 'Open command palette', enabled: true },
   { keys: '⇧⌘P', press: 'Meta+Shift+p', command: 'Open command palette', enabled: true },
-  { keys: '⌘O', press: 'Meta+o', command: 'Open quick switcher', enabled: true },
+  // D-760 (search-navigation.md FR-NAV-01 AC-18): ⌘O is unbound and `Open quick switcher` is gone.
   { keys: '⌘N', press: 'Meta+n', command: 'New object', enabled: true },
   { keys: '⇧⌘F', press: 'Meta+Shift+f', command: 'Go to Search', enabled: true },
   { keys: '⌘D', press: 'Meta+d', command: 'Go to Today', enabled: true },
@@ -171,7 +171,7 @@ export const RESERVED = ['⌘Q', '⌘H', '⌥⌘H', '⌘M', '⌘Tab', '⌘Space'
 
 /** FR-UX-03 AC-3: the non-navigation commands every vault has. */
 export const STATIC_COMMANDS = [
-  'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'Open quick switcher', 'New object', 'Toggle sidebar', 'Toggle right panel',
+  'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'New object', 'Toggle sidebar', 'Toggle right panel',
   'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
 ];
 
@@ -213,10 +213,10 @@ export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7',
 /** R5 of docs/acceptance/read-view.md (slice 3B): in-note placeholders (D-144). `shown`: the "Also shown" column. */
 /** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-630): `embed-image` and `embed-pdf` are retired
  *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
-export type R5Row = { id: 'query' | 'mindmap'; due: Due; reqs: string };
+/** Slice MM (D-679): the `mindmap` row is removed; a mindmap is a `[!mindmap]` callout drawn by Tegg. */
+export type R5Row = { id: 'query'; due: Due; reqs: string };
 export const R5: R5Row[] = [
   { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
-  { id: 'mindmap', due: d('v1.0'), reqs: 'FR-MMP-01, -02, FR-FMT-05' },
 ];
 
 // ------------------------------------------------------------------------------------------------ slice 3D tables

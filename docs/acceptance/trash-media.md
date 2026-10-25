@@ -152,7 +152,7 @@ R1: `home` removed (returns in v1.0 with FR-HOM-01); `trash` built, milestone MS
 
 ### FR-NAV-04 The left sidebar without Home (AP-529, AP-530)
 
-- **AC-6** **Entries.** Top to bottom: the field `Search or jump to…`, `New object`, `Inbox` (with its count), `Today`, `Tasks`, the `Types` section, `Tags`, `Pinned` (v1.0), `Saved queries` (v1.0), `Trash`. There is no Home entry, no `Go to Home` command and no `home` route; `__TEGG_ROUTE__="home"` lands like an unknown route (FR-UX-02's not-found rule). *(L5; L6 once)*
+- **AC-6** **Entries.** Top to bottom: the field `Search or jump to…`, `New object`, `Inbox` (with its count), `Today`, `Tasks`, the `Types` section, `Tags`, `Pinned` (v1.0), `Saved queries` (v1.0), `Trash`. There is no Home entry, no `Go to Home` command and no `home` route; `__TEGG_ROUTE__="home"` lands like an unknown route (FR-UX-02's not-found rule). *(L5; L6 once)* (Order superseded by D-759, D-761: tags.md FR-NAV-04 AC-8.)
 - **AC-7** **Launch landing (D-132 amended, AP-530).** app-shell FR-UX-02 AC-16 with `inbox` in place of the `home` placeholder in (b) and (d): with no note ever opened, or the last one deleted or in `.trash/`, launch shows `inbox` (`route-ready:inbox`), with no error dialog and no write. A new vault opens on `inbox` too. *(L6; L5)*
 
 ### FR-FMT-07 Round-trip with media (slice 6A)

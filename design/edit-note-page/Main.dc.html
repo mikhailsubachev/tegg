@@ -52,12 +52,10 @@ Q4 Budget
 <!-- Left sidebar -->
 <sc-if value="{{showChrome}}" hint-placeholder-val="{{ true }}">
 <nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
-<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; text-align: left">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
-<span style="flex: 1">Search or jump to…</span>
-<span style="font-size: 12px">⌘O</span>
-</button>
-<button style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<div style="display: flex; gap: 6px">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; flex: 1; min-width: 0; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<button aria-label="Search or jump to (⌘O)" title="Search or jump to · ⌘O" style="flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg></button>
+</div>
 <div style="display: flex; flex-direction: column; gap: 1px">
 <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
 <a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
@@ -78,14 +76,10 @@ Q4 Budget
 </sc-for>
 </div>
 <div style="display: flex; flex-direction: column; gap: 1px">
-<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 10px 6px">Tags</div>
-<sc-for list="{{tags}}" as="g" hint-placeholder-count="3">
-<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
-<span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 5px; background: {{g.color}}; margin: 0 3px"></span>
-<span style="flex: 1">{{g.label}}</span>
-<span style="font-size: 12px; color: var(--muted)">{{g.count}}</span>
+<a href="TagsAll.dc.html" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"></path></svg>
+<span style="flex: 1">Tags</span>
 </a>
-</sc-for>
 </div>
 <!-- Version (bottom left): no logo inside the app -->
 <div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
@@ -141,7 +135,24 @@ Meeting
 <!-- Attribute panel (FR-EDT-07) -->
 <section aria-label="Properties" style="display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 16px; row-gap: 2px; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border); font-size: 13px">
 <div style="color: var(--muted); display: flex; align-items: center; height: 32px">Date</div>
-<div style="display: flex; align-items: center; height: 32px">2026-10-07</div>
+<div style="display: flex; align-items: center; height: 32px">
+<span style="position: relative; display: inline-flex">
+<button onClick="{{meetDate.toggleCal}}" aria-haspopup="dialog" aria-expanded="{{meetDate.calAttr}}" aria-label="Date: {{meetDate.value}}" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid {{meetDate.border}}; background: var(--bg); font-size: 13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{meetDate.icon}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4"></path></svg><span style="color: {{meetDate.fg}}">{{meetDate.value}}</span></button>
+<sc-if value="{{meetDate.calOpen}}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-label="Pick date" style="position: absolute; left: 0; top: 34px; z-index: 6; width: 268px; padding: 10px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.2); font-size: 13px">
+<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px">
+<sc-for list="{{meetDate.quick}}" as="q" hint-placeholder-count="4"><button onClick="{{q.pick}}" style="height: 26px; padding: 0 9px; border-radius: 6px; background: var(--hover); font-size: 12px">{{q.label}}</button></sc-for>
+</div>
+<div style="display: flex; align-items: center; margin-bottom: 6px"><b style="flex: 1; font-size: 13px">October 2026</b><span aria-hidden="true" style="width: 24px; text-align: center; color: var(--muted)">‹</span><span aria-hidden="true" style="width: 24px; text-align: center; color: var(--muted)">›</span></div>
+<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center">
+<sc-for list="{{meetDate.weekdays}}" as="w" hint-placeholder-count="7"><span style="font-size: 11px; color: var(--muted); height: 22px; line-height: 22px">{{w}}</span></sc-for>
+<sc-for list="{{meetDate.days}}" as="d" hint-placeholder-count="35"><button onClick="{{d.pick}}" aria-label="{{d.aria}}" style="height: 30px; border-radius: 7px; font-size: 12px; color: {{d.fg}}; background: {{d.bg}}; box-shadow: {{d.ring}}; font-weight: {{d.weight}}">{{d.n}}</button></sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted)"><span>or type “fri”, “next week”</span><button onClick="{{meetDate.clear}}" style="height: 24px; padding: 0 8px; border-radius: 6px; color: var(--link); font-size: 12px">No date</button></div>
+</div>
+</sc-if>
+</span>
+</div>
 
 <div style="color: var(--muted); display: flex; align-items: center; min-height: 32px">Attendees</div>
 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 32px">
@@ -157,8 +168,8 @@ Meeting
 
 <div style="color: var(--muted); display: flex; align-items: center; min-height: 32px">Tags</div>
 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px">
-<span style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--o-bg); color: var(--o); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">finance</span>
-<span style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--p-bg); color: var(--p); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">q4</span>
+<a href="TagPage.dc.html" style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--o-bg); color: var(--o); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">finance</a>
+<a href="TagPage.dc.html" style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--p-bg); color: var(--p); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">q4</a>
 <button aria-label="Add tag" style="width: 22px; height: 22px; border-radius: 11px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
 </div>
 
@@ -232,7 +243,7 @@ Meeting
 </span>
 from the
 <a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Lisbon Offsite 2026</a>
-plan. <span style="color: var(--o); font-weight: 500">#finance</span></p>
+plan. <a href="TagPage.dc.html" style="color: var(--o); font-weight: 500">#finance</a></p>
 </div>
 
 <!-- Callout -->
@@ -489,7 +500,6 @@ query: 'M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4',
 convert: 'M4 8h12l-3-3M20 16H8l3 3'
 };
 const nav = [
-{ label: 'Home', d: I.home, meta: '' },
 { label: 'Inbox', d: I.inbox, meta: '4' },
 { label: 'Today', d: I.cal, meta: '⌘D' },
 { label: 'Tasks', d: I.task, meta: '4' }
@@ -562,10 +572,34 @@ chip(I.task, 'Collect flight prices to Lisbon', { status: 'Done' }),
 chip(I.task, 'Book the hotel shuttle', { status: 'Cancelled' })
 ] }
 ];
+const st = this.state || {};
+const mkDate = (key, initial, openDefault) => {
+const v = st[key] === undefined ? initial : st[key];
+const open = st[key + 'Cal'] === undefined ? openDefault : st[key + 'Cal'];
+const set = (x) => this.setState({ [key]: x, [key + 'Cal']: false });
+const days = [];
+for (const n of [28, 29, 30]) days.push({ n: String(n), out: true });
+for (let n = 1; n <= 31; n++) days.push({ n: String(n), out: false });
+days.push({ n: '1', out: true });
+const dayName = (n) => ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'][(n - 1) % 7];
+return {
+value: v || 'No date', fg: v ? 'var(--text)' : 'var(--faint)', icon: v ? 'var(--link)' : 'var(--faint)', border: open ? 'var(--link)' : 'var(--border)',
+calOpen: open, calAttr: open ? 'true' : 'false', toggleCal: () => this.setState({ [key + 'Cal']: !open }),
+quick: [['Today', '2026-10-19'], ['Tomorrow', '2026-10-20'], ['Next week', '2026-10-26'], ['Fri', '2026-10-23']].map(([label, x]) => ({ label, pick: () => set(x) })),
+weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+days: days.map((d) => {
+const n = +d.n, today = !d.out && n === 19, past = !d.out && n < 19, iso = '2026-10-' + String(n).padStart(2, '0'), sel = !d.out && v === iso;
+return { n: d.n, aria: d.out ? '' : dayName(n) + ' ' + n + ' October', fg: sel ? '#FFFFFF' : (d.out || past ? 'var(--faint)' : 'var(--text)'), bg: sel ? 'var(--link)' : 'transparent', ring: today && !sel ? 'inset 0 0 0 1.5px var(--link)' : 'none', weight: today || sel ? '700' : '400', pick: () => (d.out ? null : set(iso)) };
+}),
+clear: () => set(null)
+};
+};
+const meetDate = mkDate('meetDate', '2026-10-07', false);
 const backlinkCount = backlinks.reduce((n, g) => n + g.items.length, 0) + ' objects link here';
 return {
 themeClass: dark ? 'dark' : '',
 showChrome: !focus,
+meetDate,
 nav, types, tags, tasks, slash, backlinks, backlinkCount,
 showSlash: overlay === 'slash menu',
 showObjMenu: overlay === 'object menu', objMenuAttr: overlay === 'object menu' ? 'true' : 'false', objMenuBg: overlay === 'object menu' ? 'var(--hover)' : 'transparent',

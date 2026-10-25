@@ -24,7 +24,8 @@ async function saveWithKeys(page: Page) {
 // ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-19
 
 const dueDialog = (page: Page) => page.getByRole('dialog', { name: 'Pick a due date', exact: true });
-const day = (dlg: Locator, n: number) => dlg.getByRole('gridcell', { name: new RegExp(`^${n}\\b`) }).first();
+// D-763: the capture's grid is the app's date picker; a day is named by its long date (R89, R18).
+const day = (dlg: Locator, n: number) => dlg.getByRole('gridcell', { name: new RegExp(`^\\w+, \\w+ ${n}, 2026$`) }).first();
 const dueLabel = (iso: string) => `Due: ${shortDate(iso, 'en-US')}`;
 async function dueText(page: Page): Promise<string> {
   return flat(await (await must(dueBtn(page), 'button "Due: …"')).innerText());
@@ -34,7 +35,8 @@ async function openDue(page: Page): Promise<Locator> {
   return must(dueDialog(page), 'dialog "Pick a due date" (D-602)', 1500);
 }
 async function startTask(page: Page): Promise<FakeCoreHandle> {
-  return startCapture(page, { kind: 'task', region: 'en-US' });
+  // D-763: weeks start as the Date & time setting says; D-602's Monday start is the `monday` choice.
+  return startCapture(page, { kind: 'task', region: 'en-US', dateTime: { date: 'region', time: 'region', week: 'monday' } });
 }
 
 test('fr_cap_01_ac19_no_date_chip_and_the_dialog', async ({ page }) => {
@@ -53,7 +55,7 @@ test('fr_cap_01_ac19_no_date_chip_and_the_dialog', async ({ page }) => {
   }
   const grid = await must(dlg.getByRole('grid'), 'the D-587 month grid');
   const first = flat(await grid.getByRole('gridcell').first().evaluate((c) => c.getAttribute('aria-label') ?? (c.textContent ?? '')));
-  assert.match(first, /^28\b/, `weeks start on Monday: the first day is Mon 28 Sep (got ${first})`);
+  assert.match(first, /^(28|.*September 28)\b/, `weeks start on Monday: the first day is Mon 28 Sep (got ${first})`);
   const ring = async (n: number) => day(dlg, n).evaluate((c) => {
     const b = (c.querySelector('button') as HTMLElement | null) ?? (c as HTMLElement);
     const s = getComputedStyle(b);

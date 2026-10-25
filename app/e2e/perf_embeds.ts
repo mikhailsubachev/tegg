@@ -1,7 +1,7 @@
 // FR-EMB-02 AC-13 benchmark ([MS8], report only in MS4, D-152; docs/acceptance/embeds.md AP-332 / D-429;
 // docs/contracts/ms4-embeds.md §6 mark `embeds-painted`): on the reference vault with the read-view benchmark note
 // (`tools/gen-vault --perf-note`: 5,000 words, 10 embeds, 50 links), 20 launches of the release test build. Each launch
-// starts on the Inbox (6A, D-613), opens the note through the quick switcher (⌘O, paste the title, ⏎) and exits after `embeds-painted`
+// starts on the Inbox (6A, D-613), opens the note through the Search page's Go to list (⇧⌘F, paste the title, ⏎; D-760) and exits after `embeds-painted`
 // (TEGG_EXIT_AFTER), or 5 s after `note-ready` if that mark never comes. Records per launch `note-ready − switcher-enter`
 // (editor NFR-PERF-05 AC-4 with embeds rendered) and `embeds-painted − note-ready`. Never touches the owner's
 // Application Support or vault (D-62). Used by nfr_perf_embeds.ac.test.ts; no assertions about the AC outcome here.
@@ -38,7 +38,7 @@ export async function oneRun(env: Record<string, string>, log: string, title: st
     osa(`tell application "System Events" to set frontmost of (first process whose unix id is ${child.pid}) to true`);
     await sleep(300);
     if (inFront()) {
-      osa('tell application "System Events" to keystroke "o" using {command down}');
+      osa('tell application "System Events" to keystroke "f" using {command down, shift down}');
       await sleep(300);
       execFileSync('pbcopy', { input: title, env: { ...process.env, LANG: 'en_US.UTF-8' } });
       if (inFront()) {

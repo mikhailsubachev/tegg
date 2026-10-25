@@ -122,12 +122,14 @@ test.describe('@ in Czech and dates', () => {
     await mustBeOn(page, 'Zmínky', 'landing', 5000);
     await mention(page, 'Ko');
     await (await must(linkSuggestions(page).getByRole('option', { name: 'Pick a date…', exact: true }), 'row Pick a date…')).click();
-    await must(calendar(page), 'dialog "Calendar" at the caret');
+    // D-763 (date-picker.md FR-DLY-08 AC-9): the row opens the one date picker `Pick date`.
+    const picker = page.getByRole('dialog', { name: 'Pick date', exact: true });
+    await must(picker, 'dialog "Pick date" at the caret');
     await page.keyboard.press('Escape');
     const back = await optionsWhen(page, (o) => o.length > 0);
     assert.ok(back.length > 0 && (await editorBody(page).innerText()).includes('@Ko'), 'Esc returns to the list with the query intact');
     await (await must(linkSuggestions(page).getByRole('option', { name: 'Pick a date…', exact: true }), 'row Pick a date…')).click();
-    await (await must(dayButton(page, longDate('2026-10-20', 'en')), 'day 20')).click();
+    await (await must(picker.getByRole('grid').getByRole('button', { name: longDate('2026-10-20', 'en'), exact: true }), 'day 20')).click();
     const t = await savedZminky(core, '. [[2026-10-20]]');
     assert.ok(t?.includes('Kolize [[2026-10-16]]. [[2026-10-20]]'), '[[2026-10-20]] at the @ position');
     assert.ok(!t?.includes('@Ko'), 'the query is replaced');

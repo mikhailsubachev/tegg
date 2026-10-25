@@ -17,7 +17,7 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { parseQuickAdd } from '../tasks/quickAdd';
 import { localDate, localIso } from '../zone';
 import { TagField } from './TagField';
-import { DueCalendar } from './DueCalendar';
+import { PickDate } from '../dates/PickDate';
 import { insertion, SuggestList, triggerAt, useSuggestions, type Row } from './suggest';
 import { dueLabelOf, ulid } from './util';
 
@@ -495,14 +495,20 @@ export function CaptureApp() {
               <span className={`capture-chip-icon due${due ? '' : ' none'}`}><Icon name="calendar" size={13} /></span><span className="muted">{t('capture.dueLabel')}</span> <span data-user-content className={due ? undefined : 'faint'}>{dueText0}</span>
             </button>
             {menu === 'due' && (
-              // D-602: the calendar with quick picks; the typed field stays (D-537).
-              <DueCalendar today={today} due={due} region={region() ?? navigator.language}
-                field={<input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
+              // D-602, D-763: the app's date picker with the capture's typed field (D-537).
+              <PickDate inline label={t('capture.dueTitle')} today={today} value={due} className="capture-menu capture-due capture-cal"
+                field={<input type="text" aria-label={t('date.field')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } }} />}
                 onPick={(d) => {
-                  if (d === null) putBack(moved.due);
                   setMoved((m) => ({ ...m, due: undefined }));
                   setDue(d);
+                  setMenu(null);
+                  refocus(focusText);
+                }}
+                onClear={() => {
+                  putBack(moved.due);
+                  setMoved((m) => ({ ...m, due: undefined }));
+                  setDue(null);
                   setMenu(null);
                   refocus(focusText);
                 }}

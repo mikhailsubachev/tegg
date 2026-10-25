@@ -11,6 +11,7 @@ import {
   E, TITLES, bodyOf, editorBody, editorVault, fileText, must, mustBeSaved, noModified, openEditor, original, sleep, titleField, writes,
   type FakeCoreHandle,
 } from './editor-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 async function focusTarget(page: Page): Promise<string | null> {
   return page.evaluate(() => document.querySelector('[data-focus-target]')?.getAttribute('data-focus-target') ?? null);
@@ -109,10 +110,7 @@ test('fr_edt_01_ac11_an_empty_body_gets_the_caret_in_its_empty_paragraph', async
 
 test('fr_edt_01_ac11_a_read_only_file_keeps_the_heading_focus', async ({ page }) => {
   await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Chyba uvozovky');
-  await settled(page, 'Switcher results', 'Chyba uvozovky');
+  await goToQuery(page, 'Chyba uvozovky');
   await page.keyboard.press('Enter');
   await sleep(500);
   assert.equal(await focusTarget(page), 'heading', 'data-focus-target="heading" on a file opened read-only (D-130)');
@@ -191,11 +189,9 @@ test('fr_edt_01_ac12_new_object_opens_with_the_title_in_edit_mode', async ({ pag
 
 test('fr_edt_01_ac12_switcher_create_item_opens_with_the_title_focused', async ({ page }) => {
   await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
+  await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   await mustBeOn(page, 'Úplně nový', 'new note opens');
   await sleep(300);
   assert.equal(await focusTarget(page), 'title', 'data-focus-target="title"');

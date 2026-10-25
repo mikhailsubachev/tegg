@@ -69,6 +69,9 @@ export function renderBlock(node: RootContent, originalRaw?: string): string {
   let out = md.replace(/\n+$/, '') // a block's range never includes the separating newline
   // Callouts: to-markdown escapes the `[` of `> [!note]`, which would turn the callout into a quote.
   if (node.type === 'blockquote') out = out.replace(/^> \\\[!/, '> [!')
+  // D-765 (mm-mindmap §3.1): a mindmap's list follows its title line directly; its body is read on its own. Only a
+  // body that starts with a list: a hint callout's text keeps its blank line (D-680).
+  if (node.type === 'blockquote' && /^> \[!mindmap\]/i.test(out)) out = out.replace(/^([^\n]*)\n>\n(?=> {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|\n|$))/, '$1\n')
   // Keep trailing empty quote lines (`>`): they stop the next line from becoming a lazy
   // continuation of the quote when no blank line follows (finding from S1).
   const trailing = node.type === 'blockquote' ? originalRaw?.match(/(?:\r?\n>[ \t]*)+$/)?.[0] : undefined

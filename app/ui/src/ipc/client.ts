@@ -33,6 +33,8 @@ export const ipc = {
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),
   /** NFR-PERF-06 AC-3 (D-199): one typing-latency record per keystroke. */
+  /** A timed mark (`TEGG_PERF_LOG`, FR-MMP-02 AC-14 `mindmap-layout`). */
+  perfTimed: (mark: string, ms: number) => invoke<void>('perf_mark', { name: mark, mark, ms }),
   perfKey: (frame: number, ms: number) => invoke<void>('perf_mark', { name: 'key', mark: 'key', frame, ms }),
   // 3C (ms3-shell §13.2).
   noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),

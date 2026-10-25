@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { loadFixtureVault, newEmptyVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
-import { absent, mustBeDraft, mustBeOn, nonReadCalls, openNote, paletteDialog, pseudoLocale, runCommand, sidebar, start, switcherDialog } from './helpers';
+import { absent, mustBeDraft, mustBeOn, nonReadCalls, openNote, paletteDialog, pseudoLocale, runCommand, sidebar, searchQueryField, start } from './helpers';
 import { axeContrast, colourLeaks, sourceRegion, ui } from './read-helpers';
 import {
   E, REPO, TITLES, argText, block, blockMenu, blocksOf, bodyOf, caretIn, copyOrCut, deletedAlert, editorBody, editorVault,
@@ -566,7 +566,7 @@ test('fr_fmt_07_ac8_open_and_close_writes_nothing_roundtrip_corpus', async ({ br
       // Read-only files (NFR-REL-03 AC-6…AC-8) have no editor; they are toured as read views.
       if (!(await seen(saveState(page).filter({ hasText: 'Read-only' }), 500))) bad.push(`${p}: neither editor nor read-only`);
     } else await tour(page);
-    await page.keyboard.press('Meta+o');
+    await page.keyboard.press('Meta+Shift+f'); // leave the note (D-760: the Search page, no ⌘O switcher)
     await sleep(800);
     if ((await writes(core)).length > 0) bad.push(`${p}: note_write`);
     await page.close();
@@ -787,8 +787,8 @@ test('nfr_rel_03_ac8_editor_load_failure_falls_back_to_read_view', async ({ page
   await page.keyboard.press('Meta+k');
   await must(paletteDialog(page), 'palette works');
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher works');
+  await page.keyboard.press('Meta+Shift+f');
+  await must(searchQueryField(page), 'search works (D-760: no ⌘O switcher)');
 });
 
 test('nfr_rel_03_ac9_save_refused_by_verification', async ({ page }) => {
@@ -855,9 +855,8 @@ test('fr_ux_03_ac14_writing_by_keyboard_only', async ({ page }) => {
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Meta+Shift+ArrowDown');
   await page.keyboard.press('Meta+z');
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'leave with ⌘O');
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+Shift+f');
+  await must(searchQueryField(page), 'leave with ⇧⌘F (D-760: no ⌘O)');
   await sleep(1500);
   const path = (await core.writesTo()).find((p) => p.includes('Klávesnice'));
   assert.ok(path, 'the note was written');

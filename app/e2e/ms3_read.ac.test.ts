@@ -191,10 +191,10 @@ async function ready() {
   assert.equal(why, null, why ?? '');
 }
 
-/** Opens a note through the switcher (⌘O, title pasted, ⏎). */
+/** Opens a note through the Search page's Go to list (⇧⌘F, title pasted, ⏎; D-760 replaced the ⌘O switcher). */
 async function openBySwitcher(d: Driver, title: string) {
-  press('o', ['command']);
-  assert.ok(await shown(d, 'Quick switcher'), `switcher for ${title}`);
+  press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+  assert.ok(await shown(d, 'Search query'), `switcher for ${title}`);
   paste(title);
   await sleep(300);
   press('enter');

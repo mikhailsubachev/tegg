@@ -6,6 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
 import { READ_COMMANDS, absent, eventually, mainName, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 export { absent, eventually, mainName, must, mustBeOn, runCommand, seen, sleep };
 export type { FakeCoreHandle };
@@ -156,12 +157,9 @@ export async function gotoDaily(page: Page, date: string, today = '2026-10-14') 
   await step(page, days);
   await mustDaily(page, date, `daily/${date}`);
 }
-/** Opens a note through the quick switcher (⌘O). */
+/** Opens a note through the Search page's Go to list (D-760; before it the ⌘O switcher). */
 export async function gotoNote(page: Page, title: string) {
-  await page.keyboard.press('Meta+o');
-  await must(page.getByRole('dialog', { name: 'Quick switcher' }), 'Quick switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill(title);
-  await settled(page, 'Switcher results', title);
+  await goToQuery(page, title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}"`, 5000);
 }

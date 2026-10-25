@@ -10,6 +10,7 @@ import { createFromDraft, mainName, switcherDialog } from './helpers';
 import {
   P, callsOf, eventually, gotoTypePage, main, must, openTypes, props, runCommand, sleep, typeFile, typesVault, swap, dialog,
 } from './types-helpers';
+import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const NOW = '2026-10-14T10:00:00+02:00';
 test.use({ timezoneId: 'Europe/Prague' });
@@ -79,11 +80,9 @@ test('fr_typ_03_ac12_cmd_n_creates_the_default_type_quick_note_unreviewed', asyn
 test('fr_typ_03_ac12_switcher_create_item_uses_the_same_path', async ({ page }) => {
   await clock(page);
   const core = await openTypes(page);
-  await page.keyboard.press('Meta+o');
-  await must(switcherDialog(page), 'switcher');
-  await page.getByRole('textbox', { name: 'Switcher query' }).or(page.getByRole('combobox', { name: 'Switcher query' })).first().fill('Úplně nový');
+  await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await switcherDialog(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Úplně nový')}review: unreviewed\n${tail}`);

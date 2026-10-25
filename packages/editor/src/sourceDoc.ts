@@ -18,7 +18,7 @@ export interface Loaded {
 }
 
 /** Kinds shown as non-editable blocks: source blocks (`raw`) and placeholders (FR-EDT-01 AC-8, R5). */
-const PLACEHOLDER_KINDS = new Set(['raw', 'embed', 'query', 'mindmap'])
+const PLACEHOLDER_KINDS = new Set(['raw', 'embed', 'query'])
 
 /** Parse a file and build the editor document. */
 export function loadDoc(text: string, schema: Schema): Loaded {
