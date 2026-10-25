@@ -497,7 +497,7 @@ export function CaptureApp() {
             {menu === 'due' && (
               // D-602, D-763: the app's date picker with the capture's typed field (D-537).
               <PickDate inline label={t('capture.dueTitle')} today={today} value={due} className="capture-menu capture-due capture-cal"
-                field={<input type="text" aria-label={t('task.dueTitle')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
+                field={<input type="text" aria-label={t('date.field')} value={dueText} autoFocus onChange={(e) => setDueText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); e.stopPropagation(); commitDue(); } }} />}
                 onPick={(d) => {
                   setMoved((m) => ({ ...m, due: undefined }));

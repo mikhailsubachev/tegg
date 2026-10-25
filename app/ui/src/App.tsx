@@ -261,6 +261,8 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
+  /** D-760: a `Go to` jump from Search replaces the Search entry, so Back leaves it out as the ⌘O switcher did (FR-NAV-03). */
+  const jumpFrom = useRef<string | null>(null);
   const go = useCallback(async (r0: Route, o: { keepDialog?: boolean } = {}) => {
     const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
@@ -270,7 +272,9 @@ export function App() {
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
     history.current.saveScroll(centreScroll());
-    history.current.push(r);
+    if (jumpFrom.current !== null && jumpFrom.current === shownRoute.current) history.current.replace(r);
+    else history.current.push(r);
+    jumpFrom.current = null;
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
     justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
@@ -920,7 +924,11 @@ export function App() {
   } else if (route?.id === 'conflicts') {
     body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {
-    body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote} onCreate={createFrom} tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
+    body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote}
+      onGoTo={(p) => { jumpFrom.current = shownRoute.current; openNote(p); }}
+      onCreate={(i, p) => { jumpFrom.current = shownRoute.current; createFrom(i, p); }}
+      onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
+      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}

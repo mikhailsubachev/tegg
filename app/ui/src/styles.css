@@ -893,6 +893,7 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .chip-unrev { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 4px; flex: none; }
 .link-chip[data-task-state="done"], .link-chip[data-task-state="cancelled"], .embed-chip.embed-link[data-task-state="done"], .embed-chip.embed-link[data-task-state="cancelled"] { --cbg: var(--hover); color: var(--muted); }
 .link-chip[data-task-state="done"] > [data-user-content], .link-chip[data-task-state="cancelled"] > [data-user-content],
+.link-chip[data-task-state="done"] > .chip-text > [data-user-content], .link-chip[data-task-state="cancelled"] > .chip-text > [data-user-content],
 .embed-chip.embed-link[data-task-state="done"] > [data-user-content], .embed-chip.embed-link[data-task-state="cancelled"] > [data-user-content] { text-decoration: line-through; }
 .link-chip[data-task-state="done"] > .icon, .embed-chip.embed-link[data-task-state="done"] > .icon { color: var(--accent); }
 .link-chip[data-task-state="cancelled"] > .icon, .embed-chip.embed-link[data-task-state="cancelled"] > .icon { color: var(--faint); }

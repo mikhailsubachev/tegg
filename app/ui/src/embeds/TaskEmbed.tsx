@@ -12,7 +12,7 @@ import { pushAlert } from '../convert/alerts';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import { Icon } from '../shell/Icon';
 import { chipIcon } from '../links/icons';
-import { DateControl } from '../types/controls/DateControls';
+import { PickDate } from '../dates/PickDate';
 import { taskHeader, type TaskHeader } from '../tasks/header';
 import { currentRegion, useToday } from '../tasks/useTasks';
 import { dueLabel } from '../tasks/views';
@@ -162,9 +162,10 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
     const below = !anchor || anchor.getBoundingClientRect().bottom + 240 < window.innerHeight;
     popup = <PopupMenu label={menu === 'status' ? t('task.status') : t('task.priority')} anchor={anchor} entries={entries} onClose={() => close(anchor)} placement={below ? 'below' : 'above'} />;
   } else if (menu === 'due') {
-    popup = <DuePopover anchor={dueBtn.current} raw={h.dueRaw}
-      onClose={() => close(dueBtn.current)}
-      onDue={(v) => { close(dueBtn.current); if (v !== h.due) void act({ kind: 'change', change: { kind: 'due', to: v } }); }} />;
+    // D-763: the card's Due opens the app's one date picker.
+    const due = (v: string | null) => { close(dueBtn.current); if (v !== h.due) void act({ kind: 'change', change: { kind: 'due', to: v } }); };
+    popup = <PickDate label={t('date.pick')} today={localDate(Date.now(), zone)} value={h.due} anchor={dueBtn.current}
+      onPick={due} onClear={() => due(null)} onClose={() => close(dueBtn.current)} />;
   }
 
   return (
@@ -198,30 +199,5 @@ function TaskBodyText({ text }: { text: string }) {
   const body = text.slice(parse(text).bodyStart).trim();
   if (!body) return null;
   return <div className="task-embed-text" data-user-content>{body.split(/\r?\n\r?\n/).map((p, i) => <p key={i}>{p}</p>)}</div>;
-}
-
-/** The attribute panel's date control in a small dialog, with `Clear` (D-537). */
-function DuePopover({ anchor, raw, onDue, onClose }: { anchor: HTMLElement | null; raw: string | null; onDue: (v: string | null) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const r = anchor?.getBoundingClientRect();
-  const below = !r || r.bottom + 120 < window.innerHeight;
-  useEffect(() => {
-    ref.current?.querySelector<HTMLInputElement>('input')?.focus();
-    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node) && !anchor?.contains(e.target as Node)) onClose(); };
-    document.addEventListener('mousedown', away, true);
-    return () => document.removeEventListener('mousedown', away, true);
-  }, []);
-  return (
-    <div ref={ref} role="dialog" aria-label={t('task.dueTitle')} className="popup-menu task-due-pop" style={{ position: 'fixed', left: r?.left ?? 0, ...(below ? { top: (r?.bottom ?? 0) + 4 } : { bottom: window.innerHeight - (r?.top ?? 0) + 4 }) }}
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } }}>
-      <DateControl name={t('task.dueTitle')} raw={raw} onValue={(v) => {
-        if (v === null) onDue(null);
-        else if (typeof v === 'object' && v && 'date' in v) onDue((v as { date: string }).date);
-        else return false;
-      }} />
-      <button type="button" data-command="task.clearDue" onClick={() => onDue(null)}>{t('panel.clear')}</button>
-    </div>
-  );
 }
 

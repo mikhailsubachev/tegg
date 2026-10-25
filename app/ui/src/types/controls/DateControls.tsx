@@ -83,17 +83,21 @@ export function DateTimeControl({ name, desc, raw, invalid, disabled, onValue, o
   const savedT = parts ? parts.time : '';
   const tm = useField(savedT);
   const [error, setError] = useState<string | null>(null);
+  /** A date chosen whose write was refused (a time that doesn't exist): the time field retries with it. */
+  const [picked, setPicked] = useState<string | null>(null);
   const errId = useErrorId();
   /** Writes `ymd` with the time field's text (00:00 when empty); a time that doesn't parse or exist is refused. */
   const write = (ymd: string, time: string): boolean => {
     const p = parseDateTime(ymd, time.trim() === '' ? '00:00' : time);
-    if (!p.ok) { setError(t(p.error)); return false; }
+    if (!p.ok) { setError(t(p.error)); setPicked(ymd); return false; }
     setError(null);
     if (onValue(p.value) === false) return false;
+    setPicked(null);
     tm.reset(time);
     return true;
   };
   const commitTime = (): boolean => {
+    if (picked) return write(picked, tm.value);
     if (!tm.editing.current || tm.value === savedT) { setError(null); return true; }
     if (!parts) { setError(t('value.notDate')); return false; }
     return write(parts.ymd, tm.value);

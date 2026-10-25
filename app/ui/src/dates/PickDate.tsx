@@ -129,7 +129,18 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
   const onKey = (e: React.KeyboardEvent) => {
     const k = e.key;
     if (k === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
-    if (!(e.target as HTMLElement).dataset.date) return;
+    if (k === 'Tab') {
+      // Tab cycles inside the dialog (R89).
+      const all = [...(box.current?.querySelectorAll<HTMLElement>('input, button:not([tabindex="-1"])') ?? [])].filter((x) => !x.hasAttribute('disabled'));
+      const i = all.indexOf(document.activeElement as HTMLElement);
+      const next = all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length];
+      if (next) { e.preventDefault(); e.stopPropagation(); next.focus(); }
+      return;
+    }
+    // The keys move from the day that has the focus (it may have got it without a focus event, e.g. by a script).
+    const at = (e.target as HTMLElement).dataset.date;
+    if (!at) return;
+    const focus = at;
     let next: string | null = null;
     if (k === 'ArrowRight') next = addDays(focus, 1);
     else if (k === 'ArrowLeft') next = addDays(focus, -1);
@@ -142,14 +153,22 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
     if (next) { e.preventDefault(); e.stopPropagation(); go(next); }
   };
 
+  // Below its opener (or the caret), else above it when the window has no room below.
+  const [height, setHeight] = useState(380);
+  useLayoutEffect(() => { const h = box.current?.offsetHeight; if (h && Math.abs(h - height) > 1) setHeight(h); });
   let style: React.CSSProperties | undefined;
   if (!inline) {
-    const r = at ? { bottom: at.top, left: at.left } : anchor?.getBoundingClientRect();
-    style = r ? { position: 'fixed', top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 380)), left: Math.max(8, Math.min(r.left, window.innerWidth - 290)) } : undefined;
+    const ar = anchor?.getBoundingClientRect();
+    const r = at ? { top: at.top - 20, bottom: at.top, left: at.left } : ar ? { top: ar.top, bottom: ar.bottom, left: ar.left } : null;
+    if (r) {
+      const below = r.bottom + 4 + height <= window.innerHeight - 8;
+      const top = below ? r.bottom + 4 : Math.max(8, r.top - 4 - height);
+      style = { position: 'fixed', top, left: Math.max(8, Math.min(r.left, window.innerWidth - 290)) };
+    }
   }
   const dialog = (
     <div ref={box} role="dialog" aria-label={label} className={`pick-date${inline ? '' : ' popover'}${className ? ` ${className}` : ''}`} style={style} onKeyDown={onKey}
-      onMouseDown={(e) => e.stopPropagation()}>
+      onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
       {field ?? (
         <span className="pick-date-field">
           <input type="text" aria-label={t('date.field')} placeholder={t('date.fieldPlaceholder')} value={typed} spellCheck={false} autoComplete="off"
@@ -183,8 +202,9 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
                 const out = d.slice(0, 7) !== first.slice(0, 7);
                 const has = !!marks?.has(d);
                 return (
-                  <td key={d} role="gridcell">
-                    <button type="button" data-date={d} tabIndex={d === focus ? 0 : -1} aria-label={longDate(d, loc)}
+                  <td key={d} role="gridcell" aria-selected={d === value ? 'true' : 'false'} aria-current={d === today ? 'date' : undefined}
+                    tabIndex={-1} onFocus={(e) => { if (e.target === e.currentTarget) e.currentTarget.querySelector('button')?.focus(); }}>
+                    <button type="button" data-date={d} tabIndex={d === focus ? 0 : -1} aria-label={longDate(d, loc)} onFocus={() => { if (d !== focus) go(d); }}
                       aria-current={d === today ? 'date' : undefined} aria-selected={d === value ? 'true' : 'false'}
                       data-has-note={has ? 'true' : undefined} aria-description={has ? t('daily.hasNote') : undefined}
                       className={`cal-day${out ? ' out' : ''}${d < today ? ' past' : ''}${d === today ? ' today' : ''}${d === value ? ' sel' : ''}${has ? ' has-note' : ''}`}

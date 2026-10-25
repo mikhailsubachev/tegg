@@ -15,8 +15,12 @@ import type { Prepared } from './types/create';
 /** FR-SRC-01…04: full-text search with type icon, title and highlighted snippet, and the tag filter (D-706: any
  *  number of tags, all must match). `tag` presets it (an old `search/tag:<x>` route, ms4-tags §1.5). Above the results
  *  the `Go to` list jumps to an object by title or alias (FR-NAV-01, D-760). */
-export function Search({ onOpen, onCreate, refresh, inputRef, tag }: {
+export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, tag }: {
   onOpen: (path: string) => void;
+  /** A `Go to` row: replaces the Search entry in the history (D-760). */
+  onGoTo: (path: string) => void;
+  /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
+  onLeave: () => boolean;
   onCreate: (item: SwitcherItemDto, prepared?: Prepared | null) => void;
   refresh: number;
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -52,12 +56,12 @@ export function Search({ onOpen, onCreate, refresh, inputRef, tag }: {
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (goto.current?.onKey(e)) return;
-          if (e.key === 'Escape' && text) { e.preventDefault(); e.stopPropagation(); setText(''); }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
         }} />
       <div className="filters">
         <TagFilter tags={options} selected={tagFilter} onChange={setTagFilter} colors={colors} allHint={t('search.tagAll')} />
       </div>
-      <GoTo q={text} keys={goto} onActive={setActive} onOpen={onOpen} onCreate={onCreate} onRefocus={() => inputRef.current?.focus()} />
+      <GoTo q={text} keys={goto} onActive={setActive} onOpen={onGoTo} onCreate={onCreate} onRefocus={() => inputRef.current?.focus()} />
       {page && <div className="count">{page.total === 0 ? t('search.none') : t('search.count', { count: page.total })}</div>}
       <ul aria-label={t('search.results')}>
         {page?.results.map((r) => (
