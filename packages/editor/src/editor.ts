@@ -1592,6 +1592,13 @@ const MindmapKeys = Extension.create({
     /** The mindmap becomes one empty paragraph (its only item was empty). */
     const toParagraph = (state: EditorState, dispatch: (tr: Transaction) => void, callout: number) => {
       const $f = state.selection.$from
+      // D-780: a titled mindmap keeps its block and title; ⌫ goes to the end of the title (⏎ is handled by the caller).
+      const title = $f.node(callout).firstChild
+      if (title?.type.name === 'calloutTitle' && title.content.size > 0) {
+        const end = $f.before(callout) + 1 + title.nodeSize - 1
+        dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(end), -1)).scrollIntoView())
+        return true
+      }
       const start = $f.before(callout)
       const end = $f.after(callout)
       const tr = closeHistory(state.tr).replaceWith(start, end, state.schema.nodes.paragraph.create())
@@ -1618,9 +1625,11 @@ const MindmapKeys = Extension.create({
         const item = $f.node(m.item)
         if (item.childCount !== 1 || item.child(0).content.size !== 0) return false
         const list = $f.node(m.item - 1)
-        if (list.childCount === 1) return toParagraph(st, editor.view.dispatch, m.callout)
-        // ⏎ on an empty top-level item: the item goes and the caret moves to a new paragraph after the mindmap.
-        const tr = st.tr.delete($f.before(m.item), $f.after(m.item))
+        const titled = ($f.node(m.callout).firstChild?.type.name === 'calloutTitle') && $f.node(m.callout).firstChild!.content.size > 0
+        if (list.childCount === 1 && !titled) return toParagraph(st, editor.view.dispatch, m.callout)
+        // ⏎ on an empty top-level item: the caret moves to a new paragraph after the mindmap; the item goes, unless it
+        // is a titled mindmap's only item (D-780: it stays, the block keeps its title and nothing is written).
+        const tr = list.childCount === 1 ? st.tr : st.tr.delete($f.before(m.item), $f.after(m.item))
         const after = tr.mapping.map($f.after(m.callout))
         tr.insert(after, st.schema.nodes.paragraph.create())
         tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)))

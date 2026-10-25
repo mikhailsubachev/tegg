@@ -649,7 +649,7 @@ class CalloutView implements NodeView {
         this.pm.focus()
       } else this.toItem([0], focus)
     } else if (focus) {
-      // After a palette command the palette gives the focus back; the tree takes it after that (FR-UX-03 AC-15).
+      // A palette command: the tree takes the focus, and the closing palette leaves it there (FR-UX-03 AC-15, D-139).
       this.handle?.focusTree()
     }
   }
