@@ -1,0 +1,3 @@
+> [!mindmap]
+> - Sever
+> - Jih
