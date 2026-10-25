@@ -21,6 +21,16 @@ export type LinkInfo = {
  *  the suffix after the title. */
 export type ChipExtra = { attrs: Record<string, string>; description: string | null; icon: Element | null; suffix: Element | null }
 
+/** Slice MM (mm-mindmap §3.3): what the app's map gets from the editor's mindmap block. */
+export type MindmapCtl = {
+  tree: () => import('@tegg/doc').MindmapTree
+  view: () => 'map' | 'list'
+  onNode: (path: number[] | null) => void
+  onLink: (target: string) => void
+  readOnly: boolean
+}
+export type MindmapHandle = { update(): void; focusTree(): void; destroy(): void }
+
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
   resolve(target: string): LinkInfo | undefined
@@ -38,6 +48,10 @@ export interface EditorUi {
   readOnlyTableHint?: string
   /** D-600: the Unreviewed mark and a task's suffix of a resolved chip, or null for a plain chip. */
   chipExtra?: (info: LinkInfo) => ChipExtra | null
+  /** Slice MM (mm-mindmap §3.3): draws a mindmap block's map into `dom`; null shows the list only. */
+  mindmap?(dom: HTMLElement, ctl: MindmapCtl): MindmapHandle | null
+  /** Slice MM (D-776): the in-memory view of each mindmap block, keyed `<note path>#<block index>`. */
+  mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
   /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */

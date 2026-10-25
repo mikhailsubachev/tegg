@@ -97,6 +97,10 @@ export interface TeggEditor {
   conversionUnit(): ConvertUnit | null
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
+    /** Slice MM (mm-mindmap §3.2): switch the mindmap block holding the caret; false elsewhere. */
+    mindmapView(view: 'map' | 'list'): boolean
+    /** Slice MM (D-768): whether `Turn into › Mindmap` is offered for the current block or selection. */
+    canTurnIntoMindmap(): 'yes' | 'disabled' | 'no'
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
     moveBlock(dir: 'up' | 'down'): boolean
     duplicateBlock(): boolean
@@ -1228,6 +1232,12 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
     setCalloutType(type) {
       return commands.turnInto('callout', { calloutType: type })
+    },
+    mindmapView() {
+      return false // stub (mm-mindmap §3.2)
+    },
+    canTurnIntoMindmap() {
+      return 'no' // stub (mm-mindmap §3.2)
     },
     undo() {
       return editor.commands.undo()
