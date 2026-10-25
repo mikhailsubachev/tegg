@@ -25,21 +25,8 @@ export type QuickAddProps = {
   label?: string;
 };
 
-/** D-697 (D-722 (e)): `New with #tag` on a tag page opens the quick-add with ` #<tag>` and the caret before it. */
-let prefill: string | null = null;
-export function prefillQuickAdd(text: string): void {
-  prefill = text;
-}
-
 export function QuickAdd({ presets, today, region, priorities, onCreate, autoFocus, inline, onClose, hint, label }: QuickAddProps) {
-  // D-722 (e): a prefilled row puts the caret before the tag, also when it is focused before it renders. The prefill is
-  // consumed after mounting (render functions may run twice).
-  const caretStart = useRef(!inline && prefill !== null);
-  const [text, setText] = useState(() => (inline ? '' : prefill ?? ''));
-  useEffect(() => {
-    if (!inline) prefill = null;
-    if (caretStart.current && input.current) input.current.setSelectionRange(0, 0);
-  }, []);
+  const [text, setText] = useState('');
   const [noTitle, setNoTitle] = useState(false);
   const [dueCleared, setDueCleared] = useState(false);
   /** Words from here on stay in the title (a token the user cleared, AP-413 / D-483). */
@@ -102,7 +89,6 @@ export function QuickAdd({ presets, today, region, priorities, onCreate, autoFoc
         aria-describedby={noTitle ? desc : undefined}
         placeholder={t('tasks.add')}
         value={text}
-        onFocus={(e) => { if (caretStart.current) { caretStart.current = false; e.currentTarget.setSelectionRange(0, 0); } }}
         aria-busy={busy || undefined}
         onChange={(e) => { const v = e.target.value; setText(v); setNoTitle(false); if (literalAt !== null && literalAt > v.length) setLiteralAt(null); }}
         onKeyDown={(e) => {

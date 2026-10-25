@@ -1,5 +1,5 @@
 // The tag page `tag/<key>` (docs/acceptance/tags.md R82; board `TagPage`, table only, D-704): the breadcrumb, the colour
-// tile, the heading and its unfiltered summary, Tag actions, `New with #tag`, the text and Type filters, the sort and the
+// tile, the heading and its unfiltered summary, Tag actions (no `New with #tag`, D-762), the text and Type filters, the sort and the
 // grouping (D-690, D-702, D-703), and one table of every object carrying the tag. Viewing writes nothing (FR-SYN-06).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '@tegg/doc';
@@ -9,7 +9,6 @@ import { ipc } from '../ipc/client';
 import type { TagObjectRowDto, TagUsageDto, TypeDefDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import { Icon, typeIconName } from '../shell/Icon';
-import { captureTargets } from '../shell/TypeMenu';
 import { chipState, taskGlyph } from '../links/chip';
 import { currentRegion } from '../tasks/useTasks';
 import { dueLabel } from '../tasks/views';
@@ -33,7 +32,6 @@ export type TagPageProps = {
   /** After a rename the route is replaced by the new key's (FR-TAG-04 AC-9); after a removal it is `tags` (D-720). */
   onRenamed: (key: string) => void;
   onRemoved: () => void;
-  onNewWith: (typeKey: string, name: string) => void;
   commandRef: React.MutableRefObject<((id: string) => void) | null>;
 };
 
@@ -52,7 +50,7 @@ export function TagPage(p: TagPageProps) {
   const name = row?.name ?? p.tagKey;
   const [objects, setObjects] = useState<TagObjectRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
-  const [menu, setMenu] = useState<null | 'actions' | 'type' | 'sort' | 'group' | 'new'>(null);
+  const [menu, setMenu] = useState<null | 'actions' | 'type' | 'sort' | 'group'>(null);
   const [dialog, setDialog] = useState<null | 'rename' | 'delete' | 'colour'>(null);
   const [usage, setUsage] = useState<TagUsageDto | null>(null);
   const [cursor, setCursor] = useState(0);
@@ -84,7 +82,6 @@ export function TagPage(p: TagPageProps) {
     if (id === 'tag.rename' && row) setDialog('rename');
     else if (id === 'tag.delete' && row) setDialog('delete');
     else if (id === 'tag.colour' && row) setDialog('colour');
-    else if (id === 'tag.newWith') setMenu('new');
     else if (id === 'tag.groupType') p.onUi({ ...ui, grouping: 'type' });
     else if (id === 'tag.groupNone') p.onUi({ ...ui, grouping: 'none' });
   };
@@ -156,7 +153,6 @@ export function TagPage(p: TagPageProps) {
   const typeFor = (k: string) => p.types.find((x) => x.key === k);
   const sortLabel = `${t(COLUMNS.find((c) => c.key === ui.sort.column)?.label ?? 'tag.col.modified')} ${ui.sort.dir === 'asc' ? '↑' : '↓'}`;
   const typeLabel = ui.type === null ? t('tag.typeAll') : t('tag.typeOne', { type: typeNames[ui.type] ?? ui.type });
-  const newWithLabel = t('tag.newWith', { tag: name });
 
   const menuEntries = (): MenuEntry[] => {
     if (menu === 'actions') {
@@ -182,12 +178,9 @@ export function TagPage(p: TagPageProps) {
         { kind: 'radio', key: 'type', label: t('tag.groupType'), content: t('tag.groupType'), checked: ui.grouping === 'type', onChoose: () => { setMenu(null); p.onUi({ ...ui, grouping: 'type' }); } },
       ];
     }
-    if (menu === 'new') {
-      return captureTargets(p.types).map((x): MenuEntry => ({ kind: 'item', key: x.key, label: x.name, content: <span data-user-content>{x.name}</span>, onChoose: () => { setMenu(null); p.onNewWith(x.key, name); } }));
-    }
     return [];
   };
-  const menuLabel = menu === 'actions' ? t('tag.actions') : menu === 'type' ? t('tag.col.type') : menu === 'sort' ? t('tag.sortMenu') : menu === 'group' ? t('tag.groupType') : t('cmd.newObject');
+  const menuLabel = menu === 'actions' ? t('tag.actions') : menu === 'type' ? t('tag.col.type') : menu === 'sort' ? t('tag.sortMenu') : t('tag.groupType');
   const open = (k: typeof menu) => (e: React.MouseEvent<HTMLElement>) => { anchors.current[k ?? ''] = e.currentTarget; setMenu(menu === k ? null : k); };
 
   const titleCell = (r: TagObjectRowDto) => {
@@ -238,7 +231,6 @@ export function TagPage(p: TagPageProps) {
               <Icon name="more-horizontal" size={16} />
             </button>
           )}
-          <button data-command="tagPage.c9" tabIndex={0} type="button" className="text-button primary" aria-haspopup="menu" onClick={open('new')}>{newWithLabel}</button>
         </div>
       </header>
       <div className="page-toolbar type-toolbar">
@@ -304,11 +296,6 @@ export function TagPage(p: TagPageProps) {
               </tbody>
             );
           })}
-          <tbody>
-            <tr className="new-row"><td colSpan={4}>
-              <button data-command="tagPage.c1" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('new')}><Icon name="plus" size={12} />{newWithLabel}</button>
-            </td></tr>
-          </tbody>
         </table>
       </div>
       {objects && all.length === 0 && <p className="empty">{t('tag.none', { tag: name })}</p>}

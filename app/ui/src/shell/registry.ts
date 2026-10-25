@@ -118,7 +118,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
 export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘K', command: 'app.palette' },
   { keys: '⇧⌘P', command: 'app.palette' },
-  { keys: '⌘O', command: 'app.switcher' },
   { keys: '⌘N', command: 'object.new' },
   { keys: '⇧⌘F', command: 'goto.search' },
   { keys: '⌘D', command: 'daily.today' },

@@ -1,14 +1,13 @@
 // Slice 5A-1: the card's `More` menu (R43, D-482, D-479): Open, Status ›, Priority ›, Due date…, Move to trash (built in 6A);
 // on the Kanban `Move to ›` and, grouped by tag, `Also add to ›`. A submenu replaces the list in place, so one menu is
 // open at a time; Esc closes and gives the focus back to what had it.
-import { useRef, useState } from 'react';
-import { parseDate as parseRegionDate } from '@tegg/schema';
+import { useState } from 'react';
 import { moveToTrash } from '../trash/moveToTrash';
 import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
-import { Icon } from '../shell/Icon';
-import { DatePicker } from '../types/controls/DateControls';
+import { PickDate } from '../dates/PickDate';
+import { localDate } from '../zone';
 import type { KanbanColumn } from './views';
 
 export type MenuTarget = { row: TaskRowDto; anchor: HTMLElement; opener: HTMLElement | null; column?: string };
@@ -31,10 +30,6 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
   onClose: () => void;
 }) {
   const [level, setLevel] = useState<'root' | 'status' | 'priority' | 'move' | 'also' | 'due'>('root');
-  const [dueText, setDueText] = useState('');
-  const [dueError, setDueError] = useState(false);
-  const [picker, setPicker] = useState(false);
-  const pickBtn = useRef<HTMLButtonElement | null>(null);
   const { row } = target;
   const close = () => { onClose(); (target.opener ?? target.anchor)?.focus(); };
   const run = (f: () => void) => () => { close(); f(); };
@@ -43,29 +38,12 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
   const real = (columns ?? []).filter((c) => c.dropTarget && c.id !== target.column);
 
   if (level === 'due') {
+    // D-763 (date-picker.md FR-TSK-09 AC-5): `Due date…` opens the app's date picker; `No date` removes `due:`.
     return (
-      <div className="popup-menu task-due-pop" role="dialog" aria-label={t('task.dueTitle')} style={{ position: 'fixed', ...pos(target.anchor) }}
-        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }}>
-        <input autoFocus aria-label={t('task.dueTitle')} value={dueText} aria-invalid={dueError || undefined}
-          onChange={(e) => { setDueText(e.target.value); setDueError(false); }}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter') return;
-            e.preventDefault();
-            if (!dueText.trim()) { close(); actions.due(row, null); return; }
-            const p = parseRegionDate(dueText, region);
-            if (p.ok && p.value && typeof p.value === 'object' && 'date' in p.value) { close(); actions.due(row, (p.value as { date: string }).date); } else setDueError(true);
-          }} />
-        {/* D-587: the month grid of a date property, next to the field. */}
-        <button ref={pickBtn} type="button" tabIndex={0} className="icon-button" data-command="task.dueDate" aria-label={t('panel.datePicker')} title={t('panel.datePicker')}
-          aria-haspopup="dialog" aria-expanded={picker} onClick={() => setPicker((p) => !p)}>
-          <Icon name="calendar" size={14} />
-        </button>
-        {picker && (
-          <DatePicker value={row.due} anchor={pickBtn.current}
-            onClose={() => { setPicker(false); pickBtn.current?.focus(); }}
-            onPick={(d) => { setPicker(false); close(); actions.due(row, d); }} />
-        )}
-      </div>
+      <PickDate label={t('date.pick')} today={localDate(Date.now())} value={row.due} anchor={target.anchor}
+        onPick={(d) => { close(); actions.due(row, d); }}
+        onClear={() => { close(); actions.due(row, null); }}
+        onClose={close} />
     );
   }
 
@@ -87,7 +65,7 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
       { kind: 'item', key: 'open', content: t('task.open'), onChoose: run(() => actions.open(row)) },
       { kind: 'item', key: 'status', content: t('task.status'), disabled, description: why, onChoose: () => setLevel('status') },
       { kind: 'item', key: 'priority', content: t('task.priority'), disabled, description: why, onChoose: () => setLevel('priority') },
-      { kind: 'item', key: 'due', content: t('task.dueDate'), disabled, description: why, onChoose: () => { setDueText(row.due ?? ''); setLevel('due'); } },
+      { kind: 'item', key: 'due', content: t('task.dueDate'), disabled, description: why, onChoose: () => setLevel('due') },
       ...(columns ? [{ kind: 'item', key: 'move', content: t('task.moveTo'), disabled, description: why, onChoose: () => setLevel('move') } as MenuEntry] : []),
       ...(columns && tagMode ? [{ kind: 'item', key: 'also', content: t('task.alsoAddTo'), disabled, description: why, onChoose: () => setLevel('also') } as MenuEntry] : []),
       // 6A (R75, FR-HIS-01 AC-3): built.
@@ -95,9 +73,4 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
     ];
   }
   return <PopupMenu key={level} label={t('task.more', { title: row.title })} anchor={target.anchor} entries={entries} onClose={onClose} />;
-}
-
-function pos(anchor: HTMLElement) {
-  const r = anchor.getBoundingClientRect();
-  return { left: r.left, top: r.bottom + 4 };
 }

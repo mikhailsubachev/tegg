@@ -13,7 +13,10 @@ import { orderBacklinks } from './order';
 
 /** Rows are windowed above this many entries (FR-LNK-01 AC-16: at most 100 entry elements in the DOM). */
 const WINDOW_FROM = 60;
+/** An entry's height until it has been measured: one line of chip plus the gap to the next (D-764: chips wrap). */
 const ENTRY_H = 30;
+/** The gap below an entry (`.backlink-entry` margins, collapsed). */
+const ENTRY_GAP = 10;
 const HEADER_H = 32;
 /** Session-only scroll positions per note (Back restores them, FR-LNK-01 AC-6). */
 const scrolls = new Map<string, number>();
@@ -47,6 +50,27 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
   const box = useRef<HTMLDivElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const restored = useRef<string | null>(null);
+  // D-764: wrapped chips make entries taller than one line; the windowing uses each entry's measured height.
+  const heights = useRef(new Map<string, number>());
+  const [, setMeasured] = useState(0);
+  useLayoutEffect(() => {
+    let changed = false;
+    box.current?.querySelectorAll<HTMLElement>('.backlink-entry').forEach((el) => {
+      const h = el.getBoundingClientRect().height + ENTRY_GAP;
+      const k = el.dataset.source ?? '';
+      if (Math.abs((heights.current.get(k) ?? ENTRY_H) - h) > 0.5) { heights.current.set(k, h); changed = true; }
+    });
+    if (changed) setMeasured((n) => n + 1);
+  });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let w = el.clientWidth;
+    // A narrower or wider panel rewraps the chips: measure again.
+    const ro = new ResizeObserver(() => { if (el.clientWidth !== w) { w = el.clientWidth; heights.current.clear(); setMeasured((n) => n + 1); } });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [!!data]);
 
   useEffect(() => {
     let live = true;
@@ -97,7 +121,7 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     if (!collapsed.has(g.type)) for (const e of g.entries) rows.push({ kind: 'entry', g, e });
   }
   const windowed = rows.filter((r) => r.kind === 'entry').length > WINDOW_FROM;
-  const h = (r: Row) => (r.kind === 'header' ? HEADER_H : ENTRY_H);
+  const h = (r: Row) => (r.kind === 'header' ? HEADER_H : heights.current.get(r.e.source) ?? ENTRY_H);
   let from = 0, to = rows.length, top = 0, bottom = 0;
   if (windowed) {
     const view = box.current?.clientHeight ?? 800;
@@ -124,7 +148,9 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
         <a href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"
           aria-label={e.title} aria-description={parts.description ?? undefined} title={e.title} {...parts.attrs}
           onClick={(ev) => { ev.preventDefault(); onOpen(e.source, null, e.readOnly); }}>
-          {parts.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}<span data-user-content>{e.title}</span>{parts.suffix}
+          {parts.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
+          {/* D-764: the title wraps inside the chip; the suffix moves to the next line whole. */}
+          <span className="chip-text"><span data-user-content>{e.title}</span>{parts.suffix}</span>
         </a>
       </div>
     );

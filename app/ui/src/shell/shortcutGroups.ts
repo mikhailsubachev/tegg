@@ -9,7 +9,7 @@ export function groupOf(command: string): ShortcutGroup {
   if (command.startsWith('daily.')) return 'daily';
   if (command.startsWith('task')) return 'tasks';
   if (command.startsWith('inbox.') || command === 'goto.inbox') return 'inbox';
-  if (command === 'app.switcher' || command.startsWith('nav.') || command.startsWith('vault.recent.') || (command.startsWith('goto.') && !command.startsWith('goto.settings'))) return 'navigation';
+  if (command.startsWith('nav.') || command.startsWith('vault.recent.') || (command.startsWith('goto.') && !command.startsWith('goto.settings'))) return 'navigation';
   return 'general';
 }
 

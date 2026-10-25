@@ -2,12 +2,15 @@
 import { useEffect } from 'react';
 import { t } from '../i18n/catalog';
 import { Search } from '../Search';
+import type { SwitcherItemDto } from '../ipc/types';
+import type { Prepared } from '../types/create';
 
-export function SearchPage({ refresh, heading, inputRef, onOpen, tag }: {
+export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, tag }: {
   refresh: number;
   heading: React.RefObject<HTMLHeadingElement | null>;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onOpen: (path: string) => void;
+  onCreate: (item: SwitcherItemDto, prepared?: Prepared | null) => void;
   tag?: string;
 }) {
   // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md), unless a dialog has the focus.
@@ -18,7 +21,7 @@ export function SearchPage({ refresh, heading, inputRef, onOpen, tag }: {
   return (
     <div className="page-column">
       <h1 ref={heading} tabIndex={-1}>{t('route.search')}</h1>
-      <Search onOpen={onOpen} refresh={refresh} inputRef={inputRef} tag={tag} />
+      <Search onOpen={onOpen} onCreate={onCreate} refresh={refresh} inputRef={inputRef} tag={tag} />
     </div>
   );
 }

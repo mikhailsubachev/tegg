@@ -25,7 +25,7 @@ import { ipc } from '../ipc/client';
 import type { LinkTargetDto, SwitcherItemDto, TagRowDto, TypeDefDto } from '../ipc/types';
 import { localIso, ulid } from '../newNote';
 import { openDate } from '../daily/open';
-import { Calendar } from '../daily/Calendar';
+import { PickDate } from '../dates/PickDate';
 import { dateRows } from '@tegg/doc';
 import { localDate } from '../zone';
 import { region } from '../i18n/collate';
@@ -1269,7 +1269,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         <EmbedPicker from={path} types={types} at={picker.at} onChoose={insertEmbedAt} onCancel={cancelPicker} />
       )}
       {pick && suggest && (
-        <Calendar selected={localDate(Date.now())} anchor={null} at={pick.at} onChoose={insertDate}
+        // D-763 (FR-DLY-08 AC-9): `Pick a date…` opens the app's date picker at the caret, without `No date`.
+        <PickDate label={t('date.pick')} today={localDate(Date.now())} value={null} at={pick.at} onPick={insertDate}
           onClose={() => { setPick(null); focusEditor(); }} />
       )}
       {menu && e2 && (
