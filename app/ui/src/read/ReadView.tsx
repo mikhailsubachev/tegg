@@ -1,11 +1,12 @@
 // Read view: the formatted, read-only note body (FR-EDT-02 display, slice 3B; docs/contracts/ms3-shell.md §11.3).
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
-// it, math and footnotes are shown as source text. Embeds, queries and mindmaps are R5 placeholders (D-144).
+// it, math and footnotes are shown as source text. Queries are R5 placeholders (D-144); a mindmap is drawn (slice MM).
 import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
-import { displayTables, displayTablesAt, markdownTree, parse, wikilinks } from '@tegg/doc';
+import { calloutBody, displayTables, displayTablesAt, isMindmapBlock, isMindmapHint, markdownTree, mindmapTree, parse, wikilinks } from '@tegg/doc';
+import { MindmapMap } from '../mindmap/MindmapMap';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
 import type { EmbedTree } from '../embeds/tree';
@@ -30,6 +31,10 @@ export type ReadViewProps = {
   lineBase?: number;
   /** 4F: inside an embed frame: a plain container instead of the note's `article`. */
   bare?: boolean;
+  /** Slice MM: the note's title, for a synthesized root (D-681); default `title:` or the file name. */
+  noteTitle?: string;
+  /** Slice MM (mm-mindmap §3.3): only the map of the first block, for the editor's mindmap block. */
+  mindmapOnly?: { onNode: (path: number[] | null) => void; readOnly: boolean };
 };
 
 // mdast nodes of `@tegg/doc` (with its wikiLink, tag, highlight and comment nodes), read structurally.
@@ -117,7 +122,9 @@ function plainText(n: Any): string {
   return '';
 }
 
-type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object>; readOnlyTables?: Set<number> };
+type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object>; readOnlyTables?: Set<number>; title: string;
+  /** Inside a mindmap node: embeds show their chip only and files are never read (D-774). */
+  inMap?: boolean };
 
 function Chip({ kind, name, type, description, disabled, onActivate, info }: {
   kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
@@ -180,6 +187,13 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
 function embedPlaceholder(c: Ctx, value: string, inline: boolean, line = 0): ReactNode {
   const { target, subpath } = splitWikilink(value);
   const file = target.split('/').pop() ?? target;
+  if (c.inMap) {
+    // D-774: in a mindmap node an embed is its chip (D-600 states); a file is a file chip, never read.
+    if (isAttachment(target) || IMAGE_EXT.test(target)) {
+      return <Chip kind="media" name={file} type={IMAGE_EXT.test(target) ? 'image' : 'pdf'} />;
+    }
+    return <NoteLink c={c} target={target} subpath={subpath} shown={null} />;
+  }
   // 6A (R77, D-630): files render as figures, PDF cards, file cards or `Can't find`; trashed ones as the placeholder.
   if (isAttachment(target) || IMAGE_EXT.test(target)) {
     void subpath; void file;
@@ -337,7 +351,7 @@ function takeBlockId(n: Any): string | null {
   return `^${m[1]}`;
 }
 
-function Callout({ c, n, line }: { c: Ctx; n: Any; line?: number }) {
+function Callout({ c, n, line, hint }: { c: Ctx; n: Any; line?: number; hint?: boolean }) {
   const first = n.children[0] as Any;
   const firstText = first.children[0] as Any;
   const nl = firstText.value.indexOf('\n');
@@ -349,7 +363,8 @@ function Callout({ c, n, line }: { c: Ctx; n: Any; line?: number }) {
   return (
     <div role="note" className={`callout callout-${info.type}`} data-callout={info.type} aria-label={name} data-src-line={line}>
       <div className="callout-title">
-        <span className="callout-label">{info.label}</span>
+        {hint && <Icon name="mindmap" size={14} />}
+        <span className="callout-label">{hint ? t('callout.mindmap') : info.label}</span>
         {info.title && <span className="callout-text" data-user-content>{info.title}</span>}
         {info.fold && (
           <button
@@ -366,7 +381,58 @@ function Callout({ c, n, line }: { c: Ctx; n: Any; line?: number }) {
       <div className="callout-body" hidden={!open}>
         {blocks(c, body)}
       </div>
+      {hint && <div className="mindmap-hint-text">{t('mindmap.notOneList')}</div>}
     </div>
+  );
+}
+
+/** Each item's first paragraph by its path id, read as `mindmapTree` reads the list (children of every list directly
+ *  inside an item, D-774), from the callout's body read on its own (D-765). */
+function mindmapParagraphs(raw: string): { body: string; paragraphs: Map<string, Any | null> } {
+  const body = calloutBody(raw);
+  const paragraphs = new Map<string, Any | null>();
+  const walk = (li: Any, path: number[]) => {
+    const kids = li.children as Any[];
+    paragraphs.set(path.join('.'), kids[0]?.type === 'paragraph' ? kids[0] : null);
+    let k = 0;
+    for (const l of kids.filter((x) => x.type === 'list')) for (const c of l.children as Any[]) walk(c, [...path, k++]);
+  };
+  const list = (markdownTree(body) as unknown as Any).children[0];
+  if (list?.type === 'list') (list.children as Any[]).forEach((li, i) => walk(li, [i]));
+  return { body, paragraphs };
+}
+
+/** Slice MM (R91): the mindmap block of the read view: always the Map, nodes read-only, links clickable (D-684). */
+function MindmapFigure({ c, raw, line }: { c: Ctx; raw: string; line?: number }) {
+  const tree = mindmapTree(raw, c.title)!;
+  const { body, paragraphs } = mindmapParagraphs(raw);
+  const [open, setOpen] = useState(tree.fold !== '-');
+  const title = tree.title;
+  const cMap: Ctx = { ...c, src: body, inMap: true, inLink: false };
+  const content = (id: string) => {
+    if (id === 'root') return tree.root.kind === 'synthesized' ? <span data-user-content>{tree.root.text}</span> : null;
+    const p = paragraphs.get(id);
+    return p ? inlines(cMap, p.children as Any[]) : null;
+  };
+  // D-600: a task chip's `<due> · <status>` suffix takes room in its node.
+  const chipSuffix = (target: string) => { const i = linkInfo(c, target); return i && i.status ? [i.due, i.status].filter(Boolean).join(' · ') + ' ·' : null; };
+  const map = <MindmapMap tree={tree} label={t('mindmap.tree', { title: title ?? t('mindmap.untitled') })} content={content} chipSuffix={chipSuffix}
+    onNode={c.mindmapOnly?.onNode} readOnly={c.mindmapOnly ? c.mindmapOnly.readOnly : true} />;
+  if (c.mindmapOnly) return map;
+  return (
+    <figure className="mindmap-block" data-mindmap="" data-view="map" data-callout="mindmap" aria-label={title ? t('mindmap.figure', { title }) : t('mindmap.untitled')} data-src-line={line}>
+      <div className="mindmap-header">
+        <Icon name="mindmap" size={15} dataIcon="mindmap" />
+        <span className={`mindmap-title${title ? '' : ' untitled'}`} data-user-content={title ? '' : undefined}>{title ?? t('mindmap.untitled')}</span>
+        {tree.fold && (
+          <button type="button" className="icon-button small mindmap-fold" aria-expanded={open}
+            aria-label={t(open ? 'callout.collapse' : 'callout.expand', { title: title ?? t('mindmap.untitled') })} onClick={() => setOpen(!open)}>
+            <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
+          </button>
+        )}
+      </div>
+      {open && <div className="mindmap-map" data-map-area="">{map}</div>}
+    </figure>
   );
 }
 
@@ -457,7 +523,10 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       );
     }
     case 'blockquote':
-      if (isCallout(n)) return <Callout key={key} c={c} n={n} />;
+      // Slice MM (D-680, D-769): a top-level `mindmap` callout holding one list is drawn; one holding anything else
+      // is the hint callout. Nested ones are ordinary callouts.
+      if (c.tops.has(n) && isMindmapBlock(src(c, n))) return <MindmapFigure key={key} c={c} raw={src(c, n)} />;
+      if (isCallout(n)) return <Callout key={key} c={c} n={n} hint={c.tops.has(n) && isMindmapHint(src(c, n))} />;
       return <blockquote key={key}>{blocks(c, n.children)}</blockquote>;
     case 'code': {
       const lang = n.lang ? String(n.lang) : null;
@@ -465,13 +534,6 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
         return (
           <InNotePlaceholder key={key} id="query">
             <CodeBlock lang="query">{n.value}</CodeBlock>
-          </InNotePlaceholder>
-        );
-      }
-      if (lang?.toLowerCase() === 'mermaid' && /^\s*mindmap\b/.test(String(n.value).split('\n').find((l: string) => l.trim() !== '') ?? '')) {
-        return (
-          <InNotePlaceholder key={key} id="mindmap">
-            <CodeBlock lang="mermaid">{n.value}</CodeBlock>
           </InNotePlaceholder>
         );
       }
@@ -555,7 +617,13 @@ export function ReadView(props: ReadViewProps) {
   const body = shown.text;
   const tree = markdownTree(body) as unknown as Any;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
-  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines) };
+  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines), title: props.noteTitle ?? noteTitle(doc, props.path) };
+  if (props.mindmapOnly) {
+    const first = (tree.children as Any[])[0];
+    if (!first) return null;
+    c.tops.add(first);
+    return <>{block(c, first, 0)}</>;
+  }
   if (props.bare) return <div className="read-view embed-read" data-user-content>{topBlocks(c, tree.children as Any[], lineOffset)}</div>;
   return (
     <article className="read-view" aria-label={noteTitle(doc, props.path)} data-user-content>

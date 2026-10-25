@@ -1026,3 +1026,56 @@ button.tag-tile { cursor: pointer; }
 .backlink-entry .chip-text { min-width: 0; overflow-wrap: anywhere; }
 .backlink-entry .chip-text > [data-user-content] { overflow: visible; text-overflow: clip; }
 .backlink-entry .chip-suffix { display: inline-flex; white-space: nowrap; vertical-align: 1px; }
+
+/* Slice MM (docs/acceptance/mindmap.md R91, R92; board Main): the mindmap block, its header and Map / List switch, the
+   map drawn from `layoutMindmap` (nodes over SVG elbow connectors), and the hint callout. */
+.mindmap-block, .editor-host .ProseMirror figure.mindmap-block[data-callout] {
+  position: relative; margin: 0.6em 0; padding: 0; border: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; background: var(--bg);
+}
+.mindmap-header { display: flex; align-items: center; gap: 8px; min-height: 38px; box-sizing: border-box; padding: 4px 8px 4px 12px; border-bottom: 1px solid var(--border); background: var(--embed); font-size: 13px; }
+.mindmap-header > .icon { flex: none; color: var(--type-teal); }
+.mindmap-title { flex: 1; min-width: 0; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mindmap-title.untitled { color: var(--muted); }
+.mindmap-switch { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); }
+.mindmap-switch button { height: 26px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; font-size: 12px; font-weight: 600; color: var(--muted); }
+.mindmap-switch button[aria-pressed='true'] { background: var(--bg); color: var(--text); }
+.mindmap-fold { color: var(--muted); }
+.mindmap-map { overflow-x: auto; overflow-y: hidden; }
+.mindmap-canvas { position: relative; }
+.mindmap-lines { position: absolute; inset: 0; pointer-events: none; }
+.mindmap-lines path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.mindmap-node { position: absolute; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; cursor: default; }
+.mindmap-node.one-line { white-space: nowrap; }
+.mindmap-node:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.mindmap-node.tone-root { background: var(--text); color: var(--bg); font-weight: 650; }
+.mindmap-node.tone-plain { padding: 6px 9px; background: var(--bg); color: var(--text); border: 1px solid var(--border); font-weight: 400; }
+.mindmap-node.tone-blue { background: var(--type-blue-bg); color: var(--type-blue); font-weight: 600; }
+.mindmap-node.tone-orange { background: var(--type-orange-bg); color: var(--type-orange); font-weight: 600; }
+.mindmap-node.tone-purple { background: var(--type-purple-bg); color: var(--type-purple); font-weight: 600; }
+.mindmap-node.tone-teal { background: var(--type-teal-bg); color: var(--type-teal); font-weight: 600; }
+.mindmap-node.tone-green { background: var(--type-green-bg); color: var(--type-green); font-weight: 600; }
+.mindmap-node.tone-yellow { background: var(--type-yellow-bg); color: var(--type-yellow); font-weight: 600; }
+.mindmap-node.tone-red { background: var(--type-red-bg); color: var(--type-red); font-weight: 600; }
+/* A chip is one unbreakable word of the layout (mindmap layout `chipExtra`): never wrapped or truncated in a node. */
+.mindmap-node .chip, .mindmap-node .embed-chip { white-space: nowrap; overflow-wrap: normal; font-weight: 400; }
+.mindmap-node .chip > [data-user-content], .mindmap-node .embed-chip > [data-user-content] { flex: none; overflow: visible; }
+.mindmap-node code { font-size: 12px; }
+.mindmap-box { display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; margin-right: 6px; border: 1px solid currentColor; border-radius: 3px; font-size: 10px; line-height: 1; vertical-align: -1px; }
+.mindmap-more { color: inherit; opacity: 0.8; }
+.mindmap-empty { margin: 16px; height: 32px; padding: 0 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 13px; }
+/* The editor: Map hides the list; List shows the list with the map below it; the title is edited in the header row. */
+.mindmap-block.mm-view-map > .mindmap-list { display: none; }
+.mindmap-block.mm-view-list > .mindmap-list { padding: 4px 12px 8px; }
+.mindmap-block.mm-view-list > .mindmap-list > [data-callout-title] {
+  position: absolute; top: 0; left: 35px; right: 150px; height: 38px; margin: 0; overflow: hidden; white-space: nowrap; line-height: 38px; font-size: 13px; font-weight: 600;
+}
+.mindmap-block.mm-view-list .mindmap-title { visibility: hidden; }
+.mindmap-block.mm-view-list > .mindmap-list > [data-callout-title]:has(> br:only-child)::before { content: var(--mm-untitled); color: var(--muted); pointer-events: none; }
+.mindmap-block.mm-empty > .mindmap-list li > p:has(> br:only-child)::before { content: var(--mm-empty); color: var(--muted); pointer-events: none; }
+.mindmap-block.mm-view-list > .mindmap-map { border-top: 1px solid var(--border); }
+.mindmap-block.mm-folded > .mindmap-list, .mindmap-block.mm-folded > .mindmap-map { display: none; }
+.mindmap-hint-text { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.editor-host .ProseMirror [data-callout].mindmap-hint { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; }
+.mindmap-hint > .mindmap-hint-icon { color: var(--type-teal); margin-top: 3px; }
+.mindmap-hint > .mindmap-hint-text { grid-column: 2; }

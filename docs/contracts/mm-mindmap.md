@@ -75,13 +75,14 @@ export type MindLayoutNode = {
 export type MindConnector = { from: string; to: string; points: [number, number][] }   // elbow polyline, R92
 export type MindLayout = { width: number; height: number; nodes: MindLayoutNode[]; connectors: MindConnector[] }
 
-export function layoutMindmap(tree: MindmapTree, measure: Measure, opts?: { chipExtra?: number }): MindLayout
+export type ChipExtra = number | ((r: MindInline & { k: 'link' | 'tag' }) => number)
+export function layoutMindmap(tree: MindmapTree, measure: Measure, opts?: { chipExtra?: ChipExtra }): MindLayout
 export const PALETTE: readonly ['blue', 'orange', 'purple', 'teal', 'green', 'yellow', 'red']
 export const textMeasurer: Measure   // the test Measurer of R92: 7 px per Unicode scalar value of the NFC text
 ```
 
 - Geometry exactly as R92 (padding 10, line 18, height 14 + 18 × lines, width clamp(text + 20, 48, 200), wrap within 180, columns +60, rows +8, elbow at x(d + 1) − 30). `nodes` are in outline order with the root first. Node text for wrapping: the inline runs as plain text (link chips: alias or the target's last path segment without `.md`, tag chips `#value`, `break` forces a new line), plus ` …` when `more`.
-- `chipExtra` (default 0) adds that many px to the width of each link or tag word, so the app's real measurer can account for a chip's icon and padding. The golden values use 0.
+- `chipExtra` (default 0) adds that many px to the width of each link or tag word (or a per-chip amount, for a task chip's due · status suffix), so the app's real measurer can account for a chip's icon, padding and suffix. The golden values use 0.
 - Every call increments `layoutCount()` (exported; read by the L5 test hook below).
 
 ---
@@ -107,7 +108,7 @@ The editor's callout node view, for a `mindmap` block, renders the header (R91: 
 
 ```ts
 export type MindmapCtl = {
-  tree: () => MindmapTree                  // the block's current tree (§1.2), from the block's current Markdown
+  markdown: () => string                   // the block's current Markdown; the app reads it with mindmapTree (§1.2), adding the note title
   view: () => 'map' | 'list'
   onNode: (path: number[] | null) => void  // a node click or ⏎ (null: the synthesized or empty root) → List with the caret (D-776)
   onLink: (target: string) => void         // a chip in a node
@@ -118,7 +119,7 @@ export type MindmapHandle = { update(): void; focusTree(): void; destroy(): void
 
 `ui.mindmap` returns null when the app has no map (the block then shows its list only). The `placeholder` kind type loses `'mindmap'` (R5 is `query` only).
 
-The view state lives in memory in the app per `(note path, block index)` (D-776), via `EditorUi.mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }`.
+The view state lives in memory in the app per `(note path, block index)` (D-776), via `EditorUi.mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }`; the key is the block index as a string (the app adds the note path). `EditorUi.mindmapText?(key, title?)` gives R94's texts (`figure`, `untitled`, `view`, `map`, `list`, `empty`, `notOneList`, `expand`, `collapse`) and `EditorUi.mindmapIcon?()` the icon. The figure carries `data-callout="mindmap"` and class `mindmap-block`; its list is `.mindmap-list` (the editable content) and the map `[data-map-area]`.
 
 ---
 

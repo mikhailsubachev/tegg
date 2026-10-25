@@ -40,11 +40,13 @@ import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
 import { conversionHooks, convert as runConvert, type ConvertHost } from '../convert/flow';
 import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 import { tagChipStyle } from '../theme/tagChip';
+import { mountMindmap } from '../mindmap/mount';
+import { noteTitle } from '../read/ReadView';
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -77,18 +79,23 @@ function chipExtraOf(info: LinkInfo): ChipExtra | null {
   return { attrs: chipAttrs(s), description: s.link === 'trashed' ? trashedText() : s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
+/** D-776: each mindmap block's view while the app runs (`<note path>#<block index>`); never written. */
+const mindmapViewState = new Map<string, 'map' | 'list'>();
+
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
   heading3: { kind: 'heading', level: 3 }, bulletList: { kind: 'bulletList' }, orderedList: { kind: 'orderedList' },
   checklist: { kind: 'checklist' }, quote: { kind: 'blockquote' }, callout: { kind: 'callout' }, codeBlock: { kind: 'codeBlock' },
   divider: { kind: 'divider' }, table: { kind: 'table' },
+  // Slice MM (W1, D-685): an empty mindmap in List, caret in its item.
+  mindmap: { kind: 'mindmap' },
 };
 
 const TURN_INTO: { label: string; kind: string; level?: number }[] = [
   { label: 'slash.text', kind: 'paragraph' }, { label: 'slash.heading1', kind: 'heading', level: 1 },
   { label: 'slash.heading2', kind: 'heading', level: 2 }, { label: 'slash.heading3', kind: 'heading', level: 3 },
   { label: 'slash.bulletList', kind: 'bulletList' }, { label: 'slash.orderedList', kind: 'orderedList' },
-  { label: 'slash.checklist', kind: 'checklist' }, { label: 'slash.quote', kind: 'blockquote' },
+  { label: 'slash.checklist', kind: 'checklist' }, { label: 'slash.mindmap', kind: 'mindmap' }, { label: 'slash.quote', kind: 'blockquote' },
   { label: 'slash.callout', kind: 'callout' }, { label: 'slash.codeBlock', kind: 'codeBlock' },
 ];
 
@@ -214,6 +221,17 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         const id = kind !== 'embed' ? kind : name === t('ph.embedImage') ? 'embed-image' : name === t('ph.embedPdf') ? 'embed-pdf' : 'embed-note';
         return { name, text: kind === 'embed' ? `${name}: ${v}` : name, id, note: id === 'embed-note' };
       },
+      // Slice MM (mm-mindmap §3.3, R91): the map of a mindmap block, its texts, icon and session view state (D-776).
+      mindmap: (dom, ctl) => mountMindmap(dom, ctl, {
+        path: () => pathRef.current,
+        title: () => { const ed = edRef.current; try { return noteTitle(parse(ed ? ed.text() : ''), pathRef.current); } catch { return pathRef.current.split('/').pop()!.replace(/\.md$/, ''); } },
+        onOpen: (p, f) => cb.current.onOpen(p, f ? `#${f.replace(/^#/, '')}` : undefined),
+        onTag: (k) => cb.current.onTag(k),
+        onExternal: (u) => cb.current.onExternal(u),
+      }),
+      mindmapState: { get: (k) => mindmapViewState.get(`${pathRef.current}#${k}`), set: (k, v) => { mindmapViewState.set(`${pathRef.current}#${k}`, v); } },
+      mindmapText: (k, title) => (k === 'figure' ? t('mindmap.figure', { title: title ?? '' }) : k === 'expand' || k === 'collapse' ? t(k === 'expand' ? 'callout.expand' : 'callout.collapse', { title: title ?? '' }) : t(`mindmap.${k}`)),
+      mindmapIcon: () => iconElement('mindmap', 15, 'mindmap'),
       onLink: (target, fragment, chip) => {
         const r = links.current.get(target.normalize('NFC'));
         if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
@@ -820,6 +838,14 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!e || !e.editor.isEditable) return t('convert.readOnly');
     if (pathRef.current.startsWith('_templates/')) return t('convert.inTemplate');
     if (focusArea.current === 'embed') return t('convert.inEmbed');
+    // D-778: an item of a mindmap becomes an object in v1.0; the whole block (a block selection) converts today.
+    if (!e.blockSelection()) {
+      const $f = e.view.state.selection.$from;
+      for (let d = $f.depth; d > 0; d--) {
+        const n = $f.node(d);
+        if (n.type.name === 'callout' && String(n.attrs.calloutType).toLowerCase() === 'mindmap') return t('due.coming', { milestone: 'v1.0' });
+      }
+    }
     return null;
   };
   function convertHost(): ConvertHost | null {
@@ -877,6 +903,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const c = e.commands;
     switch (a) {
       case 'turnIntoTask': openConvert('task'); break;
+      // Slice MM (R94): the palette's `Show mindmap as map / list`.
+      case 'mindmapMap': ed?.commands.mindmapView('map'); break;
+      case 'mindmapList': ed?.commands.mindmapView('list'); break;
       case 'turnIntoObject': openConvert('last'); break;
       case 'undo': c.undo(); break;
       case 'redo': c.redo(); break;
@@ -1488,11 +1517,19 @@ function BlockMenu({ menu, ed, wrapRect, convertWhy, onConvert, onSub, onClose }
         )}
         {menu.sub === 'turnInto' && (
           <>
-            {TURN_INTO.map((x) => item(t(x.label), act(() => ed.commands.turnInto(x.kind, { level: x.level })), { key: x.label }))}
+            {TURN_INTO.map((x) => {
+              // D-768: `Mindmap` for one list, one text block or a selection of text blocks; disabled for a mix.
+              if (x.kind === 'mindmap') {
+                const offer = ed.commands.canTurnIntoMindmap();
+                if (offer === 'no') return null;
+                return item(t(x.label), act(() => ed.commands.turnInto('mindmap')), { key: x.label, disabled: offer === 'disabled' });
+              }
+              return item(t(x.label), act(() => ed.commands.turnInto(x.kind, { level: x.level })), { key: x.label });
+            })}
             {item(t('blockMenu.calloutType'), () => onSub('calloutType'))}
           </>
         )}
-        {menu.sub === 'calloutType' && CALLOUT_TYPES.map((ty) => item(`${t(`callout.${ty}`)} (${ty})`, act(() => ed.commands.setCalloutType(ty)), { key: ty }))}
+        {menu.sub === 'calloutType' && [...CALLOUT_TYPES, 'mindmap'].map((ty) => item(`${t(`callout.${ty}`)} (${ty})`, act(() => ed.commands.setCalloutType(ty)), { key: ty }))}
       </div>
     </div>
   );

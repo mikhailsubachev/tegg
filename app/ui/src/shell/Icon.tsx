@@ -52,6 +52,8 @@ const PATHS: Record<string, string> = {
   'file-text': 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
   'check-square': 'M4 4h16v16H4zM8 12l3 3 5-6',
   zap: 'M13 3L5 14h6l-1 7 8-11h-6z',
+  // Slice MM (board Main): the branching mindmap icon.
+  mindmap: 'M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8',
   hash: 'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16',
   book: 'M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM5 18a2 2 0 0 1 2-2h11',
   'book-open': 'M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z',

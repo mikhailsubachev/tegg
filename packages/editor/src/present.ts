@@ -6,7 +6,9 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
-import { displayTable, isAttachmentTarget } from '@tegg/doc'
+import { displayTable, isAttachmentTarget, renderBlock } from '@tegg/doc'
+import type { RootContent } from 'mdast'
+import { pmToBlock } from './convert'
 import { wikiLabel } from './schema'
 
 export type LinkInfo = {
@@ -23,7 +25,8 @@ export type ChipExtra = { attrs: Record<string, string>; description: string | n
 
 /** Slice MM (mm-mindmap §3.3): what the app's map gets from the editor's mindmap block. */
 export type MindmapCtl = {
-  tree: () => import('@tegg/doc').MindmapTree
+  /** The block's current Markdown (the app reads its tree with `mindmapTree`, mm-mindmap §1.2). */
+  markdown: () => string
   view: () => 'map' | 'list'
   onNode: (path: number[] | null) => void
   onLink: (target: string) => void
@@ -50,8 +53,12 @@ export interface EditorUi {
   chipExtra?: (info: LinkInfo) => ChipExtra | null
   /** Slice MM (mm-mindmap §3.3): draws a mindmap block's map into `dom`; null shows the list only. */
   mindmap?(dom: HTMLElement, ctl: MindmapCtl): MindmapHandle | null
-  /** Slice MM (D-776): the in-memory view of each mindmap block, keyed `<note path>#<block index>`. */
+  /** Slice MM (D-776): the in-memory view of each mindmap block, keyed by its block index (the app adds the note). */
   mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }
+  /** Slice MM (R91, R94): the catalog texts of the mindmap block. */
+  mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse', title?: string) => string
+  /** Slice MM: the mindmap icon (`data-icon="mindmap"`). */
+  mindmapIcon?: () => Element
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
   /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */
@@ -439,6 +446,242 @@ class ListItemView implements NodeView {
   }
 }
 
+
+// ------------------------------------------------------------------------------------------------ slice MM
+
+/** The node views of the open mindmap blocks, by their DOM, for `mindmapView` (mm-mindmap §3.2). */
+export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list' }>()
+
+type CalloutKind = 'callout' | 'mindmap' | 'hint'
+function calloutKind(node: PMNode): CalloutKind {
+  if (String(node.attrs.calloutType).toLowerCase() !== 'mindmap') return 'callout'
+  const body: PMNode[] = []
+  node.forEach((c, _o, i) => { if (i > 0) body.push(c) })
+  return body.length === 1 && /List$/.test(body[0].type.name) ? 'mindmap' : 'hint'
+}
+
+/** The empty state (D-681): the list's only item has no text and no children. */
+function emptyMindmap(node: PMNode): boolean {
+  const list = node.childCount === 2 ? node.child(1) : null
+  if (!list || list.childCount !== 1) return false
+  const item = list.child(0)
+  return item.childCount === 1 && item.child(0).type.name === 'paragraph' && item.child(0).content.size === 0
+}
+
+/** Callouts (FR-EDT-02 AC-19) as before; a `mindmap` callout holding one list is the R91 block, with its header, the
+ *  `Map` / `List` switch and the app's map (D-684); one holding anything else shows the mindmap icon and the hint
+ *  (D-680). The view and the fold are session state, never written (D-776). */
+class CalloutView implements NodeView {
+  dom: HTMLElement
+  contentDOM: HTMLElement
+  private kind: CalloutKind
+  private view: 'map' | 'list' = 'map'
+  private folded = false
+  private handle: MindmapHandle | null = null
+  private titleEl: HTMLElement | null = null
+  private mapBtn: HTMLButtonElement | null = null
+  private listBtn: HTMLButtonElement | null = null
+  private foldBtn: HTMLButtonElement | null = null
+  private mapBox: HTMLElement | null = null
+  constructor(private node: PMNode, private pm: EditorView, private getPos: () => number | undefined, private ui: EditorUi) {
+    this.kind = calloutKind(node)
+    const type = String(node.attrs.calloutType).toLowerCase()
+    const text = (k: Parameters<NonNullable<EditorUi['mindmapText']>>[0], title?: string) => ui.mindmapText?.(k, title) ?? k
+    if (this.kind !== 'mindmap') {
+      this.dom = document.createElement('div')
+      this.dom.setAttribute('data-callout', type)
+      this.dom.setAttribute('role', 'note')
+      if (this.kind === 'hint') {
+        this.dom.classList.add('mindmap-hint')
+        const icon = ui.mindmapIcon?.()
+        if (icon) { icon.classList.add('mindmap-hint-icon'); (icon as HTMLElement).contentEditable = 'false'; this.dom.appendChild(icon) }
+        this.contentDOM = document.createElement('div')
+        this.contentDOM.className = 'mindmap-hint-body'
+        this.dom.appendChild(this.contentDOM)
+        const hint = document.createElement('div')
+        hint.className = 'mindmap-hint-text'
+        hint.contentEditable = 'false'
+        hint.textContent = text('notOneList')
+        this.dom.appendChild(hint)
+      } else this.contentDOM = this.dom
+      return
+    }
+    const key = String(this.index())
+    this.view = ui.mindmapState?.get(key) ?? 'map'
+    this.folded = node.attrs.fold === '-'
+    const fig = document.createElement('figure')
+    fig.className = 'mindmap-block'
+    fig.setAttribute('data-mindmap', '')
+    fig.setAttribute('data-callout', 'mindmap')
+    fig.style.setProperty('--mm-untitled', JSON.stringify(text('untitled')))
+    fig.style.setProperty('--mm-empty', JSON.stringify(text('empty')))
+    const head = document.createElement('div')
+    head.className = 'mindmap-header'
+    head.contentEditable = 'false'
+    const icon = ui.mindmapIcon?.()
+    if (icon) head.appendChild(icon)
+    this.titleEl = document.createElement('span')
+    this.titleEl.className = 'mindmap-title'
+    head.appendChild(this.titleEl)
+    if (node.attrs.fold === '+' || node.attrs.fold === '-') {
+      this.foldBtn = document.createElement('button')
+      this.foldBtn.type = 'button'
+      this.foldBtn.className = 'icon-button small mindmap-fold'
+      this.foldBtn.addEventListener('mousedown', (e) => e.preventDefault())
+      this.foldBtn.addEventListener('click', (e) => { e.preventDefault(); this.folded = !this.folded; this.render() })
+      head.appendChild(this.foldBtn)
+    }
+    const group = document.createElement('div')
+    group.setAttribute('role', 'group')
+    group.className = 'mindmap-switch'
+    group.setAttribute('aria-label', text('view'))
+    const btn = (v: 'map' | 'list') => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = text(v)
+      b.setAttribute('data-command', v === 'map' ? 'mindmap.showMap' : 'mindmap.showList')
+      b.addEventListener('mousedown', (e) => e.preventDefault())
+      b.addEventListener('click', (e) => { e.preventDefault(); this.setView(v, false) })
+      group.appendChild(b)
+      return b
+    }
+    this.mapBtn = btn('map')
+    this.listBtn = btn('list')
+    head.appendChild(group)
+    fig.appendChild(head)
+    this.contentDOM = document.createElement('div')
+    this.contentDOM.className = 'mindmap-list'
+    fig.appendChild(this.contentDOM)
+    this.mapBox = document.createElement('div')
+    this.mapBox.className = 'mindmap-map'
+    this.mapBox.contentEditable = 'false'
+    this.mapBox.setAttribute('data-map-area', '')
+    fig.appendChild(this.mapBox)
+    this.dom = fig
+    mindmapViews.set(fig, this)
+    this.handle = ui.mindmap?.(this.mapBox, {
+      markdown: () => this.markdown(),
+      view: () => this.view,
+      onNode: (path) => this.toItem(path),
+      onLink: (target) => ui.onLink(target, null),
+      readOnly: !pm.editable,
+    }) ?? null
+    this.render()
+  }
+  private index(): number {
+    const p = this.getPos()
+    return p === undefined ? -1 : this.pm.state.doc.resolve(p).index(0)
+  }
+  private markdown(): string {
+    try { return renderBlock(pmToBlock(this.node.toJSON()) as RootContent) } catch { return '' }
+  }
+  private render() {
+    if (this.kind !== 'mindmap') return
+    const text = (k: Parameters<NonNullable<EditorUi['mindmapText']>>[0], title?: string) => this.ui.mindmapText?.(k, title) ?? k
+    const title = this.node.firstChild?.textContent.trim() ?? ''
+    this.dom.setAttribute('aria-label', title ? text('figure', title) : text('untitled'))
+    this.dom.setAttribute('data-view', this.view)
+    this.dom.classList.toggle('mm-view-list', this.view === 'list')
+    this.dom.classList.toggle('mm-view-map', this.view === 'map')
+    this.dom.classList.toggle('mm-folded', this.folded)
+    this.dom.classList.toggle('mm-empty', emptyMindmap(this.node))
+    this.titleEl!.textContent = title || text('untitled')
+    this.titleEl!.classList.toggle('untitled', !title)
+    if (title) this.titleEl!.setAttribute('data-user-content', '')
+    else this.titleEl!.removeAttribute('data-user-content')
+    this.mapBtn!.setAttribute('aria-pressed', String(this.view === 'map'))
+    this.listBtn!.setAttribute('aria-pressed', String(this.view === 'list'))
+    if (this.foldBtn) {
+      this.foldBtn.setAttribute('aria-label', text(this.folded ? 'expand' : 'collapse', title || text('untitled')))
+      this.foldBtn.setAttribute('aria-expanded', String(!this.folded))
+      this.foldBtn.textContent = this.folded ? '›' : '⌄'
+    }
+    this.handle?.update()
+  }
+  current(): 'map' | 'list' {
+    return this.view
+  }
+  /** Switches the view (session state, D-776); `focus`: Map focuses the tree, List puts the caret in the root item. */
+  setView(v: 'map' | 'list', focus = false) {
+    this.view = v
+    this.folded = false
+    this.ui.mindmapState?.set(String(this.index()), v)
+    this.render()
+    if (v === 'list') this.toItem([0], focus)
+    else if (focus) this.handle?.focusTree()
+  }
+  /** D-776: a node click switches to List with the caret at the end of that item (`null`: the synthesized root, D-771). */
+  private toItem(path: number[] | null, _focus = true) {
+    if (this.view !== 'list') {
+      this.view = 'list'
+      this.ui.mindmapState?.set(String(this.index()), 'list')
+      this.render()
+    }
+    const base = this.getPos()
+    if (base === undefined) return
+    const node = this.node
+    let target: number | null = null
+    if (path === null) {
+      // The synthesized root: the title, or the first item when the root is the note title.
+      if (node.firstChild && node.firstChild.content.size > 0) target = base + 1 + node.firstChild.nodeSize - 1
+      else path = [0]
+    }
+    if (path !== null) {
+      let pos = base + 1 + node.firstChild!.nodeSize
+      let list: PMNode = node.child(1)
+      let item: PMNode | null = null
+      let itemPos = pos
+      for (let depth = 0; depth < path.length; depth++) {
+        // Children of an item come from every list directly inside it (D-774).
+        const lists: { n: PMNode; pos: number }[] = []
+        if (depth === 0) lists.push({ n: list, pos })
+        else {
+          let p = itemPos + 1
+          item!.forEach((c) => { if (/List$/.test(c.type.name)) lists.push({ n: c, pos: p }); p += c.nodeSize })
+        }
+        let want = path[depth]
+        let found = false
+        for (const l of lists) {
+          if (want < l.n.childCount) {
+            let p = l.pos + 1
+            for (let k = 0; k < want; k++) p += l.n.child(k).nodeSize
+            item = l.n.child(want)
+            itemPos = p
+            found = true
+            break
+          }
+          want -= l.n.childCount
+        }
+        if (!found) break
+        list = item!
+      }
+      if (item) target = itemPos + 1 + (item.firstChild?.nodeSize ?? 2) - 1
+    }
+    if (target === null) return
+    const tr = this.pm.state.tr.setSelection(TextSelection.near(this.pm.state.doc.resolve(target), -1))
+    this.pm.dispatch(tr.scrollIntoView())
+    this.pm.focus()
+  }
+  update(node: PMNode) {
+    if (node.type !== this.node.type || calloutKind(node) !== this.kind) return false
+    if (this.kind !== 'mindmap' && String(node.attrs.calloutType).toLowerCase() !== String(this.node.attrs.calloutType).toLowerCase()) return false
+    this.node = node
+    this.render()
+    return true
+  }
+  stopEvent(e: Event) {
+    return this.kind === 'mindmap' && !!(e.target as Node | null) && (this.mapBox!.contains(e.target as Node) || this.dom.querySelector('.mindmap-header')!.contains(e.target as Node))
+  }
+  ignoreMutation(m: { target: Node; type: string }) {
+    if (this.kind === 'mindmap') return !this.contentDOM.contains(m.target) || m.target === this.contentDOM && m.type === 'attributes'
+    if (this.kind === 'hint') return !this.contentDOM.contains(m.target)
+    return false
+  }
+  destroy() {
+    this.handle?.destroy()
+  }
+}
+
 export function presentation(ui: EditorUi) {
   return Extension.create({
     name: 'teggPresentation',
@@ -455,6 +698,7 @@ export function presentation(ui: EditorUi) {
               return uiRefresh.getState(state) as DecorationSet
             },
             nodeViews: {
+              callout: (node, view, getPos) => new CalloutView(node, view, getPos as () => number | undefined, ui),
               rawBlock: (node, _view, getPos) => new RawBlockView(node, ui, getPos as () => number | undefined),
               wikiLink: (node) => new WikiLinkView(node, ui),
               listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
