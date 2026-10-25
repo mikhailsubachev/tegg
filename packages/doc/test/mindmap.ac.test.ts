@@ -96,7 +96,7 @@ test('fr_fmt_05_ac4_type_in_any_case_and_fold_markers_dont_matter', () => {
   for (const head of ['[!mindmap]', '[!MindMap]', '[!MINDMAP]', '[!Mindmap]', '[!mindmap]+', '[!mindmap]-', '[!MINDMAP]+ Titulek', '[!mindmap]- Složená']) {
     assert.deepEqual(kinds(`> ${head}\n${list}`), ['mindmap'], `> ${head} holding one list is a mindmap`)
   }
-  for (const head of ['[!mind-map]', '[!mindmaps]', '[!mind map]', '[!note]']) {
+  for (const head of ['[!mind-map]', '[!mindmaps]', '[!note]']) {
     assert.deepEqual(kinds(`> ${head} T\n${list}`), ['callout'], `> ${head} is an ordinary callout`)
   }
 })

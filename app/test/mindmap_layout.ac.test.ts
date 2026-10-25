@@ -118,7 +118,8 @@ test('fr_mmp_02_ac9_node_text_chips_more_and_breaks', () => {
   const e = layoutMindmap(tree('> [!mindmap]\n> -\n>   - dítě', 'X'), textMeasurer);
   assert.deepEqual(e.nodes[0] && [e.nodes[0].w, e.nodes[0].h], [48, 32], 'an empty node is 48 px (D-774)');
   const chip = layoutMindmap(tree('> [!mindmap]\n> - Cíl: [[Složka/Lisabon.md]] a [[Lisabon|hlavní město]]', 'X'), textMeasurer);
-  assert.deepEqual(chip.nodes[0]?.lines, ['Cíl: Lisabon a hlavní město'], 'a link chip: the alias, else the last path segment without .md');
+  // 27 scalar values (189 px) wrap within 180 px (R92); the alias chip `hlavní město` stays one unbreakable word.
+  assert.deepEqual(chip.nodes[0]?.lines, ['Cíl: Lisabon a', 'hlavní město'], 'a link chip: the alias, else the last path segment without .md');
   const extra = layoutMindmap(tree('> [!mindmap]\n> - [[Lisabon]]', 'X'), textMeasurer, { chipExtra: 30 });
   assert.equal(extra.nodes[0]?.w, 7 * 7 + 30 + 20, 'chipExtra widens a chip word');
 });

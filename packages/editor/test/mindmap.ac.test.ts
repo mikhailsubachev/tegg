@@ -313,7 +313,8 @@ test('fr_mmp_01_ac9_title_edits_change_only_the_first_line_w9_to_w9d', async () 
   const last = log.ctls[log.ctls.length - 1];
   assert.ok(last, 'the app draws the map of Bez titulku');
   assert.deepEqual((await ctlTree(last!, 'Bez titulku'))?.root, { kind: 'synthesized', text: 'Roční období' }, 'W9a: the map\'s root is the new title (AP-732)');
-  for (let i = 0; i < 'Roční období'.length; i++) press(ed, 'Backspace');
+  // The title's text is deleted (in jsdom a Backspace key deletes no characters: that is the browser's own editing).
+  { const st = ed.view.state; const { $from } = st.selection; ed.view.dispatch(st.tr.delete($from.start(), $from.end())); }
   const w9b = await saved(ed);
   if (w9b !== touched(bez)) bad.push(`W9b: ${JSON.stringify(w9b)}`);
   const slozene = fx('Pages/Složené.md');
@@ -330,6 +331,7 @@ test('fr_mmp_01_ac9_enter_in_the_title_moves_to_the_first_item', async () => {
   const ed = await openMm(VYJEZD());
   caretIn(ed, 1);
   assert.equal(ed.commands.mindmapView('list'), true, 'List view');
+  caretIn(ed, 1); // FR-UX-03 AC-15: switching to List puts the caret in the root item; back to the title
   press(ed, 'Enter');
   assert.ok(ancestors(ed).includes('listItem'), `⏎ in the title: the caret is in the first item (${ancestors(ed).join(' > ')})`);
   assert.equal(caretText(ed).text, 'Výjezd 2026', 'the first item');
@@ -349,9 +351,9 @@ test('fr_mmp_02_ac5_a_node_click_puts_the_caret_at_the_end_of_the_item', async (
   ctl.onNode([0, 0]);
   assert.equal(ctl.view(), 'list', 'a node click switches to List');
   assert.deepEqual(caretText(ed), { text: 'Program', atEnd: true }, 'caret at the end of Program (D-776)');
-  type(ed, ' a cíle');
-  assert.equal(await saved(ed), touched(sw(orig, '>   - Program\n', '>   - Program a cíle\n')), 'typing saves only that line');
-  ctl.onNode([0]);
+  console.log('C0', log.ctls.length); type(ed, ' a cíle'); console.log('C1', log.ctls.length);
+  assert.equal(await saved(ed), touched(sw(orig, '>   - Program\n', '>   - Program a cíle\n')), 'typing saves only that line'); console.log('C2', log.ctls.length);
+  (globalThis as any).__MMDBG = 1; ctl.onNode([0]); (globalThis as any).__MMDBG = 0;
   assert.deepEqual(caretText(ed), { text: 'Výjezd 2026', atEnd: true }, 'the root item: end of that item');
   const vk = fresh();
   const e2 = await openMm(fx('Pages/Více kořenů.md'), vk);
