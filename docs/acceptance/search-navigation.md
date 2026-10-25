@@ -86,7 +86,16 @@ The criteria AC-12…AC-17 come from the MS3 3D preview feedback (D-246, `docs/f
 - **AC-8** NFC: a query typed in NFD returns the same results as the NFC query.
 - **AC-9** **Latency:** on the reference vault, every keystroke of the queries `c`, `ct`, `cteni`, `rozpočet 2026` and `zzzzzzzzzz` returns results from the core in < 100 ms × 75% (NFR-PERF-03, D-59); the rendered timing is NFR-PERF-03/AC-1.
 - **AC-10** After an external rename of `Pages/Čtení knih.md` to `Pages/Knihy.md` (same `id`), within 2 s `knihy` returns the object under its new path and folder, and `cteni` still returns it (title unchanged).
-- **AC-11** [manual] ⌘O opens the switcher from anywhere in the main window with the cursor in its field; ↑/↓ and ⏎ select and open a result without the mouse (FR-UX-03).
+- ~~**AC-11** [manual] ⌘O opens the switcher from anywhere in the main window with the cursor in its field; ↑/↓ and ⏎ select and open a result without the mouse (FR-UX-03).~~ Superseded by D-760: see AC-15…AC-18.
+
+### FR-NAV-01 The Search page's `Go to` list (D-760; preview v0.68 feedback F9)
+
+Fixture `search/` in the fake core (L5). ⌘O and the `Quick switcher` dialog are gone; the core's `index.switcher` (AC-1…AC-10) answers the Search page's `Go to` list.
+
+- **AC-15** **`Go to` rows.** On `search`, typing `cteni` in `Search query` shows, above `Search results`, a `listbox` `Go to` whose first `option` is Čtení, selected (`aria-selected="true"`, the field's `aria-activedescendant`), with its type icon (`data-icon`) and the folder `Pages`; `reading` shows Čtení with `alias: Reading list`; `rozpo` lists Rozpočet before Projekt (AC-3). At most 8 options; an empty query shows no `Go to` list. The full-text `Search results` below are unchanged (FR-SRC-01, FR-SRC-03). *(L5)*
+- **AC-16** **Keyboard.** The caret stays in `Search query`: ↓/↑ move the selection through `Go to` (wrapping), ⏎ opens the selected object's route (`note/<path>`, `daily/<date>`, `tag/<key>` per D-692) and the Back button returns to `search` with the query kept; Tab moves to the next control and then into the full-text results; Esc in the field clears the query. *(L5)*
+- **AC-17** **Create.** `Nová myšlenka` (no match) shows one option `Create "Nová myšlenka"`; ⏎ creates it through the one creation path (D-232) as AC-7 (`Quick Notes/Nová myšlenka.md`, one write) and opens it with the caret in the body per editor.md FR-EDT-02 AC-13; the option's Type menu (D-550, FR-VLT-05 AC-3) chooses another type before creating. *(L5)*
+- **AC-18** **No ⌘O.** On every built route of R1, ⌘O opens no dialog, changes no route and writes nothing; no element named `Quick switcher` or `Switcher query` exists; the palette lists no `Search or jump to` / `Quick switcher` command; R4 has no ⌘O row; ⇧⌘F (and the sidebar `Search` button, app-shell FR-NAV-01 AC-14) opens `search` with the caret in `Search query` and its text selected. *(L5; L1 for R4)*
 
 ### FR-UX-07 Non-blocking progress
 

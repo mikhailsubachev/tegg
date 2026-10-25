@@ -169,7 +169,7 @@ Labels from the ACs, for Playwright, Appium and the explorer agent. MS2 labels (
 | Vault menu | `menu`; recent vaults `menuitemradio`, actions `menuitem` | `Vaults`; `Open folder as vault…`, `Create new vault…`, `Vault settings…` |
 | Logo button (bottom left of the sidebar, D-220) | `button`, `aria-haspopup="menu"`, `aria-expanded` | `Tegg: About and Settings` |
 | Logo menu | `menu` with `menuitem`s | `About and Settings`; `About Tegg`, `Settings…` |
-| Sidebar switcher field | `button` | `Search or jump to…` |
+| Sidebar search button (D-759) | `button` | `Search` (tooltip `Search · ⇧⌘F`); beside the filled `New object` button |
 | New object | `button` | `New object` |
 | Types list | `list` | `Types` |
 | New type | `button`, `aria-disabled` | `New type` |

@@ -188,14 +188,14 @@ showWindow: !saved1, showNotif: saved1, canReset: true, reset: () => this.setSta
 notifTitle: 'Saved to Inbox', notifBody: (t1 === 'task' ? 'Task · ' : byKey[t1][1] + ' · ') + s1lines[0].text,
 menuOpen: menu1, menuAttr: menu1 ? 'true' : 'false', toggleMenu: () => this.setState({ menu: !menu1 }),
 types: TYPES.map(([k, label, d, color, note]) => ({ label, d, color, note, checked: k === t1 ? 'true' : 'false', bg: k === t1 ? 'var(--hover)' : 'transparent', pick: () => this.setState({ type: k, menu: false }) })),
-lines: s1lines, tags: t1 === 'task' ? ['podcast'] : ['podcast'], isTask: t1 === 'task', due: 'Tomorrow', prio: 'None',
+lines: s1lines, tags: t1 === 'task' ? ['podcast'] : ['podcast'], isTask: t1 === 'task', due: '2026-10-20', prio: 'None',
 save: () => this.setState({ saved: true, menu: false }),
 footHint: 'Lands in Inbox · unreviewed', iconBg: 'rgba(0,0,0,.14)',
 notes: ['The type is preselected from the vault default (Quick Note, FR-VLT-05); click it to pick another. Choosing Task adds Due and Priority.', 'The first line becomes the title, the rest is the body. Markdown works, including [[links]] and #tags.', 'In Play: open the type menu, switch to Task, then press Save.']
 }),
 base({
 num: '2', name: 'New Task', trigger: '⌃⌥T from any app', ...typeOf('task'), app: 'Mail',
-lines: [line('Send Q4 budget draft to Jana', true, true)], isTask: true, due: 'Fri 23 Oct', prio: 'High', tags: ['finance', 'q4'],
+lines: [line('Send Q4 budget draft to Jana', true, true)], isTask: true, due: '2026-10-23', prio: 'High', tags: ['finance', 'q4'],
 dropZone: false, footHint: 'Task · lands in Inbox and Tasks',
 notes: ['The New Task hotkey opens the same window with type Task and the Due and Priority fields (FR-TSK-10).', 'Typing “tomorrow #finance !high” at the end of the title fills the fields, as in the quick-add row (D-380).', 'No source note: the task’s footer shows none until it is linked.']
 }),
@@ -220,11 +220,11 @@ num: '4', name: 'New Task · no date yet', trigger: '⌃⌥T, then click Due', .
 lines: [line('Renew the domain for the blog', true, true)], isTask: true, prio: 'None', tags: ['blog'], dropZone: false,
 due: due4 || 'No date', dueFg: due4 ? 'var(--text)' : 'var(--faint)', dueIcon: due4 ? 'var(--link)' : 'var(--faint)', dueBorder: open4 ? 'var(--link)' : 'var(--border)',
 calOpen: open4, calAttr: open4 ? 'true' : 'false', toggleCal: () => this.setState({ cal4: !open4 }),
-quick: [['Today', 'Today'], ['Tomorrow', 'Tue 20 Oct'], ['Next week', 'Mon 26 Oct'], ['Fri', 'Fri 23 Oct']].map(([label, v]) => ({ label, pick: () => set(v) })),
+quick: [['Today', '2026-10-19'], ['Tomorrow', '2026-10-20'], ['Next week', '2026-10-26'], ['Fri', '2026-10-23']].map(([label, v]) => ({ label, pick: () => set(v) })),
 weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
 days: days.map((d) => {
-const n = +d.n, today = !d.out && n === 19, past = !d.out && n < 19, sel = !d.out && due4 && due4.endsWith(' ' + n + ' Oct');
-return { n: d.n, aria: d.out ? '' : dayName(n) + ' ' + n + ' October', fg: sel ? '#FFFFFF' : (d.out || past ? 'var(--faint)' : 'var(--text)'), bg: sel ? 'var(--link)' : 'transparent', ring: today && !sel ? 'inset 0 0 0 1.5px var(--link)' : 'none', weight: today || sel ? '700' : '400', pick: () => (d.out ? null : set(dayName(n) + ' ' + n + ' Oct')) };
+const n = +d.n, today = !d.out && n === 19, past = !d.out && n < 19, iso = '2026-10-' + String(n).padStart(2, '0'), sel = !d.out && due4 === iso;
+return { n: d.n, aria: d.out ? '' : dayName(n) + ' ' + n + ' October', fg: sel ? '#FFFFFF' : (d.out || past ? 'var(--faint)' : 'var(--text)'), bg: sel ? 'var(--link)' : 'transparent', ring: today && !sel ? 'inset 0 0 0 1.5px var(--link)' : 'none', weight: today || sel ? '700' : '400', pick: () => (d.out ? null : set(iso)) };
 }),
 clearDue: () => set(null),
 footHint: 'Task · no due date → Not scheduled',
