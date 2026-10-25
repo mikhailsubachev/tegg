@@ -113,7 +113,7 @@ test('fr_mmp_02_ac10_link_chip_opens_the_note_without_switching', async ({ page 
 test('fr_mmp_02_ac10_tag_date_broken_and_task_chips_in_uzly', async ({ page }) => {
   const core = await openMm(page, MM.uzly);
   let fig = await needFigure(page, 'Uzly');
-  await click(fig.locator('[data-tag="cestování"]').first(), 'tag chip #cestování');
+  await click(fig.locator('[data-map-area] [data-tag="cestování"]').first(), 'tag chip #cestování'); // the map's chip, not the hidden list's
   await mustBeOn(page, '#cestování', 'tag/cestování');
   await page.keyboard.press('Meta+[');
   await mustBeOn(page, 'Uzly', 'Back');

@@ -379,14 +379,13 @@ test('fr_mmp_02_ac19_turn_into_object_inside_a_mindmap_is_disabled', async ({ pa
   const fig = await needFigure(page, 'Výjezd 2026');
   await click(listBtn(fig), 'List');
   await mustCaret(fig.locator('li').filter({ hasText: /^Přehled Q4$/ }).last(), 'Přehled Q4', 'caret in Přehled Q4');
-  await page.keyboard.down('Shift');
-  await page.keyboard.press('Home');
-  await page.keyboard.up('Shift');
+  // ⇧← over the item's text (⇧Home in WebKit selects to the document's start, in any list).
+  for (let i = 0; i < 'Přehled Q4'.length; i++) await page.keyboard.press('Shift+ArrowLeft');
   const tb = toolbar(page).getByRole('button', { name: 'Turn into object', exact: true });
   await must(tb, 'Formatting › Turn into object');
   assert.equal(await isDisabled(tb), true, 'toolbar: aria-disabled');
   assert.match(await description(tb), /Coming in v1\.0/, 'toolbar: Coming in v1.0');
-  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowRight'); // collapse at the item's end (End doesn't collapse a selection in WebKit here)
   await page.keyboard.type(' /turn');
   const opt = slashMenu(page).getByRole('option', { name: 'Turn into object…', exact: true });
   await must(opt, 'slash › Turn into object…');

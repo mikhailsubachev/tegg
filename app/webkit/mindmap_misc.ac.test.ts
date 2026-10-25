@@ -288,7 +288,8 @@ test('nfr_oth_02_ac7_pseudo_locale_wraps_every_mindmap_text', async ({ page }) =
   await openMm(page, MM.prazdna, { prelude: pseudoLocale });
   await editorBody(page).click();
   await page.keyboard.type('/mind');
-  const row = slashMenu(page).getByRole('option').first();
+  // The pseudo-locale wraps the listbox's own name too (`⟦Insert block⟧`).
+  const row = page.getByRole('listbox', { name: /Insert block/ }).getByRole('option').first();
   await must(row, 'slash row');
   const rowText = await row.innerText();
   assert.ok(rowText.includes('⟦Mindmap⟧') && rowText.includes('⟦Edit as a list, shown as a map⟧'), `slash row and description wrapped: ${rowText}`);

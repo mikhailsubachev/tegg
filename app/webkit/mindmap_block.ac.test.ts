@@ -72,7 +72,8 @@ test('fr_mmp_02_ac2_note_title_change_redraws_the_root_and_writes_only_title', a
   const names = await namesWhen(fig, (n) => n[0] === 'Bez titulku 2', 500);
   assert.equal(names[0], 'Bez titulku 2', `the root redraws within 500 ms (${Date.now() - t0} ms)`);
   await page.keyboard.press('Enter');
-  const after = await fileWhen(core, MM.bez, (x) => !!x && x.includes('title: Bez titulku 2'));
+  // ⏎ commits the title, which renames the file (D-268); its bytes are read under the new name.
+  const after = await fileWhen(core, 'Pages/Bez titulku 2.md', (x) => !!x && x.includes('title: Bez titulku 2'));
   assert.equal(noModified(after), noModified(swap(original(MM.bez), 'title: Bez titulku\n', 'title: Bez titulku 2\n')), 'only `title:` (and modified) written; the callout bytes untouched');
 });
 
@@ -142,8 +143,10 @@ test('fr_mmp_02_ac4_hint_callouts_and_unknown_types', async ({ page }) => {
   assert.equal(await two.locator('ul').count(), 2, '(2) shows its two lists');
   const third = notes.filter({ hasText: 'Seznam a odstavec' }).first();
   assert.ok((await third.innerText()).includes('Odstavec za seznamem.'), '(3) its paragraph');
+  // (4): in the editor a `%%comment%%` paragraph is a source block, as in any note (editor.md FR-EDT-01 AC-8); it is
+  // hidden in the read view only.
   const fourth = notes.filter({ hasText: 'Komentář' }).first();
-  assert.ok(!(await fourth.innerText()).includes('poznámka'), '(4) the comment hidden');
+  assert.ok(await seen(fourth.locator('[data-raw-inline^="%%"]'), 1000), '(4) the comment as preserved source text, as in any note');
   for (const title of ['Pomlčka', 'Množné']) {
     const n = notes.filter({ hasText: title }).first();
     await must(n, `note "${title}"`);
@@ -347,7 +350,7 @@ test('fr_mmp_02_ac17_folding_writes_nothing_and_keeps_the_markers', async ({ pag
   assert.equal(await exp.getAttribute('aria-label') ?? await exp.innerText(), 'Expand Složená mapa', '(1) starts collapsed');
   assert.ok(await seen(viewGroup(f1), 500), 'the header keeps the view switch');
   assert.equal(await tree(f1, 'Složená mapa').count(), 0, 'no tree while collapsed');
-  assert.equal(await f1.locator('li').count(), 0, 'no list while collapsed');
+  assert.equal(await f1.locator('li:visible').count(), 0, 'no list while collapsed (the editable list is hidden, not removed)');
   await exp.click();
   await needTree(f1, 'Složená mapa');
   const f2 = await needFigure(page, 'Rozbalená mapa');
