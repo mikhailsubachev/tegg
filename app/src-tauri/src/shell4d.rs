@@ -45,6 +45,12 @@ pub async fn tag_objects(state: State<'_, AppState>, key: String) -> Result<Vec<
         .collect())
 }
 
+/// §1.6, §3 (D-784): All tags' `<m> tagged objects` in one read (bug v0.74: one `tag_objects` per tag stalled the core).
+#[tauri::command]
+pub async fn index_tagged_objects(state: State<'_, AppState>) -> Result<u32, IpcError> {
+    Ok(core(&state)?.tagged_objects() as u32)
+}
+
 #[tauri::command]
 pub async fn tag_usage(state: State<'_, AppState>, key: String) -> Result<TagUsageDto, IpcError> {
     let u = core(&state)?.tag_usage(&key);

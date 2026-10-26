@@ -1687,7 +1687,7 @@ pub fn run() {
             shell6a::trash_list, shell6a::object_trash, shell6a::trash_restore, shell6a::trash_delete, shell6a::trash_empty,
             shell6a::media_add, shell6a::media_add_paths, shell6a::media_pick, shell6a::media_open, shell6a::media_reveal,
             shell6a::capture_media_add,
-            shell4d::tag_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
+            shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal
         ])
         .build(context())

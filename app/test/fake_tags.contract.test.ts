@@ -58,6 +58,8 @@ test('fake_tags_objects_of_ucty', async () => {
   assert.deepEqual([banka.status, banka.due, banka.modified], ['To do', '2026-10-21', iso('2026-10-12T08:00')]);
   assert.equal(r.find((x) => x.path === 'Quick Notes/Faktura.md').review, 'unreviewed');
   assert.deepEqual((await handle('tag_objects', { key: 'neexistuje' }, vault(), {})).result, []);
+  // §1.6 (D-784): the distinct count All tags shows (R80: 11 tagged objects, D-721), one read.
+  assert.equal((await handle('index_tagged_objects', {}, vault(), {})).result, 11);
 });
 
 test('fake_tags_new_paths_and_usage', async () => {

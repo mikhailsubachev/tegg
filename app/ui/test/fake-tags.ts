@@ -198,6 +198,8 @@ export async function handle(cmd: string, a: any, files: Files, vers: Vers): Pro
   switch (cmd) {
     case 'index_tags': return { result: rows() };
     case 'tag_objects': return { result: objectRows(files, String(a.key ?? ''), d) };
+    // §1.6 (D-784): distinct indexed objects with any occurrence (All tags' `<m> tagged objects`, D-721).
+    case 'index_tagged_objects': return { result: objectsOf(files, d).filter((o) => o.occ.length > 0).length };
     // Fake-internal (AP-684, D-746): the paths whose tag keys (frontmatter and inline, NFC lower case) include every key.
     case 'search_tag_paths': {
       const keys = ((a.keys ?? []) as unknown[]).map((k) => d.tagKey(String(k)) as string);
