@@ -82,7 +82,8 @@ test('fr_mmp_02_ac9_checklist_boxes_are_read_only_and_numbers_not_drawn', async 
   await must(box, 'the drawn box of Mléko');
   assert.equal(await box.getAttribute('aria-hidden') ?? await box.evaluate((x) => x.closest('[aria-hidden="true"]') ? 'true' : null), 'true', 'the box is aria-hidden (AP-731)');
   await box.click();
-  assert.equal(await viewWhen(fig, 'list'), 'list', 'a click on the box is a node click');
+  assert.equal(await viewOf(fig), 'map', 'a click on the box is a node click: it focuses the node (slice MM2, D-788)');
+  assert.equal(await (await needNode(fig, 'Mléko')).evaluate((el) => el === document.activeElement), true, 'Mléko focused');
   await sleep(1200);
   assert.deepEqual(await writes(core), [], 'never toggles, writes nothing');
   await openMm(page, MM.postup);
@@ -107,7 +108,8 @@ test('fr_mmp_02_ac10_link_chip_opens_the_note_without_switching', async ({ page 
   const bb = (await n.boundingBox())!;
   const chip = (await n.getByRole('link').first().boundingBox())!;
   await page.mouse.click(Math.min(bb.x + bb.width - 2, chip.x + chip.width + 3), bb.y + bb.height - 2);
-  assert.equal(await viewWhen(f2, 'list'), 'list', 'elsewhere on the node: List (AC-5)');
+  assert.equal(await viewOf(f2), 'map', 'elsewhere on the node: the node click focuses it (slice MM2, D-788)');
+  assert.equal(await n.evaluate((el) => el === document.activeElement), true, 'Lisabon focused');
 });
 
 test('fr_mmp_02_ac10_tag_date_broken_and_task_chips_in_uzly', async ({ page }) => {
