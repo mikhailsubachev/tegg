@@ -2,7 +2,7 @@
 
 See [README](README.md) for conventions. Milestone MS5 (BRD §11.2: FR-MMP-01, -02 list editing + map, -04), slice **MM**, built in the daily-use order (`docs/plans/mvp-daily-use-plan.md`; D-377). Plan and decisions: `docs/plans/mm-mindmap-as-list.md`, **D-679…D-687** (BRD v1.84). A mindmap is an Obsidian callout of type `mindmap` holding one Markdown list; the list is edited as an ordinary list, and Tegg draws it as a left-to-right map. No Mermaid. Design reference: the Main board (`design/edit-note-page/Main.dc.html`, section "Mindmap block") for the node look, the connectors and the framed block with a header; the board predates D-684, so its `Visual` / `Source` toggle, zoom, full-screen, collapse badge, shortcut legend and "saved as Mermaid" text don't apply.
 
-**Status: approved, 2026-10-25.** Writing these criteria raised AP-726…AP-740 (end of this file); the owner accepted every recommendation (D-765…D-779, BRD v1.95). A criterion naming an AP follows that decision.
+**Status: approved, 2026-10-25.** Writing these criteria raised AP-726…AP-740 (end of this file); the owner accepted every recommendation (D-765…D-779, BRD v1.95). A criterion naming an AP follows that decision. **Slice MM2** (editing on the map, the `right` / `spider` layouts; D-785…D-792) is the second part of this file, drafted 2026-10-26.
 
 **Scope.** FR-MMP-01 (insert, wrap, unwrap), FR-MMP-02 (the MVP part, D-684: `Map` / `List`, the drawing, D-681…D-684), FR-MMP-04 (template), FR-FMT-05 (format and parser, D-679, D-680), and the MM parts of FR-FMT-07, FR-SYN-06, FR-LNK-01, FR-LNK-03, FR-UX-03, FR-UX-05 and NFR-OTH-02. **Out of scope (v1.0, D-687):** editing on the map, drag to re-parent, collapse, zoom and pan (FR-MMP-02's v1.0 part), node → object (FR-MMP-03's conversion part; see AP-739 for what the MVP does instead), export as an image (FR-MMP-05, FR-EXP-03), a `Convert to mindmap list` action for Mermaid fences (D-679), templates beyond the verbatim file (FR-TPL).
 
@@ -262,3 +262,163 @@ Numbering continues after AP-725 (v0.68 feedback); AP-686…AP-706 are the open 
 | AP-738 → D-777 | **Test layers of the layout and the frame budget.** D-683 says the layout is "tested at L4", but L4 is integration on a real filesystem (test-strategy §4) and the layout is UI code; "within one frame" isn't defined as a measurement. | The layout is a pure function tested at L1 against R92's golden values with the Measurer; L5 checks the rendered boxes against it; the 500-node budget is the layout's p95 over 20 runs ≤ 16.7 ms (one 60 Hz frame, no D-59 factor, D-66), reported at L5 on every push and at L6 on the reference machine, report-only until MS8 (D-152). | (b) Enforce the budget from MS5. | FR-MMP-02 AC-11, AC-14 |
 | AP-739 → D-778 | **Block → object inside a mindmap.** conversion.md AP-420 extends a selection inside a callout to the whole callout, so `Turn into object` with the caret in a mindmap item would convert the whole mindmap; D-687 keeps node → object for v1.0. | In a mindmap's list, `Turn into object` (toolbar, slash, ⇧⌘T) is `aria-disabled` with `Coming in v1.0`; the block menu's `Turn into object` on the whole mindmap block works as for any callout. | (b) Allow item conversion now (FR-MMP-03 early: the item becomes `![[Title]]`, a chip on the map). | FR-MMP-02 AC-19 |
 | AP-740 → D-779 | **Two departures from the plan's §4 lists.** The plan lists `Bloky.md` among the fixtures that change; adding a mindmap callout there would also change read-view FR-EDT-02 AC-3 (six callouts) and AC-13. And four more AC tests than §4 names depend on the old `mindmap` kind (the *new* rows above). | Keep `Bloky.md`'s bytes (its Mermaid fences become the "Mermaid shows as code" check; mindmap rendering is tested on the new `mindmap/` fixture) and approve the full list of test changes above in one `AC-Test-Change` approval. | (b) Add a `[!mindmap]` callout to `Bloky.md` and change read-view AC-3 and AC-13 with it. | "What changes" tables |
+
+---
+
+# Slice MM2: editing on the map and two layouts (D-785…D-792)
+
+**Status: drafted 2026-10-26 from the owner's decisions D-785…D-792 (AP-741…AP-748, `docs/plans/mm2-map-editing-and-layouts.md`, board `MindmapLayouts` as redrawn that day; BRD v1.99).** Writing these criteria raised AP-749…AP-751 (end of this section), each with a recommendation; a criterion naming one follows the recommendation until the owner decides otherwise.
+
+**Scope.** FR-MMP-02's MM2 part: keyboard editing on the map (D-786…D-788), the `right` and `spider` layouts (D-789, D-790), the layout stored as callout metadata (D-791) and the switch (D-792); FR-FMT-05 (metadata), and the MM2 parts of FR-FMT-07, FR-SYN-06, FR-UX-03, FR-UX-05, NFR-OTH-02, NFR-POR-01 and NFR-PERF. **Out of scope (v1.0, D-785):** drag to re-parent, collapse, zoom and pan, node → object, export, full screen, `[[` and `#` autocomplete and the floating toolbar on the map, the checklist toggle on the map, a vault-wide default layout.
+
+**Interfaces.** The MM contract (`docs/contracts/mm-mindmap.md`) gains §6: `MindmapTree.layout` and `meta`, `layoutMindmap(tree, measure, { layout })` with a `side` per node, the editor commands for the map edits and the layout switch, and the `MindmapCtl` hooks; named by the red-test author before the red tests (D-61). Test layers, clock, window and fixture are those of slice MM above; the fixture gains Pavouk, Neznámé metadata and Metadata (README).
+
+**Shared definitions (added).**
+- **Layout** = `right` or `spider` (D-789). **Side** of a node in `spider`: `right` or `left` for every node under a first-level branch, by the branch's position; the root has no side.
+- **Focused node** = the `treeitem` that holds the tree's roving focus (D-770). **Editing** = the node's text field is open (R95).
+- **Layout switch** = the header's `radiogroup` `Mindmap layout` (R97).
+
+## Reference tables
+
+### R95. Keys and pointer on the map (D-786…D-788, D-790; replaces the ⏎ / Space / click rows of D-770)
+
+The map must be in the editor (not the read view, not a read-only note) for every row but navigation. Every edit is the list edit the List view would make (D-786): the bytes of R93 and R98, the rewrite rule D-766, one undo step, ⌘Z / ⇧⌘Z with the map focused. After an edit the map stays in Map, re-laid out at once, with the focus on the edited node (on the node named in "Focus after").
+
+| Key / pointer | On a focused node | Writes | Focus after |
+| --- | --- | --- | --- |
+| ↑ ↓ Home End | outline order, first / last node (D-770) | nothing | the reached node |
+| ← → in `right` | parent / first child (D-770) | nothing | the reached node |
+| ← → in `spider` | right side: → first child, ← parent; left side: ← first child, → parent; root: → first right-side branch, ← first left-side branch; no node that way: nothing (D-790) | nothing | the reached node |
+| ⏎ | a new empty sibling after the node, editing; root item: a new first child, editing; synthesized root: a new top-level item at the end, editing | nothing until a character is committed (R98 W15…W15b) | the new node |
+| Tab | a new empty child at the end of the node's children, editing | nothing until committed (W16) | the new node |
+| Space, F2 | editing the node's text (the field of R95a); synthesized root: nothing | nothing until committed | the node |
+| ⌫, Delete | a node without children: removed (W18); a node with children, the root, the synthesized root: nothing | W18 | the previous sibling, else the parent |
+| ⌥↑, ⌥↓ | the node and its subtree move one place among its siblings; first / last: nothing | W19 | the node |
+| ⌥→ | the node and its subtree become the last child of the previous sibling; first child: nothing | W20 | the node |
+| ⌥← | the node and its subtree become the sibling after its parent; first-level node, root: nothing | W21 | the node |
+| ⌘↩ | opens the node's first link (D-770) | nothing | — |
+| ⌘Z, ⇧⌘Z | undo / redo the last edit, map stays in Map | the inverse bytes | the node of the undone edit |
+| Esc | editing: cancels (R95a); else: nothing | nothing | the node |
+| click | focuses the node (no view change; AP-750: `List` afterwards puts the caret at the end of that item) | nothing | the node |
+| double-click | editing the node's text | nothing until committed | the node |
+| click on a chip | opens its link (D-770) | nothing | — |
+| checklist box | drawn, read-only, a click is a node click (D-770) | nothing | the node |
+
+**R95a. The text field (D-788).** A single-line `textbox` `Edit node` inside the node, holding the item's first paragraph's **Markdown source** (the line's bytes after the list marker and before the first line break; `[[Lisabon]]`, `#cestování`, `**Tučně**` as written; NFC); the caret at the end; the node keeps its tone and box, the width growing with the text to R92's 200 px, then wrapping as the node does. ⏎ commits; Esc cancels and keeps the old text (nothing written); Tab commits and adds a child (the Tab row); ⇧Tab commits; a click outside the field commits; leaving the note commits. A committed text equal to the old text writes nothing. An item with more than its first paragraph (`more`, D-774) edits its first paragraph only; its other paragraphs, nested lists and `more` marker are unchanged. A new node (⏎, Tab) committed empty, or cancelled, is removed again and nothing is written (AP-751). No autocomplete, toolbar, date mention or slash menu opens in the field; `[[`, `#`, `/` are typed as text.
+
+### R96. The `spider` layout (D-789, D-790; board `MindmapLayouts` B)
+
+Everything of R92 (box, wrap, tones, connector style) holds. Differences:
+
+- **Sides:** the root's children (with a synthesized root: the top-level items) take sides in outline order: the 1st, 3rd, 5th… `right`, the 2nd, 4th… `left`. Every descendant takes its branch's side. Tones stay R92's (by position in outline order, whatever the side).
+- **Right side:** laid out as R92 (columns to the right of the root, stacked from y = 0).
+- **Left side:** the mirror image: column d's **right edge** is at x; a node's x = right edge − its width; x(left d1 right edge) = (widest left depth-2 node) + 60 + (widest left depth-1 node), and so on outwards, the outermost left column's right edge being its widest node's width; the root's x = (left d1 right edge) + 60. Stacked from y = 0 by R92's row rules.
+- **Vertical centring:** H = max(right height, left height); the taller side starts at y = 0, the other side is shifted down by (H − its height) / 2; the root's y = (H − root height) / 2. Width = root x + root width + 60 + the right columns (as R92), or root x + root width when there is no right side.
+- **Connectors:** right side as R92. Left side mirrored: from the parent's **left** edge at its centre, horizontally to (child column's right edge + 30), vertically to the child's centre, then horizontally to the child's **right** edge; the root's left-side connectors leave its left edge. Points are the four of R92 even when the vertical segment has zero length.
+- **Golden values** with the Measurer (L1), boxes as (x, y, width, height):
+  - **Pavouk** (`spider`): Střed (216, 40, 55, 32); Alfa (331, 20, 48, 32) `right` `blue`; A1 (439, 0, 48, 32); A2 (439, 40, 48, 32); Beta (108, 20, 48, 32) `left` `orange`; B1 (0, 20, 48, 32); Gama (331, 80, 48, 32) `right` `purple`; Delta (108, 60, 48, 32) `left` `teal`. Layout 487 × 112. Connectors: Střed → Alfa (271, 56) → (301, 56) → (301, 36) → (331, 36); Střed → Gama ends (331, 96); Alfa → A1 (379, 36) → (409, 36) → (409, 16) → (439, 16); Střed → Beta (216, 56) → (186, 56) → (186, 36) → (156, 36); Střed → Delta ends (156, 76); Beta → B1 (108, 36) → (78, 36) → (78, 36) → (48, 36).
+  - **Pavouk** laid out as `right` (the switch, AC-27): Střed (0, 90, 55, 32); Alfa (115, 20, 48, 32); A1 (223, 0, 48, 32); A2 (223, 40, 48, 32); Beta (115, 80, 48, 32); B1 (223, 80, 48, 32); Gama (115, 120, 48, 32); Delta (115, 160, 48, 32). Layout 271 × 192.
+  - **Strom** laid out as `spider`: Kořen (216, 40, 55, 32); Alfa (331, 20, 48, 32) `right`; A1 (439, 0, 48, 32); A2 (439, 40, 48, 32); Beta (108, 40, 48, 32) `left`; B1 (0, 40, 48, 32); Gama (331, 80, 48, 32) `right`. Layout 487 × 112 (right height 112, left height 32 shifted down by 40). Connector Kořen → Beta: (216, 56) → (186, 56) → (186, 56) → (156, 56).
+
+### R97. The switch, commands and strings (D-792; NFR-OTH-02, FR-UX-03)
+
+| Element | Role | Accessible name / content |
+| --- | --- | --- |
+| Layout switch | `radiogroup` `Mindmap layout`, in the header left of the view switch, in Map and List; absent in the read view and in a read-only note | two `radio`s: `Branches to the right` (`data-layout="right"`) and `Spider: branches on both sides` (`data-layout="spider"`), icon-only with those names as tooltips; `aria-checked` on the stored layout; one Tab stop with ← / → moving the check (a move switches, R98 W12) |
+| Figure | `figure` | gains `data-layout="right" \| "spider"` |
+| Node | `treeitem` | gains `data-side="left" \| "right"` (none on the root); while editing, holds the `textbox` `Edit node` (R95a) |
+| Commands (R4, section `edit`, `needsVault: true`, no shortcut) | | `Mindmap layout: right` (`mindmap.layoutRight`), `Mindmap layout: spider` (`mindmap.layoutSpider`): act on the mindmap block that holds the caret or the focus; elsewhere not run, no error. The radios carry these `data-command`s |
+| Catalog keys (English text) | | `mindmap.layout` `Mindmap layout` · `mindmap.layout.right` `Branches to the right` · `mindmap.layout.spider` `Spider: branches on both sides` · `mindmap.editNode` `Edit node` · `cmd.mindmap.layoutRight` `Mindmap layout: right` · `cmd.mindmap.layoutSpider` `Mindmap layout: spider`. Final key names are the contract's |
+
+### R98. What is written (FR-FMT-07, FR-SYN-06; D-786…D-788, D-791)
+
+As R93: block = the top-level block's source range; every byte outside it unchanged; the frontmatter changes only in `modified`. Výjezd's block lines are numbered 1 (the title line) to 8 (`>   - Doprava`).
+
+| # | Action | Before | After |
+| --- | --- | --- | --- |
+| W12 | Výjezd, `Spider` chosen | line 1 `> [!mindmap] Výjezd 2026` | `> [!mindmap\|spider] Výjezd 2026`; lines 2–8 unchanged |
+| W12a | Pavouk, `Branches to the right` chosen | `> [!mindmap\|spider] Pavouk` | `> [!mindmap] Pavouk` (no trailing space) |
+| W12b | Neznámé metadata, `Spider` chosen | `> [!mindmap\|foo] Cizí` | `> [!mindmap\|spider] Cizí` |
+| W12c | Složené (1), `Spider` chosen | `> [!mindmap]- Složená mapa` | `> [!mindmap\|spider]- Složená mapa` (fold marker kept) |
+| W12d | Metadata (2), `Branches to the right` chosen | `> [!Mindmap\|SPIDER]+ Velká písmena` | `> [!Mindmap]+ Velká písmena` (type spelling and fold marker kept) |
+| W13 | Výjezd, `Spider` chosen then `Branches to the right` | line 1 | `> [!mindmap] Výjezd 2026` (byte-identical to the original) |
+| W14 | Metadata (1), ` navíc` typed at the end of its paragraph in the editor | `> [!note\|wide] Poznámka\n> Odstavec v calloutu.` | `> [!note\|wide] Poznámka\n> Odstavec v calloutu. navíc` |
+| W15 | Výjezd Map, `Doprava` focused, ⏎, `Ubytování`, ⏎ | lines 1–8 | line 9 `>   - Ubytování` added; lines 1–8 unchanged |
+| W15a | Výjezd Map, the root `Výjezd 2026` focused, ⏎, `Nocleh`, ⏎ | | `>   - Nocleh` inserted as the new line 3 (before `Program`) |
+| W15b | Více kořenů Map, the synthesized root focused, ⏎, `Spánek`, ⏎ | | `> - Spánek` added after `> - Zdraví` |
+| W16 | Výjezd Map, `Doprava` focused, Tab, `Vlak`, ⏎ | | `>     - Vlak` added after line 8 |
+| W17 | Výjezd Map, `Plán 2027` focused, Space, ` v2`, ⏎ | line 5 `>     - Plán 2027` | `>     - Plán 2027 v2` |
+| W17a | Výjezd Map, `Lisabon` focused, Space (the field shows `[[Lisabon]]`), ` město` typed, ⏎ | line 7 `>     - [[Lisabon]]` | `>     - [[Lisabon]] město` |
+| W18 | Výjezd Map, `Plán 2027` focused, ⌫ | line 5 | line 5 removed; `Program` keeps `Přehled Q4` |
+| W19 | Výjezd Map, `Program` focused, ⌥↓ | lines 3–8 | `>   - Místo`, `>     - [[Lisabon]]`, `>   - Program`, `>     - Přehled Q4`, `>     - Plán 2027`, `>   - Doprava` |
+| W20 | Výjezd Map, `Místo` focused, ⌥→ | lines 6–7 | `>     - Místo`, `>       - [[Lisabon]]` after line 5 (the last child of `Program`) |
+| W21 | Výjezd Map, `Přehled Q4` focused, ⌥← | lines 4–8 | `>     - Plán 2027`, `>   - Přehled Q4`, `>   - Místo`, `>     - [[Lisabon]]`, `>   - Doprava` (after `Program`'s subtree) |
+| W22 | Uzly Map, the item with a second paragraph focused, Space, ` x` typed, ⏎ | its first paragraph line | only that line gains ` x`; the blank `>` line and the second paragraph are unchanged |
+
+## Criteria
+
+### FR-FMT-05 Callout metadata (D-791; adds to AC-4…AC-6)
+
+- **AC-7** [MM2] **Metadata is read for the layout and preserved for every callout (T2).** `@tegg/doc` `parse` returns `mindmap` for Pavouk (`layout: 'spider'`, `meta: 'spider'`), Neznámé metadata (`layout: 'right'`, `meta: 'foo'`), Metadata (2) (`layout: 'spider'`, `meta: 'SPIDER'`; the type `Mindmap` and the fold `+` as in R90) and `callout` for Metadata (1) (type `note`, its metadata kept in `raw`); Výjezd has `layout: 'right'`, `meta: null`. The editor and the read view draw Pavouk and Metadata (2) in `spider` and Neznámé metadata in `right`; Metadata (1) is an ordinary note callout titled `Poznámka` with no visible metadata. `[!mindmap|spider]` with a body that is not one list is a hint callout (R90). *(L1; L5)*
+
+### FR-MMP-02 Editing on the map and the layouts (D-786…D-792; adds to AC-1…AC-22)
+
+- **AC-23** **Keys edit the list (R95, R98; T1).** In Výjezd's Map, each of W15, W15a, W16, W17, W17a, W18, W19, W20 and W21, done from a fresh copy of the fixture, saves exactly its "After" bytes, every other byte of the file except `modified` unchanged; W15b on Více kořenů and W22 on Uzly likewise. After each, `data-view` is still `map`, the layout is recomputed (`__TEGG_MINDMAP_LAYOUTS__` grew) and the focus is on the node R95 names (W15: `Ubytování`; W18: `Přehled Q4`; W19: `Program`). ⌫ on `Program`, on the root, on Více kořenů's synthesized root, ⌥↑ on `Program`, ⌥→ on `Program` (first child) and ⌥← on `Program` (first-level) change nothing and write nothing. *(L1 for the commands on the editor; L5)*
+- **AC-24** **The text field (R95a).** Space on `Plán 2027` in Výjezd's Map opens the `textbox` `Edit node` inside that node with the value `Plán 2027` and the caret at its end; Esc closes it with the node text and the file unchanged (zero `note_write` after the autosave delay); F2 and a double-click open the same field. On `Lisabon` the value is `[[Lisabon]]`; on Uzly's `Tučně` item the value is its source line as written in the fixture (`**Tučně**, ` + backtick-`kód`-backtick + ` a ==zvýraznění==`); on Nákup's `Mléko` it is `Mléko` (the `[x] ` box is not part of the text). Typing `[[`, `#` or `/` into the field shows no popup. Committing an unchanged value writes nothing. On Více kořenů's synthesized root Space does nothing. *(L5)*
+- **AC-25** **New nodes (R95, R95a; AP-751).** ⏎ on `Doprava` shows a new empty `treeitem` after it, editing, before any write; Esc removes it again and nothing is written; ⏎ committing it empty also removes it; typing `Ubytování` then ⏎ is W15. Tab on `Doprava` adds the child as the last child; on `Program` (two children) the new child comes after `Plán 2027`. The new node's tone is its position's (a new first-level node of Výjezd after `Doprava` is `teal`). *(L5)*
+- **AC-26** **One undo step each, map stays (D-786).** Each of W12, W15, W16, W17, W18, W19, W20 and W21 is one undo step: ⌘Z with the map focused restores the block's previous bytes and the focus returns to the edited node; ⇧⌘Z re-applies it; `data-view` stays `map` throughout. Opening and cancelling the field (AC-24) is not an undo step. *(L1; L5 for W15 and W19)*
+- **AC-27** **Two layouts, deterministic (R96; D-789).** With the Measurer, `layoutMindmap` of Pavouk with `spider` equals R96's boxes, sides, tones and connector points exactly, Pavouk with `right` and Strom with `spider` likewise; the same tree twice gives deep-equal results; `right` of every slice-MM fixture note is unchanged from AC-11. In the app each rendered box of Pavouk is within ±1 px of the layout with the real measurer; left-side connectors leave the parent's left edge. *(L1; L5)*
+- **AC-28** **Spider navigation (R95; D-790).** In Pavouk's Map (focus on `Střed`): → reaches `Alfa`, → `A1`, ← back to `Alfa`, ← `Střed`, ← `Beta`, ← `B1`, → `Beta`, → `Střed`; ↓ from `Střed` goes `Alfa`, `A1`, `A2`, `Beta`, `B1`, `Gama`, `Delta` (outline order, crossing sides); End reaches `Delta`, Home `Střed`. On `Gama` (right, a leaf) → does nothing; on `Delta` (left, a leaf) ← does nothing. After W12 on Výjezd, `Program` and `Doprava` are `right`, `Místo` is `left`, and → on `Místo` reaches `Výjezd 2026`. ⏎ on `Delta` adds a sibling that lands `right` (the 5th branch). *(L5)*
+- **AC-29** **The switch writes one line (R97, R98; D-791, D-792; T1).** Pavouk's header shows the `radiogroup` `Mindmap layout` with `Spider: branches on both sides` checked; Výjezd's shows `Branches to the right` checked. Choosing the other radio (click, or ← / → with the group focused, or the palette commands) saves W12, W12a, W12b, W12c, W12d respectively, each as one undo step, and redraws the block in the chosen layout at once in Map and in List (the live map). W13 restores the original first line byte for byte. On Neznámé metadata the group shows `Branches to the right` checked and the file is untouched until the choice. The switch is present in Map and in List, absent in the read view (which draws Pavouk in `spider`) and in a read-only note; the embedded Výjezd in Vložení shows it and W12 there changes `Pages/Výjezd 2026.md` only. Choosing the already checked radio writes nothing. *(L5)*
+- **AC-30** **Wide spider maps and 500 nodes (D-683, D-777).** The runtime `Široká mapa` in `spider` (the first branch right, the chain of nested items) scrolls inside the block as AC-13 says; the runtime `Velká mapa` in `spider` meets AC-14's layout budget (p95 of 20 runs ≤ 16.7 ms, `mindmap-layout`, report-only until MS8) and the note-ready budget. *(L5; L6 for the reference machine)*
+- **AC-31** **Read view and read-only notes (D-786).** In the read view of Pavouk and Výjezd the tree is navigation only: ⏎, Space, F2, Tab, ⌫, the ⌥ keys and a double-click change nothing, write nothing and open no field; ⌘↩ still opens the first link; there is no layout switch and no `Edit node` field. The same holds for the mindmap of a note shown read-only. *(L5)*
+
+### FR-FMT-07 Round-trip with metadata (slice MM2)
+
+- **AC-25** [MM2] **Metadata never rewrites (T1).** Pavouk, Neznámé metadata and Metadata parsed and serialized without edits are byte-identical; opened in the editor in both views and in the read view, with the layout switch untouched, ten navigation keys and an opened-then-cancelled field, they stay byte-identical (zero `note_write`). W14 keeps `[!note|wide]` as written. The property criterion of AC-24 (random mindmaps) extends to a random metadata token (`spider`, `right`, `foo`, empty `|`, `SPIDER`) on the callout line: parse → serialize is identity, and a layout switch changes only the callout line. *(L1; L2; L5)*
+
+### FR-SYN-06 No writes but the user's (slice MM2)
+
+- **AC-34** [MM2] **Browsing and navigating the map writes nothing.** On the built app with a copy of the fixture: open Pavouk, Neznámé metadata and Metadata; in each mindmap block move through every node with ↓, → and ←, open the field with Space and cancel with Esc, switch to List and back; every file's bytes, mtime and inode are unchanged and no write reaches the vault. *(L6)*
+
+### FR-UX-03 Map editing by keyboard and palette (adds to AC-15)
+
+- **AC-16** [MM2] **Reachable by keyboard and palette (R97; D-787, D-792).** Tab reaches, in order, the layout switch (one stop), `Map`, `List` and the tree. The palette lists `Mindmap layout: right` and `Mindmap layout: spider` on a note route; with the caret in Výjezd's block or its tree focused they do W12 / W13; with the caret outside any mindmap they aren't run and show no error. app-shell FR-UX-03 AC-8 passes on Pavouk (the radios carry the commands). A keyboard-only run (no pointer events) opens Prázdná, inserts a mindmap with `/mindmap` ⏎, types `Kořen`, switches to Map with the palette, presses Tab, types `Větev`, ⏎, then ⏎, types `Druhá`, ⏎, then Tab to the layout switch and → ; the saved block is `> [!mindmap|spider]\n> - Kořen\n>   - Větev\n>   - Druhá`. *(L5)*
+
+### FR-UX-05 Themes (adds to AC-10)
+
+- **AC-11** [MM2] **The field and the switch in both themes.** In light and dark, the `Edit node` field has the node's background and text colour (R92 tones) with a 2 px `accent` focus ring; the checked radio uses `accent` on `bg`, the unchecked `muted`; the contrast rules of AC-10 hold for both; the left-side connectors use `muted` like the right ones. *(L5)*
+
+### NFR-OTH-02 Strings (adds to AC-7)
+
+- **AC-8** [MM2] **Catalog only.** Every R97 text is a catalog key; with the pseudo-locale every visible text and accessible name of the switch, the field and the two commands is pseudo-localized; node text stays user content. *(L1; L5)*
+
+### NFR-POR-01 Obsidian (adds to AC-1)
+
+- **AC-2** [MM2, manual] **Metadata in Obsidian (D-791).** The regenerated `obsidian-check` vault gains a note with `> [!mindmap|spider] Pavouk` and the Pavouk list: Obsidian shows it as the callout of D-686 with the list, no error and no visible `spider`; the file is unchanged after opening. Recorded in `qa/manual/`. *(manual, owner)*
+
+## What changes in earlier criteria, tests and fixtures (MM2)
+
+Made in slice MM2's red-test commit; test changes carry `AC-Test-Change: slice MM2, keyboard editing on the map and the right / spider layouts (D-785…D-792); approved-by: owner`, fixture changes `Fixture-Change:` (TS-D4).
+
+| Criterion / test | Change | Reason |
+| --- | --- | --- |
+| FR-MMP-02 AC-5 (`app/webkit/mindmap_block.ac.test.ts`) | "a node click goes to List" becomes: a click on `Program` focuses it, `data-view` stays `map`, nothing is written; `List` pressed afterwards puts the caret at the end of `Program` (AP-750); typing ` a cíle` there saves `>   - Program a cíle` as before | D-788 |
+| FR-MMP-02 AC-15 (`mindmap_misc.ac.test.ts` / `mindmap_block.ac.test.ts`) | ⏎ or Space on `Program` opens the field (AC-24) instead of switching; Tab reaches the layout switch first (FR-UX-03 AC-16) | D-787, D-792 |
+| FR-MMP-02 AC-6 | unchanged: `List` still puts the caret at the end of the root item when no node is focused | — |
+| FR-MMP-02 AC-3 | unchanged: the empty-state button still switches to List (AP-749) | — |
+| FR-UX-03 AC-15 | the keyboard-only run's "returns to List with ⏎" becomes "returns to List with the palette" | D-787 |
+| D-776's caret rule | the caret follows the focused node when `List` is pressed, not a click | D-788, AP-750 |
+| R90 / FR-FMT-05 AC-4 | the type is matched before `\|`; three recognition rows added (Pavouk, Neznámé metadata, Metadata) | D-791 |
+| `tests/fixtures/vaults/mindmap/` | Pavouk, Neznámé metadata, Metadata added (README) | D-789, D-791 |
+| `tests/fixtures/vaults/obsidian-check/` and `packages/doc/scripts/make-obsidian-check.ts` | a `[!mindmap\|spider]` note for the owner's recheck | NFR-POR-01 AC-2 |
+
+## Points raised by these criteria (AP-749…AP-751)
+
+Numbering continues after AP-748 (slice MM2 decisions). Next free AP after this list: AP-752.
+
+| # | Issue | Recommendation | Alternatives | Affects |
+| --- | --- | --- | --- | --- |
+| AP-749 | **The empty state on the map.** D-787 lets ⏎ create nodes on the map, but the empty state (D-681, AC-3) is a button that switches to List. With map editing, the user may expect to type the central topic on the map. | Keep AC-3: the button switches to List with the caret in the empty item (the empty state is one item, where the list is the simpler place to type), no new criterion. | (b) The button opens the field on a drawn empty root; W1-style bytes on commit. | FR-MMP-02 AC-3 |
+| AP-750 | **Where `List` puts the caret once a click no longer switches.** D-776 tied the caret to the node click; D-788 removes that. | `List` (button or palette) with a focused node puts the caret at the end of that node's item; with no focused node, at the end of the root item (AC-6). | (b) Always the root item (the focused node is lost). | FR-MMP-02 AC-5, AC-6, R95 |
+| AP-751 | **An empty new node.** D-787 creates the node before any text; D-788 says Esc cancels. Not said: what a committed empty node does, and whether anything is written before the commit. | Nothing is written while the field is open; Esc, and ⏎ on an empty value, remove the new node again (AC-22's rule that an empty item is never saved); only a non-empty commit writes. | (b) A committed empty node stays as `> - ` and is written. | FR-MMP-02 AC-25, R95a |
