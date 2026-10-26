@@ -72,4 +72,16 @@ write(
     newId,
   }),
 )
+// NFR-POR-01 AC-2 (slice MM2, D-791): the layout is Obsidian callout metadata, `[!mindmap|spider]`; Obsidian shows the
+// callout as before and ignores the metadata.
+write(
+  'Pages/Pavouk.md',
+  newNote({
+    type: 'Page',
+    title: 'Pavouk',
+    body: ['> [!mindmap|spider] Pavouk', '> - Střed', '>   - Alfa', '>     - A1', '>     - A2', '>   - Beta', '>     - B1', '>   - Gama', '>   - Delta'].join('\n'),
+    now,
+    newId,
+  }),
+)
 console.log(`wrote ${out}`)

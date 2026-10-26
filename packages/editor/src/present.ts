@@ -57,8 +57,8 @@ export type MindmapHandle = {
   focusTree(): void
   destroy(): void
   focusedNode?(): number[] | null | undefined
-  /** Slice MM2 (§6.6): after `destroy()` (a document redraw), moves the live map into a re-created block's container and keeps it alive. */
-  adopt?(dom: HTMLElement): void
+  /** Slice MM2 (§6.7): after `destroy()` (a document redraw), moves the live map into a re-created block's container and keeps it alive; false when the map is still live or already unmounted. */
+  adopt?(dom: HTMLElement): boolean
 }
 
 export interface EditorUi {
@@ -676,10 +676,9 @@ class CalloutView implements NodeView {
         redo: () => redo(pm.state, pm.dispatch),
       } : null,
     }
-    if (adopted) {
+    if (adopted && adopted.handle!.adopt!(this.mapBox)) {
       const handle = adopted.handle!
       adopted.handle = null
-      handle.adopt!(this.mapBox)
       this.handle = handle
       this.mapFocused = adopted.mapFocused
       // The old DOM was detached (the focus went with it); the new one is attached by PM in this same task, so the
@@ -764,6 +763,7 @@ class CalloutView implements NodeView {
   }
   /** D-776: a node click switches to List with the caret at the end of that item (`null`: the synthesized root, D-771). */
   private toItem(path: number[] | null, _focus = true) {
+    if (path !== null && path.length === 0) path = null // §6.7: `[]` is the synthesized root
     if (this.view !== 'list') {
       this.view = 'list'
       this.ui.mindmapState?.set(String(this.index()), 'list')
@@ -906,7 +906,8 @@ class CalloutView implements NodeView {
     if (at === null) {
       // The synthesized root: a new top-level item at the end.
       this.applied(this.pm.state.tr.insert(top.pos + 1 + top.n.content.size, item))
-      return [top.n.childCount - 0]
+      // `top.n` is the list before the insert: its old count is the new item's index.
+      return [top.n.childCount]
     }
     const loc = this.locate(at)
     if (!loc) return null
@@ -942,6 +943,7 @@ class CalloutView implements NodeView {
     else tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
     this.applied(tr)
     const i = path[path.length - 1]
+    // §6.7: `[]` is the synthesized root (the first top-level item had no previous sibling).
     return i > 0 ? [...path.slice(0, -1), i - 1] : path.slice(0, -1)
   }
   /** W19…W21: among the siblings, under the previous sibling, after the parent; null when impossible. */
@@ -1014,6 +1016,9 @@ class CalloutView implements NodeView {
   }
   destroy() {
     this.handle?.destroy()
+    // A stale registry entry would be adopted by a later block at this index (mm-mindmap §6.7): once the same-task
+    // re-creation (if any) has registered itself, an entry that still names this view is dropped.
+    queueMicrotask(() => { const m = liveMindmaps.get(this.pm); if (m?.get(this.at) === this) m.delete(this.at) })
   }
 }
 

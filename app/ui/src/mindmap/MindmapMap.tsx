@@ -64,7 +64,7 @@ function layoutKey(tree: MindmapTree, chipSuffix?: (target: string) => string | 
   return JSON.stringify([tree, suffixes]);
 }
 
-const idOf = (path: number[] | null) => (path === null ? 'root' : path.join('.'));
+const idOf = (path: number[] | null) => (path === null || path.length === 0 ? 'root' : path.join('.'));
 
 /** The field of R95a, or the pending node of D-795. */
 export type MindmapEditing =
@@ -270,7 +270,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     else if (k === 'Home') go(order[0]);
     else if (k === 'End') go(order[order.length - 1]);
     else if (k === 'Enter' && meta) openLink(e.currentTarget as HTMLElement);
-    else if (!edit) { if (k === 'Enter' || k === ' ' || k === 'F2' || k === 'Backspace' || k === 'Delete' || k === 'Tab' && false) { /* navigation only (D-786) */ } else return; }
+    else if (!edit) { if (k === 'Enter' || k === ' ' || k === 'F2' || k === 'Backspace' || k === 'Delete') { /* navigation only (D-786): swallowed, nothing happens */ } else return; }
     else if (k === 'z' && meta) {
       if (e.shiftKey) { if (edit.redo() && stepAt.current < steps.current.length) goPath(steps.current[stepAt.current++].after); else moved.current = true; }
       else if (edit.undo() && stepAt.current > 0) goPath(steps.current[--stepAt.current].before); else moved.current = true;

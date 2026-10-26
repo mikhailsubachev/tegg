@@ -68,10 +68,13 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
       (box.querySelector<HTMLElement>('[data-node-editor]') ?? box.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]'))?.focus();
     },
     adopt(target) {
-      // mm-mindmap §6.6: a re-created block takes this live map over; the unmount scheduled by `destroy` is dropped.
+      // mm-mindmap §6.7: a re-created block takes this map over only between `destroy()` and the unmount it scheduled
+      // (the same task); a map that is still live, or whose root is already unmounted, is never adopted.
+      if (!unmountPending) return false;
       unmountPending = false;
       alive = true;
       target.appendChild(box);
+      return true;
     },
     focusedNode() {
       return focusedPath;
