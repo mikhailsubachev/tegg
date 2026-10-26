@@ -61,6 +61,8 @@ export const ipc = {
   tags: () => invoke<TagRowDto[]>('index_tags'),
   // 4D-lite (ms4-tags §3, §4.4, §5.2).
   tagObjects: (key: string) => invoke<TagObjectRowDto[]>('tag_objects', { key }),
+  /** D-784 (ms4-tags §1.6): All tags' `<m> tagged objects` in one read. */
+  taggedObjects: () => invoke<number>('index_tagged_objects'),
   tagUsage: (key: string) => invoke<TagUsageDto>('tag_usage', { key }),
   tagNewPath: (name: string) => invoke<TagNewPathDto>('tag_new_path', { name }),
   tagRename: (from: string, to: string) => invoke<JobStartDto>('tag_rename', { from, to }),

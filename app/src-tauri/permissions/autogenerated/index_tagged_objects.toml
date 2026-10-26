@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-index-tagged-objects"
+description = "Enables the index_tagged_objects command without any pre-configured scope."
+commands.allow = ["index_tagged_objects"]
+
+[[permission]]
+identifier = "deny-index-tagged-objects"
+description = "Denies the index_tagged_objects command without any pre-configured scope."
+commands.deny = ["index_tagged_objects"]

@@ -369,7 +369,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
     'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
-    'tag_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
+    'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -1371,6 +1371,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     // 4D-lite (ms4-tags §3, §8.1): the tag twin in Node (fake-tags.ts); `TagRowDto[]` (was `TagDto[]`).
     index_tags: () => viaTags('index_tags', {}),
     tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
+    index_tagged_objects: () => viaTags('index_tagged_objects', {}), // D-784 (§1.6)
     tag_usage: (a) => viaTags('tag_usage', { key: a.key }),
     tag_new_path: (a) => viaTags('tag_new_path', { name: a.name }),
     tag_rename: (a) => startTagJob('plan_tag_rename', { from: a.from, to: a.to, now: isoLocal(Date.now()) }),

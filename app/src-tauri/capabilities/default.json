@@ -92,6 +92,7 @@
     "allow-trash-delete",
     "allow-trash-empty",
     "allow-tag-objects",
+    "allow-index-tagged-objects",
     "allow-tag-usage",
     "allow-tag-new-path",
     "allow-tag-rename",

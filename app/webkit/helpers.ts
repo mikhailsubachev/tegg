@@ -278,6 +278,7 @@ export const READ_COMMANDS = new Set([
   'inbox_list', 'inbox_count', 'index_versions', 'hotkeys', 'vault_settings', 'shell_settings', // 5B (ms5-capture §5, §7): read-only
   'trash_list', // 6A (ms6-trash-media §4, D-632): read-only
   'tag_objects', // 4D-lite (ms4-tags §3; D-703, AP-685/D-747): the tag page's rows, read-only
+  'index_tagged_objects', // D-784 (ms4-tags §1.6): All tags' summary, read-only
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

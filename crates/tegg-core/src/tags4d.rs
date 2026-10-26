@@ -218,6 +218,12 @@ impl Core {
             .collect()
     }
 
+    /// §1.6 (D-784): distinct indexed objects with an occurrence of any tag, for All tags' `<m> tagged objects` (D-721).
+    /// One read under the index lock; the page used to ask `tag_objects` once per tag (bug v0.74).
+    pub fn tagged_objects(&self) -> usize {
+        lock(&self.shared.index).tagged_objects()
+    }
+
     /// §1.4: counts for the rename and delete dialogs; templates are read from disk (D-714).
     pub fn tag_usage(&self, key: &str) -> TagUsage {
         let key = tegg_format::tag_key(key);

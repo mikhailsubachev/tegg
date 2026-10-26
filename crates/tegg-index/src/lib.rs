@@ -821,6 +821,12 @@ impl Index {
         v
     }
 
+    /// D-784 (ms4-tags §1.6): the number of indexed objects with an occurrence of any tag, without copying them
+    /// (All tags' `<m> tagged objects`, D-721; one read instead of one `tag_objects` per tag).
+    pub fn tagged_objects(&self) -> usize {
+        self.metas.values().filter(|m| !m.s.tags.is_empty()).count()
+    }
+
     // ------------------------------------------------------------ search (FR-SRC-01…04)
 
     fn fts_rowids(&self, query: &str) -> Result<Vec<(i64, f64)>, IndexError> {

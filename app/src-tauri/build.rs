@@ -102,6 +102,7 @@ const COMMANDS: &[&str] = &[
     "capture_media_add",
     // 4D-lite (ms4-tags §3, §4.4, §5.2).
     "tag_objects",
+    "index_tagged_objects",
     "tag_usage",
     "tag_new_path",
     "tag_rename",

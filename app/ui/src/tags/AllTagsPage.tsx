@@ -38,13 +38,11 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
     commandRef.current = f;
     return () => { if (commandRef.current === f) commandRef.current = null; };
   });
-  // `<m> tagged objects`: distinct objects (D-721), from the tags' objects.
+  // `<m> tagged objects`: distinct objects (D-721), one core read (D-784). One `tag_objects` read per tag kept the core
+  // busy for ~50 s on a vault with 802 tags and left every page empty meanwhile (bug v0.74).
   useEffect(() => {
     let live = true;
-    const keys = tags.filter((r) => r.count > 0).map((r) => r.key);
-    void Promise.all(keys.map((k) => ipc.tagObjects(k).catch(() => []))).then((lists) => {
-      if (live) setObjects(new Set(lists.flat().map((o) => o.path.normalize('NFC'))).size);
-    });
+    void ipc.taggedObjects().then((n) => { if (live) setObjects(n); }, () => { if (live) setObjects(0); });
     return () => { live = false; };
   }, [tags]);
   const rows = allTagsRows(tags, sort, find, collator());

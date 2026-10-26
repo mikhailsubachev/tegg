@@ -62,6 +62,10 @@ pub struct TagUsage { pub notes: usize, pub templates: usize, pub file: Option<S
 
 `SearchQuery.tags` already requires every listed key (all must match). No core change; Search's UI adds the filter (§6.4). The route parameter `search/tag:<x>` is no longer produced (FR-SRC-02 AC-12); an old one opens Search with that tag in the filter.
 
+### 1.6 `Core::tagged_objects() -> usize` (D-784)
+
+The number of indexed objects with an occurrence of any tag (no templates, no trash): All tags' `<m> tagged objects` (R81, distinct objects, D-721) in **one read**. Counted over the in-memory index without copying objects. Bug v0.74: the page asked `tag_objects` once per tag (802 reads on the 20,000-note reference vault, each copying every object under the index lock), so every other read queued for about 50 s and the tag page, the Inbox and the counts showed empty.
+
 ## 2. Names and Tag file bytes (`@tegg/doc` `tags.ts`, Rust twin in `tegg-format`)
 
 ```ts
@@ -87,6 +91,7 @@ export function setTagColor(text: string, color: string | null, now: string): st
 | --- | --- | --- | --- |
 | `index_tags` | — | `TagRowDto[]` | §1.2 (was `TagDto[]`; existing callers read `key`, `name` as spelling, `count`). |
 | `tag_objects` | `key` | `TagObjectRowDto[]` | §1.3. Unknown key → `[]` (D-720). |
+| `index_tagged_objects` | — | `number` | §1.6 (D-784): All tags' `<m> tagged objects`, one read; never `tag_objects` per tag. |
 | `tag_usage` | `key` | `TagUsageDto` | §1.4. |
 | `tag_new_path` | `name` | `{ path: string }` | `<Tag folder>/<free_stem(sanitize(name))>.md` (D-51, D-52, ms4-links §3.1; the Tag type's folder, D-719). |
 | `note_create_exact` | (exists) | | `New tag` and a colour for a virtual tag write `tagFile(...)` bytes here, create-exclusive; `NameTaken` → the UI re-reads `index_tags`: the key now exists → open it (FR-TAG-03 AC-4), else ask `tag_new_path` again. |
