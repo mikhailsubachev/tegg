@@ -1,5 +1,5 @@
 // The Search route (D-125): the MS2 full-text search (FR-SRC-01…04) as a page of the frame.
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { t } from '../i18n/catalog';
 import { Search } from '../Search';
 import type { SwitcherItemDto } from '../ipc/types';
@@ -15,10 +15,10 @@ export function SearchPage({ refresh, heading, inputRef, onOpen, onGoTo, onCreat
   onLeave: () => boolean;
   tag?: string;
 }) {
-  // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md), unless a dialog has the focus.
-  useEffect(() => {
-    const id = requestAnimationFrame(() => { if (!document.querySelector('[role="dialog"]')) inputRef.current?.focus({ preventScroll: true }); });
-    return () => cancelAnimationFrame(id);
+  // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md), unless a dialog has the focus. At once
+  // when the page mounts, not a frame later: text typed right after ⇧⌘F goes into the field (D-760's Go to).
+  useLayoutEffect(() => {
+    if (!document.querySelector('[role="dialog"]')) inputRef.current?.focus({ preventScroll: true });
   }, []);
   return (
     <div className="page-column">
