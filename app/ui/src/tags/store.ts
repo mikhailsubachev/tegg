@@ -26,10 +26,13 @@ export function refreshTags(): Promise<TagRowDto[]> {
 function listen() {
   if (listening) return;
   listening = true;
-  void events.changed(() => {
+  const later = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { timer = null; void refreshTags(); }, 200);
-  }).catch(() => {});
+  };
+  void events.changed(later).catch(() => {});
+  // The end of indexing: the counts read while it ran were partial (bug v0.70; no `vault:changed` for it).
+  void events.progress((p) => { if (p.state === 'done') later(); }).catch(() => {});
 }
 
 /** The current rows (empty before the first answer). */
