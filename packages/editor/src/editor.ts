@@ -100,6 +100,8 @@ export interface TeggEditor {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     /** Slice MM (mm-mindmap §3.2): switch the mindmap block holding the caret; false elsewhere. */
     mindmapView(view: 'map' | 'list'): boolean
+    /** Slice MM2 (mm-mindmap §6.3, D-791): the layout of the mindmap block holding the caret or the focused map; false elsewhere or when already so. */
+    mindmapLayout(layout: 'right' | 'spider'): boolean
     /** Slice MM (D-768): whether `Turn into › Mindmap` is offered for the current block or selection. */
     canTurnIntoMindmap(): 'yes' | 'disabled' | 'no'
     toggleMark(mark: 'bold' | 'italic' | 'strike' | 'code' | 'highlight'): boolean
@@ -1357,6 +1359,10 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
     canTurnIntoMindmap() {
       return mindmapOffer()
+    },
+    mindmapLayout(_layout) {
+      // Slice MM2 STUB (mm-mindmap §6.3): nothing is written yet.
+      return false
     },
     undo() {
       return editor.commands.undo()

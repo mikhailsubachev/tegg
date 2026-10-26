@@ -411,6 +411,7 @@ Made in slice MM2's red-test commit; test changes carry `AC-Test-Change: slice M
 | D-776's caret rule | the caret follows the focused node when `List` is pressed, not a click | D-788, AP-750 |
 | R90 / FR-FMT-05 AC-4 | the type is matched before `\|`; three recognition rows added (Pavouk, Neznámé metadata, Metadata) | D-791 |
 | `tests/fixtures/vaults/mindmap/` | Pavouk, Neznámé metadata, Metadata added (README) | D-789, D-791 |
+| FR-FMT-07 AC-24 (a) (`packages/doc/test/mindmap_roundtrip.ac.test.ts`) | the fixture count 21 becomes 24 (the three MM2 notes round-trip too) | the fixture change above |
 | `tests/fixtures/vaults/obsidian-check/` and `packages/doc/scripts/make-obsidian-check.ts` | a `[!mindmap\|spider]` note for the owner's recheck | NFR-POR-01 AC-2 |
 
 ## Points raised by these criteria (AP-749…AP-751, decided as D-793…D-795)

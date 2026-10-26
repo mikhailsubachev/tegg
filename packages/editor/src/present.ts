@@ -6,7 +6,7 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
-import { displayTable, isAttachmentTarget, renderBlock } from '@tegg/doc'
+import { displayTable, isAttachmentTarget, renderBlock, type MindmapLayout } from '@tegg/doc'
 import type { RootContent } from 'mdast'
 import { pmToBlock } from './convert'
 import { wikiLabel } from './schema'
@@ -33,8 +33,22 @@ export type MindmapCtl = {
   onNode: (path: number[] | null) => void
   onLink: (target: string) => void
   readOnly: boolean
+  /** Slice MM2 (D-791): the block's stored layout. */
+  layout?: () => MindmapLayout
+  /** Slice MM2 (D-786): edits on the block; null when read-only. */
+  edit?: MindmapEdit | null
 }
-export type MindmapHandle = { update(): void; focusTree(): void; destroy(): void }
+/** Slice MM2 (mm-mindmap §6.3): the map's edits on its block; null when read-only. STUBS until built. */
+export type MindmapEdit = {
+  source(path: number[]): string | null
+  setText(path: number[], markdown: string): boolean
+  insert(at: number[] | null, where: 'sibling' | 'child', markdown: string): number[] | null
+  remove(path: number[]): number[] | null
+  move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null
+  undo(): boolean
+  redo(): boolean
+}
+export type MindmapHandle = { update(opts?: { now?: boolean }): void; focusTree(): void; destroy(): void; focusedNode?(): number[] | null | undefined }
 
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
@@ -58,7 +72,7 @@ export interface EditorUi {
   /** Slice MM (D-776): the in-memory view of each mindmap block, keyed by its block index (the app adds the note). */
   mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }
   /** Slice MM (R91, R94): the catalog texts of the mindmap block. */
-  mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse', title?: string) => string
+  mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse' | 'layout' | 'layoutRight' | 'layoutSpider' | 'editNode', title?: string) => string
   /** Slice MM: the mindmap icon (`data-icon="mindmap"`). */
   mindmapIcon?: () => Element
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
@@ -588,6 +602,9 @@ class CalloutView implements NodeView {
       onNode: (path) => live().toItem(path),
       onLink: (target) => ui.onLink(target, null),
       readOnly: !pm.editable,
+      // Slice MM2 stubs (mm-mindmap §6.3): the layout is always `right`, and no edit does anything yet.
+      layout: () => 'right',
+      edit: pm.editable ? { source: () => null, setText: () => false, insert: () => null, remove: () => null, move: () => null, undo: () => false, redo: () => false } : null,
     }) ?? null
     this.render()
   }

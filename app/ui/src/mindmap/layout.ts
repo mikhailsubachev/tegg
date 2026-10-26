@@ -1,14 +1,15 @@
 // Slice MM (docs/contracts/mm-mindmap.md §2, docs/acceptance/mindmap.md R92): the map's layout, pure and deterministic
 // (D-683, D-775, D-777). A left-to-right tree: one column per depth, each subtree stacked below the previous one,
 // each parent centred on its children, elbow connectors. Nothing of it is stored (R-08).
-import type { MindInline, MindItem, MindmapTree } from '@tegg/doc';
+import type { MindInline, MindItem, MindmapLayout, MindmapTree } from '@tegg/doc';
 
 /** A text's width on one line; `depth` gives the node's weight (root 650, first level 600, deeper 400, R92). */
 export type Measure = (text: string, depth?: number) => number;
 export type Tone = 'root' | 'blue' | 'orange' | 'purple' | 'teal' | 'green' | 'yellow' | 'red' | 'plain';
-export type MindLayoutNode = { id: string; depth: number; x: number; y: number; w: number; h: number; lines: string[]; tone: Tone };
+/** Slice MM2 (mm-mindmap §6.2, R96): `side` in the spider layout (absent on the root and in `right`). */
+export type MindLayoutNode = { id: string; depth: number; x: number; y: number; w: number; h: number; lines: string[]; tone: Tone; side?: 'left' | 'right' };
 export type MindConnector = { from: string; to: string; points: [number, number][] };
-export type MindLayout = { width: number; height: number; nodes: MindLayoutNode[]; connectors: MindConnector[] };
+export type MindLayout = { width: number; height: number; nodes: MindLayoutNode[]; connectors: MindConnector[]; layout: MindmapLayout };
 
 /** D-775: the branch colours by position, then repeating. */
 export const PALETTE = ['blue', 'orange', 'purple', 'teal', 'green', 'yellow', 'red'] as const;
@@ -95,10 +96,13 @@ function wrap(toks: Token[], measure0: Measure, depth: number): { lines: string[
 
 type Box = { id: string; depth: number; w: number; h: number; lines: string[]; tone: Tone; kids: Box[]; y: number };
 
-export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipExtra?: ChipExtra } = {}): MindLayout {
+export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipExtra?: ChipExtra; layout?: MindmapLayout } = {}): MindLayout {
   count++;
   const chipExtra = opts.chipExtra ?? 0;
-  if (tree.root.kind === 'empty') return { width: 0, height: 0, nodes: [], connectors: [] };
+  // Slice MM2 (mm-mindmap §6.2): `spider` is R96. STUB: every layout is drawn as `right`.
+  const layout: MindmapLayout = 'right';
+  void (opts.layout ?? tree.layout);
+  if (tree.root.kind === 'empty') return { width: 0, height: 0, nodes: [], connectors: [], layout };
 
   const sizeOf = (toks: Token[], depth: number) => {
     const { lines, widest } = wrap(toks, measure, depth);
@@ -160,5 +164,5 @@ export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipE
       connectors.push({ from: b.id, to: k.id, points: [[x + b.w, pc], [elbow, pc], [elbow, kc], [colX[k.depth], kc]] });
     }
   });
-  return { width, height, nodes, connectors };
+  return { width, height, nodes, connectors, layout };
 }

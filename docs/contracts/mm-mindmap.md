@@ -139,3 +139,72 @@ The view state lives in memory in the app per `(note path, block index)` (D-776)
 ## 5. Not in this slice
 
 Editing on the map, collapse, zoom, pan, drag, export, node → object (D-687, D-778), Mermaid conversion (D-679).
+
+---
+
+## 6. Slice MM2: editing on the map and the layouts (D-785…D-795)
+
+- **Status:** draft, 2026-10-26. Written before the slice MM2 red tests (D-61), from `docs/acceptance/mindmap.md` part two (R95…R98, D-785…D-795).
+- **Writes.** Still only the editor's save path (D-82). A map edit is an editor command on the block's list (D-786); a layout switch rewrites the title line only (D-791). The layout *name* is the one new thing in the file; positions, sides and colours are never stored.
+
+Until a part is implemented it exists as a stub that compiles and returns a deliberately wrong result (`meta: null`, `layout: 'right'`, unchanged bytes, no `side`, `false` / `null`), so a test fails on its assertion, not on an import.
+
+### 6.1 `@tegg/doc`
+
+- **`calloutHead(raw)`** gains `meta: string | null`: the text between `|` and `]` of the callout marker, as written (`[!mindmap|spider]` → `'spider'`, `[!Mindmap|SPIDER]+` → `'SPIDER'`, `[!note|wide]` → `'wide'`, `[!mindmap|]` → `''`, no `|` → `null`). The `type` is the text before `|`. Recognition (R90, `isMindmapBlock`, `isMindmapHint`) uses the type only, so metadata changes no kind. Every callout's metadata is preserved by the parser and the serializer (FR-FMT-07; the editor's callout node keeps it as the attribute `calloutMeta`, written back byte for byte).
+- **`MindmapTree`** gains `layout: 'right' | 'spider'` (`spider` when `meta` lower-cased is `spider`, else `right`) and `meta: string | null` (as written).
+- **`setMindmapLayout(raw: string, layout: 'right' | 'spider'): string`** — the byte transform of W12…W13: rewrites only the title line of a mindmap (or hint) callout: `spider` writes `|spider` after the type (replacing any metadata); `right` removes the `|…` part. The type spelling, fold marker, title and every other byte are unchanged; the result equals `raw` when nothing changes. For a non-callout block it returns `raw`.
+
+### 6.2 Layout (`app/ui/src/mindmap/layout.ts`)
+
+```ts
+export type MindLayoutNode = { …; side?: 'left' | 'right' }                 // spider: every node under a first-level branch; absent on the root and in `right`
+export type MindLayout = { …; layout: 'right' | 'spider' }
+export function layoutMindmap(tree: MindmapTree, measure: Measure, opts?: { chipExtra?: ChipExtra; layout?: 'right' | 'spider' }): MindLayout
+```
+
+- `opts.layout` defaults to `tree.layout`. `right` is unchanged (R92, `side` absent). `spider` is R96: sides by position in outline order (1st, 3rd, … `right`; 2nd, 4th, … `left`), the left side mirrored (column right edges, nodes right-aligned, connectors from the parent's left edge to the child's right edge, the elbow at the child column's right edge + 30), the sides stacked independently and centred (the taller from y = 0, the other shifted by (H − h) / 2, the root at (H − root h) / 2). `nodes` stay in outline order, root first; tones stay R92's. Every call still increments `layoutCount()`.
+
+### 6.3 Editor (`@tegg/editor`)
+
+**The callout node** gets the attribute `calloutMeta: string | null` (6.1), loaded and saved unchanged.
+
+**`MindmapCtl`** (§3.3) gains:
+
+```ts
+layout: () => 'right' | 'spider'                       // the block's stored layout (D-791)
+edit: MindmapEdit | null                               // null when readOnly (the read view, a read-only note): navigation only (D-786)
+export type MindmapEdit = {
+  source(path: number[]): string | null                // the item's first paragraph as Markdown source (R95a); null for a missing path
+  setText(path: number[], markdown: string): boolean    // replaces the first paragraph's inline content (W17, W17a, W22); false when unchanged or missing
+  insert(at: number[] | null, where: 'sibling' | 'child', markdown: string): number[] | null
+                                                        // D-787: `sibling` after `at` (root item → first child; `at === null`, the synthesized root → a new top-level item at the end);
+                                                        // `child` at the end of `at`'s children. Inserted with its text in one step (D-795: an empty node is never in the document);
+                                                        // returns the new item's path, null when `markdown` is empty or `at` is missing
+  remove(path: number[]): number[] | null               // D-787: a node without children only; returns the path to focus (the previous sibling, else the parent); null otherwise
+  move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null
+                                                        // W19…W21: among siblings, under the previous sibling (last child), after the parent; null when impossible (first/last, first child, first-level `out`, the root)
+  undo(): boolean; redo(): boolean                      // the editor's history, callable with the map focused (D-786)
+}
+```
+
+Each `MindmapEdit` call is one editor transaction on this block (one undo step, D-766's rewrite, R93/R98 bytes) and leaves the view in Map; the editor calls `handle.update()` at once (no 150 ms wait, D-786) and the map keeps its focus on the path the call returned. Paths are the tree's item paths (`MindItem.path`); after a call the app re-reads the tree.
+
+**`MindmapHandle`** gains `focusedNode(): number[] | null | undefined` — the focused node's path (`null`: the synthesized root; `undefined`: no node has the focus), for D-794.
+
+**Commands (`TeggEditor.commands`)**: `mindmapLayout(layout: 'right' | 'spider'): boolean` — on the mindmap block holding the caret or the focused map (as `mindmapView`): writes 6.1's transform as one undo step (W12…W12d); false elsewhere or when already so. `mindmapView('list')` with a focused node (the handle's `focusedNode()`) puts the caret at the end of that node's item's first paragraph; otherwise as §3.2 (D-794).
+
+**The header** (R97): a `radiogroup` `Mindmap layout` left of the view switch, two `radio` buttons with `data-layout="right" | "spider"`, `aria-checked`, `data-command="mindmap.layoutRight" | "mindmap.layoutSpider"`, one Tab stop with ← / → moving the check (and switching); absent when `readOnly`. The figure carries `data-layout`. `EditorUi.mindmapText` gains the keys `layout`, `layoutRight`, `layoutSpider`, `editNode`.
+
+### 6.4 App UI
+
+- `MindmapMap` takes `layout`, `edit` (the ctl's `MindmapEdit`, null when read-only) and `onFocusedNode`; it renders `data-side` on each `treeitem`, the keys of R95 (spider ← / → by `side`), the text field of R95a (a `textbox` `Edit node`, `data-node-editor`, inside the focused `treeitem`; Esc / ⏎ / Tab / ⇧Tab / blur per R95a) and the pending node of D-795 (a `treeitem` with `data-node="pending"` holding the field until the first non-empty commit, which calls `edit.insert`). ⌘Z / ⇧⌘Z on the tree call `edit.undo()` / `edit.redo()`.
+- `mount.tsx` passes `ctl.layout()` and `ctl.edit` through and draws at once when `update()` follows an edit (the editor marks it: `handle.update({ now: true })` is allowed; the handle's `update` takes an optional `{ now?: boolean }`).
+- **Commands (R4, section `edit`, `needsVault: true`, no shortcut):** `mindmap.layoutRight` (`cmd.mindmap.layoutRight`, action `mindmapLayoutRight`), `mindmap.layoutSpider` (`cmd.mindmap.layoutSpider`, action `mindmapLayoutSpider`) → `commands.mindmapLayout(...)`.
+- **Catalog keys (R97):** `mindmap.layout` `Mindmap layout` · `mindmap.layoutRight` `Branches to the right` · `mindmap.layoutSpider` `Spider: branches on both sides` · `mindmap.editNode` `Edit node` · `cmd.mindmap.layoutRight` `Mindmap layout: right` · `cmd.mindmap.layoutSpider` `Mindmap layout: spider`.
+- Read view: `ReadView` draws the tree's `layout`; no switch, no field, `edit` null.
+- **Test hooks:** none new; `__TEGG_MINDMAP_LAYOUTS__` and `mindmap-layout` as §4.
+
+### 6.5 Not in this slice
+
+Drag, collapse, zoom, pan, node → object, export, full screen, autocomplete on the map, a vault default layout (D-785).

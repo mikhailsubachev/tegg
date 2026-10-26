@@ -219,4 +219,4 @@ export { mediaInfo, mediaNames, mediaObject, isGenericName, pastedImageName, typ
 // ---------------------------------------------------------------- slice 4D-lite (ms4-tags §2)
 
 export { tagName, tagFile, setTagColor, type TagNameResult } from './tags.js'
-export { mindmapTree, wrapMindmap, unwrapMindmap, calloutHead, calloutBody, isMindmapBlock, isMindmapHint, type MindInline, type MindItem, type MindRoot, type MindmapTree } from './mindmap.js'
+export { mindmapTree, wrapMindmap, unwrapMindmap, setMindmapLayout, calloutHead, calloutBody, isMindmapBlock, isMindmapHint, type MindInline, type MindItem, type MindRoot, type MindmapTree, type MindmapLayout } from './mindmap.js'

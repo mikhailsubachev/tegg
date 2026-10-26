@@ -12,16 +12,22 @@ export type MindInline =
   | { k: 'url'; href: string; text: string }
 export type MindItem = { inline: MindInline[]; checked: boolean | null; more: boolean; path: number[]; children: MindItem[] }
 export type MindRoot = { kind: 'item'; item: MindItem } | { kind: 'synthesized'; text: string } | { kind: 'empty' }
-export type MindmapTree = { title: string | null; typeSpelling: string; fold: '' | '+' | '-'; ordered: boolean; items: MindItem[]; root: MindRoot }
+export type MindmapLayout = 'right' | 'spider'
+export type MindmapTree = {
+  title: string | null; typeSpelling: string; fold: '' | '+' | '-'; ordered: boolean; items: MindItem[]; root: MindRoot
+  /** Slice MM2 (mm-mindmap §6.1, D-791): the layout named by the callout metadata, and that metadata as written. */
+  layout: MindmapLayout; meta: string | null
+}
 
 const HEAD = /^ {0,3}>[ \t]?\[!([^\]\s]+)\]([+-]?)[ \t]*(.*)$/
 
-/** The title line of a callout block: its type as written, fold marker and title; null for any other block. */
-export function calloutHead(raw: string): { type: string; fold: '' | '+' | '-'; title: string } | null {
+/** The title line of a callout block: its type as written, fold marker and title; null for any other block.
+ *  Slice MM2 (mm-mindmap §6.1): `meta` is the callout metadata after `|`, as written; null without one. STUB: always null. */
+export function calloutHead(raw: string): { type: string; fold: '' | '+' | '-'; title: string; meta: string | null } | null {
   const first = raw.split(/\r?\n/, 1)[0]
   const m = HEAD.exec(first)
   if (!m) return null
-  return { type: m[1], fold: m[2] as '' | '+' | '-', title: m[3].replace(/[ \t]+$/, '') }
+  return { type: m[1], fold: m[2] as '' | '+' | '-', title: m[3].replace(/[ \t]+$/, ''), meta: null }
 }
 
 /** The lines after a callout's title line with one `>` (and one following space) removed (D-765). Lazy
@@ -127,7 +133,7 @@ export function mindmapTree(raw: string, noteTitle: string): MindmapTree | null 
   const root: MindRoot = items.length === 1 ? { kind: 'item', item: items[0] }
     : items.length === 0 ? { kind: 'empty' }
     : { kind: 'synthesized', text: title ?? nfc(noteTitle) }
-  return { title, typeSpelling: h.type, fold: h.fold, ordered: list !== 'empty' && !!list.ordered, items, root }
+  return { title, typeSpelling: h.type, fold: h.fold, ordered: list !== 'empty' && !!list.ordered, items, root, layout: 'right', meta: h.meta }
 }
 
 // ------------------------------------------------------------------------------------------------ wrap / unwrap (D-767)
@@ -180,4 +186,10 @@ export function unwrapMindmap(raw: string, to: 'bulletList' | 'orderedList' | 'c
   }
   const title = h.title.trim()
   return title ? `${title}\n\n${list}` : list
+}
+
+/** Slice MM2 (mm-mindmap §6.1, D-791; W12…W13): rewrites only the callout's title line so its metadata names `layout`
+ *  (`|spider`), or removes it for `right`; every other byte unchanged; `raw` itself when nothing changes. STUB. */
+export function setMindmapLayout(raw: string, _layout: MindmapLayout): string {
+  return raw
 }
