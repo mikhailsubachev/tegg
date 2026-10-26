@@ -155,8 +155,9 @@ pub(crate) fn show_main(app: &AppHandle) {
 
 const TRAY_ID: &str = "tegg-status";
 
-/// D-597: the status item is the full-colour Tegg tile (not a template image): blue on a light menu bar, navy on a
-/// dark one. The windows follow the system appearance (no window sets a theme), so their theme is the system's.
+/// D-597, D-782: the status item is the Tegg mark (logo 3B) as a one-colour glyph, not a template image: near-black on a
+/// light menu bar, white on a dark one. The windows follow the system appearance (no window sets a theme), so their
+/// theme is the system's.
 fn tray_image(theme: tauri::Theme) -> tauri::image::Image<'static> {
     match theme {
         tauri::Theme::Dark => tauri::include_image!("icons/tray-dark.png"),
@@ -168,7 +169,7 @@ fn system_theme(app: &AppHandle) -> tauri::Theme {
     app.webview_windows().values().find_map(|w| w.theme().ok()).unwrap_or(tauri::Theme::Light)
 }
 
-/// Called on every window's `ThemeChanged` (lib.rs): swaps the status item's tile.
+/// Called on every window's `ThemeChanged` (lib.rs): swaps the status item's glyph.
 pub fn tray_follow_theme(app: &AppHandle, theme: tauri::Theme) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_icon(Some(tray_image(theme)));

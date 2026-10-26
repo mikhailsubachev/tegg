@@ -1,15 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- D-597 app icon (light): the Tegg mark on a white rounded tile, on the macOS icon grid (824 px tile). -->
+  <!-- D-782 app icon (light): logo 3B, three cross-connected dots, weighted links, on a white rounded tile, on the
+       macOS icon grid (824 px tile). Geometry from the design board `LogoDots` (3B, Dock). -->
   <defs>
-    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0A84FF"/><stop offset="1" stop-color="#1E6BFF"/></linearGradient>
-    <linearGradient id="stem" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D3FB8"/><stop offset="1" stop-color="#1531A3"/></linearGradient>
     <filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.22"/></filter>
   </defs>
   <g transform="translate(100 92) scale(8.24)">
     <path filter="url(#sh)" d="M22 0 H78 C92 0 100 8 100 22 V78 C100 92 92 100 78 100 H22 C8 100 0 92 0 78 V22 C0 8 8 0 22 0 Z" fill="#FFFFFF" stroke="#E3E7EF" stroke-width="1"/>
-    <g transform="translate(15.7 16) scale(.66)">
-      <path d="M37 30 H61 V75 C61 81.6 55.6 87 49 87 C42.4 87 37 81.6 37 75 Z" fill="url(#stem)"/>
-      <path d="M23 16 H87 C91 16 92.5 19 91 22.5 L87.5 31 C85.5 36 82 38 77 38 H23 C16.9 38 12 33.1 12 27 C12 20.9 16.9 16 23 16 Z" fill="url(#bar)"/>
-    </g>
+    <line x1="24.6" y1="29.5" x2="78.6" y2="20.8" stroke="#1E6BFF" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="24.6" y1="29.5" x2="54.9" y2="74.9" stroke="#7FA6F5" stroke-width="2.7" stroke-linecap="round"/>
+    <line x1="78.6" y1="20.8" x2="54.9" y2="74.9" stroke="#3A5BC7" stroke-width="4.3" stroke-linecap="round"/>
+    <circle cx="24.6" cy="29.5" r="14.1" fill="#0A84FF"/>
+    <circle cx="78.6" cy="20.8" r="10.8" fill="#5AB0FF"/>
+    <circle cx="54.9" cy="74.9" r="15.1" fill="#1D3FB8"/>
   </g>
 </svg>
