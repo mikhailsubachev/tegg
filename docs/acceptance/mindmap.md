@@ -267,7 +267,7 @@ Numbering continues after AP-725 (v0.68 feedback); AP-686…AP-706 are the open 
 
 # Slice MM2: editing on the map and two layouts (D-785…D-792)
 
-**Status: drafted 2026-10-26 from the owner's decisions D-785…D-792 (AP-741…AP-748, `docs/plans/mm2-map-editing-and-layouts.md`, board `MindmapLayouts` as redrawn that day; BRD v1.99).** Writing these criteria raised AP-749…AP-751 (end of this section), each with a recommendation; a criterion naming one follows the recommendation until the owner decides otherwise.
+**Status: drafted 2026-10-26 from the owner's decisions D-785…D-792 (AP-741…AP-748, `docs/plans/mm2-map-editing-and-layouts.md`, board `MindmapLayouts` as redrawn that day; BRD v1.99).** Writing these criteria raised AP-749…AP-751 (end of this section); the owner accepted every recommendation on 2026-10-26 (D-793…D-795, BRD v1.100). A criterion naming an AP follows that decision.
 
 **Scope.** FR-MMP-02's MM2 part: keyboard editing on the map (D-786…D-788), the `right` and `spider` layouts (D-789, D-790), the layout stored as callout metadata (D-791) and the switch (D-792); FR-FMT-05 (metadata), and the MM2 parts of FR-FMT-07, FR-SYN-06, FR-UX-03, FR-UX-05, NFR-OTH-02, NFR-POR-01 and NFR-PERF. **Out of scope (v1.0, D-785):** drag to re-parent, collapse, zoom and pan, node → object, export, full screen, `[[` and `#` autocomplete and the floating toolbar on the map, the checklist toggle on the map, a vault-wide default layout.
 
@@ -413,9 +413,9 @@ Made in slice MM2's red-test commit; test changes carry `AC-Test-Change: slice M
 | `tests/fixtures/vaults/mindmap/` | Pavouk, Neznámé metadata, Metadata added (README) | D-789, D-791 |
 | `tests/fixtures/vaults/obsidian-check/` and `packages/doc/scripts/make-obsidian-check.ts` | a `[!mindmap\|spider]` note for the owner's recheck | NFR-POR-01 AC-2 |
 
-## Points raised by these criteria (AP-749…AP-751)
+## Points raised by these criteria (AP-749…AP-751, decided as D-793…D-795)
 
-Numbering continues after AP-748 (slice MM2 decisions). Next free AP after this list: AP-752.
+Numbering continues after AP-748 (slice MM2 decisions). Next free AP after this list: AP-752. The owner accepted every recommendation on 2026-10-26.
 
 | # | Issue | Recommendation | Alternatives | Affects |
 | --- | --- | --- | --- | --- |
