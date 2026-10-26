@@ -240,7 +240,9 @@ export function App() {
     let live = true;
     ipc.vaultCurrent().then((v) => { if (live) (v ? opened(v) : setVault(null)); }, () => { if (live) setVault(null); });
     const un = [
-      events.progress(setProgress),
+      // The end of indexing changes what every page reads (a page opened while it ran saw part of the vault), but the
+      // core sends no `vault:changed` for it: pages read again as after a change (bug v0.70, tag page; FR-UX-07).
+      events.progress((p) => { setProgress(p); if (p.state === 'done') setRefresh((n) => n + 1); }),
       events.changed(() => { setRefresh((n) => n + 1); }),
       // 5B (ms5-capture §1.4, §2.2): `Settings…` in the status menu and the Saved panel's `Open`.
       events.shellRoute((r) => { const parsed = parseRoute(r); if (parsed) void goRef.current?.(parsed); }),
