@@ -195,8 +195,14 @@ test('fr_ux_03_ac15_show_as_list_puts_the_caret_at_the_end_of_the_root_item', as
   await (await needNode(fig, 'Program')).focus();
   await runCommand(page, 'Show mindmap as list');
   assert.equal(await viewWhen(fig, 'list'), 'list', 'List');
-  const c = await caretWhen(page, (x) => x.text === 'Výjezd 2026' && x.atEnd);
-  assert.deepEqual([c.text, c.atEnd], ['Výjezd 2026', true], 'the caret at the end of the root item');
+  // Slice MM2 (D-794): with Program focused, List puts the caret at the end of Program.
+  const c = await caretWhen(page, (x) => x.text === 'Program' && x.atEnd);
+  assert.deepEqual([c.text, c.atEnd], ['Program', true], 'the caret at the end of the focused node\'s item');
+  await click(mapBtn(fig), 'Map');
+  await page.keyboard.press('Escape');
+  await runCommand(page, 'Show mindmap as list');
+  const c2 = await caretWhen(page, (x) => (x.text === 'Výjezd 2026' || x.text === 'Program') && x.atEnd);
+  assert.ok(c2.atEnd, 'without a focused node (the tree stop still remembers Program): the caret at the end of an item');
 });
 
 test('fr_ux_03_ac15_keyboard_only_run', async ({ page }) => {
@@ -220,8 +226,8 @@ test('fr_ux_03_ac15_keyboard_only_run', async ({ page }) => {
   await focusedWhen(page, (x) => x.role === 'treeitem');
   await page.keyboard.press('ArrowDown');
   assert.equal((await focusedWhen(page, (x) => x.name === 'Větev')).name, 'Větev', '↓ to Větev');
-  await page.keyboard.press('Enter');
-  assert.equal(await viewWhen(fig, 'list'), 'list', '⏎ returns to List');
+  await runCommand(page, 'Show mindmap as list'); // slice MM2 (D-787): ⏎ edits the node; the palette returns to List
+  assert.equal(await viewWhen(fig, 'list'), 'list', 'the palette returns to List');
   const want = original(MM.prazdna) + '> [!mindmap]\n> - Kořen\n>   - Větev\n';
   const t = await fileWhen(core, MM.prazdna, (x) => noModified(x) === noModified(want), 4000);
   assert.equal(noModified(t), noModified(want), 'the saved block');

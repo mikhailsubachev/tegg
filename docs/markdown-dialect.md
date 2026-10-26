@@ -67,7 +67,7 @@ A **block** is a top-level CommonMark/GFM construct. Text between blocks (blank 
 | Numbered list | `1.`, `1)` | `1.` |
 | Checklist item (FR-TSK-11) | `- [ ]`, `- [x]`, `- [X]` | `- [ ]` / `- [x]` |
 | Quote | `>` | `>` |
-| Callout | `> [!type] Title` (Obsidian), optional `+`/`-` fold marker | `> [!note] Title` |
+| Callout | `> [!type] Title` (Obsidian), optional `+`/`-` fold marker; optional Obsidian callout metadata `[!type\|metadata]`, preserved as written and read only for `mindmap` (the layout name, D-791) | `> [!note] Title`, `> [!mindmap\|spider] Title` |
 | Code block | fenced ```` ``` ```` / `~~~`, indented | fenced ```` ``` ```` |
 | Divider | `---`, `***`, `___` | `---` |
 | Table | GFM; `\|` escapes a pipe inside cells (also inside links) | GFM |

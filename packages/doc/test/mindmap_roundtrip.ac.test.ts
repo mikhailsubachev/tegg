@@ -23,7 +23,7 @@ function files(dir: string): string[] {
 
 test('fr_fmt_07_ac24_a_every_fixture_file_round_trips_byte_identical', () => {
   const all = files(ROOT)
-  assert.equal(all.length, 21, 'the 21 notes of the fixture (README excluded)')
+  assert.equal(all.length, 24, 'the 24 notes of the fixture (README excluded; slice MM2 added Pavouk, Neznámé metadata and Metadata)')
   const bad: string[] = []
   for (const p of all) {
     const text = readFileSync(p, 'utf8')

@@ -90,7 +90,8 @@ export type MmStart = StartOptions & {
 /** Starts the main window on the mindmap vault (zone from `test.use({ timezoneId })`). */
 export async function startMm(page: Page, o: MmStart = {}): Promise<FakeCoreHandle> {
   await page.addInitScript((r) => { (window as any).__TEGG_REGION__ = r; }, o.region ?? 'cs');
-  if (o.readView) await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
+  // Init scripts accumulate on the page, so the flag is set every time (a later start without `readView` resets it).
+  await page.addInitScript((rv) => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: rv }; }, !!o.readView);
   if (o.route) await page.addInitScript((r) => { (window as any).__TEGG_ROUTE__ = r; }, o.route);
   const t = new Date(o.now ?? NOW);
   if (o.install) await page.clock.install({ time: t });
@@ -400,4 +401,90 @@ export async function gotoNote(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, nfc(title), `open "${title}"`, 5000);
+}
+
+// ------------------------------------------------------------------------------------------------ slice MM2 (D-785…D-795)
+
+/** The MM2 notes of the fixture (README: Pavouk, Neznámé metadata, Metadata); their titles equal their file stems, so
+ *  `openMm` needs no `TITLES` entry (the MM lists above are unchanged). */
+export const MM2 = { pavouk: 'Pages/Pavouk.md', neznama: 'Pages/Neznámé metadata.md', metadata: 'Pages/Metadata.md' } as const;
+export const TITLES2: Record<string, string> = { [MM2.pavouk]: 'Pavouk', [MM2.neznama]: 'Neznámé metadata', [MM2.metadata]: 'Metadata' };
+
+/** R97: the header's `radiogroup` `Mindmap layout` and its two `radio`s. */
+export const layoutGroup = (fig: Locator) => fig.getByRole('radiogroup', { name: 'Mindmap layout', exact: true });
+export const radioRight = (fig: Locator) => layoutGroup(fig).getByRole('radio', { name: 'Branches to the right', exact: true });
+export const radioSpider = (fig: Locator) => layoutGroup(fig).getByRole('radio', { name: 'Spider: branches on both sides', exact: true });
+export const radioOf = (fig: Locator, layout: 'right' | 'spider') => (layout === 'right' ? radioRight(fig) : radioSpider(fig));
+/** `data-layout` of the checked radio (null without a group). */
+export async function checkedLayout(fig: Locator): Promise<string | null> {
+  if (!(await seen(layoutGroup(fig), 500))) return null;
+  const checked = layoutGroup(fig).first().locator('[role="radio"][aria-checked="true"]');
+  if ((await checked.count()) !== 1) return `<${await checked.count()} checked>`;
+  return checked.first().getAttribute('data-layout');
+}
+/** `data-layout` of the figure (R97), or null. */
+export async function layoutOf(fig: Locator): Promise<string | null> {
+  if (!(await seen(fig, 500))) return null;
+  return fig.first().getAttribute('data-layout');
+}
+export async function layoutWhen(fig: Locator, want: 'right' | 'spider', ms = 2000): Promise<string | null> {
+  return eventually(() => layoutOf(fig), (v) => v === want, ms);
+}
+/** `data-side` of every treeitem by name (R97; absent on the root → null). */
+export async function sides(fig: Locator): Promise<Record<string, string | null>> {
+  if (!(await seen(fig.getByRole('tree'), 500))) return {};
+  return fig.getByRole('tree').first().evaluate((t) => {
+    const out: Record<string, string | null> = {};
+    for (const e of t.querySelectorAll('[role="treeitem"]') as NodeListOf<HTMLElement>) {
+      const name = (e.getAttribute('aria-label') ?? e.textContent ?? '').replace(/\s+/g, ' ').trim().normalize('NFC');
+      out[name] = e.getAttribute('data-side');
+    }
+    return out;
+  });
+}
+/** R95a: the single-line `textbox` `Edit node` (`data-node-editor`) inside a node of `fig`. */
+export const nodeField = (fig: Locator) => fig.getByRole('textbox', { name: 'Edit node', exact: true });
+/** The pending node of D-795 (`data-node="pending"`). */
+export const pendingNode = (fig: Locator) => fig.locator('[role="treeitem"][data-node="pending"]');
+/** The field's value and whether its caret is collapsed at the end (an input, or a contenteditable). */
+export async function fieldState(fig: Locator): Promise<{ value: string; caretAtEnd: boolean; focused: boolean } | null> {
+  if (!(await seen(nodeField(fig), 1000))) return null;
+  return nodeField(fig).first().evaluate((el) => {
+    const a = document.activeElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      return { value: el.value.normalize('NFC'), caretAtEnd: el.selectionStart === el.value.length && el.selectionEnd === el.value.length, focused: a === el };
+    }
+    const s = window.getSelection();
+    let atEnd = false;
+    if (s && s.rangeCount && s.isCollapsed) {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.setStart(s.getRangeAt(0).endContainer, s.getRangeAt(0).endOffset);
+      atEnd = r.toString().length === 0;
+    }
+    return { value: (el.textContent ?? '').normalize('NFC'), caretAtEnd: atEnd, focused: !!a && (a === el || el.contains(a)) };
+  });
+}
+/** Focuses the treeitem `text` of `fig` (an assertion when it is missing). */
+export async function focusNode(fig: Locator, text: string): Promise<Locator> {
+  const n = await needNode(fig, text);
+  await n.focus();
+  return n;
+}
+/** The first point of a connector's `path` (`data-from` → `data-to`), from its `d` attribute, relative to the map area's
+ *  origin (padding 16 / 12). */
+export async function connectorStart(fig: Locator, from: string, to: string): Promise<[number, number] | null> {
+  const p = fig.locator(`path[data-from="${from}"][data-to="${to}"]`);
+  if (!(await seen(p, 500))) return null;
+  return p.first().evaluate((el) => {
+    const d = el.getAttribute('d') ?? '';
+    const m = /M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/.exec(d);
+    if (!m) return null;
+    const svg = el.closest('svg')!;
+    const area = el.closest('[data-map-area]') as HTMLElement | null;
+    if (!area) return [Number(m[1]), Number(m[2])];
+    const a = area.getBoundingClientRect();
+    const s = svg.getBoundingClientRect();
+    return [Number(m[1]) + s.left - a.left + area.scrollLeft - 16, Number(m[2]) + s.top - a.top + area.scrollTop - 12];
+  });
 }

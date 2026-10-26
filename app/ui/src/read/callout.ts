@@ -10,7 +10,8 @@ const ALIASES: Record<string, string> = {
   error: 'danger', cite: 'quote',
 };
 
-const FIRST_LINE = /^\s*(?:>\s*)?\[!([^\]\s]+)\]([+-]?)[ \t]*(.*)$/;
+/** D-791: `[!type|metadata]`: the type is the text before `|`; the metadata is not shown. */
+const FIRST_LINE = /^\s*(?:>\s*)?\[!([^\]|\s]+)(?:\|[^\]]*)?\]([+-]?)[ \t]*(.*)$/;
 
 /** `raw` is the callout's first line, `> [!type]± Title` (D-157); the leading `>` is optional. */
 export function calloutType(raw: string): { type: string; label: string; fold: '+' | '-' | null; title: string | null } {

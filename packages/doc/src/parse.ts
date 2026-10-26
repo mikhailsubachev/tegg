@@ -212,7 +212,7 @@ function classify(node: RootContent, raw: string): BlockKind {
     case 'definition': return 'raw'
     case 'math': return 'raw' // $$ … $$ display math, preserved
     // D-680, D-765: a `mindmap` callout holding one list (or nothing) is a mindmap; any other callout is a callout.
-    case 'blockquote': return /^>\s*\[!\w[\w-]*\][+-]?/.test(raw) ? (isMindmapBlock(raw) ? 'mindmap' : 'callout') : 'quote'
+    case 'blockquote': return /^>\s*\[!\w[\w-]*(?:\|[^\]]*)?\][+-]?/.test(raw) ? (isMindmapBlock(raw) ? 'mindmap' : 'callout') : 'quote' // D-791: `[!type|metadata]`
     case 'list': return node.children.some((i) => i.checked !== null && i.checked !== undefined) ? 'checklist' : 'list'
     case 'code': {
       // D-679: a Mermaid `mindmap` fence is preserved as written, never drawn.

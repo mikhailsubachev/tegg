@@ -74,7 +74,7 @@ export type ShellActions = {
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -303,6 +303,8 @@ export function commands(ctx: ShellContext): Command[] {
     ['edit.turnIntoTask', 'turnIntoTask', 'cmd.edit.turnIntoTask'], ['edit.turnIntoObject', 'turnIntoObject', 'cmd.edit.turnIntoObject'],
     // Slice MM (R94, D-770): no shortcuts.
     ['mindmap.showMap', 'mindmapMap', 'cmd.mindmap.showMap'], ['mindmap.showList', 'mindmapList', 'cmd.mindmap.showList'],
+    // Slice MM2 (R97, D-792): the layout switch's commands, no shortcuts.
+    ['mindmap.layoutRight', 'mindmapLayoutRight', 'cmd.mindmap.layoutRight'], ['mindmap.layoutSpider', 'mindmapLayoutSpider', 'cmd.mindmap.layoutSpider'],
   ];
   for (const [id, action, title] of EDIT) {
     const convert = action === 'turnIntoTask' || action === 'turnIntoObject';

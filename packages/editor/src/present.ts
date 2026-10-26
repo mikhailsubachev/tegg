@@ -5,10 +5,13 @@
 import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { redo, undo } from '@tiptap/pm/history'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
-import { displayTable, isAttachmentTarget, renderBlock } from '@tegg/doc'
+import { displayTable, isAttachmentTarget, layoutOf, markdownTree, renderBlock, type MindmapLayout } from '@tegg/doc'
 import type { RootContent } from 'mdast'
-import { pmToBlock } from './convert'
+import type { JSONContent } from '@tiptap/core'
+import type { Transaction } from '@tiptap/pm/state'
+import { blockToPM, pmToBlock } from './convert'
 import { wikiLabel } from './schema'
 
 export type LinkInfo = {
@@ -33,8 +36,30 @@ export type MindmapCtl = {
   onNode: (path: number[] | null) => void
   onLink: (target: string) => void
   readOnly: boolean
+  /** Slice MM2 (D-791): the block's stored layout. */
+  layout: () => MindmapLayout
+  /** Slice MM2 (D-786): edits on the block; null when read-only. */
+  edit: MindmapEdit | null
 }
-export type MindmapHandle = { update(): void; focusTree(): void; destroy(): void }
+/** Slice MM2 (mm-mindmap §6.3): the map's edits on its block; null when read-only. STUBS until built. */
+export type MindmapEdit = {
+  source(path: number[]): string | null
+  setText(path: number[], markdown: string): boolean
+  insert(at: number[] | null, where: 'sibling' | 'child', markdown: string): number[] | null
+  remove(path: number[]): number[] | null
+  move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null
+  undo(): boolean
+  redo(): boolean
+}
+export type MindmapHandle = {
+  update(opts?: { now?: boolean }): void
+  /** Focuses the map: its open field, else its roving node. */
+  focusTree(): void
+  destroy(): void
+  focusedNode?(): number[] | null | undefined
+  /** Slice MM2 (§6.7): after `destroy()` (a document redraw), moves the live map into a re-created block's container and keeps it alive; false when the map is still live or already unmounted. */
+  adopt?(dom: HTMLElement): boolean
+}
 
 export interface EditorUi {
   /** Resolution of a wikilink target (the part before `#`/`|`); undefined while unknown. */
@@ -58,7 +83,7 @@ export interface EditorUi {
   /** Slice MM (D-776): the in-memory view of each mindmap block, keyed by its block index (the app adds the note). */
   mindmapState?: { get(key: string): 'map' | 'list' | undefined; set(key: string, v: 'map' | 'list'): void }
   /** Slice MM (R91, R94): the catalog texts of the mindmap block. */
-  mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse', title?: string) => string
+  mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse' | 'layout' | 'layoutRight' | 'layoutSpider' | 'editNode', title?: string) => string
   /** Slice MM: the mindmap icon (`data-icon="mindmap"`). */
   mindmapIcon?: () => Element
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
@@ -452,7 +477,7 @@ class ListItemView implements NodeView {
 // ------------------------------------------------------------------------------------------------ slice MM
 
 /** The node views of the open mindmap blocks, by their DOM, for `mindmapView` (mm-mindmap §3.2). */
-export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list' }>()
+export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list'; setLayout(l: MindmapLayout): boolean }>()
 /** The figure of the map that last had the focus, per editor (the palette's commands act on it, FR-UX-03 AC-15). */
 export const focusedMindmap = new WeakMap<EditorView, HTMLElement>()
 
@@ -461,6 +486,8 @@ export const focusedMindmap = new WeakMap<EditorView, HTMLElement>()
 const liveMindmaps = new WeakMap<EditorView, Map<number, CalloutView>>()
 
 type CalloutKind = 'callout' | 'mindmap' | 'hint'
+/** Slice MM2: a located list item (`locate`). */
+type Loc = { item: PMNode; pos: number; list: PMNode; listPos: number; index: number; parent: Loc | null; path: number[] }
 function calloutKind(node: PMNode): CalloutKind {
   if (String(node.attrs.calloutType).toLowerCase() !== 'mindmap') return 'callout'
   const body: PMNode[] = []
@@ -491,7 +518,12 @@ class CalloutView implements NodeView {
   private listBtn: HTMLButtonElement | null = null
   private foldBtn: HTMLButtonElement | null = null
   private mapBox: HTMLElement | null = null
-  constructor(private node: PMNode, private pm: EditorView, private getPos: () => number | undefined, private ui: EditorUi) {
+  radios: Partial<Record<MindmapLayout, HTMLButtonElement>> = {}
+  /** The map has (or had, before the DOM was replaced) the focus. */
+  mapFocused = false
+  /** The layout radio that has (or had) the focus. */
+  headerFocus: MindmapLayout | null = null
+  constructor(public node: PMNode, private pm: EditorView, private getPos: () => number | undefined, private ui: EditorUi) {
     this.kind = calloutKind(node)
     const type = String(node.attrs.calloutType).toLowerCase()
     const text = (k: Parameters<NonNullable<EditorUi['mindmapText']>>[0], title?: string) => ui.mindmapText?.(k, title) ?? k
@@ -515,6 +547,7 @@ class CalloutView implements NodeView {
       return
     }
     const key = String(this.index())
+    const live = () => liveMindmaps.get(pm)?.get(this.at) ?? this
     this.view = ui.mindmapState?.get(key) ?? 'map'
     this.folded = node.attrs.fold === '-'
     const fig = document.createElement('figure')
@@ -549,6 +582,43 @@ class CalloutView implements NodeView {
       this.foldBtn.addEventListener('click', (e) => { e.preventDefault(); this.folded = !this.folded; this.render() })
       head.appendChild(this.foldBtn)
     }
+    // Slice MM2 (R97, D-792): the layout switch, a radiogroup that is one Tab stop; absent in a read-only editor.
+    if (pm.editable) {
+      const lay = document.createElement('div')
+      lay.setAttribute('role', 'radiogroup')
+      lay.className = 'mindmap-layout'
+      lay.setAttribute('aria-label', text('layout'))
+      const radio = (l: MindmapLayout) => {
+        const r = document.createElement('button')
+        r.type = 'button'
+        r.setAttribute('role', 'radio')
+        r.className = 'mindmap-layout-radio'
+        r.setAttribute('data-layout', l)
+        r.setAttribute('data-command', l === 'right' ? 'mindmap.layoutRight' : 'mindmap.layoutSpider')
+        r.setAttribute('aria-label', text(l === 'right' ? 'layoutRight' : 'layoutSpider'))
+        r.title = text(l === 'right' ? 'layoutRight' : 'layoutSpider')
+        r.innerHTML = l === 'right'
+          ? '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="2.5" cy="7" r="2" fill="currentColor"/><path d="M4.5 7h3M7.5 7v-4h3M7.5 7h3M7.5 7v4h3" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>'
+          : '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="2" fill="currentColor"/><path d="M9 7h2.5M9 7v-3.5h2.5M9 7v3.5h2.5M5 7H2.5M5 7v-3.5H2.5M5 7v3.5H2.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>'
+        r.addEventListener('mousedown', (e) => e.preventDefault())
+        r.addEventListener('focus', () => { this.headerFocus = l })
+        r.addEventListener('blur', () => { if (this.headerFocus === l) this.headerFocus = null })
+        r.addEventListener('click', (e) => { e.preventDefault(); live().setLayout(l); live().radios[l]?.focus() })
+        r.addEventListener('keydown', (e) => {
+          // ← / ↑ check `right`, → / ↓ check `spider` (the radios' order); the checked radio keeps the focus.
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            const to: MindmapLayout = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? 'right' : 'spider'
+            live().setLayout(to)
+            live().radios[to]?.focus()
+          }
+        })
+        lay.appendChild(r)
+        return r
+      }
+      this.radios = { right: radio('right'), spider: radio('spider') }
+      head.appendChild(lay)
+    }
     const group = document.createElement('div')
     group.setAttribute('role', 'group')
     group.className = 'mindmap-switch'
@@ -575,20 +645,47 @@ class CalloutView implements NodeView {
     this.mapBox.className = 'mindmap-map'
     this.mapBox.contentEditable = 'false'
     this.mapBox.setAttribute('data-map-area', '')
-    this.mapBox.addEventListener('focusin', () => focusedMindmap.set(pm, fig))
+    this.mapBox.addEventListener('focusin', () => { focusedMindmap.set(pm, fig); this.mapFocused = true })
+    this.mapBox.addEventListener('focusout', (e) => { if (!this.mapBox!.contains(e.relatedTarget as Node | null)) this.mapFocused = false })
     fig.appendChild(this.mapBox)
     this.dom = fig
     mindmapViews.set(fig, this)
+    // Slice MM2 (mm-mindmap §6.6): a save redraws the document, which re-creates every node view. This view adopts the
+    // previous view's live map (its DOM and handle move over; the handle's control already resolves to the live view),
+    // so the map keeps its focused node and an open field; a focused layout radio is focused again in the new header.
+    const prev = liveMindmaps.get(pm)?.get(this.index())
+    const adopted = prev && prev !== this && prev.kind === 'mindmap' && prev.handle?.adopt ? prev : null
+    if (prev?.headerFocus) { const hf = prev.headerFocus; queueMicrotask(() => { if (this.dom.isConnected) this.radios[hf]?.focus() }) }
     this.register()
-    const live = () => liveMindmaps.get(pm)?.get(this.at) ?? this
-    this.handle = ui.mindmap?.(this.mapBox, {
+    const ctl: MindmapCtl = {
       markdown: () => live().markdown(),
       view: () => live().view,
       folded: () => live().folded,
       onNode: (path) => live().toItem(path),
       onLink: (target) => ui.onLink(target, null),
       readOnly: !pm.editable,
-    }) ?? null
+      // Slice MM2 (mm-mindmap §6.3): the stored layout (D-791) and the map's edits on this block (D-786).
+      layout: () => layoutOf(live().node.attrs.calloutMeta as string | null),
+      edit: pm.editable ? {
+        source: (path) => live().source(path),
+        setText: (path, md) => live().setText(path, md),
+        insert: (at, where, md) => live().insert(at, where, md),
+        remove: (path) => live().remove(path),
+        move: (path, dir) => live().move(path, dir),
+        undo: () => undo(pm.state, pm.dispatch),
+        redo: () => redo(pm.state, pm.dispatch),
+      } : null,
+    }
+    if (adopted && adopted.handle!.adopt!(this.mapBox)) {
+      const handle = adopted.handle!
+      adopted.handle = null
+      this.handle = handle
+      this.mapFocused = adopted.mapFocused
+      // The old DOM was detached (the focus went with it); the new one is attached by PM in this same task, so the
+      // map takes the focus back in a microtask, before any key event.
+      if (this.mapFocused) queueMicrotask(() => { if (this.mapBox!.isConnected) handle.focusTree() })
+      handle.update({ now: true })
+    } else this.handle = ui.mindmap?.(this.mapBox, ctl) ?? null
     this.render()
   }
   private at = -1
@@ -623,6 +720,14 @@ class CalloutView implements NodeView {
     else this.titleEl!.removeAttribute('data-user-content')
     this.mapBtn!.setAttribute('aria-pressed', String(this.view === 'map'))
     this.listBtn!.setAttribute('aria-pressed', String(this.view === 'list'))
+    const layout = layoutOf(this.node.attrs.calloutMeta as string | null)
+    this.dom.setAttribute('data-layout', layout)
+    for (const l of ['right', 'spider'] as const) {
+      const r = this.radios[l]
+      if (!r) continue
+      r.setAttribute('aria-checked', String(layout === l))
+      r.tabIndex = layout === l ? 0 : -1
+    }
     if (this.foldBtn) {
       this.foldBtn.setAttribute('aria-label', text(this.folded ? 'expand' : 'collapse', title || text('untitled')))
       this.foldBtn.setAttribute('aria-expanded', String(!this.folded))
@@ -642,6 +747,9 @@ class CalloutView implements NodeView {
     // The palette (`focus`) puts the caret in the root item (FR-UX-03 AC-15); the `List` button at the end of the
     // header title, where it is edited (D-771), or in the root item when there is no title.
     if (v === 'list') {
+      // D-794: with a focused node, the caret goes to the end of that node's item (null: the synthesized root).
+      const fp = this.handle?.focusedNode?.()
+      if (fp !== undefined) { this.toItem(fp, focus); return }
       const title = this.node.firstChild
       const base = this.getPos()
       if (!focus && title && title.content.size > 0 && base !== undefined) {
@@ -655,6 +763,7 @@ class CalloutView implements NodeView {
   }
   /** D-776: a node click switches to List with the caret at the end of that item (`null`: the synthesized root, D-771). */
   private toItem(path: number[] | null, _focus = true) {
+    if (path !== null && path.length === 0) path = null // §6.7: `[]` is the synthesized root
     if (this.view !== 'list') {
       this.view = 'list'
       this.ui.mindmapState?.set(String(this.index()), 'list')
@@ -706,6 +815,189 @@ class CalloutView implements NodeView {
     this.pm.dispatch(tr.scrollIntoView())
     this.pm.focus()
   }
+  // ---------------------------------------------------------------------------------------- slice MM2: edits (§6.3)
+
+  /** The item at a tree path (D-774: an item's children come from every list directly inside it), with the list that
+   *  holds it and its index there; null for a missing path. Positions are those of `this.pm.state.doc`. */
+  private locate(path: number[]): Loc | null {
+    const base = this.getPos()
+    const node = this.node
+    if (base === undefined || node.childCount < 2 || path.length === 0) return null
+    let lists: { n: PMNode; pos: number }[] = [{ n: node.child(1), pos: base + 1 + node.firstChild!.nodeSize }]
+    let parent: Loc | null = null
+    let loc: Loc | null = null
+    for (let depth = 0; depth < path.length; depth++) {
+      let want = path[depth]
+      let found: Loc | null = null
+      for (const l of lists) {
+        if (want < l.n.childCount) {
+          let p = l.pos + 1
+          for (let k = 0; k < want; k++) p += l.n.child(k).nodeSize
+          found = { item: l.n.child(want), pos: p, list: l.n, listPos: l.pos, index: want, parent, path: path.slice(0, depth + 1) }
+          break
+        }
+        want -= l.n.childCount
+      }
+      if (!found) return null
+      loc = found
+      parent = found
+      lists = []
+      let p = found.pos + 1
+      found.item.forEach((c) => { if (/List$/.test(c.type.name)) lists.push({ n: c, pos: p }); p += c.nodeSize })
+    }
+    return loc
+  }
+  /** The lists directly inside an item, with their positions. */
+  private innerLists(item: PMNode, itemPos: number): { n: PMNode; pos: number }[] {
+    const out: { n: PMNode; pos: number }[] = []
+    let p = itemPos + 1
+    item.forEach((c) => { if (/List$/.test(c.type.name)) out.push({ n: c, pos: p }); p += c.nodeSize })
+    return out
+  }
+  private childCount(item: PMNode): number {
+    let n = 0
+    item.forEach((c) => { if (/List$/.test(c.type.name)) n += c.childCount })
+    return n
+  }
+  /** The root is the single top-level item (D-681); its path is [0]. */
+  private rootIsItem(): boolean {
+    return this.node.childCount >= 2 && this.node.child(1).childCount === 1
+  }
+  private paragraphJson(md: string): JSONContent {
+    const tree = markdownTree(md)
+    const first = tree.children[0]
+    if (first && first.type === 'paragraph') return blockToPM(first, md)
+    return { type: 'paragraph', content: md ? [{ type: 'text', text: md }] : [] }
+  }
+  private listItemJson(md: string): JSONContent {
+    return { type: 'listItem', attrs: { checked: null, spread: false }, content: [this.paragraphJson(md)] }
+  }
+  private applied(tr: Transaction): void {
+    this.pm.dispatch(tr)
+    // D-786: the map is updated at once, not after the 150 ms live delay.
+    const l = liveMindmaps.get(this.pm)?.get(this.at) ?? this
+    l.handle?.update({ now: true })
+  }
+  /** R95a: the first paragraph's Markdown source (NFC), null for a missing path. */
+  source(path: number[]): string | null {
+    const loc = this.locate(path)
+    const para = loc?.item.firstChild
+    if (!loc || !para || para.type.name !== 'paragraph') return null
+    return renderBlock(pmToBlock(para.toJSON()) as RootContent).replace(/\n$/, '').normalize('NFC')
+  }
+  /** W17, W17a, W22: replaces the first paragraph's inline content; false when unchanged or missing. */
+  setText(path: number[], md: string): boolean {
+    const loc = this.locate(path)
+    const para = loc?.item.firstChild
+    if (!loc || !para || para.type.name !== 'paragraph') return false
+    const next = this.pm.state.schema.nodeFromJSON(this.paragraphJson(md.normalize('NFC')))
+    if (next.content.eq(para.content)) return false
+    const at = loc.pos + 1
+    this.applied(this.pm.state.tr.replaceWith(at, at + para.nodeSize, next))
+    return true
+  }
+  /** D-787, D-795: a new item with its text, in one step; returns its path. */
+  insert(at: number[] | null, where: 'sibling' | 'child', md: string): number[] | null {
+    if (md.trim() === '') return null
+    const base = this.getPos()
+    if (base === undefined || this.node.childCount < 2) return null
+    const item = this.pm.state.schema.nodeFromJSON(this.listItemJson(md.normalize('NFC')))
+    const top = { n: this.node.child(1), pos: base + 1 + this.node.firstChild!.nodeSize }
+    if (at === null) {
+      // The synthesized root: a new top-level item at the end.
+      this.applied(this.pm.state.tr.insert(top.pos + 1 + top.n.content.size, item))
+      // `top.n` is the list before the insert: its old count is the new item's index.
+      return [top.n.childCount]
+    }
+    const loc = this.locate(at)
+    if (!loc) return null
+    const asChild = where === 'child' || (at.length === 1 && this.rootIsItem())
+    if (!asChild) {
+      this.applied(this.pm.state.tr.insert(loc.pos + loc.item.nodeSize, item))
+      return [...at.slice(0, -1), at[at.length - 1] + 1]
+    }
+    const lists = this.innerLists(loc.item, loc.pos)
+    const n = this.childCount(loc.item)
+    if (where === 'child') {
+      if (lists.length) {
+        const last = lists[lists.length - 1]
+        this.applied(this.pm.state.tr.insert(last.pos + 1 + last.n.content.size, item))
+      } else {
+        const list = loc.list.type.create(loc.list.attrs, item)
+        this.applied(this.pm.state.tr.insert(loc.pos + 1 + loc.item.content.size, list))
+      }
+      return [...at, n]
+    }
+    // ⏎ on the root item: its first child (D-787).
+    if (lists.length) this.applied(this.pm.state.tr.insert(lists[0].pos + 1, item))
+    else this.applied(this.pm.state.tr.insert(loc.pos + 1 + loc.item.content.size, loc.list.type.create(loc.list.attrs, item)))
+    return [...at, 0]
+  }
+  /** D-787: removes a node without children; returns the path to focus (the previous sibling, else the parent). */
+  remove(path: number[]): number[] | null {
+    const loc = this.locate(path)
+    if (!loc || this.childCount(loc.item) > 0) return null
+    if (path.length === 1 && this.rootIsItem()) return null
+    const tr = this.pm.state.tr
+    if (loc.list.childCount === 1) tr.delete(loc.listPos, loc.listPos + loc.list.nodeSize)
+    else tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
+    this.applied(tr)
+    const i = path[path.length - 1]
+    // §6.7: `[]` is the synthesized root (the first top-level item had no previous sibling).
+    return i > 0 ? [...path.slice(0, -1), i - 1] : path.slice(0, -1)
+  }
+  /** W19…W21: among the siblings, under the previous sibling, after the parent; null when impossible. */
+  move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null {
+    const loc = this.locate(path)
+    if (!loc) return null
+    if (path.length === 1 && this.rootIsItem()) return null
+    const i = path[path.length - 1]
+    const tr = this.pm.state.tr
+    if (dir === 'up' || dir === 'down') {
+      const j = loc.index + (dir === 'up' ? -1 : 1)
+      if (j < 0 || j >= loc.list.childCount) return null
+      const other = loc.list.child(j)
+      tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
+      tr.insert(dir === 'down' ? loc.pos + other.nodeSize : loc.pos - other.nodeSize, loc.item)
+      this.applied(tr)
+      return [...path.slice(0, -1), i + (dir === 'up' ? -1 : 1)]
+    }
+    if (dir === 'in') {
+      if (loc.index === 0) return null
+      const prev = loc.list.child(loc.index - 1)
+      const prevPos = loc.pos - prev.nodeSize
+      const lists = this.innerLists(prev, prevPos)
+      const n = this.childCount(prev)
+      tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
+      if (lists.length) {
+        const last = lists[lists.length - 1]
+        tr.insert(last.pos + 1 + last.n.content.size, loc.item)
+      } else tr.insert(prevPos + 1 + prev.content.size, loc.list.type.create(loc.list.attrs, loc.item))
+      this.applied(tr)
+      return [...path.slice(0, -1), i - 1, n]
+    }
+    // out
+    const parent = loc.parent
+    if (!parent || (parent.path.length === 1 && this.rootIsItem())) return null
+    const parentEnd = parent.pos + parent.item.nodeSize
+    if (loc.list.childCount === 1) tr.delete(loc.listPos, loc.listPos + loc.list.nodeSize)
+    else tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
+    tr.insert(tr.mapping.map(parentEnd), loc.item)
+    this.applied(tr)
+    const pi = parent.path[parent.path.length - 1]
+    return [...parent.path.slice(0, -1), pi + 1]
+  }
+  /** D-791, D-792 (W12…W13): the layout as callout metadata; false when already so. */
+  setLayout(l: MindmapLayout): boolean {
+    if (this.kind !== 'mindmap') return false
+    const meta = this.node.attrs.calloutMeta as string | null
+    if (layoutOf(meta) === l) return false
+    const pos = this.getPos()
+    if (pos === undefined) return false
+    this.applied(this.pm.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, calloutMeta: l === 'spider' ? 'spider' : null }))
+    return true
+  }
+
   update(node: PMNode) {
     if (node.type !== this.node.type || calloutKind(node) !== this.kind) return false
     if (this.kind !== 'mindmap' && String(node.attrs.calloutType).toLowerCase() !== String(this.node.attrs.calloutType).toLowerCase()) return false
@@ -724,6 +1016,9 @@ class CalloutView implements NodeView {
   }
   destroy() {
     this.handle?.destroy()
+    // A stale registry entry would be adopted by a later block at this index (mm-mindmap §6.7): once the same-task
+    // re-creation (if any) has registered itself, an entry that still names this view is dropped.
+    queueMicrotask(() => { const m = liveMindmaps.get(this.pm); if (m?.get(this.at) === this) m.delete(this.at) })
   }
 }
 

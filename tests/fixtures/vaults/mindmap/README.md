@@ -2,7 +2,7 @@
 
 Synthetic vault for `docs/acceptance/mindmap.md` (FR-MMP-01, -02, -04; FR-FMT-05 AC-4…AC-6; FR-FMT-07 AC-24; FR-SYN-06 AC-33; FR-LNK-01 AC-27; FR-LNK-03 AC-21; FR-UX-03 AC-15; FR-UX-05 AC-10; NFR-OTH-02 AC-7). Hand-written from D-679…D-687 and the plan `docs/plans/mm-mindmap-as-list.md` (D-50); no real content.
 
-**Status: approved, 2026-10-25** (AP-726…AP-740 decided as recommended, D-765…D-779). Rows marked *AP-n* follow that decision; a later change to a file comes with a `Fixture-Change:` trailer. Don't open and re-save these files in an editor.
+**Status: approved, 2026-10-25** (AP-726…AP-740 decided as recommended, D-765…D-779). Slice MM2 (D-785…D-792) adds Pavouk, Neznámé metadata and Metadata on 2026-10-26. Rows marked *AP-n* follow that decision; a later change to a file comes with a `Fixture-Change:` trailer. Don't open and re-save these files in an editor.
 
 The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (no file names clash; Task comes from there) next to the one type file below. This README is not a vault file and is never copied.
 
@@ -41,6 +41,9 @@ The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (no file names c
 | Neplatná mapa | `Pages/Neplatná mapa.md` | M019 | invalid frontmatter (line 3); `> [!mindmap] Jen ke čtení` with `[[Výjezd 2026]]` and `Druhá větev` | opens in the read view: Map only | FR-MMP-02 AC-8 |
 | Šablona | `_templates/Projekt/Projekt.md` | — | body only: `> [!mindmap] Cíle projektu` with `Cíle projektu` › `Proč`, `Co`, `Kdy` | copied verbatim into a new Projekt (D-92) | FR-MMP-04 AC-1 |
 | Stará mapa | `.trash/Pages/Stará mapa.md` | M016 | a mindmap linking `[[Lisabon]]` | never a backlink, never rewritten (D-102) | FR-LNK-01 AC-27, FR-LNK-03 AC-21 |
+| Pavouk | `Pages/Pavouk.md` | M019 | `> [!mindmap\|spider] Pavouk`, root `Střed` with `Alfa` (`A1`, `A2`), `Beta` (`B1`), `Gama`, `Delta` | mindmap, layout `spider`, 8 nodes; the golden geometry of R96 (*slice MM2, D-789, D-791*) | FR-MMP-02 AC-24, AC-25, AC-27, AC-29; FR-FMT-05 AC-7; FR-FMT-07 AC-25 |
+| Neznámé metadata | `Pages/Neznámé metadata.md` | M020 | `> [!mindmap\|foo] Cizí`, `Kořen` › `Větev` | mindmap, layout `right` (unknown metadata), 2 nodes; `\|foo` preserved until a switch (*MM2, D-791*) | FR-FMT-05 AC-7; FR-MMP-02 AC-29; FR-FMT-07 AC-25 |
+| Metadata | `Pages/Metadata.md` | M021 | `> [!note\|wide] Poznámka` with a paragraph; `> [!Mindmap\|SPIDER]+ Velká písmena` with top-level `Jedna`, `Dvě`, `Tři` | an ordinary note callout whose metadata is kept on edit; a mindmap in `spider` (metadata case-insensitive, fold marker kept), synthesized root `Velká písmena` (*MM2, D-791*) | FR-FMT-05 AC-7; FR-MMP-02 AC-29; FR-FMT-07 AC-25 |
 
 ## Created at runtime by the tests
 

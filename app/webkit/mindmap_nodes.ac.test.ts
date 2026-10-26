@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import {
   MM, callsOf, caretWhen, click, description, eventually, figure, fileText, fileWhen, focused, focusedWhen, listBtn, main, mapArea, mapBtn,
-  mindmapVault, must, mustBeOn, navs, needFigure, needNode, needTree, node, noModified, openMm, original, seen, sirokaText, sleep, swap,
-  treeItems, treeNames, velkaText, viewOf, viewWhen, writes,
+  mindmapVault, must, mustBeOn, mustCaret, navs, needFigure, needNode, needTree, node, noModified, openMm, original, seen, sirokaText, sleep, swap,
+  treeItems, treeNames, velkaText, viewOf, viewWhen, writes, fieldState, nodeField, pendingNode, radioRight,
 } from './mindmap-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -78,11 +78,12 @@ test('fr_mmp_02_ac9_checklist_boxes_are_read_only_and_numbers_not_drawn', async 
   await needTree(fig, null);
   const items = await treeItems(fig);
   assert.deepEqual(items.map((i) => [i.name, i.description]), [['Nákup', 'Not checked'], ['Mléko', 'Checked'], ['Chléb', 'Not checked'], ['Sýr', 'Checked']], 'descriptions Checked / Not checked');
-  const box = fig.locator('[role="treeitem"][data-node="0.1"] input[type="checkbox"], [role="treeitem"][data-node="0.1"] [data-checkbox]').first();
+  const box = fig.locator('[role="treeitem"][data-node="0.0"] input[type="checkbox"], [role="treeitem"][data-node="0.0"] [data-checkbox]').first(); // Mléko is the first child (0.0)
   await must(box, 'the drawn box of Mléko');
   assert.equal(await box.getAttribute('aria-hidden') ?? await box.evaluate((x) => x.closest('[aria-hidden="true"]') ? 'true' : null), 'true', 'the box is aria-hidden (AP-731)');
   await box.click();
-  assert.equal(await viewWhen(fig, 'list'), 'list', 'a click on the box is a node click');
+  assert.equal(await viewOf(fig), 'map', 'a click on the box is a node click: it focuses the node (slice MM2, D-788)');
+  assert.equal(await (await needNode(fig, 'Mléko')).evaluate((el) => el === document.activeElement), true, 'Mléko focused');
   await sleep(1200);
   assert.deepEqual(await writes(core), [], 'never toggles, writes nothing');
   await openMm(page, MM.postup);
@@ -107,7 +108,8 @@ test('fr_mmp_02_ac10_link_chip_opens_the_note_without_switching', async ({ page 
   const bb = (await n.boundingBox())!;
   const chip = (await n.getByRole('link').first().boundingBox())!;
   await page.mouse.click(Math.min(bb.x + bb.width - 2, chip.x + chip.width + 3), bb.y + bb.height - 2);
-  assert.equal(await viewWhen(f2, 'list'), 'list', 'elsewhere on the node: List (AC-5)');
+  assert.equal(await viewOf(f2), 'map', 'elsewhere on the node: the node click focuses it (slice MM2, D-788)');
+  assert.equal(await n.evaluate((el) => el === document.activeElement), true, 'Lisabon focused');
 });
 
 test('fr_mmp_02_ac10_tag_date_broken_and_task_chips_in_uzly', async ({ page }) => {
@@ -337,8 +339,11 @@ test('fr_mmp_02_ac14_typing_in_the_500_node_list_report_only', async ({ page }) 
 test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
   await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
-  await (await must(mapBtn(fig), 'button Map')).focus();
-  assert.deepEqual([(await focused(page)).name], ['Map'], 'focus on Map');
+  // Slice MM2 (D-792, FR-UX-03 AC-16): Tab reaches the layout switch (one stop) before Map.
+  await (await must(radioRight(fig), 'radio "Branches to the right"')).focus();
+  assert.deepEqual([(await focused(page)).role, (await focused(page)).name], ['radio', 'Branches to the right'], 'focus on the layout switch');
+  await page.keyboard.press('Tab');
+  assert.deepEqual([(await focused(page)).name], ['Map'], 'Tab: Map');
   await page.keyboard.press('Tab');
   assert.equal((await focused(page)).name, 'List', 'Tab: List');
   await page.keyboard.press('Tab');
@@ -364,23 +369,31 @@ test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
   assert.notEqual(f.role, 'link', 'link chips inside nodes are not Tab stops');
 });
 
+// Slice MM2 (D-787): ⏎ or Space on a node opens the `Edit node` field (FR-MMP-02 AC-24) instead of switching to List.
 test('fr_mmp_02_ac15_enter_space_and_cmd_enter_on_nodes', async ({ page }) => {
-  await openMm(page, MM.vyjezd);
+  const core = await openMm(page, MM.vyjezd);
   let fig = await needFigure(page, 'Výjezd 2026');
   const prog = await needNode(fig, 'Program');
   await prog.focus();
   await page.keyboard.press('Enter');
-  assert.equal(await viewWhen(fig, 'list'), 'list', '⏎ on Program: List');
-  const c = await caretWhen(page, (x) => x.text === 'Program' && x.atEnd);
-  assert.deepEqual([c.text, c.atEnd], ['Program', true], 'the caret at the end of Program');
+  assert.ok(await seen(pendingNode(fig).or(nodeField(fig)), 1000), '⏎ on Program: a new sibling is edited in the field (R95), no view change');
+  assert.equal(await viewOf(fig), 'map', 'still Map');
   await page.keyboard.press('Escape');
-  await sleep(300);
-  assert.equal(await viewOf(fig), 'list', 'Esc in the list: no view change');
-  await click(mapBtn(fig), 'Map');
+  assert.equal(await nodeField(fig).count(), 0, 'Esc closes the field');
   const p2 = await needNode(fig, 'Program');
   await p2.focus();
   await page.keyboard.press(' ');
-  assert.equal(await viewWhen(fig, 'list'), 'list', 'Space on Program: List');
+  assert.equal((await fieldState(fig))?.value, 'Program', 'Space on Program: the field with its text (AC-24)');
+  assert.equal(await viewOf(fig), 'map', 'still Map');
+  await page.keyboard.press('Escape');
+  await sleep(1200);
+  assert.deepEqual(await writes(core), [], 'nothing written');
+  await click(listBtn(fig), 'List');
+  const c = await caretWhen(page, (x) => x.text === 'Program' && x.atEnd);
+  assert.deepEqual([c.text, c.atEnd], ['Program', true], 'List: the caret at the end of the focused node (AP-750)');
+  await page.keyboard.press('Escape');
+  await sleep(300);
+  assert.equal(await viewOf(fig), 'list', 'Esc in the list: no view change');
   await click(mapBtn(fig), 'Map');
   fig = await needFigure(page, 'Výjezd 2026');
   const lis = await needNode(fig, 'Lisabon');
@@ -399,8 +412,8 @@ test('fr_mmp_02_ac16_mindmap_inside_an_embedded_note', async ({ page }) => {
   assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Přehled Q4', 'Plán 2027', 'Místo', 'Lisabon', 'Doprava'], 'the same tree as AC-1');
   await click(listBtn(fig), 'List in the embed');
   assert.equal(await viewWhen(fig, 'list'), 'list', 'the embedded block switches to List');
-  await click(node(fig, 'Doprava'), 'node Doprava below the list');
-  await caretWhen(page, (x) => x.text === 'Doprava' && x.atEnd);
+  // Slice MM2 (D-788): a node click focuses the node and no longer moves the caret; the caret is placed in the list.
+  await mustCaret(fig.locator('li p, li').filter({ hasText: /^Doprava$/ }).last(), 'Doprava', 'end of Doprava in the embedded list');
   await page.keyboard.type(' vlakem');
   const t = await fileWhen(core, MM.vyjezd, (x) => !!x && x.includes('Doprava vlakem'));
   assert.equal(noModified(t), noModified(swap(original(MM.vyjezd), '>   - Doprava\n', '>   - Doprava vlakem\n')), 'only the callout bytes of Výjezd change');

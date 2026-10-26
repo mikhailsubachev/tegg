@@ -7,6 +7,7 @@ import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
 import { calloutBody, displayTables, displayTablesAt, isMindmapBlock, isMindmapHint, markdownTree, mindmapTree, parse, wikilinks } from '@tegg/doc';
 import { MindmapMap } from '../mindmap/MindmapMap';
+import type { MindmapEdit } from '@tegg/editor';
 import { t } from '../i18n/catalog';
 import type { LinkTargetDto } from '../ipc/types';
 import type { EmbedTree } from '../embeds/tree';
@@ -34,7 +35,7 @@ export type ReadViewProps = {
   /** Slice MM: the note's title, for a synthesized root (D-681); default `title:` or the file name. */
   noteTitle?: string;
   /** Slice MM (mm-mindmap §3.3): only the map of the first block, for the editor's mindmap block. */
-  mindmapOnly?: { onNode: (path: number[] | null) => void; readOnly: boolean };
+  mindmapOnly?: { onNode: (path: number[] | null) => void; readOnly: boolean; edit?: MindmapEdit | null; onFocusedNode?: (path: number[] | null | undefined) => void };
 };
 
 // mdast nodes of `@tegg/doc` (with its wikiLink, tag, highlight and comment nodes), read structurally.
@@ -417,10 +418,10 @@ function MindmapFigure({ c, raw, line }: { c: Ctx; raw: string; line?: number })
   // D-600: a task chip's `<due> · <status>` suffix takes room in its node.
   const chipSuffix = (target: string) => { const i = linkInfo(c, target); return i && i.status ? [i.due, i.status].filter(Boolean).join(' · ') + ' ·' : null; };
   const map = <MindmapMap tree={tree} label={t('mindmap.tree', { title: title ?? t('mindmap.untitled') })} content={content} chipSuffix={chipSuffix}
-    onNode={c.mindmapOnly?.onNode} readOnly={c.mindmapOnly ? c.mindmapOnly.readOnly : true} />;
+    onNode={c.mindmapOnly?.onNode} readOnly={c.mindmapOnly ? c.mindmapOnly.readOnly : true} edit={c.mindmapOnly?.edit ?? null} onFocusedNode={c.mindmapOnly?.onFocusedNode} />;
   if (c.mindmapOnly) return map;
   return (
-    <figure className="mindmap-block" data-mindmap="" data-view="map" data-callout="mindmap" aria-label={title ? t('mindmap.figure', { title }) : t('mindmap.untitled')} data-src-line={line}>
+    <figure className="mindmap-block" data-mindmap="" data-view="map" data-layout={tree.layout} data-callout="mindmap" aria-label={title ? t('mindmap.figure', { title }) : t('mindmap.untitled')} data-src-line={line}>
       <div className="mindmap-header">
         <Icon name="mindmap" size={15} dataIcon="mindmap" />
         <span className={`mindmap-title${title ? '' : ' untitled'}`} data-user-content={title ? '' : undefined}>{title ?? t('mindmap.untitled')}</span>
@@ -438,7 +439,7 @@ function MindmapFigure({ c, raw, line }: { c: Ctx; raw: string; line?: number })
 
 const isCallout = (n: Any) => {
   const p = n.children?.[0] as Any;
-  return p?.type === 'paragraph' && p.children[0]?.type === 'text' && /^\[![^\]\s]+\][+-]?/.test(p.children[0].value);
+  return p?.type === 'paragraph' && p.children[0]?.type === 'text' && /^\[![^\]|\s]+(?:\|[^\]]*)?\][+-]?/.test(p.children[0].value);
 };
 
 function CodeBlock({ lang, children, className, line }: { lang?: string | null; children: string; className?: string; line?: number }) {

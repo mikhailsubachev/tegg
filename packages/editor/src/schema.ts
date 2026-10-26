@@ -173,6 +173,8 @@ export const Callout = Node.create({
   addAttributes() {
     return {
       calloutType: { default: 'note', rendered: false },
+      /** D-791: Obsidian callout metadata (`[!type|metadata]`), as written; null without one. */
+      calloutMeta: { default: null, rendered: false },
       fold: { default: '', rendered: false },
       joined: { default: false, rendered: false },
     }
