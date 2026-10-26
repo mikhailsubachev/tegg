@@ -146,7 +146,7 @@ function readsOf(file: string): Read[] {
 
 // System Events key codes.
 const KEY: Record<string, number> = {
-  a: 0, s: 1, w: 13, z: 6, o: 31, n: 45, q: 12, k: 40, v: 9, u: 32, enter: 36, escape: 53, tab: 48, delete: 51, down: 125, up: 126, right: 124,
+  a: 0, f: 3, s: 1, w: 13, z: 6, o: 31, n: 45, q: 12, k: 40, v: 9, u: 32, enter: 36, escape: 53, tab: 48, delete: 51, down: 125, up: 126, right: 124,
   left: 123, end: 119, home: 115, lbracket: 33, slash: 44,
 };
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost

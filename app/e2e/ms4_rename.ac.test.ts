@@ -113,7 +113,7 @@ async function waitExit(child: ChildProcess, ms = 10_000) {
   while (child.exitCode === null && child.signalCode === null && Date.now() < end) await sleep(50);
 }
 
-const KEY: Record<string, number> = { a: 0, v: 9, k: 40, o: 31, z: 6, enter: 36, escape: 53, tab: 48, lbracket: 33, down: 125 };
+const KEY: Record<string, number> = { a: 0, f: 3, v: 9, k: 40, o: 31, z: 6, enter: 36, escape: 53, tab: 48, lbracket: 33, down: 125 };
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
   osa(`tell application "System Events" to key code ${KEY[key]}${mods.length ? ` using {${mods.map((m) => `${m} down`).join(', ')}}` : ''}`);
