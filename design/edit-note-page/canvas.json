@@ -181,6 +181,14 @@
       "x": 3040,
       "y": 7560,
       "is_interactive": true
+    },
+    "MindmapLayouts.dc.html": {
+      "h": 1700,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-mindmap",
+      "title": "Mindmap · layouts (right, spider) and map editing"
     }
   },
   "createdOnFiles": {
@@ -214,7 +222,8 @@
     "MainUnreviewed.dc.html",
     "TagsAll.dc.html",
     "TagPage.dc.html",
-    "TagPagePostMVP.dc.html"
+    "TagPagePostMVP.dc.html",
+    "MindmapLayouts.dc.html"
   ],
   "pages": [
     {
@@ -224,6 +233,10 @@
     {
       "id": "page-n7qph1",
       "name": "Page 2"
+    },
+    {
+      "id": "page-mindmap",
+      "name": "Mindmap"
     }
   ],
   "title": "Tegg – Edit note page"
