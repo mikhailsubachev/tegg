@@ -1086,3 +1086,12 @@ button.tag-tile { cursor: pointer; }
 
 .slash-two-lines { display: flex; flex-direction: column; gap: 2px; }
 .slash-desc { font-size: 12px; color: var(--muted); }
+/* Slice MM2 (docs/acceptance/mindmap.md R95a, R97; D-787, D-788, D-792): the layout switch, the node text field and the
+   pending node. */
+.mindmap-layout { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); }
+.mindmap-layout-radio { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--muted); }
+.mindmap-layout-radio[aria-checked='true'] { background: var(--bg); color: var(--accent); }
+.mindmap-layout-radio:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mindmap-node .mindmap-field { display: block; box-sizing: border-box; width: 100%; min-width: 48px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: inherit; color: inherit; font: inherit; line-height: 18px; outline: 2px solid var(--accent) !important; outline-offset: 2px; }
+.mindmap-node.pending { border: 1px dashed var(--border); background: var(--bg); color: var(--text); font-weight: 400; min-width: 120px; }
+.mindmap-node.pending .mindmap-field { background: var(--bg); color: var(--text); }

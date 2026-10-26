@@ -46,7 +46,7 @@ import { noteTitle } from '../read/ReadView';
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -910,6 +910,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       // Slice MM (R94): the palette's `Show mindmap as map / list`.
       case 'mindmapMap': c.mindmapView('map'); break;
       case 'mindmapList': c.mindmapView('list'); break;
+      // Slice MM2 (R97): the layout switch's palette commands.
+      case 'mindmapLayoutRight': c.mindmapLayout('right'); break;
+      case 'mindmapLayoutSpider': c.mindmapLayout('spider'); break;
       case 'turnIntoObject': openConvert('last'); break;
       case 'undo': c.undo(); break;
       case 'redo': c.redo(); break;

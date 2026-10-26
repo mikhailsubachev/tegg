@@ -13,7 +13,8 @@ type Mark = { type: string; attrs?: Record<string, unknown> }
 
 // ---------------------------------------------------------------- mdast → PM
 
-const CALLOUT_HEAD = /^\[!([^\]\s]+)\]([+-]?)[ \t]*/
+// D-791: `[!type|metadata]`; the metadata is kept as the `calloutMeta` attribute and written back as it was.
+const CALLOUT_HEAD = /^\[!([^\]|\s]+)(?:\|([^\]]*))?\]([+-]?)[ \t]*/
 
 export function blockToPM(node: RootContent, source: string): JSONContent {
   const raw = (n: Nodes): JSONContent => ({ type: 'rawBlock', attrs: { source: slice(n, source) } })
@@ -93,7 +94,7 @@ function mindmapToPM(raw: string): JSONContent | null {
     j.content?.forEach(fill)
   }
   list.forEach(fill)
-  return { type: 'callout', attrs: { calloutType: h.type, fold: h.fold, joined: false }, content: [{ type: 'calloutTitle', content: title }, ...list] }
+  return { type: 'callout', attrs: { calloutType: h.type, calloutMeta: h.meta, fold: h.fold, joined: false }, content: [{ type: 'calloutTitle', content: title }, ...list] }
 }
 
 /** A blockquote whose first paragraph starts with `[!type]`: title = the rest of its first line. */
@@ -126,7 +127,7 @@ function calloutToPM(q: Blockquote, source: string): JSONContent | null {
   const content: JSONContent[] = [{ type: 'calloutTitle', content: inlines(title, [], source) }]
   if (inBody) content.push({ type: 'paragraph', content: inlines(body, [], source) })
   content.push(...blocks(q.children.slice(1), source))
-  return { type: 'callout', attrs: { calloutType: m[1], fold: m[2], joined: inBody }, content }
+  return { type: 'callout', attrs: { calloutType: m[1], calloutMeta: m[2] ?? null, fold: m[3], joined: inBody }, content }
 }
 
 function blocks(children: RootContent[], source: string): JSONContent[] {
@@ -182,7 +183,8 @@ export function pmToBlock(json: JSONContent): RootContent {
       return { type: 'blockquote', children: content.map(pmToBlock) as BlockContent[] }
     case 'callout': {
       const [title, ...body] = content
-      const head: PhrasingContent = { type: 'text', value: `[!${attrs.calloutType ?? 'note'}]${attrs.fold ?? ''}` }
+      const meta = attrs.calloutMeta === null || attrs.calloutMeta === undefined ? '' : `|${attrs.calloutMeta}`
+      const head: PhrasingContent = { type: 'text', value: `[!${attrs.calloutType ?? 'note'}${meta}]${attrs.fold ?? ''}` }
       const titleKids = trimEdges(phrasing(title?.content ?? []))
       const first: PhrasingContent[] = [head]
       if (titleKids.length) first.push({ type: 'text', value: ' ' } as PhrasingContent, ...titleKids)

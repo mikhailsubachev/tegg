@@ -260,6 +260,13 @@ export const en: Catalog = {
   'mindmap.unchecked': 'Not checked',
   'cmd.mindmap.showMap': 'Show mindmap as map',
   'cmd.mindmap.showList': 'Show mindmap as list',
+  // Slice MM2 (R97, D-792).
+  'mindmap.layout': 'Mindmap layout',
+  'mindmap.layoutRight': 'Branches to the right',
+  'mindmap.layoutSpider': 'Spider: branches on both sides',
+  'mindmap.editNode': 'Edit node',
+  'cmd.mindmap.layoutRight': 'Mindmap layout: right',
+  'cmd.mindmap.layoutSpider': 'Mindmap layout: spider',
   'due.coming': 'Coming in {milestone}',
   'toolbar.label': 'Formatting',
   'toolbar.bold': 'Bold',

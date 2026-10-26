@@ -18,7 +18,7 @@ import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
 import { focusedMindmap, hintElement, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
-import { teggExtensions } from './schema'
+import { teggExtensions, wikiLabel } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
 
 export type Now = () => string
@@ -483,6 +483,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       opts.onUpdate?.()
     },
   })
+  // Slice MM2 (D-794): a link chip counts as its label in `textContent` (ProseMirror's `leafText`), so the caret
+  // helpers that read an item's text see `Lisabon` for `[[Lisabon]]`. TipTap's node config has no `leafText`.
+  editor.schema.nodes.wikiLink.spec.leafText = (n) => wikiLabel(String(n.attrs.value), !!n.attrs.embed)
   let plainNext = false
   const view = editor.view
   // 4F (FR-EMB-01 AC-9, D-419): a top-level paragraph that becomes a sole note embed is a block embed.
@@ -847,7 +850,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
           // D-767 (W7, W10): to or from `mindmap` only the type in the title line changes.
           if (isMindmap(node) || o.calloutType === 'mindmap') {
             const type = o.calloutType
-            return sourceStep(from, from, ([raw]) => { const h = calloutHead(raw); return h ? raw.replace(`[!${h.type}]`, `[!${type}]`) : raw })
+            return sourceStep(from, from, ([raw]) => { const h = calloutHead(raw); return h ? raw.replace(/\[!([^\]|\s]+)((?:\|[^\]]*)?)\]/, (_m, _t: string, meta: string) => `[!${type}${meta}]`) : raw })
           }
           dispatch(editor.state.tr.setNodeMarkup(start, undefined, { ...node.attrs, calloutType: o.calloutType }))
           return true
@@ -1346,16 +1349,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return commands.turnInto('callout', { calloutType: type })
     },
     mindmapView(v) {
-      // The mindmap holding the caret, else the one whose map has (or last had) the focus.
-      const k = topIndex(editor.state)
-      const node = editor.state.doc.child(k)
-      let dom = isMindmap(node) ? (view.nodeDOM(blockPos(editor.state.doc, k)) as HTMLElement | null) : null
-      if (!dom) {
-        const f = focusedMindmap.get(view)
-        const active = document.activeElement
-        if (f && f.isConnected && (f.contains(active) || !view.hasFocus())) dom = f
-      }
-      const nv = dom ? mindmapViews.get(dom) : undefined
+      const nv = mindmapAtCaret()
       if (!nv) return false
       nv.setView(v, true)
       return true
@@ -1363,9 +1357,10 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     canTurnIntoMindmap() {
       return mindmapOffer()
     },
-    mindmapLayout(_layout) {
-      // Slice MM2 STUB (mm-mindmap §6.3): nothing is written yet.
-      return false
+    mindmapLayout(layout) {
+      // Slice MM2 (mm-mindmap §6.3, D-791): the mindmap holding the caret, else the focused map; one undo step.
+      const nv = mindmapAtCaret()
+      return nv ? nv.setLayout(layout) : false
     },
     undo() {
       return editor.commands.undo()
@@ -1376,6 +1371,19 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   }
 
   /** 4F: the selected block embed (one selected block, or a node selection), or null. */
+  /** The mindmap holding the caret, else the one whose map has (or last had) the focus (mm-mindmap §3.2). */
+  function mindmapAtCaret() {
+    const k = topIndex(editor.state)
+    const node = editor.state.doc.child(k)
+    let dom = isMindmap(node) ? (view.nodeDOM(blockPos(editor.state.doc, k)) as HTMLElement | null) : null
+    if (!dom) {
+      const f = focusedMindmap.get(view)
+      const active = document.activeElement
+      if (f && f.isConnected && (f.contains(active) || !view.hasFocus())) dom = f
+    }
+    return dom ? mindmapViews.get(dom) : undefined
+  }
+
   function selectedEmbed(): { pos: number; index: number; source: string } | null {
     const doc = editor.state.doc
     let index: number | null = null

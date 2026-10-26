@@ -212,9 +212,18 @@ Drag, collapse, zoom, pan, node → object, export, full screen, autocomplete on
 ### 6.6 Interface details settled while writing the red tests (no owner decision needed)
 
 - **`EditorOptions.editable?: boolean`** (default true): false creates a read-only editor (ProseMirror `editable`), the L1 way to a `readOnly` `MindmapCtl` with `edit: null`. `MindmapCtl.layout` and `.edit` are required (never undefined).
-- **`MindmapCtl.onNode(path)`** no longer changes the view: it puts the caret at the end of the item's first paragraph (the synthesized root: the end of the title, else the start of the first item, D-771) and is what `List` uses with a focused node (D-794). The view switch is the `List` button or `mindmapView('list')`.
+- **`MindmapCtl.onNode(path)`** keeps D-776's behaviour (List with the caret at the end of the item's first paragraph; the synthesized root: the end of the title, else the start of the first item, D-771): the empty-state button uses it (D-793) and `List` with a focused node goes through the same placement (D-794). The map no longer calls it on a node click (D-788).
 - **`mindmapView('list')`** with `focusedNode() === null` (the synthesized root focused): the caret goes where `onNode(null)` puts it.
 - **`setMindmapLayout`** when the layout is already the one asked for (`|spider` or `|SPIDER` and `spider`; no metadata or unknown metadata and `right`): returns `raw` unchanged, so the UI's "choosing the checked radio writes nothing" holds at every level; `|foo` + `right` is also the identity (D-791: unknown metadata is preserved until the user switches to the other layout).
 - **Spider with one side only** (every first-level branch on the right, as with a single branch): the root's x is 0, as in `right`; with a left side only, the root's x is the left columns' width + 60 and the layout's width is the root's right edge.
 - **Catalog keys** are §6.4's (`mindmap.layoutRight`, `mindmap.layoutSpider`); R97 is corrected to them. Pavouk has 8 nodes (README corrected).
 - **A pending node after undo:** when ⌘Z removes the node that had the focus (W15 undone), the focus goes to the node the tree's roving stop falls back to (its previous sibling, else the parent); redo focuses the restored node.
+
+### 6.7 Settled while building (no owner decision needed)
+
+- **A save redraws the document** (the frontmatter attribute changes, so ProseMirror rebuilds every node view). The re-created mindmap view **adopts the previous view's live map**: `MindmapHandle.adopt(dom)` (called after `destroy()`, in the same task) moves the map's DOM into the new container and cancels the unmount; the handle's control already resolves to the live view. The map keeps its focused node and an open field; `focusTree()` focuses the open field, else the roving node; a focused layout radio is focused again in the new header.
+- **`leafText` on link chips:** the editor sets ProseMirror's `leafText` on `wikiLink` at creation (TipTap's node config has none), so an item's `textContent` reads `Lisabon` for `[[Lisabon]]` (the caret helpers of D-794).
+- **A straight connector** (a zero-height path, Beta → B1 in Pavouk) gets a `l0 0.01` tail in its `d`, so it has a bounding box; its four points are unchanged.
+- **Undo focus (R95):** the map records each of its edits as a (before, after) pair of paths; ⌘Z focuses the `before` path of the last map edit, ⇧⌘Z the `after` path; other undo steps fall back to the roving node.
+- **R96 golden values corrected:** `Delta` is 5 characters (55 px), so the left depth-1 column of Pavouk is 55 px wide (the criteria's first numbers held an arithmetic slip; the layout code follows R92 unchanged).
+- **`EditorOptions.editable`** is passed to ProseMirror as given; the stubs' `initialFocus` / `initialEditing` idea was dropped for the adoption above.

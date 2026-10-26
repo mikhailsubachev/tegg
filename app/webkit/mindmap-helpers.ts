@@ -90,7 +90,8 @@ export type MmStart = StartOptions & {
 /** Starts the main window on the mindmap vault (zone from `test.use({ timezoneId })`). */
 export async function startMm(page: Page, o: MmStart = {}): Promise<FakeCoreHandle> {
   await page.addInitScript((r) => { (window as any).__TEGG_REGION__ = r; }, o.region ?? 'cs');
-  if (o.readView) await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
+  // Init scripts accumulate on the page, so the flag is set every time (a later start without `readView` resets it).
+  await page.addInitScript((rv) => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: rv }; }, !!o.readView);
   if (o.route) await page.addInitScript((r) => { (window as any).__TEGG_ROUTE__ = r; }, o.route);
   const t = new Date(o.now ?? NOW);
   if (o.install) await page.clock.install({ time: t });

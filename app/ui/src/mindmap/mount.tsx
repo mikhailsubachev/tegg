@@ -27,11 +27,14 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
   dom.appendChild(box);
   const root = createRoot(box);
   let alive = true;
+  let unmountPending = false;
   let links = new Map<string, LinkTargetDto>();
   let targetsKey = '';
   let timer: ReturnType<typeof setTimeout> | null = null;
   let last = 0;
   let shownView = '';
+  // Slice MM2 (D-794): the path of the node that has the map's focus (null: the synthesized root; undefined: none yet).
+  let focusedPath: number[] | null | undefined;
   const draw = (sync = false) => {
     if (!alive) return;
     last = performance.now();
@@ -40,7 +43,7 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
     if (ctl.folded?.()) { root.render(null); return; }
     const md = ctl.markdown();
     root.render(<ReadView text={`${md}\n`} path={host.path()} links={links} bare noteTitle={host.title()}
-      mindmapOnly={{ onNode: ctl.onNode, readOnly: ctl.readOnly }}
+      mindmapOnly={{ onNode: ctl.onNode, readOnly: ctl.readOnly, edit: ctl.readOnly ? null : ctl.edit, onFocusedNode: (p) => { focusedPath = p; } }}
       onOpen={host.onOpen} onTag={host.onTag} onExternal={host.onExternal} onScrollInNote={(f) => host.onOpen(host.path(), f)} />);
     const targets = [...new Set(wikilinks(parse(`${md}\n`)).map((l) => l.target))].sort();
     const key = targets.join('\u0000');
@@ -51,21 +54,33 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
   };
   draw();
   return {
-    update() {
+    update(opts) {
       if (!alive) return;
-      // A view switch draws at once (the tree must be current when it takes the focus); edits at most every 150 ms.
+      // A view switch draws at once (the tree must be current when it takes the focus); a map edit too (D-786, in a
+      // microtask, since the edit was dispatched from the map's own event); list edits at most every 150 ms.
+      if (opts?.now) { if (timer) { clearTimeout(timer); timer = null; } queueMicrotask(() => draw(true)); return; }
       if (`${ctl.view()}${ctl.folded?.() ? '-folded' : ''}` !== shownView) { if (timer) { clearTimeout(timer); timer = null; } draw(true); return; }
       if (timer) return;
       const wait = Math.max(0, LIVE_MS - (performance.now() - last));
       timer = setTimeout(() => { timer = null; draw(); }, wait);
     },
     focusTree() {
-      box.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')?.focus();
+      (box.querySelector<HTMLElement>('[data-node-editor]') ?? box.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]'))?.focus();
+    },
+    adopt(target) {
+      // mm-mindmap §6.6: a re-created block takes this live map over; the unmount scheduled by `destroy` is dropped.
+      unmountPending = false;
+      alive = true;
+      target.appendChild(box);
+    },
+    focusedNode() {
+      return focusedPath;
     },
     destroy() {
       alive = false;
       if (timer) clearTimeout(timer);
-      queueMicrotask(() => root.unmount());
+      unmountPending = true;
+      queueMicrotask(() => { if (unmountPending) root.unmount(); });
     },
   };
 }
