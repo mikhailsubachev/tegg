@@ -144,7 +144,7 @@ async function waitExit(child: ChildProcess, ms = 10_000) {
 
 // System Events key codes.
 const KEY: Record<string, number> = {
-  a: 0, d: 2, k: 40, o: 31, t: 17, v: 9, x: 7, z: 6, enter: 36, escape: 53, tab: 48, space: 49, delete: 51, down: 125, up: 126, left: 123, right: 124,
+  a: 0, f: 3, d: 2, k: 40, o: 31, t: 17, v: 9, x: 7, z: 6, enter: 36, escape: 53, tab: 48, space: 49, delete: 51, down: 125, up: 126, left: 123, right: 124,
 };
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 function press(key: keyof typeof KEY | string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {

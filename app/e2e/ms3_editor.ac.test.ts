@@ -113,7 +113,7 @@ function externalWrite(path: string, text: string) {
 
 // System Events key codes.
 const KEY: Record<string, number> = {
-  a: 0, s: 1, w: 13, z: 6, o: 31, n: 45, q: 12, u: 32, v: 9, enter: 36, escape: 53, tab: 48, down: 125, up: 126, right: 124, left: 123, end: 119, lbracket: 33, slash: 44,
+  a: 0, f: 3, s: 1, w: 13, z: 6, o: 31, n: 45, q: 12, u: 32, v: 9, enter: 36, escape: 53, tab: 48, down: 125, up: 126, right: 124, left: 123, end: 119, lbracket: 33, slash: 44,
 };
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 function press(key: string, mods: ('command' | 'shift' | 'control' | 'option')[] = []) {
