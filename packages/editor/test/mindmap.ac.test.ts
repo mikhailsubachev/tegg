@@ -348,8 +348,7 @@ test('fr_mmp_02_ac5_a_node_click_puts_the_caret_at_the_end_of_the_item', async (
   const ctl = log.ctls[0];
   assert.equal(ctl.view(), 'map', 'opens in Map (D-684)');
   assert.equal(ctl.readOnly, false, 'editable note');
-  ctl.onNode([0, 0]);
-  assert.equal(ctl.view(), 'list', 'a node click switches to List');
+  ctl.onNode([0, 0]); // slice MM2 (D-788): a click no longer switches the view; the caret rule stays
   assert.deepEqual(caretText(ed), { text: 'Program', atEnd: true }, 'caret at the end of Program (D-776)');
   console.log('C0', log.ctls.length); type(ed, ' a cíle'); console.log('C1', log.ctls.length);
   assert.equal(await saved(ed), touched(sw(orig, '>   - Program\n', '>   - Program a cíle\n')), 'typing saves only that line'); console.log('C2', log.ctls.length);
@@ -358,7 +357,6 @@ test('fr_mmp_02_ac5_a_node_click_puts_the_caret_at_the_end_of_the_item', async (
   const vk = fresh();
   const e2 = await openMm(fx('Pages/Více kořenů.md'), vk);
   vk.ctls[0].onNode(null);
-  assert.equal(vk.ctls[0].view(), 'list', 'the synthesized root switches to List');
   assert.deepEqual(caretText(e2), { text: 'Témata', atEnd: true }, 'a title root: the caret at the end of the title (AP-732)');
   const bt = fresh();
   const e3 = await openMm(fx('Pages/Bez titulku.md'), bt);

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   MM, anyTree, callsOf, caretWhen, click, emptyBtn, eventually, figure, figures, fileText, fileWhen, foldBtn, gotoNote, layouts, listBtn, main,
   mapBtn, mindmapVault, must, mustBeOn, mustCaret, namesWhen, needFigure, needNode, needTree, node, noModified, openMm, original, pressed, seen,
-  sleep, swap, titleField, tree, treeItems, treeNames, vaultWrites, viewGroup, viewOf, viewWhen, writes, editorBody,
+  sleep, swap, titleField, tree, treeItems, treeNames, vaultWrites, viewGroup, viewOf, viewWhen, writes, editorBody, focusedWhen,
 } from './mindmap-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -178,20 +178,30 @@ test('fr_mmp_02_ac5_every_block_opens_in_map', async ({ page }) => {
   assert.deepEqual(bad, [], 'every mindmap block opens in Map (D-684)');
 });
 
+// Slice MM2 (D-788, AP-750 → D-794): a click focuses the node and stays in Map; `List` pressed afterwards puts the caret at
+// the end of the focused node's item.
 test('fr_mmp_02_ac5_node_click_goes_to_list_with_the_caret', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await click(node(fig, 'Program'), 'treeitem "Program"');
+  const f = await focusedWhen(page, (x) => x.role === 'treeitem' && x.name === 'Program');
+  assert.deepEqual([f.role, f.name], ['treeitem', 'Program'], 'a click focuses the node (D-788)');
+  assert.equal(await viewOf(fig), 'map', 'data-view stays map');
+  assert.equal(await pressed(mapBtn(fig)), 'true', 'Map still pressed');
+  await sleep(1200);
+  assert.deepEqual(await writes(core), [], 'nothing written');
+  await click(listBtn(fig), 'List');
   assert.equal(await pressed(listBtn(fig)), 'true', 'List pressed');
   assert.equal(await viewWhen(fig, 'list'), 'list', 'the list is shown');
   const c = await caretWhen(page, (x) => x.text === 'Program' && x.atEnd && x.inBody);
-  assert.deepEqual([c.text, c.atEnd, c.inBody], ['Program', true, true], 'the caret at the end of Program inside Note body');
+  assert.deepEqual([c.text, c.atEnd, c.inBody], ['Program', true, true], 'List puts the caret at the end of Program inside Note body (AP-750)');
   await page.keyboard.type(' a cíle');
   const t = await fileWhen(core, MM.vyjezd, (x) => !!x && x.includes('Program a cíle'));
   assert.equal(noModified(t), noModified(swap(original(MM.vyjezd), '>   - Program\n', '>   - Program a cíle\n')), 'only that line changes');
-  await click(listBtn(fig), 'List');
   await click(mapBtn(fig), 'Map');
   await click(node(fig, 'Výjezd 2026'), 'treeitem "Výjezd 2026"');
+  assert.equal(await viewOf(fig), 'map', 'the root click stays in Map');
+  await click(listBtn(fig), 'List');
   const c2 = await caretWhen(page, (x) => x.text === 'Výjezd 2026' && x.atEnd);
   assert.deepEqual([c2.text, c2.atEnd], ['Výjezd 2026', true], 'the root item: the caret at its end');
 });

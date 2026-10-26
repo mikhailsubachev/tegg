@@ -34,9 +34,9 @@ export type MindmapCtl = {
   onLink: (target: string) => void
   readOnly: boolean
   /** Slice MM2 (D-791): the block's stored layout. */
-  layout?: () => MindmapLayout
+  layout: () => MindmapLayout
   /** Slice MM2 (D-786): edits on the block; null when read-only. */
-  edit?: MindmapEdit | null
+  edit: MindmapEdit | null
 }
 /** Slice MM2 (mm-mindmap §6.3): the map's edits on its block; null when read-only. STUBS until built. */
 export type MindmapEdit = {

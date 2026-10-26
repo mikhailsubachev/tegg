@@ -50,6 +50,8 @@ export interface EditorOptions {
   /** 5A-2 (ms5-tasks §11.3, D-494): false in `_templates/` notes and nested embed editors; `conversionUnit()` is then
    *  null. Default true. */
   convertible?: boolean
+  /** Slice MM2 (mm-mindmap §6.6): false makes the editor read-only (ProseMirror `editable`); the mindmap map is then navigation only. Default true. */
+  editable?: boolean
   /** 5A-2 (D-492): undo / redo of a conversion step. `afterUndo` runs after the undo applied; `beforeRedo` runs before
    *  the redo applies and returns the embed target to write, or false to cancel the redo. */
   conversion?: { afterUndo(r: ConversionRecord): void; beforeRedo(r: ConversionRecord): Promise<string | false> }
@@ -416,6 +418,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     element: opts.element ?? document.createElement('div'),
     extensions: teggExtensions([embedKeys(() => api), MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    editable: opts.editable ?? true,
     enableInputRules: false,
     enablePasteRules: false,
     injectCSS: false,

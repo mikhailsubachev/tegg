@@ -208,3 +208,13 @@ Each `MindmapEdit` call is one editor transaction on this block (one undo step, 
 ### 6.5 Not in this slice
 
 Drag, collapse, zoom, pan, node → object, export, full screen, autocomplete on the map, a vault default layout (D-785).
+
+### 6.6 Interface details settled while writing the red tests (no owner decision needed)
+
+- **`EditorOptions.editable?: boolean`** (default true): false creates a read-only editor (ProseMirror `editable`), the L1 way to a `readOnly` `MindmapCtl` with `edit: null`. `MindmapCtl.layout` and `.edit` are required (never undefined).
+- **`MindmapCtl.onNode(path)`** no longer changes the view: it puts the caret at the end of the item's first paragraph (the synthesized root: the end of the title, else the start of the first item, D-771) and is what `List` uses with a focused node (D-794). The view switch is the `List` button or `mindmapView('list')`.
+- **`mindmapView('list')`** with `focusedNode() === null` (the synthesized root focused): the caret goes where `onNode(null)` puts it.
+- **`setMindmapLayout`** when the layout is already the one asked for (`|spider` or `|SPIDER` and `spider`; no metadata or unknown metadata and `right`): returns `raw` unchanged, so the UI's "choosing the checked radio writes nothing" holds at every level; `|foo` + `right` is also the identity (D-791: unknown metadata is preserved until the user switches to the other layout).
+- **Spider with one side only** (every first-level branch on the right, as with a single branch): the root's x is 0, as in `right`; with a left side only, the root's x is the left columns' width + 60 and the layout's width is the root's right edge.
+- **Catalog keys** are §6.4's (`mindmap.layoutRight`, `mindmap.layoutSpider`); R97 is corrected to them. Pavouk has 8 nodes (README corrected).
+- **A pending node after undo:** when ⌘Z removes the node that had the focus (W15 undone), the focus goes to the node the tree's roving stop falls back to (its previous sibling, else the parent); redo focuses the restored node.

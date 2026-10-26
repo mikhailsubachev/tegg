@@ -220,8 +220,8 @@ test('fr_ux_03_ac15_keyboard_only_run', async ({ page }) => {
   await focusedWhen(page, (x) => x.role === 'treeitem');
   await page.keyboard.press('ArrowDown');
   assert.equal((await focusedWhen(page, (x) => x.name === 'Větev')).name, 'Větev', '↓ to Větev');
-  await page.keyboard.press('Enter');
-  assert.equal(await viewWhen(fig, 'list'), 'list', '⏎ returns to List');
+  await runCommand(page, 'Show mindmap as list'); // slice MM2 (D-787): ⏎ edits the node; the palette returns to List
+  assert.equal(await viewWhen(fig, 'list'), 'list', 'the palette returns to List');
   const want = original(MM.prazdna) + '> [!mindmap]\n> - Kořen\n>   - Větev\n';
   const t = await fileWhen(core, MM.prazdna, (x) => noModified(x) === noModified(want), 4000);
   assert.equal(noModified(t), noModified(want), 'the saved block');
