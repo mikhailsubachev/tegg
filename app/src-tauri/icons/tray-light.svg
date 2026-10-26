@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="-8 -8 116 116">
-  <!-- D-782 status item (light menu bar): logo 3B as a one-colour glyph, in a 22 pt image (design board `LogoDots`, 3B, menu bar). -->
-  <line x1="25.0" y1="33.4" x2="77.0" y2="25.0" stroke="#1C1C1E" stroke-width="6.2" stroke-linecap="round"/>
-  <line x1="25.0" y1="33.4" x2="54.2" y2="77.0" stroke="#1C1C1E" stroke-width="2.6" stroke-linecap="round"/>
-  <line x1="77.0" y1="25.0" x2="54.2" y2="77.0" stroke="#1C1C1E" stroke-width="4.2" stroke-linecap="round"/>
-  <circle cx="25.0" cy="33.4" r="13.5" fill="#1C1C1E"/>
-  <circle cx="77.0" cy="25.0" r="10.4" fill="#1C1C1E"/>
-  <circle cx="54.2" cy="77.0" r="14.6" fill="#1C1C1E"/>
-</svg>
