@@ -114,6 +114,7 @@
 | v1.98   | 2026-10-26 | D-783: the menu bar status item is a template image, coloured by macOS like the other menu bar items (owner feedback on v0.73). |
 | v1.99   | 2026-10-26 | Slice MM2 (`docs/plans/mm2-map-editing-and-layouts.md`, board `MindmapLayouts`): owner decisions D-785…D-792 (AP-741…AP-748, each as proposed): keyboard editing on the map and two layouts (`right`, `spider`) move from v1.0 into slice MM2; every map edit is a list edit through the editor; the layout name is Obsidian callout metadata `> [!mindmap\|spider]`. FR-MMP-02, FR-FMT-05, R-08, §11 and D-683, D-684, D-687, D-770, D-776 amended. |
 | v1.100  | 2026-10-26 | Slice MM2 ACs (`docs/acceptance/mindmap.md`, second part) approved: D-793…D-795 (AP-749…AP-751, each as recommended): the empty-state button keeps switching to List; `List` puts the caret in the focused node's item; an empty new node is removed again and nothing is written while the field is open. |
+| v1.101  | 2026-10-26 | Slice MM2 feedback (`docs/feedback/mm2-map-editing.md`): D-796 (a clicked map node shows its ring), D-797 (the pending node takes its place in the layout), D-798 (a click on the empty map area focuses the current node), D-799 (real-app tests send keys only while Tegg is frontmost; extends D-758). |
 
 ---
 
@@ -900,6 +901,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-793 | The empty state stays a switch to List (AP-749, owner, 2026-10-26; slice MM2, `docs/acceptance/mindmap.md`) | FR-MMP-02 AC-3 is unchanged: the `Type the central topic` button switches to List with the caret in the empty item; the empty state is not edited on the map. |
 | D-794 | Where `List` puts the caret (AP-750, owner, 2026-10-26; slice MM2; replaces the caret rule of D-776) | `List` (button or palette) with a focused node puts the caret at the end of that node's item's first paragraph; with no focused node, at the end of the root item (FR-MMP-02 AC-6). |
 | D-795 | An empty new node (AP-751, owner, 2026-10-26; slice MM2) | Nothing is written while a node's text field is open. Esc, and ⏎ on an empty value, remove a node created by ⏎ or Tab again (an empty item is never saved, D-772); only a non-empty commit writes. |
+| D-796 | The selected node shows its ring after a click (owner, 2026-10-26; MM2 feedback F2, `docs/feedback/mm2-map-editing.md`; exception to D-594 (a)) | The focused map node is the selected one (D-788) and shows a 2 px `accent` ring, offset 2 px, however it got the focus, a click included; the node field's ring has the same colour (FR-UX-05 AC-11). |
+| D-797 | The pending node takes its place in the layout (owner, 2026-10-26; MM2 feedback F3; adds to D-795) | While a node is pending the map is laid out with it in place: a sibling right after the anchor, a child last, ⏎ on the root item its first child (D-787). It is 120 × 32 px; the nodes after it move down, nothing overlaps; branch colours stay until the commit. |
+| D-798 | A click on the empty map area (owner, 2026-10-26; MM2 feedback F4) | It focuses the map's current node (the last focused one, else the root), never the note body; with a field open it commits the field, as a click on another node does. The map area spans the block's width. |
+| D-799 | Real-app tests send keys only to Tegg (owner, 2026-10-26; MM2 feedback F5; extends D-758) | Every key a real-app test sends through System Events (`app/e2e/helpers/osa.ts`) runs only while the test build is frontmost, checked in the same AppleScript run, waited for up to 2 s, otherwise the test fails and nothing is sent; Finder may be frontmost too, except for ⌘Q / ⌘W; the global hotkeys ⌃⌥… go anywhere. An Esc that reached the Claude app had stopped an MM run. |
 
 ---
 

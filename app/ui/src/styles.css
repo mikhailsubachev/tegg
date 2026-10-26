@@ -1049,7 +1049,9 @@ button.tag-tile { cursor: pointer; }
 .mindmap-lines path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
 .mindmap-node { position: absolute; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; cursor: default; }
 .mindmap-node.one-line { white-space: nowrap; }
-.mindmap-node:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+/* D-796: the focused node is the selected one (D-788), so it shows its ring however it got the focus,
+   a click included (not only `:focus-visible`), in `accent` like the node field. */
+.mindmap-node:focus, .mindmap-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mindmap-node.tone-root { background: var(--text); color: var(--bg); font-weight: 650; }
 .mindmap-node.tone-blue, .mindmap-node.tone-orange, .mindmap-node.tone-purple, .mindmap-node.tone-teal, .mindmap-node.tone-green, .mindmap-node.tone-yellow, .mindmap-node.tone-red { background: var(--mm-bg); color: var(--mm-fg); font-weight: 600; }
 .mindmap-node.tone-plain { padding: 6px 9px; background: var(--bg); color: var(--text); border: 1px solid var(--border); font-weight: 400; }
@@ -1093,5 +1095,5 @@ button.tag-tile { cursor: pointer; }
 .mindmap-layout-radio[aria-checked='true'] { background: var(--bg); color: var(--accent); }
 .mindmap-layout-radio:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mindmap-node .mindmap-field { display: block; box-sizing: border-box; width: 100%; min-width: 48px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: inherit; color: inherit; font: inherit; line-height: 18px; outline: 2px solid var(--accent) !important; outline-offset: 2px; }
-.mindmap-node.pending { border: 1px dashed var(--border); background: var(--bg); color: var(--text); font-weight: 400; min-width: 120px; }
+.mindmap-node.pending { padding: 6px 9px; border: 1px dashed var(--border); background: var(--bg); color: var(--text); font-weight: 400; }
 .mindmap-node.pending .mindmap-field { background: var(--bg); color: var(--text); }

@@ -17,9 +17,11 @@ const PAD_X = 16;
 const PAD_Y = 12;
 /** What a chip adds to its text's width: icon, gap and padding (link chips, D-600). */
 const CHIP_EXTRA = 30;
-/** R92's gaps, for the pending node's place. */
-const COL_GAP = 60;
-const ROW_GAP = 8;
+/** The pending node (D-795) is laid out as a placeholder item of this width (32 px high, one line), so the map makes
+ *  room for it: the nodes after it move down instead of being covered (D-797). */
+const PENDING_W = 120;
+const PENDING_TEXT = '\u0000pending';
+const PENDING_ID = '-1';
 
 let canvas: HTMLCanvasElement | null = null;
 /** The real measurer: the node font (13 px, the document's family) on a canvas, at the node's weight (R92). */
@@ -30,6 +32,30 @@ function realMeasure(): Measure {
   if (!ctx) return (s) => s.length * 7;
   const font = (depth = 2) => `${depth === 0 ? 650 : depth === 1 ? 600 : 400} 13px ${family}`;
   return (s, depth) => { ctx.font = font(depth); return ctx.measureText(s.normalize('NFC')).width; };
+}
+
+/** The measurer and chip widths of a map; the pending placeholder measures `PENDING_W` with its padding. */
+function measurers(chipSuffix?: (target: string) => string | null): { m: Measure; extra: ChipExtra } {
+  const real = realMeasure();
+  const m: Measure = (s, depth) => (s === PENDING_TEXT ? PENDING_W - 20 : real(s, depth));
+  const extra: ChipExtra = (r) => {
+    const s = r.k === 'link' ? chipSuffix?.(r.target) : null;
+    return CHIP_EXTRA + (s ? m(s) + 16 : 0);
+  };
+  return { m, extra };
+}
+
+/** The tree with the pending placeholder at `index` among the children of the node `parent`. */
+function withPending(tree: MindmapTree, parent: string, index: number): MindmapTree {
+  const ph: MindItem = { inline: [{ k: 'text', text: PENDING_TEXT, marks: [] }], checked: null, more: false, path: [Number(PENDING_ID)], children: [] };
+  const put = (kids: MindItem[]) => [...kids.slice(0, index), ph, ...kids.slice(index)];
+  const walk = (it: MindItem): MindItem => {
+    const children = it.children.map(walk);
+    return { ...it, children: it.path.join('.') === parent ? put(children) : children };
+  };
+  if (tree.root.kind === 'synthesized') return { ...tree, items: parent === 'root' ? put(tree.items) : tree.items.map(walk) };
+  const items = tree.items.map(walk);
+  return { ...tree, items, root: tree.root.kind === 'item' ? { kind: 'item', item: items[0] } : tree.root };
 }
 
 type Info = { item: MindItem | null; parent: string | null; index: number; size: number; path: number[] | null };
@@ -69,7 +95,7 @@ const idOf = (path: number[] | null) => (path === null || path.length === 0 ? 'r
 /** The field of R95a, or the pending node of D-795. */
 export type MindmapEditing =
   | { kind: 'text'; id: string; value: string; original: string }
-  | { kind: 'pending'; anchor: string; where: 'sibling' | 'child'; at: number[] | null; level: number; value: string; afterId: string; x: number; y: number; tone: string };
+  | { kind: 'pending'; anchor: string; where: 'sibling' | 'child'; at: number[] | null; level: number; value: string; afterId: string; parent: string; index: number; tone: string };
 
 export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix, edit = null, onFocusedNode }: {
   tree: MindmapTree;
@@ -94,11 +120,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     const hit = LAYOUTS.get(key);
     if (hit) return hit;
     const t0 = performance.now();
-    const m = realMeasure();
-    const extra: ChipExtra = (r) => {
-      const s = r.k === 'link' ? chipSuffix?.(r.target) : null;
-      return CHIP_EXTRA + (s ? m(s) + 16 : 0);
-    };
+    const { m, extra } = measurers(chipSuffix);
     const l = layoutMindmap(tree, m, { chipExtra: extra });
     (window as unknown as { __TEGG_MINDMAP_LAYOUTS__?: number }).__TEGG_MINDMAP_LAYOUTS__ = layoutCount();
     if (l.nodes.length >= 100) void ipc.perfTimed('mindmap-layout', performance.now() - t0).catch(() => {}); // FR-MMP-02 AC-14 (mm-mindmap §4)
@@ -129,6 +151,14 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   const ids = new Set(order);
   // The roving tab stop: the focused node, else the root (a map that was empty or lost its node).
   const stop = ids.has(focus) ? focus : order[0];
+  // What is drawn: the layout, or while a node is pending the layout with its placeholder (never cached or counted as
+  // the map's own layout; navigation keeps using `layout`).
+  const pendingAt = editing?.kind === 'pending' ? `${editing.parent}\u0000${editing.index}` : null;
+  const shown = useMemo(() => {
+    if (editing?.kind !== 'pending') return layout;
+    const { m, extra } = measurers(chipSuffix);
+    return layoutMindmap(withPending(tree, editing.parent, editing.index), m, { chipExtra: extra });
+  }, [layout, pendingAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     if (!moved.current) return;
@@ -169,17 +199,6 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     }
     return last;
   };
-  const subtreeBottom = (id: string): number => {
-    let bottom = 0;
-    const i = order.indexOf(id);
-    const d = nodeOf(id)!.depth;
-    for (let k = i; k < order.length; k++) {
-      const n = nodeOf(order[k])!;
-      if (k > i && n.depth <= d) break;
-      bottom = Math.max(bottom, n.y + n.h);
-    }
-    return bottom;
-  };
 
   // ---- editing (R95a, D-795)
   const startText = (id: string) => {
@@ -199,14 +218,14 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     const asChild = where === 'child' || inf.path === null || rootItem;
     const at = inf.path;
     const level = asChild ? n.depth + 2 : n.depth + 1;
-    const afterId = asChild ? (rootItem && where === 'sibling' ? id : lastDescendant(id)) : lastDescendant(id);
-    // Where it is drawn: a child in the next column at the node's row (below its children); a sibling below the subtree.
-    const side = n.side ?? 'right';
-    const x = asChild ? (side === 'left' ? n.x - COL_GAP - 120 : n.x + n.w + COL_GAP) : n.x;
-    const y = asChild ? (inf.item && inf.item.children.length ? subtreeBottom(id) + ROW_GAP : n.y) : subtreeBottom(id) + ROW_GAP;
+    const first = asChild && rootItem && where === 'sibling';
+    const afterId = first ? id : lastDescendant(id);
+    // Where it is laid out: ⏎ on the root item its first child (D-787), a child last (Tab), a sibling right after it.
+    const parent = asChild ? id : inf.parent ?? 'root';
+    const index = asChild ? (first ? 0 : inf.item?.children.length ?? tree.items.length) : inf.index + 1;
     const tone = level === 2 ? PALETTE[(asChild ? (inf.item?.children.length ?? tree.items.length) : inf.index + 1) % PALETTE.length] : 'plain';
     // `where` stays as pressed: the editor makes ⏎ on the root item its first child (D-787).
-    setEditing({ kind: 'pending', anchor: id, where, at, level, value: '', afterId, x, y, tone });
+    setEditing({ kind: 'pending', anchor: id, where, at, level, value: '', afterId, parent, index, tone });
   };
   const cancel = () => {
     const cur = editRef.current;
@@ -287,9 +306,12 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     e.stopPropagation();
   };
 
-  const width = layout.width + 2 * PAD_X;
-  const height = layout.height + 2 * PAD_Y;
+  const width = shown.width + 2 * PAD_X;
+  const height = shown.height + 2 * PAD_Y;
   const pending = editing?.kind === 'pending' ? editing : null;
+  const slot = pending ? shown.nodes.find((n) => n.id === PENDING_ID) : undefined;
+  // The colours stay put while a node is pending (the placeholder shifts the branch positions).
+  const toneOf = shown === layout ? null : new Map(layout.nodes.map((n) => [n.id, n.tone]));
   const renderField = () => (
     <input ref={field} className="mindmap-field" type="text" aria-label={t('mindmap.editNode')} data-node-editor="" value={editing?.value ?? ''}
       onChange={(e) => { const cur = editRef.current; if (cur) setEditing({ ...cur, value: e.target.value }); }} onKeyDown={onFieldKey} onBlur={() => commit()}
@@ -297,29 +319,39 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   );
   const pendingNode = pending ? (
     <div key="pending" role="treeitem" data-node="pending" aria-level={pending.level} aria-selected="true" tabIndex={-1} className={`mindmap-node pending tone-${pending.tone}`}
-      style={{ left: pending.x + PAD_X, top: pending.y + PAD_Y, minHeight: 32 }}>
+      style={{ left: (slot?.x ?? 0) + PAD_X, top: (slot?.y ?? 0) + PAD_Y, width: slot?.w ?? PENDING_W, height: slot?.h ?? 32 }}>
       {renderField()}
     </div>
   ) : null;
   return (
-    <div ref={box} className="mindmap-canvas" style={{ width: Math.max(width, pending ? pending.x + 120 + 2 * PAD_X : 0), height: Math.max(height, pending ? pending.y + 32 + 2 * PAD_Y : 0) }}>
+    // D-798: a click on the map's empty area (the canvas fills the map area's width) focuses the map's current node,
+    // never the note body; with a field open it commits the field, as a click on another node does.
+    <div ref={box} className="mindmap-canvas" style={{ width, height, minWidth: '100%' }}
+      onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('[role="treeitem"]')) e.preventDefault(); }}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('[role="treeitem"]')) return;
+        if (editRef.current) { commit(); return; }
+        box.current?.querySelector<HTMLElement>(`[data-node="${CSS.escape(stop)}"]`)?.focus({ preventScroll: true });
+      }}>
       <svg className="mindmap-lines" width={width} height={height} aria-hidden="true">
-        {layout.connectors.map((c) => (
-          <path key={`${c.from}>${c.to}`} data-from={c.from} data-to={c.to}
+        {shown.connectors.map((c) => (
+          <path key={`${c.from}>${c.to}`} data-from={c.from} data-to={c.to === PENDING_ID ? 'pending' : c.to}
             d={c.points.map(([x, y], i) => `${i ? 'L' : 'M'}${x + PAD_X} ${y + PAD_Y}`).join(' ') + (c.points.every(([, y]) => y === c.points[0][1]) ? ' l0 0.01' : '')} />
         ))}
       </svg>
       <div role="tree" aria-label={label} className="mindmap-tree">
-        {layout.nodes.flatMap((n) => {
+        {shown.nodes.flatMap((n) => {
+          if (n.id === PENDING_ID) return [];
+          const tone = toneOf?.get(n.id) ?? n.tone;
           const it = info.get(n.id);
           const item = it?.item ?? null;
           const name = n.lines.join(' ');
           const desc = [item?.more ? t('mindmap.more') : null, item && item.checked !== null ? t(item.checked ? 'mindmap.checked' : 'mindmap.unchecked') : null].filter(Boolean).join(', ') || undefined;
           const isEditing = editing?.kind === 'text' && editing.id === n.id;
           const el = (
-            <div key={n.id} role="treeitem" data-node={n.id} data-tone={n.tone} {...(n.side ? { 'data-side': n.side } : {})} aria-level={n.depth + 1} aria-setsize={it?.size ?? 1} aria-posinset={(it?.index ?? 0) + 1}
+            <div key={n.id} role="treeitem" data-node={n.id} data-tone={tone} {...(n.side ? { 'data-side': n.side } : {})} aria-level={n.depth + 1} aria-setsize={it?.size ?? 1} aria-posinset={(it?.index ?? 0) + 1}
               aria-label={name} aria-description={desc} aria-selected={stop === n.id} tabIndex={stop === n.id ? 0 : -1}
-              className={`mindmap-node tone-${n.tone}${n.lines.length === 1 ? ' one-line' : ''}${isEditing ? ' editing' : ''}`}
+              className={`mindmap-node tone-${tone}${n.lines.length === 1 ? ' one-line' : ''}${isEditing ? ' editing' : ''}`}
               style={{ left: n.x + PAD_X, top: n.y + PAD_Y, width: isEditing ? undefined : n.w, minWidth: isEditing ? n.w : undefined, maxWidth: 200, height: isEditing ? undefined : n.h, minHeight: n.h }}
               onFocus={() => { if (programmatic.current) return; wanted.current = it?.path ?? null; setFocus(n.id); }}
               onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('a, .chip, .embed-chip, input')) e.preventDefault(); }}
