@@ -31,14 +31,15 @@ const toneOf = (l: MindLayout, id: string) => l.nodes.find((x) => x.id === id)?.
 
 /** R96: Pavouk in `spider`, boxes as (x, y, width, height) with side and tone. */
 const PAVOUK_SPIDER: [string, string, number[], string | null, string][] = [
-  ['0', 'Střed', [216, 40, 55, 32], null, 'root'],
-  ['0.0', 'Alfa', [331, 20, 48, 32], 'right', 'blue'],
-  ['0.0.0', 'A1', [439, 0, 48, 32], 'right', 'plain'],
-  ['0.0.1', 'A2', [439, 40, 48, 32], 'right', 'plain'],
-  ['0.1', 'Beta', [108, 20, 48, 32], 'left', 'orange'],
+  // R96 (corrected 2026-10-26: `Delta` is 5 characters = 55 px, so the left depth-1 column is 55 px wide).
+  ['0', 'Střed', [223, 40, 55, 32], null, 'root'],
+  ['0.0', 'Alfa', [338, 20, 48, 32], 'right', 'blue'],
+  ['0.0.0', 'A1', [446, 0, 48, 32], 'right', 'plain'],
+  ['0.0.1', 'A2', [446, 40, 48, 32], 'right', 'plain'],
+  ['0.1', 'Beta', [115, 20, 48, 32], 'left', 'orange'],
   ['0.1.0', 'B1', [0, 20, 48, 32], 'left', 'plain'],
-  ['0.2', 'Gama', [331, 80, 48, 32], 'right', 'purple'],
-  ['0.3', 'Delta', [108, 60, 48, 32], 'left', 'teal'],
+  ['0.2', 'Gama', [338, 80, 48, 32], 'right', 'purple'],
+  ['0.3', 'Delta', [108, 60, 55, 32], 'left', 'teal'],
 ];
 
 test('fr_mmp_02_ac27_pavouk_spider_golden_boxes_sides_tones_and_connectors', () => {
@@ -53,13 +54,13 @@ test('fr_mmp_02_ac27_pavouk_spider_golden_boxes_sides_tones_and_connectors', () 
     if (JSON.stringify(l.nodes.find((n) => n.id === id)?.lines) !== JSON.stringify([text])) bad.push(`${text}: lines`);
   }
   assert.deepEqual(bad, [], 'R96 golden values for Pavouk (spider)');
-  assert.deepEqual([l.width, l.height], [487, 112], 'layout 487 × 112');
-  assert.deepEqual(conn(l, '0', '0.0'), [[271, 56], [301, 56], [301, 36], [331, 36]], 'Střed → Alfa (right, as R92)');
-  assert.deepEqual(conn(l, '0', '0.2')?.at(-1), [331, 96], 'Střed → Gama ends at Gama\'s left edge centre');
-  assert.deepEqual(conn(l, '0.0', '0.0.0'), [[379, 36], [409, 36], [409, 16], [439, 16]], 'Alfa → A1');
-  assert.deepEqual(conn(l, '0', '0.1'), [[216, 56], [186, 56], [186, 36], [156, 36]], 'Střed → Beta leaves the root\'s left edge, ends at Beta\'s right edge');
-  assert.deepEqual(conn(l, '0', '0.3')?.at(-1), [156, 76], 'Střed → Delta ends at Delta\'s right edge centre');
-  assert.deepEqual(conn(l, '0.1', '0.1.0'), [[108, 36], [78, 36], [78, 36], [48, 36]], 'Beta → B1: four points even with a zero-length vertical segment');
+  assert.deepEqual([l.width, l.height], [494, 112], 'layout 494 × 112');
+  assert.deepEqual(conn(l, '0', '0.0'), [[278, 56], [308, 56], [308, 36], [338, 36]], 'Střed → Alfa (right, as R92)');
+  assert.deepEqual(conn(l, '0', '0.2')?.at(-1), [338, 96], 'Střed → Gama ends at Gama\'s left edge centre');
+  assert.deepEqual(conn(l, '0.0', '0.0.0'), [[386, 36], [416, 36], [416, 16], [446, 16]], 'Alfa → A1');
+  assert.deepEqual(conn(l, '0', '0.1'), [[223, 56], [193, 56], [193, 36], [163, 36]], 'Střed → Beta leaves the root\'s left edge, ends at Beta\'s right edge');
+  assert.deepEqual(conn(l, '0', '0.3')?.at(-1), [163, 76], 'Střed → Delta ends at Delta\'s right edge centre');
+  assert.deepEqual(conn(l, '0.1', '0.1.0'), [[115, 36], [78, 36], [78, 36], [48, 36]], 'Beta → B1: four points even with a zero-length vertical segment');
   assert.equal(l.connectors.length, 7, 'one connector per child');
 });
 
@@ -67,8 +68,8 @@ test('fr_mmp_02_ac27_pavouk_right_golden_boxes', () => {
   const l = layoutMindmap(PAVOUK(), textMeasurer, { layout: 'right' });
   assert.equal(l.layout, 'right');
   const want: [string, string, number[]][] = [
-    ['0', 'Střed', [0, 90, 55, 32]], ['0.0', 'Alfa', [115, 20, 48, 32]], ['0.0.0', 'A1', [223, 0, 48, 32]], ['0.0.1', 'A2', [223, 40, 48, 32]],
-    ['0.1', 'Beta', [115, 80, 48, 32]], ['0.1.0', 'B1', [223, 80, 48, 32]], ['0.2', 'Gama', [115, 120, 48, 32]], ['0.3', 'Delta', [115, 160, 48, 32]],
+    ['0', 'Střed', [0, 90, 55, 32]], ['0.0', 'Alfa', [115, 20, 48, 32]], ['0.0.0', 'A1', [230, 0, 48, 32]], ['0.0.1', 'A2', [230, 40, 48, 32]],
+    ['0.1', 'Beta', [115, 80, 48, 32]], ['0.1.0', 'B1', [230, 80, 48, 32]], ['0.2', 'Gama', [115, 120, 48, 32]], ['0.3', 'Delta', [115, 160, 55, 32]],
   ];
   const bad: string[] = [];
   for (const [id, text, b] of want) {
@@ -76,7 +77,7 @@ test('fr_mmp_02_ac27_pavouk_right_golden_boxes', () => {
     if (sideOf(l, id) !== null) bad.push(`${text}: side ${sideOf(l, id)} in right`);
   }
   assert.deepEqual(bad, [], 'R96: Pavouk laid out as right (the switch)');
-  assert.deepEqual([l.width, l.height], [271, 192], 'layout 271 × 192');
+  assert.deepEqual([l.width, l.height], [278, 192], 'layout 278 × 192');
   assert.deepEqual(l.nodes.map((n) => n.tone), ['root', 'blue', 'plain', 'plain', 'orange', 'plain', 'purple', 'teal'], 'tones by position, as in spider');
 });
 

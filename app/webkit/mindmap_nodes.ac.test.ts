@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import {
   MM, callsOf, caretWhen, click, description, eventually, figure, fileText, fileWhen, focused, focusedWhen, listBtn, main, mapArea, mapBtn,
-  mindmapVault, must, mustBeOn, navs, needFigure, needNode, needTree, node, noModified, openMm, original, seen, sirokaText, sleep, swap,
+  mindmapVault, must, mustBeOn, mustCaret, navs, needFigure, needNode, needTree, node, noModified, openMm, original, seen, sirokaText, sleep, swap,
   treeItems, treeNames, velkaText, viewOf, viewWhen, writes, fieldState, nodeField, pendingNode, radioRight,
 } from './mindmap-helpers';
 
@@ -78,7 +78,7 @@ test('fr_mmp_02_ac9_checklist_boxes_are_read_only_and_numbers_not_drawn', async 
   await needTree(fig, null);
   const items = await treeItems(fig);
   assert.deepEqual(items.map((i) => [i.name, i.description]), [['Nákup', 'Not checked'], ['Mléko', 'Checked'], ['Chléb', 'Not checked'], ['Sýr', 'Checked']], 'descriptions Checked / Not checked');
-  const box = fig.locator('[role="treeitem"][data-node="0.1"] input[type="checkbox"], [role="treeitem"][data-node="0.1"] [data-checkbox]').first();
+  const box = fig.locator('[role="treeitem"][data-node="0.0"] input[type="checkbox"], [role="treeitem"][data-node="0.0"] [data-checkbox]').first(); // Mléko is the first child (0.0)
   await must(box, 'the drawn box of Mléko');
   assert.equal(await box.getAttribute('aria-hidden') ?? await box.evaluate((x) => x.closest('[aria-hidden="true"]') ? 'true' : null), 'true', 'the box is aria-hidden (AP-731)');
   await box.click();
@@ -412,8 +412,8 @@ test('fr_mmp_02_ac16_mindmap_inside_an_embedded_note', async ({ page }) => {
   assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Přehled Q4', 'Plán 2027', 'Místo', 'Lisabon', 'Doprava'], 'the same tree as AC-1');
   await click(listBtn(fig), 'List in the embed');
   assert.equal(await viewWhen(fig, 'list'), 'list', 'the embedded block switches to List');
-  await click(node(fig, 'Doprava'), 'node Doprava below the list');
-  await caretWhen(page, (x) => x.text === 'Doprava' && x.atEnd);
+  // Slice MM2 (D-788): a node click focuses the node and no longer moves the caret; the caret is placed in the list.
+  await mustCaret(fig.locator('li p, li').filter({ hasText: /^Doprava$/ }).last(), 'Doprava', 'end of Doprava in the embedded list');
   await page.keyboard.type(' vlakem');
   const t = await fileWhen(core, MM.vyjezd, (x) => !!x && x.includes('Doprava vlakem'));
   assert.equal(noModified(t), noModified(swap(original(MM.vyjezd), '>   - Doprava\n', '>   - Doprava vlakem\n')), 'only the callout bytes of Výjezd change');
