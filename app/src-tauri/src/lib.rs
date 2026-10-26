@@ -1708,7 +1708,6 @@ pub fn run() {
                         let _ = w.hide();
                     }
                 }
-                tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::ThemeChanged(theme), .. } => shell5b::tray_follow_theme(app, theme),
                 #[cfg(target_os = "macos")]
                 tauri::RunEvent::Reopen { .. } => shell5b::show_main(app),
                 _ => {}
