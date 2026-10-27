@@ -189,6 +189,46 @@
       "y": 0,
       "page": "page-mindmap",
       "title": "Mindmap · layouts (right, spider) and map editing"
+    },
+    "LayoutNormalPanel.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Normal, right panel",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "LayoutNormal.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Normal, no panel",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "LayoutWidePanel.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Wide, right panel",
+      "w": 1440,
+      "x": 0,
+      "y": 1960
+    },
+    "LayoutWide.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Wide, no panel",
+      "w": 1440,
+      "x": 1520,
+      "y": 1960
     }
   },
   "createdOnFiles": {
@@ -223,7 +263,11 @@
     "TagsAll.dc.html",
     "TagPage.dc.html",
     "TagPagePostMVP.dc.html",
-    "MindmapLayouts.dc.html"
+    "MindmapLayouts.dc.html",
+    "LayoutNormalPanel.dc.html",
+    "LayoutNormal.dc.html",
+    "LayoutWidePanel.dc.html",
+    "LayoutWide.dc.html"
   ],
   "pages": [
     {
@@ -237,6 +281,10 @@
     {
       "id": "page-mindmap",
       "name": "Mindmap"
+    },
+    {
+      "id": "page-width",
+      "name": "Page width"
     }
   ],
   "title": "Tegg – Edit note page"

@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Page width · Wide, no panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF;--unrev:#F0B34A;--unrev-bg:#33270F;--unrev-ring:#7A5A1E;--chip-div:#3A4C6E}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--embed:#F7F7F5;--sel:#D3E3FF;--broken:#B3261E;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--call:#EDF3FE;--call-b:#BFD3F8;--unrev:#B06F00;--unrev-bg:#FFF6E5;--unrev-ring:#F2C46B;--chip-div:#C3D2EE}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--accent-bg:#17332E;--embed:#232326;--sel:#2A4677;--broken:#FF8A85;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--call:#1D2636;--call-b:#33466A}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.doc-normal{max-width:760px;padding:8px 40px 96px}
+.doc-wide{max-width:none;padding:8px 56px 96px}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>
+Q4 Budget
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<!-- Body: sidebar / editor / right panel -->
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Left sidebar -->
+<sc-if value="{{showChrome}}" hint-placeholder-val="{{ true }}">
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<div style="display: flex; gap: 6px">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; flex: 1; min-width: 0; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<button aria-label="Search or jump to (⌘O)" title="Search or jump to · ⌘O" style="flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{n.meta}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="7">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<a href="TagsAll.dc.html" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"></path></svg>
+<span style="flex: 1">Tags</span>
+</a>
+</div>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
+</div>
+</nav>
+</sc-if>
+
+<!-- Editor -->
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+<!-- Editor toolbar: as the app's note toolbar (NotePage .note-toolbar): source, save state, spacer, page width, focus, right panel -->
+<div role="toolbar" aria-label="Note" style="display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: var(--bg)">
+<button aria-label="Show Markdown source" title="Markdown source" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"></path></svg></button>
+<span role="status" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>Saved</span>
+<span style="flex: 1"></span>
+<div role="radiogroup" aria-label="Page width" title="Page width" style="display: flex; padding: 2px; gap: 2px; border-radius: 7px; background: var(--hover)"><button role="radio" aria-checked="{{wNormal.checked}}" aria-label="Normal width" title="Normal width" onClick="{{wNormal.pick}}" style="height: 26px; padding: 0 8px; border-radius: 5px; display: flex; align-items: center; gap: 5px; font-size: 12px; background: {{wNormal.bg}}; color: {{wNormal.fg}}; box-shadow: {{wNormal.shadow}}; font-weight: {{wNormal.weight}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14M16 5v14M10 9h4M10 13h4"></path></svg>Normal</button><button role="radio" aria-checked="{{wWide.checked}}" aria-label="Wide" title="Wide" onClick="{{wWide.pick}}" style="height: 26px; padding: 0 8px; border-radius: 5px; display: flex; align-items: center; gap: 5px; font-size: 12px; background: {{wWide.bg}}; color: {{wWide.fg}}; box-shadow: {{wWide.shadow}}; font-weight: {{wWide.weight}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"></path></svg>Wide</button></div>
+<button aria-label="Focus mode" title="Focus mode" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+<button aria-label="Toggle right panel (⌘\)" aria-pressed="{{panelPressed}}" title="Right panel" onClick="{{togglePanel}}" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: {{panelFg}}; background: {{panelBg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM15 5v14"></path></svg></button>
+</div>
+
+<!-- Document column -->
+<article class="{{docClass}}" style="width: 100%; margin: 0 auto; box-sizing: border-box">
+
+<!-- Header: icon, type, title -->
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); font-size: 12px; font-weight: 600">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+Meeting
+</span>
+<!-- Add icon / Add cover removed: objects show their type's icon (D-217) -->
+<!-- Object ⋯ menu: convert to another type, move to trash -->
+<span style="position: relative; display: inline-flex">
+<button aria-label="Object actions" aria-haspopup="menu" aria-expanded="{{objMenuAttr}}" title="More · convert, delete" style="width: 26px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: {{objMenuBg}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+<sc-if value="{{showObjMenu}}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Object actions" style="position: absolute; left: 0; top: 30px; z-index: 6; width: 250px; padding: 6px; border-radius: 12px; background: var(--pop); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 13px">
+<div style="padding: 4px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Convert to <span style="text-transform: none; letter-spacing: 0; font-weight: 400">· keeps content, id, links</span></div>
+<div role="menuitemradio" aria-checked="true" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: var(--hover)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg><span style="flex: 1">Meeting</span><span style="font-size: 12px; color: var(--muted)">current</span></div><div role="menuitemradio" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg><span style="flex: 1">Page</span><span style="font-size: 12px; color: var(--muted)"></span></div><div role="menuitemradio" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14v14H5zM9 12l2 2 4-4"></path></svg><span style="flex: 1">Task</span><span style="font-size: 12px; color: var(--muted)"></span></div><div role="menuitemradio" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A5B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg><span style="flex: 1">Idea</span><span style="font-size: 12px; color: var(--muted)"></span></div><div role="menuitemradio" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--o)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg><span style="flex: 1">Project</span><span style="font-size: 12px; color: var(--muted)"></span></div><div role="menuitemradio" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6"></path></svg><span style="flex: 1">Person</span><span style="font-size: 12px; color: var(--muted)"></span></div>
+<div aria-hidden="true" style="height: 1px; background: var(--border); margin: 6px 4px"></div>
+<div role="menuitem" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border-radius: 6px; color: var(--broken)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"></path></svg><span style="flex: 1">Move to trash</span><span style="font-size: 12px; color: var(--muted)">⌘⌫</span></div>
+</div>
+</sc-if>
+</span>
+</div>
+<h1 style="margin: 0 0 20px; font-size: 34px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">2026-10-07 Weekly Sync</h1>
+
+<!-- Attribute panel (FR-EDT-07) -->
+<section aria-label="Properties" style="display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 16px; row-gap: 2px; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border); font-size: 13px">
+<div style="color: var(--muted); display: flex; align-items: center; height: 32px">Date</div>
+<div style="display: flex; align-items: center; height: 32px">
+<span style="position: relative; display: inline-flex">
+<button onClick="{{meetDate.toggleCal}}" aria-haspopup="dialog" aria-expanded="{{meetDate.calAttr}}" aria-label="Date: {{meetDate.value}}" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid {{meetDate.border}}; background: var(--bg); font-size: 13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{meetDate.icon}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14v14H5zM5 10h14M9 3v4M15 3v4"></path></svg><span style="color: {{meetDate.fg}}">{{meetDate.value}}</span></button>
+<sc-if value="{{meetDate.calOpen}}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-label="Pick date" style="position: absolute; left: 0; top: 34px; z-index: 6; width: 268px; padding: 10px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.2); font-size: 13px">
+<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px">
+<sc-for list="{{meetDate.quick}}" as="q" hint-placeholder-count="4"><button onClick="{{q.pick}}" style="height: 26px; padding: 0 9px; border-radius: 6px; background: var(--hover); font-size: 12px">{{q.label}}</button></sc-for>
+</div>
+<div style="display: flex; align-items: center; margin-bottom: 6px"><b style="flex: 1; font-size: 13px">October 2026</b><span aria-hidden="true" style="width: 24px; text-align: center; color: var(--muted)">‹</span><span aria-hidden="true" style="width: 24px; text-align: center; color: var(--muted)">›</span></div>
+<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center">
+<sc-for list="{{meetDate.weekdays}}" as="w" hint-placeholder-count="7"><span style="font-size: 11px; color: var(--muted); height: 22px; line-height: 22px">{{w}}</span></sc-for>
+<sc-for list="{{meetDate.days}}" as="d" hint-placeholder-count="35"><button onClick="{{d.pick}}" aria-label="{{d.aria}}" style="height: 30px; border-radius: 7px; font-size: 12px; color: {{d.fg}}; background: {{d.bg}}; box-shadow: {{d.ring}}; font-weight: {{d.weight}}">{{d.n}}</button></sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted)"><span>or type “fri”, “next week”</span><button onClick="{{meetDate.clear}}" style="height: 24px; padding: 0 8px; border-radius: 6px; color: var(--link); font-size: 12px">No date</button></div>
+</div>
+</sc-if>
+</span>
+</div>
+
+<div style="color: var(--muted); display: flex; align-items: center; min-height: 32px">Attendees</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 32px">
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Jana Nováková</a>
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Petr Dvořák</a>
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Mike</a>
+</div>
+
+<div style="color: var(--muted); display: flex; align-items: center; height: 32px">Project</div>
+<div style="display: flex; align-items: center; height: 32px">
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Q4 Budget</a>
+</div>
+
+<div style="color: var(--muted); display: flex; align-items: center; min-height: 32px">Tags</div>
+<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px">
+<a href="TagPage.dc.html" style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--o-bg); color: var(--o); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">finance</a>
+<a href="TagPage.dc.html" style="height: 22px; padding: 0 8px; border-radius: 11px; background: var(--p-bg); color: var(--p); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">q4</a>
+<button aria-label="Add tag" style="width: 22px; height: 22px; border-radius: 11px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+
+<div style="color: var(--muted); display: flex; align-items: center; height: 32px">Location</div>
+<div style="display: flex; align-items: center; height: 32px; color: var(--faint)">Empty</div>
+
+<div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; height: 32px; margin-top: 4px">
+<button style="color: var(--muted); font-size: 13px; height: 28px; border-radius: 6px">Other properties (1)</button>
+</div>
+</section>
+
+<!-- Body blocks -->
+<div style="font-size: 16px; line-height: 1.65; display: flex; flex-direction: column; gap: 6px">
+
+<h2 style="margin: 4px 0 2px; font-size: 21px; font-weight: 650">Agenda</h2>
+<ul style="margin: 0; padding-left: 22px">
+<li style="margin: 2px 0">Q4 budget status, see
+<span style="position: relative; display: inline-block">
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; line-height: 1.5; background: {{prevLinkBg}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Q4 Budget</a>
+<sc-if value="{{showPreview}}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-label="Preview: Q4 Budget" style="position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: 380px; max-width: 80vw; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.5; overflow: hidden">
+<div style="height: 56px; background: linear-gradient(0deg, var(--o-bg), var(--o-bg))"></div>
+<div style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--o)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>
+<span style="font-weight: 650; font-size: 16px; flex: 1">Q4 Budget</span>
+<span style="font-size: 12px; color: var(--muted)">Project</span>
+</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted)">
+<span>Status <b style="color: var(--text); font-weight: 500">Active</b></span>
+<span>Due <b style="color: var(--text); font-weight: 500">2026-12-31</b></span>
+<span>Owner <b style="color: var(--text); font-weight: 500">Jana Nováková</b></span>
+</div>
+<div style="font-size: 13px; color: var(--text); border-top: 1px solid var(--border); padding-top: 8px">
+<div style="font-weight: 600; margin-bottom: 2px">Scope</div>
+<div style="color: var(--muted)">[Body of the linked object, rendered and scrollable: headings, images and embeds shown as cards.]</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted)">
+<span>Double-click or ⌘↩ to open</span>
+<button style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px; font-weight: 500">Open ↩</button>
+</div>
+</div>
+</div>
+</sc-if>
+</span>
+</li>
+<li style="margin: 2px 0">Offsite logistics, see the <a href="https://example.com/lisbon-venues" title="https://example.com/lisbon-venues" style="color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px">venue shortlist<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="opens in browser" role="img" style="margin-left: 2px; vertical-align: -1px"><path d="M7 17L17 7M9 7h8v8"></path></svg></a></li>
+</ul>
+
+<h2 style="margin: 18px 0 2px; font-size: 21px; font-weight: 650">Notes</h2>
+<!-- Hovered block with drag handle (FR-EDT-01) -->
+<div style="position: relative; border-radius: 6px; background: var(--embed); margin: 0 -10px; padding: 2px 10px">
+<div style="position: absolute; left: -46px; top: 4px; display: flex; gap: 2px">
+<button aria-label="Add block below" style="width: 22px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<button aria-label="Drag to move, click for block menu" style="width: 18px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.5"></circle><circle cx="7.5" cy="3" r="1.5"></circle><circle cx="2.5" cy="8" r="1.5"></circle><circle cx="7.5" cy="8" r="1.5"></circle><circle cx="2.5" cy="13" r="1.5"></circle><circle cx="7.5" cy="13" r="1.5"></circle></svg></button>
+</div>
+<p style="margin: 0">Finance wants the draft before Friday.
+<span style="position: relative; display: inline"><span style="background: {{selBg}}; border-radius: 2px">Travel costs are still missing</span>
+<sc-if value="{{showToolbar}}" hint-placeholder-val="{{ false }}">
+<span role="toolbar" aria-label="Formatting" style="position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 20; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--pop); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); white-space: nowrap; font-size: 13px; line-height: 1">
+<button aria-label="Bold" style="width: 30px; height: 30px; border-radius: 6px; font-weight: 700">B</button>
+<button aria-label="Italic" style="width: 30px; height: 30px; border-radius: 6px; font-style: italic; font-family: Georgia, serif">I</button>
+<button aria-label="Strikethrough" style="width: 30px; height: 30px; border-radius: 6px; text-decoration: line-through">S</button>
+<button aria-label="Inline code" style="width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"></path></svg></button>
+<button aria-label="Highlight" style="width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center"><span style="padding: 2px 4px; background: #FCE68A; color: #1C1C1E; border-radius: 3px; font-size: 12px">H</span></button>
+<button aria-label="Link" style="width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></button>
+<span aria-hidden="true" style="width: 1px; height: 18px; background: var(--border); margin: 0 4px"></span>
+<button style="height: 30px; padding: 0 8px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-weight: 500">Turn into object <span style="color: var(--muted); font-weight: 400">⌘⇧O</span></button>
+</span>
+</sc-if>
+</span>
+from the
+<a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Lisbon Offsite 2026</a>
+plan. <a href="TagPage.dc.html" style="color: var(--o); font-weight: 500">#finance</a></p>
+</div>
+
+<!-- Callout -->
+<div role="note" style="display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--call); border: 1px solid var(--call-b); margin: 6px 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 3px"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM12 11v5M12 8h.01"></path></svg>
+<div><b style="font-weight: 600">Decision:</b> the offsite moves to the week of 2026-11-16.</div>
+</div>
+
+<!-- Person card embed (FR-EMB-02 card) -->
+<div style="border: 1px solid var(--border); background: var(--embed); border-radius: 10px; margin: 6px 0; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
+<span style="font-weight: 600; flex: 1">Jana Nováková</span>
+<span style="color: var(--muted); font-size: 12px">Person</span>
+<button aria-label="Open Jana Nováková" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></button>
+</div>
+<div style="display: flex; gap: 18px; flex-wrap: wrap; padding: 0 12px 10px 35px; font-size: 13px; color: var(--muted)">
+<span>Role <b style="color: var(--text); font-weight: 500">[Role]</b></span>
+<span>Team <b style="color: var(--text); font-weight: 500">[Team]</b></span>
+<span>Last met <b style="color: var(--text); font-weight: 500">2026-10-07</b></span>
+</div>
+</div>
+
+<h2 style="margin: 18px 0 2px; font-size: 21px; font-weight: 650">Action items</h2>
+
+<!-- Task embed: converted block, card with the task's own content (FR-CNV-03/05, FR-EMB-02/03) -->
+<div style="border: 1px solid var(--border); background: var(--embed); border-radius: 10px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 10px; font-size: 15px; flex-wrap: wrap">
+<button aria-label="Mark as done" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex: none">
+<span style="width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--faint); box-sizing: border-box"></span>
+</button>
+<span style="flex: 1; min-width: 160px; font-weight: 600">Send budget draft to finance</span>
+<span style="font-size: 12px; height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; background: var(--hover); color: var(--muted); font-weight: 500">To do</span>
+<span style="font-size: 12px; color: var(--muted); white-space: nowrap">High · Due 2026-10-10</span>
+<button aria-label="Open task" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></button>
+</div>
+<div style="padding: 2px 16px 12px 48px; font-size: 15px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0">Include Q4 travel costs from the trip plan.</p>
+<ul style="margin: 0; padding-left: 20px">
+<li>Flights and hotel for <a href="#" style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Lisbon Offsite 2026</a></li>
+<li>Send as PDF, cc Jana</li>
+</ul>
+</div>
+</div>
+
+<!-- Plain Markdown checkbox (- [x]), not an object (FR-EDT-02, FR-TSK-11) -->
+<div style="display: flex; align-items: flex-start; gap: 10px; padding: 6px 0 0 10px">
+<span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--accent); background: var(--accent); box-sizing: border-box; margin: 4px 5px 0; flex: none; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span>
+<span style="text-decoration: line-through; color: var(--muted)">Shortlist three venues</span>
+</div>
+
+<!-- Plain Markdown checkbox (- [ ]), not yet converted to a Task -->
+<div style="display: flex; align-items: flex-start; gap: 10px; padding: 0 0 0 10px">
+<span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--faint); box-sizing: border-box; margin: 4px 5px 0; flex: none"></span>
+<span>Book flights once the offsite dates are confirmed</span>
+</div>
+
+<!-- Plain checklist item with a broken link -->
+<div style="display: flex; align-items: flex-start; gap: 10px; padding: 0 0 0 10px">
+<span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--faint); box-sizing: border-box; margin: 4px 5px 0; flex: none"></span>
+<span>Ask Petr about the <a href="#" title="Note does not exist yet – click to create" style="color: var(--broken); text-decoration: underline dashed; text-underline-offset: 3px">Supplier contract</a></span>
+</div>
+
+<!-- Mindmap block (FR-MMP-01…03) -->
+<h2 style="margin: 18px 0 2px; font-size: 21px; font-weight: 650">Offsite brainstorm</h2>
+
+<!-- Step 1: inserting via the slash menu -->
+<sc-if value="{{mmInsert}}" hint-placeholder-val="{{ false }}">
+<div style="position: relative; padding-bottom: 250px">
+<p style="margin: 0">/mind<span aria-hidden="true" style="display: inline-block; width: 2px; height: 20px; background: var(--link); vertical-align: -4px; margin-left: 1px"></span></p>
+<div role="listbox" aria-label="Insert block" style="position: absolute; top: 34px; left: 0; z-index: 20; width: 320px; max-width: 80vw; padding: 6px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.3">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 4px">Blocks</div>
+<div role="option" aria-selected="true" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: var(--hover)">
+<span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Mindmap</span><span style="font-size: 12px; color: var(--muted)">Edit visually, saved as Mermaid</span></span>
+<span style="font-size: 12px; color: var(--muted)">↩</span>
+</div>
+<div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px; border-radius: 8px">
+<span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg></span>
+<span style="flex: 1">Mindmap from template…</span><span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-TPL</span>
+</div>
+<div style="font-size: 12px; color: var(--muted); padding: 8px 8px 4px; border-top: 1px solid var(--border); margin-top: 4px">Also: paste a Mermaid <code>mindmap</code> code block</div>
+</div>
+</div>
+</sc-if>
+
+<!-- Step 2/3: the inserted block -->
+<sc-if value="{{mmBlock}}" hint-placeholder-val="{{ true }}">
+<figure aria-label="Mindmap: Offsite 2026" style="margin: 4px 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg)">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--border); background: var(--embed); font-size: 13px; flex-wrap: wrap">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg>
+<span style="font-weight: 600; flex: 1">Mindmap</span>
+<div role="radiogroup" aria-label="Mindmap layout" style="display: flex; padding: 2px; border-radius: 7px; background: var(--hover); gap: 2px">
+<button role="radio" aria-checked="{{mmRightOn}}" aria-label="Layout: branches to the right" title="Branches to the right" style="width: 30px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: {{mmRightBg}}; color: {{mmRightFg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg></button>
+<button role="radio" aria-checked="{{mmSpiderOn}}" aria-label="Layout: spider, branches on both sides" title="Spider: branches on both sides" style="width: 30px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: {{mmSpiderBg}}; color: {{mmSpiderFg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 12h5M9.5 12c-2 0-2-5-4.5-5H3M9.5 12c-2 0-2 5-4.5 5H3M14.5 12c2 0 2-5 4.5-5H21M14.5 12c2 0 2 5 4.5 5H21"></path></svg></button>
+</div>
+<div role="group" aria-label="Mindmap view" style="display: flex; padding: 2px; border-radius: 7px; background: var(--hover); gap: 2px">
+<button aria-pressed="{{mmVisualPressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmVisualBg}}; color: {{mmVisualFg}}">Visual</button>
+<button aria-pressed="{{mmSourcePressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmSourceBg}}; color: {{mmSourceFg}}">Source</button>
+</div>
+<button aria-label="Zoom out" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+<button aria-label="Zoom in" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<button aria-label="Open full screen" style="width: 28px; height: 28px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+</div>
+
+<sc-if value="{{mmVisual}}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 18px 18px">
+<div style="position: relative; width: {{mmW}}px; height: 268px; margin: 12px 16px">
+<sc-for list="{{mmLines}}" as="l" hint-placeholder-count="12">
+<div style="position: absolute; left: {{l.x}}px; top: {{l.y}}px; width: {{l.w}}px; height: {{l.h}}px; background: var(--faint)"></div>
+</sc-for>
+<sc-for list="{{mmNodes}}" as="n" hint-placeholder-count="12">
+<div style="position: absolute; left: {{n.x}}px; top: {{n.y}}px; width: {{n.w}}px; height: 32px; box-sizing: border-box; border-radius: 8px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; background: {{n.bg}}; color: {{n.fg}}; border: {{n.border}}; font-weight: {{n.weight}}; box-shadow: {{n.ring}}">
+<sc-if value="{{n.isLink}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--link); padding: 0 6px; border-radius: 5px; background: var(--link-bg); line-height: 1.6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>{{n.label}}</span></sc-if>
+<sc-if value="{{n.isText}}" hint-placeholder-val="{{ true }}"><span>{{n.label}}</span></sc-if>
+<sc-if value="{{n.editing}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="display: inline-block; width: 2px; height: 16px; background: var(--link); margin-left: -4px"></span></sc-if>
+<sc-if value="{{n.collapsed}}" hint-placeholder-val="{{ false }}"><button aria-label="Expand Travel (3 hidden)" style="margin-left: auto; height: 20px; min-width: 24px; padding: 0 5px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font-size: 11px; color: var(--muted)">+3</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted)">
+<span><b style="color: var(--text); font-weight: 600">Tab</b> child</span>
+<span><b style="color: var(--text); font-weight: 600">↩</b> sibling</span>
+<span><b style="color: var(--text); font-weight: 600">[[</b> link</span>
+<span><b style="color: var(--text); font-weight: 600">⇧Tab</b> outdent</span>
+<span style="opacity: .55"><b style="color: var(--text); font-weight: 600">⌘.</b> collapse<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0</span></span>
+<span style="opacity: .55">Drag to re-parent<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0</span></span>
+<span style="opacity: .55"><b style="color: var(--text); font-weight: 600">⌘⇧O</b> turn node into object<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.0 · FR-MMP-03</span></span>
+</div>
+</sc-if>
+
+<sc-if value="{{mmSource}}" hint-placeholder-val="{{ false }}">
+<pre style="margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.55; overflow-x: auto; white-space: pre; color: var(--text)">{{mmCode}}</pre>
+</sc-if>
+</figure>
+</sc-if>
+
+<!-- Slash menu / empty line -->
+<div style="position: relative; padding-top: 6px">
+<sc-if value="{{showSlash}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0">/ta<span aria-hidden="true" style="display: inline-block; width: 2px; height: 20px; background: var(--link); vertical-align: -4px; margin-left: 1px"></span></p>
+<div role="listbox" aria-label="Insert block" style="position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: 300px; max-width: 80vw; padding: 6px; background: var(--pop); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.3">
+<sc-for list="{{slash}}" as="s" hint-placeholder-count="6">
+<sc-if value="{{s.head}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 4px">{{s.label}}</div>
+</sc-if>
+<sc-if value="{{s.item}}" hint-placeholder-val="{{ true }}">
+<div role="option" aria-selected="{{s.sel}}" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px; border-radius: 8px; background: {{s.bg}}">
+<span style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{s.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{s.d}}"></path></svg></span>
+<span style="flex: 1">{{s.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{s.key}}</span>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{showEmptyHint}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; color: var(--faint)">Type / for blocks, [[ to link, # to tag</p>
+</sc-if>
+</div>
+
+</div>
+<div style="height: 220px"></div>
+</article>
+</main>
+
+<!-- Right panel (FR-UX-02, FR-LNK-01) -->
+<sc-if value="{{showChrome}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{showPanel}}" hint-placeholder-val="{{ true }}">
+<aside aria-label="Context panel" style="flex: 1 1 288px; max-width: 100%; background: var(--panel); border-left: 1px solid var(--border); padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+<div role="tablist" style="display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--hover)">
+<button role="tab" aria-selected="true" style="flex: 1; height: 28px; border-radius: 7px; background: var(--bg); font-size: 12px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08)">Backlinks</button>
+<button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-EDT-11, D-376)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Outline</button>
+<button role="tab" aria-selected="false" aria-disabled="true" title="v1.0 (FR-GRP)" style="flex: 1; height: 28px; border-radius: 7px; font-size: 12px; color: var(--faint)">Graph</button>
+</div>
+<div style="font-size: 13px; color: var(--muted)">{{backlinkCount}}</div>
+<!-- Chips only, grouped by type (D-368): no excerpts, no attribute labels -->
+<sc-for list="{{backlinks}}" as="b" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">{{b.group}}</div>
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 5px">
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="2">
+<a href="#" title="{{i.tip}}" style="display: inline-flex; align-items: flex-start; gap: 5px; max-width: 100%; box-sizing: border-box; padding: 2px 7px; border-radius: 5px; background: {{i.bg}}; color: {{i.fg}}; box-shadow: {{i.ring}}; font-size: 13px; line-height: 1.45; text-decoration: none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{i.iconColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 3px"><path d="{{i.d}}"></path></svg><span style="min-width: 0; overflow-wrap: anywhere"><span style="text-decoration: {{i.deco}}">{{i.title}}</span><sc-if value="{{i.unrev}}" hint-placeholder-val="{{ false }}"><span aria-label="unreviewed" style="display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--unrev); margin-left: 5px; vertical-align: 1px"></span></sc-if><sc-if value="{{i.isTask}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--chip-div); vertical-align: 1px"><sc-if value="{{i.hasDue}}" hint-placeholder-val="{{ false }}"><span style="color: {{i.dueFg}}; font-weight: {{i.dueWeight}}">{{i.due}}</span><span style="color: var(--faint)">·</span></sc-if><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--muted)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: {{i.statusColor}}"></span>{{i.status}}</span></span></sc-if></span></a>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 14px; opacity: .55">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)">Unlinked mentions<span style="height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; display: inline-flex; align-items: center; margin-left: 4px">v1.x · FR-LNK-05</span></div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--border); font-size: 12px">
+<span style="flex: 1; color: var(--muted)"><b style="color: var(--text); font-weight: 600">2026-10-08</b> · “…follow-ups from the weekly sync…”</span>
+<button style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; font-weight: 500">Link</button>
+</div>
+</div>
+</aside>
+</sc-if>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"overlay":{"editor":"enum","options":["object menu","slash menu","selection toolbar","link preview","none"],"default":"none"},"focusMode":{"editor":"boolean","default":false},"pageWidth":{"editor":"enum","options":["normal","wide"],"default":"wide"},"rightPanel":{"editor":"boolean","default":false},"mindmap":{"editor":"enum","options":["visual editing","source","inserting (/mind)"],"default":"visual editing"},"mmLayout":{"editor":"enum","options":["right","spider"],"default":"right"},"$preview":{"width":1440,"height":1840}}'>
+class Component extends DCLogic {
+mindmap() {
+const step = this.props.mindmap ?? 'visual editing';
+const spider = (this.props.mmLayout ?? 'right') === 'spider';
+const C = { a: 'link', v: 'o', t: 'p', m: 't' };
+const kid = (k) => ({ bg: 'var(--' + C[k] + '-bg)', fg: 'var(--' + C[k] + ')', border: '0', weight: '600' });
+const leaf = { bg: 'var(--bg)', fg: 'var(--text)', border: '1px solid var(--border)', weight: '400' };
+const NR = [
+{ label: 'Offsite 2026', x: 0, y: 118, w: 130, bg: 'var(--text)', fg: 'var(--bg)', border: '0', weight: '650' },
+{ label: 'Agenda', x: 190, y: 28, w: 150, ...kid('a') },
+{ label: 'Venue', x: 190, y: 108, w: 150, ...kid('v') },
+{ label: 'Travel', x: 190, y: 168, w: 150, ...kid('t'), collapsed: true },
+{ label: 'Team activities', x: 190, y: 208, w: 150, ...kid('m'), editing: true },
+{ label: 'Q4 review', x: 400, y: 8, w: 200, ...leaf },
+{ label: 'Roadmap 2027', x: 400, y: 48, w: 200, ...leaf },
+{ label: 'Lisbon Offsite 2026', x: 400, y: 88, w: 200, ...leaf, isLink: true },
+{ label: 'Budget cap per person', x: 400, y: 128, w: 200, ...leaf }
+];
+const NS = [
+{ label: 'Offsite 2026', x: 380, y: 118, w: 150, bg: 'var(--text)', fg: 'var(--bg)', border: '0', weight: '650' },
+{ label: 'Agenda', x: 560, y: 68, w: 110, ...kid('a') },
+{ label: 'Travel', x: 560, y: 168, w: 110, ...kid('t'), collapsed: true },
+{ label: 'Venue', x: 220, y: 68, w: 130, ...kid('v') },
+{ label: 'Team activities', x: 220, y: 168, w: 130, ...kid('m'), editing: true },
+{ label: 'Q4 review', x: 700, y: 48, w: 140, ...leaf },
+{ label: 'Roadmap 2027', x: 700, y: 88, w: 140, ...leaf },
+{ label: 'Lisbon Offsite 2026', x: 10, y: 48, w: 180, ...leaf, isLink: true },
+{ label: 'Budget cap per person', x: 10, y: 88, w: 180, ...leaf }
+];
+const N = spider ? NS : NR;
+const mmNodes = N.map((n) => ({
+...n, isLink: !!n.isLink, isText: !n.isLink, collapsed: !!n.collapsed, editing: !!n.editing,
+ring: n.editing ? '0 0 0 2px var(--bg), 0 0 0 4px var(--link)' : 'none'
+}));
+const h = (x, y, w) => ({ x, y: y - 1, w, h: 2 });
+const v = (x, y1, y2) => ({ x: x - 1, y: y1, w: 2, h: y2 - y1 });
+const LR = [
+h(130, 134, 30), v(160, 44, 224), h(160, 44, 30), h(160, 124, 30), h(160, 184, 30), h(160, 224, 30),
+h(340, 44, 30), v(370, 24, 64), h(370, 24, 30), h(370, 64, 30),
+h(340, 124, 30), v(370, 104, 144), h(370, 104, 30), h(370, 144, 30)
+];
+const LS = [
+h(530, 134, 15), v(545, 84, 184), h(545, 84, 15), h(545, 184, 15),
+h(670, 84, 15), v(685, 64, 104), h(685, 64, 15), h(685, 104, 15),
+h(365, 134, 15), v(365, 84, 184), h(350, 84, 15), h(350, 184, 15),
+h(205, 84, 15), v(205, 64, 104), h(190, 64, 15), h(190, 104, 15)
+];
+const mmLines = spider ? LS : LR;
+const mmCode = '```mermaid\nmindmap\n  root((Offsite 2026))\n    Agenda\n      Q4 review\n      Roadmap 2027\n    Venue\n      [[Lisbon Offsite 2026]]\n      Budget cap per person\n    Travel\n      Flights\n      Hotel\n      Airport transfer\n    Team activities\n```';
+const ins = step === 'inserting (/mind)', src = step === 'source';
+return {
+mmInsert: ins, mmBlock: !ins, mmVisual: !ins && !src, mmSource: src,
+mmVisualPressed: src ? 'false' : 'true', mmSourcePressed: src ? 'true' : 'false',
+mmVisualBg: src ? 'transparent' : 'var(--bg)', mmVisualFg: src ? 'var(--muted)' : 'var(--text)',
+mmSourceBg: src ? 'var(--bg)' : 'transparent', mmSourceFg: src ? 'var(--text)' : 'var(--muted)',
+mmNodes, mmLines, mmCode, mmW: spider ? 850 : 640,
+mmRightOn: spider ? 'false' : 'true', mmSpiderOn: spider ? 'true' : 'false',
+mmRightBg: spider ? 'transparent' : 'var(--bg)', mmRightFg: spider ? 'var(--muted)' : 'var(--text)',
+mmSpiderBg: spider ? 'var(--bg)' : 'transparent', mmSpiderFg: spider ? 'var(--text)' : 'var(--muted)'
+};
+}
+renderVals() {
+const dark = this.props.dark ?? false;
+const overlay = this.props.overlay ?? 'object menu';
+const focus = this.props.focusMode ?? false;
+const I = {
+home: 'M4 11l8-7 8 7M6 10v10h12V10',
+inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z',
+cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5',
+task: 'M5 5h14v14H5zM9 12l2 2 4-4',
+bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z',
+person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+h: 'M6 5v14M18 5v14M6 12h12',
+list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+table: 'M4 5h16v14H4zM4 10h16M10 5v14',
+query: 'M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4',
+convert: 'M4 8h12l-3-3M20 16H8l3 3'
+};
+const nav = [
+{ label: 'Inbox', d: I.inbox, meta: '4' },
+{ label: 'Today', d: I.cal, meta: '⌘D' },
+{ label: 'Tasks', d: I.task, meta: '4' }
+];
+const sel = 'var(--hover)';
+const types = [
+{ label: 'Pages', d: I.page, color: 'var(--muted)', count: '128' },
+{ label: 'Quick Notes', d: I.bolt, color: 'var(--o)', count: '212' },
+{ label: 'Daily Notes', d: I.cal, color: 'var(--muted)', count: '340' },
+{ label: 'Meetings', d: I.meet, color: 'var(--accent)', count: '58', active: true },
+{ label: 'Projects', d: I.proj, color: 'var(--o)', count: '9' },
+{ label: 'People', d: I.person, color: 'var(--p)', count: '31' }
+].map((t) => ({ ...t, bg: t.active ? sel : 'transparent', weight: t.active ? '600' : '400' }));
+const tags = [
+{ label: 'finance', color: 'var(--o)', count: '14' },
+{ label: 'q4', color: 'var(--p)', count: '8' },
+{ label: 'offsite', color: 'var(--t)', count: '5' }
+];
+const tasks = [
+{ title: 'Send budget draft to finance', done: false, status: 'To do', meta: 'High · Due 2026-10-10' },
+{ title: 'Shortlist three venues', done: true, status: 'Done', meta: 'Due 2026-10-09' }
+].map((k) => ({
+...k,
+cbLabel: k.done ? 'Mark as not done' : 'Mark as done',
+cbBorder: k.done ? 'var(--accent)' : 'var(--faint)',
+cbFill: k.done ? 'var(--accent)' : 'transparent',
+tick: k.done ? 'var(--bg)' : 'transparent',
+strike: k.done ? 'line-through' : 'none',
+titleColor: k.done ? 'var(--muted)' : 'var(--text)',
+statusBg: k.done ? 'var(--t-bg)' : 'var(--hover)',
+statusFg: k.done ? 'var(--t)' : 'var(--muted)'
+}));
+const slash = [
+{ head: true, label: 'Objects' },
+{ item: true, label: 'Task', d: I.task, color: 'var(--link)', key: '⌘⇧T', selected: true },
+{ item: true, label: 'Turn into object…', d: I.convert, color: 'var(--muted)', key: '⌘⇧O' },
+{ head: true, label: 'Blocks' },
+{ item: true, label: 'Table', d: I.table, color: 'var(--muted)', key: '' },
+{ item: true, label: 'Query', d: I.query, color: 'var(--muted)', key: '' }
+].map((s) => ({ head: !!s.head, item: !!s.item, label: s.label, d: s.d || '', color: s.color || '', key: s.key || '', sel: s.selected ? 'true' : 'false', bg: s.selected ? 'var(--hover)' : 'transparent' }));
+// Backlinks use the link chip variants (LinkChips board): regular, unreviewed, and task chips with due · status.
+const T_BOX = 'M5 5h14v14H5z', T_DONE = 'M5 5h14v14H5zM9 12l2 2 4-4', T_CANC = 'M5 5h14v14H5zM9 9l6 6M15 9l-6 6';
+const SC = { 'To do': 'var(--faint)', 'In progress': 'var(--link)', 'Waiting': 'var(--o)', 'Done': 'var(--t)', 'Cancelled': 'var(--faint)' };
+const chip = (d, title, o = {}) => {
+const closed = o.status === 'Done' || o.status === 'Cancelled';
+return {
+title, d: o.status ? (o.status === 'Done' ? T_DONE : o.status === 'Cancelled' ? T_CANC : T_BOX) : d,
+iconColor: o.status === 'Done' ? 'var(--t)' : 'currentColor',
+bg: closed ? 'var(--hover)' : 'var(--link-bg)', fg: closed ? 'var(--muted)' : 'var(--link)',
+ring: o.unrev ? 'inset 0 0 0 1px var(--unrev-ring)' : 'none', unrev: !!o.unrev,
+tip: o.unrev ? 'Unreviewed · still in the Inbox' : (o.status ? 'Task · ' + o.status : 'Click previews, double-click opens'),
+deco: closed ? 'line-through' : 'none',
+isTask: !!o.status, status: o.status || '', statusColor: SC[o.status] || '',
+hasDue: !!o.due && !closed, due: o.due || '',
+dueFg: o.when === 'over' ? 'var(--broken)' : o.when === 'today' ? 'var(--link)' : 'var(--muted)', dueWeight: o.when ? '600' : '400'
+};
+};
+const backlinks = [
+{ group: 'Projects', items: [chip(I.proj, 'Q4 Budget')] },
+{ group: 'Quick Notes', items: [chip(I.bolt, 'Budget question for Jana', { unrev: true })] },
+{ group: 'Daily Notes', items: [chip(I.cal, '2026-10-07'), chip(I.cal, '2026-10-19', { unrev: true })] },
+{ group: 'Tasks', items: [
+chip(I.task, 'Send budget draft to finance', { status: 'To do', due: 'Fri 16 Oct', when: 'over' }),
+chip(I.task, 'Review the travel line', { status: 'In progress', due: 'Today', when: 'today' }),
+chip(I.task, 'Prepare notes for the next sync', { status: 'To do', due: 'Fri 23 Oct' }),
+chip(I.task, 'Ask Petr for the Q3 actuals', { status: 'Waiting', due: 'Thu 22 Oct' }),
+chip(I.task, 'Clean up the budget tags', { status: 'To do' }),
+chip(I.task, 'Compare last year’s offsite costs with the three venue quotes and write a one-page summary for finance before the review', { status: 'In progress', due: 'Mon 26 Oct' }),
+chip(I.task, 'Collect flight prices to Lisbon', { status: 'Done' }),
+chip(I.task, 'Book the hotel shuttle', { status: 'Cancelled' })
+] }
+];
+const st = this.state || {};
+const mkDate = (key, initial, openDefault) => {
+const v = st[key] === undefined ? initial : st[key];
+const open = st[key + 'Cal'] === undefined ? openDefault : st[key + 'Cal'];
+const set = (x) => this.setState({ [key]: x, [key + 'Cal']: false });
+const days = [];
+for (const n of [28, 29, 30]) days.push({ n: String(n), out: true });
+for (let n = 1; n <= 31; n++) days.push({ n: String(n), out: false });
+days.push({ n: '1', out: true });
+const dayName = (n) => ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'][(n - 1) % 7];
+return {
+value: v || 'No date', fg: v ? 'var(--text)' : 'var(--faint)', icon: v ? 'var(--link)' : 'var(--faint)', border: open ? 'var(--link)' : 'var(--border)',
+calOpen: open, calAttr: open ? 'true' : 'false', toggleCal: () => this.setState({ [key + 'Cal']: !open }),
+quick: [['Today', '2026-10-19'], ['Tomorrow', '2026-10-20'], ['Next week', '2026-10-26'], ['Fri', '2026-10-23']].map(([label, x]) => ({ label, pick: () => set(x) })),
+weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+days: days.map((d) => {
+const n = +d.n, today = !d.out && n === 19, past = !d.out && n < 19, iso = '2026-10-' + String(n).padStart(2, '0'), sel = !d.out && v === iso;
+return { n: d.n, aria: d.out ? '' : dayName(n) + ' ' + n + ' October', fg: sel ? '#FFFFFF' : (d.out || past ? 'var(--faint)' : 'var(--text)'), bg: sel ? 'var(--link)' : 'transparent', ring: today && !sel ? 'inset 0 0 0 1.5px var(--link)' : 'none', weight: today || sel ? '700' : '400', pick: () => (d.out ? null : set(iso)) };
+}),
+clear: () => set(null)
+};
+};
+const meetDate = mkDate('meetDate', '2026-10-07', false);
+const pw = (this.state || {}).pageWidth || (this.props.pageWidth ?? 'normal');
+const pnl = (this.state || {}).panel === undefined ? (this.props.rightPanel ?? true) : this.state.panel;
+const seg = (on, pick) => ({ checked: on ? 'true' : 'false', pick, bg: on ? 'var(--bg)' : 'transparent', fg: on ? 'var(--text)' : 'var(--muted)', shadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none', weight: on ? '600' : '400' });
+const layout = {
+docClass: pw === 'wide' ? 'doc-wide' : 'doc-normal',
+wNormal: seg(pw !== 'wide', () => this.setState({ pageWidth: 'normal' })), wWide: seg(pw === 'wide', () => this.setState({ pageWidth: 'wide' })),
+showPanel: pnl, panelPressed: pnl ? 'true' : 'false', panelBg: pnl ? 'var(--hover)' : 'transparent', panelFg: pnl ? 'var(--text)' : 'var(--muted)',
+togglePanel: () => this.setState({ panel: !pnl })
+};
+const backlinkCount = backlinks.reduce((n, g) => n + g.items.length, 0) + ' objects link here';
+return {
+themeClass: dark ? 'dark' : '',
+showChrome: !focus,
+...layout,
+meetDate,
+nav, types, tags, tasks, slash, backlinks, backlinkCount,
+showSlash: overlay === 'slash menu',
+showObjMenu: overlay === 'object menu', objMenuAttr: overlay === 'object menu' ? 'true' : 'false', objMenuBg: overlay === 'object menu' ? 'var(--hover)' : 'transparent',
+showEmptyHint: overlay !== 'slash menu',
+showToolbar: overlay === 'selection toolbar',
+selBg: overlay === 'selection toolbar' ? 'var(--sel)' : 'transparent',
+showPreview: overlay === 'link preview',
+prevLinkBg: overlay === 'link preview' ? 'var(--sel)' : 'var(--link-bg)',
+...this.mindmap()
+};
+}
+}
+</script>
+</body>
+</html>
