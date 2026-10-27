@@ -602,7 +602,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         return { key, name: y.name ?? key, plural: y.plural ?? key, folder: y.folder ?? key, icon: y.icon ?? '', color: y.color ?? '', system: y.system === 'true', invalid: !ok };
       });
   };
-  const info = () => (state.vault ? { name: state.vault.name, path: state.path ?? `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0 } : null);
+  // Slice PW (page-width.md §2): the vault default travels with the vault info (only the exact `wide` reads as wide).
+  const info = () => (state.vault ? { name: state.vault.name, path: state.path ?? `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0, pageWidth: /^page-width:[ \t]*wide[ \t]*$/m.test(state.vault.files['.tegg/vault.yml'] ?? '') ? 'wide' : 'normal' } : null);
   state.recent = opts.recent ? opts.recent.map((r) => ({ ...r })) : (state.vault && state.path ? [{ name: state.vault.name, path: state.path, exists: true }] : []);
   const record = (name: string, path: string) => {
     const p = path.normalize('NFC');

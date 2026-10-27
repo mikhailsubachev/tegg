@@ -46,7 +46,11 @@ IPC (`shell5b.rs`):
 | `vault_settings` | — | `VaultSettingsDto` with `pageWidth: 'normal' \| 'wide'` |
 | `vault_settings_patch` | `base`, `key: 'page-width'`, `value: 'normal' \| 'wide'` | `VaultSettingsDto` |
 
-The fake core's twin (`app/ui/test/fake-settings.ts`) follows the same line rules.
+`VaultInfo` (`vault_open`, `vault_current`) carries `pageWidth: 'normal' | 'wide'` so opening a vault sends no extra
+command (read-view.md FR-EDT-02 AC-13); the UI reads `vault_settings` again when a `vault:changed` names
+`.tegg/vault.yml` (AP-759). The fake core's twin (`app/ui/test/fake-settings.ts`) follows the same line rules.
+
+The UI writes `ui_state_set` once per committed state change (an effect), never from inside a React state updater.
 
 ## 3. The note page (FR-UX-01, FR-UX-03, FR-UX-05, NFR-OTH-02)
 

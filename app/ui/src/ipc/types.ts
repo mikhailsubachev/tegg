@@ -5,7 +5,12 @@ export type VaultInfo = { name: string, path: string, placeholders: number,
 /**
  * ms4-jobs §8 (D-387): renames a crash interrupted, offered as Finish or Undo; absent when there are none.
  */
-interrupted?: Array<InterruptedDto>, };
+interrupted?: Array<InterruptedDto>, 
+/**
+ * Slice PW (page-width.md §2, AP-754): the vault's default page width (`normal` | `wide`), read with the vault so
+ * opening it sends no extra command; the UI reads `vault_settings` again when `.tegg/vault.yml` changes.
+ */
+pageWidth?: string, };
 export type DateRangeDto = { 
 /**
  * `YYYY-MM-DD`, inclusive.

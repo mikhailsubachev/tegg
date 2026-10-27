@@ -225,6 +225,7 @@ export function App() {
     resetMindmapViews(); // D-776: another vault opens every mindmap in Map
     setInterrupted(v.interrupted ?? []); // D-387: renames a crash interrupted, from the vault info (no extra call)
     setVault(v);
+    setVaultWidth(pageWidthOf(v.pageWidth));
     setChooser(null);
     setRoute(null);
     history.current.clear(); // another vault: a new history (AC-7)
@@ -261,12 +262,16 @@ export function App() {
   useEffect(() => {
     if (vault) loadTypes();
   }, [refresh]);
+  // The default arrives with the vault (no extra read at open, FR-EDT-02 AC-13); a change of `.tegg/vault.yml` on disk
+  // or from Settings › Vault reads `vault_settings` again (AP-759).
   useEffect(() => {
-    if (!vault) return;
     let live = true;
-    ipc.vaultSettings().then((v) => { if (live) setVaultWidth(pageWidthOf(v.pageWidth)); }, () => {});
-    return () => { live = false; };
-  }, [vault?.path, refresh]);
+    const un = events.changed((c) => {
+      if (!c.paths.some((p) => p.normalize('NFC') === '.tegg/vault.yml')) return;
+      ipc.vaultSettings().then((v) => { if (live) setVaultWidth(pageWidthOf(v.pageWidth)); }, () => {});
+    });
+    return () => { live = false; void un.then((f) => f()); };
+  }, []);
   /** AP-753: one `ui_state_set` per effective change; AP-760: a stored value is never removed by a choice. */
   const setNoteWidth = useCallback((key: string, w: PageWidth, from: string | null = null) => {
     updateUi((u) => {

@@ -14,6 +14,11 @@ pub struct VaultInfo {
     #[ts(optional)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interrupted: Option<Vec<InterruptedDto>>,
+    /// Slice PW (page-width.md §2, AP-754): the vault's default page width (`normal` | `wide`), read with the vault so
+    /// opening it sends no extra command; the UI reads `vault_settings` again when `.tegg/vault.yml` changes.
+    #[ts(optional, rename = "pageWidth")]
+    #[serde(rename = "pageWidth", skip_serializing_if = "Option::is_none")]
+    pub page_width: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, TS)]
