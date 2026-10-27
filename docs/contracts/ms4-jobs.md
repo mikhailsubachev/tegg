@@ -272,3 +272,121 @@ skipOnWrite(path: string, reason: SkipReason): Promise<void>;           // the n
 3. A same-stem title commit runs as a one-file job, so there is one path for every title commit and undo works the same way.
 4. Open notes are rewritten through their editors (D-386) and counted when their save lands; a job therefore can finish after a short wait on autosave (≤ the autosave debounce).
 5. Journals hold pre-job bytes as hex in JSON: small for a rename, and readable without the app for support.
+
+---
+
+## 14. Slice 4E: type moves and schema rewrites (D-803…D-818)
+
+- **Status:** draft, 2026-10-27, written before the 4E-1 red tests. **ACs:** [docs/acceptance/type-moves.md](../acceptance/type-moves.md) (approved; D-810…D-818). Where this section and the ACs disagree, the ACs win and this section is corrected before the red tests. §14.1…§14.8 are 4E-1; §14.9 is 4E-2's outline, completed before its red tests (D-818).
+- Everything in §1…§13 stays valid unless this section changes it.
+
+### 14.1 Kinds (changes §1)
+
+| Kind | `needsConfirm` | `backup` | `undoable` | Cancellable in | Part |
+| --- | --- | --- | --- | --- | --- |
+| `type-move`, one note (`Change type…`, a single Inbox convert) | no (the mapping dialog, when shown, is the UI's step before `job_start`) | no (board G) | yes, journal of §8 (D-812) | `planning` | 4E-1 |
+| `type-move`, more than one note (bulk Inbox convert) | no (the UI's dialog confirms) | yes | yes, in memory (D-812) | `planning`, `backup` | 4E-1 |
+| `folder-move` (folder save, tidy) | no (D-805: no confirmation) | yes, only when it moves something (D-811) | yes, in memory | `planning`, `backup` | 4E-1 |
+| `value-remove` | yes | yes | yes, in memory | `planning`, `confirm`, `backup`, `writing` (§14.9) | 4E-2 |
+| `type-delete` | yes | yes | yes, in memory | `planning`, `confirm`, `backup`, `writing` (board F2) | 4E-2 |
+| `key-rename` | — | — | — | — | never (D-806; `NotImplemented`) |
+
+The `inbox` kind's `SetType` change (ms5-capture §7.3) is replaced by `type-move` for converts; its other changes stay.
+
+### 14.2 Ops and errors (changes §2)
+
+```rust
+pub enum JobOp {
+    // … §2 unchanged, then:
+    /// One or more notes to `to_type` (a type key). `mapping` applies to every note (D-813: one mapping per type pair);
+    /// `review`: write `review: reviewed` too (an Inbox convert, D-557).
+    TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool },
+    /// `to_folder: Some(f)`: the folder save of `r#type` (D-805), every object of the type outside `f` and its
+    /// subfolders. `None` with `r#type: None`: the tidy job over every defined type (D-811).
+    FolderMove { r#type: Option<String>, to_folder: Option<String> },
+    ValueRemove { r#type: String, key: String },                 // 4E-2
+    TypeDelete { r#type: String },                               // 4E-2 (D-809: one path; `TypeDeleteChoice` goes)
+}
+/// One schema property of the old type (D-813: only schema properties are mapped).
+pub struct PropertyMap { pub from: String, pub to: MapTarget }
+pub enum MapTarget { Property(String), Content }
+pub enum JobError { /* … */ NotMovable, UnknownType, NoChange }
+```
+
+`TypeMove` replaces the §2 shape `{ path, to_type }` (no planner existed). `NotMovable`: a Daily Note, Tag, Image or PDF object as source, one of those types as target, a file last read as not UTF-8 (D-180), or a path under `.trash/` (FR-STO-04 AC-12). `UnknownType`: `to_type` has no definition. `NoChange`: the target is the note's current type. A note in `_templates/` gets the type change without a move (FR-STO-04 AC-10).
+
+### 14.3 Planners (4E-1)
+
+- **Target path** of a moved note: `<folder of the type>/<stem>.md` at the folder's root (D-811), the stem kept when no other note outside `_templates/` and `.trash/` has it (NFC, case-folded, vault-wide), else `free_stem(folder, stem)` (D-291, D-384). A note already directly in or under the target folder doesn't move (its type change is still written).
+- **Type move.** Per note: `MapProperties` (§14.4) and `SetType` on the note itself (and `SetReview` when `review`), then the rename to the target path. Linking notes (`Host::linking`) get `RetargetLinks` only for link nodes whose written form stops resolving to the note or that name a renamed stem (D-810; the `@tegg/doc` side decides per node with `paths` before and after). The moved note gets `KeepTargets` (§14.4).
+- **Folder move.** Notes: every indexed object whose `type` matches a defined type (D-239) and lies outside that type's folder and its subfolders, minus the exemption list (§14.6); with `to_folder`, only `r#type`'s objects and the folder of the type file is written by the caller before the job (`type_patch`, §14.7). Each note: the rename, `KeepTargets` on itself, `RetargetLinks` on linking notes as above; `modified` is not touched (FR-STO-01 AC-8). Never: notes without `type` (FR-TYP-10), undefined types (D-121), `_templates/`, `.trash/`, non-Markdown files. An empty plan ends `done` with no zip, no write and no progress event after `planning` (D-811).
+- **Placeholders** and files with a pending conflict (`Host::has_conflict`, below) are skipped `placeholder` / `changed` and left for the next tidy run (D-805).
+
+### 14.4 Text ops (changes §2.2, §2.3)
+
+```rust
+pub enum TextOp {
+    // … §2.2 unchanged, then:
+    /// D-804, D-813: `map` in old schema order; `labels` are the old properties' display names for the Content lines.
+    MapProperties { map: Vec<(String, MapTargetDto)>, labels: Vec<(String, String)> },
+    /// D-810: rewrite links in this note that would resolve to another file from `to_path` than from `from_path`.
+    KeepTargets { from_path: String, to_path: String, paths: Vec<String> },
+    RemoveKey { key: String },                                    // 4E-2 (D-814)
+}
+```
+
+```ts
+export type TextOp =
+  | /* … existing … */
+  | { op: 'map-properties'; map: { from: string; to: string | 'content' }[]; labels: Record<string, string> }
+  | { op: 'keep-targets'; fromPath: string; toPath: string; paths: string[] }
+  | { op: 'remove-key'; key: string }
+/** D-813: the Content lines of `map-properties`, exported for the dialog's preview and the L1 tests. */
+export function contentLine(label: string, value: unknown): string        // `**Autor:** Frank Herbert`
+```
+
+- **`map-properties`** (D-804, D-813): a `Property(k)` with `k ≠ from` renames the key in place (value bytes kept, D-230); `Property(from)` leaves the line; `Content` removes the entry (its value lines and full-line comments directly inside its block; a comment line above it goes with it, FR-STO-04 AC-6) and adds `contentLine` at the start of the body, in `map` order, then one blank line. Values: scalars as stored without quotes, dates as `YYYY-MM-DD`, lists joined with `, `, relations as their `[[links]]`, booleans `true`/`false`; empty values write nothing. Keys outside `map` are untouched.
+- **`keep-targets`** (D-810): for each link node, resolve from `fromPath` and from `toPath` with `paths`; when they differ, rewrite it to resolve as before: a relative Markdown link gets the relative path from the new folder (same encoding style as §2.3's table), a wikilink or embed gets the shortest path form that resolves (`[[Quick Notes/Plán cesty|Plán cesty]]`; the alias is the written text when there was none; embeds never get an alias). Bytes outside the replaced ranges are unchanged.
+- **`retarget-links`** keeps its §2.3 rules; with `fromStem == toStem` only path forms and relative Markdown links change (FR-STO-04 AC-7).
+
+### 14.5 Writes (changes §3)
+
+A move is `Host::rename(from, to, bytes, base)` (`Vault::rename_with` across folders, creating folders), the same atomic step as a note rename; `NameTaken` at that moment → the next free stem, never an overwrite. New `Host` methods (default bodies are stubs, TS-I1):
+
+```rust
+fn type_folder(&self, r#type: &str) -> Option<String>;       // the type file's folder, NFC
+fn defined_types(&self) -> Vec<String>;                       // keys with a valid definition
+fn objects_of(&self, r#type: &str) -> Vec<String>;            // indexed objects whose `type` matches (D-239), no templates, no .trash
+fn schema(&self, r#type: &str) -> Vec<HostProperty>;          // key, name, value type, relation targets
+fn has_conflict(&self, path: &str) -> bool;                   // a pending FR-SYN-04 conflict
+fn local_exempt(&self) -> Vec<String>;                        // §14.6, by id
+fn set_local_exempt(&self, ids: &[String]);
+```
+
+### 14.6 Undo (changes §7, D-812)
+
+- Every 4E-1 job keeps the §7 record (renames, pre-job bytes and post-job version per written file). `Jobs::last_undoable` covers them; `job_undo` / `job_redo` work for them; a file changed since is skipped `changed` and listed. A single-note `type-move` writes the §8 journal (banner text `job.interrupted.typeMove`: `Changing the type of "<title>" was interrupted: <done> of <total> links updated`); multi-file jobs keep no journal (their zip is the recovery, ms4-tags §5.3).
+- **Exemptions.** Undoing a `folder-move` adds the moved notes' ids to `<Application Support>/Tegg/jobs/<vault-key>/tidy-exempt.json` (`{ "version": 1, "ids": [...] }`); the tidy planner skips them; an id leaves the list when its note's type changes or its type's `folder` changes.
+
+### 14.7 Core API and IPC (adds to §4)
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `type_move_plan` | `paths: string[]`, `toType` | `TypeMovePlanDto` | Read-only: the R101 rows (`{ from, name, kind, value: string \| null, default: string \| 'content', offered: string[], fixed: boolean }`) and `needsDialog`. The dialog is built from it; the UI never computes R101 itself. |
+| `type_move` | `paths: string[]`, `toType`, `mapping: { from: string; to: string }[]`, `review: boolean` | `{ jobId }` | Errors `NotMovable`, `UnknownType`, `NoChange`. |
+| `type_patch` | unchanged | | A `setFolder` op now also starts a `folder-move` job for the type after its write; the result gains `jobId: number \| null` (`null`: nothing to move). |
+| `folder_move_preview` | `type`, `folder` | `{ count: number }` | Read-only: B1's `Saving moves <n> …` count. |
+| `tidy_now` | — | `{ jobId: number \| null }` | Tests and the palette only; the core starts the tidy job itself at vault open (after the first index) and after 30 s without a watcher event (`TEGG_TEST_QUIET_MS` overrides the 30 s). |
+| `job_undo`, `job_redo` | unchanged | | Accept 4E-1 jobs. |
+
+`JobProgressDto.kind` gains `type-move`, `folder-move`; `JobReportDto` gains `moved: { from: string; to: string }[]`.
+
+### 14.8 UI, fake core and tests (4E-1)
+
+- `app/ui/src/types/ChangeTypeDialog.tsx` (board A; from `Change type…` and the Inbox's `Convert to…` when `needsDialog`), `app/ui/src/types/FolderField.tsx` (B1 help text from `folder_move_preview`), `app/ui/src/jobs/status.tsx` gains the R99 texts of A, B2 (keys `job.typeMove.done` `Now a {type}`, `job.folderMove.running`, `job.folderMove.done`, `job.folderMove.tidy`, `job.folderMove.skipped`), `job.undo.*` commands of R100. The Inbox's convert calls `type_move` with `review: true` (replaces the `set-type` single write and the bulk `inbox` `SetType`).
+- **Fake core** (§11): `type_move_plan`, `type_move`, `folder_move_preview`, `tidy_now`, the `type_patch` folder job, undo of both kinds, over its files with the real `@tegg/doc`; `FakeCoreHandle.tidyExempt(): Promise<string[]>`.
+- **Test layout:** L1 `packages/doc/test/type_moves.ac.test.ts` (`map-properties`, `contentLine`, `keep-targets`, `retarget-links` path forms), `app/test/type_moves_catalog.ac.test.ts`; L2 `packages/doc/test/type_moves.property.ac.test.ts` (FR-FMT-07 AC-26, 4E-1 ops); L4 `crates/tegg-jobs/tests/ac_type_move.rs`, `ac_folder_move.rs` (with the sync simulator and an injected quiet period); L5 `app/webkit/type_moves.ac.test.ts`; L6 `app/e2e/ms7_type_moves.ac.test.ts`, nightly `app/e2e/nightly_type_move_crash.ac.test.ts`, benchmark `app/e2e/perf_type_move.ts`. Fixture `tests/fixtures/vaults/type-moves/` with its README, byte-exact, in its own commit before the tests.
+
+### 14.9 4E-2 outline (completed before the 4E-2 red tests)
+
+`value-remove`: confirm with `{ files, empty }` counts in `job_plan` (D-807, D-814); `RemoveKey` on each object with a non-empty value, then `type_patch`'s item and `preview` removal as the job's last write; Cancel during `writing` reverses the files written so far (board D3). `type-delete`: `Host::trash` per object, then `_templates/<Name>/` and the type file last, only when nothing was skipped (D-815); Cancel during `writing` untrashes what was trashed; `trash_restore` of an object whose type key has no definition also restores the type file from `.trash/.tegg/types/` (D-815). The widen-only `Type` menu (D-808) is UI and `tegg-schema` only: `type_misfits` goes.
