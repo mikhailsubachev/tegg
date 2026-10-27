@@ -2,22 +2,22 @@
 
 - **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: now 178 in, 101 outside.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: 178 in, 101 outside. D-800…D-803 (2026-10-27): the Capacities importer (17) left for v1.0 and 4E (FR-STO-04, FR-TYP-04) came back: now 161 in, 118 outside.
 
 ## Summary
 
 | Where | Requirements |
 | --- | ---: |
-| MVP milestones MS1–MS8 | 178 |
+| MVP milestones MS1–MS8 | 161 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 73 |
-| v1.x (§11) | 9 |
+| v1.0 "complete desktop" (§11) | 90 |
+| v1.x (§11) | 4 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
 | Architecture seam only (by design) | 1 |
 | Satisfied by design | 1 |
-| Won't (W): deliberately not built | 8 |
+| Won't (W): deliberately not built | 10 |
 | Backlog: Could, unscheduled by decision (D-87) | 5 |
 | **Total** | **279** |
 
@@ -232,29 +232,16 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-STO-05 | Attachments (images, PDFs) are stored in a vault attachments folder (default `_attachments/`, configurable). N… | 6 ACs |
 | FR-STO-08 | Deleted objects go to an in-vault trash folder (`.trash/`, Obsidian-compatible). See FR-HIS. | 6 ACs |
 
-### MS7: Capacities importer
+### MS7: Type moves and schema rewrites (slice 4E)
 
-17 requirements (D-373 moved 2 to v1.0; starts after the daily-use point, D-375) · 15 with ACs · 0 with spike evidence · 0 implemented
+4 requirements (D-803, 2026-10-27: 4E returns from v1.0 and takes the MS7 slot; the Capacities importer moved to v1.0, D-801) · 4 with ACs (links.md FR-STO-04 AC-1, AC-2, FR-TYP-04 AC-1 and AC-3 attribute part; types.md FR-TYP-05 AC-4; data-safety FR-STO-01 AC-7; the folder move, value removal and value conversion need ACs before the slice) · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
-| FR-IMP-03 | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | no ACs yet |
-| FR-IMP-05 | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | 4 ACs |
-| FR-IMP-07 | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | 4 ACs |
-| FR-IMP-08 | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | 5 ACs |
-| FR-IMP-09 | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | 4 ACs |
-| FR-IMP-10 | Link rewriting: all link forms become wikilinks resolved by source file/ID, not title alone: `[[Title]]`; Mark… | 6 ACs |
-| FR-IMP-11 | Titles: the title comes from the source's `title:` (Capacities) or the H1 heading (Notion), never from the fil… | 3 ACs |
-| FR-IMP-14 | Media: Capacities media objects (`Images/*.md` + `Images/Media/*`, `PDFs/*.md` + `PDFs/Media/*`) become Tegg I… | 6 ACs |
-| FR-IMP-15 | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | 5 ACs |
-| FR-IMP-16 | Queries and views: Capacities Query objects and Notion database views are exported without their definitions. … | 2 ACs |
-| FR-IMP-17 | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | 3 ACs |
-| FR-IMP-19 | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | 4 ACs |
-| FR-IMP-20 | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | 1 ACs |
-| FR-IMP-21 | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | 3 ACs |
-| FR-IMP-22 | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | 3 ACs |
-| FR-IMP-23 | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | no ACs yet |
-| FR-IMP-24 | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | 2 ACs |
+| FR-STO-04 | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | 3 ACs (also MS1 for the storage rules) |
+| FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs (MS3 part built; renames and value rewrites are 4E) |
+| FR-TYP-05 | Deleting a type requires choosing a target type for its existing objects (or moving them to trash). | no ACs yet (AC-4: a type with objects) |
+| FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs (the file move) |
 
 ### MS8: MVP hardening & release
 
@@ -320,7 +307,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (73)
+### v1.0 "complete desktop" (90)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
@@ -330,7 +317,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TSK-07 | M | Recurrence: daily, weekdays, weekly (on chosen days), monthly (day of month / nth weekday), yearly, every N da… | Recurrence (§11) |
 | FR-CAP-02 | M | macOS Share sheet extension accepts text, URLs, images and PDFs from any app and creates an object of the vaul… | Share-sheet extension (§11); needs its own small spike (S3 FINDINGS) |
 | FR-DLY-09 | S | Time-stamped entries: a shortcut inserts the current time as a small heading or line (e.g. `21:30`) for log-st… | §11.1 table: time-stamped entries in v1.0 |
-| FR-HOM-04 | S | The app restores the last open note/tabs on launch (configurable: Home vs last state). | D-87 (AP-34) |
+| FR-HOM-04 | S | The app restores the last open note/tabs on launch (configurable: Home vs last state). | D-87 (AP-34); "Inbox or Today vs last state" (D-800) |
 | FR-NAV-06 | M | Tabs in v1: ⌘T new tab, ⌘W close, ⌘-click opens a link in a new tab, tabs are restored on launch. Split view i… | Tabs (§11); split view part v1.x |
 | FR-NAV-07 | S | All primary actions have keyboard shortcuts; shortcuts are customizable. | D-87 (AP-34) |
 | FR-NAV-08 | M | Previews of linked and embedded objects anywhere in the app: click to preview, double-click to open by default… | Object previews (§11) |
@@ -372,6 +359,27 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TPL-07 | M | Template files are excluded from search, queries and graph. | Templates (§11) |
 | FR-TPL-08 | C | Prompting for values in a form at creation. | Templates (§11) |
 | FR-HIS-03 | M | Version history: snapshots of each note are taken automatically (at most every 5 minutes while editing, plus b… | Version history (§11) |
+| FR-IMP-03 | M | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | D-801: Capacities importer to v1.0 |
+| FR-IMP-05 | M | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | D-801: Capacities importer to v1.0 |
+| FR-IMP-07 | M | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | D-801: Capacities importer to v1.0 |
+| FR-IMP-08 | M | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | D-801: Capacities importer to v1.0 |
+| FR-IMP-09 | M | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | D-801: Capacities importer to v1.0 |
+| FR-IMP-10 | M | Link rewriting: all link forms become wikilinks resolved by source file/ID, not title alone: `[[Title]]`; Mark… | D-801: Capacities importer to v1.0 |
+| FR-IMP-11 | M | Titles: the title comes from the source's `title:` (Capacities) or the H1 heading (Notion), never from the fil… | D-801: Capacities importer to v1.0 |
+| FR-IMP-14 | M | Media: Capacities media objects (`Images/*.md` + `Images/Media/*`, `PDFs/*.md` + `PDFs/Media/*`) become Tegg I… | D-801: Capacities importer to v1.0 |
+| FR-IMP-15 | M | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | D-801: Capacities importer to v1.0 |
+| FR-IMP-16 | M | Queries and views: Capacities Query objects and Notion database views are exported without their definitions. … | D-801: Capacities importer to v1.0 |
+| FR-IMP-17 | M | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | D-801: Capacities importer to v1.0 |
+| FR-IMP-19 | M | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | D-801: Capacities importer to v1.0 |
+| FR-IMP-20 | M | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | D-801: Capacities importer to v1.0 |
+| FR-IMP-21 | M | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | D-801: Capacities importer to v1.0 |
+| FR-IMP-22 | M | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | D-801: Capacities importer to v1.0 |
+| FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | D-801: Capacities importer to v1.0 |
+| FR-IMP-24 | M | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | D-801: Capacities importer to v1.0 |
+| FR-IMP-02 | — | Notion export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the datab… | D-801: other importers to v1.0 (with the Capacities importer) |
+| FR-IMP-04 | — | Anytype export (Markdown export first; JSON/Protobuf evaluated later, see Risk R-06): types, relations → attri… | D-801: other importers to v1.0 (with the Capacities importer) |
+| FR-IMP-12 | — | Notion properties: properties of database rows are read from the database CSV (UTF-8 with BOM) and matched to … | D-801: other importers to v1.0 (with the Capacities importer) |
+| FR-IMP-13 | — | Notion structure: each database → a type (single-column databases such as a glossary become simple types). Chi… | D-801: other importers to v1.0 (with the Capacities importer) |
 | FR-IMP-18 | S | Option to convert imported checklist items (`- [ ]`) into Task objects (default: keep them as checklists, D-28… | §11.1 table: checklist → Task option in v1.0 |
 | FR-EXP-01 | M | Export a single note, a selection, a query result, or a note with its embeds/links up to depth N. | Export, all 4 formats (§11) |
 | FR-EXP-02 | M | Formats: PDF, HTML (single file, or a static linked site for multi-note export), DOCX, Markdown bundle (.zip) … | Export, all 4 formats (§11) |
@@ -383,12 +391,8 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
 | FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275) |
-| FR-STO-04 | M | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | D-372: type moves to v1.0 |
-| FR-TYP-04 | M | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | D-372: schema rewrites to v1.0 |
-| FR-TYP-07 | M | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | D-372: the file-move part to v1.0; the type change itself stays MS3 (D-224) |
 | FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
-| FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries |
-| FR-HOM-01 | M | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | D-515: Home out of the MVP |
+| FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries; sidebar only, Home dropped (D-800) |
 | FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 |
 | FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-376: the D-71 hotkey-failure display stays in MS5 with FR-CAP-05 |
 | FR-ATT-03 | M | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | D-376 |
@@ -398,19 +402,14 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-STO-10 | M | Opening a folder that is already an Obsidian vault works in place, with no conversion needed (D-36, FR-IMP-01)… | D-373: Obsidian import to v1.0 |
 | FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | D-374 |
 
-### v1.x (9)
+### v1.x (4)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
 | FR-VLT-04 | C | Multiple vaults: single vault in v1; multiple vaults in v1.x (D-35). | Multiple vaults (§11) |
 | FR-INB-05 | S | "Triage mode": step through unreviewed items one by one with single-key actions. | Triage mode (§11) |
-| FR-HOM-03 | C | Home sections can be reordered, hidden, or added (any saved query as a widget). Fixed sections in v1; customiz… | Customizable Home (§11) |
 | FR-LNK-05 | S | Unlinked mentions: text matching this object's title that is not yet linked, with one-click "link". | Unlinked mentions (§11) |
 | FR-GRP-04 | C | Global vault graph in v1.x (D-35), with the same type filters, icons and previews as the local graph. | Global graph (§11) |
-| FR-IMP-02 | — | Notion export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the datab… | Notion import (§11) |
-| FR-IMP-04 | — | Anytype export (Markdown export first; JSON/Protobuf evaluated later, see Risk R-06): types, relations → attri… | Anytype import (§11) |
-| FR-IMP-12 | — | Notion properties: properties of database rows are read from the database CSV (UTF-8 with BOM) and matched to … | Notion detail. Priority says M, but its parent FR-IMP-02 is C (v1.x): inconsistent |
-| FR-IMP-13 | — | Notion structure: each database → a type (single-column databases such as a glossary become simple types). Chi… | as FR-IMP-12 |
 
 ### v2: mobile and Phase 2 sync (3)
 
@@ -450,6 +449,8 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-CAP-07 | Weblink object type and fetching link metadata (title, preview image) from the internet: not needed (D-43). A … |  |
 | FR-QRY-10 | Text query language. |  |
 | FR-IMP-06 | Kindle / Readwise highlights import: out of scope (D-33). |  |
+| FR-HOM-01 | Home is the default start screen and shows: Today (daily note link + tasks due/overdue), Inbox count, Recently… | Dropped (D-800): the Inbox or today's daily note is the start page |
+| FR-HOM-03 | Home sections can be reordered, hidden, or added (any saved query as a widget). Fixed sections in v1; customiz… | Dropped with Home (D-800) |
 
 ## 5. Backlog (unscheduled by decision, D-87)
 
@@ -466,6 +467,8 @@ Could requirements listed in BRD §11 as an explicit backlog.
 ## 6. Daily-use re-plan (owner, 2026-10-16, D-370…D-377)
 
 The owner starts daily use from an empty vault, so the Capacities importer and everything that reshapes existing data left the critical path. Moved from MVP milestones to v1.0: FR-TAG-05 (D-370), FR-STO-04, FR-TYP-04, the file-move part of FR-TYP-07 (D-372), FR-TSK-06 (D-371; the board FR-TSK-05 stays, D-378), FR-HOM-02, FR-EDT-11, FR-SET-04, FR-ATT-03, -09, FR-HIS-02 (D-376), FR-IMP-01, FR-STO-10 (D-373), FR-UX-04 (D-374), FR-HOM-01 (D-515, 2026-10-17). Moved in: FR-MMP-01, -02 (render + outline editing), -04 (D-377). Order of the remaining slices: `docs/plans/mvp-daily-use-plan.md` (D-375). The MS1–MS3 tables are unchanged; FR-TYP-07 stays in MS3 for the type change that writes only `type:`.
+
+**Update 2026-10-27 (owner, D-800…D-803).** Home is dropped in every phase (FR-HOM-01, -03 → W; the Inbox or today's daily note is the start page; FR-HOM-02 pinning is sidebar-only). The Capacities importer (MS7, 17 requirements) and the Notion / Anytype importers move to v1.0 ("Tier 2"), templates stay there. Slice 4E (type moves and schema rewrites: FR-STO-04, FR-TYP-04, FR-TYP-05 AC-4, the file-move part of FR-TYP-07) returns to the MVP as the next slice and takes the MS7 row of §11.2.
 
 ## 7. Other findings
 
