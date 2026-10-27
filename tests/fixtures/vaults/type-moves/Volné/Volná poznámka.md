@@ -1,0 +1,1 @@
+Jen text bez hlavičky.
