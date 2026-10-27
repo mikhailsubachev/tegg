@@ -89,7 +89,9 @@ below ran on the real app for the first time. Logs stay local (not committed).
     `data-link-kind` as `unresolved` before the resolution answered (`date-missing`); 6 of 6 standalone. Fixed on
     2026-10-27 (AC-test change approved by the owner): the test waits for the kind with `eventually`. Flaked once more
     in that fix's push gate: `fr_nav_01_ac16_keyboard_wraps_opens_and_back_skips_search` read the centre pane's name
-    as empty right after Back ("Back returns to the page Search was opened from"); passes standalone. Next candidate.
+    as empty right after start (the `before` it compares Back against, "Back returns to the page Search was opened
+    from"); passes standalone. Fixed on 2026-10-27 (AC-test change approved by the owner): the test waits for the start
+    page's name with `eventually` before opening Search.
 
 22. **Scroll anchoring is off on note routes (PR #78, QA review).** `main:has(.editor-host), main:has(.read-view)` has
     `overflow-anchor: none`: WebKit's anchoring moved the pane by half a viewport when the embed cards rendered below a

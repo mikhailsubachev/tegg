@@ -96,7 +96,10 @@ test('fr_nav_01_ac15_go_to_rows_above_the_results', async ({ page }) => {
 
 test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_skips_search', async ({ page }) => {
   await startSearch(page);
-  const before = await mainName(page);
+  // The start page (Inbox) names its centre pane after the frame shows; read right after start the name was still
+  // empty under the push gate's load, so Back could never match it (2026-10-27, D-688): wait for a name.
+  const before = await eventually(() => mainName(page), (n) => !!n, 3000);
+  assert.ok(before, 'the start page names its centre pane');
   await openSearch(page);
   await query(page, 'rozpo');
   const n = await goToList(page).getByRole('option').count();
@@ -117,7 +120,7 @@ test('fr_nav_01_ac16_keyboard_wraps_opens_and_back_skips_search', async ({ page 
   await mustBeOn(page, 'Rozpočet 2026', '⏎ opens the selected object (note/Pages/Rozpočet 2026.md)', 5000);
   await (await must(page.getByRole('button', { name: 'Back', exact: true }), 'title-bar Back')).click();
   // The jump replaced the Search entry (as the ⌘O switcher did, FR-NAV-03 AC-1): Back returns to the page before Search.
-  await mustBeOn(page, before ?? '', 'Back returns to the page Search was opened from', 3000);
+  await mustBeOn(page, before, 'Back returns to the page Search was opened from', 3000);
   // Esc in the field returns there too.
   await openSearch(page);
   await query(page, 'rozpo');
