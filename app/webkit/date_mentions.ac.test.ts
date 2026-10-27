@@ -293,7 +293,8 @@ test.describe('date links', () => {
     assert.equal(await eventually(() => cs.count(), (n) => n >= 2, 2000), 2, 'a chip in the Text and in the Relation value');
     for (let i = 0; i < 2; i++) {
       const c = cs.nth(i);
-      assert.equal(await c.getAttribute('data-link-kind'), 'date-missing', `value ${i}: date-missing`);
+      // The chip shows `unresolved` until `link_resolve` answers: wait for the kind (§8.4, D-688; flaked under the push gate's load).
+      assert.equal(await eventually(() => c.getAttribute('data-link-kind'), (k) => k === 'date-missing', 2000), 'date-missing', `value ${i}: date-missing`);
       assert.equal(await isDisabled(c), false, `value ${i}: enabled`);
     }
     await cs.nth(0).click();
