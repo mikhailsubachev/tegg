@@ -11,6 +11,7 @@ import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } 
 import { Chooser } from './pages/Chooser';
 import { ConflictsPage } from './pages/ConflictsPage';
 import { NotePage, type DraftInfo, type NoteMeta, type NotePageApi } from './pages/NotePage';
+import { pageWidthOf, type PageWidth } from './edit/WidthSwitch';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TypePage, type TypeSort } from './pages/TypePage';
@@ -85,7 +86,7 @@ type Dialog = 'palette' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
-type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean };
+type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth> };
 const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false };
 
 function initialUi(): UiState {
@@ -126,6 +127,8 @@ export function App() {
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
+  // Slice PW (AP-754, AP-759): the vault's default page width, read again after every vault change (live).
+  const [vaultWidth, setVaultWidth] = useState<PageWidth>('normal');
   // 4B: the calendar popover (R18) and the daily info of a note route showing a Daily Note that doesn't win (D-319).
   const [calendar, setCalendar] = useState<{ selected: string; anchor: HTMLElement | null; onChoose: (d: string) => void } | null>(null);
   const [noteDaily, setNoteDaily] = useState<{ path: string; date: string; duplicates: string[] } | null>(null);
@@ -174,13 +177,18 @@ export function App() {
     }
     ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...(s as UiState) }); }, () => { uiLoaded.current = true; });
   }, []);
+  // The write happens once per committed state (an effect), not inside the updater: React's StrictMode runs updaters
+  // twice in development and test builds, which sent every `ui_state_set` twice (page-width.md FR-STO-07 AC-4).
+  const uiDirty = useRef(false);
   const updateUi = useCallback((f: (u: UiState) => UiState) => {
-    setUi((u) => {
-      const next = f(u);
-      void ipc.uiStateSet(next).catch(() => {});
-      return next;
-    });
+    uiDirty.current = true;
+    setUi(f);
   }, []);
+  useEffect(() => {
+    if (!uiDirty.current) return;
+    uiDirty.current = false;
+    void ipc.uiStateSet(ui).catch(() => {});
+  }, [ui]);
   // 5A-2 (ms5-tasks §11.4): the conversion's preferences live in the same machine-local state.
   useEffect(() => registerConvertPrefs({ get: () => uiRef.current?.convert ?? undefined, set: (c) => updateUi((u) => ({ ...u, convert: c })) }), [updateUi]);
 
@@ -253,6 +261,21 @@ export function App() {
   useEffect(() => {
     if (vault) loadTypes();
   }, [refresh]);
+  useEffect(() => {
+    if (!vault) return;
+    let live = true;
+    ipc.vaultSettings().then((v) => { if (live) setVaultWidth(pageWidthOf(v.pageWidth)); }, () => {});
+    return () => { live = false; };
+  }, [vault?.path, refresh]);
+  /** AP-753: one `ui_state_set` per effective change; AP-760: a stored value is never removed by a choice. */
+  const setNoteWidth = useCallback((key: string, w: PageWidth, from: string | null = null) => {
+    updateUi((u) => {
+      const next = { ...(u.noteWidth ?? {}) };
+      if (from && from !== key) delete next[from];
+      next[key] = w;
+      return { ...u, noteWidth: next };
+    });
+  }, [updateUi]);
 
   // `ui-ready` (ms2-shell §1, ms3-shell §1): the frame or the chooser has painted. WebKit pauses frames for a
   // hidden window, so a timer backs the frame callback up.
@@ -564,6 +587,7 @@ export function App() {
     back: () => { void step('back'); },
     forward: () => { void step('forward'); },
     toggleProperties: () => { if (isNoteRoute(route)) updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
+    setPageWidth: (w) => { if (isNoteRoute(route)) noteApi.current?.setWidth(w); },
     openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
     openRecent: (n: number) => {
       void ipc.vaultRecent().then((list) => {
@@ -807,6 +831,10 @@ export function App() {
         onToggleProperties={actions.toggleProperties}
         otherOpen={!!ui.otherPropertiesOpen}
         onToggleOther={() => updateUi((u) => ({ ...u, otherPropertiesOpen: !u.otherPropertiesOpen }))}
+        widths={ui.noteWidth}
+        defaultWidth={vaultWidth}
+        onWidth={setNoteWidth}
+        onRekeyWidth={(from, to, w) => setNoteWidth(to, w, from)}
         onTypeSaved={loadTypes}
         daily={daily}
         draft={draftInfo}

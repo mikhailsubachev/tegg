@@ -529,6 +529,7 @@ fn settings_dto(s: tegg_core::VaultSettings) -> VaultSettingsDto {
         default_type: DefaultTypeDto { raw: s.default_type.raw, key: s.default_type.key, valid: s.default_type.valid },
         daily_format: s.daily_format,
         attachments: s.attachments,
+        page_width: s.page_width,
     }
 }
 
@@ -544,6 +545,7 @@ pub(crate) async fn vault_settings_patch(app: AppHandle, state: State<'_, AppSta
         "default-type" => tegg_core::VaultKey::DefaultType,
         "daily-format" => tegg_core::VaultKey::DailyFormat,
         "attachments" => tegg_core::VaultKey::Attachments,
+        "page-width" => tegg_core::VaultKey::PageWidth,
         _ => return Err(err("Invalid", format!("unknown setting {key}"))),
     };
     let base = base.as_ref().map(version_from).transpose()?;

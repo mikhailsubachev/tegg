@@ -141,8 +141,8 @@ impl Core {
             default_type: default_type_of(text.as_deref(), |k| self.type_get(k).is_some()),
             daily_format: get("daily-format", DEFAULT_FORMAT),
             attachments: get("attachments", DEFAULT_ATTACHMENTS),
-            // Red stub (TS-I1): the real reading rule comes with the implementation.
-            page_width: String::new(),
+            // AP-754: only the exact value `wide` reads as wide; a missing or any other value reads as `normal`, never rewritten.
+            page_width: if get("page-width", "") == "wide" { "wide".into() } else { "normal".into() },
         }
     }
 
@@ -166,8 +166,12 @@ impl Core {
                 value
             }
             VaultKey::Attachments => check_attachments(&value).map_err(|reason| CoreError::Invalid { reason })?,
-            // Red stub (TS-I1): refused until the implementation lands.
-            VaultKey::PageWidth => return Err(CoreError::Invalid { reason: "page-width is not implemented yet".into() }),
+            VaultKey::PageWidth => {
+                if value != "normal" && value != "wide" {
+                    return Err(CoreError::Invalid { reason: "Page width is normal or wide.".into() });
+                }
+                value
+            }
         };
         let (text, disk) = match self.shared.vault.read(YML) {
             Ok((b, disk)) => (String::from_utf8(b).map_err(|_| CoreError::NotUtf8)?, Some(disk)),

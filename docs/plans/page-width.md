@@ -1,6 +1,6 @@
 # Slice PW: page width (Normal / Wide) on the note page (2026-10-27)
 
-Status: **proposed; built under the recommendations below, pending the owner's answers (AP-753…AP-760).** Owner brief
+Status: **proposed; built under the recommendations below, pending the owner's answers (AP-753…AP-764).** Owner brief
 (2026-10-27, before slice 4E): *a wide / narrow layout switcher for the note page, as drawn on the design canvas (page
 `Page width`, boards `LayoutNormal`, `LayoutNormalPanel`, `LayoutWide`, `LayoutWidePanel`, copied to
 `design/edit-note-page/`); (1) the selected layout is persisted per note; (2) if it is cheap, a per-vault setting for the
@@ -61,3 +61,15 @@ preferred (default) layout; if not, the current layout stays the default and not
 - **BRD**: one D-xx per AP (FR-SET-02 row and D-565 wording, FR-UX-01 AC-1 wording, FR-STO-07 example, §11 rows);
   `docs/requirements-coverage.md` FR-SET-02.
 - **R3** (app-shell.md, `app/test/shell-tables.ts`): only if AP-755's alternative is chosen.
+
+## 6. Red-test points (AP-761…AP-764; found while making the tests green, 2026-10-27)
+
+Four tests of `app/webkit/page_width.ac.test.ts` assert something the app can't satisfy as written; each needs the
+owner's answer (an `AC-Test-Change` trailer, TS-I3) and stays red until then.
+
+| AP | Point | Proposal | Alternative |
+| --- | --- | --- | --- |
+| AP-761 | **`nfr_oth_02_ac9_pseudo_locale…` counts the palette rows matching "width" and expects two**; the disabled R3 control `Editor width` (Settings › Appearance, v1.0, D-565) is a third row (`Coming in v1.0`, FR-UX-03 AC-6). | Decide AP-755's alternative now: retire the R3 row `Editor width` (as D-635 retired `Unlinked mentions`), since this slice delivers FR-SET-02's width; `app/test/shell-tables.ts` R3 and app-shell.md R3 change with the trailer | Keep the row; the test's filter excludes `Editor width` (an AC-test change of the new test) |
+| AP-762 | **FR-SET-02 AC-9 says "from the note title, Tab reaches the group as one stop"**; the toolbar sits above the note (boards, DOM order), so Tab from the title goes down through the body and wraps through the title bar and sidebar before it reaches the toolbar. The roving tabindex itself holds (Tab lands on the checked radio, the unchecked one is skipped). | The criterion reads "⇧Tab from the note's type chip" (the toolbar is the stop before the column) and the two AC-9 tests Tab from the sidebar's last entry or ⇧Tab from the chip | Move the toolbar after the column in the DOM (CSS `order`), so content comes first in the Tab order on every note page |
+| AP-763 | **FR-STO-07 AC-4's rename step opens the renamed note by the title `2026-10-07 Porada týmu`** and expects the centre pane named so; the note's title is its `title:` frontmatter (`2026-10-07 Porada`, FR-FMT-08), which an external file rename doesn't change, so the pane keeps the old name (the entry does follow the id). | The test opens the renamed note from the Search list and checks the route's path and the width, not the pane's name | Rename through the fake's `title:` as well (a different scenario: a title edit, not a file rename) |
+| AP-764 | **`fr_sto_07_ac4_one_ui_state_set…` compares the sent `UiStateDto` with the test's start state and expects every field but `noteWidth` equal**; the UI writes the whole state and fills fields missing from a 3A-era file with their defaults (`propertiesOpen: true`, `typeSort: {}`, `otherPropertiesOpen: false`, ms3-shell §3), as every write since 3B. | The comparison starts from the state as the UI reads it (the test's start state with those defaults) | The UI writes only the fields it read (a wider change of the ui-state handling, none of it this slice's) |

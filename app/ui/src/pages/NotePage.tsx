@@ -27,6 +27,7 @@ import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
+import { WidthSwitch, type PageWidth } from '../edit/WidthSwitch';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { ReviewCheck } from '../shell/ReviewCheck';
@@ -83,6 +84,8 @@ export type NotePageApi = {
   placeFocus: () => void;
   /** 4B: the user changed the note (or a save is pending) since it opened (D-326 needs an untouched virtual note). */
   touched: () => boolean;
+  /** Slice PW (AP-756): the palette's `Page width: …` commands. */
+  setWidth: (w: PageWidth) => void;
   /** 4B (D-330): the review toggle, also from the palette. */
   setReviewed: (reviewed: boolean) => void;
   /** 5A-2 (FR-CNV-01 AC-5): why `Turn into object` can't run now, or null. */
@@ -110,7 +113,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily, draft }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -152,6 +155,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onDaily?: (date: string) => void;
   /** D-520 (ms5-tasks §12.2): an unsaved new object, opened on `text` (stamped `stamp`) and written by `onCreate`. */
   draft?: DraftInfo;
+  /** Slice PW (page-width.md, AP-753): the per-note widths of `ui-state.json`, keyed by `id`, else by the NFC path. */
+  widths?: Record<string, PageWidth>;
+  /** AP-754: the vault default for notes without an entry. */
+  defaultWidth?: PageWidth;
+  onWidth?: (key: string, width: PageWidth) => void;
+  /** AP-753, AP-758: the entry moves from the path (or nothing) to the id the first write assigned. */
+  onRekeyWidth?: (from: string | null, to: string, width: PageWidth) => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
@@ -162,6 +172,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const [, setEmbedTick] = useState(0);
   useEffect(() => embeds.onState(() => setEmbedTick((n) => n + 1)), []);
   const [gone, setGone] = useState(false);
+  // Slice PW (AP-753, AP-758): the id of the file on disk (none for an unwritten draft or virtual note), and the choice
+  // made on an unwritten draft, kept for the page until its first write keys it.
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [draftWidth, setDraftWidth] = useState<PageWidth | null>(null);
   const [source, setSource] = useState<boolean | null>(null);
   const [save, setSave] = useState<{ state: SaveState; failure: Failure }>({ state: 'saved', failure: null });
   const [merge, setMerge] = useState<Merge | null>(null);
@@ -198,6 +212,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   liveFragment.current = fragment;
   const liveRestore = useRef(restoreScroll);
   liveRestore.current = restoreScroll;
+  const chooseWidthRef = useRef<(w: PageWidth) => void>(() => {});
   const live = useRef({ path, loaded, merge, deleted, daily, draft });
   live.current = { path, loaded, merge, deleted, daily, draft };
   /** D-522: still an unwritten draft (typing its title writes nothing until the commit). */
@@ -244,6 +259,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       savedTitle.current = live.current.draft ? '' : shownTitle;
       const id = doc.frontmatter?.data?.id;
       if (typeof id === 'string' && id) onId?.(id);
+      if (typeof id === 'string' && id && !live.current.draft && !live.current.daily?.virtual) setSavedId(id);
       const day = meta.type === 'daily-note' ? parseDate(String(doc.frontmatter?.data?.date ?? '').trim().slice(0, 10)) : null;
       onMeta(day ? { ...meta, title: day } : meta); // D-320: a Daily Note's title is its date
       if (day && !live.current.daily) onDaily?.(day);
@@ -291,6 +307,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       conflict: (c: ConflictInfo) => setMerge({ mine: c.mine, theirs: c.theirs, theirsVersion: c.theirsVersion, compare: false }),
       gone: () => setDeleted(true),
       written: (text) => {
+        const writtenId = parse(text).frontmatter?.data?.id;
+        if (typeof writtenId === 'string' && writtenId) setSavedId(writtenId);
         const before = noteMeta(live.current.path, diskTextRef.current || text).type;
         diskTextRef.current = text; // at once: a watcher event can arrive before the next render (FR-SYN-03 AC-21)
         setDiskText(text);
@@ -391,6 +409,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       else panelApi.current?.focusFirst();
     },
     placeFocus: () => { wantFocus.current = true; placeFocus.current(); },
+    setWidth: (w) => chooseWidthRef.current(w),
     touched: () => !!saver.current?.pending || !!edRef.current?.dirty() || !!(saver.current && !saver.current.create && (live.current.daily?.virtual || live.current.draft)),
     setReviewed: (r) => setReviewedRef.current(r),
     title: () => titleRef.current,
@@ -831,6 +850,26 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     setFocusTarget('heading');
   };
 
+  // Slice PW: the page width. The key is the file's id, else its NFC path; an unwritten draft has no key (AP-758); a
+  // virtual Daily Note is keyed by its path until its first write (`savedId` is set only for a file on disk).
+  const widthKey = savedId ?? (draft ? null : nfc(path));
+  const pageWidth: PageWidth = (widthKey ? widths?.[widthKey] : undefined) ?? (draft ? draftWidth ?? undefined : undefined) ?? defaultWidth;
+  const chooseWidth = (w: PageWidth) => {
+    if (w === pageWidth) return; // AP-760: a click on the checked value sends nothing
+    if (!widthKey) { setDraftWidth(w); return; }
+    onWidth?.(widthKey, w);
+  };
+  chooseWidthRef.current = chooseWidth;
+  // The key moved to the id the first write assigned: the entry follows it (AC-5, AC-8), one `ui_state_set`.
+  const prevKey = useRef<string | null>(widthKey);
+  useEffect(() => {
+    const from = prevKey.current;
+    prevKey.current = widthKey;
+    if (!widthKey || from === widthKey) return;
+    if (from && widths?.[from] !== undefined && widths?.[widthKey] === undefined) onRekeyWidth?.(from, widthKey, widths[from]);
+    else if (!from && draftWidth && widths?.[widthKey] === undefined) { onRekeyWidth?.(null, widthKey, draftWidth); setDraftWidth(null); }
+  }, [widthKey]);
+
   if (gone) {
     return (
       <div className="note-column">
@@ -862,6 +901,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
   ) : null;
 
+
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
       {!focusMode && (
@@ -874,6 +914,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
             <span>{saveText}</span>
           </span>
           <span className="spacer" />
+          <WidthSwitch value={pageWidth} onChange={chooseWidth} commands="note.width" keepFocus />
           <button tabIndex={0} type="button" className="icon-button" aria-label={t('frame.focusMode')} data-command="view.toggleFocus" onClick={onFocus}>
             <Icon name="focus" />
           </button>
@@ -882,7 +923,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           </button>
         </div>
       )}
-      <div className="note-column">
+      <div className="note-column" data-width={pageWidth}>
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />

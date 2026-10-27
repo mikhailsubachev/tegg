@@ -495,6 +495,11 @@ pub struct UiStateDto {
     /// "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
     #[serde(default)]
     pub other_properties_open: bool,
+    /// Slice PW (docs/contracts/page-width.md §1, AP-753): the chosen page width per note (`normal` | `wide`), keyed by
+    /// the object's `id`, else by its NFC vault-relative path; missing reads as empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub note_width: Option<std::collections::BTreeMap<String, String>>,
     /// ms5-tasks §6.3 (D-481): the Tasks page's remembered state; missing reads as the defaults.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -1009,7 +1014,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None }
     }
 }
 
@@ -1114,6 +1119,8 @@ pub struct VaultSettingsDto {
     pub default_type: DefaultTypeDto,
     pub daily_format: String,
     pub attachments: String,
+    /// Slice PW (docs/contracts/page-width.md §2, AP-754): `normal` or `wide`; missing or unknown reads as `normal`.
+    pub page_width: String,
 }
 
 /// ms5-capture §5.2 (FR-SET-05, D-547): machine settings owned by the shell (`shell-settings.json`).

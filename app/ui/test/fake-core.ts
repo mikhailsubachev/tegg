@@ -32,6 +32,8 @@ export type UiStateDto = {
   dateTime?: { date: string; time: string; week: string };
   /** ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter. */
   inbox?: { filter: string };
+  /** Slice PW (page-width.md §1, AP-753): the page width per note, keyed by `id`, else by the NFC path. */
+  noteWidth?: Record<string, 'normal' | 'wide'>;
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
