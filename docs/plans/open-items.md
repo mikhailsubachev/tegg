@@ -1,6 +1,6 @@
 # Open items for the next slices
 
-Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). Item 13 resolved on 2026-10-27 (nightly on main). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
@@ -61,13 +61,21 @@ below ran on the real app for the first time. Logs stay local (not committed).
    test's strict model check can still fail on adjacent lists, which is a test-strictness issue never raised with the
    owner. Next: raise it as an AP point if it recurs.
 
-13. **Nightly and perf L6 tests fail (not in the push gate).** A full `npm run test:e2e` (which, unlike the gate's
-    `app-e2e` step, includes `nightly_*` and `nfr_perf_*`) failed four of them on 2026-10-18:
-    `fr_lnk_03_ac17` (SIGKILL during the hub rename: "the old hub file holds other bytes" in 19 of 20 cycles, a
-    possible T1 or a test-expectation gap), `fr_ux_07_ac11` (the 500-backlink rename didn't reach done in 120 s),
-    `fr_lnk_01_ac16` (backlinks warm-up mark not reached) and `fr_tsk_04_ac14` (the generated reference vault has 0
-    tasks). Not checked against a build before D-516…D-523. Next: run `./verify nightly` on `main` to see whether they
-    fail there too; investigate `fr_lnk_03_ac17` first (rename crash safety, FR-SYN-02).
+13. **Nightly and perf L6 tests: checked on main on 2026-10-27 (ef0ca11).** The 2026-10-18 failures: `fr_lnk_03_ac17`
+    ("the old hub file holds other bytes", 16 of 20 cycles in the 2026-10-23 milestone run) was the test pasting the
+    new title into the hub's body, not a data-loss bug: before D-751 (2026-10-24) the test build never put the focus in
+    the title, so ⌘A ⌘V ⏎ replaced the body with `Uzel`; the rename never started. On main the test passes 6 of 6
+    cycles (a kill at 100 ms leaves the pristine hub, at 900 ms the renamed hub with 3 links rewritten; no `.tegg-tmp`,
+    Finish completes). Not a T1 (D-62). `./verify nightly` on main ef0ca11 (2026-10-27, the first since 2026-10-10):
+    every step passes except `app-webkit`, whose one failure (`fr_cnv_04_ac2`, two races with the embed cards under
+    load) is fixed in PR #78 (`bug_nightly_fr_cnv_04_ac2_…`); `app-e2e-nightly` 2 of 2 (both crash tests, 20 of 20
+    cycles). It took 10764 s against the 5400 s budget: `jobs-test` 8365 s (the tegg-jobs ACs at property scale 100,
+    `ac_property_tags` alone about 35 min, one JS text-engine round trip per file, issue #67), `app-e2e-nightly` 2026 s,
+    `core-rust-test` 1800 s. Next: decide the nightly budget or the property scale of `jobs-test` (a D-343/D-609 gate change).
+    `fr_ux_07_ac11`, `fr_lnk_01_ac16` and `fr_tsk_04_ac14` are `nfr_perf_*` tests of the milestone step `app-perf`, not
+    of the nightly; the 2026-10-24 milestone run had `app-perf` fail with no results file. Next: run `./verify milestone
+    --milestone MS6` once and look at `app-perf` (D-382's real-app tests).
+
 20. **`fr_ux_07_ac1` can fail under push-gate contention (owner, 2026-10-23).** In a `./verify push --all` run on
     `qa/webkit-flakes`, the largest gap between index progress events was 508.6 ms against D-110's 500 ms
     (`crates/tegg-core/tests/ac_perf.rs`, debug build, the WebKit lane running beside it). It is a requirement-level
