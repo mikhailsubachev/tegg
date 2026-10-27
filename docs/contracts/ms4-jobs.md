@@ -363,6 +363,8 @@ fn local_exempt(&self) -> Vec<String>;                        // §14.6, by id
 fn set_local_exempt(&self, ids: &[String]);
 ```
 
+`HostProperty { key: String, name: String, kind: String /* R10 type key */, to: Vec<String> /* relation targets */ }`. `MapTargetDto` is `String` (a property key) or the literal `content`.
+
 ### 14.6 Undo (changes §7, D-812)
 
 - Every 4E-1 job keeps the §7 record (renames, pre-job bytes and post-job version per written file). `Jobs::last_undoable` covers them; `job_undo` / `job_redo` work for them; a file changed since is skipped `changed` and listed. A single-note `type-move` writes the §8 journal (banner text `job.interrupted.typeMove`: `Changing the type of "<title>" was interrupted: <done> of <total> links updated`); multi-file jobs keep no journal (their zip is the recovery, ms4-tags §5.3).
