@@ -38,7 +38,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='
 .titlebar-status progress { width: 80px; accent-color: var(--accent); }
 .frame { flex: 1; display: flex; min-height: 0; }
 .centre { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
+main { flex: 1; min-height: 0; overflow: auto; overflow-anchor: none; background: var(--bg); }
 .focus-mode main { padding-top: 24px; }
 
 .icon-button {
