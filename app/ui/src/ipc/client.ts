@@ -125,7 +125,7 @@ export const ipc = {
   inboxBulk: (paths: string[], change: unknown) => invoke<JobIdDto>('inbox_bulk', { paths, change }),
   indexVersions: (paths: string[]) => invoke<(VersionDto | null)[]>('index_versions', { paths }),
   vaultSettings: () => invoke<VaultSettingsDto>('vault_settings'),
-  vaultSettingsPatch: (base: VersionDto | null, key: 'default-type' | 'daily-format' | 'attachments', value: string) =>
+  vaultSettingsPatch: (base: VersionDto | null, key: 'default-type' | 'daily-format' | 'attachments' | 'page-width', value: string) =>
     invoke<VaultSettingsDto>('vault_settings_patch', { base, key, value }),
   vaultReveal: () => invoke<void>('vault_reveal'),
   shellSettings: () => invoke<ShellSettingsDto>('shell_settings'),

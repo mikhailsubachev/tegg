@@ -21,6 +21,8 @@ export type ShellActions = {
   back: () => void;
   forward: () => void;
   toggleProperties: () => void;
+  /** Slice PW (page-width.md, AP-756): the open note page's width; nothing off a note route. */
+  setPageWidth?: (width: 'normal' | 'wide') => void;
   openChooser: (form: boolean) => void;
   /** D-219: open the n-th recent vault (1-based); nothing for the open, a missing or an absent entry. */
   openRecent: (n: number) => void;
@@ -119,7 +121,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
-  'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
   'tasks.sort': 'tasks.sort',
@@ -160,6 +161,13 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },
   );
+  // Slice PW (page-width.md FR-UX-03 AC-17, AP-756): on note routes only, no shortcut.
+  if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'daily/YYYY-MM-DD' || ctx.route?.id === 'new/<type>') {
+    list.push(
+      { id: 'note.width.normal', title: 'cmd.width.normal', section: 'view', needsVault: true, run: (c) => a(c)?.setPageWidth?.('normal') },
+      { id: 'note.width.wide', title: 'cmd.width.wide', section: 'view', needsVault: true, run: (c) => a(c)?.setPageWidth?.('wide') },
+    );
+  }
   // 4C (ms4-jobs §10, FR-UX-03).
   list.push(
     { id: 'job.undoRename', title: 'cmd.undoRename', section: 'edit', needsVault: true, run: (c) => a(c)?.undoRename?.() },

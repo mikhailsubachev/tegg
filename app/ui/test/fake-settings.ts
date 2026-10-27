@@ -13,8 +13,8 @@ let docMod: any = null;
 const doc = async () => (docMod ??= await import('@tegg/doc'));
 
 export type DefaultTypeDto = { raw: string | null; key: string; valid: boolean };
-export type VaultSettingsDto = { version: VersionDto | null; defaultType: DefaultTypeDto; dailyFormat: string; attachments: string };
-export type VaultKeyDto = 'default-type' | 'daily-format' | 'attachments';
+export type VaultSettingsDto = { version: VersionDto | null; defaultType: DefaultTypeDto; dailyFormat: string; attachments: string; pageWidth: 'normal' | 'wide' };
+export type VaultKeyDto = 'default-type' | 'daily-format' | 'attachments' | 'page-width';
 
 /** D-239: NFC, trimmed, lower case, whitespace runs as `-`. */
 export const matchKey = (raw: string) => nfc(raw).trim().toLowerCase().replace(/\s+/g, '-');
@@ -44,6 +44,8 @@ export function vaultSettings(files: Files, vers: Record<string, VersionDto> = {
     defaultType: { raw, key: valid ? key : 'quick-note', valid },
     dailyFormat: str('daily-format', 'YYYY-MM-DD'),
     attachments: str('attachments', '_attachments'),
+    // page-width.md §2 (AP-754): only the exact `wide` reads as wide.
+    pageWidth: y['page-width'] === 'wide' ? 'wide' : 'normal',
   };
 }
 
@@ -90,6 +92,9 @@ export async function vaultSettingsPatch(files: Files, vers: Record<string, Vers
     const r = folderReason(value);
     if (r) return { error: { kind: 'Invalid', message: `fake: attachments ${r}`, reason: r } };
     value = value.trim();
+  } else if (a.key === 'page-width') {
+    value = value.trim();
+    if (value !== 'normal' && value !== 'wide') return { error: { kind: 'Invalid', message: 'fake: page-width', reason: 'value' } };
   } else if (a.key === 'default-type') {
     value = matchKey(value);
     const keys = new Set(listTypes(files, {}).map((t: any) => nfc(t.key)));

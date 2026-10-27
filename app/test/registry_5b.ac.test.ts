@@ -70,7 +70,9 @@ test('fr_nav_04_ac5_controls_and_shortcuts_follow_r62', async () => {
   assert.ok(!ctl.some((c) => c.label === 'Move to trash' && /inbox/i.test(c.where)), 'Move to trash in the Inbox is built (6A)');
   assert.ok(!ctl.some((c) => c.label === 'Add an image or PDF'), 'Add an image or PDF in the capture window is built (6A)');
   assert.ok(has('Change…', 'FR-SET-04', 'v1.0', /shortcuts/i), 'Change… on Settings: Shortcuts (v1.0)');
-  for (const l of ['Font', 'Font size', 'Editor width', 'Accent color']) assert.ok(ctl.some((c) => c.label === l && c.due === 'v1.0'), `${l}: v1.0 (D-565)`);
+  // Slice PW (AP-761, owner 2026-10-27): `Editor width` is retired from R3; the per-note switch and the vault default replace it.
+  for (const l of ['Font', 'Font size', 'Accent color']) assert.ok(ctl.some((c) => c.label === l && c.due === 'v1.0'), `${l}: v1.0 (D-565)`);
+  assert.ok(!ctl.some((c) => c.label === 'Editor width'), 'Editor width is no longer an R3 control (AP-761)');
   const sc = (reg.SHORTCUTS as any[]).find((s) => s.keys === '⇧⌘I');
   assert.equal(sc?.command, 'goto.inbox', '⇧⌘I Go to Inbox');
   const keys = (reg.SHORTCUTS as any[]).map((s) => String(s.keys));

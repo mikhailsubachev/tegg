@@ -292,6 +292,7 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
         name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         path: core.vault().root().to_string_lossy().into_owned(),
         placeholders: core.placeholders().len() as u32,
+        page_width: Some(core.vault_settings().page_width),
         interrupted: {
             let i: Vec<InterruptedDto> = core
                 .jobs()
