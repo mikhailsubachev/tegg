@@ -83,7 +83,7 @@ See [README](README.md) for conventions. Fixtures live in `tests/fixtures/vaults
 - **AC-4** `.tegg/vault.yml`, `.tegg/types/*.yml`, `.tegg/queries/*.yml` and `_templates/<Type>/*.md` are human-readable YAML/Markdown and contain everything needed to rebuild types, queries and templates on another Mac.
 - **AC-5** Deleting an object moves it to `.trash/` keeping its relative path; restore puts it back at the original path (or with a suffix if taken).
 - **AC-6** Files that aren't Markdown or recognized attachments (e.g. `.docx`, `.obsidian/`, `.git/`) are never modified, moved or deleted.
-- **AC-7** *(v1.0 with slice 4E, D-226, D-372, D-750)* After a type's folder changes, the app offers to move the existing objects of that type to the new folder, with a restore point first (FR-HIS-04, D-57); links keep resolving. *(split from AC-2 by D-226)*
+- **AC-7** *(slice 4E, D-226, D-372, D-750, D-803; reworded by D-805)* After a type's folder changes, the app moves the existing objects of that type to the new folder as part of saving the setting, with a restore point first (FR-HIS-04, D-57); links keep resolving. On vault open and after each quiet period of the watcher, objects outside their type's folder are moved there the same way; a file changed meanwhile or with a pending conflict is skipped and tried again later. Both report in the status element with Undo. *(split from AC-2 by D-226; "offers to move" → "moves" by D-805, no test existed)*
 
 ### FR-STO-07 / AR-01 Machine-local data, rebuildable index
 

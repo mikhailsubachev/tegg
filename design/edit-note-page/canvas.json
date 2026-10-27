@@ -229,6 +229,14 @@
       "w": 1440,
       "x": 1520,
       "y": 1960
+    },
+    "TypeJobs.dc.html": {
+      "h": 4300,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-4e",
+      "title": "Type moves and schema rewrites · dialogs (4E)"
     }
   },
   "createdOnFiles": {
@@ -267,7 +275,8 @@
     "LayoutNormalPanel.dc.html",
     "LayoutNormal.dc.html",
     "LayoutWidePanel.dc.html",
-    "LayoutWide.dc.html"
+    "LayoutWide.dc.html",
+    "TypeJobs.dc.html"
   ],
   "pages": [
     {
@@ -285,6 +294,10 @@
     {
       "id": "page-width",
       "name": "Page width"
+    },
+    {
+      "id": "page-4e",
+      "name": "Type moves & schema (4E)"
     }
   ],
   "title": "Tegg – Edit note page"

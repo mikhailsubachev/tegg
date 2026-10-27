@@ -45,11 +45,11 @@ AC-1 and AC-2 are v1.0 with slice 4E (D-372, D-750): checked at the release gate
 
 ### FR-TYP-04 / FR-TAG-04 Bulk rewrites
 
-The attribute-key rename (AC-1, AC-3's attribute part) is v1.0 with slice 4E (D-372, D-750); the tag rename (AC-2, AC-3's tag part) is built in 4D-lite.
+The attribute-key rename (AC-1, AC-3's attribute part) is W: property keys are fixed after creation (D-806); the tag rename (AC-2, AC-3's tag part) is built in 4D-lite.
 
-- ~~**AC-1** Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file.~~ Moved to v1.0 with slice 4E (D-372, D-750); it returns with 4E's ACs.
+- ~~**AC-1** Renaming attribute key `author` → `authors` on type Book rewrites only that key in every Book file.~~ Moved to v1.0 with slice 4E (D-372, D-750); retired by D-806 (W: keys are never renamed).
 - ~~**AC-2** Renaming tag `reading` → `čtení` changes `tags:` entries and inline `#reading` in every object that has it, and renames `Tags/reading.md`; `#reading-list` (a different tag) is unchanged. *(marker added by D-228)*~~ Verified by tags.md FR-TAG-04 AC-4 and AC-9 (D-756).
-- ~~**AC-3** Both operations show a confirmation with the number of affected files, show progress, create a backup first (NFR-REL-04 AC-1) and can be cancelled before writing starts. *(marker added by D-228)*~~ Split (D-756): the tag rename is verified by tags.md FR-TAG-04 AC-7 and AC-8; the attribute-key rename is v1.0 with slice 4E (D-372, D-750) and returns with 4E's ACs.
+- ~~**AC-3** Both operations show a confirmation with the number of affected files, show progress, create a backup first (NFR-REL-04 AC-1) and can be cancelled before writing starts. *(marker added by D-228)*~~ Split (D-756): the tag rename is verified by tags.md FR-TAG-04 AC-7 and AC-8; the attribute-key rename is W (D-806: keys are never renamed).
 
 ### FR-ATT-07 Image and PDF objects
 
