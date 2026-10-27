@@ -415,6 +415,15 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   }, []);
 
   /** D-428: ⏎ / ⌘↩ / `Display embed as…` on a selected block embed. */
+  /** Opens the target of an embed's `![[…]]` value through the note's link resolutions, as its card's Open does. */
+  function openEmbedTarget(value: string): boolean {
+    const { target, fragment } = linkTarget(value.trim().replace(/^!\[\[|\]\]$/g, ''));
+    const r = links.current.get(target.normalize('NFC'));
+    if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return true;
+    if (!r?.path) return false;
+    cb.current.onOpen(r.path, fragment && !fragment.startsWith('^') ? `#${fragment}` : undefined);
+    return true;
+  }
   function embedKey(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean {
     const e = edRef.current;
     if (!e || !embeds) return false;
@@ -425,7 +434,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       b?.click();
       return !!b;
     };
-    if (key === 'open') return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link');
+    // The card's own Open button, or, while the card hasn't rendered yet (the embed tree loads after a conversion's
+    // save; nightly 2026-10-27, FR-CNV-04 AC-2), the target by its link resolution. ⏎ (D-448) has no such fallback:
+    // before the tree loads, a card can't be told from a full embed, which ⏎ enters instead of opening.
+    if (key === 'open') return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link') || openEmbedTarget(String(e.view.state.doc.nodeAt(pos)?.attrs.source ?? ''));
     if (key === 'displayAs') return click('.embed-header button[aria-haspopup="menu"], .embed-link-block > .embed-mode > button[aria-haspopup="menu"]');
     const nested = embeds.nested().find((x) => { const el = x.el(); return !!el && dom.contains(el); });
     if (nested) { nested.focusStart(); return true; }

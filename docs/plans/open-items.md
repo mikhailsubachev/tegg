@@ -1,6 +1,6 @@
 # Open items for the next slices
 
-Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). Item 13 updated and item 22 added on 2026-10-27 (nightly on main, PR #78). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
@@ -61,13 +61,21 @@ below ran on the real app for the first time. Logs stay local (not committed).
    test's strict model check can still fail on adjacent lists, which is a test-strictness issue never raised with the
    owner. Next: raise it as an AP point if it recurs.
 
-13. **Nightly and perf L6 tests fail (not in the push gate).** A full `npm run test:e2e` (which, unlike the gate's
-    `app-e2e` step, includes `nightly_*` and `nfr_perf_*`) failed four of them on 2026-10-18:
-    `fr_lnk_03_ac17` (SIGKILL during the hub rename: "the old hub file holds other bytes" in 19 of 20 cycles, a
-    possible T1 or a test-expectation gap), `fr_ux_07_ac11` (the 500-backlink rename didn't reach done in 120 s),
-    `fr_lnk_01_ac16` (backlinks warm-up mark not reached) and `fr_tsk_04_ac14` (the generated reference vault has 0
-    tasks). Not checked against a build before D-516…D-523. Next: run `./verify nightly` on `main` to see whether they
-    fail there too; investigate `fr_lnk_03_ac17` first (rename crash safety, FR-SYN-02).
+13. **Nightly and perf L6 tests: checked on main on 2026-10-27 (ef0ca11).** The 2026-10-18 failures: `fr_lnk_03_ac17`
+    ("the old hub file holds other bytes", 16 of 20 cycles in the 2026-10-23 milestone run) was the test pasting the
+    new title into the hub's body, not a data-loss bug: before D-751 (2026-10-24) the test build never put the focus in
+    the title, so ⌘A ⌘V ⏎ replaced the body with `Uzel`; the rename never started. On main the test passes 6 of 6
+    cycles (a kill at 100 ms leaves the pristine hub, at 900 ms the renamed hub with 3 links rewritten; no `.tegg-tmp`,
+    Finish completes). Not a T1 (D-62). `./verify nightly` on main ef0ca11 (2026-10-27, the first since 2026-10-10):
+    every step passes except `app-webkit`, whose one failure (`fr_cnv_04_ac2`, two races with the embed cards under
+    load) is fixed in PR #78 (`bug_nightly_fr_cnv_04_ac2_…`); `app-e2e-nightly` 2 of 2 (both crash tests, 20 of 20
+    cycles). It took 10764 s against the 5400 s budget: `jobs-test` 8365 s (the tegg-jobs ACs at property scale 100,
+    `ac_property_tags` alone about 35 min, one JS text-engine round trip per file, issue #67), `app-e2e-nightly` 2026 s,
+    `core-rust-test` 1800 s. Next: decide the nightly budget or the property scale of `jobs-test` (a D-343/D-609 gate change).
+    `fr_ux_07_ac11`, `fr_lnk_01_ac16` and `fr_tsk_04_ac14` are `nfr_perf_*` tests of the milestone step `app-perf`, not
+    of the nightly; the 2026-10-24 milestone run had `app-perf` fail with no results file. Next: run `./verify milestone
+    --milestone MS6` once and look at `app-perf` (D-382's real-app tests).
+
 20. **`fr_ux_07_ac1` can fail under push-gate contention (owner, 2026-10-23).** In a `./verify push --all` run on
     `qa/webkit-flakes`, the largest gap between index progress events was 508.6 ms against D-110's 500 ms
     (`crates/tegg-core/tests/ac_perf.rs`, debug build, the WebKit lane running beside it). It is a requirement-level
@@ -76,7 +84,21 @@ below ran on the real app for the first time. Logs stay local (not committed).
 21. **Existing WebKit sleeps before actions (D-688, 2026-10-23).** `app/webkit` has ~480 `await sleep(` calls; the
     test-strategy §8.4 rule (wait for state, not time) binds new and touched tests. A scan found ~237 reads right after
     start or navigation without a wait, and three pickers (tags, relation) still sleep before ⏎. Next: fix a test when
-    it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59).
+    it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59). Flaked once in the
+    pre-merge flow of PR #78 (2026-10-27): `fr_dly_08_ac8_date_links_in_text_and_relation_values` read a chip's
+    `data-link-kind` as `unresolved` before the resolution answered (`date-missing`); 6 of 6 standalone. Candidate fix
+    (an AC-test change, owner's approval): wait for the kind with `eventually` before asserting it.
+
+22. **Scroll anchoring is off on note routes (PR #78, QA review).** `main:has(.editor-host), main:has(.read-view)` has
+    `overflow-anchor: none`: WebKit's anchoring moved the pane by half a viewport when the embed cards rendered below a
+    block aligned at the top (FR-CNV-04 AC-2). D-456 and the AP-358 row of `docs/contracts/ms4-embeds.md` still describe
+    WebKit's anchoring as what keeps content on screen; in the app `keepOnScreen` (`app/ui/src/embeds/store.ts`) does
+    it for embed-tree rebuilds, and FR-EMB-02 AC-10 passes with anchoring off. Open for the owner (AP): reword D-456
+    ("Tegg keeps the centre-pane scroll itself; browser anchoring is off on note routes"); and whether other growth
+    above the view on a note needs the same keeping now that anchoring no longer hides it: lazy images without a
+    reserved height on the read view (`MediaFigure`, `loading="lazy"`, `height: auto`), a mindmap laying out, tables.
+    Also from the review: ⌘↩ on a selected *broken* block embed does nothing, while a broken link-mode embed and a
+    broken wikilink offer Create (FR-LNK-04 AC-4); pre-existing, an AP for the owner.
 
 ## Product and accessibility
 
