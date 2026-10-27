@@ -132,6 +132,9 @@ export type FakeCoreHandle = {
   paste(page: Page, o: { files: { name: string; type: string; bytes: Uint8Array }[]; text?: string }): Promise<void>;
   /** Files staged by the capture window (`capture_media_add`), in order. */
   staged(): Promise<{ token: string; name: string }[]>;
+  // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.8)
+  /** The ids in the fake's machine-local `tidy-exempt.json` (§14.6). */
+  tidyExempt(): Promise<string[]>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -348,6 +351,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       target.dispatchEvent(e);
     }, [o.files.map((f) => ({ name: f.name, type: f.type, b64: Buffer.from(f.bytes).toString('base64') })), o.text ?? null] as const),
     staged: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.staged ?? []))),
+    // 4E-1 (ms4-jobs §14.8). Stub until 4E-1 is built: no tidy job runs, so the list stays empty.
+    tidyExempt: () => ev(() => [...((window as any).__teggFake.tidyExempt ?? [])] as string[]),
   };
 }
 
@@ -366,6 +371,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
     'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
+    'type_move_plan', 'folder_move_preview', // 4E-1 (ms4-jobs §14.7): read-only
     // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
     'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
@@ -1598,6 +1604,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     job_redo: (a) => jobs.undo(a.jobId, false),
     job_transform_result: () => null,
     job_interrupted: () => [],
+    // 4E-1 (ms4-jobs §14.7, §14.8). Stubs until 4E-1 is built: every command answers NotImplemented (TS-I1).
+    type_move_plan: () => { throw err('NotImplemented', 'fake: type_move_plan comes with 4E-1'); },
+    type_move: () => { throw err('NotImplemented', 'fake: type_move comes with 4E-1'); },
+    folder_move_preview: () => { throw err('NotImplemented', 'fake: folder_move_preview comes with 4E-1'); },
+    tidy_now: () => { throw err('NotImplemented', 'fake: tidy_now comes with 4E-1'); },
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
     // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).
     backups_list: () => [...state.backups].sort((p, q) => (p.name < q.name ? 1 : p.name > q.name ? -1 : 0)).map((b) => ({

@@ -998,6 +998,10 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::InvalidName { error, char } => IpcError { error: Some(error.clone()), char, ..err("InvalidName", error) },
         JobError::TagExists { name } => IpcError { name: Some(name.clone()), ..err("TagExists", format!("#{name} already exists")) },
         JobError::NothingToDo => err("NothingToDo", "nothing to do"),
+        // ms4-jobs §14.2 (4E-1).
+        JobError::NotMovable => err("NotMovable", "this note can't be moved"),
+        JobError::UnknownType => err("UnknownType", "no such type"),
+        JobError::NoChange => err("NoChange", "the note already has this type"),
         JobError::Core(m) => err("Io", m),
     }
 }

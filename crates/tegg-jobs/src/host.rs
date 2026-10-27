@@ -109,6 +109,52 @@ pub trait Host: Send + Sync {
     fn vault_name(&self) -> String {
         String::new()
     }
+
+    // -------------------------------------------------------------------------------- 4E-1 (ms4-jobs §14.5)
+    // Default bodies are the 4E-1 stubs (TS-I1): no type, no object, no schema, no conflict, no exemption.
+
+    /// The type file's folder (NFC).
+    fn type_folder(&self, r#type: &str) -> Option<String> {
+        let _ = r#type;
+        None
+    }
+    /// Keys with a valid definition.
+    fn defined_types(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Indexed objects whose `type` matches (D-239), no templates, no `.trash/`.
+    fn objects_of(&self, r#type: &str) -> Vec<String> {
+        let _ = r#type;
+        Vec::new()
+    }
+    /// Key, name, value type and relation targets of each schema property, in schema order.
+    fn schema(&self, r#type: &str) -> Vec<HostProperty> {
+        let _ = r#type;
+        Vec::new()
+    }
+    /// A pending FR-SYN-04 conflict on `path`.
+    fn has_conflict(&self, path: &str) -> bool {
+        let _ = path;
+        false
+    }
+    /// §14.6: ids the tidy job leaves alone (`tidy-exempt.json`).
+    fn local_exempt(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn set_local_exempt(&self, ids: &[String]) {
+        let _ = ids;
+    }
+}
+
+/// ms4-jobs §14.5: one schema property as the 4E planners see it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HostProperty {
+    pub key: String,
+    pub name: String,
+    /// The R10 type key (`text`, `date`, `select`, `relation`, …).
+    pub kind: String,
+    /// Relation targets (type keys).
+    pub to: Vec<String>,
 }
 
 /// One tag as the tag planners see it (ms4-tags §1.2, §4.1).

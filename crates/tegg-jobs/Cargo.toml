@@ -18,4 +18,5 @@ tegg-core = { path = "../tegg-core", features = ["test-hooks"] }
 tegg-vault = { path = "../tegg-vault" }
 tegg-format = { path = "../tegg-format" }
 tegg-index = { path = "../tegg-index" }
+tegg-schema = { path = "../tegg-schema" }
 tempfile.workspace = true

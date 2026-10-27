@@ -24,6 +24,9 @@ export type TextOp =
   | { op: 'remove-tag'; key: string }
   | { op: 'merge-into'; others: { path: string; title: string; text: string }[]; now: string }
   | { op: 'replace'; text: string }
+  // Slice 4E-1 (ms4-jobs §14.4, D-804, D-810, D-813). Stubs until 4E-1 is built: `transform` leaves the text unchanged.
+  | { op: 'map-properties'; map: { from: string; to: string | 'content' }[]; labels: Record<string, string> }
+  | { op: 'keep-targets'; fromPath: string; toPath: string; paths: string[] }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -71,6 +74,14 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   const bytes = byteOffsets(text)
   const edits = [...changed].sort((a, b) => a.range[0] - b.range[0]).map((p) => ({ start: bytes(p.range[0]), end: bytes(p.range[1]) }))
   return { kind: 'bytes', text: out, edits }
+}
+
+/** D-813 (ms4-jobs §14.4): the Content line of `map-properties` for one property, e.g. `**Autor:** Frank Herbert`.
+ *  Exported for the Change type dialog's preview and the L1 tests. Stub until 4E-1 is built (TS-I1). */
+export function contentLine(label: string, value: unknown): string {
+  void label
+  void value
+  return ''
 }
 
 /** D-184: the link text for the note at `toPath` written in `source`: its stem when the stem resolves to it from there

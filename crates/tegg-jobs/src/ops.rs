@@ -26,6 +26,13 @@ pub fn op_json(op: &TextOp) -> Value {
             "now": now,
         }),
         TextOp::Replace { text } => json!({ "op": "replace", "text": text }),
+        // ms4-jobs §14.4 (4E-1): the `@tegg/doc` shapes.
+        TextOp::MapProperties { map, labels } => json!({
+            "op": "map-properties",
+            "map": map.iter().map(|(from, to)| json!({ "from": from, "to": to })).collect::<Vec<_>>(),
+            "labels": labels.iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect::<serde_json::Map<String, Value>>(),
+        }),
+        TextOp::KeepTargets { from_path, to_path, paths } => json!({ "op": "keep-targets", "fromPath": from_path, "toPath": to_path, "paths": paths }),
     }
 }
 
@@ -63,6 +70,15 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             now: s("now")?,
         }),
         "replace" => Some(TextOp::Replace { text: s("text")? }),
+        "map-properties" => Some(TextOp::MapProperties {
+            map: v["map"].as_array()?.iter().filter_map(|m| Some((m["from"].as_str()?.to_string(), m["to"].as_str()?.to_string()))).collect(),
+            labels: v["labels"].as_object()?.iter().filter_map(|(k, l)| Some((k.clone(), l.as_str()?.to_string()))).collect(),
+        }),
+        "keep-targets" => Some(TextOp::KeepTargets {
+            from_path: s("fromPath")?,
+            to_path: s("toPath")?,
+            paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
+        }),
         _ => None,
     }
 }

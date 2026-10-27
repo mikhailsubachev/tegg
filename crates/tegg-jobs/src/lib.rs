@@ -136,8 +136,13 @@ pub enum JobOp {
     Merge { keep: String, others: Vec<String> },
     KeyRename { r#type: String, from: String, to: String },
     ValueRemove { r#type: String, key: String },
-    TypeMove { path: String, to_type: String },
-    FolderMove { r#type: String, to_folder: String },
+    /// ms4-jobs §14.2 (4E-1): one or more notes to `to_type` (a type key). `mapping` applies to every note (D-813: one
+    /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557). Stub until 4E-1 is
+    /// built: `start` answers `NotImplemented` (TS-I1).
+    TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool },
+    /// ms4-jobs §14.2: `to_folder: Some(f)`: the folder save of `r#type` (D-805), every object of the type outside `f`
+    /// and its subfolders. `None` with `r#type: None`: the tidy job over every defined type (D-811).
+    FolderMove { r#type: Option<String>, to_folder: Option<String> },
     TypeDelete { r#type: String, objects: TypeDeleteChoice },
     /// ms5-capture §7.3 (5B, D-561): the same change applied to each of `paths` (vault paths, NFC), each against its
     /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).
@@ -146,6 +151,25 @@ pub enum JobOp {
     /// op's name is a red-test point (AP-671): the contract names only the IPC command `backup_restore(name)`.
     Restore { name: String },
 }
+
+/// ms4-jobs §14.2 (D-813): one schema property of the old type; only schema properties are mapped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PropertyMap {
+    pub from: String,
+    pub to: MapTarget,
+}
+
+/// ms4-jobs §14.2: where a mapped property goes (D-804).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MapTarget {
+    /// A property key of the new type (renamed in place when it differs from `from`, D-230).
+    Property(String),
+    /// A `**Name:** value` line at the start of the body (D-813).
+    Content,
+}
+
+/// ms4-jobs §14.5: a property key, or the literal `content`.
+pub type MapTargetDto = String;
 
 /// ms5-capture §7.3: the change of an `inbox` job; each maps to the `@tegg/doc` `TextOp` of the same name.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,6 +280,12 @@ pub enum TextOp {
     MergeInto { others: Vec<MergeOther>, now: String },
     /// Restore through an open editor (ms4-tags §5.3).
     Replace { text: String },
+    /// ms4-jobs §14.4 (4E-1, D-804, D-813): `map` in old schema order (`(from, key or "content")`); `labels` are the old
+    /// properties' display names for the Content lines.
+    MapProperties { map: Vec<(String, MapTargetDto)>, labels: Vec<(String, String)> },
+    /// ms4-jobs §14.4 (D-810): rewrite links in this note that would resolve to another file from `to_path` than from
+    /// `from_path`; `paths` are the vault's note paths.
+    KeepTargets { from_path: String, to_path: String, paths: Vec<String> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -382,6 +412,13 @@ pub enum JobError {
     TagExists { name: String },
     /// ms4-tags §11 (D-738): a tag rename to the same spelling; no job runs.
     NothingToDo,
+    /// ms4-jobs §14.2 (4E-1): a Daily Note, Tag, Image or PDF as source or target, a file last read as not UTF-8, or a
+    /// path under `.trash/`; nothing is written.
+    NotMovable,
+    /// ms4-jobs §14.2: `to_type` has no definition.
+    UnknownType,
+    /// ms4-jobs §14.2: the target is the note's current type.
+    NoChange,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),
 }
