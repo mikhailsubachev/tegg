@@ -86,8 +86,8 @@ below ran on the real app for the first time. Logs stay local (not committed).
     start or navigation without a wait, and three pickers (tags, relation) still sleep before ⏎. Next: fix a test when
     it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59). Flaked once in the
     pre-merge flow of PR #78 (2026-10-27): `fr_dly_08_ac8_date_links_in_text_and_relation_values` read a chip's
-    `data-link-kind` as `unresolved` before the resolution answered (`date-missing`); 6 of 6 standalone. Candidate fix
-    (an AC-test change, owner's approval): wait for the kind with `eventually` before asserting it.
+    `data-link-kind` as `unresolved` before the resolution answered (`date-missing`); 6 of 6 standalone. Fixed on
+    2026-10-27 (AC-test change approved by the owner): the test waits for the kind with `eventually`.
 
 22. **Scroll anchoring is off on note routes (PR #78, QA review).** `main:has(.editor-host), main:has(.read-view)` has
     `overflow-anchor: none`: WebKit's anchoring moved the pane by half a viewport when the embed cards rendered below a
