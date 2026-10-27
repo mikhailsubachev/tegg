@@ -240,7 +240,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | --- | --- | --- |
 | FR-STO-04 | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | 3 ACs (also MS1 for the storage rules) |
 | FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs (MS3 part built; delete removes the values after confirmation in 4E, D-807; the key rename is W, D-806) |
-| FR-TYP-05 | Deleting a type requires choosing a target type for its existing objects (or moving them to trash). | no ACs yet (AC-4: a type with objects) |
+| FR-TYP-05 | Deleting a type requires choosing a target type for its existing objects (or moving them to trash). | types.md AC-4 (a type with objects: one path, to the trash, D-809) |
 | FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs (the file move) |
 
 ### MS8: MVP hardening & release

@@ -47,7 +47,7 @@ body:has(.tg.dark){background:#111113}
 .tg .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 </style>
 </helmet>
-<div class="tg {{themeClass}}" style="width: 1680px; min-height: 3260px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 28px">
+<div class="tg {{themeClass}}" style="width: 1680px; min-height: 4300px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 28px">
 
 <div style="display: flex; align-items: flex-end; gap: 24px">
 <div style="flex: 1">
@@ -235,36 +235,38 @@ status: developing
 </div>
 </section>
 
-<!-- F · Delete type with objects -->
+<!-- F · Delete type: objects go to the trash (D-809) -->
 <section class="card" aria-labelledby="h-f">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-f" style="margin: 0; font-size: 20px; font-weight: 650">F · Deleting a type that has objects</h2><span class="tag">FR-TYP-05 AC-4 · D-225</span></div>
-<p class="lead">The two choices that were disabled become real. Changing their type runs the move of section A for every object (one job, one backup); trashing them is the trash job of 6A. The definition is removed last, so a cancelled or failed job leaves the type in place.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-f" style="margin: 0; font-size: 20px; font-weight: 650">F · Deleting a type moves its objects to the trash</h2><span class="tag">D-809 · supersedes D-225's choices · FR-TYP-05 AC-4</span></div>
+<p class="lead">One dialog, no choice. Confirming trashes every object of the type (the trash job of 6A, one backup), then the type file and its templates. The definition is removed last, so a cancelled or failed job leaves the type in place. Who wants to keep the objects changes their type first (<i>Change type…</i>, section A) and deletes the empty type.</p>
 <div class="grid2">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">F1 · Confirmation</div>
 <div class="dlg" role="dialog" aria-labelledby="f1-h" aria-modal="true">
 <h3 id="f1-h">Delete type “Idea”?</h3>
-<p><b>10 ideas</b> use this type. Choose what happens to them.</p>
-<div role="radiogroup" aria-label="What happens to the objects" style="display: flex; flex-direction: column; gap: 8px">
-<label class="radio sel"><input type="radio" name="f1" checked style="margin: 2px 0 0"><span style="flex: 1"><b>Change their type to</b>
-<span style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><select style="height: 32px; padding: 0 8px; min-width: 180px"><option>Page</option><option>Quick Note</option><option>Task</option><option>Meeting</option><option>Project</option></select><span style="color: var(--muted)">→ files move to <code>Pages/</code></span></span>
-<span style="display: block; color: var(--muted); margin-top: 6px">Idea properties stay in the files under Other properties.</span></span></label>
-<label class="radio"><input type="radio" name="f1" style="margin: 2px 0 0"><span><b>Move them to the trash</b><br><span style="color: var(--muted)">10 files go to <code>.trash/</code>; notes that link to them show <i>moved to trash</i>.</span></span></label>
-</div>
-<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first. The type file and <code>_templates/Idea/</code> go to the trash after the objects are done.</span></div>
-<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete type and change 10 ideas</button></div>
-</div>
-<div style="display: flex; flex-direction: column; gap: 12px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">F2 · Report, and the type-settings route afterwards</div>
-<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Idea · 10 ideas are now Pages</span><button class="act">Undo</button></div>
-<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 520px; display: flex; flex-direction: column; gap: 8px">
-<div style="font-size: 13px; color: var(--muted)">Pages / Type settings</div>
-<div style="font-size: 15px; font-weight: 600">This type no longer exists.</div>
-<div style="font-size: 13px; color: var(--muted)">Idea was deleted. Its 10 objects are Pages now. <a href="#" style="color: var(--link)">Undo</a> · <a href="#" style="color: var(--link)">Open Settings › Backups</a></div>
+<p><b>10 ideas</b> go to the trash with the type, and the 2 Idea templates. Notes that link to them show <i>moved to trash</i>.</p>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first (Settings › Backups). Undo brings the ideas and the type back.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete type and trash 10 ideas</button></div>
 </div>
 <div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">F3 · Delete type section in type settings (replaces the v1.0 text)</div>
 <div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; max-width: 520px; display: flex; flex-direction: column; gap: 10px">
-<p style="margin: 0; font-size: 13px">Deleting Idea asks what to do with its 10 ideas: change their type or move them to the trash. A backup is made first.</p>
+<p style="margin: 0; font-size: 13px">Deleting Idea moves its 10 ideas to the trash. To keep them, change their type first. A backup is made first.</p>
 <div><button class="b" style="border-color: var(--danger); color: var(--danger); font-weight: 600">Delete Idea type…</button></div>
 </div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">F2 · Report, and the type-settings route afterwards</div>
+<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start">
+<div class="status" role="status"><span>Deleting Idea · 6 of 10</span><span class="bar" aria-hidden="true"><i></i></span><button class="act">Cancel</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Idea · 10 ideas in the trash</span><button class="act">Undo</button></div>
+</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 520px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: var(--muted)">Ideas / Type settings</div>
+<div style="font-size: 15px; font-weight: 600">This type no longer exists.</div>
+<div style="font-size: 13px; color: var(--muted)">Idea was deleted. Its 10 objects are in the trash. <a href="#" style="color: var(--link)">Undo</a> · <a href="#" style="color: var(--link)">Open Trash</a></div>
+</div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Files keep their relative path under <code>.trash/</code> (FR-STO-08 AC-5). Restoring one idea from the Trash whose type no longer exists brings the type file back with it, so the restored note is not an orphan. Cancel during the job: the ideas already trashed are restored, the type stays.</span></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Changes types.md FR-TYP-05 AC-3 (both choices disabled) and its test, and rewrites AC-4 to the single path (approved by D-809).</span></div>
 </div>
 </div>
 </section>
