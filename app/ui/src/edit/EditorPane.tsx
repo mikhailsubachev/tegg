@@ -435,7 +435,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       return !!b;
     };
     // The card's own Open button, or, while the card hasn't rendered yet (the embed tree loads after a conversion's
-    // save; nightly 2026-10-27, FR-CNV-04 AC-2), the target by its link resolution.
+    // save; nightly 2026-10-27, FR-CNV-04 AC-2), the target by its link resolution. ⏎ (D-448) has no such fallback:
+    // before the tree loads, a card can't be told from a full embed, which ⏎ enters instead of opening.
     if (key === 'open') return click('.embed-header button[aria-label^="Open"], .embed-header button.embed-open') || click('a[data-embed-mode="link"], .embed-link') || openEmbedTarget(String(e.view.state.doc.nodeAt(pos)?.attrs.source ?? ''));
     if (key === 'displayAs') return click('.embed-header button[aria-haspopup="menu"], .embed-link-block > .embed-mode > button[aria-haspopup="menu"]');
     const nested = embeds.nested().find((x) => { const el = x.el(); return !!el && dom.contains(el); });

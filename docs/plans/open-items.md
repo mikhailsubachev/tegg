@@ -1,6 +1,6 @@
 # Open items for the next slices
 
-Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). Item 13 resolved on 2026-10-27 (nightly on main). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
+Items 14–19 added on 2026-10-22 (L6 run on preview v0.55). Items 20 and 21 added on 2026-10-23 (push-gate flakes). Item 13 updated and item 22 added on 2026-10-27 (nightly on main, PR #78). State otherwise on 2026-10-18, after PR #48 (L6 fixes on main), the merge of main into `ms5/5a-tasks` (PR #47) and the 5A-1
 preview feedback (D-516…D-523). Each item names
 what is open and the next step. Remove an item once it is done or decided.
 
@@ -85,6 +85,17 @@ below ran on the real app for the first time. Logs stay local (not committed).
     test-strategy §8.4 rule (wait for state, not time) binds new and touched tests. A scan found ~237 reads right after
     start or navigation without a wait, and three pickers (tags, relation) still sleep before ⏎. Next: fix a test when
     it flakes; quarantined so far: `fr_emb_02_ac9_card_and_link_mode_open_their_target` (#59).
+
+22. **Scroll anchoring is off on note routes (PR #78, QA review).** `main:has(.editor-host), main:has(.read-view)` has
+    `overflow-anchor: none`: WebKit's anchoring moved the pane by half a viewport when the embed cards rendered below a
+    block aligned at the top (FR-CNV-04 AC-2). D-456 and the AP-358 row of `docs/contracts/ms4-embeds.md` still describe
+    WebKit's anchoring as what keeps content on screen; in the app `keepOnScreen` (`app/ui/src/embeds/store.ts`) does
+    it for embed-tree rebuilds, and FR-EMB-02 AC-10 passes with anchoring off. Open for the owner (AP): reword D-456
+    ("Tegg keeps the centre-pane scroll itself; browser anchoring is off on note routes"); and whether other growth
+    above the view on a note needs the same keeping now that anchoring no longer hides it: lazy images without a
+    reserved height on the read view (`MediaFigure`, `loading="lazy"`, `height: auto`), a mindmap laying out, tables.
+    Also from the review: ⌘↩ on a selected *broken* block embed does nothing, while a broken link-mode embed and a
+    broken wikilink offer Create (FR-LNK-04 AC-4); pre-existing, an AP for the owner.
 
 ## Product and accessibility
 
