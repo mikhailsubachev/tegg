@@ -1,6 +1,6 @@
 # Slice 4E: type moves and schema rewrites (2026-10-27)
 
-Status: **draft, waiting for the owner's answers to AP-765…AP-773** (`docs/acceptance/type-moves.md`, end of file). Scope and behaviour are the owner's decisions D-803…D-809 (BRD v1.102) and the board `design/edit-note-page/TypeJobs.dc.html` (sections A–G); this plan adds only what they leave open. 4E is the MVP slice after MM2 and takes the MS7 row of BRD §11.2 (`./verify milestone --milestone MS7`, D-803).
+Status: **accepted, 2026-10-27**: AP-765…AP-773 (`docs/acceptance/type-moves.md`, end of file) accepted as proposed, D-810…D-818 (BRD v1.103). Scope and behaviour are the owner's decisions D-803…D-809 (BRD v1.102) and the board `design/edit-note-page/TypeJobs.dc.html` (sections A–G); this plan adds only what they leave open. 4E is the MVP slice after MM2 and takes the MS7 row of BRD §11.2 (`./verify milestone --milestone MS7`, D-803).
 
 ## 1. What 4E is
 

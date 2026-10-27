@@ -2,7 +2,7 @@
 
 See [README](README.md) for conventions. Slice **4E** (D-803; plan [docs/plans/4e-type-moves-and-schema-rewrites.md](../plans/4e-type-moves-and-schema-rewrites.md); board `design/edit-note-page/TypeJobs.dc.html`, sections A–G). A type change maps the object's properties and moves the file to the new type's folder (D-804); objects move to their type's folder when the folder changes and by a tidy job (D-805); deleting a property removes its values (D-807); deleting a type trashes its objects (D-809). Keys are never renamed (D-806) and a retype only widens (D-808). Every multi-file change is a `tegg-jobs` job (`docs/contracts/ms4-jobs.md` §14): plan, confirm, backup zip, write, report, Undo.
 
-**Status: draft, 2026-10-27.** Written from D-803…D-809 and the board. The points those decisions leave open are AP-765…AP-773 (end of this file), **pending**; a criterion that names an AP follows its proposal. No red test is written before the owner decides.
+**Status: approved, 2026-10-27.** Written from D-803…D-809 and the board. The points those decisions left open, AP-765…AP-773 (end of this file), were accepted by the owner as proposed: D-810…D-818 (BRD v1.103). A criterion that names an AP follows that decision.
 
 **Scope.** Part one (4E-1, moves): FR-STO-04, FR-TYP-07 (D-804 mapping and file move), FR-INB-02's convert (D-803), data-safety FR-STO-01/-03/… AC-7 (D-805 folder move and tidy job), Undo of 4E jobs. Part two (4E-2, deletes): FR-TYP-04 delete property (D-807), FR-TYP-05 delete type (D-809, types.md AC-4), restoring an object of a deleted type. Both parts: FR-HIS-04 / NFR-REL-04, FR-UX-07, FR-UX-03, NFR-OTH-02, FR-UX-05, the 4E parts of FR-FMT-07 and FR-SYN-06. The D-808 widen-only `Type` menu is a type-settings change without a job; it is built in 4E-2 and verified by types.md FR-TYP-03 AC-11 as amended by D-808 (AC-14 below). **Out of scope:** key rename (W, D-806); value conversion (D-808); renaming used options (AP-771); bulk type change from a type page selection (FR-QRY, v1.0); moving attachments or Daily Notes (D-551); version history (FR-HIS-03).
 
@@ -172,9 +172,9 @@ Objects:
 
 ---
 
-## Points for the owner (AP-765…AP-773)
+## Points for the owner (AP-765…AP-773, accepted as D-810…D-818)
 
-Only what D-803…D-809 and the board leave open.
+Only what D-803…D-809 and the board left open. Each was accepted as proposed (AP-765 → D-810 … AP-773 → D-818).
 
 | AP | Point | Proposal | Alternatives | Affects |
 | --- | --- | --- | --- | --- |
