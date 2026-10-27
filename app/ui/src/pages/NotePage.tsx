@@ -27,7 +27,7 @@ import { Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
-import { WidthSwitch, type PageWidth } from '../edit/WidthSwitch';
+import { WidthSwitch, pageWidthOf, type PageWidth } from '../edit/WidthSwitch';
 import { AttributePanel, type Commit, type PanelApi } from '../types/AttributePanel';
 import { TypeChip, type TypeChipApi } from '../types/ChangeTypeMenu';
 import { ReviewCheck } from '../shell/ReviewCheck';
@@ -853,7 +853,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // Slice PW: the page width. The key is the file's id, else its NFC path; an unwritten draft has no key (AP-758); a
   // virtual Daily Note is keyed by its path until its first write (`savedId` is set only for a file on disk).
   const widthKey = savedId ?? (draft ? null : nfc(path));
-  const pageWidth: PageWidth = (widthKey ? widths?.[widthKey] : undefined) ?? (draft ? draftWidth ?? undefined : undefined) ?? defaultWidth;
+  const stored = widthKey ? widths?.[widthKey] : undefined;
+  // A stored value is read as `wide` or `normal` only (a hand-edited or newer ui-state.json never breaks the radios).
+  const pageWidth: PageWidth = stored !== undefined ? pageWidthOf(stored) : (draft ? draftWidth ?? undefined : undefined) ?? defaultWidth;
   const chooseWidth = (w: PageWidth) => {
     if (w === pageWidth) return; // AP-760: a click on the checked value sends nothing
     if (!widthKey) { setDraftWidth(w); return; }

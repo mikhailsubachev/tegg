@@ -73,6 +73,6 @@ Catalog keys (`app/ui/src/i18n/catalog.ts`): `note.width` `Page width`, `note.wi
 
 ## 4. Settings › Vault (R58)
 
-After `Attachments folder`: `radiogroup` `Page width` (description `For notes without their own choice.`) with radios
+After `Attachments folder`, below `Add starter types…` (so R58's Tab order, FR-SET-01 AC-10, is unchanged): `radiogroup` `Page width` (description `For notes without their own choice.`) with radios
 `Normal` (`data-command="settings.pageWidth.normal"`) and `Wide` (`settings.pageWidth.wide`); choosing one sends one
 `vault_settings_patch` (`page-width`) with the current base version; a `Conflict` shows the R58 alert and reloads.

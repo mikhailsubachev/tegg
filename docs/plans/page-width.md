@@ -1,6 +1,6 @@
 # Slice PW: page width (Normal / Wide) on the note page (2026-10-27)
 
-Status: **proposed; built under the recommendations below, pending the owner's answers (AP-753…AP-764).** Owner brief
+Status: **built as proposed. AP-761…AP-764 approved by the owner in chat on 2026-10-27 (§6); AP-753…AP-760 built under the proposals below and merged on the owner's "merge if green" (2026-10-27), their D-xx rows in the BRD still to be written (§5).** QA review: `qa/reviews/pw-page-width.md`. Owner brief
 (2026-10-27, before slice 4E): *a wide / narrow layout switcher for the note page, as drawn on the design canvas (page
 `Page width`, boards `LayoutNormal`, `LayoutNormalPanel`, `LayoutWide`, `LayoutWidePanel`, copied to
 `design/edit-note-page/`); (1) the selected layout is persisted per note; (2) if it is cheap, a per-vault setting for the
