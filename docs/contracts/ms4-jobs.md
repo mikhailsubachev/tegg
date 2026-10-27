@@ -40,7 +40,7 @@ pub enum JobOp {
     TagRename { from: String, to: String },
     TagDelete { tag: String, keep_text: bool },
     Merge { keep: String, others: Vec<String> },
-    KeyRename { r#type: String, from: String, to: String },
+    KeyRename { r#type: String, from: String, to: String },  // not planned: keys are fixed for good (D-806); the shape stays, the planner returns NotImplemented
     ValueRemove { r#type: String, key: String },
     TypeMove { path: String, to_type: String },
     FolderMove { r#type: String, to_folder: String },

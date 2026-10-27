@@ -118,72 +118,52 @@ status: developing
 </div>
 </section>
 
-<!-- B · Move existing objects -->
+<!-- B · Folder move in the background (D-805) -->
 <section class="card" aria-labelledby="h-b">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-b" style="margin: 0; font-size: 20px; font-weight: 650">B · Moving a type's existing objects</h2><span class="tag">D-226 · data-safety FR-STO-01 AC-7 · D-224 offer</span></div>
-<p class="lead">After the folder of a type changes, <b>Move existing objects</b> in type settings is enabled. The same job runs from the offer that appears when objects of a type sit outside its folder (edited by hand, synced in, or converted before 4E).</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-b" style="margin: 0; font-size: 20px; font-weight: 650">B · Objects move to their type's folder by themselves</h2><span class="tag">D-805 · amends D-226 · data-safety FR-STO-01 AC-7</span></div>
+<p class="lead">No <i>Move existing objects</i> control, no offer, no confirmation. Saving a new folder in type settings moves the type's objects as part of the save. On vault open, and after each quiet period of the watcher, a tidy job moves every object that sits outside its type's folder (hand edits, sync, conversions made before 4E). Both make the backup first and report in the status element with <b>Undo</b>.</p>
 <div class="grid2">
 <div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B1 · Type settings › General, after the folder changed</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B1 · Type settings › General, the folder being changed</div>
 <div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 520px">
 <label class="field">Folder in the vault
-<input type="text" value="Práce/Ideas/" class="mono">
-<span class="help">New ideas go here. 10 ideas are still in <code>Ideas/</code>.</span>
+<input type="text" value="Práce/Ideas/" class="mono" style="border-color: var(--text)">
+<span class="help">Saving moves <b>10 ideas</b> from <code>Ideas/</code> here (backup first; undo in the status strip).</span>
 </label>
-<div><button class="b">Move existing objects…</button></div>
 </div>
-<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">B2 · Offer on the type page when objects sit outside the folder (D-224)</div>
-<div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: var(--warn-bg); border: 1px solid var(--warn-b); font-size: 13px; max-width: 520px">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>
-<span style="flex: 1"><b>3 ideas</b> are outside <code>Ideas/</code>.</span>
-<button class="b" style="height: 30px">Move them…</button>
-<button aria-label="Dismiss" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
-</div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>The tidy job waits for a quiet vault: it starts after the watcher has seen no change for a while, and re-checks each file at write time (FR-STO-01 AC-7). A file changed meanwhile, or with a pending conflict, is skipped and tried again at the next quiet period.</span></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B3 · Confirmation (plan → backup → write)</div>
-<div class="dlg" role="dialog" aria-labelledby="b3-h" aria-modal="true">
-<h3 id="b3-h">Move 10 ideas to Práce/Ideas/?</h3>
-<p>10 files move from <code>Ideas/</code>. Links keep working; <b>2 names</b> are taken there and get a <code>(2)</code> suffix, which rewrites links in <b>5 notes</b>.</p>
-<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first (Settings › Backups). You can undo until the next change.</span></div>
-<div class="actions"><button class="b">Cancel</button><button class="b primary">Move 10 files</button></div>
-</div>
-<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">B4 · Progress and report (status element, reused from 4C)</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B2 · Report (status element, reused from 4C): after the save, and after the tidy job at open</div>
 <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start">
-<div class="status" role="status"><span>Moving ideas · 6 of 10</span><span class="bar" aria-hidden="true"><i></i></span><button class="act">Cancel</button></div>
+<div class="status" role="status"><span>Moving ideas · 6 of 10</span><span class="bar" aria-hidden="true"><i></i></span></div>
 <div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Moved 10 ideas · updated links in 5 notes</span><button class="act">Undo</button></div>
-<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Moved 9 ideas · <b>1 not moved</b></span><button class="act">Show</button><button class="act">Retry</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Moved 3 ideas and 1 meeting to their folders</span><button class="act">Undo</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Moved 9 ideas · <b>1 not moved</b> (changed meanwhile, tried again later)</span><button class="act">Show</button></div>
 </div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>A taken name gets its <code>(2)</code> suffix and its links are rewritten silently (D-804). Two Macs tidying the same vault move to the same path; a differing suffix lands in the Conflicts view (FR-SYN-04). Every move is a sync upload, accepted.</span></div>
 </div>
 </div>
 </section>
 
-<!-- C · Key rename -->
+<!-- C · Property keys are fixed (D-806) -->
 <section class="card" aria-labelledby="h-c">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-c" style="margin: 0; font-size: 20px; font-weight: 650">C · Renaming a property key rewrites the objects</h2><span class="tag">FR-TYP-04 · D-223 · links.md AC-1, AC-3</span></div>
-<p class="lead">The <b>Key in frontmatter</b> field of an existing property becomes editable (it was read-only, <i>Renaming keys comes in v1.0</i>). Leaving the field with a new key asks before anything is written; the type definition and the files change in one job.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-c" style="margin: 0; font-size: 20px; font-weight: 650">C · A property's key never changes; only its Name does</h2><span class="tag">D-806 · D-223 · FR-TYP-04 key rename is W</span></div>
+<p class="lead">The <b>Key in frontmatter</b> of an existing property stays read-only for good. <b>Name</b> is the display name: it changes only the type file, no object is rewritten, and every file keeps its key. There is no key-rename job and no dialog.</p>
 <div class="grid2">
 <div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">C1 · Type settings › Properties › Status, the key edited</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">C1 · Type settings › Properties › Status, the Name edited</div>
 <div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 520px">
-<label class="field">Name<input type="text" value="Status"></label>
+<label class="field">Name<input type="text" value="Stage" style="border-color: var(--text)"><span class="help">Shown in the panel, columns and filters. Writes only the type file.</span></label>
 <label class="field">Key in frontmatter
-<input type="text" value="stage" class="mono" style="border-color: var(--text)">
-<span class="help">Was <code>status</code>. Saving renames the key in <b>10 ideas</b> (backup first).</span>
+<input type="text" value="status" class="mono" readonly style="color: var(--muted)">
+<span class="help">The key can't be changed after creation.</span>
 </label>
 </div>
-<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>The rules of D-223 still apply while typing: reserved keys, a key of another property and date-range collisions are refused under the field, nothing written.</span></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">C2 · Confirmation</div>
-<div class="dlg" role="dialog" aria-labelledby="c2-h" aria-modal="true">
-<h3 id="c2-h">Rename key “status” to “stage”?</h3>
-<p>Only that key is rewritten in <b>10 ideas</b>; each file keeps its other bytes. Ideas that have no <code>status</code> line are not touched. The type definition changes in the same step.</p>
-<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first. Undo restores the key and the definition.</span></div>
-<div class="actions"><button class="b">Cancel</button><button class="b primary">Rename in 10 ideas</button></div>
-</div>
-<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">C3 · Report</div>
-<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Renamed <code>status</code> to <code>stage</code> in 10 ideas</span><button class="act">Undo</button></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Why: a key is the name in every file and in every other app that reads the vault (Obsidian properties, queries, scripts). Renaming it would rewrite every object of the type for a cosmetic change; the Name covers what the user sees. A new key means a new property, and <i>Delete property</i> with <i>Remove values</i> (section D) retires the old one.</span></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>The description <i>Renaming keys comes in v1.0</i> becomes <i>The key can't be changed after creation</i> (types.md FR-TYP-03 AC-4; the test change is approved by D-806).</span></div>
 </div>
 </div>
 </section>
@@ -300,7 +280,7 @@ status: developing
 <div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Only the affected files</b><span style="color: var(--muted)">Each file is rewritten by a text edit of its own lines; bytes outside them stay. Files changed by another app meanwhile are skipped and listed.</span></div>
 <div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Progress, not a modal</b><span style="color: var(--muted)">The status strip of 4C: count, Cancel while planning, then Undo for 5 s and in the palette. An open note gets its edits as one undo step in the editor.</span></div>
 <div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Not updated list</b><span style="color: var(--muted)">Skipped files show title, path and reason with Open, Retry and Retry all, as for links after a rename.</span></div>
-<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Never on system types</b><span style="color: var(--muted)">Daily Note, Tag, Image and PDF are neither targets nor sources of a type move; their built-in keys cannot be renamed or removed.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Never on system types</b><span style="color: var(--muted)">Daily Note, Tag, Image and PDF are neither targets nor sources of a type move; their built-in keys cannot be removed; no key is ever renamed (D-806).</span></div>
 </div>
 </section>
 

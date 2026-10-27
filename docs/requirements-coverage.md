@@ -234,12 +234,12 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 
 ### MS7: Type moves and schema rewrites (slice 4E)
 
-4 requirements (D-803, 2026-10-27: 4E returns from v1.0 and takes the MS7 slot; the Capacities importer moved to v1.0, D-801) · 4 with ACs (links.md FR-STO-04 AC-1, AC-2, FR-TYP-04 AC-1 and AC-3 attribute part; types.md FR-TYP-05 AC-4; data-safety FR-STO-01 AC-7; the folder move, value removal and value conversion need ACs before the slice) · 0 with spike evidence · 0 implemented
+4 requirements (D-803, 2026-10-27: 4E returns from v1.0 and takes the MS7 slot; the Capacities importer moved to v1.0, D-801) · 4 with ACs (links.md FR-STO-04 AC-1, AC-2; types.md FR-TYP-05 AC-4; data-safety FR-STO-01 AC-7, the folder move in the background by D-805; the key rename of FR-TYP-04 is W by D-806, so links.md FR-TYP-04 AC-1 and AC-3's attribute part are retired; the tidy job, value removal and value conversion need ACs before the slice) · 0 with spike evidence · 0 implemented
 
 | Requirement | Summary | ACs / evidence |
 | --- | --- | --- |
 | FR-STO-04 | When an object's type changes, the app moves the file to the new type's folder and keeps all links working. | 3 ACs (also MS1 for the storage rules) |
-| FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs (MS3 part built; renames and value rewrites are 4E) |
+| FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs (MS3 part built; value removal is 4E; the key rename is W, D-806) |
 | FR-TYP-05 | Deleting a type requires choosing a target type for its existing objects (or moving them to trash). | no ACs yet (AC-4: a type with objects) |
 | FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs (the file move) |
 
