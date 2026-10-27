@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Type moves and schema rewrites</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#EDECE8}
+body:has(.tg.dark){background:#111113}
+.tg{--board:#EDECE8;--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--accent-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--danger-bg:#FCECEB;--warn-bg:#FFF6E0;--warn-b:#F0D9A0;--pop:#FFFFFF;--shadow:0 12px 32px rgba(0,0,0,.16),0 0 0 1px rgba(0,0,0,.06)}
+.tg.dark{--board:#111113;--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--accent-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--danger-bg:#3A1C1B;--warn-bg:#33290F;--warn-b:#5A4718;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.08)}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.tg a{color:inherit;text-decoration:none}
+.tg input,.tg select{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:7px;box-sizing:border-box}
+.tg code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12px;background:var(--row);padding:1px 5px;border-radius:4px}
+.tg .card{background:var(--bg);border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.tg .lead{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+.tg .tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--accent-bg);color:var(--accent);font-size:11px;font-weight:600;letter-spacing:.04em}
+.tg .dlg{width:520px;max-width:100%;background:var(--pop);border-radius:14px;box-shadow:var(--shadow);padding:20px 22px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box;font-size:13px}
+.tg .dlg h3{margin:0;font-size:16px;font-weight:650;line-height:1.3}
+.tg .dlg p{margin:0;line-height:1.5}
+.tg .actions{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}
+.tg .b{height:34px;padding:0 14px;border-radius:7px;border:1px solid var(--border);font-size:13px;font-weight:500;background:var(--bg)}
+.tg .b.primary{background:var(--btn);color:var(--btn-fg);border-color:var(--btn)}
+.tg .b.danger{background:var(--danger);color:#FFFFFF;border-color:var(--danger)}
+.tg .b:disabled{opacity:.45;cursor:default}
+.tg .note{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:9px;background:var(--row);font-size:12.5px;line-height:1.45;color:var(--muted)}
+.tg .note.warn{background:var(--warn-bg);border:1px solid var(--warn-b);color:var(--text)}
+.tg .radio{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:9px;cursor:pointer}
+.tg .radio.sel{border-color:var(--text);background:var(--row)}
+.tg .status{display:inline-flex;align-items:center;gap:10px;height:36px;padding:0 12px 0 14px;border-radius:9px;background:var(--pop);box-shadow:var(--shadow);font-size:13px}
+.tg .status .bar{width:120px;height:4px;border-radius:2px;background:var(--border);overflow:hidden}
+.tg .status .bar i{display:block;height:100%;width:60%;background:var(--accent)}
+.tg .status .act{height:26px;padding:0 10px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--link)}
+.tg table{border-collapse:collapse;width:100%;font-size:12.5px}
+.tg th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--border)}
+.tg td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.tg .chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;font-size:12px;font-weight:500}
+.tg .field{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500}
+.tg .field input{height:36px;padding:0 10px;font-weight:400}
+.tg .mono{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px}
+.tg .help{font-weight:400;font-size:12px;color:var(--muted)}
+.tg .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="width: 1680px; min-height: 3140px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; align-items: flex-end; gap: 24px">
+<div style="flex: 1">
+<div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">Slice 4E · FR-STO-04, FR-TYP-04, FR-TYP-05, FR-TYP-07 · D-803</div>
+<h1 style="margin: 6px 0 0; font-size: 40px; line-height: 1.1; font-weight: 700">Type moves and schema rewrites: the dialogs</h1>
+</div>
+<p style="margin: 0; max-width: 640px; font-size: 15px; color: var(--muted); line-height: 1.5">Every operation here is a job: it shows what it will touch, makes a backup, writes only the affected files and reports. The confirmation dialogs below are the designs the type settings board does not draw. The progress strip, <b>Undo</b> and the <i>not updated</i> list are reused from note rename (4C).</p>
+</div>
+
+<!-- A · Type change moves the file -->
+<section class="card" aria-labelledby="h-a">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-a" style="margin: 0; font-size: 20px; font-weight: 650">A · Changing an object's type moves its file</h2><span class="tag">FR-STO-04 · FR-TYP-07 · D-224 ends</span></div>
+<p class="lead">From <b>Change type…</b> (palette or the note's More menu) and from the Inbox's <b>Convert to…</b>. One file, so no backup zip: the move is one atomic rename. Links keep resolving by file name; a taken name gets a <code>(2)</code> suffix and the links to it are rewritten (FR-LNK-14).</p>
+<div class="grid2">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A1 · Plain move</div>
+<div class="dlg" role="dialog" aria-labelledby="a1-h" aria-modal="true">
+<h3 id="a1-h">Change type to Meeting?</h3>
+<p><b>Offsite plan</b> moves from <code>Ideas/</code> to <code>Meetings/</code>. Its links and backlinks keep working.</p>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span><b>Status</b> and <b>Related ideas</b> are not Meeting properties. They stay in the file under <i>Other properties</i>; nothing is removed or added.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b primary">Change type</button></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A2 · The name is taken in the target folder</div>
+<div class="dlg" role="dialog" aria-labelledby="a2-h" aria-modal="true">
+<h3 id="a2-h">Change type to Meeting?</h3>
+<p><b>Offsite plan</b> moves from <code>Ideas/</code> to <code>Meetings/</code>.</p>
+<div class="note warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span><code>Meetings/Offsite plan.md</code> already exists. The file becomes <code>Offsite plan (2).md</code> and the <b>4 links</b> to it are rewritten to <code>[[Offsite plan (2)|Offsite plan]]</code>. The title stays <b>Offsite plan</b>.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b primary">Change type</button></div>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A3 · Status strip after the move (role=status, no dialog; reused from 4C)</div>
+<div style="display: flex; gap: 16px; flex-wrap: wrap">
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Now a Meeting · moved to <code>Meetings/</code></span><button class="act">Undo</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Now a Meeting · updated links in 4 notes</span><button class="act">Undo</button></div>
+</div>
+</div>
+</section>
+
+<!-- B · Move existing objects -->
+<section class="card" aria-labelledby="h-b">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-b" style="margin: 0; font-size: 20px; font-weight: 650">B · Moving a type's existing objects</h2><span class="tag">D-226 · data-safety FR-STO-01 AC-7 · D-224 offer</span></div>
+<p class="lead">After the folder of a type changes, <b>Move existing objects</b> in type settings is enabled. The same job runs from the offer that appears when objects of a type sit outside its folder (edited by hand, synced in, or converted before 4E).</p>
+<div class="grid2">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B1 · Type settings › General, after the folder changed</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 520px">
+<label class="field">Folder in the vault
+<input type="text" value="Práce/Ideas/" class="mono">
+<span class="help">New ideas go here. 10 ideas are still in <code>Ideas/</code>.</span>
+</label>
+<div><button class="b">Move existing objects…</button></div>
+</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">B2 · Offer on the type page when objects sit outside the folder (D-224)</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: var(--warn-bg); border: 1px solid var(--warn-b); font-size: 13px; max-width: 520px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"></path></svg>
+<span style="flex: 1"><b>3 ideas</b> are outside <code>Ideas/</code>.</span>
+<button class="b" style="height: 30px">Move them…</button>
+<button aria-label="Dismiss" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">B3 · Confirmation (plan → backup → write)</div>
+<div class="dlg" role="dialog" aria-labelledby="b3-h" aria-modal="true">
+<h3 id="b3-h">Move 10 ideas to Práce/Ideas/?</h3>
+<p>10 files move from <code>Ideas/</code>. Links keep working; <b>2 names</b> are taken there and get a <code>(2)</code> suffix, which rewrites links in <b>5 notes</b>.</p>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first (Settings › Backups). You can undo until the next change.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b primary">Move 10 files</button></div>
+</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">B4 · Progress and report (status element, reused from 4C)</div>
+<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start">
+<div class="status" role="status"><span>Moving ideas · 6 of 10</span><span class="bar" aria-hidden="true"><i></i></span><button class="act">Cancel</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Moved 10 ideas · updated links in 5 notes</span><button class="act">Undo</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Moved 9 ideas · <b>1 not moved</b></span><button class="act">Show</button><button class="act">Retry</button></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- C · Key rename -->
+<section class="card" aria-labelledby="h-c">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-c" style="margin: 0; font-size: 20px; font-weight: 650">C · Renaming a property key rewrites the objects</h2><span class="tag">FR-TYP-04 · D-223 · links.md AC-1, AC-3</span></div>
+<p class="lead">The <b>Key in frontmatter</b> field of an existing property becomes editable (it was read-only, <i>Renaming keys comes in v1.0</i>). Leaving the field with a new key asks before anything is written; the type definition and the files change in one job.</p>
+<div class="grid2">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">C1 · Type settings › Properties › Status, the key edited</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 520px">
+<label class="field">Name<input type="text" value="Status"></label>
+<label class="field">Key in frontmatter
+<input type="text" value="stage" class="mono" style="border-color: var(--text)">
+<span class="help">Was <code>status</code>. Saving renames the key in <b>10 ideas</b> (backup first).</span>
+</label>
+</div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>The rules of D-223 still apply while typing: reserved keys, a key of another property and date-range collisions are refused under the field, nothing written.</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">C2 · Confirmation</div>
+<div class="dlg" role="dialog" aria-labelledby="c2-h" aria-modal="true">
+<h3 id="c2-h">Rename key “status” to “stage”?</h3>
+<p>Only that key is rewritten in <b>10 ideas</b>; each file keeps its other bytes. Ideas that have no <code>status</code> line are not touched. The type definition changes in the same step.</p>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first. Undo restores the key and the definition.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b primary">Rename in 10 ideas</button></div>
+</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">C3 · Report</div>
+<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Renamed <code>status</code> to <code>stage</code> in 10 ideas</span><button class="act">Undo</button></div>
+</div>
+</div>
+</section>
+
+<!-- D · Delete property, remove values -->
+<section class="card" aria-labelledby="h-d">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-d" style="margin: 0; font-size: 20px; font-weight: 650">D · Deleting a property: keep or remove the values</h2><span class="tag">FR-TYP-04 · D-228 · types.md AC-4</span></div>
+<p class="lead">The existing dialog gains its second choice. <b>Keep values in notes</b> stays the default and writes only the type file; <b>Remove values from 10 notes</b> is a job.</p>
+<div class="grid2">
+<div class="dlg" role="dialog" aria-labelledby="d1-h" aria-modal="true">
+<h3 id="d1-h">Delete property “Origin URL”?</h3>
+<div role="radiogroup" aria-label="What happens to the values" style="display: flex; flex-direction: column; gap: 8px">
+<label class="radio sel"><input type="radio" name="d1" checked style="margin: 2px 0 0"><span><b>Keep values in notes</b><br><span style="color: var(--muted)">They stay in the files and show under Other properties.</span></span></label>
+<label class="radio"><input type="radio" name="d1" style="margin: 2px 0 0"><span><b>Remove values from 7 notes</b><br><span style="color: var(--muted)">Deletes the <code>origin-url</code> line from each file. Backup first; undoable.</span></span></label>
+</div>
+<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete property</button></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">D2 · With “Remove values” chosen, the button names the count</div>
+<div class="dlg" role="dialog" aria-labelledby="d2-h" aria-modal="true" style="width: 460px">
+<h3 id="d2-h">Delete property “Origin URL”?</h3>
+<p style="color: var(--muted)">Remove values from 7 notes selected. 3 ideas have no value and are not touched.</p>
+<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete and remove from 7 notes</button></div>
+</div>
+<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Origin URL · removed values from 7 notes</span><button class="act">Undo</button></div>
+</div>
+</div>
+</section>
+
+<!-- E · Value conversion on retype -->
+<section class="card" aria-labelledby="h-e">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-e" style="margin: 0; font-size: 20px; font-weight: 650">E · Changing a property's type: the conversion preview</h2><span class="tag">D-227 · AP-18 preview · types.md FR-TYP-02 AC-11</span></div>
+<p class="lead">Today a retype keeps the files untouched and shows misfits as invalid. With 4E the dialog previews what each value becomes and lets the user choose to rewrite the files or leave them. The preview lists at most 8 rows and counts the rest.</p>
+<div class="grid2">
+<div class="dlg" role="dialog" aria-labelledby="e1-h" aria-modal="true" style="width: 640px">
+<h3 id="e1-h">Change “Priority” from Text to Number?</h3>
+<p>10 ideas have a value. <b>8 convert</b>, <b>2 don't fit</b> Number.</p>
+<table>
+<thead><tr><th>Idea</th><th>Now (Text)</th><th>Becomes (Number)</th></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<tr><td>{{r.title}}</td><td><code>{{r.from}}</code></td><td><span class="chip" style="background: {{r.bg}}; color: {{r.fg}}">{{r.to}}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+<div style="font-size: 12px; color: var(--muted)">and 4 more that convert</div>
+<div role="radiogroup" aria-label="Values that don't fit" style="display: flex; flex-direction: column; gap: 8px">
+<label class="radio sel"><input type="radio" name="e1" checked style="margin: 2px 0 0"><span><b>Rewrite the 8 values, leave the 2 that don't fit</b><br><span style="color: var(--muted)">They stay as written and show as invalid until edited.</span></span></label>
+<label class="radio"><input type="radio" name="e1" style="margin: 2px 0 0"><span><b>Change the type only</b><br><span style="color: var(--muted)">No file is written (today's behaviour). Text values that read as numbers still work.</span></span></label>
+</div>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>Rewriting makes a backup first and is undoable.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b primary">Change type and rewrite 8 ideas</button></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">E2 · Conversion rules shown in the Becomes column</div>
+<table style="max-width: 520px">
+<thead><tr><th>From → to</th><th>Converts when</th><th>Otherwise</th></tr></thead>
+<tbody>
+<tr><td>Text → Number</td><td>the text is a number (<code>12</code>, <code>3.5</code>, <code>-2</code>)</td><td>doesn't fit</td></tr>
+<tr><td>Text → Date</td><td>it parses as a date; written as <code>YYYY-MM-DD</code> (FR-FMT-11)</td><td>doesn't fit</td></tr>
+<tr><td>Text → Select</td><td>it equals an option (case-insensitive, NFC)</td><td>doesn't fit; <i>Add as option</i> offered per value</td></tr>
+<tr><td>Select → Multi-select</td><td>always: one value becomes a one-item list</td><td>—</td></tr>
+<tr><td>Multi-select → Select</td><td>the list has one item</td><td>doesn't fit (the first item is offered)</td></tr>
+<tr><td>Number, Date, Select → Text</td><td>always, as written</td><td>—</td></tr>
+<tr><td>Checkbox ↔ anything</td><td><code>true</code>/<code>false</code> ↔ text only</td><td>doesn't fit</td></tr>
+<tr><td>Relation ↔ anything</td><td>never</td><td>the retype is refused with a message</td></tr>
+</tbody>
+</table>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Proposal for the plan's AP point on conversion rules; the table is what the owner decides, the dialog does not change with it.</span></div>
+</div>
+</div>
+</section>
+
+<!-- F · Delete type with objects -->
+<section class="card" aria-labelledby="h-f">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-f" style="margin: 0; font-size: 20px; font-weight: 650">F · Deleting a type that has objects</h2><span class="tag">FR-TYP-05 AC-4 · D-225</span></div>
+<p class="lead">The two choices that were disabled become real. Changing their type runs the move of section A for every object (one job, one backup); trashing them is the trash job of 6A. The definition is removed last, so a cancelled or failed job leaves the type in place.</p>
+<div class="grid2">
+<div class="dlg" role="dialog" aria-labelledby="f1-h" aria-modal="true">
+<h3 id="f1-h">Delete type “Idea”?</h3>
+<p><b>10 ideas</b> use this type. Choose what happens to them.</p>
+<div role="radiogroup" aria-label="What happens to the objects" style="display: flex; flex-direction: column; gap: 8px">
+<label class="radio sel"><input type="radio" name="f1" checked style="margin: 2px 0 0"><span style="flex: 1"><b>Change their type to</b>
+<span style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><select style="height: 32px; padding: 0 8px; min-width: 180px"><option>Page</option><option>Quick Note</option><option>Task</option><option>Meeting</option><option>Project</option></select><span style="color: var(--muted)">→ files move to <code>Pages/</code></span></span>
+<span style="display: block; color: var(--muted); margin-top: 6px">Idea properties stay in the files under Other properties.</span></span></label>
+<label class="radio"><input type="radio" name="f1" style="margin: 2px 0 0"><span><b>Move them to the trash</b><br><span style="color: var(--muted)">10 files go to <code>.trash/</code>; notes that link to them show <i>moved to trash</i>.</span></span></label>
+</div>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first. The type file and <code>_templates/Idea/</code> go to the trash after the objects are done.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete type and change 10 ideas</button></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">F2 · Report, and the type-settings route afterwards</div>
+<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Idea · 10 ideas are now Pages</span><button class="act">Undo</button></div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 520px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: var(--muted)">Pages / Type settings</div>
+<div style="font-size: 15px; font-weight: 600">This type no longer exists.</div>
+<div style="font-size: 13px; color: var(--muted)">Idea was deleted. Its 10 objects are Pages now. <a href="#" style="color: var(--link)">Undo</a> · <a href="#" style="color: var(--link)">Open Settings › Backups</a></div>
+</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">F3 · Delete type section in type settings (replaces the v1.0 text)</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; max-width: 520px; display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 13px">Deleting Idea asks what to do with its 10 ideas: change their type or move them to the trash. A backup is made first.</p>
+<div><button class="b" style="border-color: var(--danger); color: var(--danger); font-weight: 600">Delete Idea type…</button></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- G · Shared rules -->
+<section class="card" aria-labelledby="h-g">
+<h2 id="h-g" style="margin: 0; font-size: 20px; font-weight: 650">G · Shared behaviour of every 4E job</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; font-size: 13px; line-height: 1.5">
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Plan, then confirm</b><span style="color: var(--muted)">The dialog shows the counts the core planned: files, links, names that get a suffix. Cancel leaves the vault byte-identical.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Backup first</b><span style="color: var(--muted)">Multi-file jobs make the backup zip (D-57) before the first write; it is listed in Settings › Backups. A single-file type move does not.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Only the affected files</b><span style="color: var(--muted)">Each file is rewritten by a text edit of its own lines; bytes outside them stay. Files changed by another app meanwhile are skipped and listed.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Progress, not a modal</b><span style="color: var(--muted)">The status strip of 4C: count, Cancel while planning, then Undo for 5 s and in the palette. An open note gets its edits as one undo step in the editor.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Not updated list</b><span style="color: var(--muted)">Skipped files show title, path and reason with Open, Retry and Retry all, as for links after a rename.</span></div>
+<div class="note" style="flex-direction: column; gap: 6px; color: var(--text)"><b>Never on system types</b><span style="color: var(--muted)">Daily Note, Tag, Image and PDF are neither targets nor sources of a type move; their built-in keys cannot be renamed or removed.</span></div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1680,"height":3140}}'>
+class Component extends DCLogic {
+renderVals() {
+const ok = { bg: 'var(--accent-bg)', fg: 'var(--accent)' };
+const bad = { bg: 'var(--danger-bg)', fg: 'var(--danger)' };
+const rows = [
+{ title: 'Offsite plan', from: '2', to: '2', ...ok },
+{ title: 'Async standups', from: '1', to: '1', ...ok },
+{ title: 'Garden office', from: 'high', to: "doesn't fit", ...bad },
+{ title: 'Reading club', from: '3', to: '3', ...ok },
+{ title: 'Notebook sync', from: 'later', to: "doesn't fit", ...bad },
+{ title: 'Czech lessons', from: '1', to: '1', ...ok }
+];
+return { themeClass: (this.props.dark ?? false) ? 'dark' : '', rows };
+}
+}
+</script>
+</body>
+</html>

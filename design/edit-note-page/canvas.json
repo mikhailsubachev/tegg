@@ -189,6 +189,14 @@
       "y": 0,
       "page": "page-mindmap",
       "title": "Mindmap · layouts (right, spider) and map editing"
+    },
+    "TypeJobs.dc.html": {
+      "h": 3140,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-4e",
+      "title": "Type moves and schema rewrites · dialogs (4E)"
     }
   },
   "createdOnFiles": {
@@ -223,7 +231,8 @@
     "TagsAll.dc.html",
     "TagPage.dc.html",
     "TagPagePostMVP.dc.html",
-    "MindmapLayouts.dc.html"
+    "MindmapLayouts.dc.html",
+    "TypeJobs.dc.html"
   ],
   "pages": [
     {
@@ -237,6 +246,10 @@
     {
       "id": "page-mindmap",
       "name": "Mindmap"
+    },
+    {
+      "id": "page-4e",
+      "name": "Type moves & schema (4E)"
     }
   ],
   "title": "Tegg – Edit note page"
