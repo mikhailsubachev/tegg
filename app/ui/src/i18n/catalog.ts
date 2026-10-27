@@ -89,7 +89,6 @@ export const en: Catalog = {
   'ctl.rowRecurrence': 'recurrence',
   'ctl.font': 'Font',
   'ctl.fontSize': 'Font size',
-  'ctl.editorWidth': 'Editor width',
   'ctl.accentColor': 'Accent color',
   'ctl.typePicker': 'Type picker',
 

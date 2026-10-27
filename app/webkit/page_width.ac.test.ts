@@ -368,11 +368,12 @@ test('fr_set_02_ac8_a_virtual_daily_note_is_keyed_by_path_then_by_id', async ({ 
 
 // ================================================================================================ FR-SET-02 AC-9
 
-/** Tabs from the focused element until a radio of the group has the focus (at most `max` stops); returns the stops. */
-async function tabToGroup(page: Page, max = 14): Promise<{ role: string; name: string }[]> {
+/** ⇧Tabs from the focused element (AP-762, owner 2026-10-27: the toolbar sits above the note, so the group is reached
+ *  backwards from the type chip) until a radio of the group has the focus (at most `max` stops); returns the stops. */
+async function tabToGroup(page: Page, max = 14, key = 'Shift+Tab'): Promise<{ role: string; name: string }[]> {
   const stops: { role: string; name: string }[] = [];
   for (let i = 0; i < max; i++) {
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(key);
     const f = await focusName(page);
     stops.push(f);
     if (f.role === 'radio' && /^(Normal|Wide)$/.test(f.name)) break;
@@ -385,10 +386,10 @@ test('fr_set_02_ac9_tab_reaches_the_checked_radio_and_arrows_space_enter_choose'
   await startShell(page);
   await openNote(page, PORADA);
   await needGroup(page, 'Porada');
-  await (await must(titleField(page), 'Title')).focus();
+  await (await must(main(page).getByRole('link', { name: /^Type: / }), 'the type chip')).focus();
   const stops = await tabToGroup(page);
   const last = stops[stops.length - 1];
-  assert.deepEqual(last, { role: 'radio', name: 'Normal' }, `Tab from the title reaches the group, landing on the checked radio (stops: ${stops.map((s) => `${s.role} ${s.name}`).join(' → ')})`);
+  assert.deepEqual(last, { role: 'radio', name: 'Normal' }, `⇧Tab from the type chip reaches the group, landing on the checked radio (stops: ${stops.map((s) => `${s.role} ${s.name}`).join(' → ')})`);
   await page.keyboard.press('Tab');
   const next = await focusName(page);
   assert.ok(!(next.role === 'radio' && /^(Normal|Wide)$/.test(next.name)), `the unchecked radio is not a Tab stop (next stop: ${next.role} ${next.name})`);
@@ -418,9 +419,9 @@ test('fr_set_02_ac9_keyboard_only_run_from_search_to_back', async ({ page }) => 
   await startShell(page);
   await openNote(page, PORADA); // ⇧⌘F, the title typed, ⏎: keyboard only
   await needGroup(page, 'Porada');
-  await (await must(titleField(page), 'Title')).focus();
+  await (await must(main(page).getByRole('link', { name: /^Type: / }), 'the type chip')).focus();
   const stops = await tabToGroup(page);
-  assert.deepEqual(stops[stops.length - 1], { role: 'radio', name: 'Normal' }, 'Tab reaches the checked radio');
+  assert.deepEqual(stops[stops.length - 1], { role: 'radio', name: 'Normal' }, '⇧Tab from the type chip reaches the checked radio');
   await page.keyboard.press('ArrowRight');
   await mustBeWidth(page, 'wide', '→ sets Wide');
   await openNote(page, UVODNI);
@@ -449,7 +450,10 @@ test('fr_sto_07_ac4_one_ui_state_set_per_change_keyed_by_id_and_nothing_in_the_v
   assert.deepEqual(dto.noteWidth, { [STALE_ID]: 'wide', [PORADA_ID]: 'wide' }, 'noteWidth: the stale entry kept (no pruning), Porada\'s id → wide');
   const { noteWidth: _a, ...restNew } = dto;
   const { noteWidth: _b, ...restOld } = prev;
-  assert.deepEqual(restNew, restOld, 'every other field unchanged');
+  // AP-764 (owner 2026-10-27): the UI writes the state as it reads it, with the defaults of fields a 3A-era file lacks
+  // (ms3-shell §3, §11.2, §14.7.1).
+  const asRead = { propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false, ...restOld };
+  assert.deepEqual(restNew, asRead, 'every other field unchanged (missing fields read as their defaults)');
   await choose(page, 'Normal');
   await mustBeWidth(page, 'normal', 'Normal');
   const sets2 = await eventually(() => uiSets(core), (c) => c.length >= n0 + 2, 2000);
@@ -478,7 +482,10 @@ test('fr_sto_07_ac4_missing_note_width_reads_as_empty_and_the_entry_follows_the_
   await openNote(page, UVODNI);
   const renamed = 'Schůzky/2026-10-07 Porada týmu.md';
   await core.renameFile(P.porada, renamed); // another program renames the file, same id; vault:changed
-  await openNote(page, '2026-10-07 Porada týmu');
+  // AP-763 (owner 2026-10-27): the note keeps its frontmatter title (FR-FMT-08); it is opened by it and its path checked.
+  await openNote(page, PORADA);
+  const reads = (await core.calls()).filter((c) => c.cmd === 'note_read').map((c) => String((c.args as any)?.path ?? '').normalize('NFC'));
+  assert.equal(reads[reads.length - 1], renamed, 'the opened file is the renamed one');
   await mustBeWidth(page, 'wide', 'the renamed note (same id) opens Wide');
   assert.deepEqual(await noteWidthOf(core), { [PORADA_ID]: 'wide' }, 'the entry is keyed by the id, not the path');
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');
@@ -993,7 +1000,8 @@ test('nfr_oth_02_ac9_pseudo_locale_wraps_every_width_string_and_leaves_user_cont
   assert.equal(rows.length, 2, `the two palette rows (got ${rows.join(' | ') || 'none'})`);
   assert.ok(rows.every(wrapped), `the two palette rows are wrapped: ${rows.join(' | ')}`);
   await page.keyboard.press('Escape');
-  const title = await titleField(page).first().evaluate((e) => (e as HTMLInputElement).value ?? e.textContent ?? '').catch(() => '');
+  // The title field's accessible name is itself a catalog string (`⟦Title⟧` here), so the locator tolerates the wrap.
+  const title = await page.getByRole('textbox', { name: /^⟦?Title⟧?$/ }).first().evaluate((e) => (e as HTMLInputElement).value ?? e.textContent ?? '').catch(() => '');
   assert.equal(nfc(title), PORADA, 'the note\'s title stays user content');
   const body = flat(await editorBody(page).first().innerText());
   assert.ok(body.includes('Týdenní porada') && !body.includes('⟦'), `the body stays user content: ${body.slice(0, 60)}`);

@@ -89,7 +89,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | Starter vault | chooser, New vault form | MS3 (3D) | FR-VLT-02 |
 | Edit | note toolbar | MS3 (3C) | FR-EDT-01 |
 | Filter, Sort, Views, New <Type> | type page | MS3 (3D) | FR-TYP-09 |
-| Font, Font size, Editor width, Accent color | Settings: Appearance | MS3 (3E) | FR-SET-02 |
+| Font, Font size, Accent color | Settings: Appearance | MS3 (3E) | FR-SET-02 | (`Editor width` retired by slice PW, AP-761, owner 2026-10-27: the note page's `Page width` switch and the vault default replace it, page-width.md) |
 
 ### R4. Shortcuts (main window)
 

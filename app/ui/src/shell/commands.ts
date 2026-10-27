@@ -121,7 +121,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
-  'ctl.editorWidth': 'settings.editorWidth',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
   'tasks.sort': 'tasks.sort',

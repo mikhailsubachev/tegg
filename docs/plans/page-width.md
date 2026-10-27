@@ -65,7 +65,7 @@ preferred (default) layout; if not, the current layout stays the default and not
 ## 6. Red-test points (AP-761…AP-764; found while making the tests green, 2026-10-27)
 
 Four tests of `app/webkit/page_width.ac.test.ts` assert something the app can't satisfy as written; each needs the
-owner's answer (an `AC-Test-Change` trailer, TS-I3) and stays red until then.
+owner's answer (an `AC-Test-Change` trailer, TS-I3). **Approved by the owner on 2026-10-27 as proposed** and applied: `Editor width` left R3 (app-shell.md, `shell-tables.ts`, `registry_5b.ac.test.ts`), the three tests read as the proposals say.
 
 | AP | Point | Proposal | Alternative |
 | --- | --- | --- | --- |
