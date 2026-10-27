@@ -2,8 +2,8 @@
 // D-66, D-190): types 200 characters, one every 40 ms, into the built app through System Events, and reads the latency
 // probe's lines `{"mark":"key","frame":<n>,"ms":<float>}` from TEGG_PERF_LOG. The display should run at 60 Hz for the
 // gated run (D-190; set by the owner before the run). No assertions about the AC outcome here.
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { osa } from './helpers/osa.ts'; // D-758: keys only while Tegg is frontmost
 
 export type KeyLine = { mark: string; frame?: number; ms: number };
 
@@ -14,7 +14,7 @@ export function keyLines(log: string): KeyLine[] {
 
 /** 200 keystrokes, one every 40 ms, in one AppleScript run (per-key osascript calls would be slower than 40 ms). */
 export function type200(char = 'a') {
-  execFileSync('osascript', ['-e', `tell application "System Events"\nrepeat 200 times\nkeystroke "${char}"\ndelay 0.04\nend repeat\nend tell`]);
+  osa('tell application "System Events"', 'repeat 200 times', `keystroke "${char}"`, 'delay 0.04', 'end repeat', 'end tell');
 }
 
 export function summary(lines: KeyLine[]) {
