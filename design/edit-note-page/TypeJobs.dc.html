@@ -47,45 +47,73 @@ body:has(.tg.dark){background:#111113}
 .tg .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 </style>
 </helmet>
-<div class="tg {{themeClass}}" style="width: 1680px; min-height: 3140px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 28px">
+<div class="tg {{themeClass}}" style="width: 1680px; min-height: 3260px; box-sizing: border-box; padding: 56px 64px; background: var(--board); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 28px">
 
 <div style="display: flex; align-items: flex-end; gap: 24px">
 <div style="flex: 1">
 <div style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">Slice 4E · FR-STO-04, FR-TYP-04, FR-TYP-05, FR-TYP-07 · D-803</div>
 <h1 style="margin: 6px 0 0; font-size: 40px; line-height: 1.1; font-weight: 700">Type moves and schema rewrites: the dialogs</h1>
 </div>
-<p style="margin: 0; max-width: 640px; font-size: 15px; color: var(--muted); line-height: 1.5">Every operation here is a job: it shows what it will touch, makes a backup, writes only the affected files and reports. The confirmation dialogs below are the designs the type settings board does not draw. The progress strip, <b>Undo</b> and the <i>not updated</i> list are reused from note rename (4C).</p>
+<p style="margin: 0; max-width: 640px; font-size: 15px; color: var(--muted); line-height: 1.5">Every operation here is a job: it shows what it will touch, makes a backup, writes only the affected files and reports. The dialogs below are the designs the type settings board does not draw. The progress strip, <b>Undo</b> and the <i>not updated</i> list are reused from note rename (4C).</p>
 </div>
 
-<!-- A · Type change moves the file -->
+<!-- A · Change type: property mapping -->
 <section class="card" aria-labelledby="h-a">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-a" style="margin: 0; font-size: 20px; font-weight: 650">A · Changing an object's type moves its file</h2><span class="tag">FR-STO-04 · FR-TYP-07 · D-224 ends</span></div>
-<p class="lead">From <b>Change type…</b> (palette or the note's More menu) and from the Inbox's <b>Convert to…</b>. One file, so no backup zip: the move is one atomic rename. Links keep resolving by file name; a taken name gets a <code>(2)</code> suffix and the links to it are rewritten (FR-LNK-14).</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-a" style="margin: 0; font-size: 20px; font-weight: 650">A · Changing an object's type: map the properties</h2><span class="tag">FR-TYP-07 · FR-STO-04 · D-804</span></div>
+<p class="lead">From <b>Change type…</b> (palette, the note's More menu) and the Inbox's <b>Convert to…</b>. When the two types have different properties, the dialog shows how each property of the object maps to the new type. A property mapped to <b>Content</b> is written at the top of the note as a bold label line, so nothing is lost. The file moves to the new type's folder quietly; the user is not told about the path or a suffix.</p>
 <div class="grid2">
-<div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A1 · Plain move</div>
-<div class="dlg" role="dialog" aria-labelledby="a1-h" aria-modal="true">
-<h3 id="a1-h">Change type to Meeting?</h3>
-<p><b>Offsite plan</b> moves from <code>Ideas/</code> to <code>Meetings/</code>. Its links and backlinks keep working.</p>
-<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span><b>Status</b> and <b>Related ideas</b> are not Meeting properties. They stay in the file under <i>Other properties</i>; nothing is removed or added.</span></div>
+<div class="dlg" role="dialog" aria-labelledby="a1-h" aria-modal="true" style="width: 640px">
+<div style="display: flex; align-items: center; gap: 10px"><h3 id="a1-h" style="flex: 1">Change type?</h3><button aria-label="Close" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 14px">
+<span style="display: inline-flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 7px; background: var(--idea-bg); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--idea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"></path></svg></span><b>Idea</b></span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<label style="display: inline-flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 7px; background: var(--accent-bg); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg></span><span class="sr" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">New type</span><select style="height: 32px; padding: 0 8px; font-weight: 600"><option>Meeting</option><option>Page</option><option>Quick Note</option><option>Task</option><option>Project</option></select></label>
+</div>
+<div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--row); font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"></path></svg>Property mapping<span style="flex: 1"></span><span style="font-weight: 400; color: var(--muted)">Idea → Meeting</span></div>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{maps}}" as="m" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px minmax(0, 1.2fr); align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.icon}}"></path></svg><span>{{m.name}}</span><span style="color: var(--faint); font-size: 12px">{{m.kind}}</span></span>
+<span style="display: inline-flex; justify-content: center; color: var(--o)" title="{{m.warnTitle}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{m.warn}}"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">{{m.name}} maps to</span><select style="height: 32px; padding: 0 8px; width: 100%; font-weight: {{m.weight}}; color: {{m.fg}}" disabled="{{m.fixed}}"><option>{{m.to}}</option></select></label>
+</div>
+</sc-for>
+</div>
+</div>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Properties mapped to <b>Content</b> are written at the top of the note as <b>Property:</b> value, one line each. Meeting's <b>Date</b> and <b>Location</b> start empty.</span></div>
+<div class="note warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span><b>Related ideas</b> → <b>Attendees</b>: Attendees links People only; 3 of the 3 linked ideas don't fit and would be dropped. Map it to Content to keep them.</span></div>
 <div class="actions"><button class="b">Cancel</button><button class="b primary">Change type</button></div>
 </div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A2 · The note afterwards: mapped properties keep their lines, the rest moved into the content</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; max-width: 520px; font-size: 13px; line-height: 1.6">
+<div style="font-size: 12px; color: var(--muted); margin-bottom: 8px">Meetings/Offsite plan.md</div>
+<div class="mono" style="color: var(--muted); font-size: 12.5px; white-space: pre-wrap">---
+id: 01J9…
+type: meeting
+title: Offsite plan
+tags: [offsite, q4]
+status: developing
+---</div>
+<div style="margin-top: 10px"><b>Related ideas:</b> [[Async standups]], [[Garden office]], [[Reading club]]<br><b>Origin URL:</b> https://example.com/offsite</div>
+<div style="margin-top: 10px">We want two days in October, ideally outside Prague…</div>
 </div>
-<div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A2 · The name is taken in the target folder</div>
-<div class="dlg" role="dialog" aria-labelledby="a2-h" aria-modal="true">
-<h3 id="a2-h">Change type to Meeting?</h3>
-<p><b>Offsite plan</b> moves from <code>Ideas/</code> to <code>Meetings/</code>.</p>
-<div class="note warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span><code>Meetings/Offsite plan.md</code> already exists. The file becomes <code>Offsite plan (2).md</code> and the <b>4 links</b> to it are rewritten to <code>[[Offsite plan (2)|Offsite plan]]</code>. The title stays <b>Offsite plan</b>.</span></div>
-<div class="actions"><button class="b">Cancel</button><button class="b primary">Change type</button></div>
-</div>
-</div>
-</div>
-<div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">A3 · Status strip after the move (role=status, no dialog; reused from 4C)</div>
-<div style="display: flex; gap: 16px; flex-wrap: wrap">
-<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Now a Meeting · moved to <code>Meetings/</code></span><button class="act">Undo</button></div>
-<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Now a Meeting · updated links in 4 notes</span><button class="act">Undo</button></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span><code>status</code> kept its line because it maps to Meeting's Status (same key). The label lines use the property's display name and the value as it would be shown; links stay links. The file moved to <code>Meetings/</code> without a message; a taken name got a <code>(2)</code> suffix and its links were rewritten, silently.</span></div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 4px">A3 · Default mapping and when the dialog appears</div>
+<table style="max-width: 520px">
+<thead><tr><th>Case</th><th>Default</th></thead>
+<tbody>
+<tr><td>Same key in both types</td><td>that property (fixed when the value type is the same; built-ins Title, Tags, Description always)</td></tr>
+<tr><td>Same value type, different key</td><td>Content; the matching properties are offered in the menu</td></tr>
+<tr><td>No match</td><td>Content</td></tr>
+<tr><td>Chosen target of another value type</td><td>warning icon and the note under the table (values that don't fit are dropped), as E's rules</td></tr>
+<tr><td>Every property has the same key in the new type</td><td>no dialog: the type changes at once (Inbox Convert to… included)</td></tr>
+<tr><td>Empty value</td><td>row shown greyed, nothing written</td></tr>
+</tbody>
+</table>
+<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Now a Meeting</span><button class="act">Undo</button></div>
 </div>
 </div>
 </section>
@@ -278,7 +306,7 @@ body:has(.tg.dark){background:#111113}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1680,"height":3140}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1680,"height":3260}}'>
 class Component extends DCLogic {
 renderVals() {
 const ok = { bg: 'var(--accent-bg)', fg: 'var(--accent)' };
@@ -291,7 +319,16 @@ const rows = [
 { title: 'Notebook sync', from: 'later', to: "doesn't fit", ...bad },
 { title: 'Czech lessons', from: '1', to: '1', ...ok }
 ];
-return { themeClass: (this.props.dark ?? false) ? 'dark' : '', rows };
+const P = { text: 'M5 6h14M12 6v13', tag: 'M20 12l-8 8-9-9V4h7z', sel: 'M8 10l4 4 4-4M4 5h16v14H4z', rel: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1', url: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18', list: 'M4 6h16M4 12h16M4 18h16' };
+const maps = [
+{ name: 'Title', kind: 'Text', icon: P.text, to: 'Title', fixed: 'true' },
+{ name: 'Tags', kind: 'Tags', icon: P.tag, to: 'Tags', fixed: 'true' },
+{ name: 'Status', kind: 'Select', icon: P.sel, to: 'Status', fixed: 'false' },
+{ name: 'Related ideas', kind: 'Relation · Ideas', icon: P.rel, to: 'Attendees', fixed: 'false', warn: 1, warnTitle: 'Attendees links People only; linked ideas would be dropped' },
+{ name: 'Origin URL', kind: 'URL', icon: P.url, to: 'Content', fixed: 'false', content: true },
+{ name: 'Effort', kind: 'Number', icon: P.text, to: 'Content', fixed: 'false', content: true }
+].map((m) => ({ ...m, warn: m.warn ? 1 : 0, warnTitle: m.warnTitle ?? '', weight: m.content ? '400' : '500', fg: m.content ? 'var(--muted)' : 'var(--text)' }));
+return { themeClass: (this.props.dark ?? false) ? 'dark' : '', rows, maps };
 }
 }
 </script>
