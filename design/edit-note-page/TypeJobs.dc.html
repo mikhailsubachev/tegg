@@ -83,7 +83,7 @@ body:has(.tg.dark){background:#111113}
 </div>
 </div>
 <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Properties mapped to <b>Content</b> are written at the top of the note as <b>Property:</b> value, one line each. Meeting's <b>Date</b> and <b>Location</b> start empty.</span></div>
-<div class="note warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span><b>Related ideas</b> → <b>Attendees</b>: Attendees links People only; 3 of the 3 linked ideas don't fit and would be dropped. Map it to Content to keep them.</span></div>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span><b>Related ideas</b> has no target: Attendees is a Relation to People only, a narrower type, so it is not offered (D-808). Content keeps the links as a line at the top of the note.</span></div>
 <div class="actions"><button class="b">Cancel</button><button class="b primary">Change type</button></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 12px">
@@ -108,7 +108,7 @@ status: developing
 <tr><td>Same key in both types</td><td>that property (fixed when the value type is the same; built-ins Title, Tags, Description always)</td></tr>
 <tr><td>Same value type, different key</td><td>Content; the matching properties are offered in the menu</td></tr>
 <tr><td>No match</td><td>Content</td></tr>
-<tr><td>Chosen target of another value type</td><td>warning icon and the note under the table (values that don't fit are dropped), as E's rules</td></tr>
+<tr><td>Target property of a narrower value type</td><td>not offered in the menu (D-808); the same or a wider type is, so no mapped value is ever dropped</td></tr>
 <tr><td>Every property has the same key in the new type</td><td>no dialog: the type changes at once (Inbox Convert to… included)</td></tr>
 <tr><td>Empty value</td><td>row shown greyed, nothing written</td></tr>
 </tbody>
@@ -168,71 +168,69 @@ status: developing
 </div>
 </section>
 
-<!-- D · Delete property, remove values -->
+<!-- D · Delete property removes the values (D-807) -->
 <section class="card" aria-labelledby="h-d">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-d" style="margin: 0; font-size: 20px; font-weight: 650">D · Deleting a property: keep or remove the values</h2><span class="tag">FR-TYP-04 · D-228 · types.md AC-4</span></div>
-<p class="lead">The existing dialog gains its second choice. <b>Keep values in notes</b> stays the default and writes only the type file; <b>Remove values from 10 notes</b> is a job.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-d" style="margin: 0; font-size: 20px; font-weight: 650">D · Deleting a property removes it everywhere</h2><span class="tag">D-807 · supersedes D-228 · FR-TYP-04 · types.md AC-4</span></div>
+<p class="lead">One dialog, no choice. Confirming removes the property from the type and its line from every object that has one, as one job: backup first, only those files written, undo in the status strip. There is no <i>Keep values in notes</i>: an orphan value is what a hand-written key is, not what a deleted property leaves behind.</p>
 <div class="grid2">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">D1 · Confirmation, with the count the core planned</div>
 <div class="dlg" role="dialog" aria-labelledby="d1-h" aria-modal="true">
 <h3 id="d1-h">Delete property “Origin URL”?</h3>
-<div role="radiogroup" aria-label="What happens to the values" style="display: flex; flex-direction: column; gap: 8px">
-<label class="radio sel"><input type="radio" name="d1" checked style="margin: 2px 0 0"><span><b>Keep values in notes</b><br><span style="color: var(--muted)">They stay in the files and show under Other properties.</span></span></label>
-<label class="radio"><input type="radio" name="d1" style="margin: 2px 0 0"><span><b>Remove values from 7 notes</b><br><span style="color: var(--muted)">Deletes the <code>origin-url</code> line from each file. Backup first; undoable.</span></span></label>
+<p>Removes the <code>origin-url</code> line from <b>7 ideas</b>; 3 have no value and are not touched.</p>
+<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>A backup of the vault is made first (Settings › Backups). Undo restores the values and the property.</span></div>
+<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete from 7 notes</button></div>
 </div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px">D2 · No object has a value: type file only, no job</div>
+<div class="dlg" role="dialog" aria-labelledby="d2-h" aria-modal="true" style="width: 460px">
+<h3 id="d2-h">Delete property “Effort”?</h3>
+<p style="color: var(--muted)">No idea has a value. Only the type definition changes.</p>
 <div class="actions"><button class="b">Cancel</button><button class="b danger">Delete property</button></div>
 </div>
-<div style="display: flex; flex-direction: column; gap: 10px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">D2 · With “Remove values” chosen, the button names the count</div>
-<div class="dlg" role="dialog" aria-labelledby="d2-h" aria-modal="true" style="width: 460px">
-<h3 id="d2-h">Delete property “Origin URL”?</h3>
-<p style="color: var(--muted)">Remove values from 7 notes selected. 3 ideas have no value and are not touched.</p>
-<div class="actions"><button class="b">Cancel</button><button class="b danger">Delete and remove from 7 notes</button></div>
 </div>
-<div class="status" role="status" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Origin URL · removed values from 7 notes</span><button class="act">Undo</button></div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">D3 · Report (status element, reused from 4C)</div>
+<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start">
+<div class="status" role="status"><span>Deleting Origin URL · 4 of 7</span><span class="bar" aria-hidden="true"><i></i></span><button class="act">Cancel</button></div>
+<div class="status" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg><span>Deleted Origin URL · removed values from 7 notes</span><button class="act">Undo</button></div>
+</div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Each file loses only its <code>origin-url</code> line, re-checked at write time (FR-STO-01 AC-7); a file changed meanwhile is skipped and listed. The type file drops the item and its <code>preview</code> key in the same job (FR-TYP-09 AC-2). Hand-written keys and orphans of a type change stay under Other properties.</span></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Changes types.md FR-TYP-04 AC-4 and the strings <i>Keep values in notes</i> / <i>Remove values from n notes</i> (the test change is approved by D-807).</span></div>
 </div>
 </div>
 </section>
 
-<!-- E · Value conversion on retype -->
+<!-- E · Retype only widens (D-808) -->
 <section class="card" aria-labelledby="h-e">
-<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-e" style="margin: 0; font-size: 20px; font-weight: 650">E · Changing a property's type: the conversion preview</h2><span class="tag">D-227 · AP-18 preview · types.md FR-TYP-02 AC-11</span></div>
-<p class="lead">Today a retype keeps the files untouched and shows misfits as invalid. With 4E the dialog previews what each value becomes and lets the user choose to rewrite the files or leave them. The preview lists at most 8 rows and counts the rest.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 id="h-e" style="margin: 0; font-size: 20px; font-weight: 650">E · A property's type can only widen</h2><span class="tag">D-808 · supersedes D-227 retype and AP-18 · types.md FR-TYP-03 AC-11</span></div>
+<p class="lead">No conversion, no preview, no misfit dialog. The <b>Type</b> menu offers only types in which every stored value stays valid as written (Number → Text, Select → Multi-select, …); the narrowing direction is disabled. A widening retype writes only the type file, like any other schema edit. A narrower type is a new property.</p>
 <div class="grid2">
-<div class="dlg" role="dialog" aria-labelledby="e1-h" aria-modal="true" style="width: 640px">
-<h3 id="e1-h">Change “Priority” from Text to Number?</h3>
-<p>10 ideas have a value. <b>8 convert</b>, <b>2 don't fit</b> Number.</p>
-<table>
-<thead><tr><th>Idea</th><th>Now (Text)</th><th>Becomes (Number)</th></tr></thead>
-<tbody>
-<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
-<tr><td>{{r.title}}</td><td><code>{{r.from}}</code></td><td><span class="chip" style="background: {{r.bg}}; color: {{r.fg}}">{{r.to}}</span></td></tr>
-</sc-for>
-</tbody>
-</table>
-<div style="font-size: 12px; color: var(--muted)">and 4 more that convert</div>
-<div role="radiogroup" aria-label="Values that don't fit" style="display: flex; flex-direction: column; gap: 8px">
-<label class="radio sel"><input type="radio" name="e1" checked style="margin: 2px 0 0"><span><b>Rewrite the 8 values, leave the 2 that don't fit</b><br><span style="color: var(--muted)">They stay as written and show as invalid until edited.</span></span></label>
-<label class="radio"><input type="radio" name="e1" style="margin: 2px 0 0"><span><b>Change the type only</b><br><span style="color: var(--muted)">No file is written (today's behaviour). Text values that read as numbers still work.</span></span></label>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">E1 · Type settings › Properties › Effort (Number), the Type menu open</div>
+<div style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 520px; position: relative">
+<label class="field">Name<input type="text" value="Effort"></label>
+<label class="field">Type<div role="combobox" aria-expanded="true" style="height: 34px; border: 1px solid var(--text); border-radius: 8px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; font-size: 13px"><span>Number</span><span style="color: var(--muted)">⌄</span></div></label>
+<div role="listbox" aria-label="Type" style="grid-column: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 1px">
+<div role="option" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px"><span style="width: 14px"></span><span style="flex: 1">Text</span></div><div role="option" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px"><span style="width: 14px"></span><span style="flex: 1">Long text</span></div><div role="option" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px"><span style="width: 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span><span style="flex: 1">Number</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Checkbox</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Date</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Date-time</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Date range</span><span style="font-size: 11px">other storage</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Select</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Multi-select</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">URL</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Email</span><span style="font-size: 11px">narrower</span></div><div role="option" aria-disabled="true" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--muted)"><span style="width: 14px"></span><span style="flex: 1">Relation</span><span style="font-size: 11px">narrower</span></div>
+<div style="font-size: 11px; color: var(--muted); padding: 6px 10px 4px; border-top: 1px solid var(--border); margin-top: 4px">Only a more general type; values stay as written.</div>
 </div>
-<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M10 12h4"></path></svg><span>Rewriting makes a backup first and is undoable.</span></div>
-<div class="actions"><button class="b">Cancel</button><button class="b primary">Change type and rewrite 8 ideas</button></div>
+</div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 12px">
-<div style="font-size: 12px; font-weight: 600; color: var(--muted)">E2 · Conversion rules shown in the Becomes column</div>
+<div style="font-size: 12px; font-weight: 600; color: var(--muted)">E2 · What widens into what</div>
 <table style="max-width: 520px">
-<thead><tr><th>From → to</th><th>Converts when</th><th>Otherwise</th></tr></thead>
+<thead><tr><th>From</th><th>Offered targets</th></tr></thead>
 <tbody>
-<tr><td>Text → Number</td><td>the text is a number (<code>12</code>, <code>3.5</code>, <code>-2</code>)</td><td>doesn't fit</td></tr>
-<tr><td>Text → Date</td><td>it parses as a date; written as <code>YYYY-MM-DD</code> (FR-FMT-11)</td><td>doesn't fit</td></tr>
-<tr><td>Text → Select</td><td>it equals an option (case-insensitive, NFC)</td><td>doesn't fit; <i>Add as option</i> offered per value</td></tr>
-<tr><td>Select → Multi-select</td><td>always: one value becomes a one-item list</td><td>—</td></tr>
-<tr><td>Multi-select → Select</td><td>the list has one item</td><td>doesn't fit (the first item is offered)</td></tr>
-<tr><td>Number, Date, Select → Text</td><td>always, as written</td><td>—</td></tr>
-<tr><td>Checkbox ↔ anything</td><td><code>true</code>/<code>false</code> ↔ text only</td><td>doesn't fit</td></tr>
-<tr><td>Relation ↔ anything</td><td>never</td><td>the retype is refused with a message</td></tr>
+<tr><td>Number, Checkbox, Date, Date-time, URL, Email</td><td>Text, Long text</td></tr>
+<tr><td>Date</td><td>also Date-time</td></tr>
+<tr><td>Select</td><td>Multi-select, Text, Long text</td></tr>
+<tr><td>Multi-select, Relation</td><td>Text, Long text</td></tr>
+<tr><td>Text ↔ Long text</td><td>each other (same storage)</td></tr>
+<tr><td>Date range</td><td>nothing (two keys, FR-TYP-02); delete and add</td></tr>
 </tbody>
 </table>
-<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Proposal for the plan's AP point on conversion rules; the table is what the owner decides, the dialog does not change with it.</span></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Dropped with the retype: <code>options</code>, <code>to</code>, <code>multiple</code> that no longer apply (as today, AC-11). No note is written, so there is nothing to back up or undo beyond the type file. Relation → Text keeps the <code>[[wikilinks]]</code> as text; they still resolve in the body of a read view.</span></div>
+<div class="note" style="max-width: 520px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16h.01M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z"></path></svg><span>Retires the misfit dialog <i>n objects have values that aren't valid for Number</i> and the <code>type_misfits</code> call (types.md FR-TYP-03 AC-11; the test change is approved by D-808). Board A's mapping follows the same rule: a narrower target property is not offered, Content is the default.</span></div>
 </div>
 </div>
 </section>
@@ -304,7 +302,7 @@ const maps = [
 { name: 'Title', kind: 'Text', icon: P.text, to: 'Title', fixed: 'true' },
 { name: 'Tags', kind: 'Tags', icon: P.tag, to: 'Tags', fixed: 'true' },
 { name: 'Status', kind: 'Select', icon: P.sel, to: 'Status', fixed: 'false' },
-{ name: 'Related ideas', kind: 'Relation · Ideas', icon: P.rel, to: 'Attendees', fixed: 'false', warn: 1, warnTitle: 'Attendees links People only; linked ideas would be dropped' },
+{ name: 'Related ideas', kind: 'Relation · Ideas', icon: P.rel, to: 'Content', fixed: 'false', content: true },
 { name: 'Origin URL', kind: 'URL', icon: P.url, to: 'Content', fixed: 'false', content: true },
 { name: 'Effort', kind: 'Number', icon: P.text, to: 'Content', fixed: 'false', content: true }
 ].map((m) => ({ ...m, warn: m.warn ? 1 : 0, warnTitle: m.warnTitle ?? '', weight: m.content ? '400' : '500', fg: m.content ? 'var(--muted)' : 'var(--text)' }));
