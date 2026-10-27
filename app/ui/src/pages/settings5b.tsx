@@ -2,6 +2,7 @@
 // D-71, D-547, D-548, D-551, D-566): Vault (portable, written to the vault one line at a time), Menu bar and startup
 // and Date & time (per machine), Shortcuts (read-only until v1.0).
 import { useCallback, useEffect, useId, useState } from 'react';
+import { WidthSwitch, pageWidthOf } from '../edit/WidthSwitch';
 import { dailyFileStem, localDate } from '@tegg/doc';
 import { collator, region as regionOf } from '../i18n/collate';
 import { firstDay, formatDate, formatDateTime, REGION_SETTING } from '../i18n/dates';
@@ -65,9 +66,9 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
     const extra = types.find((x) => x.key === s.defaultType.key);
     if (extra) options.push(extra);
   }
-  const label = (field: string) => ({ 'default-type': t('settings.vault.defaultType'), 'daily-format': t('settings.vault.dailyFormat'), attachments: t('settings.vault.attachments') } as Record<string, string>)[field] ?? field;
+  const label = (field: string) => ({ 'default-type': t('settings.vault.defaultType'), 'daily-format': t('settings.vault.dailyFormat'), attachments: t('settings.vault.attachments'), 'page-width': t('settings.vault.pageWidth') } as Record<string, string>)[field] ?? field;
 
-  const patch = async (key: 'default-type' | 'daily-format' | 'attachments', value: string) => {
+  const patch = async (key: 'default-type' | 'daily-format' | 'attachments' | 'page-width', value: string) => {
     try {
       setS(await ipc.vaultSettingsPatch(s.version, key, value));
       setErrors((e) => ({ ...e, [key]: null }));
@@ -129,6 +130,14 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
         onCommit={(v) => { const bad = folderOf(v); if (bad) return setErrors((e) => ({ ...e, attachments: bad })); void patch('attachments', v); }} />
       <div className="setting">
         <button type="button" tabIndex={0} data-command="vault.addStarterTypes" onClick={onStarter}>{t('settings.vault.starter')}</button>
+      </div>
+      {/* Slice PW (page-width.md FR-SET-01 AC-11, AP-754): the vault default for notes without their own choice; below
+          `Add starter types…` so R58's Tab order (FR-SET-01 AC-10) is unchanged. */}
+      <div className="setting">
+        <span className="setting-label">{t('settings.vault.pageWidth')}</span>
+        <WidthSwitch value={pageWidthOf(s.pageWidth)} label={t('settings.vault.pageWidth')} commands="settings.pageWidth" describedBy="page-width-note"
+          onChange={(w) => { if (w !== pageWidthOf(s.pageWidth)) void patch('page-width', w); }} />
+        <span id="page-width-note" className="setting-note">{t('settings.vault.pageWidthNote')}</span>
       </div>
     </div>
   );

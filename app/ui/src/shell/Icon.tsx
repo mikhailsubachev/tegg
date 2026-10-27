@@ -20,6 +20,9 @@ const PATHS: Record<string, string> = {
   sidebar: 'M4 5h16v14H4zM9 5v14',
   panel: 'M4 5h16v14H4zM15 5v14',
   focus: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  // Slice PW (boards LayoutNormal / LayoutWide): the page width radios.
+  'width-normal': 'M8 5v14M16 5v14M10 9h4M10 13h4',
+  'width-wide': 'M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4',
   back: 'M15 5l-7 7 7 7',
   forward: 'M9 5l7 7-7 7',
   sliders: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6',

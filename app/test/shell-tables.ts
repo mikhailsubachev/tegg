@@ -99,7 +99,6 @@ export const R3: R3Control[] = [
   // 5B R62 (D-565): the four Appearance extras are relabelled v1.0.
   { label: 'Font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Font size', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
-  { label: 'Editor width', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   { label: 'Accent color', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },
   // 5B R62: Inbox trash (D-560), the capture drop zone (D-545), shortcut editing (D-548).
   // 6A (R75): the Inbox's `Move to trash` and the capture drop zone `Add an image or PDF` are built.

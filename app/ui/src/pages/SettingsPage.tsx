@@ -82,7 +82,6 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
           <div className="setting-row">
             <Disabled control="ctl.font" />
             <Disabled control="ctl.fontSize" />
-            <Disabled control="ctl.editorWidth" />
             <Disabled control="ctl.accentColor" />
           </div>
         </div>

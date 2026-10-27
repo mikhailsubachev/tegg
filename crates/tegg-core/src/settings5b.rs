@@ -31,6 +31,8 @@ pub struct VaultSettings {
     pub daily_format: String,
     /// Raw or `_attachments`.
     pub attachments: String,
+    /// Slice PW (docs/contracts/page-width.md §2, AP-754): `normal` or `wide`; a missing or unknown value reads as `normal`.
+    pub page_width: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +40,8 @@ pub enum VaultKey {
     DefaultType,
     DailyFormat,
     Attachments,
+    /// Slice PW: `page-width` (docs/contracts/page-width.md §2).
+    PageWidth,
 }
 
 impl VaultKey {
@@ -46,6 +50,7 @@ impl VaultKey {
             VaultKey::DefaultType => "default-type",
             VaultKey::DailyFormat => "daily-format",
             VaultKey::Attachments => "attachments",
+            VaultKey::PageWidth => "page-width",
         }
     }
 }
@@ -136,6 +141,8 @@ impl Core {
             default_type: default_type_of(text.as_deref(), |k| self.type_get(k).is_some()),
             daily_format: get("daily-format", DEFAULT_FORMAT),
             attachments: get("attachments", DEFAULT_ATTACHMENTS),
+            // AP-754: only the exact value `wide` reads as wide; a missing or any other value reads as `normal`, never rewritten.
+            page_width: if get("page-width", "") == "wide" { "wide".into() } else { "normal".into() },
         }
     }
 
@@ -159,6 +166,12 @@ impl Core {
                 value
             }
             VaultKey::Attachments => check_attachments(&value).map_err(|reason| CoreError::Invalid { reason })?,
+            VaultKey::PageWidth => {
+                if value != "normal" && value != "wide" {
+                    return Err(CoreError::Invalid { reason: "Page width is normal or wide.".into() });
+                }
+                value
+            }
         };
         let (text, disk) = match self.shared.vault.read(YML) {
             Ok((b, disk)) => (String::from_utf8(b).map_err(|_| CoreError::NotUtf8)?, Some(disk)),

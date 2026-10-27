@@ -1,3 +1,7 @@
+# Its own workspace root: the core's `Cargo.toml` excludes `app`, and Cargo would otherwise walk up past a nested worktree
+# (`.claude/worktrees/<name>/`) to the main checkout's manifest, whose excludes depend on its branch (open item 19).
+[workspace]
+
 [package]
 name = "tegg-app"
 version = "0.0.0"

@@ -32,6 +32,8 @@ export type UiStateDto = {
   dateTime?: { date: string; time: string; week: string };
   /** ms5-capture §7.4 (5B, D-555): the Inbox's remembered type filter. */
   inbox?: { filter: string };
+  /** Slice PW (page-width.md §1, AP-753): the page width per note, keyed by `id`, else by the NFC path. */
+  noteWidth?: Record<string, 'normal' | 'wide'>;
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
@@ -600,7 +602,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         return { key, name: y.name ?? key, plural: y.plural ?? key, folder: y.folder ?? key, icon: y.icon ?? '', color: y.color ?? '', system: y.system === 'true', invalid: !ok };
       });
   };
-  const info = () => (state.vault ? { name: state.vault.name, path: state.path ?? `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0 } : null);
+  // Slice PW (page-width.md §2): the vault default travels with the vault info (only the exact `wide` reads as wide).
+  const info = () => (state.vault ? { name: state.vault.name, path: state.path ?? `/fake/${state.vault.name}`, placeholders: opts.placeholders ?? 0, pageWidth: /^page-width:[ \t]*wide[ \t]*$/m.test(state.vault.files['.tegg/vault.yml'] ?? '') ? 'wide' : 'normal' } : null);
   state.recent = opts.recent ? opts.recent.map((r) => ({ ...r })) : (state.vault && state.path ? [{ name: state.vault.name, path: state.path, exists: true }] : []);
   const record = (name: string, path: string) => {
     const p = path.normalize('NFC');

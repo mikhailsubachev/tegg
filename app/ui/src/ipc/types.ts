@@ -5,7 +5,12 @@ export type VaultInfo = { name: string, path: string, placeholders: number,
 /**
  * ms4-jobs §8 (D-387): renames a crash interrupted, offered as Finish or Undo; absent when there are none.
  */
-interrupted?: Array<InterruptedDto>, };
+interrupted?: Array<InterruptedDto>, 
+/**
+ * Slice PW (page-width.md §2, AP-754): the vault's default page width (`normal` | `wide`), read with the vault so
+ * opening it sends no extra command; the UI reads `vault_settings` again when `.tegg/vault.yml` changes.
+ */
+pageWidth?: string, };
 export type DateRangeDto = { 
 /**
  * `YYYY-MM-DD`, inclusive.
@@ -227,6 +232,11 @@ typeSort: { [key in string]?: TypeSortDto },
  */
 otherPropertiesOpen: boolean, 
 /**
+ * Slice PW (docs/contracts/page-width.md §1, AP-753): the chosen page width per note (`normal` | `wide`), keyed by
+ * the object's `id`, else by its NFC vault-relative path; missing reads as empty.
+ */
+noteWidth?: { [key in string]?: string }, 
+/**
  * ms5-tasks §6.3 (D-481): the Tasks page's remembered state; missing reads as the defaults.
  */
 tasks?: TasksUiDto, 
@@ -416,7 +426,11 @@ alias: string | null, };
 export type CapturedDto = { path: string, title: string, typeName: string, };
 export type CaptureDraftDto = { text: string, type: string, tags: Array<string>, due: string | null, priority: string | null, savedAt: string, };
 export type DefaultTypeDto = { raw: string | null, key: string, valid: boolean, };
-export type VaultSettingsDto = { version: VersionDto | null, defaultType: DefaultTypeDto, dailyFormat: string, attachments: string, };
+export type VaultSettingsDto = { version: VersionDto | null, defaultType: DefaultTypeDto, dailyFormat: string, attachments: string, 
+/**
+ * Slice PW (docs/contracts/page-width.md §2, AP-754): `normal` or `wide`; missing or unknown reads as `normal`.
+ */
+pageWidth: string, };
 export type ShellSettingsDto = { showStatusItem: boolean, openAtLogin: boolean, };
 export type HotkeyStateDto = { id: string, keys: string, state: string, };
 export type InboxRowDto = { path: string, id: string | null, title: string, type: string, reviewRaw: string | null, captured: string | null, created: string | null, modified: string | null, tags: Array<string>, excerpt: string, readOnly: boolean, 

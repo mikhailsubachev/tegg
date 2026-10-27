@@ -106,7 +106,6 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   // 5B R62 (D-565): the four Appearance extras are v1.0.
   { label: 'ctl.font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
-  { label: 'ctl.editorWidth', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.accentColor', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   // 5B R62: shortcut editing (D-548). 6A (R75): the Inbox's and task card's Move to trash, the capture drop zone and the
   // File row are built.
