@@ -149,7 +149,7 @@ Never listed: Q3, D2, N2, P2, Holý, DQ, DP, both templates, Smazaná. Type filt
 
 ### FR-INB-04 Converting keeps content, `id` and links
 
-- **AC-1** **Q2 to Nápad (T1).** Converting Q2 in the Inbox changes only its `type`, `review` and `modified` lines; `id`, the other frontmatter lines and the body are byte-identical; the path is unchanged. `link_resolve` from P2 for `Nápad na článek` still returns `Quick Notes/Nápad na článek.md`; Q2's backlinks still list P2; Q2's `[[Plán webu]]` still resolves to P2. *(L4; L5)*
+- **AC-1** **Q2 to Nápad (T1).** Converting Q2 in the Inbox changes only its `type`, `review` and `modified` lines; `id`, the other frontmatter lines and the body are byte-identical; the path is unchanged. `link_resolve` from P2 for `Nápad na článek` still returns `Quick Notes/Nápad na článek.md`; Q2's backlinks still list P2; Q2's `[[Plán webu]]` still resolves to P2. *(L4; L5)* *(4E, D-836: the convert moves Q2 to `Nápady/`; the three line changes are the same)*
 - **AC-2** **After a rebuild.** Deleting the index after AC-1 and reopening gives Q2 the type Nápad, the same `id`, the same links and backlinks. *(L4)*
 - **AC-3** **Property (T1, T2).** For random notes of the round-trip corpus (comments, flow and block lists, quoted scalars, CRLF, NFD, BOM, no final newline) given a random capture-target type, converting changes no byte outside the `type`, `review` and `modified` lines (inserted keys appended per D-230), keeps `id`, and leaves every link's resolution and every backlink unchanged. *(L2)*
 
