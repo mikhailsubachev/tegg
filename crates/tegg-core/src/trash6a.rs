@@ -302,6 +302,8 @@ impl Core {
             .map(|s| fold(s))
             .chain(self.types().into_iter().map(|t| fold(&t.folder)))
             .chain(std::iter::once(fold(&self.vault_settings().attachments)))
+            // D-851 (4E-2): a deleted type's folder still counts, so its objects stay one row each (FR-TYP-05 AC-10).
+            .chain(self.trashed_type_folders().iter().map(|f| fold(f)))
             .collect();
         let (mut dirs, mut files) = (Vec::new(), Vec::new());
         for e in entries {
@@ -475,6 +477,20 @@ impl Core {
     }
 
     /// §1.4: restores a row (object with its pair, file, or folder).
+    /// D-851: the `folder:` of every type definition in `.trash/.tegg/types/`.
+    fn trashed_type_folders(&self) -> Vec<String> {
+        let vault = &self.shared.vault;
+        vault.list_files().unwrap_or_default().into_iter().map(|p| nfc(&p)).filter_map(|p| {
+            let name = p.strip_prefix(".trash/.tegg/types/")?.strip_suffix(".yml")?;
+            if name.contains('/') {
+                return None;
+            }
+            let (bytes, v) = vault.read(&p).ok()?;
+            let key = name.rsplit_once(" (").map(|(k, _)| k).unwrap_or(name);
+            Some(crate::types3d::info(key, Some(&bytes), Some(v)).folder).filter(|f| !f.is_empty())
+        }).collect()
+    }
+
     /// ms4-jobs §14.9.5 (D-815, FR-TYP-05 AC-10): for a trashed note whose `type` has no definition, the trashed
     /// `.trash/.tegg/types/<key>.yml` (or its ` (n)` copy with the highest `n`, the latest trashed) and where it goes.
     fn trashed_type_file(&self, note: &str) -> Option<(String, String)> {
@@ -520,14 +536,17 @@ impl Core {
             let pair = if is_md(&path) { self.pair_of(&path).filter(|f| f.starts_with(".trash/")) } else { None };
             // ms4-jobs §14.9.5 (D-815): a note whose type has no definition brings its trashed type file back.
             let type_file = if is_md(&path) { self.trashed_type_file(&path) } else { None };
+            // The type file first (QA 4E-2 m8): if it can't come back, the note stays in the trash and nothing moved.
+            if let Some((from, to)) = &type_file {
+                vault.move_back(from, to)?;
+                vault.prune_trash(from);
+                self.shared.refresh_types();
+                self.shared.load_default_type();
+            }
             let to = vault.restore(&path)?;
             self.reindex(&to);
             moved.push(Moved { from: path, to });
             if let Some((from, to)) = type_file {
-                vault.move_back(&from, &to)?;
-                vault.prune_trash(&from);
-                self.shared.refresh_types();
-                self.shared.load_default_type();
                 moved.push(Moved { from, to });
             }
             if let Some(f) = pair {

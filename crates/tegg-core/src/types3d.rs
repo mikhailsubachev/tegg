@@ -81,7 +81,7 @@ fn type_path(key: &str) -> String {
     format!("{}/{}.yml", tegg_schema::TYPES_DIR, nfc(key))
 }
 
-fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>) -> TypeInfo {
+pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>) -> TypeInfo {
     let exists = text.is_some();
     let parsed = match text {
         Some(bytes) => match std::str::from_utf8(bytes) {

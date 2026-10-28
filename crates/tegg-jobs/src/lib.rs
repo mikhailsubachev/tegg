@@ -135,17 +135,16 @@ pub enum JobOp {
     Merge { keep: String, others: Vec<String> },
     KeyRename { r#type: String, from: String, to: String },
     /// ms4-jobs §14.9.2 (4E-2, D-807, D-814): removes `key` from every object of `r#type` that has a value, then the
-    /// property from the type file. Stub until 4E-2 is built: `start` answers `NotImplemented` (TS-I1).
+    /// property from the type file.
     ValueRemove { r#type: String, key: String },
     /// ms4-jobs §14.2 (4E-1): one or more notes to `to_type` (a type key). `mapping` applies to every note (D-813: one
-    /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557). Stub until 4E-1 is
-    /// built: `start` answers `NotImplemented` (TS-I1).
+    /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557).
     TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool, bulk: bool },
     /// ms4-jobs §14.2: `to_folder: Some(f)`: the folder save of `r#type` (D-805), every object of the type outside `f`
     /// and its subfolders. `None` with `r#type: None`: the tidy job over every defined type (D-811).
     FolderMove { r#type: Option<String>, to_folder: Option<String> },
     /// ms4-jobs §14.9.3 (4E-2, D-809, D-815): trashes every object of `r#type`, then its templates and, last, its
-    /// definition (`TypeDeleteChoice` went with D-809). Stub until 4E-2 is built: `start` answers `NotImplemented`.
+    /// definition (`TypeDeleteChoice` went with D-809).
     TypeDelete { r#type: String },
     /// ms5-capture §7.3 (5B, D-561): the same change applied to each of `paths` (vault paths, NFC), each against its
     /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).

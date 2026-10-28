@@ -1054,7 +1054,12 @@ function DeletePropertyDialog({ attr, type, values, onClose, onRemoveDefinition,
         else if (p) void ipc.jobCancel(p.jobId).catch(() => {});
       }, (e) => { if (mounted.current) { setPlan(null); setMsg(typeErrorMessage(e)); } });
     }
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+      // A real close (not React's StrictMode re-run, which mounts again at once) cancels an unconfirmed job, so it never
+      // waits in confirm and holds the job queue (QA 4E-2 m5).
+      setTimeout(() => { if (!mounted.current && !confirmed.current && job.current !== null) void ipc.jobCancel(job.current).catch(() => {}); }, 0);
+    };
   }, []);
   const cancel = () => {
     if (job.current !== null && !confirmed.current) void ipc.jobCancel(job.current).catch(() => {});
@@ -1129,7 +1134,12 @@ function DeleteTypeWithObjects({ type, onClose }: { type: TypeDto; onClose: () =
         else if (p) void ipc.jobCancel(p.jobId).catch(() => {});
       }, (e) => { if (mounted.current) { setPlan(null); setMsg(typeErrorMessage(e)); } });
     }
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+      // A real close (not React's StrictMode re-run, which mounts again at once) cancels an unconfirmed job, so it never
+      // waits in confirm and holds the job queue (QA 4E-2 m5).
+      setTimeout(() => { if (!mounted.current && !confirmed.current && job.current !== null) void ipc.jobCancel(job.current).catch(() => {}); }, 0);
+    };
   }, []);
   const cancel = () => {
     if (job.current !== null && !confirmed.current) void ipc.jobCancel(job.current).catch(() => {});

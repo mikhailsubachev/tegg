@@ -27,8 +27,7 @@ pub(super) fn check_value_remove(host: &dyn Host, r#type: &str, key: &str) -> Re
 
 /// §14.9.1 (D-853): the refusals of `type-delete` (FR-TYP-06 AC-1: system types; no definition).
 pub(super) fn check_type_delete(host: &dyn Host, r#type: &str) -> Result<JobKind, JobError> {
-    // The system types (D-22, D-42; `tegg_schema::SYSTEM_KEYS`, which this crate doesn't depend on).
-    if ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"].contains(&nfc(r#type).as_str()) {
+    if host.is_system_type(&nfc(r#type)) {
         return Err(JobError::SystemType);
     }
     if !host.defined_types().iter().any(|t| nfc(t) == nfc(r#type)) {
@@ -97,12 +96,11 @@ impl Inner {
             self.reverse_rows(run);
             return Ok(false);
         }
-        // §14.9.4: a row written through an editor is undone with its bytes; the reverse of `remove-key` is not an op.
+        // §14.9.4: every row is a byte row, undone and redone directly (base-checked), also for a note written through its
+        // editor or opened after the job (QA 4E-2 M1): the reverse of `remove-key` is not an op.
         for w in run.undo.files.iter_mut() {
-            if w.via_op {
-                w.via_op = false;
-                w.direct = true;
-            }
+            w.via_op = false;
+            w.direct = true;
         }
         let Some((tp, base)) = run.type_base.clone() else { return Err(format!("{}: no type file", type_path(r#type))) };
         let pre = host.read(&tp).map_err(|e| format!("{tp}: {e:?}"))?;
@@ -233,7 +231,9 @@ impl Inner {
                     Err(e) => run.skip(&w.before, write_reason(&e)),
                 }
             } else {
+                // QA 4E-2 m1: only the file the job trashed, with those bytes (not one that took its place since).
                 let r = match host.version(&w.before) {
+                    Some(v) if !v.same_content(&w.pre_v) => Err(WriteError::Changed),
                     Some(v) => host.trash(&w.before, &v).map(Some),
                     None => host.trash_dir(&w.before),
                 };

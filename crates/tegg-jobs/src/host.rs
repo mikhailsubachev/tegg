@@ -190,13 +190,18 @@ pub trait Host: Send + Sync {
         let _ = dir;
         Ok(None)
     }
+    /// D-22, D-42 (FR-TYP-06 AC-1): a system type, never deleted. The core answers from `tegg_schema::SYSTEM_KEYS`.
+    fn is_system_type(&self, r#type: &str) -> bool {
+        ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"].contains(&r#type)
+    }
     /// The type definitions changed on disk (a type file trashed or restored by a job): the core re-reads them.
     fn types_changed(&self) {}
     /// Removes the item `key` and its `preview` entry from the type file of `r#type` (as `type_patch` does), checked
-    /// against `base` (the version read at planning). Returns the type file's new version. Stub until 4E-2 (TS-I1).
+    /// against `base` (the version read at planning). Returns the type file's new version. A host without type files
+    /// can't remove one.
     fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
         let _ = (r#type, key, base);
-        Err(WriteError::Io("4E-2 stub: Host::remove_property".into()))
+        Err(WriteError::Io("this host has no type files".into()))
     }
 }
 

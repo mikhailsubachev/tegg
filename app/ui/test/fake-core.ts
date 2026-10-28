@@ -1899,7 +1899,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return null;
     },
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
-    // 4E-2 (ms4-jobs §14.9.6, §14.9.8). Stubs until 4E-2 is built: both answer NotImplemented (TS-I1).
+    // 4E-2 (ms4-jobs §14.9.6, §14.9.8): both stop in confirm (startDeleteJob).
     value_remove_start: (a) => startDeleteJob('plan_value_remove', { type: a.type, key: a.key }),
     type_delete_start: (a) => startDeleteJob('plan_type_delete', { type: a.type }),
     // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).

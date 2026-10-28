@@ -276,13 +276,22 @@ impl Host for CoreHost {
 
     fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
         let (trashed, to) = (nfc(trashed), nfc(to));
-        if self.version(&to).is_some() {
+        // A folder there (a templates folder made again, QA 4E-2 m7) is taken as well as a file.
+        let is_dir = |p: &str| self.shared.vault.entries().is_ok_and(|e| e.iter().any(|x| matches!(x, tegg_vault::FsEntry::Dir { path } if nfc(path) == p)));
+        if self.version(&to).is_some() || is_dir(&to) {
             return Err(WriteError::NameTaken);
         }
         self.shared.vault.move_back(&trashed, &to).map_err(write_error)?;
         self.shared.vault.prune_trash(&trashed);
         if let Ok((bytes, v)) = self.shared.vault.read(&to) {
             self.index_written(&to, &bytes, &v);
+        } else {
+            // A folder (a type's templates): each file under it.
+            for f in self.shared.vault.list_files().unwrap_or_default().into_iter().map(|p| nfc(&p)).filter(|p| p.starts_with(&format!("{to}/"))) {
+                if let Ok((bytes, v)) = self.shared.vault.read(&f) {
+                    self.index_written(&f, &bytes, &v);
+                }
+            }
         }
         self.shared.emit(CoreEvent::VaultChanged { paths: vec![trashed, to] });
         Ok(())
@@ -390,6 +399,10 @@ impl Host for CoreHost {
             Err(VaultError::NotFound) => Ok(None),
             Err(e) => Err(write_error(e)),
         }
+    }
+
+    fn is_system_type(&self, r#type: &str) -> bool {
+        tegg_schema::SYSTEM_KEYS.contains(&nfc(r#type).as_str())
     }
 
     fn types_changed(&self) {

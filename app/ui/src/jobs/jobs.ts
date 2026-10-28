@@ -6,7 +6,8 @@ import { errorKind, events, ipc } from '../ipc/client';
 import type { JobPlanDto, JobProgressDto, JobReportDto, NoteRenameDto } from '../ipc/types';
 import { t as t_ } from '../i18n/catalog';
 
-export type SkipRow = { jobId: number; path: string; title: string; reason: string };
+/** `retry: false`: a row Retry can't redo (a type delete's skipped object, FR-TYP-05 AC-9 asks only for Show). */
+export type SkipRow = { jobId: number; path: string; title: string; reason: string; retry?: false };
 /** A finished rename, undo or redo that moved a note (the open note page follows it). */
 export type Moved = { jobId: number; from: string; to: string };
 
@@ -190,7 +191,7 @@ export async function retry(path: string): Promise<void> {
 }
 
 export async function retryAll(): Promise<void> {
-  for (const r of [...state.rows]) if (r.reason !== 'missing') await retry(r.path);
+  for (const r of [...state.rows]) if (r.reason !== 'missing' && r.retry !== false) await retry(r.path);
 }
 
 export function showList(open = true): void {
@@ -378,7 +379,8 @@ async function confirmedProgress(p: JobProgressDto, t: Tracked) {
 function confirmedFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   if (!r) { t.done?.(null); return; }
   const rows = state.rows.filter((x) => !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
-  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason });
+  const noRetry = t.moveKind === 'type-delete' ? { retry: false as const } : {};
+  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason, ...noRetry });
   const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
   const text = r.phase === 'done' ? t.doneText?.(r) ?? null : failed ? t_('job.backupFailed') : null;
   const patch: Partial<State> = { rows };
