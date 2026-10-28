@@ -475,6 +475,8 @@ export const en: Catalog = {
   'job.valueRemove.running': 'Deleting {name} · {done} of {n}',
   'job.valueRemove.done': { one: 'Deleted {name} · removed values from {count} note', other: 'Deleted {name} · removed values from {count} notes' },
   'job.valueRemove.skipped': { one: '· {count} not changed (changed meanwhile)', other: '· {count} not changed (changed meanwhile)' }, // D-844
+  'job.valueRemove.leftAsWritten': { one: '· {count} left as written (a value other properties use)', other: '· {count} left as written (a value other properties use)' }, // D-858, D-859
+  'job.delete.failed': "Couldn't delete {name}. Nothing was changed.", // D-857, D-859
   'job.typeDelete.running': 'Deleting {name} · {done} of {n}',
   'job.typeDelete.done': 'Deleted {name} · {n} {plural} in the trash',
   'job.typeDelete.keptType': { one: '{count} object was not changed, so the type was kept.', other: '{count} objects were not changed, so the type was kept.' }, // D-815

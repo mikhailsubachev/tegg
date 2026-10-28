@@ -1079,8 +1079,9 @@ function DeletePropertyDialog({ attr, type, values, onClose, onRemoveDefinition,
       running: (total, done) => t('job.valueRemove.running', { name: attr.name, done, n: total }),
       done: (r) => {
         const notes = r.written.filter((p) => !p.startsWith('.tegg/')).length;
-        const text = t('job.valueRemove.done', { name: attr.name, count: notes });
-        return r.skipped.length ? `${text} ${t('job.valueRemove.skipped', { count: r.skipped.length })}` : text;
+        const kept = r.skipped.filter((s) => s.reason === 'readOnly').length; // D-858: anchored entries, left as written
+        const changed = r.skipped.length - kept;
+        return [t('job.valueRemove.done', { name: attr.name, count: notes }), changed ? t('job.valueRemove.skipped', { count: changed }) : null, kept ? t('job.valueRemove.leftAsWritten', { count: kept }) : null].filter(Boolean).join(' ');
       },
     });
   };

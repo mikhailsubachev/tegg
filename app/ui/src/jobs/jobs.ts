@@ -379,16 +379,19 @@ async function confirmedProgress(p: JobProgressDto, t: Tracked) {
 function confirmedFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   if (!r) { t.done?.(null); return; }
   const rows = state.rows.filter((x) => !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
-  const noRetry = t.moveKind === 'type-delete' ? { retry: false as const } : {};
-  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason, ...noRetry });
+  // Rows Retry can't redo: a type delete's skipped objects, a property delete's anchored entries (D-858, D-859).
+  const noRetry = (reason: string) => t.moveKind === 'type-delete' || (t.moveKind === 'value-remove' && reason === 'readOnly') ? { retry: false as const } : {};
+  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason, ...noRetry(s.reason) });
   const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
-  const text = r.phase === 'done' ? t.doneText?.(r) ?? null : failed ? t_('job.backupFailed') : null;
+  // D-857, D-859: a 4E-2 job that failed after writing put everything back; the status says so.
+  const lateFail = t.undoable && r.phase === 'failed' && !failed;
+  const text = r.phase === 'done' ? t.doneText?.(r) ?? null : failed ? t_('job.backupFailed') : lateFail ? t_('job.delete.failed', { name: t.typeName ?? '' }) : null;
   const patch: Partial<State> = { rows };
   const undoable = t.undoable && r.phase === 'done' && r.written.length > 0;
   if (undoable) patch.lastMove = { jobId, kind: t.moveKind!, path: null, undone: false };
   if (text && t.undoable) {
     // 4E-2 (R99 D3, F2): Undo for 5 s once shown; Show opens the not-updated list when something was skipped (D-844).
-    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed, undo: undoable ? jobId : undefined, show: r.skipped.length > 0, hideAfter: 5000 };
+    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed || lateFail, undo: undoable ? jobId : undefined, show: r.skipped.length > 0, hideAfter: 5000 };
     if (doneTimer) clearTimeout(doneTimer);
   } else if (text) {
     patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed };
@@ -452,7 +455,7 @@ export async function planDelete(start: () => Promise<{ jobId: number | null }>)
 
 /** The dialog's confirm button: the job writes, with its R99 status (count while writing, Cancel; done with Undo). */
 export async function confirmDelete(jobId: number, kind: 'value-remove' | 'type-delete', o: { name: string; count: number; running: (n: number, done: number) => string; done: (r: JobReportDto) => string | null; finished?: (r: JobReportDto | null) => void }): Promise<void> {
-  const t: Tracked = { kind: 'confirmed', path: '', moveKind: kind, undoable: true, count: o.count, running: o.running, doneText: o.done, done: o.finished };
+  const t: Tracked = { kind: 'confirmed', path: '', moveKind: kind, typeName: o.name, undoable: true, count: o.count, running: o.running, doneText: o.done, done: o.finished };
   tracked.set(jobId, t);
   await ipc.jobConfirm(jobId).catch(() => {});
   const early = seen.get(jobId);
