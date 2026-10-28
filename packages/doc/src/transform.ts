@@ -293,7 +293,8 @@ type MdLink = { target: string; url: Range }
 function markdownLinks(doc: Doc): MdLink[] {
   const out: MdLink[] = []
   const walk = (n: Nodes): void => {
-    if (n.type === 'link') {
+    // An image's destination is a path too (QA M6: an attachment next to a moved note).
+    if (n.type === 'link' || n.type === 'image') {
       const found = destination(doc.text, n as Link)
       if (found) out.push(found)
     }
@@ -542,7 +543,17 @@ function relinkPatches(doc: Doc, source: string, op: Relink): Patch[] {
   }
   for (const m of markdownLinks(doc)) {
     const b = was(m.target, true)
-    if (b === null) continue
+    if (b === null) {
+      // QA M6: a relative link to a file that isn't a note (an attachment, a PDF) when the note itself moves: the same
+      // file by path arithmetic from the new folder.
+      if (key(now) === key(from) || /\.md$/i.test(m.target)) continue
+      const abs = normalizePath(`${folder(from)}/${nfc(m.target)}`)
+      if (abs === null) continue
+      const url = doc.text.slice(m.url[0], m.url[1])
+      const next = relativeUrl(url, folder(now), abs)
+      if (next !== url) out.push({ range: m.url, text: next })
+      continue
+    }
     const a = resolveFrom(now, m.target, true, after)
     if (a !== null && key(a) === key(b)) continue
     out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(now), b) })

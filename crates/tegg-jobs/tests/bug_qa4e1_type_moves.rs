@@ -208,3 +208,82 @@ fn bug_qa4e1_n1_fr_sto_04_ac9_a_partner_whose_name_is_taken_meanwhile_is_still_r
     assert!(core.wait_idle(Duration::from_secs(30)));
     assert_eq!(targets(&core, &root, "Knihy/Alfa.md"), vec![Some("Knihy/Beta (2).md".into()); 2], "Alfa's links reach Beta, not the note that took its name: {:?}", read_text(&root, "Knihy/Alfa.md"));
 }
+
+// ------------------------------------------------------------------------------------------------ third review
+
+#[test]
+fn bug_qa4e1_b1_fr_sto_01_ac9_three_same_stem_strays_get_three_names_and_the_job_ends() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    for (i, y) in ["2024", "2025", "2026"].iter().enumerate() {
+        write_raw(&root, &format!("Pages/{y}/Porada.md"), format!("---\nid: 01JB4E0000000000000000E0B{i}\ntype: kniha\ntitle: Porada {y}\n---\n").as_bytes());
+    }
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let job = ok!(core.jobs().start(tidy()), "tidy");
+    let r = some!(core.jobs().wait(job, Duration::from_secs(30)), "the job ends (no loop over a reserved name)");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    let names: std::collections::BTreeSet<String> = std::fs::read_dir(root.join("Knihy")).unwrap().flatten().map(|e| tegg_format::nfc(&e.file_name().to_string_lossy())).filter(|n| n.starts_with("Porada")).collect();
+    assert_eq!(names.len(), 3, "three distinct names: {names:?}");
+}
+
+#[test]
+fn bug_qa4e1_m2_fr_sto_04_ac11_a_note_skipped_before_the_moves_is_listed_once_and_not_written() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        if matches!(p, JobPoint::AfterRead { path } if path == SESIT_Q) {
+            write_raw(&r2, SESIT_Q, "---\nid: 01JB4E0000000000000000E011\ntype: quick-note\ntitle: Sešit\n---\nZměna.\n".as_bytes());
+        }
+    })));
+    let (_, r) = ok!(run(&core, type_move(&[PLAN, SESIT_Q], "kniha", vec![], true)), "bulk convert");
+    assert_eq!(r.skipped.iter().filter(|s| s.path == SESIT_Q).count(), 1, "one skip row: {r:?}");
+    assert!(read_text(&root, SESIT_Q).is_some_and(|t| t.contains("type: quick-note")), "the skipped note keeps its type and place");
+}
+
+#[test]
+fn bug_qa4e1_m1_fr_sto_04_ac10_an_open_note_changed_in_place_is_written() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    let p = "Knihy/Stránka v knihách.md";
+    write_raw(&root, p, "---\nid: 01JB4E0000000000000000E0C1\ntype: page\ntitle: Stránka v knihách\n---\nText.\n".as_bytes());
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    core.jobs().editor_open(p);
+    let job = ok!(core.jobs().start(type_move(&[p], "kniha", vec![], false)), "type change in place");
+    let r = some!(core.jobs().wait(job, Duration::from_secs(8)), "done well before the 30 s live timeout");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(read_text(&root, p).is_some_and(|t| t.contains("\ntype: kniha\n")), "written directly: the page that started it reloads it");
+    assert!(r.skipped.is_empty(), "{r:?}");
+}
+
+#[test]
+fn bug_qa4e1_m4_fr_sto_04_ac11_a_late_name_clash_is_corrected_and_undone_cleanly() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    pair(&root);
+    let alfa = fx_bytes_of(&root, "Pages/Alfa.md");
+    let beta = fx_bytes_of(&root, "Pages/Beta.md");
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        // Another app takes Beta's name right after the check, while Alfa is being renamed.
+        if matches!(p, JobPoint::TempWritten { path } if path == "Pages/Alfa.md") {
+            write_raw(&r2, "Knihy/Beta.md", "---\nid: 01JB4E0000000000000000E0A9\ntype: kniha\ntitle: Cizí\n---\n".as_bytes());
+        }
+    })));
+    let (job, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(root.join("Knihy/Beta (2).md").exists(), "Beta took the next name: {r:?}");
+    assert!(core.wait_idle(Duration::from_secs(30)));
+    assert_eq!(targets(&core, &root, "Knihy/Alfa.md"), vec![Some("Knihy/Beta (2).md".into()); 2], "Alfa's links were corrected: {:?}", read_text(&root, "Knihy/Alfa.md"));
+    core.jobs().set_point_hook(None);
+    let (_, u) = ok!(run(&core, JobOp::Undo { job }), "undo");
+    assert!(u.skipped.is_empty(), "nothing skipped on Undo: {u:?}");
+    assert_eq!(read_bytes(&root, "Pages/Alfa.md"), Some(alfa), "Alfa back with its bytes");
+    assert_eq!(read_bytes(&root, "Pages/Beta.md"), Some(beta), "Beta back with its bytes");
+}
+
+fn fx_bytes_of(root: &std::path::Path, p: &str) -> Vec<u8> {
+    read_bytes(root, p).expect("setup")
+}

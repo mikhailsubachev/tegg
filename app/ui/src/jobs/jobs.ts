@@ -250,7 +250,9 @@ function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   let text: string | null = null;
   let show = false;
   const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
-  if (r.phase === 'done' && t.moveKind === 'type-move') text = t.typeName ? t_('job.typeMove.done', { type: t.typeName }) : null;
+  // m2: a type move whose notes were all skipped says so (with `Show`), never `Now a <Type>`.
+  if (r.phase === 'done' && t.moveKind === 'type-move' && r.written.length === 0 && r.skipped.length > 0) { text = t_('job.notUpdated.count', { count: r.skipped.length }); show = true; }
+  else if (r.phase === 'done' && t.moveKind === 'type-move') text = t.typeName ? t_('job.typeMove.done', { type: t.typeName }) : null;
   else if (r.phase === 'done' && moved.length > 0) {
     // Moved notes by their new type, in the order they were moved.
     const groups: { type: MoveType | undefined; n: number }[] = [];

@@ -44,3 +44,9 @@ test('bug_qa4e1_n8_fr_sto_04_ac6_an_alias_is_shown_as_its_value_and_an_anchor_in
   assert.ok(got.includes('**Spoluautor:** Herbert'), `the alias's value: ${got}`)
   assert.ok(got.includes('autor: &a Herbert'), 'the anchored entry stays: removing it would leave `*a` unresolvable (NFR-REL-03)')
 })
+
+test('bug_qa4e1_m6_fr_sto_04_ac8_a_relative_link_to_an_attachment_follows_the_note', () => {
+  const t = '---\nid: z\n---\n![](../../_attachments/x.png) a [pdf](<../../PDFs/Smlouva.pdf>)\n'
+  const got = out(transform('Pages/2024/A.md', t, [{ op: 'relink', moves: [{ from: 'Pages/2024/A.md', to: 'Knihy/A.md' }], paths: ['Pages/2024/A.md'] }]))
+  assert.equal(got, '---\nid: z\n---\n![](../_attachments/x.png) a [pdf](<../PDFs/Smlouva.pdf>)\n')
+})

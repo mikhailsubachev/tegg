@@ -163,6 +163,10 @@ impl Host for CoreHost {
         crate::links4a::free_stem_in(&self.shared, folder, stem)
     }
 
+    fn free_stem_avoiding(&self, folder: &str, stem: &str, reserved: &std::collections::BTreeSet<String>) -> String {
+        crate::links4a::free_stem_avoiding(&self.shared, folder, stem, reserved)
+    }
+
     fn renamable(&self, path: &str) -> bool {
         let path = nfc(path);
         if lock(&self.shared.not_utf8).contains(&path) {

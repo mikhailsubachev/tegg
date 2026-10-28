@@ -144,7 +144,7 @@ fn load(host: &dyn Host, job: JobId) -> Option<Loaded> {
         .iter()
         .map(|f| Entry { at: s(&f["at"]), to: s(&f["to"]), pre: unhex(&s(&f["pre"])), target: f["target"].as_str().map(unhex) })
         .collect();
-    let mut written = Vec::new();
+    let mut written: Vec<(String, String, u64, [u8; 32])> = Vec::new();
     let mut done = Vec::new();
     for line in log.lines() {
         let p: Vec<&str> = line.split('\t').collect();
@@ -152,6 +152,8 @@ fn load(host: &dyn Host, job: JobId) -> Option<Loaded> {
             ["W", at, to, size, hash] => {
                 let mut h = [0u8; 32];
                 h.copy_from_slice(&unhex(hash).into_iter().chain(std::iter::repeat(0)).take(32).collect::<Vec<_>>());
+                // A later line for the same entry (a correction write, QA M4) replaces the earlier one.
+                written.retain(|(a, ..)| a.as_str() != *at);
                 written.push((at.to_string(), to.to_string(), size.parse().unwrap_or(0), h));
                 done.push(at.to_string());
             }
@@ -285,9 +287,8 @@ fn finish_rest(host: &dyn Host, transformer: &dyn Transformer, l: &Loaded) {
         if l.kind == "type-move" {
             if let Some(note) = l.entries.iter().find(|e| e.at != e.to) {
                 if pending(note) && moved_unlogged(host, l).is_none() {
-                    let Some((b, v)) = unchanged(note) else { return };
+                    let Some((_, v)) = unchanged(note) else { return };
                     let Some(out) = note.target.clone() else { return };
-                    let _ = b;
                     if host.rename(&note.at, &note.to, &out, &v).is_err() {
                         return;
                     }

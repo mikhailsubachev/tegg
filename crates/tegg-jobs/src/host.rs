@@ -57,6 +57,11 @@ pub trait Host: Send + Sync {
     fn linking(&self, path: &str) -> Vec<String>;
     /// A free stem for a new name in `folder` (vault-wide, D-291 part 2, D-384).
     fn free_stem(&self, folder: &str, stem: &str) -> String;
+    /// As `free_stem`, also avoiding `reserved` (NFC, lower-case vault paths a job has already given out, QA B1).
+    fn free_stem_avoiding(&self, folder: &str, stem: &str, reserved: &std::collections::BTreeSet<String>) -> String {
+        let _ = reserved;
+        self.free_stem(folder, stem)
+    }
     /// Whether a title commit on `path` may rename it (not a Daily Note, D-320; not a file read as non-UTF-8, D-180).
     fn renamable(&self, path: &str) -> bool;
     /// Every `.md` file and every file under `.tegg/` (the backup set, §6).

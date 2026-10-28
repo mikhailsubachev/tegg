@@ -1078,8 +1078,17 @@ impl Inner {
         }
     }
 
+    /// As `write_one`, never through an open editor (4E-1, QA M1: the note a page is changing the type of).
+    fn write_direct(&self, run: &mut Run, f: &PlannedFile) {
+        self.write_file(run, f, false)
+    }
+
     /// One linking file (§5): never written unless it is still the planned version.
     fn write_one(&self, run: &mut Run, f: &PlannedFile) {
+        self.write_file(run, f, true)
+    }
+
+    fn write_file(&self, run: &mut Run, f: &PlannedFile, live: bool) {
         let host = self.host();
         let path = &f.path;
         if host.is_placeholder(path) {
@@ -1097,7 +1106,7 @@ impl Inner {
             return run.skip(path, SkipReason::ReadOnly);
         }
         self.point(run.id, JobPoint::AfterRead { path: path.clone() });
-        if lock(&self.editors).contains(&nfc(path)) {
+        if live && lock(&self.editors).contains(&nfc(path)) {
             return self.write_live(run, path, &bytes, &v, &f.ops);
         }
         let out = match self.transform(path, &bytes, &f.ops) {
@@ -1339,6 +1348,9 @@ impl Inner {
         bytes: &[u8],
         ops: &[TextOp],
     ) -> Result<Transformed, TransformError> {
+        // QA M7: a relink needs only the paths its file's links can name, not the whole vault.
+        let slim: Vec<TextOp> = ops.iter().map(|o| slim_relink(o, bytes)).collect();
+        let ops = &slim[..];
         if let Some(t) = lock(&self.transformer).clone() {
             return t.transform(source, bytes, ops);
         }
@@ -1405,6 +1417,21 @@ impl Inner {
         }
         Ok(path)
     }
+}
+
+/// QA M7: the paths of a relink that the file's text can reach: a path whose stem, or whose path without `.md`, occurs in
+/// the text (case-insensitively), plus every path of the move set.
+fn slim_relink(op: &TextOp, bytes: &[u8]) -> TextOp {
+    let TextOp::Relink { moves, paths } = op else { return op.clone() };
+    let text = nfc(&String::from_utf8_lossy(bytes)).to_lowercase();
+    let moved: HashSet<String> = moves.iter().flat_map(|(a, b)| [nfc(a).to_lowercase(), nfc(b).to_lowercase()]).collect();
+    let keep = |p: &String| {
+        let k = nfc(p).to_lowercase();
+        let no_ext = k.strip_suffix(".md").unwrap_or(&k);
+        let stem = no_ext.rsplit('/').next().unwrap_or(no_ext);
+        moved.contains(&k) || text.contains(stem)
+    };
+    TextOp::Relink { moves: moves.clone(), paths: paths.iter().filter(|p| keep(p)).cloned().collect() }
 }
 
 /// The retarget op of an undo: from the new name back to the old one.

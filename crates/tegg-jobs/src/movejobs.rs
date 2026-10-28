@@ -9,7 +9,7 @@ use serde_json::json;
 use tegg_format::{extract, nfc};
 
 use super::{folder_of, join, key, lock, read_reason, stem_of, write_reason, Inner, Run, Written};
-use crate::host::{Host, WriteError};
+use crate::host::{Host, WriteError, Wrote};
 use crate::zip::sha256_hex;
 use crate::{JobError, JobId, JobKind, JobOp, JobPlan, JobPoint, PlanCounts, PlannedFile, PropertyMap, MapTarget, SkipReason, TextOp, Transformed};
 
@@ -78,11 +78,14 @@ pub(crate) fn check_type_move(host: &dyn Host, paths: &[String], to_type: &str) 
 impl Inner {
     /// The path a note moved to `folder` gets, at the folder's root (D-811): its stem, unless a note in that folder has
     /// it already, then the vault-wide free stem (D-291; a stem the note already shared elsewhere stays as it is).
-    fn move_target(&self, path: &str, folder: &str, notes: &[String]) -> String {
+    fn move_target(&self, path: &str, folder: &str, notes: &[String], reserved: &mut BTreeSet<String>) -> String {
         let stem = stem_of(path);
-        let taken = notes.iter().any(|n| key(n) != key(path) && key(&folder_of(n)) == key(folder) && key(&stem_of(n)) == key(&stem));
-        let stem = if taken { self.host().free_stem(folder, &stem) } else { stem };
-        join(folder, &stem)
+        let own = join(folder, &stem);
+        let taken = notes.iter().any(|n| key(n) != key(path) && key(&folder_of(n)) == key(folder) && key(&stem_of(n)) == key(&stem)) || reserved.contains(&key(&own));
+        // QA B1: a name this job already gave out is taken too.
+        let to = if taken { join(folder, &self.host().free_stem_avoiding(folder, &stem, reserved)) } else { own };
+        reserved.insert(key(&to));
+        to
     }
 
     /// ms4-jobs §14.3: the moved notes first (in path order), then every linking note with one retarget op per moved
@@ -92,6 +95,7 @@ impl Inner {
         let notes = host.note_paths();
         let folder = host.type_folder(to_type).unwrap_or_default();
         let now = host.now();
+        let mut reserved = BTreeSet::new();
         let mut files = Vec::new();
         let mut renames = Vec::new();
         let mut moved = Vec::new();
@@ -145,8 +149,8 @@ impl Inner {
                 ops.push(TextOp::SetReview { value: "reviewed".into(), now: now.clone() });
             }
             if !folder.is_empty() && !inside(&p, &folder) {
-                let to = self.move_target(&p, &folder, &notes);
-                ops.push(TextOp::KeepTargets { from_path: p.clone(), to_path: to.clone(), paths: notes.clone() });
+                let to = self.move_target(&p, &folder, &notes, &mut reserved);
+                ops.push(TextOp::KeepTargets { from_path: p.clone(), to_path: to.clone(), paths: Vec::new() }); // a marker: the write step gives every file one relink (§14.3a)
                 renames.push((p.clone(), to.clone()));
                 moved.push((p.clone(), to));
             }
@@ -171,6 +175,7 @@ impl Inner {
         let mut files = Vec::new();
         let mut renames = Vec::new();
         let mut moved = Vec::new();
+        let mut reserved = BTreeSet::new();
         for t in types {
             let folder = match (r#type, to_folder) {
                 (Some(_), Some(f)) => nfc(f.trim_matches('/')),
@@ -200,8 +205,8 @@ impl Inner {
                 if extract(&bytes, &stem_of(&p)).id.is_some_and(|i| exempt.contains(&i)) || exempt_paths.contains(&key(&p)) {
                     continue;
                 }
-                let to = self.move_target(&p, &folder, &notes);
-                files.push(PlannedFile { path: p.clone(), version, ops: vec![TextOp::KeepTargets { from_path: p.clone(), to_path: to.clone(), paths: notes.clone() }] });
+                let to = self.move_target(&p, &folder, &notes, &mut reserved);
+                files.push(PlannedFile { path: p.clone(), version, ops: vec![TextOp::KeepTargets { from_path: p.clone(), to_path: to.clone(), paths: Vec::new() }] });
                 renames.push((p.clone(), to.clone()));
                 moved.push((p, to));
             }
@@ -222,7 +227,7 @@ impl Inner {
             by_stem.entry(key(&stem_of(n))).or_default().push(n);
         }
         for (from, to) in moved {
-            let op = TextOp::HoldTargets { from_path: from.clone(), to_path: to.clone(), paths: notes.to_vec() };
+            let op = TextOp::HoldTargets { from_path: from.clone(), to_path: to.clone(), paths: Vec::new() }; // a marker (§14.3a)
             let mut sources: BTreeSet<String> = host.linking(from).into_iter().map(|l| nfc(&l)).collect();
             for other in by_stem.get(&key(&stem_of(to))).into_iter().flatten().filter(|n| key(n) != key(from)) {
                 sources.extend(host.linking(other).into_iter().map(|l| nfc(&l)));
@@ -298,12 +303,10 @@ impl Inner {
                 Ok((b, v)) => {
                     let folder = folder_of(&to);
                     let mut to = to;
-                    // Taken since planning (or by an earlier move of this job): the next free stem, before any write.
-                    while host.version(&to).is_some_and(|_| key(&to) != key(&f.path)) || taken.contains(&key(&to)) {
-                        to = join(&folder, &host.free_stem(&folder, &stem_of(&to)));
-                        if !taken.contains(&key(&to)) && host.version(&to).is_none() {
-                            break;
-                        }
+                    // Taken since planning (or by an earlier move of this job): one free name from the note's own stem
+                    // that avoids every file and every name this job gave out (QA B1: no loop).
+                    if host.version(&to).is_some_and(|_| key(&to) != key(&f.path)) || taken.contains(&key(&to)) {
+                        to = join(&folder, &host.free_stem_avoiding(&folder, &stem_of(&f.path), &taken));
                     }
                     taken.insert(key(&to));
                     done.insert(f.path.clone(), Some(to.clone()));
@@ -328,9 +331,6 @@ impl Inner {
         }
         let moving: BTreeSet<String> = plan.renames.iter().map(|(a, _)| a.clone()).collect();
         plan.renames.retain(|(a, _)| matches!(done.get(a), Some(Some(_))));
-        if single {
-            run.undo.op = Some(relink.clone());
-        }
         if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
             j.plan = Some(plan.clone());
         }
@@ -352,30 +352,33 @@ impl Inner {
             }
             self.step(id, step);
         }
-        // Notes whose type changes in place: written as planned.
-        let moved_paths: BTreeSet<String> = ready.iter().map(|(i, ..)| plan.files[*i].path.clone()).collect();
-        for f in plan.files.iter().filter(|f| !moved_paths.contains(&f.path) && f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))) {
-            step += 1;
-            self.write_one(run, f);
-            self.step(id, step);
-        }
-        // A rename that failed or took another name at the last moment (a race with another app): the linking notes
-        // get the moves that really happened.
+        // The moves that really happened (a rename can still fail or take another name at the last moment): every
+        // other file is written with them (QA M3), and undo / redo of files written through an editor use them (M5).
         let real: Vec<(String, String)> = moves.iter().filter_map(|(a, _)| done.get(a).cloned().flatten().map(|t| (a.clone(), t))).collect();
         let relink_real = TextOp::Relink { moves: real.clone(), paths: paths_before.clone() };
-        let count_links = !matches!(op, JobOp::FolderMove { .. });
-        // Every note of the move set (moved, skipped or changed in place) is done; the rest are linking notes.
-        let skipped_notes: BTreeSet<String> = plan.files.iter().filter(|f| moving.contains(&f.path) || f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))).map(|f| f.path.clone()).collect();
-        for f in plan.files.iter_mut().filter(|f| !skipped_notes.contains(&f.path)) {
+        run.undo.op = Some(relink_real.clone());
+        for f in plan.files.iter_mut().filter(|f| !moving.contains(&f.path)) {
             for o in f.ops.iter_mut() {
                 if matches!(o, TextOp::Relink { .. }) {
                     *o = relink_real.clone();
                 }
             }
         }
+        // m1: the plan names the moves that happened (Retry reads it).
+        plan.renames = real.clone();
         if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
             j.plan = Some(plan.clone());
         }
+        // Notes whose type changes in place (QA M2: never a note of the move set). Written directly, not through an open
+        // editor (M1): the page that started the change holds its saver and reloads the note when the job ends.
+        for f in plan.files.iter().filter(|f| !moving.contains(&f.path) && f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))) {
+            step += 1;
+            self.write_direct(run, f);
+            self.step(id, step);
+        }
+        let count_links = !matches!(op, JobOp::FolderMove { .. });
+        // Every note of the move set (moved, skipped or changed in place) is done; the rest are linking notes.
+        let skipped_notes: BTreeSet<String> = plan.files.iter().filter(|f| moving.contains(&f.path) || f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))).map(|f| f.path.clone()).collect();
         for f in plan.files.iter().filter(|f| !skipped_notes.contains(&f.path)) {
             if count_links {
                 step += 1;
@@ -400,8 +403,17 @@ impl Inner {
                 let mut fix: Vec<(String, String)> = late.clone();
                 fix.extend(moves.iter().filter(|(a, _)| real.iter().all(|(r, _)| r != a)).map(|(a, t)| (t.clone(), a.clone())));
                 let op = TextOp::Relink { moves: fix, paths: assumed };
-                let _ = from;
-                self.write_op(run, to, &b, &v, &op);
+                // QA M4: the note's own undo row and journal line are updated, never doubled.
+                let Ok(Transformed::Bytes(out, _)) = self.transform(to, &b, std::slice::from_ref(&op)) else { continue };
+                if let Ok(Wrote::Written(post_v)) = host.write(to, &out, &v) {
+                    if let Some(w) = run.undo.files.iter_mut().find(|w| w.before == *from && w.after == *to) {
+                        w.post = out;
+                        w.post_v = post_v.clone();
+                    }
+                    if single {
+                        crate::journal::progress(host.as_ref(), id, from, to, &post_v);
+                    }
+                }
             }
         }
         // D-812, D-839: a note whose type changed (moved or not), or whose type's folder changed, is no longer exempt.
@@ -410,7 +422,8 @@ impl Inner {
             let mut paths = BTreeSet::new();
             let changed: Vec<String> = match op {
                 JobOp::FolderMove { r#type: Some(t), .. } => host.objects_of(t),
-                _ => plan.files.iter().filter(|f| f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))).map(|f| f.path.clone()).collect(),
+                // m4: only notes whose type really changed (moved, or written in place), not skipped ones.
+                _ => plan.files.iter().filter(|f| f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))).map(|f| f.path.clone()).filter(|p| !matches!(done.get(p), Some(None)) && !run.skipped.iter().any(|s| s.path == *p)).collect(),
             };
             // N4: the old paths of the moved notes too (the index already has them at their new paths).
             for (from, _) in &moves {
