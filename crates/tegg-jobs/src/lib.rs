@@ -293,6 +293,9 @@ pub enum TextOp {
     /// ms4-jobs §14.3 (D-826, D-829): a type move's own type change: `type` and, unless `now` is `None` (a template),
     /// `modified`; never `review`.
     ChangeType { r#type: String, now: Option<String>, id: Option<String> },
+    /// D-838: in a note that doesn't move, rewrite every link whose resolution (D-291) would change when `from_path`
+    /// becomes `to_path`, so it keeps its target; `paths` are the vault's note paths before the move.
+    HoldTargets { from_path: String, to_path: String, paths: Vec<String> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -395,6 +398,10 @@ pub enum RetryOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interrupted {
     pub job: JobId,
+    /// `rename` or `type-move` (§14.6): which banner text the app shows.
+    pub kind: String,
+    /// The note's title, for `Changing the type of "<title>" was interrupted…`.
+    pub title: Option<String>,
     pub from: String,
     pub to: String,
     pub done: usize,

@@ -470,6 +470,7 @@ export const en: Catalog = {
   'typeMove.content': 'Content',
   'typeMove.help': 'Properties mapped to Content are written at the top of the note as Property: value, one line each.',
   'typeMove.confirm': 'Change type',
+  'typeMove.failed': "The type couldn't be changed. Nothing was written.",
   'typeMove.cancel': 'Cancel',
   'typeMove.title.fixed': 'Title',
   'typeMove.tags.fixed': 'Tags',

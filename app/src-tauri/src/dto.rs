@@ -923,6 +923,9 @@ pub struct TransformedDto {
 #[ts(rename_all = "camelCase")]
 pub struct InterruptedDto {
     pub job_id: u32,
+    /// `rename` or `type-move` (ms4-jobs §14.6).
+    pub kind: String,
+    pub title: Option<String>,
     pub from: String,
     pub to: String,
     pub done: u32,

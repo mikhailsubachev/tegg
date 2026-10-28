@@ -11,12 +11,19 @@ use crate::{lock, Shared};
 
 /// The quiet period: 30 s, or `TEGG_TEST_QUIET_MS` (tests).
 fn quiet() -> Duration {
-    std::env::var("TEGG_TEST_QUIET_MS").ok().and_then(|v| v.parse().ok()).map(Duration::from_millis).unwrap_or(Duration::from_secs(30))
+    test_env("TEGG_TEST_QUIET_MS").and_then(|v| v.parse().ok()).map(Duration::from_millis).unwrap_or(Duration::from_secs(30))
+}
+
+/// A test switch: read with `TEGG_TEST=1` (the real-app tests, as `TEGG_TEST_FAIL_MEDIA`) or in a debug build (the Rust
+/// tests); a release build run by a user never reads it.
+fn test_env(name: &str) -> Option<String> {
+    let v = std::env::var(name).ok()?;
+    (cfg!(debug_assertions) || std::env::var("TEGG_TEST").as_deref() == Ok("1")).then_some(v)
 }
 
 pub(crate) fn spawn(shared: Weak<Shared>, jobs: JobsRef) {
     // D-835: real-app tests start the app with `TEGG_TEST_TIDY=0` unless they test the tidy job.
-    if std::env::var("TEGG_TEST_TIDY").as_deref() == Ok("0") {
+    if test_env("TEGG_TEST_TIDY").as_deref() == Some("0") {
         return;
     }
     let _ = std::thread::Builder::new().name("tegg-tidy".into()).spawn(move || run(shared, jobs));

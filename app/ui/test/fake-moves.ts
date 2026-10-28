@@ -65,17 +65,16 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
     for (let n = 2; all.has(low(s)) || inFolder(s); n++) s = `${stem} (${n})`;
     return join(folder, s);
   };
-  /** Linking notes: those whose text a retarget op for one of the moves really changes. */
+  /** Linking notes (D-838): those whose text a hold-targets op for one of the moves really changes. */
   const linking = (moves: [string, string][], movedSet: Set<string>) => {
     const out: Record<string, any[]> = {};
     for (const [from, to] of moves) {
-      const title = nfc(String(d.extract(files[from], stemOf(from)).title ?? stemOf(from)));
-      const op = { op: 'retarget-links', fromPath: from, fromStem: stemOf(from), fromTitle: title, toPath: to, toStem: stemOf(to), toTitle: title, paths: notes };
-      const needle = low(stemOf(from));
+      const op = { op: 'hold-targets', fromPath: from, toPath: to, paths: notes };
+      const needles = [stemOf(from), stemOf(to).replace(/ \(\d+\)$/, '')].flatMap((x) => [low(x), low(encodeURIComponent(x))]);
       for (const p of notes) {
         if (p === from || movedSet.has(p) || p.startsWith('.trash/')) continue;
         const text = low(files[p] ?? '');
-        if (!text.includes(needle) && !text.includes(low(encodeURIComponent(stemOf(from))))) continue; // can't link to it
+        if (!needles.some((n) => text.includes(n))) continue; // can't link to it, nor to a note of its stem
         if (d.transform(p, files[p], [op]).kind === 'bytes') (out[p] ??= []).push(op);
       }
     }
@@ -97,10 +96,12 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
       let def = 'content', fixed = false;
       if (same && widens(p, same)) { def = same.key; fixed = same.type === p.type; }
       if (value !== null && !fixed) needsDialog = true;
-      return { from: p.key, name: p.name, kind: p.type, value, default: def, offered: offered.map((n: any) => n.key).filter((k: string) => !(fixed && k === def)), fixed };
+      // D-821: the offered targets with their display names.
+      return { from: p.key, name: p.name, kind: p.type, value, default: def, offered: offered.map((n: any) => ({ key: n.key, name: n.name })), fixed };
     });
     if (rows.every((r: any) => r.default !== 'content')) needsDialog = false;
-    return { rows, needsDialog, targetNames };
+    void targetNames;
+    return { rows, needsDialog };
   }
 
   if (cmd === 'folder_preview') {

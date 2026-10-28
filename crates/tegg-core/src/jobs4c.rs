@@ -328,20 +328,24 @@ impl Host for CoreHost {
     }
 
     fn local_exempt(&self) -> Vec<String> {
-        let p = self.exempt_path();
-        tegg_vault::read_local_file(&p)
-            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
-            .and_then(|v| v["ids"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()))
-            .unwrap_or_default()
+        self.exempt_list("ids")
     }
 
     fn set_local_exempt(&self, ids: &[String]) {
-        let p = self.exempt_path();
-        if ids.is_empty() && tegg_vault::read_local_file(&p).is_none() {
-            return;
-        }
-        let v = serde_json::json!({ "version": 1, "ids": ids });
-        let _ = tegg_vault::write_local_file(&p, v.to_string().as_bytes());
+        self.set_exempt_list("ids", ids);
+    }
+
+    fn local_exempt_paths(&self) -> Vec<String> {
+        self.exempt_list("paths")
+    }
+
+    fn set_local_exempt_paths(&self, paths: &[String]) {
+        self.set_exempt_list("paths", paths);
+    }
+
+    fn type_names(&self, r#type: &str) -> Option<(String, String)> {
+        let k = type_key(r#type);
+        self.shared.read_types().into_iter().find(|t| t.key == k).map(|t| (t.name, t.plural))
     }
 
     fn new_id(&self) -> String {
@@ -362,6 +366,30 @@ impl CoreHost {
     /// ms4-jobs §14.6: `<Application Support>/Tegg/jobs/<vault-key>/tidy-exempt.json`.
     fn exempt_path(&self) -> PathBuf {
         self.app_dir().join("jobs").join(self.vault_key()).join("tidy-exempt.json")
+    }
+
+    fn exempt_file(&self) -> serde_json::Value {
+        tegg_vault::read_local_file(&self.exempt_path()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// `ids` (D-812) or `paths` (D-839) of the exemption file.
+    fn exempt_list(&self, field: &str) -> Vec<String> {
+        self.exempt_file()[field].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default()
+    }
+
+    fn set_exempt_list(&self, field: &str, items: &[String]) {
+        let cur = self.exempt_file();
+        if items.is_empty() && cur.is_null() {
+            return;
+        }
+        let other = if field == "ids" { "paths" } else { "ids" };
+        let mut v = serde_json::json!({ "version": 1, "ids": [], "paths": [] });
+        v[other] = cur[other].clone();
+        if v[other].is_null() {
+            v[other] = serde_json::json!([]);
+        }
+        v[field] = serde_json::json!(items);
+        let _ = tegg_vault::write_local_file(&self.exempt_path(), v.to_string().as_bytes());
     }
 }
 

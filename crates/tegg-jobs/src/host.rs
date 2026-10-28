@@ -144,6 +144,18 @@ pub trait Host: Send + Sync {
     fn set_local_exempt(&self, ids: &[String]) {
         let _ = ids;
     }
+    /// D-839: NFC paths of exempt notes without an `id` (`paths` in `tidy-exempt.json`).
+    fn local_exempt_paths(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn set_local_exempt_paths(&self, paths: &[String]) {
+        let _ = paths;
+    }
+    /// The type's Name and plural name (backup labels, R99).
+    fn type_names(&self, r#type: &str) -> Option<(String, String)> {
+        let _ = r#type;
+        None
+    }
     /// A new object id (ULID), for a file without one that gets a type (D-174).
     fn new_id(&self) -> String {
         String::new()

@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES } from '@tegg/schema';
 import { t } from '../i18n/catalog';
 import { expectFolderMove } from '../jobs/jobs';
+import { listen } from '@tauri-apps/api/event';
 import { ipc } from '../ipc/client';
 import type { AttributeChangeDto, AttributeDto, AttributeInputDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
@@ -202,6 +203,12 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
   const color = colorName(type.color);
   // 4E-1 (D-805, R99 B1): typing a new folder shows how many objects saving it moves; the save moves them (a job).
   const [moving, setMoving] = useState<number | null>(null);
+  // Test build only (D-831): the core sends `tegg://test-focus-folder` under TEGG_TEST_FOCUS_FOLDER once the page is
+  // ready, for the real-app tests that type a new folder without Appium.
+  useEffect(() => {
+    const un = listen('tegg://test-focus-folder', () => document.querySelector<HTMLInputElement>(`input[aria-label="${t('ts.folder')}"]`)?.focus());
+    return () => void un.then((f) => f());
+  }, []);
   const previewSeq = useRef(0);
   const previewFolder = (v: string) => {
     const n = ++previewSeq.current;

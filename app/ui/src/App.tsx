@@ -1019,7 +1019,9 @@ export function App() {
           )}
           {interrupted.map((i) => (
             <div key={i.jobId} className="banner" role="status">
-              <span>{t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
+              <span>{i.kind === 'type-move'
+                ? t('job.interrupted.typeMove', { title: i.title ?? i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })
+                : t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
               <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'finish').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.finish')}</button>
               <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'undo').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.undo')}</button>
             </div>

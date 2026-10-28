@@ -31,6 +31,16 @@ fn inside(path: &str, folder: &str) -> bool {
     f.is_empty() || key(path).starts_with(&format!("{f}/"))
 }
 
+/// Board E2 (D-808): every value of `a` stays valid as written under `b`.
+fn widens(a: &crate::host::HostProperty, b: &crate::host::HostProperty) -> bool {
+    let (x, y) = (a.kind.as_str(), b.kind.as_str());
+    if x == y {
+        return x != "relation" || b.to.is_empty() || (!a.to.is_empty() && a.to.iter().all(|k| b.to.iter().any(|t| key(t) == key(k))));
+    }
+    let wide = ["number", "checkbox", "date", "date-time", "url", "email", "select", "multi-select", "relation", "text", "long-text"];
+    matches!(y, "text" | "long-text") && wide.contains(&x) || (x == "date" && y == "date-time") || (x == "select" && y == "multi-select")
+}
+
 pub(crate) fn check_type_move(host: &dyn Host, paths: &[String], to_type: &str) -> Result<JobKind, JobError> {
     let to = key(to_type);
     if fixed(&to) {
@@ -103,13 +113,28 @@ impl Inner {
             }
             let schema = host.type_of(&p).map(|t| host.schema(&t)).unwrap_or_default();
             let order = |k: &str| schema.iter().position(|s| nfc(&s.key) == nfc(k)).unwrap_or(usize::MAX);
-            // D-813: only the old type's schema properties are mapped, in its order.
-            let mut map: Vec<&PropertyMap> = mapping.iter().filter(|m| schema.is_empty() || order(&m.from) != usize::MAX).collect();
+            // D-813, D-837: only the old type's schema properties are mapped, in its order (an untyped note: none).
+            let mut map: Vec<&PropertyMap> = mapping.iter().filter(|m| order(&m.from) != usize::MAX).collect();
             map.sort_by_key(|m| order(&m.from));
+            // D-808: a target of a narrower value type is never written; such a row goes into the content.
+            let target_schema = host.schema(to_type);
+            let target_of = |m: &PropertyMap| -> String {
+                match &m.to {
+                    MapTarget::Property(k) => {
+                        let from = schema.iter().find(|s| nfc(&s.key) == nfc(&m.from));
+                        let to = target_schema.iter().find(|s| nfc(&s.key) == nfc(k));
+                        match (from, to) {
+                            (Some(a), Some(b)) if widens(a, b) => k.clone(),
+                            _ => "content".into(),
+                        }
+                    }
+                    MapTarget::Content => "content".into(),
+                }
+            };
             let mut ops = Vec::new();
             if !map.is_empty() {
                 ops.push(TextOp::MapProperties {
-                    map: map.iter().map(|m| (m.from.clone(), match &m.to { MapTarget::Property(k) => k.clone(), MapTarget::Content => "content".into() })).collect(),
+                    map: map.iter().map(|m| (m.from.clone(), target_of(m))).collect(),
                     labels: schema.iter().map(|s| (s.key.clone(), s.name.clone())).collect(),
                 });
             }
@@ -142,6 +167,7 @@ impl Inner {
             None => host.defined_types().into_iter().filter(|t| !fixed(t)).collect(),
         };
         let exempt: BTreeSet<String> = if r#type.is_none() { host.local_exempt().into_iter().collect() } else { BTreeSet::new() };
+        let exempt_paths: BTreeSet<String> = if r#type.is_none() { host.local_exempt_paths().into_iter().map(|p| key(&p)).collect() } else { BTreeSet::new() };
         let mut files = Vec::new();
         let mut renames = Vec::new();
         let mut moved = Vec::new();
@@ -171,7 +197,7 @@ impl Inner {
                     run.skip(&p, SkipReason::Missing);
                     continue;
                 };
-                if !exempt.is_empty() && extract(&bytes, &stem_of(&p)).id.is_some_and(|i| exempt.contains(&i)) {
+                if extract(&bytes, &stem_of(&p)).id.is_some_and(|i| exempt.contains(&i)) || exempt_paths.contains(&key(&p)) {
                     continue;
                 }
                 let to = self.move_target(&p, &folder, &notes);
@@ -185,24 +211,23 @@ impl Inner {
         JobPlan { job: id, kind: JobKind::FolderMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
     }
 
+    /// D-838: every note whose links could change target when a note moves: those linking to the moved note, and
+    /// those linking to another note with the moved note's new stem (a duplicate, which the move could take over).
     fn add_linking(&self, files: &mut Vec<PlannedFile>, moved: &[(String, String)], notes: &[String]) {
         let host = self.host();
         let mut linking: BTreeMap<String, Vec<TextOp>> = BTreeMap::new();
         for (from, to) in moved {
-            let title = host.read(from).map(|(b, _)| extract(&b, &stem_of(from)).title).unwrap_or_else(|_| stem_of(from));
-            let op = TextOp::RetargetLinks {
-                from_path: from.clone(),
-                from_stem: stem_of(from),
-                from_title: title.clone(),
-                to_path: to.clone(),
-                to_stem: stem_of(to),
-                to_title: title,
-                paths: notes.to_vec(),
-            };
-            for l in host.linking(from) {
-                let l = nfc(&l);
+            let op = TextOp::HoldTargets { from_path: from.clone(), to_path: to.clone(), paths: notes.to_vec() };
+            let mut sources: BTreeSet<String> = host.linking(from).into_iter().map(|l| nfc(&l)).collect();
+            for other in notes.iter().filter(|n| key(n) != key(from) && !excluded(n) && key(&stem_of(n)) == key(&stem_of(to))) {
+                sources.extend(host.linking(other).into_iter().map(|l| nfc(&l)));
+            }
+            for l in sources {
+                if key(&l) == key(from) {
+                    continue;
+                }
                 match files.iter_mut().find(|f| key(&f.path) == key(&l)) {
-                    // A moved note that links to another: the retarget comes before its own keep-targets.
+                    // A moved note that links to another: the hold comes before its own keep-targets.
                     Some(f) => {
                         let at = f.ops.iter().position(|o| matches!(o, TextOp::KeepTargets { .. })).unwrap_or(f.ops.len());
                         f.ops.insert(at, op.clone());
@@ -224,12 +249,21 @@ impl Inner {
         let host = self.host().clone();
         let id = run.id;
         if let JobOp::FolderMove { r#type: Some(t), to_folder: Some(f) } = op {
+            let path = format!(".tegg/types/{}.yml", nfc(t));
+            let pre = host.read(&path).ok();
             match host.write_type_folder(t, f) {
-                Ok(Some(p)) => run.written.push(p),
+                Ok(Some(p)) => {
+                    // D-840: Undo of a folder save restores the previous `folder:` too.
+                    if let (Some((pre, pre_v)), Ok((post, post_v))) = (pre, host.read(&p)) {
+                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false });
+                    }
+                    run.written.push(p);
+                }
                 Ok(None) => {}
                 Err(e) => return Err(e),
             }
         }
+        run.undo.exempt = matches!(op, JobOp::FolderMove { r#type: None, .. });
         let single = matches!(op, JobOp::TypeMove { paths, .. } if paths.len() == 1);
         let moves: HashMap<String, String> = plan.renames.iter().cloned().collect();
         // The final destination of every moved note; `None` when it couldn't move (its linking ops are dropped).
@@ -258,6 +292,10 @@ impl Inner {
             match o {
                 TextOp::RetargetLinks { from_path, from_stem, from_title, to_title, paths, .. } => match done.get(&from_path) {
                     Some(Some(to)) => Some(TextOp::RetargetLinks { from_path, from_stem, from_title, to_stem: stem_of(to), to_path: to.clone(), to_title, paths }),
+                    _ => None,
+                },
+                TextOp::HoldTargets { from_path, paths, .. } => match done.get(&from_path) {
+                    Some(Some(to)) => Some(TextOp::HoldTargets { from_path, to_path: to.clone(), paths }),
                     _ => None,
                 },
                 other => Some(other),
@@ -295,11 +333,28 @@ impl Inner {
             self.step(id, step);
         }
         let _ = total;
-        // D-812: a note whose type changed, or whose type's folder changed, is no longer exempt from tidying.
-        let ids: BTreeSet<String> = run.undo.files.iter().filter(|w| w.before != w.after).filter_map(|w| extract(&w.post, &stem_of(&w.after)).id).collect();
-        if !ids.is_empty() && !matches!(op, JobOp::FolderMove { r#type: None, .. }) {
+        // D-812, D-839: a note whose type changed (moved or not), or whose type's folder changed, is no longer exempt.
+        if !matches!(op, JobOp::FolderMove { r#type: None, .. }) {
+            let mut ids = BTreeSet::new();
+            let mut paths = BTreeSet::new();
+            let changed: Vec<String> = match op {
+                JobOp::FolderMove { r#type: Some(t), .. } => host.objects_of(t),
+                _ => plan.files.iter().filter(|f| f.ops.iter().any(|o| matches!(o, TextOp::ChangeType { .. }))).map(|f| f.path.clone()).collect(),
+            };
+            for p in changed {
+                paths.insert(key(&p));
+                let now = done.get(&p).cloned().flatten().unwrap_or_else(|| p.clone());
+                paths.insert(key(&now));
+                if let Ok((b, _)) = host.read(&now) {
+                    if let Some(i) = extract(&b, &stem_of(&now)).id {
+                        ids.insert(i);
+                    }
+                }
+            }
             let left: Vec<String> = host.local_exempt().into_iter().filter(|i| !ids.contains(i)).collect();
             host.set_local_exempt(&left);
+            let left: Vec<String> = host.local_exempt_paths().into_iter().filter(|p| !paths.contains(&key(p))).collect();
+            host.set_local_exempt_paths(&left);
         }
         Ok(())
     }
@@ -331,7 +386,6 @@ impl Inner {
         }
         let mut to = to.to_string();
         let mut ops = f.ops.clone();
-        let mut journaled = false;
         for _ in 0..50 {
             let out = match self.transform(&f.path, &pre, &ops) {
                 Ok(Transformed::Bytes(b, _)) => b,
@@ -341,9 +395,9 @@ impl Inner {
                     return None;
                 }
             };
-            if single && !journaled {
+            if single {
+                // §8: written again when a taken name moved the target, so Finish uses the name the move really takes.
                 self.journal_move(id, f, &to, &out, &pre, all);
-                journaled = true;
             }
             self.point(id, JobPoint::TempWritten { path: f.path.clone() });
             match host.rename(&f.path, &to, &out, &pre_v) {
@@ -354,10 +408,10 @@ impl Inner {
                         crate::journal::progress(host.as_ref(), id, &f.path, &to, &post_v);
                     }
                     run.moved.renames.push((f.path.clone(), to.clone(), sha256_hex(&out)));
-                    let retarget = all.iter().flat_map(|x| x.ops.iter()).find(|o| matches!(o, TextOp::RetargetLinks { from_path, .. } if *from_path == f.path)).cloned();
+                    let hold = all.iter().flat_map(|x| x.ops.iter()).find(|o| matches!(o, TextOp::HoldTargets { from_path, .. } if *from_path == f.path)).cloned();
                     if single {
-                        run.undo.op = retarget.map(|o| match o {
-                            TextOp::RetargetLinks { from_path, from_stem, from_title, to_title, paths, .. } => TextOp::RetargetLinks { from_path, from_stem, from_title, to_stem: stem_of(&to), to_path: to.clone(), to_title, paths },
+                        run.undo.op = hold.map(|o| match o {
+                            TextOp::HoldTargets { from_path, paths, .. } => TextOp::HoldTargets { from_path, to_path: to.clone(), paths },
                             o => o,
                         });
                     }
@@ -388,7 +442,7 @@ impl Inner {
     /// The §8 journal of a single type move: the note with its new bytes as target, then each linking note.
     fn journal_move(&self, id: JobId, note: &PlannedFile, to: &str, out: &[u8], pre: &[u8], all: &[PlannedFile]) {
         let host = self.host();
-        let op = all.iter().flat_map(|x| x.ops.iter()).find(|o| matches!(o, TextOp::RetargetLinks { from_path, .. } if *from_path == note.path)).cloned();
+        let op = all.iter().flat_map(|x| x.ops.iter()).find(|o| matches!(o, TextOp::HoldTargets { from_path, .. } if *from_path == note.path)).cloned();
         let mut entries = vec![crate::journal::Entry { at: note.path.clone(), to: to.to_string(), pre: pre.to_vec(), target: Some(out.to_vec()) }];
         for f in all.iter().filter(|f| f.path != note.path) {
             if let Ok((b, _)) = host.read(&f.path) {
@@ -396,17 +450,26 @@ impl Inner {
             }
         }
         let op = op.map(|o| match o {
-            TextOp::RetargetLinks { from_path, from_stem, from_title, to_title, paths, .. } => TextOp::RetargetLinks { from_path, from_stem, from_title, to_stem: stem_of(to), to_path: to.to_string(), to_title, paths },
+            TextOp::HoldTargets { from_path, paths, .. } => TextOp::HoldTargets { from_path, to_path: to.to_string(), paths },
             o => o,
         });
-        crate::journal::begin_entries(host.as_ref(), id, "type-move", op.as_ref(), &entries);
+        let title = extract(pre, &stem_of(&note.path)).title;
+        crate::journal::begin_titled(host.as_ref(), id, "type-move", op.as_ref(), &title, &entries);
     }
 
     /// The backup label of a move (ms4-tags §5.1, R99).
     pub(super) fn move_label(&self, op: &JobOp, plan: &JobPlan) -> serde_json::Value {
         match op {
-            JobOp::TypeMove { to_type, .. } => json!({ "key": "backups.label.typeMove", "args": { "count": plan.renames.len().max(1), "type": to_type } }),
-            JobOp::FolderMove { r#type: Some(t), to_folder: Some(f) } => json!({ "key": "backups.label.folderMove", "args": { "type": t, "folder": f } }),
+            JobOp::TypeMove { paths, to_type, .. } => {
+                let name = self.host().type_names(to_type).map(|(n, _)| n).unwrap_or_else(|| to_type.clone());
+                json!({ "key": "backups.label.typeMove", "args": { "count": paths.len().max(1), "type": name } })
+            }
+            JobOp::FolderMove { r#type: Some(t), to_folder: Some(f) } => {
+                // R99: `Move <plural> to <folder>`, the type's Name for 1 and its plural otherwise, in lower case.
+                let (name, plural) = self.host().type_names(t).unwrap_or_else(|| (t.clone(), t.clone()));
+                let word = if plan.renames.len() == 1 { name } else { plural };
+                json!({ "key": "backups.label.folderMove", "args": { "plural": word.to_lowercase(), "folder": f } })
+            }
             _ => json!({ "key": "backups.label.tidy", "args": {} }),
         }
     }
@@ -415,12 +478,20 @@ impl Inner {
     pub(super) fn exempt_undone(&self, rec_files: &[Written]) {
         let host = self.host();
         let mut ids: BTreeSet<String> = host.local_exempt().into_iter().collect();
+        let mut paths: BTreeSet<String> = host.local_exempt_paths().into_iter().collect();
         for w in rec_files.iter().filter(|w| w.before != w.after) {
-            if let Some(i) = extract(&w.pre, &stem_of(&w.before)).id {
-                ids.insert(i);
+            match extract(&w.pre, &stem_of(&w.before)).id {
+                Some(i) => {
+                    ids.insert(i);
+                }
+                // D-839: a note without an `id` is exempt by its (restored) path.
+                None => {
+                    paths.insert(nfc(&w.before));
+                }
             }
         }
         host.set_local_exempt(&ids.into_iter().collect::<Vec<_>>());
+        host.set_local_exempt_paths(&paths.into_iter().collect::<Vec<_>>());
     }
 }
 

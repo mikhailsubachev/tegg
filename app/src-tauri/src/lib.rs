@@ -163,6 +163,13 @@ fn mark(app: &AppHandle, name: &str) {
             });
         }
     }
+    if name.starts_with("route-ready:type-settings/") && test_var("TEGG_TEST_FOCUS_FOLDER").is_some() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let _ = app.emit("tegg://test-focus-folder", ());
+        });
+    }
     if test_var("TEGG_EXIT_AFTER").as_deref() == Some(name) {
         app.exit(0);
     }
@@ -299,7 +306,7 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
                 .jobs()
                 .interrupted()
                 .into_iter()
-                .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+                .map(|i| InterruptedDto { job_id: i.job as u32, kind: i.kind, title: i.title, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
                 .collect();
             (!i.is_empty()).then_some(i)
         },
@@ -1111,7 +1118,7 @@ async fn job_interrupted(state: State<'_, AppState>) -> Result<Vec<InterruptedDt
         .jobs()
         .interrupted()
         .into_iter()
-        .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+        .map(|i| InterruptedDto { job_id: i.job as u32, kind: i.kind, title: i.title, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
         .collect())
 }
 
@@ -1403,6 +1410,14 @@ async fn type_patch(state: State<'_, AppState>, key: String, base: Option<Versio
     let ops = ops.into_iter().map(type_op).collect::<Result<Vec<_>, _>>()?;
     // D-805, D-822: a new folder with objects to move is written by the folder-move job, after its zip.
     let (folders, ops): (Vec<_>, Vec<_>) = ops.into_iter().partition(|o| matches!(o, TypeOp::SetFolder(_)));
+    // NFR-REL-02: a folder change is checked against the version the page read, as every type-file write (D-235).
+    if !folders.is_empty() && ops.is_empty() {
+        if let (Some(b), Some(disk)) = (base.as_ref(), core.type_get(&key).and_then(|t| t.version)) {
+            if !b.same_content(&disk) {
+                return Err(type_err(&core, &key, tegg_core::CoreError::Vault(VaultError::Conflict { disk })));
+            }
+        }
+    }
     let mut t = if ops.is_empty() { core.type_get(&key).ok_or_else(|| err("UnknownType", "no such type"))? } else { core.type_patch(&key, base.as_ref(), &ops).map_err(|e| type_err(&core, &key, e))? };
     for op in folders {
         let TypeOp::SetFolder(f) = &op else { continue };

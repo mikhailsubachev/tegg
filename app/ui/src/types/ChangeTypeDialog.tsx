@@ -47,7 +47,7 @@ function Shell({ label, onCancel, children }: { label: string; onCancel: () => v
 
 const keyOf = (o: string | { key: string }) => (typeof o === 'string' ? o : o.key);
 
-export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfirm, onCancel }: {
+export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfirm, onCancel, targets, onTarget }: {
   plan: TypeMovePlanDto;
   fromName: string;
   toName: string;
@@ -55,6 +55,9 @@ export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfir
   targetNames: Record<string, string>;
   onConfirm: (mapping: { from: string; to: string }[]) => void;
   onCancel: () => void;
+  /** R99 A: the `New type` menu (other targets re-plan the change); without it the menu shows the target alone. */
+  targets?: { key: string; name: string }[];
+  onTarget?: (key: string) => void;
 }) {
   const [map, setMap] = useState<Record<string, string>>(() => Object.fromEntries(plan.rows.map((r) => [r.from, r.value === null && !r.fixed ? 'content' : r.default])));
   const names = useMemo(() => {
@@ -66,6 +69,13 @@ export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfir
   return (
     <Shell label={t('typeMove.title')} onCancel={onCancel}>
       <h2>{t('typeMove.title')}</h2>
+      <label className="ts-field">
+        <span>{t('typeMove.newType')}</span>
+        <select aria-label={t('typeMove.newType')} disabled={!targets || !onTarget} value={targets?.find((x) => x.name === toName)?.key ?? toName}
+          onChange={(e) => onTarget?.(e.target.value)}>
+          {targets ? targets.map((x) => <option key={x.key} value={x.key}>{x.name}</option>) : <option value={toName}>{toName}</option>}
+        </select>
+      </label>
       <fieldset aria-label={t('typeMove.mapping', { from: fromName, to: toName })}>
         <legend>{t('typeMove.mapping', { from: fromName, to: toName })}</legend>
         <ul className="type-map">
@@ -74,7 +84,7 @@ export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfir
           {plan.rows.map((r) => {
             const empty = r.value === null && !r.fixed;
             const busy = taken(r.from);
-            const offered = r.offered.map(keyOf).filter((k) => !busy.has(k) || map[r.from] === k);
+            const offered = r.offered.map(keyOf).filter((k) => k !== r.default || !r.fixed).filter((k) => !busy.has(k) || map[r.from] === k);
             const label = t('typeMove.mapsTo', { name: r.name });
             return (
               <li key={r.from} className="type-map-row" data-empty={empty ? 'true' : undefined} aria-disabled={empty ? 'true' : undefined}>

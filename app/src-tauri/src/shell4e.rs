@@ -15,8 +15,15 @@ pub struct MapRowDto {
     pub kind: String,
     pub value: Option<String>,
     pub default: String,
-    pub offered: Vec<String>,
+    /// D-821: the targets of the same or a wider value type, with their display names.
+    pub offered: Vec<OfferDto>,
     pub fixed: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OfferDto {
+    pub key: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,8 +31,6 @@ pub struct MapRowDto {
 pub struct TypeMovePlanDto {
     pub rows: Vec<MapRowDto>,
     pub needs_dialog: bool,
-    /// Target property key → its display name (the dialog's menu labels).
-    pub target_names: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,18 +49,12 @@ pub struct JobMaybeDto {
 pub async fn type_move_plan(state: State<'_, AppState>, paths: Vec<String>, to_type: String) -> Result<TypeMovePlanDto, IpcError> {
     let core = core(&state)?;
     let p = core.type_move_plan(&paths, &to_type);
-    let mut target_names = std::collections::BTreeMap::new();
     let rows = p
         .rows
         .into_iter()
-        .map(|r| {
-            for (k, n) in &r.offered {
-                target_names.insert(k.clone(), n.clone());
-            }
-            MapRowDto { from: r.from, name: r.name, kind: r.kind, value: r.value, default: r.default, offered: r.offered.into_iter().map(|(k, _)| k).collect(), fixed: r.fixed }
-        })
+        .map(|r| MapRowDto { from: r.from, name: r.name, kind: r.kind, value: r.value, default: r.default, offered: r.offered.into_iter().map(|(key, name)| OfferDto { key, name }).collect(), fixed: r.fixed })
         .collect();
-    Ok(TypeMovePlanDto { rows, needs_dialog: p.needs_dialog, target_names })
+    Ok(TypeMovePlanDto { rows, needs_dialog: p.needs_dialog })
 }
 
 #[tauri::command]

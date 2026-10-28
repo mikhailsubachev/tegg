@@ -187,6 +187,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   titleRef.current = title;
   const [diskText, setDiskText] = useState<string>('');
   const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; toName: string } | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  useEffect(() => { if (!moveError) return; const h = setTimeout(() => setMoveError(null), 5000); return () => clearTimeout(h); }, [moveError]);
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
   const [focusTarget, setFocusTarget] = useState<'body' | 'title' | 'heading' | null>(null);
@@ -905,9 +907,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const p = live.current.path;
     if (isDraft() || p.startsWith('_templates/')) { commit((d) => setValue(d, 'type', key)); return; }
     const plan = await ipc.typeMovePlan([p], key).catch(() => null);
-    if (!plan) { commit((d) => setValue(d, 'type', key)); return; }
+    if (!plan) { setMoveError(t('typeMove.failed')); return; } // never a silent in-place change (QA 4E-1)
     const toName = types.find((x) => x.key === key)?.name ?? key;
-    if (plan.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: plan.targetNames, key, toName });
+    if (plan.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: {}, key, toName });
     else void startMove(key, toName, []);
   };
   const startMove = async (key: string, toName: string, map: { from: string; to: string }[]) => {
@@ -915,13 +917,20 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const sv = saver.current;
     await sv?.flush();
     sv?.hold(); // ms4-jobs §9: no write to the old path while the job moves the note
+    // Nothing is typed while the job moves the note: its text would carry the old frontmatter (QA 4E-1).
+    const tiptap = edRef.current?.editor;
+    tiptap?.setEditable(false);
+    const unblock = () => tiptap?.setEditable(true);
     const reload = async () => {
       // The type changed in place (the note was already in its new type's folder): the editor takes the new bytes.
       const n = await ipc.noteRead(p).catch(() => null);
       if (n && sv) { sv.moved(p, n.version); edRef.current?.reload(n.text); syncHead(); setDiskText(n.text); onMeta(noteMeta(p, n.text)); }
       else sv?.release();
     };
-    void moveNotes([p], key, toName, map, false, (r) => { if (!r?.renamed) void reload(); }).catch(() => sv?.release());
+    void moveNotes([p], key, toName, map, false, (r) => {
+      if (r && r.phase !== 'done') setMoveError(t('typeMove.failed'));
+      if (!r?.renamed) void reload().finally(unblock); else unblock();
+    }).catch(() => { sv?.release(); unblock(); setMoveError(t('typeMove.failed')); });
   };
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
   // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
@@ -957,8 +966,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
             onChange={(key) => { void changeType(key); }} onOpenType={onType} />
+          {moveError && <span className="warning-text" role="alert">{moveError}</span>}
           {mapping && (
             <ChangeTypeDialog plan={mapping.plan} fromName={chipType?.name ?? chipKey} toName={mapping.toName} targetNames={mapping.names}
+              targets={types.filter((x) => !['daily-note', 'tag', 'image', 'pdf', chipKey].includes(x.key)).map((x) => ({ key: x.key, name: x.name }))}
+              onTarget={(k) => { setMapping(null); void changeType(k); }}
               onCancel={() => setMapping(null)}
               onConfirm={(m) => { const x = mapping; setMapping(null); void startMove(x.key, x.toName, m); }} />
           )}

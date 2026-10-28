@@ -356,7 +356,11 @@ moved: Array<RenamedDto>, };
 export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
-export type InterruptedDto = { jobId: number, from: string, to: string, done: number, total: number, };
+export type InterruptedDto = { jobId: number, 
+/**
+ * `rename` or `type-move` (ms4-jobs §14.6).
+ */
+kind: string, title: string | null, from: string, to: string, done: number, total: number, };
 export type BackupLabelDto = { key: string, args: Record<string, string | number>, };
 export type BackupDto = { name: string, kind: string, 
 /**

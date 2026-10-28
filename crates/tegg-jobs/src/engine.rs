@@ -72,6 +72,8 @@ struct Written {
 #[derive(Debug, Clone, Default)]
 struct UndoRecord {
     files: Vec<Written>,
+    /// D-840: undoing this job exempts its notes from later tidy runs (a tidy job; not a folder save).
+    exempt: bool,
     /// The final forward retarget op: notes open in an editor are undone and redone through it (D-386).
     op: Option<TextOp>,
 }
@@ -672,7 +674,7 @@ impl Inner {
         };
         // D-812: notes a folder move put back stay where they are at later tidy runs (written before the report is out).
         if let (Phase::Done, JobOp::Undo { job }) = (phase, &op) {
-            let files = lock(&self.state).jobs.get(job).filter(|o| o.kind == JobKind::FolderMove).and_then(|o| o.undo.clone()).map(|r| r.files);
+            let files = lock(&self.state).jobs.get(job).filter(|o| o.kind == JobKind::FolderMove).and_then(|o| o.undo.clone()).filter(|r| r.exempt).map(|r| r.files);
             if let Some(files) = files {
                 self.exempt_undone(&files);
             }
@@ -1414,6 +1416,11 @@ fn reversed(op: &TextOp) -> TextOp {
             to_path: from_path.clone(),
             to_stem: from_stem.clone(),
             to_title: from_title.clone(),
+            paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
+        },
+        TextOp::HoldTargets { from_path, to_path, paths } => TextOp::HoldTargets {
+            from_path: to_path.clone(),
+            to_path: from_path.clone(),
             paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
         },
         other => other.clone(),

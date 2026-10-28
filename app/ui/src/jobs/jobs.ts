@@ -274,7 +274,9 @@ function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
     if (doneTimer) clearTimeout(doneTimer);
   } else if (state.status?.jobId === jobId) patch.status = null;
   set(patch);
-  if (r.renamed) for (const f of movedListeners) f({ jobId, from: r.renamed.from.normalize('NFC'), to: r.renamed.to.normalize('NFC') });
+  // ms4-jobs §9: an open note the job moved (a single move, a bulk convert, a folder save, the tidy job) follows it.
+  const moves = r.renamed ? [r.renamed] : moved;
+  for (const m of moves) for (const f of movedListeners) f({ jobId, from: m.from.normalize('NFC'), to: m.to.normalize('NFC') });
   t.done?.(r);
 }
 

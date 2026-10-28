@@ -210,11 +210,16 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
 
   // 4E-1 (D-803, D-804, D-813): a convert is a `type-move` job with `review: reviewed`; the mapping dialog first when a
   // property needs an answer; a bulk convert asks once for the type pair.
-  const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; fromName: string; go: (m: { from: string; to: string }[]) => void } | null>(null);
+  const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; fromName: string; go: (m: { from: string; to: string }[]) => void; cancel?: () => void } | null>(null);
   const withMapping = async (paths: string[], key: string, fromKey: string, go: (m: { from: string; to: string }[]) => void) => {
+    const m = await askMapping(paths, key, fromKey);
+    if (m) go(m);
+  };
+  /** The mapping for one type pair: the dialog when a row needs an answer (D-804); null when cancelled. */
+  const askMapping = async (paths: string[], key: string, fromKey: string): Promise<{ from: string; to: string }[] | null> => {
     const plan = await ipc.typeMovePlan(paths, key).catch(() => null);
-    if (plan?.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: plan.targetNames, key, fromName: typeName(fromKey), go });
-    else go([]);
+    if (!plan?.needsDialog) return [];
+    return new Promise((res) => setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: {}, key, fromName: typeName(fromKey), go: (m) => res(m), cancel: () => res(null) }));
   };
   const convert = async (r: InboxRowDto, key: string) => {
     setMenu(null);
@@ -231,16 +236,22 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   const convertMany = async (paths: string[], key: string, label: string) => {
     const editable = paths.filter((p) => !rowOf(p)?.readOnly);
     if (editable.length === 0) return;
-    await withMapping(editable, key, rowOf(editable[0])?.type ?? 'page', async (m) => {
-      setSelection([]);
+    // D-837: grouped by the items' current type: one mapping (dialog when needed) and one job per group.
+    const groups = new Map<string, string[]>();
+    for (const p of editable) { const k = rowOf(p)?.type ?? 'page'; groups.set(k, [...(groups.get(k) ?? []), p]); }
+    setSelection([]);
+    for (const [from, paths] of groups) {
+      if (from === key) continue;
+      const m = await askMapping(paths, key, from);
+      if (!m) continue;
       try {
         // The page's job status follows it (cancellable while planning or backing up), as for the other bulk actions.
-        const id = await moveNotes(editable, key, label, m, true, () => { void load(); });
-        if (id !== null) setJob((j) => j ?? { id, phase: 'planning', count: editable.length, label });
+        const id = await moveNotes(paths, key, label, m, true, () => { void load(); });
+        if (id !== null) setJob((j) => j ?? { id, phase: 'planning', count: paths.length, label });
       } catch {
         alert(t('inbox.saveFailed', { title: label }));
       }
-    });
+    }
   };
 
   const rowOf = (p: string) => all.find((r) => nfc(r.path) === nfc(p));
@@ -458,7 +469,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     <div className="page-column inbox-page">
       {mapping && (
         <ChangeTypeDialog plan={mapping.plan} fromName={mapping.fromName} toName={typeName(mapping.key)} targetNames={mapping.names}
-          onCancel={() => setMapping(null)} onConfirm={(m) => { const x = mapping; setMapping(null); x.go(m); }} />
+          onCancel={() => { const x = mapping; setMapping(null); x.cancel?.(); }} onConfirm={(m) => { const x = mapping; setMapping(null); x.go(m); }} />
       )}
       <div className="inbox-header">
         <h1 ref={heading} tabIndex={-1}>{t('inbox.title')}</h1>

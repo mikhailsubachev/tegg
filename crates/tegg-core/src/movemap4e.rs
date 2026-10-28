@@ -17,7 +17,7 @@ pub struct MapRow {
     pub value: Option<String>,
     /// A target key, or `content`.
     pub default: String,
-    /// Target keys of the same or a wider value type (D-808), excluding the default.
+    /// Target keys and names of the same or a wider value type (D-808, D-821).
     pub offered: Vec<(String, String)>,
     pub fixed: bool,
 }
@@ -84,7 +84,7 @@ impl Core {
             };
             // A row needs an answer when its value would go into the content or could go elsewhere (R101).
             needs_dialog |= value.is_some() && !fixed;
-            let offered = offered.into_iter().filter(|(k, _)| *k != default || !fixed).collect();
+            // A fixed row keeps its target in `offered`, so the dialog can name it (D-821).
             rows.push(MapRow { from: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), value, default, offered, fixed });
         }
         // R101's last row: every property keeps its key at the same or a wider type: no dialog.

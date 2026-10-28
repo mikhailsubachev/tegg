@@ -8,6 +8,7 @@ import { wikilinks } from './links.js'
 import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
+import { isMap, isScalar, isSeq, parseDocument, type Node as YamlNode, type Pair } from 'yaml'
 
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
@@ -29,13 +30,16 @@ export type TextOp =
   | { op: 'keep-targets'; fromPath: string; toPath: string; paths: string[] }
   // A type move's own type change: `type` and, unless `now` is null (a template, D-829), `modified`; never `review` (D-826).
   | { op: 'change-type'; type: string; now: string | null; id?: string }
+  // D-838: in a note that doesn't move, keep every link on its target when `fromPath` becomes `toPath`.
+  | { op: 'hold-targets'; fromPath: string; toPath: string; paths: string[] }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
 type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 type MapProps = Extract<TextOp, { op: 'map-properties' }>
 type KeepTargets = Extract<TextOp, { op: 'keep-targets' }>
-const MOVE_OPS = new Set(['map-properties', 'keep-targets', 'change-type'])
+const MOVE_OPS = new Set(['map-properties', 'keep-targets', 'change-type', 'hold-targets'])
+type HoldTargets = Extract<TextOp, { op: 'hold-targets' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
@@ -79,6 +83,7 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   for (const op of ops) {
     if (op.op === 'map-properties') patches.push(...mapPatches(doc, op))
     else if (op.op === 'keep-targets') patches.push(...keepPatches(doc, op))
+    else if (op.op === 'hold-targets') patches.push(...holdPatches(doc, source, op))
     else if (op.op === 'change-type') {
       // D-174: the edited key, then the identity keys a file without them gets (`id`, `modified`).
       const vals: [string, Value][] = [['type', op.type]]
@@ -335,25 +340,43 @@ function mapPatches(doc: Doc, op: MapProps): Patch[] {
   const out: Patch[] = []
   const lines: string[] = []
   const entries = fm.entries
+  const stored = storedValues(doc)
   for (const m of op.map) {
     const at = entries.findIndex((e) => nfc(e.key) === nfc(m.from))
     if (at === -1) continue
     const e = entries[at]
-    const value = fm.data[e.key]
-    if (m.to === 'content') {
+    const value = stored[e.key] ?? fm.data[e.key]
+    // A target key the note already has can't take the value: it goes into the content instead (nothing is lost).
+    const to = m.to !== 'content' && nfc(m.to) !== nfc(m.from) && entries.some((x) => nfc(x.key) === nfc(m.to)) ? 'content' : m.to
+    if (to === 'content') {
       // R101: an empty value writes no Content line; its key leaves with the old type's other properties.
       if (!isEmpty(value)) lines.push(contentLine(op.labels[m.from] ?? m.from, value))
       out.push({ range: [commentStart(doc, entries, at), e.range[1]], text: '' })
-    } else if (nfc(m.to) !== nfc(m.from)) {
-      if (entries.some((x) => nfc(x.key) === nfc(m.to))) continue // the target key is already there: left as it is
+    } else if (nfc(to) !== nfc(m.from)) {
       const keyText = entryKeyText(doc, e.range)
-      out.push({ range: [e.range[0], e.range[0] + keyText.length], text: nfc(formatKey(m.to)) })
+      out.push({ range: [e.range[0], e.range[0] + keyText.length], text: nfc(formatKey(to)) })
     }
   }
   if (lines.length) {
     const at = doc.bodyStart
     out.push({ range: [at, at], text: lines.map((l) => fit(doc, l)).join(doc.eol) + doc.eol + doc.eol })
   }
+  return out
+}
+
+/** D-813: each frontmatter value as stored: strings as their value (quotes dropped), every other scalar as written
+ *  (`0123`, `1.50`, `0x1F` stay as they are), lists item by item. */
+function storedValues(doc: Doc): Record<string, unknown> {
+  const fm = doc.frontmatter!
+  const inner = doc.text.slice(fm.innerRange[0], fm.innerRange[1])
+  const y = parseDocument(inner)
+  const out: Record<string, unknown> = {}
+  const one = (n: unknown): unknown => {
+    if (isScalar(n)) return typeof n.value === 'string' || n.value === null || !n.range ? n.value : inner.slice(n.range[0], n.range[1])
+    if (isSeq(n)) return n.items.map(one)
+    return (n as YamlNode | null)?.toJSON?.() ?? n
+  }
+  if (isMap(y.contents)) for (const it of y.contents.items as Pair[]) if (isScalar(it.key)) out[String(it.key.value)] = one(it.value)
   return out
 }
 
@@ -397,8 +420,8 @@ function keepPatches(doc: Doc, op: KeepTargets): Patch[] {
     const viaStem = resolveFrom(op.toPath, stem, false, after)
     const name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
     let tail = raw.slice(te, raw.length - 2)
-    if (!l.embed && l.alias === null) tail += '|' + written.trim()
-    out.push({ range: [s, e], text: nfc(raw.slice(0, ts) + name + tail + ']]') })
+    if (!l.embed && l.alias === null) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
   }
   for (const m of markdownLinks(doc)) {
     const b = was(m.target, true)
@@ -407,6 +430,54 @@ function keepPatches(doc: Doc, op: KeepTargets): Patch[] {
     if (a !== null && key(a) === key(b)) continue
     const url = doc.text.slice(m.url[0], m.url[1])
     out.push({ range: m.url, text: relativeUrl(url, folder(op.toPath), b) })
+  }
+  return out
+}
+
+/** `\|` inside a table cell (a bare `|` would end the cell), else `|`. */
+function pipeAt(doc: Doc, at: number): string {
+  return doc.blocks.some((b) => b.kind === 'table' && b.range[0] <= at && at < b.range[1]) ? '\\|' : '|'
+}
+
+// ---------------------------------------------------------------- hold-targets (D-838)
+
+function holdPatches(doc: Doc, source: string, op: HoldTargets): Patch[] {
+  const out: Patch[] = []
+  const before = op.paths
+  const after = before.some((p) => key(p) === key(op.fromPath)) ? before.map((p) => (key(p) === key(op.fromPath) ? op.toPath : p)) : [...before, op.toPath]
+  const was = (target: string, md: boolean): string | null => {
+    const b = resolveFrom(source, target, md, before)
+    return b === null ? null : key(b) === key(op.fromPath) ? op.toPath : b
+  }
+  for (const l of wikilinks(doc)) {
+    const b = was(l.target, false)
+    if (b === null) continue
+    const a = resolveFrom(source, l.target, false, after)
+    if (a !== null && key(a) === key(b)) continue
+    const [s, e] = l.range
+    const raw = doc.text.slice(s, e)
+    const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
+    const written = doc.text.slice(l.targetRange[0], l.targetRange[1])
+    const ext = /\.md$/i.exec(written)?.[0] ?? ''
+    const noExt = nfc(b).replace(/\.md$/i, '')
+    const stem = noExt.slice(noExt.lastIndexOf('/') + 1)
+    // A path form stays a path form; a name gets the shortest form that resolves, the written text as its alias.
+    let name: string
+    if (written.includes('/')) name = noExt + ext
+    else {
+      const viaStem = resolveFrom(source, stem, false, after)
+      name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
+    }
+    let tail = raw.slice(te, raw.length - 2)
+    if (!l.embed && l.alias === null && !written.includes('/') && key(name.replace(/\.md$/i, '')) !== key(written.trim().replace(/\.md$/i, ''))) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
+  }
+  for (const m of markdownLinks(doc)) {
+    const b = was(m.target, true)
+    if (b === null) continue
+    const a = resolveFrom(source, m.target, true, after)
+    if (a !== null && key(a) === key(b)) continue
+    out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(source), b) })
   }
   return out
 }
