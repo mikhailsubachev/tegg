@@ -231,12 +231,15 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   const convertMany = async (paths: string[], key: string, label: string) => {
     const editable = paths.filter((p) => !rowOf(p)?.readOnly);
     if (editable.length === 0) return;
-    await withMapping(editable, key, rowOf(editable[0])?.type ?? 'page', (m) => {
+    await withMapping(editable, key, rowOf(editable[0])?.type ?? 'page', async (m) => {
       setSelection([]);
-      void moveNotes(editable, key, label, m, true, (rep) => {
-        if (rep && rep.written.length > 0) say(t('inbox.done.many', { count: rep.moved?.length || rep.written.length }));
-        void load();
-      }).catch(() => alert(t('inbox.saveFailed', { title: label })));
+      try {
+        // The page's job status follows it (cancellable while planning or backing up), as for the other bulk actions.
+        const id = await moveNotes(editable, key, label, m, true, () => { void load(); });
+        if (id !== null) setJob((j) => j ?? { id, phase: 'planning', count: editable.length, label });
+      } catch {
+        alert(t('inbox.saveFailed', { title: label }));
+      }
     });
   };
 

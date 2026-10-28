@@ -15,6 +15,10 @@ fn quiet() -> Duration {
 }
 
 pub(crate) fn spawn(shared: Weak<Shared>, jobs: JobsRef) {
+    // D-835: real-app tests start the app with `TEGG_TEST_TIDY=0` unless they test the tidy job.
+    if std::env::var("TEGG_TEST_TIDY").as_deref() == Ok("0") {
+        return;
+    }
     let _ = std::thread::Builder::new().name("tegg-tidy".into()).spawn(move || run(shared, jobs));
 }
 

@@ -65,7 +65,7 @@ test('fr_sto_04_ac4_change_type_without_a_dialog_moves_and_replaces_the_route', 
   assert.ok(!/Knihy\/|Plán\.md/.test(flat(await st.innerText())), 'no path or folder is shown (D-804)');
   assert.equal(await eventually(() => typeCount(page, 'Quick Notes'), (n) => n === qn - 1, 2000), qn - 1, 'Quick Notes −1 within 2 s');
   assert.equal(await eventually(() => typeCount(page, 'Knihy'), (n) => n === kn + 1, 2000), kn + 1, 'Knihy +1 within 2 s');
-  assert.deepEqual(await core.backups(), [], 'no zip (board G)');
+  assert.deepEqual((await core.backups()).filter((b) => b.kind === 'type-move'), [], 'no zip for the move (board G; the zip of the tidy job at open is its own)');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Odkazy', 'Back goes to Odkazy: the route was replaced, not pushed');
   await sleep(6000);
@@ -87,13 +87,13 @@ test('fr_sto_04_ac5_the_mapping_dialog_shows_r101_and_cancel_writes_nothing', as
   assert.equal(await valueOf(stav), 'Stav');
   const bad: string[] = [];
   for (const [n, def, opts] of [
-    ['Vydáno', 'Content', ['Content', 'Datum']], ['Autor', 'Content', ['Content', 'Místo']], ['Hodnocení', 'Content', ['Content', 'Místo']],
-    ['Související', 'Content', ['Content']], ['Poznámka', 'Content', ['Content', 'Místo']],
+    ['Vydáno', 'Content', ['Content', 'Datum', 'Místo']], ['Autor', 'Content', ['Content', 'Místo']], ['Hodnocení', 'Content', ['Content', 'Místo']],
+    ['Související', 'Content', ['Content', 'Místo']], ['Poznámka', 'Content', ['Content', 'Místo']],
   ] as [string, string, string[]][]) {
     const got = await optionsOf(page, mapsTo(page, n));
     if ((await valueOf(mapsTo(page, n))) !== def || JSON.stringify([...got].sort()) !== JSON.stringify([...opts].sort())) bad.push(`${n}: ${await valueOf(mapsTo(page, n))} [${got.join(', ')}]`);
   }
-  assert.deepEqual(bad, [], 'R101 defaults and offers (Účastníci is never offered: narrower, D-808)');
+  assert.deepEqual(bad, [], 'R101 defaults and offers: a date and a relation widen to Text too (D-808); Účastníci is never offered: narrower');
   await choose(page, mapsTo(page, 'Autor'), 'Místo');
   assert.deepEqual(await optionsOf(page, mapsTo(page, 'Poznámka')), ['Content'], 'a target taken by one row is not offered in another');
   await (await must(d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel')).click();
@@ -192,8 +192,9 @@ test('fr_inb_02_ac17_bulk_convert_one_mapping_a_zip_and_one_undo', async ({ page
   const call = await typeMoveCall(core);
   assert.deepEqual({ ...args(call), paths: [...((args(call).paths as string[] | undefined) ?? [])].sort() }, { paths: [M.plan, M.sesitQ].sort(), toType: 'kniha', mapping: [], review: true }, 'one type_move for both items');
   await fileWhen(core, 'Knihy/Sešit (2).md', (t) => t !== undefined);
-  assert.deepEqual((await core.backups()).map((b) => b.kind), ['type-move'], 'its zip first (FR-HIS-04 AC-11)');
-  assert.ok(flat((await core.backups())[0]?.label ? JSON.stringify((await core.backups())[0].label) : '').includes('Kniha'), 'labelled `Change type of 2 objects to Kniha`');
+  const zips = (await core.backups()).filter((b) => b.kind !== 'folder-move'); // the tidy job at open zips first, on its own
+  assert.deepEqual(zips.map((b) => b.kind), ['type-move'], 'its zip first (FR-HIS-04 AC-11)');
+  assert.ok(flat(zips[0]?.label ? JSON.stringify(zips[0].label) : '').includes('Kniha'), 'labelled `Change type of 2 objects to Kniha`');
   await (await must(page.getByRole('status').getByRole('button', { name: 'Undo', exact: true }), 'Undo')).click();
   assert.equal(await fileWhen(core, M.plan, (t) => t === original(M.plan)), original(M.plan), 'Undo restores Plán');
   assert.equal(await fileWhen(core, M.sesitQ, (t) => t !== undefined), vault.files[M.sesitQ], 'and Sešit');

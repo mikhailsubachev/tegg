@@ -709,6 +709,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         } else {
           ed.reload(n.text);
         }
+        syncHead(); // a type move changed the frontmatter the panel and the chip read (4E-1)
       }
       setDiskText(n.text);
       const meta = noteMeta(m.to, n.text);
@@ -917,7 +918,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const reload = async () => {
       // The type changed in place (the note was already in its new type's folder): the editor takes the new bytes.
       const n = await ipc.noteRead(p).catch(() => null);
-      if (n && sv) { sv.moved(p, n.version); edRef.current?.reload(n.text); setDiskText(n.text); onMeta(noteMeta(p, n.text)); }
+      if (n && sv) { sv.moved(p, n.version); edRef.current?.reload(n.text); syncHead(); setDiskText(n.text); onMeta(noteMeta(p, n.text)); }
       else sv?.release();
     };
     void moveNotes([p], key, toName, map, false, (r) => { if (!r?.renamed) void reload(); }).catch(() => sv?.release());

@@ -48,7 +48,7 @@ function fresh(name: string, vault?: (base: string) => string): Ctx {
   return { base, vault: vault ? vault(base) : movesCopy(base), sup: support(base), log: join(base, 'perf.jsonl') };
 }
 async function launch(c: Ctx, route: string): Promise<Driver> {
-  c.d = await session(testEnv(c.sup, c.log, { TEGG_VAULT: c.vault, TEGG_ROUTE: route, TEGG_NOW: NOW4E, TZ: TZ4E }));
+  c.d = await session(testEnv(c.sup, c.log, { TEGG_VAULT: c.vault, TEGG_ROUTE: route, TEGG_NOW: NOW4E, TZ: TZ4E, TEGG_TEST_TIDY: '1' }));
   assert.ok(await waitMark(c.log, `route-ready:${route}`, 30_000), `${route} shown`);
   return c.d;
 }

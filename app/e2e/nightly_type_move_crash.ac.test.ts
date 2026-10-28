@@ -29,7 +29,7 @@ process.on('exit', appiumDown);
 
 const CYCLES = Number(process.env.TEGG_KILL_CYCLES ?? 20);
 const NOW4E = '2026-10-27T10:00:00+01:00';
-const env = (sup: string, log: string, vault: string, route: string) => testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: route, TEGG_NOW: NOW4E, TZ: 'Europe/Prague' });
+const env = (sup: string, log: string, vault: string, route: string) => testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: route, TEGG_NOW: NOW4E, TZ: 'Europe/Prague', TEGG_TEST_TIDY: '1' });
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 function files(root: string): Map<string, string> {
   const out = new Map<string, string>();

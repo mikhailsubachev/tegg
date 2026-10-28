@@ -187,10 +187,9 @@ test('fr_typ_01_ac4_general_edits_write_only_the_type_file_and_update_the_ui', a
 test('fr_typ_01_ac5_folder_applies_to_new_objects_and_is_checked', async ({ page }) => {
   const core = await openSchuzka(page);
   const folder = await must(textbox(page, 'General', 'Folder in the vault'), 'Folder in the vault');
-  assert.equal(await description(folder), 'New objects go here. Moving existing objects comes in v1.0.');
-  const move = await must(general(page).getByRole('button', { name: 'Move existing objects' }), 'Move existing objects');
-  assert.equal(await move.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(move), 'Coming in v1.0'); // D-748
+  // 4E (D-805, D-817): no `Move existing objects`; saving the folder moves them (type-moves.md FR-STO-01 AC-8).
+  assert.equal(await description(folder), 'New objects go here.');
+  assert.equal(await general(page).getByRole('button', { name: 'Move existing objects' }).count(), 0, 'no Move existing objects control');
   for (const bad of ['', '/abs', '../ven', '.skryté', '_templates', '_attachments/x', '.trash', '.tegg/x', 'Pr:ce', 'Osoby', 'osoby']) {
     await commit(folder, bad);
     assert.ok(await seen(general(page).getByRole('alert'), 1000), `${JSON.stringify(bad)}: refused with a message`);
@@ -198,7 +197,7 @@ test('fr_typ_01_ac5_folder_applies_to_new_objects_and_is_checked', async ({ page
   assert.equal(await fileText(core, typeFile('schůzka')), schuzka(), 'nothing written for refused folders');
   await commit(folder, 'Práce/Porady');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('Práce')), swap(schuzka(), 'folder: Schůzky\n', 'folder: Práce/Porady\n'));
-  assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'existing Schůzka files are not moved');
+  assert.ok(await eventually(async () => Object.keys(await core.files()).some((p) => p.startsWith('Práce/Porady/')), (x) => x, 3000), 'the existing Schůzka files move with it (D-805)');
 });
 
 test('fr_typ_01_ac6_external_type_file_changes_show_within_2s', async ({ page }) => {

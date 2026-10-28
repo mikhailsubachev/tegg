@@ -100,9 +100,10 @@ test('fr_inb_02_ac14_bulk_convert_makes_a_backup_first', async ({ page }) => {
   await click(bar(page, 2).getByRole('button', { name: 'Convert to…', exact: true }), 'Convert to…');
   await click(page.getByRole('menuitem', { name: /^Nápad/ }).or(page.getByRole('menuitemradio', { name: /^Nápad/ })), 'Nápad');
   const j = await eventually(() => core.jobs(), (x) => x.length === 1, 3000);
-  assert.equal(j[0]?.kind, 'inbox', 'an inbox job');
-  assert.deepEqual((await core.backups()).map((b) => b.kind), ['inbox'], 'one backup zip, listed for the inbox job (`Convert 2 items to Nápad`)');
-  assert.ok((await fileText(core, I.Q1))?.includes('\ntype: nápad\n'), 'Q1 converted');
+  // 4E (D-803, D-817): a bulk convert is one type-move job (ms4-jobs §14.1), its zip first.
+  assert.equal(j[0]?.kind, 'type-move', 'a type-move job');
+  assert.deepEqual((await core.backups()).map((b) => b.kind), ['type-move'], 'one backup zip, listed for the job (`Change type of 2 objects to Nápad`)');
+  assert.ok((await fileText(core, I.Q1.replace(/^Quick Notes\//, 'Nápady/')))?.includes('\ntype: nápad\n'), 'Q1 converted and moved to Nápady/');
 });
 
 test('fr_inb_02_ac14_cancel_in_planning_and_no_zip_for_other_actions', async ({ page }) => {
