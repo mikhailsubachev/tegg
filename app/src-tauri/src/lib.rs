@@ -10,6 +10,7 @@ mod strings;
 pub use shell5b::{acl_probe, AclProbe};
 pub use shell6a::{media_scheme_probe, MediaResponse};
 mod shell4d;
+mod shell4e;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -162,6 +163,13 @@ fn mark(app: &AppHandle, name: &str) {
             });
         }
     }
+    if name.starts_with("route-ready:type-settings/") && test_var("TEGG_TEST_FOCUS_FOLDER").is_some() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let _ = app.emit("tegg://test-focus-folder", ());
+        });
+    }
     if test_var("TEGG_EXIT_AFTER").as_deref() == Some(name) {
         app.exit(0);
     }
@@ -298,7 +306,7 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
                 .jobs()
                 .interrupted()
                 .into_iter()
-                .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+                .map(|i| InterruptedDto { job_id: i.job as u32, kind: i.kind, title: i.title, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
                 .collect();
             (!i.is_empty()).then_some(i)
         },
@@ -998,6 +1006,10 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::InvalidName { error, char } => IpcError { error: Some(error.clone()), char, ..err("InvalidName", error) },
         JobError::TagExists { name } => IpcError { name: Some(name.clone()), ..err("TagExists", format!("#{name} already exists")) },
         JobError::NothingToDo => err("NothingToDo", "nothing to do"),
+        // ms4-jobs §14.2 (4E-1).
+        JobError::NotMovable => err("NotMovable", "this note can't be moved"),
+        JobError::UnknownType => err("UnknownType", "no such type"),
+        JobError::NoChange => err("NoChange", "the note already has this type"),
         JobError::Core(m) => err("Io", m),
     }
 }
@@ -1023,6 +1035,7 @@ fn report_dto(r: &JobReport) -> JobReportDto {
         unchanged: r.unchanged.clone(),
         skipped: r.skipped.iter().map(|s| SkippedDto { path: s.path.clone(), reason: s.reason.as_str().into() }).collect(),
         error: r.error.clone(),
+        moved: r.moved.iter().map(|(from, to)| RenamedDto { from: from.clone(), to: to.clone() }).collect(),
     }
 }
 
@@ -1105,7 +1118,7 @@ async fn job_interrupted(state: State<'_, AppState>) -> Result<Vec<InterruptedDt
         .jobs()
         .interrupted()
         .into_iter()
-        .map(|i| InterruptedDto { job_id: i.job as u32, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
+        .map(|i| InterruptedDto { job_id: i.job as u32, kind: i.kind, title: i.title, from: i.from, to: i.to, done: i.done as u32, total: i.total as u32 })
         .collect())
 }
 
@@ -1395,7 +1408,27 @@ async fn type_patch(state: State<'_, AppState>, key: String, base: Option<Versio
     let core = core(&state)?;
     let base = base.as_ref().map(version_from).transpose()?;
     let ops = ops.into_iter().map(type_op).collect::<Result<Vec<_>, _>>()?;
-    core.type_patch(&key, base.as_ref(), &ops).map(type_dto).map_err(|e| type_err(&core, &key, e))
+    // D-805, D-822: a new folder with objects to move is written by the folder-move job, after its zip.
+    let (folders, ops): (Vec<_>, Vec<_>) = ops.into_iter().partition(|o| matches!(o, TypeOp::SetFolder(_)));
+    // NFR-REL-02: a folder change is checked against the version the page read, as every type-file write (D-235).
+    if !folders.is_empty() && ops.is_empty() {
+        if let (Some(b), Some(disk)) = (base.as_ref(), core.type_get(&key).and_then(|t| t.version)) {
+            if !b.same_content(&disk) {
+                return Err(type_err(&core, &key, tegg_core::CoreError::Vault(VaultError::Conflict { disk })));
+            }
+        }
+    }
+    let mut t = if ops.is_empty() { core.type_get(&key).ok_or_else(|| err("UnknownType", "no such type"))? } else { core.type_patch(&key, base.as_ref(), &ops).map_err(|e| type_err(&core, &key, e))? };
+    for op in folders {
+        let TypeOp::SetFolder(f) = &op else { continue };
+        if core.folder_move_count(&key, f) > 0 {
+            core.jobs().start(tegg_core::tegg_jobs::JobOp::FolderMove { r#type: Some(key.clone()), to_folder: Some(f.clone()) }).map_err(job_err)?;
+        } else {
+            let base = t.version.clone();
+            t = core.type_patch(&key, base.as_ref(), &[op]).map_err(|e| type_err(&core, &key, e))?;
+        }
+    }
+    Ok(type_dto(t))
 }
 
 #[tauri::command]
@@ -1689,6 +1722,7 @@ pub fn run() {
             shell6a::media_add, shell6a::media_add_paths, shell6a::media_pick, shell6a::media_open, shell6a::media_reveal,
             shell6a::capture_media_add,
             shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
+            shell4e::type_move_plan, shell4e::type_move, shell4e::folder_move_preview, shell4e::tidy_now, shell4e::jobs_ready,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal
         ])
         .build(context())

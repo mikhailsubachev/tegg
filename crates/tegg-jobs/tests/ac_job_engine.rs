@@ -176,11 +176,19 @@ fn hub_vault(sb: &Sandbox) -> PathBuf {
 fn fr_his_04_ac5_kind_flags_backup_for_every_kind_but_note_rename() {
     let f = JobKind::NoteRename.flags();
     assert_eq!((f.needs_confirm, f.backup, f.undoable, f.cancellable.clone()), (false, false, true, vec![Phase::Planning]), "note-rename (D-268, D-269, D-385, D-393)");
-    for k in [JobKind::TagRename, JobKind::TagDelete, JobKind::Merge, JobKind::KeyRename, JobKind::ValueRemove, JobKind::TypeMove, JobKind::FolderMove, JobKind::TypeDelete] {
+    for k in [JobKind::TagRename, JobKind::TagDelete, JobKind::Merge, JobKind::KeyRename, JobKind::ValueRemove, JobKind::TypeDelete] {
         let f = k.flags();
         assert!(f.needs_confirm && f.backup && !f.undoable, "{k:?}: confirm, backup, no undo (D-269, D-395)");
         let c: BTreeSet<&str> = f.cancellable.iter().map(|p| p.as_str()).collect();
         assert_eq!(c, ["backup", "confirm", "planning"].into_iter().collect(), "{k:?}: cancellable in planning, confirm, backup");
+    }
+    // ms4-jobs §14.1 (D-812, D-828): type and folder moves have no confirm step, are undoable and cancellable in
+    // planning and backup; only a folder move (and a bulk type move, decided by the planner) makes a zip.
+    for (k, backup) in [(JobKind::TypeMove, false), (JobKind::FolderMove, true)] {
+        let f = k.flags();
+        assert_eq!((f.needs_confirm, f.backup, f.undoable), (false, backup, true), "{k:?} (ms4-jobs §14.1)");
+        let c: BTreeSet<&str> = f.cancellable.iter().map(|p| p.as_str()).collect();
+        assert_eq!(c, ["backup", "planning"].into_iter().collect(), "{k:?}: cancellable in planning, backup");
     }
     let f = JobKind::TestBackup.flags();
     assert!(!f.needs_confirm && f.backup && !f.undoable, "test-backup backs up");

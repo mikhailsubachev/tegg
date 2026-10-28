@@ -162,6 +162,36 @@ impl Shared {
     }
 }
 
+/// D-822 (ms4-jobs §14.5): the folder-move job's own write of `folder:` in the type file, after its zip. A line patch
+/// against the file as it is now (D-235); `None` when it already names that folder.
+pub(crate) fn write_folder(shared: &Shared, key: &str, folder: &str) -> Result<Option<String>, CoreError> {
+    let key = nfc(key);
+    let path = type_path(&key);
+    let (text, base) = match shared.vault.read(&path) {
+        Ok((bytes, v)) => (String::from_utf8(bytes).map_err(|_| schema(SchemaError::Invalid))?, Some(v)),
+        Err(VaultError::NotFound) => (tegg_schema::builtin(&key).ok_or(CoreError::UnknownType)?.to_string(), None),
+        Err(e) => return Err(e.into()),
+    };
+    let types = shared.read_types();
+    let names = names_of(&types, &key);
+    let others = as_names(&names);
+    let Some(new) = tegg_schema::patch_with_usage(&key, &text, &[TypeOp::SetFolder(folder.into())], &PatchContext { others: &others }, &[]).map_err(schema)? else {
+        return Ok(None);
+    };
+    match &base {
+        Some(b) => {
+            shared.vault.write(&path, new.as_bytes(), Some(b))?;
+        }
+        None => {
+            shared.vault.create_exact(&path, new.as_bytes())?;
+        }
+    }
+    shared.refresh_types();
+    shared.load_default_type();
+    shared.emit(CoreEvent::VaultChanged { paths: vec![path.clone()] });
+    Ok(Some(path))
+}
+
 /// The names of all types for the rules of `tegg-schema` (`self_key` marks the edited type).
 fn names_of(types: &[TypeInfo], self_key: &str) -> Vec<(String, String, String, bool)> {
     types.iter().map(|t| (t.key.clone(), t.name.clone(), t.folder.clone(), t.key == self_key)).collect()

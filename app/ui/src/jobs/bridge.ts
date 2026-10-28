@@ -67,6 +67,10 @@ export function startBridge(): () => void {
     }
     const a = await viaWorker({ requestId: t.requestId, source: t.source, text: t.text, ops: t.ops });
     await ipc.jobTransformResult(a.requestId, a.result).catch(() => {});
-  }).then((u) => { if (stopped) u(); else stop = u; });
+  }).then((u) => {
+    if (stopped) { u(); return; }
+    stop = u;
+    void ipc.jobsReady().catch(() => {}); // D-819: transforms are answered from now on
+  });
   return () => { stopped = true; stop?.(); };
 }

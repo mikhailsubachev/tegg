@@ -44,7 +44,7 @@ import { Calendar } from './daily/Calendar';
 import { DailyPage } from './daily/DailyPage';
 import type { DailyInfo } from './daily/DailyHeader';
 import { setDateHandler } from './daily/open';
-import { resetJobs, showList, startJobs, undoLast } from './jobs/jobs';
+import { resetJobs, setMoveTypes, showList, startJobs, undoLast, undoLastMove } from './jobs/jobs';
 import { startBridge } from './jobs/bridge';
 import { NotUpdatedList } from './jobs/notUpdated';
 import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
@@ -97,6 +97,8 @@ function initialUi(): UiState {
 export function App() {
   const [vault, setVault] = useState<VaultInfo | null | undefined>(undefined);
   const [types, setTypes] = useState<TypeDefDto[]>([]);
+  // 4E-1: the move status texts name types by their folder (R99 B2).
+  useEffect(() => { setMoveTypes(types.map((x) => ({ key: x.key, name: x.name, plural: x.plural, folder: x.folder }))); }, [types]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [route, setRoute] = useState<Route | null>(null);
   const [chooser, setChooser] = useState<{ form: boolean } | null>(null);
@@ -577,6 +579,7 @@ export function App() {
     trashCommand: (id: 'restore' | 'delete') => trashCommand.current?.(id),
     addMedia: () => { if (isNoteRoute(route) || route?.id === DAILY) setTimeout(() => noteApi.current?.edit('addMedia'), 0); },
     undoRename: () => { void undoLast(); },
+    undoJob: (kind) => undoLastMove(kind),
     showNotUpdated: () => showList(true),
     showBacklinks: () => {
       if (!isNoteRoute(route)) return;
@@ -1016,7 +1019,9 @@ export function App() {
           )}
           {interrupted.map((i) => (
             <div key={i.jobId} className="banner" role="status">
-              <span>{t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
+              <span>{i.kind === 'type-move'
+                ? t('job.interrupted.typeMove', { title: i.title ?? i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })
+                : t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
               <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'finish').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.finish')}</button>
               <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'undo').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.undo')}</button>
             </div>

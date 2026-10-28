@@ -1,0 +1,5 @@
+---
+type: schůzka
+místo:
+---
+## Zápis

@@ -14,6 +14,7 @@ import { handle as handleSettings } from './fake-settings';
 import { handle as handleTrash } from './fake-trash';
 import { handle as handleMedia, sniff } from './fake-media';
 import { handle as handleTags } from './fake-tags';
+import { handle as handleMoves } from './fake-moves';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -87,7 +88,7 @@ export type FakeCoreHandle = {
   /** ms4-jobs §11 (4C): the reports of every job the fake ran, in start order. */
   jobs(): Promise<JobReportDto[]>;
   /** Pauses the next job before `phase`; the returned function releases it. */
-  holdJob(phase: 'planning' | 'writing'): Promise<() => Promise<void>>;
+  holdJob(phase: 'planning' | 'backup' | 'writing'): Promise<() => Promise<void>>;
   /** The next job write to `path` is skipped with `reason`. */
   skipOnWrite(path: string, reason: SkipReason): Promise<void>;
   // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
@@ -132,6 +133,9 @@ export type FakeCoreHandle = {
   paste(page: Page, o: { files: { name: string; type: string; bytes: Uint8Array }[]; text?: string }): Promise<void>;
   /** Files staged by the capture window (`capture_media_add`), in order. */
   staged(): Promise<{ token: string; name: string }[]>;
+  // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.8)
+  /** The ids in the fake's machine-local `tidy-exempt.json` (§14.6). */
+  tidyExempt(): Promise<string[]>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -145,6 +149,9 @@ export type JobReportDto = {
 export type RecentVaultDto = { name: string; path: string; exists: boolean };
 export type FakeOptions = {
   uiState?: UiStateDto;
+  /** 4E-1 (D-819): the core watches the vault, so it runs the tidy job (at open, after quiet periods). Off by default,
+   *  as a Rust test core opened without its watcher: older fixtures keep objects outside their type's folder. */
+  tidy?: boolean;
   /** Answer of `vault_pick_dir`; `null` = the user cancelled. */
   pickDir?: string | null;
   /** Folders `vault_open` can open: path → vault, or `null` for a folder without `.tegg/` (NotATeggVault). */
@@ -254,6 +261,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   await page.exposeFunction('__teggMedia', (cmd: string, args: any, files: Record<string, string>, bin: string[]) =>
     handleMedia(cmd, args, files, bin)).catch(() => {});
   // 4D-lite (ms4-tags §8.1): the tag twin and the tag-job / merge planners in Node (fake-tags.ts).
+  // 4E-1 (ms4-jobs §14.8): R101, the folder preview and the type-move / folder-move plans in Node (fake-moves.ts).
+  await page.exposeFunction('__teggMoves', (cmd: string, args: unknown, files: Record<string, string>) => handleMoves(cmd, args, files)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleTags(cmd, args, files, vers as any)).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
@@ -348,6 +357,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       target.dispatchEvent(e);
     }, [o.files.map((f) => ({ name: f.name, type: f.type, b64: Buffer.from(f.bytes).toString('base64') })), o.text ?? null] as const),
     staged: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.staged ?? []))),
+    // 4E-1 (ms4-jobs §14.8). Stub until 4E-1 is built: no tidy job runs, so the list stays empty.
+    tidyExempt: () => ev(() => [...((window as any).__teggFake.tidyExempt ?? [])] as string[]),
   };
 }
 
@@ -366,6 +377,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
     'task_list', 'daily_tasks', // 5A-1 (ms5-tasks §3): read-only
+    'type_move_plan', 'folder_move_preview', 'jobs_ready', // 4E-1 (ms4-jobs §14.7): read-only
     // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
     'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
@@ -395,14 +407,20 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     conflicts: null as ConflictRowDto[] | null,
     // 4C (ms4-jobs §11): job reports, hold and skip control.
     jobs: [] as unknown[],
-    jobHold: null as 'planning' | 'writing' | null,
+    jobHold: null as 'planning' | 'backup' | 'writing' | null,
+    // 4E-1 (ms4-jobs §14.6, §14.7): exempt ids, the last vault event for the tidy job's quiet period, a pending retry.
+    tidyExempt: [] as string[],
+    tidyExemptPaths: [] as string[],
+    lastEvent: 0,
+    tidyDue: false,
+    tidyOpened: false,
     jobHeld: [] as (() => void)[],
     jobSkips: {} as Record<string, string>,
     jobSeq: 0,
     editors: new Set<string>(),
     reports: {} as Record<number, any>,
     plans: {} as Record<number, { op: any; files: Record<string, any[]> }>,
-    undo: {} as Record<number, { op: any; files: { before: string; after: string; pre: string; post: string }[] }>,
+    undo: {} as Record<number, { op: any; kind?: string; ids?: Record<string, string | null>; files: { before: string; after: string; pre: string; post: string; direct?: boolean }[] }>,
     release: () => { const h = state.held.splice(0); for (const f of h) f(); state.control.hold = false; },
     ver: (path: string): VersionDto | null => {
       const p = path.normalize('NFC');
@@ -431,6 +449,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       // 5B (§7.3): a silent change makes the index version stale; an `inbox` job skips the file as `changed`.
       if (o.silent) state.stale.add(p); else { state.stale.delete(p); delete state.indexVer[p]; }
       if (!o.silent && p.startsWith('.trash/')) void state.emit('trash:changed', null); // 6A (ms6-trash-media §4)
+      if (!o.silent) { state.lastEvent = Date.now(); state.tidyDue = true; } // 4E-1: a watcher event (§14.7)
       return o.silent ? undefined : state.emit('vault:changed', { paths: [p] });
     },
     // ---------------------------------------------------------------- 5B (ms5-capture §11.2)
@@ -817,7 +836,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   const jobs = {
     progress: (jobId: number, phase: string, done: number, total: number, counts?: unknown) =>
       state.emit('job:progress', { jobId, kind: 'note-rename', phase, done, total, ...(counts ? { counts } : {}) }),
-    hold: async (phase: 'planning' | 'writing') => {
+    hold: async (phase: 'planning' | 'backup' | 'writing') => {
       if (state.jobHold === phase) await new Promise<void>((r) => state.jobHeld.push(r));
     },
     write: (p: string, text: string) => {
@@ -896,23 +915,34 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const jobId = ++state.jobSeq;
       const rev = (o: any) => ({ ...o, fromPath: o.toPath, fromStem: o.toStem, fromTitle: o.toTitle, toPath: o.fromPath, toStem: o.fromStem, toTitle: o.fromTitle, paths: o.paths.map((x: string) => (x === o.fromPath ? o.toPath : x)) });
       void (async () => {
-        const report: any = { jobId, kind: 'note-rename', phase: 'done', written: [], unchanged: [], skipped: [] };
+        const kind = rec.kind ?? 'note-rename';
+        const report: any = { jobId, kind, phase: 'done', written: [], unchanged: [], skipped: [] };
         const total = rec.files.length;
-        await jobs.progress(jobId, 'planning', 0, total);
-        await jobs.progress(jobId, 'writing', 0, total);
+        const emit = (phase: string, done: number, n: number, counts?: unknown) => state.emit('job:progress', { jobId, kind, phase, done, total: n, ...(counts ? { counts } : {}) });
+        await emit('planning', 0, total);
+        await emit('writing', 0, total);
         const files = state.vault!.files;
         let done = 0;
-        for (const f of rec.files) {
+        // ms4-jobs §7: a moved note goes back before its linking notes (D-433).
+        for (const f of [...rec.files].sort((p, q) => Number(p.before === p.after) - Number(q.before === q.after))) {
           const [at, to, want, put] = back ? [f.after, f.before, f.post, f.pre] : [f.before, f.after, f.pre, f.post];
-          if (at === to && state.editors.has(at)) {
+          if (at === to && state.editors.has(at) && !f.direct) {
             const r = await jobs.live(at, [back ? rev(rec.op) : rec.op]);
             if (r === 'written') report.written.push(at); else report.skipped.push({ path: at, reason: 'changed' });
           } else if (files[at] !== want) report.skipped.push({ path: at, reason: files[at] === undefined ? 'missing' : 'changed' });
           else if (at !== to) { jobs.move(at, to, put); report.renamed = { from: at, to }; report.written.push(to); }
           else { jobs.write(at, put); report.written.push(at); }
-          await jobs.progress(jobId, 'writing', ++done, total);
+          await emit('writing', ++done, total);
         }
-        await jobs.finish(jobId, report, total);
+        // D-812: notes a folder move put back are left alone by later tidy runs.
+        if (back && kind === 'folder-move' && rec.ids) for (const [p, id] of Object.entries(rec.ids)) {
+          if (!report.written.includes(p)) continue;
+          if (id) { if (!state.tidyExempt.includes(id)) state.tidyExempt.push(id); }
+          else if (!state.tidyExemptPaths.includes(p)) state.tidyExemptPaths.push(p); // D-839: by path
+        }
+        state.reports[jobId] = report;
+        state.jobs.push(report);
+        await emit(report.phase, total, total, { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length });
       })();
       return { jobId };
     },
@@ -1111,6 +1141,146 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     return { jobId };
   };
 
+  // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14): type and folder moves
+  const nowIso = () => { const d = new Date(Date.now()); const off = -d.getTimezoneOffset(); const z = (n: number) => String(Math.abs(n)).padStart(2, '0'); return isoLocal(Date.now()).slice(0, 19) + `${off >= 0 ? '+' : '-'}${z(Math.trunc(off / 60))}:${z(off % 60)}`; };
+  const viaMoves = async (cmd: string, a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const r = await w.__teggMoves(cmd, a, state.vault.files);
+    if (r?.error) throw err(r.error.kind, r.error.message);
+    return r;
+  };
+  /** Runs a `type-move` / `folder-move` plan: hold, zip (bulk type move; a folder move that moves something), the folder
+   *  line of a folder save (D-822), the notes, then their linking notes; an undo record for both kinds (D-812). */
+  const runMove = (plan: any, o: { zip: boolean; folder?: { key: string; folder: string; ops: any[] } }) => {
+    const jobId = ++state.jobSeq;
+    const { j, report, progress, finish } = jobRun(jobId, plan.kind, plan);
+    state.plans[jobId] = { op: null, files: {} };
+    void (async () => {
+      const files = state.vault!.files;
+      const folderMove = plan.kind === 'folder-move';
+      const total = folderMove ? plan.notes.length : plan.notes.length + plan.linking.length;
+      await progress('planning', 0, total);
+      await jobs.hold('planning');
+      if (j.cancelled) return finish('cancelled', total, null);
+      if (folderMove && !o.folder && plan.notes.length === 0) return finish('done', 0, null);
+      let zip: BackupRecord | null = null;
+      if (o.zip) {
+        await jobs.hold('backup');
+        if (j.cancelled) return finish('cancelled', total, null);
+        await progress('backup', 0, total);
+        zip = makeZip(plan.kind, jobId, plan.label, { renames: plan.notes.filter((n: any) => n.to).map((n: any) => [n.path, n.to]), creates: [], trashes: [] });
+        if (!zip) return finish('failed', total, null, 'BackupFailed: fake: Application Support is read-only');
+        if (j.cancelled) return finish('cancelled', total, zip);
+      }
+      await progress('writing', 0, total);
+      await jobs.hold('writing');
+      const undo: { before: string; after: string; pre: string; post: string; direct?: boolean }[] = [];
+      if (o.folder) {
+        // D-840: Undo of a folder save restores `folder:` too.
+        const tf = `.tegg/types/${o.folder.key}.yml`;
+        const pre = files[tf];
+        await viaNode('type_patch')({ key: o.folder.key, base: state.ver(tf), ops: o.folder.ops });
+        if (pre !== undefined && files[tf] !== undefined && files[tf] !== pre) undo.push({ before: tf, after: tf, pre, post: files[tf] });
+      }
+      const done: any = { renames: [], creates: [], trashes: [], written: [] };
+      const finalTo: Record<string, string | null> = {};
+      const batch: string[] = [];
+      let n = 0;
+      // QA N1 (as the Rust engine): skips and names are settled first; every file then gets one relink over the moves
+      // that really happen, in place of its per-move link ops.
+      const before = Object.keys(files).filter((p) => p.endsWith('.md') && !p.split('/').some((x) => x.startsWith('.')));
+      const linkOp = (op: any) => ['keep-targets', 'hold-targets', 'retarget-links', 'relink'].includes(op.op);
+      const planned: Record<string, string | null> = {};
+      const reserved = new Set<string>();
+      for (const note of plan.notes) {
+        const p = note.path;
+        if (!note.to) continue;
+        if (state.jobSkips[p] || files[p] === undefined || p in state.invalid) { planned[p] = null; continue; }
+        let to = note.to as string;
+        const base = to.replace(/\.md$/, '');
+        for (let k = 2; (files[to] !== undefined && to.toLowerCase() !== p.toLowerCase()) || reserved.has(to.toLowerCase()); k++) to = `${base} (${k}).md`;
+        reserved.add(to.toLowerCase());
+        planned[p] = to;
+      }
+      const moves = Object.entries(planned).filter(([, t]) => t).map(([from, to]) => ({ from, to: to! }));
+      // QA 4 N2: the other files (attachments) a moved note's relative links may name.
+      const others = Object.keys(files).filter((p) => !p.endsWith('.md') && !p.split('/').some((x) => x.startsWith('.')))
+      const relink = { op: 'relink', moves, paths: before, files: others };
+      for (const note of plan.notes) {
+        const p = note.path;
+        const cur = files[p];
+        const skip = state.jobSkips[p];
+        state.plans[jobId].files[p] = note.ops;
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); finalTo[p] = null; }
+        else if (cur === undefined) { report.skipped.push({ path: p, reason: 'missing' }); finalTo[p] = null; }
+        else if (p in state.invalid) { report.skipped.push({ path: p, reason: 'readOnly' }); finalTo[p] = null; }
+        else {
+          const to = (note.to ? planned[p] : null) ?? null;
+          const ops = [...note.ops.filter((op: any) => !linkOp(op)), ...(to || note.ops.some(linkOp) ? [relink] : [])];
+          // A note without a link has nothing for keep-targets to change (spares a Node round trip per note).
+          const linkless = ops.every((op: any) => op.op === 'keep-targets' || op.op === 'relink') && !cur.includes('[[') && !cur.includes('](');
+          const out = linkless ? cur : (await w.__teggJobs('transform', { source: p, text: cur, ops }, files)) ?? cur;
+          if (to && folderMove) {
+            // The fake reports a folder move's changes in one event once the notes are moved (the UI re-reads the vault on
+            // each event: batches of 100 stacked five rounds of re-reads, seconds on a 500-note move under load).
+            delete files[p]; delete state.mtimes[p]; files[to] = out; state.touch(to); state.writtenPaths.push(to);
+            batch.push(p, to);
+            done.renames.push([p, to, await sha(out)]); report.written.push(to); undo.push({ before: p, after: to, pre: cur, post: out });
+          } else if (to) { jobs.move(p, to, out); done.renames.push([p, to, await sha(out)]); report.written.push(to); if (plan.notes.length === 1) report.renamed = { from: p, to }; undo.push({ before: p, after: to, pre: cur, post: out }); }
+          // In place: on disk, never through an open editor, and so are its undo and redo (QA 4E-1 M1, 4 M1′).
+          else if (out !== cur) { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out, direct: true }); }
+          else report.unchanged.push(p);
+          finalTo[p] = to ?? p;
+        }
+        await progress('writing', ++n, total);
+      }
+      if (batch.length) void state.emit('vault:changed', { paths: batch.splice(0) });
+      for (const l of plan.linking) {
+        const ops = [relink];
+        const p = l.path;
+        state.plans[jobId].files[p] = ops;
+        const cur = files[p];
+        const skip = state.jobSkips[p];
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+        else if (cur === undefined) report.skipped.push({ path: p, reason: 'missing' });
+        else if (state.editors.has(p)) {
+          const rr = await jobs.live(p, ops);
+          if (rr === 'written') report.written.push(p); else report.skipped.push({ path: p, reason: 'changed' });
+        } else {
+          const out = await w.__teggJobs('transform', { source: p, text: cur, ops }, files);
+          if (out === null || out === cur) report.unchanged.push(p);
+          else { jobs.write(p, out); report.written.push(p); done.written.push([p, await sha(out)]); undo.push({ before: p, after: p, pre: cur, post: out }); }
+        }
+        if (!folderMove) await progress('writing', ++n, total);
+      }
+      state.undo[jobId] = { op: null, kind: plan.kind, ids: o.folder ? {} : plan.ids ?? {}, files: undo };
+      // D-812: a note whose type or type's folder changed is no longer exempt.
+      if (plan.kind === 'type-move' || o.folder) for (const u of undo) {
+        const id = /^id:[ \t]*(\S+)/m.exec(u.post)?.[1];
+        if (id) state.tidyExempt = state.tidyExempt.filter((x) => x !== id);
+        state.tidyExemptPaths = state.tidyExemptPaths.filter((x) => x.toLowerCase() !== u.before.toLowerCase() && x.toLowerCase() !== u.after.toLowerCase()); // D-839
+      }
+      report.moved = done.renames.map(([from, to]: string[]) => ({ from, to }));
+      await finish('done', total, zip, undefined, done);
+      if (plan.kind === 'folder-move' && !o.folder && report.skipped.length) { state.lastEvent = Date.now(); state.tidyDue = true; } // D-832
+    })();
+    return { jobId };
+  };
+  const startTidy = async () => {
+    if (!state.vault) return null;
+    const plan = await viaMoves('plan_folder_move', { type: null, folder: null, exempt: state.tidyExempt, exemptPaths: state.tidyExemptPaths });
+    if (!plan.notes.length) return null;
+    return runMove(plan, { zip: true });
+  };
+  // §14.7: the tidy job after 30 s without a vault event (the page's clock, so tests can fast-forward it).
+  const quietMs = 30_000;
+  setInterval(() => {
+    if (!opts.tidy || !state.vault || !state.tidyDue || Date.now() - state.lastEvent < quietMs) return;
+    if (Object.values(tagJobs).some((t) => !['done', 'cancelled', 'failed'].includes(t.phase))) return;
+    state.tidyDue = false;
+    void startTidy();
+  }, 1000);
+
   const handlers: Record<string, (a: any) => unknown> = {
     vault_current: () => info(),
     vault_open: (a) => {
@@ -1156,7 +1326,22 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     vault_types: viaNode('vault_types'),
     type_get: viaNode('type_get'),
     type_create: viaNode('type_create'),
-    type_patch: viaNode('type_patch'),
+    // D-805, D-822: a new folder with objects to move is written by the folder-move job, after its zip.
+    type_patch: async (a) => {
+      const isFolder = (op: any) => op?.field === 'folder' || op?.op === 'setFolder';
+      const folderOps = (a.ops ?? []).filter(isFolder);
+      const rest = (a.ops ?? []).filter((op: any) => !isFolder(op));
+      let t: any = rest.length || !folderOps.length ? await viaNode('type_patch')({ ...a, ops: rest }) : await viaNode('type_get')({ key: a.key });
+      for (const op of folderOps) {
+        const folder = String(op.value ?? op.folder ?? '');
+        const { count } = await viaMoves('folder_preview', { type: a.key, folder });
+        if (count > 0) {
+          const plan = await viaMoves('plan_folder_move', { type: a.key, folder, exempt: [] });
+          runMove(plan, { zip: true, folder: { key: a.key, folder, ops: [op] } });
+        } else t = await viaNode('type_patch')({ key: a.key, base: t?.version ?? a.base, ops: [op] });
+      }
+      return t;
+    },
     type_delete: viaNode('type_delete'),
     type_template: viaNode('type_template'),
     type_usage: viaNode('type_usage'),
@@ -1320,6 +1505,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       state.stale.delete(p);
       delete state.indexVer[p];
       state.writtenPaths.push(p);
+      state.lastEvent = Date.now(); // 4E-1: the editor's save is a watcher event too (FR-STO-01 AC-10)
       if (opts.echoWrites) {
         // ms3-shell §16.8: the watcher's report of this write, while it is pending and again after it returned.
         await state.emit('vault:changed', { paths: [p] });
@@ -1598,6 +1784,21 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     job_redo: (a) => jobs.undo(a.jobId, false),
     job_transform_result: () => null,
     job_interrupted: () => [],
+    // 4E-1 (ms4-jobs §14.7, §14.8). Stubs until 4E-1 is built: every command answers NotImplemented (TS-I1).
+    type_move_plan: (a) => viaMoves('type_move_plan', a),
+    type_move: async (a) => {
+      const plan = await viaMoves('plan_type_move', { ...a, now: nowIso() });
+      return runMove(plan, { zip: (a.paths as string[]).length > 1 || a.bulk === true });
+    },
+    folder_move_preview: (a) => viaMoves('folder_preview', a),
+    tidy_now: async () => ({ jobId: (await startTidy())?.jobId ?? null }),
+    // D-819: the UI's transform bridge listens; the tidy job at open may start.
+    jobs_ready: async () => {
+      if (state.tidyOpened || !opts.tidy) return null;
+      state.tidyOpened = true;
+      await startTidy();
+      return null;
+    },
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
     // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).
     backups_list: () => [...state.backups].sort((p, q) => (p.name < q.name ? 1 : p.name > q.name ? -1 : 0)).map((b) => ({

@@ -98,14 +98,19 @@ test('fr_inb_02_ac5_convert_to', async ({ page }) => {
   assert.deepEqual(items.map((x) => x.replace(/\s*\d$/, '')), ['Page', 'Task', 'Nápad', 'Schůzka'], 'the capture targets but Quick Note');
   assert.deepEqual(items.map((x) => /(\d)$/.exec(x)?.[1]), ['1', '2', '3', '4'], 'numbered 1…4');
   await click(group.getByRole('menuitem', { name: /^Task/ }), 'Task');
+  // 4E (D-803, D-804, D-817): the convert moves the file to the new type's folder.
   const want = swap(reviewedText(I.Q1), 'type: quick-note', 'type: task');
-  assert.equal(await eventually(() => fileText(core, I.Q1), (t) => t === want, 2000), want, 'type, review and modified only; no status');
-  assert.deepEqual(await core.writesTo(), [nfc(I.Q1)], 'one write; the file stays');
+  const toQ1 = nfc(I.Q1.replace(/^Quick Notes\//, 'Tasks/'));
+  assert.equal(await eventually(() => fileText(core, toQ1), (t) => t === want, 2000), want, 'type, review and modified only; no status');
+  assert.equal(await fileText(core, I.Q1), undefined, 'moved from Quick Notes/ to Tasks/');
   assert.ok(await liveSays(page, 'Converted "Koupit mléko" to Task'), 'live region');
   // N1 to Page keeps hodnocení; D1 can't be converted.
   const m2 = await openTriage(page, 'Aplikace na čaj');
   await click(m2.getByRole('menuitem', { name: /^Page/ }), 'Page');
-  assert.ok((await eventually(() => fileText(core, I.N1), (t) => !!t?.includes('type: page'), 2000))?.includes('hodnocení: 2'), 'N1 keeps hodnocení: 2');
+  // D-804: hodnocení is a Nápad property Page lacks: the mapping dialog puts it into the content.
+  await click(page.getByRole('dialog', { name: 'Change type?' }).getByRole('button', { name: 'Change type', exact: true }), 'Change type');
+  const toN1 = nfc(I.N1.replace(/^Nápady\//, 'Pages/'));
+  assert.ok((await eventually(() => fileText(core, toN1), (t) => !!t?.includes('type: page'), 2000))?.includes('**Hodnocení:** 2'), 'N1 keeps its hodnocení, as a Content line');
   const m3 = await openTriage(page, '2026-10-13');
   const first = m3.getByRole('group', { name: 'Convert to' }).getByRole('menuitem').first();
   assert.equal(await isDisabled(first), true, 'D1: Convert to aria-disabled');
@@ -271,7 +276,7 @@ test('fr_syn_06_ac27_each_action_writes_only_its_files', async ({ page }) => {
   assert.deepEqual(await since(), [nfc(I.Q1)], 'mark reviewed: the item');
   await openTriage(page, 'Nápad na článek');
   await click(triageMenu(page).getByRole('menuitem', { name: /^Page/ }), 'convert');
-  assert.deepEqual(await eventually(() => core.writesTo().then((w) => w.slice(n)), (w) => w.length > 0, 2000), [nfc(I.Q2)], 'convert: the item');
+  assert.deepEqual(await eventually(() => core.writesTo().then((w) => w.slice(n)), (w) => w.length > 0, 2000), [nfc(I.Q2.replace(/^Quick Notes\//, 'Pages/'))], 'convert: the item, at its new path (4E, D-817)');
   n = (await core.writesTo()).length;
   await openTriage(page, 'Bez stavu');
   await click(triageMenu(page).getByRole('menuitem', { name: 'Append to…', exact: true }), 'Append to…');

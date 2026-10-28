@@ -1,0 +1,37 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Kniha
+plural: Knihy
+system: false
+folder: Knihy
+icon: book
+color: blue
+review: false
+preview: [autor, stav]
+attributes:
+  - key: autor
+    name: Autor
+    type: text
+  - key: vydáno
+    name: Vydáno
+    type: date
+  - key: stav
+    name: Stav
+    type: select
+    options:
+      - { label: Rozečtená, color: blue }
+      - { label: Dočtená, color: green }
+  - key: hodnocení
+    name: Hodnocení
+    type: number
+  - key: související
+    name: Související
+    type: relation
+    to: [kniha]
+    multiple: true
+  - key: poznámka
+    name: Poznámka
+    type: text
+  - key: isbn
+    name: ISBN
+    type: text

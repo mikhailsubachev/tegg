@@ -57,8 +57,18 @@ pub trait Host: Send + Sync {
     fn linking(&self, path: &str) -> Vec<String>;
     /// A free stem for a new name in `folder` (vault-wide, D-291 part 2, D-384).
     fn free_stem(&self, folder: &str, stem: &str) -> String;
+    /// As `free_stem`, also avoiding `reserved` (NFC, lower-case vault paths a job has already given out, QA B1).
+    fn free_stem_avoiding(&self, folder: &str, stem: &str, reserved: &std::collections::BTreeSet<String>) -> String {
+        let _ = reserved;
+        self.free_stem(folder, stem)
+    }
     /// Whether a title commit on `path` may rename it (not a Daily Note, D-320; not a file read as non-UTF-8, D-180).
     fn renamable(&self, path: &str) -> bool;
+    /// Every vault file that isn't a note (attachments), outside hidden folders: the files a moved note's relative links
+    /// may name (4E-1, QA 4 N2). Empty: no such link is rewritten.
+    fn vault_files(&self) -> Vec<String> {
+        Vec::new()
+    }
     /// Every `.md` file and every file under `.tegg/` (the backup set, §6).
     fn backup_files(&self) -> Vec<String>;
     /// `<Application Support>/Tegg`.
@@ -109,6 +119,79 @@ pub trait Host: Send + Sync {
     fn vault_name(&self) -> String {
         String::new()
     }
+
+    // -------------------------------------------------------------------------------- 4E-1 (ms4-jobs §14.5)
+    // Default bodies are the 4E-1 stubs (TS-I1): no type, no object, no schema, no conflict, no exemption.
+
+    /// The type file's folder (NFC).
+    fn type_folder(&self, r#type: &str) -> Option<String> {
+        let _ = r#type;
+        None
+    }
+    /// Keys with a valid definition.
+    fn defined_types(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Indexed objects whose `type` matches (D-239), no templates, no `.trash/`.
+    fn objects_of(&self, r#type: &str) -> Vec<String> {
+        let _ = r#type;
+        Vec::new()
+    }
+    /// Key, name, value type and relation targets of each schema property, in schema order.
+    fn schema(&self, r#type: &str) -> Vec<HostProperty> {
+        let _ = r#type;
+        Vec::new()
+    }
+    /// A pending FR-SYN-04 conflict on `path`.
+    fn has_conflict(&self, path: &str) -> bool {
+        let _ = path;
+        false
+    }
+    /// §14.6: ids the tidy job leaves alone (`tidy-exempt.json`).
+    fn local_exempt(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn set_local_exempt(&self, ids: &[String]) {
+        let _ = ids;
+    }
+    /// D-839: NFC paths of exempt notes without an `id` (`paths` in `tidy-exempt.json`).
+    fn local_exempt_paths(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn set_local_exempt_paths(&self, paths: &[String]) {
+        let _ = paths;
+    }
+    /// The type's Name and plural name (backup labels, R99).
+    fn type_names(&self, r#type: &str) -> Option<(String, String)> {
+        let _ = r#type;
+        None
+    }
+    /// A new object id (ULID), for a file without one that gets a type (D-174).
+    fn new_id(&self) -> String {
+        String::new()
+    }
+    /// The matched type key of the note at `path` (D-239); `None` for a file without `type` (FR-TYP-10).
+    fn type_of(&self, path: &str) -> Option<String> {
+        let _ = path;
+        None
+    }
+    /// D-822: writes `folder: <folder>` into the type file of `r#type` (a base-checked line patch, D-235). Returns the
+    /// type file's path when it was written, `None` when it already had that folder.
+    fn write_type_folder(&self, r#type: &str, folder: &str) -> Result<Option<String>, String> {
+        let _ = (r#type, folder);
+        Err("4E-1 stub: Host::write_type_folder".into())
+    }
+}
+
+/// ms4-jobs §14.5: one schema property as the 4E planners see it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HostProperty {
+    pub key: String,
+    pub name: String,
+    /// The R10 type key (`text`, `date`, `select`, `relation`, …).
+    pub kind: String,
+    /// Relation targets (type keys).
+    pub to: Vec<String>,
 }
 
 /// One tag as the tag planners see it (ms4-tags §1.2, §4.1).
