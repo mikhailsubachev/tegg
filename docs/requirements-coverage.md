@@ -2,7 +2,7 @@
 
 - **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: 178 in, 101 outside. D-800…D-803 (2026-10-27): the Capacities importer (17) left for v1.0 and 4E (FR-STO-04, FR-TYP-04) came back: now 161 in, 118 outside.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: 178 in, 101 outside. D-800…D-803 (2026-10-27): the Capacities importer (17) left for v1.0 and 4E (FR-STO-04, FR-TYP-04) came back: now 161 in, 118 outside. D-912 (2026-10-28) added NFR-PERF-11 (v1.0): 280 IDs, 119 outside.
 
 ## Summary
 
@@ -11,7 +11,7 @@
 | MVP milestones MS1–MS8 | 161 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 90 |
+| v1.0 "complete desktop" (§11) | 91 |
 | v1.x (§11) | 4 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
@@ -19,7 +19,7 @@
 | Satisfied by design | 1 |
 | Won't (W): deliberately not built | 10 |
 | Backlog: Could, unscheduled by decision (D-87) | 5 |
-| **Total** | **279** |
+| **Total** | **280** |
 
 **Verdict:** every requirement now has a phase. The first run of this check found 46 requirements that needed a decision; the owner decided them on 2026-10-11 (AP-32…AP-34 → D-85…D-87): 32 moved into MVP milestones, 9 Should requirements to v1.0, 5 Could requirements to an explicit backlog.
 
@@ -134,7 +134,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-TYP-17 | Hidden properties: per type, chosen properties are moved off the attribute panel into Other properties (D-316). | ACs in types.md (D-316) |
 | FR-TYP-14 | Removed (D-217): no object icon or cover; the type icon is shown | not in scope (W) |
 | FR-UX-01 | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | no ACs yet |
-| FR-UX-02 | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | no ACs yet |
+| FR-UX-02 | Layout: left sidebar (navigation), center editor, optional right panel (backlinks/graph/outline, D-127). B… | no ACs yet |
 | FR-UX-03 | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | no ACs yet |
 | FR-UX-05 | Light and dark themes with equal quality. | no ACs yet |
 | FR-VLT-02 | When creating a new vault the user chooses: Empty vault (system types only: Page, Task, Quick Note, Daily Note… | 5 ACs |
@@ -199,7 +199,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-INB-04 | Converting a Quick Note to another type keeps its content, `id`, and links. | no ACs yet |
 | FR-NAV-02 | Command palette (⌘K / ⌘⇧P): every app action is searchable and runnable by keyboard. | no ACs yet |
 | FR-NAV-04 | Left sidebar: Home, Inbox, Today, Tasks, Search, Types (list of all types → Type pages), Pinned, Saved queries… | no ACs yet |
-| FR-NAV-05 | Right side panel (toggleable): Attributes, Backlinks, Local graph, Outline. | no ACs yet |
+| FR-NAV-05 | Right side panel (toggleable): Backlinks, Local graph, Outline (no Attributes tab, D-127). | no ACs yet |
 | FR-SET-01 | Vault location; attachments folder; daily note folder & date format; default type for new notes (FR-VLT-05). | no ACs yet |
 | FR-SET-05 | Menu bar icon on/off; launch at login. | no ACs yet |
 | FR-TSK-01 | Task attributes: title, status, priority, due date, recurrence, source (relation), completed date (auto), plus… | no ACs yet |
@@ -282,7 +282,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-03 | M | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | Date formats are shown from MS3 | MS3 |
 | FR-SET-05 | M | Menu bar icon on/off; launch at login. | Menu bar on/off, launch at login | MS5 |
 | FR-UX-01 | M | Visual style: modern, minimal, spacious. Generous whitespace, one readable content column, restrained color (t… | Cross-cutting UI rule; no milestone checks it | MS3 |
-| FR-UX-02 | M | Layout: left sidebar (navigation), center editor, optional right panel (attributes/backlinks/graph/outline). B… | App layout (sidebar, editor, right panel) | MS3 |
+| FR-UX-02 | M | Layout: left sidebar (navigation), center editor, optional right panel (backlinks/graph/outline, D-127). B… | App layout (sidebar, editor, right panel) | MS3 |
 | FR-UX-03 | M | Keyboard-first: every action is reachable without the mouse (command palette + shortcuts). | Command palette: CLAUDE.md requires every action in it, but no milestone builds it | MS3 |
 | FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout | MS8 → v1.0 (D-374) |
 | FR-UX-05 | M | Light and dark themes with equal quality. | Light/dark | MS3 |
@@ -307,7 +307,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 
 ## 3. Later phases
 
-### v1.0 "complete desktop" (90)
+### v1.0 "complete desktop" (91)
 
 | Requirement | Pri | Summary | Note |
 | --- | --- | --- | --- |
@@ -330,9 +330,10 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-LNK-12 | M | Global setting "Object preview" (D-37): *Click to preview, double-click to open* (default) · *Hover to preview… | Object previews (§11) |
 | FR-LNK-13 | M | Editor interplay: because double-click on a link opens it, link text is edited via the keyboard (moving the cu… | Object previews (§11) |
 | FR-GRP-01 | M | Local graph per object in the side panel and as a full view: the current object + linked objects up to depth N… | Local graph (§11) |
-| FR-GRP-02 | M | Filter by object type: a filter panel with a checkbox per type, "all / none", and saved filter presets shows o… | Local graph (§11) |
+| FR-GRP-02 | M | Filter by object type: a filter panel with a checkbox per type, "all / none", and saved filter presets shows o… | Local graph (§11); toggles links, relations, embeds, tags (D-901); slices G1, G3 (D-919) |
 | FR-GRP-03 | M | Click a node selects it, highlights its neighbours and shows the preview (FR-GRP-06); double-click opens the o… | Local graph (§11) |
-| FR-GRP-05 | M | Object icons in nodes: each node shows the object's own icon (FR-TYP-14), otherwise its type icon, with the no… | Local graph (§11) |
+| FR-GRP-05 | M | Type icons in nodes: each node shows its type icon (D-217), with the node colored by type. The title label sits… | Local graph (§11); the filter list is the legend (D-910) |
+| NFR-PERF-11 | M | Local graph at depth 2 drawn (query + layout) < 300 ms p95 on the reference vault. | Local graph (§11); added by D-912 |
 | FR-GRP-06 | M | Smart preview in the graph: clicking a node shows the same content-first preview as FR-LNK-10, so the user can… | Local graph (§11) |
 | FR-GRP-07 | S | Node size can optionally reflect the number of links (more connected = bigger). | Local graph (§11) |
 | FR-GRP-08 | M | Tags appear as nodes in their tag color (type *Tag*) and can be shown or hidden with the type filter (FR-GRP-0… | Local graph (§11) |
