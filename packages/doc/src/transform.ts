@@ -255,7 +255,7 @@ function rewriteUrl(url: string, stem: string): string {
 }
 
 /** A Markdown link URL pointing at `toPath` from a note in `fromFolder`: the relative path, `<…>` kept, encoding only
- *  the characters the original encoded (D-825; spaces always when it isn't in `<…>`). */
+ *  the characters the original encoded (D-825; spaces and parentheses always when it isn't in `<…>`). */
 function relativeUrl(url: string, fromFolder: string, toPath: string): string {
   const angle = url.startsWith('<') && url.endsWith('>')
   const inner = angle ? url.slice(1, -1) : url
@@ -271,8 +271,9 @@ function relativeUrl(url: string, fromFolder: string, toPath: string): string {
   const rel = relPath(fromFolder, nfc(toPath))
   let out = ''
   for (const ch of rel) {
-    const enc = ch !== '/' && (encoded.has(ch) || (nonAscii && ch.codePointAt(0)! > 0x7f) || (ch === ' ' && !angle))
-    out += enc ? encodeURIComponent(ch) : ch
+    // Outside `<…>`, a space or a parenthesis (a ` (2)` name) would end or unbalance the destination: always encoded.
+    const enc = ch !== '/' && (encoded.has(ch) || (nonAscii && ch.codePointAt(0)! > 0x7f) || (!angle && (ch === ' ' || ch === '(' || ch === ')')))
+    out += !enc ? ch : ch === '(' ? '%28' : ch === ')' ? '%29' : encodeURIComponent(ch) // encodeURIComponent keeps ( )
   }
   return angle ? `<${out}>` : out
 }
