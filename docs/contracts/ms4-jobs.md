@@ -277,7 +277,7 @@ skipOnWrite(path: string, reason: SkipReason): Promise<void>;           // the n
 
 ## 14. Slice 4E: type moves and schema rewrites (D-803…D-818)
 
-- **Status:** draft, 2026-10-27, written before the 4E-1 red tests. **ACs:** [docs/acceptance/type-moves.md](../acceptance/type-moves.md) (approved; D-810…D-818). Where this section and the ACs disagree, the ACs win and this section is corrected before the red tests. §14.1…§14.8 are 4E-1; §14.9 is 4E-2's outline, completed before its red tests (D-818).
+- **Status:** draft, 2026-10-27, written before the 4E-1 red tests; corrected after them by D-819…D-833 (BRD v1.104). **ACs:** [docs/acceptance/type-moves.md](../acceptance/type-moves.md) (approved; D-810…D-818). Where this section and the ACs disagree, the ACs win and this section is corrected before the red tests. §14.1…§14.8 are 4E-1; §14.9 is 4E-2's outline, completed before its red tests (D-818).
 - Everything in §1…§13 stays valid unless this section changes it.
 
 ### 14.1 Kinds (changes §1)
@@ -313,12 +313,12 @@ pub enum MapTarget { Property(String), Content }
 pub enum JobError { /* … */ NotMovable, UnknownType, NoChange }
 ```
 
-`TypeMove` replaces the §2 shape `{ path, to_type }` (no planner existed). `NotMovable`: a Daily Note, Tag, Image or PDF object as source, one of those types as target, a file last read as not UTF-8 (D-180), or a path under `.trash/` (FR-STO-04 AC-12). `UnknownType`: `to_type` has no definition. `NoChange`: the target is the note's current type. A note in `_templates/` gets the type change without a move (FR-STO-04 AC-10).
+`TypeMove` replaces the §2 shape `{ path, to_type }` (no planner existed). `NotMovable`: a Daily Note, Tag, Image or PDF object as source, one of those types as target, a file last read as not UTF-8 (D-180), or a path under `.trash/` (FR-STO-04 AC-12). `UnknownType`: `to_type` has no definition. `NoChange`: the target is the note's current type. A note in `_templates/` gets only its `type:` line changed: no mapping, no `modified`, no move (D-829).
 
 ### 14.3 Planners (4E-1)
 
 - **Target path** of a moved note: `<folder of the type>/<stem>.md` at the folder's root (D-811), the stem kept when no other note outside `_templates/` and `.trash/` has it (NFC, case-folded, vault-wide), else `free_stem(folder, stem)` (D-291, D-384). A note already directly in or under the target folder doesn't move (its type change is still written).
-- **Type move.** Per note: `MapProperties` (§14.4) and `SetType` on the note itself (and `SetReview` when `review`), then the rename to the target path. Linking notes (`Host::linking`) get `RetargetLinks` only for link nodes whose written form stops resolving to the note or that name a renamed stem (D-810; the `@tegg/doc` side decides per node with `paths` before and after). The moved note gets `KeepTargets` (§14.4).
+- **Type move.** Per note: `MapProperties` (§14.4) and `SetType` on the note itself (4E's `set-type`: `type` and `modified` only; `SetReview` too only when `review`, D-826), then the rename to the target path. Linking notes (`Host::linking`) get `RetargetLinks` only for link nodes whose written form stops resolving to the note or that name a renamed stem (D-810; the `@tegg/doc` side decides per node with `paths` before and after). The moved note gets `KeepTargets` (§14.4).
 - **Folder move.** Notes: every indexed object whose `type` matches a defined type (D-239) and lies outside that type's folder and its subfolders, minus the exemption list (§14.6); with `to_folder`, only `r#type`'s objects and the folder of the type file is written by the caller before the job (`type_patch`, §14.7). Each note: the rename, `KeepTargets` on itself, `RetargetLinks` on linking notes as above; `modified` is not touched (FR-STO-01 AC-8). Never: notes without `type` (FR-TYP-10), undefined types (D-121), `_templates/`, `.trash/`, non-Markdown files. An empty plan ends `done` with no zip, no write and no progress event after `planning` (D-811).
 - **Placeholders** and files with a pending conflict (`Host::has_conflict`, below) are skipped `placeholder` / `changed` and left for the next tidy run (D-805).
 
@@ -347,6 +347,7 @@ export function contentLine(label: string, value: unknown): string        // `**
 
 - **`map-properties`** (D-804, D-813): a `Property(k)` with `k ≠ from` renames the key in place (value bytes kept, D-230); `Property(from)` leaves the line; `Content` removes the entry (its value lines and full-line comments directly inside its block; a comment line above it goes with it, FR-STO-04 AC-6) and adds `contentLine` at the start of the body, in `map` order, then one blank line. Values: scalars as stored without quotes, dates as `YYYY-MM-DD`, lists joined with `, `, relations as their `[[links]]`, booleans `true`/`false`; empty values write nothing. Keys outside `map` are untouched.
 - **`keep-targets`** (D-810): for each link node, resolve from `fromPath` and from `toPath` with `paths`; when they differ, rewrite it to resolve as before: a relative Markdown link gets the relative path from the new folder (same encoding style as §2.3's table), a wikilink or embed gets the shortest path form that resolves (`[[Quick Notes/Plán cesty|Plán cesty]]`; the alias is the written text when there was none; embeds never get an alias). Bytes outside the replaced ranges are unchanged.
+- **Percent-encoding** (D-825): a rewritten relative Markdown link encodes only the characters the original encoded (`../Quick%20Notes/Plán.md` → `../Knihy/Plán.md`), in `retarget-links` and `keep-targets`.
 - **`retarget-links`** keeps its §2.3 rules; with `fromStem == toStem` only path forms and relative Markdown links change (FR-STO-04 AC-7).
 
 ### 14.5 Writes (changes §3)
@@ -374,11 +375,11 @@ fn set_local_exempt(&self, ids: &[String]);
 
 | Command | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
-| `type_move_plan` | `paths: string[]`, `toType` | `TypeMovePlanDto` | Read-only: the R101 rows (`{ from, name, kind, value: string \| null, default: string \| 'content', offered: string[], fixed: boolean }`) and `needsDialog`. The dialog is built from it; the UI never computes R101 itself. |
+| `type_move_plan` | `paths: string[]`, `toType` | `TypeMovePlanDto` | Read-only: the R101 rows (`{ from, name, kind, value: string \| null, default: string \| 'content', offered: { key: string; name: string }[], fixed: boolean }`, D-821) and `needsDialog`. Backed by `Core::type_move_plan(paths, to_type) -> TypeMovePlan`, the one implementation of R101 (D-833). |
 | `type_move` | `paths: string[]`, `toType`, `mapping: { from: string; to: string }[]`, `review: boolean` | `{ jobId }` | Errors `NotMovable`, `UnknownType`, `NoChange`. |
-| `type_patch` | unchanged | | A `setFolder` op now also starts a `folder-move` job for the type after its write; the result gains `jobId: number \| null` (`null`: nothing to move). |
+| `type_patch` | unchanged | | A `setFolder` op is not written by the command: it starts a `folder-move` job with the new folder, and the job writes `folder:` as its first write after the zip (D-822), so Cancel or a failed zip leaves the type file unchanged. The result gains `jobId: number \| null` (`null`: nothing to move; the folder line is then written directly). The Rust `Core::type_patch` stays a type-file write (D-820). |
 | `folder_move_preview` | `type`, `folder` | `{ count: number }` | Read-only: B1's `Saving moves <n> …` count. |
-| `tidy_now` | — | `{ jobId: number \| null }` | Tests and the palette only; the core starts the tidy job itself at vault open (after the first index) and after 30 s without a watcher event (`TEGG_TEST_QUIET_MS` overrides the 30 s). |
+| `tidy_now` | — | `{ jobId: number \| null }` | Tests and the palette only; the core starts the tidy job itself at vault open (after the first index and once the transformer is set) and after 30 s without a watcher event, only when the vault was opened with its watcher (D-819); a skipped stray starts a new 30 s period after its skip (D-832). `TEGG_TEST_QUIET_MS` overrides the 30 s. |
 | `job_undo`, `job_redo` | unchanged | | Accept 4E-1 jobs. |
 
 `JobProgressDto.kind` gains `type-move`, `folder-move`; `JobReportDto` gains `moved: { from: string; to: string }[]`.
@@ -386,6 +387,7 @@ fn set_local_exempt(&self, ids: &[String]);
 ### 14.8 UI, fake core and tests (4E-1)
 
 - `app/ui/src/types/ChangeTypeDialog.tsx` (board A; from `Change type…` and the Inbox's `Convert to…` when `needsDialog`), `app/ui/src/types/FolderField.tsx` (B1 help text from `folder_move_preview`), `app/ui/src/jobs/status.tsx` gains the R99 texts of A, B2 (keys `job.typeMove.done` `Now a {type}`, `job.folderMove.running`, `job.folderMove.done`, `job.folderMove.tidy`, `job.folderMove.skipped`), `job.undo.*` commands of R100. The Inbox's convert calls `type_move` with `review: true` (replaces the `set-type` single write and the bulk `inbox` `SetType`).
+- **Test points** (D-823): `JobPoint::BeforeBackup`; the fake core's `holdJob('backup')` and `setConflict(path)`; at L4 the test host answers `has_conflict`. Hook `TEGG_TEST_FOCUS_FOLDER` focuses `Folder in the vault` (D-831). The `job.undo.*` commands are always registered and run only while a matching job is undoable (D-830). `ChangeTypeDialog` props: `{ plan, fromName, toName, targetNames, onConfirm, onCancel }` (D-821).
 - **Fake core** (§11): `type_move_plan`, `type_move`, `folder_move_preview`, `tidy_now`, the `type_patch` folder job, undo of both kinds, over its files with the real `@tegg/doc`; `FakeCoreHandle.tidyExempt(): Promise<string[]>`.
 - **Test layout:** L1 `packages/doc/test/type_moves.ac.test.ts` (`map-properties`, `contentLine`, `keep-targets`, `retarget-links` path forms), `app/test/type_moves_catalog.ac.test.ts`; L2 `packages/doc/test/type_moves.property.ac.test.ts` (FR-FMT-07 AC-26, 4E-1 ops); L4 `crates/tegg-jobs/tests/ac_type_move.rs`, `ac_folder_move.rs` (with the sync simulator and an injected quiet period); L5 `app/webkit/type_moves.ac.test.ts`; L6 `app/e2e/ms7_type_moves.ac.test.ts`, nightly `app/e2e/nightly_type_move_crash.ac.test.ts`, benchmark `app/e2e/perf_type_move.ts`. Fixture `tests/fixtures/vaults/type-moves/` with its README, byte-exact, in its own commit before the tests.
 
