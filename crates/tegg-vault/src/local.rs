@@ -147,6 +147,10 @@ impl VaultFs for LocalFs {
         fs::remove_file(self.abs(path))
     }
 
+    fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
+        fs::remove_dir(self.abs(path))
+    }
+
     /// ms6-trash-media §1.1: `st_ctime` (a rename sets it on APFS).
     fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
         use std::os::unix::fs::MetadataExt;

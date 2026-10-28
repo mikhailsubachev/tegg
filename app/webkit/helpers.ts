@@ -280,6 +280,9 @@ export const READ_COMMANDS = new Set([
   'tag_objects', // 4D-lite (ms4-tags §3; D-703, AP-685/D-747): the tag page's rows, read-only
   'index_tagged_objects', // D-784 (ms4-tags §1.6): All tags' summary, read-only
   'type_move_plan', 'folder_move_preview', 'jobs_ready', // 4E-1 (ms4-jobs §14.7): read-only; jobs_ready only lets the tidy job start (D-819)
+  // 4E-2 (ms4-jobs §14.9.6): the delete dialogs start their job to read its plan; it writes nothing before job_confirm,
+  // and Cancel or Esc cancels it in confirm.
+  'value_remove_start', 'type_delete_start', 'job_plan', 'job_cancel',
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

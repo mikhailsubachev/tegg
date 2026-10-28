@@ -920,6 +920,7 @@ export function App() {
         refresh={refresh}
         heading={heading}
         onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
+        onOpenTrash={() => { void go({ id: 'trash' }); }}
       />
     );
   } else if ((route?.id === 'tasks' || route?.id === 'tasks/kanban') && vault) {

@@ -66,7 +66,7 @@ pub async fn tag_new_path(state: State<'_, AppState>, name: String) -> Result<Ta
     Ok(TagNewPathDto { path: format!("{folder}/{stem}.md") })
 }
 
-fn started(r: Result<u64, JobError>) -> Result<JobStartDto, IpcError> {
+pub(crate) fn started(r: Result<u64, JobError>) -> Result<JobStartDto, IpcError> {
     match r {
         Ok(id) => Ok(JobStartDto { job_id: Some(id as u32) }),
         Err(JobError::NothingToDo) => Ok(JobStartDto { job_id: None }),
@@ -94,7 +94,9 @@ pub async fn merge_start(state: State<'_, AppState>, keep: String, others: Vec<S
 pub async fn job_plan(state: State<'_, AppState>, job_id: u32) -> Result<Option<JobPlanDto>, IpcError> {
     let core = core(&state)?;
     let Some(p) = core.jobs().plan(job_id as u64) else { return Ok(None) };
-    let templates = p.files.iter().filter(|f| f.path.starts_with("_templates/")).count();
+    // D-850: a type delete counts its templates in `PlanCounts.templates` (its files are the objects only).
+    let templates = if p.kind == tegg_core::tegg_jobs::JobKind::TypeDelete { 0 } else { p.files.iter().filter(|f| f.path.starts_with("_templates/")).count() };
+    let template_count = if p.kind == tegg_core::tegg_jobs::JobKind::TypeDelete { p.counts.templates } else { templates };
     let mut conflicts = Vec::new();
     if let Some(TextOp::MergeInto { others, .. }) = p.files.first().and_then(|f| f.ops.first()) {
         let kept = core.vault().read(&p.files[0].path).ok().map(|(b, _)| attrs(&b, &p.files[0].path)).unwrap_or_default();
@@ -113,7 +115,8 @@ pub async fn job_plan(state: State<'_, AppState>, job_id: u32) -> Result<Option<
         job_id,
         kind: p.kind.as_str().into(),
         files: (p.files.len() - templates) as u32,
-        templates: templates as u32,
+        templates: template_count as u32,
+        empty: p.counts.empty as u32, // 4E-2 (ms4-jobs §14.9.6)
         renames: p.renames.into_iter().map(|(from, to)| RenamePairDto { from, to }).collect(),
         trashes: p.trashes,
         warnings: p.warnings.into_iter().map(|w| match w { PlanWarning::DuplicateTagFile { path } => PlanWarningDto { kind: "duplicateTagFile".into(), path } }).collect(),

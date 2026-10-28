@@ -36,6 +36,8 @@ pub fn op_json(op: &TextOp) -> Value {
         TextOp::ChangeType { r#type, now, id } => json!({ "op": "change-type", "type": r#type, "now": now, "id": id }),
         TextOp::HoldTargets { from_path, to_path, paths } => json!({ "op": "hold-targets", "fromPath": from_path, "toPath": to_path, "paths": paths }),
         TextOp::Relink { moves, paths, files } => json!({ "op": "relink", "moves": moves.iter().map(|(f, t)| json!({ "from": f, "to": t })).collect::<Vec<_>>(), "paths": &**paths, "files": &**files }),
+        // ms4-jobs §14.9.2 (4E-2).
+        TextOp::RemoveKey { key } => json!({ "op": "remove-key", "key": key }),
     }
 }
 
@@ -92,6 +94,7 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             to_path: s("toPath")?,
             paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
         }),
+        "remove-key" => Some(TextOp::RemoveKey { key: s("key")? }),
         "change-type" => Some(TextOp::ChangeType { r#type: s("type")?, now: v["now"].as_str().map(str::to_string), id: v["id"].as_str().map(str::to_string) }),
         _ => None,
     }

@@ -302,6 +302,8 @@ impl Core {
             .map(|s| fold(s))
             .chain(self.types().into_iter().map(|t| fold(&t.folder)))
             .chain(std::iter::once(fold(&self.vault_settings().attachments)))
+            // D-851 (4E-2): a deleted type's folder still counts, so its objects stay one row each (FR-TYP-05 AC-10).
+            .chain(self.trashed_type_folders(&entries).iter().map(|f| fold(f)))
             .collect();
         let (mut dirs, mut files) = (Vec::new(), Vec::new());
         for e in entries {
@@ -475,6 +477,43 @@ impl Core {
     }
 
     /// §1.4: restores a row (object with its pair, file, or folder).
+    /// D-851: the `folder:` of every type definition in `.trash/.tegg/types/`, from the listing `trash_list` already has.
+    fn trashed_type_folders(&self, entries: &[FsEntry]) -> Vec<String> {
+        let vault = &self.shared.vault;
+        entries.iter().filter_map(|e| if let FsEntry::File { path } = e { Some(nfc(path)) } else { None }).filter_map(|p| {
+            let name = p.strip_prefix(".trash/.tegg/types/")?.strip_suffix(".yml")?;
+            if name.contains('/') {
+                return None;
+            }
+            let (bytes, v) = vault.read(&p).ok()?;
+            let key = name.rsplit_once(" (").map(|(k, _)| k).unwrap_or(name);
+            Some(crate::types3d::info(key, Some(&bytes), Some(v)).folder).filter(|f| !f.is_empty())
+        }).collect()
+    }
+
+    /// ms4-jobs §14.9.5 (D-815, FR-TYP-05 AC-10): for a trashed note whose `type` has no definition, the trashed
+    /// `.trash/.tegg/types/<key>.yml` (or its ` (n)` copy with the highest `n`, the latest trashed) and where it goes.
+    fn trashed_type_file(&self, note: &str) -> Option<(String, String)> {
+        let (bytes, _) = self.shared.vault.read(note).ok()?;
+        let stem = note.rsplit('/').next().unwrap_or(note).trim_end_matches(".md");
+        let key = tegg_format::type_key(&tegg_format::extract(&bytes, stem).r#type?);
+        if self.type_get(&key).is_some_and(|t| t.exists) {
+            return None;
+        }
+        let to = format!(".tegg/types/{key}.yml");
+        let plain = format!(".trash/{to}");
+        let prefix = format!(".trash/.tegg/types/{key} (");
+        let mut best: Option<(u32, String)> = self.shared.vault.list_files().ok()?.into_iter().map(|p| nfc(&p)).filter_map(|p| {
+            if p == plain {
+                Some((1, p))
+            } else {
+                let n = p.strip_prefix(&prefix)?.strip_suffix(").yml")?.parse::<u32>().ok()?;
+                Some((n, p))
+            }
+        }).max_by_key(|(n, _)| *n);
+        best.take().map(|(_, from)| (from, to))
+    }
+
     pub fn trash_restore(&self, path: &str) -> Result<Vec<Moved>, CoreError> {
         let path = nfc(path.trim_end_matches('/'));
         if !path.starts_with(".trash/") {
@@ -495,9 +534,21 @@ impl Core {
             moved.push(Moved { from: path, to });
         } else {
             let pair = if is_md(&path) { self.pair_of(&path).filter(|f| f.starts_with(".trash/")) } else { None };
+            // ms4-jobs §14.9.5 (D-815): a note whose type has no definition brings its trashed type file back.
+            let type_file = if is_md(&path) { self.trashed_type_file(&path) } else { None };
+            // The type file first (QA 4E-2 m8): if it can't come back, the note stays in the trash and nothing moved.
+            if let Some((from, to)) = &type_file {
+                vault.move_back(from, to)?;
+                vault.prune_trash(from);
+                self.shared.refresh_types();
+                self.shared.load_default_type();
+            }
             let to = vault.restore(&path)?;
             self.reindex(&to);
             moved.push(Moved { from: path, to });
+            if let Some((from, to)) = type_file {
+                moved.push(Moved { from, to });
+            }
             if let Some(f) = pair {
                 let t = vault.restore(&f)?;
                 moved.push(Moved { from: f, to: t });

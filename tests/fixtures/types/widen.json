@@ -1,0 +1,15 @@
+{
+  "_comment": "Board TypeJobs E2 (D-808, D-847): for each R10 type, the types every value of it stays valid in as written, without itself. Read by packages/schema/test/widen_table.test.ts and crates/tegg-core/tests/widen_table.rs.",
+  "text": ["long-text"],
+  "long-text": ["text"],
+  "number": ["text", "long-text"],
+  "checkbox": ["text", "long-text"],
+  "date": ["text", "long-text", "date-time"],
+  "date-time": ["text", "long-text"],
+  "date-range": [],
+  "select": ["text", "long-text", "multi-select"],
+  "multi-select": ["text", "long-text"],
+  "url": ["text", "long-text"],
+  "email": ["text", "long-text"],
+  "relation": ["text", "long-text"]
+}

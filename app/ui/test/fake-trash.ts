@@ -101,7 +101,8 @@ export function sharedPair(input: TrashInput, objectPath: string, pair: string):
 
 /** §1.2: the Trash page's rows, newest first (R71), then path (NFC, case-insensitive). */
 export function trashRows(input: TrashInput): TrashRow[] {
-  const inTrash = input.paths.filter((p) => p.startsWith(TRASH)).sort(byPath);
+  // D-851: `.trash/.tegg/` (a deleted type's definition) is never a row.
+  const inTrash = input.paths.filter((p) => p.startsWith(TRASH) && !p.startsWith(`${TRASH}.tegg/`)).sort(byPath);
   const keep = new Set([...SYSTEM_FOLDERS, ...input.typeFolders].map(low));
   const folderRows = new Set<string>();
   for (const p of inTrash) {
@@ -205,9 +206,10 @@ export function planEmpty(input: TrashInput): { remove: string[]; entries: strin
   return { remove, entries };
 }
 
-/** Folders of the live types in `.tegg/types/*.yml` (`folder:`). */
+/** Folders of the live types in `.tegg/types/*.yml` (`folder:`), and since 4E-2 of the type definitions in
+ *  `.trash/.tegg/types/` (D-851: a deleted type's objects stay one row each). */
 export function typeFolders(paths: string[], text: (p: string) => string | undefined): string[] {
-  return paths.filter((p) => /^\.tegg\/types\/[^/]+\.yml$/.test(p)).map((p) => {
+  return paths.filter((p) => /^(\.trash\/)?\.tegg\/types\/[^/]+\.yml$/.test(p)).map((p) => {
     const m = /^folder:\s*(.+)$/m.exec(text(p) ?? '');
     return m ? nfc(m[1].trim().replace(/^["']|["']$/g, '')) : '';
   }).filter(Boolean);
@@ -225,7 +227,19 @@ export function handle(cmd: string, a: any, files: Record<string, string>, bin: 
     }
     case 'trash_restore': {
       const r = planRestore(input, String(a.path));
-      return Array.isArray(r) ? { result: r, moves: r } : { error: r };
+      if (!Array.isArray(r)) return { error: r };
+      // ms4-jobs §14.9.5 (D-815): a note whose type has no definition brings its latest trashed type file back.
+      const p = nfc(String(a.path));
+      const k = isMd(p) ? typeKey(front(files[p] ?? '').type) : null;
+      if (k && files[`.tegg/types/${k}.yml`] === undefined) {
+        const copies = paths.flatMap((x) => {
+          if (x === `${TRASH}.tegg/types/${k}.yml`) return [[1, x] as const];
+          const m = new RegExp(`^${TRASH.replace('.', '\\.')}\\.tegg/types/${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\((\\d+)\\)\\.yml$`).exec(x);
+          return m ? [[Number(m[1]), x] as const] : [];
+        }).sort((x, y) => y[0] - x[0]);
+        if (copies.length) r.push({ from: copies[0][1], to: `.tegg/types/${k}.yml` });
+      }
+      return { result: r, moves: r };
     }
     case 'trash_delete': {
       const r = planDelete(input, (a.paths ?? []) as string[]);

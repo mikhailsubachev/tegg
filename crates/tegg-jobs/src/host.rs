@@ -181,6 +181,28 @@ pub trait Host: Send + Sync {
         let _ = (r#type, folder);
         Err("4E-1 stub: Host::write_type_folder".into())
     }
+
+    // -------------------------------------------------------------------------------- 4E-2 (ms4-jobs §14.9.2)
+
+    /// §14.9.3: moves the folder `dir` (a type's templates) to `.trash/` with its relative path; `Some((dir, trashed))`,
+    /// `None` when there is no such folder. Undo moves it back with `untrash`.
+    fn trash_dir(&self, dir: &str) -> Result<Option<String>, WriteError> {
+        let _ = dir;
+        Ok(None)
+    }
+    /// D-22, D-42 (FR-TYP-06 AC-1): a system type, never deleted. The core answers from `tegg_schema::SYSTEM_KEYS`.
+    fn is_system_type(&self, r#type: &str) -> bool {
+        ["page", "task", "quick-note", "daily-note", "tag", "image", "pdf"].contains(&r#type)
+    }
+    /// The type definitions changed on disk (a type file trashed or restored by a job): the core re-reads them.
+    fn types_changed(&self) {}
+    /// Removes the item `key` and its `preview` entry from the type file of `r#type` (as `type_patch` does), checked
+    /// against `base` (the version read at planning). Returns the type file's new version. A host without type files
+    /// can't remove one.
+    fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
+        let _ = (r#type, key, base);
+        Err(WriteError::Io("this host has no type files".into()))
+    }
 }
 
 /// ms4-jobs §14.5: one schema property as the 4E planners see it.
@@ -192,6 +214,8 @@ pub struct HostProperty {
     pub kind: String,
     /// Relation targets (type keys).
     pub to: Vec<String>,
+    /// A system type's built-in attribute (FR-TYP-06 AC-2): never removed by a job.
+    pub built_in: bool,
 }
 
 /// One tag as the tag planners see it (ms4-tags §1.2, §4.1).

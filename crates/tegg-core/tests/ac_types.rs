@@ -1,5 +1,5 @@
 //! MS3 slice 3D AC tests at the core (L4): AR-07 AC-2…AC-4, AC-7; FR-TYP-01 AC-2, AC-4, AC-6 (watcher), AC-7;
-//! FR-TYP-03 AC-5 (counts), AC-11 (count), AC-12 (folder, name, one write, index); FR-TYP-04 AC-5; FR-TYP-05 AC-1,
+//! FR-TYP-03 AC-5 (counts), AC-11 (D-808: a retype writes only the type line), AC-14 (4E-2, type-moves.md), AC-12 (folder, name, one write, index); FR-TYP-04 AC-5; FR-TYP-05 AC-1,
 //! AC-2, AC-5; FR-TYP-06 AC-1, AC-4; FR-TYP-09 AC-2 (query), AC-9 (watcher); FR-TYP-12 AC-3; FR-TYP-13 AC-1…AC-3;
 //! FR-VLT-02 AC-6, AC-7, AC-9. docs/acceptance/types.md; interface docs/contracts/ms3-shell.md §14.1, §14.2.
 //! Written from the ACs and the contract only (D-61). Fixture: tests/fixtures/vaults/types + new-empty/.tegg in a
@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use common::*;
 use tegg_core::{Core, CoreError, CoreEvent, CoreOptions, FileVersion, StarterSkip, TypeInfo, VaultError};
-use tegg_schema::{AttrChange, AttrDef, AttrType, OptionDef, Readability, SchemaError, TypeOp};
+use tegg_schema::{AttrChange, AttrType, OptionDef, Readability, SchemaError, TypeOp};
 use tegg_vault::{LocalFs, Vault, VaultFs, VaultKind};
 
 macro_rules! ok {
@@ -103,10 +103,6 @@ fn base(core: &Core, key: &str) -> FileVersion {
             unreachable!()
         }
     }
-}
-
-fn attr(key: &str, name: &str, t: AttrType) -> AttrDef {
-    AttrDef { key: key.into(), name: name.into(), r#type: t, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false }
 }
 
 fn swap(text: &str, from: &str, to: &str) -> String {
@@ -374,19 +370,51 @@ fn fr_typ_03_ac5_option_use_counts_from_the_index() {
     assert_eq!(u.values.get("web").copied(), Some(2));
 }
 
+/// D-808 (AC-Test-Change approved by the owner): no misfits are counted any more; a retype from the widen-only menu
+/// writes only the item's `type:` line, and no note file, even when a note holds a value (Porada's `místo`).
 #[test]
-fn fr_typ_03_ac11_misfits_are_counted_by_the_core() {
+fn fr_typ_03_ac11_a_widening_retype_writes_only_the_type_line() {
     let sb = sandbox();
     let root = types_vault(&sb);
-    let core = open(&root, &sb, false);
-    let as_number = attr("místo", "Místo", AttrType::Number);
-    assert_eq!(core.count_misfits("schůzka", "místo", &as_number), 0, "Porada's místo is empty");
     let porada = read(&root, PORADA);
     write_raw(&root, PORADA, swap(&porada, "místo:\n", "místo: Zasedačka\n").as_bytes());
-    core.notify_changed(&[PORADA.to_string()]);
-    assert!(core.wait_idle(Duration::from_secs(10)));
-    assert_eq!(core.count_misfits("schůzka", "místo", &as_number), 1);
-    assert_eq!(core.count_misfits("schůzka", "místo", &attr("místo", "Místo", AttrType::LongText)), 0, "text fits long text");
+    let core = open(&root, &sb, false);
+    let before = snapshot(&root);
+    let op = TypeOp::UpdateAttribute { key: "místo".into(), change: AttrChange { r#type: Some(AttrType::LongText), ..Default::default() } };
+    ok!(core.type_patch("schůzka", Some(&base(&core, "schůzka")), &[op]), "místo Text → Long text");
+    assert_eq!(read(&root, ".tegg/types/schůzka.yml"), swap(&fixture("vaults/types/.tegg/types/schůzka.yml"), "    name: Místo\n    type: text\n", "    name: Místo\n    type: long-text\n"), "only the item's type line");
+    assert_eq!(changed(&before, &snapshot(&root)), vec![".tegg/types/schůzka.yml".to_string()], "no note file is written");
+}
+
+/// Slice 4E-2, type-moves.md FR-TYP-03 AC-14 (L4): on the type-moves fixture (+ new-empty/.tegg), Kniha's `hodnocení`
+/// Number → Text from the widen-only menu writes only the item's `type:` line of `kniha.yml`; no note is written; and
+/// Select → Text drops the options that no longer apply (ms4-jobs §14.9.7: `type_patch` as today). Added to this file
+/// (not a new one) because the rule already holds: a new AC file must be red in its commit (CONTRACT §5.2).
+fn moves_vault(sb: &Sandbox) -> PathBuf {
+    let root = sb.base.join("Přesuny");
+    let fx = repo_root().join("tests/fixtures/vaults");
+    copy_dir(&fx.join("type-moves"), &root);
+    let _ = std::fs::remove_file(root.join("README.md"));
+    copy_dir(&fx.join("new-empty/.tegg"), &root.join(".tegg"));
+    root
+}
+
+#[test]
+fn fr_typ_03_ac14_a_wider_type_writes_only_the_items_type_line() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    let core = open(&root, &sb, false);
+    let kniha = fixture("vaults/type-moves/.tegg/types/kniha.yml");
+    let to = |k: &str, t: AttrType| TypeOp::UpdateAttribute { key: k.into(), change: AttrChange { r#type: Some(t), ..Default::default() } };
+    let before = snapshot(&root);
+    ok!(core.type_patch("kniha", Some(&base(&core, "kniha")), &[to("hodnocení", AttrType::Text)]), "Hodnocení: Number → Text");
+    let one = swap(&kniha, "    name: Hodnocení\n    type: number\n", "    name: Hodnocení\n    type: text\n");
+    assert_eq!(read(&root, ".tegg/types/kniha.yml"), one, "only hodnocení's type line");
+    assert_eq!(changed(&before, &snapshot(&root)), vec![".tegg/types/kniha.yml".to_string()], "no note is written (Duna keeps `hodnocení: 5`)");
+    ok!(core.type_patch("kniha", Some(&base(&core, "kniha")), &[to("stav", AttrType::Text)]), "Stav: Select → Text");
+    let two = swap(&one, "    type: select\n    options:\n      - { label: Rozečtená, color: blue }\n      - { label: Dočtená, color: green }\n", "    type: text\n");
+    assert_eq!(read(&root, ".tegg/types/kniha.yml"), two, "the options that no longer apply are dropped");
+    assert_eq!(changed(&before, &snapshot(&root)), vec![".tegg/types/kniha.yml".to_string()], "still no note written");
 }
 
 fn object_text(type_key: &str, title: &str, id: &str) -> String {

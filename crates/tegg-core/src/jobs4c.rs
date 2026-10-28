@@ -276,12 +276,22 @@ impl Host for CoreHost {
 
     fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
         let (trashed, to) = (nfc(trashed), nfc(to));
-        if self.version(&to).is_some() {
+        // A file or a folder there (a templates folder made again, QA 4E-2 m7) is taken: a folder can't be read, so its
+        // `version` is an error; no walk of the vault (QA 4E-2 N1).
+        if !matches!(self.shared.vault.version(&to), Ok(None)) {
             return Err(WriteError::NameTaken);
         }
         self.shared.vault.move_back(&trashed, &to).map_err(write_error)?;
+        self.shared.vault.prune_trash(&trashed);
         if let Ok((bytes, v)) = self.shared.vault.read(&to) {
             self.index_written(&to, &bytes, &v);
+        } else {
+            // A folder (a type's templates): each file under it.
+            for f in self.shared.vault.list_files().unwrap_or_default().into_iter().map(|p| nfc(&p)).filter(|p| p.starts_with(&format!("{to}/"))) {
+                if let Ok((bytes, v)) = self.shared.vault.read(&f) {
+                    self.index_written(&f, &bytes, &v);
+                }
+            }
         }
         self.shared.emit(CoreEvent::VaultChanged { paths: vec![trashed, to] });
         Ok(())
@@ -331,7 +341,7 @@ impl Host for CoreHost {
             .map(|d| {
                 d.attributes
                     .iter()
-                    .map(|a| HostProperty { key: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), to: a.to.clone().unwrap_or_default() })
+                    .map(|a| HostProperty { key: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), to: a.to.clone().unwrap_or_default(), built_in: a.built_in })
                     .collect()
             })
             .unwrap_or_default()
@@ -374,6 +384,38 @@ impl Host for CoreHost {
 
     fn write_type_folder(&self, r#type: &str, folder: &str) -> Result<Option<String>, String> {
         crate::types3d::write_folder(&self.shared, r#type, folder).map_err(|e| format!("{e:?}"))
+    }
+
+    fn trash_dir(&self, dir: &str) -> Result<Option<String>, WriteError> {
+        let dir = nfc(dir.trim_matches('/'));
+        match self.shared.vault.trash_dir(&dir) {
+            Ok(moved) => {
+                // One rename of the folder (tegg-vault): `.trash/<dir>`, or with a ` (n)` suffix, before its files' paths.
+                let base = format!(".trash/{dir}");
+                let to = moved.first().and_then(|f| f.strip_prefix(&base).and_then(|r| r.find('/')).map(|i| f[..base.len() + i].to_string())).unwrap_or(base);
+                self.shared.emit(CoreEvent::VaultChanged { paths: vec![dir, to.clone()] });
+                Ok(Some(to))
+            }
+            Err(VaultError::NotFound) => Ok(None),
+            Err(e) => Err(write_error(e)),
+        }
+    }
+
+    fn is_system_type(&self, r#type: &str) -> bool {
+        tegg_schema::SYSTEM_KEYS.contains(&nfc(r#type).as_str())
+    }
+
+    fn types_changed(&self) {
+        self.shared.refresh_types();
+        self.shared.load_default_type();
+    }
+
+    fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
+        crate::types3d::remove_attr(&self.shared, r#type, key, base).map_err(|e| match e {
+            crate::CoreError::Vault(VaultError::Conflict { .. }) => WriteError::Changed,
+            crate::CoreError::Vault(VaultError::Gone) | crate::CoreError::Vault(VaultError::NotFound) => WriteError::Missing,
+            other => WriteError::Io(format!("{other:?}")),
+        })
     }
 }
 
