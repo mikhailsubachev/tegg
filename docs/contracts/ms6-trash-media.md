@@ -33,7 +33,7 @@ pub struct TrashEntry {
 }
 ```
 
-- **Rows.** Every `.md` directly or deeply under `.trash/` is an Object row, except files inside a trashed folder that is itself a row. A trashed **folder row** is a directory directly under `.trash/` whose name is not a system folder of a type that still exists live (`Pages`, `Tasks`, `Quick Notes`, `Daily`, `Tags`, `Images`, `PDFs`, `_attachments`, the folders of the vault's live types): `.trash/Recepty/` is a folder row, `.trash/Pages/` is not (its files are rows). A non-`.md` file is a File row unless an Object row pairs it (§1.3). `_templates` inside `.trash/` is listed like any other folder.
+- **Rows.** Every `.md` directly or deeply under `.trash/` is an Object row, except files inside a trashed folder that is itself a row. A trashed **folder row** is a directory directly under `.trash/` whose name is not a system folder of a type that still exists live (`Pages`, `Tasks`, `Quick Notes`, `Daily`, `Tags`, `Images`, `PDFs`, `_attachments`, the folders of the vault's live types, and since 4E-2 the folders of type definitions in `.trash/.tegg/types/`, D-851: a deleted type's objects stay one row each): `.trash/Recepty/` is a folder row, `.trash/Pages/` is not (its files are rows). A non-`.md` file is a File row unless an Object row pairs it (§1.3). `_templates` inside `.trash/` is listed like any other folder. `.trash/.tegg/` is never a row (D-851).
 - **Order** (R71): `trashed_ns` descending, then `path` ascending (NFC, case-insensitive). The UI keeps the core's order.
 - **No index.** The list reads the file system only (AR-01, FR-HIS-01 AC-10); objects are parsed with the same frontmatter reader as the index (`title`, `type`, `file`).
 
