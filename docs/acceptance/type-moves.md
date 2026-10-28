@@ -144,7 +144,7 @@ Objects:
 - **AC-7** **The job.** `Delete from 1 note` creates the zip (`Delete property Poznámka`), removes Duna's `poznámka` line (its value lines too; the `# od koho` comment above it stays, AP-769), leaves Bez autora, Článek and `_templates/Kniha/` untouched (templates: AP-769), then removes the item and its `preview` key from `kniha.yml` in the same job; the status says `Deleted Poznámka · removed values from 1 note` with `Undo`. *(L4; L1 for the bytes; L5)*
 - **AC-8** **Undo.** `Undo` restores Duna's exact bytes and `kniha.yml`'s exact bytes; files changed since are skipped and listed. *(L4; L5)*
 - **AC-9** **Skips.** A Kniha changed by another program during the job is skipped `changed`, keeps its line and is listed with `Retry`; the type file is still changed, so that note shows the value under Other properties until a retry removes it. *(L4; L5)*
-- **AC-10** **Open notes.** With Duna open with unsaved body text, the line is removed through its editor as one transaction (D-386, ms4-jobs §9); the unsaved text is kept; the file is written once. *(L5)*
+- **AC-10** **Open notes.** With Duna open with unsaved body text, the line is removed through its editor as one transaction (D-386, ms4-jobs §9); the unsaved text is kept; the file is written once. *(L4 with `editor_open`; D-841: no L5, since `Delete property…` runs only on Type settings, which replaces the note page)*
 
 ### FR-TYP-05 Delete a type with objects (D-809, board F; details types.md FR-TYP-05 AC-4)
 
@@ -188,9 +188,9 @@ Only what D-803…D-809 and the board left open. Each was accepted as proposed (
 | AP-772 | **Earlier criteria that 4E changes and D-806…D-809 don't cover** (`AC-Test-Change` approval where tests exist). | types.md FR-TYP-01 AC-5 (help text `New objects go here.` and no `Move existing objects`, D-805), FR-TYP-07 AC-5 (the file moves), AC-6 (Page → Schůzka → Page: `místo` goes into the content, D-804), AC-9 (undo is the job's undo), R12's General row; inbox.md FR-INB-02 AC-5 (the file moves); links.md FR-STO-04 AC-1 ("links unchanged" → "links keep resolving; path forms are rewritten"); app-shell R3 rows of the 4E controls (D-748). Each in the commit that builds the part that changes it. | — | types.md, inbox.md, links.md, app-shell.md |
 | AP-773 | **Two parts.** | 4E-1 (type move with mapping, folder move and tidy, Undo of jobs) and 4E-2 (delete property, delete type, the widen-only menu) get one red-test commit each, two build PRs and two previews, in that order. | (b) One red-test commit and one PR for all of 4E. | plan §3 |
 
-## Points for the owner, 4E-2 (AP-789, AP-790)
+## Points for the owner, 4E-2 (AP-789, AP-790, accepted as D-841, D-842)
 
-Found while completing ms4-jobs §14.9 before the 4E-2 red tests. Everything else in §14.9 follows the ACs and D-806…D-815.
+Found while completing ms4-jobs §14.9 before the 4E-2 red tests. Everything else in §14.9 follows the ACs and D-806…D-815. Both were accepted as proposed (AP-789 → D-841, AP-790 → D-842).
 
 | AP | Point | Proposal | Alternatives | Affects |
 | --- | --- | --- | --- | --- |

@@ -418,7 +418,7 @@ fn set_local_exempt(&self, ids: &[String]);
 
 ### 14.9 4E-2: delete property, delete type, widen-only retype (D-807, D-808, D-809, D-814, D-815)
 
-Draft, 2026-10-28, before the 4E-2 red tests. ACs: `docs/acceptance/type-moves.md` part two (FR-TYP-04 AC-6…AC-10, FR-TYP-05 AC-6…AC-10, FR-TYP-03 AC-14) and "Both parts". Open points: AP-789, AP-790 (end of the ACs file).
+Draft, 2026-10-28, before the 4E-2 red tests. ACs: `docs/acceptance/type-moves.md` part two (FR-TYP-04 AC-6…AC-10, FR-TYP-05 AC-6…AC-10, FR-TYP-03 AC-14) and "Both parts". Owner points AP-789, AP-790 accepted as D-841, D-842.
 
 **14.9.1 Ops and kinds.** `JobOp::ValueRemove { r#type, key }` and `JobOp::TypeDelete { r#type }` (§14.2; `TypeDeleteChoice` goes, D-809). Flags as §14.1: both `needsConfirm`, `backup`, undoable in memory, cancellable in `planning`, `confirm`, `backup`, `writing`. `JobError`: `UnknownType` (no definition), `SystemType` (a system type, FR-TYP-06 AC-1), `BuiltIn` (a built-in attribute, FR-TYP-06 AC-2), `UnknownProperty` (no item with that key). Backup labels (R99): `backups.label.valueRemove` `{ name }` → `Delete property <Name>`, `backups.label.typeDelete` `{ name }` → `Delete type <Name>`.
 
@@ -426,13 +426,13 @@ Draft, 2026-10-28, before the 4E-2 red tests. ACs: `docs/acceptance/type-moves.m
 - Files: every indexed object whose `type` matches `r#type` (D-239) and whose frontmatter has `key` with a non-empty value (D-814: `key:` with nothing, `""`, `[]` or `~` counts as empty and is not touched); never `_templates/` (D-814) or `.trash/`. `PlanCounts` gains `empty` (objects of the type with the key but no value): the dialog's `<m> have no value` (FR-TYP-04 AC-6).
 - Each file gets one text op `remove-key { key }` (`@tegg/doc`, new): removes the frontmatter entry `key` with its value lines (block list items, block scalars, continuation lines), byte-exact elsewhere; full-line comments above it stay (D-814); NFD keys match by NFC; no `modified` change (a schema edit, FR-TYP-04 AC-5's rule). `unchanged` when the key is gone.
 - The type file is written last, after every object file (skipped ones too, FR-TYP-04 AC-9): the item and its key in `preview` are removed as `type_patch` does today (`Host::remove_property(type, key)`, new, base-checked against the version read at planning). Its pre and post bytes are an undo row, as D-840's type-file row.
-- An open note (`editor_open`) gets the op through its editor (D-386, FR-TYP-04 AC-10); AP-789 is about when that can happen.
+- An open note (`editor_open`) gets the op through its editor (D-386, FR-TYP-04 AC-10); tested at L4 only, since no note page is open on Type settings (D-841).
 - **No values** (FR-TYP-04 AC-6's second case): the UI asks `type_usage(type)` first; with no value for `key` it shows the no-value dialog, and its `Delete property` is today's `type_patch` removal: no job, no zip. With values it starts the job, and the dialog reads its counts from `job_plan` once the job is in `confirm`. A count of 0 there (the values went meanwhile) still confirms the type-file write in the job, without a zip.
 
 **14.9.3 `type-delete` planner and writes.**
 - Objects: as FR-TYP-05 AC-2 (indexed objects whose `type` resolves to the key; templates and `.trash/` excluded). Templates: the files under `_templates/<Name>/`. `PlanCounts` gains `templates`.
 - Order (D-809): every object with `Host::trash(path, base)` (relative path kept, FR-STO-08 AC-5; a taken trash path gets ` (2)`), then, only when no object was skipped (D-815), the templates folder and `.tegg/types/<key>.yml` (definition last), as AC-1's empty-type delete does. A skipped object (changed, placeholder, conflict) keeps the type and templates; the report's `keptType: true` gives `1 object was not changed, so the type was kept.` with `Show` (FR-TYP-05 AC-9). Linking notes are not written: the index shows their links as trashed (6A).
-- An object open in an editor is trashed like any external delete: its page shows the deleted state and keeps unsaved text (FR-SYN-03). The type-settings page that starts the job replaces the note page, so this needs another window (AP-789).
+- An object open in an editor is trashed like any external delete: its page shows the deleted state and keeps unsaved text (FR-SYN-03). The type-settings page that starts the job replaces the note page, so this is tested at L4 only (D-841).
 - `type_delete(key, base)` (3D) stays for a type without objects (FR-TYP-05 AC-1, AC-5); with objects it answers `HasObjects { n }` and the UI starts the job instead.
 
 **14.9.4 Undo, redo, cancel.**

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.106, for review                                            |
+| **Document status** | Draft v1.107, for review                                            |
 | **Date**            | 2026-10-27                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -120,6 +120,7 @@
 | v1.104  | 2026-10-28 | Slice 4E-1 red-test decisions D-819…D-833 (AP-774…AP-788, each as recommended): when the tidy job runs, `type_patch` and the folder job, the change-type dialog interface, the type file written inside the folder job, test injection points, link encoding, `review` untouched by a type change, Content line layout, two approved AC-test changes, templates, Undo commands, real-app hooks, stray retries, R101 in Rust. |
 | v1.105  | 2026-10-28 | Slice 4E-1 build: D-834 (AC-test changes the type move brings: R101 offers, the tidy zip, the older type-change and Inbox criteria), D-835 (the tidy job is off in real-app tests unless a test turns it on).; D-836 (three more AC-test changes the type move brings). |
 | v1.106  | 2026-10-28 | QA review of 4E-1: owner decisions D-837 (bulk convert grouped by source type), D-838 (links whose target a move would change are rewritten, in any note), D-839 (tidy exemptions by path for notes without `id`), D-840 (Undo of a folder save restores `folder:`). |
+| v1.107  | 2026-10-28 | Slice 4E-2 contract (ms4-jobs §14.9): owner decisions D-841 (an open note during a property or type delete is tested at L4 only; FR-TYP-04 AC-10 loses its L5 test), D-842 (the type-delete dialog counts with the type's plural; types.md FR-TYP-05 AC-4 follows R99). |
 
 ---
 
@@ -951,6 +952,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-838 | Links whose target a move would change (finding 11; refines D-810) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | After a move every link whose resolution would change (D-291) is rewritten to keep its target, in any note: links to the moved note whose written form stops resolving to it, and links to another note that would now resolve to the moved note (a duplicate stem in the new folder, from Obsidian). They get the shortest form that still resolves, with the written text as alias. Silent, like D-804 |
 | D-839 | Tidy exemptions for notes without an `id` (finding 12; refines D-812) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | `tidy-exempt.json` also lists the NFC vault paths of undone tidy or folder moves whose note has no `id` (`paths`, next to `ids`); nothing is written into the note. A path leaves the list when that note's type or its type's folder changes |
 | D-840 | Undo of a folder save (finding 21; refines D-812) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | Undo of a folder save moves the notes back **and** restores the type file's previous `folder:` (the job's own write is in its undo record); its notes are then not strays and are not added to the exemption list. Undo of a tidy job still exempts its notes |
+| D-841 | An open note during a property or type delete (AP-789, owner, 2026-10-28; slice 4E-2, `docs/contracts/ms4-jobs.md` §14.9) | `Delete property…` and `Delete <Name> type…` exist only on Type settings, which replaces the note page, so no note is open in an editor while they run. The engine keeps D-386's rule (an open note gets `remove-key` through its editor; an open object is trashed like any external delete and its page keeps unsaved text) and it is tested at L4 only, with `editor_open` set by the test. FR-TYP-04 AC-10 drops its `(L5)`; it stays for when a second window or pane exists |
+| D-842 | The type-delete dialog counts with the type's plural (AP-790, owner, 2026-10-28; slice 4E-2) | R99 and FR-TYP-05 AC-6 win: `<n> <plural> go to the trash with the type…` / `Delete type and trash <n> <plural>` (`3 schůzky`), as every 4E count. types.md FR-TYP-05 AC-4's texts follow them (it named `3 objects`, as D-809's text did); an AC-test change approved here wherever a test asserts the old text (none did when decided) |
 
 ---
 
