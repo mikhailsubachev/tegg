@@ -1418,6 +1418,10 @@ fn reversed(op: &TextOp) -> TextOp {
             to_title: from_title.clone(),
             paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
         },
+        TextOp::Relink { moves, paths } => {
+            let to = |p: &String| moves.iter().find(|(f, _)| nfc(f) == nfc(p)).map(|(_, t)| t.clone()).unwrap_or_else(|| p.clone());
+            TextOp::Relink { moves: moves.iter().map(|(f, t)| (t.clone(), f.clone())).collect(), paths: paths.iter().map(to).collect() }
+        }
         TextOp::HoldTargets { from_path, to_path, paths } => TextOp::HoldTargets {
             from_path: to_path.clone(),
             to_path: from_path.clone(),

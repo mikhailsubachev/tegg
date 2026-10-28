@@ -143,3 +143,68 @@ fn bug_qa4e1_fr_sto_04_ac7_a_link_to_a_duplicate_keeps_its_target() {
     let now = core.resolve_links("Knihy/Odkaz na trasu.md", &[t.split("[[").nth(1).and_then(|x| x.split(['|', ']']).next()).unwrap_or("").to_string()]);
     assert_eq!(now.first().and_then(|x| x.path.clone()).map(|p| tegg_format::nfc(&p)), target, "the link still reaches the note it reached before the move (D-838): {t}");
 }
+
+// ------------------------------------------------------------------------------------------------ second review, N1
+
+/// Two strays of Kniha in Pages/ that link to each other (by name and by path), for the tidy job.
+fn pair(root: &std::path::Path) {
+    write_raw(root, "Pages/Alfa.md", "---\nid: 01JB4E0000000000000000E0A1\ntype: kniha\ntitle: Alfa\n---\nViz [[Beta]] a [[Pages/Beta]].\n".as_bytes());
+    write_raw(root, "Pages/Beta.md", "---\nid: 01JB4E0000000000000000E0A2\ntype: kniha\ntitle: Beta\n---\nZpět na [[Alfa]].\n".as_bytes());
+}
+/// Where each `[[…]]` of the note at `path` resolves now (index, D-291).
+fn targets(core: &tegg_core::Core, root: &std::path::Path, path: &str) -> Vec<Option<String>> {
+    let t = read_text(root, path).unwrap_or_default();
+    let names: Vec<String> = t.split("[[").skip(1).filter_map(|x| x.split(['|', ']', '#']).next()).map(str::to_string).collect();
+    core.resolve_links(path, &names).into_iter().map(|r| r.path.map(|p| tegg_format::nfc(&p))).collect()
+}
+
+#[test]
+fn bug_qa4e1_n1_fr_sto_04_ac8_moved_notes_linking_each_other_keep_their_targets() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    pair(&root);
+    write_raw(&root, "Osoby/Beta.md", "---\nid: 01JB4E0000000000000000E0A3\ntype: osoba\ntitle: Beta\n---\n".as_bytes()); // a same-stem note elsewhere
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (_, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(core.wait_idle(Duration::from_secs(30)));
+    assert_eq!(targets(&core, &root, "Knihy/Alfa.md"), vec![Some("Knihy/Beta.md".into()); 2], "Alfa's links reach the moved Beta: {:?}", read_text(&root, "Knihy/Alfa.md"));
+    assert_eq!(targets(&core, &root, "Knihy/Beta.md"), vec![Some("Knihy/Alfa.md".into())], "Beta's link reaches the moved Alfa");
+}
+
+#[test]
+fn bug_qa4e1_n1_fr_sto_01_ac11_a_skipped_partner_keeps_the_link_on_its_old_place() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    pair(&root);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        if matches!(p, JobPoint::AfterRead { path } if path == "Pages/Beta.md") {
+            write_raw(&r2, "Pages/Beta.md", "---\nid: 01JB4E0000000000000000E0A2\ntype: kniha\ntitle: Beta\n---\nZpět na [[Alfa]]. Upraveno.\n".as_bytes());
+        }
+    })));
+    let (_, r) = ok!(run(&core, tidy()), "tidy");
+    assert!(r.skipped.iter().any(|s| s.path == "Pages/Beta.md"), "Beta skipped: {r:?}");
+    assert!(core.wait_idle(Duration::from_secs(30)));
+    assert_eq!(targets(&core, &root, "Knihy/Alfa.md"), vec![Some("Pages/Beta.md".into()); 2], "Alfa's links still reach Beta where it stayed: {:?}", read_text(&root, "Knihy/Alfa.md"));
+}
+
+#[test]
+fn bug_qa4e1_n1_fr_sto_04_ac9_a_partner_whose_name_is_taken_meanwhile_is_still_reached() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    pair(&root);
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        if *p == JobPoint::AfterPlanning {
+            write_raw(&r2, "Knihy/Beta.md", "---\nid: 01JB4E0000000000000000E0A4\ntype: kniha\ntitle: Jiná Beta\n---\n".as_bytes());
+        }
+    })));
+    let (_, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(root.join("Knihy/Beta (2).md").exists(), "Beta took the next free name: {r:?}");
+    assert!(core.wait_idle(Duration::from_secs(30)));
+    assert_eq!(targets(&core, &root, "Knihy/Alfa.md"), vec![Some("Knihy/Beta (2).md".into()); 2], "Alfa's links reach Beta, not the note that took its name: {:?}", read_text(&root, "Knihy/Alfa.md"));
+}

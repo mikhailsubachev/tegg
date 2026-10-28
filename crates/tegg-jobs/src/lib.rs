@@ -296,6 +296,9 @@ pub enum TextOp {
     /// D-838: in a note that doesn't move, rewrite every link whose resolution (D-291) would change when `from_path`
     /// becomes `to_path`, so it keeps its target; `paths` are the vault's note paths before the move.
     HoldTargets { from_path: String, to_path: String, paths: Vec<String> },
+    /// 4E-1 (D-810, D-838, QA N1): every link of the file keeps its target when all `moves` (from, to) happen together,
+    /// the file itself possibly among them; `paths` are the vault's note paths before the moves.
+    Relink { moves: Vec<(String, String)>, paths: Vec<String> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).

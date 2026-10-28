@@ -32,13 +32,17 @@ export type TextOp =
   | { op: 'change-type'; type: string; now: string | null; id?: string }
   // D-838: in a note that doesn't move, keep every link on its target when `fromPath` becomes `toPath`.
   | { op: 'hold-targets'; fromPath: string; toPath: string; paths: string[] }
+  // 4E-1 (D-810, D-838): every link of the note at `source` keeps its target when all `moves` happen together (the
+  // note itself may be one of them); `paths` are the vault's note paths before the moves.
+  | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[] }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
 type Retarget = Extract<TextOp, { op: 'retarget-links' }>
 type MapProps = Extract<TextOp, { op: 'map-properties' }>
 type KeepTargets = Extract<TextOp, { op: 'keep-targets' }>
-const MOVE_OPS = new Set(['map-properties', 'keep-targets', 'change-type', 'hold-targets'])
+const MOVE_OPS = new Set(['map-properties', 'keep-targets', 'change-type', 'hold-targets', 'relink'])
+type Relink = Extract<TextOp, { op: 'relink' }>
 type HoldTargets = Extract<TextOp, { op: 'hold-targets' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
@@ -84,6 +88,7 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
     if (op.op === 'map-properties') patches.push(...mapPatches(doc, op))
     else if (op.op === 'keep-targets') patches.push(...keepPatches(doc, op))
     else if (op.op === 'hold-targets') patches.push(...holdPatches(doc, source, op))
+    else if (op.op === 'relink') patches.push(...relinkPatches(doc, source, op))
     else if (op.op === 'change-type') {
       // D-174: the edited key, then the identity keys a file without them gets (`id`, `modified`).
       const vals: [string, Value][] = [['type', op.type]]
@@ -478,6 +483,54 @@ function holdPatches(doc: Doc, source: string, op: HoldTargets): Patch[] {
     const a = resolveFrom(source, m.target, true, after)
     if (a !== null && key(a) === key(b)) continue
     out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(source), b) })
+  }
+  return out
+}
+
+// ---------------------------------------------------------------- relink (4E-1: the whole move set at once)
+
+function relinkPatches(doc: Doc, source: string, op: Relink): Patch[] {
+  const out: Patch[] = []
+  const to = new Map(op.moves.map((m) => [key(m.from), nfc(m.to)]))
+  const moved = (p: string) => to.get(key(p)) ?? p
+  const before = op.paths
+  const after = [...new Set([...before.map(moved), ...op.moves.map((m) => nfc(m.to))])]
+  const from = nfc(source)
+  const now = moved(from)
+  const was = (target: string, md: boolean): string | null => {
+    const b = resolveFrom(from, target, md, before)
+    return b === null ? null : moved(b)
+  }
+  for (const l of wikilinks(doc)) {
+    const b = was(l.target, false)
+    if (b === null) continue
+    const a = resolveFrom(now, l.target, false, after)
+    if (a !== null && key(a) === key(b)) continue
+    const [s, e] = l.range
+    const raw = doc.text.slice(s, e)
+    const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
+    const written = doc.text.slice(l.targetRange[0], l.targetRange[1])
+    const ext = /\.md$/i.exec(written)?.[0] ?? ''
+    const noExt = nfc(b).replace(/\.md$/i, '')
+    const stem = noExt.slice(noExt.lastIndexOf('/') + 1)
+    // A path form stays a path form (FR-STO-04 AC-7); a name gets the shortest form that resolves, with the written
+    // text as its alias when that differs (D-838, FR-STO-04 AC-8, AC-9).
+    let name: string
+    if (written.includes('/')) name = noExt + ext
+    else {
+      const viaStem = resolveFrom(now, stem, false, after)
+      name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
+    }
+    let tail = raw.slice(te, raw.length - 2)
+    if (!l.embed && l.alias === null && !written.includes('/') && key(name.replace(/\.md$/i, '')) !== key(written.trim().replace(/\.md$/i, ''))) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
+  }
+  for (const m of markdownLinks(doc)) {
+    const b = was(m.target, true)
+    if (b === null) continue
+    const a = resolveFrom(now, m.target, true, after)
+    if (a !== null && key(a) === key(b)) continue
+    out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(now), b) })
   }
   return out
 }
