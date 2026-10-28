@@ -114,6 +114,7 @@ pub async fn job_plan(state: State<'_, AppState>, job_id: u32) -> Result<Option<
         kind: p.kind.as_str().into(),
         files: (p.files.len() - templates) as u32,
         templates: templates as u32,
+        empty: p.counts.empty as u32, // 4E-2 (ms4-jobs §14.9.6)
         renames: p.renames.into_iter().map(|(from, to)| RenamePairDto { from, to }).collect(),
         trashes: p.trashes,
         warnings: p.warnings.into_iter().map(|w| match w { PlanWarning::DuplicateTagFile { path } => PlanWarningDto { kind: "duplicateTagFile".into(), path } }).collect(),

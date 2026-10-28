@@ -222,7 +222,9 @@ test('fr_typ_17_ac3_deleting_a_hidden_property_removes_it_from_hidden', async ({
   if (await seen(edit, 500)) await edit.click();
   await g.getByRole('button', { name: 'Delete property…', exact: true }).click();
   const d = await must(dialog(page, 'Delete property "Místo"?'), 'dialog Delete property');
-  await d.getByRole('button', { name: 'Keep values in notes', exact: true }).click();
+  // D-807 (AC-Test-Change approved by the owner): no choice; Porada's místo is empty, so the no-value dialog's
+  // `Delete property` changes only the type file.
+  await (await must(d.getByRole('button', { name: 'Delete property', exact: true }), 'button "Delete property"')).click();
   const want = swap(swap(before, '  - key: místo\n    name: Místo\n    type: text\n    description: Kde se schůzka konala\n', ''), 'hidden: [místo, začátek]\n', 'hidden: [začátek]\n');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => t === want), want, 'item and hidden key removed');
   assert.equal((await callsOf(core, 'type_patch')).length, 1, 'in the same write');

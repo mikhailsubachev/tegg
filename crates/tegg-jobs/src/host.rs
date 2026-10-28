@@ -181,6 +181,15 @@ pub trait Host: Send + Sync {
         let _ = (r#type, folder);
         Err("4E-1 stub: Host::write_type_folder".into())
     }
+
+    // -------------------------------------------------------------------------------- 4E-2 (ms4-jobs §14.9.2)
+
+    /// Removes the item `key` and its `preview` entry from the type file of `r#type` (as `type_patch` does), checked
+    /// against `base` (the version read at planning). Returns the type file's new version. Stub until 4E-2 (TS-I1).
+    fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
+        let _ = (r#type, key, base);
+        Err(WriteError::Io("4E-2 stub: Host::remove_property".into()))
+    }
 }
 
 /// ms4-jobs §14.5: one schema property as the 4E planners see it.

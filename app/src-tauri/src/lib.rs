@@ -1010,6 +1010,10 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::NotMovable => err("NotMovable", "this note can't be moved"),
         JobError::UnknownType => err("UnknownType", "no such type"),
         JobError::NoChange => err("NoChange", "the note already has this type"),
+        // ms4-jobs §14.9.1 (4E-2).
+        JobError::SystemType => err("SystemType", "system types can't be changed this way"),
+        JobError::BuiltIn => err("BuiltIn", "built-in properties can't be removed"),
+        JobError::UnknownProperty => err("UnknownProperty", "no such property"),
         JobError::Core(m) => err("Io", m),
     }
 }
@@ -1036,6 +1040,7 @@ fn report_dto(r: &JobReport) -> JobReportDto {
         skipped: r.skipped.iter().map(|s| SkippedDto { path: s.path.clone(), reason: s.reason.as_str().into() }).collect(),
         error: r.error.clone(),
         moved: r.moved.iter().map(|(from, to)| RenamedDto { from: from.clone(), to: to.clone() }).collect(),
+        kept_type: r.kept_type,
     }
 }
 
@@ -1723,6 +1728,7 @@ pub fn run() {
             shell6a::capture_media_add,
             shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage, shell4d::tag_new_path, shell4d::tag_rename, shell4d::tag_delete,
             shell4e::type_move_plan, shell4e::type_move, shell4e::folder_move_preview, shell4e::tidy_now, shell4e::jobs_ready,
+            shell4e::value_remove_start, shell4e::type_delete_start,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal
         ])
         .build(context())

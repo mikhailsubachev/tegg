@@ -30,6 +30,16 @@ export const CURRENT_VERSION = 1;
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'] as const;
 export const ATTR_TYPES: readonly { type: string; label: string }[] = R10.map((type) => ({ type, label: `attrType.${type}` }));
 
+/** An R10 attribute type key. */
+export type AttrType = (typeof R10)[number];
+
+/** D-808, board E2 (ms4-jobs §14.9.7): the types every value of `t` stays valid in as written, without `t` itself; the
+ *  `Type` menu offers `t` and these. Stub until 4E-2 is built: none (TS-I1). */
+export function widerTypes(t: AttrType): AttrType[] {
+  void t;
+  return [];
+}
+
 /** R14 (FR-TYP-01 AC-4). */
 export const COLORS: readonly string[] = ['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow'];
 export const ICONS: readonly string[] = [

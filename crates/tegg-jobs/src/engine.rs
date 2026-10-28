@@ -679,6 +679,7 @@ impl Inner {
             skipped: run.skipped.clone(),
             error,
             moved: run.moved.renames.iter().map(|(a, b, _)| (a.clone(), b.clone())).collect(),
+            kept_type: false, // 4E-2 stub (ms4-jobs §14.9.3)
         };
         // D-812: notes a folder move put back stay where they are at later tidy runs (written before the report is out).
         if let (Phase::Done, JobOp::Undo { job }) = (phase, &op) {
@@ -756,6 +757,7 @@ impl Inner {
                 counts: PlanCounts {
                     files: paths.len(),
                     links: 0,
+                    ..Default::default()
                 },
                 warnings: Vec::new(),
             },
@@ -871,7 +873,7 @@ impl Inner {
             }
         }
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
+        JobPlan { job: id, kind: JobKind::Inbox, files, renames: Vec::new(), creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings: Vec::new() }
     }
 
     // -------------------------------------------------------------------------------------------- note rename
@@ -962,7 +964,7 @@ impl Inner {
             renames,
             creates: Vec::new(),
             trashes: Vec::new(),
-            counts: PlanCounts { files: n, links: 0 },
+            counts: PlanCounts { files: n, links: 0, ..Default::default() },
             warnings: Vec::new(),
         })
     }
@@ -1241,7 +1243,7 @@ impl Inner {
             renames,
             creates: Vec::new(),
             trashes: Vec::new(),
-            counts: PlanCounts { files: n, links: 0 },
+            counts: PlanCounts { files: n, links: 0, ..Default::default() },
             warnings: Vec::new(),
         })
     }

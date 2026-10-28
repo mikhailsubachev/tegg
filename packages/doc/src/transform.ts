@@ -36,6 +36,9 @@ export type TextOp =
   // note itself may be one of them); `paths` are the vault's note paths before the moves, `files` its other files
   // (attachments): a relative link to one follows a moved note only when it names one of them (QA 4E-1 4 N2).
   | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[]; files?: string[] }
+  // Slice 4E-2 (ms4-jobs §14.4, §14.9.2, D-814): removes the frontmatter entry `key` with its value lines; full-line
+  // comments above it stay; `modified` is not touched. Stub until 4E-2 is built: the text is returned unchanged (TS-I1).
+  | { op: 'remove-key'; key: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 

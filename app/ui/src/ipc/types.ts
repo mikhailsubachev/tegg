@@ -352,7 +352,11 @@ phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<st
 /**
  * ms4-jobs §14.7: the moves of a `type-move` or `folder-move` job.
  */
-moved: Array<RenamedDto>, };
+moved: Array<RenamedDto>, 
+/**
+ * ms4-jobs §14.9.6 (4E-2): a `type-delete` that skipped an object kept the type (FR-TYP-05 AC-9).
+ */
+keptType: boolean, };
 export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
@@ -484,5 +488,9 @@ export type JobStartDto = { jobId: number | null, };
 export type RenamePairDto = { from: string, to: string, };
 export type PlanWarningDto = { kind: string, path: string, };
 export type MergeConflictDto = { key: string, kept: string, others: Array<string>, };
-export type JobPlanDto = { jobId: number, kind: string, files: number, templates: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
+export type JobPlanDto = { jobId: number, kind: string, files: number, templates: number, 
+/**
+ * ms4-jobs §14.9.2 (4E-2): objects of the type with the key but no value (FR-TYP-04 AC-6).
+ */
+empty: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
 export type TypeDefDto = TypeDto;

@@ -185,3 +185,41 @@ test('fr_sto_01_ac13_progress_and_restore_on_500_objects_in_the_real_app', { tim
     assert.deepEqual(differ, [], 'every note has its pre-job path and bytes (sha256)');
   } finally { await cleanup(c); }
 });
+
+// ------------------------------------------------------------------------------------------------ FR-TYP-05 AC-7 (4E-2)
+
+// Slice 4E-2 (docs/acceptance/type-moves.md FR-TYP-05 AC-7, L6 once; ms4-jobs §14.9.3, §14.9.6): `Delete Schůzka type…`
+// then `Delete type and trash 3 schůzky` trashes the three Schůzky with their relative paths, then
+// `_templates/Schůzka/` and, last, `.tegg/types/schůzka.yml`; zip first; the status and the deleted-type route say so;
+// every other file keeps bytes, mtime and inode. The tidy job at open moves Schůzka jinde into Schůzky/ first (AC-9),
+// so it is trashed from there.
+test('fr_typ_05_ac7_delete_type_trashes_the_schuzky_in_the_real_app', { timeout: 300_000 }, async () => {
+  await ready();
+  const c = fresh('typ05ac7');
+  try {
+    const d = await launch(c, 'type-settings/schůzka');
+    assert.ok(await waitFile(join(c.vault, 'Schůzky/Schůzka jinde.md'), (x) => x !== null, 10_000) !== null, 'the tidy job at open moved Schůzka jinde');
+    await sleep(500);
+    const before = tree(c.vault);
+    const zips0 = zips(c.sup).length;
+    const objects = ['Schůzky/Porada.md', 'Schůzky/Retro.md', 'Schůzky/Schůzka jinde.md'];
+    const moved = [...objects, '_templates/Schůzka/Schůzka.md', '.tegg/types/schůzka.yml'];
+    const pre = Object.fromEntries(moved.map((p) => [p, read(c.vault, p)]));
+    await (await need(d, 'Delete Schůzka type…', 5000)).click();
+    assert.ok(await shown(d, '3 schůzky go to the trash with the type, and the Schůzka template. Notes that link to them show moved to trash.', 3000), 'the dialog (R99 F1, D-842)');
+    await (await need(d, 'Delete type and trash 3 schůzky', 3000)).click();
+    const def = await waitFile(join(c.vault, '.trash/.tegg/types/schůzka.yml'), (x) => x !== null, 15_000);
+    assert.equal(def, pre['.tegg/types/schůzka.yml'], 'the definition is in the trash with its bytes');
+    const bad = moved.filter((p) => read(c.vault, `.trash/${p}`) !== pre[p] || existsSync(join(c.vault, p)));
+    assert.deepEqual(bad, [], 'each object, the template and the type file are under .trash/ at their relative paths (FR-STO-08 AC-5)');
+    const after = tree(c.vault);
+    const inode = (e: Entry | undefined) => (e && e !== 'dir' ? e.ino : -1);
+    assert.deepEqual(objects.filter((p) => inode(after[`.trash/${p}`]) !== inode(before[p])), [], 'each object moved by one rename (inode kept)');
+    assert.deepEqual(files(before, after), [...moved, ...moved.map((p) => `.trash/${p}`)].sort(), 'only those files: Odkazy and every other file keep bytes, mtime and inode');
+    assert.equal(zips(c.sup).length, zips0 + 1, 'one zip (`Delete type Schůzka`) before the writes');
+    assert.ok(await shown(d, 'Deleted Schůzka · 3 schůzky in the trash', 5000), 'status `Deleted Schůzka · 3 schůzky in the trash`');
+    assert.ok(await shown(d, 'This type no longer exists.', 3000), 'type-settings/schůzka: `This type no longer exists.`');
+    assert.ok(await shown(d, 'Schůzka was deleted. Its 3 objects are in the trash.', 3000), '`Schůzka was deleted. Its 3 objects are in the trash.`');
+    assert.ok(await shown(d, 'Open Trash', 1000), 'with Open Trash');
+  } finally { await cleanup(c); }
+});

@@ -369,7 +369,7 @@ test('fr_typ_03_ac4_existing_key_is_read_only_and_name_writes_only_the_type_file
   const g = await expand(page, 'Místo');
   const key = await must(g.getByRole('textbox', { name: 'Key in frontmatter', exact: true }), 'Key in frontmatter');
   assert.equal(await isDisabled(key), true, 'key read-only');
-  assert.equal(await description(key), 'Renaming keys comes in v1.0');
+  assert.equal(await description(key), "The key can't be changed after creation.", 'D-806 (R99 C; AC-Test-Change approved by the owner)');
   await commit(g.getByRole('textbox', { name: 'Name', exact: true }), 'Místnost');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('Místnost')), swap(schuzka(), '    name: Místo\n', '    name: Místnost\n'));
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), []);
@@ -460,49 +460,69 @@ test('fr_typ_03_ac10_relation_allowed_types_and_multiple', async ({ page }) => {
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), []);
 });
 
-test('fr_typ_03_ac11_changing_a_property_type_counts_misfits_first', async ({ page }) => {
-  const core = await openSchuzka(page);
-  let g = await expand(page, 'Místo');
-  await g.getByRole('combobox', { name: 'Type', exact: true }).click();
-  await page.getByRole('option', { name: 'Number', exact: true }).click();
-  let d = await must(dialog(page, 'Change type of "Místo"?'), 'confirmation');
-  assert.ok((await d.innerText()).includes("0 objects have values that aren't valid for Number. They stay unchanged in the files."));
-  await d.getByRole('button', { name: 'Cancel', exact: true }).click();
-  assert.equal(await fileText(core, typeFile('schůzka')), schuzka(), 'Cancel writes nothing');
-  await core.setFile(P.porada, swap(original(P.porada), 'místo:\n', 'místo: Zasedačka\n'));
-  g = await expand(page, 'Místo');
-  await g.getByRole('combobox', { name: 'Type', exact: true }).click();
-  await page.getByRole('option', { name: 'Number', exact: true }).click();
-  d = await must(dialog(page, 'Change type of "Místo"?'), 'confirmation');
-  assert.ok((await d.innerText()).includes("1 objects have values that aren't valid for Number") || (await d.innerText()).includes("1 object has a value that isn't valid for Number"), 'n counted by the core');
-  assert.ok((await callsOf(core, 'type_misfits')).length >= 1, 'type_misfits asked');
-  await d.getByRole('button', { name: 'Change type', exact: true }).click();
-  assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('type: number')), swap(schuzka(), '    name: Místo\n    type: text\n', '    name: Místo\n    type: number\n'));
+// D-808 (AC-Test-Change approved by the owner): the `Type` menu offers only wider types; no misfit dialog, no
+// `type_misfits` call; the retype writes only the item's `type:` line, even with a value in a note.
+test('fr_typ_03_ac11_the_type_menu_offers_only_wider_types_and_writes_only_the_type_line', async ({ page }) => {
+  const vault = typesVault((f) => { f[P.porada] = swap(f[P.porada], 'místo:\n', 'místo: Zasedačka\n'); });
+  const core = await openSchuzka(page, vault);
+  const g = await expand(page, 'Místo');
+  await (await must(g.getByRole('combobox', { name: 'Type', exact: true }), 'combobox Type')).click();
+  const list = await must(page.getByRole('listbox'), 'the Type menu');
+  const offered = (await list.getByRole('option').allInnerTexts()).map((s) => s.replace(/\s+/g, ' ').trim());
+  assert.deepEqual(offered, ['Text', 'Long text'], 'Text (the current type) and Long text only; Number is hidden, not disabled (board E2)');
+  assert.ok(await seen(page.getByText('Only a more general type; values stay as written.', { exact: true })), 'the menu footer');
+  await (await must(page.getByRole('option', { name: 'Long text', exact: true }), 'option Long text')).click();
+  const want = swap(schuzka(), '    name: Místo\n    type: text\n', '    name: Místo\n    type: long-text\n');
+  assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('type: long-text')), want, 'only the item\'s type line');
+  assert.equal(await seen(dialog(page, /^Change type of/), 300), false, 'no misfit dialog');
+  assert.deepEqual(await callsOf(core, 'type_misfits'), [], 'no type_misfits call');
   assert.deepEqual((await core.writesTo()).filter((p) => p.endsWith('.md')), [], 'no note written');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-04, FR-TYP-05
 
-test('fr_typ_04_ac4_delete_property_keeps_the_values', async ({ page }) => {
+/** The dialog of R99 D (role dialog or alertdialog). */
+const deleteDialog = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true }).or(page.getByRole('alertdialog', { name, exact: true }));
+
+// D-807 (AC-Test-Change approved by the owner): one dialog, no choice; with values it names the count and
+// `Delete from <n> notes` removes them as a job (type-moves.md FR-TYP-04 AC-6, AC-7); without values only the type file
+// changes (no job, no zip).
+test('fr_typ_04_ac4_delete_property_with_values_removes_them_as_a_job', async ({ page }) => {
   const vault = typesVault((f) => { f[P.porada] = swap(f[P.porada], 'místo:\n', 'místo: Zasedačka\n'); });
   const core = await openSchuzka(page, vault);
   const g = await expand(page, 'Místo');
   await g.getByRole('button', { name: 'Delete property…', exact: true }).click();
-  const d = await must(dialog(page, 'Delete property "Místo"?'), 'dialog');
-  const keep = await must(d.getByRole('button', { name: 'Keep values in notes', exact: true }), 'Keep values in notes');
-  assert.equal(await description(keep), 'They stay in the files and show under Other properties.');
-  const remove = await must(d.getByRole('button', { name: /^Remove values from \d+ notes?$/ }), 'Remove values from <n> notes');
-  assert.equal(await remove.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(remove), 'Coming in v1.0'); // D-748
-  assert.equal((await focused(page)).label, 'Keep values in notes', 'default choice');
-  await keep.click();
+  const d = await must(deleteDialog(page, 'Delete property "Místo"?'), 'dialog');
+  assert.equal(await d.getByRole('button', { name: 'Keep values in notes', exact: true }).count(), 0, 'no Keep values in notes (D-807)');
+  assert.equal(await d.getByRole('button', { name: /^Remove values from/ }).count(), 0, 'no Remove values from <n> notes');
+  assert.ok((await d.innerText()).replace(/\s+/g, ' ').includes('Removes the místo line from 1 schůzka'), 'the count the core planned');
+  const go = await must(d.getByRole('button', { name: 'Delete from 1 note', exact: true }), 'Delete from 1 note');
+  assert.equal((await focused(page)).label, 'Cancel', 'Cancel is the default');
+  await go.click();
+  const want = swap(schuzka(), '  - key: místo\n    name: Místo\n    type: text\n    description: Kde se schůzka konala\n', '');
+  assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => t === want, 5000), want, 'the item is removed from the type file');
+  assert.equal(await fileWhen(core, P.porada, (t) => !t?.includes('místo:'), 5000), swap(original(P.porada), 'místo:\n', ''), 'Porada loses its místo line (a job, not Other properties)');
+  assert.ok((await callsOf(core, 'value_remove_start')).length === 1, 'one value_remove_start');
+});
+
+test('fr_typ_04_ac4_delete_property_without_values_changes_only_the_type_file', async ({ page }) => {
+  const core = await openSchuzka(page);
+  const g = await expand(page, 'Místo');
+  await g.getByRole('button', { name: 'Delete property…', exact: true }).click();
+  const d = await must(deleteDialog(page, 'Delete property "Místo"?'), 'dialog');
+  assert.ok((await d.innerText()).replace(/\s+/g, ' ').includes('No schůzka has a value. Only the type definition changes.'), 'Porada\'s místo line is empty: the no-value text');
+  const del = await must(d.getByRole('button', { name: 'Delete property', exact: true }), 'Delete property');
+  assert.equal((await focused(page)).label, 'Cancel', 'Cancel is the default');
+  await del.click();
   const want = swap(schuzka(), '  - key: místo\n    name: Místo\n    type: text\n    description: Kde se schůzka konala\n', '');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => t === want), want, 'item removed in one write');
   assert.equal((await callsOf(core, 'type_patch')).length, 1, 'one type_patch');
+  assert.deepEqual(await callsOf(core, 'value_remove_start'), [], 'no job');
+  assert.deepEqual(await core.backups(), [], 'no zip');
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note written');
   await openNoteByTitle(page, '2026-10-07 Porada');
   await (await must(otherProps(page), 'Other properties')).click();
-  assert.ok(await seen(page.getByRole('list', { name: 'Other properties' }).getByText('místo')), 'místo under Other properties');
+  assert.ok(await seen(page.getByRole('list', { name: 'Other properties' }).getByText('místo')), 'the empty místo line shows under Other properties');
 });
 
 test('fr_typ_04_ac5_schema_changes_never_write_notes', async ({ page }) => {
@@ -542,17 +562,18 @@ test('fr_typ_05_ac1_delete_a_type_without_objects', async ({ page }) => {
   await must(main(page).getByRole('status').filter({ hasText: 'This type no longer exists.' }), 'Back shows the notice');
 });
 
-test('fr_typ_05_ac3_a_type_with_objects_cannot_be_deleted_in_ms3', async ({ page }) => {
+// D-809, D-842 (AC-Test-Change approved by the owner): one path, `Delete type and trash <n> <plural>`.
+test('fr_typ_05_ac3_a_type_with_objects_has_one_path_to_the_trash', async ({ page }) => {
   const core = await openSchuzka(page);
-  await (await must(section(page, 'Delete type').getByRole('button', { name: 'Delete Schůzka type…', exact: true }), 'Delete Schůzka type…')).click();
-  const d = await must(dialog(page, 'Delete type "Schůzka"?'), 'dialog');
-  assert.ok((await d.innerText()).includes('3 objects use this type.'));
-  for (const l of ['Change their type to…', 'Move them to the trash']) {
-    const b = await must(d.getByRole('button', { name: l, exact: true }), l);
-    assert.equal(await b.getAttribute('aria-disabled'), 'true');
-    assert.equal(await description(b), 'Coming in v1.0'); // D-748
-  }
-  assert.equal(await isDisabled(d.getByRole('button', { name: 'Delete type', exact: true })), true, 'Delete type disabled');
+  const sec = await must(section(page, 'Delete type'), 'section Delete type');
+  assert.ok((await sec.innerText()).replace(/\s+/g, ' ').includes('Deleting Schůzka moves its 3 schůzky to the trash. To keep them, change their type first. A backup is made first.'), 'R99 F3');
+  await (await must(sec.getByRole('button', { name: 'Delete Schůzka type…', exact: true }), 'Delete Schůzka type…')).click();
+  const d = await must(deleteDialog(page, 'Delete type "Schůzka"?'), 'dialog');
+  assert.ok((await d.innerText()).replace(/\s+/g, ' ').includes('3 schůzky go to the trash with the type'), 'the plural count (D-842)');
+  for (const l of ['Change their type to…', 'Move them to the trash']) assert.equal(await d.getByRole('button', { name: l, exact: true }).count(), 0, `no ${l} (D-809)`);
+  const go = await must(d.getByRole('button', { name: 'Delete type and trash 3 schůzky', exact: true }), 'Delete type and trash 3 schůzky');
+  assert.equal(await isDisabled(go), false, 'enabled');
+  assert.equal((await focused(page)).label, 'Cancel', 'Cancel is the default');
   await page.keyboard.press('Escape');
   assert.deepEqual(await nonReadCalls(core), [], 'nothing written');
 });

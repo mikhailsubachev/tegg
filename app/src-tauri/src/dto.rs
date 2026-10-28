@@ -888,6 +888,8 @@ pub struct JobReportDto {
     pub error: Option<String>,
     /// ms4-jobs §14.7: the moves of a `type-move` or `folder-move` job.
     pub moved: Vec<RenamedDto>,
+    /// ms4-jobs §14.9.6 (4E-2): a `type-delete` that skipped an object kept the type (FR-TYP-05 AC-9).
+    pub kept_type: bool,
 }
 
 /// `outcome`: `written` | `unchanged` | `skipped`.
@@ -1366,6 +1368,8 @@ pub struct JobPlanDto {
     pub kind: String,
     pub files: u32,
     pub templates: u32,
+    /// ms4-jobs §14.9.2 (4E-2): objects of the type with the key but no value (FR-TYP-04 AC-6).
+    pub empty: u32,
     pub renames: Vec<RenamePairDto>,
     pub trashes: Vec<String>,
     pub warnings: Vec<PlanWarningDto>,

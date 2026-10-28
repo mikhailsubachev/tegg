@@ -120,7 +120,7 @@ fn title_of(text: &[u8], path: &str) -> String {
 impl Inner {
     fn plan_of(&self, id: JobId, kind: JobKind, files: Vec<PlannedFile>, renames: Vec<(String, String)>, trashes: Vec<String>, warnings: Vec<PlanWarning>) -> JobPlan {
         let n = files.len();
-        JobPlan { job: id, kind, files, renames, creates: Vec::new(), trashes, counts: PlanCounts { files: n, links: 0 }, warnings }
+        JobPlan { job: id, kind, files, renames, creates: Vec::new(), trashes, counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings }
     }
 
     fn tag(&self, k: &str) -> Result<HostTag, String> {

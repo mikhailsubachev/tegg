@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tegg_core::tegg_jobs::{JobOp, MapTarget, PropertyMap};
 
+use crate::dto::JobStartDto;
 use crate::{core, job_err, AppState, IpcError};
 
 #[derive(Debug, Clone, Serialize)]
@@ -89,4 +90,22 @@ pub async fn tidy_now(state: State<'_, AppState>) -> Result<JobMaybeDto, IpcErro
 pub async fn jobs_ready(state: State<'_, AppState>) -> Result<(), IpcError> {
     core(&state)?.jobs().set_ui_ready();
     Ok(())
+}
+
+// ---------------------------------------------------------------- slice 4E-2 (ms4-jobs §14.9.6)
+
+/// Starts a `value-remove` job (FR-TYP-04 AC-6…AC-9) that stops in `confirm`; the dialog reads `job_plan`. Stub until
+/// 4E-2 is built: answers `NotImplemented` (TS-I1).
+#[tauri::command]
+pub async fn value_remove_start(state: State<'_, AppState>, r#type: String, key: String) -> Result<JobStartDto, IpcError> {
+    let _ = (core(&state)?, r#type, key);
+    Err(job_err(tegg_core::tegg_jobs::JobError::NotImplemented))
+}
+
+/// Starts a `type-delete` job (FR-TYP-05 AC-6…AC-9) that stops in `confirm`. Stub until 4E-2 is built: answers
+/// `NotImplemented` (TS-I1).
+#[tauri::command]
+pub async fn type_delete_start(state: State<'_, AppState>, r#type: String) -> Result<JobStartDto, IpcError> {
+    let _ = (core(&state)?, r#type);
+    Err(job_err(tegg_core::tegg_jobs::JobError::NotImplemented))
 }

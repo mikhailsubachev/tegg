@@ -159,7 +159,7 @@ impl Inner {
         }
         self.add_linking(&mut files, &moved, &notes);
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::TypeMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
+        JobPlan { job: id, kind: JobKind::TypeMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings: Vec::new() }
     }
 
     /// ms4-jobs §14.3: every object of the type(s) outside its folder and that folder's subfolders, to the folder's
@@ -214,7 +214,7 @@ impl Inner {
         }
         self.add_linking(&mut files, &moved, &notes);
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::FolderMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
+        JobPlan { job: id, kind: JobKind::FolderMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings: Vec::new() }
     }
 
     /// D-838: every note whose links could change target when a note moves: those linking to the moved note, and

@@ -144,6 +144,8 @@ export type JobReportDto = {
   renamed?: { from: string; to: string };
   written: string[]; unchanged: string[];
   skipped: { path: string; reason: SkipReason }[]; error?: string;
+  /** ms4-jobs §14.9.6 (4E-2): a `type-delete` that skipped an object kept the type (FR-TYP-05 AC-9). */
+  keptType?: boolean;
 };
 /** ms3-shell §12.5 (D-219). */
 export type RecentVaultDto = { name: string; path: string; exists: boolean };
@@ -1800,6 +1802,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return null;
     },
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
+    // 4E-2 (ms4-jobs §14.9.6, §14.9.8). Stubs until 4E-2 is built: both answer NotImplemented (TS-I1).
+    value_remove_start: () => { throw err('NotImplemented', 'fake: value_remove_start is a 4E-2 stub'); },
+    type_delete_start: () => { throw err('NotImplemented', 'fake: type_delete_start is a 4E-2 stub'); },
     // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).
     backups_list: () => [...state.backups].sort((p, q) => (p.name < q.name ? 1 : p.name > q.name ? -1 : 0)).map((b) => ({
       name: b.name, kind: b.kind, time: b.time, label: b.label ?? b.manifest?.label ?? { key: 'backups.label.unknown', args: { kind: b.kind } },
