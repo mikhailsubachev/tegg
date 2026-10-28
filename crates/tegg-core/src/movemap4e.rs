@@ -100,6 +100,10 @@ impl Core {
     /// its subfolders; no templates, no `.trash/`, only objects whose `type` is written).
     pub fn folder_move_count(&self, r#type: &str, folder: &str) -> usize {
         let k = type_key(r#type);
+        // Board G: Daily Note, Tag, Image and PDF objects never move; their folder applies to new objects (D-551).
+        if ["daily-note", "tag", "image", "pdf"].contains(&k.as_str()) {
+            return 0;
+        }
         let f = nfc(folder.trim_matches('/')).to_lowercase();
         self.objects()
             .into_iter()

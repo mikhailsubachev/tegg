@@ -105,6 +105,7 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
 
   if (cmd === 'folder_preview') {
     const k = typeKey(a.type);
+    if (FIXED.includes(k)) return { count: 0 }; // board G: never moved; the folder applies to new objects (D-551)
     return { count: notes.filter((p) => !excluded(p) && typeOf(files[p]) === k && !inside(p, a.folder)).length };
   }
 
