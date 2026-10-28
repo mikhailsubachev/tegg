@@ -166,6 +166,12 @@ pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
         .filter_map(|job| {
             let l = load(host, job)?;
             let moved = l.entries.iter().find(|e| e.at != e.to).or(l.entries.first())?;
+            // ms4-jobs §14.6: a type move counts its links only (`<done> of <total> links updated`).
+            if l.kind == "type-move" {
+                let links = l.entries.iter().filter(|e| e.at == e.to).count();
+                let done = l.done.iter().filter(|d| l.entries.iter().any(|e| e.at == e.to && nfc(&e.at) == nfc(d))).count();
+                return Some(Interrupted { job, from: moved.at.clone(), to: moved.to.clone(), done, total: links });
+            }
             Some(Interrupted { job, from: moved.at.clone(), to: moved.to.clone(), done: l.done.len().min(l.entries.len()), total: l.entries.len() })
         })
         .collect();

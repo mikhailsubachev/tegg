@@ -33,6 +33,7 @@ pub fn op_json(op: &TextOp) -> Value {
             "labels": labels.iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect::<serde_json::Map<String, Value>>(),
         }),
         TextOp::KeepTargets { from_path, to_path, paths } => json!({ "op": "keep-targets", "fromPath": from_path, "toPath": to_path, "paths": paths }),
+        TextOp::ChangeType { r#type, now } => json!({ "op": "change-type", "type": r#type, "now": now }),
     }
 }
 
@@ -79,6 +80,7 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             to_path: s("toPath")?,
             paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
         }),
+        "change-type" => Some(TextOp::ChangeType { r#type: s("type")?, now: v["now"].as_str().map(str::to_string) }),
         _ => None,
     }
 }

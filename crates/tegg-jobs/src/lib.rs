@@ -14,7 +14,7 @@ mod ops;
 pub mod testing;
 mod zip;
 
-pub use engine::Jobs;
+pub use engine::{Jobs, JobsRef};
 pub use ops::{op_from_json, op_json};
 
 pub type JobId = u64;
@@ -68,6 +68,10 @@ impl JobKind {
             JobKind::Inbox => KindFlags { needs_confirm: false, backup: false, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
             // ms4-tags §4.1: the UI's dialog confirms a restore; it backs up the current state first.
             JobKind::Restore => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // ms4-jobs §14.1 (D-812): no confirm step (the mapping dialog is the UI's, D-805 has none); a single type move
+            // makes no zip (a bulk one does, like the inbox convert); both are undoable.
+            JobKind::TypeMove => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
+            JobKind::FolderMove => KindFlags { needs_confirm: false, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
             _ => KindFlags { needs_confirm: true, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup] },
         }
     }
@@ -286,6 +290,9 @@ pub enum TextOp {
     /// ms4-jobs §14.4 (D-810): rewrite links in this note that would resolve to another file from `to_path` than from
     /// `from_path`; `paths` are the vault's note paths.
     KeepTargets { from_path: String, to_path: String, paths: Vec<String> },
+    /// ms4-jobs §14.3 (D-826, D-829): a type move's own type change: `type` and, unless `now` is `None` (a template),
+    /// `modified`; never `review`.
+    ChangeType { r#type: String, now: Option<String> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -434,6 +441,8 @@ pub enum JobPoint {
     AfterRead { path: String },
     /// `path`'s new bytes are in the temp file; the rename onto `path` hasn't happened.
     TempWritten { path: String },
+    /// D-823: right before the backup zip (kinds with a zip); the job is still cancellable here.
+    BeforeBackup,
 }
 
 pub type PointHook = Arc<dyn Fn(JobId, &JobPoint) + Send + Sync>;

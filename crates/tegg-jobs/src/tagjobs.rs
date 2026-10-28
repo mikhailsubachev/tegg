@@ -494,6 +494,7 @@ impl Inner {
                 let time = host.local_read(&p).and_then(|d| read_zip(&d).ok()).and_then(|e| manifest_of(&e)).and_then(|m| m["time"].as_str().map(str::to_string));
                 (json!({ "key": "backups.label.restore", "args": { "time": time.unwrap_or_else(|| name.clone()) } }), Some(p))
             }
+            JobOp::TypeMove { .. } | JobOp::FolderMove { .. } => (self.move_label(op, plan), None),
             _ => return (None, None),
         };
         let m = json!({

@@ -53,6 +53,8 @@ export type ShellActions = {
   taskCommand?: (id: string) => void;
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
+  /** 4E-1 (R100, D-830): undo the last undoable job of `kind`, if it is the last undoable job. */
+  undoJob?: (kind: 'type-move' | 'folder-move') => void;
   showNotUpdated?: () => void;
   /** 5B (inbox.md R62, D-578): open the capture window (`default` or `task`). */
   capture?: (kind: 'default' | 'task') => void;
@@ -172,6 +174,9 @@ export function commands(ctx: ShellContext): Command[] {
   list.push(
     { id: 'job.undoRename', title: 'cmd.undoRename', section: 'edit', needsVault: true, run: (c) => a(c)?.undoRename?.() },
     { id: 'job.showNotUpdated', title: 'cmd.showNotUpdated', section: 'view', needsVault: true, run: (c) => a(c)?.showNotUpdated?.() },
+    // 4E-1 (R100, D-830): always listed; each runs only while a job of its kind is the last undoable one.
+    { id: 'job.undo.typeChange', title: 'cmd.undoTypeChange', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('type-move') },
+    { id: 'job.undo.move', title: 'cmd.undoMove', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('folder-move') },
   );
   // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
   const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);

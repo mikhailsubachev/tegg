@@ -174,11 +174,13 @@ function linkPatches(doc: Doc, source: string, op: Retarget): Patch[] {
   const toTitle = nfc(op.toTitle)
   const stemChanges = key(op.fromStem) !== key(toStem) || nfc(op.fromStem) !== toStem
   // The title needs an alias only when sanitizing changed it, not for a duplicate's ` (2)` suffix (D-383, FR-FMT-08 AC-10).
-  const needsAlias = toTitle !== toStem && toTitle !== toStem.replace(/ \(\d+\)$/, '')
+  // 4E (FR-STO-04 AC-9): a move's ` (2)` suffix keeps the link reading as the title, so it gets the alias.
+  const moving = key(folder(op.fromPath)) !== key(folder(op.toPath))
+  const needsAlias = toTitle !== toStem && (moving || toTitle !== toStem.replace(/ \(\d+\)$/, ''))
   // An alias can't hold `[`, `]`, `|` or a line break without ending the link; such a title is shown from the file name.
   const aliasOk = !/[[\]|\r\n]/.test(toTitle)
   // 4E (D-810): a move into another folder changes path forms and relative Markdown links even with the same stem.
-  const moved = key(folder(op.fromPath)) !== key(folder(op.toPath))
+  const moved = moving
   const toNoExt = nfc(op.toPath).replace(/\.md$/i, '')
   for (const l of wikilinks(doc)) {
     if (!resolvesTo(source, l.target, false, op)) continue

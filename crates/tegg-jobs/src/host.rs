@@ -144,6 +144,17 @@ pub trait Host: Send + Sync {
     fn set_local_exempt(&self, ids: &[String]) {
         let _ = ids;
     }
+    /// The matched type key of the note at `path` (D-239); `None` for a file without `type` (FR-TYP-10).
+    fn type_of(&self, path: &str) -> Option<String> {
+        let _ = path;
+        None
+    }
+    /// D-822: writes `folder: <folder>` into the type file of `r#type` (a base-checked line patch, D-235). Returns the
+    /// type file's path when it was written, `None` when it already had that folder.
+    fn write_type_folder(&self, r#type: &str, folder: &str) -> Result<Option<String>, String> {
+        let _ = (r#type, folder);
+        Err("4E-1 stub: Host::write_type_folder".into())
+    }
 }
 
 /// ms4-jobs §14.5: one schema property as the 4E planners see it.

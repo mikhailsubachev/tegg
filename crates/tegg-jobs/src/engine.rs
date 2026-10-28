@@ -11,6 +11,8 @@ use tegg_format::{extract, nfc, sanitize_file_stem};
 
 #[path = "tagjobs.rs"]
 mod tagjobs;
+#[path = "movejobs.rs"]
+mod movejobs;
 
 use crate::host::{Host, ReadError, WriteError, Wrote};
 use crate::{
@@ -108,6 +110,8 @@ pub(crate) struct Inner {
     replied: Condvar,
     next_request: Mutex<u64>,
     stop: AtomicBool,
+    /// D-819: the UI's worker answers `job:transform`.
+    ui_ready: AtomicBool,
 }
 
 /// The job engine of one open vault. Owned by `tegg_core::Core` (`Core::jobs()`).
@@ -158,6 +162,7 @@ impl Jobs {
                 replied: Condvar::new(),
                 next_request: Mutex::new(1),
                 stop: AtomicBool::new(false),
+                ui_ready: AtomicBool::new(false),
             }),
         }
     }
@@ -188,66 +193,23 @@ impl Jobs {
     }
 
     fn enqueue(&self, op: JobOp, from_title: Option<String>) -> Result<JobId, JobError> {
-        let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
-        let kind = match &op {
-            JobOp::NoteRename { path, .. } => {
-                let p = nfc(path);
-                if p.starts_with("_templates/") || p.starts_with(".trash/") || !host.renamable(&p) {
-                    return Err(JobError::NotRenamable);
-                }
-                JobKind::NoteRename
-            }
-            JobOp::Undo { job } | JobOp::Redo { job } => {
-                let s = lock(&self.inner.state);
-                match s.jobs.get(job) {
-                    Some(j) if j.undo.is_some() => JobKind::NoteRename,
-                    _ => return Err(JobError::NotFound),
-                }
-            }
-            JobOp::TestBackup { .. } => JobKind::TestBackup,
-            JobOp::Inbox { .. } => JobKind::Inbox,
-            JobOp::TagRename { from, to } => tagjobs::check_rename(host.as_ref(), from, to)?,
-            JobOp::TagDelete { tag, .. } => tagjobs::check_delete(host.as_ref(), tag)?,
-            JobOp::Merge { keep, others } => tagjobs::check_merge(host.as_ref(), keep, others)?,
-            JobOp::Restore { name } => tagjobs::check_restore(host.as_ref(), name)?,
-            _ => return Err(JobError::NotImplemented),
-        };
-        let mut s = lock(&self.inner.state);
-        let id = s.next;
-        s.next += 1;
-        let progress = JobProgress {
-            job: id,
-            kind,
-            phase: Phase::Queued,
-            done: 0,
-            total: 0,
-            counts: None,
-        };
-        s.jobs.insert(
-            id,
-            JobState {
-                kind,
-                phase: Phase::Queued,
-                plan: None,
-                report: None,
-                cancel: false,
-                undo: None,
-                undone: false,
-                confirmed: false,
-                progress,
-            },
-        );
-        s.queue.push_back((id, op, from_title));
-        if !s.running {
-            s.running = true;
-            let weak = Arc::downgrade(&self.inner);
-            std::thread::Builder::new()
-                .name("tegg-jobs".into())
-                .spawn(move || worker(weak))
-                .map_err(|e| JobError::Core(e.to_string()))?;
-        }
+        enqueue_in(&self.inner, op, from_title)
+    }
+
+    /// D-819: a handle for the core's tidy scheduler; it never keeps the engine alive.
+    pub fn handle(&self) -> JobsRef {
+        JobsRef(Arc::downgrade(&self.inner))
+    }
+
+    /// D-819: the app's UI worker answers `job:transform` from now on (the tests set a transformer instead).
+    pub fn set_ui_ready(&self) {
+        self.inner.ui_ready.store(true, Ordering::SeqCst);
         self.inner.changed.notify_all();
-        Ok(id)
+    }
+
+    /// Whether a job can transform text now: a transformer is set or the UI's worker is ready (D-819).
+    pub fn transformer_ready(&self) -> bool {
+        self.inner.ready()
     }
 
     pub fn plan(&self, job: JobId) -> Option<JobPlan> {
@@ -426,6 +388,108 @@ impl Jobs {
     }
 }
 
+fn enqueue_in(inner: &Arc<Inner>, op: JobOp, from_title: Option<String>) -> Result<JobId, JobError> {
+        let host = inner.host.clone().ok_or(JobError::NotImplemented)?;
+        let kind = match &op {
+            JobOp::NoteRename { path, .. } => {
+                let p = nfc(path);
+                if p.starts_with("_templates/") || p.starts_with(".trash/") || !host.renamable(&p) {
+                    return Err(JobError::NotRenamable);
+                }
+                JobKind::NoteRename
+            }
+            JobOp::Undo { job } | JobOp::Redo { job } => {
+                let s = lock(&inner.state);
+                match s.jobs.get(job) {
+                    Some(j) if j.undo.is_some() => j.kind,
+                    _ => return Err(JobError::NotFound),
+                }
+            }
+            JobOp::TypeMove { paths, to_type, .. } => movejobs::check_type_move(host.as_ref(), paths, to_type)?,
+            JobOp::FolderMove { .. } => JobKind::FolderMove,
+            JobOp::TestBackup { .. } => JobKind::TestBackup,
+            JobOp::Inbox { .. } => JobKind::Inbox,
+            JobOp::TagRename { from, to } => tagjobs::check_rename(host.as_ref(), from, to)?,
+            JobOp::TagDelete { tag, .. } => tagjobs::check_delete(host.as_ref(), tag)?,
+            JobOp::Merge { keep, others } => tagjobs::check_merge(host.as_ref(), keep, others)?,
+            JobOp::Restore { name } => tagjobs::check_restore(host.as_ref(), name)?,
+            _ => return Err(JobError::NotImplemented),
+        };
+        let mut s = lock(&inner.state);
+        let id = s.next;
+        s.next += 1;
+        let progress = JobProgress {
+            job: id,
+            kind,
+            phase: Phase::Queued,
+            done: 0,
+            total: 0,
+            counts: None,
+        };
+        s.jobs.insert(
+            id,
+            JobState {
+                kind,
+                phase: Phase::Queued,
+                plan: None,
+                report: None,
+                cancel: false,
+                undo: None,
+                undone: false,
+                confirmed: false,
+                progress,
+            },
+        );
+        s.queue.push_back((id, op, from_title));
+        if !s.running {
+            s.running = true;
+            let weak = Arc::downgrade(&inner);
+            std::thread::Builder::new()
+                .name("tegg-jobs".into())
+                .spawn(move || worker(weak))
+                .map_err(|e| JobError::Core(e.to_string()))?;
+        }
+        inner.changed.notify_all();
+        Ok(id)
+    }
+
+/// D-819: a weak handle on a vault's engine (the core's tidy scheduler starts jobs through it).
+#[derive(Clone)]
+pub struct JobsRef(Weak<Inner>);
+
+impl JobsRef {
+    pub fn start(&self, op: JobOp) -> Result<JobId, JobError> {
+        let inner = self.0.upgrade().ok_or(JobError::NotFound)?;
+        enqueue_in(&inner, op, None)
+    }
+    pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
+        let inner = self.0.upgrade()?;
+        let end = Instant::now() + timeout;
+        let mut s = lock(&inner.state);
+        loop {
+            if let Some(r) = s.jobs.get(&job).and_then(|j| j.report.clone()) {
+                return Some(r);
+            }
+            let left = end.checked_duration_since(Instant::now())?;
+            s = inner.changed.wait_timeout(s, left.min(Duration::from_millis(100))).unwrap_or_else(|p| p.into_inner()).0;
+        }
+    }
+    /// The engine still exists and can transform text.
+    pub fn ready(&self) -> bool {
+        self.0.upgrade().is_some_and(|i| i.ready())
+    }
+    pub fn alive(&self) -> bool {
+        self.0.strong_count() > 0
+    }
+    /// A job is queued or running.
+    pub fn busy(&self) -> bool {
+        self.0.upgrade().is_some_and(|i| {
+            let s = lock(&i.state);
+            !s.queue.is_empty() || s.jobs.values().any(|j| !j.phase.is_final())
+        })
+    }
+}
+
 fn read_reason(e: &ReadError) -> SkipReason {
     match e {
         ReadError::Missing => SkipReason::Missing,
@@ -510,6 +574,10 @@ impl Run {
 impl Inner {
     fn host(&self) -> &Arc<dyn Host> {
         self.host.as_ref().expect("a job runs only with a host")
+    }
+
+    fn ready(&self) -> bool {
+        self.ui_ready.load(Ordering::SeqCst) || lock(&self.transformer).is_some()
     }
 
     fn point(&self, id: JobId, p: JobPoint) {
@@ -601,6 +669,13 @@ impl Inner {
             skipped: run.skipped.clone(),
             error,
         };
+        // D-812: notes a folder move put back stay where they are at later tidy runs (written before the report is out).
+        if let (Phase::Done, JobOp::Undo { job }) = (phase, &op) {
+            let files = lock(&self.state).jobs.get(job).filter(|o| o.kind == JobKind::FolderMove).and_then(|o| o.undo.clone()).map(|r| r.files);
+            if let Some(files) = files {
+                self.exempt_undone(&files);
+            }
+        }
         let progress = {
             let mut s = lock(&self.state);
             // Every finished rename has an undo record, an empty one for a commit that wrote nothing (undo is then a
@@ -613,7 +688,7 @@ impl Inner {
                     }
                 }
             }
-            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. });
+            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. } | JobOp::TypeMove { .. } | JobOp::FolderMove { .. });
             if undoable && !run.undo.files.is_empty() {
                 s.last_undoable = Some(id);
             }
@@ -674,9 +749,13 @@ impl Inner {
             JobOp::TagDelete { tag, .. } => self.plan_tag_delete(id, tag)?,
             JobOp::Merge { keep, others } => self.plan_merge(id, keep, others)?,
             JobOp::Restore { name } => self.plan_restore(id, name)?,
+            JobOp::TypeMove { paths, to_type, mapping, review } => self.plan_type_move(id, run, paths, to_type, mapping, *review),
+            JobOp::FolderMove { r#type, to_folder } => self.plan_folder_move(id, run, r#type.as_deref(), to_folder.as_deref()),
             _ => return Err("NotImplemented".into()),
         };
-        let total = plan.files.len();
+        let mut plan = plan;
+        // A folder move counts the notes it moves (`Moving <plural> · <done> of <n>`, R99); its linking notes follow.
+        let total = if matches!(op, JobOp::FolderMove { .. }) { plan.renames.len() } else { plan.files.len() };
         if let Some(j) = lock(&self.state).jobs.get_mut(&id) {
             j.plan = Some(plan.clone());
             j.progress.total = total;
@@ -685,7 +764,12 @@ impl Inner {
         if self.cancelled(id) {
             return Ok(Phase::Cancelled);
         }
-        if run.kind.flags().needs_confirm {
+        let undo_op = matches!(op, JobOp::Undo { .. } | JobOp::Redo { .. });
+        // D-811: a tidy run with nothing to move writes nothing, makes no zip and shows nothing after planning.
+        if matches!(op, JobOp::FolderMove { r#type: None, .. }) && plan.files.is_empty() {
+            return Ok(Phase::Done);
+        }
+        if run.kind.flags().needs_confirm && !undo_op {
             self.set_phase(id, Phase::Confirm, 0, total);
             loop {
                 let s = lock(&self.state);
@@ -703,7 +787,18 @@ impl Inner {
         }
         // D-561: of the Inbox actions only a bulk convert makes a backup zip first.
         let inbox_backup = matches!(op, JobOp::Inbox { change: InboxJobChange::SetType { .. }, .. });
-        if run.kind.flags().backup || inbox_backup {
+        // ms4-jobs §14.1: a bulk type move zips like a bulk convert; a folder move only when it moves something.
+        let move_backup = match op {
+            JobOp::TypeMove { paths, .. } => paths.len() > 1,
+            JobOp::FolderMove { .. } => !plan.renames.is_empty(),
+            _ => true,
+        };
+        let bulk_move = matches!(op, JobOp::TypeMove { paths, .. } if paths.len() > 1);
+        if (run.kind.flags().backup || inbox_backup || bulk_move) && move_backup && !undo_op {
+            self.point(id, JobPoint::BeforeBackup);
+            if self.cancelled(id) {
+                return Ok(Phase::Cancelled);
+            }
             self.set_phase(id, Phase::Backup, 0, total);
             let (manifest, keep) = self.manifest_for(run, op, &plan);
             let zip = self.backup(run.kind, manifest.as_ref(), keep.as_deref())
@@ -729,6 +824,7 @@ impl Inner {
             JobOp::TagRename { .. } | JobOp::TagDelete { .. } => self.write_tag_job(run, &plan),
             JobOp::Merge { .. } => self.write_merge(run, &plan)?,
             JobOp::Restore { name } => self.write_restore(run, name, &plan),
+            JobOp::TypeMove { .. } | JobOp::FolderMove { .. } => self.write_moves(run, &mut plan, op)?,
             _ => {}
         }
         Ok(Phase::Done)
@@ -1109,9 +1205,10 @@ impl Inner {
             })
             .collect();
         let n = files.len();
+        let kind = lock(&self.state).jobs.get(&job).map(|j| j.kind).unwrap_or(JobKind::NoteRename);
         Ok(JobPlan {
             job: id,
-            kind: JobKind::NoteRename,
+            kind,
             files,
             renames,
             creates: Vec::new(),
@@ -1189,7 +1286,8 @@ impl Inner {
                     Ok((path, None)) => run.unchanged.push(path),
                     Err(e) => {
                         run.skip(at, write_reason(&e));
-                        note_stuck = at != to;
+                        // D-433: one renamed note holds its links back; a multi-note move undoes the others.
+                        note_stuck = at != to && rec.files.iter().filter(|x| x.before != x.after).count() == 1;
                     }
                 }
             }

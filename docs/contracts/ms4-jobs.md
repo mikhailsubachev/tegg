@@ -391,6 +391,16 @@ fn set_local_exempt(&self, ids: &[String]);
 - **Fake core** (§11): `type_move_plan`, `type_move`, `folder_move_preview`, `tidy_now`, the `type_patch` folder job, undo of both kinds, over its files with the real `@tegg/doc`; `FakeCoreHandle.tidyExempt(): Promise<string[]>`.
 - **Test layout:** L1 `packages/doc/test/type_moves.ac.test.ts` (`map-properties`, `contentLine`, `keep-targets`, `retarget-links` path forms), `app/test/type_moves_catalog.ac.test.ts`; L2 `packages/doc/test/type_moves.property.ac.test.ts` (FR-FMT-07 AC-26, 4E-1 ops); L4 `crates/tegg-jobs/tests/ac_type_move.rs`, `ac_folder_move.rs` (with the sync simulator and an injected quiet period); L5 `app/webkit/type_moves.ac.test.ts`; L6 `app/e2e/ms7_type_moves.ac.test.ts`, nightly `app/e2e/nightly_type_move_crash.ac.test.ts`, benchmark `app/e2e/perf_type_move.ts`. Fixture `tests/fixtures/vaults/type-moves/` with its README, byte-exact, in its own commit before the tests.
 
+### 14.8a Build notes (4E-1, contract choices, no owner decision)
+
+- **Target stem.** A moved note keeps its stem unless a note in the target folder already has it; then the vault-wide free stem (D-291). A stem the note already shared with a note elsewhere (an Obsidian duplicate) is left as it is, as D-291 leaves existing same-stem files (FR-STO-01 AC-8: `Knihy/Sešit.md` → `Četba/Sešit.md` while `Quick Notes/Sešit.md` exists).
+- **Alias on a move.** A moved note whose stem got a ` (2)` suffix is linked as `[[Sešit (2)|Sešit]]` (FR-STO-04 AC-9); a same-folder rename keeps 4C's rule (no alias for the suffix alone, FR-FMT-08 AC-10).
+- **Progress of a folder move** counts the notes it moves (`Moving <plural> · <done> of <n>`); its linking notes are written after them without moving the count.
+- **The tidy job never moves Daily Note, Tag, Image or PDF objects** (board G: their paths carry meaning), nor objects without a written `type`.
+- **`change-type`** is 4E's own text op (`type`, and `modified` unless `now` is null); the 5B `set-type` keeps writing `review` (D-826).
+- **`Jobs::handle()` / `JobsRef`** is the weak handle the core's tidy scheduler (`tegg-core/src/tidy4e.rs`) starts jobs with; `Jobs::set_ui_ready()` is called by the shell when the UI's transform bridge is listening (D-819).
+- **`type_move_plan` rows** carry `offered` as target keys; the dialog takes the display names from `targetNames` (the L1 test's shape; `{ key, name }` is also accepted).
+
 ### 14.9 4E-2 outline (completed before the 4E-2 red tests)
 
 `value-remove`: confirm with `{ files, empty }` counts in `job_plan` (D-807, D-814); `RemoveKey` on each object with a non-empty value, then `type_patch`'s item and `preview` removal as the job's last write; Cancel during `writing` reverses the files written so far (board D3). `type-delete`: `Host::trash` per object, then `_templates/<Name>/` and the type file last, only when nothing was skipped (D-815); Cancel during `writing` untrashes what was trashed; `trash_restore` of an object whose type key has no definition also restores the type file from `.trash/.tegg/types/` (D-815). The widen-only `Type` menu (D-808) is UI and `tegg-schema` only: `type_misfits` goes.
