@@ -555,7 +555,8 @@ async function gotoSettingsPseudo(page: Page, plural: string, name: string) {
 test('nfr_oth_02_ac10_pseudo_locale_wraps_the_delete_property_dialog', async ({ page }) => {
   await open(page, { prelude: pseudoLocale });
   await gotoSettingsPseudo(page, 'Knihy', 'Kniha');
-  const g = await must(property(page, 'Poznámka'), 'property group Poznámka');
+  // Under the pseudo-locale the Properties section is named `⟦Properties⟧` (`property()` looks for `Properties`).
+  const g = await must(main(page).getByRole('region', { name: '⟦Properties⟧', exact: true }).getByRole('group', { name: 'Poznámka', exact: true }), 'property group Poznámka');
   const edit = g.getByRole('button', { name: '⟦Edit Poznámka⟧', exact: true });
   if (await seen(edit, 500)) await edit.click();
   await (await must(g.getByRole('button', { name: '⟦Delete property…⟧', exact: true }), '⟦Delete property…⟧')).click();

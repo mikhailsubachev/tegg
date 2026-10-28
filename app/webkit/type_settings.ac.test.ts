@@ -520,9 +520,8 @@ test('fr_typ_04_ac4_delete_property_without_values_changes_only_the_type_file', 
   assert.deepEqual(await callsOf(core, 'value_remove_start'), [], 'no job');
   assert.deepEqual(await core.backups(), [], 'no zip');
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note written');
-  await openNoteByTitle(page, '2026-10-07 Porada');
-  await (await must(otherProps(page), 'Other properties')).click();
-  assert.ok(await seen(page.getByRole('list', { name: 'Other properties' }).getByText('místo')), 'the empty místo line shows under Other properties');
+  // Porada keeps its empty `místo:` line (D-814); the panel never lists an empty value under Other properties (panel.ts).
+  assert.equal(await fileText(core, P.porada), original(P.porada), 'Porada is untouched, its empty místo line included');
 });
 
 test('fr_typ_04_ac5_schema_changes_never_write_notes', async ({ page }) => {
