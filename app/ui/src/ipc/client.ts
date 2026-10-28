@@ -67,6 +67,9 @@ export const ipc = {
   tagNewPath: (name: string) => invoke<TagNewPathDto>('tag_new_path', { name }),
   tagRename: (from: string, to: string) => invoke<JobStartDto>('tag_rename', { from, to }),
   tagDelete: (key: string) => invoke<JobStartDto>('tag_delete', { key }),
+  // 4E-2 (ms4-jobs §14.9.6): both stop in `confirm`; the dialogs read `jobPlan`.
+  valueRemoveStart: (type: string, key: string) => invoke<JobStartDto>('value_remove_start', { type, key }),
+  typeDeleteStart: (type: string) => invoke<JobStartDto>('type_delete_start', { type }),
   mergeStart: (keep: string, others: string[]) => invoke<JobStartDto>('merge_start', { keep, others }),
   jobPlan: (jobId: number) => invoke<JobPlanDto | null>('job_plan', { jobId }),
   backupReveal: (name: string) => invoke<void>('backup_reveal', { name }),
@@ -88,7 +91,6 @@ export const ipc = {
   typeDelete: (key: string, base: VersionDto) => invoke<string[]>('type_delete', { key, base }),
   typeTemplate: (key: string) => invoke<TypeTemplateDto | null>('type_template', { key }),
   typeUsage: (type: string) => invoke<TypeUsageDto>('type_usage', { type }),
-  typeMisfits: (type: string, attr: string, as: AttributeInputDto) => invoke<number>('type_misfits', { type, attr, as }),
   typeRows: (type: string) => invoke<TypeRowDto[]>('index_type_rows', { type }),
   starterPlan: () => invoke<StarterPlanDto>('starter_plan'),
   starterAdd: () => invoke<StarterPlanDto>('starter_add'),

@@ -4,12 +4,12 @@
 // files are read-only. Nothing here writes a note (FR-TYP-04 AC-5).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES } from '@tegg/schema';
+import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES, widerTypes, type AttrType } from '@tegg/schema';
 import { t } from '../i18n/catalog';
-import { expectFolderMove } from '../jobs/jobs';
+import { confirmDelete, expectFolderMove, lastUndoable, planDelete, undoMove } from '../jobs/jobs';
 import { listen } from '@tauri-apps/api/event';
 import { ipc } from '../ipc/client';
-import type { AttributeChangeDto, AttributeDto, AttributeInputDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
+import type { AttributeChangeDto, AttributeDto, AttributeInputDto, JobPlanDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
 import { Icon, typeIconName } from '../shell/Icon';
 import { PopupMenu } from '../shell/Menu';
@@ -42,10 +42,15 @@ export function Dialog({ label, onCancel, children, className, restore, role = '
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const opener = useRef<HTMLElement | null>(typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null);
-  useEffect(() => () => {
-    const o = opener.current;
-    if (restore && !restore.current) return;
-    if (o?.isConnected) o.focus();
+  useEffect(() => {
+    const el = ref.current;
+    return () => {
+      // A StrictMode re-run of this effect leaves the dialog on the page: only a real close gives the focus back.
+      if (el?.isConnected) return;
+      const o = opener.current;
+      if (restore && !restore.current) return;
+      if (o?.isConnected) o.focus();
+    };
   }, []);
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
@@ -154,12 +159,14 @@ function useTypeWriter(key: string, setType: (t: TypeDto) => void, latest: React
   return { send, save, setSave, conflict, setConflict, errors, setErrors, pending };
 }
 
-export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted }: {
+export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, onOpenTrash }: {
   typeKey: string;
   types: TypeDto[];
   refresh: number;
   heading: React.RefObject<HTMLHeadingElement | null>;
   onDeleted: () => void;
+  /** R99 F2: the deleted-type route's `Open Trash`. */
+  onOpenTrash?: () => void;
 }) {
   const [type, setTypeState] = useState<TypeDto | null | undefined>(undefined);
   const [usage, setUsage] = useState<TypeUsageDto | null>(null);
@@ -171,14 +178,28 @@ export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted }
     ipc.typeUsage(typeKey).then(setUsage, () => setUsage(null));
   }, [typeKey]);
   useEffect(() => { reload(); }, [refresh]);
+  // R99 F2: the deleted-type view takes the focus (its heading), so Undo and Open Trash are the next Tab stops.
+  useEffect(() => { if (type === null && deletedTypes.has(nfc(typeKey))) heading.current?.focus(); }, [type]);
 
   // No heading until the type is read: the focus goes to the real heading after navigation (D-130).
   if (type === undefined) return <div className="page-column" />;
   if (type === null) {
+    // R99 F2 (FR-TYP-05 AC-7): a type this session deleted with its objects offers Undo and Open Trash.
+    const del = deletedTypes.get(nfc(typeKey));
+    const undoId = del ? lastUndoable('type-delete') : null;
     return (
       <div className="page-column">
-        <h1 ref={heading} tabIndex={-1}><span data-user-content>{typeKey}</span></h1>
+        <h1 ref={heading} tabIndex={-1}><span data-user-content>{del?.name ?? typeKey}</span></h1>
         <p role="status" className="empty">{t('typePage.gone')}</p>
+        {del && undoId === del.jobId && (
+          <>
+            <p>{t('deletedType.body', { name: del.name, count: del.count })}</p>
+            <div className="form-actions">
+              <button data-command="typeSettings.undoDelete" type="button" tabIndex={0} onClick={() => void undoMove(del.jobId, true)}>{t('deletedType.undo')}</button>
+              <button data-command="typeSettings.openTrash" type="button" tabIndex={0} onClick={() => onOpenTrash?.()}>{t('deletedType.openTrash')}</button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -357,7 +378,10 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
           <section id="ts-delete" aria-label={t('ts.delete')} className="ts-section">
             <h2>{t('ts.delete')}</h2>
             {type.system ? <p className="hint">{t('ts.systemNoDelete')}</p> : (
-              <button data-command="typeSettings.button5" type="button" className="text-button danger" disabled={ro} onClick={() => setDeleting(true)}>{withUser('ts.deleteType', 'name', type.name)}</button>
+              <>
+                {objects > 0 && <p className="hint">{t('deleteType.section', { name: type.name, n: objects, plural: typeWord(type, objects) })}</p>}
+                <button data-command="typeSettings.button5" type="button" className="text-button danger" disabled={ro} onClick={() => setDeleting(true)}>{withUser('ts.deleteType', 'name', type.name)}</button>
+              </>
             )}
           </section>
         </div>
@@ -378,6 +402,8 @@ function PropertiesSection({ type, types, usage, ro, w, setType }: {
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  // FR-UX-03 AC-18: a property deleted by its job takes its group (and the dialog's opener) away: the focus waits here.
+  const addBtn = useRef<HTMLButtonElement | null>(null);
   const focusHandle = useRef<string | null>(null);
   const dragKey = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -401,7 +427,7 @@ function PropertiesSection({ type, types, usage, ro, w, setType }: {
       <h2>{t('ts.properties')}</h2>
       <div className="prop-list">
         {type.attributes.map((a, i) => (
-          <PropertyGroup key={a.key} attr={a as AttributeDto} index={i} type={type} types={types} usage={usage} ro={ro} w={w} setType={setType}
+          <PropertyGroup key={a.key} attr={a as AttributeDto} index={i} type={type} types={types} usage={usage} ro={ro} w={w} setType={setType} onDeleting={() => addBtn.current?.focus()}
             expanded={open.has(a.key)} onToggle={() => setOpen((s) => { const n = new Set(s); if (n.has(a.key)) n.delete(a.key); else n.add(a.key); return n; })}
             onMove={(to) => move(a.key, to)}
             onDragStart={() => { dragKey.current = a.key; }}
@@ -413,7 +439,7 @@ function PropertiesSection({ type, types, usage, ro, w, setType }: {
           onAdd={async (attr) => { const ok = await w.send([{ op: 'addAttribute', attribute: attr }], attr.name, 'new'); if (ok) setAdding(false); return ok ? null : (w.errors.new ?? null); }}
           error={w.errors.new ?? null} />
       ) : (
-        <button data-command="typeSettings.button6" type="button" className="text-button" disabled={ro} onClick={() => { w.setErrors((e) => ({ ...e, new: null })); setAdding(true); }}>
+        <button data-command="typeSettings.button6" ref={addBtn} type="button" className="text-button" disabled={ro} onClick={() => { w.setErrors((e) => ({ ...e, new: null })); setAdding(true); }}>
           <Icon name="plus" size={12} />{t('ts.addProperty')}
         </button>
       )}
@@ -511,9 +537,11 @@ export function NewPropertyDialog({ type, types, withPreview, onClose, onDone }:
   );
 }
 
-function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, expanded, onToggle, onMove, onDragStart, onDrop }: {
+function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, expanded, onToggle, onMove, onDragStart, onDrop, onDeleting }: {
   attr: AttributeDto; index: number; type: TypeDto; types: TypeDto[]; usage: TypeUsageDto | null; ro: boolean; w: ReturnType<typeof useTypeWriter>;
   setType: (t: TypeDto) => void; expanded: boolean; onToggle: () => void; onMove: (to: number) => void; onDragStart: () => void; onDrop: () => void;
+  /** The delete job is confirmed: the focus leaves the group that will go. */
+  onDeleting?: () => void;
 }) {
   const fieldId = `attr:${a.key}`;
   const locked = a.builtIn;
@@ -521,17 +549,18 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
   const off = ro || locked;
   const lockedDesc = locked ? t('ts.builtInLocked') : undefined;
   const [typeOpen, setTypeOpen] = useState(false);
-  const [retype, setRetype] = useState<{ to: string; count: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const typeBtn = useRef<HTMLButtonElement | null>(null);
   const update = (change: AttributeChangeDto, label: string) => {
     setType({ ...type, attributes: type.attributes.map((x) => (x.key === a.key ? { ...x, ...change } as AttributeDto : x)) });
     return w.send([{ op: 'updateAttribute', key: a.key, change }], label, fieldId);
   };
-  const chooseType = async (to: string) => {
+  // D-808 (FR-TYP-03 AC-14): only the current type and the wider ones, in R10 order; a choice writes only the type file.
+  const wider = new Set<string>([a.type, ...widerTypes(a.type as AttrType)]);
+  const typeChoices = ATTR_TYPES.filter((x) => wider.has(x.type)).map((x) => ({ value: x.type, label: t(x.label) }));
+  const chooseType = (to: string) => {
     if (to === a.type) return;
-    const n = await ipc.typeMisfits(type.key, a.key, attrInput(a, { type: to, options: NO_OPTIONS.has(to) ? [] : a.options, to: to === 'relation' ? a.to : null, multiple: to === 'relation' ? a.multiple : false, default: null })).catch(() => 0);
-    setRetype({ to, count: n });
+    void update({ type: to }, t('ts.type'));
   };
   const defaultControl = () => {
     if (unsupported || a.type === 'relation' || a.type === 'date-time' || a.type === 'date-range' || a.type === 'multi-select') return null;
@@ -583,9 +612,9 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
               <span>{attrTypeLabel(a.type)}</span><Icon name="chevron-down" size={12} />
             </button>
             {typeOpen && (
-              <OptionsPopup label={t('ts.type')} anchor={typeBtn.current} current={a.type} choices={ATTR_TYPES.map((x) => ({ value: x.type, label: t(x.label) }))}
+              <OptionsPopup label={t('ts.type')} anchor={typeBtn.current} current={a.type} choices={typeChoices} footer={t('ts.widenFooter')}
                 onClose={(r) => { setTypeOpen(false); if (r) typeBtn.current?.focus(); }}
-                onChoose={(c) => { setTypeOpen(false); typeBtn.current?.focus(); void chooseType(c.value); }} />
+                onChoose={(c) => { setTypeOpen(false); typeBtn.current?.focus(); chooseType(c.value); }} />
             )}
           </div>
           {(a.type === 'select' || a.type === 'multi-select') && (
@@ -629,30 +658,12 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
           </div>
         </div>
       )}
-      {retype && (
-        <Dialog label={t('attrTypeChange.title', { name: a.name })} onCancel={() => setRetype(null)}>
-          <h2>{withUser('attrTypeChange.title', 'name', a.name)}</h2>
-          <p>{t('attrTypeChange.body', { count: retype.count, type: attrTypeLabel(retype.to) })}</p>
-          <div className="dialog-buttons">
-            <button data-command="typeSettings.button14" type="button" autoFocus onClick={() => setRetype(null)}>{t('attrTypeChange.cancel')}</button>
-            <button data-command="typeSettings.button15" type="button" className="primary" onClick={() => { const to = retype.to; setRetype(null); void update({ type: to }, t('ts.type')); }}>{t('attrTypeChange.ok')}</button>
-          </div>
-        </Dialog>
-      )}
       {deleting && (
-        <Dialog label={t('delProp.title', { name: a.name })} onCancel={() => setDeleting(false)}>
-          <h2>{withUser('delProp.title', 'name', a.name)}</h2>
-          <div className="dialog-buttons column">
-            <button data-command="typeSettings.button16" type="button" autoFocus className="primary" aria-description={t('delProp.keepHelp')}
-              onClick={() => {
-                setDeleting(false);
-                setType({ ...type, attributes: type.attributes.filter((x) => x.key !== a.key), preview: type.preview.filter((k) => nfc(k) !== nfc(a.key)) });
-                void w.send([{ op: 'removeAttribute', key: a.key }], a.name, fieldId);
-              }}>{t('delProp.keep')}</button>
-            <Disabled control="ctl.removeValues" ariaLabel={t('delProp.remove', { count: usage?.values?.[a.key] ?? 0 })}>{t('delProp.remove', { count: usage?.values?.[a.key] ?? 0 })}</Disabled>
-            <button data-command="typeSettings.button17" type="button" onClick={() => setDeleting(false)}>{t('delProp.cancel')}</button>
-          </div>
-        </Dialog>
+        <DeletePropertyDialog attr={a} type={type} values={usage?.values?.[a.key] ?? 0} onClose={() => setDeleting(false)} onConfirmed={onDeleting}
+          onRemoveDefinition={() => {
+            setType({ ...type, attributes: type.attributes.filter((x) => x.key !== a.key), preview: type.preview.filter((k) => nfc(k) !== nfc(a.key)) });
+            void w.send([{ op: 'removeAttribute', key: a.key }], a.name, fieldId);
+          }} />
       )}
     </div>
   );
@@ -1011,7 +1022,151 @@ function PreviewSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; 
 
 // ------------------------------------------------------------------------------------------------ delete type
 
+/** R99: the type's Name for a count of 1, its plural otherwise, in lower case. */
+const typeWord = (type: { name: string; plural: string }, n: number) => (n === 1 ? type.name : type.plural).toLocaleLowerCase();
+
+/** Types this session deleted with their objects (the deleted-type route, R99 F2): key → the job and its count. */
+const deletedTypes = new Map<string, { jobId: number; name: string; count: number }>();
+
+/** R99 D (D-807, FR-TYP-04 AC-6…AC-9): with values the core's `value-remove` plan gives the counts and the button runs
+ *  the job; without values the definition alone changes (no job, no zip). */
+function DeletePropertyDialog({ attr, type, values, onClose, onRemoveDefinition, onConfirmed }: { attr: AttributeDto; type: TypeDto; values: number; onClose: () => void; onRemoveDefinition: () => void; onConfirmed?: () => void }) {
+  const restore = useRef(true);
+  const [plan, setPlan] = useState<{ jobId: number; plan: JobPlanDto } | null | undefined>(values > 0 ? undefined : null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const job = useRef<number | null>(null);
+  const confirmed = useRef(false);
+  const started = useRef(false);
+  const mounted = useRef(false);
+  // Cancel is the default (R99); focused after the dialog's own mount effects (it restores its opener on cleanup).
+  const cancelBtn = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { cancelBtn.current?.focus(); }, [plan]);
+  useEffect(() => {
+    if (values === 0) return;
+    // One job per dialog, also when React runs this effect twice (StrictMode); a dialog closed before the plan came
+    // cancels the job it started.
+    mounted.current = true;
+    if (!started.current) {
+      started.current = true;
+      planDelete(() => ipc.valueRemoveStart(type.key, attr.key)).then((p) => {
+        job.current = p?.jobId ?? null;
+        if (mounted.current) setPlan(p);
+        else if (p) void ipc.jobCancel(p.jobId).catch(() => {});
+      }, (e) => { if (mounted.current) { setPlan(null); setMsg(typeErrorMessage(e)); } });
+    }
+    return () => { mounted.current = false; };
+  }, []);
+  const cancel = () => {
+    if (job.current !== null && !confirmed.current) void ipc.jobCancel(job.current).catch(() => {});
+    onClose();
+  };
+  if (plan === undefined) return null; // the plan arrives in a moment; the dialog shows the core's counts
+  const n = plan?.plan.files ?? 0;
+  const m = plan?.plan.empty ?? 0;
+  const run = () => {
+    if (!plan) return;
+    confirmed.current = true;
+    restore.current = false;
+    onClose();
+    onConfirmed?.();
+    void confirmDelete(plan.jobId, 'value-remove', {
+      name: attr.name, count: n,
+      running: (total, done) => t('job.valueRemove.running', { name: attr.name, done, n: total }),
+      done: (r) => {
+        const notes = r.written.filter((p) => !p.startsWith('.tegg/')).length;
+        const text = t('job.valueRemove.done', { name: attr.name, count: notes });
+        return r.skipped.length ? `${text} ${t('job.valueRemove.skipped', { count: r.skipped.length })}` : text;
+      },
+    });
+  };
+  return (
+    <Dialog label={t('delProp.title', { name: attr.name })} onCancel={cancel} restore={restore}>
+      <h2>{withUser('delProp.title', 'name', attr.name)}</h2>
+      {plan && n > 0 ? (
+        <>
+          <p>{m > 0 ? t('delProp.removesEmpty', { key: attr.key, n, plural: typeWord(type, n), m }) : t('delProp.removes', { key: attr.key, n, plural: typeWord(type, n) })}</p>
+          <p>{t('delProp.backup')}</p>
+        </>
+      ) : <p>{t('delProp.none', { singular: type.name.toLocaleLowerCase() })}</p>}
+      {msg && <p role="alert" className="field-error">{msg}</p>}
+      <div className="dialog-buttons">
+        <button data-command="typeSettings.button17" ref={cancelBtn} type="button" onClick={cancel}>{t('delProp.cancel')}</button>
+        {plan && n > 0
+          ? <button data-command="typeSettings.button16" type="button" className="danger" onClick={run}>{t('delProp.okCount', { count: n })}</button>
+          : <button data-command="typeSettings.button16" type="button" className="danger" onClick={() => { if (plan) void ipc.jobCancel(plan.jobId).catch(() => {}); onClose(); onRemoveDefinition(); }}>{t('delProp.ok')}</button>}
+      </div>
+    </Dialog>
+  );
+}
+
 function DeleteTypeDialog({ type, objects: count, onClose, onDeleted }: { type: TypeDto; objects: number; onClose: () => void; onDeleted: () => void }) {
+  // The count when the dialog opened decides which dialog it is (an object added meanwhile is AC-5's re-check).
+  const [withObjects] = useState(count > 0);
+  if (withObjects) return <DeleteTypeWithObjects type={type} onClose={onClose} />;
+  return <DeleteEmptyType type={type} objects={count} onClose={onClose} onDeleted={onDeleted} />;
+}
+
+/** R99 F1 (D-809, D-842, FR-TYP-05 AC-6…AC-9): the core's `type-delete` plan gives the counts; the button runs the job. */
+function DeleteTypeWithObjects({ type, onClose }: { type: TypeDto; onClose: () => void }) {
+  const [plan, setPlan] = useState<{ jobId: number; plan: JobPlanDto } | null | undefined>(undefined);
+  const [msg, setMsg] = useState<string | null>(null);
+  const job = useRef<number | null>(null);
+  const confirmed = useRef(false);
+  const started = useRef(false);
+  const mounted = useRef(false);
+  // Cancel is the default (R99); focused after the dialog's own mount effects (it restores its opener on cleanup).
+  const cancelBtn = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { cancelBtn.current?.focus(); }, [plan]);
+  useEffect(() => {
+    // One job per dialog, also when React runs this effect twice (StrictMode); a dialog closed before the plan came
+    // cancels the job it started.
+    mounted.current = true;
+    if (!started.current) {
+      started.current = true;
+      planDelete(() => ipc.typeDeleteStart(type.key)).then((p) => {
+        job.current = p?.jobId ?? null;
+        if (mounted.current) setPlan(p);
+        else if (p) void ipc.jobCancel(p.jobId).catch(() => {});
+      }, (e) => { if (mounted.current) { setPlan(null); setMsg(typeErrorMessage(e)); } });
+    }
+    return () => { mounted.current = false; };
+  }, []);
+  const cancel = () => {
+    if (job.current !== null && !confirmed.current) void ipc.jobCancel(job.current).catch(() => {});
+    onClose();
+  };
+  if (plan === undefined) return null;
+  const n = plan?.plan.files ?? 0;
+  const k = plan?.plan.templates ?? 0;
+  const plural = typeWord(type, n);
+  const run = () => {
+    if (!plan) return;
+    confirmed.current = true;
+    onClose();
+    const key = nfc(type.key);
+    deletedTypes.set(key, { jobId: plan.jobId, name: type.name, count: n }); // the route's view once the type is gone
+    void confirmDelete(plan.jobId, 'type-delete', {
+      name: type.name, count: n,
+      running: (total, done) => t('job.typeDelete.running', { name: type.name, done, n: total }),
+      done: (r) => (r.keptType ? t('job.typeDelete.keptType', { count: r.skipped.length }) : t('job.typeDelete.done', { name: type.name, n, plural })),
+      finished: (r) => { if (!r || r.phase !== 'done' || r.keptType) deletedTypes.delete(key); },
+    });
+  };
+  return (
+    <Dialog label={t('deleteType.title', { name: type.name })} onCancel={cancel}>
+      <h2>{withUser('deleteType.title', 'name', type.name)}</h2>
+      {plan && <p>{k > 0 ? t('deleteType.bodyTemplates', { n, plural, name: type.name, count: k }) : t('deleteType.body', { n, plural })}</p>}
+      {plan && <p>{t('deleteType.backup', { plural: typeWord(type, 2) })}</p>}
+      {msg && <p role="alert" className="field-error">{msg}</p>}
+      <div className="dialog-buttons">
+        <button data-command="typeSettings.button27" ref={cancelBtn} type="button" onClick={cancel}>{t('deleteType.cancel')}</button>
+        {plan && <button data-command="typeSettings.button28" type="button" className="danger" onClick={run}>{t('deleteType.okCount', { n, plural })}</button>}
+      </div>
+    </Dialog>
+  );
+}
+
+function DeleteEmptyType({ type, objects: count, onClose, onDeleted }: { type: TypeDto; objects: number; onClose: () => void; onDeleted: () => void }) {
   // The count when the dialog opened; `Delete type` re-checks in the core (FR-TYP-05 AC-5).
   const [objects] = useState(count);
   const [msg, setMsg] = useState<string | null>(null);
@@ -1034,12 +1189,6 @@ function DeleteTypeDialog({ type, objects: count, onClose, onDeleted }: { type: 
     <Dialog label={t('deleteType.title', { name: type.name })} onCancel={onClose} restore={restore}>
       <h2>{withUser('deleteType.title', 'name', type.name)}</h2>
       <p>{objects === 0 ? t('deleteType.none') : t('deleteType.some', { count: objects })}</p>
-      {objects > 0 && (
-        <div className="dialog-buttons column">
-          <Disabled control="ctl.changeTheirType" />
-          <Disabled control="ctl.trashObjects" />
-        </div>
-      )}
       {msg && <p role="alert" className="field-error">{msg}</p>}
       <div className="dialog-buttons">
         <button data-command="typeSettings.button27" ref={cancel} type="button" onClick={onClose}>{t('deleteType.cancel')}</button>

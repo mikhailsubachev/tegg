@@ -313,7 +313,7 @@ pub struct AttributeDto {
     pub built_in: bool,
 }
 
-/// A new property (`addAttribute`) or the shape `type_misfits` checks against.
+/// A new property (`addAttribute`).
 #[derive(Debug, Clone, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]

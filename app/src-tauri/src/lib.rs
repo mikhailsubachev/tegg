@@ -1461,12 +1461,6 @@ async fn type_usage(state: State<'_, AppState>, r#type: String) -> Result<TypeUs
 }
 
 #[tauri::command]
-async fn type_misfits(state: State<'_, AppState>, r#type: String, attr: String, r#as: AttributeInputDto) -> Result<u32, IpcError> {
-    let core = core(&state)?;
-    Ok(core.count_misfits(&r#type, &attr, &attr_def(r#as)) as u32)
-}
-
-#[tauri::command]
 async fn index_type_rows(state: State<'_, AppState>, r#type: String) -> Result<Vec<TypeRowDto>, IpcError> {
     let core = core(&state)?;
     Ok(core
@@ -1712,7 +1706,7 @@ pub fn run() {
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
             link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
-            type_create, type_patch, type_delete, type_template, type_usage, type_misfits, index_type_rows, starter_plan, starter_add,
+            type_create, type_patch, type_delete, type_template, type_usage, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,
             note_rename, job_cancel, job_confirm, job_report, job_retry, job_undo, job_redo, job_transform_result, job_interrupted,

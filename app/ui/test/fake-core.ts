@@ -925,6 +925,25 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         await emit('writing', 0, total);
         const files = state.vault!.files;
         let done = 0;
+        // 4E-2 (ms4-jobs §14.9.4): a type delete's trash rows move back, the type file first (newest row first); a path
+        // that exists again is skipped `taken` (D-849). Redo trashes them again in the job's order.
+        if (rec.files.some((f: any) => f.trashed)) {
+          for (const f of (back ? [...rec.files].reverse() : rec.files) as any[]) {
+            if (back) {
+              if (files[f.before] !== undefined) report.skipped.push({ path: f.before, reason: 'taken' });
+              else if (f.dir) { for (const [from, to] of f.dir as [string, string][]) moveRaw(to, from, files[to], null); report.written.push(f.before); }
+              else if (files[f.trashed] !== undefined) { moveRaw(f.trashed, f.before, files[f.trashed], null); report.written.push(f.before); }
+              else report.skipped.push({ path: f.before, reason: 'missing' });
+            } else if (f.dir) { for (const [from, to] of f.dir as [string, string][]) if (files[from] !== undefined) moveRaw(from, to, files[from], 'trash'); report.written.push(f.before); }
+            else if (files[f.before] !== undefined) { moveRaw(f.before, f.trashed, files[f.before], 'trash'); report.written.push(f.before); }
+            else report.skipped.push({ path: f.before, reason: 'missing' });
+            await emit('writing', ++done, total);
+          }
+          state.reports[jobId] = report;
+          state.jobs.push(report);
+          await emit(report.phase, total, total, { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length });
+          return;
+        }
         // ms4-jobs §7: a moved note goes back before its linking notes (D-433).
         for (const f of [...rec.files].sort((p, q) => Number(p.before === p.after) - Number(q.before === q.after))) {
           const [at, to, want, put] = back ? [f.after, f.before, f.post, f.pre] : [f.before, f.after, f.pre, f.post];
@@ -1268,6 +1287,83 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     })();
     return { jobId };
   };
+  /** 4E-2 (ms4-jobs §14.9): `value-remove` and `type-delete`: plan in Node, confirm, zip (a value-remove only with
+   *  values), then file by file; Cancel while writing reverses the rows written so far; the type file last. */
+  const startDeleteJob = async (cmd: string, a: any) => {
+    const plan = await viaMoves(cmd, a);
+    const jobId = ++state.jobSeq;
+    const { j, report, progress, finish } = jobRun(jobId, plan.kind, plan);
+    state.plans[jobId] = { op: null, files: Object.fromEntries(plan.files.map((f: any) => [f.path, f.ops])) };
+    void (async () => {
+      const files = state.vault!.files;
+      const total = plan.files.length;
+      await progress('planning', 0, 0);
+      await jobs.hold('planning');
+      if (j.cancelled) return finish('cancelled', total, null);
+      await progress('confirm', 0, total);
+      await new Promise<void>((res) => { j.go = res; });
+      if (j.cancelled) return finish('cancelled', total, null);
+      let zip: BackupRecord | null = null;
+      if (plan.kind === 'type-delete' || plan.files.length > 0) {
+        await progress('backup', 0, total);
+        zip = makeZip(plan.kind, jobId, plan.label, { renames: [], creates: [], trashes: plan.trashes });
+        if (!zip) return finish('failed', total, null, 'BackupFailed: fake: Application Support is read-only');
+        if (j.cancelled) return finish('cancelled', total, zip);
+      }
+      await progress('writing', 0, total);
+      await jobs.hold('writing');
+      const rows: any[] = [];
+      const reverse = () => {
+        for (const r of [...rows].reverse()) {
+          if (r.dir) for (const [from, to] of r.dir as [string, string][]) moveRaw(to, from, files[to], null);
+          else if (r.trashed) moveRaw(r.trashed, r.before, files[r.trashed], null);
+          else jobs.write(r.before, r.pre);
+        }
+        report.written = [];
+      };
+      const trashOne = (p: string) => { const to = freeTrash(p); moveRaw(p, to, files[p], 'trash'); rows.push({ before: p, after: to, trashed: to, pre: '', post: '' }); report.written.push(p); };
+      let n = 0;
+      for (const f of plan.files) {
+        if (j.cancelled) { reverse(); return finish('cancelled', total, zip); }
+        const p = f.path;
+        const skip = state.jobSkips[p];
+        if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+        else if (files[p] === undefined) report.skipped.push({ path: p, reason: 'missing' });
+        else if (plan.kind === 'type-delete') trashOne(p);
+        else if (state.editors.has(p)) {
+          const pre = files[p];
+          const r = await jobs.live(p, f.ops);
+          if (r === 'written') { report.written.push(p); rows.push({ before: p, after: p, pre, post: files[p], direct: true }); } else report.skipped.push({ path: p, reason: 'changed' });
+        } else {
+          const cur = files[p];
+          const out = await w.__teggJobs('transform', { source: p, text: cur, ops: f.ops }, files);
+          if (out === null || out === cur) report.unchanged.push(p);
+          else { jobs.write(p, out); report.written.push(p); rows.push({ before: p, after: p, pre: cur, post: out }); }
+        }
+        await progress('writing', ++n, total);
+      }
+      if (j.cancelled) { reverse(); return finish('cancelled', total, zip); }
+      if (plan.kind === 'value-remove') {
+        const tp = plan.typePath;
+        const pre = files[tp];
+        await viaNode('type_patch')({ key: plan.type, base: state.ver(tp), ops: [{ op: 'removeAttribute', key: plan.key }] });
+        rows.push({ before: tp, after: tp, pre, post: files[tp] });
+        report.written.push(tp);
+      } else if (report.skipped.length) report.keptType = true; // D-815: the definition and templates stay
+      else {
+        if (plan.templateFiles.length) {
+          const pairs: [string, string][] = plan.templateFiles.map((p: string) => [p, freeTrash(p)]);
+          for (const [from, to] of pairs) moveRaw(from, to, files[from], 'trash');
+          rows.push({ before: plan.templateDir, after: `.trash/${plan.templateDir}`, trashed: `.trash/${plan.templateDir}`, dir: pairs, pre: '', post: '' });
+          report.written.push(plan.templateDir);
+        }
+        trashOne(plan.typePath);
+      }
+      state.undo[jobId] = { op: null, kind: plan.kind, files: rows };
+      await finish('done', total, zip, undefined, { renames: [], creates: [], trashes: rows.filter((r) => r.trashed).map((r) => [r.before, r.trashed]), written: [] });
+    })();
+    return { jobId };
+  };
   const startTidy = async () => {
     if (!state.vault) return null;
     const plan = await viaMoves('plan_folder_move', { type: null, folder: null, exempt: state.tidyExempt, exemptPaths: state.tidyExemptPaths });
@@ -1573,7 +1669,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       if (!j || j.phase === 'planning' || j.phase === 'queued') return null;
       const pl = j.plan;
       return pl ? {
-        jobId: a.jobId, kind: pl.kind, files: pl.files.filter((f: any) => !f.template).length, templates: pl.templates ?? 0,
+        jobId: a.jobId, kind: pl.kind, files: pl.files.filter((f: any) => !f.template).length, templates: pl.templates ?? 0, empty: pl.empty ?? 0,
         renames: pl.renames ?? [], trashes: pl.trashes ?? [], warnings: pl.warnings ?? [], conflicts: pl.conflicts ?? [],
       } : null;
     },
@@ -1752,7 +1848,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     job_cancel: (a) => {
       const t = tagJobs[a.jobId];
       if (t) {
-        const allowed = t.plan?.kind === 'restore' || t.kind === 'restore' ? ['queued', 'planning', 'backup'] : ['queued', 'planning', 'confirm', 'backup'];
+        // 4E-2 (ms4-jobs §14.9.1): value-remove and type-delete are cancellable while writing too (boards D3, F2).
+        const allowed = t.plan?.kind === 'restore' || t.kind === 'restore' ? ['queued', 'planning', 'backup'] : t.kind === 'value-remove' || t.kind === 'type-delete' ? ['queued', 'planning', 'confirm', 'backup', 'writing'] : ['queued', 'planning', 'confirm', 'backup'];
         if (!allowed.includes(t.phase)) throw err('NotCancellable', 'fake: the job is writing');
         t.cancelled = true;
         t.go?.();
@@ -1803,8 +1900,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     job_resolve_interrupted: () => { throw err('NotFound', 'fake: no interrupted job'); },
     // 4E-2 (ms4-jobs §14.9.6, §14.9.8). Stubs until 4E-2 is built: both answer NotImplemented (TS-I1).
-    value_remove_start: () => { throw err('NotImplemented', 'fake: value_remove_start is a 4E-2 stub'); },
-    type_delete_start: () => { throw err('NotImplemented', 'fake: type_delete_start is a 4E-2 stub'); },
+    value_remove_start: (a) => startDeleteJob('plan_value_remove', { type: a.type, key: a.key }),
+    type_delete_start: (a) => startDeleteJob('plan_type_delete', { type: a.type }),
     // ms4-tags §5.2: newest first; the label and file count of each zip (zips without a manifest: `backups.label.unknown`).
     backups_list: () => [...state.backups].sort((p, q) => (p.name < q.name ? 1 : p.name > q.name ? -1 : 0)).map((b) => ({
       name: b.name, kind: b.kind, time: b.time, label: b.label ?? b.manifest?.label ?? { key: 'backups.label.unknown', args: { kind: b.kind } },

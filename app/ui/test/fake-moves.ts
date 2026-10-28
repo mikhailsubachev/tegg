@@ -104,6 +104,43 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
     return { rows, needsDialog };
   }
 
+  // 4E-2 (ms4-jobs §14.9.2, §14.9.3): the plans of `value-remove` and `type-delete`, in the core's order.
+  const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
+  const objectsOf = (k: string) => notes.filter((p) => !excluded(p) && typeOf(files[p]) === k).sort();
+  if (cmd === 'plan_value_remove') {
+    const k = typeKey(a.type);
+    const def = typeDef(k);
+    if (!def) return { error: { kind: 'UnknownType', message: 'fake: no such type' } };
+    const attr = def.attributes.find((x: any) => nfc(x.key) === nfc(a.key));
+    if (!attr) return { error: { kind: 'UnknownProperty', message: 'fake: no such property' } };
+    if (attr.builtIn) return { error: { kind: 'BuiltIn', message: 'fake: built-in property' } };
+    const out: any[] = [];
+    let empty = 0;
+    for (const p of objectsOf(k)) {
+      const attrs = (d.extract(files[p] ?? '', stemOf(p)).attributes ?? {}) as Record<string, unknown>;
+      const hit = Object.keys(attrs).find((x) => nfc(x) === nfc(attr.key));
+      if (hit === undefined) continue;
+      const v = attrs[hit];
+      // D-814: an empty line, "", [] or ~ is no value.
+      const has = !(v === null || v === undefined || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && v.length === 0));
+      if (has) out.push({ path: p, ops: [{ op: 'remove-key', key: nfc(attr.key) }] }); else empty++;
+    }
+    return { kind: 'value-remove', type: k, key: nfc(attr.key), name: attr.name, files: out, empty, typePath: `.tegg/types/${k}.yml`, trashes: [], renames: [], label: { key: 'backups.label.valueRemove', args: { name: attr.name } } };
+  }
+  if (cmd === 'plan_type_delete') {
+    const k = typeKey(a.type);
+    if (SYSTEM.includes(k)) return { error: { kind: 'SystemType', message: 'fake: a system type' } };
+    const def = typeDef(k);
+    if (!def) return { error: { kind: 'UnknownType', message: 'fake: no such type' } };
+    const dir = `_templates/${def.name}`;
+    const templates = Object.keys(files).filter((p) => nfc(p).startsWith(`${dir}/`)).sort();
+    const objs = objectsOf(k);
+    return {
+      kind: 'type-delete', type: k, name: def.name, plural: def.plural, files: objs.map((p) => ({ path: p, ops: [] })), templateDir: dir, templateFiles: templates, templates: templates.length,
+      typePath: `.tegg/types/${k}.yml`, trashes: [...objs, ...(templates.length ? [dir] : []), `.tegg/types/${k}.yml`], renames: [], label: { key: 'backups.label.typeDelete', args: { name: def.name } },
+    };
+  }
+
   if (cmd === 'folder_preview') {
     const k = typeKey(a.type);
     if (FIXED.includes(k)) return { count: 0 }; // board G: never moved; the folder applies to new objects (D-551)

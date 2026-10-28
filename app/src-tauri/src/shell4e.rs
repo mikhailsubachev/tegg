@@ -94,18 +94,15 @@ pub async fn jobs_ready(state: State<'_, AppState>) -> Result<(), IpcError> {
 
 // ---------------------------------------------------------------- slice 4E-2 (ms4-jobs §14.9.6)
 
-/// Starts a `value-remove` job (FR-TYP-04 AC-6…AC-9) that stops in `confirm`; the dialog reads `job_plan`. Stub until
-/// 4E-2 is built: answers `NotImplemented` (TS-I1).
+/// Starts a `value-remove` job (FR-TYP-04 AC-6…AC-9) that stops in `confirm`; the dialog reads `job_plan`. Refusals
+/// come from `Jobs::start` (D-853).
 #[tauri::command]
 pub async fn value_remove_start(state: State<'_, AppState>, r#type: String, key: String) -> Result<JobStartDto, IpcError> {
-    let _ = (core(&state)?, r#type, key);
-    Err(job_err(tegg_core::tegg_jobs::JobError::NotImplemented))
+    crate::shell4d::started(core(&state)?.jobs().start(JobOp::ValueRemove { r#type, key }))
 }
 
-/// Starts a `type-delete` job (FR-TYP-05 AC-6…AC-9) that stops in `confirm`. Stub until 4E-2 is built: answers
-/// `NotImplemented` (TS-I1).
+/// Starts a `type-delete` job (FR-TYP-05 AC-6…AC-9) that stops in `confirm`.
 #[tauri::command]
 pub async fn type_delete_start(state: State<'_, AppState>, r#type: String) -> Result<JobStartDto, IpcError> {
-    let _ = (core(&state)?, r#type);
-    Err(job_err(tegg_core::tegg_jobs::JobError::NotImplemented))
+    crate::shell4d::started(core(&state)?.jobs().start(JobOp::TypeDelete { r#type }))
 }

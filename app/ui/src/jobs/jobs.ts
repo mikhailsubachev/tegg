@@ -3,7 +3,7 @@
 // list in memory until quit (D-398). One store for the app; components read it with `useJobs`.
 import { useSyncExternalStore } from 'react';
 import { errorKind, events, ipc } from '../ipc/client';
-import type { JobProgressDto, JobReportDto, NoteRenameDto } from '../ipc/types';
+import type { JobPlanDto, JobProgressDto, JobReportDto, NoteRenameDto } from '../ipc/types';
 import { t as t_ } from '../i18n/catalog';
 
 export type SkipRow = { jobId: number; path: string; title: string; reason: string };
@@ -13,11 +13,15 @@ export type Moved = { jobId: number; from: string; to: string };
 /** `text`: a 4D-lite job's own status line (no Undo, D-395). `undo`: a 4E-1 job the status can undo (D-812); `show`:
  *  the status opens the not-updated list. */
 type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean; undo?: number; show?: boolean; hideAfter?: number } | null;
+/** The undoable 4E jobs (D-812): ⌘Z after a type change, the status's `Undo`, the palette's `Undo <operation>`. */
+export type UndoKind = 'type-move' | 'folder-move' | 'value-remove' | 'type-delete';
 type Tracked = {
   kind: 'rename' | 'undo' | 'redo' | 'confirmed' | 'move'; of?: number; path: string; done?: (r: JobReportDto | null) => void;
-  running?: (count: number) => string; doneText?: (r: JobReportDto) => string | null; count?: number;
-  /** 4E-1: the move's kind, and the target type's name for `Now a <Type>`. */
-  moveKind?: 'type-move' | 'folder-move'; typeName?: string; folderType?: string;
+  running?: (count: number, done: number) => string; doneText?: (r: JobReportDto) => string | null; count?: number;
+  /** 4E-1: the move's kind, and the target type's name for `Now a <Type>`; 4E-2: the delete job's kind. */
+  moveKind?: UndoKind; typeName?: string; folderType?: string;
+  /** 4E-2 (ms4-jobs §14.9.1): cancellable while writing too; the done status offers Undo (and Show with skips). */
+  undoable?: boolean;
 };
 /** 4E-1: a type as the move status texts name it (R99: the Name for 1, the plural otherwise, in lower case). */
 export type MoveType = { key: string; name: string; plural: string; folder: string };
@@ -29,7 +33,7 @@ type State = {
   /** The last rename that wrote something, for `Undo rename`; `redo` once it is undone. */
   last: { jobId: number; path: string; undone: boolean } | null;
   /** 4E-1 (D-812): the last type or folder move, for ⌘Z in the moved note, `Undo type change` and `Undo move`. */
-  lastMove: { jobId: number; kind: 'type-move' | 'folder-move'; path: string | null; undone: boolean } | null;
+  lastMove: { jobId: number; kind: UndoKind; path: string | null; undone: boolean } | null;
 };
 
 let state: State = { status: null, rows: [], listOpen: false, last: null, lastMove: null };
@@ -331,7 +335,7 @@ export async function undoMove(jobId: number, back = true): Promise<number | nul
 }
 
 /** The palette's `Undo type change` / `Undo move` (R100, D-830): only while that kind is the last undoable move. */
-export function undoLastMove(kind: 'type-move' | 'folder-move'): void {
+export function undoLastMove(kind: UndoKind): void {
   const l = state.lastMove;
   if (l && l.kind === kind && !l.undone) void undoMove(l.jobId, true);
 }
@@ -364,7 +368,7 @@ export function resetJobs(): void {
 
 async function confirmedProgress(p: JobProgressDto, t: Tracked) {
   const n = t.count ?? p.total;
-  if (p.phase === 'writing' && t.running) set({ status: { phase: 'running', count: n, jobId: p.jobId, text: t.running(n) } });
+  if (p.phase === 'writing' && t.running) set({ status: { phase: 'running', count: n, jobId: p.jobId, text: t.running(n, p.done), cancel: t.undoable } });
   if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
   tracked.delete(p.jobId);
   const r = await ipc.jobReport(p.jobId).catch(() => null);
@@ -378,7 +382,13 @@ function confirmedFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
   const text = r.phase === 'done' ? t.doneText?.(r) ?? null : failed ? t_('job.backupFailed') : null;
   const patch: Partial<State> = { rows };
-  if (text) {
+  const undoable = t.undoable && r.phase === 'done' && r.written.length > 0;
+  if (undoable) patch.lastMove = { jobId, kind: t.moveKind!, path: null, undone: false };
+  if (text && t.undoable) {
+    // 4E-2 (R99 D3, F2): Undo for 5 s once shown; Show opens the not-updated list when something was skipped (D-844).
+    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed, undo: undoable ? jobId : undefined, show: r.skipped.length > 0, hideAfter: 5000 };
+    if (doneTimer) clearTimeout(doneTimer);
+  } else if (text) {
     patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed };
     if (doneTimer) clearTimeout(doneTimer);
     doneTimer = setTimeout(() => { if (state.status?.jobId === jobId) set({ status: null }); }, 5000);
@@ -415,6 +425,42 @@ export async function runConfirmed(start: () => Promise<{ jobId: number | null }
   const rep = await ipc.jobReport(jobId).catch(() => null);
   if (rep && tracked.has(jobId)) { tracked.delete(jobId); confirmedFinished(jobId, t, rep); }
   return jobId;
+}
+
+// ---------------------------------------------------------------- 4E-2 (ms4-jobs §14.9.6, R99 D, F)
+
+/** Starts a `value-remove` or `type-delete` job and waits until it stops in `confirm`: its plan has the counts the
+ *  dialog shows (FR-TYP-04 AC-6, FR-TYP-05 AC-6). Null when no job starts or it ends before confirm; start errors are
+ *  thrown to the dialog. */
+export async function planDelete(start: () => Promise<{ jobId: number | null }>): Promise<{ jobId: number; plan: JobPlanDto } | null> {
+  startJobs();
+  const { jobId } = await start();
+  if (jobId === null) return null;
+  const end = Date.now() + 30_000;
+  while (Date.now() < end) {
+    const plan = await ipc.jobPlan(jobId).catch(() => null);
+    if (plan) return { jobId, plan };
+    if (await ipc.jobReport(jobId).catch(() => null)) return null;
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  return null;
+}
+
+/** The dialog's confirm button: the job writes, with its R99 status (count while writing, Cancel; done with Undo). */
+export async function confirmDelete(jobId: number, kind: 'value-remove' | 'type-delete', o: { name: string; count: number; running: (n: number, done: number) => string; done: (r: JobReportDto) => string | null; finished?: (r: JobReportDto | null) => void }): Promise<void> {
+  const t: Tracked = { kind: 'confirmed', path: '', moveKind: kind, undoable: true, count: o.count, running: o.running, doneText: o.done, done: o.finished };
+  tracked.set(jobId, t);
+  await ipc.jobConfirm(jobId).catch(() => {});
+  const early = seen.get(jobId);
+  if (early && tracked.has(jobId)) void onProgress(early);
+  const rep = await ipc.jobReport(jobId).catch(() => null);
+  if (rep && tracked.has(jobId)) { tracked.delete(jobId); confirmedFinished(jobId, t, rep); }
+}
+
+/** The status of the last 4E job, for the deleted-type route's `Undo` (FR-TYP-05 AC-7). */
+export function lastUndoable(kind: UndoKind): number | null {
+  const l = state.lastMove;
+  return l && l.kind === kind && !l.undone ? l.jobId : null;
 }
 
 /** Clears the status of `jobId` if it is still the one shown (the move statuses' timer, JobStatus). */

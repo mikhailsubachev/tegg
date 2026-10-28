@@ -54,7 +54,7 @@ export type ShellActions = {
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
   /** 4E-1 (R100, D-830): undo the last undoable job of `kind`, if it is the last undoable job. */
-  undoJob?: (kind: 'type-move' | 'folder-move') => void;
+  undoJob?: (kind: 'type-move' | 'folder-move' | 'value-remove' | 'type-delete') => void;
   showNotUpdated?: () => void;
   /** 5B (inbox.md R62, D-578): open the capture window (`default` or `task`). */
   capture?: (kind: 'default' | 'task') => void;
@@ -111,11 +111,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.filter': 'typePage.filter',
   'ctl.group': 'typePage.group',
   'ctl.addView': 'typePage.addView',
-  'ctl.moveExisting': 'typeSettings.moveExisting',
-  'ctl.renameKeys': 'typeSettings.renameKey',
-  'ctl.removeValues': 'typeSettings.removeValues',
-  'ctl.changeTheirType': 'typeSettings.changeTheirType',
-  'ctl.trashObjects': 'typeSettings.trashObjects',
   'ctl.newTemplate': 'typeSettings.newTemplate',
   'ctl.editTemplate': 'typeSettings.editTemplate',
   'ctl.addViewSettings': 'typeSettings.addView',
@@ -177,6 +172,8 @@ export function commands(ctx: ShellContext): Command[] {
     // 4E-1 (R100, D-830): always listed; each runs only while a job of its kind is the last undoable one.
     { id: 'job.undo.typeChange', title: 'cmd.undoTypeChange', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('type-move') },
     { id: 'job.undo.move', title: 'cmd.undoMove', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('folder-move') },
+    { id: 'job.undo.valueRemove', title: 'cmd.undoValueRemove', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('value-remove') },
+    { id: 'job.undo.typeDelete', title: 'cmd.undoTypeDelete', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('type-delete') },
   );
   // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
   const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);

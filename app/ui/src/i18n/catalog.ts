@@ -76,11 +76,6 @@ export const en: Catalog = {
   'ctl.filter': 'Filter',
   'ctl.group': 'Group',
   'ctl.addView': 'Add view',
-  'ctl.moveExisting': 'Move existing objects',
-  'ctl.renameKeys': 'Renaming keys',
-  'ctl.removeValues': 'Remove values from <n> notes',
-  'ctl.changeTheirType': 'Change their type to…',
-  'ctl.trashObjects': 'Move them to the trash',
   'ctl.newTemplate': 'New template',
   'ctl.editTemplate': 'Edit',
   'ctl.addViewSettings': 'Add view',
@@ -457,6 +452,7 @@ export const en: Catalog = {
   'job.skip.placeholder': 'not downloaded',
   'job.skip.readOnly': 'read-only',
   'job.skip.io': 'could not be written',
+  'job.skip.taken': 'its place is taken', // D-849
   'job.open': 'Open',
   'job.retry': 'Retry',
   'job.retryOne': 'Retry {title}',
@@ -475,6 +471,13 @@ export const en: Catalog = {
   'typeMove.title.fixed': 'Title',
   'typeMove.tags.fixed': 'Tags',
   'job.typeMove.done': 'Now a {type}',
+  // 4E-2 (R99 D3, F2; ms4-jobs §14.9.8).
+  'job.valueRemove.running': 'Deleting {name} · {done} of {n}',
+  'job.valueRemove.done': { one: 'Deleted {name} · removed values from {count} note', other: 'Deleted {name} · removed values from {count} notes' },
+  'job.valueRemove.skipped': { one: '· {count} not changed (changed meanwhile)', other: '· {count} not changed (changed meanwhile)' }, // D-844
+  'job.typeDelete.running': 'Deleting {name} · {done} of {n}',
+  'job.typeDelete.done': 'Deleted {name} · {n} {plural} in the trash',
+  'job.typeDelete.keptType': { one: '{count} object was not changed, so the type was kept.', other: '{count} objects were not changed, so the type was kept.' }, // D-815
   'job.folderMove.running': 'Moving {plural} · {done} of {n}',
   'job.folderMove.done': 'Moved {n} {plural}',
   'job.folderMove.links': { one: 'updated links in {count} note', other: 'updated links in {count} notes' },
@@ -487,6 +490,8 @@ export const en: Catalog = {
   'ts.folderHelp4e': 'New objects go here.',
   'cmd.undoTypeChange': 'Undo type change',
   'cmd.undoMove': 'Undo move',
+  'cmd.undoValueRemove': 'Undo delete property', // R100 (ms4-jobs §14.9.4)
+  'cmd.undoTypeDelete': 'Undo delete type',
   'cmd.undoRename': 'Undo rename',
   'cmd.showNotUpdated': 'Show notes not updated', // D-737
   'search.typo': 'similar spelling',
@@ -701,7 +706,8 @@ export const en: Catalog = {
   'ts.dragOption': 'Drag to reorder {label}',
   'ts.usedBy': 'Used by {count}',
   'ts.addOption': 'Add option',
-  'ts.renameKeys': 'Renaming keys comes in v1.0',
+  'ts.renameKeys': "The key can't be changed after creation.", // D-806, D-846
+  'ts.widenFooter': 'Only a more general type; values stay as written.', // D-808, R99 E
   'ts.renameUsed': 'Renaming used options comes in v1.0',
   'ts.builtInLocked': "Built-in properties can't be changed",
   'ts.unsupported': "{type} isn't supported yet; the property is kept",
@@ -727,9 +733,14 @@ export const en: Catalog = {
   'newType.cancel': 'Cancel',
   'newType.exists': 'A type with this name already exists',
   'delProp.title': 'Delete property "{name}"?',
-  'delProp.keep': 'Keep values in notes',
-  'delProp.keepHelp': 'They stay in the files and show under Other properties.',
-  'delProp.remove': { one: 'Remove values from {count} note', other: 'Remove values from {count} notes' },
+  // R99 D (D-807, D-845): the counts are the core's plan; the `; <m> …` clause only when m > 0.
+  'delProp.removes': 'Removes the {key} line from {n} {plural}.',
+  'delProp.removesEmpty': { text: 'Removes the {key} line from {n} {plural}; {m}', m: { one: '{n} has no value and is not touched.', other: '{n} have no value and are not touched.' } },
+  'delProp.empty': { one: '{count} has no value and is not touched.', other: '{count} have no value and are not touched.' },
+  'delProp.backup': 'A backup of the vault is made first (Settings › Backups). Undo restores the values and the property.',
+  'delProp.none': 'No {singular} has a value. Only the type definition changes.',
+  'delProp.ok': 'Delete property',
+  'delProp.okCount': { one: 'Delete from {count} note', other: 'Delete from {count} notes' },
   'delProp.cancel': 'Cancel',
   'attrTypeChange.title': 'Change type of "{name}"?',
   'attrTypeChange.body': { one: "{count} object has a value that isn't valid for {type}. They stay unchanged in the files.", other: "{count} objects have values that aren't valid for {type}. They stay unchanged in the files." },
@@ -741,6 +752,15 @@ export const en: Catalog = {
   'removeOption.ok': 'Remove',
   'removeOption.cancel': 'Cancel',
   'deleteType.title': 'Delete type "{name}"?',
+  // R99 F1, F3 (D-809, D-842, D-845): the type's plural; the templates clause only when there are templates.
+  'deleteType.body': '{n} {plural} go to the trash with the type. Notes that link to them show moved to trash.',
+  'deleteType.bodyTemplates': { one: '{n} {plural} go to the trash with the type, and the {name} template. Notes that link to them show moved to trash.', other: '{n} {plural} go to the trash with the type, and the {count} {name} templates. Notes that link to them show moved to trash.' },
+  'deleteType.backup': 'A backup of the vault is made first (Settings › Backups). Undo brings the {plural} and the type back.',
+  'deleteType.okCount': 'Delete type and trash {n} {plural}',
+  'deleteType.section': 'Deleting {name} moves its {n} {plural} to the trash. To keep them, change their type first. A backup is made first.',
+  'deletedType.body': { one: '{name} was deleted. Its {count} object is in the trash.', other: '{name} was deleted. Its {count} objects are in the trash.' }, // R99 F2
+  'deletedType.undo': 'Undo',
+  'deletedType.openTrash': 'Open Trash',
   'deleteType.none': 'No objects use this type.',
   'deleteType.some': { one: '{count} object uses this type.', other: '{count} objects use this type.' },
   'deleteType.ok': 'Delete type',
@@ -1360,6 +1380,8 @@ export const en: Catalog = {
   'backups.label.typeMove': { one: 'Change type of {count} object to {type}', other: 'Change type of {count} objects to {type}' },
   'backups.label.folderMove': 'Move {plural} to {folder}',
   'backups.label.tidy': 'Tidy folders',
+  'backups.label.valueRemove': 'Delete property {name}', // ms4-jobs §14.9.1
+  'backups.label.typeDelete': 'Delete type {name}',
   'tag.duplicateWarning': 'Another Tag file for #{tag} exists: {path}. Merge them on Duplicate titles first.',
   'tag.unknownColour': 'Unknown colour "{value}"',
   'tag.renameTemplates': { text: 'Updates {count} and {templates}. A backup is made first.', count: { one: '{n} note', other: '{n} notes' }, templates: { one: '{n} template', other: '{n} templates' } },
