@@ -96,14 +96,28 @@ impl Inner {
             self.reverse_rows(run);
             return Ok(false);
         }
+        // D-858: a planned note whose `remove-key` changed nothing kept an entry an alias uses: skipped and listed.
+        for p in std::mem::take(&mut run.unchanged) {
+            run.skip(&p, SkipReason::ReadOnly);
+        }
         // §14.9.4: every row is a byte row, undone and redone directly (base-checked), also for a note written through its
         // editor or opened after the job (QA 4E-2 M1): the reverse of `remove-key` is not an op.
         for w in run.undo.files.iter_mut() {
             w.via_op = false;
             w.direct = true;
         }
-        let Some((tp, base)) = run.type_base.clone() else { return Err(format!("{}: no type file", type_path(r#type))) };
-        let pre = host.read(&tp).map_err(|e| format!("{tp}: {e:?}"))?;
+        // D-857: a type file that can't be written (changed or gone since planning) reverses the job: vault as before.
+        let Some((tp, base)) = run.type_base.clone() else {
+            self.reverse_rows(run);
+            return Err(format!("{}: no type file", type_path(r#type)));
+        };
+        let pre = match host.read(&tp) {
+            Ok(x) => x,
+            Err(e) => {
+                self.reverse_rows(run);
+                return Err(format!("{tp}: {e:?}"));
+            }
+        };
         match host.remove_property(r#type, key_, &base) {
             Ok(post_v) => {
                 let post = host.read(&tp).map(|(b, _)| b).unwrap_or_default();
@@ -111,7 +125,10 @@ impl Inner {
                 run.undo.files.push(Written { before: tp.clone(), after: tp, pre: pre.0, pre_v: pre.1, post, post_v, via_op: false, direct: false, trashed: None });
                 Ok(true)
             }
-            Err(e) => Err(format!("{tp}: {}", reason_text(&e))),
+            Err(e) => {
+                self.reverse_rows(run);
+                Err(format!("{tp}: {}", reason_text(&e)))
+            }
         }
     }
 
@@ -190,6 +207,18 @@ impl Inner {
             run.kept_type = true; // D-815: the definition and templates stay
             return Ok(true);
         }
+        // D-857: templates or a definition that can't be trashed reverse the job (the objects come back), then it fails.
+        if let Err(e) = self.trash_type_files(run, plan, r#type) {
+            self.reverse_rows(run);
+            return Err(e);
+        }
+        host.types_changed();
+        Ok(true)
+    }
+
+    /// The templates folder, then the type file (D-809: the definition last).
+    fn trash_type_files(&self, run: &mut Run, plan: &JobPlan, r#type: &str) -> Result<(), String> {
+        let host = self.host();
         if plan.counts.templates > 0 {
             let dir = templates_dir(host.as_ref(), r#type);
             if let Some(to) = host.trash_dir(&dir).map_err(|e| format!("{dir}: {}", reason_text(&e)))? {
@@ -201,8 +230,7 @@ impl Inner {
         let v = host.version(&tp).ok_or_else(|| format!("{tp}: missing"))?;
         let to = host.trash(&tp, &v).map_err(|e| format!("{tp}: {}", reason_text(&e)))?;
         self.trashed_row(run, &tp, &to, v);
-        host.types_changed();
-        Ok(true)
+        Ok(())
     }
 
     fn trashed_row(&self, run: &mut Run, from: &str, to: &str, v: crate::FileVersion) {

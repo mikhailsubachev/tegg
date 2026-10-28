@@ -1337,7 +1337,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         } else {
           const cur = files[p];
           const out = await w.__teggJobs('transform', { source: p, text: cur, ops: f.ops }, files);
-          if (out === null || out === cur) report.unchanged.push(p);
+          // D-858: a planned note `remove-key` doesn't change kept an entry an alias uses: skipped and listed.
+          if (out === null || out === cur) report.skipped.push({ path: p, reason: 'readOnly' });
           else { jobs.write(p, out); report.written.push(p); rows.push({ before: p, after: p, pre: cur, post: out }); }
         }
         await progress('writing', ++n, total);
@@ -1346,7 +1347,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       if (plan.kind === 'value-remove') {
         const tp = plan.typePath;
         const pre = files[tp];
-        await viaNode('type_patch')({ key: plan.type, base: state.ver(tp), ops: [{ op: 'removeAttribute', key: plan.key }] });
+        // D-857: a type file that can't be written reverses the job, which then fails with the vault as before.
+        try { await viaNode('type_patch')({ key: plan.type, base: state.ver(tp), ops: [{ op: 'removeAttribute', key: plan.key }] }); }
+        catch (e) { reverse(); return finish('failed', total, zip, `fake: ${tp}: ${String((e as any)?.message ?? e)}`); }
         rows.push({ before: tp, after: tp, pre, post: files[tp] });
         report.written.push(tp);
       } else if (report.skipped.length) report.keptType = true; // D-815: the definition and templates stay
