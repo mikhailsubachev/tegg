@@ -147,6 +147,16 @@ test('fr_sto_01_ac13_progress_and_restore_on_500_objects_in_the_real_app', { tim
       if (!progress) await sleep(50);
     }
     assert.ok(progress, 'status `Moving knihy · <done> of 500` while writing (FR-UX-07 AC-8)');
+    // QA 4E-1 6 F1 (c): the real app's event stream (one `vault:changed` per file) is measured here, not at L5: the done
+    // status must show within 10 s of the last file landing, so a page held up by re-reads fails.
+    let doneAt = 0;
+    const watch = (async () => {
+      const end = Date.now() + 200_000;
+      while (Date.now() < end && !doneAt) {
+        if ((await d.$$(`-ios predicate string:${textContains('Moved 500 knihy')}`).catch(() => [] as any[])).length > 0) doneAt = Date.now();
+        else await sleep(100);
+      }
+    })();
     let moved = 0;
     const endAt = Date.now() + 180_000;
     while (Date.now() < endAt && moved < OBJECTS) {
@@ -155,6 +165,10 @@ test('fr_sto_01_ac13_progress_and_restore_on_500_objects_in_the_real_app', { tim
       if (moved < OBJECTS) await sleep(500);
     }
     assert.equal(moved, OBJECTS, 'all 500 moved');
+    const movedAt = Date.now();
+    await watch;
+    assert.ok(doneAt > 0, 'status `Moved 500 knihy` (FR-STO-01 AC-8 text, FR-UX-07 AC-8)');
+    assert.ok(doneAt - movedAt < 10_000, `status within 10 s of the last move (${doneAt - movedAt} ms)`);
     palette('Go to Settings: Backups');
     await (await need(d, 'Restore "Move knihy to Četba"…', 5000)).click();
     await (await need(d, 'Restore', 3000)).click();
