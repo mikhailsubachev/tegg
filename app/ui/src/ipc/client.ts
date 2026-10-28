@@ -79,6 +79,12 @@ export const ipc = {
   typeGet: (key: string) => invoke<TypeDto | null>('type_get', { key }),
   typeCreate: (name: string, plural: string, folder?: string) => invoke<TypeDto>('type_create', { name, plural, folder: folder ?? null }),
   typePatch: (key: string, base: VersionDto | null, ops: TypeOpDto[]) => invoke<TypeDto>('type_patch', { key, base, ops }),
+  // 4E-1 (ms4-jobs §14.7).
+  typeMovePlan: (paths: string[], toType: string) => invoke<{ rows: { from: string; name: string; kind: string; value: string | null; default: string; offered: string[]; fixed: boolean }[]; needsDialog: boolean; targetNames: Record<string, string> }>('type_move_plan', { paths, toType }),
+  typeMove: (paths: string[], toType: string, mapping: { from: string; to: string }[], review: boolean) => invoke<{ jobId: number | null }>('type_move', { paths, toType, mapping, review }),
+  folderMovePreview: (type: string, folder: string) => invoke<{ count: number }>('folder_move_preview', { type, folder }),
+  tidyNow: () => invoke<{ jobId: number | null }>('tidy_now', {}),
+  jobsReady: () => invoke<null>('jobs_ready', {}),
   typeDelete: (key: string, base: VersionDto) => invoke<string[]>('type_delete', { key, base }),
   typeTemplate: (key: string) => invoke<TypeTemplateDto | null>('type_template', { key }),
   typeUsage: (type: string) => invoke<TypeUsageDto>('type_usage', { type }),

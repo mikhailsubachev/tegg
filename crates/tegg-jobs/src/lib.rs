@@ -292,7 +292,7 @@ pub enum TextOp {
     KeepTargets { from_path: String, to_path: String, paths: Vec<String> },
     /// ms4-jobs §14.3 (D-826, D-829): a type move's own type change: `type` and, unless `now` is `None` (a template),
     /// `modified`; never `review`.
-    ChangeType { r#type: String, now: Option<String> },
+    ChangeType { r#type: String, now: Option<String>, id: Option<String> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -380,6 +380,8 @@ pub struct JobReport {
     pub unchanged: Vec<String>,
     pub skipped: Vec<Skipped>,
     pub error: Option<String>,
+    /// ms4-jobs §14.7 (4E-1): every (from, to) a type or folder move really made.
+    pub moved: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

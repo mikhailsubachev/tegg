@@ -80,7 +80,17 @@ export function ChangeTypeDialog({ plan, fromName, toName, targetNames, onConfir
               <li key={r.from} className="type-map-row" data-empty={empty ? 'true' : undefined} aria-disabled={empty ? 'true' : undefined}>
                 <span data-user-content>{r.name}</span>
                 <select aria-label={label} disabled={r.fixed || empty} value={map[r.from]}
-                  onChange={(e) => setMap((m) => ({ ...m, [r.from]: e.target.value }))}>
+                  onChange={(e) => setMap((m) => ({ ...m, [r.from]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    // The menu works without opening the native popup: ↑/↓ change the choice, ⏎ keeps it (FR-UX-03 AC-18).
+                    const keys = ['content', ...offered];
+                    const at = keys.indexOf(map[r.from]);
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      const next = keys[Math.min(keys.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)))];
+                      setMap((m) => ({ ...m, [r.from]: next }));
+                    } else if (e.key === 'Enter') e.preventDefault();
+                  }}>
                   {r.fixed
                     ? <option value={r.default}>{names[r.default] ?? r.default}</option>
                     : <>

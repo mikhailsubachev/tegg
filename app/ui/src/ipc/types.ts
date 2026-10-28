@@ -348,7 +348,11 @@ export type JobReportDto = { jobId: number, kind: string,
 /**
  * `done` | `cancelled` | `failed`.
  */
-phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<string>, skipped: Array<SkippedDto>, error?: string, };
+phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<string>, skipped: Array<SkippedDto>, error?: string, 
+/**
+ * ms4-jobs §14.7: the moves of a `type-move` or `folder-move` job.
+ */
+moved: Array<RenamedDto>, };
 export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };

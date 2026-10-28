@@ -144,6 +144,10 @@ pub trait Host: Send + Sync {
     fn set_local_exempt(&self, ids: &[String]) {
         let _ = ids;
     }
+    /// A new object id (ULID), for a file without one that gets a type (D-174).
+    fn new_id(&self) -> String {
+        String::new()
+    }
     /// The matched type key of the note at `path` (D-239); `None` for a file without `type` (FR-TYP-10).
     fn type_of(&self, path: &str) -> Option<String> {
         let _ = path;

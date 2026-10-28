@@ -94,3 +94,20 @@ impl Core {
         TypeMovePlan { rows, needs_dialog }
     }
 }
+
+impl Core {
+    /// `folder_move_preview` (R99 B1): how many objects of `r#type` saving `folder` would move (outside the folder and
+    /// its subfolders; no templates, no `.trash/`, only objects whose `type` is written).
+    pub fn folder_move_count(&self, r#type: &str, folder: &str) -> usize {
+        let k = type_key(r#type);
+        let f = nfc(folder.trim_matches('/')).to_lowercase();
+        self.objects()
+            .into_iter()
+            .filter(|o| o.r#type == k && o.type_raw.is_some())
+            .filter(|o| {
+                let p = nfc(&o.path).to_lowercase();
+                !p.starts_with("_templates/") && !p.starts_with(".trash/") && !(f.is_empty() || p.starts_with(&format!("{f}/")))
+            })
+            .count()
+    }
+}

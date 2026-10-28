@@ -344,6 +344,10 @@ impl Host for CoreHost {
         let _ = tegg_vault::write_local_file(&p, v.to_string().as_bytes());
     }
 
+    fn new_id(&self) -> String {
+        crate::media6a::ulid(std::time::SystemTime::now())
+    }
+
     fn type_of(&self, path: &str) -> Option<String> {
         let o = lock(&self.shared.index).object(&nfc(path))?;
         o.type_raw.is_some().then_some(o.r#type)

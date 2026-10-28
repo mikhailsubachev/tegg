@@ -11,7 +11,8 @@ import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
 import { fixDailyTitle, parse, parseDate, setAttribute, setValue, transform, type TextOp } from '@tegg/doc';
-import { lastRenameOf, onMoved, redoLast, renameNote, undoLast } from '../jobs/jobs';
+import { lastJobOf, moveNotes, onMoved, redoLast, renameNote, undoLast, undoMove } from '../jobs/jobs';
+import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
 import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
@@ -185,6 +186,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const titleRef = useRef('');
   titleRef.current = title;
   const [diskText, setDiskText] = useState<string>('');
+  const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; toName: string } | null>(null);
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
   const [focusTarget, setFocusTarget] = useState<'body' | 'title' | 'heading' | null>(null);
@@ -673,10 +675,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   /** True from a rename, undo or redo of this note until the next edit: ⌘Z / ⇧⌘Z then undo / redo it (FR-LNK-03 AC-14). */
   const onRenameKey = (e: React.KeyboardEvent) => {
     if (!e.metaKey || e.key.toLowerCase() !== 'z' || !fresh.current || (edRef.current?.historyDepth() ?? 0) > freshDepth.current) return;
-    const l = lastRenameOf(live.current.path);
+    const l = lastJobOf(live.current.path);
     if (!l) return;
-    if (!e.shiftKey && !l.undone) { e.preventDefault(); e.stopPropagation(); void undoLast(); }
-    else if (e.shiftKey && l.undone) { e.preventDefault(); e.stopPropagation(); void redoLast(); }
+    // 4E-1 (D-812): right after a type change, ⌘Z / ⇧⌘Z undo / redo its job.
+    if (!e.shiftKey && !l.undone) { e.preventDefault(); e.stopPropagation(); void (l.move ? undoMove(l.jobId, true) : undoLast()); }
+    else if (e.shiftKey && l.undone) { e.preventDefault(); e.stopPropagation(); void (l.move ? undoMove(l.jobId, false) : redoLast()); }
   };
   // A job moved this note (rename, undo, redo): the page stays, its editor saves at the new path; unsaved text gets
   // the same title and self-link change (FR-FMT-08 AC-5, FR-LNK-03 AC-18).
@@ -895,6 +898,30 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
+  // 4E-1 (D-804, ms4-jobs §14.7): a type change is a `type-move` job: the core's R101 plan, the mapping dialog when a
+  // property needs an answer, then the move. Templates and unsaved drafts keep the in-place change (D-829, D-520).
+  const changeType = async (key: string) => {
+    const p = live.current.path;
+    if (isDraft() || p.startsWith('_templates/')) { commit((d) => setValue(d, 'type', key)); return; }
+    const plan = await ipc.typeMovePlan([p], key).catch(() => null);
+    if (!plan) { commit((d) => setValue(d, 'type', key)); return; }
+    const toName = types.find((x) => x.key === key)?.name ?? key;
+    if (plan.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: plan.targetNames, key, toName });
+    else void startMove(key, toName, []);
+  };
+  const startMove = async (key: string, toName: string, map: { from: string; to: string }[]) => {
+    const p = live.current.path;
+    const sv = saver.current;
+    await sv?.flush();
+    sv?.hold(); // ms4-jobs §9: no write to the old path while the job moves the note
+    const reload = async () => {
+      // The type changed in place (the note was already in its new type's folder): the editor takes the new bytes.
+      const n = await ipc.noteRead(p).catch(() => null);
+      if (n && sv) { sv.moved(p, n.version); edRef.current?.reload(n.text); setDiskText(n.text); onMeta(noteMeta(p, n.text)); }
+      else sv?.release();
+    };
+    void moveNotes([p], key, toName, map, false, (r) => { if (!r?.renamed) void reload(); }).catch(() => sv?.release());
+  };
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
   // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
   const reviewShown = !daily && !draft && editable && !showSource && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
@@ -928,7 +955,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       <div className="note-column" data-width={pageWidth}>
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
-            onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />
+            onChange={(key) => { void changeType(key); }} onOpenType={onType} />
+          {mapping && (
+            <ChangeTypeDialog plan={mapping.plan} fromName={chipType?.name ?? chipKey} toName={mapping.toName} targetNames={mapping.names}
+              onCancel={() => setMapping(null)}
+              onConfirm={(m) => { const x = mapping; setMapping(null); void startMove(x.key, x.toName, m); }} />
+          )}
           {reviewToggle && <span className="spacer" />}
           {reviewToggle}
         </div>

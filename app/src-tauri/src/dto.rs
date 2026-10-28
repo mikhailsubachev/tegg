@@ -886,6 +886,8 @@ pub struct JobReportDto {
     #[ts(optional)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// ms4-jobs §14.7: the moves of a `type-move` or `folder-move` job.
+    pub moved: Vec<RenamedDto>,
 }
 
 /// `outcome`: `written` | `unchanged` | `skipped`.

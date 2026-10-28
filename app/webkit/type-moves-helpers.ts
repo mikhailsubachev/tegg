@@ -54,7 +54,8 @@ export async function openMoves(page: Page, o: MovesStart = {}): Promise<FakeCor
   const vault = o.vault ?? movesVault();
   const at = o.at ? nfc(o.at) : null;
   const id = at ? (/^id: (\S+)$/m.exec(vault.files[at] ?? '')?.[1] ?? null) : null;
-  const core = await start(page, { vault, last: at ? { path: at, id } : null, ...o });
+  // The tidy job runs as in the app (a core with its watcher, D-819).
+  const core = await start(page, { vault, last: at ? { path: at, id } : null, tidy: true, ...o });
   if (at && TITLES[at]) await mustBeOn(page, TITLES[at], `landing on ${at}`, 5000);
   return core;
 }

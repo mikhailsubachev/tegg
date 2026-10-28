@@ -10,12 +10,17 @@ export type SkipRow = { jobId: number; path: string; title: string; reason: stri
 /** A finished rename, undo or redo that moved a note (the open note page follows it). */
 export type Moved = { jobId: number; from: string; to: string };
 
-/** `text`: a 4D-lite job's own status line (no Undo, D-395). */
-type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean } | null;
+/** `text`: a 4D-lite job's own status line (no Undo, D-395). `undo`: a 4E-1 job the status can undo (D-812); `show`:
+ *  the status opens the not-updated list. */
+type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean; undo?: number; show?: boolean } | null;
 type Tracked = {
-  kind: 'rename' | 'undo' | 'redo' | 'confirmed'; of?: number; path: string; done?: (r: JobReportDto | null) => void;
+  kind: 'rename' | 'undo' | 'redo' | 'confirmed' | 'move'; of?: number; path: string; done?: (r: JobReportDto | null) => void;
   running?: (count: number) => string; doneText?: (r: JobReportDto) => string | null; count?: number;
+  /** 4E-1: the move's kind, and the target type's name for `Now a <Type>`. */
+  moveKind?: 'type-move' | 'folder-move'; typeName?: string; folderType?: string;
 };
+/** 4E-1: a type as the move status texts name it (R99: the Name for 1, the plural otherwise, in lower case). */
+export type MoveType = { key: string; name: string; plural: string; folder: string };
 
 type State = {
   status: Status;
@@ -23,13 +28,21 @@ type State = {
   listOpen: boolean;
   /** The last rename that wrote something, for `Undo rename`; `redo` once it is undone. */
   last: { jobId: number; path: string; undone: boolean } | null;
+  /** 4E-1 (D-812): the last type or folder move, for ⌘Z in the moved note, `Undo type change` and `Undo move`. */
+  lastMove: { jobId: number; kind: 'type-move' | 'folder-move'; path: string | null; undone: boolean } | null;
 };
 
-let state: State = { status: null, rows: [], listOpen: false, last: null };
+let state: State = { status: null, rows: [], listOpen: false, last: null, lastMove: null };
+let moveTypes: MoveType[] = [];
+/** A folder save the UI asked for: the next folder-move job the core starts is that one (D-822). */
+let pendingFolder: string | null = null;
 const listeners = new Set<() => void>();
 const progressListeners = new Set<(p: JobProgressDto) => void>();
 const movedListeners = new Set<(m: Moved) => void>();
 const tracked = new Map<number, Tracked>();
+const seenMove = new Set<number>();
+/** While the UI starts a move or an undo itself, early events of its job aren't taken for a core-started move. */
+let claiming = 0;
 /** The last progress of every job, for a job whose events came before `note_rename` answered. */
 const seen = new Map<number, JobProgressDto>();
 let started = false;
@@ -54,9 +67,24 @@ export function startJobs(): void {
 }
 
 async function onProgress(p: JobProgressDto) {
-  const t = tracked.get(p.jobId);
+  let t = tracked.get(p.jobId);
+  // 4E-1: a move the core started (the tidy job, a folder save inside `type_patch`) is followed from its first event.
+  if (!t && (p.kind === 'folder-move' || p.kind === 'type-move') && !seenMove.has(p.jobId) && claiming === 0) {
+    seenMove.add(p.jobId);
+    t = { kind: 'move', path: '', moveKind: p.kind, folderType: p.kind === 'folder-move' ? pendingFolder ?? undefined : undefined };
+    if (p.kind === 'folder-move') pendingFolder = null;
+    tracked.set(p.jobId, t);
+  }
   if (!t) return;
   if (t.kind === 'confirmed') return confirmedProgress(p, t);
+  if (t.kind === 'move') return moveProgress(p, t);
+  if (t.kind === 'undo' && t.moveKind) {
+    if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
+    tracked.delete(p.jobId);
+    const rep = await ipc.jobReport(p.jobId).catch(() => null);
+    t.done?.(rep);
+    return;
+  }
   const others = Math.max(0, p.total - 1);
   if (p.phase === 'writing' && others > 0 && t.kind === 'rename') set({ status: { phase: 'running', count: others, jobId: p.jobId } });
   if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
@@ -177,6 +205,124 @@ export function onMoved(f: (m: Moved) => void): () => void {
   return () => { movedListeners.delete(f); };
 }
 
+// ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.8, R99 A, B2; D-804, D-805, D-812)
+
+const typeWord = (t: MoveType | undefined, n: number) => (t ? (n === 1 ? t.name : t.plural) : '').toLocaleLowerCase();
+const typeOfPath = (p: string) => {
+  const f = p.normalize('NFC').toLowerCase();
+  return [...moveTypes].sort((a, b) => b.folder.length - a.folder.length).find((t) => t.folder && f.startsWith(`${t.folder.normalize('NFC').toLowerCase()}/`));
+};
+
+/** The types the move status texts name (App keeps it current). */
+export function setMoveTypes(types: MoveType[]): void {
+  moveTypes = types;
+}
+
+/** Type settings is about to save a new folder for `typeKey` (D-822): the folder-move job that follows is named by it. */
+export function expectFolderMove(typeKey: string): void {
+  pendingFolder = typeKey;
+}
+
+async function moveProgress(p: JobProgressDto, t: Tracked) {
+  const type = moveTypes.find((x) => x.key === t.folderType);
+  if (t.moveKind === 'folder-move' && type && !['done', 'cancelled', 'failed'].includes(p.phase)) {
+    // The job can be cancelled until it writes (ms4-jobs §14.1: planning, backup).
+    const n = p.total;
+    set({ status: { phase: 'running', count: n, jobId: p.jobId, text: t_('job.folderMove.running', { plural: typeWord(type, n), done: p.done, n }), cancel: p.phase !== 'writing' } });
+  }
+  if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
+  tracked.delete(p.jobId);
+  const r = await ipc.jobReport(p.jobId).catch(() => null);
+  moveFinished(p.jobId, t, r);
+}
+
+function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
+  if (!r) { if (state.status?.jobId === jobId) set({ status: null }); t.done?.(null); return; }
+  const rows = state.rows.filter((x) => !r.skipped.some((s) => s.path.normalize('NFC') === x.path.normalize('NFC')));
+  for (const s of r.skipped) rows.push({ jobId, path: s.path.normalize('NFC'), title: stem(s.path), reason: s.reason });
+  const moved = r.moved ?? [];
+  const patch: Partial<State> = { rows };
+  let text: string | null = null;
+  let show = false;
+  const failed = r.phase === 'failed' && /BackupFailed/.test(r.error ?? '');
+  if (r.phase === 'done' && t.moveKind === 'type-move') text = t.typeName ? t_('job.typeMove.done', { type: t.typeName }) : null;
+  else if (r.phase === 'done' && moved.length > 0) {
+    // Moved notes by their new type, in the order they were moved.
+    const groups: { type: MoveType | undefined; n: number }[] = [];
+    for (const m of moved) {
+      const ty = t.folderType ? moveTypes.find((x) => x.key === t.folderType) : typeOfPath(m.to);
+      const g = groups.find((x) => x.type?.key === ty?.key);
+      if (g) g.n++; else groups.push({ type: ty, n: 1 });
+    }
+    const [a, b] = groups;
+    const changed = r.written.filter((w) => !moved.some((m) => m.to.normalize('NFC') === w.normalize('NFC'))).length;
+    if (r.skipped.length) { text = t_('job.folderMove.skipped', { n: a.n, plural: typeWord(a.type, a.n), k: r.skipped.length }); show = true; }
+    else if (t.folderType) text = t_('job.folderMove.done', { n: a.n, plural: typeWord(a.type, a.n) }) + (changed ? ` · ${t_('job.folderMove.links', { count: changed })}` : '');
+    else if (b) text = t_('job.folderMove.tidy', { n: a.n, plural: typeWord(a.type, a.n), k: b.n, plural2: typeWord(b.type, b.n) });
+    else text = t_('job.folderMove.tidyOne', { n: a.n, plural: typeWord(a.type, a.n) });
+  } else if (failed) text = t_('job.backupFailed');
+  const undoable = r.phase === 'done' && (moved.length > 0 || r.written.length > 0);
+  if (undoable) patch.lastMove = { jobId, kind: t.moveKind ?? 'type-move', path: r.renamed?.to?.normalize('NFC') ?? (r.written[0] ?? null), undone: false };
+  if (text) {
+    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed, undo: undoable ? jobId : undefined, show };
+    if (doneTimer) clearTimeout(doneTimer);
+    doneTimer = setTimeout(() => { if (state.status?.jobId === jobId) set({ status: null }); }, 5000);
+  } else if (state.status?.jobId === jobId) patch.status = null;
+  set(patch);
+  if (r.renamed) for (const f of movedListeners) f({ jobId, from: r.renamed.from.normalize('NFC'), to: r.renamed.to.normalize('NFC') });
+  t.done?.(r);
+}
+
+/** `type_move` (D-804): one or more notes to `toType` with the dialog's mapping; `review` for an Inbox convert. */
+export async function moveNotes(paths: string[], toType: string, toName: string, mapping: { from: string; to: string }[], review: boolean, done?: (r: JobReportDto | null) => void): Promise<number | null> {
+  startJobs();
+  claiming++;
+  const { jobId } = await ipc.typeMove(paths, toType, mapping, review).finally(() => { claiming--; });
+  if (jobId === null) { done?.(null); return null; }
+  const t: Tracked = { kind: 'move', path: paths[0] ?? '', moveKind: 'type-move', typeName: toName, done };
+  seenMove.add(jobId);
+  tracked.set(jobId, t);
+  const rep = await ipc.jobReport(jobId).catch(() => null);
+  if (rep && tracked.has(jobId)) { tracked.delete(jobId); moveFinished(jobId, t, rep); }
+  return jobId;
+}
+
+/** Undoes (or redoes) a 4E-1 job; the status's `Undo`, ⌘Z / ⇧⌘Z in the moved note, the palette commands. */
+export async function undoMove(jobId: number, back = true): Promise<number | null> {
+  startJobs();
+  claiming++;
+  const r = await (back ? ipc.jobUndo(jobId) : ipc.jobRedo(jobId)).catch(() => null).finally(() => { claiming--; });
+  if (!r) return null;
+  const lm = state.lastMove;
+  const t: Tracked = { kind: 'move', path: '', moveKind: lm?.kind, done: (rep) => {
+    if (rep && rep.phase === 'done' && state.lastMove?.jobId === jobId) set({ lastMove: { ...state.lastMove, undone: back, path: rep.renamed?.to?.normalize('NFC') ?? state.lastMove.path } });
+    if (rep?.renamed) for (const f of movedListeners) f({ jobId: r.jobId, from: rep.renamed.from.normalize('NFC'), to: rep.renamed.to.normalize('NFC') });
+  } };
+  if (state.status?.undo === jobId) set({ status: null });
+  seenMove.add(r.jobId);
+  tracked.set(r.jobId, { ...t, kind: 'undo', of: jobId });
+  const rep = await ipc.jobReport(r.jobId).catch(() => null);
+  if (rep && tracked.has(r.jobId)) { tracked.delete(r.jobId); t.done?.(rep); }
+  return r.jobId;
+}
+
+/** The palette's `Undo type change` / `Undo move` (R100, D-830): only while that kind is the last undoable move. */
+export function undoLastMove(kind: 'type-move' | 'folder-move'): void {
+  const l = state.lastMove;
+  if (l && l.kind === kind && !l.undone) void undoMove(l.jobId, true);
+}
+
+/** The last undoable job (rename or type move) of the note at `path`, for ⌘Z / ⇧⌘Z right after it. */
+export function lastJobOf(path: string): { jobId: number; undone: boolean; move: boolean } | null {
+  const p = path.normalize('NFC');
+  const m = state.lastMove;
+  const r = state.last;
+  const mm = m && m.kind === 'type-move' && m.path === p ? m : null;
+  const rr = r && r.path.normalize('NFC') === p ? r : null;
+  if (mm && (!rr || mm.jobId > rr.jobId)) return { jobId: mm.jobId, undone: mm.undone, move: true };
+  return rr ? { jobId: rr.jobId, undone: rr.undone, move: false } : null;
+}
+
 export function useJobs(): State {
   return useSyncExternalStore(
     (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
@@ -187,7 +333,7 @@ export function useJobs(): State {
 /** A vault switch forgets the list and the undo entry (D-385, D-398). */
 export function resetJobs(): void {
   tracked.clear();
-  set({ status: null, rows: [], listOpen: false, last: null });
+  set({ status: null, rows: [], listOpen: false, last: null, lastMove: null });
 }
 
 // ---------------------------------------------------------------- 4D-lite (ms4-tags §4.4): jobs a dialog confirmed

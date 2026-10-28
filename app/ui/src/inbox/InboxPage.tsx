@@ -19,6 +19,8 @@ import { DEFAULT_METRICS, cardTop, columns, windowOf, type Metrics } from './vir
 import { inboxGroups, inboxOrder, type InboxGroup } from './bucket';
 import { cardFooter, cardTags } from './card';
 import { useTagLook } from '../tags/store';
+import { moveNotes } from '../jobs/jobs';
+import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
 
 const ORDER = ['page', 'task', 'quick-note', 'daily-note'];
 const GROUPS: [InboxGroup, string][] = [['today', 'inbox.group.today'], ['yesterday', 'inbox.group.yesterday'], ['week', 'inbox.group.week'], ['older', 'inbox.group.older']];
@@ -206,15 +208,36 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   };
   const isMember = (r: InboxRowDto) => r.reviewRaw === 'unreviewed' || ((r.type === 'quick-note' || r.type === 'daily-note') && r.reviewRaw !== 'reviewed');
 
+  // 4E-1 (D-803, D-804, D-813): a convert is a `type-move` job with `review: reviewed`; the mapping dialog first when a
+  // property needs an answer; a bulk convert asks once for the type pair.
+  const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; fromName: string; go: (m: { from: string; to: string }[]) => void } | null>(null);
+  const withMapping = async (paths: string[], key: string, fromKey: string, go: (m: { from: string; to: string }[]) => void) => {
+    const plan = await ipc.typeMovePlan(paths, key).catch(() => null);
+    if (plan?.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: plan.targetNames, key, fromName: typeName(fromKey), go });
+    else go([]);
+  };
   const convert = async (r: InboxRowDto, key: string) => {
     setMenu(null);
     if (r.readOnly || r.type === 'daily-note') return;
-    const res = await changeItem(r.path, r.version, { op: 'set-type', type: key, now: localIso(Date.now()) });
-    if (!res.ok) return outcomeAlert(r, res.reason, () => void convert({ ...r }, key));
-    setKept((m) => new Map(m).set(nfc(r.path), { ...r, type: key, reviewRaw: 'reviewed' }));
-    say(t('inbox.done.converted', { title: r.title, type: typeName(key) }));
-    focusCard(r.path);
-    void load();
+    await withMapping([r.path], key, r.type, (m) => {
+      void moveNotes([r.path], key, typeName(key), m, true, (rep) => {
+        if (!rep || rep.phase !== 'done' || rep.skipped.length) { alert(t('inbox.saveFailed', { title: r.title })); void load(); return; }
+        setKept((x) => new Map(x).set(nfc(rep.renamed?.to ?? r.path), { ...r, path: rep.renamed?.to ?? r.path, type: key, reviewRaw: 'reviewed' }));
+        say(t('inbox.done.converted', { title: r.title, type: typeName(key) }));
+        void load();
+      }).catch(() => alert(t('inbox.saveFailed', { title: r.title })));
+    });
+  };
+  const convertMany = async (paths: string[], key: string, label: string) => {
+    const editable = paths.filter((p) => !rowOf(p)?.readOnly);
+    if (editable.length === 0) return;
+    await withMapping(editable, key, rowOf(editable[0])?.type ?? 'page', (m) => {
+      setSelection([]);
+      void moveNotes(editable, key, label, m, true, (rep) => {
+        if (rep && rep.written.length > 0) say(t('inbox.done.many', { count: rep.moved?.length || rep.written.length }));
+        void load();
+      }).catch(() => alert(t('inbox.saveFailed', { title: label })));
+    });
   };
 
   const rowOf = (p: string) => all.find((r) => nfc(r.path) === nfc(p));
@@ -430,6 +453,10 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
 
   return (
     <div className="page-column inbox-page">
+      {mapping && (
+        <ChangeTypeDialog plan={mapping.plan} fromName={mapping.fromName} toName={typeName(mapping.key)} targetNames={mapping.names}
+          onCancel={() => setMapping(null)} onConfirm={(m) => { const x = mapping; setMapping(null); x.go(m); }} />
+      )}
       <div className="inbox-header">
         <h1 ref={heading} tabIndex={-1}>{t('inbox.title')}</h1>
         {rows && members.length + kept.size > 0 && (
@@ -484,7 +511,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
                     {targets(null).map((x) => (
                       <button key={x.key} type="button" role="menuitem" tabIndex={-1} className="capture-menu-item" onClick={() => {
                         setBulkConvert(false);
-                        void runBulk(selection.filter((p) => rowOf(p)?.type !== 'daily-note'), { op: 'set-type', type: x.key, now: localIso(Date.now()) }, x.name);
+                        void convertMany(selection.filter((p) => rowOf(p)?.type !== 'daily-note'), x.key, x.name);
                       }}><span data-user-content>{x.name}</span></button>
                     ))}
                   </div>

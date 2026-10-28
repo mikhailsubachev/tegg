@@ -28,7 +28,7 @@ export type TextOp =
   | { op: 'map-properties'; map: { from: string; to: string | 'content' }[]; labels: Record<string, string> }
   | { op: 'keep-targets'; fromPath: string; toPath: string; paths: string[] }
   // A type move's own type change: `type` and, unless `now` is null (a template, D-829), `modified`; never `review` (D-826).
-  | { op: 'change-type'; type: string; now: string | null }
+  | { op: 'change-type'; type: string; now: string | null; id?: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -79,7 +79,13 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   for (const op of ops) {
     if (op.op === 'map-properties') patches.push(...mapPatches(doc, op))
     else if (op.op === 'keep-targets') patches.push(...keepPatches(doc, op))
-    else if (op.op === 'change-type') patches.push(...entryPatches(doc, op.now === null ? [['type', op.type]] : [['type', op.type], ['modified', { datetime: op.now }]]))
+    else if (op.op === 'change-type') {
+      // D-174: the edited key, then the identity keys a file without them gets (`id`, `modified`).
+      const vals: [string, Value][] = [['type', op.type]]
+      if (op.id && !doc.frontmatter?.entries.some((e) => e.key === 'id')) vals.push(['id', op.id])
+      if (op.now !== null) vals.push(['modified', { datetime: op.now }])
+      patches.push(...entryPatches(doc, vals))
+    }
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
     else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
     else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))

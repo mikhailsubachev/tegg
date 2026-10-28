@@ -98,7 +98,7 @@ impl Inner {
             };
             // D-829: a template gets only its type line; no mapping, no `modified`, no move.
             if excluded(&p) {
-                files.push(PlannedFile { path: p, version, ops: vec![TextOp::ChangeType { r#type: to_type.to_string(), now: None }] });
+                files.push(PlannedFile { path: p, version, ops: vec![TextOp::ChangeType { r#type: to_type.to_string(), now: None, id: None }] });
                 continue;
             }
             let schema = host.type_of(&p).map(|t| host.schema(&t)).unwrap_or_default();
@@ -113,7 +113,9 @@ impl Inner {
                     labels: schema.iter().map(|s| (s.key.clone(), s.name.clone())).collect(),
                 });
             }
-            ops.push(TextOp::ChangeType { r#type: to_type.to_string(), now: Some(now.clone()) });
+            // D-174: a file without an `id` (an Obsidian note) gets one with its type.
+            let id = host.read(&p).ok().filter(|(b, _)| extract(b, &stem_of(&p)).id.is_none()).map(|_| host.new_id()).filter(|i| !i.is_empty());
+            ops.push(TextOp::ChangeType { r#type: to_type.to_string(), now: Some(now.clone()), id });
             if review {
                 ops.push(TextOp::SetReview { value: "reviewed".into(), now: now.clone() });
             }

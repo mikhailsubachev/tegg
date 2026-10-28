@@ -668,6 +668,7 @@ impl Inner {
             unchanged: run.unchanged.clone(),
             skipped: run.skipped.clone(),
             error,
+            moved: run.moved.renames.iter().map(|(a, b, _)| (a.clone(), b.clone())).collect(),
         };
         // D-812: notes a folder move put back stay where they are at later tidy runs (written before the report is out).
         if let (Phase::Done, JobOp::Undo { job }) = (phase, &op) {
