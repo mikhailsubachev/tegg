@@ -121,7 +121,7 @@
 | v1.105  | 2026-10-28 | Slice 4E-1 build: D-834 (AC-test changes the type move brings: R101 offers, the tidy zip, the older type-change and Inbox criteria), D-835 (the tidy job is off in real-app tests unless a test turns it on).; D-836 (three more AC-test changes the type move brings). |
 | v1.106  | 2026-10-28 | QA review of 4E-1: owner decisions D-837 (bulk convert grouped by source type), D-838 (links whose target a move would change are rewritten, in any note), D-839 (tidy exemptions by path for notes without `id`), D-840 (Undo of a folder save restores `folder:`). |
 | v1.107  | 2026-10-28 | Slice 4E-2 contract (ms4-jobs §14.9): owner decisions D-841 (an open note during a property or type delete is tested at L4 only; FR-TYP-04 AC-10 loses its L5 test), D-842 (the type-delete dialog counts with the type's plural; types.md FR-TYP-05 AC-4 follows R99). |
-| v1.108  | 2026-10-28 | 4E-2 red-test decisions D-843…D-854 (AP-791…AP-802 as proposed): `remove-key` and empty entries, skipped notes of a property delete, count clauses at 0, the key description's period, one widen table, the trash job point and `taken`, the flat `job_plan`, the Trash view after a type delete, the fake's trash skips, refusals at start. |
+| v1.108  | 2026-10-28 | 4E-2 red-test decisions D-843…D-854 (AP-791…AP-802 as proposed): `remove-key` and empty entries, skipped notes of a property delete, count clauses at 0, the key description's period, one widen table, the trash job point and `taken`, the flat `job_plan`, the Trash view after a type delete, the fake's trash skips, refusals at start.; D-855 (the 4C kind-flags test follows D-812 for the 4E-2 kinds). |
 
 ---
 
@@ -967,6 +967,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-852 | The fake core's skips on trash moves (AP-801) (owner, 2026-10-28; 4E-2 red tests, `docs/acceptance/type-moves.md`) | The fake core's `skipOnWrite(path)` also applies to a type-delete's trash moves (ms4-jobs §14.9.8) |
 | D-853 | Where refusals surface (AP-802) (owner, 2026-10-28; 4E-2 red tests, `docs/acceptance/type-moves.md`) | `SystemType`, `BuiltIn`, `UnknownProperty` and `UnknownType` are returned by `Jobs::start` and so by `value_remove_start` / `type_delete_start`, as 4E-1's `NotMovable` |
 | D-854 | An existing test that D-807 changes (owner, with D-843…D-853) (owner, 2026-10-28; 4E-2 red tests, `docs/acceptance/type-moves.md`) | types.md FR-TYP-17 AC-3's test `fr_typ_17_ac3_deleting_a_hidden_property_removes_it_from_hidden` clicks the no-value dialog's `Delete property` instead of `Keep values in notes` (gone by D-807): AC-test change approved |
+| D-855 | The 4C kind-flags test follows D-812 for the 4E-2 kinds (owner, 2026-10-28; 4E-2 build) | `ac_job_engine.rs` `fr_his_04_ac5_kind_flags_backup_for_every_kind_but_note_rename`: `value-remove` and `type-delete` confirm, back up, are undoable in memory and cancellable in planning, confirm, backup and writing (ms4-jobs §14.1, §14.9.1); the 4D-lite kinds and `key-rename` keep their row: AC-test change approved |
 
 ---
 

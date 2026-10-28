@@ -176,11 +176,19 @@ fn hub_vault(sb: &Sandbox) -> PathBuf {
 fn fr_his_04_ac5_kind_flags_backup_for_every_kind_but_note_rename() {
     let f = JobKind::NoteRename.flags();
     assert_eq!((f.needs_confirm, f.backup, f.undoable, f.cancellable.clone()), (false, false, true, vec![Phase::Planning]), "note-rename (D-268, D-269, D-385, D-393)");
-    for k in [JobKind::TagRename, JobKind::TagDelete, JobKind::Merge, JobKind::KeyRename, JobKind::ValueRemove, JobKind::TypeDelete] {
+    for k in [JobKind::TagRename, JobKind::TagDelete, JobKind::Merge, JobKind::KeyRename] {
         let f = k.flags();
         assert!(f.needs_confirm && f.backup && !f.undoable, "{k:?}: confirm, backup, no undo (D-269, D-395)");
         let c: BTreeSet<&str> = f.cancellable.iter().map(|p| p.as_str()).collect();
         assert_eq!(c, ["backup", "confirm", "planning"].into_iter().collect(), "{k:?}: cancellable in planning, confirm, backup");
+    }
+    // ms4-jobs §14.1, §14.9.1 (D-812): the 4E-2 kinds confirm, back up, are undoable in memory and cancellable while
+    // writing too (boards D3, F2).
+    for k in [JobKind::ValueRemove, JobKind::TypeDelete] {
+        let f = k.flags();
+        assert!(f.needs_confirm && f.backup && f.undoable, "{k:?}: confirm, backup, undoable (D-812)");
+        let c: BTreeSet<&str> = f.cancellable.iter().map(|p| p.as_str()).collect();
+        assert_eq!(c, ["backup", "confirm", "planning", "writing"].into_iter().collect(), "{k:?}: cancellable in planning, confirm, backup, writing");
     }
     // ms4-jobs §14.1 (D-812, D-828): type and folder moves have no confirm step, are undoable and cancellable in
     // planning and backup; only a folder move (and a bulk type move, decided by the planner) makes a zip.
