@@ -79,6 +79,8 @@ struct UndoRecord {
     exempt: bool,
     /// The final forward retarget op: notes open in an editor are undone and redone through it (D-386).
     op: Option<TextOp>,
+    /// `op` reversed, built once when the job ends and shared by every file of an undo (QA 4E-1 5 P1).
+    rev: Option<TextOp>,
 }
 
 struct JobState {
@@ -704,7 +706,9 @@ impl Inner {
             let j = s.jobs.get_mut(&id).expect("job state");
             j.phase = phase;
             if undoable {
-                j.undo = Some(run.undo.clone());
+                let mut u = run.undo.clone();
+                u.rev = u.op.as_ref().map(reversed);
+                j.undo = Some(u);
             }
             j.report = Some(report);
             let total = j
@@ -1211,7 +1215,7 @@ impl Inner {
                     w.pre_v.clone()
                 },
                 // Retry of a skipped row reverses (undo) or re-applies (redo) only the link (D-385).
-                ops: rec.op.as_ref().map(|op| vec![if undo { reversed(op) } else { op.clone() }]).unwrap_or_default(),
+                ops: if undo { &rec.rev } else { &rec.op }.iter().cloned().collect(),
             })
             .collect::<Vec<_>>();
         let renames = rec
@@ -1247,7 +1251,7 @@ impl Inner {
         let Some(rec) = lock(&self.state).jobs.get(&job).and_then(|j| j.undo.clone()) else {
             return;
         };
-        let op = rec.op.as_ref().map(|op| if undo { reversed(op) } else { op.clone() });
+        let op = if undo { rec.rev.clone() } else { rec.op.clone() };
         let entries: Vec<crate::journal::Entry> = rec
             .files
             .iter()
@@ -1429,8 +1433,11 @@ impl Inner {
 }
 
 /// QA 4 N5: a relink's lists as the slimming compares them (NFC, lower case), built once per job.
+type Moves = Arc<Vec<(String, String)>>;
+
 pub(crate) struct SlimIndex {
-    of: (usize, usize, usize),
+    /// The lists it was built from, held so their addresses can't be reused by another op's (QA 4E-1 5 P2).
+    of: (Moves, Arc<Vec<String>>, Arc<Vec<String>>),
     moved: HashSet<String>,
     /// Each note path's key and stem.
     paths: Vec<(String, String)>,
@@ -1444,14 +1451,14 @@ impl Inner {
     /// the other files whose name occurs there.
     fn slim_relink(&self, op: &TextOp, bytes: &[u8]) -> TextOp {
         let TextOp::Relink { moves, paths, files } = op else { return op.clone() };
-        let of = (Arc::as_ptr(moves) as usize, Arc::as_ptr(paths) as usize, Arc::as_ptr(files) as usize);
+        let same = |i: &SlimIndex| Arc::ptr_eq(&i.of.0, moves) && Arc::ptr_eq(&i.of.1, paths) && Arc::ptr_eq(&i.of.2, files);
         let index = {
             let mut cache = lock(&self.slim);
             match cache.as_ref() {
-                Some(i) if i.of == of => i.clone(),
+                Some(i) if same(i) => i.clone(),
                 _ => {
                     let i = Arc::new(SlimIndex {
-                        of,
+                        of: (moves.clone(), paths.clone(), files.clone()),
                         moved: moves.iter().flat_map(|(a, b)| [key(a), key(b)]).collect(),
                         paths: paths
                             .iter()
@@ -1471,7 +1478,7 @@ impl Inner {
         };
         let raw = String::from_utf8_lossy(bytes);
         let text = nfc(&raw).to_lowercase();
-        let decoded = if raw.contains('%') { nfc(&percent_decoded(&raw)).to_lowercase() } else { String::new() };
+        let decoded = if raw.contains(['%', '&', '\\']) { nfc(&unescaped(&raw)).to_lowercase() } else { String::new() };
         let has = |s: &str| text.contains(s) || (!decoded.is_empty() && decoded.contains(s));
         let keep: Vec<String> = paths.iter().zip(&index.paths).filter(|(_, (k, stem))| index.moved.contains(k) || has(stem)).map(|(p, _)| p.clone()).collect();
         let keep_files: Vec<String> = files.iter().zip(&index.files).filter(|(_, name)| has(name)).map(|(p, _)| p.clone()).collect();
@@ -1479,18 +1486,48 @@ impl Inner {
     }
 }
 
-/// `%XX` sequences decoded (invalid UTF-8 replaced): the text as `markdownLinks` reads an encoded URL.
-fn percent_decoded(s: &str) -> String {
+/// The text as `markdownLinks` reads a link destination, for matching only (never written): `%XX` sequences, backslash
+/// escapes (`Tom\&Jerry`) and numeric or basic named character references (`&#269;`, `&amp;`) decoded; invalid UTF-8
+/// replaced (QA 4E-1 4 N1, 5 P3). Other named references stay as written (ms4-jobs §14.3a).
+fn unescaped(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
     while i < b.len() {
-        if b[i] == b'%' && i + 2 < b.len() {
-            if let (Some(h), Some(l)) = ((b[i + 1] as char).to_digit(16), (b[i + 2] as char).to_digit(16)) {
-                out.push((h * 16 + l) as u8);
-                i += 3;
+        match b[i] {
+            b'%' if i + 2 < b.len() => {
+                if let (Some(h), Some(l)) = ((b[i + 1] as char).to_digit(16), (b[i + 2] as char).to_digit(16)) {
+                    out.push((h * 16 + l) as u8);
+                    i += 3;
+                    continue;
+                }
+            }
+            b'\\' if i + 1 < b.len() && b[i + 1].is_ascii_punctuation() => {
+                out.push(b[i + 1]);
+                i += 2;
                 continue;
             }
+            b'&' => {
+                if let Some(end) = b[i + 1..].iter().take(10).position(|&c| c == b';') {
+                    let name = &s[i + 1..i + 1 + end];
+                    let ch = match name {
+                        "amp" => Some('&'),
+                        "lt" => Some('<'),
+                        "gt" => Some('>'),
+                        "quot" => Some('"'),
+                        "apos" => Some('\''),
+                        n if n.starts_with("#x") || n.starts_with("#X") => u32::from_str_radix(&n[2..], 16).ok().and_then(char::from_u32),
+                        n if n.starts_with('#') => n[1..].parse::<u32>().ok().and_then(char::from_u32),
+                        _ => None,
+                    };
+                    if let Some(c) = ch {
+                        out.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes());
+                        i += end + 2;
+                        continue;
+                    }
+                }
+            }
+            _ => {}
         }
         out.push(b[i]);
         i += 1;
@@ -1511,7 +1548,8 @@ fn reversed(op: &TextOp) -> TextOp {
             paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
         },
         TextOp::Relink { moves, paths, files } => {
-            let to = |p: &String| moves.iter().find(|(f, _)| nfc(f) == nfc(p)).map(|(_, t)| t.clone()).unwrap_or_else(|| p.clone());
+            let back: HashMap<String, &String> = moves.iter().map(|(f, t)| (nfc(f), t)).collect();
+            let to = |p: &String| back.get(&nfc(p)).map(|t| (*t).clone()).unwrap_or_else(|| p.clone());
             TextOp::Relink { moves: Arc::new(moves.iter().map(|(f, t)| (t.clone(), f.clone())).collect()), paths: Arc::new(paths.iter().map(to).collect()), files: files.clone() }
         }
         TextOp::HoldTargets { from_path, to_path, paths } => TextOp::HoldTargets {

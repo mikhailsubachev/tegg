@@ -350,3 +350,41 @@ fn bug_qa4e1_4_n3_fr_sto_01_ac9_a_planned_suffixed_name_taken_late_gets_the_next
     let plan = some!(core.jobs().plan(job), "plan");
     assert!(plan.renames.contains(&("Pages/Beta.md".to_string(), "Knihy/Beta (3).md".to_string())), "{:?}", plan.renames);
 }
+
+// Fifth QA review (qa/reviews/4e-1-type-moves-5.md).
+
+#[test]
+fn bug_qa4e1_5_p3_fr_sto_04_ac8_an_entity_escaped_link_follows_the_moved_note() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    write_raw(&root, "Pages/2024/Babička.md", "---\nid: 01JB4E0000000000000000E0F1\ntype: page\ntitle: Babička\n---\n".as_bytes());
+    write_raw(&root, "Pages/2024/Kniha.md", "---\nid: 01JB4E0000000000000000E0F3\ntype: kniha\ntitle: Kniha\n---\n[a](Babi&#269;ka.md)\n".as_bytes());
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (_, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    let t = some!(read_text(&root, "Knihy/Kniha.md"), "moved");
+    assert!(t.contains("[a](../Pages/2024/"), "the entity-escaped link reaches the same note from Knihy/: {t}");
+}
+
+#[test]
+fn bug_qa4e1_5_p1_fr_sto_04_ac11_undo_of_a_move_with_many_linking_notes_plans_quickly() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    // 3,000 notes that stay, 150 strays, each linked from two of them: the undo has 450 files over 3,000 paths.
+    for i in 0..3000 {
+        let link = if i < 300 { format!("Viz [[Zbloudilá {}]].\n", i / 2) } else { String::new() };
+        write_raw(&root, &format!("Pages/Výplň/Výplň {i}.md"), format!("---\nid: 01JB4E00000000000000{i:06}\ntype: page\ntitle: Výplň {i}\n---\n{link}").as_bytes());
+    }
+    for i in 0..150 {
+        write_raw(&root, &format!("Pages/Zbloudilá {i}.md"), format!("---\nid: 01JB4E0000000000000Z{i:06}\ntype: kniha\ntitle: Zbloudilá {i}\n---\n").as_bytes());
+    }
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (job, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(core.wait_idle(Duration::from_secs(60)));
+    let started = std::time::Instant::now();
+    let (_, u) = ok!(run(&core, JobOp::Undo { job }), "undo");
+    assert!(u.skipped.is_empty(), "nothing skipped: {u:?}");
+    assert!(root.join("Pages/Zbloudilá 0.md").exists(), "the strays are back");
+    assert!(started.elapsed() < Duration::from_secs(30), "the undo isn't held up planning: {:?}", started.elapsed());
+}

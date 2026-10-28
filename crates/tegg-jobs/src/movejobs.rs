@@ -278,7 +278,6 @@ impl Inner {
         let single = matches!(op, JobOp::TypeMove { paths, .. } if paths.len() == 1);
         // QA 4 M7′: the vault's lists once per job, shared by every file's relink.
         let paths_before = Arc::new(host.note_paths());
-        let files = Arc::new(host.vault_files());
         let is_link_op = |o: &TextOp| matches!(o, TextOp::KeepTargets { .. } | TextOp::HoldTargets { .. } | TextOp::RetargetLinks { .. } | TextOp::Relink { .. });
         // QA N1: which notes can move, and where, is settled before the first rename, so every file's links are judged
         // against the moves that really happen (skips and taken names included).
@@ -318,6 +317,8 @@ impl Inner {
             }
         }
         let moves: Vec<(String, String)> = ready.iter().map(|(i, _, _, to)| (plan.files[*i].path.clone(), to.clone())).collect();
+        // Only a moved note's relative links name other files (QA 4E-1 5 P4: no listing when nothing moves).
+        let files = Arc::new(if moves.is_empty() { Vec::new() } else { host.vault_files() });
         let relink = TextOp::Relink { moves: Arc::new(moves.clone()), paths: paths_before.clone(), files: files.clone() };
         // Every file gets one relink over the whole move set in place of its per-move link ops.
         for f in plan.files.iter_mut() {
