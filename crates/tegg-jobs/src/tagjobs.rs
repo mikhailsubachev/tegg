@@ -495,6 +495,7 @@ impl Inner {
                 (json!({ "key": "backups.label.restore", "args": { "time": time.unwrap_or_else(|| name.clone()) } }), Some(p))
             }
             JobOp::TypeMove { .. } | JobOp::FolderMove { .. } => (self.move_label(op, plan), None),
+            JobOp::ValueRemove { .. } | JobOp::TypeDelete { .. } => (self.delete_label(op), None),
             _ => return (None, None),
         };
         let m = json!({

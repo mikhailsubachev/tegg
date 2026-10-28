@@ -13,6 +13,8 @@ use tegg_format::{extract, nfc, sanitize_file_stem};
 mod tagjobs;
 #[path = "movejobs.rs"]
 mod movejobs;
+#[path = "deletejobs.rs"]
+mod deletejobs;
 
 use crate::host::{Host, ReadError, WriteError, Wrote};
 use crate::{
@@ -70,6 +72,8 @@ struct Written {
     /// A type change written in place, never through an editor (QA 4E-1 M1): undo and redo write its bytes the same way
     /// (QA 4 M1′); the link op holds no type change. An open page takes them as an external change (FR-SYN-03).
     direct: bool,
+    /// A type delete's trash move (§14.9.4): the trashed path; undo moves it back to `before`, redo trashes again.
+    trashed: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -417,6 +421,8 @@ fn enqueue_in(inner: &Arc<Inner>, op: JobOp, from_title: Option<String>) -> Resu
             }
             JobOp::TypeMove { paths, to_type, .. } => movejobs::check_type_move(host.as_ref(), paths, to_type)?,
             JobOp::FolderMove { .. } => JobKind::FolderMove,
+            JobOp::ValueRemove { r#type, key } => deletejobs::check_value_remove(host.as_ref(), r#type, key)?,
+            JobOp::TypeDelete { r#type } => deletejobs::check_type_delete(host.as_ref(), r#type)?,
             JobOp::TestBackup { .. } => JobKind::TestBackup,
             JobOp::Inbox { .. } => JobKind::Inbox,
             JobOp::TagRename { from, to } => tagjobs::check_rename(host.as_ref(), from, to)?,
@@ -563,6 +569,10 @@ struct Run {
     /// ms4-tags §5.1: the backup zip and what the job really moved, for the manifest's `done`.
     zip: Option<(PathBuf, serde_json::Value)>,
     moved: tagjobs::Moved,
+    /// §14.9.2: the type file of a `value-remove` and its version at planning (its write's base, last).
+    type_base: Option<(String, FileVersion)>,
+    /// §14.9.3 (D-815): a type delete skipped an object, so the definition and templates stayed.
+    kept_type: bool,
 }
 
 impl Run {
@@ -655,6 +665,8 @@ impl Inner {
             undo: UndoRecord::default(),
             zip: None,
             moved: tagjobs::Moved::default(),
+            type_base: None,
+            kept_type: false,
         };
         let result = self.execute(&mut run, &op, from_title);
         if result.is_ok() {
@@ -679,7 +691,7 @@ impl Inner {
             skipped: run.skipped.clone(),
             error,
             moved: run.moved.renames.iter().map(|(a, b, _)| (a.clone(), b.clone())).collect(),
-            kept_type: false, // 4E-2 stub (ms4-jobs §14.9.3)
+            kept_type: run.kept_type,
         };
         // D-812: notes a folder move put back stay where they are at later tidy runs (written before the report is out).
         if let (Phase::Done, JobOp::Undo { job }) = (phase, &op) {
@@ -700,7 +712,7 @@ impl Inner {
                     }
                 }
             }
-            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. } | JobOp::TypeMove { .. } | JobOp::FolderMove { .. });
+            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. } | JobOp::TypeMove { .. } | JobOp::FolderMove { .. } | JobOp::ValueRemove { .. } | JobOp::TypeDelete { .. });
             if undoable && !run.undo.files.is_empty() {
                 s.last_undoable = Some(id);
             }
@@ -768,6 +780,8 @@ impl Inner {
             JobOp::Restore { name } => self.plan_restore(id, name)?,
             JobOp::TypeMove { paths, to_type, mapping, review, .. } => self.plan_type_move(id, run, paths, to_type, mapping, *review),
             JobOp::FolderMove { r#type, to_folder } => self.plan_folder_move(id, run, r#type.as_deref(), to_folder.as_deref()),
+            JobOp::ValueRemove { r#type, key } => self.plan_value_remove(id, run, r#type, key),
+            JobOp::TypeDelete { r#type } => self.plan_type_delete(id, r#type),
             _ => return Err("NotImplemented".into()),
         };
         let mut plan = plan;
@@ -809,6 +823,8 @@ impl Inner {
             // D-837: every group of a bulk convert makes its zip, a group of one too.
             JobOp::TypeMove { paths, bulk, .. } => paths.len() > 1 || *bulk,
             JobOp::FolderMove { .. } => !plan.renames.is_empty(),
+            // §14.9.2: a property no object has a value of changes only the type file, without a zip.
+            JobOp::ValueRemove { .. } => !plan.files.is_empty(),
             _ => true,
         };
         let bulk_move = matches!(op, JobOp::TypeMove { paths, bulk, .. } if paths.len() > 1 || *bulk);
@@ -843,6 +859,9 @@ impl Inner {
             JobOp::Merge { .. } => self.write_merge(run, &plan)?,
             JobOp::Restore { name } => self.write_restore(run, name, &plan),
             JobOp::TypeMove { .. } | JobOp::FolderMove { .. } => self.write_moves(run, &mut plan, op)?,
+            // §14.9.4: `false` is a cancel while writing, after its rows were reversed.
+            JobOp::ValueRemove { r#type, key } if !self.write_value_remove(run, &plan, r#type, key)? => return Ok(Phase::Cancelled),
+            JobOp::TypeDelete { r#type } if !self.write_type_delete(run, &plan, r#type)? => return Ok(Phase::Cancelled),
             _ => {}
         }
         Ok(Phase::Done)
@@ -1049,7 +1068,7 @@ impl Inner {
                     post,
                     post_v,
                     via_op: false,
-                    direct: false,
+                    direct: false, trashed: None,
                 });
             }
             Ok(None) => run.unchanged.push(note.path.clone()),
@@ -1121,6 +1140,10 @@ impl Inner {
             return run.skip(path, SkipReason::ReadOnly);
         }
         self.point(run.id, JobPoint::AfterRead { path: path.clone() });
+        // §14.9.4: a 4E-2 job cancelled while writing stops before this file's write.
+        if run.kind.flags().cancellable.contains(&Phase::Writing) && self.cancelled(run.id) {
+            return;
+        }
         if live && lock(&self.editors).contains(&nfc(path)) {
             return self.write_live(run, path, &bytes, &v, &f.ops);
         }
@@ -1147,7 +1170,7 @@ impl Inner {
                     post: out,
                     post_v,
                     via_op: false,
-                    direct: !live,
+                    direct: !live, trashed: None,
                 });
             }
             Ok(Wrote::Unchanged) => run.unchanged.push(path.clone()),
@@ -1178,7 +1201,7 @@ impl Inner {
                         post,
                         post_v: now,
                         via_op: true,
-                        direct: false,
+                        direct: false, trashed: None,
                     });
                     return;
                 }
@@ -1255,6 +1278,10 @@ impl Inner {
         let Some(rec) = lock(&self.state).jobs.get(&job).and_then(|j| j.undo.clone()) else {
             return;
         };
+        // §14.9.4: a type delete's trash rows are moved back (or trashed again), not written.
+        if rec.files.iter().any(|w| w.trashed.is_some()) {
+            return self.write_trash_rows(run, &rec.files, undo);
+        }
         let op = if undo { rec.rev.clone() } else { rec.op.clone() };
         let entries: Vec<crate::journal::Entry> = rec
             .files
@@ -1311,7 +1338,7 @@ impl Inner {
                             run.renamed = Some((at.clone(), path.clone()));
                         }
                         run.written.push(path.clone());
-                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false, direct: w.direct });
+                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false, direct: w.direct, trashed: None });
                     }
                     Ok((path, None)) => run.unchanged.push(path),
                     Err(e) => {
@@ -1344,7 +1371,7 @@ impl Inner {
         match host.write(path, &out, v) {
             Ok(Wrote::Written(post_v)) => {
                 run.written.push(path.to_string());
-                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true, direct: false });
+                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true, direct: false, trashed: None });
             }
             Ok(Wrote::Unchanged) => run.unchanged.push(path.to_string()),
             Err(e) => run.skip(path, write_reason(&e)),

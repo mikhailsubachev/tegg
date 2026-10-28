@@ -192,6 +192,29 @@ pub(crate) fn write_folder(shared: &Shared, key: &str, folder: &str) -> Result<O
     Ok(Some(path))
 }
 
+/// ms4-jobs §14.9.2 (4E-2): the type file of `key` without the attribute `attr` and its `preview` entry, written
+/// against `base` (the version a `value-remove` read at planning). Returns the new version.
+pub(crate) fn remove_attr(shared: &Shared, key: &str, attr: &str, base: &FileVersion) -> Result<FileVersion, CoreError> {
+    let key = nfc(key);
+    let path = type_path(&key);
+    let (bytes, disk) = shared.vault.read(&path)?;
+    if !base.same_content(&disk) {
+        return Err(CoreError::Vault(VaultError::Conflict { disk }));
+    }
+    let text = String::from_utf8(bytes).map_err(|_| schema(SchemaError::Invalid))?;
+    let types = shared.read_types();
+    let names = names_of(&types, &key);
+    let others = as_names(&names);
+    let Some(new) = tegg_schema::patch_with_usage(&key, &text, &[TypeOp::RemoveAttribute(nfc(attr))], &PatchContext { others: &others }, &[]).map_err(schema)? else {
+        return Ok(disk);
+    };
+    shared.vault.write(&path, new.as_bytes(), Some(base))?;
+    shared.refresh_types();
+    shared.load_default_type();
+    shared.emit(CoreEvent::VaultChanged { paths: vec![path.clone()] });
+    Ok(shared.vault.read(&path)?.1)
+}
+
 /// The names of all types for the rules of `tegg-schema` (`self_key` marks the edited type).
 fn names_of(types: &[TypeInfo], self_key: &str) -> Vec<(String, String, String, bool)> {
     types.iter().map(|t| (t.key.clone(), t.name.clone(), t.folder.clone(), t.key == self_key)).collect()

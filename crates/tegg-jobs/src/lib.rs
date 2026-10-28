@@ -72,6 +72,8 @@ impl JobKind {
             // makes no zip (a bulk one does, like the inbox convert); both are undoable.
             JobKind::TypeMove => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
             JobKind::FolderMove => KindFlags { needs_confirm: false, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // ms4-jobs §14.9.1: confirm, zip, undoable in memory; cancellable while writing (boards D3, F2).
+            JobKind::ValueRemove | JobKind::TypeDelete => KindFlags { needs_confirm: true, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup, Phase::Writing] },
             _ => KindFlags { needs_confirm: true, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup] },
         }
     }
@@ -342,6 +344,8 @@ pub enum SkipReason {
     Placeholder,
     ReadOnly,
     Io,
+    /// D-849: an undo or redo whose target path exists again.
+    Taken,
 }
 
 impl SkipReason {
@@ -352,6 +356,7 @@ impl SkipReason {
             SkipReason::Placeholder => "placeholder",
             SkipReason::ReadOnly => "readOnly",
             SkipReason::Io => "io",
+            SkipReason::Taken => "taken",
         }
     }
 }

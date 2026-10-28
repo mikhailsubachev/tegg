@@ -266,7 +266,7 @@ impl Inner {
                 Ok(Some(p)) => {
                     // D-840: Undo of a folder save restores the previous `folder:` too.
                     if let (Some((pre, pre_v)), Ok((post, post_v))) = (pre, host.read(&p)) {
-                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false, direct: false });
+                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false, direct: false, trashed: None });
                     }
                     run.written.push(p);
                 }
@@ -481,7 +481,7 @@ impl Inner {
                         crate::journal::progress(host.as_ref(), id, &f.path, &to, &post_v);
                     }
                     run.moved.renames.push((f.path.clone(), to.clone(), sha256_hex(&out)));
-                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false, direct: false });
+                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false, direct: false, trashed: None });
                     return Some(to);
                 }
                 Err(WriteError::NameTaken) => {

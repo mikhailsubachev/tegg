@@ -280,6 +280,7 @@ impl Host for CoreHost {
             return Err(WriteError::NameTaken);
         }
         self.shared.vault.move_back(&trashed, &to).map_err(write_error)?;
+        self.shared.vault.prune_trash(&trashed);
         if let Ok((bytes, v)) = self.shared.vault.read(&to) {
             self.index_written(&to, &bytes, &v);
         }
@@ -331,7 +332,7 @@ impl Host for CoreHost {
             .map(|d| {
                 d.attributes
                     .iter()
-                    .map(|a| HostProperty { key: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), to: a.to.clone().unwrap_or_default() })
+                    .map(|a| HostProperty { key: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), to: a.to.clone().unwrap_or_default(), built_in: a.built_in })
                     .collect()
             })
             .unwrap_or_default()
@@ -374,6 +375,34 @@ impl Host for CoreHost {
 
     fn write_type_folder(&self, r#type: &str, folder: &str) -> Result<Option<String>, String> {
         crate::types3d::write_folder(&self.shared, r#type, folder).map_err(|e| format!("{e:?}"))
+    }
+
+    fn trash_dir(&self, dir: &str) -> Result<Option<String>, WriteError> {
+        let dir = nfc(dir.trim_matches('/'));
+        match self.shared.vault.trash_dir(&dir) {
+            Ok(moved) => {
+                // One rename of the folder (tegg-vault): `.trash/<dir>`, or with a ` (n)` suffix, before its files' paths.
+                let base = format!(".trash/{dir}");
+                let to = moved.first().and_then(|f| f.strip_prefix(&base).and_then(|r| r.find('/')).map(|i| f[..base.len() + i].to_string())).unwrap_or(base);
+                self.shared.emit(CoreEvent::VaultChanged { paths: vec![dir, to.clone()] });
+                Ok(Some(to))
+            }
+            Err(VaultError::NotFound) => Ok(None),
+            Err(e) => Err(write_error(e)),
+        }
+    }
+
+    fn types_changed(&self) {
+        self.shared.refresh_types();
+        self.shared.load_default_type();
+    }
+
+    fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
+        crate::types3d::remove_attr(&self.shared, r#type, key, base).map_err(|e| match e {
+            crate::CoreError::Vault(VaultError::Conflict { .. }) => WriteError::Changed,
+            crate::CoreError::Vault(VaultError::Gone) | crate::CoreError::Vault(VaultError::NotFound) => WriteError::Missing,
+            other => WriteError::Io(format!("{other:?}")),
+        })
     }
 }
 

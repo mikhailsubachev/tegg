@@ -184,6 +184,14 @@ pub trait Host: Send + Sync {
 
     // -------------------------------------------------------------------------------- 4E-2 (ms4-jobs §14.9.2)
 
+    /// §14.9.3: moves the folder `dir` (a type's templates) to `.trash/` with its relative path; `Some((dir, trashed))`,
+    /// `None` when there is no such folder. Undo moves it back with `untrash`.
+    fn trash_dir(&self, dir: &str) -> Result<Option<String>, WriteError> {
+        let _ = dir;
+        Ok(None)
+    }
+    /// The type definitions changed on disk (a type file trashed or restored by a job): the core re-reads them.
+    fn types_changed(&self) {}
     /// Removes the item `key` and its `preview` entry from the type file of `r#type` (as `type_patch` does), checked
     /// against `base` (the version read at planning). Returns the type file's new version. Stub until 4E-2 (TS-I1).
     fn remove_property(&self, r#type: &str, key: &str, base: &FileVersion) -> Result<FileVersion, WriteError> {
@@ -201,6 +209,8 @@ pub struct HostProperty {
     pub kind: String,
     /// Relation targets (type keys).
     pub to: Vec<String>,
+    /// A system type's built-in attribute (FR-TYP-06 AC-2): never removed by a job.
+    pub built_in: bool,
 }
 
 /// One tag as the tag planners see it (ms4-tags §1.2, §4.1).
