@@ -64,6 +64,11 @@ pub trait Host: Send + Sync {
     }
     /// Whether a title commit on `path` may rename it (not a Daily Note, D-320; not a file read as non-UTF-8, D-180).
     fn renamable(&self, path: &str) -> bool;
+    /// Every vault file that isn't a note (attachments), outside hidden folders: the files a moved note's relative links
+    /// may name (4E-1, QA 4 N2). Empty: no such link is rewritten.
+    fn vault_files(&self) -> Vec<String> {
+        Vec::new()
+    }
     /// Every `.md` file and every file under `.tegg/` (the backup set, §6).
     fn backup_files(&self) -> Vec<String>;
     /// `<Application Support>/Tegg`.

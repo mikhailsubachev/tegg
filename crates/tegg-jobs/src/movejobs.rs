@@ -4,6 +4,7 @@
 //! retarget op, which changes only what a move breaks (D-810); the moved note gets `keep-targets`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::Arc;
 
 use serde_json::json;
 use tegg_format::{extract, nfc};
@@ -265,7 +266,7 @@ impl Inner {
                 Ok(Some(p)) => {
                     // D-840: Undo of a folder save restores the previous `folder:` too.
                     if let (Some((pre, pre_v)), Ok((post, post_v))) = (pre, host.read(&p)) {
-                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false });
+                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false, direct: false });
                     }
                     run.written.push(p);
                 }
@@ -275,7 +276,9 @@ impl Inner {
         }
         run.undo.exempt = matches!(op, JobOp::FolderMove { r#type: None, .. });
         let single = matches!(op, JobOp::TypeMove { paths, .. } if paths.len() == 1);
-        let paths_before = host.note_paths();
+        // QA 4 M7′: the vault's lists once per job, shared by every file's relink.
+        let paths_before = Arc::new(host.note_paths());
+        let files = Arc::new(host.vault_files());
         let is_link_op = |o: &TextOp| matches!(o, TextOp::KeepTargets { .. } | TextOp::HoldTargets { .. } | TextOp::RetargetLinks { .. } | TextOp::Relink { .. });
         // QA N1: which notes can move, and where, is settled before the first rename, so every file's links are judged
         // against the moves that really happen (skips and taken names included).
@@ -315,7 +318,7 @@ impl Inner {
             }
         }
         let moves: Vec<(String, String)> = ready.iter().map(|(i, _, _, to)| (plan.files[*i].path.clone(), to.clone())).collect();
-        let relink = TextOp::Relink { moves: moves.clone(), paths: paths_before.clone() };
+        let relink = TextOp::Relink { moves: Arc::new(moves.clone()), paths: paths_before.clone(), files: files.clone() };
         // Every file gets one relink over the whole move set in place of its per-move link ops.
         for f in plan.files.iter_mut() {
             let had = f.ops.iter().any(is_link_op);
@@ -340,7 +343,7 @@ impl Inner {
         for (i, pre, pre_v, to) in &ready {
             let f = plan.files[*i].clone();
             step += 1;
-            match self.move_note(run, &f, to, pre.clone(), pre_v.clone(), single, &plan.files) {
+            match self.move_note(run, &f, to, pre.clone(), pre_v.clone(), single, &plan.files, &mut taken) {
                 Some(actual) if actual != *to => {
                     late.push((to.clone(), actual.clone()));
                     done.insert(f.path.clone(), Some(actual));
@@ -355,7 +358,7 @@ impl Inner {
         // The moves that really happened (a rename can still fail or take another name at the last moment): every
         // other file is written with them (QA M3), and undo / redo of files written through an editor use them (M5).
         let real: Vec<(String, String)> = moves.iter().filter_map(|(a, _)| done.get(a).cloned().flatten().map(|t| (a.clone(), t))).collect();
-        let relink_real = TextOp::Relink { moves: real.clone(), paths: paths_before.clone() };
+        let relink_real = TextOp::Relink { moves: Arc::new(real.clone()), paths: paths_before.clone(), files: files.clone() };
         run.undo.op = Some(relink_real.clone());
         for f in plan.files.iter_mut().filter(|f| !moving.contains(&f.path)) {
             for o in f.ops.iter_mut() {
@@ -402,7 +405,7 @@ impl Inner {
                 let assumed: Vec<String> = now.iter().map(|p| late.iter().find(|(_, act)| key(act) == key(p)).map(|(pl, _)| pl.clone()).unwrap_or_else(|| p.clone())).chain(moves.iter().filter(|(a, _)| real.iter().all(|(r, _)| r != a)).map(|(_, t)| t.clone())).collect();
                 let mut fix: Vec<(String, String)> = late.clone();
                 fix.extend(moves.iter().filter(|(a, _)| real.iter().all(|(r, _)| r != a)).map(|(a, t)| (t.clone(), a.clone())));
-                let op = TextOp::Relink { moves: fix, paths: assumed };
+                let op = TextOp::Relink { moves: Arc::new(fix), paths: Arc::new(assumed), files: files.clone() };
                 // QA M4: the note's own undo row and journal line are updated, never doubled.
                 let Ok(Transformed::Bytes(out, _)) = self.transform(to, &b, std::slice::from_ref(&op)) else { continue };
                 if let Ok(Wrote::Written(post_v)) = host.write(to, &out, &v) {
@@ -449,7 +452,8 @@ impl Inner {
 
     /// One moved note, already checked (QA N1): its new bytes, then the rename; a name taken at the last moment takes the
     /// next free stem. Returns the path it really took. A single move journals like a note rename (§14.6, D-387).
-    fn move_note(&self, run: &mut Run, f: &PlannedFile, to: &str, pre: Vec<u8>, pre_v: crate::FileVersion, single: bool, all: &[PlannedFile]) -> Option<String> {
+    #[allow(clippy::too_many_arguments)]
+    fn move_note(&self, run: &mut Run, f: &PlannedFile, to: &str, pre: Vec<u8>, pre_v: crate::FileVersion, single: bool, all: &[PlannedFile], taken: &mut BTreeSet<String>) -> Option<String> {
         let host = self.host().clone();
         let id = run.id;
         let mut to = to.to_string();
@@ -476,13 +480,15 @@ impl Inner {
                         crate::journal::progress(host.as_ref(), id, &f.path, &to, &post_v);
                     }
                     run.moved.renames.push((f.path.clone(), to.clone(), sha256_hex(&out)));
-                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false });
+                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false, direct: false });
                     return Some(to);
                 }
                 Err(WriteError::NameTaken) => {
-                    // Its own links were judged from the planned folder, which is the same: the bytes stay.
+                    // Its own links were judged from the planned folder, which is the same: the bytes stay. The next name
+                    // comes from the note's own stem and avoids this job's other names (QA 4 N3: never `Beta (2) (2)`).
                     let folder = folder_of(&to);
-                    to = join(&folder, &host.free_stem(&folder, &stem_of(&to)));
+                    to = join(&folder, &host.free_stem_avoiding(&folder, &stem_of(&f.path), taken));
+                    taken.insert(key(&to));
                 }
                 Err(e) => {
                     run.skip(&f.path, write_reason(&e));
@@ -505,7 +511,7 @@ impl Inner {
             }
         }
         let op = op.map(|o| match o {
-            TextOp::Relink { moves, paths } => TextOp::Relink { moves: moves.into_iter().map(|(a, t)| if a == note.path { (a, to.to_string()) } else { (a, t) }).collect(), paths },
+            TextOp::Relink { moves, paths, files } => TextOp::Relink { moves: Arc::new(moves.iter().map(|(a, t)| if *a == note.path { (a.clone(), to.to_string()) } else { (a.clone(), t.clone()) }).collect()), paths, files },
             o => o,
         });
         let title = extract(pre, &stem_of(&note.path)).title;

@@ -661,7 +661,6 @@ fn title_key(t: &str) -> String {
     nfc(t.trim()).to_lowercase()
 }
 
-/// D-291 part 2: a free stem in `folder`, vault-wide (ms4-links §3.1; also the job engine's, D-384).
 /// As `free_stem_in`, also avoiding the lower-case NFC vault paths in `reserved` (names a job has already given out).
 pub(crate) fn free_stem_avoiding(shared: &crate::Shared, folder: &str, stem: &str, reserved: &std::collections::BTreeSet<String>) -> String {
     let taken = crate::lock(&shared.index).stem_keys();
@@ -681,6 +680,7 @@ pub(crate) fn free_stem_avoiding(shared: &crate::Shared, folder: &str, stem: &st
     })
 }
 
+/// D-291 part 2: a free stem in `folder`, vault-wide (ms4-links §3.1; also the job engine's, D-384).
 pub(crate) fn free_stem_in(shared: &crate::Shared, folder: &str, stem: &str) -> String {
     let taken = crate::lock(&shared.index).stem_keys();
     let folder = nfc(folder.trim_matches('/'));

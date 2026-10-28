@@ -39,6 +39,7 @@ let pendingFolder: string | null = null;
 const listeners = new Set<() => void>();
 const progressListeners = new Set<(p: JobProgressDto) => void>();
 const movedListeners = new Set<(m: Moved) => void>();
+const rewrittenListeners = new Set<(path: string) => void>();
 const tracked = new Map<number, Tracked>();
 const seenMove = new Set<number>();
 /** While the UI starts a move or an undo itself, early events of its job aren't taken for a core-started move. */
@@ -199,6 +200,18 @@ export function subscribe(onProgress: (p: JobProgressDto) => void): () => void {
   return () => { progressListeners.delete(onProgress); };
 }
 
+/** Calls `f` for each note a finished 4E-1 job (or its undo / redo) wrote where it was: a type change in place is
+ *  written on disk, never through the editor (QA 4E-1 M1, 4 M1′), so an open page takes it as an external change. */
+export function onRewritten(f: (path: string) => void): () => void {
+  rewrittenListeners.add(f);
+  return () => { rewrittenListeners.delete(f); };
+}
+
+const rewritten = (r: JobReportDto) => {
+  const moved = new Set([...(r.moved ?? []).flatMap((m) => [m.from, m.to]), ...(r.renamed ? [r.renamed.from, r.renamed.to] : [])].map((p) => p.normalize('NFC')));
+  for (const w of r.written) if (!moved.has(w.normalize('NFC'))) for (const f of rewrittenListeners) f(w.normalize('NFC'));
+};
+
 /** Calls `f` when a finished job moved a note (rename, undo, redo). */
 export function onMoved(f: (m: Moved) => void): () => void {
   movedListeners.add(f);
@@ -279,6 +292,7 @@ function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   // ms4-jobs §9: an open note the job moved (a single move, a bulk convert, a folder save, the tidy job) follows it.
   const moves = r.renamed ? [r.renamed] : moved;
   for (const m of moves) for (const f of movedListeners) f({ jobId, from: m.from.normalize('NFC'), to: m.to.normalize('NFC') });
+  rewritten(r);
   t.done?.(r);
 }
 
@@ -306,6 +320,7 @@ export async function undoMove(jobId: number, back = true): Promise<number | nul
   const t: Tracked = { kind: 'move', path: '', moveKind: lm?.kind, done: (rep) => {
     if (rep && rep.phase === 'done' && state.lastMove?.jobId === jobId) set({ lastMove: { ...state.lastMove, undone: back, path: rep.renamed?.to?.normalize('NFC') ?? state.lastMove.path } });
     if (rep?.renamed) for (const f of movedListeners) f({ jobId: r.jobId, from: rep.renamed.from.normalize('NFC'), to: rep.renamed.to.normalize('NFC') });
+    if (rep) rewritten(rep);
   } };
   if (state.status?.undo === jobId) set({ status: null });
   seenMove.add(r.jobId);

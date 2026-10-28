@@ -11,7 +11,7 @@ import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
 import { fixDailyTitle, parse, parseDate, setAttribute, setValue, transform, type TextOp } from '@tegg/doc';
-import { lastJobOf, moveNotes, onMoved, redoLast, renameNote, undoLast, undoMove } from '../jobs/jobs';
+import { lastJobOf, moveNotes, onMoved, onRewritten, redoLast, renameNote, undoLast, undoMove } from '../jobs/jobs';
 import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
 import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
@@ -543,6 +543,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   diskTextRef.current = diskText;
   const externalRef = useRef(external);
   externalRef.current = external;
+  // QA 4E-1 4 M1′: a type change (or its undo) written in place on disk: reloaded when clean, the merge dialog otherwise.
+  useEffect(() => onRewritten((p) => { if (nfc(p) === nfc(live.current.path)) void externalRef.current(); }), []);
   useEffect(() => {
     const un = events.changed((c) => {
       if (c.paths.some((p) => nfc(p) === nfc(live.current.path))) void externalRef.current();

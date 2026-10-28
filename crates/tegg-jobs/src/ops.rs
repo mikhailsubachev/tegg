@@ -35,7 +35,7 @@ pub fn op_json(op: &TextOp) -> Value {
         TextOp::KeepTargets { from_path, to_path, paths } => json!({ "op": "keep-targets", "fromPath": from_path, "toPath": to_path, "paths": paths }),
         TextOp::ChangeType { r#type, now, id } => json!({ "op": "change-type", "type": r#type, "now": now, "id": id }),
         TextOp::HoldTargets { from_path, to_path, paths } => json!({ "op": "hold-targets", "fromPath": from_path, "toPath": to_path, "paths": paths }),
-        TextOp::Relink { moves, paths } => json!({ "op": "relink", "moves": moves.iter().map(|(f, t)| json!({ "from": f, "to": t })).collect::<Vec<_>>(), "paths": paths }),
+        TextOp::Relink { moves, paths, files } => json!({ "op": "relink", "moves": moves.iter().map(|(f, t)| json!({ "from": f, "to": t })).collect::<Vec<_>>(), "paths": &**paths, "files": &**files }),
     }
 }
 
@@ -83,8 +83,9 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
         }),
         "relink" => Some(TextOp::Relink {
-            moves: v["moves"].as_array()?.iter().filter_map(|m| Some((m["from"].as_str()?.to_string(), m["to"].as_str()?.to_string()))).collect(),
-            paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
+            moves: std::sync::Arc::new(v["moves"].as_array()?.iter().filter_map(|m| Some((m["from"].as_str()?.to_string(), m["to"].as_str()?.to_string()))).collect()),
+            paths: std::sync::Arc::new(v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect()),
+            files: std::sync::Arc::new(v["files"].as_array().map(|a| a.iter().filter_map(|p| p.as_str().map(str::to_string)).collect()).unwrap_or_default()),
         }),
         "hold-targets" => Some(TextOp::HoldTargets {
             from_path: s("fromPath")?,

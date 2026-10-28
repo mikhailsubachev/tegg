@@ -33,8 +33,9 @@ export type TextOp =
   // D-838: in a note that doesn't move, keep every link on its target when `fromPath` becomes `toPath`.
   | { op: 'hold-targets'; fromPath: string; toPath: string; paths: string[] }
   // 4E-1 (D-810, D-838): every link of the note at `source` keeps its target when all `moves` happen together (the
-  // note itself may be one of them); `paths` are the vault's note paths before the moves.
-  | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[] }
+  // note itself may be one of them); `paths` are the vault's note paths before the moves, `files` its other files
+  // (attachments): a relative link to one follows a moved note only when it names one of them (QA 4E-1 4 N2).
+  | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[]; files?: string[] }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -517,6 +518,7 @@ function relinkPatches(doc: Doc, source: string, op: Relink): Patch[] {
     const b = resolveFrom(from, target, md, before)
     return b === null ? null : moved(b)
   }
+  const files = new Set((op.files ?? []).map(key))
   for (const l of wikilinks(doc)) {
     const b = was(l.target, false)
     if (b === null) continue
@@ -545,10 +547,11 @@ function relinkPatches(doc: Doc, source: string, op: Relink): Patch[] {
     const b = was(m.target, true)
     if (b === null) {
       // QA M6: a relative link to a file that isn't a note (an attachment, a PDF) when the note itself moves: the same
-      // file by path arithmetic from the new folder.
+      // file by path arithmetic from the new folder. Only when that file exists: a name (`photo.png`), a vault-root path
+      // or an address without a scheme isn't broken by the move and stays as written (D-810, QA 4 N2).
       if (key(now) === key(from) || /\.md$/i.test(m.target)) continue
       const abs = normalizePath(`${folder(from)}/${nfc(m.target)}`)
-      if (abs === null) continue
+      if (abs === null || !files.has(key(abs))) continue
       const url = doc.text.slice(m.url[0], m.url[1])
       const next = relativeUrl(url, folder(now), abs)
       if (next !== url) out.push({ range: m.url, text: next })

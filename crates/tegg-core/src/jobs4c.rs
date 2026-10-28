@@ -175,6 +175,17 @@ impl Host for CoreHost {
         lock(&self.shared.index).daily_date_of(&path).is_none()
     }
 
+    fn vault_files(&self) -> Vec<String> {
+        self.shared
+            .vault
+            .list_files()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| !p.ends_with(".md") && !p.ends_with(".tegg-tmp") && !p.split('/').any(|c| c.starts_with('.')))
+            .map(|p| nfc(&p))
+            .collect()
+    }
+
     fn backup_files(&self) -> Vec<String> {
         self.shared
             .vault

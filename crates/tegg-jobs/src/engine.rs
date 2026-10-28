@@ -67,6 +67,9 @@ struct Written {
     post_v: FileVersion,
     /// Written through its editor (D-386): undo and redo apply the link op to its current text, never bytes.
     via_op: bool,
+    /// A type change written in place, never through an editor (QA 4E-1 M1): undo and redo write its bytes the same way
+    /// (QA 4 M1′); the link op holds no type change. An open page takes them as an external change (FR-SYN-03).
+    direct: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -106,6 +109,8 @@ pub(crate) struct Inner {
     state: Mutex<State>,
     changed: Condvar,
     transformer: Mutex<Option<Arc<dyn Transformer>>>,
+    /// QA 4 N5: the normalised names of the running relink's lists, built once per list.
+    slim: Mutex<Option<Arc<SlimIndex>>>,
     hook: Mutex<Option<PointHook>>,
     editors: Mutex<HashSet<String>>,
     replies: Mutex<HashMap<u64, Result<Transformed, TransformError>>>,
@@ -158,6 +163,7 @@ impl Jobs {
                 }),
                 changed: Condvar::new(),
                 transformer: Mutex::new(None),
+                slim: Mutex::new(None),
                 hook: Mutex::new(None),
                 editors: Mutex::new(HashSet::new()),
                 replies: Mutex::new(HashMap::new()),
@@ -1035,6 +1041,7 @@ impl Inner {
                     post,
                     post_v,
                     via_op: false,
+                    direct: false,
                 });
             }
             Ok(None) => run.unchanged.push(note.path.clone()),
@@ -1132,6 +1139,7 @@ impl Inner {
                     post: out,
                     post_v,
                     via_op: false,
+                    direct: !live,
                 });
             }
             Ok(Wrote::Unchanged) => run.unchanged.push(path.clone()),
@@ -1162,6 +1170,7 @@ impl Inner {
                         post,
                         post_v: now,
                         via_op: true,
+                        direct: false,
                     });
                     return;
                 }
@@ -1266,7 +1275,7 @@ impl Inner {
                 continue;
             }
             let before = run.undo.files.len();
-            if w.via_op || (at == to && lock(&self.editors).contains(&nfc(at))) {
+            if !w.direct && (w.via_op || (at == to && lock(&self.editors).contains(&nfc(at)))) {
                 // Through the link op: the editor if the note is open, else the current text on disk.
                 match (op.as_ref(), host.read(at)) {
                     (Some(op), Ok((cur, v))) if lock(&self.editors).contains(&nfc(at)) => self.write_live(run, at, &cur, &v, std::slice::from_ref(op)),
@@ -1294,7 +1303,7 @@ impl Inner {
                             run.renamed = Some((at.clone(), path.clone()));
                         }
                         run.written.push(path.clone());
-                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false });
+                        run.undo.files.push(Written { before: at.clone(), after: path, pre: Vec::new(), pre_v: base.clone(), post: bytes.clone(), post_v: v, via_op: false, direct: w.direct });
                     }
                     Ok((path, None)) => run.unchanged.push(path),
                     Err(e) => {
@@ -1327,7 +1336,7 @@ impl Inner {
         match host.write(path, &out, v) {
             Ok(Wrote::Written(post_v)) => {
                 run.written.push(path.to_string());
-                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true });
+                run.undo.files.push(Written { before: path.to_string(), after: path.to_string(), pre: bytes.to_vec(), pre_v: v.clone(), post: out, post_v, via_op: true, direct: false });
             }
             Ok(Wrote::Unchanged) => run.unchanged.push(path.to_string()),
             Err(e) => run.skip(path, write_reason(&e)),
@@ -1349,7 +1358,7 @@ impl Inner {
         ops: &[TextOp],
     ) -> Result<Transformed, TransformError> {
         // QA M7: a relink needs only the paths its file's links can name, not the whole vault.
-        let slim: Vec<TextOp> = ops.iter().map(|o| slim_relink(o, bytes)).collect();
+        let slim: Vec<TextOp> = ops.iter().map(|o| self.slim_relink(o, bytes)).collect();
         let ops = &slim[..];
         if let Some(t) = lock(&self.transformer).clone() {
             return t.transform(source, bytes, ops);
@@ -1419,19 +1428,74 @@ impl Inner {
     }
 }
 
-/// QA M7: the paths of a relink that the file's text can reach: a path whose stem, or whose path without `.md`, occurs in
-/// the text (case-insensitively), plus every path of the move set.
-fn slim_relink(op: &TextOp, bytes: &[u8]) -> TextOp {
-    let TextOp::Relink { moves, paths } = op else { return op.clone() };
-    let text = nfc(&String::from_utf8_lossy(bytes)).to_lowercase();
-    let moved: HashSet<String> = moves.iter().flat_map(|(a, b)| [nfc(a).to_lowercase(), nfc(b).to_lowercase()]).collect();
-    let keep = |p: &String| {
-        let k = nfc(p).to_lowercase();
-        let no_ext = k.strip_suffix(".md").unwrap_or(&k);
-        let stem = no_ext.rsplit('/').next().unwrap_or(no_ext);
-        moved.contains(&k) || text.contains(stem)
-    };
-    TextOp::Relink { moves: moves.clone(), paths: paths.iter().filter(|p| keep(p)).cloned().collect() }
+/// QA 4 N5: a relink's lists as the slimming compares them (NFC, lower case), built once per job.
+pub(crate) struct SlimIndex {
+    of: (usize, usize, usize),
+    moved: HashSet<String>,
+    /// Each note path's key and stem.
+    paths: Vec<(String, String)>,
+    /// Each other file's name.
+    files: Vec<String>,
+}
+
+impl Inner {
+    /// QA M7: the paths of a relink that the file's text can reach: a note whose stem occurs in the text, or in its
+    /// percent-decoded copy (`[x](Bez%20autora.md)`, QA 4 N1), case-insensitively, plus every path of the move set; and
+    /// the other files whose name occurs there.
+    fn slim_relink(&self, op: &TextOp, bytes: &[u8]) -> TextOp {
+        let TextOp::Relink { moves, paths, files } = op else { return op.clone() };
+        let of = (Arc::as_ptr(moves) as usize, Arc::as_ptr(paths) as usize, Arc::as_ptr(files) as usize);
+        let index = {
+            let mut cache = lock(&self.slim);
+            match cache.as_ref() {
+                Some(i) if i.of == of => i.clone(),
+                _ => {
+                    let i = Arc::new(SlimIndex {
+                        of,
+                        moved: moves.iter().flat_map(|(a, b)| [key(a), key(b)]).collect(),
+                        paths: paths
+                            .iter()
+                            .map(|p| {
+                                let k = key(p);
+                                let no_ext = k.strip_suffix(".md").unwrap_or(&k);
+                                let stem = no_ext.rsplit('/').next().unwrap_or(no_ext).to_string();
+                                (k, stem)
+                            })
+                            .collect(),
+                        files: files.iter().map(|p| { let k = key(p); k.rsplit('/').next().unwrap_or(&k).to_string() }).collect(),
+                    });
+                    *cache = Some(i.clone());
+                    i
+                }
+            }
+        };
+        let raw = String::from_utf8_lossy(bytes);
+        let text = nfc(&raw).to_lowercase();
+        let decoded = if raw.contains('%') { nfc(&percent_decoded(&raw)).to_lowercase() } else { String::new() };
+        let has = |s: &str| text.contains(s) || (!decoded.is_empty() && decoded.contains(s));
+        let keep: Vec<String> = paths.iter().zip(&index.paths).filter(|(_, (k, stem))| index.moved.contains(k) || has(stem)).map(|(p, _)| p.clone()).collect();
+        let keep_files: Vec<String> = files.iter().zip(&index.files).filter(|(_, name)| has(name)).map(|(p, _)| p.clone()).collect();
+        TextOp::Relink { moves: moves.clone(), paths: Arc::new(keep), files: Arc::new(keep_files) }
+    }
+}
+
+/// `%XX` sequences decoded (invalid UTF-8 replaced): the text as `markdownLinks` reads an encoded URL.
+fn percent_decoded(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(h), Some(l)) = ((b[i + 1] as char).to_digit(16), (b[i + 2] as char).to_digit(16)) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// The retarget op of an undo: from the new name back to the old one.
@@ -1446,9 +1510,9 @@ fn reversed(op: &TextOp) -> TextOp {
             to_title: from_title.clone(),
             paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
         },
-        TextOp::Relink { moves, paths } => {
+        TextOp::Relink { moves, paths, files } => {
             let to = |p: &String| moves.iter().find(|(f, _)| nfc(f) == nfc(p)).map(|(_, t)| t.clone()).unwrap_or_else(|| p.clone());
-            TextOp::Relink { moves: moves.iter().map(|(f, t)| (t.clone(), f.clone())).collect(), paths: paths.iter().map(to).collect() }
+            TextOp::Relink { moves: Arc::new(moves.iter().map(|(f, t)| (t.clone(), f.clone())).collect()), paths: Arc::new(paths.iter().map(to).collect()), files: files.clone() }
         }
         TextOp::HoldTargets { from_path, to_path, paths } => TextOp::HoldTargets {
             from_path: to_path.clone(),

@@ -420,7 +420,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     editors: new Set<string>(),
     reports: {} as Record<number, any>,
     plans: {} as Record<number, { op: any; files: Record<string, any[]> }>,
-    undo: {} as Record<number, { op: any; kind?: string; ids?: Record<string, string | null>; files: { before: string; after: string; pre: string; post: string }[] }>,
+    undo: {} as Record<number, { op: any; kind?: string; ids?: Record<string, string | null>; files: { before: string; after: string; pre: string; post: string; direct?: boolean }[] }>,
     release: () => { const h = state.held.splice(0); for (const f of h) f(); state.control.hold = false; },
     ver: (path: string): VersionDto | null => {
       const p = path.normalize('NFC');
@@ -926,7 +926,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         // ms4-jobs §7: a moved note goes back before its linking notes (D-433).
         for (const f of [...rec.files].sort((p, q) => Number(p.before === p.after) - Number(q.before === q.after))) {
           const [at, to, want, put] = back ? [f.after, f.before, f.post, f.pre] : [f.before, f.after, f.pre, f.post];
-          if (at === to && state.editors.has(at)) {
+          if (at === to && state.editors.has(at) && !f.direct) {
             const r = await jobs.live(at, [back ? rev(rec.op) : rec.op]);
             if (r === 'written') report.written.push(at); else report.skipped.push({ path: at, reason: 'changed' });
           } else if (files[at] !== want) report.skipped.push({ path: at, reason: files[at] === undefined ? 'missing' : 'changed' });
@@ -1174,7 +1174,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       await progress('writing', 0, total);
       await jobs.hold('writing');
-      const undo: { before: string; after: string; pre: string; post: string }[] = [];
+      const undo: { before: string; after: string; pre: string; post: string; direct?: boolean }[] = [];
       if (o.folder) {
         // D-840: Undo of a folder save restores `folder:` too.
         const tf = `.tegg/types/${o.folder.key}.yml`;
@@ -1203,7 +1203,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         planned[p] = to;
       }
       const moves = Object.entries(planned).filter(([, t]) => t).map(([from, to]) => ({ from, to: to! }));
-      const relink = { op: 'relink', moves, paths: before };
+      // QA 4 N2: the other files (attachments) a moved note's relative links may name.
+      const others = Object.keys(files).filter((p) => !p.endsWith('.md') && !p.split('/').some((x) => x.startsWith('.')))
+      const relink = { op: 'relink', moves, paths: before, files: others };
       for (const note of plan.notes) {
         const p = note.path;
         const cur = files[p];
@@ -1225,7 +1227,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
             if (batch.length >= 100) void state.emit('vault:changed', { paths: batch.splice(0) });
             done.renames.push([p, to, await sha(out)]); report.written.push(to); undo.push({ before: p, after: to, pre: cur, post: out });
           } else if (to) { jobs.move(p, to, out); done.renames.push([p, to, await sha(out)]); report.written.push(to); if (plan.notes.length === 1) report.renamed = { from: p, to }; undo.push({ before: p, after: to, pre: cur, post: out }); }
-          else if (out !== cur) { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out }); }
+          // In place: on disk, never through an open editor, and so are its undo and redo (QA 4E-1 M1, 4 M1′).
+          else if (out !== cur) { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out, direct: true }); }
           else report.unchanged.push(p);
           finalTo[p] = to ?? p;
         }

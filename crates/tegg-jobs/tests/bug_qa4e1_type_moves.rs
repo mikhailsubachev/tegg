@@ -243,7 +243,7 @@ fn bug_qa4e1_m2_fr_sto_04_ac11_a_note_skipped_before_the_moves_is_listed_once_an
 }
 
 #[test]
-fn bug_qa4e1_m1_fr_sto_04_ac10_an_open_note_changed_in_place_is_written() {
+fn bug_qa4e1_3_major1_fr_sto_04_ac10_an_open_note_changed_in_place_is_written() {
     let sb = sandbox();
     let root = moves_vault(&sb);
     let p = "Knihy/Stránka v knihách.md";
@@ -286,4 +286,67 @@ fn bug_qa4e1_m4_fr_sto_04_ac11_a_late_name_clash_is_corrected_and_undone_cleanly
 
 fn fx_bytes_of(root: &std::path::Path, p: &str) -> Vec<u8> {
     read_bytes(root, p).expect("setup")
+}
+
+// Fourth QA review (qa/reviews/4e-1-type-moves-4.md).
+
+#[test]
+fn bug_qa4e1_4_m1p_fr_sto_04_ac11_undo_and_redo_of_an_open_note_changed_in_place() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    let p = "Knihy/Stránka v knihách.md";
+    let pre = "---\nid: 01JB4E0000000000000000E0C1\ntype: page\ntitle: Stránka v knihách\n---\nText.\n";
+    write_raw(&root, p, pre.as_bytes());
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    core.jobs().editor_open(p);
+    let (job, r) = ok!(run(&core, type_move(&[p], "kniha", vec![], false)), "type change in place");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    let post = some!(read_bytes(&root, p), "written");
+    let started = std::time::Instant::now();
+    let (_, u) = ok!(run(&core, JobOp::Undo { job }), "undo");
+    assert!(u.skipped.is_empty(), "nothing skipped on Undo: {u:?}");
+    assert_eq!(read_bytes(&root, p), Some(pre.as_bytes().to_vec()), "the exact pre-change bytes (FR-STO-04 AC-11)");
+    let (_, d) = ok!(run(&core, JobOp::Redo { job }), "redo");
+    assert!(d.skipped.is_empty(), "nothing skipped on Redo: {d:?}");
+    assert_eq!(read_bytes(&root, p), Some(post), "the job's bytes again");
+    assert!(started.elapsed() < Duration::from_secs(10), "never the 30 s wait for an editor: {:?}", started.elapsed());
+}
+
+#[test]
+fn bug_qa4e1_4_n1_fr_sto_04_ac8_encoded_relative_links_to_notes_that_stay_follow_the_moved_note() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    write_raw(&root, "Pages/2024/Bez autora.md", "---\nid: 01JB4E0000000000000000E0D1\ntype: page\ntitle: Bez autora\n---\n".as_bytes());
+    write_raw(&root, "Pages/Lidé/Babička.md", "---\nid: 01JB4E0000000000000000E0D2\ntype: page\ntitle: Babička\n---\n".as_bytes());
+    write_raw(&root, "Pages/2024/Kniha.md", "---\nid: 01JB4E0000000000000000E0D3\ntype: kniha\ntitle: Kniha\n---\n[a](Bez%20autora.md) a [b](../Lid%C3%A9/Babi%C4%8Dka.md)\n".as_bytes());
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let (_, r) = ok!(run(&core, tidy()), "tidy");
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    let t = some!(read_text(&root, "Knihy/Kniha.md"), "moved");
+    assert!(t.contains("[a](../Pages/2024/Bez%20autora.md)"), "the link reaches the same note from Knihy/: {t}");
+    assert!(t.contains("[b](../Pages/Lid%C3%A9/Babi%C4%8Dka.md)"), "the link reaches the same note from Knihy/: {t}");
+}
+
+#[test]
+fn bug_qa4e1_4_n3_fr_sto_01_ac9_a_planned_suffixed_name_taken_late_gets_the_next_suffix() {
+    let sb = sandbox();
+    let root = moves_vault(&sb);
+    write_raw(&root, "Knihy/Beta.md", "---\nid: 01JB4E0000000000000000E0E1\ntype: kniha\ntitle: Beta\n---\n".as_bytes());
+    write_raw(&root, "Pages/Beta.md", "---\nid: 01JB4E0000000000000000E0E2\ntype: kniha\ntitle: Beta\n---\n".as_bytes());
+    let core = ok!(open_core(&root, &sb.dirs, false), "open");
+    let r2 = root.clone();
+    core.jobs().set_point_hook(Some(Arc::new(move |_, p: &JobPoint| {
+        // Another app takes the planned `Beta (2)` while the stray is being renamed.
+        if matches!(p, JobPoint::TempWritten { path } if path == "Pages/Beta.md") && !r2.join("Knihy/Beta (2).md").exists() {
+            write_raw(&r2, "Knihy/Beta (2).md", "---\nid: 01JB4E0000000000000000E0E3\ntype: kniha\ntitle: Cizí\n---\n".as_bytes());
+        }
+    })));
+    let (job, r) = ok!(run(&core, tidy()), "tidy");
+    core.jobs().set_point_hook(None);
+    assert_eq!(r.phase, Phase::Done, "{r:?}");
+    assert!(root.join("Knihy/Beta (3).md").exists(), "the next suffix from the note's own stem: {r:?}");
+    assert!(!root.join("Knihy/Beta (2) (2).md").exists(), "never a doubled suffix");
+    // m1 (third review): the job's plan names the move that really happened (Retry reads it).
+    let plan = some!(core.jobs().plan(job), "plan");
+    assert!(plan.renames.contains(&("Pages/Beta.md".to_string(), "Knihy/Beta (3).md".to_string())), "{:?}", plan.renames);
 }
