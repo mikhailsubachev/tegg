@@ -2,7 +2,7 @@
 
 - **Generated:** 2026-10-11 from BRD v1.19 (§5–§9 requirement tables, §11 phasing, §11.2 milestones) and `qa/coverage/ac-matrix.md`.
 - **Implementation status:** the product is **pre-code**: no requirement is implemented in product code yet. "Proven in a spike" means a spike test is recorded as passing by `./verify coverage` for some of the requirement's ACs; under D-83 and TS-I6 that is evidence the approach works, not product coverage. ACs are written per milestone, just before it starts (D-61), so missing ACs for later milestones are expected.
-- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: 178 in, 101 outside. D-800…D-803 (2026-10-27): the Capacities importer (17) left for v1.0 and 4E (FR-STO-04, FR-TYP-04) came back: now 161 in, 118 outside. D-912 (2026-10-28) added NFR-PERF-11 (v1.0): 280 IDs, 119 outside.
+- **Method:** milestone lists expanded with the `./verify` range rules (tools/qa/CONTRACT.md §9.4); every requirement outside MS1–MS8 classified by hand against BRD §11, §11.1 and its priority. Requirement IDs: 279. In an MVP milestone: 179. Outside: 100 (after D-370…D-378, 2026-10-16: 14 moved to v1.0, 3 moved in). D-515 (2026-10-17) moved FR-HOM-01 to v1.0: 178 in, 101 outside. D-800…D-803 (2026-10-27): the Capacities importer (17) left for v1.0 and 4E (FR-STO-04, FR-TYP-04) came back: now 161 in, 118 outside. D-912 (2026-10-28) added NFR-PERF-11 (v1.0): 280 IDs, 119 outside. D-940 (2026-10-28) added NFR-PERF-12 (v1.0): 281 IDs, 120 outside.
 
 ## Summary
 
@@ -11,7 +11,7 @@
 | MVP milestones MS1–MS8 | 161 |
 | **MVP gap: Must (or NFR/AR) with no milestone** | 0 |
 | MVP gap: Should, needed by an MVP requirement | 0 |
-| v1.0 "complete desktop" (§11) | 91 |
+| v1.0 "complete desktop" (§11) | 92 |
 | v1.x (§11) | 4 |
 | v2 mobile / Phase 2 sync | 3 |
 | Public release track | 1 |
@@ -19,7 +19,7 @@
 | Satisfied by design | 1 |
 | Won't (W): deliberately not built | 10 |
 | Backlog: Could, unscheduled by decision (D-87) | 5 |
-| **Total** | **280** |
+| **Total** | **281** |
 
 **Verdict:** every requirement now has a phase. The first run of this check found 46 requirements that needed a decision; the owner decided them on 2026-10-11 (AP-32…AP-34 → D-85…D-87): 32 moved into MVP milestones, 9 Should requirements to v1.0, 5 Could requirements to an explicit backlog.
 
@@ -320,20 +320,21 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-HOM-04 | S | The app restores the last open note/tabs on launch (configurable: Home vs last state). | D-87 (AP-34); "Inbox or Today vs last state" (D-800) |
 | FR-NAV-06 | M | Tabs in v1: ⌘T new tab, ⌘W close, ⌘-click opens a link in a new tab, tabs are restored on launch. Split view i… | Tabs (§11); split view part v1.x |
 | FR-NAV-07 | S | All primary actions have keyboard shortcuts; shortcuts are customizable. | D-87 (AP-34) |
-| FR-NAV-08 | M | Previews of linked and embedded objects anywhere in the app: click to preview, double-click to open by default… | Object previews (§11) |
+| FR-NAV-08 | M | Previews of linked and embedded objects anywhere in the app: click to preview, double-click to open by default… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-SRC-06 | S | A search can be saved as a query (FR-QRY). | Query builder and views (§11) |
 | FR-LNK-06 | S | Links to a specific heading or block (`#^id`). Block IDs are generated automatically when the user copies a bl… | D-87 (AP-34) |
-| FR-LNK-08 | M | Click to preview (D-37): a single click on a link shows a preview popover of the linked object. This works eve… | Object previews (§11) |
-| FR-LNK-09 | M | Preview of embeds: a single click on an embed in *card* or *link* mode (FR-EMB-02), or on the header of a *ful… | Object previews (§11) |
-| FR-LNK-10 | M | Preview content is content-first (D-38), so the user can see what the object is about: a header (own icon or t… | Object previews (§11) |
-| FR-LNK-11 | M | Preview behaviour: the popover opens in < 100 ms, stays open until the user clicks outside it or presses Esc, … | Object previews (§11) |
-| FR-LNK-12 | M | Global setting "Object preview" (D-37): *Click to preview, double-click to open* (default) · *Hover to preview… | Object previews (§11) |
-| FR-LNK-13 | M | Editor interplay: because double-click on a link opens it, link text is edited via the keyboard (moving the cu… | Object previews (§11) |
+| FR-LNK-08 | M | Click to preview (D-37): a single click on a link shows a preview popover of the linked object. This works eve… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
+| FR-LNK-09 | M | Preview of embeds: a single click on an embed in *card* or *link* mode (FR-EMB-02), or on the header of a *ful… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
+| FR-LNK-10 | M | Preview content is content-first (D-38), so the user can see what the object is about: a header (type icon, title, type name, D-217)… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
+| FR-LNK-11 | M | Preview behaviour: the popover opens in < 100 ms, stays open until the user clicks outside it or presses Esc, … | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
+| FR-LNK-12 | M | Global setting "Object preview" (D-37): *Click to preview, double-click to open* (default) · *Hover to preview… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
+| FR-LNK-13 | M | Editor interplay: because double-click on a link opens it, a link is edited through the `Link` context menu or ⇧⌘K (D-927)… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-GRP-01 | M | Local graph per object in the side panel and as a full view: the current object + linked objects up to depth N… | Local graph (§11) |
 | FR-GRP-02 | M | Filter by object type: a filter panel with a checkbox per type, "all / none", and saved filter presets shows o… | Local graph (§11); toggles links, relations, embeds, tags (D-901); slices G1, G3 (D-919) |
 | FR-GRP-03 | M | Click a node selects it, highlights its neighbours and shows the preview (FR-GRP-06); double-click opens the o… | Local graph (§11) |
 | FR-GRP-05 | M | Type icons in nodes: each node shows its type icon (D-217), with the node colored by type. The title label sits… | Local graph (§11); the filter list is the legend (D-910) |
 | NFR-PERF-11 | M | Local graph at depth 2 drawn (query + layout) < 300 ms p95 on the reference vault. | Local graph (§11); added by D-912 |
+| NFR-PERF-12 | M | Object preview ready (click to header, strip and first screen) < 75 ms p95 on the 5,000-word benchmark note. | Object previews (§11), slice P; added by D-940 |
 | FR-GRP-06 | M | Smart preview in the graph: clicking a node shows the same content-first preview as FR-LNK-10, so the user can… | Local graph (§11) |
 | FR-GRP-07 | S | Node size can optionally reflect the number of links (more connected = bigger). | Local graph (§11) |
 | FR-GRP-08 | M | Tags appear as nodes in their tag color (type *Tag*) and can be shown or hidden with the type filter (FR-GRP-0… | Local graph (§11) |
@@ -389,7 +390,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-EXP-05 | S | PDF: page size (A4/Letter), light theme, page breaks before H1 (optional). | Export, all 4 formats (§11) |
 | FR-EXP-06 | M | Whole-vault export is lossless: a Markdown bundle of the whole vault includes type definitions, saved-query de… | Export, all 4 formats (§11) |
 | FR-SET-06 | S | Trash retention (default 30 days), version history retention (default 90 days). | Retention settings, with version history |
-| FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11) |
+| FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
 | FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275) |
 | FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
