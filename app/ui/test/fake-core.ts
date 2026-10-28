@@ -1221,10 +1221,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           const linkless = ops.every((op: any) => op.op === 'keep-targets' || op.op === 'relink') && !cur.includes('[[') && !cur.includes('](');
           const out = linkless ? cur : (await w.__teggJobs('transform', { source: p, text: cur, ops }, files)) ?? cur;
           if (to && folderMove) {
-            // The fake reports a folder move's changes in batches (the UI re-reads the vault on each event).
+            // The fake reports a folder move's changes in one event once the notes are moved (the UI re-reads the vault on
+            // each event: batches of 100 stacked five rounds of re-reads, seconds on a 500-note move under load).
             delete files[p]; delete state.mtimes[p]; files[to] = out; state.touch(to); state.writtenPaths.push(to);
             batch.push(p, to);
-            if (batch.length >= 100) void state.emit('vault:changed', { paths: batch.splice(0) });
             done.renames.push([p, to, await sha(out)]); report.written.push(to); undo.push({ before: p, after: to, pre: cur, post: out });
           } else if (to) { jobs.move(p, to, out); done.renames.push([p, to, await sha(out)]); report.written.push(to); if (plan.notes.length === 1) report.renamed = { from: p, to }; undo.push({ before: p, after: to, pre: cur, post: out }); }
           // In place: on disk, never through an open editor, and so are its undo and redo (QA 4E-1 M1, 4 M1′).
