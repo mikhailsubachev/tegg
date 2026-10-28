@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.105, for review                                            |
+| **Document status** | Draft v1.106, for review                                            |
 | **Date**            | 2026-10-27                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -119,6 +119,7 @@
 | v1.103  | 2026-10-27 | Slice 4E ACs (`docs/acceptance/type-moves.md`, plan `docs/plans/4e-type-moves-and-schema-rewrites.md`) approved: owner decisions D-810…D-818 (AP-765…AP-773, each as proposed): links on a move keep their targets, what the tidy job moves, Undo of multi-file 4E jobs, Content lines and bulk convert, delete property leaves empty lines and templates, delete type keeps the type when an object is skipped and restores it with an object, used options stay read-only, the earlier ACs 4E changes, 4E in two parts. |
 | v1.104  | 2026-10-28 | Slice 4E-1 red-test decisions D-819…D-833 (AP-774…AP-788, each as recommended): when the tidy job runs, `type_patch` and the folder job, the change-type dialog interface, the type file written inside the folder job, test injection points, link encoding, `review` untouched by a type change, Content line layout, two approved AC-test changes, templates, Undo commands, real-app hooks, stray retries, R101 in Rust. |
 | v1.105  | 2026-10-28 | Slice 4E-1 build: D-834 (AC-test changes the type move brings: R101 offers, the tidy zip, the older type-change and Inbox criteria), D-835 (the tidy job is off in real-app tests unless a test turns it on).; D-836 (three more AC-test changes the type move brings). |
+| v1.106  | 2026-10-28 | QA review of 4E-1: owner decisions D-837 (bulk convert grouped by source type), D-838 (links whose target a move would change are rewritten, in any note), D-839 (tidy exemptions by path for notes without `id`), D-840 (Undo of a folder save restores `folder:`). |
 
 ---
 
@@ -946,6 +947,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-834 | AC-test changes for the 4E-1 build (owner, 2026-10-28) | Approved, applied with the `AC-Test-Change` trailer: type-moves.md FR-STO-04 AC-5 (a date and a relation widen to Text, so Vydáno and Související also offer Místo, D-808), the L5 tests of FR-STO-04 AC-4 and FR-INB-02 AC-17 bulk (the zip of the tidy job at open is its own); types.md FR-TYP-07 AC-5…AC-10 and FR-TYP-01 AC-5, links.md FR-STO-04 AC-1, AC-3, inbox.md FR-INB-02 AC-5, AC-14, FR-SYN-06 AC-27 follow the type move (D-803, D-804, D-805, D-810, D-812), annotated in place |
 | D-835 | The tidy job in real-app tests (owner, 2026-10-28) | Real-app tests start the app with `TEGG_TEST_TIDY=0` (`app/e2e/helpers/capture.ts` `testEnv`), so the tidy job of D-805 doesn't move the older fixtures' objects outside their type's folder; the 4E-1 real-app tests pass `TEGG_TEST_TIDY: '1'`. The fake core's tidy job is opt-in (`tidy: true`) the same way |
 | D-836 | Three more AC-test changes for 4E-1 (owner, 2026-10-28) | Approved, applied with the trailer: inbox.md FR-INB-04 AC-1 (the convert moves Q2 to `Nápady/`), types.md FR-TYP-07 AC-12 (the file moves; ⌘Z moves it back), read-view.md FR-EDT-02 AC-13 (`jobs_ready` is an allowed startup command, D-819) |
+| D-837 | A bulk convert across source types (finding 9) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | The selection is grouped by its items' current type: one mapping dialog for each group that needs one (D-804, D-813), then one `type-move` job per group (each with its zip, D-57). The planner maps only the old type's schema properties; an untyped note's keys are never mapped |
+| D-838 | Links whose target a move would change (finding 11; refines D-810) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | After a move every link whose resolution would change (D-291) is rewritten to keep its target, in any note: links to the moved note whose written form stops resolving to it, and links to another note that would now resolve to the moved note (a duplicate stem in the new folder, from Obsidian). They get the shortest form that still resolves, with the written text as alias. Silent, like D-804 |
+| D-839 | Tidy exemptions for notes without an `id` (finding 12; refines D-812) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | `tidy-exempt.json` also lists the NFC vault paths of undone tidy or folder moves whose note has no `id` (`paths`, next to `ids`); nothing is written into the note. A path leaves the list when that note's type or its type's folder changes |
+| D-840 | Undo of a folder save (finding 21; refines D-812) (owner, 2026-10-28; QA review of 4E-1, `qa/reviews/4e-1-type-moves.md`) | Undo of a folder save moves the notes back **and** restores the type file's previous `folder:` (the job's own write is in its undo record); its notes are then not strays and are not added to the exemption list. Undo of a tidy job still exempts its notes |
 
 ---
 
