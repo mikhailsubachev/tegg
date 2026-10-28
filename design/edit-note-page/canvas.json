@@ -237,6 +237,22 @@
       "y": 0,
       "page": "page-4e",
       "title": "Type moves and schema rewrites · dialogs (4E)"
+    },
+    "ObjectPreview.dc.html": {
+      "h": 3480,
+      "page": "page-previews",
+      "title": "Object preview · states (slice P, D-921)",
+      "w": 1760,
+      "x": 0,
+      "y": 0
+    },
+    "ObjectPreviewDark.dc.html": {
+      "h": 3480,
+      "page": "page-previews",
+      "title": "Object preview · states (dark)",
+      "w": 1760,
+      "x": 1840,
+      "y": 0
     }
   },
   "createdOnFiles": {
@@ -276,7 +292,9 @@
     "LayoutNormal.dc.html",
     "LayoutWidePanel.dc.html",
     "LayoutWide.dc.html",
-    "TypeJobs.dc.html"
+    "TypeJobs.dc.html",
+    "ObjectPreview.dc.html",
+    "ObjectPreviewDark.dc.html"
   ],
   "pages": [
     {
@@ -298,6 +316,10 @@
     {
       "id": "page-4e",
       "name": "Type moves & schema (4E)"
+    },
+    {
+      "id": "page-previews",
+      "name": "Object preview (P)"
     }
   ],
   "title": "Tegg – Edit note page"

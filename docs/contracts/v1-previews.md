@@ -2,8 +2,8 @@
 
 Public interfaces of slice P, for the test author (D-61) and the build. ACs: `docs/acceptance/previews.md` (R102…R107,
 FR-LNK-08…13, FR-NAV-08, FR-SET-07, FR-TSK-08 AC-4…AC-6). Decisions: D-37, D-38, D-217, D-917, D-919, D-921…D-944
-(BRD v1.110). Board: `design/edit-note-page/ObjectPreview.dc.html` (D-921, drawn before the red tests; until then the
-layout values of R102 are the only ones tests check). The graph (G1, G2) mounts the same preview (§7).
+(BRD v1.110). Board: `design/edit-note-page/ObjectPreview.dc.html` and `ObjectPreviewDark.dc.html` (D-921): the anatomy, the
+input table, hover mode, every R105 state, the graph line, and the editor's click, `Link` menu and `Edit link` dialog. The graph (G1, G2) mounts the same preview (§7).
 
 Slice P adds **no vault write** except the two link edits of §5.3, which go through the open note's autosave
 (`note_write`, D-184). Every other part reads.
