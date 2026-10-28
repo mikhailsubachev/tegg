@@ -145,6 +145,8 @@ struct Shared {
     hub: Mutex<Hub>,
     pending: Mutex<usize>,
     idle: Condvar,
+    /// D-819: the last watcher event, for the tidy job's quiet period (ms4-jobs §14.7).
+    last_event: Mutex<Option<std::time::Instant>>,
     cancel: AtomicBool,
     /// Path → last opened (ms since the epoch), machine-local (D-105, FR-STO-07).
     recency: Mutex<(HashMap<String, i64>, bool)>,
@@ -264,6 +266,7 @@ impl Core {
             hub: Mutex::new(Hub::default()),
             pending: Mutex::new(0),
             idle: Condvar::new(),
+            last_event: Mutex::new(None),
             cancel: AtomicBool::new(false),
             recency: Mutex::new((recency, false)),
             default_type: Mutex::new(DefaultType { key: "quick-note".into(), folder: "Quick Notes".into() }),
@@ -294,7 +297,10 @@ impl Core {
             shared
                 .vault
                 .watch(Box::new(move |c| match c {
-                    FsChange::Paths(p) => s.enqueue(Job::Paths(p)),
+                    FsChange::Paths(p) => {
+                        *lock(&s.last_event) = Some(std::time::Instant::now());
+                        s.enqueue(Job::Paths(p))
+                    }
                     FsChange::Rescan => s.enqueue(Job::CatchUp(None)),
                 }))
                 .map_err(|e| CoreError::Vault(VaultError::Io(e)))?
@@ -306,6 +312,9 @@ impl Core {
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
         let jobs_engine = tegg_jobs::Jobs::with_host(Arc::new(jobs4c::CoreHost { shared: shared.clone() }));
+        if opts.watch {
+            tidy4e::spawn(Arc::downgrade(&shared), jobs_engine.handle());
+        }
         Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine })
     }
 
@@ -1018,6 +1027,9 @@ pub use types3d::{StarterPlan, StarterSkip, TypeInfo, TypeRow, TypeUsage};
 // docs/contracts/ms4-links.md §3: backlinks panel, broken links, duplicate titles, create from a link (`links4a.rs`).
 mod links4a;
 mod jobs4c;
+mod tidy4e;
+mod movemap4e;
+pub use movemap4e::{MapRow, TypeMovePlan};
 pub use links4a::{
     BacklinkEntry, BacklinkGroup, BacklinksPanel, BrokenGroup, BrokenLinks, CreateRefusal, DuplicateGroup,
     DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,

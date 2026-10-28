@@ -6,6 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES } from '@tegg/schema';
 import { t } from '../i18n/catalog';
+import { expectFolderMove } from '../jobs/jobs';
+import { listen } from '@tauri-apps/api/event';
 import { ipc } from '../ipc/client';
 import type { AttributeChangeDto, AttributeDto, AttributeInputDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
@@ -65,7 +67,7 @@ export function Dialog({ label, onCancel, children, className, restore, role = '
 }
 
 /** A text setting committed with ⏎ or on leaving it; `check` returns a message to refuse it locally. */
-function TextSetting({ label, value, disabled, desc, multiline, check, onCommit, error, inputRef }: {
+function TextSetting({ label, value, disabled, desc, multiline, check, onCommit, error, inputRef, onDraft }: {
   label: string;
   value: string;
   disabled?: boolean;
@@ -75,6 +77,8 @@ function TextSetting({ label, value, disabled, desc, multiline, check, onCommit,
   onCommit: (v: string) => void;
   error?: string | null;
   inputRef?: (el: HTMLInputElement | null) => void;
+  /** The text while it is being typed (4E-1: the folder field's preview, R99 B1). */
+  onDraft?: (v: string) => void;
 }) {
   const [v, setV] = useState(value);
   const [local, setLocal] = useState<string | null>(null);
@@ -97,7 +101,7 @@ function TextSetting({ label, value, disabled, desc, multiline, check, onCommit,
       <span className="ts-label">{label}</span>
       <input ref={inputRef} type="text" aria-label={label} aria-description={desc} aria-describedby={shown ? errId : undefined} aria-invalid={shown ? true : undefined}
         disabled={disabled} value={v} spellCheck={false} autoComplete="off" className={multiline ? 'wide' : ''}
-        onChange={(e) => { editing.current = true; setV(e.target.value); }}
+        onChange={(e) => { editing.current = true; setV(e.target.value); onDraft?.(e.target.value.normalize('NFC')); }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
@@ -197,6 +201,23 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
   const [deleting, setDeleting] = useState(false);
   const objects = usage?.objects ?? 0;
   const color = colorName(type.color);
+  // 4E-1 (D-805, R99 B1): typing a new folder shows how many objects saving it moves; the save moves them (a job).
+  const [moving, setMoving] = useState<number | null>(null);
+  // Test build only (D-831): the core sends `tegg://test-focus-folder` under TEGG_TEST_FOCUS_FOLDER once the page is
+  // ready, for the real-app tests that type a new folder without Appium.
+  useEffect(() => {
+    const un = listen('tegg://test-focus-folder', () => document.querySelector<HTMLInputElement>(`input[aria-label="${t('ts.folder')}"]`)?.focus());
+    return () => void un.then((f) => f());
+  }, []);
+  const previewSeq = useRef(0);
+  const previewFolder = (v: string) => {
+    const n = ++previewSeq.current;
+    if (!v.trim() || v === type.folder) { setMoving(null); return; }
+    void ipc.folderMovePreview(type.key, v).then((r) => { if (previewSeq.current === n) setMoving(r.count); }, () => {});
+  };
+  const folderHelp = moving
+    ? t('ts.folderMoveHelp', { n: moving, plural: (moving === 1 ? type.name : type.plural).toLocaleLowerCase(), old: type.folder })
+    : t('ts.folderHelp4e');
   const set = (field: 'name' | 'plural' | 'folder' | 'icon' | 'color' | 'description', value: string | null, label: string) =>
     void w.send([{ op: 'set', field, value }], label, field);
   const nameRule = (name: string, plural: string, field: 'name' | 'plural') => {
@@ -272,10 +293,10 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
                 ))}
               </div>
             </div>
-            <TextSetting label={t('ts.folder')} value={type.folder} disabled={ro} desc={t('ts.folderHelp')} error={w.errors.folder}
+            <TextSetting label={t('ts.folder')} value={type.folder} disabled={ro} desc={folderHelp} error={w.errors.folder}
               check={(v) => { const r = checkFolder(v, types as never, type.key); return r ? t(`typeRule.${r.reason}`) : null; }}
-              onCommit={(v) => set('folder', v, t('ts.folder'))} />
-            <div className="ts-field"><Disabled control="ctl.moveExisting" /></div>
+              onDraft={previewFolder}
+              onCommit={(v) => { setMoving(null); expectFolderMove(type.key); set('folder', v, t('ts.folder')); }} />
             <TextSetting label={t('ts.description')} value={type.description ?? ''} disabled={ro} multiline error={w.errors.description}
               onCommit={(v) => set('description', v.trim() === '' ? null : v, t('ts.description'))} />
           </section>

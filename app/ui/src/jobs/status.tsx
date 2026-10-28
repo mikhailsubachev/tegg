@@ -2,10 +2,18 @@
 // (`role="status"`): `Updating links in {count} notes`, then `Updated links in {count} notes` with `Undo` for 5 s.
 // Nothing is shown when no other file is rewritten.
 import { t } from '../i18n/catalog';
-import { cancelStatusJob, undoLast, useJobs } from './jobs';
+import { useEffect } from 'react';
+import { cancelStatusJob, clearStatus, showList, undoLast, undoMove, useJobs } from './jobs';
 
 export function JobStatus() {
   const { status } = useJobs();
+  const hide = status?.hideAfter;
+  const id = status?.jobId;
+  useEffect(() => {
+    if (!hide || id === undefined) return;
+    const h = setTimeout(() => clearStatus(id), hide);
+    return () => clearTimeout(h);
+  }, [hide, id]);
   if (!status) return null;
   if (status.text && status.alert) return <span className="job-status warning-text" role="alert">{status.text}</span>;
   if (status.text) {
@@ -13,6 +21,8 @@ export function JobStatus() {
       <span className="job-status" role="status">
         {status.text}
         {status.cancel && <button type="button" className="link-button" onClick={cancelStatusJob}>{t('job.rename.cancel')}</button>}
+        {status.show && <button type="button" className="link-button" onClick={() => showList(true)}>{t('job.folderMove.show')}</button>}
+        {status.undo !== undefined && <button type="button" className="link-button" onClick={() => void undoMove(status.undo!)}>{t('job.undo')}</button>}
       </span>
     );
   }

@@ -106,7 +106,9 @@ export async function waitFile(path: string, ok: (t: string | null) => boolean, 
 
 export type Env = Record<string, string>;
 export function testEnv(appSupport: string, perfLog: string, extra: Env = {}): Env {
-  return { TEGG_TEST: '1', TEGG_APP_SUPPORT: appSupport, TEGG_PERF_LOG: perfLog, TZ, TEGG_NOW: NOW, ...extra };
+  // D-835: the tidy job (FR-STO-01 AC-9) is off in real-app tests unless a test turns it on (`TEGG_TEST_TIDY: '1'`):
+  // older fixtures keep objects outside their type's folder.
+  return { TEGG_TEST: '1', TEGG_APP_SUPPORT: appSupport, TEGG_PERF_LOG: perfLog, TZ, TEGG_NOW: NOW, TEGG_TEST_TIDY: '0', ...extra };
 }
 export function spawnApp(env: Env): ChildProcess {
   const clean = { ...process.env };

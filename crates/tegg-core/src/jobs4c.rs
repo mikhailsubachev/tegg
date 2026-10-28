@@ -5,9 +5,9 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use tegg_format::{extract, nfc};
+use tegg_format::{extract, nfc, type_key};
 use tegg_index::is_indexable;
-use tegg_jobs::host::{Host, ReadError, WriteError, Wrote};
+use tegg_jobs::host::{Host, HostProperty, ReadError, WriteError, Wrote};
 use tegg_jobs::{JobProgress, TextOp};
 use tegg_vault::{FileVersion, VaultError, WriteOutcome};
 
@@ -163,12 +163,27 @@ impl Host for CoreHost {
         crate::links4a::free_stem_in(&self.shared, folder, stem)
     }
 
+    fn free_stem_avoiding(&self, folder: &str, stem: &str, reserved: &std::collections::BTreeSet<String>) -> String {
+        crate::links4a::free_stem_avoiding(&self.shared, folder, stem, reserved)
+    }
+
     fn renamable(&self, path: &str) -> bool {
         let path = nfc(path);
         if lock(&self.shared.not_utf8).contains(&path) {
             return false;
         }
         lock(&self.shared.index).daily_date_of(&path).is_none()
+    }
+
+    fn vault_files(&self) -> Vec<String> {
+        self.shared
+            .vault
+            .list_files()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| !p.ends_with(".md") && !p.ends_with(".tegg-tmp") && !p.split('/').any(|c| c.starts_with('.')))
+            .map(|p| nfc(&p))
+            .collect()
     }
 
     fn backup_files(&self) -> Vec<String> {
@@ -290,6 +305,106 @@ impl Host for CoreHost {
 
     fn vault_name(&self) -> String {
         self.shared.vault.root().file_name().map(|n| nfc(&n.to_string_lossy())).unwrap_or_default()
+    }
+
+    // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.5)
+
+    fn type_folder(&self, r#type: &str) -> Option<String> {
+        let k = type_key(r#type);
+        self.shared.read_types().into_iter().find(|t| t.key == k && !t.invalid).map(|t| nfc(t.folder.trim_matches('/')))
+    }
+
+    fn defined_types(&self) -> Vec<String> {
+        self.shared.read_types().into_iter().filter(|t| !t.invalid).map(|t| t.key).collect()
+    }
+
+    fn objects_of(&self, r#type: &str) -> Vec<String> {
+        // D-811: only objects whose `type` is written (an untyped file is Page by FR-TYP-10 and never moved).
+        let k = type_key(r#type);
+        lock(&self.shared.index).objects().into_iter().filter(|o| o.r#type == k && o.type_raw.is_some()).map(|o| nfc(&o.path)).collect()
+    }
+
+    fn schema(&self, r#type: &str) -> Vec<HostProperty> {
+        let k = type_key(r#type);
+        let defs = self.shared.type_defs();
+        defs.get(&k)
+            .map(|d| {
+                d.attributes
+                    .iter()
+                    .map(|a| HostProperty { key: a.key.clone(), name: a.name.clone(), kind: a.r#type.as_str().to_string(), to: a.to.clone().unwrap_or_default() })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn has_conflict(&self, path: &str) -> bool {
+        let path = nfc(path);
+        lock(&self.shared.index).conflicts().iter().any(|c| nfc(&c.primary) == path || c.others.iter().any(|o| nfc(o) == path))
+    }
+
+    fn local_exempt(&self) -> Vec<String> {
+        self.exempt_list("ids")
+    }
+
+    fn set_local_exempt(&self, ids: &[String]) {
+        self.set_exempt_list("ids", ids);
+    }
+
+    fn local_exempt_paths(&self) -> Vec<String> {
+        self.exempt_list("paths")
+    }
+
+    fn set_local_exempt_paths(&self, paths: &[String]) {
+        self.set_exempt_list("paths", paths);
+    }
+
+    fn type_names(&self, r#type: &str) -> Option<(String, String)> {
+        let k = type_key(r#type);
+        self.shared.read_types().into_iter().find(|t| t.key == k).map(|t| (t.name, t.plural))
+    }
+
+    fn new_id(&self) -> String {
+        crate::media6a::ulid(std::time::SystemTime::now())
+    }
+
+    fn type_of(&self, path: &str) -> Option<String> {
+        let o = lock(&self.shared.index).object(&nfc(path))?;
+        o.type_raw.is_some().then_some(o.r#type)
+    }
+
+    fn write_type_folder(&self, r#type: &str, folder: &str) -> Result<Option<String>, String> {
+        crate::types3d::write_folder(&self.shared, r#type, folder).map_err(|e| format!("{e:?}"))
+    }
+}
+
+impl CoreHost {
+    /// ms4-jobs §14.6: `<Application Support>/Tegg/jobs/<vault-key>/tidy-exempt.json`.
+    fn exempt_path(&self) -> PathBuf {
+        self.app_dir().join("jobs").join(self.vault_key()).join("tidy-exempt.json")
+    }
+
+    fn exempt_file(&self) -> serde_json::Value {
+        tegg_vault::read_local_file(&self.exempt_path()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// `ids` (D-812) or `paths` (D-839) of the exemption file.
+    fn exempt_list(&self, field: &str) -> Vec<String> {
+        self.exempt_file()[field].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default()
+    }
+
+    fn set_exempt_list(&self, field: &str, items: &[String]) {
+        let cur = self.exempt_file();
+        if items.is_empty() && cur.is_null() {
+            return;
+        }
+        let other = if field == "ids" { "paths" } else { "ids" };
+        let mut v = serde_json::json!({ "version": 1, "ids": [], "paths": [] });
+        v[other] = cur[other].clone();
+        if v[other].is_null() {
+            v[other] = serde_json::json!([]);
+        }
+        v[field] = serde_json::json!(items);
+        let _ = tegg_vault::write_local_file(&self.exempt_path(), v.to_string().as_bytes());
     }
 }
 

@@ -1,0 +1,28 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Schůzka
+plural: Schůzky
+system: false
+folder: Schůzky
+icon: users
+color: teal
+review: false
+preview: [datum]
+attributes:
+  - key: datum
+    name: Datum
+    type: date
+  - key: stav
+    name: Stav
+    type: select
+    options:
+      - { label: Plánovaná, color: gray }
+      - { label: Proběhla, color: green }
+  - key: místo
+    name: Místo
+    type: text
+  - key: účastníci
+    name: Účastníci
+    type: relation
+    to: [osoba]
+    multiple: true

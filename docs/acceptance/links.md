@@ -19,9 +19,9 @@ Link resolution rule used throughout: a link target is resolved **by file name**
 
 AC-1 and AC-2 are v1.0 with slice 4E (D-372, D-750): checked at the release gate, not at MS4.
 
-- **AC-1** Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change).
+- **AC-1** Changing a note's type from Quick Note to Book moves it from `Quick Notes/` to `Books/`; its `id`, links and backlinks are unchanged (resolution is by file name, which doesn't change). *(4E, D-834: links keep resolving; path-form links and relative Markdown links to it are rewritten (D-810))*
 - **AC-2** If `Books/` already has a file with that name, the moved file gets a duplicate suffix (FR-LNK-14) and all links to it are updated.
-- **AC-3** [MS3] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties". *(changed by D-228: was [MS4]; verified by types.md FR-TYP-07 AC-5)*
+- **AC-3** [MS3] Attributes that exist in the new type are kept; others stay in the file and appear under "Other properties". *(changed by D-228: was [MS4]; verified by types.md FR-TYP-07 AC-5)* *(4E, D-834: properties of the old type's schema that the new type lacks go into the content (D-804, D-813); keys outside the old schema stay in the file)*
 
 ### FR-LNK-14 Duplicate titles
 

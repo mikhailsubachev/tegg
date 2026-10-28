@@ -11,7 +11,8 @@ import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
 import { localIso } from '../zone';
 import { fixDailyTitle, parse, parseDate, setAttribute, setValue, transform, type TextOp } from '@tegg/doc';
-import { lastRenameOf, onMoved, redoLast, renameNote, undoLast } from '../jobs/jobs';
+import { lastJobOf, moveNotes, onMoved, onRewritten, redoLast, renameNote, undoLast, undoMove } from '../jobs/jobs';
+import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
 import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
@@ -185,6 +186,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const titleRef = useRef('');
   titleRef.current = title;
   const [diskText, setDiskText] = useState<string>('');
+  const [mapping, setMapping] = useState<{ plan: TypeMovePlanDto; names: Record<string, string>; key: string; toName: string } | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  // QA N2: while a type move of this note runs, nothing changes its text (body, title, panel, chip, review, source):
+  // that text would carry the old frontmatter to the new path. It ends once the moved note is reloaded.
+  const [moving, setMoving] = useState(false);
+  const movingDone = useRef<(() => void) | null>(null);
+  const mergeOpen = useRef(false);
+  useEffect(() => { mergeOpen.current = !!merge; }, [merge]);
+  useEffect(() => { if (!moveError) return; const h = setTimeout(() => setMoveError(null), 5000); return () => clearTimeout(h); }, [moveError]);
   const root = useRef<HTMLDivElement | null>(null);
   // D-247, D-255: where the focus went when the note opened (`data-focus-target`, ms3-shell §15.2).
   const [focusTarget, setFocusTarget] = useState<'body' | 'title' | 'heading' | null>(null);
@@ -533,6 +543,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   diskTextRef.current = diskText;
   const externalRef = useRef(external);
   externalRef.current = external;
+  // QA 4E-1 4 M1′: a type change (or its undo) written in place on disk: reloaded when clean, the merge dialog otherwise.
+  useEffect(() => onRewritten((p) => { if (nfc(p) === nfc(live.current.path)) void externalRef.current(); }), []);
   useEffect(() => {
     const un = events.changed((c) => {
       if (c.paths.some((p) => nfc(p) === nfc(live.current.path))) void externalRef.current();
@@ -673,10 +685,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   /** True from a rename, undo or redo of this note until the next edit: ⌘Z / ⇧⌘Z then undo / redo it (FR-LNK-03 AC-14). */
   const onRenameKey = (e: React.KeyboardEvent) => {
     if (!e.metaKey || e.key.toLowerCase() !== 'z' || !fresh.current || (edRef.current?.historyDepth() ?? 0) > freshDepth.current) return;
-    const l = lastRenameOf(live.current.path);
+    const l = lastJobOf(live.current.path);
     if (!l) return;
-    if (!e.shiftKey && !l.undone) { e.preventDefault(); e.stopPropagation(); void undoLast(); }
-    else if (e.shiftKey && l.undone) { e.preventDefault(); e.stopPropagation(); void redoLast(); }
+    // 4E-1 (D-812): right after a type change, ⌘Z / ⇧⌘Z undo / redo its job.
+    if (!e.shiftKey && !l.undone) { e.preventDefault(); e.stopPropagation(); void (l.move ? undoMove(l.jobId, true) : undoLast()); }
+    else if (e.shiftKey && l.undone) { e.preventDefault(); e.stopPropagation(); void (l.move ? undoMove(l.jobId, false) : redoLast()); }
   };
   // A job moved this note (rename, undo, redo): the page stays, its editor saves at the new path; unsaved text gets
   // the same title and self-link change (FR-FMT-08 AC-5, FR-LNK-03 AC-18).
@@ -706,6 +719,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         } else {
           ed.reload(n.text);
         }
+        syncHead(); // a type move changed the frontmatter the panel and the chip read (4E-1)
       }
       setDiskText(n.text);
       const meta = noteMeta(m.to, n.text);
@@ -716,6 +730,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       freshDepth.current = edRef.current?.historyDepth() ?? 0;
       onRenamed(m.to);
       onMeta(meta);
+      movingDone.current?.(); // QA N2: a type move of this note ends once its new text is in the editor
     })();
   }), []);
   // D-386: while this note is open, a job changes it through this editor, never on disk behind it.
@@ -895,9 +910,51 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const typed = typeOfValue(types, (fmData as Record<string, unknown>).type);
   const chipType = typed.single ? typed.type : pageFallback(types);
   const chipKey = typed.single ? typed.key : 'page';
+  // 4E-1 (D-804, ms4-jobs §14.7): a type change is a `type-move` job: the core's R101 plan, the mapping dialog when a
+  // property needs an answer, then the move. Templates and unsaved drafts keep the in-place change (D-829, D-520).
+  const changeType = async (key: string) => {
+    const p = live.current.path;
+    if (isDraft() || p.startsWith('_templates/')) { commit((d) => setValue(d, 'type', key)); return; }
+    const plan = await ipc.typeMovePlan([p], key).catch(() => null);
+    if (!plan) { setMoveError(t('typeMove.failed')); return; } // never a silent in-place change (QA 4E-1)
+    const toName = types.find((x) => x.key === key)?.name ?? key;
+    if (plan.needsDialog) setMapping({ plan: { rows: plan.rows, needsDialog: true }, names: {}, key, toName });
+    else void startMove(key, toName, []);
+  };
+  const startMove = async (key: string, toName: string, map: { from: string; to: string }[]) => {
+    const p = live.current.path;
+    const sv = saver.current;
+    await sv?.flush();
+    sv?.hold(); // ms4-jobs §9: no write to the old path while the job moves the note
+    // Nothing is typed while the job moves the note: its text would carry the old frontmatter (QA 4E-1).
+    const tiptap = edRef.current?.editor;
+    tiptap?.setEditable(false);
+    setMoving(true);
+    let ended = false;
+    const unblock = () => {
+      if (ended) return;
+      ended = true;
+      movingDone.current = null;
+      setMoving(false);
+      if (!mergeOpen.current) tiptap?.setEditable(true); // the merge dialog keeps the editor read-only (FR-SYN-03 AC-13)
+    };
+    const reload = async () => {
+      // The type changed in place (the note was already in its new type's folder): the editor takes the new bytes.
+      const n = await ipc.noteRead(p).catch(() => null);
+      if (n && sv) { sv.moved(p, n.version); edRef.current?.reload(n.text); syncHead(); setDiskText(n.text); onMeta(noteMeta(p, n.text)); }
+      else sv?.release();
+    };
+    void moveNotes([p], key, toName, map, false, (r) => {
+      // N12: "nothing was written" only when nothing was; a job that wrote files lists what it skipped instead.
+      if (r && r.phase !== 'done' && r.written.length === 0) setMoveError(t('typeMove.failed'));
+      // A moved note is reloaded by `onMoved`, which ends the block; the timer only guards a lost event.
+      if (!r?.renamed) void reload().finally(unblock);
+      else { movingDone.current = unblock; setTimeout(unblock, 10_000); }
+    }).catch(() => { sv?.release(); unblock(); setMoveError(t('typeMove.failed')); });
+  };
   const panelType = typed.type && typed.single ? typed.type : pageFallback(types);
   // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
-  const reviewShown = !daily && !draft && editable && !showSource && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
+  const reviewShown = !daily && !draft && editable && !showSource && !moving && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
   const reviewed = reviewOf(fmData);
   const reviewToggle = reviewShown ? (
     <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
@@ -908,7 +965,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
       {!focusMode && (
         <div className="note-toolbar" role="toolbar" aria-label={t('note.toolbar')}>
-          <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
+          <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" disabled={moving} onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
             <Icon name="source" />
           </button>
           <span role="status" aria-live="polite" aria-label={t('save.label')} className={`save-state ${shownState}`}>
@@ -927,8 +984,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       )}
       <div className="note-column" data-width={pageWidth}>
         <div className="note-type-row">
-          <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource}
-            onChange={(key) => { commit((d) => setValue(d, 'type', key)); }} onOpenType={onType} />
+          <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource || moving}
+            onChange={(key) => { void changeType(key); }} onOpenType={onType} />
+          {moveError && <span className="warning-text" role="alert">{moveError}</span>}
+          {mapping && (
+            <ChangeTypeDialog plan={mapping.plan} fromName={chipType?.name ?? chipKey} toName={mapping.toName} targetNames={mapping.names}
+              targets={types.filter((x) => !['daily-note', 'tag', 'image', 'pdf', chipKey].includes(x.key)).map((x) => ({ key: x.key, name: x.name }))}
+              onTarget={(k) => { setMapping(null); void changeType(k); }}
+              onCancel={() => setMapping(null)}
+              onConfirm={(m) => { const x = mapping; setMapping(null); void startMove(x.key, x.toName, m); }} />
+          )}
           {reviewToggle && <span className="spacer" />}
           {reviewToggle}
         </div>
@@ -945,7 +1010,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               {daily.date}
             </span>
           </h1>
-        ) : editable && !showSource ? (
+        ) : editable && !showSource && !moving ? (
           <div className="note-title-row">
           <h1 className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
@@ -1017,7 +1082,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {editable && (
           <div hidden={showSource}>
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
-            <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted}
+            <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
               open={propertiesOpen} onToggle={onToggleProperties}
               otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />

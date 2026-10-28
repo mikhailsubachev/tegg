@@ -143,12 +143,14 @@ test('fr_typ_07_ac12_choosing_a_target_from_more_changes_the_type_and_undo_resto
   await (await must(moreButton(page), 'More')).click();
   await (await must(changeTypeItem(page), 'Change type…')).click();
   await (await must(changeTypeMenu(page), 'menu')).getByRole('menuitem', { name: 'Schůzka', exact: true }).click();
-  const t = await eventually(() => lastWrite(core, P.obycejna), (x) => (x ?? '').includes('type: schůzka'), 2000);
+  // 4E (D-804, D-836): the type change moves the file to Schůzky/.
+  const at = (p: string) => core.files().then((f) => f[p]);
+  const t = await eventually(() => at('Schůzky/Obyčejná stránka.md'), (x) => (x ?? '').includes('type: schůzka'), 2000);
   assert.ok((t ?? '').includes('type: schůzka\n'), 'the type line is written (AC-5)');
   assert.ok(await seen(typeLink(page).filter({ hasText: 'Schůzka' }), 2000), 'the chip shows the new type');
   await (await must(page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ }), 'Note body')).click();
   await page.keyboard.press('Meta+z');
-  assert.ok((await eventually(() => lastWrite(core, P.obycejna), (x) => (x ?? '').includes('type: page'), 2000) ?? '').includes('type: page'), '⌘Z in the body restores the previous type (AC-9)');
+  assert.ok((await eventually(() => at(P.obycejna), (x) => (x ?? '').includes('type: page'), 2000) ?? '').includes('type: page'), '⌘Z in the body restores the previous type and place (AC-9, D-812)');
 });
 
 test('fr_typ_07_ac12_palette_change_type_opens_the_same_menu', async ({ page }) => {

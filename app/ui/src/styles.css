@@ -1108,3 +1108,13 @@ button.tag-tile { cursor: pointer; }
 .mindmap-node .mindmap-field { display: block; box-sizing: border-box; width: 100%; min-width: 48px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: inherit; color: inherit; font: inherit; line-height: 18px; outline: 2px solid var(--accent) !important; outline-offset: 2px; }
 .mindmap-node.pending { padding: 6px 9px; border: 1px dashed var(--border); background: var(--bg); color: var(--text); font-weight: 400; }
 .mindmap-node.pending .mindmap-field { background: var(--bg); color: var(--text); }
+
+/* 4E-1: the Change type? mapping dialog (board TypeJobs A). */
+.change-type-dialog fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 8px 12px; }
+.change-type-dialog legend { color: var(--muted); padding: 0 4px; }
+.change-type-dialog .type-map { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.change-type-dialog .type-map-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+.change-type-dialog .type-map-row[data-empty="true"], .change-type-dialog .type-map-row[data-fixed="true"] { color: var(--muted); }
+.change-type-dialog select { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; height: 30px; padding: 0 6px; }
+.change-type-dialog select:disabled { color: var(--muted); }
+.change-type-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }

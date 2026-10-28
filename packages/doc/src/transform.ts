@@ -3,11 +3,12 @@
 // All ops of one call are computed as patches on the original text, so `edits` are ranges of the input.
 
 import type { Link, Nodes } from 'mdast'
-import { applyPatches, entryKeyText, formatEntry, type Patch, type Value } from './edit.js'
+import { applyPatches, entryKeyText, formatEntry, formatKey, type Patch, type Value } from './edit.js'
 import { wikilinks } from './links.js'
-import { parse, type Doc, type Range } from './parse.js'
+import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
+import { isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node as YamlNode, type Pair } from 'yaml'
 
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
@@ -24,10 +25,26 @@ export type TextOp =
   | { op: 'remove-tag'; key: string }
   | { op: 'merge-into'; others: { path: string; title: string; text: string }[]; now: string }
   | { op: 'replace'; text: string }
+  // Slice 4E-1 (ms4-jobs §14.4, D-804, D-810, D-813, D-826, D-829).
+  | { op: 'map-properties'; map: { from: string; to: string | 'content' }[]; labels: Record<string, string> }
+  | { op: 'keep-targets'; fromPath: string; toPath: string; paths: string[] }
+  // A type move's own type change: `type` and, unless `now` is null (a template, D-829), `modified`; never `review` (D-826).
+  | { op: 'change-type'; type: string; now: string | null; id?: string }
+  // D-838: in a note that doesn't move, keep every link on its target when `fromPath` becomes `toPath`.
+  | { op: 'hold-targets'; fromPath: string; toPath: string; paths: string[] }
+  // 4E-1 (D-810, D-838): every link of the note at `source` keeps its target when all `moves` happen together (the
+  // note itself may be one of them); `paths` are the vault's note paths before the moves, `files` its other files
+  // (attachments): a relative link to one follows a moved note only when it names one of them (QA 4E-1 4 N2).
+  | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[]; files?: string[] }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
 type Retarget = Extract<TextOp, { op: 'retarget-links' }>
+type MapProps = Extract<TextOp, { op: 'map-properties' }>
+type KeepTargets = Extract<TextOp, { op: 'keep-targets' }>
+const MOVE_OPS = new Set(['map-properties', 'keep-targets', 'change-type', 'hold-targets', 'relink'])
+type Relink = Extract<TextOp, { op: 'relink' }>
+type HoldTargets = Extract<TextOp, { op: 'hold-targets' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
@@ -56,9 +73,30 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
     const bytes = byteOffsets(text)
     return { kind: 'bytes', text: out, edits: [{ start: bytes(a), end: bytes(text.length - b) }] }
   }
+  // 4E-1: a moved note gets map-properties, change-type and keep-targets in that order, each on the text the previous one
+  // left (the Content lines may hold links keep-targets must see from the new folder); the edit is the changed span.
+  if (ops.length > 1 && ops.some((o) => MOVE_OPS.has(o.op))) {
+    let out = text
+    for (const o of ops) {
+      const r = transform(source, out, [o])
+      if (r.kind === 'bytes') out = r.text
+    }
+    return span(text, out)
+  }
   const doc = parse(text)
   const patches: Patch[] = []
   for (const op of ops) {
+    if (op.op === 'map-properties') patches.push(...mapPatches(doc, op))
+    else if (op.op === 'keep-targets') patches.push(...keepPatches(doc, op))
+    else if (op.op === 'hold-targets') patches.push(...holdPatches(doc, source, op))
+    else if (op.op === 'relink') patches.push(...relinkPatches(doc, source, op))
+    else if (op.op === 'change-type') {
+      // D-174: the edited key, then the identity keys a file without them gets (`id`, `modified`).
+      const vals: [string, Value][] = [['type', op.type]]
+      if (op.id && !doc.frontmatter?.entries.some((e) => e.key === 'id')) vals.push(['id', op.id])
+      if (op.now !== null) vals.push(['modified', { datetime: op.now }])
+      patches.push(...entryPatches(doc, vals))
+    }
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
     else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
     else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))
@@ -72,6 +110,22 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
   const edits = [...changed].sort((a, b) => a.range[0] - b.range[0]).map((p) => ({ start: bytes(p.range[0]), end: bytes(p.range[1]) }))
   return { kind: 'bytes', text: out, edits }
 }
+
+/** D-813 (ms4-jobs §14.4): the Content line of `map-properties` for one property, e.g. `**Autor:** Frank Herbert`:
+ *  the stored value, not its display form (dates `YYYY-MM-DD`, lists joined with `, `, relations as their `[[links]]`,
+ *  booleans `true`/`false`, no quotes). Exported for the Change type dialog's preview and the L1 tests. */
+export function contentLine(label: string, value: unknown): string {
+  return `**${nfc(label)}:** ${shownValue(value)}`
+}
+
+function shownValue(v: unknown): string {
+  if (Array.isArray(v)) return v.filter((x) => !isEmpty(x)).map(shownValue).join(', ')
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  if (v !== null && typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.every(isEmpty))
 
 /** D-184: the link text for the note at `toPath` written in `source`: its stem when the stem resolves to it from there
  *  (D-291), else its vault path without `.md`; `|title` when the title differs from that. */
@@ -92,17 +146,22 @@ export function rewriteLinks(source: string, text: string, op: Retarget): Transf
 // ---------------------------------------------------------------- set-title
 
 function titlePatches(doc: Doc, title: string, now: string): Patch[] {
+  return entryPatches(doc, [['title', title], ['modified', { datetime: now }]])
+}
+
+/** Sets each `[key, value]` in the frontmatter: an existing entry keeps its key text; missing ones are appended. */
+function entryPatches(doc: Doc, values: [string, Value][]): Patch[] {
   const fm = doc.frontmatter
   // A note without frontmatter (common in Obsidian vaults, D-05) gets one with the title, as editor AC-10 does.
   if (!fm && !doc.frontmatterError) {
     const at = doc.bom ? 1 : 0
-    const head = fit(doc, `---\n${formatEntry('title', title)}${formatEntry('modified', { datetime: now })}---\n`)
+    const head = fit(doc, `---\n${values.map(([k, v]) => formatEntry(k, v)).join('')}---\n`)
     return [{ range: [at, at], text: head }]
   }
-  if (!fm || fm.error) throw new Error('No valid frontmatter to set the title in (NFR-REL-03)')
+  if (!fm || fm.error) throw new Error('No valid frontmatter to write in (NFR-REL-03)')
   const out: Patch[] = []
   const missing: string[] = []
-  for (const [key, value] of [['title', title], ['modified', { datetime: now }]] as [string, Value][]) {
+  for (const [key, value] of values) {
     const e = fm.entries.find((x) => x.key === key)
     const entry = fit(doc, formatEntry(key, value))
     if (e) out.push({ range: e.range, text: entryKeyText(doc, e.range) + entry.slice(entry.indexOf(':')) })
@@ -132,16 +191,22 @@ function linkPatches(doc: Doc, source: string, op: Retarget): Patch[] {
   const toTitle = nfc(op.toTitle)
   const stemChanges = key(op.fromStem) !== key(toStem) || nfc(op.fromStem) !== toStem
   // The title needs an alias only when sanitizing changed it, not for a duplicate's ` (2)` suffix (D-383, FR-FMT-08 AC-10).
-  const needsAlias = toTitle !== toStem && toTitle !== toStem.replace(/ \(\d+\)$/, '')
+  // 4E (FR-STO-04 AC-9): a move's ` (2)` suffix keeps the link reading as the title, so it gets the alias.
+  const moving = key(folder(op.fromPath)) !== key(folder(op.toPath))
+  const needsAlias = toTitle !== toStem && (moving || toTitle !== toStem.replace(/ \(\d+\)$/, ''))
   // An alias can't hold `[`, `]`, `|` or a line break without ending the link; such a title is shown from the file name.
   const aliasOk = !/[[\]|\r\n]/.test(toTitle)
+  // 4E (D-810): a move into another folder changes path forms and relative Markdown links even with the same stem.
+  const moved = moving
+  const toNoExt = nfc(op.toPath).replace(/\.md$/i, '')
   for (const l of wikilinks(doc)) {
     if (!resolvesTo(source, l.target, false, op)) continue
     const [s, e] = l.range
     const raw = doc.text.slice(s, e)
     const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
     let name = doc.text.slice(l.targetRange[0], l.targetRange[1])
-    if (stemChanges) name = renameLast(name, toStem)
+    if (moved && name.includes('/')) name = toNoExt + (/\.md$/i.exec(name)?.[0] ?? '')
+    else if (stemChanges) name = renameLast(name, toStem)
     let tail = raw.slice(te, raw.length - 2) // `#sub`, `|alias` (or `\|alias`), as written
     if (!l.embed) {
       const sep = l.escapedPipe ? '\\|' : '|'
@@ -160,7 +225,7 @@ function linkPatches(doc: Doc, source: string, op: Retarget): Patch[] {
   for (const m of markdownLinks(doc)) {
     if (!resolvesTo(source, m.target, true, op)) continue
     const url = doc.text.slice(m.url[0], m.url[1])
-    const next = rewriteUrl(url, toStem)
+    const next = moved ? relativeUrl(url, folder(source), op.toPath) : rewriteUrl(url, toStem)
     if (next !== url) out.push({ range: m.url, text: next })
   }
   return out
@@ -190,13 +255,47 @@ function rewriteUrl(url: string, stem: string): string {
   return angle ? `<${next}>` : next
 }
 
+/** A Markdown link URL pointing at `toPath` from a note in `fromFolder`: the relative path, `<…>` kept, encoding only
+ *  the characters the original encoded (D-825; spaces and parentheses always when it isn't in `<…>`). */
+function relativeUrl(url: string, fromFolder: string, toPath: string): string {
+  const angle = url.startsWith('<') && url.endsWith('>')
+  const inner = angle ? url.slice(1, -1) : url
+  const encoded = new Set<string>()
+  for (const run of inner.match(/(?:%[0-9A-Fa-f]{2})+/g) ?? []) {
+    try {
+      for (const ch of decodeURIComponent(run)) encoded.add(ch)
+    } catch {
+      /* not a valid escape: nothing learnt */
+    }
+  }
+  const nonAscii = [...encoded].some((c) => c.codePointAt(0)! > 0x7f)
+  const rel = relPath(fromFolder, nfc(toPath))
+  let out = ''
+  for (const ch of rel) {
+    // Outside `<…>`, a space or a parenthesis (a ` (2)` name) would end or unbalance the destination: always encoded.
+    const enc = ch !== '/' && (encoded.has(ch) || (nonAscii && ch.codePointAt(0)! > 0x7f) || (!angle && (ch === ' ' || ch === '(' || ch === ')')))
+    out += !enc ? ch : ch === '(' ? '%28' : ch === ')' ? '%29' : encodeURIComponent(ch) // encodeURIComponent keeps ( )
+  }
+  return angle ? `<${out}>` : out
+}
+
+/** `to` (a vault path) relative to the folder `from`. */
+function relPath(from: string, to: string): string {
+  const a = from ? from.split('/') : []
+  const b = to.split('/')
+  let i = 0
+  while (i < a.length && i < b.length - 1 && key(a[i]) === key(b[i])) i++
+  return '../'.repeat(a.length - i) + b.slice(i).join('/')
+}
+
 type MdLink = { target: string; url: Range }
 
 /** Inline Markdown links in the body with a local destination; `url` is the destination's source range. */
 function markdownLinks(doc: Doc): MdLink[] {
   const out: MdLink[] = []
   const walk = (n: Nodes): void => {
-    if (n.type === 'link') {
+    // An image's destination is a path too (QA M6: an attachment next to a moved note).
+    if (n.type === 'link' || n.type === 'image') {
       const found = destination(doc.text, n as Link)
       if (found) out.push(found)
     }
@@ -239,6 +338,230 @@ function destination(text: string, n: Link): MdLink | null {
     /* keep as written */
   }
   return { target, url: [s + i, s + j] }
+}
+
+// ---------------------------------------------------------------- map-properties (D-804, D-813, D-827)
+
+function mapPatches(doc: Doc, op: MapProps): Patch[] {
+  const fm = doc.frontmatter
+  if (!fm || fm.error || !fm.data) return []
+  const out: Patch[] = []
+  const lines: string[] = []
+  const entries = fm.entries
+  const { values: stored, anchored } = storedValues(doc)
+  for (const m of op.map) {
+    const at = entries.findIndex((e) => nfc(e.key) === nfc(m.from))
+    if (at === -1) continue
+    const e = entries[at]
+    // QA N8: an entry whose anchor an alias uses stays where it is (removing it would break the YAML, NFR-REL-03).
+    if (anchored.has(e.key) && m.to === 'content') continue
+    const value = stored[e.key] ?? fm.data[e.key]
+    // A target key the note already has can't take the value: it goes into the content instead (nothing is lost).
+    const to = m.to !== 'content' && nfc(m.to) !== nfc(m.from) && entries.some((x) => nfc(x.key) === nfc(m.to)) ? 'content' : m.to
+    if (to === 'content') {
+      // R101: an empty value writes no Content line; its key leaves with the old type's other properties.
+      if (!isEmpty(value)) lines.push(contentLine(op.labels[m.from] ?? m.from, value))
+      out.push({ range: [commentStart(doc, entries, at), e.range[1]], text: '' })
+    } else if (nfc(to) !== nfc(m.from)) {
+      const keyText = entryKeyText(doc, e.range)
+      out.push({ range: [e.range[0], e.range[0] + keyText.length], text: nfc(formatKey(to)) })
+    }
+  }
+  if (lines.length) {
+    const at = doc.bodyStart
+    out.push({ range: [at, at], text: lines.map((l) => fit(doc, l)).join(doc.eol) + doc.eol + doc.eol })
+  }
+  return out
+}
+
+/** D-813: each frontmatter value as stored: strings as their value (quotes dropped), every other scalar as written
+ *  (`0123`, `1.50`, `0x1F` stay as they are), lists item by item. */
+function storedValues(doc: Doc): { values: Record<string, unknown>; anchored: Set<string> } {
+  const fm = doc.frontmatter!
+  const inner = doc.text.slice(fm.innerRange[0], fm.innerRange[1])
+  const y = parseDocument(inner)
+  const values: Record<string, unknown> = {}
+  const one = (n: unknown): unknown => {
+    if (isAlias(n)) return one(n.resolve(y)) // QA N8: an alias is shown as the value it stands for
+    if (isScalar(n)) return typeof n.value === 'string' || n.value === null || !n.range ? n.value : inner.slice(n.range[0], n.range[1])
+    if (isSeq(n)) return n.items.map(one)
+    return (n as YamlNode | null)?.toJSON?.() ?? n
+  }
+  // Keys whose value carries an anchor that an alias elsewhere uses: removing them would leave the alias unresolvable.
+  const used = new Set<string>()
+  visit(y, { Alias: (_, a) => { used.add(a.source) } })
+  const anchored = new Set<string>()
+  if (isMap(y.contents)) for (const it of y.contents.items as Pair[]) {
+    if (!isScalar(it.key)) continue
+    const k = String(it.key.value)
+    values[k] = one(it.value)
+    let hit = false
+    if (it.value) visit(it.value as YamlNode, { Node: (_, n) => { if ((n as { anchor?: string }).anchor && used.has((n as { anchor?: string }).anchor!)) hit = true } })
+    if (hit) anchored.add(k)
+  }
+  return { values, anchored }
+}
+
+/** Where entry `at` starts once the full-line comments directly above it are counted with it. */
+function commentStart(doc: Doc, entries: FrontmatterEntry[], at: number): number {
+  const fm = doc.frontmatter!
+  const floor = at > 0 ? entries[at - 1].range[1] : fm.innerRange[0]
+  let start = entries[at].range[0]
+  while (start > floor) {
+    const prevEnd = start
+    const lineStart = doc.text.lastIndexOf('\n', prevEnd - 2) + 1
+    const line = doc.text.slice(Math.max(lineStart, floor), prevEnd)
+    if (!/^\s*#/.test(line)) break
+    start = Math.max(lineStart, floor)
+  }
+  return start
+}
+
+// ---------------------------------------------------------------- keep-targets (D-810)
+
+function keepPatches(doc: Doc, op: KeepTargets): Patch[] {
+  const out: Patch[] = []
+  const before = op.paths
+  const after = op.paths.some((p) => key(p) === key(op.fromPath)) ? op.paths.map((p) => (key(p) === key(op.fromPath) ? op.toPath : p)) : [...op.paths, op.toPath]
+  const was = (target: string, md: boolean): string | null => {
+    const b = resolveFrom(op.fromPath, target, md, before)
+    return b === null ? null : key(b) === key(op.fromPath) ? op.toPath : b
+  }
+  for (const l of wikilinks(doc)) {
+    const b = was(l.target, false)
+    if (b === null) continue
+    const a = resolveFrom(op.toPath, l.target, false, after)
+    if (a !== null && key(a) === key(b)) continue
+    const [s, e] = l.range
+    const raw = doc.text.slice(s, e)
+    const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
+    const written = doc.text.slice(l.targetRange[0], l.targetRange[1])
+    const ext = /\.md$/i.exec(written)?.[0] ?? ''
+    const noExt = nfc(b).replace(/\.md$/i, '')
+    const stem = noExt.slice(noExt.lastIndexOf('/') + 1)
+    const viaStem = resolveFrom(op.toPath, stem, false, after)
+    const name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
+    let tail = raw.slice(te, raw.length - 2)
+    if (!l.embed && l.alias === null) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
+  }
+  for (const m of markdownLinks(doc)) {
+    const b = was(m.target, true)
+    if (b === null) continue
+    const a = resolveFrom(op.toPath, m.target, true, after)
+    if (a !== null && key(a) === key(b)) continue
+    const url = doc.text.slice(m.url[0], m.url[1])
+    out.push({ range: m.url, text: relativeUrl(url, folder(op.toPath), b) })
+  }
+  return out
+}
+
+/** `\|` inside a table cell (a bare `|` would end the cell), else `|`. */
+function pipeAt(doc: Doc, at: number): string {
+  return doc.blocks.some((b) => b.kind === 'table' && b.range[0] <= at && at < b.range[1]) ? '\\|' : '|'
+}
+
+// ---------------------------------------------------------------- hold-targets (D-838)
+
+function holdPatches(doc: Doc, source: string, op: HoldTargets): Patch[] {
+  const out: Patch[] = []
+  const before = op.paths
+  const after = before.some((p) => key(p) === key(op.fromPath)) ? before.map((p) => (key(p) === key(op.fromPath) ? op.toPath : p)) : [...before, op.toPath]
+  const was = (target: string, md: boolean): string | null => {
+    const b = resolveFrom(source, target, md, before)
+    return b === null ? null : key(b) === key(op.fromPath) ? op.toPath : b
+  }
+  for (const l of wikilinks(doc)) {
+    const b = was(l.target, false)
+    if (b === null) continue
+    const a = resolveFrom(source, l.target, false, after)
+    if (a !== null && key(a) === key(b)) continue
+    const [s, e] = l.range
+    const raw = doc.text.slice(s, e)
+    const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
+    const written = doc.text.slice(l.targetRange[0], l.targetRange[1])
+    const ext = /\.md$/i.exec(written)?.[0] ?? ''
+    const noExt = nfc(b).replace(/\.md$/i, '')
+    const stem = noExt.slice(noExt.lastIndexOf('/') + 1)
+    // A path form stays a path form; a name gets the shortest form that resolves, the written text as its alias.
+    let name: string
+    if (written.includes('/')) name = noExt + ext
+    else {
+      const viaStem = resolveFrom(source, stem, false, after)
+      name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
+    }
+    let tail = raw.slice(te, raw.length - 2)
+    if (!l.embed && l.alias === null && !written.includes('/') && key(name.replace(/\.md$/i, '')) !== key(written.trim().replace(/\.md$/i, ''))) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
+  }
+  for (const m of markdownLinks(doc)) {
+    const b = was(m.target, true)
+    if (b === null) continue
+    const a = resolveFrom(source, m.target, true, after)
+    if (a !== null && key(a) === key(b)) continue
+    out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(source), b) })
+  }
+  return out
+}
+
+// ---------------------------------------------------------------- relink (4E-1: the whole move set at once)
+
+function relinkPatches(doc: Doc, source: string, op: Relink): Patch[] {
+  const out: Patch[] = []
+  const to = new Map(op.moves.map((m) => [key(m.from), nfc(m.to)]))
+  const moved = (p: string) => to.get(key(p)) ?? p
+  const before = op.paths
+  const after = [...new Set([...before.map(moved), ...op.moves.map((m) => nfc(m.to))])]
+  const from = nfc(source)
+  const now = moved(from)
+  const was = (target: string, md: boolean): string | null => {
+    const b = resolveFrom(from, target, md, before)
+    return b === null ? null : moved(b)
+  }
+  const files = new Set((op.files ?? []).map(key))
+  for (const l of wikilinks(doc)) {
+    const b = was(l.target, false)
+    if (b === null) continue
+    const a = resolveFrom(now, l.target, false, after)
+    if (a !== null && key(a) === key(b)) continue
+    const [s, e] = l.range
+    const raw = doc.text.slice(s, e)
+    const [ts, te] = [l.targetRange[0] - s, l.targetRange[1] - s]
+    const written = doc.text.slice(l.targetRange[0], l.targetRange[1])
+    const ext = /\.md$/i.exec(written)?.[0] ?? ''
+    const noExt = nfc(b).replace(/\.md$/i, '')
+    const stem = noExt.slice(noExt.lastIndexOf('/') + 1)
+    // A path form stays a path form (FR-STO-04 AC-7); a name gets the shortest form that resolves, with the written
+    // text as its alias when that differs (D-838, FR-STO-04 AC-8, AC-9).
+    let name: string
+    if (written.includes('/')) name = noExt + ext
+    else {
+      const viaStem = resolveFrom(now, stem, false, after)
+      name = (viaStem !== null && key(viaStem) === key(b) ? stem : noExt) + ext
+    }
+    let tail = raw.slice(te, raw.length - 2)
+    if (!l.embed && l.alias === null && !written.includes('/') && key(name.replace(/\.md$/i, '')) !== key(written.trim().replace(/\.md$/i, ''))) tail += pipeAt(doc, s) + written.trim()
+    out.push({ range: [s, e], text: raw.slice(0, ts) + nfc(name) + tail + ']]' })
+  }
+  for (const m of markdownLinks(doc)) {
+    const b = was(m.target, true)
+    if (b === null) {
+      // QA M6: a relative link to a file that isn't a note (an attachment, a PDF) when the note itself moves: the same
+      // file by path arithmetic from the new folder. Only when that file exists: a name (`photo.png`), a vault-root path
+      // or an address without a scheme isn't broken by the move and stays as written (D-810, QA 4 N2).
+      if (key(now) === key(from) || /\.md$/i.test(m.target)) continue
+      const abs = normalizePath(`${folder(from)}/${nfc(m.target)}`)
+      if (abs === null || !files.has(key(abs))) continue
+      const url = doc.text.slice(m.url[0], m.url[1])
+      const next = relativeUrl(url, folder(now), abs)
+      if (next !== url) out.push({ range: m.url, text: next })
+      continue
+    }
+    const a = resolveFrom(now, m.target, true, after)
+    if (a !== null && key(a) === key(b)) continue
+    out.push({ range: m.url, text: relativeUrl(doc.text.slice(m.url[0], m.url[1]), folder(now), b) })
+  }
+  return out
 }
 
 // ---------------------------------------------------------------- resolution (D-291, ms3-shell §11.1)

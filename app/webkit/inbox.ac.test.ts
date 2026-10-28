@@ -329,8 +329,10 @@ test('fr_inb_04_ac1_converting_q2_changes_three_lines', async ({ page }) => {
   const menu = await openTriage(page, 'Nápad na článek');
   await click(menu.getByRole('menuitem', { name: /Nápad/ }), 'Convert to Nápad');
   const want = swap(swap(inboxVault().files[nfc(I.Q2)], 'type: quick-note', 'type: nápad'), 'review: unreviewed', 'review: reviewed').replace(/^modified: .*$/m, `modified: ${NOW}`);
-  assert.equal(await eventually(() => core.files().then((f) => f[nfc(I.Q2)]), (x) => x === want, 2000), want, 'only type, review and modified; id and body unchanged');
-  assert.deepEqual(await core.writesTo(), [nfc(I.Q2)], 'the path is unchanged');
+  // 4E (D-803, D-836): the convert moves the item to its new type's folder.
+  const to = nfc(I.Q2.replace(/^Quick Notes\//, 'Nápady/'));
+  assert.equal(await eventually(() => core.files().then((f) => f[to]), (x) => x === want, 2000), want, 'only type, review and modified; id and body unchanged');
+  assert.deepEqual(await core.writesTo(), [to], 'one write, at the new path');
 });
 
 test('fr_dly_05_ac5_daily_notes_in_the_inbox', async ({ page }) => {

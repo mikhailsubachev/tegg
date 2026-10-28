@@ -70,6 +70,11 @@ pub(crate) fn begin_entries(host: &dyn Host, job: JobId, kind: &str, op: Option<
     write_header(host, job, kind, op, None, entries);
 }
 
+/// A single type move (§14.6), with the note's title for the banner; written again when the target changes.
+pub(crate) fn begin_titled(host: &dyn Host, job: JobId, kind: &str, op: Option<&TextOp>, title: &str, entries: &[Entry]) {
+    write_header(host, job, kind, op, Some(title.to_string()), entries);
+}
+
 fn write_header(host: &dyn Host, job: JobId, kind: &str, op: Option<&TextOp>, title: Option<String>, entries: &[Entry]) {
     let files: Vec<Value> = entries
         .iter()
@@ -139,7 +144,7 @@ fn load(host: &dyn Host, job: JobId) -> Option<Loaded> {
         .iter()
         .map(|f| Entry { at: s(&f["at"]), to: s(&f["to"]), pre: unhex(&s(&f["pre"])), target: f["target"].as_str().map(unhex) })
         .collect();
-    let mut written = Vec::new();
+    let mut written: Vec<(String, String, u64, [u8; 32])> = Vec::new();
     let mut done = Vec::new();
     for line in log.lines() {
         let p: Vec<&str> = line.split('\t').collect();
@@ -147,6 +152,8 @@ fn load(host: &dyn Host, job: JobId) -> Option<Loaded> {
             ["W", at, to, size, hash] => {
                 let mut h = [0u8; 32];
                 h.copy_from_slice(&unhex(hash).into_iter().chain(std::iter::repeat(0)).take(32).collect::<Vec<_>>());
+                // A later line for the same entry (a correction write, QA M4) replaces the earlier one.
+                written.retain(|(a, ..)| a.as_str() != *at);
                 written.push((at.to_string(), to.to_string(), size.parse().unwrap_or(0), h));
                 done.push(at.to_string());
             }
@@ -166,7 +173,13 @@ pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
         .filter_map(|job| {
             let l = load(host, job)?;
             let moved = l.entries.iter().find(|e| e.at != e.to).or(l.entries.first())?;
-            Some(Interrupted { job, from: moved.at.clone(), to: moved.to.clone(), done: l.done.len().min(l.entries.len()), total: l.entries.len() })
+            // ms4-jobs §14.6: a type move counts its links only (`<done> of <total> links updated`).
+            if l.kind == "type-move" {
+                let links = l.entries.iter().filter(|e| e.at == e.to).count();
+                let done = l.done.iter().filter(|d| l.entries.iter().any(|e| e.at == e.to && nfc(&e.at) == nfc(d))).count();
+                return Some(Interrupted { job, kind: l.kind.clone(), title: l.title.clone(), from: moved.at.clone(), to: moved.to.clone(), done, total: links });
+            }
+            Some(Interrupted { job, kind: l.kind.clone(), title: l.title.clone(), from: moved.at.clone(), to: moved.to.clone(), done: l.done.len().min(l.entries.len()), total: l.entries.len() })
         })
         .collect();
     out.sort_by_key(|i| i.job);
@@ -270,7 +283,19 @@ fn finish_rest(host: &dyn Host, transformer: &dyn Transformer, l: &Loaded) {
             }
         }
     } else {
-        for e in l.entries.iter().filter(|e| pending(e)) {
+        // ms4-jobs §8, D-433 (type move): the moved note first; if it can't move, no link may follow it.
+        if l.kind == "type-move" {
+            if let Some(note) = l.entries.iter().find(|e| e.at != e.to) {
+                if pending(note) && moved_unlogged(host, l).is_none() {
+                    let Some((_, v)) = unchanged(note) else { return };
+                    let Some(out) = note.target.clone() else { return };
+                    if host.rename(&note.at, &note.to, &out, &v).is_err() {
+                        return;
+                    }
+                }
+            }
+        }
+        for e in l.entries.iter().filter(|e| pending(e) && !(l.kind == "type-move" && e.at != e.to)) {
             let Some((b, v)) = unchanged(e) else { continue };
             let out = match (&e.target, &l.op) {
                 (Some(t), _) => t.clone(),

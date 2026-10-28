@@ -348,11 +348,19 @@ export type JobReportDto = { jobId: number, kind: string,
 /**
  * `done` | `cancelled` | `failed`.
  */
-phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<string>, skipped: Array<SkippedDto>, error?: string, };
+phase: string, renamed?: RenamedDto, written: Array<string>, unchanged: Array<string>, skipped: Array<SkippedDto>, error?: string, 
+/**
+ * ms4-jobs §14.7: the moves of a `type-move` or `folder-move` job.
+ */
+moved: Array<RenamedDto>, };
 export type RetryDto = { outcome: string, reason?: string, };
 export type EditDto = { start: number, end: number, };
 export type TransformedDto = { kind?: string, text?: string, edits?: Array<EditDto>, error?: string, };
-export type InterruptedDto = { jobId: number, from: string, to: string, done: number, total: number, };
+export type InterruptedDto = { jobId: number, 
+/**
+ * `rename` or `type-move` (ms4-jobs §14.6).
+ */
+kind: string, title: string | null, from: string, to: string, done: number, total: number, };
 export type BackupLabelDto = { key: string, args: Record<string, string | number>, };
 export type BackupDto = { name: string, kind: string, 
 /**

@@ -1,4 +1,5 @@
-// MS3 slice 3D, L5 (WebKit + fake core): changing an object's type (MS3 part, D-224) and type matching (D-239).
+// MS3 slice 3D, L5 (WebKit + fake core): changing an object's type (D-224; since 4E a type move, D-804, D-817) and
+// type matching (D-239).
 // FR-TYP-07 AC-4…AC-10; FR-TYP-13 AC-1, AC-2; links.md FR-STO-04 / FR-TYP-07 AC-3 (attributes kept, [MS3] by D-228).
 // Written from docs/acceptance/types.md and docs/contracts/ms3-shell.md §14.7 only (D-61). D-369: the chip is a link to
 // the type page (FR-TYP-07 AC-11), so the menu is opened through the note's `More` menu (AC-12).
@@ -49,13 +50,19 @@ test('fr_typ_07_ac4_daily_note_has_a_disabled_change_type', async ({ page }) => 
   assert.equal(await description(item), "The type of Daily Note objects can't be changed");
 });
 
+// 4E (D-803, D-804, D-817): a type change is a type move: the file goes to its new type's folder; properties of the old
+// type's schema the new type lacks go into the content; other keys stay. `moved` reads the file at its new path.
+const moved = (core: Core, path: string, ok: (t: string) => boolean, ms = 3000) => eventually(() => fileText(core, path), (t) => t !== undefined && ok(t), ms);
+const mapping = (page: Page) => page.getByRole('dialog', { name: /^⟦?Change type\?⟧?$/ });
+
 test('fr_typ_07_ac5_only_the_type_line_changes_and_counts_follow', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
   const [pages, schuzky] = [await count(page, 'Pages'), await count(page, 'Schůzky')];
   await changeTo(page, 'Schůzka');
-  const t = await written(core, P.obycejna, (x) => x.includes('type: schůzka'));
-  assert.equal(noModified(t ?? ''), noModified(swap(original(P.obycejna), 'type: page\n', 'type: schůzka\n')), 'type line and modified only');
-  assert.deepEqual(await core.writesTo(), [P.obycejna], 'no other file; the file stays in Pages/ (FR-STO-04 MS4)');
+  const to = 'Schůzky/Obyčejná stránka.md';
+  const t = await moved(core, to, (x) => x.includes('type: schůzka'));
+  assert.equal(noModified(t ?? ''), noModified(swap(original(P.obycejna), 'type: page\n', 'type: schůzka\n')), 'type line and modified only (Page has no schema properties to map)');
+  assert.equal(await fileText(core, P.obycejna), undefined, 'the file moved from Pages/ to Schůzky/ (FR-STO-04)');
   assert.equal(await eventually(() => count(page, 'Pages'), (n) => n === pages - 1, 2000), pages - 1, 'Pages −1');
   assert.equal(await eventually(() => count(page, 'Schůzky'), (n) => n === schuzky + 1, 2000), schuzky + 1, 'Schůzky +1');
   assert.equal(await props(page).getByRole('textbox', { name: 'Místo', exact: true }).inputValue(), 'Praha', 'místo in the schema rows');
@@ -65,55 +72,60 @@ test('fr_typ_07_ac5_only_the_type_line_changes_and_counts_follow', async ({ page
 });
 
 test('fr_sto_04_ac3_attributes_kept_on_type_change', async ({ page }) => {
+  // D-804, D-813: only the old type's schema properties are mapped; Page has none, so both keys stay in the file.
   const core = await openTypes(page, P.obycejna);
   await changeTo(page, 'Schůzka');
-  const t = await written(core, P.obycejna, (x) => x.includes('type: schůzka'));
+  const t = await moved(core, 'Schůzky/Obyčejná stránka.md', (x) => x.includes('type: schůzka'));
   assert.ok(t?.includes('místo: Praha\n') && t.includes('nálada: klidná\n'), 'both stay in the file');
   await (await must(otherProps(page), 'Other properties')).click();
   assert.ok(await seen(page.getByRole('list', { name: 'Other properties' }).getByText('nálada')), 'nálada under Other properties');
 });
 
-test('fr_typ_07_ac6_nothing_is_removed_and_back_restores_the_bytes', async ({ page }) => {
+test('fr_typ_07_ac6_back_to_page_puts_mista_into_the_content', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
   await changeTo(page, 'Schůzka');
-  await written(core, P.obycejna, (x) => x.includes('type: schůzka'));
+  await moved(core, 'Schůzky/Obyčejná stránka.md', (x) => x.includes('type: schůzka'));
   await changeTo(page, 'Page');
-  const t = await written(core, P.obycejna, (x) => x.includes('type: page'));
-  assert.equal(noModified(t ?? ''), noModified(original(P.obycejna)), 'equals the original except modified');
-  assert.equal((await otherProps(page).innerText()).trim(), 'Other properties (2)', 'místo and nálada under Other properties');
+  // místo is a Schůzka property Page lacks: the dialog maps it to Content (D-804).
+  await (await must(mapping(page).getByRole('button', { name: 'Change type', exact: true }), 'button "Change type"')).click();
+  const t = await moved(core, P.obycejna, (x) => x.includes('type: page'));
+  const want = original(P.obycejna).replace('místo: Praha\n', '').replace('---\nStránka, které', '---\n**Místo:** Praha\n\nStránka, které');
+  assert.equal(noModified(t ?? ''), noModified(want), 'back in Pages/ with místo as a Content line; nálada stays (D-804, D-813)');
+  assert.equal((await otherProps(page).innerText()).trim(), 'Other properties (1)', 'nálada under Other properties');
 });
 
 test('fr_typ_07_ac7_untyped_file_gets_type_then_identity', async ({ page }) => {
   const core = await openTypes(page, P.bez);
   await changeTo(page, 'Schůzka');
-  const t = await written(core, P.bez, (x) => x.includes('type: schůzka'));
+  const t = await moved(core, 'Schůzky/Bez hlavičky.md', (x) => x.includes('type: schůzka'));
   assert.match(t ?? '', /^---\ntype: schůzka\nid: \S+\nmodified: \S+\n---\n/, 'type, then id and modified (D-174); no title or created');
   assert.ok((t ?? '').endsWith(`---\n${original(P.bez)}`), 'body byte-identical');
+  assert.equal(await fileText(core, P.bez), undefined, 'moved to Schůzky/');
 });
 
 test('fr_typ_07_ac8_no_values_added', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
   await changeTo(page, 'Nápad');
-  const t = await written(core, P.obycejna, (x) => x.includes('type: nápad'));
+  const t = await moved(core, 'Nápady/Obyčejná stránka.md', (x) => x.includes('type: nápad'));
   assert.ok(t && !t.includes('review:') && !t.includes('hodnocení'), 'neither review nor the default');
 });
 
 test('fr_typ_07_ac9_undo_and_redo_a_type_change', async ({ page }) => {
   const core = await openTypes(page, P.obycejna);
   await changeTo(page, 'Schůzka');
-  await written(core, P.obycejna, (x) => x.includes('type: schůzka'));
-  // D-369: the chip no longer changes the type; ⌘Z with the focus in the body (FR-TYP-07 AC-9, AC-12).
+  await moved(core, 'Schůzky/Obyčejná stránka.md', (x) => x.includes('type: schůzka'));
+  // D-812, D-817: ⌘Z with the focus in the body undoes the job (the file goes back with its bytes); ⇧⌘Z redoes it.
   await (await must(page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ }), 'Note body')).click();
   await page.keyboard.press('Meta+z');
-  assert.ok(await written(core, P.obycejna, (x) => x.includes('type: page')), 'one ⌘Z restores the previous type; the next save writes it');
+  assert.equal(await moved(core, P.obycejna, (x) => x === original(P.obycejna)), original(P.obycejna), 'one ⌘Z restores the previous type and place');
   await page.keyboard.press('Meta+Shift+z');
-  assert.ok(await written(core, P.obycejna, (x) => x.includes('type: schůzka')), '⇧⌘Z re-applies it');
+  assert.ok(await moved(core, 'Schůzky/Obyčejná stránka.md', (x) => x.includes('type: schůzka')), '⇧⌘Z re-applies it');
 });
 
 test('fr_typ_07_ac10_a_type_list_becomes_one_string', async ({ page }) => {
   const core = await openTypes(page, P.dvaTypy);
   await changeTo(page, 'Projekt');
-  const t = await written(core, P.dvaTypy, (x) => x.includes('type: projekt'));
+  const t = await moved(core, 'Projekty/Dva typy.md', (x) => x.includes('type: projekt'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.dvaTypy), 'type: [projekt, osoba]\n', 'type: projekt\n')));
 });
 
