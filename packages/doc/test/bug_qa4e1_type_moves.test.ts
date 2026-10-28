@@ -37,3 +37,10 @@ test('bug_qa4e1_fr_sto_04_ac7_hold_targets_keeps_a_link_to_a_duplicate', () => {
   const got = out(transform('Knihy/Odkaz.md', t, [{ op: 'hold-targets', fromPath: 'Quick Notes/Plán cesty.md', toPath: 'Knihy/Plán cesty.md', paths }]))
   assert.equal(got, '---\nid: y\n---\nViz [[Pages/Plán cesty|Plán cesty]].\n')
 })
+
+test('bug_qa4e1_n8_fr_sto_04_ac6_an_alias_is_shown_as_its_value_and_an_anchor_in_use_stays', () => {
+  const t = '---\nid: x\nautor: &a Herbert\nspoluautor: *a\n---\nText.\n'
+  const got = out(transform('Knihy/A.md', t, [{ op: 'map-properties', map: [{ from: 'autor', to: 'content' }, { from: 'spoluautor', to: 'content' }], labels: { autor: 'Autor', spoluautor: 'Spoluautor' } }])) ?? ''
+  assert.ok(got.includes('**Spoluautor:** Herbert'), `the alias's value: ${got}`)
+  assert.ok(got.includes('autor: &a Herbert'), 'the anchored entry stays: removing it would leave `*a` unresolvable (NFR-REL-03)')
+})

@@ -216,10 +216,15 @@ impl Inner {
     fn add_linking(&self, files: &mut Vec<PlannedFile>, moved: &[(String, String)], notes: &[String]) {
         let host = self.host();
         let mut linking: BTreeMap<String, Vec<TextOp>> = BTreeMap::new();
+        // QA N10: one stem map for the whole job, not a scan of every note per moved note.
+        let mut by_stem: HashMap<String, Vec<&String>> = HashMap::new();
+        for n in notes.iter().filter(|n| !excluded(n)) {
+            by_stem.entry(key(&stem_of(n))).or_default().push(n);
+        }
         for (from, to) in moved {
             let op = TextOp::HoldTargets { from_path: from.clone(), to_path: to.clone(), paths: notes.to_vec() };
             let mut sources: BTreeSet<String> = host.linking(from).into_iter().map(|l| nfc(&l)).collect();
-            for other in notes.iter().filter(|n| key(n) != key(from) && !excluded(n) && key(&stem_of(n)) == key(&stem_of(to))) {
+            for other in by_stem.get(&key(&stem_of(to))).into_iter().flatten().filter(|n| key(n) != key(from)) {
                 sources.extend(host.linking(other).into_iter().map(|l| nfc(&l)));
             }
             for l in sources {

@@ -943,7 +943,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       else sv?.release();
     };
     void moveNotes([p], key, toName, map, false, (r) => {
-      if (r && r.phase !== 'done') setMoveError(t('typeMove.failed'));
+      // N12: "nothing was written" only when nothing was; a job that wrote files lists what it skipped instead.
+      if (r && r.phase !== 'done' && r.written.length === 0) setMoveError(t('typeMove.failed'));
       // A moved note is reloaded by `onMoved`, which ends the block; the timer only guards a lost event.
       if (!r?.renamed) void reload().finally(unblock);
       else { movingDone.current = unblock; setTimeout(unblock, 10_000); }

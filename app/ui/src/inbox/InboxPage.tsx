@@ -246,8 +246,9 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
       if (!m) continue;
       try {
         // The page's job status follows it (cancellable while planning or backing up), as for the other bulk actions.
-        const id = await moveNotes(paths, key, label, m, true, () => { void load(); });
-        if (id !== null) setJob((j) => j ?? { id, phase: 'planning', count: paths.length, label });
+        const id = await moveNotes(paths, key, label, m, true, () => { void load(); }, true);
+        // N5: each group's job shows in the page's status (the latest one).
+        if (id !== null) setJob({ id, phase: 'planning', count: paths.length, label });
       } catch {
         alert(t('inbox.saveFailed', { title: label }));
       }

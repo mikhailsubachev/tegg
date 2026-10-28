@@ -81,7 +81,7 @@ export const ipc = {
   typePatch: (key: string, base: VersionDto | null, ops: TypeOpDto[]) => invoke<TypeDto>('type_patch', { key, base, ops }),
   // 4E-1 (ms4-jobs §14.7).
   typeMovePlan: (paths: string[], toType: string) => invoke<{ rows: { from: string; name: string; kind: string; value: string | null; default: string; offered: { key: string; name: string }[]; fixed: boolean }[]; needsDialog: boolean }>('type_move_plan', { paths, toType }),
-  typeMove: (paths: string[], toType: string, mapping: { from: string; to: string }[], review: boolean) => invoke<{ jobId: number | null }>('type_move', { paths, toType, mapping, review }),
+  typeMove: (paths: string[], toType: string, mapping: { from: string; to: string }[], review: boolean, bulk = false) => invoke<{ jobId: number | null }>('type_move', bulk && paths.length === 1 ? { paths, toType, mapping, review, bulk } : { paths, toType, mapping, review }), // more than one path is bulk anyway
   folderMovePreview: (type: string, folder: string) => invoke<{ count: number }>('folder_move_preview', { type, folder }),
   tidyNow: () => invoke<{ jobId: number | null }>('tidy_now', {}),
   jobsReady: () => invoke<null>('jobs_ready', {}),

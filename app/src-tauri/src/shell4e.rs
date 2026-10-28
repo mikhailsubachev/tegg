@@ -58,12 +58,13 @@ pub async fn type_move_plan(state: State<'_, AppState>, paths: Vec<String>, to_t
 }
 
 #[tauri::command]
-pub async fn type_move(state: State<'_, AppState>, paths: Vec<String>, to_type: String, mapping: Vec<MapDto>, review: bool) -> Result<JobMaybeDto, IpcError> {
+pub async fn type_move(state: State<'_, AppState>, paths: Vec<String>, to_type: String, mapping: Vec<MapDto>, review: bool, bulk: Option<bool>) -> Result<JobMaybeDto, IpcError> {
     let mapping = mapping
         .into_iter()
         .map(|m| PropertyMap { from: m.from, to: if m.to == "content" { MapTarget::Content } else { MapTarget::Property(m.to) } })
         .collect();
-    let id = core(&state)?.jobs().start(JobOp::TypeMove { paths, to_type, mapping, review }).map_err(job_err)?;
+    let bulk = bulk.unwrap_or(false) || paths.len() > 1;
+    let id = core(&state)?.jobs().start(JobOp::TypeMove { paths, to_type, mapping, review, bulk }).map_err(job_err)?;
     Ok(JobMaybeDto { job_id: Some(id as u32) })
 }
 

@@ -143,7 +143,7 @@ pub enum JobOp {
     /// ms4-jobs §14.2 (4E-1): one or more notes to `to_type` (a type key). `mapping` applies to every note (D-813: one
     /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557). Stub until 4E-1 is
     /// built: `start` answers `NotImplemented` (TS-I1).
-    TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool },
+    TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool, bulk: bool },
     /// ms4-jobs §14.2: `to_folder: Some(f)`: the folder save of `r#type` (D-805), every object of the type outside `f`
     /// and its subfolders. `None` with `r#type: None`: the tidy job over every defined type (D-811).
     FolderMove { r#type: Option<String>, to_folder: Option<String> },

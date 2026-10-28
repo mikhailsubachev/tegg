@@ -129,7 +129,8 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
       if (excluded(p)) { out.push({ path: p, to: null, ops: [{ op: 'change-type', type: to, now: null }] }); continue; }
       const schema = typeDef(typeOf(files[p]) ?? 'page')?.attributes ?? [];
       const order = (k: string) => { const i = schema.findIndex((s: any) => nfc(s.key) === nfc(k)); return i < 0 ? 1e9 : i; };
-      const map = (a.mapping as { from: string; to: string }[]).filter((m) => !schema.length || order(m.from) < 1e9).sort((x, y) => order(x.from) - order(y.from));
+      // D-837: only the old type's schema properties are mapped (an untyped note: none).
+      const map = (a.mapping as { from: string; to: string }[]).filter((m) => order(m.from) < 1e9).sort((x, y) => order(x.from) - order(y.from));
       const ops: any[] = [];
       if (map.length) ops.push({ op: 'map-properties', map, labels: Object.fromEntries(schema.map((s: any) => [s.key, s.name])) });
       const id = /^id:/m.test(/^---\r?\n([\s\S]*?)\r?\n---/.exec(files[p] ?? '')?.[1] ?? '') ? undefined : `01JB4E${Date.now().toString(36).toUpperCase().padStart(10, '0')}${Math.random().toString(36).slice(2, 12).toUpperCase()}`.slice(0, 26);
@@ -158,7 +159,7 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
       if (!folder) continue;
       for (const p of notes.filter((n) => typeOf(files[n]) === k).sort()) {
         if (excluded(p) || inside(p, folder)) continue;
-        if (!a.type && exempt.has(idOf(files[p]) ?? '')) continue;
+        if (!a.type && (exempt.has(idOf(files[p]) ?? '') || (a.exemptPaths ?? []).some((x: string) => low(x) === low(p)))) continue; // D-839
         const dest = target(p, folder, taken);
         taken.add(low(dest));
         out.push({ path: p, to: dest, ops: [{ op: 'keep-targets', fromPath: p, toPath: dest, paths: notes }] });
@@ -166,7 +167,8 @@ export async function handle(cmd: string, a: any, files: Files): Promise<any> {
       }
     }
     const def = a.type ? typeDef(a.type) : null;
-    const label = a.type ? { key: 'backups.label.folderMove', args: { plural: low(def?.plural ?? a.type), folder: a.folder } } : { key: 'backups.label.tidy', args: {} };
+    const word = out.length === 1 ? def?.name ?? a.type : def?.plural ?? a.type;
+    const label = a.type ? { key: 'backups.label.folderMove', args: { plural: low(word), folder: a.folder } } : { key: 'backups.label.tidy', args: {} };
     return { kind: 'folder-move', notes: out, linking: linking(moves, new Set(out.map((x) => x.path))), label, ids: Object.fromEntries(out.map((x) => [x.path, idOf(files[x.path])])) };
   }
   return { error: { kind: 'Unknown', message: `fake-moves: unknown ${cmd}` } };

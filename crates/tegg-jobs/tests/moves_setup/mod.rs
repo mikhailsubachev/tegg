@@ -125,7 +125,7 @@ pub fn kniha_to_osoba() -> Vec<PropertyMap> {
     ["autor", "vydáno", "stav", "hodnocení", "související", "poznámka", "isbn"].iter().map(|k| content(k)).collect()
 }
 pub fn type_move(paths: &[&str], to: &str, mapping: Vec<PropertyMap>, review: bool) -> JobOp {
-    JobOp::TypeMove { paths: paths.iter().map(|p| p.to_string()).collect(), to_type: to.into(), mapping, review }
+    JobOp::TypeMove { paths: paths.iter().map(|p| p.to_string()).collect(), to_type: to.into(), mapping, review, bulk: paths.len() > 1 }
 }
 pub fn tidy() -> JobOp {
     JobOp::FolderMove { r#type: None, to_folder: None }

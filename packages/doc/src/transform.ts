@@ -8,7 +8,7 @@ import { wikilinks } from './links.js'
 import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
-import { isMap, isScalar, isSeq, parseDocument, type Node as YamlNode, type Pair } from 'yaml'
+import { isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node as YamlNode, type Pair } from 'yaml'
 
 export type TextOp =
   | { op: 'retarget-links'; fromPath: string; fromStem: string; fromTitle: string; toPath: string; toStem: string; toTitle: string; paths: string[] }
@@ -346,11 +346,13 @@ function mapPatches(doc: Doc, op: MapProps): Patch[] {
   const out: Patch[] = []
   const lines: string[] = []
   const entries = fm.entries
-  const stored = storedValues(doc)
+  const { values: stored, anchored } = storedValues(doc)
   for (const m of op.map) {
     const at = entries.findIndex((e) => nfc(e.key) === nfc(m.from))
     if (at === -1) continue
     const e = entries[at]
+    // QA N8: an entry whose anchor an alias uses stays where it is (removing it would break the YAML, NFR-REL-03).
+    if (anchored.has(e.key) && m.to === 'content') continue
     const value = stored[e.key] ?? fm.data[e.key]
     // A target key the note already has can't take the value: it goes into the content instead (nothing is lost).
     const to = m.to !== 'content' && nfc(m.to) !== nfc(m.from) && entries.some((x) => nfc(x.key) === nfc(m.to)) ? 'content' : m.to
@@ -372,18 +374,30 @@ function mapPatches(doc: Doc, op: MapProps): Patch[] {
 
 /** D-813: each frontmatter value as stored: strings as their value (quotes dropped), every other scalar as written
  *  (`0123`, `1.50`, `0x1F` stay as they are), lists item by item. */
-function storedValues(doc: Doc): Record<string, unknown> {
+function storedValues(doc: Doc): { values: Record<string, unknown>; anchored: Set<string> } {
   const fm = doc.frontmatter!
   const inner = doc.text.slice(fm.innerRange[0], fm.innerRange[1])
   const y = parseDocument(inner)
-  const out: Record<string, unknown> = {}
+  const values: Record<string, unknown> = {}
   const one = (n: unknown): unknown => {
+    if (isAlias(n)) return one(n.resolve(y)) // QA N8: an alias is shown as the value it stands for
     if (isScalar(n)) return typeof n.value === 'string' || n.value === null || !n.range ? n.value : inner.slice(n.range[0], n.range[1])
     if (isSeq(n)) return n.items.map(one)
     return (n as YamlNode | null)?.toJSON?.() ?? n
   }
-  if (isMap(y.contents)) for (const it of y.contents.items as Pair[]) if (isScalar(it.key)) out[String(it.key.value)] = one(it.value)
-  return out
+  // Keys whose value carries an anchor that an alias elsewhere uses: removing them would leave the alias unresolvable.
+  const used = new Set<string>()
+  visit(y, { Alias: (_, a) => { used.add(a.source) } })
+  const anchored = new Set<string>()
+  if (isMap(y.contents)) for (const it of y.contents.items as Pair[]) {
+    if (!isScalar(it.key)) continue
+    const k = String(it.key.value)
+    values[k] = one(it.value)
+    let hit = false
+    if (it.value) visit(it.value as YamlNode, { Node: (_, n) => { if ((n as { anchor?: string }).anchor && used.has((n as { anchor?: string }).anchor!)) hit = true } })
+    if (hit) anchored.add(k)
+  }
+  return { values, anchored }
 }
 
 /** Where entry `at` starts once the full-line comments directly above it are counted with it. */

@@ -410,6 +410,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     jobHold: null as 'planning' | 'backup' | 'writing' | null,
     // 4E-1 (ms4-jobs §14.6, §14.7): exempt ids, the last vault event for the tidy job's quiet period, a pending retry.
     tidyExempt: [] as string[],
+    tidyExemptPaths: [] as string[],
     lastEvent: 0,
     tidyDue: false,
     tidyOpened: false,
@@ -934,7 +935,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           await emit('writing', ++done, total);
         }
         // D-812: notes a folder move put back are left alone by later tidy runs.
-        if (back && kind === 'folder-move' && rec.ids) for (const [p, id] of Object.entries(rec.ids)) if (id && report.written.includes(p) && !state.tidyExempt.includes(id)) state.tidyExempt.push(id);
+        if (back && kind === 'folder-move' && rec.ids) for (const [p, id] of Object.entries(rec.ids)) {
+          if (!report.written.includes(p)) continue;
+          if (id) { if (!state.tidyExempt.includes(id)) state.tidyExempt.push(id); }
+          else if (!state.tidyExemptPaths.includes(p)) state.tidyExemptPaths.push(p); // D-839: by path
+        }
         state.reports[jobId] = report;
         state.jobs.push(report);
         await emit(report.phase, total, total, { written: report.written.length, unchanged: report.unchanged.length, skipped: report.skipped.length });
@@ -1169,12 +1174,36 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       await progress('writing', 0, total);
       await jobs.hold('writing');
-      if (o.folder) await viaNode('type_patch')({ key: o.folder.key, base: state.ver(`.tegg/types/${o.folder.key}.yml`), ops: o.folder.ops });
-      const done: any = { renames: [], creates: [], trashes: [], written: [] };
       const undo: { before: string; after: string; pre: string; post: string }[] = [];
+      if (o.folder) {
+        // D-840: Undo of a folder save restores `folder:` too.
+        const tf = `.tegg/types/${o.folder.key}.yml`;
+        const pre = files[tf];
+        await viaNode('type_patch')({ key: o.folder.key, base: state.ver(tf), ops: o.folder.ops });
+        if (pre !== undefined && files[tf] !== undefined && files[tf] !== pre) undo.push({ before: tf, after: tf, pre, post: files[tf] });
+      }
+      const done: any = { renames: [], creates: [], trashes: [], written: [] };
       const finalTo: Record<string, string | null> = {};
       const batch: string[] = [];
       let n = 0;
+      // QA N1 (as the Rust engine): skips and names are settled first; every file then gets one relink over the moves
+      // that really happen, in place of its per-move link ops.
+      const before = Object.keys(files).filter((p) => p.endsWith('.md') && !p.split('/').some((x) => x.startsWith('.')));
+      const linkOp = (op: any) => ['keep-targets', 'hold-targets', 'retarget-links', 'relink'].includes(op.op);
+      const planned: Record<string, string | null> = {};
+      const reserved = new Set<string>();
+      for (const note of plan.notes) {
+        const p = note.path;
+        if (!note.to) continue;
+        if (state.jobSkips[p] || files[p] === undefined || p in state.invalid) { planned[p] = null; continue; }
+        let to = note.to as string;
+        const base = to.replace(/\.md$/, '');
+        for (let k = 2; (files[to] !== undefined && to.toLowerCase() !== p.toLowerCase()) || reserved.has(to.toLowerCase()); k++) to = `${base} (${k}).md`;
+        reserved.add(to.toLowerCase());
+        planned[p] = to;
+      }
+      const moves = Object.entries(planned).filter(([, t]) => t).map(([from, to]) => ({ from, to: to! }));
+      const relink = { op: 'relink', moves, paths: before };
       for (const note of plan.notes) {
         const p = note.path;
         const cur = files[p];
@@ -1184,11 +1213,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         else if (cur === undefined) { report.skipped.push({ path: p, reason: 'missing' }); finalTo[p] = null; }
         else if (p in state.invalid) { report.skipped.push({ path: p, reason: 'readOnly' }); finalTo[p] = null; }
         else {
-          let to = note.to as string | null;
-          if (to && files[to] !== undefined) { let k = 2; const base = to.replace(/\.md$/, ''); while (files[`${base} (${k}).md`] !== undefined) k++; to = `${base} (${k}).md`; }
-          const ops = note.ops.map((op: any) => (op.op === 'keep-targets' && to ? { ...op, toPath: to } : op));
+          const to = (note.to ? planned[p] : null) ?? null;
+          const ops = [...note.ops.filter((op: any) => !linkOp(op)), ...(to || note.ops.some(linkOp) ? [relink] : [])];
           // A note without a link has nothing for keep-targets to change (spares a Node round trip per note).
-          const linkless = ops.every((op: any) => op.op === 'keep-targets') && !cur.includes('[[') && !cur.includes('](');
+          const linkless = ops.every((op: any) => op.op === 'keep-targets' || op.op === 'relink') && !cur.includes('[[') && !cur.includes('](');
           const out = linkless ? cur : (await w.__teggJobs('transform', { source: p, text: cur, ops }, files)) ?? cur;
           if (to && folderMove) {
             // The fake reports a folder move's changes in batches (the UI re-reads the vault on each event).
@@ -1205,8 +1233,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       if (batch.length) void state.emit('vault:changed', { paths: batch.splice(0) });
       for (const l of plan.linking) {
-        const ops = l.ops.filter((op: any) => finalTo[op.fromPath]).map((op: any) => ({ ...op, toPath: finalTo[op.fromPath], toStem: finalTo[op.fromPath]!.split('/').pop()!.replace(/\.md$/, '') }));
-        if (!ops.length) continue;
+        const ops = [relink];
         const p = l.path;
         state.plans[jobId].files[p] = ops;
         const cur = files[p];
@@ -1223,9 +1250,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         if (!folderMove) await progress('writing', ++n, total);
       }
-      state.undo[jobId] = { op: null, kind: plan.kind, ids: plan.ids ?? {}, files: undo };
+      state.undo[jobId] = { op: null, kind: plan.kind, ids: o.folder ? {} : plan.ids ?? {}, files: undo };
       // D-812: a note whose type or type's folder changed is no longer exempt.
-      if (plan.kind === 'type-move' || o.folder) for (const u of undo) { const id = /^id:[ \t]*(\S+)/m.exec(u.post)?.[1]; if (id && u.before !== u.after) state.tidyExempt = state.tidyExempt.filter((x) => x !== id); }
+      if (plan.kind === 'type-move' || o.folder) for (const u of undo) {
+        const id = /^id:[ \t]*(\S+)/m.exec(u.post)?.[1];
+        if (id) state.tidyExempt = state.tidyExempt.filter((x) => x !== id);
+        state.tidyExemptPaths = state.tidyExemptPaths.filter((x) => x.toLowerCase() !== u.before.toLowerCase() && x.toLowerCase() !== u.after.toLowerCase()); // D-839
+      }
       report.moved = done.renames.map(([from, to]: string[]) => ({ from, to }));
       await finish('done', total, zip, undefined, done);
       if (plan.kind === 'folder-move' && !o.folder && report.skipped.length) { state.lastEvent = Date.now(); state.tidyDue = true; } // D-832
@@ -1234,7 +1265,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   };
   const startTidy = async () => {
     if (!state.vault) return null;
-    const plan = await viaMoves('plan_folder_move', { type: null, folder: null, exempt: state.tidyExempt });
+    const plan = await viaMoves('plan_folder_move', { type: null, folder: null, exempt: state.tidyExempt, exemptPaths: state.tidyExemptPaths });
     if (!plan.notes.length) return null;
     return runMove(plan, { zip: true });
   };
@@ -1754,7 +1785,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     type_move_plan: (a) => viaMoves('type_move_plan', a),
     type_move: async (a) => {
       const plan = await viaMoves('plan_type_move', { ...a, now: nowIso() });
-      return runMove(plan, { zip: (a.paths as string[]).length > 1 });
+      return runMove(plan, { zip: (a.paths as string[]).length > 1 || a.bulk === true });
     },
     folder_move_preview: (a) => viaMoves('folder_preview', a),
     tidy_now: async () => ({ jobId: (await startTidy())?.jobId ?? null }),

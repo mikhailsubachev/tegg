@@ -281,10 +281,10 @@ function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
 }
 
 /** `type_move` (D-804): one or more notes to `toType` with the dialog's mapping; `review` for an Inbox convert. */
-export async function moveNotes(paths: string[], toType: string, toName: string, mapping: { from: string; to: string }[], review: boolean, done?: (r: JobReportDto | null) => void): Promise<number | null> {
+export async function moveNotes(paths: string[], toType: string, toName: string, mapping: { from: string; to: string }[], review: boolean, done?: (r: JobReportDto | null) => void, bulk = false): Promise<number | null> {
   startJobs();
   claiming++;
-  const { jobId } = await ipc.typeMove(paths, toType, mapping, review).finally(() => { claiming--; });
+  const { jobId } = await ipc.typeMove(paths, toType, mapping, review, bulk).finally(() => { claiming--; });
   if (jobId === null) { done?.(null); return null; }
   const t: Tracked = { kind: 'move', path: paths[0] ?? '', moveKind: 'type-move', typeName: toName, done };
   seenMove.add(jobId);

@@ -752,7 +752,7 @@ impl Inner {
             JobOp::TagDelete { tag, .. } => self.plan_tag_delete(id, tag)?,
             JobOp::Merge { keep, others } => self.plan_merge(id, keep, others)?,
             JobOp::Restore { name } => self.plan_restore(id, name)?,
-            JobOp::TypeMove { paths, to_type, mapping, review } => self.plan_type_move(id, run, paths, to_type, mapping, *review),
+            JobOp::TypeMove { paths, to_type, mapping, review, .. } => self.plan_type_move(id, run, paths, to_type, mapping, *review),
             JobOp::FolderMove { r#type, to_folder } => self.plan_folder_move(id, run, r#type.as_deref(), to_folder.as_deref()),
             _ => return Err("NotImplemented".into()),
         };
@@ -792,11 +792,12 @@ impl Inner {
         let inbox_backup = matches!(op, JobOp::Inbox { change: InboxJobChange::SetType { .. }, .. });
         // ms4-jobs §14.1: a bulk type move zips like a bulk convert; a folder move only when it moves something.
         let move_backup = match op {
-            JobOp::TypeMove { paths, .. } => paths.len() > 1,
+            // D-837: every group of a bulk convert makes its zip, a group of one too.
+            JobOp::TypeMove { paths, bulk, .. } => paths.len() > 1 || *bulk,
             JobOp::FolderMove { .. } => !plan.renames.is_empty(),
             _ => true,
         };
-        let bulk_move = matches!(op, JobOp::TypeMove { paths, .. } if paths.len() > 1);
+        let bulk_move = matches!(op, JobOp::TypeMove { paths, bulk, .. } if paths.len() > 1 || *bulk);
         if (run.kind.flags().backup || inbox_backup || bulk_move) && move_backup && !undo_op {
             self.point(id, JobPoint::BeforeBackup);
             if self.cancelled(id) {
