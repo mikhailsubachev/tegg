@@ -56,9 +56,9 @@ fn fr_sto_01_ac8_saving_a_new_folder_moves_the_six_knihy() {
     let fs = tags_setup::FirstWriteFs::new(&root, &sb.dirs);
     let core = ok!(open_core_with(fs.clone(), &sb.dirs), "open");
     let before = snapshot(&root);
-    ok!(set_folder(&core, "kniha", "Četba"), "folder: Četba");
-    assert!(read_text(&root, KNIHA_YML).unwrap_or_default().contains("\nfolder: Četba\n"), "kniha.yml has folder: Četba");
+    // D-822: the job writes `folder:` as its first write after the zip.
     let (_, report) = ok!(run(&core, folder_save("kniha", "Četba")), "folder-move kniha → Četba");
+    assert!(read_text(&root, KNIHA_YML).unwrap_or_default().contains("\nfolder: Četba\n"), "kniha.yml has folder: Četba");
     assert_eq!(report.phase, Phase::Done, "{report:?}");
     assert_eq!(report.kind, JobKind::FolderMove, "kind folder-move");
     let mut bad = Vec::new();
@@ -340,7 +340,7 @@ fn fr_sto_01_ac13_restoring_the_zip_moves_every_file_back() {
     let root = moves_vault(&sb);
     let core = ok!(open_core(&root, &sb.dirs, false), "open");
     let before = snapshot(&root);
-    ok!(set_folder(&core, "kniha", "Četba"), "folder: Četba");
+    // D-822: the folder line is written by the job, after its zip, so the zip holds the old one.
     let (_, report) = ok!(run(&core, folder_save("kniha", "Četba")), "folder-move kniha → Četba");
     assert_eq!(report.phase, Phase::Done, "{report:?}");
     let z = zip_names(&sb.dirs);

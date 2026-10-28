@@ -215,7 +215,7 @@ test('fr_fmt_07_ac26_keep_targets_keeps_every_resolution_and_changes_only_link_t
           const found = outB.indexOf(seg, at)
           assert.ok(found === at || (prev > 0 && found >= at), `bytes before an edit unchanged: ${where}`)
           at = found + seg.length
-          const lineStart = inB.lastIndexOf(Buffer.from(c.eol), e.start) + 1
+          const lineStart = inB.lastIndexOf(Buffer.from(c.eol), e.start) + c.eol.length
           assert.ok(/^L\d+: /.test(inB.subarray(lineStart, lineStart + 8).toString('utf8')), `an edit lies in a link line: ${where}`)
           prev = e.end
         }
