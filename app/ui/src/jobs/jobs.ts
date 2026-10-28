@@ -12,7 +12,7 @@ export type Moved = { jobId: number; from: string; to: string };
 
 /** `text`: a 4D-lite job's own status line (no Undo, D-395). `undo`: a 4E-1 job the status can undo (D-812); `show`:
  *  the status opens the not-updated list. */
-type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean; undo?: number; show?: boolean } | null;
+type Status = { phase: 'running' | 'done'; count: number; jobId: number; text?: string; cancel?: boolean; alert?: boolean; undo?: number; show?: boolean; hideAfter?: number } | null;
 type Tracked = {
   kind: 'rename' | 'undo' | 'redo' | 'confirmed' | 'move'; of?: number; path: string; done?: (r: JobReportDto | null) => void;
   running?: (count: number) => string; doneText?: (r: JobReportDto) => string | null; count?: number;
@@ -233,6 +233,11 @@ async function moveProgress(p: JobProgressDto, t: Tracked) {
   if (p.phase !== 'done' && p.phase !== 'cancelled' && p.phase !== 'failed') return;
   tracked.delete(p.jobId);
   const r = await ipc.jobReport(p.jobId).catch(() => null);
+  // A tidy run at vault open can end before the app has its type list: the status texts need the types' names.
+  if (r?.moved?.length && moveTypes.length === 0) {
+    const types = await ipc.vaultTypes().catch(() => []);
+    if (moveTypes.length === 0) moveTypes = types.map((x) => ({ key: x.key, name: x.name, plural: x.plural, folder: x.folder }));
+  }
   moveFinished(p.jobId, t, r);
 }
 
@@ -264,9 +269,9 @@ function moveFinished(jobId: number, t: Tracked, r: JobReportDto | null) {
   const undoable = r.phase === 'done' && (moved.length > 0 || r.written.length > 0);
   if (undoable) patch.lastMove = { jobId, kind: t.moveKind ?? 'type-move', path: r.renamed?.to?.normalize('NFC') ?? (r.written[0] ?? null), undone: false };
   if (text) {
-    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed, undo: undoable ? jobId : undefined, show };
+    // Its 5 s start when the status is first shown (JobStatus), so a tidy run at vault open isn't over before the page is.
+    patch.status = { phase: 'done', count: r.written.length, jobId, text, alert: failed, undo: undoable ? jobId : undefined, show, hideAfter: 5000 };
     if (doneTimer) clearTimeout(doneTimer);
-    doneTimer = setTimeout(() => { if (state.status?.jobId === jobId) set({ status: null }); }, 5000);
   } else if (state.status?.jobId === jobId) patch.status = null;
   set(patch);
   if (r.renamed) for (const f of movedListeners) f({ jobId, from: r.renamed.from.normalize('NFC'), to: r.renamed.to.normalize('NFC') });
@@ -391,6 +396,11 @@ export async function runConfirmed(start: () => Promise<{ jobId: number | null }
   const rep = await ipc.jobReport(jobId).catch(() => null);
   if (rep && tracked.has(jobId)) { tracked.delete(jobId); confirmedFinished(jobId, t, rep); }
   return jobId;
+}
+
+/** Clears the status of `jobId` if it is still the one shown (the move statuses' timer, JobStatus). */
+export function clearStatus(jobId: number): void {
+  if (state.status?.jobId === jobId) set({ status: null });
 }
 
 /** The status's `Cancel` of a confirmed job that hasn't started writing. */

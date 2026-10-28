@@ -70,8 +70,7 @@ export function startBridge(): () => void {
   }).then((u) => {
     if (stopped) { u(); return; }
     stop = u;
-    // D-819: the core may start its tidy job now that transforms are answered.
-    void ipc.jobsReady().catch(() => {});
+    void ipc.jobsReady().catch(() => {}); // D-819: transforms are answered from now on
   });
   return () => { stopped = true; stop?.(); };
 }
