@@ -30,6 +30,29 @@ export const CURRENT_VERSION = 1;
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'] as const;
 export const ATTR_TYPES: readonly { type: string; label: string }[] = R10.map((type) => ({ type, label: `attrType.${type}` }));
 
+/** An R10 attribute type key. */
+export type AttrType = (typeof R10)[number];
+
+/** D-808, board E2 (ms4-jobs §14.9.7): the types every value of `t` stays valid in as written, without `t` itself, in
+ *  R10 order; the `Type` menu offers `t` and these. The same table as tests/fixtures/types/widen.json (D-847). */
+const WIDER: Record<AttrType, readonly AttrType[]> = {
+  text: ['long-text'],
+  'long-text': ['text'],
+  number: ['text', 'long-text'],
+  checkbox: ['text', 'long-text'],
+  date: ['text', 'long-text', 'date-time'],
+  'date-time': ['text', 'long-text'],
+  'date-range': [],
+  select: ['text', 'long-text', 'multi-select'],
+  'multi-select': ['text', 'long-text'],
+  url: ['text', 'long-text'],
+  email: ['text', 'long-text'],
+  relation: ['text', 'long-text'],
+};
+export function widerTypes(t: AttrType): AttrType[] {
+  return [...(WIDER[t] ?? [])];
+}
+
 /** R14 (FR-TYP-01 AC-4). */
 export const COLORS: readonly string[] = ['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow'];
 export const ICONS: readonly string[] = [

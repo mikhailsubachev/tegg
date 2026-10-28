@@ -36,6 +36,10 @@ export type TextOp =
   // note itself may be one of them); `paths` are the vault's note paths before the moves, `files` its other files
   // (attachments): a relative link to one follows a moved note only when it names one of them (QA 4E-1 4 N2).
   | { op: 'relink'; moves: { from: string; to: string }[]; paths: string[]; files?: string[] }
+  // Slice 4E-2 (ms4-jobs §14.4, §14.9.2, D-814): removes the frontmatter entry `key` with its value lines; full-line
+  // comments above it stay; `modified` is not touched. Any entry it is given goes, empty or not (D-843: the planner
+  // never gives it an empty one).
+  | { op: 'remove-key'; key: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -101,6 +105,7 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
     else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
     else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))
     else if (op.op === 'remove-tag') patches.push(...removeTagPatches(doc, op.key))
+    else if (op.op === 'remove-key') patches.push(...removeKeyPatches(doc, op.key))
   }
   const changed = patches.filter((p) => text.slice(p.range[0], p.range[1]) !== p.text)
   if (changed.length === 0) return { kind: 'unchanged' }
@@ -372,6 +377,16 @@ function mapPatches(doc: Doc, op: MapProps): Patch[] {
     out.push({ range: [at, at], text: lines.map((l) => fit(doc, l)).join(doc.eol) + doc.eol + doc.eol })
   }
   return out
+}
+
+/** 4E-2 (D-807, D-814): the entry `key` (matched by NFC) with its value lines; the comments above it stay. An entry
+ *  whose anchor an alias uses stays too (removing it would leave the alias unresolvable, NFR-REL-03, as QA N8). */
+function removeKeyPatches(doc: Doc, key: string): Patch[] {
+  const fm = doc.frontmatter
+  if (!fm || fm.error) return []
+  const e = fm.entries.find((x) => nfc(x.key) === nfc(key))
+  if (!e || storedValues(doc).anchored.has(e.key)) return []
+  return [{ range: e.range, text: '' }]
 }
 
 /** D-813: each frontmatter value as stored: strings as their value (quotes dropped), every other scalar as written

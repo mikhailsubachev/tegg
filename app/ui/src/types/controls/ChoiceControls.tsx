@@ -10,13 +10,15 @@ import { EmptyMark, WarnIcon, joinDesc, type Value } from './common';
 export type Choice = { value: string; label: string; color?: string | null; icon?: string };
 
 /** A popup listbox anchored to `anchor`; Esc or a click outside closes it and returns focus to the anchor. */
-export function OptionsPopup({ label, anchor, choices, current, onChoose, onClose }: {
+export function OptionsPopup({ label, anchor, choices, current, onChoose, onClose, footer }: {
   label: string;
   anchor: HTMLElement | null;
   choices: (Choice & { clear?: boolean })[];
   current?: string | null;
   onChoose: (c: Choice & { clear?: boolean }) => void;
   onClose: (refocus: boolean) => void;
+  /** A line under the options that describes the list (the widen-only Type menu's, D-808). */
+  footer?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const base = `opt-${useId().replace(/:/g, '')}`;
@@ -34,7 +36,7 @@ export function OptionsPopup({ label, anchor, choices, current, onChoose, onClos
   }, []);
   return (
     <div ref={ref} role="listbox" aria-label={label} tabIndex={-1} className="popover options-popup" style={pos}
-      aria-activedescendant={choices.length ? `${base}-${sel}` : undefined}
+      aria-activedescendant={choices.length ? `${base}-${sel}` : undefined} aria-describedby={footer ? `${base}-footer` : undefined}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setSel((s) => (s + (e.key === 'ArrowDown' ? 1 : -1) + choices.length) % Math.max(1, choices.length)); }
         else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (choices[sel]) onChoose(choices[sel]); }
@@ -49,6 +51,7 @@ export function OptionsPopup({ label, anchor, choices, current, onChoose, onClos
           <span data-user-content={c.clear ? undefined : ''}>{c.label}</span>
         </div>
       ))}
+      {footer && <div id={`${base}-footer`} role="none" className="options-footer hint">{footer}</div>}
     </div>
   );
 }

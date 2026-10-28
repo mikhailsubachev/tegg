@@ -159,7 +159,7 @@ impl Inner {
         }
         self.add_linking(&mut files, &moved, &notes);
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::TypeMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
+        JobPlan { job: id, kind: JobKind::TypeMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings: Vec::new() }
     }
 
     /// ms4-jobs §14.3: every object of the type(s) outside its folder and that folder's subfolders, to the folder's
@@ -214,7 +214,7 @@ impl Inner {
         }
         self.add_linking(&mut files, &moved, &notes);
         let n = files.len();
-        JobPlan { job: id, kind: JobKind::FolderMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0 }, warnings: Vec::new() }
+        JobPlan { job: id, kind: JobKind::FolderMove, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: 0, ..Default::default() }, warnings: Vec::new() }
     }
 
     /// D-838: every note whose links could change target when a note moves: those linking to the moved note, and
@@ -266,7 +266,7 @@ impl Inner {
                 Ok(Some(p)) => {
                     // D-840: Undo of a folder save restores the previous `folder:` too.
                     if let (Some((pre, pre_v)), Ok((post, post_v))) = (pre, host.read(&p)) {
-                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false, direct: false });
+                        run.undo.files.push(Written { before: p.clone(), after: p.clone(), pre, pre_v, post, post_v, via_op: false, direct: false, trashed: None });
                     }
                     run.written.push(p);
                 }
@@ -481,7 +481,7 @@ impl Inner {
                         crate::journal::progress(host.as_ref(), id, &f.path, &to, &post_v);
                     }
                     run.moved.renames.push((f.path.clone(), to.clone(), sha256_hex(&out)));
-                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false, direct: false });
+                    run.undo.files.push(Written { before: f.path.clone(), after: to.clone(), pre, pre_v, post: out, post_v, via_op: false, direct: false, trashed: None });
                     return Some(to);
                 }
                 Err(WriteError::NameTaken) => {

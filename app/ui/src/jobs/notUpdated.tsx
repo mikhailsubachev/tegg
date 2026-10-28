@@ -46,7 +46,7 @@ export function NotUpdatedList({ onOpen }: { onOpen: (path: string) => void }) {
             <span className="path" title={r.path} data-user-content>{r.path}</span>
             <span className="reason">{t(REASONS[r.reason] ?? 'job.skip.io')}</span>
             <button type="button" onClick={() => { showList(false); onOpen(r.path); }}>{t('job.open')}</button>
-            <button type="button" aria-label={t('job.retryOne', { title: r.title })} disabled={r.reason === 'missing'} onClick={() => void retry(r.path)}>{t('job.retry')}</button>
+            {r.retry !== false && <button type="button" aria-label={t('job.retryOne', { title: r.title })} disabled={r.reason === 'missing'} onClick={() => void retry(r.path)}>{t('job.retry')}</button>}
           </li>
         ))}
       </ul>

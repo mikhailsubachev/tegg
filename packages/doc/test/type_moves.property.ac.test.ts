@@ -126,6 +126,38 @@ test('fr_fmt_07_ac26_map_properties_changes_only_its_own_lines_and_the_body_star
   }
 })
 
+// ------------------------------------------------------------------------------------------------ remove-key (4E-2)
+
+// Slice 4E-2 (ms4-jobs §14.4, §14.9.2, D-814): `remove-key` changes only its own lines. For random frontmatter (the
+// generator above: block and flow lists, comments, quoting, CRLF, NFD keys, no final newline) and random bodies, the
+// removed entry is one with a value; the result is the frontmatter without that entry's lines (a comment line above it
+// stays), every other line in order, and the body byte for byte.
+test('fr_fmt_07_ac26_remove_key_changes_only_its_own_lines', { timeout }, () => {
+  for (const seed of seeds) {
+    const r = rng(seed ^ 0x4e2)
+    for (let i = 0; i < runs; i++) {
+      const c = genMap(r)
+      const filled = c.entries.filter((e) => e.shown !== null)
+      const gone = r.pick(filled)
+      // The generated text with comments above every entry that has one (genMap leaves them out above Content rows).
+      const fm: string[] = ['id: 01JB4E0000000000000000E0P1', 'type: kniha', 'title: Náhodná']
+      const want: string[] = [...fm]
+      for (const e of c.entries) {
+        if (e.comment) { fm.push(e.comment); want.push(e.comment) }
+        fm.push(...e.lines)
+        if (e !== gone) want.push(...e.lines)
+      }
+      fm.push(c.tags)
+      want.push(c.tags)
+      const text = ['---', ...fm, '---'].join(c.eol) + c.eol + c.body
+      const where = `seed = ${seed}, case ${i}:\n${JSON.stringify(text)}\nremove ${gone.key}`
+      const res = transform('Knihy/Náhodná.md', text, [{ op: 'remove-key', key: gone.key }])
+      const got = res.kind === 'bytes' ? res.text : text
+      assert.equal(got, ['---', ...want, '---'].join(c.eol) + c.eol + c.body, `only the entry's own lines go: ${where}`)
+    }
+  }
+})
+
 // ------------------------------------------------------------------------------------------------ keep-targets
 
 const STEMS = ['Řeka', 'Čaj o páté', 'Úvod', 'Plán cesty', 'Žába', 'Beta']

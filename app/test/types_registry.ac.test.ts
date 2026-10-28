@@ -88,10 +88,12 @@ test('fr_typ_01_ac9_r1_type_settings_route_is_built', async () => {
 test('fr_typ_01_ac9_r3_controls_added_in_3d', async () => {
   const { reg, cat } = await mods();
   const labels = (reg.DISABLED_CONTROLS as any[]).map((c) => (c.label in cat.en ? cat.t(c.label) : c.label));
-  for (const l of ['Group', 'Add view', 'Move existing objects', 'Renaming keys', 'Change their type to…', 'Move them to the trash', 'New template']) {
+  for (const l of ['Group', 'Add view', 'New template']) {
     assert.ok(labels.includes(l), `R3 control ${l} registered: ${labels.join(' | ')}`);
   }
   for (const l of ['New type', 'Starter vault', 'Sort', 'Views']) assert.ok(!labels.includes(l), `${l} is built now`);
+  // D-817 (4E, D-805…D-809): the 4E controls leave R3: built, or gone for good (keys, D-806).
+  for (const l of ['Move existing objects', 'Renaming keys', 'Remove values from <n> notes', 'Change their type to…', 'Move them to the trash']) assert.ok(!labels.includes(l), `${l} is no longer an R3 control`);
 });
 
 test('fr_typ_01_ac9_object_counts_use_plural_categories', async () => {

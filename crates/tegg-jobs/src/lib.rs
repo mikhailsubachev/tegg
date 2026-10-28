@@ -72,6 +72,8 @@ impl JobKind {
             // makes no zip (a bulk one does, like the inbox convert); both are undoable.
             JobKind::TypeMove => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
             JobKind::FolderMove => KindFlags { needs_confirm: false, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // ms4-jobs §14.9.1: confirm, zip, undoable in memory; cancellable while writing (boards D3, F2).
+            JobKind::ValueRemove | JobKind::TypeDelete => KindFlags { needs_confirm: true, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup, Phase::Writing] },
             _ => KindFlags { needs_confirm: true, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Confirm, Phase::Backup] },
         }
     }
@@ -118,13 +120,6 @@ impl Phase {
 
 // ------------------------------------------------------------------------------------------------ §2 ops and plans
 
-/// D-225: what happens to the objects of a deleted type (4E). Shape only; no planner before v1.0.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TypeDeleteChoice {
-    Trash,
-    ChangeTo { r#type: String },
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobOp {
     /// `title` as committed (NFC, trimmed by the core).
@@ -139,15 +134,18 @@ pub enum JobOp {
     TagDelete { tag: String, keep_text: bool },
     Merge { keep: String, others: Vec<String> },
     KeyRename { r#type: String, from: String, to: String },
+    /// ms4-jobs §14.9.2 (4E-2, D-807, D-814): removes `key` from every object of `r#type` that has a value, then the
+    /// property from the type file.
     ValueRemove { r#type: String, key: String },
     /// ms4-jobs §14.2 (4E-1): one or more notes to `to_type` (a type key). `mapping` applies to every note (D-813: one
-    /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557). Stub until 4E-1 is
-    /// built: `start` answers `NotImplemented` (TS-I1).
+    /// mapping per type pair); `review`: write `review: reviewed` too (an Inbox convert, D-557).
     TypeMove { paths: Vec<String>, to_type: String, mapping: Vec<PropertyMap>, review: bool, bulk: bool },
     /// ms4-jobs §14.2: `to_folder: Some(f)`: the folder save of `r#type` (D-805), every object of the type outside `f`
     /// and its subfolders. `None` with `r#type: None`: the tidy job over every defined type (D-811).
     FolderMove { r#type: Option<String>, to_folder: Option<String> },
-    TypeDelete { r#type: String, objects: TypeDeleteChoice },
+    /// ms4-jobs §14.9.3 (4E-2, D-809, D-815): trashes every object of `r#type`, then its templates and, last, its
+    /// definition (`TypeDeleteChoice` went with D-809).
+    TypeDelete { r#type: String },
     /// ms5-capture §7.3 (5B, D-561): the same change applied to each of `paths` (vault paths, NFC), each against its
     /// index version; changed and read-only files are skipped. A backup zip only for `SetType` (`backup.convert`).
     Inbox { paths: Vec<String>, change: InboxJobChange },
@@ -250,6 +248,10 @@ pub struct PlanCounts {
     pub files: usize,
     /// Occurrences the planner expects to rewrite.
     pub links: usize,
+    /// ms4-jobs §14.9.2 (4E-2): objects of the type with the key but no value (`<m> have no value`, FR-TYP-04 AC-6).
+    pub empty: usize,
+    /// ms4-jobs §14.9.3 (4E-2): the type's template files a `type-delete` trashes (`the <k> <Name> templates`).
+    pub templates: usize,
 }
 
 /// §2.2: what a transformer applies to one file. The TypeScript twin is `@tegg/doc` `TextOp`.
@@ -301,6 +303,9 @@ pub enum TextOp {
     /// (attachments: a relative link to one follows a moved note only when it names an existing file, QA 4 N2). Shared,
     /// never copied per file (QA 4 M7′).
     Relink { moves: Arc<Vec<(String, String)>>, paths: Arc<Vec<String>>, files: Arc<Vec<String>> },
+    /// ms4-jobs §14.4, §14.9.2 (4E-2, D-814): removes the frontmatter entry `key` with its value lines; full-line
+    /// comments above it stay; no `modified` change.
+    RemoveKey { key: String },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -338,6 +343,8 @@ pub enum SkipReason {
     Placeholder,
     ReadOnly,
     Io,
+    /// D-849: an undo or redo whose target path exists again.
+    Taken,
 }
 
 impl SkipReason {
@@ -348,6 +355,7 @@ impl SkipReason {
             SkipReason::Placeholder => "placeholder",
             SkipReason::ReadOnly => "readOnly",
             SkipReason::Io => "io",
+            SkipReason::Taken => "taken",
         }
     }
 }
@@ -390,6 +398,9 @@ pub struct JobReport {
     pub error: Option<String>,
     /// ms4-jobs §14.7 (4E-1): every (from, to) a type or folder move really made.
     pub moved: Vec<(String, String)>,
+    /// ms4-jobs §14.9.3 (4E-2, D-815): a `type-delete` that skipped an object kept the definition and templates
+    /// (`1 object was not changed, so the type was kept.`, FR-TYP-05 AC-9).
+    pub kept_type: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -440,6 +451,12 @@ pub enum JobError {
     UnknownType,
     /// ms4-jobs §14.2: the target is the note's current type.
     NoChange,
+    /// ms4-jobs §14.9.1 (4E-2): a system type (FR-TYP-06 AC-1); nothing is planned.
+    SystemType,
+    /// ms4-jobs §14.9.1 (4E-2): a built-in attribute (FR-TYP-06 AC-2); nothing is planned.
+    BuiltIn,
+    /// ms4-jobs §14.9.1 (4E-2): the type has no item with that key.
+    UnknownProperty,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),
 }

@@ -62,6 +62,10 @@ pub trait VaultFs: Send + Sync {
     fn create_dir_all(&self, path: &str) -> io::Result<()>;
     /// Only for leftover temporary files (FR-SYN-02 AC-4); notes are never deleted, they go to `.trash/`.
     fn remove_file(&self, path: &str) -> io::Result<()>;
+    /// Removes the folder `path` only when it is empty (never its contents); an error otherwise. Default: keeps it.
+    fn remove_empty_dir(&self, _path: &str) -> io::Result<()> {
+        Ok(())
+    }
     /// FR-VLT-03, D-112: an online-only placeholder whose content isn't on this Mac (APFS `SF_DATALESS`).
     /// iCloud `.<name>.icloud` stubs are recognized by name, not here. Reading a placeholder would download it.
     fn is_placeholder(&self, _path: &str) -> io::Result<bool> {
@@ -582,6 +586,19 @@ impl Vault {
     pub fn move_back(&self, from: &str, to: &str) -> Result<(), VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         Ok(self.fs.rename_no_replace(&nfc(from), &nfc(to))?)
+    }
+
+    /// 4E-2 (ms4-jobs §14.9.4): after a job moved `trashed` back out of `.trash/`, the folders it leaves empty there,
+    /// up to `.trash/` itself, go too (a cancelled or undone type delete leaves no trace in the trash).
+    pub fn prune_trash(&self, trashed: &str) {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let mut dir = nfc(trashed);
+        while let Some((parent, _)) = dir.rsplit_once('/') {
+            if !(parent == TRASH || parent.starts_with(&format!("{TRASH}/"))) || self.fs.remove_empty_dir(parent).is_err() {
+                return;
+            }
+            dir = parent.to_string();
+        }
     }
 
     /// FR-SYN-02 AC-4: deletes `.<name>.tegg-tmp` files older than 1 minute; returns how many.

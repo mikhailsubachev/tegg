@@ -1029,7 +1029,7 @@ mod links4a;
 mod jobs4c;
 mod tidy4e;
 mod movemap4e;
-pub use movemap4e::{MapRow, TypeMovePlan};
+pub use movemap4e::{widens, MapRow, TypeMovePlan};
 pub use links4a::{
     BacklinkEntry, BacklinkGroup, BacklinksPanel, BrokenGroup, BrokenLinks, CreateRefusal, DuplicateGroup,
     DuplicateObject, LinkCreatePlan, LinkCreated, Occurrence, OccurrenceKind,

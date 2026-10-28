@@ -20,9 +20,9 @@ export function JobStatus() {
     return (
       <span className="job-status" role="status">
         {status.text}
-        {status.cancel && <button type="button" className="link-button" onClick={cancelStatusJob}>{t('job.rename.cancel')}</button>}
-        {status.show && <button type="button" className="link-button" onClick={() => showList(true)}>{t('job.folderMove.show')}</button>}
-        {status.undo !== undefined && <button type="button" className="link-button" onClick={() => void undoMove(status.undo!)}>{t('job.undo')}</button>}
+        {status.cancel && <button type="button" tabIndex={0} className="link-button" onClick={cancelStatusJob}>{t('job.rename.cancel')}</button>}
+        {status.show && <button type="button" tabIndex={0} className="link-button" onClick={() => showList(true)}>{t('job.folderMove.show')}</button>}
+        {status.undo !== undefined && <button type="button" tabIndex={0} className="link-button" onClick={() => void undoMove(status.undo!)}>{t('job.undo')}</button>}
       </span>
     );
   }
@@ -32,7 +32,7 @@ export function JobStatus() {
   return (
     <span className="job-status" role="status">
       {t('job.rename.done', { count: status.count })}
-      <button type="button" className="link-button" onClick={() => void undoLast()}>{t('job.undo')}</button>
+      <button type="button" tabIndex={0} className="link-button" onClick={() => void undoLast()}>{t('job.undo')}</button>
     </span>
   );
 }
