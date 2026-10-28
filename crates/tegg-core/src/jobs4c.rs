@@ -276,9 +276,9 @@ impl Host for CoreHost {
 
     fn untrash(&self, trashed: &str, to: &str) -> Result<(), WriteError> {
         let (trashed, to) = (nfc(trashed), nfc(to));
-        // A folder there (a templates folder made again, QA 4E-2 m7) is taken as well as a file.
-        let is_dir = |p: &str| self.shared.vault.entries().is_ok_and(|e| e.iter().any(|x| matches!(x, tegg_vault::FsEntry::Dir { path } if nfc(path) == p)));
-        if self.version(&to).is_some() || is_dir(&to) {
+        // A file or a folder there (a templates folder made again, QA 4E-2 m7) is taken: a folder can't be read, so its
+        // `version` is an error; no walk of the vault (QA 4E-2 N1).
+        if !matches!(self.shared.vault.version(&to), Ok(None)) {
             return Err(WriteError::NameTaken);
         }
         self.shared.vault.move_back(&trashed, &to).map_err(write_error)?;

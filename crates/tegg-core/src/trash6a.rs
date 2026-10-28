@@ -303,7 +303,7 @@ impl Core {
             .chain(self.types().into_iter().map(|t| fold(&t.folder)))
             .chain(std::iter::once(fold(&self.vault_settings().attachments)))
             // D-851 (4E-2): a deleted type's folder still counts, so its objects stay one row each (FR-TYP-05 AC-10).
-            .chain(self.trashed_type_folders().iter().map(|f| fold(f)))
+            .chain(self.trashed_type_folders(&entries).iter().map(|f| fold(f)))
             .collect();
         let (mut dirs, mut files) = (Vec::new(), Vec::new());
         for e in entries {
@@ -477,10 +477,10 @@ impl Core {
     }
 
     /// §1.4: restores a row (object with its pair, file, or folder).
-    /// D-851: the `folder:` of every type definition in `.trash/.tegg/types/`.
-    fn trashed_type_folders(&self) -> Vec<String> {
+    /// D-851: the `folder:` of every type definition in `.trash/.tegg/types/`, from the listing `trash_list` already has.
+    fn trashed_type_folders(&self, entries: &[FsEntry]) -> Vec<String> {
         let vault = &self.shared.vault;
-        vault.list_files().unwrap_or_default().into_iter().map(|p| nfc(&p)).filter_map(|p| {
+        entries.iter().filter_map(|e| if let FsEntry::File { path } = e { Some(nfc(path)) } else { None }).filter_map(|p| {
             let name = p.strip_prefix(".trash/.tegg/types/")?.strip_suffix(".yml")?;
             if name.contains('/') {
                 return None;

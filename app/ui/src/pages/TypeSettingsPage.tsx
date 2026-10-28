@@ -1087,7 +1087,7 @@ function DeletePropertyDialog({ attr, type, values, onClose, onRemoveDefinition,
   return (
     <Dialog label={t('delProp.title', { name: attr.name })} onCancel={cancel} restore={restore}>
       <h2>{withUser('delProp.title', 'name', attr.name)}</h2>
-      {plan && n > 0 ? (
+      {msg ? null : plan && n > 0 ? (
         <>
           <p>{m > 0 ? t('delProp.removesEmpty', { key: attr.key, n, plural: typeWord(type, n), m }) : t('delProp.removes', { key: attr.key, n, plural: typeWord(type, n) })}</p>
           <p>{t('delProp.backup')}</p>
@@ -1096,7 +1096,7 @@ function DeletePropertyDialog({ attr, type, values, onClose, onRemoveDefinition,
       {msg && <p role="alert" className="field-error">{msg}</p>}
       <div className="dialog-buttons">
         <button data-command="typeSettings.button17" ref={cancelBtn} type="button" onClick={cancel}>{t('delProp.cancel')}</button>
-        {plan && n > 0
+        {msg ? null : plan && n > 0
           ? <button data-command="typeSettings.button16" type="button" className="danger" onClick={run}>{t('delProp.okCount', { count: n })}</button>
           : <button data-command="typeSettings.button16" type="button" className="danger" onClick={() => { if (plan) void ipc.jobCancel(plan.jobId).catch(() => {}); onClose(); onRemoveDefinition(); }}>{t('delProp.ok')}</button>}
       </div>

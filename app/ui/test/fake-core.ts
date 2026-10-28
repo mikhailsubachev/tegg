@@ -929,12 +929,16 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         // that exists again is skipped `taken` (D-849). Redo trashes them again in the job's order.
         if (rec.files.some((f: any) => f.trashed)) {
           for (const f of (back ? [...rec.files].reverse() : rec.files) as any[]) {
+            const isDef = f.before.startsWith('.tegg/types/') || f.before.startsWith('_templates/');
+            if (!back && isDef && report.skipped.length) { report.keptType = true; continue; } // D-815 on redo (QA 4E-2 N5)
             if (back) {
-              if (files[f.before] !== undefined) report.skipped.push({ path: f.before, reason: 'taken' });
+              // A file, or a folder with files, at the path is `taken` (D-849, QA 4E-2 m7, N6).
+              if (files[f.before] !== undefined || (f.dir && Object.keys(files).some((x) => x.startsWith(`${f.before}/`)))) report.skipped.push({ path: f.before, reason: 'taken' });
               else if (f.dir) { for (const [from, to] of f.dir as [string, string][]) moveRaw(to, from, files[to], null); report.written.push(f.before); }
               else if (files[f.trashed] !== undefined) { moveRaw(f.trashed, f.before, files[f.trashed], null); report.written.push(f.before); }
               else report.skipped.push({ path: f.before, reason: 'missing' });
             } else if (f.dir) { for (const [from, to] of f.dir as [string, string][]) if (files[from] !== undefined) moveRaw(from, to, files[from], 'trash'); report.written.push(f.before); }
+            else if (files[f.before] !== undefined && f.pre && files[f.before] !== f.pre) report.skipped.push({ path: f.before, reason: 'changed' }); // redo: only the bytes it trashed (m1)
             else if (files[f.before] !== undefined) { moveRaw(f.before, f.trashed, files[f.before], 'trash'); report.written.push(f.before); }
             else report.skipped.push({ path: f.before, reason: 'missing' });
             await emit('writing', ++done, total);
@@ -1294,6 +1298,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     const jobId = ++state.jobSeq;
     const { j, report, progress, finish } = jobRun(jobId, plan.kind, plan);
     state.plans[jobId] = { op: null, files: Object.fromEntries(plan.files.map((f: any) => [f.path, f.ops])) };
+    // ms4-jobs §14.9.2: the type file's version at planning is its write's base (QA 4E-2 N6, as the core).
+    const typeBase = plan.kind === 'value-remove' ? state.ver(plan.typePath) : null;
     void (async () => {
       const files = state.vault!.files;
       const total = plan.files.length;
@@ -1321,7 +1327,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         report.written = [];
       };
-      const trashOne = (p: string) => { const to = freeTrash(p); moveRaw(p, to, files[p], 'trash'); rows.push({ before: p, after: to, trashed: to, pre: '', post: '' }); report.written.push(p); };
+      const trashOne = (p: string) => { const pre = files[p]; const to = freeTrash(p); moveRaw(p, to, pre, 'trash'); rows.push({ before: p, after: to, trashed: to, pre, post: '' }); report.written.push(p); };
       let n = 0;
       for (const f of plan.files) {
         if (j.cancelled) { reverse(); return finish('cancelled', total, zip); }
@@ -1348,7 +1354,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         const tp = plan.typePath;
         const pre = files[tp];
         // D-857: a type file that can't be written reverses the job, which then fails with the vault as before.
-        try { await viaNode('type_patch')({ key: plan.type, base: state.ver(tp), ops: [{ op: 'removeAttribute', key: plan.key }] }); }
+        try { await viaNode('type_patch')({ key: plan.type, base: typeBase, ops: [{ op: 'removeAttribute', key: plan.key }] }); }
         catch (e) { reverse(); return finish('failed', total, zip, `fake: ${tp}: ${String((e as any)?.message ?? e)}`); }
         rows.push({ before: tp, after: tp, pre, post: files[tp] });
         report.written.push(tp);

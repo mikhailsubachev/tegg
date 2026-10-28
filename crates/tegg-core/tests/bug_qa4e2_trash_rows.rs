@@ -7,12 +7,11 @@ mod trash6a_setup;
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use common::*;
 use tegg_core::Moved;
 use tegg_format::nfc;
-use trash6a_setup::{copy_dir, open, read};
+use trash6a_setup::{copy_dir, open};
 
 macro_rules! ok {
     ($e:expr, $what:expr) => {
@@ -34,9 +33,6 @@ const SCHUZKA_YML: &str = ".tegg/types/schůzka.yml";
 const TRASHED_PORADA: &str = ".trash/Schůzky/Porada.md";
 const TRASHED_YML: &str = ".trash/.tegg/types/schůzka.yml";
 
-fn fx(rel: &str) -> Vec<u8> {
-    std::fs::read(repo_root().join("tests/fixtures/vaults/type-moves").join(rel)).expect("setup: fixture file")
-}
 /// The type-moves vault after FR-TYP-05 AC-7, built on disk.
 fn deleted_vault(sb: &Sandbox) -> PathBuf {
     let root = sb.base.join("Přesuny");
@@ -77,5 +73,5 @@ fn bug_qa4e2_b1_fr_typ_05_ac10_the_real_trash_lists_each_object_of_a_deleted_typ
     assert!(paths.iter().all(|p| !p.starts_with(".trash/.tegg")), "`.trash/.tegg/` is never a row: {paths:?}");
     let moved = ok!(core.trash_restore(TRASHED_PORADA), "restore the Porada row");
     assert_eq!(moved_set(&moved), BTreeSet::from([pair(TRASHED_PORADA, PORADA), pair(TRASHED_YML, SCHUZKA_YML)]), "the row brings the type file back");
-    let _ = (RETRO, SCH_JINDE, T_SCHUZKA, fx as fn(&str) -> Vec<u8>, Path::new("."), Duration::ZERO);
 }
+

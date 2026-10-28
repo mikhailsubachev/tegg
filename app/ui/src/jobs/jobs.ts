@@ -445,7 +445,9 @@ export async function planDelete(start: () => Promise<{ jobId: number | null }>)
     if (await ipc.jobReport(jobId).catch(() => null)) return null;
     await new Promise((r) => setTimeout(r, 30));
   }
-  return null;
+  // QA 4E-2 N9: a job that never reached confirm is cancelled, so it doesn't wait there later and hold the queue.
+  void ipc.jobCancel(jobId).catch(() => {});
+  throw new Error('timeout');
 }
 
 /** The dialog's confirm button: the job writes, with its R99 status (count while writing, Cancel; done with Undo). */

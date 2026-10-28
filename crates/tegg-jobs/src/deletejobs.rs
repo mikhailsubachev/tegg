@@ -245,9 +245,15 @@ impl Inner {
         let host = self.host();
         let mut types = false;
         let order: Vec<&Written> = if undo { rows.iter().rev().collect() } else { rows.iter().collect() };
+        let is_def = |w: &Written| w.before.starts_with(".tegg/types/") || w.before.starts_with("_templates/");
         for (i, w) in order.into_iter().enumerate() {
             let trashed = w.trashed.clone().unwrap_or_else(|| w.after.clone());
             let is_type = w.before.starts_with(".tegg/types/");
+            // D-815 on redo too (QA 4E-2 N5): an object it couldn't trash keeps the templates and the definition.
+            if !undo && is_def(w) && !run.skipped.is_empty() {
+                run.kept_type = true;
+                continue;
+            }
             if undo {
                 match host.untrash(&trashed, &w.before) {
                     Ok(()) => {
