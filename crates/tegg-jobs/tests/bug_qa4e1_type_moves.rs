@@ -372,19 +372,29 @@ fn bug_qa4e1_5_p1_fr_sto_04_ac11_undo_of_a_move_with_many_linking_notes_plans_qu
     let root = moves_vault(&sb);
     // 3,000 notes that stay, 150 strays, each linked from two of them: the undo has 450 files over 3,000 paths.
     for i in 0..3000 {
-        let link = if i < 300 { format!("Viz [[Zbloudilá {}]].\n", i / 2) } else { String::new() };
+        // Even notes link by path (the move rewrites them), odd ones by name.
+        let link = match i {
+            i if i < 300 && i % 2 == 0 => format!("Viz [[Pages/Zbloudilá {}]].\n", i / 2),
+            i if i < 300 => format!("Viz [[Zbloudilá {}]].\n", i / 2),
+            _ => String::new(),
+        };
         write_raw(&root, &format!("Pages/Výplň/Výplň {i}.md"), format!("---\nid: 01JB4E00000000000000{i:06}\ntype: page\ntitle: Výplň {i}\n---\n{link}").as_bytes());
     }
     for i in 0..150 {
         write_raw(&root, &format!("Pages/Zbloudilá {i}.md"), format!("---\nid: 01JB4E0000000000000Z{i:06}\ntype: kniha\ntitle: Zbloudilá {i}\n---\n").as_bytes());
     }
+    let linking = ["Pages/Výplň/Výplň 0.md", "Pages/Výplň/Výplň 1.md", "Pages/Výplň/Výplň 150.md", "Pages/Výplň/Výplň 298.md"];
+    let before: Vec<Option<Vec<u8>>> = linking.iter().map(|p| read_bytes(&root, p)).collect();
     let core = ok!(open_core(&root, &sb.dirs, false), "open");
     let (job, r) = ok!(run(&core, tidy()), "tidy");
     assert_eq!(r.phase, Phase::Done, "{r:?}");
     assert!(core.wait_idle(Duration::from_secs(60)));
+    assert!(read_text(&root, linking[0]).is_some_and(|t| t.contains("[[Knihy/Zbloudilá 0")), "the move rewrote a path link: {:?}", read_text(&root, linking[0]));
     let started = std::time::Instant::now();
     let (_, u) = ok!(run(&core, JobOp::Undo { job }), "undo");
     assert!(u.skipped.is_empty(), "nothing skipped: {u:?}");
     assert!(root.join("Pages/Zbloudilá 0.md").exists(), "the strays are back");
+    // QA 4E-1 6 F4: the reversed relink at scale gives the linking notes their pre-job bytes back.
+    assert_eq!(linking.iter().map(|p| read_bytes(&root, p)).collect::<Vec<_>>(), before, "linking notes back byte for byte");
     assert!(started.elapsed() < Duration::from_secs(30), "the undo isn't held up planning: {:?}", started.elapsed());
 }

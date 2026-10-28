@@ -193,7 +193,7 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 ```
 
 - **Events:** `job:progress` (`JobProgressDto`), `job:transform` (`{ requestId, source, text, ops }`). Progress rules: FR-UX-07 AC-8 (`done` never decreases, `total` fixed from `writing`, at least one event per 500 ms, final event with counts).
-- `vault:changed` is still emitted per written file, after the index has been updated and links re-resolved (ms4-links §1).
+- `vault:changed` is still emitted per written file, after the index has been updated and links re-resolved (ms4-links §1). Test-only shortcut (4E-1, QA 6 F1): the WebKit fake core sends a folder move's renames as one event when the notes are moved, so the L5 tests don't measure the app's re-reads per event; the real event stream is measured by the L6 test `fr_sto_01_ac13_progress_and_restore_on_500_objects_in_the_real_app`. Coalescing these events in the UI (or per job in the core) is a follow-up.
 
 ## 5. Base versions and skips
 

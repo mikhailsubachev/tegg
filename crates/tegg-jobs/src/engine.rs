@@ -705,6 +705,8 @@ impl Inner {
             }
             let j = s.jobs.get_mut(&id).expect("job state");
             j.phase = phase;
+            // QA 4E-1 6 F2: the slimming cache doesn't keep a finished job's lists alive.
+            *lock(&self.slim) = None;
             if undoable {
                 let mut u = run.undo.clone();
                 u.rev = u.op.as_ref().map(reversed);
