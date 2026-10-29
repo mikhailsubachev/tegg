@@ -33,11 +33,12 @@ pub struct GraphResult {
     pub unfiltered: usize,              // the walk with no filter, centre included
     pub hidden: usize,                  // unfiltered − total (D-976)
     pub truncated: bool,                // the cap dropped nodes
-    pub type_counts: Vec<(String, usize)>, // per type key in the unfiltered walk, centre included (D-976 legend)
+    pub type_counts: Vec<(String, usize)>, // every type key of the vault (§1.7) with its count in the unfiltered walk, centre included (D-976); order §1.6
 }
 
 pub struct GraphNode {
     pub id: NodeId,                     // Path(String) for objects, Tag(key) for tag nodes
+    pub object_id: Option<String>,      // the frontmatter `id` (NFC), if any; tag nodes: the winning Tag file's id
     pub path: Option<String>,           // NFC; None for a virtual tag (D-694); the winning Tag file for a tag with a file
     pub title: String,                  // title, else the stem (D-103, D-990); a tag: its display name (D-711)
     pub type_key: String,               // `tag` for tag nodes; the raw value for an undefined type (D-121)
@@ -48,8 +49,8 @@ pub struct GraphNode {
 }
 
 pub struct GraphEdge {
-    pub a: NodeId, pub b: NodeId,       // a < b by NodeId order
-    pub ways: Vec<EdgeWay>,             // every way the pair is joined, visible or not
+    pub a: NodeId, pub b: NodeId,       // a < b by sort key (§1.6)
+    pub ways: Vec<EdgeWay>,             // every way the pair is joined, visible or not; order §1.6
     pub style: EdgeKind,                // the strongest **visible** kind (D-973)
 }
 pub struct EdgeWay {
@@ -83,8 +84,10 @@ Excluded: unresolved targets, self-references (also through the object's own `fi
 
 ### 1.2 The walk (D-903, D-904, D-974)
 
-Breadth-first from the centre over edges whose kinds are not all hidden, both directions. A node of a hidden type is
-not entered. Tag nodes and Daily Notes other than the centre are entered but not expanded. A node's depth is its
+Breadth-first from the centre over edges whose kinds are not all hidden, both directions. The centre is always entered
+and expanded, also when its type is hidden or it is a leaf (D-974). A centre path that is a winning Tag file starts at
+that tag's `Tag(key)` node; a losing duplicate Tag file as the centre answers `CentreNotFound` (it is not a node, D-694).
+A node of a hidden type is not entered. Tag nodes and Daily Notes other than the centre are entered but not expanded. A node's depth is its
 first-reached distance. `unfiltered` is the same walk with no hidden types or kinds.
 
 ### 1.3 The cap (R111, D-978, D-979)
@@ -105,9 +108,27 @@ rebuild gives the same numbers (AR-01).
 
 - `CancelFlag` is an `Arc<AtomicBool>` checked between BFS levels and every 256 rows; set → `Err(Cancelled)`.
 - `tegg-core` keeps one in-flight graph request per window: a new `graph_neighbourhood` sets the previous flag first.
-- Same index → same result, byte for byte in its JSON form (node and edge order as above). Locale never takes part.
+- Same index → same result, byte for byte in its JSON form (order §1.6). Locale never takes part.
 - While the first index build runs → `Err(NotReady)` (D-990); the UI shows the loading state and asks again on
   `index:progress` `state: 'ready'`.
+- Test hook (L4 only, `#[cfg(any(test, feature = "test-hooks"))]`): `GraphRequest` may carry a pause callback run after
+  each BFS level, so tests set the flag or start a second request at a known point (FR-GRP-01 AC-9).
+
+### 1.6 Order of everything in the result (AR-01, D-911)
+
+- **Sort key** of a node: its path (NFC) for objects, `tag:<key>` for tag nodes; compared by Unicode code points.
+- `nodes`: depth ascending, then degree descending, then sort key (R111).
+- `edges`: by `(a, b)` sort keys, where `a` is the smaller sort key of the pair.
+- `ways` inside an edge: kind strength (Embed, Relation, Link, Tag), then `from`'s sort key, then `key` (none first).
+- `type_counts`: the D-977 list order (system and user types in D-121 order, then `tag`, then undefined type values by
+  code point).
+- JSON field order is the struct order above (serde default); `NodeId` serializes as `{"path": …}` or `{"tag": …}`.
+
+### 1.7 Type keys of the vault (D-977)
+
+`type_counts` lists every defined type (from `.tegg/types/`), `tag`, and every distinct `type` value without a
+definition found in the index outside `_templates/` and `.trash/` (raw, NFC), each with its count in the unfiltered walk
+(0 when absent). The filter column renders this list, so no other read is needed for undefined types.
 
 ## 2. IPC
 
@@ -118,10 +139,10 @@ rebuild gives the same numbers (AR-01).
 
 ```ts
 type EdgeKindDto = 'link' | 'relation' | 'embed' | 'tag';
-type NodeIdDto = { path: string } | { tag: string };
+type NodeIdDto = { path: string } | { tag: string };   // serde: externally tagged enum, `#[serde(rename_all = "lowercase")]`
 type GraphRequestDto = { centre: string; depth: 1 | 2 | 3; hiddenTypes: string[]; hiddenKinds: EdgeKindDto[];
                          cap: number; showAll: boolean };
-type GraphNodeDto = { id: NodeIdDto; path: string | null; title: string; typeKey: string; depth: number;
+type GraphNodeDto = { id: NodeIdDto; objectId: string | null; path: string | null; title: string; typeKey: string; depth: number;
                       degree: number; tagKey: string | null; color: string | null };
 type GraphEdgeDto = { a: NodeIdDto; b: NodeIdDto; style: EdgeKindDto;
                       ways: { kind: EdgeKindDto; from: NodeIdDto; key: string | null }[] };
@@ -142,8 +163,10 @@ Generated from Rust like the other DTOs (architecture §6). No new event.
   a Tag file (the winning file's path) and media notes; disabled elsewhere (D-987). Until tabs (D-970) it pushes a
   history entry in the current view.
 - Centring (`Center graph here`, `Recenter` = the selected node, D-984) pushes `graph/<new path>`. A rename of the
-  centre replaces the current entry (Tegg's rename: the job's path map; external: `index_path_by_id` with the
-  centre's `id` on `vault:changed`).
+  centre replaces the current entry: Tegg's rename through the job's path map; an external rename through the centre's
+  `objectId` from the last result. On `CentreNotFound` the page first calls `index_path_by_id(objectId)`; a path →
+  replace the route and ask again; `null` → the gone state. A centre without an `id` (Bez hlavičky) shows the gone
+  state after an external rename (D-981 can't follow it).
 - Errors map to R110: `CentreInTrash` → the trash text; `CentreNotFound` → the gone text (title from the last result, or
   the path's stem). A later `vault:changed` re-asks, so a restore brings the graph back (D-981).
 
@@ -152,7 +175,7 @@ Generated from Rust like the other DTOs (architecture §6). No new event.
 | Module | Owns |
 | --- | --- |
 | `graphModel.ts` | Pure: `GraphResultDto` → view model (node sizes per R113 and D-975 steps, label rules D-985, the connection phrases of D-982 from `ways`, heading and banner texts). L1-tested without the DOM. |
-| `layout.ts` | Pure over d3-force (ADR 0004): `layout(model, size, previous?) → Map<NodeKey, {x, y}>`. Seeded, centre pinned at the canvas centre, run to rest synchronously (no rAF ticks); with `previous`, surviving nodes are fixed at their old positions and new ones start next to their first kept neighbour (D-913). |
+| `layout.ts` | Pure over d3-force (ADR 0004): `layout(model, size, previous?) → Map<NodeKey, {x, y}>`, where `NodeKey` is `objectId` when present, else the sort key (§1.6), so a renamed node keeps its place and its selection (FR-GRP-01 AC-13). Seeded, centre pinned at the canvas centre, run to rest synchronously (no rAF ticks); with `previous`, surviving nodes are fixed at their old positions and new ones start next to their first kept neighbour (D-913). |
 | `GraphPage.tsx` | The route: request lifecycle (§6), state (§5), the 300 ms loading rule (D-912), R110 states, history. |
 | `GraphCanvas.tsx` | SVG `role="group"`: one `<g data-graph-node tabindex="-1">` per node (G3 adds roving focus), one `<path data-graph-edge>` per edge (R109 data attributes), zoom and pan (D-985), selection and hover highlight (D-983), fades per D-992 (none under Reduce motion). |
 | `GraphFilters.tsx` | `complementary` `Graph filters`: Types (`All`, `None`, one checkbox per type in D-121 order then Tag then undefined types, D-977), Connections, `Size nodes by links`. Slot above Types for G3's preset select. |
@@ -202,15 +225,18 @@ type GraphViewStateDto = {
 G1's build changes slice P's `show` signature in one commit with both slices' tests green:
 
 ```ts
-show(target, anchor, mode: 'click' | 'hover' | 'key', host: PreviewHost,
-     extra?: { lines: string[]; action?: { label: string; run: () => void; disabled?: boolean } }): void
+show(target, anchor, origin: PreviewOrigin, host?: PreviewHost, extraLines?: string[],
+     extraAction?: { label: string; run: () => void; disabled?: boolean }): void
 ```
 
-- `extra.lines` replaces `extraLine` and renders each line after the type name, in order (previews.md FR-LNK-10
-  AC-16 keeps passing with one line).
-- `extra.action` renders before `Open` (`Center graph here`, disabled for the centre and virtual tags, D-987).
+- Only the last argument of slice P's signature changes: `extraLine?: string` becomes `extraLines?: string[]` (D-982),
+  and `extraAction` is added. `origin` and `host` stay as slice P defines them. Each line renders after the type name, in
+  order (previews.md FR-LNK-10 AC-16 keeps passing with one line).
+- `extraAction` renders before `Open` (`Center graph here`, disabled for the centre and virtual tags, D-987).
 - The graph passes line 1 `<Type> · <n> connections` (`graph.preview.connections`, n = `degree`) and, except for the
-  centre, line 2 from `graphModel.connectionPhrase(node, result)` (D-982).
+  centre, line 2 from `graphModel.connectionPhrase(node, result)` (D-982). A relation is named by the property's Name
+  from the source's type; the reserved keys `source` and `description` by the catalog (`graph.relKey.*`); any other
+  undefined key by its raw key (D-971).
 
 ## 8. Fake core and test hooks
 
@@ -230,7 +256,7 @@ show(target, anchor, mode: 'click' | 'hover' | 'key', host: PreviewHost,
 
 | Seam | G1 | Later |
 | --- | --- | --- |
-| Query | `cap` and `show_all` are parameters | G2 calls with `cap: 60`, `showAll: false` |
+| Query | `cap` and `show_all` are parameters | G2 calls with `cap: 60`, `showAll: false`; R111 keeps depth 1 whole, so the panel checks `total > 60` and shows the lower-depth / full-view offer instead of drawing (D-912) |
 | State | `vaults[path].graph.full` | G2 `graph.panel`; G3 `view`, `preset` |
 | Filter column | slot above Types | G3 preset select (`.tegg/graph.yml`, D-907) |
 | Toolbar | depth, `<n> hidden`, Recenter | G3 `Graph` / `List` switch (D-916) |

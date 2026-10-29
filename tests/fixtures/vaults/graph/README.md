@@ -1,6 +1,6 @@
 # Fixture `graph/` (v1.0 slice G1, local graph core and full view)
 
-Synthetic vault for `docs/acceptance/graph.md` (FR-GRP-01, -02 without presets, -03, -05…08, FR-TAG-05 AC-9, NFR-PERF-11, FR-SYN-06 AC-38). Hand-written (D-50); no real content. **Status: draft, 2026-10-29**, written with the criteria; AP-827…AP-850 may change what a criterion expects from these files, not the files themselves (the counts that depend on an AP are marked). The graph never writes, so the criteria also check that every file keeps its bytes, mtime and inode.
+Synthetic vault for `docs/acceptance/graph.md` (FR-GRP-01, -02 without presets, -03, -05…08, FR-TAG-05 AC-9, NFR-PERF-11, FR-SYN-06 AC-38). Hand-written (D-50); no real content. **Status: approved, 2026-10-29** with the criteria (D-970…D-993 → D-970…D-993, AP-n → D-(n+143)). The graph never writes, so the criteria also check that every file keeps its bytes, mtime and inode.
 
 The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (default type Quick Note; no file names clash) next to the four type files below. This README is not a vault file and is never copied.
 
@@ -13,7 +13,7 @@ The tests copy `tests/fixtures/vaults/new-empty/.tegg/` into it (default type Qu
 | `projekt.yml` | Projekt / Projekty, folder `Projekty`, icon `folder`, orange | `vlastník` Relation to `osoba`; `podklady` Relation (any type); `termín` Date; `poznámka` Text | `[vlastník, termín]` |
 | `osoba.yml` | Osoba / Osoby, folder `Osoby`, icon `user`, purple | `firma` Text | `[firma]` |
 | `schůzka.yml` | Schůzka / Schůzky, folder `Schůzky`, icon `users`, teal | `datum` Date; `účastníci` Relation to `osoba`, multiple; `projekt` Relation to `projekt` | `[datum, účastníci]` |
-| `cesta.yml` | Cesta / Cesty, folder `Cesty`, icon `plane`, yellow | none | `[]`; **no objects** (a type with count 0 in the filter, AP-834) |
+| `cesta.yml` | Cesta / Cesty, folder `Cesty`, icon `plane`, yellow | none | `[]`; **no objects** (a type with count 0 in the filter, D-977) |
 
 System types come from `new-empty` (Page `file-text` gray, Task `check-square` blue, Quick Note `zap` yellow, Daily Note `calendar` purple, Tag `hash` green, Image `image` teal, PDF `file` red). `recept` (on Recept) has no definition (D-121).
 
@@ -24,15 +24,15 @@ System types come from `new-empty` (Page `file-text` gray, Task `check-square` b
 | Short | Path | id | Type | Holds (→) |
 | --- | --- | --- | --- | --- |
 | Plán | `Pages/Plán čtvrtletí.md` | R001 | page, `tags: [účty]` | link → Rozpočet; links `[[Zápis z porady#Závěry]]`, `[[Zápis z porady#^klic]]` → Zápis; embed `![[Shrnutí]]`; attachment embed `![[graf.png]]` → Graf; embed `![[Zaplatit fakturu]]` → Úkol; date link `[[2026-10-07]]` → Den; `[[2026-10-30]]` (no Daily Note); unresolved `[[Neexistující poznámka]]`; self-link `[[Plán čtvrtletí]]`; inline `#nápad` (virtual) |
-| Rozpočet | `Projekty/Rozpočet 2027.md` | R002 | projekt, `tags: [účty, finance]` | `vlastník` → Jana; `podklady` → Plán; `termín: 2026-12-31` (plain date); `poznámka: "Viz [[Výdaje 2026]]"` (a link in a Text value, AP-828) |
-| Zápis | `Schůzky/Zápis z porady.md` | R003 | schůzka | `datum: 2026-10-07` (plain date, AP-829); `účastníci` → Jana, Petr; `projekt` → Rozpočet; body `## Závěry`, a paragraph with ` ^klic`, embed `![[Rozpočet 2027]]`, attachment embed `![[Smlouva.pdf]]` → Smlouva, inline `#cestování` |
+| Rozpočet | `Projekty/Rozpočet 2027.md` | R002 | projekt, `tags: [účty, finance]` | `vlastník` → Jana; `podklady` → Plán; `termín: 2026-12-31` (plain date); `poznámka: "Viz [[Výdaje 2026]]"` (a link in a Text value, D-971) |
+| Zápis | `Schůzky/Zápis z porady.md` | R003 | schůzka | `datum: 2026-10-07` (plain date, D-972); `účastníci` → Jana, Petr; `projekt` → Rozpočet; body `## Závěry`, a paragraph with ` ^klic`, embed `![[Rozpočet 2027]]`, attachment embed `![[Smlouva.pdf]]` → Smlouva, inline `#cestování` |
 | Jana | `Osoby/Jana Nováková.md` | R004 | osoba, `firma: Alfa s.r.o.` | link → Beta |
 | Petr | `Osoby/Petr Dvořák.md` | R005 | osoba, `firma: Beta a.s.`, `tags: [zdraví]` | — |
 | Beta | `Projekty/Projekt Beta.md` | R006 | projekt | `vlastník` → Jana |
 | Shrnutí | `Pages/Shrnutí.md` | R007 | page, `tags: [archiv]` | link → Plán |
 | Výdaje | `Pages/Výdaje 2026.md` | R008 | page | — |
 | Bez hlavičky | `Pages/Bez hlavičky.md` | — | no frontmatter (Page, D-103) | link → Shrnutí |
-| Úkol | `Tasks/Zaplatit fakturu.md` | R010 | task, To do | `source: "[[Plán čtvrtletí]]"` (reserved key, AP-828) |
+| Úkol | `Tasks/Zaplatit fakturu.md` | R010 | task, To do | `source: "[[Plán čtvrtletí]]"` (reserved key, D-971) |
 | Den | `Daily/2026-10-07.md` | R011 | daily-note, `date: 2026-10-07` | link → Nákup |
 | Nákup | `Pages/Nákupní seznam.md` | R012 | page | — |
 | Graf | `Images/Graf výdajů.md` | R013 | image, `file: "[[graf.png]]"` (itself: no edge), 64 × 48 | — |
@@ -59,13 +59,13 @@ System types come from `new-empty` (Page `file-text` gray, Task `check-square` b
 | E2 | Plán – Zápis | link Plán→Zápis (`#Závěry` and `#^klic`, one kind) | link |
 | E3 | Plán – Shrnutí | embed Plán→Shrnutí; link Shrnutí→Plán | embed |
 | E4 | Plán – Graf | embed Plán→Graf (`![[graf.png]]`) | embed |
-| E5 | Plán – Úkol | embed Plán→Úkol; relation Úkol→Plán (`source`, AP-828) | embed |
+| E5 | Plán – Úkol | embed Plán→Úkol; relation Úkol→Plán (`source`, D-971) | embed |
 | E6 | Plán – Den | link Plán→Den (date mention) | link |
 | E7 | Plán – #účty | tag | tag |
 | E8 | Plán – #nápad | tag | tag |
 | E9 | Recept – Plán | link Recept→Plán | link |
 | E10 | Rozpočet – Jana | relation Rozpočet→Jana (`vlastník`) | relation |
-| E11 | Rozpočet – Výdaje | relation Rozpočet→Výdaje (`poznámka`, AP-828; a link under the alternative) | relation |
+| E11 | Rozpočet – Výdaje | relation Rozpočet→Výdaje (`poznámka`, D-971; a link under the alternative) | relation |
 | E12 | Rozpočet – #účty | tag | tag |
 | E13 | Rozpočet – #finance | tag | tag |
 | E14 | Zápis – Jana | relation Zápis→Jana (`účastníci`) | relation |
@@ -83,13 +83,13 @@ System types come from `new-empty` (Page `file-text` gray, Task `check-square` b
 | E26 | Výlet – #nápad | tag | tag |
 | E27 | Chybná – Shrnutí | link Chybná→Shrnutí | link |
 
-27 edges in the vault. Not edges: Zápis's `datum` (AP-829), the `[[2026-10-30]]` links, `[[Neexistující poznámka]]`, `[[Nikde]]`, self-links, Graf's and Smlouva's `file:`, everything in Šablona and Smazaná.
+27 edges in the vault. Not edges: Zápis's `datum` (D-972), the `[[2026-10-30]]` links, `[[Neexistující poznámka]]`, `[[Nikde]]`, self-links, Graf's and Smlouva's `file:`, everything in Šablona and Smazaná.
 
-**Vault-wide degree** (distinct neighbours, AP-832; sum 54 = 2 × 27): Plán 9; Rozpočet 6; Zápis 6; Shrnutí 4; Jana 3; Petr 3; `#účty` 3; Den 2; Výlet 2; `#nápad` 2; Beta, Výdaje, Bez hlavičky, Chybná, Úkol, Nákup, Graf, Smlouva, Faktury, Recept, `#finance`, `#zdraví`, `#archiv`, `#cestování` 1; Osamělá 0. Size steps (AP-832): Plán, Rozpočet, Zápis `medium`; all others `small`.
+**Vault-wide degree** (distinct neighbours, D-975; sum 54 = 2 × 27): Plán 9; Rozpočet 6; Zápis 6; Shrnutí 4; Jana 3; Petr 3; `#účty` 3; Den 2; Výlet 2; `#nápad` 2; Beta, Výdaje, Bez hlavičky, Chybná, Úkol, Nákup, Graf, Smlouva, Faktury, Recept, `#finance`, `#zdraví`, `#archiv`, `#cestování` 1; Osamělá 0. Size steps (D-975): Plán, Rozpočet, Zápis `medium`; all others `small`.
 
 ## Expected walks (every type and kind visible)
 
-Nodes include the centre. Tag nodes and Daily Notes are leaves (D-903); the centre is walked whatever its type (AP-831).
+Nodes include the centre. Tag nodes and Daily Notes are leaves (D-903); the centre is walked whatever its type (D-974).
 
 | Centre | Depth 1 | Depth 2 | Depth 3 |
 | --- | --- | --- | --- |
@@ -105,7 +105,7 @@ Nodes include the centre. Tag nodes and Daily Notes are leaves (D-903); the cent
 
 **Depth of each node from Plán:** 1: Rozpočet, Zápis, Shrnutí, Graf, Úkol, Den, #účty, #nápad, Recept; 2: Jana, Výdaje, #finance, Petr, Smlouva, #cestování, #archiv, Bez hlavičky, Chybná; 3: Beta, #zdraví, Výlet.
 
-**Type counts from Plán** (legend, unfiltered, centre included; order of AP-834: Pages, Tasks, Quick Notes, Daily Notes, Cesty, Osoby, Projekty, Schůzky, Images, PDFs, Tags, recept):
+**Type counts from Plán** (legend, unfiltered, centre included; order of D-977: Pages, Tasks, Quick Notes, Daily Notes, Cesty, Osoby, Projekty, Schůzky, Images, PDFs, Tags, recept):
 
 | Depth | Counts | Sum |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ Nodes include the centre. Tag nodes and Daily Notes are leaves (D-903); the cent
 | 2 | 5, 1, 0, 1, 0, 2, 1, 1, 1, 1, 5, 1 | 19 |
 | 3 | 5, 1, 1, 1, 0, 2, 2, 1, 1, 1, 6, 1 | 22 |
 
-## Filter scenarios from Plán (D-904; `hidden` per AP-833)
+## Filter scenarios from Plán (D-904; `hidden` per D-976)
 
 | # | Filter | Depth | Drawn | Edges | Hidden |
 | --- | --- | --- | --- | --- | --- |
@@ -126,7 +126,7 @@ Nodes include the centre. Tag nodes and Daily Notes are leaves (D-903); the cent
 | g | Pages off | 1 | 9: all of depth 1 but Shrnutí (Plán stays: the centre is always drawn) | 10 (E1, E2, E4–E9, E12, E16) | 1 |
 | h | Types `None` | 1 / 2 | 1: Plán | 0 | 9 / 18 |
 
-Under AP-828's alternative (a Text value's link is a Link), scenario d draws Výdaje too (17 nodes, `2 hidden`); under AP-830's alternative, E1 disappears in d.
+(Historical: the rejected alternatives of D-971 and D-973 would have drawn Výdaje in scenario d, or dropped E1 there.)
 
 ## Hub (generated at runtime, never committed)
 
@@ -155,7 +155,7 @@ modified: 2026-10-01T09:00:00+02:00
 
 **Degrees:** Rozcestník 40; Paprsek 4; Uzel NN-a / NN-b 16; Uzel NN-c 1; List NN-a-01, -a-02, -b-01, -b-02 2 (Uzel and Široký); other Lists 1; Široký 160.
 
-**Expected (R111, AP-835):**
+**Expected (R111, D-978):**
 
 | Centre | Depth | Total | Drawn | Edges drawn | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -173,7 +173,7 @@ modified: 2026-10-01T09:00:00+02:00
 
 - `_attachments/graf.png`: a copy of `tests/fixtures/vaults/trash-media/_attachments/záhon.png` (64 × 48 PNG, 1,234 bytes); `_attachments/Smlouva.pdf`: a copy of `tests/fixtures/vaults/trash-media/_attachments/Rozpočet.pdf` (2 pages, 844 bytes), so Graf's and Smlouva's metadata are true and their previews show the files.
 - The hub above.
-- `Pages/NFD odkaz.md` (id `01JBGR0000000000000000R030`, page) whose body is `[[Plán čtvrtletí]]` in **NFD** bytes; an NFD-named copy of `Pages/Shrnutí.md` (FR-GRP-01 AC-26).
+- `Pages/NFD odkaz.md` (id `01JBGR0000000000000000R030`, page) whose body is `[[Plán čtvrtletí]]` in **NFD** bytes; `Pages/Shrnutí.md` renamed to its NFD name (APFS keeps one file; FR-GRP-01 AC-26).
 - A file with invalid UTF-8 bytes linking `[[Shrnutí]]` (FR-GRP-01 AC-25); `Tags/Účty (2).md` (`title: účty`, `created: 2026-10-15T09:00:00+02:00`, a losing duplicate) and a note with inline `#ÚČTY` (FR-GRP-08 AC-4); `.tegg/types/kniha.yml` (FR-GRP-02 AC-5); `icon:` / `cover:` added to Rozpočet (FR-GRP-05 AC-1).
 - The external edits, renames, trash moves, deletes and restores named in the criteria, by the helper process of ms3-shell §13.6 in L6 and by the fake core in L5.
 - The reference vault (`tools/gen-vault --seed 1`) for NFR-PERF-11.
