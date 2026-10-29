@@ -35,6 +35,8 @@ export type UiStateDto = {
   inbox?: { filter: string };
   /** Slice PW (page-width.md §1, AP-753): the page width per note, keyed by `id`, else by the NFC path. */
   noteWidth?: Record<string, 'normal' | 'wide'>;
+  /** Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size. */
+  preview?: { mode?: 'click' | 'hover' | 'off'; hoverDelay?: number; width?: number; height?: number };
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
@@ -136,6 +138,9 @@ export type FakeCoreHandle = {
   // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.8)
   /** The ids in the fake's machine-local `tidy-exempt.json` (§14.6). */
   tidyExempt(): Promise<string[]>;
+  // ---------------------------------------------------------------- slice P (v1-previews §9)
+  /** Delays every later answer of `cmd` by `ms` (0 removes the delay), for abort and late-answer tests. */
+  delayCommand(cmd: string, ms: number): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -361,7 +366,15 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     staged: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.staged ?? []))),
     // 4E-1 (ms4-jobs §14.8). Stub until 4E-1 is built: no tidy job runs, so the list stays empty.
     tidyExempt: () => ev(() => [...((window as any).__teggFake.tidyExempt ?? [])] as string[]),
+    delayCommand: (cmd, ms) => page.evaluate(([c, m]) => { const d = ((window as any).__teggFake.delays ??= {}); d[c] = m; }, [cmd, ms] as const).then(() => undefined),
   };
+}
+
+/** Slice P (v1-previews §9, D-943): fake options whose stored UI state has `preview.mode` = `mode` before the page
+ *  loads, so the older tests D-943 changes keep their steps under `off`. Other options are kept. */
+export function setPreviewMode(mode: 'click' | 'hover' | 'off', opts: FakeOptions = {}): FakeOptions {
+  const base: UiStateDto = opts.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true };
+  return { ...opts, uiState: { ...base, preview: { ...(base.preview ?? {}), mode } } };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -386,6 +399,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
+    'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -1747,6 +1761,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     perf_mark: () => null,
     // 4F (ms4-embeds §8): one call per nesting level, no recency.
+    // Slice P (v1-previews §2, D-935): red-test stub, answers null until P is built.
+    index_path_by_id: () => null,
     embed_load: async (a) => {
       const out: any[] = [];
       const seen = new Set<string>();
@@ -2142,7 +2158,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     if (!h) throw err('Io', `fake core: unknown command ${cmd}`);
     const settle = (ok: boolean) => { rec.endSeq = ++state.seq; rec.ok = ok; rec.endAt = Date.now(); };
     let out: Promise<unknown>;
-    try { out = Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
+    const delay = (x.delays ?? {})[cmd] as number | undefined; // slice P (v1-previews §9): delayCommand
+    try { out = delay ? new Promise((r) => setTimeout(r, delay)).then(() => h(args ?? {})) : Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
     return out.then((v) => { settle(true); rec.result = v === undefined ? undefined : JSON.parse(JSON.stringify(v)); return v; }, (e) => { settle(false); rec.result = JSON.parse(JSON.stringify(e ?? null)); throw e; });
   }, { shouldMockEvents: true });
   // 6A (ms6-trash-media §4): the mock drops invoke options; raw-body commands read their headers from here.
