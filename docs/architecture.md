@@ -75,7 +75,7 @@ All core crates are plain Rust libraries with no Tauri dependency, so they can s
 | --- | --- | --- |
 | `tegg-vault` | The vault as a file system: list, read (bytes + `FileVersion`), **the one write function** (temp `.<name>.tegg-tmp` in the same folder → `fsync` → rename; create via `RENAME_EXCL`, no clobber), delete to `.trash/` keeping the relative path, leftover temp clean-up, placeholder (online-only) detection, own-write tracking for echo suppression, backup zips. Behind a `VaultFs` trait (§10). | S3 `vault.rs`, data-safety ACs |
 | `tegg-format` | Read-only extraction of id, type, title, attributes, links, tags, block ids from a file; file-name sanitizing (D-51, D-52, D-68, D-80); NFC (FR-FMT-12); date rules (FR-FMT-11). Kept equal to the TS engine by the conformance corpus (L3) and the nightly differential corpus. | S4 `extract.rs` |
-| `tegg-index` | SQLite + FTS5 database in Application Support: notes, attrs, links, tags, FTS; rebuild (parallel, capped at cores − 2, S4 P8), per-path incremental update, offline catch-up by `(mtime, size)`, in-memory quick switcher, backlinks, unresolved links, duplicate `id` detection (FR-SYN-05). Schema-versioned: a version mismatch means rebuild. | S4 |
+| `tegg-index` | SQLite + FTS5 database in Application Support: notes, attrs, links, tags, FTS; rebuild (parallel, capped at cores − 2, S4 P8), per-path incremental update, offline catch-up by `(mtime, size)`, in-memory quick switcher, backlinks, unresolved links, duplicate `id` detection (FR-SYN-05), the local graph's neighbourhood query (`graph_neighbourhood`, v1.0, D-911, §5.9). Schema-versioned: a version mismatch means rebuild. | S4 |
 | `tegg-query` | Query definitions (`.tegg/queries/*.yml`, query blocks) → SQL over the index; sorting/grouping; results paged for virtualized views (NFR-PERF-07). | MS6 |
 | `tegg-schema` | Type definitions (`.tegg/types/*.yml`, versioned, AR-07), `vault.yml`, reserved keys (FR-TYP-15), defaults per type (folder, template). Validates; never rewrites a user file it doesn't understand. | MS3 |
 | `tegg-jobs` | Bulk operations as jobs (§5.6): rename across the vault, tag rename, attribute rename, bulk type change, import. Takes the restore point, selects files from the index, sends text transformations to the document engine, writes through `tegg-vault`, reports progress and supports cancel before the write phase. Hosts the Capacities import **planner** (S5: spaces, mapping, accounting rule). | S5, MS4/MS7 |
@@ -214,6 +214,10 @@ The S5 planner moves into `tegg-jobs`: read the zip with UTF-8 names (FR-IMP-07)
 
 All answered by Rust from the index: switcher in memory (S4: 0.5 ms), FTS with diacritic folding and no prefix expansion for one-character words (S4), queries as SQL (S4: 2.3 ms for 1,000 rows). The UI virtualizes long lists (NFR-PERF-07).
 
+### 5.9 Local graph (v1.0)
+
+The core answers `graph_neighbourhood(centre, depth, hidden types, hidden kinds, cap)` from the index's link and tag tables (D-911, `docs/contracts/v1-graph.md` §1): edges by kind (link, relation, embed, tag; D-900, D-971…D-974), a breadth-first walk with Tag nodes and Daily Notes as leaves (D-903), filters that drive the walk (D-904), vault-wide degree (D-975) and the 150 / 1,000 caps (D-912, D-978). No new extraction and no stored graph, so a rebuild gives the same answer (AR-01); a new request from the window cancels the running one. The UI lays the result out with d3-force and draws SVG (ADR 0004), re-asks on every `vault:changed` and redraws only when the answer changed (D-980). The graph never writes the vault; its view state is machine-local in `ui-state.json` (D-993).
+
 ---
 
 ## 6. IPC contract
@@ -249,6 +253,7 @@ All answered by Rust from the index: switcher in memory (S4: 0.5 ms), FTS with d
 | PERF-08 external change < 2 s | FSEvents + per-path update | S4: 70 ms |
 | PERF-09 memory < 400 MB | One process + two webviews | S3 + S4: ~285 MB |
 | PERF-10 capture < 300 ms | Pre-warmed hidden window | S3: 39–47 ms |
+| PERF-11 local graph depth 2 < 300 ms (225 ms reference, D-986) | Index query without file reads, capped at 150 nodes; d3-force run to rest synchronously (ADR 0004) | v1.0 G1 benchmark |
 
 ---
 
@@ -336,3 +341,4 @@ The visual query builder and saved queries are v1.0; the MVP's lists (type pages
 - [ADR 0001](adr/0001-source-preserving-documents.md): source-preserving documents (patch, don't regenerate).
 - [ADR 0002](adr/0002-editor-on-source-blocks.md): block editor on source blocks.
 - [ADR 0003](adr/0003-one-text-engine.md): one text engine; Rust orchestrates (D-82).
+- [ADR 0004](adr/0004-graph-layout-d3-force-svg.md): graph layout with d3-force, drawn as SVG (D-913).
