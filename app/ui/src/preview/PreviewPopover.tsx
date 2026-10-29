@@ -38,6 +38,17 @@ function nextAfter(el: HTMLElement): HTMLElement | null {
   return all.find((x) => el.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING) ?? null;
 }
 
+/** The read `show` started for the target it shows (store.setPrefetch); the popover takes it instead of reading again. */
+let early: { key: string; read: Promise<PreviewModel> } | null = null;
+export function startPreviewRead(target: PreviewTarget): void {
+  early = { key: JSON.stringify(target), read: loadPreview(target, new AbortController().signal, (k) => t(k)) };
+}
+function takeEarly(key: string): Promise<PreviewModel> | null {
+  const e = early;
+  early = null;
+  return e && e.key === key ? e.read : null;
+}
+
 export function PreviewPopover({ cur }: { cur: Current }) {
   const column = cur.host.placement === 'column';
   const uid = useId();
@@ -73,7 +84,7 @@ export function PreviewPopover({ cur }: { cur: Current }) {
     if (keepScroll) reads.current.delete(key);
     let p = reads.current.get(key);
     if (!p) {
-      p = loadPreview(target, new AbortController().signal, (k) => t(k));
+      p = (!keepScroll && takeEarly(key)) || loadPreview(target, new AbortController().signal, (k) => t(k));
       reads.current.set(key, p);
     }
     const ctl = new AbortController();
@@ -82,8 +93,17 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       // A live update keeps the first visible block where it was (D-935: ± one line).
       const anchor = keepScroll && body.current ? firstVisible(body.current) : null;
       setModel(m);
-      // The duplicate details (FR-LNK-10 AC-15) join the header when read; the preview doesn't wait for them.
-      if (m.state === 'ok' && m.detailsLater) void m.detailsLater.then((d) => { if (d && !ctl.signal.aborted) setModel((x) => (x === m ? { ...m, details: d } : x)); });
+      // The duplicate details (FR-LNK-10 AC-15) and the nested embeds' cards (D-933) join when read; the preview is
+      // drawn without waiting for them (NFR-PERF-12).
+      if (m.state === 'ok') {
+        const same = (x: PreviewModel | null): x is Extract<PreviewModel, { state: 'ok' }> => !!x && x.state === 'ok' && x.path === m.path && x.version === m.version;
+        if (m.detailsLater) void m.detailsLater.then((d) => { if (d && !ctl.signal.aborted) setModel((x) => (same(x) ? { ...x, details: d } : x)); });
+        if (m.treeLater) void m.treeLater.then((tree) => {
+          // Back to this preview (D-932) then shows it whole at once, so its scroll position holds.
+          if (reads.current.get(key) === p) reads.current.set(key, Promise.resolve({ ...m, tree, treeLater: undefined }));
+          if (!ctl.signal.aborted) setModel((x) => (same(x) ? { ...x, tree } : x));
+        }, () => {});
+      }
       if (anchor) {
         const fix = () => { if (body.current) keepAnchor(body.current, anchor); };
         requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); });

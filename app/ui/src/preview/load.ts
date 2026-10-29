@@ -22,7 +22,7 @@ export type PreviewModel =
       strip: StripItem[]; body: 'blocks' | 'properties' | 'empty'; text: string; links: LinkTargetDto[];
       notice: 'noHeading' | 'noBlock' | 'readError' | null; version: VersionDto | null;
       /** The shown part of `text` (a section, a block, or the body). */
-      section: Exclude<Section, { kind: 'missing' }>; fragment: string | null; utf8: boolean; tree: EmbedTree; unreviewed: boolean; data: Record<string, unknown> }
+      section: Exclude<Section, { kind: 'missing' }>; fragment: string | null; utf8: boolean; tree: EmbedTree; treeLater?: Promise<EmbedTree>; unreviewed: boolean; data: Record<string, unknown> }
   | { state: 'tag'; key: string; name: string; color: string | null; count: number; objects: TagObjectRowDto[]; path: string | null }
   | { state: 'day'; date: string }
   | { state: 'gone' }
@@ -124,7 +124,9 @@ async function modelOf(note: EmbedNoteDto, target: PreviewTarget, signal: AbortS
   const strip = body || typeKey === 'image' || typeKey === 'pdf' ? stripColumns(typeKey, data, 4) : [];
   void type; void t;
   // D-933: every embed inside a preview is a card; their targets are read in one more call.
-  const tree = await buildEmbedTree({ path: note.path, text, links }, types, (paths) => ipc.embedLoad(paths), { readOnly: true, cards: true, section });
+  // Their cards join the body when read (NFR-PERF-12: the preview is drawn first, without a second round trip).
+  const treeLater = buildEmbedTree({ path: note.path, text, links }, types, (paths) => ipc.embedLoad(paths), { readOnly: true, cards: true, section });
+  const tree: EmbedTree = { path: note.path, embeds: [], loads: 0 };
   aborted(signal);
   // Read once per vault state; until then the header shows without them and the popover adds them (detailsLater).
   const dups = duplicateDetails();
@@ -135,6 +137,6 @@ async function modelOf(note: EmbedNoteDto, target: PreviewTarget, signal: AbortS
   const id = typeof data.id === 'string' ? nfc(data.id) : null;
   return {
     state: 'ok', path: nfc(note.path), id, title, type: typeKey, details, detailsLater, strip, body: kind, text, links: all, notice,
-    version: note.version, section, fragment: target.fragment, utf8: note.utf8, tree, unreviewed, data,
+    version: note.version, section, fragment: target.fragment, utf8: note.utf8, tree, treeLater, unreviewed, data,
   };
 }

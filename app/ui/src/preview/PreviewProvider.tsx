@@ -3,9 +3,9 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { events, ipc } from '../ipc/client';
 import { forgetPreviewCaches } from './load';
-import { PreviewPopover } from './PreviewPopover';
+import { PreviewPopover, startPreviewRead } from './PreviewPopover';
 import { LinkUiHost } from './linkUi';
-import { close, getCurrent, getPrefs, prefsLoaded, previewHost, providerMounted, reset, setStoredPrefs, show, subscribe } from './store';
+import { close, getCurrent, setPrefetch, getPrefs, prefsLoaded, previewHost, providerMounted, reset, setStoredPrefs, show, subscribe } from './store';
 import type { PreviewUiDto } from './types';
 import type { CloseReason, PreviewAnchor, PreviewHost, PreviewOrigin, PreviewTarget } from './types';
 
@@ -16,7 +16,11 @@ export function PreviewProvider(props: { children?: React.ReactNode }) {
     if (prefsLoaded() || previewHost()) return;
     ipc.uiStateGet().then((s) => { if (!prefsLoaded()) setStoredPrefs((s as { preview?: PreviewUiDto } | null)?.preview); }, () => {});
   }, []);
-  useEffect(() => { const off = providerMounted(); return () => { off(); reset(); }; }, []);
+  useEffect(() => {
+    const off = providerMounted();
+    setPrefetch(startPreviewRead);
+    return () => { off(); setPrefetch(null); reset(); };
+  }, []);
   // Derived data (the D-289 details) follows the vault whether or not a preview is open.
   useEffect(() => {
     const off = events.changed(() => forgetPreviewCaches());
