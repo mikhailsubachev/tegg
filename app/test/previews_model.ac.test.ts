@@ -32,9 +32,9 @@ beforeEach(async () => {
   await catalog().catch(() => {});
   await setTypes().catch(() => {});
 });
-afterEach(() => {
+afterEach(async () => {
   cleanup();
-  uninstallIpc();
+  await uninstallIpc();
   vi.useRealTimers();
 });
 
@@ -210,7 +210,7 @@ test('fr_lnk_09_ac4_card_and_link_mode_previews_are_the_full_content', async () 
   assert.equal(byRole(j.dialog, 'region', 'Properties').length, 1, 'Jana\'s preview: all attributes (R105)');
   assert.equal(j.dialog.querySelectorAll('[data-embed-mode="card"]').length, 0, 'not a second card');
   cleanup();
-  uninstallIpc();
+  await uninstallIpc();
   await installIpc();
   const p = await popover(note(P.petr));
   const s = strip(p.dialog);

@@ -38,9 +38,9 @@ beforeEach(async () => {
   await catalog().catch(() => {});
   await setTypes().catch(() => {});
 });
-afterEach(() => {
+afterEach(async () => {
   cleanup();
-  uninstallIpc();
+  await uninstallIpc();
   vi.useRealTimers();
 });
 
@@ -321,9 +321,11 @@ test('fr_lnk_10_ac16_every_surface_uses_the_one_preview_implementation', async (
   const read = (rel: string) => readFileSync(join(src, rel), 'utf8');
   const usesPreview = (s: string) => /from\s+['"][./]*preview\/(useReference|PreviewProvider)(\.tsx?)?['"]/.test(s);
   const panel = ['links/BacklinksPanel.tsx'];
-  const lists = ['pages/SearchPage.tsx', 'pages/TypePage.tsx', 'tags/TagPage.tsx', 'tags/AllTagsPage.tsx', 'links/DuplicateTitlesPage.tsx', 'daily/ContextSections.tsx', 'inbox/InboxPage.tsx', 'tasks/TaskCard.tsx'];
+  // The search result rows: the Search page renders them in Search.tsx (either file may reach preview/).
+  const lists = ['pages/TypePage.tsx', 'tags/TagPage.tsx', 'tags/AllTagsPage.tsx', 'links/DuplicateTitlesPage.tsx', 'daily/ContextSections.tsx', 'inbox/InboxPage.tsx', 'tasks/TaskCard.tsx'];
   const chips = ['links/ChipParts.tsx', 'embeds/Embed.tsx'];
   const missing = [...panel, ...lists, ...chips].filter((f) => !existsSync(join(src, f)) || !usesPreview(read(f)));
+  if (!['pages/SearchPage.tsx', 'Search.tsx'].some((f) => existsSync(join(src, f)) && usesPreview(read(f)))) missing.push('Search.tsx (search result rows)');
   assert.deepEqual(missing, [], 'these R104 surfaces use preview/useReference (or usePreview)');
   const files: string[] = [];
   const walk = (d: string) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else if (/\.tsx?$/.test(n)) files.push(relative(src, p)); } };

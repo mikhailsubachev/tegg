@@ -434,6 +434,7 @@ test('fr_lnk_08_ac12_hover_mode_loads_when_the_delay_ends', async ({ page }) => 
 test('fr_lnk_09_ac1_card_embed_click_previews_double_click_opens_enter_previews', async ({ page }) => {
   const core = await startPreviews(page, { at: PV.vlozeni });
   const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card "Embedded: Jana Nováková"');
+  await card.scrollIntoViewIfNeeded();
   const b = (await card.boundingBox())!;
   await page.mouse.click(b.x + b.width - 12, b.y + 12);
   const d = await needPreview(page, 'Jana Nováková', 'a click on the card outside its strip values');
@@ -493,6 +494,7 @@ test('fr_lnk_09_ac3_section_embed_header_previews_the_section', async ({ page })
 test('fr_lnk_09_ac4_card_and_link_mode_previews_show_the_full_content', async ({ page }) => {
   await startPreviews(page, { at: PV.vlozeni });
   const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
+  await card.scrollIntoViewIfNeeded();
   const b = (await card.boundingBox())!;
   await page.mouse.click(b.x + b.width - 12, b.y + 12);
   const d = await needPreview(page, 'Jana Nováková', 'card preview');

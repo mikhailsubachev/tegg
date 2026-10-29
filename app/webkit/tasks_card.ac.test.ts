@@ -182,7 +182,8 @@ test('fr_tsk_08_ac1_source_chip_on_every_task_view', async ({ page }) => {
   await startTasks(page, { vault });
   await gotoTasks(page);
   const chip = await must(card(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'source chip Porada');
-  assert.equal(await description(chip), 'Source: Porada');
+  // D-949: in click mode a previewable reference adds its mode description (FR-LNK-11 AC-13).
+  assert.equal(await description(chip), 'Source: Porada, Click to preview, double-click to open');
   assert.equal(await attr(chip, 'data-link-kind'), 'note', 'D-73 link style');
   assert.equal(await card(page, 'Zalít květiny').locator('[data-link-kind]').count(), 0, 'no source, no chip');
   const broken = await must(card(page, 'Chybějící zdroj').locator('[data-link-kind]'), 'unresolved chip');

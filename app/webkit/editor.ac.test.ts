@@ -475,7 +475,7 @@ test('fr_edt_03_ac1_slash_opens_only_where_it_should', async ({ page }) => {
   await page.keyboard.press('Escape');
   for (const [n, after] of [[5, 'Pátý'], [7, 'const'], [10, 'Odkaz na ']] as const) {
     await caretIn(page, n, after);
-    if (n === 10) { await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); } // past the [[Cíl]] chip (selected, then after it)
+    if (n === 10) await page.keyboard.press('ArrowRight'); // past the [[Cíl]] chip in one press (FR-LNK-13 AC-1, D-949)
     await page.keyboard.type('/');
     assert.ok(await absent(slashMenu(page), 500), `no slash menu after "${after}" in block ${n}`);
     await page.keyboard.press('Backspace');
@@ -723,10 +723,11 @@ test('fr_edt_05_ac5_remove_link_and_backspace_chip', async ({ page }) => {
   await (await must(page.getByRole('button', { name: 'Remove link', exact: true }), 'Remove link')).click();
   let t = await savedText(page, core, E.deset);
   assert.ok(t.includes('Pátý blok, který'), 'URL link → plain text');
-  await caretIn(page, 10, 'Odkaz na ');
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('Meta+Shift+k');
-  await (await must(page.getByRole('button', { name: 'Remove link', exact: true }), 'Remove link (wikilink)')).click();
+  // At a chip ⇧⌘K opens `Edit link` (D-927); the chip's `Link` offers `Remove link` in its Link menu (D-949).
+  const chip = await must(block(page, 10).getByRole('link', { name: 'blok', exact: true }), 'the [[Cíl|blok]] chip');
+  await chip.click({ button: 'right' });
+  const lm = await must(page.getByRole('menu', { name: /^⟦?Link⟧?$/ }), 'the Link menu on the [[Cíl|blok]] chip');
+  await (await must(lm.getByRole('menuitem', { name: 'Remove link', exact: true }), 'Remove link (wikilink)')).click();
   t = await savedText(page, core, E.deset);
   assert.ok(t.includes('Odkaz na blok a'), '[[Cíl|blok]] → blok');
   await caretIn(page, 10, 'blok');

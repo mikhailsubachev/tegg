@@ -155,7 +155,8 @@ test.describe('Duplicate titles page', () => {
 // ------------------------------------------------------------------------------------------------ AC-10
 
 test('fr_lnk_14_ac10_new_object_never_takes_a_stem_in_use', async ({ page }) => {
-  const core = await openLinks(page, B.osamela);
+  // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+  const core = await openLinks(page, B.osamela, setPreviewMode('off', { uiState: linksUi() }));
   await page.keyboard.press('Meta+n');
   await mustBeDraft(page, 'New object'); // D-520: an unsaved draft; the title is typed there and ↩ creates it
   await page.keyboard.type('Jana Nováková');

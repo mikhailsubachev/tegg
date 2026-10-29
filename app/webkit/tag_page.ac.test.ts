@@ -96,7 +96,8 @@ test('fr_tag_06_ac1_every_way_in_opens_the_tag_page', async ({ page }) => {
 });
 
 test('fr_tag_06_ac1_links_and_routes_to_tag_files_redirect', async ({ page }) => {
-  await openNote(page, P.odkaz, 'Odkaz na štítek', { readView: true });
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  await openNote(page, P.odkaz, 'Odkaz na štítek', { ...OFF(), readView: true });
   await click(main(page).getByRole('link', { name: 'Účty', exact: true }), '[[Účty]] in Odkaz');
   await must(tagHeading(page, 'Účty'), '[[Účty]] opens tag/účty');
   await page.keyboard.press('Meta+BracketLeft');
@@ -220,7 +221,8 @@ test('fr_tag_06_ac4_text_filter', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ AC-6
 
 test('fr_tag_06_ac6_sort_filter_and_grouping_are_remembered_and_shared', async ({ page }) => {
-  const core = await openTagPage(page, 'účty');
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await openTagPage(page, 'účty', OFF());
   const table = await must(objectsTable(page, 'Účty'), 'table');
   await click(table.getByRole('columnheader', { name: /^Title/ }), 'Title ↑');
   await chooseRadio(page, typeFilterBtn(page), 'Task', 'Type filter');
@@ -342,7 +344,8 @@ test('fr_tag_01_ac2_no_description_or_properties_on_the_tag_page', async ({ page
 });
 
 test('fr_tag_02_ac4_applying_a_tag_in_the_attribute_panel', async ({ page }) => {
-  const core = await openNote(page, vypln(2), 'Výplň 02');
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await openNote(page, vypln(2), 'Výplň 02', OFF());
   const tags = await must(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('group', { name: 'Tags' }), 'group Tags');
   await tags.getByRole('button', { name: 'Add tag', exact: true }).click();
   await page.getByRole('combobox', { name: 'Tag' }).fill('finance');
@@ -356,7 +359,8 @@ test('fr_tag_02_ac4_applying_a_tag_in_the_attribute_panel', async ({ page }) => 
 });
 
 test('fr_syn_06_ac31_browsing_tags_sends_no_write_command', async ({ page }) => {
-  const core = await startTags(page, { route: 'tags' });
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await startTags(page, { ...OFF(), route: 'tags' });
   await must(page.getByRole('table', { name: 'Tags', exact: true }), 'All tags');
   for (const key of Object.keys(NAMES)) {
     await runCommand(page, 'Go to Tags');

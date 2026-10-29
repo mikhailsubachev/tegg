@@ -50,7 +50,7 @@ const ROWS: Row[] = [
   { n: 5, name: 'backlinks_chip', kind: 'chip', start: { at: PV.rozpocet, panel: true }, ref: (p) => need(chipNamed(backlinksPanel(p), 'Odkazy'), 'backlinks chip Odkazy'), title: 'Odkazy', path: PV.odkazy, opened: onNote('Odkazy'), home: 'Rozpočet 2027' },
   { n: 6, name: 'task_source_chip', kind: 'chip', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), title: 'Porada 2026-10-27', path: PV.porada, opened: onNote('Porada 2026-10-27'), home: 'Tasks' },
   { n: 7, name: 'task_card_title', kind: 'card', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'card title'), title: 'Zavolat Janě', path: PV.ukol, opened: onNote('Zavolat Janě'), home: 'Tasks' },
-  { n: 8, name: 'search_result_row', kind: 'row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'result row'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027'), home: 'Search' },
+  { n: 8, name: 'search_result_row', kind: 'row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'result row'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027'), home: 'Search', focus: async (_p, ref) => { await (await need(ref.getByRole('link').first(), 'the result row\'s link')).focus(); } },
   { n: 9, name: 'type_page_row', kind: 'row', start: { route: 'type/osoba' }, ref: (p) => need(typeTable(p, 'Osoby').getByRole('row').filter({ hasText: 'Petr Dvořák' }), 'row Petr'), title: 'Petr Dvořák', path: PV.petr, opened: onNote('Petr Dvořák'), home: 'Osoby' },
   { n: 10, name: 'inbox_card_title', kind: 'card', start: { route: 'inbox' }, ref: (p) => need(main(p).getByRole('link', { name: 'Nápad na podcast', exact: true }), 'Inbox card title'), title: 'Nápad na podcast', path: PV.napad, opened: onNote('Nápad na podcast'), home: 'Inbox' },
   { n: 11, name: 'mindmap_node_chip', kind: 'chip', start: { at: PV.mapa }, ref: async (p) => need(mapNode(await need(mindmapFigure(p, 'Plán 2027'), 'figure'), 'Rozpočet 2027').getByRole('link').first(), 'node chip'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027'), home: 'Mapa', focus: async (p) => { await (await need(mapNode(mindmapFigure(p, 'Plán 2027'), 'Rozpočet 2027'), 'node')).focus(); } },
@@ -106,6 +106,7 @@ for (const row of ROWS) {
     await arrive(page, row, 'hover');
     const tag = `hover row ${row.n} ${row.name}`;
     let ref = await row.ref(page);
+    await ref.scrollIntoViewIfNeeded();
     const before = await focusInfo(page);
     const b = (await ref.boundingBox())!;
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 });
@@ -126,6 +127,7 @@ for (const row of ROWS) {
     await arrive(page, row, 'off');
     const tag = `off row ${row.n} ${row.name}`;
     let ref = await row.ref(page);
+    await ref.scrollIntoViewIfNeeded();
     const b = (await ref.boundingBox())!;
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 });
     await needNoPreview(page, `${tag}: resting the pointer`, 1200);
@@ -159,8 +161,17 @@ test('fr_lnk_12_ac1_click_is_the_default_in_a_new_application_support', async ({
 
 // ------------------------------------------------------------------------------------------------ AC-2
 
+/** Pauses the installed test clock once the note is shown, so the page's timers advance only by `page.clock.runFor`
+ *  (an installed clock otherwise also runs in real time between the steps, which would add the real sleeps). */
+async function pauseClock(page: Page) {
+  const t = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(t + 1000));
+}
+
+
 test('fr_lnk_12_ac2_hover_shows_after_the_delay_from_the_last_movement', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
+  await pauseClock(page);
   const chip = await needOdkazyLink(page, 'Hlavní');
   const b = (await chip.boundingBox())!;
   const caret0 = await page.evaluate(() => { const s = getSelection(); return s ? [s.anchorOffset, s.focusOffset, s.anchorNode?.textContent ?? null] : null; });
@@ -177,6 +188,7 @@ test('fr_lnk_12_ac2_hover_shows_after_the_delay_from_the_last_movement', async (
 
 test('fr_lnk_12_ac2_leaving_before_the_delay_shows_nothing_and_the_grace_keeps_it', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
+  await pauseClock(page);
   const chip = await needOdkazyLink(page, 'Hlavní');
   const b = (await chip.boundingBox())!;
   await page.mouse.move(b.x + 4, b.y + b.height / 2);
@@ -204,23 +216,40 @@ test('fr_lnk_12_ac2_leaving_before_the_delay_shows_nothing_and_the_grace_keeps_i
 
 test('fr_lnk_12_ac2_hovering_another_reference_replaces_it_after_its_delay', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
-  const a = (await (await needOdkazyLink(page, 'Hlavní')).boundingBox())!;
+  await pauseClock(page);
+  // The first reference is Petr Dvořák (the second chip of "Osoby"), so references left of or above its popover stay
+  // uncovered; the second is one the open popover doesn't cover.
+  const a = (await (await needOdkazyLink(page, 'Osoby', 1)).boundingBox())!;
   await page.mouse.move(a.x + 4, a.y + a.height / 2);
   await page.clock.runFor(450); await sleep(150);
-  await needPreview(page, 'Rozpočet 2027', 'first');
-  const j = (await (await needOdkazyLink(page, 'Osoby', 0)).boundingBox())!;
+  await needPreview(page, 'Petr Dvořák', 'first');
+  const first = (await previews(page).first().boundingBox())!;
+  const vp = page.viewportSize()!;
+  let second: { title: string; box: { x: number; y: number; width: number; height: number } } | null = null;
+  for (const [start, n, title] of [['Hlavní', 0, 'Rozpočet 2027'], ['Osoby', 0, 'Jana Nováková'], ['Projekt', 0, 'Projekt Alfa'], ['Kruh', 0, 'Kruh A'], ['Nápad', 0, 'Nápad na podcast']] as const) {
+    const r = await (await needOdkazyLink(page, start, n)).boundingBox();
+    if (!r || r.y < 0 || r.y + r.height > vp.height) continue;
+    const covered = !(r.x + r.width <= first.x || first.x + first.width <= r.x || r.y + r.height <= first.y || first.y + first.height <= r.y);
+    if (!covered) { second = { title, box: r }; break; }
+  }
+  assert.ok(second, `a second reference of Odkazy outside the open popover ${JSON.stringify(first)}`);
+  const j = second!.box;
   await page.mouse.move(j.x + 4, j.y + j.height / 2, { steps: 3 });
   await page.clock.runFor(200); await sleep(100);
   assert.deepEqual((await previews(page).count()) <= 1, true, 'never two');
   await page.clock.runFor(300); await sleep(150);
-  await needPreview(page, 'Jana Nováková', 'replaced after the second reference\'s delay');
+  await needPreview(page, second!.title, 'replaced after the second reference\'s delay');
 });
 
 test('fr_lnk_12_ac2_typing_scrolling_held_keys_and_buttons_hide_or_block_it', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
+  await pauseClock(page);
   const chip = await needOdkazyLink(page, 'Hlavní');
-  const b = (await chip.boundingBox())!;
-  const hover = async () => { await page.mouse.move(1300, 880); await page.clock.runFor(400); await page.mouse.move(b.x + 4, b.y + b.height / 2); await page.mouse.move(b.x + 5, b.y + b.height / 2); await page.clock.runFor(450); await sleep(150); };
+  let b = (await chip.boundingBox())!;
+  // The chip's box is read again on every hover: the typed character moves it (and the paragraph no longer starts
+  // with "Hlavní", so it is found as the first paragraph's link).
+  const chipNow = editorBody(page).locator('p').first().getByRole('link').first();
+  const hover = async () => { await page.mouse.move(1300, 880); await page.clock.runFor(400); b = (await chipNow.boundingBox())!; await page.mouse.move(b.x + 4, b.y + b.height / 2); await page.mouse.move(b.x + 5, b.y + b.height / 2); await page.clock.runFor(450); await sleep(150); };
   await hover();
   await needPreview(page, 'Rozpočet 2027', 'hover');
   await page.keyboard.type('x');
@@ -247,6 +276,7 @@ test('fr_lnk_12_ac2_typing_scrolling_held_keys_and_buttons_hide_or_block_it', as
 
 test('fr_lnk_12_ac2_a_click_inside_a_hover_preview_makes_it_a_clicked_preview', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
+  await pauseClock(page);
   const chip = await needOdkazyLink(page, 'Hlavní');
   const b = (await chip.boundingBox())!;
   await page.mouse.move(b.x + 4, b.y + b.height / 2);

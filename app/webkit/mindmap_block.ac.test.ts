@@ -282,14 +282,16 @@ test('fr_mmp_02_ac7_switching_ten_times_writes_nothing', async ({ page }) => {
 });
 
 test('fr_mmp_02_ac7_per_block_view_survives_navigation_and_external_reload', async ({ page }) => {
-  const core = await openMm(page, MM.slozene);
+  // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+  const OFF = () => setPreviewMode('off', { uiState: mmUi() });
+  const core = await openMm(page, MM.slozene, OFF());
   const f2 = await needFigure(page, 'Rozbalená mapa');
   await click(listBtn(f2), 'Složené (2) List');
   assert.equal(await viewWhen(f2, 'list'), 'list', '(2) in List');
   const f1 = figure(page, 'Složená mapa');
   await must(f1, 'figure Složená mapa');
   assert.equal(await pressed(mapBtn(f1)), 'true', '(1) stays in Map');
-  await openMm(page, MM.vyjezd);
+  await openMm(page, MM.vyjezd, OFF());
   let fig = await needFigure(page, 'Výjezd 2026');
   await click(listBtn(fig), 'List');
   assert.equal(await viewWhen(fig, 'list'), 'list', 'Výjezd in List');

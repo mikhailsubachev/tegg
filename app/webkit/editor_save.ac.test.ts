@@ -7,7 +7,7 @@ import { test, type Browser, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { loadFixtureVault, newEmptyVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
+import { loadFixtureVault, newEmptyVault, setPreviewMode, type CallRecord, type FakeVault } from '../ui/test/fake-core';
 import { absent, mustBeDraft, mustBeOn, nonReadCalls, openNote, paletteDialog, pseudoLocale, runCommand, sidebar, searchQueryField, start } from './helpers';
 import { axeContrast, colourLeaks, sourceRegion, ui } from './read-helpers';
 import {
@@ -704,7 +704,8 @@ test('fr_fmt_12_ac5_edited_text_is_nfc_and_nfd_bytes_elsewhere_stay', async ({ p
 
 test('fr_syn_06_ac7_reading_tour_sends_no_write', async ({ page }) => {
   test.setTimeout(120_000);
-  const core = await openEditor(page, E.deset);
+  // D-949: the tour follows [[Cíl]] with a single click, so it runs under preview.mode = off.
+  const core = await openEditor(page, E.deset, setPreviewMode('off'));
   for (const t of ['Deset bloků', 'Cíl', 'Úkoly', 'Surové bloky', 'Seznamy', 'Odstavce', 'Prázdná', 'Bez hlavičky', 'Cizí hlavička']) {
     await openNote(page, t);
     await must(editorBody(page), `editor ${t}`);

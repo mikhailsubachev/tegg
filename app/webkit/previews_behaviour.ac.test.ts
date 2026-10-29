@@ -46,14 +46,14 @@ test('fr_lnk_11_ac1_preview_ready_within_two_animation_frames_of_the_click', asy
     document.addEventListener('pointerup', () => { if (w.__pvUp < 0) w.__pvUp = w.__pvFrames; }, true);
     const inv = w.__TAURI_INTERNALS__.invoke;
     w.__TAURI_INTERNALS__.invoke = (cmd: string, args: any, o: unknown) => {
-      if (cmd === 'perf_mark' && args?.mark === 'preview-ready' && w.__pvReady < 0) w.__pvReady = w.__pvFrames;
+      if (cmd === 'perf_mark' && args?.name === 'preview-ready' && w.__pvReady < 0) w.__pvReady = w.__pvFrames;
       return inv(cmd, args, o);
     };
   });
   const n0 = await mark(core);
   await chip.click();
   await needPreview(page, 'Rozpočet 2027', 'the click');
-  const marks = await eventually(async () => (await callsSince(core, n0, 'perf_mark')).map((c) => (c.args as any)?.mark), (m) => m.includes('preview-ready'), 2000);
+  const marks = await eventually(async () => (await callsSince(core, n0, 'perf_mark')).map((c) => (c.args as any)?.name), (m) => m.includes('preview-ready'), 2000);
   assert.ok(marks.includes('preview-click'), `perf_mark preview-click on pointerup (v1-previews §8): ${JSON.stringify(marks)}`);
   assert.ok(marks.includes('preview-ready'), 'perf_mark preview-ready');
   const f = await page.evaluate(() => ({ up: (window as any).__pvUp, ready: (window as any).__pvReady }));
@@ -66,6 +66,7 @@ test('fr_lnk_11_ac2_stays_open_until_a_click_outside_or_esc', async ({ page }) =
   const core = await startPreviews(page, { at: PV.odkazy });
   // An edit just before the click, so the note behind the popover autosaves while it is open.
   const p = await need(editorBody(page).locator('p').filter({ hasText: /^\s*Mapa/ }), 'paragraph "Mapa …"');
+  await p.scrollIntoViewIfNeeded();
   const pb = (await p.boundingBox())!;
   await page.mouse.click(pb.x + pb.width - 2, pb.y + pb.height / 2);
   await page.keyboard.press('End');
@@ -95,7 +96,16 @@ test('fr_lnk_11_ac2_stays_open_until_a_click_outside_or_esc', async ({ page }) =
   await needClosed(page, 'Close preview');
   assert.equal((await focusInfo(page)).inBody, true, 'Close preview does the same as Esc (AP-806)');
   await clickToPreview(page, await rozpocetChip(page), 'Rozpočet 2027', 'again');
-  await page.mouse.click(700, 860);
+  // A point outside the popover on plain editor text (the scrolled note can put the popover over the bottom).
+  const away = await page.evaluate(() => {
+    for (let y = 860; y > 120; y -= 20) for (const x of [700, 400, 1000]) {
+      const e = document.elementFromPoint(x, y) as HTMLElement | null;
+      if (e && !e.closest('[data-preview-popover], a, button, [data-link-kind], [role="button"], nav, header')) return { x, y };
+    }
+    return null;
+  });
+  assert.ok(away, 'a point outside the popover');
+  await page.mouse.click(away!.x, away!.y);
   await needClosed(page, 'a click outside closes it');
 });
 
@@ -469,6 +479,7 @@ test('fr_lnk_11_ac12_embeds_in_vlozeni_preview_without_nav_opened_or_note_read',
   await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
   const n0 = await mark(core);
   const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
+  await card.scrollIntoViewIfNeeded();
   const cb = (await card.boundingBox())!;
   await page.mouse.click(cb.x + cb.width - 12, cb.y + 12);
   await needPreview(page, 'Jana Nováková', 'card');

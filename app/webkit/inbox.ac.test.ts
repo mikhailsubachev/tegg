@@ -256,7 +256,8 @@ for (const theme of ['light', 'dark'] as const) {
 // ------------------------------------------------------------------------------------------------ FR-INB-03
 
 test('fr_inb_03_ac1_the_review_row_matches_the_card', async ({ page }) => {
-  await startInbox(page);
+  // D-949: the titles are opened with a single click, so the steps run under preview.mode = off.
+  await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   await click(main(page).getByRole('link', { name: 'Divná hodnota', exact: true }), 'Q5');
   const row = await must(main(page).getByRole('region', { name: 'Properties' }).getByText(/Review/).first(), 'the Review row');
   assert.ok(flat(await row.evaluate((e) => e.closest('[role="row"], li, div')?.textContent ?? '')).includes('maybe'), 'Q5 shows the raw value as invalid');
@@ -333,7 +334,8 @@ test('fr_inb_03_ac5_review_commands_on_a_note', async ({ page }) => {
 });
 
 test('fr_inb_03_ac6_one_state_everywhere', async ({ page }) => {
-  await startInbox(page);
+  // D-949: the titles are opened with a single click, so the steps run under preview.mode = off.
+  await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   const d1 = await must(cardAt(page, I.D1), 'D1');
   await click(reviewedBox(d1), 'D1 Reviewed');
   assert.equal(await eventually(() => sidebarCount(page), (c) => c === '12', 1000), '12', 'the count follows');

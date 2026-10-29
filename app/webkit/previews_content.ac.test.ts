@@ -171,7 +171,7 @@ test('fr_lnk_10_ac8_task_preview_shows_the_box_icon_strip_and_no_controls', asyn
   const h = await needHeader(dlg, 'task preview');
   assert.ok(h.icon && h.icon !== 'check-square', `the To do box icon (D-600) instead of the Task icon: ${h.icon}`);
   assert.deepEqual([h.title, h.rest], ['Zavolat Janě', 'Task'], 'title and type');
-  assert.deepEqual(await stripItems(dlg), ['Status To do', 'Priority High', 'Due date Fri 30 Oct'], 'the strip (R44 label, not overdue)');
+  assert.deepEqual(await stripItems(dlg), ['Status To do', 'Priority High', 'Due date Fri, Oct 30'], 'the strip (the Tasks page\'s R44 label in en-US, D-947; not overdue)');
   assert.equal(await textOf(anyContent(dlg)), 'Domluvit termín schůzky k rozpočtu.', 'the body');
   assert.equal(await dlg.getByRole('checkbox').count(), 0, 'no checkbox');
   const controls = (await dlg.getByRole('button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label') ?? (b as HTMLElement).innerText)))
@@ -182,7 +182,7 @@ test('fr_lnk_10_ac8_task_preview_shows_the_box_icon_strip_and_no_controls', asyn
 test('fr_lnk_10_ac8_overdue_due_date_after_the_clock_moves', async ({ page }) => {
   const { dlg } = await previewOf(page, 'Úkol', 0, 'Zavolat Janě', { now: '2026-10-31T10:00:00+01:00' });
   const s = await need(strip(dlg), 'strip');
-  const due = await need(s.getByText(/Fri 30 Oct · Yesterday/), 'the due item "Fri 30 Oct · Yesterday"');
+  const due = await need(s.getByText(/Fri, Oct 30 · Yesterday/), 'the due item "Fri, Oct 30 · Yesterday" (the Tasks page\'s R44 label in en-US, D-947)');
   const colour = await due.evaluate((e) => getComputedStyle(e).color);
   assert.equal(colour, await tokenColour(page, 'light', 'danger'), 'the overdue style (danger, FR-TSK-09 AC-2)');
 });
@@ -287,7 +287,7 @@ test('fr_lnk_10_ac11_pdf_object_preview_shows_the_card_and_body', async ({ page 
   assert.deepEqual([h.icon, h.title, h.rest], ['file', 'Smlouva', 'PDF'], 'header');
   assert.deepEqual(await stripItems(dlg), ['Pages 2'], 'strip');
   const text = flat(await anyContent(dlg).first().innerText().catch(() => ''));
-  assert.ok(/Smlouva\.pdf · 2 pages/.test(text), `the R77 PDF card: ${text}`);
+  assert.ok(/^Smlouva\b/.test(text) && /2 pages · 844 bytes/.test(text), `the R77 PDF card: the title Smlouva and "2 pages · 844 bytes" (D-946): ${text}`);
   assert.ok(text.endsWith('Podepsaná verze smlouvy.'), 'then the body');
 });
 
@@ -336,7 +336,7 @@ test('fr_lnk_10_ac14_long_body_is_windowed_and_complete', async ({ page }) => {
   const vault = previewsVault((f) => { f[nfc(PV.odkazy)] += '\nDlouhá [[Dlouhá]].\n'; });
   const core = await startPreviews(page, { at: PV.odkazy, vault });
   const dlg = await clickToPreview(page, await needOdkazyLink(page, 'Dlouhá'), 'Dlouhá', 'Dlouhá');
-  const ready = await eventually(async () => (await callsSince(core, 0, 'perf_mark')).some((c) => (c.args as any)?.mark === 'preview-ready'), (x) => x, 2000);
+  const ready = await eventually(async () => (await callsSince(core, 0, 'perf_mark')).some((c) => (c.args as any)?.name === 'preview-ready'), (x) => x, 2000);
   assert.ok(ready, 'the preview-ready mark');
   const art = await need(anyContent(dlg), 'content');
   const first = await contentSequence(art);

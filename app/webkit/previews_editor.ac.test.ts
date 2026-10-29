@@ -579,7 +579,9 @@ test('fr_syn_06_ac37_previews_in_the_editor_write_nothing_then_remove_link_write
     [12, 'Plán', 'Plán'], [14, 'Prázdná', 'Prázdná'], [15, 'Kruh A', 'Kruh A'], [18, 'Nápad na podcast', 'Nápad na podcast'],
   ];
   for (const [n, name, title] of tour) {
-    const chip = await must(chipIn(page, n, name).first(), `chip "${name}" in paragraph ${n}`);
+    // A task chip's accessible name carries its D-600 state suffix after the title, so it is found by its start.
+    const loc = name === 'Zavolat Janě' ? block(page, n).getByRole('link', { name: new RegExp(`^${nfc(name)}`) }) : chipIn(page, n, name);
+    const chip = await must(loc.first(), `chip "${name}" in paragraph ${n}`);
     await chip.click();
     await needPreview(page, title, `click on ${name}`);
     await page.keyboard.press('Escape');

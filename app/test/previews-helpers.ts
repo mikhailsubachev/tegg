@@ -196,6 +196,7 @@ export async function installIpc(opts: { uiState?: any; files?: Record<string, s
     if (f) return f(args);
     switch (cmd) {
       case 'embed_load': return embedLoad(args?.paths ?? []);
+      case 'index_tags': return []; // ms4-tags §3: a list, never null
       case 'tag_objects': return TAG_ROWS[nfc(String(args?.key ?? '')).toLowerCase()] ?? [];
       case 'vault_types': return TYPES();
       case 'type_get': return TYPES().find((t) => t.key === args?.key) ?? null;
@@ -209,7 +210,12 @@ export async function installIpc(opts: { uiState?: any; files?: Record<string, s
   }, { shouldMockEvents: true });
   return ipc;
 }
-export const uninstallIpc = () => clearMocks();
+/** Clears the IPC mocks after a macrotask, so the unlisten calls of components unmounted just before (`cleanup()`) run
+ *  while the event mocks still exist (clearMocks removes `unregisterListener`). */
+export async function uninstallIpc() {
+  await new Promise((r) => setTimeout(r, 0));
+  clearMocks();
+}
 
 /** The type store the app fills (D-451: chips, embeds and previews read type names, icons and preview keys there). */
 export async function setTypes(types = TYPES()) {

@@ -6,6 +6,8 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { cmdD, gotoDaily, section } from './daily-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as tasksUi } from './tasks-helpers';
 import {
   O, T, card, checkbox, click, column, eventually, fileWhen, filterBtn, gotoKanban, gotoTasks, main, moreBtn, must, mustBeOn, nfc, original, quickAdd,
   runCommand, sectionOf, seen, sleep, startTasks, addTag, clearTagsBtn, removeTagBtn, writeCalls, writtenSince, groupBy, viewTab,
@@ -47,7 +49,8 @@ test('fr_tsk_04_ac13_opening_and_browsing_write_nothing', async ({ page }) => {
 });
 
 test('fr_syn_06_ac20_a_browsing_tour_sends_no_write', async ({ page }) => {
-  const core = await startTasks(page);
+  // D-949: the tour opens titles and the source chip with a single click, so it runs under preview.mode = off.
+  const core = await startTasks(page, setPreviewMode('off', { uiState: tasksUi() }));
   await gotoTasks(page);
   await click(sectionOf(page, 'done').getByRole('button', { name: /^Done\b/ }), 'Done');
   for (const title of ['Zavolat Janě', 'Zalít květiny']) {

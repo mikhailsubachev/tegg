@@ -152,7 +152,8 @@ test('fr_edt_01_ac11_back_keeps_the_restored_scroll_position', async ({ page }) 
   const vault = editorVault();
   const extra = Array.from({ length: 80 }, (_, i) => `Odstavec číslo ${i + 1} s textem, aby se poznámka posouvala.`).join('\n\n');
   vault.files[E.deset] = `${vault.files[E.deset].replace(/\n*$/, '\n')}\n${extra}\n\nKonec: [[Cíl]]\n`;
-  await openEditor(page, E.prazdna, { vault });
+  // D-949: the link is followed with a single click, so the steps run under preview.mode = off.
+  await openEditor(page, E.prazdna, { ...setPreviewMode('off'), vault });
   await openNote(page, 'Deset bloků');
   const scroller = () => page.evaluate(() => {
     let s: Element | null = document.querySelector('[aria-label="Note body"]');

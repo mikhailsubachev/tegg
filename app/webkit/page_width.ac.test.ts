@@ -500,7 +500,8 @@ test('fr_sto_07_ac5_no_id_keyed_by_the_nfc_path_and_rekeyed_on_the_first_edit', 
   assert.notEqual(nfdTarget, BEZ, 'setup: the NFD target differs from the NFC title');
   const vault = shellVault();
   vault.files['Pages/Odkaz.md'] = `---\nid: 01JA0H0000000000000000L001\ntype: page\ntitle: Odkaz\n---\nViz [[${nfdTarget}]].\n`;
-  const core = await startShell(page, { vault });
+  // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+  const core = await startShell(page, { vault, uiState: { ...ui(), preview: { mode: 'off' } } });
   await openNote(page, 'Odkaz');
   const chip = await must(editorBody(page).locator('[data-link-kind]').filter({ hasText: /Bez hlavi/ }), 'the NFD link chip to Bez hlavičky');
   await chip.click();

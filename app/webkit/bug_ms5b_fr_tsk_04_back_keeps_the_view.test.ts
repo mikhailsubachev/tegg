@@ -3,14 +3,18 @@
 // guard the behaviour until the owner's steps are known.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { attr, card, click, filterBtn, gotoKanban, groupBy, heading, main, must, mustBeOn, pressed, sleep, startTasks, viewTab } from './tasks-helpers';
+import { attr, card, click, filterBtn, gotoKanban, groupBy, heading, main, must, mustBeOn, pressed, sleep, startTasks, ui as tasksUi, viewTab } from './tasks-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+
+// D-949: these steps open with a single click, so they run under preview.mode = off (click to preview is the default).
+const OFF = () => setPreviewMode('off', { uiState: tasksUi() });
 
 test.use({ timezoneId: 'Europe/Prague' });
 
 const selected = async (page: Parameters<typeof viewTab>[0], name: 'Schedule' | 'Kanban' | 'All tasks') => attr(viewTab(page, name), 'aria-selected');
 
 test('bug_ms5b_fr_tsk_04_back_keeps_the_kanban', async ({ page }) => {
-  await startTasks(page);
+  await startTasks(page, OFF());
   await gotoKanban(page, 'Tag');
   await click(filterBtn(page, 'This week'), 'button This week');
   await (await must(card(page, 'Zalít květiny').first().getByRole('link', { name: 'Zalít květiny', exact: true }), 'title link')).click();
@@ -24,7 +28,7 @@ test('bug_ms5b_fr_tsk_04_back_keeps_the_kanban', async ({ page }) => {
 });
 
 test('bug_ms5b_fr_tsk_04_back_keeps_all_tasks', async ({ page }) => {
-  await startTasks(page);
+  await startTasks(page, OFF());
   await gotoKanban(page, 'Status');
   await (await must(viewTab(page, 'All tasks'), 'tab All tasks')).click();
   await sleep(200);

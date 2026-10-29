@@ -478,14 +478,17 @@ export async function tabTo(page: Page, name: string, max = 40): Promise<boolean
 }
 
 /** Records whether the editor consumed a keydown (defaultPrevented at the window's bubble phase, or never reached it). */
+/** Starts recording keydowns (again): the listeners are installed once per page; a later call resets the records. */
 export async function recordKeydowns(page: Page) {
   await page.evaluate(() => {
     const w = window as any;
     w.__pvKeys = [];
-    const seenAtCapture: KeyboardEvent[] = [];
-    window.addEventListener('keydown', (e) => { seenAtCapture.push(e); w.__pvKeys.push({ key: e.key, code: e.code, alt: e.altKey, reached: false, prevented: false }); }, true);
+    w.__pvSeen = [];
+    if (w.__pvKeysInstalled) return;
+    w.__pvKeysInstalled = true;
+    window.addEventListener('keydown', (e) => { w.__pvSeen.push(e); w.__pvKeys.push({ key: e.key, code: e.code, alt: e.altKey, reached: false, prevented: false }); }, true);
     window.addEventListener('keydown', (e) => {
-      const i = seenAtCapture.indexOf(e);
+      const i = (w.__pvSeen as KeyboardEvent[]).indexOf(e);
       if (i >= 0) { w.__pvKeys[i].reached = true; w.__pvKeys[i].prevented = e.defaultPrevented; }
     }, false);
   });

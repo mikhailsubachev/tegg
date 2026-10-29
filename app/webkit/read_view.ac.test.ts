@@ -364,7 +364,8 @@ test('fr_edt_02_ac7_following_links', async ({ page }) => {
 });
 
 test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => {
-  const core = await openAt(page, R.odkazy);
+  // D-949: the date link is activated with a single click, so the steps run under preview.mode = off.
+  const core = await openAt(page, R.odkazy, setPreviewMode('off'));
   const art = await mustArticle(page, 'Odkazy');
   const files = await core.files();
   const danger = await tokenColour(page, 'danger');

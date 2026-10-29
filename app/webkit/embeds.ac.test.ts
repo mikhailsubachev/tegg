@@ -171,7 +171,8 @@ test('fr_emb_01_ac2_one_link_resolve_call_for_links_and_embeds', async ({ page }
 
 test('fr_emb_01_ac2_embed_and_link_with_one_target_resolve_alike', async ({ page }) => {
   const vault = embedsVault((f) => { f[M.vlozeniDvojnika] = `${f[M.vlozeniDvojnika]}\nOdkaz na [[Dvojník]].\n`; });
-  await openEmbeds(page, M.vlozeniDvojnika, { vault });
+  // D-949: the link chip is opened with a single click, so the steps run under preview.mode = off.
+  await openEmbeds(page, M.vlozeniDvojnika, { ...setPreviewMode('off', { uiState: embedsUi() }), vault });
   const l = await embedsShown(main(page), 1);
   assert.equal(l[0]?.target, nfc(M.dvojnikQ), 'the embed → Quick Notes/Dvojník.md');
   const chip = await must(editorBody(page).locator('[data-link-kind="note"]').first(), 'the link chip [[Dvojník]]');

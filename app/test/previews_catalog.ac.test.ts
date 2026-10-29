@@ -66,7 +66,7 @@ const R106: [string, string, string, string | null][] = [
 test('nfr_oth_02_ac11_r107_keys_with_their_exact_english_texts', async () => {
   const { cat } = await mods();
   const list = r107();
-  assert.equal(list.length, 37, `R107 has ${list.length} keys with a text`);
+  assert.equal(list.length, 38, `R107 has ${list.length} keys with a text`); // 37 + preview.resizeHint (D-945)
   const en = cat.en as Record<string, unknown>;
   const bad: string[] = [];
   for (const [key, want0] of list) {

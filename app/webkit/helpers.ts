@@ -223,7 +223,8 @@ export async function gotoTagPage(page: Page): Promise<string> {
   await runCommand(page, 'Go to Tags');
   const row = page.getByRole('main').getByRole('table').first().locator(`[data-tag="${TAG_ROUTE_KEY}"]`);
   await must(row, `All tags row ${TAG_ROUTE_KEY}`, 5000);
-  await row.first().click();
+  // D-949: the callers run in the default mode (click to preview), where a double-click on the row opens it (R103).
+  await row.first().dblclick();
   return `#${TAG_ROUTE_KEY}`;
 }
 

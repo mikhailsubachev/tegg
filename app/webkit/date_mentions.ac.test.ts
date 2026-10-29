@@ -336,7 +336,8 @@ test.describe('date links', () => {
       f['.tegg/types/událost.yml'] = '# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg\'s type settings.\nversion: 1\nname: Událost\nplural: Události\nsystem: false\nfolder: Události\nicon: calendar\ncolor: teal\nreview: false\npreview: [poznámka]\nattributes:\n  - key: poznámka\n    name: Poznámka\n    type: text\n  - key: den\n    name: Den\n    type: relation\n';
       f['Události/Výlet.md'] = '---\nid: 01JB4B0000000000000000W031\ntype: událost\ntitle: Výlet\npoznámka: "[[2026-10-20]]"\nden: "[[2026-10-20]]"\ncreated: 2026-10-02T10:00:00+02:00\nmodified: 2026-10-02T10:00:00+02:00\n---\nNa hory.\n';
     });
-    const core = await startDaily(page, { vault: v, at: 'Události/Výlet.md', panel: true });
+    // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+    const core = await startDaily(page, { vault: v, at: 'Události/Výlet.md', panel: true, ...setPreviewMode('off', { uiState: dailyUi({ open: true }) }) });
     await mustBeOn(page, 'Výlet', 'landing', 5000);
     const props = page.getByRole('region', { name: 'Properties', exact: true });
     const cs = props.locator('[data-link-kind]').filter({ hasText: /^\s*2026-10-20\s*$/ });

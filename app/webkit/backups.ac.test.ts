@@ -10,6 +10,8 @@ import {
   NOW, P, ZONES, backupRows, backupsHeading, backupsList, click, deleteDialog, eventually, jobStatus, jobsWhen, main, must, openTagPage, original,
   renameDialog, runCommand, snapshot, startTags, tagAction, tagHeading, vaultWrites, type BackupRecord,
 } from './tags-helpers';
+import { ui as tagsUi } from './tags-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 /** R85: the D-160 medium date and short time in the region locale and the machine's zone. */
 const when = (iso: string, zone: string) => new Intl.DateTimeFormat('cs', { dateStyle: 'medium', timeStyle: 'short', timeZone: zone }).format(new Date(iso)).replace(/[\s  ]+/g, ' ');
@@ -50,7 +52,8 @@ for (const tz of ZONES) {
 }
 
 test('fr_his_04_ac7_jobs_list_their_zips_with_labels', async ({ page }) => {
-  await openTagPage(page, 'účty');
+  // D-949: the All tags row is opened with a single click, so the steps run under preview.mode = off.
+  await openTagPage(page, 'účty', setPreviewMode('off', { uiState: tagsUi() }));
   await tagAction(page, 'Rename tag…');
   const d = await must(renameDialog(page, 'Účty'), 'Rename #Účty');
   await d.getByRole('textbox', { name: 'New name', exact: true }).fill('Výdaje');

@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.110, for review                                            |
-| **Date**            | 2026-10-28                                                          |
+| **Document status** | Draft v1.111, for review                                            |
+| **Date**            | 2026-10-29                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -124,6 +124,7 @@
 | v1.108  | 2026-10-28 | 4E-2 red-test decisions D-843…D-854 (AP-791…AP-802 as proposed): `remove-key` and empty entries, skipped notes of a property delete, count clauses at 0, the key description's period, one widen table, the trash job point and `taken`, the flat `job_plan`, the Trash view after a type delete, the fake's trash skips, refusals at start.; D-855 (the 4C kind-flags test follows D-812 for the 4E-2 kinds).; D-856 (two red-test corrections of the 4E-2 build).; QA review of 4E-2: D-857 (a job that fails after writing reverses its rows), D-858 (an anchored entry skips its note `readOnly`, amends D-843).; D-859 (two status texts of 4E-2). |
 | v1.109  | 2026-10-28 | Local graph (v1.0) decisions, `docs/plans/v1-local-graph-plan.md`: D-900…D-920 (AP-686…AP-706, each as proposed; numbered from D-900 so they don't collide with slice 4E's D-8xx): edges, the four connection toggles, one edge per pair, Tag nodes and Daily notes as leaves, filters drive the walk, depth 1 by default, view state machine-local and presets in `.tegg/graph.yml`, preset rules, node size off by default, tag pills, the filter list as legend, the `tegg-index` neighbourhood query, size caps and new NFR-PERF-11, d3-force SVG layout, the `graph/<path>` route, live updates, keyboard and List view, the standard preview, ⌘⇧G, slices P, G1, G2, G3, and the FR-NAV-05 AC-test change. FR-GRP-02, -05, FR-NAV-05, FR-UX-02, FR-STO-06 reworded; §11 v1.0 row names the slices |
 | v1.110  | 2026-10-28 | Slice P object previews (v1.0, D-919), `docs/acceptance/previews.md`: D-921…D-944 (AP-803…AP-826, each as proposed): an `ObjectPreview` board first, size and machine-local setting with a 400 ms hover delay, a non-modal dialog, ⌘-click before tabs, the click in editable text, the `Link` menu and `Edit link` dialog (FR-LNK-13 reworded), ⌥Space, Return, rows and cards, surfaces without previews, links and embeds inside a preview, long bodies, live updates, content details, Tag, Image and PDF previews, the source chip and broken links, new NFR-PERF-12, mindmap node chips, hover details, the AC-test changes, text clean-ups. D-140, D-423, D-486 superseded by slice P |
+| v1.111  | 2026-10-29 | Slice P build decisions D-945…D-949 (owner, as proposed): the resize handle's catalog key, the PDF preview keeps R77's card, the due label is the Tasks page's R44 label, Home / End in the editor go to the block's text start / end, and D-943's AC-test rule covers the older tests that click a reference to open it |
 
 ---
 
@@ -1019,6 +1020,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-942 | Hover mode details (AP-824) (owner, 2026-10-28; slice P, `docs/acceptance/previews.md`) | The delay counts from the last pointer movement over the reference; typing, scrolling, a held key or button hides or blocks it; moving onto the preview keeps it; leaving both hides it after 300 ms (D-917); hovering another reference replaces it after the delay; a click inside a hover preview makes it a clicked preview (the focus moves in) |
 | D-943 | AC-test changes for previews (AP-825) (owner, 2026-10-28; slice P, `docs/acceptance/previews.md`) | The AC-test-change table in previews.md is approved as a whole (owner, here): each listed test changes in slice P's build commit with the `AC-Test-Change` trailer, keeps its old steps under `preview.mode = off` and adds the click-mode steps. Previews read through `embed_load`, so `Core::read_note`'s recency (FR-NAV-01 AC-4) stays as it is |
 | D-944 | Text clean-ups with slice P (AP-826) (owner, 2026-10-28; slice P, `docs/acceptance/previews.md`) | `requirements-coverage.md`'s FR-LNK-10 line follows the BRD (type icon, D-217); the catalog's `purpose.settings.previews` becomes `How links and embeds show a preview.` (in P's build); D-140, D-423 and D-486 are superseded by slice P |
+| D-945 | The resize handle's description is a catalog key (owner, 2026-10-29; slice P build) | R107 gains `preview.resizeHint` `Use the arrow keys to resize.` (R102's handle description; NFR-OTH-02 AC-11 counts it among the R107 keys) |
+| D-946 | The PDF preview keeps R77's card (owner, 2026-10-29; slice P build) | R105's PDF preview shows trash-media R77's card unchanged: the object's title and `2 pages · <size>` (FR-LNK-10 AC-11) |
+| D-947 | A task's due label in a preview is the Tasks page's (owner, 2026-10-29; slice P build) | FR-LNK-10 AC-8's due label is exactly tasks.md R44's, in the region's format (en-US `Fri, Oct 30`, `Fri, Oct 30 · Yesterday`) |
+| D-948 | Home and End in the editor (owner, 2026-10-29; slice P build) | Home / End move the caret to the start / end of the block's text (WebKit on macOS scrolls instead; FR-LNK-13 AC-4) |
+| D-949 | D-943's rule covers the older tests (owner, 2026-10-29; slice P build) | About 40 older tests outside D-943's table that click a reference to open it, or check a chip's exact description, change as D-943's do: their steps run under `preview.mode = off` or open with a double-click, and an exact description adds the mode hint (FR-LNK-11 AC-13); FR-EDT-05 AC-5's ⇧⌘K at a chip now opens `Edit link` (D-927). The nine red-test corrections of slice P's own tests (test defects, product unchanged) are approved with it |
 
 ---
 

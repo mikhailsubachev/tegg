@@ -11,8 +11,8 @@ import {
 
 test.use({ timezoneId: ZONE });
 
-async function openRozpocet(page: Page) {
-  const core = await startPreviews(page, { at: PV.odkazy });
+async function openRozpocet(page: Page, o: Parameters<typeof startPreviews>[1] = {}) {
+  const core = await startPreviews(page, { at: PV.odkazy, ...o });
   const dlg = await clickToPreview(page, await needOdkazyLink(page, 'Hlavní'), 'Rozpočet 2027', 'a click on Rozpočet 2027');
   return { core, dlg };
 }
@@ -27,6 +27,10 @@ async function scrollBodyTo(art: Locator, text: string): Promise<boolean> {
     s.scrollTop += b.getBoundingClientRect().top - s.getBoundingClientRect().top;
     return true;
   }, text);
+}
+/** Waits (up to `ms`) until every image in the body has loaded or failed. */
+async function imagesLoaded(art: Locator, ms = 2000) {
+  await eventually(() => art.first().evaluate((a) => [...a.querySelectorAll('img')].every((i) => (i as HTMLImageElement).complete)).catch(() => true), (x) => x, ms);
 }
 /** The first block whose bottom is below the body scroller's top, and its distance from that top (px). */
 async function firstVisible(art: Locator): Promise<{ text: string; offset: number; line: number } | null> {
@@ -44,11 +48,16 @@ async function noWrites(core: FakeCoreHandle, n0: number, what: string) {
 }
 
 test('fr_lnk_11_ac11_an_external_append_shows_at_the_end_and_keeps_the_scroll', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 600 });
-  const { core, dlg } = await openRozpocet(page);
+  // The stored popover height is the minimum (200 px, FR-LNK-11 AC-4), so the body scrolls far enough to put the
+  // heading at its top (in a 600 px window the default popover's body can't scroll that far).
+  const { core, dlg } = await openRozpocet(page, { size: { height: 200 } });
   const n0 = await mark(core);
   const art = await need(content(dlg, 'Rozpočet 2027'), 'the body');
   assert.ok(await scrollBodyTo(art, 'Otevřené otázky'), 'the heading Otevřené otázky is in the body');
+  // A lazily loaded image above the heading may load after this scroll and shift the layout: let the images load,
+  // then scroll to the heading again, so the starting position is settled before the external change.
+  await imagesLoaded(art);
+  await scrollBodyTo(art, 'Otevřené otázky');
   await sleep(100);
   const v0 = await firstVisible(art);
   assert.equal(v0?.text, 'Otevřené otázky', `scrolled to Otevřené otázky (${JSON.stringify(v0)})`);
@@ -61,12 +70,13 @@ test('fr_lnk_11_ac11_an_external_append_shows_at_the_end_and_keeps_the_scroll', 
 });
 
 test('fr_lnk_11_ac11_a_title_change_updates_the_header_and_the_dialog_name', async ({ page }) => {
-  const { core, dlg } = await openRozpocet(page);
+  const { core } = await openRozpocet(page);
   const n0 = await mark(core);
   await core.setFile(PV.rozpocet, swap(await fileText(core, PV.rozpocet), 'title: Rozpočet 2027', 'title: Rozpočet 2028'));
   const named = await eventually(() => page.getByRole('dialog', { name: 'Preview: Rozpočet 2028', exact: true }).count(), (n) => n === 1, 2000);
   assert.equal(named, 1, 'the dialog is named Preview: Rozpočet 2028 within 2 s');
-  assert.equal(flat(await dlg.locator('header h2').first().innerText().catch(() => '')), 'Rozpočet 2028', 'the header title');
+  const renamed = page.getByRole('dialog', { name: 'Preview: Rozpočet 2028', exact: true });
+  assert.equal(flat(await renamed.locator('header h2').first().innerText().catch(() => '')), 'Rozpočet 2028', 'the header title');
   assert.equal(await previewCount(page), 1, 'still one popover');
   await noWrites(core, n0, 'title change');
 });
