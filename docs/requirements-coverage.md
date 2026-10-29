@@ -329,15 +329,15 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-LNK-11 | M | Preview behaviour: the popover opens in < 100 ms, stays open until the user clicks outside it or presses Esc, … | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-LNK-12 | M | Global setting "Object preview" (D-37): *Click to preview, double-click to open* (default) · *Hover to preview… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-LNK-13 | M | Editor interplay: because double-click on a link opens it, a link is edited through the `Link` context menu or ⇧⌘K (D-927)… | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
-| FR-GRP-01 | M | Local graph per object in the side panel and as a full view: the current object + linked objects up to depth N… | Local graph (§11) |
-| FR-GRP-02 | M | Filter by object type: a filter panel with a checkbox per type, "all / none", and saved filter presets shows o… | Local graph (§11); toggles links, relations, embeds, tags (D-901); slices G1, G3 (D-919) |
-| FR-GRP-03 | M | Click a node selects it, highlights its neighbours and shows the preview (FR-GRP-06); double-click opens the o… | Local graph (§11) |
-| FR-GRP-05 | M | Type icons in nodes: each node shows its type icon (D-217), with the node colored by type. The title label sits… | Local graph (§11); the filter list is the legend (D-910) |
-| NFR-PERF-11 | M | Local graph at depth 2 drawn (query + layout) < 300 ms p95 on the reference vault. | Local graph (§11); added by D-912 |
+| FR-GRP-01 | M | Local graph per object in the side panel and as a full view: the current object + linked objects up to depth N… | Local graph (§11); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| FR-GRP-02 | M | Filter by object type: a filter panel with a checkbox per type, "all / none", and saved filter presets shows o… | Local graph (§11); toggles links, relations, embeds, tags (D-901); slices G1, G3 (D-919); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| FR-GRP-03 | M | Click a node selects it, highlights its neighbours and shows the preview (FR-GRP-06); double-click opens the o… | Local graph (§11); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| FR-GRP-05 | M | Type icons in nodes: each node shows its type icon (D-217), with the node colored by type. The title label sits… | Local graph (§11); the filter list is the legend (D-910); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| NFR-PERF-11 | M | Local graph at depth 2 drawn (query + layout) < 300 ms p95 on the reference vault. | Local graph (§11); added by D-912; slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
 | NFR-PERF-12 | M | Object preview ready (click to header, strip and first screen) < 75 ms p95 on the 5,000-word benchmark note. | Object previews (§11), slice P; added by D-940 |
-| FR-GRP-06 | M | Smart preview in the graph: clicking a node shows the same content-first preview as FR-LNK-10, so the user can… | Local graph (§11) |
-| FR-GRP-07 | S | Node size can optionally reflect the number of links (more connected = bigger). | Local graph (§11) |
-| FR-GRP-08 | M | Tags appear as nodes in their tag color (type *Tag*) and can be shown or hidden with the type filter (FR-GRP-0… | Local graph (§11) |
+| FR-GRP-06 | M | Smart preview in the graph: clicking a node shows the same content-first preview as FR-LNK-10, so the user can… | Local graph (§11); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| FR-GRP-07 | S | Node size can optionally reflect the number of links (more connected = bigger). | Local graph (§11); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
+| FR-GRP-08 | M | Tags appear as nodes in their tag color (type *Tag*) and can be shown or hidden with the type filter (FR-GRP-0… | Local graph (§11); slice G1: ACs `docs/acceptance/graph.md` (D-970…D-993), contract `docs/contracts/v1-graph.md` |
 | FR-EMB-05 | M | Images and PDFs are embedded with resize; PDF embeds show an inline viewer with page navigation. | PDF inline viewer (§11); image resize part could be MVP (FR-ATT, MS6) |
 | FR-QRY-01 | M | Visual query builder: choose source type(s) (one, several, or all), then add filters (attribute + operator + v… | Query builder and views (§11) |
 | FR-QRY-02 | M | Operators per attribute type: is/is not, contains, is empty/not empty, before/after/between, relative dates (t… | Query builder and views (§11) |
@@ -392,7 +392,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-06 | S | Trash retention (default 30 days), version history retention (default 90 days). | Retention settings, with version history |
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
-| FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275) |
+| FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275); graph nodes: ACs `docs/acceptance/graph.md` FR-GRP-08, FR-TAG-05 AC-9 (G1) |
 | FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
 | FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries; sidebar only, Home dropped (D-800) |
 | FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 |

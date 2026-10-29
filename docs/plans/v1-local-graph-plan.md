@@ -1,6 +1,6 @@
 # Local graph (v1.0): plan and open points (2026-10-23)
 
-Status: **decided, 2026-10-28.** AP-686…AP-706 were accepted by the owner as proposed: D-900…D-920 (BRD v1.109, AP-686 → D-900 … AP-706 → D-920). Next: the ACs (`docs/acceptance/graph.md`) and a contract, per slice (D-919). The board fixes in §5 are separate: they change the design boards, not the BRD.
+Status: **decided, 2026-10-28.** AP-686…AP-706 were accepted by the owner as proposed: D-900…D-920 (BRD v1.109, AP-686 → D-900 … AP-706 → D-920). Next: the ACs (`docs/acceptance/graph.md`) and a contract, per slice (D-919). **G1 ACs approved 2026-10-29** (AP-827…AP-850 → D-970…D-993, BRD v1.111; contract `docs/contracts/v1-graph.md`, ADR 0004). The board fixes in §5 are separate: they change the design boards, not the BRD.
 
 ## 1. Scope
 
