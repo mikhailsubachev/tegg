@@ -110,7 +110,7 @@ rebuild gives the same numbers (AR-01).
 - `tegg-core` keeps one in-flight graph request per window: a new `graph_neighbourhood` sets the previous flag first.
 - Same index → same result, byte for byte in its JSON form (order §1.6). Locale never takes part.
 - While the first index build runs → `Err(NotReady)` (D-990); the UI shows the loading state and asks again on
-  `index:progress` `state: 'ready'`.
+  `index:progress` `state: 'done'` (D-1005).
 - Test hook (L4 only, `#[cfg(any(test, feature = "test-hooks"))]`): `GraphRequest` may carry a pause callback run after
   each BFS level, so tests set the flag or start a second request at a known point (FR-GRP-01 AC-9).
 
@@ -213,7 +213,7 @@ type GraphViewStateDto = {
   drops a late answer whose request id isn't the latest.
 - `vault:changed` (any paths) → debounced 300 ms → re-query with the same request; if the result equals the drawn one
   (deep equality of nodes, edges and counts) nothing is redrawn; otherwise the layout runs with `previous` (D-980).
-  `index:progress` `ready` after `NotReady` → re-query.
+  `index:progress` `done` after `NotReady` → re-query (D-1005).
 - A selected node missing from the new result clears the selection and the column's preview (D-915).
 - `Show all` stays on across live updates while centre, depth and filters stay (D-979).
 - Loading state only when no answer arrived 300 ms after the request; controls stay enabled.
@@ -282,3 +282,23 @@ show(target, anchor, origin: PreviewOrigin, host?: PreviewHost, extraLines?: str
 3. Cancellation is a flag checked by the query, not a dropped thread: SQLite reads stay on the index's pool.
 4. `NodeId` separates tag nodes from object nodes, so a virtual tag and a Tag file share one node by key (D-974).
 5. The layout is synchronous and pure; the page never animates the simulation itself, only CSS fades (D-992).
+
+## 12. Red-test decisions (D-994…D-1009, BRD v1.112; red tests 6313cbd)
+
+Owner, 2026-10-29, AP-851…AP-866 as proposed. They amend the sections above where they differ:
+
+1. **D-994** `GraphRequest.type_order: Vec<String>` from `tegg-core` (the index doesn't read `.tegg/types/`); `type_counts` follow it (§1.7).
+2. **D-995** `Core::graph_neighbourhood(&self, window: &str, req: GraphRequest)` and `Core::graph_degree(&self, id)`.
+3. **D-996** `GraphRequest.pause: Option<PauseHook>`, `PauseHook(Arc<dyn Fn(u8) + Send + Sync>)`, called after each BFS level, `test-hooks` feature only (§1.5).
+4. **D-997** `GraphError::NotImplemented` is stub-only; the build removes it.
+5. **D-998** `graphModel.ts`: `sortKey`, `nodeKey`, `sizeStep`, `buildModel(result, { sizeByLinks })`, `labelVisible`, `headingCount`, `hiddenText`, `connectionPhrase(node, result, types)` (relation Names from the type definitions, §7).
+6. **D-999** `GraphResult.depth_totals: Vec<usize>` / `depthTotals: number[]`: the filtered total per depth, centre included, for `Depth <d−1> · <m>`.
+7. **D-1000** `CentreInTrash`'s title travels in `IpcError.name`.
+8. **D-1001** `data-a` / `data-b` are sort keys (§1.6); `data-kinds` is space-separated.
+9. **D-1002** DOM: type checkbox name `<Plural> <count>`; tag node name `#<name>, Tag`; `data-swatch="pill"` on the Tag row; labels are SVG `<text>`; objects `circle`, pills `rect`; `data-icon` on the node or a descendant.
+10. **D-1003** the test build writes `graph-centre:<path>` for the NFR-PERF-11 centre; the L1 layout bench uses a 150-node hub-shaped result.
+11. **D-1004** FR-GRP-01 AC-13's external renames change the title (centre) or rewrite the links (drawn node).
+12. **D-1005** `index:progress` ends with `state: 'done'` (ms2-shell), not `ready`.
+13. **D-1006**, **D-1007** FR-SYN-06 AC-38: `#nápad` is selected and previewed, not centred; only the graph's own write (`ui-state.json`) is checked in Application Support.
+14. **D-1008** a note with unreadable frontmatter has `objectId: null`.
+15. **D-1009** the window title is checked in L6; L5 checks the title bar's tab.
