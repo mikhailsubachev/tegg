@@ -537,6 +537,8 @@ async function linkTargets(text: string): Promise<string[]> {
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
   if (cmd === 'link_targets') return { result: await linkTargets(String(a.text ?? '')) };
   if (cmd === 'file_targets') return { result: await fileTargets(String(a.text ?? '')) };
+  // Slice P: both lists in one round trip (embed_load with `media`).
+  if (cmd === 'link_and_file_targets') { const all = await allTargets(String(a.text ?? '')); return { result: { links: all.filter((x) => !attachment(x)), files: all.filter(attachment) } }; }
   const ctx = await context(files, vers);
   if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {

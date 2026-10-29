@@ -608,6 +608,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
     return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
   };
+  const targetsOf = new Map<string, { links: string[]; files: string[] }>();
   const objects = () => {
     if (!state.vault) return [];
     return Object.entries(state.vault.files)
@@ -1790,9 +1791,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
           continue;
         }
-        const targets = ((await w.__teggLinks('link_targets', { text }, {}, {})).result ?? []) as string[];
-        // Slice P (v1-previews §2): with `media`, the files the note embeds resolve too, after its note links.
-        if (a.media) for (const f of ((await w.__teggLinks('file_targets', { text }, {}, {})).result ?? []) as string[]) if (!targets.includes(f)) targets.push(f);
+        // Slice P (v1-previews §2): with `media`, the files the note links resolve too, after its note links (one
+        // round trip to Node for both; the lists of a text are kept, as the core's index would answer at once).
+        const got = targetsOf.get(text) ?? ((await w.__teggLinks('link_and_file_targets', { text }, {}, {})).result as { links: string[]; files: string[] });
+        targetsOf.set(text, got);
+        const targets = [...got.links];
+        if (a.media) for (const f of got.files) if (!targets.includes(f)) targets.push(f);
         const links = targets.length ? await (handlers.link_resolve as any)({ from: p, targets }) : [];
         out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links });
       }
