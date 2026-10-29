@@ -18,7 +18,7 @@ yaml-rust2 = "0.13"
 
 [features]
 # ms4-daily §1: test-only helpers (`daily::window`).
-test-hooks = []
+test-hooks = ["tegg-index/test-hooks"]
 
 [dev-dependencies]
 tegg-core = { path = ".", features = ["test-hooks"] }
@@ -26,7 +26,7 @@ tegg-schema = { path = "../tegg-schema" }
 tempfile.workspace = true
 gen-vault = { path = "../../tools/gen-vault" }
 tegg-vault = { path = "../tegg-vault" }
-tegg-index = { path = "../tegg-index" }
+tegg-index = { path = "../tegg-index", features = ["test-hooks"] }
 tegg-format = { path = "../tegg-format" }
 chrono.workspace = true
 chrono-tz.workspace = true

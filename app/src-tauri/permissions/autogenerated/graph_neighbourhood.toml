@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-graph-neighbourhood"
+description = "Enables the graph_neighbourhood command without any pre-configured scope."
+commands.allow = ["graph_neighbourhood"]
+
+[[permission]]
+identifier = "deny-graph-neighbourhood"
+description = "Denies the graph_neighbourhood command without any pre-configured scope."
+commands.deny = ["graph_neighbourhood"]

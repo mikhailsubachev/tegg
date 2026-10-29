@@ -1070,3 +1070,10 @@ pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};
 // docs/contracts/ms4-tags.md §1: tags in the index (`tags4d.rs`).
 mod tags4d;
 pub use tags4d::{TagFileRef, TagObjectRow, TagRow, TagUsage};
+
+// ------------------------------------------------------------------------------------------------ slice G1
+// docs/contracts/v1-graph.md §1, §2: the local graph's neighbourhood query (`tegg_index::graph`, `graphg1.rs`).
+mod graphg1;
+pub use tegg_index::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
+#[cfg(any(test, feature = "test-hooks"))]
+pub use tegg_index::PauseHook;

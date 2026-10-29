@@ -4,6 +4,11 @@
 //! S4 (D-83); the FTS table holds folded text (text.rs), so search rules and SQLite see the same words.
 
 mod text;
+// Slice G1 (docs/contracts/v1-graph.md §1): the local graph's neighbourhood query.
+pub mod graph;
+pub use graph::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
+#[cfg(any(test, feature = "test-hooks"))]
+pub use graph::PauseHook;
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};

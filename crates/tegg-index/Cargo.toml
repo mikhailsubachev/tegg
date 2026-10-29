@@ -16,7 +16,12 @@ unicode-normalization = "0.1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 
+[features]
+# v1-graph §1.5 (G1): the L4 pause hook of `GraphRequest` (FR-GRP-01 AC-9).
+test-hooks = []
+
 [dev-dependencies]
+tegg-index = { path = ".", features = ["test-hooks"] }
 tempfile.workspace = true
 tegg-vault = { path = "../tegg-vault" }
 chrono.workspace = true
