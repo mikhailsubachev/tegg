@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
+import { onChipTypes } from '../links/icons';
 import { forgetPreviewCaches, loadPreview, type PreviewModel } from './load';
 import { PreviewContent, plainTitle, previewTitle } from './PreviewContent';
 import { DEFAULT_WIDTH, MAX_AUTO_HEIGHT, SIZE } from './state';
@@ -149,7 +150,13 @@ export function PreviewPopover({ cur }: { cur: Current }) {
         ctl = load(top.target, true);
       }, 150);
     });
-    return () => { void off.then((f) => f()); if (timer) clearTimeout(timer); ctl?.abort(); };
+    // A type file's change reaches the strip once the app has read the types again (they come after the file event).
+    const offTypes = onChipTypes(() => {
+      if (top.target.kind !== 'note') return;
+      ctl?.abort();
+      ctl = load(top.target, true);
+    });
+    return () => { void off.then((f) => f()); offTypes(); if (timer) clearTimeout(timer); ctl?.abort(); };
   }, [top]);
   const modelRef = useRef(model);
   modelRef.current = model;
