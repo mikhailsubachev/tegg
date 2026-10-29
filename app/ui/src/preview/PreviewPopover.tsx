@@ -193,8 +193,13 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   // A reference removed (an external change deleted the chip) closes the preview (AC-5).
   useEffect(() => {
     if (column || !('el' in cur.anchor)) return;
-    const el = cur.anchor.el;
-    const id = setInterval(() => { if (!el.isConnected) close('outside'); }, 200);
+    const a = cur.anchor;
+    const id = setInterval(() => {
+      if (a.el.isConnected) return;
+      // A surface that redraws its references (the editor's chips after an edit or autosave) gives the new element.
+      const now = cur.opts.relocate?.();
+      if (now && now.isConnected) { a.el = now; place(); } else close('outside');
+    }, 200);
     return () => clearInterval(id);
   }, [cur.seq]);
   useEffect(() => {

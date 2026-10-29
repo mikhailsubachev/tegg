@@ -8,6 +8,8 @@ export type ShowOpts = {
   open?: () => void;
   /** Where the focus goes on Esc / Close (the editor: the caret after the chip, D-924); default the anchor. */
   returnFocus?: () => void;
+  /** The reference's element now, when its surface redraws it (an editor's chips after an edit); null once it's gone. */
+  relocate?: () => HTMLElement | null;
 };
 export type Current = {
   target: PreviewTarget; origin: PreviewOrigin; anchor: PreviewAnchor; host: PreviewHost; extraLine: string | null;

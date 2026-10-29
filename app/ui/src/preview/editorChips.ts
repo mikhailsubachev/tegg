@@ -46,7 +46,15 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
       e.view.focus();
       e.editor.commands.setTextSelection(Math.min(at, e.view.state.doc.content.size));
     };
-    show(pt, { el: dom }, origin, undefined, undefined, { open, returnFocus: back });
+    // The chip's element is redrawn by edits and link updates while the preview is open: follow its position.
+    const at = ed ? ed.trackPos(chip.pos) : null;
+    const relocate = () => {
+      const e = h.editor();
+      const p = at?.();
+      if (!e || p === null || p === undefined) return null;
+      return e.linkAt(p) ? ((e.view.nodeDOM(p) as HTMLElement | null) ?? null) : null;
+    };
+    show(pt, { el: dom }, origin, undefined, undefined, { open, returnFocus: back, relocate });
   };
   const gesture = (t: string, f: string | null, chip: Chip | undefined, g: LinkGesture) => {
     const pt = target(t, f);
@@ -101,7 +109,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
       // `focus()` can put the caret at the start before ProseMirror restores its own. It counts while the text is the
       // same and the reader hasn't moved the caret in the editor since.
       let kept: { doc: unknown; pos: number } | null = null;
-      const chipNow = () => {
+      const chipNow = (act: boolean) => {
         const e = h.editor();
         if (!e) return null;
         const c = e.chipAtCaret();
@@ -109,7 +117,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
         if (!kept || kept.doc !== e.view.state.doc) return null;
         const l = e.linkAt(kept.pos);
         if (!l) return null;
-        e.focusAfterChip(kept.pos);
+        if (act) e.focusAfterChip(kept.pos); // only an action moves the caret back; asking doesn't
         return { pos: kept.pos, target: l.target, fragment: l.fragment };
       };
       const onOut = () => { const e = h.editor(); const c = e?.chipAtCaret(); kept = e && c ? { doc: e.view.state.doc, pos: c.pos } : null; };
@@ -118,17 +126,17 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
       dom.addEventListener('pointerdown', onMove);
       dom.addEventListener('keydown', onMove);
       const reg = registerEditorLinks({
-        atChip: () => !!chipNow(),
+        atChip: () => !!chipNow(false),
         preview: () => {
           const e = h.editor();
-          const c = chipNow();
+          const c = chipNow(true);
           if (!e || !c) return;
           const pt = target(c.target, c.fragment);
           const chip = { pos: c.pos, dom: e.view.nodeDOM(c.pos) as HTMLElement | null };
           if (pt) preview(pt, chip, 'key', () => h.open(c.target, c.fragment, chip));
         },
-        edit: () => { const e = h.editor(); const c = chipNow(); if (e && c) editDialog(c.pos, e.view.nodeDOM(c.pos) as HTMLElement | null); },
-        remove: () => { const c = chipNow(); if (c) remove(c.pos); },
+        edit: () => { const e = h.editor(); const c = chipNow(true); if (e && c) editDialog(c.pos, e.view.nodeDOM(c.pos) as HTMLElement | null); },
+        remove: () => { const c = chipNow(true); if (c) remove(c.pos); },
         host: dom,
       });
       // An embedded note's editor sits inside the note's: the innermost editor with the focus is the one acted on.

@@ -366,15 +366,18 @@ function TagChip({ value, tagKey, onTag }: { value: string; tagKey: string; onTa
   );
 }
 
-/** A trailing ` ^id` block id (dialect §5) is removed from the last text node and returned. */
+/** Block ids already taken, per node: the parsed tree is reused across renders (ReadView's memo). */
+const takenIds = new WeakMap<object, string | null>();
+/** A trailing ` ^id` block id (dialect §5) is removed from the last text node and returned (again on a re-render). */
 function takeBlockId(n: Any): string | null {
+  if (takenIds.has(n)) return takenIds.get(n)!;
   const kids = n.children as Any[] | undefined;
   const last = kids?.[kids.length - 1];
-  if (!last || last.type !== 'text') return null;
-  const m = BLOCK_ID.exec(last.value);
-  if (!m) return null;
-  last.value = last.value.slice(0, m.index);
-  return `^${m[1]}`;
+  const m = last && last.type === 'text' ? BLOCK_ID.exec(last.value) : null;
+  if (m && last) last.value = last.value.slice(0, m.index);
+  const id = m ? `^${m[1]}` : null;
+  takenIds.set(n, id);
+  return id;
 }
 
 function Callout({ c, n, line, hint }: { c: Ctx; n: Any; line?: number; hint?: boolean }) {
