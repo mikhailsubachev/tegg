@@ -75,6 +75,19 @@ const bodyBlocks = async (text: string) => blocksRaw(text);
 /** Combining marks made visible in failure messages (NFD vs NFC). */
 const esc = (v: unknown) => JSON.stringify(v).replace(/[\u0300-\u036f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
+/**
+ * The saved body blocks match the model, allowing only the D-67 exceptions where two lists meet: a `<!-- -->` line
+ * between two lists (D-1020), or one of the lists written with another marker and its items' text unchanged.
+ */
+const SEPARATOR = '<!-- -->';
+const isList = (raw: string | undefined) => raw !== undefined && /^(?:[-*+]|\d+[.)])[ \t]/.test(raw);
+const markersOff = (raw: string) => raw.replace(/^([ \t]*)[-*+](?=[ \t])/gm, '$1-').replace(/^([ \t]*)(\d+)[.)](?=[ \t])/gm, '$1$2.');
+function sameUnderD67(after: string[], model: string[]): boolean {
+  const kept = after.filter((r, k) => !(r === SEPARATOR && isList(after[k - 1]) && isList(after[k + 1])) || model.includes(SEPARATOR));
+  if (kept.length !== model.length) return false;
+  return kept.every((r, k) => r === model[k] || (isList(r) && (isList(model[k - 1]) || isList(model[k + 1])) && markersOff(r) === markersOff(model[k])));
+}
+
 const RUNS = Number(process.env.EDITOR_PROPERTY_RUNS ?? 100);
 const SEEDS = [20261017, Number(process.env.QA_SEED ?? 0) || 11];
 
@@ -162,7 +175,7 @@ test('fr_fmt_07_ac15_property_embed_lines_survive_editing_byte_for_byte', async 
           const want = new Map([...expected].filter(([, v]) => v > 0));
           const same = got.size === want.size && [...want].every(([k, v]) => got.get(k) === v);
           if (!same) failures.push(`embed lines ${esc([...got])}, want ${esc([...want])}`);
-          if (model && JSON.stringify(after) !== JSON.stringify(model)) failures.push(`blocks ${esc(after)}, want ${esc(model)}`);
+          if (model && !sameUnderD67(after, model)) failures.push(`blocks ${esc(after)}, want ${esc(model)}`);
           if (!out.startsWith('---\nid: 01JB4F0000000000000000P001\ntype: page\ntitle: Hostitel\n')) failures.push('frontmatter changed');
           const back = await openRec(out);
           const reread = JSON.stringify(back.rec.embeds) === JSON.stringify(after.filter(isEmbedLine));

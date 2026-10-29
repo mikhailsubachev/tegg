@@ -13,7 +13,10 @@ export interface Loaded {
   originals: (PMNode | null)[] // PM node per source block, for "unchanged?" checks
   /** Source-block indices shown read-only: raw kinds, placeholders and blocks the guard kept (FR-EDT-01 AC-2/AC-8). */
   readonly: Set<number>
-  /** `<!-- -->` separators between a list and an indented block (D-67): not shown, their bytes kept with the gap. */
+  /**
+   * `<!-- -->` separators between a list and an indented block (D-67) or two same-marker lists (D-1020): not shown,
+   * their bytes kept with the gap.
+   */
   hidden: Set<number>
 }
 
@@ -28,7 +31,11 @@ export function loadDoc(text: string, schema: Schema): Loaded {
   doc.blocks.forEach((b, i) => {
     const prev = doc.blocks[i - 1]
     const next = doc.blocks[i + 1]
-    if (b.raw === END_LIST && prev && next && (prev.kind === 'list' || prev.kind === 'checklist' || /^( {4}|\t)/.test(prev.raw)) && /^[ \t]/.test(next.raw)) hidden.add(i)
+    if (b.raw !== END_LIST || !prev || !next) return
+    const prevList = prev.kind === 'list' || prev.kind === 'checklist'
+    if ((prevList || /^( {4}|\t)/.test(prev.raw)) && /^[ \t]/.test(next.raw)) hidden.add(i)
+    // Two same-marker lists that both hold an embed line are separated this way, not re-marked (D-1020).
+    else if (prevList && next.kind === prev.kind && listMarker(prev.raw) !== null && listMarker(prev.raw) === listMarker(next.raw)) hidden.add(i)
   })
   const content = doc.blocks.flatMap((b, i): JSONContent[] => (hidden.has(i) ? [] : [block(b, i)]))
   function block(b: (typeof doc.blocks)[number], i: number): JSONContent {
