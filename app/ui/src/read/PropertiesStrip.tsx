@@ -1,7 +1,8 @@
 // The note's subtitle and read-only Properties strip (FR-TYP-08 display, D-147, D-154, D-160; ms3-shell §11.3).
 // Placed between the title and the body; collapsible, the state is machine-local UI state (D-127).
-import { chipParts } from '../links/ChipParts';
+import { chipParts, chipReference, RefAnchor, TagRef } from '../links/ChipParts';
 import { parse } from '@tegg/doc';
+import { ipc } from '../ipc/client';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
 import type { LinkTargetDto } from '../ipc/types';
@@ -50,24 +51,21 @@ function LinkChip({ target, links, onOpen, from }: { target: string; links: Map<
   const kind = ok ? info!.kind : dated ? 'date-missing' : 'unresolved';
   const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
   const parts = ok ? chipParts(info) : null; // D-600
+  // Slice P (R104 row 4): a reference; a broken one offers Create where the note is known (FR-LNK-04 AC-4).
+  const reference = chipReference({ info, target, from: from ?? '', onOpen });
   return (
-    <a
+    <RefAnchor
+      reference={from === undefined ? { ...reference, createOffer: undefined } : reference}
       href="#"
       className={`chip link-chip kind-${kind}`}
       data-link-kind={kind}
       aria-description={ok ? parts?.description ?? undefined : dated ? undefined : t('link.noNote', { target })}
       {...parts?.attrs}
-      onClick={(e) => {
-        e.preventDefault();
-        if ((dated || info?.kind === 'daily') && openDate(target)) return; // FR-DLY-08 AC-6
-        if (ok) onOpen(info!.path!);
-        else if (from !== undefined) requestOffer({ from, target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
-      }}
     >
       {(ok || dated) && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
       <span data-user-content>{ok ? info!.title ?? target : target}</span>
       {parts?.suffix}
-    </a>
+    </RefAnchor>
   );
 }
 
@@ -92,9 +90,9 @@ function Value({ row, p }: { row: AttrRow; p: Props }) {
           {v.tags.map((tag) => {
             const key = tag.normalize('NFC').toLowerCase();
             return (
-              <a key={tag} href="#" className="chip tag-chip" data-tag={key} style={look(tag).style} onClick={(e) => { e.preventDefault(); p.onTag(key); }}>
+              <TagRef key={tag} tagKey={key} className="chip tag-chip" style={look(tag).style} onTag={p.onTag}>
                 <span data-user-content>#{look(tag).name}</span>
-              </a>
+              </TagRef>
             );
           })}
         </span>
@@ -141,5 +139,28 @@ export function Properties(p: Props) {
         </section>
       )}
     </>
+  );
+}
+
+/** Slice P (D-936 a): a preview of an empty body shows every attribute, read-only, without the collapse toggle. */
+export function PropertyRows({ rows, links, from, emails }: { rows: AttrRow[]; links: Map<string, LinkTargetDto>; from: string; emails?: Set<string> }) {
+  const p: Props = { text: '', links, open: true, onToggle: () => {}, onOpen: () => {}, onTag: () => {} };
+  void from;
+  if (rows.length === 0) return null;
+  return (
+    <section className="properties preview-properties" aria-label={t('props.title')}>
+      <dl className="properties-grid">
+        {rows.map((r) => (
+          <div key={r.key} className="property">
+            <dt data-user-content>{r.label}</dt>
+            <dd>
+              {emails?.has(r.key) && r.value.kind === 'text'
+                ? <a href="#" className="external-link" data-user-content onClick={(e) => { e.preventDefault(); void ipc.openExternal(`mailto:${(r.value as { text: string }).text.trim()}`).catch(() => {}); }}>{r.value.text}</a>
+                : <Value row={r} p={p} />}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }

@@ -4,7 +4,9 @@
 // through `must`/`seen` and node:assert, so a missing element is an AssertionError, not a Playwright timeout (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { absent, mustBeOn, nonReadCalls, openNote, paletteDialog } from './helpers';
+import { absent, escPreview, mainName, mustBeOn, mustNoPreview, mustPreview, nonReadCalls, openNote, paletteDialog, switchPreviewMode } from './helpers';
+import { caretRel } from './previews-editor-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   E, addBelow, argText, block, blockMenu, blocksOf, bodyOf, caretIn, diffSpan, editorBody, eventually, fileText, handle,
   kindsOf, linkSuggestions, must, mustBeSaved, noModified, openEditor, original, paste, seen, selectIn, sleep, slashMenu,
@@ -283,7 +285,8 @@ test('fr_edt_01_ac10_title_field', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-EDT-02
 
 test('fr_edt_02_ac16_editor_looks_like_read_view_and_links_open', async ({ page }) => {
-  await openEditor(page, E.deset);
+  // D-943: the D-140 steps run with Object preview Off; the click-mode steps (AP-808) follow.
+  const core = await openEditor(page, E.deset, setPreviewMode('off'));
   const body = editorBody(page);
   await must(body.getByRole('heading', { name: 'Přehled' }), 'heading inside the editor');
   await must(body.getByRole('table'), 'table');
@@ -297,6 +300,27 @@ test('fr_edt_02_ac16_editor_looks_like_read_view_and_links_open', async ({ page 
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Meta+Enter');
   await mustBeOn(page, 'Cíl', '⌘↩ at the link opens it (AP-127)');
+
+  // Click to preview (D-943, AP-808): a click previews and leaves the caret after the chip; a double-click opens; ⌘↩
+  // unchanged.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Deset bloků', 'back (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  const chip = await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl (click mode)');
+  await chip.click();
+  await mustPreview(page, 'Cíl', 'click mode: a click on the chip previews');
+  assert.equal(await mainName(page), 'Deset bloků', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the chip preview');
+  assert.equal(await caretRel(chip), 'after', 'click mode: the caret is right after the chip (AP-808)');
+  await (await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl (double-click)')).dblclick();
+  await mustBeOn(page, 'Cíl', 'click mode: a double-click on the chip opens it');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Deset bloků', 'back (click mode)');
+  await caretIn(page, 10, 'Odkaz na ');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Cíl', 'click mode: ⌘↩ at the link still opens it');
 });
 
 const SLASH_BUILT: [string, string][] = [

@@ -8,7 +8,7 @@ import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { RESERVED, expandReqs } from './shell-tables';
+import { RESERVED, expandReqs, shortcutClashes } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -89,8 +89,8 @@ test('fr_cnv_01_ac3_palette_commands_and_shortcuts', async () => {
     assert.deepEqual(bound.map((s) => s.command), [id], `${keys} is bound to ${id} only (R4 gets the R53 rows)`);
     assert.ok(!RESERVED.includes(keys), `${keys} isn't reserved by macOS`);
   }
-  const enabled = list.filter((c) => !c.due && c.shortcut).map((c) => String(c.shortcut));
-  assert.deepEqual(enabled.filter((k, i) => enabled.indexOf(k) !== i), [], 'no two enabled commands share a shortcut (FR-UX-03 AC-7)');
+  // D-943 (previews.md R106): `link.edit` shows R4's ⇧⌘K beside `edit.link`; that pair is the only one exempt.
+  assert.deepEqual(shortcutClashes(list), [], 'no two enabled commands share a shortcut (FR-UX-03 AC-7)');
   const keys = (reg.SHORTCUTS as any[]).map((s) => String(s.keys));
   assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), [], 'no shortcut bound twice');
 });

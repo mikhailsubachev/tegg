@@ -561,10 +561,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     renameFile: (from: string, to: string, o: { silent?: boolean } = {}) => {
       const f = from.normalize('NFC'), t = to.normalize('NFC');
       if (!state.vault || state.vault.files[f] === undefined) return;
-      state.vault.files[t] = state.vault.files[f];
-      delete state.vault.files[f];
-      state.mtimes[t] = state.mtimes[f] ?? 0;
-      delete state.mtimes[f];
+      // An NFD-named copy of a path is the same vault path (paths are NFC, FR-FMT-12): only the event (slice P, previews.md
+      // FR-LNK-08 AC-10); renaming it onto itself used to delete the file.
+      if (t !== f) {
+        state.vault.files[t] = state.vault.files[f];
+        delete state.vault.files[f];
+        state.mtimes[t] = state.mtimes[f] ?? 0;
+        delete state.mtimes[f];
+      }
       if (o.silent) return undefined;
       // 6A (ms6-trash-media §4): the shell also emits `trash:changed` for a change under `.trash/`.
       if (f.startsWith('.trash/') || t.startsWith('.trash/')) void state.emit('trash:changed', null);
@@ -1761,8 +1765,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     perf_mark: () => null,
     // 4F (ms4-embeds §8): one call per nesting level, no recency.
-    // Slice P (v1-previews §2, D-935): red-test stub, answers null until P is built.
-    index_path_by_id: () => null,
+    // Slice P (v1-previews §2, D-935): the indexed object with this `id` (the last one, as the core's resolver picks).
+    index_path_by_id: (a) => {
+      const id = String(a.id ?? '').normalize('NFC');
+      if (!id) return null;
+      const hits = objects().filter((o) => o.id !== null && String(o.id).normalize('NFC') === id);
+      return hits.length ? hits[hits.length - 1].path.normalize('NFC') : null;
+    },
     embed_load: async (a) => {
       const out: any[] = [];
       const seen = new Set<string>();
@@ -1782,6 +1791,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           continue;
         }
         const targets = ((await w.__teggLinks('link_targets', { text }, {}, {})).result ?? []) as string[];
+        // Slice P (v1-previews §2): with `media`, the files the note embeds resolve too, after its note links.
+        if (a.media) for (const f of ((await w.__teggLinks('file_targets', { text }, {}, {})).result ?? []) as string[]) if (!targets.includes(f)) targets.push(f);
         const links = targets.length ? await (handlers.link_resolve as any)({ from: p, targets }) : [];
         out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links });
       }
@@ -1816,7 +1827,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         const k = low(t);
         const kmd = k.endsWith('.md') ? k : `${k}.md`;
-        let hit = objs.find((o) => low(o.path) === kmd)
+        // D-155 (ms3-shell §11.1): a path relative to the linking note's folder first (a Markdown link `Name.md`).
+        let hit = (fromDir ? objs.find((o) => low(o.path) === low(`${fromDir}/${kmd}`)) : undefined)
+          ?? objs.find((o) => low(o.path) === kmd)
           ?? objs.find((o) => o.id !== null && low(o.id) === k);
         if (!hit) {
           const same = objs.filter((o) => low(o.path.split('/').pop()!.replace(/\.md$/, '')) === k);

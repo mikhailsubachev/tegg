@@ -1,5 +1,7 @@
 // Slice 5A-1: the universal task card (tasks.md R43, CardAnatomy; D-482) and its chips: checkbox, title, More, tags,
 // body start, status, due (R44, FR-TSK-09), priority, source (FR-TSK-08, D-486), and "also in" on the Kanban by tag.
+import { RefElement } from '../preview/useReference';
+import type { PreviewTarget } from '../preview/types';
 import type { ReactNode } from 'react';
 import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
@@ -65,21 +67,26 @@ export function SourceChip({ row, nav }: { row: TaskRowDto; nav: TaskNav }) {
     else if (s.kind === 'date-missing') nav.openDay(s.target);
     else requestOffer({ from: row.path, target: s.target, relationTo: null, anchor: el });
   };
+  // Slice P (FR-TSK-08 AC-4…AC-6, D-939): a click previews the source scrolled to the task's embed; a double-click and
+  // ⌘↩ open it there (D-486); a date source previews the Daily Note; an unresolved one offers Create.
+  const target: PreviewTarget | null = s.kind === 'date-missing' ? { path: '', fragment: null, kind: 'day', key: s.target.trim() }
+    : ok ? { path: s.path!.normalize('NFC'), fragment: null, kind: 'note', ...(s.kind === 'note' ? { scrollToEmbedOf: row.path.normalize('NFC') } : {}) } : null;
   return (
-    <a
+    <RefElement
+      as="a"
+      reference={{ target, kind: 'chip', open: () => open(document.activeElement as HTMLElement), createOffer: (el) => open(el) }}
       href="#"
       tabIndex={0}
       data-command="task.openSource"
       className={`chip link-chip kind-${kind} task-source`}
       data-link-kind={kind}
       aria-description={ok ? t('task.source', { title: text }) : t('link.noNote', { target: text })}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); open(e.currentTarget); }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); open(e.currentTarget); } }}
     >
       {icon && <Icon name={icon.glyph} dataIcon={icon.def} size={12} />}
       <span data-user-content>{text}</span>
-    </a>
+    </RefElement>
   );
 }
 
@@ -131,10 +138,12 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
     >
       <div className="task-card-head">
         <Checkbox row={row} onToggle={(d) => onToggle(row, d)} />
-        <a href="#" tabIndex={0} draggable={false} data-command="task.open" className="task-title" onClick={(e) => { e.preventDefault(); e.stopPropagation(); nav.openNote(row.path); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); nav.openNote(row.path); } }}>
+        {/* Slice P (R104 row 7, D-930): the title is the card's reference: a click previews, ⏎ and a double-click open. */}
+        <RefElement as="a" reference={{ target: { path: row.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => nav.openNote(row.path) }}
+          href="#" tabIndex={0} draggable={false} data-command="task.open" className="task-title"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           <span data-user-content>{row.title}</span>
-        </a>
+        </RefElement>
         <button type="button" tabIndex={0} data-command="task.setStatus" className="task-more icon-button" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
           onClick={(e) => { e.stopPropagation(); onMenu(row, e.currentTarget, e.currentTarget.closest('article')); }}>
           <Icon name="more-horizontal" size={14} />

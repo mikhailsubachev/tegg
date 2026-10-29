@@ -11,6 +11,9 @@ import {
   mapBtn, mindmapVault, must, mustBeOn, mustCaret, namesWhen, needFigure, needNode, needTree, node, noModified, openMm, original, pressed, seen,
   sleep, swap, titleField, tree, treeItems, treeNames, vaultWrites, viewGroup, viewOf, viewWhen, writes, editorBody, focusedWhen,
 } from './mindmap-helpers';
+import { ui as mmUi } from './mindmap-helpers';
+import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -326,7 +329,8 @@ test('fr_mmp_02_ac7_another_vault_and_back_opens_in_map', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ AC-8
 
 test('fr_mmp_02_ac8_read_view_always_map_links_clickable', async ({ page }) => {
-  const core = await openMm(page, MM.neplatna, { readView: true });
+  // D-943: the steps run with Object preview Off; click mode follows (a click on a node chip previews).
+  const core = await openMm(page, MM.neplatna, { ...setPreviewMode('off', { uiState: mmUi() }), readView: true });
   const toFormatted = page.getByRole('button', { name: 'Show formatted note', exact: true });
   if (await seen(toFormatted, 1500)) await toFormatted.click();
   const fig = await needFigure(page, 'Jen ke čtení');
@@ -341,6 +345,20 @@ test('fr_mmp_02_ac8_read_view_always_map_links_clickable', async ({ page }) => {
   await mustBeOn(page, 'Neplatná mapa', 'no route change');
   await click(fig.getByRole('link', { name: 'Výjezd 2026' }).first(), 'chip "Výjezd 2026"');
   await mustBeOn(page, 'Výjezd 2026', 'the chip opens note/Pages/Výjezd 2026.md');
+
+  // Click to preview (D-943): a click on the node chip previews; a double-click opens.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Neplatná mapa', 'Back (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  if (await seen(toFormatted, 1500)) await toFormatted.click();
+  const fig2 = await needFigure(page, 'Jen ke čtení');
+  await click(fig2.getByRole('link', { name: 'Výjezd 2026' }).first(), 'chip "Výjezd 2026" (click mode)');
+  await mustPreview(page, 'Výjezd 2026', 'click mode: a click on the node chip previews the note');
+  await mustBeOn(page, 'Neplatná mapa', 'click mode: no route change');
+  await escPreview(page, 'click mode: the node chip preview');
+  await (await must(fig2.getByRole('link', { name: 'Výjezd 2026' }), 'chip "Výjezd 2026" (double-click)')).dblclick();
+  await mustBeOn(page, 'Výjezd 2026', 'click mode: a double-click on the chip opens note/Pages/Výjezd 2026.md');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
 });
 
 test('fr_mmp_02_ac8_cmd_enter_on_a_focused_node_opens_its_link', async ({ page }) => {

@@ -77,7 +77,9 @@ export async function buildEmbedTree(
   host: { path: string; text: string; links: Map<string, LinkTargetDto> },
   types: TypeDto[],
   load: (paths: string[]) => Promise<EmbedNoteDto[]>,
-  opts?: { readOnly?: boolean; maxDepth?: 3 },
+  opts?: { readOnly?: boolean; maxDepth?: 3;
+    /** Slice P (D-933): every block embed is a card (no recursion), and only the embeds of `section` are taken. */
+    cards?: boolean; section?: Section },
 ): Promise<EmbedTree> {
   const readView = !!opts?.readOnly;
   const cache = new Map<string, EmbedNoteDto>();
@@ -108,6 +110,7 @@ export async function buildEmbedTree(
       return node;
     }
     node.mode = embedModeFor(e.value, target.type, types, e.inline);
+    if (opts?.cards && !e.inline) node.mode = 'card';
     if (target.kind === 'date-missing') {
       node.state = 'date-missing';
       return node;
@@ -116,7 +119,7 @@ export async function buildEmbedTree(
     return node;
   };
 
-  const top = embedsOf(host.text, null).map((e) => make(e, 1, host.links, [hostPath]));
+  const top = embedsOf(host.text, opts?.section ?? null).map((e) => make(e, 1, host.links, [hostPath]));
   let level: Pending[] = top.map((node) => ({ node, ancestors: [hostPath], links: host.links }));
 
   while (level.length > 0) {

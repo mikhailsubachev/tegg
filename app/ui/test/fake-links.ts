@@ -500,6 +500,15 @@ function duplicates(ctx: Ctx) {
 const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 
 /** 4F (ms4-embeds §4, §8): the targets `linkTargets` (read/ReadView.tsx) sends for a note text, in order. */
+/** Slice P: the file targets (`![[graf.png]]`, `file: "[[x.pdf]]"`) of a text, in first-seen order. */
+async function fileTargets(text: string): Promise<string[]> {
+  const d = await doc();
+  const out: string[] = [];
+  const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
+  for (const l of d.wikilinks(d.parse(text))) { const x = String(l.target).trim(); if (x && attachment(x) && !out.includes(x)) out.push(x); }
+  return out;
+}
+
 async function linkTargets(text: string): Promise<string[]> {
   const d = await doc();
   const out: string[] = [];
@@ -524,6 +533,7 @@ async function linkTargets(text: string): Promise<string[]> {
 
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
   if (cmd === 'link_targets') return { result: await linkTargets(String(a.text ?? '')) };
+  if (cmd === 'file_targets') return { result: await fileTargets(String(a.text ?? '')) };
   const ctx = await context(files, vers);
   if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {

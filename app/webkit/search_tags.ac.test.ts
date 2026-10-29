@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 import {
   P, callsOf, chipColours, click, eventually, flat, main, must, openNote, runCommand, seen, sleep, startTags, tagHeading, vaultWrites,
 } from './tags-helpers';
+import { ui as tagsUi } from './tags-helpers';
+import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 const combo = (page: Page) => main(page).getByRole('combobox', { name: 'Filter by tag', exact: true });
 const input = (page: Page) => combo(page).locator('xpath=self::input | .//input').first();
@@ -43,7 +46,8 @@ test('fr_src_02_ac10_the_tag_filter_control', async ({ page }) => {
 });
 
 test('fr_src_02_ac11_all_selected_tags_must_match', async ({ page }) => {
-  const core = await startTags(page, { route: 'search' });
+  // D-943: the steps run with Object preview Off; click mode (AP-819) follows on the read-view page.
+  const core = await startTags(page, { ...setPreviewMode('off', { uiState: tagsUi() }), route: 'search' });
   await must(combo(page), 'the tag filter', 5000);
   await addTag(page, 'Účty');
   const q1 = await eventually(() => searchCalls(page, core), (q) => q.some((x: any) => JSON.stringify(x.tags) === JSON.stringify(['účty'])), 2000);
@@ -59,7 +63,8 @@ test('fr_src_02_ac11_all_selected_tags_must_match', async ({ page }) => {
 });
 
 test('fr_src_02_ac12_a_tag_chip_in_a_result_adds_it_and_elsewhere_opens_the_tag_page', async ({ page }) => {
-  const core = await startTags(page, { route: 'search' });
+  // D-943: the steps run with Object preview Off; click mode (AP-819) follows on the read-view page.
+  const core = await startTags(page, { ...setPreviewMode('off', { uiState: tagsUi() }), route: 'search' });
   await must(combo(page), 'the tag filter', 5000);
   await page.getByRole('searchbox').or(page.getByRole('textbox', { name: /search/i })).first().fill('poslat');
   const hit = main(page).getByRole('link', { name: /^#účty$/i }).or(main(page).getByRole('button', { name: /^#účty$/i }));
@@ -68,11 +73,24 @@ test('fr_src_02_ac12_a_tag_chip_in_a_result_adds_it_and_elsewhere_opens_the_tag_
     await must(main(page).getByRole('button', { name: 'Remove #Účty', exact: true }), 'activating #účty in a result adds it to the filter (D-706)');
   } // else: Search shows no #tag chip in this result (the AC's "when Search shows one").
   const p2 = await page.context().newPage();
-  const c2 = await openNote(p2, P.faktura, 'Faktura', { readView: true });
+  const c2 = await openNote(p2, P.faktura, 'Faktura', { ...setPreviewMode('off', { uiState: tagsUi() }), readView: true });
   await click(p2.getByRole('main').getByRole('link', { name: /^#účty$/i }), '#účty in the read view');
   await must(tagHeading(p2, 'Účty'), 'elsewhere it opens tag/účty, never Search (D-143 retired)');
   const marks = (await callsOf(c2, 'perf_mark')).map((c) => String((c.args as any)?.mark ?? ''));
   assert.ok(!marks.some((m) => m.startsWith('route-ready:search/tag:')), 'no search/tag:<x> route is produced');
+
+  // Click to preview (D-943, AP-819): outside a result a click on the tag chip previews the Tag, a double-click opens
+  // tag/účty; inside a result the chip still adds the filter (checked above, mode-independent).
+  await p2.keyboard.press('Meta+BracketLeft');
+  await must(p2.getByRole('main').getByRole('link', { name: /^#účty$/i }), 'Back on Faktura', 5000);
+  await switchPreviewMode(p2, c2, 'click');
+  await click(p2.getByRole('main').getByRole('link', { name: /^#účty$/i }), '#účty in the read view (click mode)');
+  await mustPreview(p2, '#Účty', 'click mode: a click on the tag chip previews the Tag');
+  await escPreview(p2, 'click mode: the Tag preview');
+  await (await must(p2.getByRole('main').getByRole('link', { name: /^#účty$/i }), '#účty (double-click)')).dblclick();
+  await must(tagHeading(p2, 'Účty'), 'click mode: a double-click opens tag/účty, never Search');
+  const marks2 = (await callsOf(c2, 'perf_mark')).map((c) => String((c.args as any)?.mark ?? ''));
+  assert.ok(!marks2.some((m) => m.startsWith('route-ready:search/tag:')), 'click mode: no search/tag:<x> route is produced');
   await p2.close();
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');
 });

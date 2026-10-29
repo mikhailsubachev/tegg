@@ -6,7 +6,8 @@
 // opts out. Both tests hold `embed_load` to make the late cards certain; each failed before its fix.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { C, ZAVOLAT, click, convertAt, eventually, main, must, mustBeOn, openConvert, original, saved } from './convert-helpers';
+import { C, ZAVOLAT, click, convertAt, eventually, main, must, mustBeOn, openConvert, original, saved, ui } from './convert-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 test.use({ timezoneId: 'Europe/Prague' });
 const B0 = original(C.bloky);
@@ -42,7 +43,8 @@ test('bug_nightly_fr_cnv_04_ac2_cmd_enter_opens_the_new_task_before_its_card_ren
 });
 
 test('bug_nightly_fr_cnv_04_ac2_the_block_stays_at_the_top_while_the_cards_render_below_it', async ({ page }) => {
-  const core = await openConvert(page, C.bloky);
+  // D-943: a click on the Source chip opens only with Object preview Off (click mode previews; previews.md R103).
+  const core = await openConvert(page, C.bloky, setPreviewMode('off', { uiState: ui() }));
   await convertAt(page, ZAVOLAT);
   await saved(page, core, C.bloky, (x) => x !== B0);
   await page.keyboard.press('Meta+Enter');

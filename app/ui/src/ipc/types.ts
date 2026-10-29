@@ -259,7 +259,12 @@ tagPage?: TagPageUiDto,
 /**
  * ms4-tags §6.1 (D-703): the All tags sort.
  */
-tagsSort?: SortUiDto, };
+tagsSort?: SortUiDto, 
+/**
+ * Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size; missing reads as
+ * the defaults.
+ */
+preview?: PreviewUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -411,6 +416,7 @@ export type DateTimeUiDto = { date: string, time: string, week: string, };
 export type InboxUiDto = { filter: string, };
 export type SortUiDto = { column: string, dir: string, };
 export type TagPageUiDto = { sort: SortUiDto, type: string | null, grouping: string, };
+export type PreviewUiDto = { mode?: string, hoverDelay?: number, width?: number, height?: number, };
 export type CaptureVaultDto = { id: string, name: string, color: string | null, };
 export type CaptureTypeDto = { key: string, name: string, icon: string, color: string, folder: string, 
 /**

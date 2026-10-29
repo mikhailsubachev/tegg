@@ -73,6 +73,12 @@ export type ShellActions = {
   trashCommand?: (id: 'restore' | 'delete') => void;
   /** 6A (R75): the file picker, then add the files at the editor's caret. */
   addMedia?: () => void;
+  /** Slice P (R106): the focused reference's or the editor chip's preview; the Object preview setting; the link at the
+   *  caret's `Edit link` dialog and `Remove link`. Each does nothing without a reference or a chip (FR-UX-03 AC-19). */
+  showPreview?: () => void;
+  setPreviewMode?: (mode: 'click' | 'hover' | 'off') => void;
+  editLink?: () => void;
+  removeLink?: () => void;
 };
 
 export type EditAction =
@@ -321,6 +327,15 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
       ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
+  // Slice P (previews.md R106, D-928): ⌥Space acts only at a reference or a chip; the mode on every route with a vault.
+  list.push(
+    { id: 'preview.show', title: 'cmd.preview.show', section: 'navigate', shortcut: shortcutOf('preview.show'), needsVault: true, run: (c) => a(c)?.showPreview?.() },
+    { id: 'preview.mode.click', title: 'cmd.preview.mode.click', section: 'view', needsVault: true, run: (c) => a(c)?.setPreviewMode?.('click') },
+    { id: 'preview.mode.hover', title: 'cmd.preview.mode.hover', section: 'view', needsVault: true, run: (c) => a(c)?.setPreviewMode?.('hover') },
+    { id: 'preview.mode.off', title: 'cmd.preview.mode.off', section: 'view', needsVault: true, run: (c) => a(c)?.setPreviewMode?.('off') },
+    { id: 'link.edit', title: 'cmd.link.edit', section: 'edit', shortcut: '⇧⌘K', needsVault: true, run: (c) => a(c)?.editLink?.() }, // ⇧⌘K at a chip (R4's edit.link)
+    { id: 'link.remove', title: 'linkField.remove', section: 'edit', needsVault: true, run: (c) => a(c)?.removeLink?.() },
+  );
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });

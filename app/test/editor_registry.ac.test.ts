@@ -4,7 +4,7 @@
 // registry.ac.test.ts so the 3A AC test file stays unchanged (TS-I3). Modules load dynamically (TS-I1).
 import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { R4, RESERVED, showDue, expandReqs, type Due } from './shell-tables';
+import { R4, RESERVED, showDue, expandReqs, shortcutClashes, type Due } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -105,8 +105,8 @@ test('fr_ux_03_ac13_editor_commands_registered_with_r8_shortcuts', async () => {
     if (title) assert.ok(String(cat.t(c!.title)).startsWith(title), `${keys}: "${cat.t(c!.title)}" should be "${title}"`);
   }
   // FR-UX-03 AC-7 with R8 added to R4: no shared enabled shortcut, none reserved by macOS.
-  const enabled = list.filter((c) => !c.due && c.shortcut).map((c) => c.shortcut!);
-  assert.deepEqual(enabled.filter((k, i) => enabled.indexOf(k) !== i), [], 'two enabled commands share a shortcut');
+  // D-943 (previews.md R106): `link.edit` shows R4's ⇧⌘K beside `edit.link`; that pair is the only one exempt.
+  assert.deepEqual(shortcutClashes(list), [], 'two enabled commands share a shortcut');
   for (const [keys] of R8) {
     assert.ok(!RESERVED.includes(keys), `${keys} is reserved by macOS`);
     // R4 now holds the rows of R8 (editor.md): no R8 key may be bound to a non-editor command.

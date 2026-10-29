@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { RefElement } from './preview/useReference';
 import { ipc } from './ipc/client';
 import type { SearchPageDto } from './ipc/types';
 import { Highlighted } from './Highlighted';
@@ -68,7 +69,9 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
           <li key={r.path}>
             {/* A link row, not a <button>: WebKit centres a flex button's content, so results with a wrapped snippet
                 jumped to the middle (3C preview feedback). */}
-            <a href="#" tabIndex={0} className="result" onClick={(e) => { e.preventDefault(); onOpen(r.path); }}>
+            {/* Slice P (R104 row 8, D-930): a click anywhere on the row previews; ⏎ and a double-click open it. */}
+            <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
+              href="#" tabIndex={0} className="result" onClick={(e) => e.preventDefault()}>
               <span className="icon"><TypeIcon type={r.type} /></span>
               <span className="title" data-user-content>{r.title}</span>
               {r.typo && <span className="typo">{t('search.typo')}</span>}
@@ -86,7 +89,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
                   <Highlighted text={r.snippet.text} ranges={r.snippet.highlights} />
                 </span>
               )}
-            </a>
+            </RefElement>
           </li>
         ))}
       </ul>

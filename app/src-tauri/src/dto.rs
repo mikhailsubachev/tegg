@@ -529,6 +529,35 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tags_sort: Option<SortUiDto>,
+    /// Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size; missing reads as
+    /// the defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub preview: Option<PreviewUiDto>,
+}
+
+/// Slice P (v1-previews §1): `mode` `click` | `hover` | `off` (anything else reads as `click` in the UI), `hoverDelay`
+/// in ms, `width` and `height` in px. Values are kept as stored (the UI normalizes them, FR-SET-07 AC-3); unknown
+/// fields are kept on write.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct PreviewUiDto {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "string")]
+    pub mode: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub hover_delay: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub width: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub height: Option<serde_json::Value>,
+    #[serde(flatten)]
+    #[ts(skip)]
+    pub other: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 /// `column` and `dir` (`asc` | `desc`) of a remembered sort.
@@ -1026,7 +1055,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None }
     }
 }
 
@@ -1459,6 +1488,7 @@ pub fn typescript() -> String {
         InboxUiDto::decl(),
         SortUiDto::decl(),
         TagPageUiDto::decl(),
+        PreviewUiDto::decl(),
         CaptureVaultDto::decl(),
         CaptureTypeDto::decl(),
         CaptureContextDto::decl(),

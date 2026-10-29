@@ -11,6 +11,22 @@ import {
   NOW, NOW_IN, O, T, attr, callsOf, card, checkbox, click, column, description, eventually, fileText, fileWhen, gotoKanban, gotoTasks, isDisabled, main,
   moreBtn, must, mustBeOn, navs, nfc, original, seen, shortDate, sleep, startTasks, swap, tasksVault, textOf, touched, writeCalls, writesOf, flat,
 } from './tasks-helpers';
+import { heading as tasksHeading, ui as tasksUi } from './tasks-helpers';
+import { escPreview, mainName, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+
+/** D-943: the D-486 steps of FR-TSK-08 AC-2, AC-3 run with Object preview Off. */
+const OFF = () => setPreviewMode('off', { uiState: tasksUi() });
+/** The block selected after opening Porada at the embed: its text and its distance from the scroll area's top. */
+async function selectedEmbedTop(page: Page, what: string): Promise<number> {
+  const sel = await must(main(page).locator('[data-block-selected]'), `${what}: a selected block`);
+  assert.ok((await textOf(sel)).includes('Zavolat Janě'), `${what}: the embed of T01 is selected`);
+  return sel.evaluate((e) => {
+    let sc: HTMLElement | null = e.parentElement;
+    while (sc && !(sc.scrollHeight > sc.clientHeight && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+    return e.getBoundingClientRect().top - (sc ?? document.documentElement).getBoundingClientRect().top;
+  });
+}
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -182,7 +198,7 @@ test('fr_tsk_08_ac1_source_chip_on_every_task_view', async ({ page }) => {
 });
 
 test('fr_tsk_08_ac2_the_chip_opens_the_source_at_the_embed', async ({ page }) => {
-  const core = await startTasks(page);
+  const core = await startTasks(page, OFF());
   await gotoTasks(page);
   await click(card(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'source chip');
   await mustBeOn(page, 'Porada', 'note/Pages/Porada.md', 5000);
@@ -197,15 +213,43 @@ test('fr_tsk_08_ac2_the_chip_opens_the_source_at_the_embed', async ({ page }) =>
   assert.ok((await navs(core)).includes(O.porada), 'nav_opened records Porada');
   assert.equal(await page.getByRole('dialog').count(), 0, 'no preview popover');
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
+
+  // Click to preview (D-943; FR-TSK-08 AC-4, AC-5): a click and ⏎ preview, a double-click opens at the embed.
+  await switchPreviewMode(page, core, 'click');
+  await gotoTasks(page);
+  const chip = () => card(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada' });
+  const navsBefore = (await navs(core)).length;
+  await click(chip(), 'source chip (click mode)');
+  await mustPreview(page, 'Porada', 'click mode: a click on the source chip previews Porada');
+  assert.ok(await seen(tasksHeading(page), 500), 'click mode: the click keeps the route (still on Tasks)');
+  await escPreview(page, 'click mode: the source preview');
+  await (await must(chip(), 'source chip (⏎)')).focus();
+  await page.keyboard.press('Enter');
+  await mustPreview(page, 'Porada', 'click mode: ⏎ on the focused source chip previews Porada (R103)');
+  await escPreview(page, 'click mode: the ⏎ preview');
+  assert.equal((await navs(core)).length, navsBefore, 'click mode: previews record no navigation');
+  await (await must(chip(), 'source chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Porada', 'click mode: a double-click opens note/Pages/Porada.md', 5000);
+  const top2 = await selectedEmbedTop(page, 'click mode, double-click');
+  assert.ok(Math.abs(top2) <= 8, `click mode: the embed at the top of the centre pane's scroll area (± 8 px): ${top2}`);
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  assert.deepEqual(await writeCalls(core), [], 'click mode: nothing written');
 });
 
 test('fr_tsk_08_ac2_without_an_embed_the_note_opens_at_the_top', async ({ page }) => {
   const vault = tasksVault((f) => { f[O.porada] = swap(f[O.porada], '![[Zavolat Janě]]\n\n', ''); });
-  await startTasks(page, { vault });
+  const core = await startTasks(page, { ...OFF(), vault });
   await gotoTasks(page);
   await click(card(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'source chip');
   await mustBeOn(page, 'Porada', 'Porada opens', 5000);
   assert.equal(await main(page).locator('[data-block-selected]').count(), 0, 'nothing selected; the top');
+
+  // Click to preview (D-943; FR-TSK-08 AC-5): a double-click opens Porada at the top.
+  await switchPreviewMode(page, core, 'click');
+  await gotoTasks(page);
+  await (await must(card(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'source chip (click mode)')).dblclick();
+  await mustBeOn(page, 'Porada', 'click mode: a double-click opens Porada', 5000);
+  assert.equal(await main(page).locator('[data-block-selected]').count(), 0, 'click mode: nothing selected; the top');
 });
 
 test('fr_tsk_08_ac2_unresolved_and_date_chips', async ({ page }) => {
@@ -213,7 +257,7 @@ test('fr_tsk_08_ac2_unresolved_and_date_chips', async ({ page }) => {
     f['Tasks/Chybějící zdroj.md'] = swap(swap(f[T.t01], 'E001', 'W001'), '"[[Porada]]"', '"[[Chybí]]"').replace('title: Zavolat Janě', 'title: Chybějící zdroj');
     f['Tasks/Ze dne.md'] = swap(swap(f[T.t01], 'E001', 'W002'), '"[[Porada]]"', '"[[2026-10-09]]"').replace('title: Zavolat Janě', 'title: Ze dne');
   });
-  await startTasks(page, { vault });
+  const core = await startTasks(page, { ...OFF(), vault });
   await gotoTasks(page);
   await click(card(page, 'Chybějící zdroj').locator('[data-link-kind]'), 'unresolved chip');
   await must(page.getByRole('dialog', { name: 'Create note' }), 'the Create offer (FR-LNK-04 AC-4)');
@@ -221,14 +265,41 @@ test('fr_tsk_08_ac2_unresolved_and_date_chips', async ({ page }) => {
   await click(card(page, 'Ze dne').locator('[data-link-kind]'), 'date chip');
   await must(page.getByRole('textbox', { name: 'Title', exact: true }), 'daily/2026-10-09', 5000);
   assert.equal(flat(await page.getByRole('textbox', { name: 'Title', exact: true }).first().evaluate((e) => (e as HTMLInputElement).value ?? e.textContent)), '2026-10-09');
+
+  // Click to preview (D-943; FR-TSK-08 AC-5): the unresolved chip keeps the Create offer; a date chip previews the
+  // Daily Note.
+  await switchPreviewMode(page, core, 'click');
+  await gotoTasks(page);
+  await click(card(page, 'Chybějící zdroj').locator('[data-link-kind]'), 'unresolved chip (click mode)');
+  await must(page.getByRole('dialog', { name: 'Create note' }), 'click mode: the Create offer (FR-LNK-04 AC-4)');
+  await mustNoPreview(page, 'click mode: an unresolved chip never previews', 300);
+  await page.keyboard.press('Escape');
+  await click(card(page, 'Ze dne').locator('[data-link-kind]'), 'date chip (click mode)');
+  await mustPreview(page, '2026-10-09', 'click mode: a date chip previews the Daily Note');
+  assert.ok(await seen(tasksHeading(page), 500), 'click mode: the date chip click keeps the route (still on Tasks)');
 });
 
 test('fr_tsk_08_ac3_the_panel_source_row_opens_at_the_embed', async ({ page }) => {
-  await startTasks(page, { at: T.t01 });
+  const core = await startTasks(page, { ...OFF(), at: T.t01 });
   await mustBeOn(page, 'Zavolat Janě', 'T01', 5000);
   await click(props(page).locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'Source row chip');
   await mustBeOn(page, 'Porada', 'Porada', 5000);
   assert.ok((await textOf(await must(main(page).locator('[data-block-selected]'), 'selected embed'))).includes('Zavolat Janě'), 'at the embed');
+
+  // Click to preview (D-943; FR-TSK-08 AC-6 = AC-4, AC-5 on the task's own page).
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Zavolat Janě', 'Back to T01', 5000);
+  await switchPreviewMode(page, core, 'click');
+  const chip = () => props(page).locator('[data-link-kind]').filter({ hasText: 'Porada' });
+  await click(chip(), 'Source row chip (click mode)');
+  await mustPreview(page, 'Porada', 'click mode: a click on the Source row chip previews Porada');
+  assert.equal(await mainName(page), 'Zavolat Janě', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the Source row preview');
+  await (await must(chip(), 'Source row chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Porada', 'click mode: a double-click opens Porada', 5000);
+  const top = await selectedEmbedTop(page, 'click mode, Source row');
+  assert.ok(Math.abs(top) <= 8, `click mode: the embed at the top (± 8 px): ${top}`);
+  assert.deepEqual(await writeCalls(core), [], 'click mode: nothing written');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-09 AC-2, AC-3

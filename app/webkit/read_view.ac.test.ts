@@ -8,8 +8,9 @@ import assert from 'node:assert/strict';
 import {
   absent, eventually, focused, mainName, must, mustBeOn, nonReadCalls, openNote, paletteDialog, paletteOptions, runCommand,
   seen, sidebar, sleep, switcherDialog, theme,
-  searchQueryField,
+  searchQueryField, switchPreviewMode, mustPreview, mustNoPreview, escPreview,
 } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   IDS, R, TITLES, article, axeContrast, cmds, colourLeaks, firstVisibleBlockText, headingFn, lineFn, mustArticle, openAt,
   placement, propsRegion, scrollToTop, sourceRegion, toFormattedButton, toSourceButton, tokenColour, ui, watchNetwork,
@@ -260,7 +261,9 @@ test('fr_edt_02_ac3_callout_fold_changes_only_the_view', async ({ page }) => {
 });
 
 test('fr_edt_02_ac7_following_links', async ({ page }) => {
-  const core = await openAt(page, R.odkazy);
+  // D-943 (previews.md "AC-test changes"): the D-140 steps below run with Object preview Off; the click-mode steps
+  // (slice P, R103) follow at the end.
+  const core = await openAt(page, R.odkazy, setPreviewMode('off'));
   const navTo = async (how: () => Promise<void>, what: string) => {
     const n = (await uiCalls(core, 'nav_opened')).length;
     await how();
@@ -317,6 +320,47 @@ test('fr_edt_02_ac7_following_links', async ({ page }) => {
   await topAligned(headingFn('Tagy'), '[[#Tagy]]');
   assert.equal(await mainName(page), 'Odkazy', 'route unchanged');
   assert.equal((await uiCalls(core, 'nav_opened')).length, n, 'no navigation recorded');
+
+  // Click to preview (D-943; R103, AP-807, AP-811): a click and ⏎ preview; double-click, ⌘↩ and `Open` open, with the
+  // same subpath scroll; ⌘-click opens.
+  await switchPreviewMode(page, core, 'click');
+  await back();
+  const before = (await uiCalls(core, 'nav_opened')).length;
+  await (await linkIn(page, 'Odkazy', 'Cíl')).click();
+  await mustPreview(page, 'Cíl', 'click mode: a click on Cíl');
+  assert.equal(await mainName(page), 'Odkazy', 'click mode: a click keeps the route');
+  await escPreview(page, 'click mode: the click preview');
+  const jiny = await linkIn(page, 'Odkazy', 'jiný text');
+  await jiny.focus();
+  await eventually(() => page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''), (v) => v === 'jiný text', 1000);
+  await page.keyboard.press('Enter');
+  await mustPreview(page, 'Cíl', 'click mode: ⏎ on a focused inline link');
+  assert.equal(await mainName(page), 'Odkazy', 'click mode: ⏎ keeps the route');
+  await escPreview(page, 'click mode: the ⏎ preview');
+  assert.equal((await uiCalls(core, 'nav_opened')).length, before, 'click mode: previews record no navigation');
+  await navTo(async () => (await linkIn(page, 'Odkazy', 'Cíl')).dblclick(), 'click mode: double-click');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await back();
+  await navTo(async () => {
+    const l = await linkIn(page, 'Odkazy', 'jiný text');
+    await l.focus();
+    await eventually(() => page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''), (v) => v === 'jiný text', 1000);
+    await page.keyboard.press('Meta+Enter');
+  }, 'click mode: ⌘↩ on a focused link');
+  await back();
+  await navTo(async () => (await linkIn(page, 'Odkazy', 'jiný text')).click({ modifiers: ['Meta'] }), 'click mode: ⌘-click (AP-807)');
+  await mustNoPreview(page, 'click mode: after ⌘-click', 300);
+  await back();
+  const heading2 = await must(page.locator('main li', { hasText: 'Nadpis:' }).getByRole('link'), 'heading link (click mode)');
+  await navTo(() => heading2.dblclick(), 'click mode: double-click on [[Cíl#Druhá kapitola]]');
+  await topAligned(headingFn('Druhá kapitola'), 'click mode: #Druhá kapitola');
+  await back();
+  const block2 = await must(page.locator('main li', { hasText: 'Blok:' }).getByRole('link'), 'block link (click mode)');
+  await block2.click();
+  const dlg = await mustPreview(page, 'Cíl', 'click mode: a click on [[Cíl#^blok1]]');
+  await navTo(async () => (await must(dlg.getByRole('button', { name: 'Open Cíl', exact: true }), 'button "Open Cíl" in the preview')).click(), 'click mode: `Open` in the preview of [[Cíl#^blok1]]');
+  await topAligned(`() => document.getElementById('^blok1')`, 'click mode: `Open` on #^blok1');
+  await mustNoPreview(page, 'click mode: `Open` closes the preview', 300);
 });
 
 test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => {
@@ -352,13 +396,25 @@ test('fr_edt_02_ac8_unresolved_links_style_and_activation', async ({ page }) => 
 test('fr_edt_02_ac9_tag_opens_the_tag_page', async ({ page }) => {
   // D-218 (supersedes D-143): a tag opens its tag page `tag/<key>` (4D-lite, tags.md FR-TAG-06 AC-1, R82, D-703).
   const tagPage = (name: string) => page.getByRole('main').filter({ has: page.getByRole('link', { name: '‹ All tags', exact: true }) }).getByRole('heading', { level: 1, name, exact: true });
-  await openAt(page, R.odkazy);
+  // D-943: these steps run with Object preview Off; click mode (AP-819) follows.
+  const core = await openAt(page, R.odkazy, setPreviewMode('off'));
   const art = await mustArticle(page, 'Odkazy');
   await (await must(art.getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa')).click();
   await must(tagPage('Projekt/alfa'), 'tag activation opens tag/projekt%2Falfa (one tag, R87)', 3000);
   await openNote(page, 'Odkazy');
   await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (written in NFD)')).click();
   await must(tagPage('Čeština'), 'NFD tag activation opens tag/čeština', 3000);
+
+  // Click to preview (AP-819): a click previews the Tag; a double-click opens tag/<key>.
+  await switchPreviewMode(page, core, 'click');
+  await openNote(page, 'Odkazy');
+  await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Projekt/alfa', exact: true }), 'tag chip #Projekt/alfa (click mode)')).click();
+  await mustPreview(page, '#Projekt/alfa', 'click mode: a click on #Projekt/alfa previews the Tag');
+  assert.equal(await mainName(page), 'Odkazy', 'click mode: the tag click keeps the route');
+  await escPreview(page, 'click mode: the Tag preview');
+  await (await must(article(page, 'Odkazy').getByRole('link', { name: '#Čeština' }), 'tag chip #Čeština (click mode)')).dblclick();
+  await must(tagPage('Čeština'), 'click mode: a double-click on #Čeština opens tag/čeština', 3000);
+  await mustNoPreview(page, 'click mode: after the double-click on the tag', 300);
 });
 
 test('fr_edt_02_ac10_external_links_open_outside_and_no_network', async ({ page }) => {

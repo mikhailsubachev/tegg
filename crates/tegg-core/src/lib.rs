@@ -923,8 +923,13 @@ impl Core {
 
     /// Slice P (D-935, v1-previews §2): the vault path of the indexed object whose frontmatter `id` equals `id` (NFC,
     /// exact), outside `.trash/` and `_templates/`; `None` when there is none. Reads the index only; no recency.
-    pub fn path_by_id(&self, _id: &str) -> Option<String> {
-        None // red-test stub (TS-I1)
+    pub fn path_by_id(&self, id: &str) -> Option<String> {
+        let id = nfc(id);
+        if id.is_empty() {
+            return None;
+        }
+        // The pick of `Resolver` (the last indexed object with the id), so a preview follows the file links go to.
+        self.objects().into_iter().filter(|o| o.id.as_deref() == Some(id.as_str())).last().map(|o| o.path)
     }
 }
 

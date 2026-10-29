@@ -66,6 +66,10 @@ import { AllTagsPage } from './tags/AllTagsPage';
 import { refreshTags, tagOfFile, useTags } from './tags/store';
 import { tagKey } from './tags/keys';
 import type { TagPageUi, TagsSort } from './tags/model';
+import { PreviewProvider } from './preview/PreviewProvider';
+import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
+import type { PreviewTarget, PreviewUiDto } from './preview/types';
+import { editorLinkAction } from './preview/editorLink';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
@@ -86,7 +90,7 @@ type Dialog = 'palette' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
-type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth> };
+type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto };
 const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false };
 
 function initialUi(): UiState {
@@ -192,6 +196,8 @@ export function App() {
     void ipc.uiStateSet(ui).catch(() => {});
   }, [ui]);
   // 5A-2 (ms5-tasks §11.4): the conversion's preferences live in the same machine-local state.
+  // Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the popover size live in the same state.
+  useEffect(() => { setStoredPrefs(ui.preview); }, [ui.preview]);
   useEffect(() => registerConvertPrefs({ get: () => uiRef.current?.convert ?? undefined, set: (c) => updateUi((u) => ({ ...u, convert: c })) }), [updateUi]);
 
   useEffect(() => {
@@ -355,6 +361,20 @@ export function App() {
     void go({ id: 'note/<path>', param: path.normalize('NFC'), ...(fragment ? { fragment } : {}) }, { keepDialog });
   }, [go]);
   const openDay = useCallback((date: string) => { void go({ id: DAILY, param: date }); }, [go]);
+  // Slice P (v1-previews §3): what the popover's `Open` and ⏎ open, and where a size or mode change is stored.
+  useEffect(() => {
+    setPreviewHost({
+      open: (tg: PreviewTarget) => {
+        if (tg.kind === 'day') { if (tg.key) openDay(tg.key); return; }
+        if (tg.kind === 'tag') { if (tg.key) void go({ id: 'tag/<key>', param: tagKey(tg.key) }); return; }
+        if (tg.scrollToEmbedOf) { void go({ id: 'note/<path>', param: tg.path.normalize('NFC'), selectEmbedOf: tg.scrollToEmbedOf.normalize('NFC') }); return; }
+        openNote(tg.path, tg.fragment ?? undefined);
+      },
+      setPrefs: (p) => updateUi((u) => ({ ...u, preview: p })),
+      external: (url) => { void ipc.openExternal(url).catch(() => {}); },
+    });
+    return () => setPreviewHost(null);
+  }, [openNote, openDay, go, updateUi]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
   useEffect(() => {
     setSourceHandler((src, task) => { void go({ id: 'note/<path>', param: src.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); });
@@ -398,6 +418,7 @@ export function App() {
     setNoteDaily(null);
     setCalendar(null);
     if (route?.id === 'note/<path>' && route.param) void ipc.navOpened(route.param).catch(() => {});
+    closePreview('route'); // v1-previews §3.3: a route change closes the preview
   }, [routeKey]);
 
   /** The one creation path (D-232, FR-TYP-03 AC-12): ⌘N, the switcher's create item and the type page's New <Name>. */
@@ -607,6 +628,11 @@ export function App() {
     openFolder: () => { void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
+    // Slice P (R106): each does nothing without a reference or a chip at the caret (FR-UX-03 AC-19).
+    showPreview: () => { setTimeout(() => showPreviewAction()?.(), 0); }, // after the palette gave the focus back (D-139)
+    setPreviewMode: (m) => { if (getPreviewPrefs().mode !== m) updatePrefs((d) => ({ ...d, mode: m })); },
+    editLink: () => { setTimeout(() => editorLinkAction('edit'), 0); },
+    removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
     edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
   }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
@@ -991,6 +1017,7 @@ export function App() {
   const named = userNamed ? <span data-user-content>{pageName}</span> : pageName;
 
   return (
+    <PreviewProvider>
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
       {!focusMode && <TitleBar switcher={{ vault, onOpenPath: openVaultPath, onOpenFolder: actions.openFolder, onCreate: () => actions.openChooser(true), onSettings: () => go({ id: 'settings/vault' }) }} name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} canBack={history.current.canBack()} canForward={history.current.canForward()} onBack={actions.back} onForward={actions.forward} />}
       <div className="frame">
@@ -1080,5 +1107,6 @@ export function App() {
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
     </div>
+    </PreviewProvider>
   );
 }

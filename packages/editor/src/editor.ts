@@ -16,7 +16,7 @@ import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { focusedMindmap, hintElement, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
+import { chipAtCaret as chipAt, focusedMindmap, hintElement, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions, wikiLabel } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -46,7 +46,8 @@ export interface EditorOptions {
   /** 4F (D-428): ↑ on the first line / ↓ on the last line of a nested editor, and Esc. Return true when handled. */
   onLeave?(how: 'up' | 'down' | 'escape'): boolean
   /** 4F (D-428): ⏎ / ⌘↩ / `Display embed as…` on a selected block embed at `pos`. Return true when handled. */
-  onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean
+  /** Slice P (FR-LNK-09 AC-6, AC-7): `preview` is ⌥Space on a selected embed or figure (D-928, D-938). */
+  onEmbedKey?(pos: number, key: 'enter' | 'open' | 'displayAs' | 'preview'): boolean
   /** 5A-2 (ms5-tasks §11.3, D-494): false in `_templates/` notes and nested embed editors; `conversionUnit()` is then
    *  null. Default true. */
   convertible?: boolean
@@ -92,6 +93,15 @@ export interface TeggEditor {
   pastePlainNext(): void
   /** Re-renders chips after the app learnt new link resolutions. */
   refreshUi(): void
+  /** Slice P (v1-previews §5.2, D-924): the caret right after the chip at `pos`, and the focus in the editor. */
+  focusAfterChip(pos: number): void
+  /** Slice P (§5.3): the link chip at `pos`, or null. */
+  linkAt(pos: number): { target: string; fragment: string | null; alias: string | null } | null
+  /** Slice P (§5.3, D-927): rewrites the chip at `pos` as `[[target|alias]]` (`[[target]]` without an alias), keeping
+   *  its section, as one undo step; false without a chip there. */
+  editLink(pos: number, next: { target: string; alias: string | null }): boolean
+  /** Slice P (D-209, D-928): the chip at the caret (selected, directly before, else directly after), or null. */
+  chipAtCaret(): { pos: number; target: string; fragment: string | null } | null
   /** Markdown source of the selected blocks, or null without a block selection (FR-EDT-13 AC-5). */
   selectedSource(): string | null
   /** 4F (ms4-embeds §7): the block embed at the selection (one selected embed block, or a node selection), or null. */
@@ -449,6 +459,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
         return false
       },
       handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
+      // A DOM without layout (no Range.getClientRects, as jsdom) has nothing to scroll to.
+      handleScrollToSelection: () => typeof Range === 'undefined' || typeof Range.prototype.getClientRects !== 'function',
       // 4F (AP-349): a click on a block embed's frame (outside its controls and content) selects it as a block.
       handleClickOn: (view, _pos, node, nodePos, event, direct) => {
         const el = event.target as HTMLElement | null
@@ -826,6 +838,20 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     return 'no'
   }
 
+  /** Slice P (D-927, D-184): the chip at `pos` with a new target and link text, its section kept; one undo step. */
+  const editLinkAt = (pos: number, next: { target: string; alias: string | null }): boolean => {
+    const node = editor.state.doc.nodeAt(pos)
+    const cur = linkAtPos(editor.state.doc, pos)
+    if (!node || !cur) return false
+    const target = next.target.trim().normalize('NFC')
+    if (!target) return false
+    const frag = target.includes('#') || cur.fragment === null ? '' : `#${cur.fragment}`
+    const alias = next.alias?.trim() ? `|${next.alias.trim().normalize('NFC')}` : ''
+    const value = `${target}${frag}${alias}`
+    if (value === String(node.attrs.value)) return true
+    dispatch(editor.state.tr.replaceWith(pos, pos + node.nodeSize, editor.schema.nodes.wikiLink.create({ ...node.attrs, value }, null, node.marks)))
+    return true
+  }
   const commands: TeggEditor['commands'] = {
     turnInto(kind, o = {}) {
       const [from, to] = targetRange()
@@ -1548,6 +1574,20 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     refreshUi() {
       view.dispatch(editor.state.tr.setMeta(uiRefresh, true).setMeta('addToHistory', false))
     },
+    focusAfterChip(pos) {
+      const node = editor.state.doc.nodeAt(pos)
+      const at = node ? Math.min(pos + node.nodeSize, editor.state.doc.content.size) : pos
+      view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, at)).setMeta('addToHistory', false))
+      view.focus()
+    },
+    linkAt: (pos) => linkAtPos(editor.state.doc, pos),
+    editLink: (pos, next) => editLinkAt(pos, next),
+    chipAtCaret() {
+      const c = chipAt(editor.state, opts.ui)
+      if (!c) return null
+      const l = linkAtPos(editor.state.doc, c.pos)!
+      return { pos: c.pos, target: l.target, fragment: l.fragment }
+    },
     selectedSource,
     commands,
     destroy() {
@@ -1555,6 +1595,18 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
   }
   return api
+}
+
+/** Slice P (§5.3): a wikilink chip's target, section and alias at `pos`. */
+function linkAtPos(doc: PMNode, pos: number): { target: string; fragment: string | null; alias: string | null } | null {
+  if (pos < 0 || pos > doc.content.size) return null
+  const node = doc.nodeAt(pos)
+  if (!node || node.type.name !== 'wikiLink') return null
+  const v = String(node.attrs.value)
+  const pipe = /\\?\|/.exec(v)
+  const alias = pipe ? v.slice(pipe.index + pipe[0].length).trim() || null : null
+  const { target, fragment } = linkParts(v)
+  return { target, fragment, alias }
 }
 
 /** The event comes from a form field (input, textarea, select) the app rendered inside the document (an embed). */
@@ -1677,7 +1729,7 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
     name: 'teggEmbedKeys',
     priority: 1000,
     addKeyboardShortcuts() {
-      const key = (k: 'enter' | 'open') => () => {
+      const key = (k: 'enter' | 'open' | 'preview') => () => {
         const a = get()
         const e = a.selectedEmbed()
         return !!e && !!a.opts.onEmbedKey?.(e.pos, k)
@@ -1691,6 +1743,7 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
         Enter: key('enter'),
         'Mod-Enter': key('open'),
         'Meta-Enter': key('open'),
+        'Alt-Space': key('preview'),
         Escape: () => {
           const a = get()
           return !!a.opts.onLeave && !a.hasBlockSel() && a.opts.onLeave('escape')

@@ -13,7 +13,9 @@ import {
   paragraphBelow, pathOf, pickerList, pickerOptions, pickerQuery, picker, runCommand, seen, selectEmbedBlock, selectedBlocks, sleep, slashBelow, slashMenu, swap,
   scrollSteady, topEmbed, topEmbeds, writeCalls, writePaths, writes, type EmbedInfo, type FakeCoreHandle,
 } from './embeds-helpers';
-import { settled } from './helpers';
+import { settled, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as embedsUi } from './embeds-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -871,7 +873,8 @@ test('fr_emb_02_ac9_open_section_scrolls_to_the_heading', async ({ page }) => {
 // Issue #59: a click while Back still restores the scroll lost its mouse-up to another embed; the test waits for the
 // scroll to settle (D-688).
 test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
-  const core = await openEmbeds(page, M.rezimy);
+  // D-943: the D-423 steps run with Object preview Off; the click-mode steps (FR-LNK-09 AC-1, AC-2) follow.
+  const core = await openEmbeds(page, M.rezimy, setPreviewMode('off', { uiState: embedsUi() }));
   const jana = await needTop(main(page), 1, "Jana's card");
   await (await must(jana.locator(':scope > :first-child').getByText('Jana Nováková', { exact: true }), "the card's title")).click();
   await mustBeOn(page, 'Jana Nováková', 'a click on the card outside its strip opens Jana');
@@ -896,6 +899,36 @@ test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Saturnin', '⏎ on the link-mode embed opens Saturnin');
   assert.deepEqual(await writeCalls(core), [], 'opening writes nothing');
+
+  // Click to preview (D-943; FR-LNK-09 AC-1, AC-2): a click and ⏎ preview; a double-click opens.
+  const backToHost = async (what: string) => {
+    await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Režimy', `Back (${what})`);
+    await needEmbeds(main(page), 12, `the host note after Back (${what})`);
+    await scrollSteady(page, `the host note after Back (${what})`);
+  };
+  await backToHost('before click mode');
+  await switchPreviewMode(page, core, 'click');
+  await scrollSteady(page, 'the host note after the palette');
+  const janaTitle = async () => must((await needTop(main(page), 1, "Jana's card")).locator(':scope > :first-child').getByText('Jana Nováková', { exact: true }), "the card's title (click mode)");
+  await (await janaTitle()).click();
+  await mustPreview(page, 'Jana Nováková', 'click mode: a click on the card previews Jana');
+  assert.equal(await mainName(page), 'Režimy', 'click mode: the card click keeps the route');
+  await escPreview(page, 'click mode: the card preview');
+  await (await needTop(main(page), 1, "Jana's card")).focus();
+  await page.keyboard.press('Enter');
+  await mustPreview(page, 'Jana Nováková', 'click mode: ⏎ on the card previews Jana');
+  await escPreview(page, 'click mode: the ⏎ preview of the card');
+  await (await janaTitle()).dblclick();
+  await mustBeOn(page, 'Jana Nováková', 'click mode: a double-click on the card opens Jana');
+  await mustNoPreview(page, 'click mode: after the double-click on the card', 300);
+  await backToHost('click mode, card');
+  await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();
+  await mustPreview(page, 'Saturnin', 'click mode: a click on the link-mode embed previews Saturnin');
+  await escPreview(page, 'click mode: the link-mode preview');
+  await (await needTop(main(page), 4, 'Saturnin link-mode embed')).dblclick();
+  await mustBeOn(page, 'Saturnin', 'click mode: a double-click on the link-mode embed opens Saturnin');
+  assert.deepEqual(await writeCalls(core), [], 'click mode: previewing and opening write nothing');
 });
 
 test('fr_emb_02_ac9_cmd_enter_on_a_selected_embed_and_back_keeps_scroll', async ({ page }) => {

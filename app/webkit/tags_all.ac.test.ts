@@ -11,6 +11,9 @@ import {
   flat, seen, sidebar, sidebarTagLinks, sidebarTagsHeader, sleep, snapshot, startTags, swap, tagHeading, tagKeys, tagNameBox, tagRowEl, tagRowsText, tagsSortBtn,
   tagsTable, tagsVault, vaultWrites, vypln,
 } from './tags-helpers';
+import { ui as tagsUi } from './tags-helpers';
+import { escPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 /** R80's keys in `Most used ↓` order, ties by the app's D-122 collation (computed in the page). */
 async function mostUsed(page: import('@playwright/test').Page): Promise<string[]> {
@@ -77,7 +80,8 @@ test('fr_tag_07_ac2_find_a_tag', async ({ page }) => {
 });
 
 test('fr_tag_07_ac3_rows_open_the_tag', async ({ page }) => {
-  await openAllTags(page);
+  // D-943: the steps run with Object preview Off; click mode (AP-819) follows.
+  const core = await openAllTags(page, setPreviewMode('off', { uiState: tagsUi() }));
   await click(tagRowEl(page, 'účty'), 'row účty');
   await must(tagHeading(page, 'Účty'), 'click opens tag/účty', 3000);
   await page.keyboard.press('Meta+BracketLeft');
@@ -91,6 +95,22 @@ test('fr_tag_07_ac3_rows_open_the_tag', async ({ page }) => {
   await page.keyboard.press('Meta+BracketLeft');
   await click(tagRowEl(page, 'a/b').getByText('1', { exact: true }), 'the count cell of a/b');
   await must(tagHeading(page, 'a/b'), 'a click on the count cell opens tag/a%2Fb (one tag, R87)');
+
+  // Click to preview (D-943, AP-819): a click on a row previews the Tag; ⏎ opens tag/<key>.
+  await page.keyboard.press('Meta+BracketLeft');
+  await must(allTagsHeading(page), 'back on All tags (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  await click(tagRowEl(page, 'účty'), 'row účty (click mode)');
+  await mustPreview(page, '#Účty', 'click mode: a click on the All tags row previews the Tag');
+  assert.ok(await seen(allTagsHeading(page), 500), 'click mode: the click keeps All tags');
+  await escPreview(page, 'click mode: the row preview');
+  await click(tagRowEl(page, 'a/b').getByText('1', { exact: true }), 'the count cell of a/b (click mode)');
+  await mustPreview(page, '#a/b', 'click mode: a click anywhere on the row (the count cell) previews the Tag');
+  await escPreview(page, 'click mode: the count-cell preview');
+  await (await must(tagRowEl(page, 'finance'), 'row finance (⏎)')).focus();
+  await page.keyboard.press('Enter');
+  await must(tagHeading(page, 'finance'), 'click mode: ⏎ on the row opens tag/finance');
+  assert.deepEqual(await vaultWrites(core), [], 'click mode: previewing and opening write nothing');
 });
 
 // FR-TAG-07 AC-4 (the D-700 sidebar section) is superseded by D-761: sidebar_v068.ac.test.ts tests AC-6.

@@ -9,6 +9,15 @@ import type { MarkType, NodeType, Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { findWrapping } from '@tiptap/pm/transform'
 
+/** The caret at the start or end of the textblock holding it (Home / End). */
+function caretTo(state: EditorState, dispatch: (tr: Transaction) => void, where: 'start' | 'end'): boolean {
+  const { $head } = state.selection
+  if (!$head.parent.isTextblock) return false
+  const pos = where === 'start' ? $head.start() : $head.end()
+  dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)).scrollIntoView())
+  return true
+}
+
 /** Only at the start of a plain paragraph that isn't inside a list item, table or callout title. */
 function atParagraphStart(state: EditorState, start: number): boolean {
   const $s = state.doc.resolve(start)
@@ -203,6 +212,10 @@ export const TeggRules = Extension.create({
       'Mod-z': ({ editor }) => undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo(),
       // ⌘↩ opens the link at the caret or toggles the checklist item (R8); the app runs it, never a hard break.
       'Mod-Enter': () => false,
+      // WebKit on macOS doesn't move the caret on Home / End; they go to the start / end of the block's text, so a link
+      // at a line's end is reached by End then ← (previews.md FR-LNK-13 AC-4).
+      Home: ({ editor }) => caretTo(editor.state, editor.view.dispatch, 'start'),
+      End: ({ editor }) => caretTo(editor.state, editor.view.dispatch, 'end'),
       Backspace: ({ editor }) => undoInputRule(editor.state, editor.view.dispatch),
     }
   },

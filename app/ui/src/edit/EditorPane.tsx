@@ -4,7 +4,7 @@
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { createEditor, embedTarget, linkTarget, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { createEditor, embedTarget, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
 import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
@@ -42,6 +42,9 @@ import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 import { tagChipStyle } from '../theme/tagChip';
 import { mindmapUi } from '../mindmap/mount';
 import { noteTitle } from '../read/ReadView';
+import { editLinkAtCaret, editorChips, type EditorChipsHost } from '../preview/editorChips';
+import { editorLinkAction } from '../preview/editorLink';
+import { getCurrent as currentPreview, show as showPreview } from '../preview/store';
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
@@ -235,13 +238,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         onTag: (k) => cb.current.onTag(k),
         onExternal: (u) => cb.current.onExternal(u),
       }),
-      onLink: (target, fragment, chip) => {
-        const r = links.current.get(target.normalize('NFC'));
-        if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
-        if (r?.path && (r.kind === 'note' || r.kind === 'daily' || r.kind === 'trashed')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
-        else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
-      },
-      onTag: (v) => cb.current.onTag(v.normalize('NFC').toLowerCase()),
+      // Slice P (v1-previews §5.1, R103): chips and tags map their gestures to the preview, the open or the offer.
+      ...chips,
       onExternal: (url) => cb.current.onExternal(url),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
@@ -301,6 +299,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (n.type.name === 'wikiLink' && (!n.attrs.embed || embeds)) {
         const tg = linkTarget(String(n.attrs.value)).target.normalize('NFC');
         if (tg && !links.current.has(tg)) targets.add(tg); // 6A: inline file embeds resolve too (R77)
+      }
+      // Slice P (R104 row 1): Markdown links to notes resolve in the same batch (their chips preview).
+      if (n.isText) for (const m of n.marks) {
+        const note = m.type.name === 'link' ? noteHref(String(m.attrs.href ?? '')) : null;
+        if (note && !links.current.has(note.target)) targets.add(note.target);
       }
       // 4F: block embeds resolve in the same batch as the links (FR-EMB-01 AC-2, NFR-PERF-05 AC-3).
       if (embeds && n.type.name === 'rawBlock' && n.attrs.kind === 'embed') {
@@ -424,11 +427,34 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     cb.current.onOpen(r.path, fragment && !fragment.startsWith('^') ? `#${fragment}` : undefined);
     return true;
   }
-  function embedKey(pos: number, key: 'enter' | 'open' | 'displayAs'): boolean {
+  /** The document position of top-level block `index`. */
+  function blockStart(ed: TeggEditor, index: number): number {
+    let pos = 0;
+    for (let i = 0; i < index && i < ed.view.state.doc.childCount; i++) pos += ed.view.state.doc.child(i).nodeSize;
+    return pos;
+  }
+  function embedKey(pos: number, key: 'enter' | 'open' | 'displayAs' | 'preview'): boolean {
     const e = edRef.current;
-    if (!e || !embeds) return false;
+    if (!e) return false;
     const dom = e.view.nodeDOM(pos) as HTMLElement | null;
     if (!dom) return false;
+    if (key === 'preview') {
+      // Slice P (D-928, D-938): ⌥Space on a selected embed previews its target; on a figure, its Image or PDF object.
+      const fig = dom.querySelector<HTMLElement>('[data-media-object]');
+      const obj = fig?.dataset.mediaObject;
+      if (obj) {
+        showPreview({ path: obj.normalize('NFC'), fragment: null, kind: 'note' }, { el: fig! }, 'key', undefined, undefined, { open: () => cb.current.onOpen(obj), returnFocus: () => e.commands.selectBlockAt(e.view.state.doc.resolve(pos).index(0)) });
+        return true;
+      }
+      const ref = dom.matches('[data-preview-ref]') ? dom : dom.querySelector<HTMLElement>('[data-preview-ref]');
+      if (!ref) return false;
+      const index = e.view.state.doc.resolve(pos).index(0);
+      ref.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', altKey: true, bubbles: true, cancelable: true }));
+      const cur = currentPreview();
+      if (cur) cur.opts.returnFocus = () => { edRef.current?.commands.selectBlockAt(index); edRef.current?.view.focus(); };
+      return !!cur;
+    }
+    if (!embeds) return false;
     const click = (sel: string) => {
       const b = [...dom.querySelectorAll<HTMLElement>(sel)].find((x) => !x.closest('[data-embed-body]'));
       b?.click();
@@ -607,6 +633,28 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     ed.editor.commands.setTextSelection(last);
     return true;
   };
+
+  // ------------------------------------------------------------------ slice P: link chips (R103, FR-LNK-13)
+  /** The open of a link chip as before slice P (D-140, FR-DLY-08 AC-6, 6A R74) or, broken, the Create offer. */
+  function openLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }) {
+    const r = links.current.get(target.normalize('NFC'));
+    if ((r?.kind === 'daily' || r?.kind === 'date-missing') && openDate(target)) return; // FR-DLY-08 AC-6
+    if (r?.path && (r.kind === 'note' || r.kind === 'daily' || r.kind === 'trashed')) cb.current.onOpen(r.path, fragment ? `#${fragment}` : undefined);
+    else if (r?.kind === 'media' && r.object) cb.current.onOpen(r.object); // a file's Image or PDF object (FR-ATT-07)
+    else if (r?.kind !== 'date-missing' && target && chip) offerFor(target, chip.pos, chip.dom); // FR-LNK-04 AC-4
+  }
+  const chipHost: EditorChipsHost = {
+    editor: () => edRef.current,
+    path: () => pathRef.current,
+    resolve: (target) => links.current.get(target),
+    open: (target, fragment, chip) => openLink(target, fragment, chip),
+    offer: (target, chip) => offerFor(target, chip.pos, chip.dom),
+    openTag: (key) => cb.current.onTag(key),
+    relinked: () => { void resolveLinks(); },
+  };
+  const chips = useRef(editorChips(chipHost)).current;
+  // R106: the palette's `Show preview`, `Edit link`, `Remove link` act on this editor's chip at the caret.
+  useEffect(() => (host.current ? chips.register(host.current) : undefined), []);
 
   /** FR-LNK-04 AC-4: the Create offer for the broken chip at `pos`; the caret goes right after it (⌘↩ works again). */
   const offerFor = (target: string, pos: number, dom: HTMLElement | null) => {
@@ -929,7 +977,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       case 'undo': c.undo(); break;
       case 'redo': c.redo(); break;
       case 'bold': case 'italic': case 'strike': case 'code': case 'highlight': c.toggleMark(a === 'strike' ? 'strike' : a); focusEditor(); break;
-      case 'link': openLinkField(); break;
+      case 'link': {
+        // FR-LNK-13 AC-6: ⇧⌘K with the caret at a chip opens `Edit link`; elsewhere the link field as before.
+        // The focused editor (the note's or an embedded note's, FR-LNK-13 AC-8) at its chip.
+        if (!editorLinkAction('edit') && !editLinkAtCaret(chipHost)) openLinkField();
+        break;
+      }
       case 'moveBlockUp': c.moveBlock('up'); break;
       case 'moveBlockDown': c.moveBlock('down'); break;
       case 'blockMenu': openMenu(e.blockSelection()?.from ?? e.caretBlock()); break;
@@ -1027,6 +1080,13 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if ((e.target as HTMLElement).closest?.('[data-map-area], .mindmap-header')) return;
     const L = live.current;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    // Slice P (FR-LNK-09 AC-6, AC-7; D-928, D-938): ⌥Space on a selected embed or figure previews its target.
+    if (e.code === 'Space' && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+      const bs = ed.blockSelection();
+      const se = ed.selectedEmbed();
+      const pos = se?.pos ?? (bs && bs.from === bs.to ? blockStart(ed, bs.from) : null);
+      if (pos !== null && embedKey(pos, 'preview')) { stop(); return; }
+    }
     if (L.slash) {
       const items = slashMatches(L.slash.query);
       const enabled = items.map((x, i) => (x.status.built ? i : -1)).filter((i) => i >= 0);

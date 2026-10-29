@@ -12,7 +12,9 @@ import {
   inboxHeading, inboxVault, ip, isDisabled, main, markAllBtn, must, mustBeOn, nfc, openTriage, reviewedBox, runCommand, seen,
   sidebarCount, sleep, startInbox, startMain, swap, vaultWrites, zero,
 } from './capture-helpers';
-import { goToListbox, goToQuery, pseudoLocale } from './helpers';
+import { goToListbox, goToQuery, pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as captureUi } from './capture-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import { axeContrast } from './read-helpers';
 import { editorBody } from './editor-helpers';
 
@@ -129,7 +131,8 @@ test('fr_inb_01_ac5_the_page_follows_external_changes', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-INB-01 AC-6
 
 test('fr_inb_01_ac6_open_an_item_and_come_back', async ({ page }) => {
-  const core = await startInbox(page);
+  // D-943: the steps run with Object preview Off; click mode (AP-812) follows.
+  const core = await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   await click(filterBtn(page, 'quick-note'), 'Quick Notes');
   await click(main(page).getByRole('link', { name: 'Koupit mléko', exact: true }), 'title link');
   await mustBeOn(page, 'Koupit mléko', 'note/Quick Notes/Koupit mléko.md', 3000);
@@ -142,6 +145,25 @@ test('fr_inb_01_ac6_open_an_item_and_come_back', async ({ page }) => {
   await page.keyboard.press('Enter');
   await must(main(page).getByRole('checkbox', { name: /^(Reviewed|Mark reviewed)$/ }), 'daily/2026-10-13 (D-321)', 3000); // D-607: a checkbox
   assert.deepEqual(await vaultWrites(core), [], 'opening writes nothing and marks nothing reviewed');
+
+  // Click to preview (D-943, AP-812): a click on a card title previews; a double-click and ⏎ open.
+  await switchPreviewMode(page, core, 'click');
+  await gotoInbox(page);
+  await click(filterBtn(page, 'quick-note'), 'Quick Notes (click mode)');
+  const title = main(page).getByRole('link', { name: 'Koupit mléko', exact: true });
+  await click(title, 'title link (click mode)');
+  await mustPreview(page, 'Koupit mléko', 'click mode: a click on the card title previews it');
+  assert.ok(await seen(inboxHeading(page), 500), 'click mode: the click keeps the Inbox');
+  await escPreview(page, 'click mode: the card preview');
+  await (await must(title, 'title link (double-click)')).dblclick();
+  await mustBeOn(page, 'Koupit mléko', 'click mode: a double-click on the title opens it', 3000);
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await page.keyboard.press('Meta+BracketLeft');
+  await must(inboxHeading(page), 'back on inbox (click mode)');
+  await (await must(cardAt(page, I.Q1), 'Q1 (click mode)')).focus();
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Koupit mléko', 'click mode: ⏎ on the focused card opens it (AP-811)', 3000);
+  assert.deepEqual(await vaultWrites(core), [], 'click mode: previewing and opening write nothing and mark nothing reviewed');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-INB-01 AC-7

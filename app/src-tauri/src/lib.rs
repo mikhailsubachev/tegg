@@ -738,10 +738,11 @@ async fn index_path_by_id(state: State<'_, AppState>, id: String) -> Result<Opti
 
 /// `embed_load` (ms4-embeds §4, D-429): one call per nesting level; read-only, records no recency.
 #[tauri::command]
-async fn embed_load(state: State<'_, AppState>, paths: Vec<String>) -> Result<Vec<EmbedNoteDto>, IpcError> {
+async fn embed_load(state: State<'_, AppState>, paths: Vec<String>, media: Option<bool>) -> Result<Vec<EmbedNoteDto>, IpcError> {
     let core = core(&state)?;
+    // Slice P (v1-previews §2): `media: true` also resolves the files the notes embed (a preview's images).
     Ok(core
-        .embed_load(&paths)
+        .embed_load_with(&paths, media.unwrap_or(false))
         .into_iter()
         .map(|n| EmbedNoteDto {
             path: n.path,

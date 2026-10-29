@@ -78,6 +78,8 @@ const PATHS: Record<string, string> = {
   plane: 'M2 13l8-2 4-8 2 1-2 7 6 2 2-2 1 1-2 4-4 1-1 5-2 1-1-6-6 2z',
   warning: 'M12 3l9 16H3zM12 10v4M12 17h.01',
   x: 'M6 6l12 12M18 6L6 18',
+  // Slice P (board ObjectPreview): the popover's resize corner.
+  resize: 'M20 12l-8 8M20 17l-3 3',
 };
 
 /** R14 icon names a type file may use (D-236); others fall back to the generic type icon. */

@@ -49,10 +49,10 @@ function embedsCopy(base: string): string {
   cpSync(join(FX, 'new-empty/.tegg'), join(v, '.tegg'), { recursive: true });
   return v;
 }
-function support(base: string): string {
+function support(base: string, ui: Record<string, unknown> = {}): string {
   const s = join(base, 'support');
   mkdirSync(s, { recursive: true });
-  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' } }));
+  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, ...ui }));
   return s;
 }
 const read = (vault: string, rel: string) => readFileSync(join(vault, rel), 'utf8');
@@ -296,11 +296,11 @@ async function ready() {
 }
 type S = { base: string; vault: string; log: string; d: Driver };
 /** Starts the app on `route` of a fresh fixture copy and waits for `route-ready`. */
-async function on(name: string, route: string, extra: Env = {}): Promise<S> {
+async function on(name: string, route: string, extra: Env = {}, ui: Record<string, unknown> = {}): Promise<S> {
   const base = tmp(name);
   const vault = embedsCopy(base);
   const log = join(base, 'perf.jsonl');
-  const d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: route, ...extra }));
+  const d = await session(testEnv(support(base, ui), log, { TEGG_VAULT: vault, TEGG_ROUTE: route, ...extra }));
   assert.ok(await waitMark(log, `route-ready:${route}`), `${route} shown`);
   return { base, vault, log, d };
 }
@@ -723,7 +723,9 @@ test('fr_fmt_07_ac13_showing_embeds_leaves_every_file_unchanged', { timeout: 900
 
 test('fr_syn_06_ac10_keyboard_tour_writes_nothing_then_one_write_per_action', { timeout: 1_200_000 }, async () => {
   await ready();
-  const s = await on('syn06-10', 'note/Pages/Režimy.md');
+  // D-943 (previews.md "AC-test changes"): the tour runs with Object preview Off (ui-state.json before launch); a
+  // click-mode leg follows in which ⏎ on a card previews and ⌘↩ opens.
+  const s = await on('syn06-10', 'note/Pages/Režimy.md', {}, { preview: { mode: 'off' } });
   const before = tree(s.vault);
   let snap: Record<string, Entry> = {};
   try {
@@ -749,6 +751,24 @@ test('fr_syn_06_ac10_keyboard_tour_writes_nothing_then_one_write_per_action', { 
     await paletteRun(s.d, 'Go to type: Osoby');
     assert.ok(await clickLabel(s.d, 'Type settings'), 'Type settings');
     assert.ok(await shown(s.d, 'Default embed mode', 3000), 'type-settings/osoba visited');
+    // Click mode (D-943): the reading tour of Režimy again, then every card opened with ⌘↩ (⏎ on a card previews).
+    await paletteRun(s.d, 'Object preview: Click to preview');
+    await openBySwitcher(s.d, 'Režimy');
+    await tour(s.d, 'Režimy');
+    press('escape');
+    const cards = await allShown(s.d, 'label BEGINSWITH "Embedded: "');
+    for (let i = 0; i < cards.length; i++) {
+      const c = (await allShown(s.d, 'label BEGINSWITH "Embedded: "'))[i];
+      if (!c) break;
+      await c.click().catch(() => {});
+      await sleep(300);
+      press('escape');
+      await sleep(150);
+      press('enter', ['command']);
+      await sleep(400);
+      press('lbracket', ['command']);
+      await sleep(500);
+    }
     await sleep(3000);
     snap = tree(s.vault);
     assert.deepEqual(changedPaths(before, snap), [], 'the tour leaves every file’s bytes, mtime and inode unchanged and creates nothing');
