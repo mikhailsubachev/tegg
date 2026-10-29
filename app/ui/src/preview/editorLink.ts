@@ -9,6 +9,8 @@ export type EditorLinks = {
   preview(): void;
   edit(): void;
   remove(): void;
+  /** The editor's element (`data-link-host`). */
+  host?: HTMLElement;
 };
 
 const editors = new Set<EditorLinks>();
@@ -24,7 +26,12 @@ export function registerEditorLinks(e: EditorLinks): { focused(): void; dispose(
 }
 
 function active(): EditorLinks | null {
-  return last && editors.has(last) && last.atChip() ? last : null;
+  const el = typeof document !== 'undefined' ? document.activeElement : null;
+  // The innermost editor holding the focus (an editor can take it before it registers, e.g. on open), else the last.
+  const holding = [...editors].filter((e) => e.host && el && e.host.contains(el));
+  const inner = holding.find((e) => !holding.some((o) => o !== e && e.host!.contains(o.host!)));
+  const e = inner ?? (last && editors.has(last) ? last : null);
+  return e && e.atChip() ? e : null;
 }
 
 /** Runs the action on the focused editor's chip at the caret; false when there is none. */

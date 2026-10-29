@@ -76,20 +76,18 @@ impl Core {
         }
         let text = String::from_utf8_lossy(&bytes).into_owned();
         let stem = path.rsplit('/').next().unwrap_or(path).trim_end_matches(".md");
+        // Note links first; with `media` (slice P, v1-previews §2) the attachment targets after them, from one extract.
         let mut targets: Vec<String> = Vec::new();
+        let mut files: Vec<String> = Vec::new();
         for l in tegg_format::extract(&bytes, stem).links {
             let t = l.target.trim().to_string();
-            if !t.is_empty() && !is_attachment(&t) && !targets.contains(&t) {
-                targets.push(t);
+            let list = if is_attachment(&t) { &mut files } else { &mut targets };
+            if !t.is_empty() && !list.contains(&t) {
+                list.push(t);
             }
         }
         if media {
-            for l in tegg_format::extract(&bytes, stem).links {
-                let t = l.target.trim().to_string();
-                if !t.is_empty() && is_attachment(&t) && !targets.contains(&t) {
-                    targets.push(t);
-                }
-            }
+            targets.extend(files);
         }
         let links = self.resolve_links(path, &targets);
         EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links }

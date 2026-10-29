@@ -70,6 +70,7 @@ import { PreviewProvider } from './preview/PreviewProvider';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
 import type { PreviewTarget, PreviewUiDto } from './preview/types';
 import { editorLinkAction } from './preview/editorLink';
+import { forgetPreviewCaches } from './preview/load';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** D-321: `today` is a redirect to the daily route of the local date. */
@@ -231,6 +232,7 @@ export function App() {
   const opened = useCallback((v: VaultInfo) => {
     resetJobs(); // D-385, D-398: undo and the list don't outlive the vault
     resetMindmapViews(); // D-776: another vault opens every mindmap in Map
+    forgetPreviewCaches(); // slice P: another vault's duplicate details
     setInterrupted(v.interrupted ?? []); // D-387: renames a crash interrupted, from the vault info (no extra call)
     setVault(v);
     setVaultWidth(pageWidthOf(v.pageWidth));

@@ -1140,6 +1140,13 @@ export function presentation(ui: EditorUi) {
               else { const { target, fragment } = linkTarget(String(node.attrs.value)); ui.onLink(target, fragment, chip, 'dblclick') }
               return true
             },
+            handleTripleClickOn(view, _pos, node, nodePos, event) {
+              // As the double-click: ProseMirror's clock can count three clicks the browser counts as one or two.
+              if (event.button !== 0 || (node.type.name !== 'tag' && !isLinkChip(node, ui))) return false
+              if (event.detail < 2) return !!view.someProp('handleClickOn', (f) => f(view, _pos, node, nodePos, event, true))
+              if (event.detail < 3) return !!view.someProp('handleDoubleClickOn', (f) => f(view, _pos, node, nodePos, event, true))
+              return true
+            },
             handleKeyDown(view, event) {
               // FR-LNK-13 AC-1, AC-4 (D-926): ← and → move over a chip as one position (never a node selection).
               if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {

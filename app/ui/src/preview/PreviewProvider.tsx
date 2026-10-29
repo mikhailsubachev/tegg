@@ -1,7 +1,8 @@
 // One preview per window (v1-previews §3, D-924): mounted in App.tsx above the routes. `usePreview` is the public
 // face of the store for surfaces and the graph (§7: `show(target, anchor, origin, host, extraLine)`).
 import { useEffect, useSyncExternalStore } from 'react';
-import { ipc } from '../ipc/client';
+import { events, ipc } from '../ipc/client';
+import { forgetPreviewCaches } from './load';
 import { PreviewPopover } from './PreviewPopover';
 import { LinkUiHost } from './linkUi';
 import { close, getCurrent, getPrefs, prefsLoaded, previewHost, providerMounted, reset, setStoredPrefs, show, subscribe } from './store';
@@ -16,6 +17,11 @@ export function PreviewProvider(props: { children?: React.ReactNode }) {
     ipc.uiStateGet().then((s) => { if (!prefsLoaded()) setStoredPrefs((s as { preview?: PreviewUiDto } | null)?.preview); }, () => {});
   }, []);
   useEffect(() => { const off = providerMounted(); return () => { off(); reset(); }; }, []);
+  // Derived data (the D-289 details) follows the vault whether or not a preview is open.
+  useEffect(() => {
+    const off = events.changed(() => forgetPreviewCaches());
+    return () => { void off.then((f) => f()).catch(() => {}); };
+  }, []);
   return (
     <>
       {props.children}

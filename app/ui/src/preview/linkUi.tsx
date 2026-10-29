@@ -31,7 +31,9 @@ export type EditLinkReq = {
   from: string;
   target: string;
   alias: string | null;
-  apply: (target: string, alias: string | null) => void;
+  /** False when nothing was written (the editor turned read-only, or the target or text can't be written, FR-FMT-07):
+   *  the dialog stays open. */
+  apply: (target: string, alias: string | null) => boolean;
   restore: () => void;
 };
 
@@ -111,8 +113,7 @@ function EditLink({ req }: { req: EditLinkReq }) {
   const apply = () => {
     const target = to.trim();
     if (!target) return;
-    closeIt(false);
-    req.apply(target, text.trim() ? text.trim() : null);
+    if (req.apply(target, text.trim() ? text.trim() : null)) closeIt(false);
   };
   const onKey = (e: React.KeyboardEvent) => {
     if (items && items.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {

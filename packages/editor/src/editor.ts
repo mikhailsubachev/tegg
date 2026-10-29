@@ -98,7 +98,8 @@ export interface TeggEditor {
   /** Slice P (§5.3): the link chip at `pos`, or null. */
   linkAt(pos: number): { target: string; fragment: string | null; alias: string | null } | null
   /** Slice P (§5.3, D-927): rewrites the chip at `pos` as `[[target|alias]]` (`[[target]]` without an alias), keeping
-   *  its section, as one undo step; false without a chip there. */
+   *  its section, as one undo step; false without a link chip there, in a read-only editor, or when the target or text
+   *  can't be written inside `[[…]]` (FR-FMT-07). Unchanged parts write nothing (FR-SYN-06). */
   editLink(pos: number, next: { target: string; alias: string | null }): boolean
   /** Slice P (D-209, D-928): the chip at the caret (selected, directly before, else directly after), or null. */
   chipAtCaret(): { pos: number; target: string; fragment: string | null } | null
@@ -840,15 +841,21 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
 
   /** Slice P (D-927, D-184): the chip at `pos` with a new target and link text, its section kept; one undo step. */
   const editLinkAt = (pos: number, next: { target: string; alias: string | null }): boolean => {
+    // A type move or the merge dialog holds the note read-only (D-804, FR-SYN-03 AC-13): no edit reaches the text.
+    if (!editor.isEditable) return false
     const node = editor.state.doc.nodeAt(pos)
     const cur = linkAtPos(editor.state.doc, pos)
-    if (!node || !cur) return false
+    if (!node || !cur || cur.embed) return false
     const target = next.target.trim().normalize('NFC')
-    if (!target) return false
+    const text = next.alias?.trim().normalize('NFC') || null
+    // FR-FMT-07: a value that wouldn't parse back to the same target and text isn't written.
+    if (!target || UNWRITABLE.test(target) || (text !== null && UNWRITABLE.test(text))) return false
+    const same = (a: string | null, b: string | null) => (a ?? '').normalize('NFC') === (b ?? '').normalize('NFC')
+    const { target: t0, fragment: f0 } = linkParts(target)
+    const keep = target.includes('#') ? f0 : cur.fragment
+    if (same(t0, cur.target) && same(keep, cur.fragment) && same(text, cur.alias)) return true
     const frag = target.includes('#') || cur.fragment === null ? '' : `#${cur.fragment}`
-    const alias = next.alias?.trim() ? `|${next.alias.trim().normalize('NFC')}` : ''
-    const value = `${target}${frag}${alias}`
-    if (value === String(node.attrs.value)) return true
+    const value = `${target}${frag}${text ? `|${text}` : ''}`
     dispatch(editor.state.tr.replaceWith(pos, pos + node.nodeSize, editor.schema.nodes.wikiLink.create({ ...node.attrs, value }, null, node.marks)))
     return true
   }
@@ -1049,6 +1056,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return editor.chain().setMark('link', { href: href.trim() }).run()
     },
     removeLink() {
+      if (!editor.isEditable) return false // D-804, FR-SYN-03 AC-13
       const state = editor.state
       const { $from, empty } = state.selection
       // A wikilink chip before or at the caret becomes its shown text.
@@ -1580,7 +1588,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, at)).setMeta('addToHistory', false))
       view.focus()
     },
-    linkAt: (pos) => linkAtPos(editor.state.doc, pos),
+    linkAt: (pos) => { const l = linkAtPos(editor.state.doc, pos); return l && { target: l.target, fragment: l.fragment, alias: l.alias } },
     editLink: (pos, next) => editLinkAt(pos, next),
     chipAtCaret() {
       const c = chipAt(editor.state, opts.ui)
@@ -1598,7 +1606,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
 }
 
 /** Slice P (§5.3): a wikilink chip's target, section and alias at `pos`. */
-function linkAtPos(doc: PMNode, pos: number): { target: string; fragment: string | null; alias: string | null } | null {
+function linkAtPos(doc: PMNode, pos: number): { target: string; fragment: string | null; alias: string | null; embed: boolean } | null {
   if (pos < 0 || pos > doc.content.size) return null
   const node = doc.nodeAt(pos)
   if (!node || node.type.name !== 'wikiLink') return null
@@ -1606,8 +1614,13 @@ function linkAtPos(doc: PMNode, pos: number): { target: string; fragment: string
   const pipe = /\\?\|/.exec(v)
   const alias = pipe ? v.slice(pipe.index + pipe[0].length).trim() || null : null
   const { target, fragment } = linkParts(v)
-  return { target, fragment, alias }
+  // An inline embed's text after `|` is its mode word (`link`), not a link text.
+  if (node.attrs.embed) return { target, fragment, alias: null, embed: true }
+  return { target, fragment, alias, embed: false }
 }
+
+/** Characters a wikilink target or text can't hold without changing what it parses to (FR-FMT-07). */
+const UNWRITABLE = /\[\[|\]\]|\||[\r\n]/
 
 /** The event comes from a form field (input, textarea, select) the app rendered inside the document (an embed). */
 function formField(event: Event): boolean {

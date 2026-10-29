@@ -7,7 +7,7 @@ import { events, ipc } from '../ipc/client';
 import { forgetPreviewCaches, loadPreview, type PreviewModel } from './load';
 import { PreviewContent, plainTitle, previewTitle } from './PreviewContent';
 import { DEFAULT_WIDTH, MAX_AUTO_HEIGHT, SIZE } from './state';
-import { close, getPrefs, getRawPrefs, insideDoubleClick, previewHost, promote, setCloser, setInside, updatePrefs, type Current } from './store';
+import { close, getPrefs, insideDoubleClick, previewHost, promote, setCloser, setInside, updatePrefs, type Current } from './store';
 import { keepHover, popoverGone, startGrace } from './hover';
 import type { PreviewTarget } from './types';
 
@@ -82,6 +82,8 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       // A live update keeps the first visible block where it was (D-935: ± one line).
       const anchor = keepScroll && body.current ? firstVisible(body.current) : null;
       setModel(m);
+      // The duplicate details (FR-LNK-10 AC-15) join the header when read; the preview doesn't wait for them.
+      if (m.state === 'ok' && m.detailsLater) void m.detailsLater.then((d) => { if (d && !ctl.signal.aborted) setModel((x) => (x === m ? { ...m, details: d } : x)); });
       if (anchor) {
         const fix = () => { if (body.current) keepAnchor(body.current, anchor); };
         requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); });
@@ -197,9 +199,12 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   }, [cur.seq]);
   useEffect(() => {
     const on = () => place();
+    // The page scrolling under the popover moves its anchor; the popover's own body scrolling doesn't (and measuring a
+    // long body on each of its scroll steps would stall it, D-934).
+    const onScroll = (e: Event) => { if (!(e.target instanceof Node && box.current?.contains(e.target))) place(); };
     window.addEventListener('resize', on);
-    window.addEventListener('scroll', on, true);
-    return () => { window.removeEventListener('resize', on); window.removeEventListener('scroll', on, true); };
+    window.addEventListener('scroll', onScroll, true);
+    return () => { window.removeEventListener('resize', on); window.removeEventListener('scroll', onScroll, true); };
   }, [place]);
 
   // ------------------------------------------------------------------ focus and closing (D-924)
@@ -300,25 +305,29 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   const clampW = (w: number) => Math.round(Math.max(SIZE.minW, Math.min(SIZE.maxW, w, window.innerWidth - 16)));
   const clampH = (h: number) => Math.round(Math.max(SIZE.minH, Math.min(SIZE.maxH, h, window.innerHeight - 16)));
   const commitSize = (w: number, h: number) => updatePrefs((d) => ({ ...d, width: w, height: h }));
-  const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; w: number; h: number; moved: boolean } | null>(null);
+  // The size the window allows now (it can be smaller than dragged or stepped), stored once per change (AC-15).
+  const commitShown = () => commitSize(box.current!.offsetWidth || sizeRef.current.w, box.current!.offsetHeight || sizeRef.current.h || MAX_AUTO_HEIGHT);
   const onResizeDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h ?? (box.current!.offsetHeight || MAX_AUTO_HEIGHT) };
+    drag.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h ?? (box.current!.offsetHeight || MAX_AUTO_HEIGHT), moved: false };
   };
   const onResizeMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
+    if (e.clientX === d.x && e.clientY === d.y) return;
+    d.moved = true;
     const next = { w: clampW(d.w + e.clientX - d.x), h: clampH(d.h + e.clientY - d.y) };
     sizeRef.current = next;
     setSize(next);
   };
   const onResizeUp = () => {
-    if (!drag.current) return;
+    const d = drag.current;
     drag.current = null;
-    // The size it has now (the room in the window can make it smaller than dragged).
-    commitSize(box.current!.offsetWidth || sizeRef.current.w, box.current!.offsetHeight || sizeRef.current.h || MAX_AUTO_HEIGHT);
+    // A click on the handle (or the first of a double-click that resets) isn't a size change.
+    if (d?.moved) commitShown();
   };
   const keyChanged = useRef(false);
   const onResizeKey = (e: React.KeyboardEvent) => {
@@ -336,15 +345,13 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   const onResizeKeyUp = () => {
     if (!keyChanged.current) return;
     keyChanged.current = false;
-    // The size it has now (the room in the window can make it smaller than dragged).
-    commitSize(box.current!.offsetWidth || sizeRef.current.w, box.current!.offsetHeight || sizeRef.current.h || MAX_AUTO_HEIGHT);
+    commitShown();
   };
   const resetSize = (e: React.MouseEvent) => {
     e.preventDefault();
     setSize({ w: DEFAULT_WIDTH, h: null });
     updatePrefs((d) => { const { width: _w, height: _h, ...rest } = d; void _w; void _h; return rest; });
   };
-  void getRawPrefs;
 
   const title = plainTitle(model, top.target);
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;

@@ -6,6 +6,7 @@ import type { EditorUi, LinkGesture, TeggEditor } from '@tegg/editor';
 import { chipPreviewTarget } from '../links/ChipParts';
 import { registerEditorLinks } from './editorLink';
 import { hoverLeave, hoverMove } from './hover';
+import { ipc } from '../ipc/client';
 import { resolveRefInput } from './input';
 import { showEditLink, showLinkMenu } from './linkUi';
 import { close, getCurrent, getPrefs, show, subscribe } from './store';
@@ -60,7 +61,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
     }
   };
   const editDialog = (pos: number, dom: HTMLElement | null) => openEditLink(h, pos, dom);
-  const remove = (pos: number) => { const e = h.editor(); if (!e) return; e.focusAfterChip(pos); e.commands.removeLink(); };
+  const remove = (pos: number) => { const e = h.editor(); if (!e || !canEdit(h, pos)) return; e.focusAfterChip(pos); e.commands.removeLink(); };
   const menu = (t: string, pos: number, dom: HTMLElement) => {
     const ed = h.editor();
     if (!ed) return;
@@ -73,7 +74,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
       open: () => gesture(t, f, chip, 'modEnter'),
       preview: () => { if (pt) preview(pt, chip, 'key', () => h.open(t, f, chip)); },
       create: h.offer ? () => h.offer!(t, chip) : undefined,
-      ...(ed.editor.isEditable ? { edit: () => editDialog(pos, dom), remove: () => remove(pos) } : {}),
+      ...(canEdit(h, pos) ? { edit: () => editDialog(pos, dom), remove: () => remove(pos) } : {}),
       restore: () => h.editor()?.focusAfterChip(pos),
     });
   };
@@ -96,32 +97,77 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
       } else if (action === 'open') { if (getCurrent()) close('open'); h.openTag(key); }
     },
     register(dom) {
+      // The chip at the caret when the focus left the editor (for the palette): a focus given back with a plain
+      // `focus()` can put the caret at the start before ProseMirror restores its own. It counts while the text is the
+      // same and the reader hasn't moved the caret in the editor since.
+      let kept: { doc: unknown; pos: number } | null = null;
+      const chipNow = () => {
+        const e = h.editor();
+        if (!e) return null;
+        const c = e.chipAtCaret();
+        if (c) return c;
+        if (!kept || kept.doc !== e.view.state.doc) return null;
+        const l = e.linkAt(kept.pos);
+        if (!l) return null;
+        e.focusAfterChip(kept.pos);
+        return { pos: kept.pos, target: l.target, fragment: l.fragment };
+      };
+      const onOut = () => { const e = h.editor(); const c = e?.chipAtCaret(); kept = e && c ? { doc: e.view.state.doc, pos: c.pos } : null; };
+      const onMove = () => { kept = null; };
+      dom.addEventListener('focusout', onOut);
+      dom.addEventListener('pointerdown', onMove);
+      dom.addEventListener('keydown', onMove);
       const reg = registerEditorLinks({
-        atChip: () => !!h.editor()?.chipAtCaret(),
+        atChip: () => !!chipNow(),
         preview: () => {
           const e = h.editor();
-          const c = e?.chipAtCaret();
+          const c = chipNow();
           if (!e || !c) return;
           const pt = target(c.target, c.fragment);
           const chip = { pos: c.pos, dom: e.view.nodeDOM(c.pos) as HTMLElement | null };
           if (pt) preview(pt, chip, 'key', () => h.open(c.target, c.fragment, chip));
         },
-        edit: () => { const e = h.editor(); const c = e?.chipAtCaret(); if (e && c) editDialog(c.pos, e.view.nodeDOM(c.pos) as HTMLElement | null); },
-        remove: () => { const c = h.editor()?.chipAtCaret(); if (c) remove(c.pos); },
+        edit: () => { const e = h.editor(); const c = chipNow(); if (e && c) editDialog(c.pos, e.view.nodeDOM(c.pos) as HTMLElement | null); },
+        remove: () => { const c = chipNow(); if (c) remove(c.pos); },
+        host: dom,
       });
       // An embedded note's editor sits inside the note's: the innermost editor with the focus is the one acted on.
       dom.setAttribute('data-link-host', '');
       const onFocus = (e: FocusEvent) => { if ((e.target as HTMLElement | null)?.closest?.('[data-link-host]') === dom) reg.focused(); };
       dom.addEventListener('focusin', onFocus);
+      // The editor may already hold the focus when it registers (a note opened from the palette or `Go to`).
+      const held = document.activeElement;
+      if (held && dom.contains(held) && held.closest('[data-link-host]') === dom) reg.focused();
+      // NFR-PERF-12 (v1-previews §8): a chip's pointerup starts the click-to-preview measurement, as `useReference`'s.
+      const onUp = (e: PointerEvent) => {
+        if (getPrefs().mode !== 'off' && (e.target as HTMLElement | null)?.closest?.('[data-link-kind]')) void ipc.perfMark('preview-click').catch(() => {});
+      };
+      dom.addEventListener('pointerup', onUp);
       // A mode change redraws the chips' descriptions (FR-LNK-12 AC-4).
       let mode = getPrefs().mode;
       const off = subscribe(() => { const m = getPrefs().mode; if (m !== mode) { mode = m; h.editor()?.refreshUi(); } });
-      return () => { dom.removeEventListener('focusin', onFocus); off(); reg.dispose(); };
+      return () => {
+        dom.removeEventListener('focusin', onFocus);
+        dom.removeEventListener('pointerup', onUp);
+        dom.removeEventListener('focusout', onOut);
+        dom.removeEventListener('pointerdown', onMove);
+        dom.removeEventListener('keydown', onMove);
+        off();
+        reg.dispose();
+      };
     },
   };
 }
 
-/** ⇧⌘K with the caret at a chip opens `Edit link` (FR-LNK-13 AC-6); false when the caret isn't at one. */
+/** `Edit link` and `Remove link` change the text: not while a type move or the merge dialog holds the note read-only
+ *  (D-804, FR-SYN-03 AC-13), and not on an inline embed's chip (its `|link` is the mode word, not a link text). */
+function canEdit(h: EditorChipsHost, pos: number): boolean {
+  const e = h.editor();
+  return !!e && e.editor.isEditable && !!e.linkAt(pos) && !e.view.state.doc.nodeAt(pos)?.attrs.embed;
+}
+
+/** ⇧⌘K with the caret at a chip opens `Edit link` (FR-LNK-13 AC-6); false when the caret isn't at one. At a chip it
+ *  can't edit (see `canEdit`) the key does nothing. */
 export function editLinkAtCaret(h: EditorChipsHost): boolean {
   const e = h.editor();
   const c = e?.chipAtCaret();
@@ -134,17 +180,18 @@ export function editLinkAtCaret(h: EditorChipsHost): boolean {
 function openEditLink(h: EditorChipsHost, pos: number, dom: HTMLElement | null) {
   const ed = h.editor();
   const l = ed?.linkAt(pos);
-  if (!ed || !l) return;
+  if (!ed || !l || !canEdit(h, pos)) return;
   const track = ed.trackPos(pos);
   showEditLink({
     anchor: dom ?? (ed.view.nodeDOM(pos) as HTMLElement | null), from: h.path(), target: l.target, alias: l.alias,
     apply: (to, alias) => {
       const at = track();
       const e = h.editor();
-      if (at === null || !e) return;
-      e.editLink(at, { target: to, alias });
+      if (at === null || !e) return false;
+      if (!e.editLink(at, { target: to, alias })) return false;
       e.focusAfterChip(at);
       h.relinked?.();
+      return true;
     },
     restore: () => { const at = track(); if (at !== null) h.editor()?.focusAfterChip(at); else h.editor()?.view.focus(); },
   });

@@ -131,7 +131,7 @@ export function useReference(opts: {
 - Surfaces wired (R104): `read/ReadView.tsx` and the read-view chips (`links/ChipParts.tsx`), `embeds/Embed.tsx`
   (card, link mode, a full embed's header title), `types/AttributePanel.tsx` and `read/PropertiesStrip.tsx`
   (relation chips, `TextWithLinks`), `links/BacklinksPanel.tsx`, `tasks/TaskCard.tsx` (title: `card`; source chip:
-  `chip` with `scrollToEmbedOf`), the full-text rows of `Search.tsx` (rendered by `pages/SearchPage.tsx`; `row`), `pages/TypePage.tsx`,
+  `chip` with `scrollToEmbedOf`), the full-text rows of `Search.tsx` (`row`), `pages/TypePage.tsx`,
   `tags/TagPage.tsx`, `tags/AllTagsPage.tsx`, `links/DuplicateTitlesPage.tsx`, `daily/ContextSections.tsx` (`row`),
   `inbox/InboxPage.tsx` card titles (`card`), `mindmap/MindmapMap.tsx` node chips (`chip`, D-941), tag chips
   everywhere (`tags/chip.ts`, kind `tag`). Not wired (D-931): `GoTo.tsx`, `shell/Palette.tsx`, the sidebar, title bar,
@@ -254,7 +254,7 @@ removeLink(): boolean      // existing (editor.ts): the chip selected or at the 
 linkAt(pos: number): { target: string; fragment: string | null; alias: string | null } | null
 ```
 
-The app's `Link` menu (`shell/Menu.tsx`, name `Link`; it first puts the caret at the chip, so `removeLink()` acts on it) and the `Edit link` dialog (`preview/EditLinkDialog.tsx`,
+The app's `Link` menu (`shell/Menu.tsx`, name `Link`; it first puts the caret at the chip, so `removeLink()` acts on it) and the `Edit link` dialog (`preview/linkUi.tsx`,
 non-modal, fields `Link to` with the `[[` suggestions, `Link text`) call them. ⇧⌘K with the caret at a chip opens the
 dialog. The chip's `Create "<target>"` item reuses the Create offer (ms4-links).
 

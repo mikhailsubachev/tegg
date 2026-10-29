@@ -1,7 +1,7 @@
 // Read view: the formatted, read-only note body (FR-EDT-02 display, slice 3B; docs/contracts/ms3-shell.md §11.3).
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
 // it, math and footnotes are shown as source text. Queries are R5 placeholders (D-144); a mindmap is drawn (slice MM).
-import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from 'react';
+import { cloneElement, Fragment, isValidElement, useMemo, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
@@ -642,11 +642,14 @@ export function noteTitle(doc: ReturnType<typeof parse>, path: string): string {
 
 export function ReadView(props: ReadViewProps) {
   const text = props.text.replace(/^﻿/, '');
-  const doc = parse(text);
-  // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
-  const shown = displayTablesAt(text.slice(doc.bodyStart));
+  // Parsed once per text: a windowed preview (D-934) renders again for every scroll step of a long note.
+  const { doc, shown, tree } = useMemo(() => {
+    const doc = parse(text);
+    // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
+    const shown = displayTablesAt(text.slice(doc.bodyStart));
+    return { doc, shown, tree: markdownTree(shown.text) as unknown as Any };
+  }, [text]);
   const body = shown.text;
-  const tree = markdownTree(body) as unknown as Any;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
   const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines), title: props.noteTitle ?? noteTitle(doc, props.path) };
   if (props.mindmapOnly) {

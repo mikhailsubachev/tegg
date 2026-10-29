@@ -348,8 +348,9 @@ export function Embed(props: EmbedProps): ReactNode {
     return (
       <section {...base} className="embed embed-trashed" data-embed-state="trashed" data-embed-target={from}>
         <p className="embed-trashed-text">
-          {t('trash.placeholder', { title })}{' '}
-          <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button>
+          {t('trash.placeholder', { title })}
+          {/* A preview writes nothing (FR-SYN-06 AC-37, FR-LNK-11 AC-9): no Restore inside one. */}
+          {!props.inPreview && <>{' '}<button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button></>}
         </p>
       </section>
     );

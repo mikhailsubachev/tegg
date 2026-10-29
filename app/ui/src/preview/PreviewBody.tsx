@@ -158,6 +158,31 @@ function NoteBody({ m, scrollToEmbedOf, scroller }: { m: Extract<PreviewModel, {
     return () => { s.removeEventListener('scroll', on); s.removeEventListener('preview-end', toEnd); };
   }, [windowed, count]);
 
+  // After End the body stays at its end while the last blocks are measured and their cards and images are drawn (each
+  // can grow the content), until the reader moves it themselves (FR-LNK-11 AC-3).
+  useEffect(() => {
+    const s = scroller.current;
+    if (!s || !box.current || typeof ResizeObserver === 'undefined') return;
+    let stick = false;
+    const grown = new ResizeObserver(() => { if (stick) s.scrollTop = s.scrollHeight; });
+    grown.observe(box.current);
+    grown.observe(s);
+    const toEnd = () => { stick = true; };
+    const unstick = () => { stick = false; };
+    const key = (e: Event) => { const k = (e as KeyboardEvent).key; if (k !== 'End') stick = false; };
+    s.addEventListener('preview-end', toEnd);
+    s.addEventListener('wheel', unstick, { passive: true });
+    s.addEventListener('pointerdown', unstick);
+    window.addEventListener('keydown', key, true);
+    return () => {
+      grown.disconnect();
+      s.removeEventListener('preview-end', toEnd);
+      s.removeEventListener('wheel', unstick);
+      s.removeEventListener('pointerdown', unstick);
+      window.removeEventListener('keydown', key, true);
+    };
+  }, [scroller]);
+
   const rows = m.body === 'properties' ? propertyRows(m) : null;
   const padRef = useRef<HTMLDivElement | null>(null);
   return (

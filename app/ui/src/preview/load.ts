@@ -18,7 +18,7 @@ import type { PreviewTarget } from './types';
 export type StripItem = TypeColumn;
 
 export type PreviewModel =
-  | { state: 'ok'; path: string; id: string | null; title: string; type: string; details: string | null;
+  | { state: 'ok'; path: string; id: string | null; title: string; type: string; details: string | null; detailsLater?: Promise<string | null>;
       strip: StripItem[]; body: 'blocks' | 'properties' | 'empty'; text: string; links: LinkTargetDto[];
       notice: 'noHeading' | 'noBlock' | 'readError' | null; version: VersionDto | null;
       /** The shown part of `text` (a section, a block, or the body). */
@@ -47,18 +47,23 @@ function hasBody(text: string, from: number, to: number): boolean {
 }
 
 let dupCache: Promise<Map<string, string>> | null = null;
+let dupRead: Map<string, string> | null = null;
 /** The D-289 details of objects whose title others share (FR-LNK-14; AP-818 e), by NFC path. */
 function duplicateDetails(): Promise<Map<string, string>> {
-  dupCache ??= ipc.duplicateTitles().then((groups) => {
+  if (dupCache) return dupCache;
+  const p: Promise<Map<string, string>> = ipc.duplicateTitles().then((groups) => {
     const m = new Map<string, string>();
     for (const g of groups ?? []) for (const o of g.objects ?? []) m.set(nfc(o.path), detailsText(o.details, typeNameOf(o.type)));
     return m;
-  }, () => new Map());
-  return dupCache;
+  }, () => new Map<string, string>());
+  dupCache = p;
+  void p.then((m) => { if (dupCache === p) dupRead = m; });
+  return p;
 }
-/** Drops cached derived data after a vault change. */
+/** Drops cached derived data after a vault change or switch. */
 export function forgetPreviewCaches(): void {
   dupCache = null;
+  dupRead = null;
 }
 
 export async function loadTag(key: string, signal: AbortSignal): Promise<PreviewModel> {
@@ -121,13 +126,15 @@ async function modelOf(note: EmbedNoteDto, target: PreviewTarget, signal: AbortS
   // D-933: every embed inside a preview is a card; their targets are read in one more call.
   const tree = await buildEmbedTree({ path: note.path, text, links }, types, (paths) => ipc.embedLoad(paths), { readOnly: true, cards: true, section });
   aborted(signal);
-  const details = (await duplicateDetails()).get(nfc(note.path)) ?? null;
-  aborted(signal);
+  // Read once per vault state; until then the header shows without them and the popover adds them (detailsLater).
+  const dups = duplicateDetails();
+  const details = dupRead ? dupRead.get(nfc(note.path)) ?? null : null;
+  const detailsLater = dupRead ? undefined : dups.then((m) => m.get(nfc(note.path)) ?? null);
   const review = typeof data.review === 'string' ? data.review.trim().toLowerCase() : null;
   const unreviewed = review === 'unreviewed' || ((typeKey === 'quick-note' || typeKey === 'daily-note') && review !== 'reviewed');
   const id = typeof data.id === 'string' ? nfc(data.id) : null;
   return {
-    state: 'ok', path: nfc(note.path), id, title, type: typeKey, details, strip, body: kind, text, links: all, notice,
+    state: 'ok', path: nfc(note.path), id, title, type: typeKey, details, detailsLater, strip, body: kind, text, links: all, notice,
     version: note.version, section, fragment: target.fragment, utf8: note.utf8, tree, unreviewed, data,
   };
 }

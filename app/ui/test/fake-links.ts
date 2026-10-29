@@ -501,19 +501,13 @@ const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 
 /** 4F (ms4-embeds §4, §8): the targets `linkTargets` (read/ReadView.tsx) sends for a note text, in order. */
 /** Slice P: the file targets (`![[graf.png]]`, `file: "[[x.pdf]]"`) of a text, in first-seen order. */
-async function fileTargets(text: string): Promise<string[]> {
-  const d = await doc();
-  const out: string[] = [];
-  const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
-  for (const l of d.wikilinks(d.parse(text))) { const x = String(l.target).trim(); if (x && attachment(x) && !out.includes(x)) out.push(x); }
-  return out;
-}
+const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
 
-async function linkTargets(text: string): Promise<string[]> {
+/** Every link target of a note in order (wikilinks, then relative Markdown links), as `tegg_format::extract` gives them. */
+async function allTargets(text: string): Promise<string[]> {
   const d = await doc();
   const out: string[] = [];
-  const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
-  const add = (x: string) => { if (x !== '' && !attachment(x) && !out.includes(x)) out.push(x); };
+  const add = (x: string) => { if (x !== '' && !out.includes(x)) out.push(x); };
   const parsed = d.parse(text);
   for (const l of d.wikilinks(parsed)) add(String(l.target).trim());
   const walk = (n: any) => {
@@ -529,6 +523,15 @@ async function linkTargets(text: string): Promise<string[]> {
   };
   walk(d.markdownTree(text.slice(parsed.bodyStart)));
   return out;
+}
+
+/** Slice P (`embed_load`'s `media`): the attachment targets the core resolves with the flag (any link, as the core). */
+async function fileTargets(text: string): Promise<string[]> {
+  return (await allTargets(text)).filter(attachment);
+}
+
+async function linkTargets(text: string): Promise<string[]> {
+  return (await allTargets(text)).filter((x) => !attachment(x));
 }
 
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
