@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.119, for review                                            |
+| **Document status** | Draft v1.120, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -133,6 +133,7 @@
 | v1.117  | 2026-10-30 | G2 red-test decisions (red tests 504998b): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
 | v1.118  | 2026-10-30 | G2 build decisions D-1050…D-1055 (AP-900…AP-905, each as proposed): four AC-test corrections (pseudo-locale tabpanel name, the `nav_opened` baseline, the 800 × 500 window, the daily route id), the panel waits for a running rename job, theme checks after transitions end |
 | v1.119  | 2026-10-30 | Search page redesign (preview v0.94 feedback, board `Search`; `docs/acceptance/search-navigation.md`): D-1200…D-1222 (AP-1100…AP-1122, each as proposed): `Go to` stays, no separate create button, copy says "matches", a single-select Type filter, the count line, filter-only order by `modified`, the row date, the body lead, attribute, alias and title highlights, tag chips that filter, `Show next <k>`, `Clear search` / `Clear filters`, empty-state copy, no Back link, other filters stay out, state per history entry, keyboard, field name, `Go to` unfiltered, housekeeping (D-781 wording), the `search-page/` fixture. Contract `docs/contracts/v1-search.md` |
+| v1.120  | 2026-10-30 | Search redesign red-test decisions (red tests 060c0a5): D-1223…D-1230 (AP-1123…AP-1130, each as proposed): bytes in the core and UTF-16 over IPC, red Rust tests through helpers, the live refresh keeps every loaded row, the date setting changed in Settings, `-shm` excluded, the speed test nightly, the L6 relaunch test, DOM details. `docs/contracts/v1-search.md` §6 |
 
 ---
 
@@ -1130,6 +1131,14 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1220 | Filters don't narrow `Go to` (AP-1120) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | `Go to` ignores the Type and tag filters; it stays the switcher's answer (D-760) |
 | D-1221 | Housekeeping (AP-1121) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | D-781's "vault's Date & time setting" reads "the Date & time setting (per machine, D-566)"; the board's stale ⌘O sidebar button is updated to the `Search` button (app-shell FR-NAV-01 AC-14). No criterion changes |
 | D-1222 | Search page fixture (AP-1122) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | A new overlay `tests/fixtures/vaults/search-page/` copied on top of `search/` by the new tests only; `search/` and its tests are unchanged |
+| D-1223 | Highlight units (AP-1123) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | Highlight ranges are byte ranges in the core (`tegg-index`) and `[start, end)` UTF-16 code units over IPC, for titles, aliases, attributes and snippets alike; the ACs' numbers are UTF-16 |
+| D-1224 | Red Rust tests and new fields (AP-1124) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | Red Rust tests may read fields that don't exist yet through test helpers (the Debug form), so `cargo check --tests` passes in the commit gate; the build may switch the helpers to field reads without an `AC-Test-Change` trailer. Future contracts list stub fields to add with the red commit |
+| D-1225 | Live refresh keeps every loaded row (AP-1125) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | A live refresh re-queries from offset 0 with `limit = loaded + (new total − old total)` when the total grows (never below `loaded`), so no loaded row drops (FR-SRC-03 AC-21) |
+| D-1226 | Date setting change on Search (AP-1126) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | FR-SRC-03 AC-11: the date format is changed in Settings › Date & time; after Back, `search` shows the rows in the new format within 1 s (its state restored per D-1216) |
+| D-1227 | SQLite `-shm` excluded (AP-1127) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | "Writes nothing under Application Support" (FR-SRC-03 AC-20) excludes SQLite's `*-shm` shared-memory file, which changes on reads |
+| D-1228 | Search speed test in the nightly gate (AP-1128) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | FR-SRC-01 AC-22 runs at G2 nightly and above, not in the push gate (extends D-343): the push step skips `fr_src_01_ac22_`, the nightly step `core-perf-search-ac` runs it |
+| D-1229 | L6 test for FR-SRC-02 AC-17 (AP-1129) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | The relaunch part of FR-SRC-02 AC-17 has a real-app test (`app/e2e/search_page.ac.test.ts`) |
+| D-1230 | Search DOM details (AP-1130) (owner, 2026-10-30; Search redesign red tests 060c0a5, `docs/contracts/v1-search.md` §6) | The query in empty-state copy is in a `data-user-content` element; the `⇧⌘F` hint is `aria-hidden` inside the search region; `Go to` options are not Tab stops; a cut attribute value (> 160 characters) is ≤ 160 characters and may carry `…` |
 
 ---
 

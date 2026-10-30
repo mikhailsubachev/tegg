@@ -12,7 +12,7 @@ is the `Go to` create (FR-NAV-01 AC-17, unchanged).
 
 ## 1. Core: `tegg-index` `SearchResult` (FR-SRC-01 AC-18…AC-21)
 
-Additive to ms2-core §2.1 and ms3-shell §15.1:
+Additive to ms2-core §2.1 and ms3-shell §15.1 (ranges: bytes in the core, UTF-16 code units over IPC, D-1223):
 
 ```rust
 pub struct SearchResult {
@@ -110,7 +110,7 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
   (D-760), so its state is dropped. `search/tag:<x>` is no longer produced (tags.md AC-12).
 - **Queries.** One `index_search` per change of text (debounce 120 ms as today), type or tags, with `offset 0`,
   `limit = max(50, loaded)`; `Show next` asks `offset = loaded, limit 50` and appends. A live refresh (the `refresh`
-  counter) re-queries `offset 0, limit = loaded` and keeps the focused row by path and the scroll (FR-SRC-03 AC-21).
+  counter) re-queries `offset 0, limit = loaded + max(0, new total − old total)` (D-1225) and keeps the focused row by path and the scroll (FR-SRC-03 AC-21).
 - **Keyboard (D-1218).** As FR-SRC-03 AC-17: Tab order field → `Clear search` → `Type` → `Filter by tag` →
   `Clear filters` → rows (link, chips) → `Show next`; ↓/↑ between row links; the Type menu is the app's `Menu`
   (shell/Menu.tsx) with radio items. No new palette commands.
@@ -144,3 +144,18 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
 - L1: catalog plural forms and the token contrast (FR-SRC-03 AC-18, AC-19).
 - Existing tests (`search_goto`, `search_tags`, `search_ranking`, `search_icons`, `ac_search.rs`) are not modified;
   if one conflicts with an approved AC it needs `AC-Test-Change: …; approved-by: owner`, raised as an AP first.
+
+## 6. Red-test decisions (D-1223…D-1230; red tests 060c0a5)
+
+- **D-1223** Highlights: byte ranges in `tegg-index`, `[start, end)` UTF-16 code units in every `*Dto` (titles, aliases,
+  attributes, snippets). AC numbers are UTF-16.
+- **D-1224** `crates/tegg-core/tests/search_page_setup/mod.rs` reads the new fields through helpers (Debug form) so the red
+  commit compiles; the build may replace them by field reads without an `AC-Test-Change` trailer.
+- **D-1225** Live refresh: `limit = loaded + max(0, new total − old total)`; loaded rows never drop (FR-SRC-03 AC-21).
+- **D-1226** FR-SRC-03 AC-11: the setting is changed in Settings › Date & time; Back to `search` shows the new format
+  within 1 s, its state restored from the history entry.
+- **D-1227** FR-SRC-03 AC-20's "nothing under Application Support" excludes SQLite `*-shm`.
+- **D-1228** FR-SRC-01 AC-22 runs at G2 nightly (`core-perf-search-ac`); the push step `core-rust-test` skips it (D-343).
+- **D-1229** FR-SRC-02 AC-17's relaunch part: `app/e2e/search_page.ac.test.ts` (L6).
+- **D-1230** DOM details: the query in empty-state copy is a `data-user-content` element; the `⇧⌘F` hint is `aria-hidden`
+  inside the `search` region; `Go to` options are not Tab stops; a cut attribute value is ≤ 160 characters and may carry `…`.
