@@ -341,6 +341,7 @@ test('fr_lnk_12_ac4_palette_mode_changes_apply_at_once_and_close_an_open_preview
 
 test('fr_lnk_12_ac5_the_stored_hover_delay_is_used', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 1000, install: true });
+  await pauseClock(page);
   const b = (await (await needOdkazyLink(page, 'Hlavní')).boundingBox())!;
   await page.mouse.move(b.x + 4, b.y + b.height / 2);
   await page.clock.runFor(940); await sleep(80);
