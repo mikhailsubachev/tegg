@@ -143,7 +143,9 @@ async function leaks(page: Page): Promise<string[]> {
   });
 }
 const ps = (t: string) => new RegExp(`^⟦?${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}⟧?$`);
-const footer = (page: Page) => graphPanel(page).getByText(/^⟦.*⟧$/).filter({ hasText: /objects?|object/ });
+// D-1161: each mode's own footer, `graph.panel.footerHover` / `graph.panel.footerOff` in the pseudo-locale.
+const FOOTER = { 'Hover to preview': /^⟦\d+ objects? · hover to preview⟧$/, Off: /^⟦\d+ objects? · click to open⟧$/ } as const;
+const footer = (page: Page, mode: keyof typeof FOOTER) => graphPanel(page).getByText(FOOTER[mode]);
 
 test('nfr_oth_02_ac15_panel_g3_strings_in_the_catalog', async ({ page }) => {
   await openPanel(page, P.plan, { prelude: pseudoLocale, presets: presetsText('valid'), panel: { ...BEZ, hiddenTypes: ['kniha'] } });
@@ -165,9 +167,9 @@ test('nfr_oth_02_ac15_panel_g3_strings_in_the_catalog', async ({ page }) => {
   await must(pListTree(page), 'the panel\'s tree');
   assert.deepEqual(await leaks(page), [], 'the tree, its rows and descriptions');
   for (const mode of ['Hover to preview', 'Off'] as const) {
-    await runCommand(page, `Object preview: ${mode}`).catch(() => {});
+    await runCommand(page, `Object preview: ${mode}`);
     await sleep(400);
-    await must(footer(page), `the footer in ${mode}`);
+    await must(footer(page, mode), `the footer of ${mode} (D-1161)`);
     assert.deepEqual(await leaks(page), [], `the footer in ${mode}`);
   }
 });

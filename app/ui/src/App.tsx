@@ -321,7 +321,8 @@ export function App() {
   // hidden window, so a timer backs the frame callback up.
   useEffect(() => {
     if (vault === undefined) return;
-    // Once: the timer only backs up a frame that didn't come (a late second mark looked like a request, FR-UX-03 AC-34).
+    // Once (ms3-shell §1: a single `ui-ready` mark): the timer only backs up a frame that didn't come (a late second mark
+    // looked like a request, FR-UX-03 AC-34). Regression test bug_qag3p_nfr_perf_01_ui_ready_once.
     let marked = false;
     const mark = () => { if (marked) return; marked = true; void ipc.perfMark('ui-ready').catch(() => {}); };
     requestAnimationFrame(() => setTimeout(mark, 0));

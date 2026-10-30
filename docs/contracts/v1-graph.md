@@ -901,7 +901,7 @@ everything else reuses R112, R117, R124.
    the full view: the two are never shown together (D-988), and the core's base check stays the only guard.
 3. Commands keep their ids; `App.tsx` routes them to whichever graph is shown (R127).
 
-### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.123; red tests cf306fd)
+### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.123; red tests 1d3bae0)
 
 Owner, 2026-10-30, as proposed:
 
@@ -915,7 +915,7 @@ Owner, 2026-10-30, as proposed:
 - **D-1152** By the ring element's bounding box without stroke: 10 px wider than a circle node, 8 px wider than a tag pill.
 - **D-1153** The pressed button's background is `--bg`; the `View` group's background is `--hover`.
 
-### 17.11 Build decisions (D-1154…D-1160, BRD v1.124; build 0f5776a)
+### 17.11 Build decisions (D-1154…D-1160, BRD v1.124; build 879c9d8)
 
 Owner, 2026-10-30, as proposed:
 
@@ -926,3 +926,9 @@ Owner, 2026-10-30, as proposed:
 - **D-1158** The node keeps its focus ring (`data-focus-held`) until the focus comes back to the graph or moves elsewhere (FR-UX-08 AC-14 with D-1131).
 - **D-1159** The canvas is the window's last tab stop: Tab wraps to the window's first tab stop and ⇧Tab from there returns to the canvas.
 - **D-1160** Dropped: R4 has no R123 rows; contract §17.5 already states that R123's commands act on the panel while it shows the Graph tab.
+
+### 17.12 QA decisions (D-1161, BRD v1.125)
+
+Owner, 2026-10-30, from the QA review of G3 in the panel:
+
+- **D-1161** `nfr_oth_02_ac15_panel_g3_strings_in_the_catalog` runs `Object preview: Hover to preview` and `Object preview: Off` without `.catch`, so a failed mode switch fails the test, and finds the footer by each mode's own pseudo-locale text (`graph.panel.footerHover`, `graph.panel.footerOff`), not by any `⟦…objects…⟧` text.

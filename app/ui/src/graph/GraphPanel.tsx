@@ -432,6 +432,11 @@ export function GraphPanel(p: GraphPanelProps) {
   modelRef.current = model;
   const resRef = useRef(res);
   resRef.current = res;
+  // The hover host is made once (below), but the panel stays mounted across navigation and depth changes: it reads the
+  // latest `showPreview` (and through it the current lines, types, depth and `onOpenFull`), so `In full graph` in a hover
+  // preview hands over the current centre and depth (FR-GRP-01 AC-45, D-1143; QA review of G3 in the panel).
+  const showPreviewRef = useRef(showPreview);
+  showPreviewRef.current = showPreview;
   /** A node's element in the shown view: its `<g>` on the canvas, its row in the List. */
   function elementOf(k: NodeKey): HTMLElement | null {
     return root.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(k)}"], [data-graph-row="${CSS.escape(k)}"]`) ?? null;
@@ -442,7 +447,7 @@ export function GraphPanel(p: GraphPanelProps) {
       const n = modelRef.current?.nodes.find((x) => x.key === k);
       const el = elementOf(k);
       const r = resRef.current;
-      if (n && el && r) showPreview(n.node, el, r, 'hover');
+      if (n && el && r) showPreviewRef.current(n.node, el, r, 'hover');
     },
     hide: () => { if (currentPreview()?.origin === 'hover') closePreview('outside'); },
     showing: (k) => {
@@ -635,15 +640,32 @@ export function GraphPanel(p: GraphPanelProps) {
   /** AP-968 (c): the popover a command opened closes with that command's layer; the focus returns where it was. */
   const watchLayer = (returnTo: HTMLElement | null) => {
     cmdLayer.current?.disconnect();
-    let seen = !!document.querySelector('[data-preset-layer]');
+    const layers = () => [...document.querySelectorAll('[data-preset-layer]')];
+    let seen = layers().length > 0;
+    // D-1157: the preset alert is a layer, but it stays up to 10 s after the command's own layer ended. Moving the
+    // focus while only the alert is shown (Tab to another control) means the user went on: the alert's expiry then
+    // neither closes the popover nor takes the focus back (D-1138 c; QA review of G3 in the panel). The flow's own
+    // focus return to the preset button (D-1138 a) is not such a move.
+    let moved = false;
+    const onIn = (e: FocusEvent) => {
+      const all = layers();
+      if (all.length === 0 || all.some((l) => l.getAttribute('role') !== 'alert')) return;
+      const el = e.target as Element | null;
+      if (!el || el === document.body || el.closest('[data-preset-layer]') || el.closest('[data-command="graph.preset.apply"]')) return;
+      moved = true;
+    };
     const obs = new MutationObserver(() => {
-      if (document.querySelector('[data-preset-layer]')) { seen = true; return; }
+      if (layers().length) { seen = true; return; }
       if (!seen) return;
       obs.disconnect();
       if (cmdLayer.current === obs) cmdLayer.current = null;
+      if (moved) return;
       setFiltersOpen(false);
       setTimeout(() => { if (returnTo?.isConnected) returnTo.focus(); }, 0);
     });
+    const stop = obs.disconnect.bind(obs);
+    obs.disconnect = () => { stop(); document.removeEventListener('focusin', onIn, true); };
+    document.addEventListener('focusin', onIn, true);
     obs.observe(document.body, { childList: true, subtree: true });
     cmdLayer.current = obs;
   };
