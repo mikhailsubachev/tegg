@@ -1111,4 +1111,5 @@ pub use tegg_index::PauseHook;
 // ------------------------------------------------------------------------------------------------ slice G3
 // docs/contracts/v1-graph.md §16.1: graph filter presets in `.tegg/graph.yml` (`graph_presets.rs`).
 pub mod graph_presets;
+mod yaml_text;
 pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};

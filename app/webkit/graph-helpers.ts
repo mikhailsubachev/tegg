@@ -374,7 +374,7 @@ export async function presetWrites(core: FakeCoreHandle): Promise<string[]> {
 export const presetBtn = (page: Page) => page.getByRole('button', { name: /^⟦?Preset: / });
 export const presetLabel = (page: Page) => page.getByText('Preset', { exact: true });
 export const presetMenu = (page: Page) => page.getByRole('menu', { name: 'Presets', exact: true });
-export const menuRadio = (page: Page, name: string) => presetMenu(page).getByRole('menuitemradio', { name: new RegExp(`^${escRe(nfc(name))}\\b`) });
+export const menuRadio = (page: Page, name: string) => presetMenu(page).getByRole('menuitemradio', { name: new RegExp(`^${escRe(nfc(name))}(?=\\s|$)`) });
 export const menuItem = (page: Page, name: string) => presetMenu(page).getByRole('menuitem', { name: nfc(name), exact: true });
 export const saveDialog = (page: Page) => page.getByRole('dialog', { name: 'Save preset', exact: true });
 export const nameField = (page: Page) => saveDialog(page).getByRole('textbox', { name: 'Name', exact: true });

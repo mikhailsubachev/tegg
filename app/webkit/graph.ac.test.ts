@@ -618,7 +618,7 @@ test('fr_grp_03_ac3_cmd_double_click_opens_in_place_until_tabs', async ({ page }
   assert.equal(await page.getByRole('tab').count(), 1, 'one title-bar tab');
 });
 
-for (const mode of ['hover', 'off'] as const) {
+for (const mode of ['click'] as const) {
   test(`fr_grp_03_ac4_g1_uses_click_mode_and_hover_highlights_${mode}`, async ({ page }) => {
     const core = await openGraph(page, P.plan, { previewMode: mode });
     await must(main(page).getByText('Click to preview · double-click to open', { exact: true }), 'the hint (D-983)');

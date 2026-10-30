@@ -1,6 +1,6 @@
 // Slice G1 (docs/contracts/v1-graph.md §4; graph.md R109; D-910, D-977): the filter list, which is also the legend:
 // Types (`All`, `None`, one checkbox per type in the D-977 order with its swatch, plural name and count), Connections
-// (the four kinds with their R108 line sample) and `Size nodes by links`. G3 puts the preset select above Types.
+// (the four kinds with their R108 line sample) and `Size nodes by links`. G3's preset control sits above Types (R119).
 import { t } from '../i18n/catalog';
 import { chipIcon, chipTypes } from '../links/icons';
 import { Icon } from '../shell/Icon';
@@ -24,6 +24,8 @@ export type FilterProps = {
   onKind: (kind: EdgeKindDto, visible: boolean) => void;
   onSize: (on: boolean) => void;
   allRef?: React.RefObject<HTMLButtonElement | null>;
+  /** G3 (R119): the preset control, first in the column. */
+  preset?: React.ReactNode;
 };
 
 function pluralOf(key: string): string {
@@ -36,7 +38,8 @@ export function GraphFilters(p: FilterProps) {
   const off = p.disabled ? 'true' : undefined;
   return (
     <>
-      <fieldset className="graph-fieldset">
+      {p.preset}
+      <fieldset className="graph-fieldset" role="group" aria-label={t('graph.types')}>
         <legend>{t('graph.types')}</legend>
         <div className="graph-all-none">
           <button type="button" ref={p.allRef} data-command="graph.types.all" className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(true); }}>{t('graph.types.all')}</button>

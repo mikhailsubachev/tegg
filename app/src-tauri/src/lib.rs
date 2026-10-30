@@ -196,7 +196,7 @@ fn test_drop(app: &AppHandle) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {

@@ -233,6 +233,11 @@ pub struct IpcError {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub name: Option<String>,
+    /// G3 (v1-graph §16.2): with `Conflict` from `graph_presets_apply`, `disk: GraphPresetsDto`; with `NameTaken`,
+    /// `existing`. Flattened and kept out of the generated types: the UI types them in `app/ui/src/graph/types.ts`.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub presets: Option<crate::shellg3::PresetsErrorExtra>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the

@@ -112,24 +112,56 @@ export function hiddenText(result: GraphResultDto): string | null {
 }
 
 // ------------------------------------------------------------------------------------------------ slice G3
-// docs/contracts/v1-graph.md §16.3 (R121, R122; AP-937, AP-938). Red-test stubs (TS-I1): not implemented yet.
+// docs/contracts/v1-graph.md §16.3 (R121, R122; AP-937, AP-938; D-1106).
 
-/** R121: a node's accessible description, `<n> connections. <how it is linked>. <i> of <N>.` (the centre:
- *  `<n> connections. Centre of the graph. 1 of <N>.`). `index` is the 1-based `<i>` in `positionOrder(result)`;
- *  `null` leaves the position out (a List row, R122). */
-export function nodeDescription(node: GraphNodeDto, result: GraphResultDto, types: RelationNames, index: number | null): string {
-  void node; void result; void types; void index;
-  throw new Error('graphModel.nodeDescription: not implemented (G3)');
-}
+const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
 /** R121: the result's node order (depth, then degree descending, then sort key; §1.6), as node keys. */
 export function positionOrder(result: GraphResultDto): NodeKey[] {
-  void result;
-  throw new Error('graphModel.positionOrder: not implemented (G3)');
+  return [...result.nodes].sort((a, b) => a.depth - b.depth || b.degree - a.degree || byCode(sortKey(a.id), sortKey(b.id))).map(nodeKey);
+}
+/** R121: a node's accessible description, `<n> connections. <how it is linked>. <i> of <N>.` (the centre:
+ *  `<n> connections. Centre of the graph. 1 of <N>.`). `index` is the 1-based `<i>` in `positionOrder(result)`;
+ *  `null` leaves the position out (a List row, R122): the message without its `{position}` part (D-1106). */
+export function nodeDescription(node: GraphNodeDto, result: GraphResultDto, types: RelationNames, index: number | null): string {
+  const connections = t('graph.connectionsCount', { count: node.degree });
+  const vars: Record<string, string> = { connections };
+  if (index !== null) vars.position = t('graph.a11y.position', { index, total: result.nodes.length });
+  if (node.depth !== 0) vars.relation = connectionPhrase(node, result, types) ?? '';
+  const text = t(node.depth === 0 ? 'graph.a11y.centre' : 'graph.a11y.node', vars);
+  return index === null ? text.replace(/\s*\{position\}\.?/, '') : text;
 }
 /** R122 (AP-938): the List tree in row order (pre-order): each node once, under its first neighbour one step closer by
  *  sort key; children in the result's node order. `level` is the node's depth (0 for the centre). */
 export type ListRow = { key: NodeKey; parentKey: NodeKey | null; level: number; children: NodeKey[] };
 export function listTree(result: GraphResultDto): ListRow[] {
-  void result;
-  throw new Error('graphModel.listTree: not implemented (G3)');
+  const order = positionOrder(result);
+  const byKey = new Map(result.nodes.map((n) => [nodeKey(n), n]));
+  const bySort = new Map(result.nodes.map((n) => [sortKey(n.id), n]));
+  const near = new Map<string, string[]>();
+  for (const e of result.edges) {
+    const a = sortKey(e.a), b = sortKey(e.b);
+    near.set(a, [...(near.get(a) ?? []), b]);
+    near.set(b, [...(near.get(b) ?? []), a]);
+  }
+  const parent = new Map<NodeKey, NodeKey | null>();
+  const children = new Map<NodeKey, NodeKey[]>();
+  for (const k of order) {
+    const n = byKey.get(k)!;
+    const up = n.depth === 0 ? undefined : (near.get(sortKey(n.id)) ?? []).filter((s) => bySort.get(s)?.depth === n.depth - 1).sort(byCode)[0];
+    const p = up ? nodeKey(bySort.get(up)!) : null;
+    parent.set(k, p);
+    if (p !== null) children.set(p, [...(children.get(p) ?? []), k]);
+  }
+  const rows: ListRow[] = [];
+  const seen = new Set<NodeKey>();
+  const visit = (k: NodeKey) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    rows.push({ key: k, parentKey: parent.get(k) ?? null, level: byKey.get(k)!.depth, children: children.get(k) ?? [] });
+    for (const c of children.get(k) ?? []) visit(c);
+  };
+  // The centre's tree, then any node without a parent one step closer (none in a well-formed result).
+  for (const k of order) if (parent.get(k) === null) visit(k);
+  return rows;
 }

@@ -78,6 +78,7 @@ test('fr_ux_03_ac22_tab_lands_on_the_centre', async ({ page }) => {
 
 test('fr_ux_03_ac23_arrow_keys_follow_the_direction_rule', async ({ page }) => {
   const core = await openGraph(page, P.plan);
+  await routeReady(core, graphRoute(P.plan), 4000);
   const route0 = await routeMarks(core);
   for (const dir of ['right', 'left', 'up', 'down'] as Dir[]) {
     await focusNode(page, P.plan);
@@ -171,6 +172,8 @@ test('fr_ux_03_ac25_c_centres_and_zoom_keys', async ({ page }) => {
   assert.deepEqual(await tabStops(page), [nfc(P.rozpocet)], 'with tabindex="0"');
   await page.keyboard.press('Meta+BracketLeft');
   assert.ok(await headingIs(page, 'Local graph of Plán čtvrtletí · 10 objects', 4000), 'a history entry: Back returns to Plán\'s graph');
+  await waitDrawn(page, 10);
+  await sleep(300);
   const before = (await routeMarks(core)).length;
   await focusNode(page, P.plan);
   await page.keyboard.press('c');
@@ -267,13 +270,14 @@ test('fr_ux_03_ac27_single_keys_only_with_focus_in_the_graph', async ({ page }) 
   await sleep(200);
   assert.ok(Math.abs((await scale(page)) - s1) < 0.01, '⌘C, ⌘0, ⌥← are not taken by the graph (no zoom)');
   assert.equal((await focused(page)).key, nfc(P.rozpocet), 'nor do they move the focus');
-  const c2 = await startGraph(page, { at: P.plan });
+  const page2 = await page.context().newPage();
+  const c2 = await startGraph(page2, { at: P.plan });
   await sleep(800);
   const n0 = (await routeMarks(c2)).length;
-  for (const key of ['c', '+', '0']) await page.keyboard.press(key);
+  for (const key of ['c', '+', '0']) await page2.keyboard.press(key);
   await sleep(300);
   assert.ok(!(await routeMarks(c2)).slice(n0).some((m) => m.startsWith('route-ready:graph/')), 'on a note route the keys do nothing graph-related');
-  assert.ok(!(await seen(graphHeading(page), 300)), 'no graph is shown');
+  assert.ok(!(await seen(graphHeading(page2), 300)), 'no graph is shown');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-UX-08 AC-1, AC-2

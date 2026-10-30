@@ -521,3 +521,31 @@ Owner, 2026-10-30, as proposed:
 - **D-1117** List row text: The centre row reads `<title> · <n> connections` (no phrase); a row's own text excludes its children; the row description keeps its final period.
 - **D-1118** Hover tests and the clock: FR-LNK-12 AC-13's delay change goes `Go to Settings: Previews` → Home on the slider → ⌘[ and is checked by the ring animation's duration; the hover controller's timers run on the page clock (`page.clock.install`).
 - **D-1119** L6 scope: The synced atomic replace uses the existing helper's `rename` from a temp file; FR-GRP-02 AC-19's L6 test covers `invalid-yaml` only.
+
+### 16.10 Build decisions (D-1120…D-1127, BRD v1.118)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1120** Unreadable line of an unclosed flow collection: When the YAML error falls inside a `[` or `{` still open, `Unreadable.line` is the line where the outermost one opened (`invalid-yaml.yml` → line 5); otherwise the parser's 1-based line.
+- **D-1121** Empty presets files: An empty file, a comments-only file, or `presets:` with no value (null) read as `ok` with no presets, not as unreadable.
+- **D-1122** Files that can't be patched by lines: A readable file whose presets can't be located line by line (a non-empty flow `presets: [...]`, a `- {name: x}` item, a quoted key the scanner can't find, items that don't line up with the parsed YAML) lists its presets but every write is refused with `Unreadable`, so the file is never rewritten.
+- **D-1123** Name check order: `NameControl` on the raw input (any Cc character, so a leading or trailing tab is refused), then trimming of Unicode White_Space (not U+FEFF), NFC, `NameEmpty`, `NameTooLong` (> 100 scalar values), `NameTaken`; matching compares `nfc(trim(s))` lower-cased.
+- **D-1124** Indentation of new items and the version line: A saved item copies the last existing item's dash and key indentation (2 / 4 spaces when there is none); a missing `version: 1` goes after the leading run of comment lines and is added only by an operation that changes the file.
+- **D-1125** A rename that meets an external change: The rename field closes and the alert shows (FR-SYN-03 AC-22); the Save dialog still stays open with the typed name. Amends contract §16.2.
+- **D-1126** G3 red-test corrections: `graph-helpers.ts` `menuRadio` matches the name up to a space or the end (`(?=\s|$)`, as JavaScript's `\b` fails after `ů`, `í`); FR-UX-03 AC-27's last step uses a fresh page; FR-UX-03 AC-23 and AC-25 wait for the graph to be ready before reading the route marks. Applied with the `AC-Test-Change` trailer.
+- **D-1127** When `route-ready:graph/<path>` is marked: In the same commit that first shows the result (a layout effect), not after the next frame; `graph-ready` keeps its frame wait. Amends contract §3.
+
+### 16.11 Build notes (no owner decision)
+
+- No presets cache in the core: every call reads `.tegg/graph.yml`, so `vault:changed` needs no invalidation. `scalar`
+  and `top` moved to `crates/tegg-core/src/yaml_text.rs` (shared with `settings5b.rs`).
+- `IpcError` gains a flattened `presets` extra (`#[ts(skip)]`): `Conflict` carries `disk: GraphPresetsDto`, `NameTaken`
+  carries `existing`. The generated TS type still names `disk?: TypeDto`; the UI casts it (follow-up: generate it).
+- WebKit moves the focus to `<body>` when Tab leaves a focused SVG `<g>`, so `GraphCanvas` handles Tab and ⇧Tab itself
+  (next or previous tab stop outside the canvas).
+- In List view the tree comes before the filter column in the DOM (CSS `order` keeps the column on the left), so Tab
+  from the `View` switch reaches the tree first; Graph view keeps G1's order.
+- A pointer press hides the node focus ring (`data-pointer` on the SVG) until the next key (FR-UX-08 AC-3).
+- List rows' descriptions drop the position (D-1106); `· modified` shows once, in the button, and the row under it holds
+  `Update` / `Revert`; panning a focused node into view is instant in every motion setting; the hover ring stays full
+  while its preview is shown.
