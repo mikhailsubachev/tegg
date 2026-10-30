@@ -12,6 +12,7 @@ pub use shell6a::{media_scheme_probe, MediaResponse};
 mod shell4d;
 mod shell4e;
 mod shellg1;
+mod shellg3;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -1733,7 +1734,8 @@ pub fn run() {
             shell4e::type_move_plan, shell4e::type_move, shell4e::folder_move_preview, shell4e::tidy_now, shell4e::jobs_ready,
             shell4e::value_remove_start, shell4e::type_delete_start,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal,
-            shellg1::graph_neighbourhood
+            shellg1::graph_neighbourhood,
+            shellg3::graph_presets_get, shellg3::graph_presets_apply
         ])
         .build(context())
         .expect("error while building Tegg")

@@ -326,7 +326,7 @@ Owner, 2026-10-30, as proposed:
   (follow-up).
 - The DTOs in `ui/src/graph/types.ts` are hand-written beside `shellg1.rs` (not generated yet; follow-up).
 
-## 16. Slice G3: presets, keyboard, List (draft)
+## 16. Slice G3: presets, keyboard, List
 
 Public interfaces of slice G3, for the test author (D-61) and the build. ACs: `docs/acceptance/graph.md` part two
 (R118…R124; FR-GRP-02 AC-11…AC-25, FR-SYN-03 AC-22…AC-24, FR-SYN-02 AC-8, FR-SYN-06 AC-40, FR-FMT-07 AC-27,

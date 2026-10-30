@@ -85,6 +85,8 @@ pub enum CoreError {
     Refused,
     /// ms6-trash-media §3.1 (6A, D-625): more than 200 MB; nothing was written.
     TooLarge,
+    /// v1-graph §16.1 (G3): a preset operation the core refuses; nothing was written.
+    Preset(PresetError),
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -1105,3 +1107,8 @@ mod graphg1;
 pub use tegg_index::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
 #[cfg(any(test, feature = "test-hooks"))]
 pub use tegg_index::PauseHook;
+
+// ------------------------------------------------------------------------------------------------ slice G3
+// docs/contracts/v1-graph.md §16.1: graph filter presets in `.tegg/graph.yml` (`graph_presets.rs`).
+pub mod graph_presets;
+pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};

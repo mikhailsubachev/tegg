@@ -110,3 +110,26 @@ export function headingCount(result: GraphResultDto): string {
 export function hiddenText(result: GraphResultDto): string | null {
   return result.hidden > 0 ? t('graph.hidden', { count: result.hidden }) : null;
 }
+
+// ------------------------------------------------------------------------------------------------ slice G3
+// docs/contracts/v1-graph.md §16.3 (R121, R122; AP-937, AP-938). Red-test stubs (TS-I1): not implemented yet.
+
+/** R121: a node's accessible description, `<n> connections. <how it is linked>. <i> of <N>.` (the centre:
+ *  `<n> connections. Centre of the graph. 1 of <N>.`). `index` is the 1-based `<i>` in `positionOrder(result)`;
+ *  `null` leaves the position out (a List row, R122). */
+export function nodeDescription(node: GraphNodeDto, result: GraphResultDto, types: RelationNames, index: number | null): string {
+  void node; void result; void types; void index;
+  throw new Error('graphModel.nodeDescription: not implemented (G3)');
+}
+/** R121: the result's node order (depth, then degree descending, then sort key; §1.6), as node keys. */
+export function positionOrder(result: GraphResultDto): NodeKey[] {
+  void result;
+  throw new Error('graphModel.positionOrder: not implemented (G3)');
+}
+/** R122 (AP-938): the List tree in row order (pre-order): each node once, under its first neighbour one step closer by
+ *  sort key; children in the result's node order. `level` is the node's depth (0 for the centre). */
+export type ListRow = { key: NodeKey; parentKey: NodeKey | null; level: number; children: NodeKey[] };
+export function listTree(result: GraphResultDto): ListRow[] {
+  void result;
+  throw new Error('graphModel.listTree: not implemented (G3)');
+}

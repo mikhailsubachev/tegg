@@ -16,6 +16,8 @@ import { handle as handleMedia, sniff } from './fake-media';
 import { handle as handleTags } from './fake-tags';
 import { handle as handleMoves } from './fake-moves';
 import { handle as handleGraph } from './fake-graph';
+import { handle as handlePresets } from './fake-presets';
+import type { PresetOpDto } from '../src/graph/types';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -150,6 +152,11 @@ export type FakeCoreHandle = {
   // ---------------------------------------------------------------- slice P (v1-previews §9)
   /** Delays every later answer of `cmd` by `ms` (0 removes the delay), for abort and late-answer tests. */
   delayCommand(cmd: string, ms: number): Promise<void>;
+  // ---------------------------------------------------------------- G3 (v1-graph §16.6)
+  /** The `graph_presets_apply` calls in order, each with its op and base (`null`: none). */
+  presetCalls(): Promise<{ op: PresetOpDto; base: VersionDto | null }[]>;
+  /** The next `graph_presets_apply` fails with `kind` (`Io`, `Conflict`, `Gone`, …) without writing. */
+  presetsFail(kind: string): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -282,6 +289,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // G1 (v1-graph §8): the reference walk of the neighbourhood query in Node (fake-graph.ts).
   await page.exposeFunction('__teggGraph', (cmd: string, args: unknown, files: Record<string, string>, bin: string[]) =>
     handleGraph(cmd, args, files, bin)).catch(() => {});
+  // G3 (v1-graph §16.6): the presets twin of `.tegg/graph.yml` in Node (fake-presets.ts).
+  await page.exposeFunction('__teggPresets', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[]) =>
+    handlePresets(cmd, args, files, invalid)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleTags(cmd, args, files, vers as any)).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
@@ -383,6 +393,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     graphNotReady: (on) => page.evaluate((o) => { (window as any).__teggFake.graphNotReady = o; }, on),
     graphCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'graph_neighbourhood').map((c: any) => c.args?.req ?? c.args)),
     delayCommand: (cmd, ms) => page.evaluate(([c, m]) => { const d = ((window as any).__teggFake.delays ??= {}); d[c] = m; }, [cmd, ms] as const).then(() => undefined),
+    // G3 (v1-graph §16.6).
+    presetCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'graph_presets_apply').map((c: any) => ({ op: c.args?.op, base: c.args?.base ?? null }))),
+    presetsFail: (kind) => page.evaluate((k) => { (window as any).__teggFake.presetsFail = k; }, kind),
   };
 }
 
@@ -417,6 +430,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
+    'graph_presets_get', // G3 (v1-graph §16.2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
@@ -1718,6 +1732,24 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const r = await w.__teggGraph('graph_neighbourhood', a ?? {}, state.vault.files, Object.keys(x.bin ?? {}));
       if (r.error) throw r.error;
       return r.result;
+    },
+    // G3 (v1-graph §16.2, §16.6): the presets twin in Node; `presetsFail` makes the next apply fail without writing.
+    graph_presets_get: async () => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const r = await w.__teggPresets('graph_presets_get', {}, state.vault.files, Object.keys(state.invalid));
+      if (r.error) throw r.error;
+      return { ...r.result, version: state.ver('.tegg/graph.yml') };
+    },
+    graph_presets_apply: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (x.presetsFail) { const k = String(x.presetsFail); x.presetsFail = null; throw err(k, `fake: graph_presets_apply fails (${k})`); }
+      const r = await w.__teggPresets('graph_presets_apply', a ?? {}, state.vault.files, Object.keys(state.invalid));
+      if (r.writes) {
+        for (const [p, t] of Object.entries(r.writes as Record<string, string>)) { state.vault.files[p] = t; delete state.invalid[p]; state.touch(p); state.writtenPaths.push(p); }
+        void state.emit('vault:changed', { paths: Object.keys(r.writes) });
+      }
+      if (r.error) throw r.error.disk ? { ...r.error, disk: { ...r.error.disk, version: state.ver('.tegg/graph.yml') } } : r.error;
+      return { ...r.result, version: state.ver('.tegg/graph.yml') };
     },
     tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
     index_tagged_objects: () => viaTags('index_tagged_objects', {}), // D-784 (§1.6)
