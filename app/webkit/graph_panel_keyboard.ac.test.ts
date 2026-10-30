@@ -199,7 +199,7 @@ test('fr_ux_03_ac33_panel_return_keys_on_a_focused_node', async ({ page }) => {
   await page.keyboard.press('Meta+Shift+Enter');
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Rozpočet 2027', 4000), 'Rozpočet 2027', '⌘⇧⏎ does the same');
   assert.equal(page.context().pages().length, pages, 'and opens no window');
-  assert.equal(await page.getByRole('tab').filter({ hasText: /Rozpočet/ }).count(), 0, 'and no tab');
+  assert.equal(await page.locator('[role="tab"][data-command="tab.current"]').count(), 1, 'and no new tab: one title-bar tab (D-1154)');
   await back(page);
   await needIn(page, 10, 'Plán again');
   // The centre: ⏎ previews it in click mode; ⌘⏎ and ⌘⇧⏎ do nothing (D-1042).

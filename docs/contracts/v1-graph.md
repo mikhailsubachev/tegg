@@ -914,3 +914,15 @@ Owner, 2026-10-30, as proposed:
 - **D-1151** The L6 test asserts the safe outcome (no lost external change) whether the watcher reloads before `Save` or a Conflict appears; the strict Conflict check stays in L5.
 - **D-1152** By the ring element's bounding box without stroke: 10 px wider than a circle node, 8 px wider than a tag pill.
 - **D-1153** The pressed button's background is `--bg`; the `View` group's background is `--hover`.
+
+### 17.11 Build decisions (D-1154…D-1160, BRD v1.124; build 0f5776a)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1154** The title bar's current-page tab always shows the open title, so the L5 check "no tab named Rozpočet" after ⌘⇧⏎ becomes "one title-bar tab" (`[role="tab"][data-command="tab.current"]`), as G3's own check; the panel's own tabs don't count (AC-test change).
+- **D-1155** ⌘⏎ / ⌘⇧⏎ from the graph focuses the page heading `h1` (`tabindex="-1"`, D-130); a click open keeps the caret in the body (D-247, D-255).
+- **D-1156** Not a tab stop, as in G2: Tab from `List` lands on the tree's first row (AC-38); the button stays reachable by ⌘⇧G and the palette.
+- **D-1157** The preset error alert is a preset layer (`data-preset-layer`): Esc closes it first, one layer at a time, in the panel and the full view.
+- **D-1158** The node keeps its focus ring (`data-focus-held`) until the focus comes back to the graph or moves elsewhere (FR-UX-08 AC-14 with D-1131).
+- **D-1159** The canvas is the window's last tab stop: Tab wraps to the window's first tab stop and ⇧Tab from there returns to the canvas.
+- **D-1160** Dropped: R4 has no R123 rows; contract §17.5 already states that R123's commands act on the panel while it shows the Graph tab.
