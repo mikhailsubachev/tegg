@@ -167,7 +167,7 @@ Never listed: Q3, D2, N2, P2, Holý, DQ, DP, both templates, Smazaná. Type filt
 
 ### FR-NAV-05 The right side panel (D-564)
 
-- **AC-1** **Tabs.** The right panel's tabs equal app-shell R2 with R62's change: Backlinks built (4A), Outline aria-disabled `Coming in v1.0` (D-376), Graph `Coming in v1.0`; no Attributes tab (attributes stay at the top of the note, D-127); the panel toggles with its shortcut and the palette, and its open state is kept per machine (FR-UX-02 AC-7). *(L5)*
+- **AC-1** **Tabs.** The right panel's tabs equal app-shell R2 with R62's change: Backlinks built (4A), Outline aria-disabled `Coming in v1.0` (D-376), Graph `Coming in v1.0`; no Attributes tab (attributes stay at the top of the note, D-127); the panel toggles with its shortcut and the palette, and its open state is kept per machine (FR-UX-02 AC-7). *(L5)* *(changed by D-920, slice G2, applied in the commit that builds G2 with `AC-Test-Change: D-920, the Graph tab is built in G2; approved-by: owner`; new text: **Tabs.** The right panel's tabs are, in this order, Backlinks (built, 4A), Outline (`Coming in v1.0` as its description, D-376) and Graph (built, G2: no `Coming in v1.0` description; selecting it shows the local graph of [graph-panel.md](graph-panel.md) R114); no Attributes tab (attributes stay at the top of the note, D-127); the panel toggles with its shortcut and the palette, and its open state and tab are kept per machine (FR-UX-02 AC-7, AC-10).)*
 
 ### FR-DLY-05 Review status in the Inbox (AC-1, AC-2, AC-4 in daily-notes.md; replaces AC-3)
 
