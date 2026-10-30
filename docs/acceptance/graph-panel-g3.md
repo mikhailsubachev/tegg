@@ -2,7 +2,7 @@
 
 See [README](README.md) for conventions. Release v1.0 (BRD §11), a small follow-up slice after **G2** ([graph-panel.md](graph-panel.md), the right panel's Graph tab, merged in PR #94) and **G3** ([graph.md](graph.md) part two, presets, keyboard, List, hover and Off, written against the full view only). After the merge, `GraphPanel` mounts the shared `GraphCanvas` without G3's props (contract `docs/contracts/v1-graph.md` §16.11 "Merged after G2"), so the panel has no tab stop, focus ring, hover ring, keyboard map, preset control or `Graph` / `List` switch. This slice hooks G3's pieces up in the panel, as listed in graph.md's [Seams: what G3 leaves for G2](graph.md#seams-what-g3-leaves-for-g2) and graph-panel.md's [Seams: what G2 leaves for G3](graph-panel.md#seams-what-g2-leaves-for-g3). Exit goal: everything the owner can do with presets, the keyboard, the List and the preview modes in the full view, they can do in the panel beside the note, and the panel's preset writes are as safe as the full view's.
 
-**Status: draft, 2026-10-30.** Open points AP-960…AP-974 (end of this file) are pending the owner; criteria that depend on one cite it. Contract: `docs/contracts/v1-graph.md` §17.
+**Status: approved, 2026-10-30.** The owner accepted AP-960…AP-974 (end of this file) as proposed: D-1130…D-1144 (BRD v1.122; AP-n → D-(n+170)); criteria that depend on one cite it. Contract: `docs/contracts/v1-graph.md` §17.
 
 **Scope.** FR-GRP-02 (presets in the panel), FR-GRP-01 and FR-GRP-06 (the hand-over and the preview from List rows), FR-LNK-12 in the panel (click, hover, Off), FR-UX-03 (the keyboard map and R123's commands in the panel), FR-UX-08 (the List, VoiceOver descriptions, the focus ring, Reduce motion in the panel), and this slice's checks of FR-SYN-03 / NFR-REL-02, FR-SYN-06, FR-UX-05 and NFR-OTH-02. Reference tables R125…R128. **Reused by reference, not repeated:** where the panel behaves exactly as the full view, a criterion here names the G3 criterion and states only the panel's setup and what differs; G3's own tests stay on the full view. **Out of scope:** anything in the full view (G3, unchanged); tabs (FR-NAV-06, D-970); the global graph (FR-GRP-04).
 
@@ -177,9 +177,9 @@ No other existing AC test changes. Checked and unaffected: G2's `fr_grp_01_ac28_
 
 ---
 
-## Open points (AP-960…AP-974, pending the owner)
+## Decided points (AP-960…AP-974 → D-1130…D-1144)
 
-Raised while writing these criteria. Each needs an owner decision before the red tests; the criteria above follow the proposals.
+Raised while writing these criteria. **Decided 2026-10-30: all accepted as proposed**, AP-960 → D-1130 … AP-974 → D-1144 (AP-n → D-(n+170)). The criteria cite the AP numbers.
 
 | AP | Point | Proposal | Alternative |
 | --- | --- | --- | --- |
