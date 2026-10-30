@@ -7,7 +7,8 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { type UiStateDto } from '../ui/test/fake-core';
 import {
-  P, VAULT_PATH, click, eventually, flat, must, nfc, seen, startGraph, textOf, waitDrawn, type FakeCoreHandle, type GraphState, type StartGraph,
+  P, VAULT_PATH, click, escRe, eventually, flat, must, nfc, nodeOf, presetsVault, seen, startGraph, textOf, waitDrawn, type FakeCoreHandle, type GraphState,
+  type Row, type StartGraph,
 } from './graph-helpers';
 import { goToQuery, mustBeOn } from './helpers';
 
@@ -29,6 +30,8 @@ export type PanelUi = {
   width?: number;
   sidebarOpen?: boolean;
   previewMode?: 'click' | 'hover' | 'off';
+  /** G3 in the panel (contract §17.7): the preview's hover delay (slice P `preview.hoverDelay`). */
+  hoverDelay?: number;
 };
 /** The machine-local UI state of the test clock: `rightPanel: { open: true, tab: 'graph', width: 288 }`. The fake core's
  *  `UiStateDto` type predates `width` and `vaults`; the state is passed through a cast (as panel_resize.ac.test.ts). */
@@ -38,15 +41,19 @@ export function panelUi(o: PanelUi = {}): UiStateDto {
     version: 1, theme: o.theme ?? 'light', sidebarOpen: o.sidebarOpen ?? true,
     rightPanel: { open: o.open ?? true, tab: o.tab ?? 'graph', width: o.width ?? 288 },
     ...(o.full || o.panel ? { vaults: { [nfc(o.vaultKey ?? VAULT_PATH)]: { graph } } } : {}),
-    ...(o.previewMode ? { preview: { mode: o.previewMode } } : {}),
+    ...(o.previewMode || o.hoverDelay ? { preview: { ...(o.previewMode ? { mode: o.previewMode } : {}), ...(o.hoverDelay ? { hoverDelay: o.hoverDelay } : {}) } } : {}),
   } as unknown as UiStateDto;
 }
 
-export type StartPanel = StartGraph & PanelUi;
+export type StartPanel = StartGraph & PanelUi & {
+  /** G3 in the panel (contract §17.7): the text of `.tegg/graph.yml` (via `presetsVault`); null or absent: no file. */
+  presets?: string | null;
+};
 /** Starts the main window on `route` (default `note/<path>`) with the panel per `panelUi`. */
 export async function startPanel(page: Page, route: string, o: StartPanel = {}): Promise<FakeCoreHandle> {
   await page.setViewportSize(VIEWPORT).catch(() => {});
-  return startGraph(page, { ...o, route, uiState: o.uiState ?? panelUi(o) });
+  const vault = o.vault ?? (o.presets !== undefined ? presetsVault(o.presets) : undefined);
+  return startGraph(page, { ...o, ...(vault ? { vault } : {}), route, uiState: o.uiState ?? panelUi(o) });
 }
 /** Starts on `note/<path>` with the panel on Graph and waits for its canvas or one of its R115 states. */
 export async function openPanel(page: Page, path: string, o: StartPanel = {}): Promise<FakeCoreHandle> {
@@ -196,6 +203,138 @@ export async function labelsShown(page: Page): Promise<number> {
     const s = getComputedStyle(t);
     return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && t.getBoundingClientRect().width > 0;
   }).length).catch(() => -1);
+}
+
+
+// ------------------------------------------------------------------------------------------------ G3 in the panel
+// Slice "G3 in the panel" (docs/acceptance/graph-panel-g3.md R125…R128; docs/contracts/v1-graph.md §17.7): panel-scoped
+// locators and probes of G3's parts (the `View` switch, the tree, the tab stop, the hover ring, the footer per mode).
+// G3's preset locators (`presetBtn`, `presetMenu`, `menuRadio`, `saveDialog`, `deleteConfirm`, `presetState`,
+// `choosePreset`, `saveAs`) are page-scoped and are reused. No AC assertions here except `must`-based lookups (TS-I1).
+
+/** The toolbar's `group` `View` (R125). */
+export const pViewGroup = (page: Page) => graphPanel(page).getByRole('group', { name: /^⟦?View⟧?$/ });
+export const pViewBtn = (page: Page, v: 'Graph' | 'List') => pViewGroup(page).getByRole('button', { name: new RegExp(`^⟦?${v}⟧?$`) });
+/** The panel's `tree` `Local graph as a list` (R125). */
+export const pListTree = (page: Page) => graphPanel(page).getByRole('tree', { name: /^⟦?Local graph as a list⟧?$/ });
+export const pTreeRows = (page: Page) => pListTree(page).getByRole('treeitem');
+export const pTreeRow = (page: Page, title: string) => pListTree(page).getByRole('treeitem', { name: new RegExp(`^${escRe(nfc(title))}, `) });
+/** Every treeitem of the panel's tree in DOM order (as graph-helpers' `rows`, inside the tab panel), with its box. */
+export async function pRows(page: Page): Promise<(Row & { box: { l: number; t: number; r: number; b: number } })[]> {
+  if (!(await seen(pListTree(page), 1000))) return [];
+  return pListTree(page).evaluate((t) => ([...t.querySelectorAll('[role="treeitem"]')] as HTMLElement[]).map((e) => {
+    const ids = (e.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    const parts: string[] = [];
+    const walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const p = n.parentElement;
+      if (p && p.closest('[role="treeitem"]') === e && !(p.closest('[role="group"]') && e.contains(p.closest('[role="group"]')))) parts.push(n.textContent ?? '');
+    }
+    // The row's own box: the treeitem above its nested group (children), as wide as its widest own content.
+    const r = e.getBoundingClientRect();
+    const group = [...e.querySelectorAll('[role="group"]')].find((g) => g.closest('[role="treeitem"]') === e);
+    let right = r.right;
+    for (const x of [...e.querySelectorAll('*')] as HTMLElement[]) {
+      if (x.closest('[role="treeitem"]') !== e || (group && group.contains(x))) continue;
+      const b = x.getBoundingClientRect();
+      if (b.width > 0 && b.height > 0 && getComputedStyle(x).visibility !== 'hidden') right = Math.max(right, b.right);
+    }
+    const o = { left: r.left, top: r.top, right, bottom: group ? group.getBoundingClientRect().top : r.bottom };
+    return {
+      name: (e.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      level: Number(e.getAttribute('aria-level') ?? '0'),
+      expanded: e.getAttribute('aria-expanded'), selected: e.getAttribute('aria-selected'), tabindex: e.getAttribute('tabindex'),
+      text: parts.join('').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' · ').trim().normalize('NFC'),
+      desc: (e.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim().normalize('NFC'),
+      visible: r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden',
+      box: { l: o.left, t: o.top, r: o.right, b: o.bottom },
+    };
+  }));
+}
+/** The panel's node keys with `tabindex="0"`. */
+export async function pTabStops(page: Page): Promise<string[]> {
+  return graphPanel(page).evaluate((m) => ([...m.querySelectorAll('[data-graph-node]')] as Element[])
+    .filter((e) => e.getAttribute('tabindex') === '0' || e.querySelector('[tabindex="0"]'))
+    .map((e) => (e.getAttribute('data-path') ?? `tag:${e.getAttribute('data-tag-key') ?? ''}`).normalize('NFC'))).catch(() => []);
+}
+export type PFocused = { key: string | null; row: string | null; role: string; name: string; tag: string; inPanel: boolean; inPopover: boolean; visible: boolean };
+/** The focused element: a panel node's key, a panel row's name, whether it is inside the tab panel or a preview popover,
+ *  and whether it matches `:focus-visible`. */
+export async function pFocused(page: Page): Promise<PFocused> {
+  return page.evaluate(() => {
+    const a = document.activeElement as HTMLElement | null;
+    if (!a || a === document.body) return { key: null, row: null, role: '', name: '', tag: 'body', inPanel: false, inPopover: false, visible: false };
+    const panel = a.closest('[role="tabpanel"]');
+    const n = a.closest('[data-graph-node]');
+    const row = a.closest('[role="treeitem"]');
+    return {
+      key: n && panel ? (n.getAttribute('data-path') ?? `tag:${n.getAttribute('data-tag-key') ?? ''}`).normalize('NFC') : null,
+      row: row && panel ? (row.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim().normalize('NFC') : null,
+      role: a.getAttribute('role') ?? '', tag: a.tagName.toLowerCase(),
+      name: (a.getAttribute('aria-label') ?? a.innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      inPanel: !!panel,
+      inPopover: !!a.closest('[role="dialog"][data-preview-path], [role="dialog"][aria-label^="Preview: "]'),
+      visible: a.matches(':focus-visible'),
+    };
+  });
+}
+/** Focuses a panel node (its element with a tabindex) programmatically. */
+export async function pFocusNode(page: Page, k: string) {
+  const el = await must(nodeOf(page, k, graphPanel(page)), `panel node ${k}`);
+  await el.evaluate((e) => {
+    const t = (e.getAttribute('tabindex') !== null ? e : e.querySelector('[tabindex]')) as HTMLElement | SVGElement | null;
+    (t ?? (e as SVGElement)).focus();
+  });
+}
+/** The panel's hover ring (R125). */
+export const pHoverRing = (page: Page) => graphPanel(page).locator('[data-hover-ring]');
+/** The running animations of the panel's hover ring: their durations (ms). */
+export async function pRingAnimations(page: Page): Promise<number[]> {
+  return graphPanel(page).evaluate((m) => {
+    const r = m.querySelector('[data-hover-ring]');
+    if (!r) return [];
+    const all = [r, ...r.querySelectorAll('*')].flatMap((e) => (e as Element).getAnimations());
+    return all.filter((a) => a.playState === 'running').map((a) => Number(a.effect?.getComputedTiming().duration ?? 0));
+  }).catch(() => []);
+}
+/** Moves the pointer onto a panel node's shape (two small moves, as a resting pointer). */
+export async function pPointAt(page: Page, k: string) {
+  const el = await must(nodeOf(page, k, graphPanel(page)), `panel node ${k}`);
+  const shape = el.locator('circle, rect, ellipse').first();
+  const box = await ((await shape.count()) ? shape : el).boundingBox();
+  assert.ok(box, `panel node ${k} has a box`);
+  await page.mouse.move(box!.x + box!.width / 2 - 2, box!.y + box!.height / 2);
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+/** A panel node's accessible description (aria-description or aria-describedby). */
+export async function pNodeDescription(page: Page, k: string): Promise<string> {
+  const loc = nodeOf(page, k, graphPanel(page));
+  if (!(await seen(loc, 1000))) return '';
+  return loc.first().evaluate((e) => {
+    const el = (e.getAttribute('aria-label') ? e : e.querySelector('[aria-label]')) ?? e;
+    const ids = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    return (el.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim().normalize('NFC');
+  });
+}
+/** Every footer of R117 / R128: `<n> objects · click a node to preview`, `· hover to preview`, `· click to open`. */
+export const FOOTER_ANY = /^(\d+) objects? · (click a node to preview|hover to preview|click to open)$/;
+/** The panel footer's text in any mode, or '' when there is none. */
+export async function pFooterText(page: Page, ms = 1000): Promise<string> {
+  const loc = graphPanel(page).getByText(FOOTER_ANY);
+  return (await seen(loc, ms)) ? flat(await loc.first().innerText()) : '';
+}
+export async function pFooterIs(page: Page, want: string, ms = 3000): Promise<boolean> {
+  return (await eventually(() => pFooterText(page, 100), (t) => t === want, ms)) === want;
+}
+/** The panel canvas's scale: the centre's main circle (the smallest outside its icon) over R114's 52 px. */
+export async function pScale(page: Page, centre: string): Promise<number> {
+  const sizes = await circleSizes(nodeOf(page, centre, graphPanel(page)));
+  return sizes.length ? Math.min(...sizes) / 52 : NaN;
+}
+/** `vaults[<vault>].graph.full` as stored. */
+export async function fullStored(core: FakeCoreHandle, vault = VAULT_PATH): Promise<GraphState | null> {
+  const s = (await core.uiState()) as any;
+  return s?.vaults?.[nfc(vault)]?.graph?.full ?? null;
 }
 
 export { P };
