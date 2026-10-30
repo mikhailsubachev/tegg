@@ -151,14 +151,17 @@ export const kindBox = (page: Page, label: 'Links' | 'Relations' | 'Embeds' | 'T
 export const allBtn = (page: Page) => typesGroup(page).getByRole('button', { name: 'All', exact: true });
 export const noneBtn = (page: Page) => typesGroup(page).getByRole('button', { name: 'None', exact: true });
 export const sizeBox = (page: Page) => page.getByRole('checkbox', { name: 'Size nodes by links', exact: true });
-export const canvas = (page: Page) => main(page).getByRole('group', { name: /^⟦?Local graph: / });
-export const nodes = (page: Page) => main(page).locator('[data-graph-node]');
-export const edges = (page: Page) => main(page).locator('[data-graph-edge]');
+/** `at`: the area the graph is drawn in (default: the main area; slice G2 passes the panel's `tabpanel` `Graph`). */
+export type Scope = Locator;
+const within = (page: Page, at?: Scope) => at ?? main(page);
+export const canvas = (page: Page, at?: Scope) => within(page, at).getByRole('group', { name: /^⟦?Local graph: / });
+export const nodes = (page: Page, at?: Scope) => within(page, at).locator('[data-graph-node]');
+export const edges = (page: Page, at?: Scope) => within(page, at).locator('[data-graph-edge]');
 const attrEsc = (s: string) => nfc(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-export const nodeAt = (page: Page, path: string) => main(page).locator(`[data-graph-node][data-path="${attrEsc(path)}"]`);
-export const tagNode = (page: Page, key: string) => main(page).locator(`[data-graph-node][data-tag-key="${attrEsc(key)}"]`);
+export const nodeAt = (page: Page, path: string, at?: Scope) => within(page, at).locator(`[data-graph-node][data-path="${attrEsc(path)}"]`);
+export const tagNode = (page: Page, key: string, at?: Scope) => within(page, at).locator(`[data-graph-node][data-tag-key="${attrEsc(key)}"]`);
 /** A node by its README short key: a path, or `tag:<key>`. */
-export const nodeOf = (page: Page, k: string) => (k.startsWith('tag:') ? tagNode(page, k.slice(4)) : nodeAt(page, k));
+export const nodeOf = (page: Page, k: string, at?: Scope) => (k.startsWith('tag:') ? tagNode(page, k.slice(4), at) : nodeAt(page, k, at));
 export const zoomIn = (page: Page) => main(page).getByRole('button', { name: 'Zoom in', exact: true });
 export const zoomOut = (page: Page) => main(page).getByRole('button', { name: 'Zoom out', exact: true });
 export const fitBtn = (page: Page) => main(page).getByRole('button', { name: 'Fit to screen', exact: true });
@@ -175,8 +178,8 @@ export const titleTab = (page: Page, name: string) => page.getByRole('tab', { na
 
 export type DrawnNode = { key: string; path: string | null; tag: string | null; type: string | null; depth: number | null; step: string | null; selected: boolean; name: string; icon: string | null };
 /** Every drawn node: `data-path` (or `tag:<data-tag-key>`) as its key, NFC. */
-export async function drawn(page: Page): Promise<DrawnNode[]> {
-  return main(page).evaluate((m) => ([...m.querySelectorAll('[data-graph-node]')] as SVGElement[]).map((e) => {
+export async function drawn(page: Page, at?: Scope): Promise<DrawnNode[]> {
+  return within(page, at).evaluate((m) => ([...m.querySelectorAll('[data-graph-node]')] as SVGElement[]).map((e) => {
     const path = e.getAttribute('data-path');
     const tag = e.getAttribute('data-tag-key');
     const sel = e.getAttribute('data-selected');
@@ -189,17 +192,17 @@ export async function drawn(page: Page): Promise<DrawnNode[]> {
     };
   })).catch(() => []);
 }
-export async function drawnKeys(page: Page): Promise<string[]> {
-  return (await drawn(page)).map((n) => n.key).sort();
+export async function drawnKeys(page: Page, at?: Scope): Promise<string[]> {
+  return (await drawn(page, at)).map((n) => n.key).sort();
 }
 /** Waits until `n` nodes are drawn; returns the keys. */
-export async function waitDrawn(page: Page, n: number, ms = 3000): Promise<string[]> {
-  return eventually(() => drawnKeys(page), (k) => k.length === n, ms);
+export async function waitDrawn(page: Page, n: number, ms = 3000, at?: Scope): Promise<string[]> {
+  return eventually(() => drawnKeys(page, at), (k) => k.length === n, ms);
 }
 export type DrawnEdge = { pair: string; a: string; b: string; kinds: string[]; style: string | null };
 /** Every drawn edge, its ends as written in `data-a` / `data-b` (sorted into a pair key `a|b`). */
-export async function drawnEdges(page: Page): Promise<DrawnEdge[]> {
-  return main(page).evaluate((m) => ([...m.querySelectorAll('[data-graph-edge]')] as SVGElement[]).map((e) => {
+export async function drawnEdges(page: Page, at?: Scope): Promise<DrawnEdge[]> {
+  return within(page, at).evaluate((m) => ([...m.querySelectorAll('[data-graph-edge]')] as SVGElement[]).map((e) => {
     const a = (e.getAttribute('data-a') ?? '').normalize('NFC'), b = (e.getAttribute('data-b') ?? '').normalize('NFC');
     const [x, y] = a <= b ? [a, b] : [b, a];
     return { pair: `${x}|${y}`, a, b, kinds: (e.getAttribute('data-kinds') ?? '').split(/[\s,]+/).filter(Boolean).sort(), style: e.getAttribute('data-style') };
@@ -211,8 +214,8 @@ export function pairOf(edgesNow: DrawnEdge[], x: string, y: string): DrawnEdge |
   return edgesNow.find((e) => alt(x).some((p) => alt(y).some((q) => (e.a === p && e.b === q) || (e.a === q && e.b === p))));
 }
 /** Centres of the drawn nodes' shapes (the circle or the pill), in page pixels. */
-export async function positions(page: Page): Promise<Record<string, { x: number; y: number }>> {
-  return main(page).evaluate((m) => {
+export async function positions(page: Page, at?: Scope): Promise<Record<string, { x: number; y: number }>> {
+  return within(page, at).evaluate((m) => {
     const out: Record<string, { x: number; y: number }> = {};
     for (const e of [...m.querySelectorAll('[data-graph-node]')] as SVGGraphicsElement[]) {
       const key = (e.getAttribute('data-path') ?? `tag:${e.getAttribute('data-tag-key') ?? ''}`).normalize('NFC');
@@ -223,8 +226,8 @@ export async function positions(page: Page): Promise<Record<string, { x: number;
     return out;
   }).catch(() => ({}));
 }
-export async function canvasCentre(page: Page): Promise<{ x: number; y: number } | null> {
-  const c = await must(canvas(page), 'the canvas (R109)');
+export async function canvasCentre(page: Page, at?: Scope): Promise<{ x: number; y: number } | null> {
+  const c = await must(canvas(page, at), 'the canvas (R109)');
   const r = await c.boundingBox();
   return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
 }
@@ -232,8 +235,8 @@ export function samePlaces(a: Record<string, { x: number; y: number }>, b: Recor
   return keys.filter((k) => !b[k] || !a[k] || Math.abs(a[k].x - b[k].x) > tol || Math.abs(a[k].y - b[k].y) > tol);
 }
 /** Clicks (or double-clicks) a node at its shape's centre. */
-export async function clickNode(page: Page, k: string, how: { double?: boolean; meta?: boolean } = {}) {
-  const el = await must(nodeOf(page, k), `node ${k}`);
+export async function clickNode(page: Page, k: string, how: { double?: boolean; meta?: boolean } = {}, at?: Scope) {
+  const el = await must(nodeOf(page, k, at), `node ${k}`);
   const shape = el.locator('circle, rect, ellipse').first();
   const box = await ((await shape.count()) ? shape : el).boundingBox();
   assert.ok(box, `node ${k} has a box`);
@@ -243,25 +246,25 @@ export async function clickNode(page: Page, k: string, how: { double?: boolean; 
   if (how.meta) await page.keyboard.up('Meta');
 }
 /** Clicks an empty spot of the canvas (its top-left corner area). */
-export async function clickEmpty(page: Page) {
-  const c = await must(canvas(page), 'the canvas');
+export async function clickEmpty(page: Page, at?: Scope) {
+  const c = await must(canvas(page, at), 'the canvas');
   const r = await c.boundingBox();
   assert.ok(r, 'the canvas has a box');
   await page.mouse.click(r!.x + 6, r!.y + 6);
 }
-export async function opacity(page: Page, k: string): Promise<number | null> {
-  if (!(await seen(nodeOf(page, k), 500))) return null;
-  return nodeOf(page, k).first().evaluate((e) => {
+export async function opacity(page: Page, k: string, at?: Scope): Promise<number | null> {
+  if (!(await seen(nodeOf(page, k, at), 500))) return null;
+  return nodeOf(page, k, at).first().evaluate((e) => {
     let o = 1;
     for (let x: Element | null = e; x && x.tagName.toLowerCase() !== 'svg'; x = x.parentElement) o *= Number(getComputedStyle(x).opacity || '1');
     return Math.round(o * 100) / 100;
   });
 }
-export async function edgeStyle(page: Page, x: string, y: string): Promise<{ stroke: string; width: string; dash: string; opacity: number } | null> {
-  const all = await drawnEdges(page);
+export async function edgeStyle(page: Page, x: string, y: string, at?: Scope): Promise<{ stroke: string; width: string; dash: string; opacity: number } | null> {
+  const all = await drawnEdges(page, at);
   const e = pairOf(all, x, y);
   if (!e) return null;
-  return main(page).evaluate((_m, [a, b]) => {
+  return within(page, at).evaluate((_m, [a, b]) => {
     const el = ([...document.querySelectorAll('[data-graph-edge]')] as SVGElement[]).find((n) => (n.getAttribute('data-a') ?? '').normalize('NFC') === a && (n.getAttribute('data-b') ?? '').normalize('NFC') === b);
     if (!el) return null;
     const s = getComputedStyle(el);
@@ -282,9 +285,9 @@ export async function tokenColour(page: Page, name: string): Promise<string> {
   }, name);
 }
 /** The shape's fill and stroke and the icon's colour of a node. */
-export async function nodePaint(page: Page, k: string): Promise<{ fill: string; stroke: string; icon: string | null; text: string | null; strokeWidth: string } | null> {
-  if (!(await seen(nodeOf(page, k), 500))) return null;
-  return nodeOf(page, k).first().evaluate((e) => {
+export async function nodePaint(page: Page, k: string, at?: Scope): Promise<{ fill: string; stroke: string; icon: string | null; text: string | null; strokeWidth: string } | null> {
+  if (!(await seen(nodeOf(page, k, at), 500))) return null;
+  return nodeOf(page, k, at).first().evaluate((e) => {
     const shape = (e.querySelector('circle, rect, ellipse') as SVGElement | null) ?? (e as SVGElement);
     const s = getComputedStyle(shape);
     const icon = e.querySelector('[data-icon]') as SVGElement | null;

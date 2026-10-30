@@ -990,7 +990,7 @@ test('fr_ux_03_ac20_graph_commands_and_shortcut', async ({ page }) => {
   await page.keyboard.press('Meta+k');
   await page.getByRole('combobox', { name: 'Command query' }).fill('Show local graph');
   await sleep(200);
-  assert.ok(!(await page.getByRole('listbox', { name: 'Commands' }).getByRole('option').allInnerTexts()).some((t) => t.includes('Show local graph')), 'no `Show local graph` in G1');
+  assert.ok(!(await page.getByRole('listbox', { name: 'Commands' }).getByRole('option').allInnerTexts()).some((t) => t.includes('Show local graph')), 'no `Show local graph` on graph/<path> (G2 lists it only where the right panel shows, D-918)');
 });
 
 test('nfr_oth_02_ac12_graph_strings_in_the_catalog', async ({ page }) => {

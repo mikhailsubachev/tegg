@@ -85,6 +85,8 @@ export type ShellActions = {
   graphCommand?: (id: GraphCommandId) => void;
   /** Slice G3 (R123): the shown graph's view and preset state, for the commands' listing and `disabled()` reasons. */
   graphStatus?: () => GraphStatus | null;
+  /** Slice G2 (FR-NAV-05 AC-2, D-918): opens the Context panel on the Graph tab, focus on `Depth and filters`. */
+  showLocalGraph?: () => void;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -106,6 +108,8 @@ export type ShellContext = {
   actions?: ShellActions;
   /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
   route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null; review?: unknown; hasFrontmatter?: boolean } | null;
+  /** Slice G2 (D-1045): the right panel as drawn on the current route. */
+  panel?: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
 };
 
 export type Command = {
@@ -257,9 +261,11 @@ export function commands(ctx: ShellContext): Command[] {
   const hasObject = r?.id === 'note/<path>' || r?.id === 'graph/<path>' || ((r?.id === 'daily/YYYY-MM-DD' || r?.id === 'tag/<key>') && !!r.path);
   list.push({ id: 'graph.open', title: 'cmd.graph.open', section: 'navigate', shortcut: shortcutOf('graph.open'), needsVault: true,
     disabled: () => (hasObject ? null : t('cmd.needsObject')), run: (c) => a(c)?.openGraph?.() });
-  if (r?.id === 'graph/<path>') {
+  // Slice G2 (D-1035, D-1045): `Graph: Depth n` also while the panel shows the Graph tab; `Recenter` only on the route.
+  const panelGraph = !!ctx.panel?.open && ctx.panel.tab === 'graph';
+  if (r?.id === 'graph/<path>' || panelGraph) {
     list.push(
-      ...(['depth1', 'depth2', 'depth3', 'recenter'] as const).map((id): Command => ({ id: `graph.${id}`, title: `cmd.graph.${id}`, section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.(id) })),
+      ...((r?.id === 'graph/<path>' ? ['depth1', 'depth2', 'depth3', 'recenter'] : ['depth1', 'depth2', 'depth3']) as ('depth1' | 'depth2' | 'depth3' | 'recenter')[]).map((id): Command => ({ id: `graph.${id}`, title: `cmd.graph.${id}`, section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.(id) })),
     );
     // Slice G3 (R123, AP-932): presets and the view; no shortcuts. Each lists its reason while it can't run.
     const st = () => a(ctx)?.graphStatus?.() ?? null;
@@ -307,6 +313,8 @@ export function commands(ctx: ShellContext): Command[] {
   }
   if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'new/<type>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
+    // Slice G2 (FR-NAV-05 AC-2, FR-UX-03 AC-21): no shortcut.
+    list.push({ id: 'panel.graph', title: 'cmd.graph.showLocal', section: 'view', needsVault: true, run: (c) => a(c)?.showLocalGraph?.() });
   }
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
   const route = ctx.route ?? null;

@@ -5,33 +5,28 @@
 // file as read (the page's only vault writes, through `PresetControl`), the `Graph` / `List` switch, the keyboard
 // (R120), the hover controller and the hint and empty column per Object preview setting (FR-LNK-12, replacing D-983).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { region } from '../i18n/collate';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { usePreview } from '../preview/PreviewProvider';
 import { getCurrent } from '../preview/store';
 import type { GraphCommandId, GraphStatus } from '../shell/commands';
-import type { PreviewTarget } from '../preview/types';
 import { Icon } from '../shell/Icon';
 import { GraphCanvas, nodeBox, shapeHalf, type View } from './GraphCanvas';
 import { GraphFilters } from './GraphFilters';
 import { GraphList } from './GraphList';
-import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, nodeDescription, positionOrder, type ModelNode, type NodeKey, type RelationNames } from './graphModel';
+import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, nodeDescription, positionOrder, sortKey, type ModelNode, type NodeKey } from './graphModel';
 import { graphHover } from './hover';
 import { ARROWS, graphKeyAction, nearestInDirection } from './keyboard';
 import { layout, type Point } from './layout';
 import { currentPreset, isModified, nameKey } from './presets';
 import { PresetControl, type PresetActions } from './PresetControl';
-import type { EdgeKindDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto } from './types';
+import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
+import type { EdgeKindDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
 
 const CAP = 150;
 const MAX_DRAWN = 1000;
-const LOADING_AFTER = 300;
-const DEBOUNCE = 300;
 const NARROW = 960;
-const ZOOM_MIN = 0.25, ZOOM_MAX = 4, ZOOM_STEP = 1.25;
-const KIND_KEYS: EdgeKindDto[] = ['link', 'relation', 'embed', 'tag'];
 const GRAPH_YML = '.tegg/graph.yml';
 /** R120: the margin a focused node keeps from the canvas's edges after an arrow. */
 const PAN_MARGIN = 24;
@@ -63,24 +58,19 @@ export type GraphPageProps = {
   onViews: (f: (g: { full?: GraphViewStateDto; panel?: GraphViewStateDto }) => { full?: GraphViewStateDto; panel?: GraphViewStateDto }) => void;
   /** G3 (R123): what the palette's preset and view commands read. */
   statusRef: React.RefObject<(() => GraphStatus) | null>;
+  /** Slice G2 (v1-graph §15.5, D-1037): the panel's hand-over on this history entry: its depth overrides
+   *  `graph.full.depth` for the entry only; its node is selected and previewed once drawn. */
+  handover?: { depth: 1 | 2 | 3; select: NodeIdDto | null } | null;
+  /** A depth change on an entry with a hand-over: the entry keeps what was last seen. */
+  onHandoverDepth?: (d: 1 | 2 | 3) => void;
 };
 
 type Failure = { kind: 'trash' | 'gone'; title: string };
 
-const stemOf = (p: string) => (p.split('/').pop() ?? p).replace(/\.md$/, '');
-const validDepth = (d: unknown): 1 | 2 | 3 => (d === 1 || d === 2 || d === 3 ? d : 1);
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-const kindsOf = (v: unknown): EdgeKindDto[] => strings(v).filter((k): k is EdgeKindDto => (KIND_KEYS as string[]).includes(k));
-const fmt = (n: number) => new Intl.NumberFormat(region() ?? 'en-US').format(n);
-const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-function relationNames(): RelationNames {
-  return chipTypes().map((x) => ({ key: x.key, attributes: ((x as { attributes?: { key: string; name: string }[] }).attributes ?? []).map((a) => ({ key: a.key, name: a.name })) }));
-}
 
 export function GraphPage(p: GraphPageProps) {
   const centrePath = p.path.normalize('NFC');
-  const depth = validDepth(p.view?.depth);
+  const depth = p.handover ? validDepth(p.handover.depth) : validDepth(p.view?.depth);
   const hiddenTypes = strings(p.view?.hiddenTypes);
   const hiddenKinds = kindsOf(p.view?.hiddenKinds);
   const sizeByLinks = p.view?.sizeByLinks === true;
@@ -259,17 +249,14 @@ export function GraphPage(p: GraphPageProps) {
   const lines = useCallback((n: ModelNode) => {
     if (!result) return [];
     const first = t('graph.preview.connections', { type: typeNameOf(n.node.typeKey), count: n.node.degree });
-    const second = connectionPhrase(n.node, result, relationNames());
+    const second = connectionPhrase(n.node, result, relationNames(chipTypes()));
     return second ? [first, second] : [first];
   }, [result]);
-  const targetOf = (n: ModelNode): PreviewTarget => (n.node.typeKey === 'tag'
-    ? { kind: 'tag', key: n.node.tagKey ?? n.node.title, path: n.node.path ?? '', fragment: null }
-    : { kind: 'note', path: n.node.path ?? '', fragment: null });
   const centreable = (n: ModelNode) => !n.centre && !!n.node.path;
   const showPreview = (n: ModelNode, el: Element, origin: 'click' | 'hover' | 'key' = 'click') => {
     const container = column.current;
     if (!container) return;
-    preview.show(targetOf(n), { el: el as HTMLElement }, origin, { placement: 'column', container }, lines(n),
+    preview.show(targetOf(n.node), { el: el as HTMLElement }, origin, { placement: 'column', container }, lines(n),
       { label: t('graph.centerHere'), disabled: !centreable(n), run: () => { if (centreable(n)) p.nav.centre(n.node.path!); } });
   };
   const pendingShow = useRef<{ n: ModelNode; el: Element; origin: 'click' | 'key' } | null>(null);
@@ -289,6 +276,21 @@ export function GraphPage(p: GraphPageProps) {
     pendingShow.current = null;
     if (preview.current) preview.close('outside');
   }
+  // Slice G2 (§15.5): the hand-over's node is selected and previewed in the column once it is drawn (D-1037).
+  const handed = useRef(false);
+  useEffect(() => {
+    const want = p.handover?.select;
+    if (handed.current || !model || positions.size === 0) return;
+    handed.current = true;
+    if (!want) return;
+    const n = model.nodes.find((x) => x.sortKey === sortKey(want));
+    if (!n) return;
+    const el = root.current?.querySelector(n.node.typeKey === 'tag'
+      ? `[data-graph-node][data-tag-key="${CSS.escape(n.node.tagKey ?? '')}"]`
+      : `[data-graph-node][data-path="${CSS.escape(n.node.path ?? '')}"]`);
+    if (el) select(n, el);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, positions]);
   // The preview closed by itself (its close button): the selection goes too.
   const hadPreview = useRef(false);
   useEffect(() => {
@@ -455,16 +457,20 @@ export function GraphPage(p: GraphPageProps) {
     el.focus({ preventScroll: true });
   });
   const positionIndex = useMemo(() => new Map((result ? positionOrder(result) : []).map((k, i) => [k, i + 1])), [result]);
-  const types = useMemo(() => relationNames(), [result]);
+  const types = useMemo(() => relationNames(chipTypes()), [result]);
   const describe = (n: ModelNode) => (result ? nodeDescription(n.node, result, types, positionIndex.get(n.key) ?? null) : '');
 
   // ------------------------------------------------------------------ view state (D-993)
   const write = (patch: Partial<GraphViewStateDto>) => p.onView({ ...(p.view ?? {}), ...patch });
-  const setDepth = (d: 1 | 2 | 3) => { if (d !== depth) write({ depth: d }); };
+  const setDepth = (d: 1 | 2 | 3) => {
+    if (d === depth) return;
+    write({ depth: d });
+    if (p.handover) p.onHandoverDepth?.(d);
+  };
   const known = (result?.typeCounts ?? []).map(([k]) => k);
-  const unknownHidden = hiddenTypes.filter((k) => !known.includes(k));
+  const unknown = unknownHidden(hiddenTypes, known);
   const setType = (key: string, visible: boolean) => write({ hiddenTypes: visible ? hiddenTypes.filter((k) => k !== key) : [...hiddenTypes, key] });
-  const setAll = (visible: boolean) => write({ hiddenTypes: visible ? unknownHidden : [...unknownHidden, ...known] });
+  const setAll = (visible: boolean) => write({ hiddenTypes: typesAfterAll(hiddenTypes, known, visible) });
   const setKind = (kind: EdgeKindDto, visible: boolean) => write({ hiddenKinds: visible ? hiddenKinds.filter((k) => k !== kind) : [...hiddenKinds, kind] });
   const recenter = () => {
     const n = model?.nodes.find((x) => x.key === selected);
@@ -687,7 +693,7 @@ export function GraphPage(p: GraphPageProps) {
             {allHidden && (
               <div className="graph-state">
                 <p>{t(hiddenKinds.length ? 'graph.allHidden.filters' : 'graph.allHidden.types', { count: result!.hidden })}</p>
-                <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknownHidden, hiddenKinds: [] }) : write({ hiddenTypes: unknownHidden }))}>
+                <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknown, hiddenKinds: [] }) : write({ hiddenTypes: unknown }))}>
                   {t(hiddenKinds.length ? 'graph.showEverything' : 'graph.showAllTypes')}
                 </button>
               </div>

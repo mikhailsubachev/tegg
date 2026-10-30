@@ -67,7 +67,7 @@ export type R2Row = { id: 'backlinks' | 'outline' | 'graph'; tab: string; built:
 export const R2: R2Row[] = [
   { id: 'backlinks', tab: 'Backlinks', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-01, FR-LNK-02' }, // built in 4A (backlinks.md R16, D-293)
   { id: 'outline', tab: 'Outline', built: false, due: d('v1.0'), reqs: 'FR-EDT-11' }, // 5B R62 (D-376)
-  { id: 'graph', tab: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01' },
+  { id: 'graph', tab: 'Graph', built: true, due: d('v1.0'), reqs: 'FR-GRP-01, FR-NAV-05' }, // G2 (graph-panel.md, D-920)
 ];
 
 /** R3, one entry per control (a table row may name several controls). `shortcut` controls are in R4 as well. */

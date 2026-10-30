@@ -79,7 +79,8 @@ export const ROUTES: RouteDef[] = [
 export const PANEL_TABS: TabDef[] = [
   { id: 'backlinks', name: 'tab.backlinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-01', 'FR-LNK-02'] }, // built in 4A (D-293)
   { id: 'outline', name: 'tab.outline', status: tbd('v1.0'), reqs: ['FR-EDT-11'] }, // 5B R62 (D-376)
-  { id: 'graph', name: 'tab.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01'] },
+  // G2 (graph-panel.md R114, D-920): the local graph in the panel.
+  { id: 'graph', name: 'tab.graph', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-GRP-01', 'FR-NAV-05'] },
 ];
 
 const d = (milestone: Milestone, slice?: Slice): Due => (slice ? { milestone, slice } : { milestone });

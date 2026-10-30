@@ -56,7 +56,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `saved-queries` | Saved queries | TBD | v1.0 | FR-QRY-06 | — | sidebar, palette |
 | `note/<path>` | Edit note | built, read view (3B, D-150) | MS3 | — | Main | switcher, search result, type page row, New object, launch landing |
 | `new/<type>` | New object | built, unsaved draft (D-520, 5A-1 feedback) | MS5 | FR-TYP-09, FR-EDT-01 | Main | New object (⌘N), a type page's `New <Name>`; becomes `note/<path>` on its first write |
-| `graph` | Graph | TBD | v1.0 | FR-GRP-01…08 | Graph | palette, right-panel Graph tab |
+| `graph` | Graph | TBD | v1.0 | FR-GRP-01…08 | Graph | palette, right-panel Graph tab, the panel's `Open full view` (G2, graph-panel.md R116) |
 | `trash` | Trash | TBD | MS6 | FR-HIS-01, FR-HIS-02 | — | palette |
 | `import` | Import | TBD | MS7 | FR-IMP-01, -03, -05, FR-STO-10 | — | palette |
 | `conflicts` | Conflicts | TBD | MS3 (3C) | FR-SYN-04, FR-SYN-05 | — | palette (AP-69) |
@@ -76,7 +76,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | --- | --- | --- | --- | --- |
 | `backlinks` | Backlinks | TBD | MS4 | FR-LNK-01…04 |
 | `outline` | Outline | TBD | MS5 | FR-EDT-11 |
-| `graph` | Graph | TBD | v1.0 | FR-GRP-01 |
+| `graph` | Graph | built (G2, graph-panel.md R114; D-920) | v1.0 | FR-GRP-01, FR-NAV-05 |
 
 No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20).
 
