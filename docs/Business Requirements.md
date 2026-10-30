@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.119, for review                                            |
+| **Document status** | Draft v1.120, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -133,6 +133,7 @@
 | v1.117  | 2026-10-30 | G2 red-test decisions (red tests 504998b): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
 | v1.118  | 2026-10-30 | G2 build decisions D-1050…D-1055 (AP-900…AP-905, each as proposed): four AC-test corrections (pseudo-locale tabpanel name, the `nav_opened` baseline, the 800 × 500 window, the daily route id), the panel waits for a running rename job, theme checks after transitions end |
 | v1.119  | 2026-10-30 | Preview v0.94 feedback, tasks search and date picker: D-1280…D-1289 (AP-1180…AP-1189, each as proposed): the All tasks title filter on Schedule and Kanban, what it hides and which counts follow, not remembered, quick-add while searching, the `Filter tasks` command; the date picker's quick picks `Today`, `Tomorrow`, `This week` (the first Friday on or after today, its long date as description), typed words unchanged, the AC-test changes (amends D-602, D-763). `docs/acceptance/tasks.md` FR-TSK-04 AC-19…AC-21, FR-TSK-05 AC-16; `docs/acceptance/date-picker.md` FR-TYP-02 AC-9, AC-10 |
+| v1.120  | 2026-10-30 | v0.94 red-test and build decisions D-1290…D-1295 (AP-1190…AP-1195, each as proposed): the quick-add bytes on the Schedule while searching, the no-match status for any text, the quick picks' container, no description or tooltip on `Today` and `Tomorrow`, the user's text inside a catalog message, the capture's `Due: Tomorrow` (AC-test change) |
 
 ---
 
@@ -1117,6 +1118,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1287 | `This week` shows its date (AP-1187) (owner, 2026-10-30; preview v0.94 feedback, `docs/acceptance/date-picker.md`) | `This week` has the description and tooltip of its date in the region's long form; `Today` and `Tomorrow` have none (FR-TYP-02 AC-9) |
 | D-1288 | Typed date words unchanged (AP-1188) (owner, 2026-10-30; preview v0.94 feedback, `docs/acceptance/date-picker.md`) | The `Date` field keeps `fri` (strictly the next Friday), `next week` (next Monday) and the hint `or type “fri”, “next week”` (D-537) |
 | D-1289 | Four-button ACs and tests (AP-1189) (owner, 2026-10-30; preview v0.94 feedback, `docs/acceptance/date-picker.md`) | FR-DLY-03 AC-7 and FR-CAP-01 AC-19 are amended to the three picks; their tests change with `AC-Test-Change: v0.94 three quick picks (D-1289); approved-by: owner` |
+| D-1290 | Quick-add bytes while searching (AP-1190) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | FR-TSK-04 AC-21: quick-add on the Schedule with a search writes `status: To do` and `due: 2026-10-14` (the Schedule preset), no priority and no tags |
+| D-1291 | No-match status for any text (AP-1191) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | `No Tasks match "<text>"` shows whenever the search leaves no card shown, not only for `cesta` (FR-TSK-04 AC-19, FR-TSK-05 AC-16) |
+| D-1292 | The quick picks' container (AP-1192) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | FR-TYP-02 AC-10 measures the nearest common ancestor of the three buttons; it has no vertical padding |
+| D-1293 | `Today` and `Tomorrow` have no description (AP-1193) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | "None" in FR-TYP-02 AC-9 covers `aria-description`, `aria-describedby` text and `title` |
+| D-1294 | User text inside catalog messages (AP-1194) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | In the pseudo-locale check, a catalog message that contains the user's text (the search, the Task plural) counts as one marked message |
+| D-1295 | `Due: Tomorrow` in the capture (AP-1195) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | AC-test correction: after `Tomorrow` the capture chip shows R55's due label `Due: Tomorrow` (FR-CAP-01 AC-19); the test changes with `AC-Test-Change: R55 due label for tomorrow (D-1295); approved-by: owner` |
 
 ---
 
