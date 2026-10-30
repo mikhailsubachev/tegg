@@ -159,7 +159,9 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
       }
     }
     return [{
-      rank: [['phrase', 'allWords', 'anyWord'].indexOf(tier), field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field)],
+      // The third key stands in for the core's bm25 inside a field: a shorter title ranks first (`Rozpočet 2026` before
+      // `Projekt a rozpočet`, FR-SRC-03 AC-10).
+      rank: [['phrase', 'allWords', 'anyWord'].indexOf(tier), field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field), field === 'title' ? toks(title).length : 0],
       r: {
         ...base(o), matched_in: field, tier, typo: false, snippet,
         file_name: field === 'fileName' ? { text: stem, highlights: mark(stem), line: 0 } : null,
@@ -167,6 +169,6 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
       },
     }];
   });
-  rows.sort((x, y) => x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.r.path.localeCompare(y.r.path));
+  rows.sort((x, y) => x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.rank[2] - y.rank[2] || x.r.path.localeCompare(y.r.path));
   return page(rows.map((x) => x.r));
 }

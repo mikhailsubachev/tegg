@@ -6,7 +6,9 @@ import { routeString, type Route } from './routes';
 export type GraphHandover = { depth: 1 | 2 | 3; select: { path: string } | { tag: string } | null };
 /** The note editor's selection when the entry was left (Back returns with its caret, graph.md FR-GRP-01 AC-11, AC-34). */
 export type Caret = { anchor: number; head: number };
-export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHandover; caret?: Caret };
+/** The Search page's state, carried by its entry only (v1-search §3, D-1217): Back restores it, nothing else keeps it. */
+export type SearchState = { text: string; type: string | null; tags: string[]; loaded: number; focusPath: string | null };
+export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHandover; caret?: Caret; search?: SearchState };
 
 export function createHistory(): {
   push(r: Route, graph?: GraphHandover): void;
@@ -20,12 +22,16 @@ export function createHistory(): {
   /** The current entry's hand-over (G2: a depth change in the full view updates it). */
   current(): HistoryEntry | null;
   setGraph(graph: GraphHandover): void;
+  setSearch(search: SearchState): void;
   clear(): void;
 } {
   let entries: HistoryEntry[] = [];
   let at = -1;
   const key = (r: Route) => routeString(r).normalize('NFC');
-  const copy = (e: HistoryEntry): HistoryEntry => ({ route: { ...e.route }, scrollTop: e.scrollTop, ...(e.graph ? { graph: { ...e.graph } } : {}), ...(e.caret ? { caret: { ...e.caret } } : {}) });
+  const copy = (e: HistoryEntry): HistoryEntry => ({
+    route: { ...e.route }, scrollTop: e.scrollTop, ...(e.graph ? { graph: { ...e.graph } } : {}), ...(e.caret ? { caret: { ...e.caret } } : {}),
+    ...(e.search ? { search: { ...e.search, tags: [...e.search.tags] } } : {}),
+  });
   // D-521: an unsaved new object (`new/<type>`) is an entry only while it is shown; once left, it is dropped.
   const draft = (e: HistoryEntry | undefined) => e?.route.id === 'new/<type>';
   const dropLeftDrafts = () => {
@@ -70,6 +76,9 @@ export function createHistory(): {
     current: () => (at >= 0 ? copy(entries[at]) : null),
     setGraph(graph) {
       if (at >= 0) entries[at].graph = { ...graph };
+    },
+    setSearch(search) {
+      if (at >= 0 && entries[at].route.id === 'search') entries[at].search = { ...search, tags: [...search.tags] };
     },
     clear() {
       entries = [];
