@@ -900,3 +900,17 @@ everything else reuses R112, R117, R124.
 2. The panel keeps its own `GraphPresetsDto` and re-reads it on mount and popover open rather than sharing a store with
    the full view: the two are never shown together (D-988), and the core's base check stays the only guard.
 3. Commands keep their ids; `App.tsx` routes them to whichever graph is shown (R127).
+
+### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.123; red tests cf306fd)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1145** `GraphStatus` gains an optional `state` (the panel's `noFile` / `deleted` / `pending` / `noLinks` / `ready`), filled by `App.graphStatus` from the panel graph, so R123's commands give the D-1142 reasons.
+- **D-1146** FR-UX-03 AC-38 starts with `graph.panel = { depth: 2, hiddenTypes: ['tag'] }` in `ui-state.json`; the `.tegg/graph.yml` it writes must equal `tests/fixtures/graph-presets/expected/created.yml` byte for byte.
+- **D-1147** `aria-disabled` menu items stay focusable (WAI-ARIA): in the preset menu `Rename…` is ↓3 and `Delete…` ↓4; `Graph` and `List` are separate tab stops.
+- **D-1148** The focus ring's contrast is computed inside the L5 test; no L1 test (it would pass before the build).
+- **D-1149** Each such test first requires a feature only this slice adds, as D-1111.
+- **D-1150** Unreachable from the panel (disabled while the filters match); the tours test a rename to the same name instead, and the L4 tests keep covering D-1114.
+- **D-1151** The L6 test asserts the safe outcome (no lost external change) whether the watcher reloads before `Save` or a Conflict appears; the strict Conflict check stays in L5.
+- **D-1152** By the ring element's bounding box without stroke: 10 px wider than a circle node, 8 px wider than a tag pill.
+- **D-1153** The pressed button's background is `--bg`; the `View` group's background is `--hover`.
