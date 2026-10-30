@@ -101,8 +101,8 @@ first-reached distance. `unfiltered` is the same walk with no hidden types or ki
 ### 1.4 Degree (D-975)
 
 The number of distinct nodes joined to the object by any edge of §1.1, over the whole vault, independent of the request.
-Computed per query for the returned nodes (one grouped SQL over the link and tag tables); not stored in the index, so a
-rebuild gives the same numbers (AR-01).
+Read from the in-memory vault-wide graph (`GraphData`), which is derived from the index on first use and dropped on every
+index change; nothing is stored, so a rebuild gives the same numbers (AR-01).
 
 ### 1.5 Cancellation and determinism (D-911, AR-01)
 
@@ -177,9 +177,8 @@ Generated from Rust like the other DTOs (architecture §6). No new event.
 | `graphModel.ts` | Pure: `GraphResultDto` → view model (node sizes per R113 and D-975 steps, label rules D-985, the connection phrases of D-982 from `ways`, heading and banner texts). L1-tested without the DOM. |
 | `layout.ts` | Pure over d3-force (ADR 0004): `layout(model, size, previous?) → Map<NodeKey, {x, y}>`, where `NodeKey` is `objectId` when present, else the sort key (§1.6), so a renamed node keeps its place and its selection (FR-GRP-01 AC-13). Seeded, centre pinned at the canvas centre, run to rest synchronously (no rAF ticks); with `previous`, surviving nodes are fixed at their old positions and new ones start next to their first kept neighbour (D-913). |
 | `GraphPage.tsx` | The route: request lifecycle (§6), state (§5), the 300 ms loading rule (D-912), R110 states, history. |
-| `GraphCanvas.tsx` | SVG `role="group"`: one `<g data-graph-node tabindex="-1">` per node (G3 adds roving focus), one `<path data-graph-edge>` per edge (R109 data attributes), zoom and pan (D-985), selection and hover highlight (D-983), fades per D-992 (none under Reduce motion). |
+| `GraphCanvas.tsx` | SVG `role="group"`: one `<g data-graph-node tabindex="-1">` per node (G3 adds roving focus), one `<line data-graph-edge>` per edge (R109 data attributes), zoom and pan (D-985), selection and hover highlight (D-983), fades per D-992 (none under Reduce motion). |
 | `GraphFilters.tsx` | `complementary` `Graph filters`: Types (`All`, `None`, one checkbox per type in D-121 order then Tag then undefined types, D-977), Connections, `Size nodes by links`. Slot above Types for G3's preset select. |
-| `GraphPreviewColumn.tsx` | Mounts the slice P preview with `host.placement = 'column'` (§7). |
 
 Commands (`shell/commands.ts`, section `navigate`, `needsVault: true`): `graph.open` (⌘⇧G), `graph.depth1`…`depth3`,
 `graph.recenter`; the last four are registered with `when: route is graph/*`. Strings: every R112 key in the English
@@ -202,9 +201,9 @@ type GraphViewStateDto = {
 };
 ```
 
+- The Rust `UiState` carries `vaults` in its flattened map of other fields (kept on write), so no typed field is needed.
 - Written through `ui_state_set` once per committed change (a depth, a filter click, `All`/`None`, `Show all types`,
-  `Show everything`, `Size nodes by links`); never on open, never for `Show all` (D-979). The Rust `UiState` gains
-  `vaults: Option<BTreeMap<String, VaultUi>>` with `#[serde(default)]`; unknown fields kept as for the other parts.
+  `Show everything`, `Size nodes by links`); never on open, never for `Show all` (D-979).
 - An invalid stored value is read as its default and left as is until the user changes that value.
 
 ## 6. Requests, live updates and timing (D-911, D-912, D-980, D-992)
@@ -314,4 +313,16 @@ Owner, 2026-10-30, as proposed:
 5. **D-1025** first paint at 100 % (amends D-985).
 6. **D-1026** fade-in only (amends D-992).
 7. **D-1027** the column's `data-preview-path` is empty for a virtual tag.
+
+## 14. Build notes (QA review of the G1 build)
+
+- The preview column is inlined in `GraphPage.tsx` (no `GraphPreviewColumn.tsx`).
+- The type order is built from the core's cached type definitions and the graph's cached type keys: no file listing per
+  request (NFR-PERF-11).
+- `graph-request` is marked when the request is sent; the NFR-PERF-11 benchmark estimates the centre from the vault's files
+  (`app/e2e/perf_graph.ts`), so the test build writes no `graph-centre:` mark (D-1003's mark is unused; open point for the
+  owner).
+- A trashed centre is found at `.trash/<same path>` only; a centre the trash renamed on a name clash shows as gone
+  (follow-up).
+- The DTOs in `ui/src/graph/types.ts` are hand-written beside `shellg1.rs` (not generated yet; follow-up).
 

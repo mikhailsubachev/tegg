@@ -620,6 +620,15 @@ fn read_batch(s: &Shared, paths: &[String]) -> Vec<Prepared> {
 /// Architecture §5.1: brings the index up to the files by `(mtime, size)`; a fresh index is a full rebuild.
 /// Reports `IndexProgress` per batch and stops on cancel (FR-UX-07, D-110).
 fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
+    // G1 (D-990): the graph answers once this build ends, however it ends; set before `Done` is reported, so a
+    // listener that asks again on `done` gets the graph.
+    struct Ready<'a>(&'a AtomicBool);
+    impl Drop for Ready<'_> {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+    let ready = Ready(&s.graph_ready);
     let files = match listing.map(Ok).unwrap_or_else(|| s.vault.list_files()) {
         Ok(f) => f,
         Err(_) => return,
@@ -678,12 +687,12 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
         cancelled
     });
     let d = done.load(Ordering::SeqCst);
+    drop(ready);
     if cancelled {
         s.emit(CoreEvent::IndexProgress { done: d, total, state: ProgressState::Cancelled });
     } else {
         s.emit(CoreEvent::IndexProgress { done: total, total, state: ProgressState::Done });
     }
-    s.graph_ready.store(true, Ordering::SeqCst);
 }
 
 /// Architecture §5.4: for each reported path, exists → re-index, gone → remove; event kinds are never

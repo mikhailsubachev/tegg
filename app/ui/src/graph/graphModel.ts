@@ -53,6 +53,13 @@ export function labelVisible(o: { drawn: number; zoom: number; centre: boolean; 
   return o.drawn <= 60 || o.zoom >= 1.5;
 }
 
+const COLOURS = new Set(['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow']);
+/** A type's colour token from its definition (D-236); gray when it has none or isn't defined (D-121). */
+export function typeColour(typeKey: string, types: { key: string; color?: string | null }[]): string {
+  const c = types.find((x) => x.key.normalize('NFC') === typeKey.normalize('NFC'))?.color;
+  return c && COLOURS.has(c) ? c : 'gray';
+}
+
 /** The name a node has in a phrase: its title, `#<name>` for a tag. */
 export function displayTitle(node: GraphNodeDto): string {
   return node.typeKey === 'tag' ? `#${node.title}` : node.title;

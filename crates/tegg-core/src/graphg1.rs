@@ -26,12 +26,12 @@ impl Core {
         if let Some(old) = lock(&self.shared.graph_flags).insert(window.to_string(), flag.clone()) {
             old.store(true, Ordering::SeqCst);
         }
-        let mut req = req.clone();
-        if req.type_order.is_empty() {
-            req.type_order = self.graph_type_order();
-        }
         // The graph is an `Arc` snapshot: the walk runs without the index lock (§1.5).
         let data = lock(&self.shared.index).graph_data();
+        let mut req = req.clone();
+        if req.type_order.is_empty() {
+            req.type_order = self.graph_type_order(&data);
+        }
         let result = data.query(&req, &flag);
         {
             let mut flags = lock(&self.shared.graph_flags);
@@ -50,9 +50,10 @@ impl Core {
         lock(&self.shared.index).graph_degree(id)
     }
 
-    /// D-977, D-994: defined types in D-121 order (user types by name), then `tag`, then undefined values.
-    fn graph_type_order(&self) -> Vec<String> {
-        let types = self.shared.read_types();
+    /// D-977, D-994: defined types in D-121 order (user types by name), then `tag`, then undefined values. Reads the
+    /// cached definitions and the graph's type keys: no file listing per request (NFR-PERF-11).
+    fn graph_type_order(&self, data: &tegg_index::graph::GraphData) -> Vec<String> {
+        let types: Vec<tegg_schema::TypeFile> = self.shared.type_defs().into_values().collect();
         let defined: std::collections::BTreeSet<String> = types.iter().map(|t| nfc(&t.key)).collect();
         let mut order: Vec<String> = FIRST.iter().filter(|k| defined.contains(**k)).map(|k| k.to_string()).collect();
         let mut user: Vec<(String, String)> = types
@@ -64,7 +65,7 @@ impl Core {
         order.extend(user.into_iter().map(|(_, k)| k));
         order.extend(LAST.iter().filter(|k| defined.contains(**k)).map(|k| k.to_string()));
         order.push("tag".into());
-        let undefined: Vec<String> = lock(&self.shared.index).type_keys().into_iter().filter(|k| !defined.contains(k) && k != "tag").collect();
+        let undefined: Vec<String> = data.type_keys().iter().filter(|k| !defined.contains(*k) && *k != "tag").cloned().collect();
         order.extend(undefined);
         order
     }

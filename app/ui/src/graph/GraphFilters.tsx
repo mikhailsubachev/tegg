@@ -4,14 +4,14 @@
 import { t } from '../i18n/catalog';
 import { chipIcon, chipTypes } from '../links/icons';
 import { Icon } from '../shell/Icon';
+import { typeColour } from './graphModel';
+import { region } from '../i18n/collate';
 import type { EdgeKindDto } from './types';
 
 export const KINDS: [EdgeKindDto, string][] = [['link', 'graph.kind.links'], ['relation', 'graph.kind.relations'], ['embed', 'graph.kind.embeds'], ['tag', 'graph.kind.tags']];
 const SAMPLE: Record<EdgeKindDto, { width: number; dash?: string }> = {
   embed: { width: 3 }, relation: { width: 1.5, dash: '5 4' }, link: { width: 1.5 }, tag: { width: 1, dash: '1 3' },
 };
-const COLORS = new Set(['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow']);
-const SYSTEM_COLOR: Record<string, string> = { page: 'gray', task: 'blue', 'quick-note': 'yellow', 'daily-note': 'purple', image: 'teal', pdf: 'red' };
 
 export type FilterProps = {
   typeCounts: [string, number][];
@@ -30,11 +30,7 @@ function pluralOf(key: string): string {
   const def = chipTypes().find((x) => x.key.normalize('NFC') === key.normalize('NFC'));
   return def?.plural ?? key;
 }
-function colourOf(key: string): string {
-  const def = chipTypes().find((x) => x.key.normalize('NFC') === key.normalize('NFC'));
-  const c = def?.color ?? SYSTEM_COLOR[key];
-  return c && COLORS.has(c) ? c : 'gray';
-}
+const colourOf = (key: string) => typeColour(key, chipTypes());
 
 export function GraphFilters(p: FilterProps) {
   const off = p.disabled ? 'true' : undefined;
@@ -58,7 +54,7 @@ export function GraphFilters(p: FilterProps) {
                 ? <span className="graph-swatch pill" data-swatch="pill" aria-hidden="true" />
                 : <span className="graph-swatch" aria-hidden="true" style={{ background: `var(--type-${colour}-bg)`, color: `var(--type-${colour})`, borderColor: `var(--type-${colour})` }}><Icon name={icon.glyph} dataIcon={icon.def} size={12} /></span>}
               <span className="graph-type-name">{pluralOf(key)}</span>
-              <span className={`graph-type-count${count === 0 ? ' zero' : ''}`}>{count}</span>
+              <span className={`graph-type-count${count === 0 ? ' zero' : ''}`}>{new Intl.NumberFormat(region() ?? 'en-US').format(count)}</span>
             </label>
           );
         })}

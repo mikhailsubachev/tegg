@@ -92,6 +92,14 @@ export function GraphPage(p: GraphPageProps) {
   const shown = useRef<{ json: string; depth: number; sizeKey: string } | null>(null);
   const objectId = useRef<string | null>(null);
   const preview = usePreview();
+  // v1-graph §3: `route-ready:graph/<path>` once the first graph or state has painted.
+  const routeMarked = useRef(false);
+  const markRoute = () => {
+    if (routeMarked.current) return;
+    routeMarked.current = true;
+    void ipc.perfMark(`route-ready:graph/${centrePath}`).catch(() => {});
+  };
+  useEffect(() => { if (failure) requestAnimationFrame(() => markRoute()); });
   const narrow = pageWidth < NARROW;
 
   const req: GraphRequestDto = useMemo(() => ({ centre: centrePath, depth, hiddenTypes, hiddenKinds, cap: CAP, showAll }),
@@ -119,6 +127,7 @@ export function GraphPage(p: GraphPageProps) {
     const my = ++seq.current;
     const timer = window.setTimeout(() => { if (seq.current === my) setLoading(true); }, LOADING_AFTER);
     try {
+      void ipc.perfMark('graph-request').catch(() => {}); // NFR-PERF-11 (D-986): the benchmark's start
       const res = await ipc.graphNeighbourhood(r);
       if (seq.current !== my) return;
       window.clearTimeout(timer);
@@ -166,7 +175,7 @@ export function GraphPage(p: GraphPageProps) {
     let timer = 0;
     const again = () => { window.clearTimeout(timer); timer = window.setTimeout(() => { void askRef.current(reqRef.current, true); }, DEBOUNCE); };
     const offA = events.changed(again);
-    const offB = events.progress((x) => { if (x.state === 'done' || (x.state as string) === 'ready') again(); });
+    const offB = events.progress((x) => { if (x.state === 'done') again(); });
     return () => { window.clearTimeout(timer); void offA.then((f) => f()).catch(() => {}); void offB.then((f) => f()).catch(() => {}); };
   }, []);
 
@@ -192,7 +201,7 @@ export function GraphPage(p: GraphPageProps) {
     setEntering(fresh);
     setPositions(out);
     if (selected && !model.nodes.some((n) => n.key === selected)) clearSelection();
-    requestAnimationFrame(() => requestAnimationFrame(() => { void ipc.perfMark('graph-ready').catch(() => {}); }));
+    requestAnimationFrame(() => requestAnimationFrame(() => { void ipc.perfMark('graph-ready').catch(() => {}); markRoute(); }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, model, size?.width, size?.height]);
 

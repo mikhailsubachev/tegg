@@ -843,7 +843,8 @@ export function App() {
         pendingScroll.current = null;
       }
       // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
-      if (route.id !== 'tasks' && route.id !== 'tasks/kanban') void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
+      // The Tasks page and the graph (v1-graph §3: after its first graph or state) mark themselves.
+      if (route.id !== 'tasks' && route.id !== 'tasks/kanban' && route.id !== 'graph/<path>') void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);

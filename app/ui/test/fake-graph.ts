@@ -24,7 +24,8 @@ const stemOf = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.md$/, '')
 const sortKey = (id: NodeIdDto) => ('path' in id ? id.path : `tag:${id.tag}`);
 const same = (a: NodeIdDto, b: NodeIdDto) => sortKey(a) === sortKey(b) && ('path' in a) === ('path' in b);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? nfc(v.trim()) : null);
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+// RFC 3339 with seconds, as the Rust index's `parse_from_rfc3339` (twin parity, v1-graph §8).
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const instant = (v: unknown): number | null => (typeof v === 'string' && ISO.test(v.trim()) ? Date.parse(v.trim()) : null);
 const fileNameKey = (t: string) => low(t.split('|')[0].split('#')[0].trim().split('/').pop() ?? '');
 

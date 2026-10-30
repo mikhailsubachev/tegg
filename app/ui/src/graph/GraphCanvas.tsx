@@ -4,7 +4,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { Icon } from '../shell/Icon';
-import { displayTitle, labelVisible, sortKey, type GraphModel, type ModelNode, type NodeKey } from './graphModel';
+import { displayTitle, labelVisible, typeColour, sortKey, type GraphModel, type ModelNode, type NodeKey } from './graphModel';
 import type { Point } from './layout';
 import type { EdgeKindDto } from './types';
 
@@ -13,24 +13,30 @@ const LINE: Record<EdgeKindDto, { width: number; dash?: string }> = {
   embed: { width: 3 }, relation: { width: 1.5, dash: '5 4' }, link: { width: 1.5 }, tag: { width: 1, dash: '1 3' },
 };
 const TAG_COLORS = new Set(['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow']);
-const SYSTEM_COLOR: Record<string, string> = { page: 'gray', task: 'blue', 'quick-note': 'yellow', 'daily-note': 'purple', image: 'teal', pdf: 'red' };
 const LABEL_MAX = 150;
 
 export type View = { zoom: number; panX: number; panY: number };
 
-function colourOf(typeKey: string): string {
-  const def = chipTypes().find((x) => x.key.normalize('NFC') === typeKey.normalize('NFC'));
-  const c = def?.color ?? SYSTEM_COLOR[typeKey];
-  return c && TAG_COLORS.has(c) ? c : 'gray';
-}
+const colourOf = (typeKey: string) => typeColour(typeKey, chipTypes());
 
 let measure: CanvasRenderingContext2D | null = null;
-/** D-985: a label cut at 150 px with `…` (the full title stays in the accessible name). */
+let family: string | null = null;
+const cuts = new Map<string, string>();
+/** D-985: a label cut at 150 px with `…` (the full title stays in the accessible name); remembered per text and font. */
 function cut(text: string, px: number, weight: string): string {
   if (typeof document === 'undefined') return text;
+  const key = `${weight}|${px}|${text}`;
+  const known = cuts.get(key);
+  if (known !== undefined) return known;
+  const out = cutNow(text, px, weight);
+  if (cuts.size > 5000) cuts.clear();
+  cuts.set(key, out);
+  return out;
+}
+function cutNow(text: string, px: number, weight: string): string {
   measure ??= document.createElement('canvas').getContext('2d');
   if (!measure) return text;
-  const family = getComputedStyle(document.body).fontFamily || 'sans-serif';
+  family ??= getComputedStyle(document.body).fontFamily || 'sans-serif';
   measure.font = `${weight} ${px}px ${family}`;
   if (measure.measureText(text).width <= LABEL_MAX - 2) return text;
   const chars = [...text];
@@ -53,7 +59,8 @@ export function nodeBox(n: ModelNode): { w: number; top: number; bottom: number 
   measure ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
   let lw = LABEL_MAX;
   if (measure) {
-    measure.font = `${n.centre ? 650 : 400} ${fontSize}px ${getComputedStyle(document.body).fontFamily || 'sans-serif'}`;
+    family ??= getComputedStyle(document.body).fontFamily || 'sans-serif';
+    measure.font = `${n.centre ? 650 : 400} ${fontSize}px ${family}`;
     lw = Math.min(LABEL_MAX, measure.measureText(n.node.title).width);
   }
   return { w: Math.max(2 * r, lw + 4), top: r, bottom: n.size / 2 + 7 + fontSize * 1.4 };

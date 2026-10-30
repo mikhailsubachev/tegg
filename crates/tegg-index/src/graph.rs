@@ -192,6 +192,8 @@ pub struct GraphData {
     pairs: HashMap<(NodeId, NodeId), Vec<EdgeWay>>,
     /// NFC path → node (a winning Tag file is its tag node; losing Tag files are absent, D-694).
     by_path: HashMap<String, NodeId>,
+    /// §1.7: every type key of the indexed objects (NFC), sorted.
+    type_keys: Vec<String>,
 }
 
 fn ordered(a: NodeId, b: NodeId) -> (NodeId, NodeId) {
@@ -221,8 +223,9 @@ fn file_name_key(target: &str) -> String {
 
 impl GraphData {
     fn build(idx: &Index) -> GraphData {
-        let mut metas: Vec<&crate::Meta> = idx.metas.values().collect();
-        metas.sort_by(|a, b| nfc(&a.path).cmp(&nfc(&b.path)));
+        let mut keyed: Vec<(String, &crate::Meta)> = idx.metas.values().map(|m| (nfc(&m.path), m)).collect();
+        keyed.sort_by(|a, b| a.0.cmp(&b.0));
+        let metas: Vec<&crate::Meta> = keyed.into_iter().map(|(_, m)| m).collect();
 
         // Tag files per key (ms4-tags §1.1): the oldest valid `created` wins, then path order.
         let mut tag_files: BTreeMap<String, Vec<(Option<i128>, String)>> = BTreeMap::new();
@@ -242,7 +245,7 @@ impl GraphData {
         let losers: HashSet<String> = tag_files.values().flat_map(|v| v.iter().skip(1).map(|(_, p)| p.clone())).collect();
         let by_nfc: HashMap<String, &crate::Meta> = metas.iter().map(|m| (nfc(&m.path), *m)).collect();
 
-        let mut g = GraphData::default();
+        let mut g = GraphData { type_keys: metas.iter().map(|m| nfc(&m.s.r#type)).collect::<BTreeSet<_>>().into_iter().collect(), ..GraphData::default() };
         for m in &metas {
             let path = nfc(&m.path);
             if losers.contains(&path) || winner_of.contains_key(&path) {
@@ -359,6 +362,11 @@ impl GraphData {
                 self.nodes.contains_key(&id).then_some(id)
             }
         }
+    }
+
+    /// §1.7: every type key of the indexed objects (NFC), sorted.
+    pub fn type_keys(&self) -> &[String] {
+        &self.type_keys
     }
 
     /// D-975: the vault-wide degree of a node (0 for an unknown one).
