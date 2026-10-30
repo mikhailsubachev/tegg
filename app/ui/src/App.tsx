@@ -67,6 +67,8 @@ import { refreshTags, tagOfFile, useTags } from './tags/store';
 import { tagKey } from './tags/keys';
 import type { TagPageUi, TagsSort } from './tags/model';
 import { PreviewProvider } from './preview/PreviewProvider';
+import { GraphPage } from './graph/GraphPage';
+import type { GraphViewStateDto } from './graph/types';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
 import type { PreviewTarget, PreviewUiDto } from './preview/types';
 import { editorLinkAction } from './preview/editorLink';
@@ -91,7 +93,9 @@ type Dialog = 'palette' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
-type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto };
+type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
+  /** Slice G1 (v1-graph §5, D-993): per-vault state, keyed by the vault's absolute path (NFC); G2 adds `graph.panel`. */
+  vaults?: Record<string, { graph?: { full?: GraphViewStateDto; panel?: unknown } & Record<string, unknown> } & Record<string, unknown>> };
 const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false };
 
 function initialUi(): UiState {
@@ -497,6 +501,22 @@ export function App() {
   const taskBadge = useTaskBadge(refresh, !!vault);
   const inboxCount = useInboxCount(refresh, !!vault);
   const tagList = useTags();
+  /** Slice G1 (D-987): the file of the object a route shows (a note, a day with its note, a tag with its Tag file). */
+  const objectPathOf = (r: Route | null | undefined): string | null =>
+    r?.id === 'note/<path>' || r?.id === 'graph/<path>' ? (r.param ?? null)
+      : r?.id === DAILY ? (noteDaily && noteDaily.date === r.param ? noteDaily.path : dailyFile && dailyFile.date === r.param ? dailyFile.path : null)
+      : r?.id === 'tag/<key>' ? (tagList.find((x) => x.key === r.param)?.file?.path ?? null) : null;
+  // D-987: a day route's note file (null: a virtual day), for `Open graph`.
+  const [dailyFile, setDailyFile] = useState<{ date: string; path: string | null } | null>(null);
+  useEffect(() => {
+    if (route?.id !== DAILY || !route.param) return;
+    const date = route.param;
+    let live = true;
+    ipc.dailyView(date).then((v) => { if (live) setDailyFile({ date, path: v.path }); }, () => {});
+    return () => { live = false; };
+  }, [route?.id, route?.param, refresh]);
+  const graphCommand = useRef<((id: 'depth1' | 'depth2' | 'depth3' | 'recenter') => void) | null>(null);
+  const [graphTitle, setGraphTitle] = useState<{ route: string; title: string } | null>(null);
   // D-692: every way of opening a Tag object opens its tag page.
   useEffect(() => {
     if (route?.id !== 'note/<path>' || !route.param) return;
@@ -633,17 +653,24 @@ export function App() {
     // Slice P (R106): each does nothing without a reference or a chip at the caret (FR-UX-03 AC-19).
     showPreview: () => { setTimeout(() => showPreviewAction()?.(), 0); }, // after the palette gave the focus back (D-139)
     setPreviewMode: (m) => { if (getPreviewPrefs().mode !== m) updatePrefs((d) => ({ ...d, mode: m })); },
+    // Slice G1 (D-918, D-987): the full view of the current object; the graph route's commands.
+    openGraph: () => {
+      const path = objectPathOf(route);
+      if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') });
+    },
+    graphCommand: (id) => { if (route?.id === 'graph/<path>') graphCommand.current?.(id); },
     editLink: () => { setTimeout(() => editorLinkAction('edit'), 0); },
     removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
     edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
-  }), [go, step, route?.id, route?.param, updateUi, noteDaily]);
+  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile]);
 
   // D-562: a note route carries its object's type, so the review commands follow its Review row.
   setDateTimeSetting(ui.dateTime);
-  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter } : route;
+  const ctxRoute = route?.id === DAILY ? { ...route, date: route.param, path: objectPathOf(route) } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter }
+    : route?.id === 'tag/<key>' ? { ...route, path: objectPathOf(route) } : route;
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, !!noteDaily, meta?.type, meta?.review, meta?.hasFrontmatter]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -779,6 +806,8 @@ export function App() {
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
       : route?.id === 'tag/<key>' ? `#${tagList.find((x) => x.key === route.param)?.name ?? route.param ?? ''}`
+      // Slice G1 (D-914): `Graph · <title>`.
+      : route?.id === 'graph/<path>' ? t('graph.tabTitle', { title: graphTitle?.route === routeKey ? graphTitle.title : (route.param ?? '').split('/').pop()!.replace(/\.md$/, '') })
         // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
         : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
@@ -937,6 +966,26 @@ export function App() {
         onRenamed={(k) => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tag/<key>', param: k }); }}
         onRemoved={() => { if (shownRoute.current === routeString({ id: 'tag/<key>', param: key })) replaceRoute({ id: 'tags' }); }}
         commandRef={tagCommand} />
+    );
+  } else if (route?.id === 'graph/<path>' && route.param && vault) {
+    // Slice G1 (v1-graph §3, §5): the full view; its state per vault (D-993).
+    const vp = vault.path.normalize('NFC');
+    const graphKey = routeKey;
+    body = (
+      <GraphPage key={navKey} path={route.param} heading={heading} commandRef={graphCommand}
+        view={ui.vaults?.[vp]?.graph?.full}
+        onView={(next) => updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...(u.vaults?.[vp]?.graph ?? {}), full: next } } } }))}
+        onTitle={(title) => setGraphTitle((g) => (g?.route === graphKey && g.title === title ? g : { route: graphKey, title }))}
+        nav={{
+          open: (n) => {
+            if (n.node.typeKey === 'tag') { void go({ id: 'tag/<key>', param: tagKey(n.node.tagKey ?? n.node.title) }); return; }
+            if (n.node.typeKey === 'daily-note' && /^\d{4}-\d{2}-\d{2}$/.test(n.node.title)) { openDay(n.node.title); return; }
+            if (n.node.path) openNote(n.node.path);
+          },
+          centre: (path) => { void go({ id: 'graph/<path>', param: path.normalize('NFC') }); },
+          replace: (path) => { if (shownRoute.current === graphKey) replaceRoute({ id: 'graph/<path>', param: path.normalize('NFC') }); },
+          back: () => { void step('back'); },
+        }} />
     );
   } else if (route?.id === 'type-settings/<type>' && route.param) {
     const key = route.param;

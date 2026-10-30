@@ -10,6 +10,8 @@ const PATHS: Record<string, string> = {
   'task-cancelled': 'M4 4h16v16H4zM9 9l6 6M15 9l-6 6',
   search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4',
   plus: 'M12 5v14M5 12h14',
+  // G1 (graph.md R109): Zoom out.
+  minus: 'M5 12h14',
   file: 'M6 3h8l4 4v14H6zM14 3v4h4',
   bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
   image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4',

@@ -68,6 +68,11 @@ export const light: Tokens = {
   btn: '#1C1C1E',
   'btn-fg': '#FFFFFF',
   // The app mark on the capture's saved panel (D-164 colours, both themes).
+  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid, edges and the selection highlight.
+  canvas: '#FBFBFA',
+  dot: '#E2E2DE',
+  edge: '#B9B9B3',
+  hl: '#1D5CCB',
   ...typeTokens(TYPE_LIGHT),
 };
 
@@ -99,6 +104,11 @@ export const dark: Tokens = {
   'unrev-bg': '#33270F',
   btn: '#ECECEE',
   'btn-fg': '#1C1C1E',
+  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid, edges and the selection highlight.
+  canvas: '#18181A',
+  dot: '#2A2A2D',
+  edge: '#4A4A50',
+  hl: '#86AEFF',
   ...typeTokens(TYPE_DARK),
 };
 

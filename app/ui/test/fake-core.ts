@@ -398,6 +398,7 @@ export function setPreviewMode(mode: 'click' | 'hover' | 'off', opts: FakeOption
 function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: Record<string, string>; empty: Record<string, string>; starter: Record<string, string> }) {
   const w = window as any;
   const READS = new Set([
+    'embed_load', // ms4-embeds §4: read-only (G1 FR-SYN-06 AC-38 previews every kind of node)
     'vault_current', 'vault_last', 'vault_types', 'vault_pick_dir', 'index_type_counts', 'index_list', 'index_search',
     'index_switcher', 'note_read', 'ui_state_get', 'ui_state_set', 'nav_opened', 'perf_mark', 'vault_open',
     'link_resolve', 'open_external', // 3B: read-only / opens a URL outside the vault (ms3-shell §11.1)

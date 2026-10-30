@@ -13,7 +13,7 @@ export type Route = {
   selectEmbedOf?: string;
 };
 
-const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new'];
+const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];
 
 export function parseRoute(s: string): Route | null {
   const str = s.normalize('NFC');
@@ -37,7 +37,7 @@ export function parseRoute(s: string): Route | null {
         fragment = rest.slice(rest.indexOf('#') + 1) || undefined;
         rest = rest.slice(0, rest.indexOf('#'));
       }
-      return { id: `${head}/<${head === 'note' ? 'path' : 'type'}>`, param: rest, ...(fragment ? { fragment } : {}) };
+      return { id: `${head}/<${head === 'note' || head === 'graph' ? 'path' : 'type'}>`, param: rest, ...(fragment ? { fragment } : {}) };
     }
   }
   return ROUTES.some((r) => r.id === str) ? { id: str } : null;

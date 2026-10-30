@@ -388,13 +388,13 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   const title = plainTitle(model, top.target);
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const content = (
-    <PreviewContent uid={uid} model={model} target={top.target} extraLine={cur.extraLine} bodyRef={body} back={prev ? { title: prev.title ?? '', onBack: back } : null}
+    <PreviewContent uid={uid} model={model} target={top.target} extraLines={cur.extraLines} extraAction={cur.extraAction} bodyRef={body} back={prev ? { title: prev.title ?? '', onBack: back } : null}
       onClose={() => close('button')} onOpen={openIt} resize={column ? null : { onPointerDown: onResizeDown, onPointerMove: onResizeMove, onPointerUp: onResizeUp, onKeyDown: onResizeKey, onKeyUp: onResizeKeyUp, onDoubleClick: resetSize }}
       scrollToEmbedOf={stack.length === 1 ? cur.target.scrollToEmbedOf ?? null : null} />
   );
   if (column) {
     return createPortal(
-      <div className="preview preview-column" role="region" aria-label={t('preview.name', { title })} data-preview-path={model?.state === 'ok' ? model.path : undefined} onKeyDown={onKeyDown}>{content}</div>,
+      <div className="preview preview-column" role="region" aria-label={t('preview.name', { title })} data-preview-path={model?.state === 'ok' ? model.path : model?.state === 'tag' ? model.path ?? '' : top.target.kind === 'note' ? nfc(top.target.path) : undefined} onKeyDown={onKeyDown}>{content}</div>,
       (cur.host as { container: HTMLElement }).container,
     );
   }
@@ -405,7 +405,7 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   return createPortal(
     <div ref={box} role="dialog" aria-modal="false" tabIndex={-1} data-preview-popover="" className={`preview preview-popover${shown && !reducedMotion() ? ' shown' : ''}${reducedMotion() ? ' no-motion' : ''}`}
       data-preview-path={model?.state === 'ok' ? model.path : model?.state === 'tag' ? model.path ?? undefined : top.target.kind === 'note' ? nfc(top.target.path) : undefined}
-      aria-label={t('preview.name', { title })} aria-describedby={cur.extraLine ? `${uid}-type ${uid}-extra` : `${uid}-type`} style={style}
+      aria-label={t('preview.name', { title })} aria-describedby={cur.extraLines.length ? [`${uid}-type`, ...cur.extraLines.map((_, i) => `${uid}-extra${i ? `-${i}` : ''}`)].join(' ') : `${uid}-type`} style={style}
       onKeyDown={onKeyDown}
       onDoubleClick={(e) => {
         const tg = insideDoubleClick();

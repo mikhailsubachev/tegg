@@ -1,6 +1,7 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
+import { t } from '../i18n/catalog';
 import { reviewable } from '../review';
 import { DISABLED_CONTROLS, ROUTES, SHORTCUTS, type Due } from './registry';
 import type { Route } from './routes';
@@ -79,6 +80,9 @@ export type ShellActions = {
   setPreviewMode?: (mode: 'click' | 'hover' | 'off') => void;
   editLink?: () => void;
   removeLink?: () => void;
+  /** Slice G1 (graph.md FR-UX-03 AC-20, D-918): the full view of the current object; a graph route command. */
+  openGraph?: () => void;
+  graphCommand?: (id: 'depth1' | 'depth2' | 'depth3' | 'recenter') => void;
 };
 
 export type EditAction =
@@ -129,7 +133,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'tasks.sort': 'tasks.sort',
 };
 
-const NO_GOTO = new Set(['tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD']);
+const NO_GOTO = new Set(['tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD', 'graph/<path>']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -238,6 +242,16 @@ export function commands(ctx: ShellContext): Command[] {
         { id: 'note.markUnreviewed', title: 'cmd.markUnreviewed', section: 'edit', needsVault: true, run: (c) => a(c)?.setNoteReviewed?.(false) },
       );
     }
+  }
+  // Slice G1 (graph.md FR-UX-03 AC-20, D-918, D-987): ⌘⇧G on a route with an object file; the graph route's commands.
+  const r = ctx.route;
+  const hasObject = r?.id === 'note/<path>' || r?.id === 'graph/<path>' || ((r?.id === 'daily/YYYY-MM-DD' || r?.id === 'tag/<key>') && !!r.path);
+  list.push({ id: 'graph.open', title: 'cmd.graph.open', section: 'navigate', shortcut: shortcutOf('graph.open'), needsVault: true,
+    disabled: () => (hasObject ? null : t('cmd.needsObject')), run: (c) => a(c)?.openGraph?.() });
+  if (r?.id === 'graph/<path>') {
+    list.push(
+      ...(['depth1', 'depth2', 'depth3', 'recenter'] as const).map((id): Command => ({ id: `graph.${id}`, title: `cmd.graph.${id}`, section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.(id) })),
+    );
   }
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(
