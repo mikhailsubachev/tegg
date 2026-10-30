@@ -256,7 +256,8 @@ test('fr_src_03_ac10_row_contents', async ({ page }) => {
   const tm = (await rows(page))[0];
   assert.deepEqual(tm && [tm.type, tm.lineKind, tm.line, tm.lineMarks], ['Task', 'attribute', 'Priority: High', ['High']], 'the attribute panel label Priority');
   await typeQuery(page, 'ostružina');
-  await titlesWhen(page, (t) => t.length === 1);
+  // Wait for this query's row, not any single row: `High` also gave one (D-1232).
+  await titlesWhen(page, (t) => t.length === 1 && t[0] === '<b>tučně</b> ostružina');
   const h = (await rows(page))[0];
   assert.ok(h && h.title === '<b>tučně</b> ostružina' && !h.titleHtml, `the title is never parsed as HTML: ${h?.title}`);
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');

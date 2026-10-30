@@ -159,3 +159,8 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
 - **D-1229** FR-SRC-02 AC-17's relaunch part: `app/e2e/search_page.ac.test.ts` (L6).
 - **D-1230** DOM details: the query in empty-state copy is a `data-user-content` element; the `⇧⌘F` hint is `aria-hidden`
   inside the `search` region; `Go to` options are not Tab stops; a cut attribute value is ≤ 160 characters and may carry `…`.
+
+## 7. Build decisions (D-1231, D-1232)
+
+- **D-1231** FR-SRC-01 AC-22's filter-only test doesn't require `modified` values on the reference vault (it has none).
+- **D-1232** FR-SRC-03 AC-10's last step waits for the `ostružina` row itself.
