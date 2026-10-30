@@ -1,8 +1,6 @@
 //! Slice G1 IPC (docs/contracts/v1-graph.md §2): `graph_neighbourhood`, read-only, no recency. A new call from the same
 //! window cancels the running one (the core keys requests by the window's label, §1.5). The DTOs are the contract's;
 //! the build generates their TypeScript into ui/src/ipc/types.ts with the other DTOs (architecture §6).
-//!
-//! The command only converts and forwards; the core answers `NotImplemented` until slice G1 is built (TS-I1).
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -70,6 +68,8 @@ pub struct GraphResultDto {
     pub hidden: u32,
     pub truncated: bool,
     pub type_counts: Vec<(String, u32)>,
+    /// D-999: the filtered total at each depth from 1 to the requested one.
+    pub depth_totals: Vec<u32>,
 }
 
 fn kind_in(k: EdgeKindDto) -> EdgeKind {
@@ -126,6 +126,7 @@ fn result_out(r: GraphResult) -> GraphResultDto {
         hidden: r.hidden as u32,
         truncated: r.truncated,
         type_counts: r.type_counts.into_iter().map(|(k, n)| (k, n as u32)).collect(),
+        depth_totals: r.depth_totals.into_iter().map(|n| n as u32).collect(),
     }
 }
 fn graph_err(e: GraphError) -> IpcError {
@@ -136,7 +137,6 @@ fn graph_err(e: GraphError) -> IpcError {
         GraphError::InvalidDepth => err("InvalidDepth", "depth must be 1, 2 or 3"),
         GraphError::Cancelled => err("Cancelled", "a newer graph request"),
         GraphError::NotReady => err("NotReady", "the index is being built"),
-        GraphError::NotImplemented => err("NotImplemented", "graph_neighbourhood comes with slice G1"),
     }
 }
 

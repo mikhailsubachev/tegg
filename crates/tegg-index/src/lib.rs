@@ -629,6 +629,8 @@ pub struct Index {
     /// Caches derived from `metas`, dropped on every change.
     vocab: RefCell<Option<Vec<String>>>,
     links: RefCell<Option<Links>>,
+    /// G1 (v1-graph §1): the vault-wide graph, derived on first use.
+    graph: RefCell<Option<std::sync::Arc<graph::GraphData>>>,
 }
 
 const SCHEMA: &str = "
@@ -667,7 +669,7 @@ impl Index {
                 connect(db_path)?
             }
         };
-        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None) };
+        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None), graph: RefCell::new(None) };
         idx.load()?;
         Ok(idx)
     }
@@ -701,6 +703,7 @@ impl Index {
     fn changed(&mut self) {
         *self.vocab.get_mut() = None;
         *self.links.get_mut() = None;
+        *self.graph.get_mut() = None;
     }
 
     /// Indexes or re-indexes one file from its bytes. Excluded paths (contract §1) are ignored.

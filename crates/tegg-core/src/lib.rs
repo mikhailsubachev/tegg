@@ -161,6 +161,10 @@ struct Shared {
     /// ms6-trash-media §2, §3.2 (6A): the vault's non-note files and the trashed objects, read lazily from the file
     /// system and dropped on every change (part of the disposable index, AR-01).
     files: Mutex<Option<Arc<trash6a::FileCache>>>,
+    /// G1 (v1-graph §1.5, D-990): false while the first index build of an empty index runs.
+    graph_ready: AtomicBool,
+    /// G1 (v1-graph §1.5, D-995): the running graph request's flag per window.
+    graph_flags: Mutex<HashMap<String, tegg_index::CancelFlag>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -256,6 +260,7 @@ impl Core {
     fn start(vault: Vault, opts: CoreOptions) -> Result<Core, CoreError> {
         let local = vault.local_dir();
         let index = Index::open(&local.join(INDEX_FILE))?;
+        let graph_ready = AtomicBool::new(!index.is_empty());
         let recency: HashMap<String, i64> = tegg_vault::read_local_file(&local.join(RECENT_FILE))
             .and_then(|b| serde_json::from_slice::<HashMap<String, i64>>(&b).ok())
             .unwrap_or_default();
@@ -274,6 +279,8 @@ impl Core {
             not_utf8: Mutex::new(Default::default()),
             type_defs: Mutex::new(Default::default()),
             files: Mutex::new(None),
+            graph_ready,
+            graph_flags: Mutex::new(HashMap::new()),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
@@ -676,6 +683,7 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
     } else {
         s.emit(CoreEvent::IndexProgress { done: total, total, state: ProgressState::Done });
     }
+    s.graph_ready.store(true, Ordering::SeqCst);
 }
 
 /// Architecture §5.4: for each reported path, exists → re-index, gone → remove; event kinds are never
