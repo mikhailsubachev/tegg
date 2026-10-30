@@ -16,7 +16,7 @@ import { TagFilter } from './TagFilter';
 import { TaskCard, type TaskNav } from './TaskCard';
 import { TasksHeader, tasksSummary, type TasksView } from './TasksHeader';
 import { useTasks } from './useTasks';
-import { counts as countsOf, kanban, schedule, tagSpellings, type KanbanColumn, type ViewInput } from './views';
+import { counts as countsOf, kanban, matches, schedule, tagSpellings, type KanbanColumn, type ViewInput } from './views';
 import { tasksWritten, writeTask, type TaskAction } from './write';
 import type { TaskChange } from '@tegg/doc';
 
@@ -50,8 +50,10 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const [note, setNote] = useState('');
   const [stay, setStay] = useState<Map<string, Stay>>(new Map());
   // The title search (D-1280): page state only, empty again after a view switch (D-1282).
-  const [search, setSearch] = useState('');
-  useEffect(() => { setSearch(''); }, [view]);
+  // Kept with its view, so a view switch shows the field empty from its first render.
+  const [typed, setTyped] = useState({ view, text: '' });
+  const search = typed.view === view ? typed.text : '';
+  const setSearch = (text: string) => setTyped({ view, text });
   const focusAfter = useRef<{ path: string; column: string } | null>(null);
   /** The card that had the focus last, for palette commands run after the palette took it (R45). */
   const lastCard = useRef<HTMLElement | null>(null);
@@ -69,7 +71,7 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const input: ViewInput = { tasks, defs, today, firstWeekday, collator, dateFilter: ui.dateFilter as ViewInput['dateFilter'], tagFilter: ui.tags, timeZone: zone, search };
   const c = countsOf(input);
   const spell = useMemo(() => tagSpellings(tasks), [tasks]);
-  const sched = useMemo(() => (view === 'schedule' ? withStay(schedule(input), stay, tasks) : null), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), stay, zone, collator, search]);
+  const sched = useMemo(() => (view === 'schedule' ? withStay(schedule(input), stay, tasks.filter((r) => matches(r, search))) : null), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), stay, zone, collator, search]);
   const board = useMemo(() => (view === 'kanban' ? kanban(input, tagMode ? 'tag' : 'status', spell).columns : []), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), tagMode, spell, zone, collator, search]);
 
   const noMatch = !!search.trim() && loaded && (view === 'schedule'
@@ -241,7 +243,8 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
         <input type="search" role="searchbox" className="type-filter" data-command="tasks.search" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
           value={search} spellCheck={false} autoComplete="off" onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSearch(''); }
+            // Esc clears the text; with nothing to clear it goes on to the page and the app.
+            if (e.key === 'Escape' && search) { e.preventDefault(); e.stopPropagation(); setSearch(''); }
             else if (e.key === 'ArrowDown') { e.preventDefault(); document.querySelector<HTMLElement>('main article[data-path]')?.focus(); }
           }} />
         <button type="button" className="toggle tasks-sort" aria-disabled="true" aria-description={t('due.comingIn', { due: 'v1.0' })} data-command="tasks.sort">

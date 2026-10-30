@@ -46,7 +46,7 @@ export type Counts = { open: number; overdue: number; dueToday: number; all: num
 /** Folded as the type page's title filter (FR-TYP-09 AC-4): NFC, lower case, marks removed. */
 const fold = (s: string) => s.normalize('NFC').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 /** Whether a row's title contains the search (D-1280); a blank search keeps every row. */
-function matches(r: TaskRowDto, search: string | undefined): boolean {
+export function matches(r: TaskRowDto, search: string | undefined): boolean {
   const q = fold(search?.trim() ?? '');
   return !q || fold(r.title).includes(q);
 }
