@@ -14,6 +14,16 @@ const LINE: Record<EdgeKindDto, { width: number; dash?: string }> = {
 };
 const TAG_COLORS = new Set(['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow']);
 const LABEL_MAX = 150;
+/** Slice G2 (R114, D-1031): the panel's label width. */
+const PANEL_LABEL_MAX = 96;
+export type CanvasScale = 'full' | 'panel';
+const labelMax = (scale: CanvasScale) => (scale === 'panel' ? PANEL_LABEL_MAX : LABEL_MAX);
+/** Label font size by scale (R109, R114). */
+const fontOf = (n: ModelNode, scale: CanvasScale) => (scale === 'panel' ? (n.centre ? 13 : 10) : n.centre ? 14 : n.node.depth === 1 ? 12 : 11);
+/** A tag pill's size by scale: height, font, and width of its text (R113, R114). */
+const pillOf = (text: string, scale: CanvasScale) => (scale === 'panel'
+  ? { h: 22, font: 11, w: Math.min(PANEL_LABEL_MAX, 12 + 6.6 * [...text].length) }
+  : { h: 26, font: 12, w: Math.min(LABEL_MAX, 16 + 7.2 * [...text].length) });
 
 export type View = { zoom: number; panX: number; panY: number };
 
@@ -22,48 +32,52 @@ const colourOf = (typeKey: string) => typeColour(typeKey, chipTypes());
 let measure: CanvasRenderingContext2D | null = null;
 let family: string | null = null;
 const cuts = new Map<string, string>();
-/** D-985: a label cut at 150 px with `…` (the full title stays in the accessible name); remembered per text and font. */
-function cut(text: string, px: number, weight: string): string {
+/** D-985: a label cut at 150 px (the panel: 96 px, R114) with `…` (the full title stays in the accessible name);
+ *  remembered per text and font. */
+function cut(text: string, px: number, weight: string, max = LABEL_MAX): string {
   if (typeof document === 'undefined') return text;
-  const key = `${weight}|${px}|${text}`;
+  const key = `${weight}|${px}|${max}|${text}`;
   const known = cuts.get(key);
   if (known !== undefined) return known;
-  const out = cutNow(text, px, weight);
+  const out = cutNow(text, px, weight, max);
   if (cuts.size > 5000) cuts.clear();
   cuts.set(key, out);
   return out;
 }
-function cutNow(text: string, px: number, weight: string): string {
+function cutNow(text: string, px: number, weight: string, max: number): string {
   measure ??= document.createElement('canvas').getContext('2d');
   if (!measure) return text;
   family ??= getComputedStyle(document.body).fontFamily || 'sans-serif';
   measure.font = `${weight} ${px}px ${family}`;
-  if (measure.measureText(text).width <= LABEL_MAX - 2) return text;
+  if (measure.measureText(text).width <= max - 2) return text;
   const chars = [...text];
   let lo = 0, hi = chars.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (measure.measureText(`${chars.slice(0, mid).join('').trimEnd()}…`).width <= LABEL_MAX - 6) lo = mid; else hi = mid - 1;
+    if (measure.measureText(`${chars.slice(0, mid).join('').trimEnd()}…`).width <= max - 6) lo = mid; else hi = mid - 1;
   }
   return `${chars.slice(0, lo).join('').trimEnd()}…`;
 }
 
 /** A node's box with its label at 100 %: width, and extent above and below its centre (for Fit, D-985). */
-export function nodeBox(n: ModelNode): { w: number; top: number; bottom: number } {
+export function nodeBox(n: ModelNode, scale: CanvasScale = 'full'): { w: number; top: number; bottom: number } {
   if (n.node.typeKey === 'tag') {
-    const w = Math.min(LABEL_MAX, 16 + 7.2 * [...`#${n.node.title}`].length) + 8;
-    return { w, top: 17, bottom: 17 };
+    const p = pillOf(`#${n.node.title}`, scale);
+    return { w: p.w + 8, top: p.h / 2 + 4, bottom: p.h / 2 + 4 };
   }
+  const max = labelMax(scale);
   const r = n.size / 2 + 4;
-  const fontSize = n.centre ? 14 : n.node.depth === 1 ? 12 : 11;
+  const fontSize = fontOf(n, scale);
   measure ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
-  let lw = LABEL_MAX;
+  let lw = max;
   if (measure) {
     family ??= getComputedStyle(document.body).fontFamily || 'sans-serif';
     measure.font = `${n.centre ? 650 : 400} ${fontSize}px ${family}`;
-    lw = Math.min(LABEL_MAX, measure.measureText(n.node.title).width);
+    lw = Math.min(max, measure.measureText(n.node.title).width);
   }
-  return { w: Math.max(2 * r, lw + 4), top: r, bottom: n.size / 2 + 7 + fontSize * 1.4 };
+  const ring = scale === 'panel' && n.centre ? 30 + 1 : r;
+  const gap = scale === 'panel' ? 5 : 7;
+  return { w: Math.max(2 * ring, lw + 4), top: ring, bottom: Math.max(ring, n.size / 2 + gap + fontSize * 1.4) };
 }
 
 export type CanvasProps = {
@@ -82,10 +96,14 @@ export type CanvasProps = {
   /** Nodes added by a live update or a filter change fade in (D-992). */
   entering: Set<NodeKey>;
   contentRef: React.RefObject<SVGGElement | null>;
+  /** Slice G2 (R114, D-1031): the panel's sizes, labels always shown, 96 px labels. */
+  scale?: CanvasScale;
 };
 
 export function GraphCanvas(p: CanvasProps) {
   const { model, positions, size, view } = p;
+  const scale: CanvasScale = p.scale ?? 'full';
+  const max = labelMax(scale);
   const drag = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
   const [, setTick] = useState(0);
   const focus = p.hovered ?? p.selected;
@@ -156,7 +174,7 @@ export function GraphCanvas(p: CanvasProps) {
             const isTag = n.node.typeKey === 'tag';
             const dim = !!near && !near.keys.has(n.sortKey);
             const selected = p.selected === n.key;
-            const showLabel = labelVisible({ drawn, zoom: view.zoom, centre: n.centre, selected, hovered: p.hovered === n.key });
+            const showLabel = scale === 'panel' || labelVisible({ drawn, zoom: view.zoom, centre: n.centre, selected, hovered: p.hovered === n.key });
             const typeName = typeNameOf(n.node.typeKey);
             const common = {
               'data-graph-node': '', 'data-type': n.node.typeKey, 'data-depth': n.node.depth, 'data-size-step': n.step,
@@ -171,30 +189,33 @@ export function GraphCanvas(p: CanvasProps) {
             if (isTag) {
               const c = n.node.color && TAG_COLORS.has(n.node.color) ? n.node.color : null;
               const text = `#${n.node.title}`;
-              const w = Math.min(LABEL_MAX, 16 + 7.2 * [...text].length);
+              const pill = pillOf(text, scale);
+              const { w, h } = pill;
               return (
                 <g key={n.key} {...common} data-tag-key={n.node.tagKey ?? ''} data-path={undefined}>
-                  <rect x={-w / 2} y={-13} width={w} height={26} rx={13} className="graph-pill" style={{ fill: c ? `var(--type-${c}-bg)` : 'var(--hover)', stroke: c ? `var(--type-${c})` : 'var(--muted)' }} />
-                  {selected && <rect x={-w / 2 - 4} y={-17} width={w + 8} height={34} rx={17} className="graph-ring" />}
-                  <text className="graph-pill-text" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)' }}>{cut(text, 12, '600')}</text>
+                  <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2} className="graph-pill" style={{ fill: c ? `var(--type-${c}-bg)` : 'var(--hover)', stroke: c ? `var(--type-${c})` : 'var(--muted)' }} />
+                  {selected && <rect x={-w / 2 - 4} y={-h / 2 - 4} width={w + 8} height={h + 8} rx={h / 2 + 4} className="graph-ring" />}
+                  <text className="graph-pill-text" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)', fontSize: pill.font }}>{cut(text, pill.font, '600', Math.min(max, w - 4))}</text>
                 </g>
               );
             }
             const colour = colourOf(n.node.typeKey);
             const r = n.size / 2;
             const icon = chipIcon(n.node.typeKey);
-            const fontSize = n.centre ? 14 : n.node.depth === 1 ? 12 : 11;
-            const iconSize = n.centre ? 24 : 16;
+            const fontSize = fontOf(n, scale);
+            const iconSize = scale === 'panel' ? (n.centre ? 20 : n.size >= 34 ? 14 : 12) : n.centre ? 24 : 16;
+            const panelRing = scale === 'panel' && n.centre;
             return (
               <g key={n.key} {...common} data-path={n.node.path ?? undefined}>
-                <circle r={r} className="graph-circle" style={{ fill: `var(--type-${colour}-bg)`, stroke: `var(--type-${colour})`, strokeWidth: n.centre ? 3 : 1.5 }} />
-                {selected && <circle r={r + 4} className="graph-ring" />}
+                <circle r={r} className="graph-circle" style={{ fill: `var(--type-${colour}-bg)`, stroke: `var(--type-${colour})`, strokeWidth: n.centre && scale !== 'panel' ? 3 : 1.5 }} />
+                {panelRing && <circle r={30} className="graph-centre-ring" style={{ stroke: `var(--type-${colour})` }} />}
+                {selected && <circle r={(panelRing ? 30 : r) + 4} className="graph-ring" />}
                 <g transform={`translate(${-iconSize / 2} ${-iconSize / 2})`} style={{ color: `var(--type-${colour})` }}>
                   <Icon name={icon.glyph} dataIcon={icon.def} size={iconSize} />
                 </g>
-                <text className={`graph-label${n.centre ? ' centre' : ''}`} y={r + 7} textAnchor="middle" dominantBaseline="hanging"
+                <text className={`graph-label${n.centre ? ' centre' : ''}`} y={(panelRing ? 30 : r) + (scale === 'panel' ? 5 : 7)} textAnchor="middle" dominantBaseline="hanging"
                   style={{ fontSize, fontWeight: n.centre ? 650 : 400, display: showLabel ? undefined : 'none' }}>
-                  {cut(n.node.title, fontSize, n.centre ? '650' : '400')}
+                  {cut(n.node.title, fontSize, n.centre ? '650' : '400', max)}
                 </text>
               </g>
             );

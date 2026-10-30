@@ -1,6 +1,8 @@
 // Slice G1 (docs/contracts/v1-graph.md §4; graph.md R109; D-910, D-977): the filter list, which is also the legend:
 // Types (`All`, `None`, one checkbox per type in the D-977 order with its swatch, plural name and count), Connections
 // (the four kinds with their R108 line sample) and `Size nodes by links`. G3 puts the preset select above Types.
+// Slice G2 (v1-graph §15.2): the `popover` variant (the right panel's `Depth and filters`) starts with the `Depth`
+// radiogroup and ends with the note `graph.panel.filtersNote`; G3's preset row goes after `Depth`.
 import { t } from '../i18n/catalog';
 import { chipIcon, chipTypes } from '../links/icons';
 import { Icon } from '../shell/Icon';
@@ -24,7 +26,36 @@ export type FilterProps = {
   onKind: (kind: EdgeKindDto, visible: boolean) => void;
   onSize: (on: boolean) => void;
   allRef?: React.RefObject<HTMLButtonElement | null>;
+  /** Slice G2: `popover` adds the `Depth` radiogroup first and the note last. */
+  variant?: 'column' | 'popover';
+  depth?: 1 | 2 | 3;
+  onDepth?: (d: 1 | 2 | 3) => void;
+  /** The popover variant: the checked radio, which takes the focus when the popover opens (FR-GRP-02 AC-7). */
+  radioRef?: React.RefObject<HTMLButtonElement | null>;
 };
+
+const DEPTHS = [1, 2, 3] as const;
+/** R114: the popover's `Depth` radiogroup, arrows moving within it and applying at once (FR-GRP-02 AC-7). */
+function DepthRadios(p: { depth: 1 | 2 | 3; onDepth: (d: 1 | 2 | 3) => void; radioRef?: React.RefObject<HTMLButtonElement | null> }) {
+  const onKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = DEPTHS[(DEPTHS.indexOf(p.depth) + step + DEPTHS.length) % DEPTHS.length];
+    const group = e.currentTarget.parentElement;
+    p.onDepth(next);
+    requestAnimationFrame(() => group?.querySelector<HTMLButtonElement>(`[data-depth="${next}"]`)?.focus());
+  };
+  return (
+    <div role="radiogroup" aria-label={t('graph.depth')} className="graph-depth graph-depth-radios">
+      {DEPTHS.map((d) => (
+        <button key={d} type="button" role="radio" data-depth={d} data-command={`graph.depth${d}`} aria-checked={p.depth === d}
+          tabIndex={p.depth === d ? 0 : -1} ref={p.depth === d ? p.radioRef : undefined}
+          onKeyDown={onKey} onClick={() => p.onDepth(d)}>{d}</button>
+      ))}
+    </div>
+  );
+}
 
 function pluralOf(key: string): string {
   const def = chipTypes().find((x) => x.key.normalize('NFC') === key.normalize('NFC'));
@@ -34,8 +65,15 @@ const colourOf = (key: string) => typeColour(key, chipTypes());
 
 export function GraphFilters(p: FilterProps) {
   const off = p.disabled ? 'true' : undefined;
+  const popover = p.variant === 'popover';
   return (
     <>
+      {popover && p.depth && p.onDepth && (
+        <div className="graph-popover-depth">
+          <span className="graph-popover-label" aria-hidden="true">{t('graph.depth')}</span>
+          <DepthRadios depth={p.depth} onDepth={p.onDepth} radioRef={p.radioRef} />
+        </div>
+      )}
       <fieldset className="graph-fieldset">
         <legend>{t('graph.types')}</legend>
         <div className="graph-all-none">
@@ -49,6 +87,7 @@ export function GraphFilters(p: FilterProps) {
           return (
             <label key={key} className="graph-type-row" data-user-content>
               <input type="checkbox" data-command="graph.type" checked={!p.hiddenTypes.includes(key)} aria-disabled={off}
+                aria-label={`${pluralOf(key)} ${new Intl.NumberFormat(region() ?? 'en-US').format(count)}`}
                 onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onType(key, e.currentTarget.checked); }} />
               {tag
                 ? <span className="graph-swatch pill" data-swatch="pill" aria-hidden="true" />
@@ -77,6 +116,7 @@ export function GraphFilters(p: FilterProps) {
           onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onSize(e.currentTarget.checked); }} />
         <span>{t('graph.sizeByLinks')}</span>
       </label>
+      {popover && <p className="graph-popover-note">{t('graph.panel.filtersNote')}</p>}
     </>
   );
 }

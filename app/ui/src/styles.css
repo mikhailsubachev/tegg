@@ -1257,6 +1257,29 @@ button.tag-tile { cursor: pointer; }
 .graph-deleted h1 { font-size: 18px; margin: 0; }
 .graph-deleted p { margin: 0; color: var(--muted); }
 .preview-action { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+/* Slice G2, the local graph in the right panel (graph-panel.md R114, R115; boards GraphPanel, GraphStates). */
+.context-panel > .panel-body.graph-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.graph-panel-toolbar { display: flex; align-items: center; gap: 6px; flex: none; }
+.graph-panel-spacer { flex: 1; }
+.graph-panel-trigger, .graph-panel-full { height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.graph-panel-full { padding: 0 6px; }
+.graph-panel [aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.graph-panel-canvas { flex: 1 1 0; min-height: 0; position: relative; }
+.graph-panel-canvas > .graph-svg { position: absolute; left: 0; top: 0; width: auto; height: auto; border: 0; border-radius: 8px; }
+.graph-panel-canvas .graph-state { top: calc(50% + 44px); width: 90%; }
+.graph-panel-footer { margin: 0; flex: none; font-size: 12px; color: var(--muted); }
+.graph-panel-message { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 12px; text-align: center; color: var(--muted); font-size: 13px; }
+.graph-panel-message p { margin: 0; }
+.graph-panel-title { color: var(--text); font-weight: 600; }
+.graph-panel-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.graph-panel-loading { border-radius: 8px; }
+.graph-panel-loading .graph-skeleton span { animation: none !important; }
+.graph-filters.graph-panel-popover { position: fixed; z-index: 40; max-height: calc(100vh - 16px); overflow: auto; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); }
+.graph-popover-depth { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.graph-popover-label { font-weight: 600; color: var(--muted); font-size: 12px; }
+.graph-depth-radios button[aria-checked="true"] { background: var(--sel); font-weight: 600; }
+.graph-popover-note { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.graph-centre-ring { fill: none; stroke-width: 1; }
 @media (prefers-reduced-motion: no-preference) {
   .graph-node.graph-enter { animation: graph-fade-in 150ms ease-out; }
   .graph-skeleton span:nth-child(1) { animation: graph-pulse 1.2s ease-in-out infinite; }

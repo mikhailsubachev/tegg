@@ -497,3 +497,29 @@ export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHando
 4. The panel queries nothing while its Graph tab is hidden; switching to it asks once.
 5. `panel.graph` is both the tab's command and `Show local graph`, as `panel.backlinks` is for `Show backlinks`.
 
+
+### 15.11 Build notes and open points of the G2 build (AP-900…AP-905, for the owner)
+
+Build notes (no decision needed):
+
+- The panel's layout keeps every free node's box inside the canvas with the 12 px margin and pulls nodes towards the
+  vertical centre line (`layout(…, { bounds, squeeze })`), so `panelFit` gives 100 % whenever the graph fits (Plán up to
+  depth 3 at 260 px); `buildModel(result, { sizeByLinks, scale: 'panel' })` and `GraphCanvas scale="panel"` carry R114's
+  sizes. A width change moves no node and re-centres (no re-layout, no request).
+- The panel re-asks after the page's own save (`NotePage onWritten` → the `refresh` tick), since the watcher doesn't
+  report Tegg's own writes.
+- Back returns to a note with its caret (graph.md FR-GRP-01 AC-11, AC-34 here): the history entry keeps the editor's
+  selection (`HistoryEntry.caret`, `NotePageApi.caret`, `NotePage restoreCaret`).
+- `ShellActions.showLocalGraph` runs `panel.graph`; `GraphPanel` exposes `commandRef` (depth, hand-over) for
+  `Graph: Depth n` and ⌘⇧G while the panel shows the Graph tab (D-1035, D-1036).
+
+Open points:
+
+| AP | Point | Proposal |
+| --- | --- | --- |
+| AP-900 | Test defect: `graph-panel-helpers.ts` `graphPanel` names the tab panel `'Graph'` with `exact: true`, which the pseudo-locale (`⟦Graph⟧`) never matches, so `nfr_oth_02_ac13_panel_graph_strings_in_the_catalog` (WebKit) fails in `openPanel` before its checks. | `name: /^⟦?Graph⟧?$/` (as `graphTab`); a corrected copy passes. |
+| AP-901 | Test defect: `fr_grp_01_ac28_panel_graph_tab_on_a_note` counts every `nav_opened`, including the landing route's own (D-138 records opening `note/<path>`), so it reads 1. | Count from after `openPanel` (`navCount` delta); a corrected copy passes. |
+| AP-902 | Test defect: the 800 × 500 part of `fr_grp_06_ac7_panel_preview_opens_left_of_the_panel` starts with `sidebarOpen: false`, but `start` waits for the Sidebar (not drawn when closed) and `startPanel` resets the viewport to 1,440 × 980. | `startPanel(…, { sidebarOpen: false, frame: 'none' })`, then `setViewportSize(800 × 500)`; a corrected copy passes. |
+| AP-903 | Test defect: L1 `fr_ux_03_ac21_panel_graph_commands` gives the daily route as `id: 'daily/<date>'` (the contract's notation); the registry's route id is `daily/YYYY-MM-DD`, so `panel.graph` (listed like `panel.backlinks`) isn't found there. | `id: 'daily/YYYY-MM-DD'` in the test; a corrected copy passes all three L1 checks. |
+| AP-904 | A rename moves the file, then rewrites links in steps (4C); a query in between draws a neighbourhood missing the not-yet-rewritten linkers (FR-GRP-01 AC-41 "keeps the 10 nodes"). | While a job reports `job:progress` without an end phase, a centre change and live re-asks wait for its end (at most 5 s), then ask once. |
+| AP-905 | Test timing: `fr_ux_05_ac16_panel_graph_in_light_and_dark_light` runs axe right after the preview popover appears, during slice P's 120 ms fade-in; about 1 run in 4 reports `color-contrast` on the popover's text. | Wait until the popover is fully shown (or emulate Reduce motion) before axe, as the R115 states part does with `sleep(200)`. |

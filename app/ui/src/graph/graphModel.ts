@@ -22,6 +22,8 @@ export type GraphModel = { centre: NodeKey | null; nodes: ModelNode[]; edges: Gr
 export type RelationNames = { key: string; attributes: { key: string; name: string }[] }[];
 
 const STEP_SIZE = { small: 36, medium: 44, large: 56 } as const;
+/** Slice G2 (R114, D-1031): the panel's scale. */
+const PANEL_STEP = { small: 26, medium: 34, large: 44 } as const;
 const STRENGTH: Record<EdgeKindDto, number> = { embed: 0, relation: 1, link: 2, tag: 3 };
 /** D-971: reserved keys named by the catalog. */
 const RESERVED_NAMES: Record<string, string> = { source: 'graph.relKey.source', description: 'graph.relKey.description' };
@@ -37,11 +39,15 @@ export function nodeKey(node: GraphNodeDto): NodeKey {
 export function sizeStep(degree: number): 'small' | 'medium' | 'large' {
   return degree >= 20 ? 'large' : degree >= 5 ? 'medium' : 'small';
 }
-export function buildModel(result: GraphResultDto, opts: { sizeByLinks: boolean }): GraphModel {
+/** `scale: 'panel'` (slice G2, R114): centre 52; off: 34 at depth 1, 26 deeper; on: 26 / 34 / 44. */
+export function buildModel(result: GraphResultDto, opts: { sizeByLinks: boolean; scale?: 'full' | 'panel' }): GraphModel {
+  const panel = opts.scale === 'panel';
   const nodes = result.nodes.map((node): ModelNode => {
     const centre = node.depth === 0;
     const step: SizeStep = centre ? 'centre' : opts.sizeByLinks ? sizeStep(node.degree) : 'default';
-    const size = step === 'centre' ? 68 : step === 'default' ? (node.depth === 1 ? 44 : 38) : STEP_SIZE[step];
+    const size = panel
+      ? (step === 'centre' ? 52 : step === 'default' ? (node.depth === 1 ? 34 : 26) : PANEL_STEP[step])
+      : step === 'centre' ? 68 : step === 'default' ? (node.depth === 1 ? 44 : 38) : STEP_SIZE[step];
     return { key: nodeKey(node), sortKey: sortKey(node.id), node, centre, step, size };
   });
   return { centre: nodes.find((n) => n.centre)?.key ?? null, nodes, edges: result.edges };

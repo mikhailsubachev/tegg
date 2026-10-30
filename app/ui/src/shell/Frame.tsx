@@ -11,6 +11,7 @@ import { Placeholder } from './Placeholder';
 import { JobStatus } from '../jobs/status';
 import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
+import { GraphPanel, type GraphPanelProps } from '../graph/GraphPanel';
 import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
 import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
@@ -326,10 +327,12 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   );
 }
 
-export function ContextPanel({ tab, onTab, backlinks, width, room, limits, onWidth }: {
+export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits, onWidth }: {
   tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void;
   /** 4A: the Backlinks tab's content (FR-LNK-01). */
   backlinks?: { path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
+  /** G2 (v1-graph §15.2): the Graph tab's content; its canvas follows the drawn width. */
+  graph?: Omit<GraphPanelProps, 'width'>;
   /** D-634: the stored width (clamped to the limits), the room the centre pane leaves, [min, max, default], and the
    * store, called when a drag ends or a key changes the width. */
   width: number; room: number; limits: [number, number, number]; onWidth: (w: number) => void;
@@ -386,7 +389,9 @@ export function ContextPanel({ tab, onTab, backlinks, width, room, limits, onWid
       </div>
       {current.id === 'backlinks' && current.status.built && backlinks
         ? <BacklinksPanel key="backlinks" {...backlinks} onCount={setCount} />
-        : <Placeholder def={current} compact />}
+        : current.id === 'graph' && current.status.built && graph
+          ? <GraphPanel key="graph" {...graph} width={drawn} />
+          : <Placeholder def={current} compact />}
       {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} date={backlinks.date} refresh={backlinks.refresh} onCount={setCount} />}
     </aside>
   );

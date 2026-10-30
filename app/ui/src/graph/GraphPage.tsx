@@ -12,9 +12,9 @@ import type { PreviewTarget } from '../preview/types';
 import { Icon } from '../shell/Icon';
 import { GraphCanvas, nodeBox, type View } from './GraphCanvas';
 import { GraphFilters } from './GraphFilters';
-import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, type ModelNode, type NodeKey, type RelationNames } from './graphModel';
+import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, sortKey, type ModelNode, type NodeKey, type RelationNames } from './graphModel';
 import { layout, type Point } from './layout';
-import type { EdgeKindDto, GraphRequestDto, GraphResultDto, GraphViewStateDto } from './types';
+import type { EdgeKindDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
 
 const CAP = 150;
 const MAX_DRAWN = 1000;
@@ -45,6 +45,11 @@ export type GraphPageProps = {
   nav: GraphNav;
   onTitle: (title: string) => void;
   commandRef: React.RefObject<((id: 'depth1' | 'depth2' | 'depth3' | 'recenter') => void) | null>;
+  /** Slice G2 (v1-graph §15.5, D-1037): the panel's hand-over on this history entry: its depth overrides
+   *  `graph.full.depth` for the entry only; its node is selected and previewed once drawn. */
+  handover?: { depth: 1 | 2 | 3; select: NodeIdDto | null } | null;
+  /** A depth change on an entry with a hand-over: the entry keeps what was last seen. */
+  onHandoverDepth?: (d: 1 | 2 | 3) => void;
 };
 
 type Failure = { kind: 'trash' | 'gone'; title: string };
@@ -62,7 +67,7 @@ function relationNames(): RelationNames {
 
 export function GraphPage(p: GraphPageProps) {
   const centrePath = p.path.normalize('NFC');
-  const depth = validDepth(p.view?.depth);
+  const depth = p.handover ? validDepth(p.handover.depth) : validDepth(p.view?.depth);
   const hiddenTypes = strings(p.view?.hiddenTypes);
   const hiddenKinds = kindsOf(p.view?.hiddenKinds);
   const sizeByLinks = p.view?.sizeByLinks === true;
@@ -239,6 +244,21 @@ export function GraphPage(p: GraphPageProps) {
     pendingShow.current = null;
     if (preview.current) preview.close('outside');
   }
+  // Slice G2 (§15.5): the hand-over's node is selected and previewed in the column once it is drawn (D-1037).
+  const handed = useRef(false);
+  useEffect(() => {
+    const want = p.handover?.select;
+    if (handed.current || !model || positions.size === 0) return;
+    handed.current = true;
+    if (!want) return;
+    const n = model.nodes.find((x) => x.sortKey === sortKey(want));
+    if (!n) return;
+    const el = root.current?.querySelector(n.node.typeKey === 'tag'
+      ? `[data-graph-node][data-tag-key="${CSS.escape(n.node.tagKey ?? '')}"]`
+      : `[data-graph-node][data-path="${CSS.escape(n.node.path ?? '')}"]`);
+    if (el) select(n, el);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, positions]);
   // The preview closed by itself (its close button): the selection goes too.
   const hadPreview = useRef(false);
   useEffect(() => {
@@ -267,7 +287,11 @@ export function GraphPage(p: GraphPageProps) {
 
   // ------------------------------------------------------------------ view state (D-993)
   const write = (patch: Partial<GraphViewStateDto>) => p.onView({ ...(p.view ?? {}), ...patch });
-  const setDepth = (d: 1 | 2 | 3) => { if (d !== depth) write({ depth: d }); };
+  const setDepth = (d: 1 | 2 | 3) => {
+    if (d === depth) return;
+    write({ depth: d });
+    if (p.handover) p.onHandoverDepth?.(d);
+  };
   const known = (result?.typeCounts ?? []).map(([k]) => k);
   const unknownHidden = hiddenTypes.filter((k) => !known.includes(k));
   const setType = (key: string, visible: boolean) => write({ hiddenTypes: visible ? hiddenTypes.filter((k) => k !== key) : [...hiddenTypes, key] });

@@ -77,8 +77,10 @@ test('nfr_oth_02_ac12_graph_strings_in_the_catalog', async () => {
     if (got !== want) bad.push(`${key} ${JSON.stringify(vars)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, [], 'every R112 key with its English text (plural forms per D-133)');
-  const extra = Object.keys(en).filter((k) => (k.startsWith('graph.') || k.startsWith('cmd.graph.')) && !ALL_KEYS.has(k));
-  assert.deepEqual(extra, [], 'G1 adds exactly the R112 keys');
+  // D-1030…D-1043 (slice G2): the panel's R117 keys (`graph.panel.*`, `cmd.graph.showLocal`) come on top of R112.
+  const g2 = (k: string) => k.startsWith('graph.panel.') || k === 'cmd.graph.showLocal';
+  const extra = Object.keys(en).filter((k) => (k.startsWith('graph.') || k.startsWith('cmd.graph.')) && !ALL_KEYS.has(k) && !g2(k));
+  assert.deepEqual(extra, [], 'G1 adds exactly the R112 keys (G2 adds R117\'s)');
 });
 
 test('nfr_oth_02_ac12_graph_strings_in_the_catalog_czech_plurals', async () => {
@@ -146,8 +148,11 @@ test('fr_ux_03_ac20_graph_commands_and_shortcut', async () => {
     assert.ok(c && typeof c.disabled === 'function' && c.disabled() !== null, `Open graph is listed disabled on ${route.id} (D-987)`);
   }
   const all = [onNote, onGraph].flat().map(title);
-  for (const t of ['Show local graph', 'Graph: Apply preset…', 'Graph: Show as list', 'Show as graph', 'Graph: Show as graph']) {
-    assert.ok(!all.includes(t), `${t} is not in the registry in G1 (G2, G3)`);
+  // D-918 (slice G2): `Show local graph` is in the registry, on a note and not on graph/<path>.
+  assert.ok(onNote.map(title).includes('Show local graph'), '`Show local graph` is on a note (G2)');
+  assert.ok(!onGraph.map(title).includes('Show local graph'), '`Show local graph` is not on graph/<path>');
+  for (const t of ['Graph: Apply preset…', 'Graph: Show as list', 'Show as graph', 'Graph: Show as graph']) {
+    assert.ok(!all.includes(t), `${t} is not in the registry in G1 or G2 (G3)`);
   }
 });
 
