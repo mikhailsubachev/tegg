@@ -326,3 +326,180 @@ Owner, 2026-10-30, as proposed:
   (follow-up).
 - The DTOs in `ui/src/graph/types.ts` are hand-written beside `shellg1.rs` (not generated yet; follow-up).
 
+## 16. Slice G3: presets, keyboard, List (draft)
+
+Public interfaces of slice G3, for the test author (D-61) and the build. ACs: `docs/acceptance/graph.md` part two
+(R118…R124; FR-GRP-02 AC-11…AC-25, FR-SYN-03 AC-22…AC-24, FR-SYN-02 AC-8, FR-SYN-06 AC-40, FR-FMT-07 AC-27,
+FR-FMT-12 AC-7, NFR-POR-01 AC-3, FR-STO-06 AC-1, FR-LNK-12 AC-8…AC-13, FR-UX-03 AC-22…AC-30, FR-UX-08 AC-1…AC-9,
+FR-UX-05 AC-17, NFR-OTH-02 AC-14). Decisions: D-906, D-907, D-916…D-918, D-923, D-925, D-928, D-929, D-942, D-970;
+open points AP-920…AP-945 (pending; this section follows their proposals and changes with the answers). Fixtures:
+`tests/fixtures/vaults/graph/` and `tests/fixtures/graph-presets/`. §15 is slice G2's.
+
+G3 is the first graph slice that **writes a vault file**: `.tegg/graph.yml`, only on `save`, `update`, `rename` and
+`delete` (D-906). Everything else it stores is machine-local (`ui-state.json`, §16.4).
+
+### 16.1 The presets module (`tegg-core`, AR-03)
+
+A new module `crates/tegg-core/src/graph_presets.rs`, platform-neutral (no Tauri or desktop dependency; it reads and
+writes through `Vault`, like `settings5b.rs` and `types3d.rs`). Nothing about presets is in the index (AR-01).
+
+```rust
+pub const GRAPH_YML: &str = ".tegg/graph.yml";
+pub const PRESETS_VERSION: u32 = 1;
+
+pub struct GraphPreset {
+    pub name: String,                 // NFC, trimmed, as listed
+    pub hidden_types: Vec<String>,    // raw keys, NFC, file order; unknown keys kept (D-907)
+    pub hidden_kinds: Vec<String>,    // raw values; only link/relation/embed/tag take effect
+}
+
+pub enum PresetsState { Missing, Ok, Newer { version: u64 }, Unreadable { line: Option<u32>, reason: String } }
+
+pub struct GraphPresets {
+    pub version: Option<FileVersion>, // the file's version as read; None when Missing
+    pub state: PresetsState,
+    pub presets: Vec<GraphPreset>,    // listed presets in file order (R118 read rules); empty when Unreadable
+}
+
+pub enum PresetOp {
+    Save { name: String, hidden_types: Vec<String>, hidden_kinds: Vec<String> },
+    Update { name: String, hidden_types: Vec<String>, hidden_kinds: Vec<String> },
+    Rename { from: String, to: String },
+    Delete { name: String },
+}
+
+pub enum PresetError { NameEmpty, NameTaken { existing: String }, NameTooLong, NameControl, NoSuchPreset, NewerVersion, Unreadable }
+
+impl Core {
+    /// Reads `.tegg/graph.yml`; never writes, never creates.
+    pub fn graph_presets(&self) -> GraphPresets;
+    /// One operation = at most one atomic write (FR-SYN-02). `base` is `GraphPresets.version` as last read.
+    /// Errors: `Vault(Conflict { disk })` when the disk content differs from `base` (D-175: size + hash), also when
+    /// `base` is None and the file exists (created with RENAME_EXCL semantics); `Vault(Gone)` when `base` is Some and
+    /// the file is missing; `Preset(PresetError)`; `NotUtf8`; `Io`. An operation whose result equals the disk bytes
+    /// writes nothing and returns Ok.
+    pub fn graph_presets_apply(&self, base: Option<FileVersion>, op: PresetOp) -> Result<GraphPresets, CoreError>;
+}
+```
+
+- **Parsing** with `yaml_rust2` for values plus a line scanner for positions (the `settings5b.rs` approach), so a patch
+  knows each item's line range. `Unreadable.line` is the parser's 1-based line, when it gives one.
+- **Validation** (AP-928): names trimmed and NFC; `NameEmpty`, `NameTaken { existing }` (case-insensitive after NFC,
+  against listed presets and `Default`; a rename to a case variant of its own name is allowed), `NameTooLong` (> 100
+  characters, counted as Unicode scalar values), `NameControl` (any `Cc` character). `NoSuchPreset` when `Update`,
+  `Rename` or `Delete` names a preset not listed (the UI treats it like a conflict: reload, alert).
+- **Writing** by R118's write rules (AP-921). The type order for `hidden-types` is the core's cached type order (D-994:
+  system and user types in D-121 order, `tag`, then undefined keys as found), then keys not in it in their previous
+  order. Quoting by `settings5b::scalar` (moved to a shared helper). New file: the header comment line of
+  `expected/created.yml`, `version: 1`, `presets:`, the item, LF.
+- **Refusals**: `Newer` → `PresetError::NewerVersion` for every op; `Unreadable` → `PresetError::Unreadable` for every
+  op (AP-922): the file is never replaced.
+- **Watcher**: `vault:changed` already carries `.tegg/…` paths (ms3-shell §3); the core drops its cached presets when
+  `.tegg/graph.yml` is named. Other files in `.tegg/` (sync conflict copies) are ignored by this module (AP-925).
+
+### 16.2 IPC
+
+| Command | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `graph_presets_get` | — | `GraphPresetsDto` | `Core::graph_presets`. Read-only. |
+| `graph_presets_apply` | `base: VersionDto \| null`, `op: PresetOpDto` | `GraphPresetsDto` (the new state) | `Core::graph_presets_apply`. Errors below. Calls are serialized in the UI (one in flight). |
+
+```ts
+type GraphPresetDto = { name: string; hiddenTypes: string[]; hiddenKinds: string[] };
+type GraphPresetsDto = {
+  version: VersionDto | null;
+  state: 'missing' | 'ok' | 'newer' | 'unreadable';
+  error: { line: number | null; reason: string } | null;   // only for 'unreadable'
+  presets: GraphPresetDto[];
+};
+type PresetOpDto =
+  | { op: 'save'; name: string; hiddenTypes: string[]; hiddenKinds: string[] }
+  | { op: 'update'; name: string; hiddenTypes: string[]; hiddenKinds: string[] }
+  | { op: 'rename'; from: string; to: string }
+  | { op: 'delete'; name: string };
+// IpcError.kind: 'Conflict' (payload `disk: GraphPresetsDto`), 'Gone', 'NameEmpty', 'NameTaken' (`existing`),
+// 'NameTooLong', 'NameControl', 'NoSuchPreset', 'NewerVersion', 'Unreadable', 'NotUtf8', 'Io'.
+```
+
+UI handling (AP-924): `Conflict`, `Gone`, `NoSuchPreset` → load the returned or re-read state, show
+`graph.preset.changedOutside`, keep the Save dialog or rename field open with the typed text; name errors → the R119
+message under the field; `Io` → `graph.preset.saveFailed`. No error changes the view's filters.
+
+### 16.3 UI modules (`app/ui/src/graph/`)
+
+| Module | Owns |
+| --- | --- |
+| `presets.ts` | Pure: `currentPreset(view, presets)` (NFC, case-insensitive name match; dangling → Default, AP-930), `isModified(view, preset)` (NFC set comparison, AP-929), `validateName(name, presets, renaming?)` (mirrors §16.1, for live messages), `applyPreset(view, preset)` → the next `GraphViewStateDto`. L1-tested. |
+| `PresetControl.tsx` | R119: the label, `Preset: <name>` button, the modified row, the `Presets` menu, the Save dialog, the rename field, the delete `alertdialog`, the alert. Props `{ view: 'full' \| 'panel'; state; onState }`, so G2 mounts it in the panel. Mounted in `GraphFilters.tsx`'s slot above `Types`. Holds the last `GraphPresetsDto` and re-reads it on `vault:changed` naming `.tegg/graph.yml`. |
+| `keyboard.ts` | Pure: `nearestInDirection(positions, from, dir, sortKeys)` (R120 rule, AP-934), `graphKeyAction(event, mode, target)` → `'focusDir' \| 'preview' \| 'open' \| 'centre' \| 'zoomIn' \| 'zoomOut' \| 'fit' \| 'escape' \| null` (R120's table; null with ⌘/⌃/⌥ except ⌘⏎, ⌘⇧⏎, ⌥Space). |
+| `hover.ts` | The hover controller for nodes and List rows (D-942 cancel rules, `usePreview().hoverDelay`), the ring's start and stop, the column rule of AP-941 (keeps the preview while the pointer is over canvas or column; 300 ms grace after leaving both). |
+| `GraphCanvas.tsx` | Adds roving focus (`tabindex="0"` on one node, the centre by default, AP-935), the `--focus` ring (`:focus-visible`), `[data-hover-ring]`, key handling through `keyboard.ts`, panning a focused node into view, the canvas `aria-description` (`graph.canvas.help`). |
+| `GraphList.tsx` | R122: `tree` `Local graph as a list`, roving `treeitem`s, WAI-ARIA tree keys, the same inputs through `keyboard.ts` and `hover.ts`; collapse state in memory only. |
+| `graphModel.ts` | Adds `nodeDescription(node, result, types, index)` (R121), `positionOrder(result)` (the result's node order), `listTree(result)` → `{ key, parentKey, level, children }[]` (AP-938). |
+| `GraphPage.tsx` | The `View` switch (`group` `View`, `Graph` / `List`), the hint per mode, the column's empty texts per mode (AP-943), passing `onView` writes. |
+
+Commands (`shell/commands.ts`): R123's ids, registered with the G1 graph-route rule; `graphCommand` widens to
+`'depth1' | 'depth2' | 'depth3' | 'recenter' | 'preset.apply' | 'preset.save' | 'preset.update' | 'preset.revert' |
+'preset.rename' | 'preset.delete' | 'view.list' | 'view.graph'`, and commands get `disabled()` reasons
+(`graph.preset.notModified`, `graph.preset.fixFile`, `graph.preset.newer`, a new `graph.preset.isDefault`
+`Default can't be changed.`). Strings: every R124 key in the English catalog, plurals per D-133.
+
+### 16.4 Machine-local state (§5 amended)
+
+```ts
+type GraphViewStateDto = {
+  depth?: 1 | 2 | 3; hiddenTypes?: string[]; hiddenKinds?: EdgeKindDto[]; sizeByLinks?: boolean;  // G1
+  view?: 'graph' | 'list';   // G3: missing or unknown → 'graph', not rewritten (D-906, AP-940)
+  preset?: string;           // G3: the current preset's name, NFC; missing → Default; a name not listed → Default
+                             //     label, kept until the next change (AP-930)
+};
+```
+
+- One `ui_state_set` per committed change, as G1: applying a preset or Default (filters and `preset` together),
+  `Revert`, a successful `save` (`preset` = the new name), the `View` switch. A Tegg `rename` updates `preset` in every
+  view under the vault that named the old name, and a Tegg `delete` removes it there, in one `ui_state_set` after the
+  file write succeeded. A filter change keeps `preset` (the view becomes modified).
+- `hiddenKinds` may now hold values from a preset that aren't kinds (`backlink`): kept on write, ignored on read (§5).
+
+### 16.5 Keyboard, focus and hover details
+
+- Key handling is on the canvas `svg` and the `tree` (one `keydown` listener each); single keys never act from other
+  elements (FR-UX-03 AC-27). `+` matches `+`, `=` and `NumpadAdd`; `−` matches `-`, `−` and `NumpadSubtract`; `0`
+  matches `0` and `Numpad0`.
+- ⏎ in click mode calls the G1 select-and-preview path with `origin: 'key'` and keeps the focus on the node (AP-935);
+  in hover and Off it opens. ⌘⏎ and ⌘⇧⏎ open in the current view (AP-933). ⌥Space calls `show(…, 'key', column)`.
+- The second Esc focuses the page's `h1` (`tabindex="-1"`, as D-130).
+- Hover: `pointermove` over a node restarts the delay; the ring is an SVG element with a CSS animation of
+  `stroke-dashoffset` lasting `hoverDelay` ms (none under `prefers-reduced-motion`); at the end the page calls
+  `show(target, anchor, 'hover', { placement: 'column', container })` with the D-982 lines.
+
+### 16.6 Fake core and test hooks
+
+- `app/ui/test/fake-presets.ts`, installed by `installFakeCore`: `graph_presets_get` and `graph_presets_apply` over the
+  fake's `.tegg/graph.yml`, a TypeScript twin of §16.1's parser and patcher. It is checked against the Rust module on
+  every `tests/fixtures/graph-presets/` input and `expected/` output (the L4 and L1 tests read the same files).
+- Handle additions: `presetCalls()` (ops in order with their bases), `presetsFail(kind)` (the next apply fails with
+  `Io`, `Conflict`, …), and the existing `setFile('.tegg/graph.yml', text, { event })` with `event: false` to make a
+  base stale (FR-SYN-03 AC-22). `writes()` counts `graph.yml` writes as vault writes.
+- L6: the helper process of ms3-shell §13.6 replaces, deletes and copies `.tegg/graph.yml` (FR-GRP-02 AC-19, AC-23,
+  FR-SYN-03 AC-23); the data-safety AC-3 kill harness gains a `graph-presets` mode (FR-SYN-02 AC-8).
+
+### 16.7 Test layout
+
+| Layer | Files |
+| --- | --- |
+| L0 | AR-03 check covers `graph_presets.rs` (unchanged rule) |
+| L1 | `app/test/graph_presets.ac.test.ts` (model, validation, the TS patcher vs `expected/`), `graph_keyboard.ac.test.ts` (R120 reference cases, key table), `graph_a11y.ac.test.ts` (R121 texts, `listTree`), `graph_catalog.ac.test.ts` (R123, R124) |
+| L2 | `crates/tegg-core/tests/ac_graph_presets_props.rs` (patch invariants), fast-check twins for the patcher and `nearestInDirection` |
+| L4 | `crates/tegg-core/tests/ac_graph_presets.rs` (read rules, every `expected/` file, conflicts, `Gone`, RENAME_EXCL, atomic writes, NFC, index-free) |
+| L5 | `app/webkit/graph_presets.ac.test.ts`, `graph_keyboard.ac.test.ts`, `graph_list.ac.test.ts`, `graph_hover.ac.test.ts`, `graph_themes.ac.test.ts` (G3 states) |
+| L6 | `app/e2e/graph_presets.ac.test.ts` (FR-SYN-06 AC-40 tour, external and synced changes, relaunch, kill harness) |
+
+### 16.8 Contract choices (no owner decision needed)
+
+1. One `graph_presets_apply` command with an op enum, not four commands: one place for the base check and the patcher.
+2. The core validates names again even though the UI does (the UI's check is for live messages only).
+3. Presets are re-read on `vault:changed` of `.tegg/graph.yml`, not pushed by a new event.
+4. The NFC, case-insensitive name match is done in both the core and `presets.ts` from the same rule; neither depends
+   on the region (FR-FMT-12 AC-7).
+
