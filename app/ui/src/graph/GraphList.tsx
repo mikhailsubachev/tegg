@@ -2,7 +2,9 @@
 // in the canvas's place: the same drawn nodes as the canvas, each under its first neighbour one step closer
 // (`graphModel.listTree`), fully expanded at first, collapsible in memory only. One tab stop (roving, the centre row
 // first); the WAI-ARIA tree keys move between visible rows; every other key, a click and hover go to the page, which
-// handles them as on nodes (R120, AP-939). Rows show no hover ring.
+// handles them as on nodes (R120, AP-939). Rows show no hover ring. Slice "G3 in the panel" (v1-graph §17.1, AP-967 =
+// D-1137): the `panel` variant indents 12 px per level, cuts the title with `…` and wraps the phrase and the count under
+// it, and scrolls inside its own box.
 import { useMemo, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { chipIcon, typeNameOf } from '../links/icons';
@@ -25,9 +27,12 @@ export type GraphListProps = {
   onPointer: (n: ModelNode, over: boolean) => void;
   /** The tree keys moved the focus. */
   onMove: () => void;
+  /** `panel`: the right panel's row layout and scroll container (AP-967). */
+  variant?: 'full' | 'panel';
 };
 
 export function GraphList(p: GraphListProps) {
+  const panel = p.variant === 'panel';
   const rows = useMemo(() => listTree(p.result), [p.result]);
   const byKey = useMemo(() => new Map(p.model.nodes.map((n) => [n.key, n])), [p.model]);
   const [collapsed, setCollapsed] = useState<Set<NodeKey>>(new Set());
@@ -58,6 +63,7 @@ export function GraphList(p: GraphListProps) {
     p.onFocusKey(k);
     const el = document.querySelector<HTMLElement>(`[data-graph-row="${CSS.escape(k)}"]`);
     el?.focus();
+    if (panel) el?.querySelector('.graph-row')?.scrollIntoView({ block: 'nearest' });
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
@@ -102,7 +108,7 @@ export function GraphList(p: GraphListProps) {
         aria-label={`${displayTitle(n.node)}, ${typeNameOf(n.node.typeKey)}`} aria-description={nodeDescription(n.node, p.result, p.types, null)}
         className="graph-row-item" data-user-content=""
         onFocus={(e) => { if (e.target === e.currentTarget) p.onFocusKey(k); }}>
-        <div className={`graph-row${p.selected === k ? ' selected' : ''}`} style={{ paddingLeft: 8 + r.level * 20 }}
+        <div className={`graph-row${p.selected === k ? ' selected' : ''}`} style={{ paddingLeft: panel ? r.level * 12 : 8 + r.level * 20 }}
           onClick={(e) => { e.stopPropagation(); p.onClick(n, e.currentTarget.parentElement as HTMLElement, e); }}
           onDoubleClick={(e) => { e.stopPropagation(); p.onDoubleClick(n); }}
           onPointerEnter={() => p.onPointer(n, true)} onPointerMove={() => p.onPointer(n, true)} onPointerLeave={() => p.onPointer(n, false)}>
@@ -113,8 +119,17 @@ export function GraphList(p: GraphListProps) {
             ? <span className="graph-swatch pill" data-swatch="pill" aria-hidden="true" />
             : <span className="graph-row-icon" aria-hidden="true"><Icon name={icon.glyph} dataIcon={icon.def} size={14} /></span>}
           <span className="graph-row-title" data-user-content="">{displayTitle(n.node)}</span>
-          {phrase && <span className="graph-row-meta">{' · '}{phrase}</span>}
-          <span className="graph-row-meta">{' · '}{t('graph.connectionsCount', { count: n.node.degree })}</span>
+          {panel ? (
+            <span className="graph-row-lines">
+              {phrase && <span className="graph-row-meta"><span className="graph-row-sep">{' · '}</span>{phrase}</span>}
+              <span className="graph-row-meta"><span className="graph-row-sep">{' · '}</span>{t('graph.connectionsCount', { count: n.node.degree })}</span>
+            </span>
+          ) : (
+            <>
+              {phrase && <span className="graph-row-meta">{' · '}{phrase}</span>}
+              <span className="graph-row-meta">{' · '}{t('graph.connectionsCount', { count: n.node.degree })}</span>
+            </>
+          )}
         </div>
         {r.children.length > 0 && <div role="group" hidden={!open}>{r.children.map(render)}</div>}
       </div>
@@ -122,7 +137,7 @@ export function GraphList(p: GraphListProps) {
   };
 
   return (
-    <div role="tree" aria-label={t('graph.list')} className="graph-list" onKeyDown={onKeyDown}
+    <div role="tree" aria-label={t('graph.list')} className={`graph-list${panel ? ' panel' : ''}`} onKeyDown={onKeyDown}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null) && e.relatedTarget) p.onFocusKey(null); }}>
       {rows.filter((r) => r.parentKey === null).map((r) => render(r.key))}
     </div>

@@ -144,6 +144,8 @@ export function App() {
   /** Slice G2: the shown panel graph's commands (`Graph: Depth n`, ⌘⇧G); whether the panel shows the Graph tab. */
   const panelGraph = useRef<GraphPanelCommands | null>(null);
   const panelShowsGraph = useRef(false);
+  /** "G3 in the panel" (D-1145): the panel's day file isn't known yet (R115 pending), for AP-972's reasons. */
+  const panelPending = useRef(false);
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
@@ -186,6 +188,8 @@ export function App() {
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const pendingFocus = useRef(false);
+  /** "G3 in the panel" (FR-UX-03 AC-33): an object opened by key from the panel graph focuses the page heading (D-130). */
+  const headingFocus = useRef(false);
   const pendingReturn = useRef<HTMLElement | null>(null);
   const uiLoaded = useRef(false);
   // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
@@ -260,6 +264,7 @@ export function App() {
     setRoute(null);
     history.current.clear(); // another vault: a new history (AC-7)
     pendingFocus.current = true;
+    headingFocus.current = false;
     // The landing page shows with the sidebar's types and counts (3D: the panel needs the type definitions).
     void loadTypes().finally(() => void land());
   }, [land, loadTypes]);
@@ -316,7 +321,9 @@ export function App() {
   // hidden window, so a timer backs the frame callback up.
   useEffect(() => {
     if (vault === undefined) return;
-    const mark = () => ipc.perfMark('ui-ready').catch(() => {});
+    // Once: the timer only backs up a frame that didn't come (a late second mark looked like a request, FR-UX-03 AC-34).
+    let marked = false;
+    const mark = () => { if (marked) return; marked = true; void ipc.perfMark('ui-ready').catch(() => {}); };
     requestAnimationFrame(() => setTimeout(mark, 0));
     const fallback = setTimeout(mark, 250);
     return () => clearTimeout(fallback);
@@ -325,7 +332,7 @@ export function App() {
   // ------------------------------------------------------------------ navigation
   /** D-760: a `Go to` jump from Search replaces the Search entry, so Back leaves it out as the ⌘O switcher did (FR-NAV-03). */
   const jumpFrom = useRef<string | null>(null);
-  const go = useCallback(async (r0: Route, o: { keepDialog?: boolean; graph?: GraphHandover } = {}) => {
+  const go = useCallback(async (r0: Route, o: { keepDialog?: boolean; graph?: GraphHandover; heading?: boolean } = {}) => {
     const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
     setChooser(null);
@@ -333,6 +340,7 @@ export function App() {
     setFocusMode(false);
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
+    headingFocus.current = !!o.heading;
     history.current.saveScroll(centreScroll(), centreCaret());
     if (jumpFrom.current !== null && jumpFrom.current === shownRoute.current) history.current.replace(r);
     else history.current.push(r, o.graph);
@@ -355,6 +363,7 @@ export function App() {
     setFocusMode(false);
     pendingReturn.current = null;
     pendingFocus.current = true;
+    headingFocus.current = false;
     pendingScroll.current = e.scrollTop;
     pendingCaret.current = e.caret ?? null;
     setHistTick((n) => n + 1);
@@ -686,15 +695,28 @@ export function App() {
       const path = objectPathOf(route);
       if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') });
     },
+    // "G3 in the panel" (R127, §17.5): each R123 command acts on the one graph shown (D-988).
     graphCommand: (id) => {
       if (route?.id === 'graph/<path>') graphCommand.current?.(id);
-      else if (panelShowsGraph.current && /^depth[123]$/.test(id)) panelGraph.current?.depth(Number(id.slice(5)) as 1 | 2 | 3);
+      else if (panelShowsGraph.current && id !== 'recenter') panelGraph.current?.command(id);
     },
     graphStatus: () => {
-      const st = route?.id === 'graph/<path>' ? graphStatus.current?.() ?? null : null;
-      // The stored view, which the palette's list follows before the page re-renders (R123).
-      const v = vault ? uiRef.current?.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
-      return st ? { ...st, view: v === 'list' ? 'list' : 'graph' } : null;
+      const vk = vault?.path.normalize('NFC');
+      if (route?.id === 'graph/<path>') {
+        const st = graphStatus.current?.() ?? null;
+        // The stored view, which the palette's list follows before the page re-renders (R123).
+        const v = vk ? uiRef.current?.vaults?.[vk]?.graph?.full?.view : undefined;
+        return st ? { ...st, view: v === 'list' ? 'list' : 'graph' } : null;
+      }
+      if (panelShowsGraph.current && panelGraph.current) {
+        const st = panelGraph.current.status();
+        const v = vk ? uiRef.current?.vaults?.[vk]?.graph?.panel?.view : undefined;
+        const s = panelGraph.current.state();
+        // D-1145: the panel's state for AP-972's reasons.
+        const state = panelPending.current ? 'pending' : s === 'noFile' || s === 'deleted' || s === 'noLinks' ? s : 'ready';
+        return { ...st, view: v === 'list' ? 'list' : 'graph', state };
+      }
+      return null;
     },
     editLink: () => { setTimeout(() => editorLinkAction('edit'), 0); },
     removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
@@ -715,10 +737,11 @@ export function App() {
       vaultPath: vp,
       state: ui.vaults?.[vp]?.graph?.panel ?? {},
       onState: (next) => updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...(u.vaults?.[vp]?.graph ?? {}), panel: next } } } })),
-      onOpen: (n) => {
-        if (n.typeKey === 'tag') { void go({ id: 'tag/<key>', param: tagKey(n.tagKey ?? n.title) }); return; }
-        if (n.typeKey === 'daily-note' && /^\d{4}-\d{2}-\d{2}$/.test(n.title)) { openDay(n.title); return; }
-        if (n.path) openNote(n.path);
+      onOpen: (n, o) => {
+        const heading = !!o?.byKey;
+        if (n.typeKey === 'tag') { void go({ id: 'tag/<key>', param: tagKey(n.tagKey ?? n.title) }, { heading }); return; }
+        if (n.typeKey === 'daily-note' && /^\d{4}-\d{2}-\d{2}$/.test(n.title)) { void go({ id: DAILY, param: n.title }, { heading }); return; }
+        if (n.path) void go({ id: 'note/<path>', param: n.path.normalize('NFC') }, { heading });
       },
       onOpenFull: (h) => { if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') }, { graph: h }); },
       refresh,
@@ -727,8 +750,17 @@ export function App() {
       pending,
       focusTrigger: focusGraph,
       commandRef: panelGraph,
+      // §17.1, §16.4: a Tegg rename or delete of a preset changes `preset` in both views in one write.
+      onViews: (f) => updateUi((u) => {
+        const g = u.vaults?.[vp]?.graph ?? {};
+        const next = f({ full: g.full, panel: g.panel as GraphViewStateDto | undefined });
+        return { ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...g, ...next } } } };
+      }),
+      // AP-960 (D-1130): the second Esc in the panel graph focuses the Context panel's `Graph` tab.
+      onFocusTab: () => document.querySelector<HTMLElement>('.context-panel [role="tab"][data-command="panel.graph"]')?.focus(),
     };
   })();
+  panelPending.current = !!panelGraphProps?.pending;
   // D-562: a note route carries its object's type, so the review commands follow its Review row.
   setDateTimeSetting(ui.dateTime);
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param, path: objectPathOf(route) } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter }
@@ -737,7 +769,8 @@ export function App() {
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: ui.rightPanel.tab as PanelTab } };
   // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
   const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
+  const panelView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.panel?.view : undefined;
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -898,10 +931,17 @@ export function App() {
         // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
         const quick = focusQuickAdd.current ? document.querySelector<HTMLInputElement>('main [data-quick-add] input') : null;
         if (quick) { focusQuickAdd.current = false; quick.focus({ preventScroll: true }); } // D-520: New Task
-        else if ((isNote || route.id === DAILY) && noteApi.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
+        else if ((isNote || route.id === DAILY) && noteApi.current && !headingFocus.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
         // A page that already put the focus on one of its items (the Inbox card one came back to, D-457) keeps it.
+        else if (headingFocus.current) {
+          // "G3 in the panel" (FR-UX-03 AC-33): the page heading itself, not the title field inside it (D-130).
+          headingFocus.current = false;
+          const h1 = (h!.closest('h1') as HTMLElement | null) ?? h!;
+          if (h1 !== h && !h1.hasAttribute('tabindex')) h1.setAttribute('tabindex', '-1');
+          h1.focus({ preventScroll: true });
+        }
         else if (!(document.activeElement && document.activeElement !== h && document.querySelector('main')?.contains(document.activeElement) && document.activeElement.closest('[data-path]'))) h!.focus({ preventScroll: true });
       }
       if (pendingScroll.current !== null && route.id !== 'note/<path>' && route.id !== DAILY) {

@@ -621,7 +621,9 @@ test('fr_grp_02_ac7_panel_depth_and_filters_popover', async ({ page }) => {
   assert.deepEqual(rows, ['Pages 2', 'Tasks 1', 'Quick Notes 0', 'Daily Notes 1', 'Cesty 0', 'Osoby 0', 'Projekty 1', 'Schůzky 1', 'Images 1', 'PDFs 0', 'Tags 2', 'recept 1'], 'the type rows of the unfiltered walk (D-976, D-977)');
   assert.equal(rows.map((r) => r.replace(/\s*\d+$/, '')).join('|'), READMEROWS.join('|'), 'the D-977 order');
   assert.ok(await pTypes(page).locator('[data-swatch="pill"]').count() >= 1, 'the Tag row with the pill swatch');
-  assert.equal(await popover(page).getByRole('combobox').count() + await popover(page).getByText(/^Preset/).count(), 0, 'no preset control (G3)');
+  // AC-test change (slice "G3 in the panel", AP-974 = D-1144): the Preset row of R125 sits between Depth and Types.
+  const presetY = await y(popover(page).getByRole('button', { name: 'Preset: Default', exact: true }));
+  assert.ok(parts[0] < presetY && presetY < parts[1], 'the Preset row with `Preset: Default` between the `Depth` radiogroup and `Types` (R125)');
   await page.keyboard.press('ArrowDown');
   assert.equal((await waitIn(page, 19)).length, 19, 'an arrow moves within the radiogroup and applies at once');
   assert.ok(await seen(popover(page), 300), 'with the popover open');
@@ -802,24 +804,19 @@ test('fr_grp_03_ac8_panel_centre_node', async ({ page }) => {
   assert.ok(await eventually(async () => (await keysIn(page)).length === 3, (x) => x, 4000), 'no history entry: one Back returns to Den');
 });
 
-for (const mode of ['hover', 'off'] as const) {
-  test(`fr_grp_03_ac9_panel_uses_click_mode_${mode}`, async ({ page }) => {
-    const core = await openPanel(page, P.plan, { previewMode: mode });
-    await waitIn(page, 10);
-    assert.equal(await footerText(page), '10 objects · click a node to preview', 'the footer of click mode');
-    const box = await (await must(nodeAt(page, P.rozpocet, GP(page)), 'Rozpočet')).boundingBox();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + 8);
-    await sleep(1600);
-    assert.equal(await anyPreviewDialog(page).count(), 0, 'hovering opens no preview');
-    assert.equal(await eventually(() => opacity(page, P.den, GP(page)), (x) => x === 0.3, 1000), 0.3, 'hovering Rozpočet dims Den');
-    assert.equal(await opacity(page, P.plan, GP(page)), 1, 'and keeps Plán, its neighbour');
-    assert.deepEqual(await selectedIn(page), [], 'without selecting');
-    await clickNode(page, P.rozpocet, {}, GP(page));
-    await mustPreview(page, 'Rozpočet 2027', 'a click previews (click mode, D-983)');
-    await clickNode(page, P.rozpocet, { double: true }, GP(page));
-    assert.ok(await routeReady(core, noteRoute(P.rozpocet), 4000), 'a double-click opens');
-  });
-}
+// AC-test change (slice "G3 in the panel", AP-974 = D-1144): hover and Off in the panel are FR-LNK-12 AC-15…AC-17 of
+// graph-panel-g3.md; FR-GRP-03 AC-9 keeps only the hover highlight in click mode.
+test('fr_grp_03_ac9_panel_hover_highlights_in_click_mode', async ({ page }) => {
+  await openPanel(page, P.plan, { previewMode: 'click' });
+  await waitIn(page, 10);
+  const box = await (await must(nodeAt(page, P.rozpocet, GP(page)), 'Rozpočet')).boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + 8);
+  await sleep(1600);
+  assert.equal(await anyPreviewDialog(page).count(), 0, 'hovering opens no preview');
+  assert.equal(await eventually(() => opacity(page, P.den, GP(page)), (x) => x === 0.3, 1000), 0.3, 'hovering Rozpočet dims Den');
+  assert.equal(await opacity(page, P.plan, GP(page)), 1, 'and keeps Plán, its neighbour');
+  assert.deepEqual(await selectedIn(page), [], 'without selecting');
+});
 
 // ------------------------------------------------------------------------------------------------ FR-GRP-05 AC-5
 

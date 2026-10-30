@@ -59,7 +59,8 @@ export async function startPanel(page: Page, route: string, o: StartPanel = {}):
 export async function openPanel(page: Page, path: string, o: StartPanel = {}): Promise<FakeCoreHandle> {
   const core = await startPanel(page, noteRoute(path), o);
   await must(graphPanel(page), `note/${path}: tabpanel "Graph" in the Context panel (R114)`, 8000);
-  await must(pCanvas(page).or(panelStateText(page)), `note/${path}: the panel's canvas or an R115 state`, 8000);
+  // G3 in the panel: with `graph.panel.view: "list"` the tree stands in the canvas's place (R125).
+  await must(pCanvas(page).or(panelStateText(page)).or(pListTree(page)), `note/${path}: the panel's canvas, its List or an R115 state`, 8000);
   return core;
 }
 
