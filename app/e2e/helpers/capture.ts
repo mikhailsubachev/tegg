@@ -132,6 +132,7 @@ export function appPids(): string[] {
 
 export const KEY: Record<string, number> = {
   a: 0, d: 2, k: 40, n: 45, t: 17, v: 9, w: 13, q: 12, r: 15, space: 49, enter: 36, escape: 53, tab: 48, delete: 51, down: 125, up: 126, left: 123, right: 124, lbracket: 33, i: 34,
+  g: 5, backslash: 42, // slice G2 (graph-panel.md): ⌘⇧G and ⌘\ in the real-app tests
 };
 export { osa } from './osa.ts'; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 import { osa } from './osa.ts';
