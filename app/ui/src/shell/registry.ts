@@ -55,7 +55,8 @@ export const ROUTES: RouteDef[] = [
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
   // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
   { id: 'new/<type>', name: 'route.new', purpose: 'purpose.new', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TYP-09', 'FR-EDT-01'], design: 'Main' },
-  { id: 'graph', name: 'route.graph', purpose: 'purpose.graph', status: tbd('v1.0'), reqs: ['FR-GRP-01…08'], design: 'Graph' },
+  // G1 (graph.md R109, D-914): the local graph's full view.
+  { id: 'graph/<path>', name: 'route.graph', purpose: 'purpose.graph', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: { built: true, due: { milestone: 'MS6' } }, reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null }, // built in 6A (R75)
   { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
   // 4A (backlinks.md R16): vault checks, reached from the palette only (D-284).
@@ -125,6 +126,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⇧⌘/', command: 'help.shortcuts' },
   { keys: '⌥⌘U', command: 'note.toggleSource' },
   { keys: '⌘T', command: 'nav.newTab' },
+  // G1 (D-918): the local graph of the current object.
+  { keys: '⇧⌘G', command: 'graph.open' },
   { keys: '⌘[', command: 'nav.back' },
   { keys: '⌘]', command: 'nav.forward' },
   // D-219: the recent vaults of the title-bar switcher (FR-VLT-01 AC-17).

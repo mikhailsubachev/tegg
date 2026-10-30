@@ -15,6 +15,7 @@ import { handle as handleTrash } from './fake-trash';
 import { handle as handleMedia, sniff } from './fake-media';
 import { handle as handleTags } from './fake-tags';
 import { handle as handleMoves } from './fake-moves';
+import { handle as handleGraph } from './fake-graph';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -138,6 +139,14 @@ export type FakeCoreHandle = {
   // ---------------------------------------------------------------- 4E-1 (ms4-jobs §14.8)
   /** The ids in the fake's machine-local `tidy-exempt.json` (§14.6). */
   tidyExempt(): Promise<string[]>;
+  // ---------------------------------------------------------------- G1 (v1-graph §8)
+  /** `graph_neighbourhood` answers after `ms` (0: at once); a newer call while one waits rejects the waiting one with
+   *  `Cancelled`, as a new request from the same window does (§1.5). */
+  graphDelay(ms: number): Promise<void>;
+  /** While on, `graph_neighbourhood` answers `NotReady` (the vault's first index build runs, D-990). */
+  graphNotReady(on: boolean): Promise<void>;
+  /** The `graph_neighbourhood` requests, in call order. */
+  graphCalls(): Promise<unknown[]>;
   // ---------------------------------------------------------------- slice P (v1-previews §9)
   /** Delays every later answer of `cmd` by `ms` (0 removes the delay), for abort and late-answer tests. */
   delayCommand(cmd: string, ms: number): Promise<void>;
@@ -270,6 +279,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // 4D-lite (ms4-tags §8.1): the tag twin and the tag-job / merge planners in Node (fake-tags.ts).
   // 4E-1 (ms4-jobs §14.8): R101, the folder preview and the type-move / folder-move plans in Node (fake-moves.ts).
   await page.exposeFunction('__teggMoves', (cmd: string, args: unknown, files: Record<string, string>) => handleMoves(cmd, args, files)).catch(() => {});
+  // G1 (v1-graph §8): the reference walk of the neighbourhood query in Node (fake-graph.ts).
+  await page.exposeFunction('__teggGraph', (cmd: string, args: unknown, files: Record<string, string>, bin: string[]) =>
+    handleGraph(cmd, args, files, bin)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleTags(cmd, args, files, vers as any)).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
@@ -366,6 +378,10 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     staged: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.staged ?? []))),
     // 4E-1 (ms4-jobs §14.8). Stub until 4E-1 is built: no tidy job runs, so the list stays empty.
     tidyExempt: () => ev(() => [...((window as any).__teggFake.tidyExempt ?? [])] as string[]),
+    // G1 (v1-graph §8).
+    graphDelay: (ms) => page.evaluate((m) => { (window as any).__teggFake.graphDelayMs = m; }, ms),
+    graphNotReady: (on) => page.evaluate((o) => { (window as any).__teggFake.graphNotReady = o; }, on),
+    graphCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'graph_neighbourhood').map((c: any) => c.args?.req ?? c.args)),
     delayCommand: (cmd, ms) => page.evaluate(([c, m]) => { const d = ((window as any).__teggFake.delays ??= {}); d[c] = m; }, [cmd, ms] as const).then(() => undefined),
   };
 }
@@ -382,6 +398,7 @@ export function setPreviewMode(mode: 'click' | 'hover' | 'off', opts: FakeOption
 function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: Record<string, string>; empty: Record<string, string>; starter: Record<string, string> }) {
   const w = window as any;
   const READS = new Set([
+    'embed_load', // ms4-embeds §4: read-only (G1 FR-SYN-06 AC-38 previews every kind of node)
     'vault_current', 'vault_last', 'vault_types', 'vault_pick_dir', 'index_type_counts', 'index_list', 'index_search',
     'index_switcher', 'note_read', 'ui_state_get', 'ui_state_set', 'nav_opened', 'perf_mark', 'vault_open',
     'link_resolve', 'open_external', // 3B: read-only / opens a URL outside the vault (ms3-shell §11.1)
@@ -399,6 +416,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
+    'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
     'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
@@ -1685,6 +1703,22 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     // 4D-lite (ms4-tags §3, §8.1): the tag twin in Node (fake-tags.ts); `TagRowDto[]` (was `TagDto[]`).
     index_tags: () => viaTags('index_tags', {}),
+    // G1 (v1-graph §2, §8): the reference walk in Node; `graphDelay` / `graphNotReady` / a newer call as in the handle.
+    graph_neighbourhood: async (a) => {
+      if (typeof x.graphCancel === 'function') { const c = x.graphCancel; x.graphCancel = null; c(); }
+      if (x.graphNotReady) throw err('NotReady', 'fake: the index is being built');
+      const ms = Number(x.graphDelayMs ?? 0);
+      if (ms > 0) {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => { x.graphCancel = null; resolve(); }, ms);
+          x.graphCancel = () => { clearTimeout(timer); reject(err('Cancelled', 'fake: a newer graph request')); };
+        });
+      }
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const r = await w.__teggGraph('graph_neighbourhood', a ?? {}, state.vault.files, Object.keys(x.bin ?? {}));
+      if (r.error) throw r.error;
+      return r.result;
+    },
     tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
     index_tagged_objects: () => viaTags('index_tagged_objects', {}), // D-784 (§1.6)
     tag_usage: (a) => viaTags('tag_usage', { key: a.key }),

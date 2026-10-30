@@ -1,5 +1,6 @@
 // One preview per window (v1-previews §3, D-924): mounted in App.tsx above the routes. `usePreview` is the public
-// face of the store for surfaces and the graph (§7: `show(target, anchor, origin, host, extraLine)`).
+// face of the store for surfaces and the graph (§7, amended by D-982: `show(target, anchor, origin, host, extraLines,
+// extraAction)`; one string still reads as one line).
 import { useEffect, useSyncExternalStore } from 'react';
 import { events, ipc } from '../ipc/client';
 import { forgetPreviewCaches } from './load';
@@ -7,7 +8,7 @@ import { PreviewPopover, startPreviewRead } from './PreviewPopover';
 import { LinkUiHost } from './linkUi';
 import { close, getCurrent, setPrefetch, getPrefs, prefsLoaded, previewHost, providerMounted, reset, setStoredPrefs, show, subscribe } from './store';
 import type { PreviewUiDto } from './types';
-import type { CloseReason, PreviewAnchor, PreviewHost, PreviewOrigin, PreviewTarget } from './types';
+import type { CloseReason, PreviewAnchor, PreviewExtraAction, PreviewHost, PreviewOrigin, PreviewTarget } from './types';
 
 export function PreviewProvider(props: { children?: React.ReactNode }) {
   const cur = useSyncExternalStore(subscribe, getCurrent);
@@ -38,7 +39,7 @@ export function PreviewProvider(props: { children?: React.ReactNode }) {
 export function usePreview(): {
   mode: 'click' | 'hover' | 'off';
   hoverDelay: number;
-  show(target: PreviewTarget, anchor: PreviewAnchor, origin: PreviewOrigin, host?: PreviewHost, extraLine?: string): void;
+  show(target: PreviewTarget, anchor: PreviewAnchor, origin: PreviewOrigin, host?: PreviewHost, extraLines?: string | string[], extraAction?: PreviewExtraAction): void;
   close(reason: CloseReason): void;
   current: { target: PreviewTarget; origin: PreviewOrigin } | null;
 } {
@@ -47,7 +48,7 @@ export function usePreview(): {
   return {
     mode: prefs.mode,
     hoverDelay: prefs.hoverDelay,
-    show: (target, anchor, origin, host, extraLine) => show(target, anchor, origin, host, extraLine),
+    show: (target, anchor, origin, host, extraLines, extraAction) => show(target, anchor, origin, host, extraLines, {}, extraAction),
     close,
     current: cur ? { target: cur.target, origin: cur.origin } : null,
   };

@@ -111,6 +111,8 @@ const COMMANDS: &[&str] = &[
     "merge_start",
     "job_plan",
     "backup_reveal",
+    // G1 (v1-graph §2).
+    "graph_neighbourhood",
 ];
 
 fn main() {

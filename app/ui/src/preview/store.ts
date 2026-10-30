@@ -1,7 +1,7 @@
 // The one preview of a window (v1-previews §3, D-924): a small store every surface and the editor's DOM code reach,
 // rendered by `PreviewProvider`. Preferences come from the app's machine-local UI state (§1).
 import { readPreviewUi, type PreviewUi } from './state';
-import type { CloseReason, PreviewAnchor, PreviewHost, PreviewOrigin, PreviewTarget, PreviewUiDto } from './types';
+import type { CloseReason, PreviewAnchor, PreviewHost, PreviewOrigin, PreviewTarget, PreviewUiDto, PreviewExtraAction } from './types';
 
 export type ShowOpts = {
   /** The surface's own open (route + nav_opened) for the popover's `Open` while it shows this reference. */
@@ -12,7 +12,9 @@ export type ShowOpts = {
   relocate?: () => HTMLElement | null;
 };
 export type Current = {
-  target: PreviewTarget; origin: PreviewOrigin; anchor: PreviewAnchor; host: PreviewHost; extraLine: string | null;
+  target: PreviewTarget; origin: PreviewOrigin; anchor: PreviewAnchor; host: PreviewHost;
+  /** D-982 (v1-graph §7): the graph's lines after the type name, and its action before `Open`. */
+  extraLines: string[]; extraAction: PreviewExtraAction | null;
   opts: ShowOpts; seq: number;
 };
 export type Host = {
@@ -107,7 +109,7 @@ export function pushInside(target: PreviewTarget): void {
   else host?.open(target);
 }
 
-export function show(target: PreviewTarget, anchor: PreviewAnchor, origin: PreviewOrigin, h?: PreviewHost, extraLine?: string, opts: ShowOpts = {}): void {
+export function show(target: PreviewTarget, anchor: PreviewAnchor, origin: PreviewOrigin, h?: PreviewHost, extraLines?: string | string[], opts: ShowOpts = {}, extraAction?: PreviewExtraAction): void {
   if (current && inside && 'el' in anchor && anchor.el.closest?.('[data-preview-popover], .preview-column')) {
     // Inside a preview a click replaces the content (D-932); a double-click there opens it (FR-LNK-11 AC-10).
     lastInside = origin === 'click' ? { target, at: Date.now() } : null;
@@ -115,7 +117,8 @@ export function show(target: PreviewTarget, anchor: PreviewAnchor, origin: Previ
     return;
   }
   prefetch?.(target);
-  current = { target, origin, anchor, host: h ?? { placement: 'popover' }, extraLine: extraLine ?? null, opts, seq: ++seq };
+  const lines = extraLines === undefined ? [] : typeof extraLines === 'string' ? [extraLines] : extraLines.filter((l) => l !== '');
+  current = { target, origin, anchor, host: h ?? { placement: 'popover' }, extraLines: lines, extraAction: extraAction ?? null, opts, seq: ++seq };
   emit();
 }
 

@@ -284,6 +284,7 @@ export const READ_COMMANDS = new Set([
   // 4E-2 (ms4-jobs §14.9.6): the delete dialogs start their job to read its plan; it writes nothing before job_confirm,
   // and Cancel or Esc cancels it in confirm.
   'value_remove_start', 'type_delete_start', 'job_plan', 'job_cancel',
+  'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
   'index_path_by_id', // slice P (v1-previews §2): read-only, no recency
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {

@@ -19,4 +19,6 @@ export type PreviewAnchor = { el: HTMLElement } | { rect: DOMRect };
 export type PreviewHost = { placement: 'popover' } | { placement: 'column'; container: HTMLElement };
 /** 'key' = ⌥Space or ⏎ per D-929. */
 export type PreviewOrigin = 'click' | 'hover' | 'key';
+/** §7, D-982 (v1-graph §7): the graph's extra button before `Open` (`Center graph here`). */
+export type PreviewExtraAction = { label: string; run: () => void; disabled?: boolean };
 export type CloseReason = 'esc' | 'outside' | 'button' | 'tab' | 'open' | 'route';

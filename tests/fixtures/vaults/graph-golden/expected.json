@@ -1,0 +1,2843 @@
+{
+ "about": "Hand-made expected results of graph_neighbourhood on tests/fixtures/vaults/graph (+ new-empty/.tegg, _attachments/graf.png and _attachments/Smlouva.pdf made at runtime), typed from the fixture README (docs/contracts/v1-graph.md §1, §8). Shared by crates/tegg-index/tests/ac_graph.rs (Rust query) and app/test/graph_reference.ac.test.ts (TS reference walk). A scenario expands to GraphResultDto: nodes = scenario.nodes with nodes[sortKey] + depth; edges = edges[id] with style replaced by scenario.styles[id] when given; typeCounts = zip(typeOrder, scenario.typeCounts).",
+ "typeOrder": [
+  "page",
+  "task",
+  "quick-note",
+  "daily-note",
+  "cesta",
+  "osoba",
+  "projekt",
+  "schůzka",
+  "image",
+  "pdf",
+  "tag",
+  "recept"
+ ],
+ "nodes": {
+  "Pages/Plán čtvrtletí.md": {
+   "id": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "objectId": "01JBGR0000000000000000R001",
+   "path": "Pages/Plán čtvrtletí.md",
+   "title": "Plán čtvrtletí",
+   "typeKey": "page",
+   "degree": 9,
+   "tagKey": null,
+   "color": null
+  },
+  "Projekty/Rozpočet 2027.md": {
+   "id": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "objectId": "01JBGR0000000000000000R002",
+   "path": "Projekty/Rozpočet 2027.md",
+   "title": "Rozpočet 2027",
+   "typeKey": "projekt",
+   "degree": 6,
+   "tagKey": null,
+   "color": null
+  },
+  "Schůzky/Zápis z porady.md": {
+   "id": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "objectId": "01JBGR0000000000000000R003",
+   "path": "Schůzky/Zápis z porady.md",
+   "title": "Zápis z porady",
+   "typeKey": "schůzka",
+   "degree": 6,
+   "tagKey": null,
+   "color": null
+  },
+  "Osoby/Jana Nováková.md": {
+   "id": {
+    "path": "Osoby/Jana Nováková.md"
+   },
+   "objectId": "01JBGR0000000000000000R004",
+   "path": "Osoby/Jana Nováková.md",
+   "title": "Jana Nováková",
+   "typeKey": "osoba",
+   "degree": 3,
+   "tagKey": null,
+   "color": null
+  },
+  "Osoby/Petr Dvořák.md": {
+   "id": {
+    "path": "Osoby/Petr Dvořák.md"
+   },
+   "objectId": "01JBGR0000000000000000R005",
+   "path": "Osoby/Petr Dvořák.md",
+   "title": "Petr Dvořák",
+   "typeKey": "osoba",
+   "degree": 3,
+   "tagKey": null,
+   "color": null
+  },
+  "Projekty/Projekt Beta.md": {
+   "id": {
+    "path": "Projekty/Projekt Beta.md"
+   },
+   "objectId": "01JBGR0000000000000000R006",
+   "path": "Projekty/Projekt Beta.md",
+   "title": "Projekt Beta",
+   "typeKey": "projekt",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Shrnutí.md": {
+   "id": {
+    "path": "Pages/Shrnutí.md"
+   },
+   "objectId": "01JBGR0000000000000000R007",
+   "path": "Pages/Shrnutí.md",
+   "title": "Shrnutí",
+   "typeKey": "page",
+   "degree": 4,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Výdaje 2026.md": {
+   "id": {
+    "path": "Pages/Výdaje 2026.md"
+   },
+   "objectId": "01JBGR0000000000000000R008",
+   "path": "Pages/Výdaje 2026.md",
+   "title": "Výdaje 2026",
+   "typeKey": "page",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Bez hlavičky.md": {
+   "id": {
+    "path": "Pages/Bez hlavičky.md"
+   },
+   "objectId": null,
+   "path": "Pages/Bez hlavičky.md",
+   "title": "Bez hlavičky",
+   "typeKey": "page",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Tasks/Zaplatit fakturu.md": {
+   "id": {
+    "path": "Tasks/Zaplatit fakturu.md"
+   },
+   "objectId": "01JBGR0000000000000000R010",
+   "path": "Tasks/Zaplatit fakturu.md",
+   "title": "Zaplatit fakturu",
+   "typeKey": "task",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Daily/2026-10-07.md": {
+   "id": {
+    "path": "Daily/2026-10-07.md"
+   },
+   "objectId": "01JBGR0000000000000000R011",
+   "path": "Daily/2026-10-07.md",
+   "title": "2026-10-07",
+   "typeKey": "daily-note",
+   "degree": 2,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Nákupní seznam.md": {
+   "id": {
+    "path": "Pages/Nákupní seznam.md"
+   },
+   "objectId": "01JBGR0000000000000000R012",
+   "path": "Pages/Nákupní seznam.md",
+   "title": "Nákupní seznam",
+   "typeKey": "page",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Images/Graf výdajů.md": {
+   "id": {
+    "path": "Images/Graf výdajů.md"
+   },
+   "objectId": "01JBGR0000000000000000R013",
+   "path": "Images/Graf výdajů.md",
+   "title": "Graf výdajů",
+   "typeKey": "image",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "PDFs/Smlouva.md": {
+   "id": {
+    "path": "PDFs/Smlouva.md"
+   },
+   "objectId": "01JBGR0000000000000000R014",
+   "path": "PDFs/Smlouva.md",
+   "title": "Smlouva",
+   "typeKey": "pdf",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Faktury.md": {
+   "id": {
+    "path": "Pages/Faktury.md"
+   },
+   "objectId": "01JBGR0000000000000000R015",
+   "path": "Pages/Faktury.md",
+   "title": "Faktury",
+   "typeKey": "page",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Quick Notes/Nápad na výlet.md": {
+   "id": {
+    "path": "Quick Notes/Nápad na výlet.md"
+   },
+   "objectId": "01JBGR0000000000000000R016",
+   "path": "Quick Notes/Nápad na výlet.md",
+   "title": "Nápad na výlet",
+   "typeKey": "quick-note",
+   "degree": 2,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Recept na koláč.md": {
+   "id": {
+    "path": "Pages/Recept na koláč.md"
+   },
+   "objectId": "01JBGR0000000000000000R017",
+   "path": "Pages/Recept na koláč.md",
+   "title": "Recept na koláč",
+   "typeKey": "recept",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Osamělá.md": {
+   "id": {
+    "path": "Pages/Osamělá.md"
+   },
+   "objectId": "01JBGR0000000000000000R018",
+   "path": "Pages/Osamělá.md",
+   "title": "Osamělá",
+   "typeKey": "page",
+   "degree": 0,
+   "tagKey": null,
+   "color": null
+  },
+  "Pages/Chybná hlavička.md": {
+   "id": {
+    "path": "Pages/Chybná hlavička.md"
+   },
+   "objectId": null,
+   "path": "Pages/Chybná hlavička.md",
+   "title": "Chybná hlavička",
+   "typeKey": "page",
+   "degree": 1,
+   "tagKey": null,
+   "color": null
+  },
+  "tag:účty": {
+   "id": {
+    "tag": "účty"
+   },
+   "objectId": "01JBGR0000000000000000R019",
+   "path": "Tags/Účty.md",
+   "title": "Účty",
+   "typeKey": "tag",
+   "degree": 3,
+   "tagKey": "účty",
+   "color": "blue"
+  },
+  "tag:finance": {
+   "id": {
+    "tag": "finance"
+   },
+   "objectId": "01JBGR0000000000000000R020",
+   "path": "Tags/Finance.md",
+   "title": "Finance",
+   "typeKey": "tag",
+   "degree": 1,
+   "tagKey": "finance",
+   "color": "orange"
+  },
+  "tag:zdraví": {
+   "id": {
+    "tag": "zdraví"
+   },
+   "objectId": "01JBGR0000000000000000R021",
+   "path": "Tags/Zdraví.md",
+   "title": "Zdraví",
+   "typeKey": "tag",
+   "degree": 1,
+   "tagKey": "zdraví",
+   "color": "green"
+  },
+  "tag:archiv": {
+   "id": {
+    "tag": "archiv"
+   },
+   "objectId": "01JBGR0000000000000000R022",
+   "path": "Tags/Archiv.md",
+   "title": "Archiv",
+   "typeKey": "tag",
+   "degree": 1,
+   "tagKey": "archiv",
+   "color": null
+  },
+  "tag:cestování": {
+   "id": {
+    "tag": "cestování"
+   },
+   "objectId": "01JBGR0000000000000000R023",
+   "path": "Tags/Cestování.md",
+   "title": "Cestování",
+   "typeKey": "tag",
+   "degree": 1,
+   "tagKey": "cestování",
+   "color": null
+  },
+  "tag:nápad": {
+   "id": {
+    "tag": "nápad"
+   },
+   "objectId": null,
+   "path": null,
+   "title": "nápad",
+   "typeKey": "tag",
+   "degree": 2,
+   "tagKey": "nápad",
+   "color": null
+  }
+ },
+ "edges": {
+  "E1": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Projekty/Rozpočet 2027.md"
+     },
+     "key": "podklady"
+    },
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "relation"
+  },
+  "E2": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E3": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "path": "Pages/Shrnutí.md"
+   },
+   "ways": [
+    {
+     "kind": "embed",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    },
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Shrnutí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "embed"
+  },
+  "E4": {
+   "a": {
+    "path": "Images/Graf výdajů.md"
+   },
+   "b": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "ways": [
+    {
+     "kind": "embed",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "embed"
+  },
+  "E5": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "path": "Tasks/Zaplatit fakturu.md"
+   },
+   "ways": [
+    {
+     "kind": "embed",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    },
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Tasks/Zaplatit fakturu.md"
+     },
+     "key": "source"
+    }
+   ],
+   "style": "embed"
+  },
+  "E6": {
+   "a": {
+    "path": "Daily/2026-10-07.md"
+   },
+   "b": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E7": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "tag": "účty"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E8": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "tag": "nápad"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Pages/Plán čtvrtletí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E9": {
+   "a": {
+    "path": "Pages/Plán čtvrtletí.md"
+   },
+   "b": {
+    "path": "Pages/Recept na koláč.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Recept na koláč.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E10": {
+   "a": {
+    "path": "Osoby/Jana Nováková.md"
+   },
+   "b": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Projekty/Rozpočet 2027.md"
+     },
+     "key": "vlastník"
+    }
+   ],
+   "style": "relation"
+  },
+  "E11": {
+   "a": {
+    "path": "Pages/Výdaje 2026.md"
+   },
+   "b": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Projekty/Rozpočet 2027.md"
+     },
+     "key": "poznámka"
+    }
+   ],
+   "style": "relation"
+  },
+  "E12": {
+   "a": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "b": {
+    "tag": "účty"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Projekty/Rozpočet 2027.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E13": {
+   "a": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "b": {
+    "tag": "finance"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Projekty/Rozpočet 2027.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E14": {
+   "a": {
+    "path": "Osoby/Jana Nováková.md"
+   },
+   "b": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": "účastníci"
+    }
+   ],
+   "style": "relation"
+  },
+  "E15": {
+   "a": {
+    "path": "Osoby/Petr Dvořák.md"
+   },
+   "b": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": "účastníci"
+    }
+   ],
+   "style": "relation"
+  },
+  "E16": {
+   "a": {
+    "path": "Projekty/Rozpočet 2027.md"
+   },
+   "b": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "ways": [
+    {
+     "kind": "embed",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": null
+    },
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": "projekt"
+    }
+   ],
+   "style": "embed"
+  },
+  "E17": {
+   "a": {
+    "path": "PDFs/Smlouva.md"
+   },
+   "b": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "ways": [
+    {
+     "kind": "embed",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "embed"
+  },
+  "E18": {
+   "a": {
+    "path": "Schůzky/Zápis z porady.md"
+   },
+   "b": {
+    "tag": "cestování"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Schůzky/Zápis z porady.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E19": {
+   "a": {
+    "path": "Osoby/Jana Nováková.md"
+   },
+   "b": {
+    "path": "Projekty/Projekt Beta.md"
+   },
+   "ways": [
+    {
+     "kind": "relation",
+     "from": {
+      "path": "Projekty/Projekt Beta.md"
+     },
+     "key": "vlastník"
+    },
+    {
+     "kind": "link",
+     "from": {
+      "path": "Osoby/Jana Nováková.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "relation"
+  },
+  "E20": {
+   "a": {
+    "path": "Osoby/Petr Dvořák.md"
+   },
+   "b": {
+    "tag": "zdraví"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Osoby/Petr Dvořák.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E21": {
+   "a": {
+    "path": "Pages/Shrnutí.md"
+   },
+   "b": {
+    "tag": "archiv"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Pages/Shrnutí.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E22": {
+   "a": {
+    "path": "Pages/Bez hlavičky.md"
+   },
+   "b": {
+    "path": "Pages/Shrnutí.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Bez hlavičky.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E23": {
+   "a": {
+    "path": "Daily/2026-10-07.md"
+   },
+   "b": {
+    "path": "Pages/Nákupní seznam.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Daily/2026-10-07.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E24": {
+   "a": {
+    "path": "Pages/Faktury.md"
+   },
+   "b": {
+    "tag": "účty"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Faktury.md"
+     },
+     "key": null
+    },
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Pages/Faktury.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E25": {
+   "a": {
+    "path": "Osoby/Petr Dvořák.md"
+   },
+   "b": {
+    "path": "Quick Notes/Nápad na výlet.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Quick Notes/Nápad na výlet.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  },
+  "E26": {
+   "a": {
+    "path": "Quick Notes/Nápad na výlet.md"
+   },
+   "b": {
+    "tag": "nápad"
+   },
+   "ways": [
+    {
+     "kind": "tag",
+     "from": {
+      "path": "Quick Notes/Nápad na výlet.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "tag"
+  },
+  "E27": {
+   "a": {
+    "path": "Pages/Chybná hlavička.md"
+   },
+   "b": {
+    "path": "Pages/Shrnutí.md"
+   },
+   "ways": [
+    {
+     "kind": "link",
+     "from": {
+      "path": "Pages/Chybná hlavička.md"
+     },
+     "key": null
+    }
+   ],
+   "style": "link"
+  }
+ },
+ "edgeOrder": [
+  "E23",
+  "E6",
+  "E4",
+  "E19",
+  "E10",
+  "E14",
+  "E25",
+  "E15",
+  "E20",
+  "E17",
+  "E22",
+  "E27",
+  "E24",
+  "E9",
+  "E3",
+  "E1",
+  "E2",
+  "E5",
+  "E8",
+  "E7",
+  "E21",
+  "E11",
+  "E16",
+  "E13",
+  "E12",
+  "E26",
+  "E18"
+ ],
+ "scenarios": [
+  {
+   "name": "plan-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E16",
+    "E12"
+   ],
+   "styles": {},
+   "total": 10,
+   "unfiltered": 10,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-d2",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     2
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     2
+    ],
+    [
+     "PDFs/Smlouva.md",
+     2
+    ],
+    [
+     "Pages/Bez hlavičky.md",
+     2
+    ],
+    [
+     "Pages/Chybná hlavička.md",
+     2
+    ],
+    [
+     "Pages/Výdaje 2026.md",
+     2
+    ],
+    [
+     "tag:archiv",
+     2
+    ],
+    [
+     "tag:cestování",
+     2
+    ],
+    [
+     "tag:finance",
+     2
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E10",
+    "E14",
+    "E15",
+    "E17",
+    "E22",
+    "E27",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E21",
+    "E11",
+    "E16",
+    "E13",
+    "E12",
+    "E18"
+   ],
+   "styles": {},
+   "total": 19,
+   "unfiltered": 19,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    0,
+    1,
+    0,
+    2,
+    1,
+    1,
+    1,
+    1,
+    5,
+    1
+   ]
+  },
+  {
+   "name": "plan-d3",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 3,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     2
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     2
+    ],
+    [
+     "PDFs/Smlouva.md",
+     2
+    ],
+    [
+     "Pages/Bez hlavičky.md",
+     2
+    ],
+    [
+     "Pages/Chybná hlavička.md",
+     2
+    ],
+    [
+     "Pages/Výdaje 2026.md",
+     2
+    ],
+    [
+     "tag:archiv",
+     2
+    ],
+    [
+     "tag:cestování",
+     2
+    ],
+    [
+     "tag:finance",
+     2
+    ],
+    [
+     "Quick Notes/Nápad na výlet.md",
+     3
+    ],
+    [
+     "Projekty/Projekt Beta.md",
+     3
+    ],
+    [
+     "tag:zdraví",
+     3
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E19",
+    "E10",
+    "E14",
+    "E25",
+    "E15",
+    "E20",
+    "E17",
+    "E22",
+    "E27",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E21",
+    "E11",
+    "E16",
+    "E13",
+    "E12",
+    "E26",
+    "E18"
+   ],
+   "styles": {},
+   "total": 22,
+   "unfiltered": 22,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    1,
+    1,
+    0,
+    2,
+    2,
+    1,
+    1,
+    1,
+    6,
+    1
+   ]
+  },
+  {
+   "name": "ucty-d1",
+   "req": {
+    "centre": "Tags/Účty.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "tag:účty",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Pages/Faktury.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E24",
+    "E1",
+    "E7",
+    "E12"
+   ],
+   "styles": {},
+   "total": 4,
+   "unfiltered": 4,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "ucty-d2",
+   "req": {
+    "centre": "Tags/Účty.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "tag:účty",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Pages/Faktury.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     2
+    ],
+    [
+     "Pages/Shrnutí.md",
+     2
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     2
+    ],
+    [
+     "Daily/2026-10-07.md",
+     2
+    ],
+    [
+     "tag:nápad",
+     2
+    ],
+    [
+     "Images/Graf výdajů.md",
+     2
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     2
+    ],
+    [
+     "Pages/Výdaje 2026.md",
+     2
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     2
+    ],
+    [
+     "tag:finance",
+     2
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E10",
+    "E14",
+    "E24",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E11",
+    "E16",
+    "E13",
+    "E12"
+   ],
+   "styles": {},
+   "total": 14,
+   "unfiltered": 14,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    4,
+    1,
+    0,
+    1,
+    0,
+    1,
+    1,
+    1,
+    1,
+    0,
+    3,
+    1
+   ]
+  },
+  {
+   "name": "den-d1",
+   "req": {
+    "centre": "Daily/2026-10-07.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Daily/2026-10-07.md",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ],
+    [
+     "Pages/Nákupní seznam.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E23",
+    "E6"
+   ],
+   "styles": {},
+   "total": 3,
+   "unfiltered": 3,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "den-d2",
+   "req": {
+    "centre": "Daily/2026-10-07.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Daily/2026-10-07.md",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ],
+    [
+     "Pages/Nákupní seznam.md",
+     1
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     2
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     2
+    ],
+    [
+     "Pages/Shrnutí.md",
+     2
+    ],
+    [
+     "tag:účty",
+     2
+    ],
+    [
+     "tag:nápad",
+     2
+    ],
+    [
+     "Images/Graf výdajů.md",
+     2
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     2
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     2
+    ]
+   ],
+   "edges": [
+    "E23",
+    "E6",
+    "E4",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E16",
+    "E12"
+   ],
+   "styles": {},
+   "total": 11,
+   "unfiltered": 11,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    3,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "faktury-d1",
+   "req": {
+    "centre": "Pages/Faktury.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Faktury.md",
+     0
+    ],
+    [
+     "tag:účty",
+     1
+    ]
+   ],
+   "edges": [
+    "E24"
+   ],
+   "styles": {},
+   "total": 2,
+   "unfiltered": 2,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "faktury-d2",
+   "req": {
+    "centre": "Pages/Faktury.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Faktury.md",
+     0
+    ],
+    [
+     "tag:účty",
+     1
+    ]
+   ],
+   "edges": [
+    "E24"
+   ],
+   "styles": {},
+   "total": 2,
+   "unfiltered": 2,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "faktury-d3",
+   "req": {
+    "centre": "Pages/Faktury.md",
+    "depth": 3,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Faktury.md",
+     0
+    ],
+    [
+     "tag:účty",
+     1
+    ]
+   ],
+   "edges": [
+    "E24"
+   ],
+   "styles": {},
+   "total": 2,
+   "unfiltered": 2,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "graf-d1",
+   "req": {
+    "centre": "Images/Graf výdajů.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Images/Graf výdajů.md",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E4"
+   ],
+   "styles": {},
+   "total": 2,
+   "unfiltered": 2,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "jana-d1",
+   "req": {
+    "centre": "Osoby/Jana Nováková.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Osoby/Jana Nováková.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Projekty/Projekt Beta.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E19",
+    "E10",
+    "E14",
+    "E16"
+   ],
+   "styles": {},
+   "total": 4,
+   "unfiltered": 4,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2,
+    1,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "rozpocet-d1",
+   "req": {
+    "centre": "Projekty/Rozpočet 2027.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Projekty/Rozpočet 2027.md",
+     0
+    ],
+    [
+     "Pages/Plán čtvrtletí.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Pages/Výdaje 2026.md",
+     1
+    ],
+    [
+     "tag:finance",
+     1
+    ]
+   ],
+   "edges": [
+    "E10",
+    "E14",
+    "E1",
+    "E2",
+    "E7",
+    "E11",
+    "E16",
+    "E13",
+    "E12"
+   ],
+   "styles": {},
+   "total": 7,
+   "unfiltered": 7,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "name": "vylet-d1",
+   "req": {
+    "centre": "Quick Notes/Nápad na výlet.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Quick Notes/Nápad na výlet.md",
+     0
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ]
+   ],
+   "edges": [
+    "E25",
+    "E26"
+   ],
+   "styles": {},
+   "total": 3,
+   "unfiltered": 3,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "vylet-d2",
+   "req": {
+    "centre": "Quick Notes/Nápad na výlet.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Quick Notes/Nápad na výlet.md",
+     0
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     2
+    ],
+    [
+     "tag:zdraví",
+     2
+    ]
+   ],
+   "edges": [
+    "E25",
+    "E15",
+    "E20",
+    "E26"
+   ],
+   "styles": {},
+   "total": 5,
+   "unfiltered": 5,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "name": "osamela-d1",
+   "req": {
+    "centre": "Pages/Osamělá.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Osamělá.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 1,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "osamela-d2",
+   "req": {
+    "centre": "Pages/Osamělá.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Osamělá.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 1,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "osamela-d3",
+   "req": {
+    "centre": "Pages/Osamělá.md",
+    "depth": 3,
+    "hiddenTypes": [],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Osamělá.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 1,
+   "hidden": 0,
+   "truncated": false,
+   "typeCounts": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "plan-a-tags-type-off-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [
+     "tag"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E16"
+   ],
+   "styles": {},
+   "total": 8,
+   "unfiltered": 10,
+   "hidden": 2,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-b-tags-type-off-d2",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 2,
+    "hiddenTypes": [
+     "tag"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     2
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     2
+    ],
+    [
+     "PDFs/Smlouva.md",
+     2
+    ],
+    [
+     "Pages/Bez hlavičky.md",
+     2
+    ],
+    [
+     "Pages/Chybná hlavička.md",
+     2
+    ],
+    [
+     "Pages/Výdaje 2026.md",
+     2
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E10",
+    "E14",
+    "E15",
+    "E17",
+    "E22",
+    "E27",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E11",
+    "E16"
+   ],
+   "styles": {},
+   "total": 14,
+   "unfiltered": 19,
+   "hidden": 5,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    0,
+    1,
+    0,
+    2,
+    1,
+    1,
+    1,
+    1,
+    5,
+    1
+   ]
+  },
+  {
+   "name": "plan-c-projekty-off-d2",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 2,
+    "hiddenTypes": [
+     "projekt"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ],
+    [
+     "Osoby/Jana Nováková.md",
+     2
+    ],
+    [
+     "Osoby/Petr Dvořák.md",
+     2
+    ],
+    [
+     "PDFs/Smlouva.md",
+     2
+    ],
+    [
+     "Pages/Bez hlavičky.md",
+     2
+    ],
+    [
+     "Pages/Chybná hlavička.md",
+     2
+    ],
+    [
+     "tag:archiv",
+     2
+    ],
+    [
+     "tag:cestování",
+     2
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E14",
+    "E15",
+    "E17",
+    "E22",
+    "E27",
+    "E9",
+    "E3",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E21",
+    "E18"
+   ],
+   "styles": {},
+   "total": 16,
+   "unfiltered": 19,
+   "hidden": 3,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    0,
+    1,
+    0,
+    2,
+    1,
+    1,
+    1,
+    1,
+    5,
+    1
+   ]
+  },
+  {
+   "name": "plan-d-relations-off-d2",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 2,
+    "hiddenTypes": [],
+    "hiddenKinds": [
+     "relation"
+    ],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ],
+    [
+     "PDFs/Smlouva.md",
+     2
+    ],
+    [
+     "Pages/Bez hlavičky.md",
+     2
+    ],
+    [
+     "Pages/Chybná hlavička.md",
+     2
+    ],
+    [
+     "tag:archiv",
+     2
+    ],
+    [
+     "tag:cestování",
+     2
+    ],
+    [
+     "tag:finance",
+     2
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E17",
+    "E22",
+    "E27",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E21",
+    "E16",
+    "E13",
+    "E12",
+    "E18"
+   ],
+   "styles": {
+    "E1": "link"
+   },
+   "total": 16,
+   "unfiltered": 19,
+   "hidden": 3,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    0,
+    1,
+    0,
+    2,
+    1,
+    1,
+    1,
+    1,
+    5,
+    1
+   ]
+  },
+  {
+   "name": "plan-e-tags-kind-off-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [
+     "tag"
+    ],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E9",
+    "E3",
+    "E1",
+    "E2",
+    "E5",
+    "E16"
+   ],
+   "styles": {},
+   "total": 8,
+   "unfiltered": 10,
+   "hidden": 2,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-f-links-off-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [
+     "link"
+    ],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Pages/Shrnutí.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E4",
+    "E3",
+    "E1",
+    "E5",
+    "E8",
+    "E7",
+    "E12"
+   ],
+   "styles": {},
+   "total": 7,
+   "unfiltered": 10,
+   "hidden": 3,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-g-pages-off-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [
+     "page"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ],
+    [
+     "Projekty/Rozpočet 2027.md",
+     1
+    ],
+    [
+     "Schůzky/Zápis z porady.md",
+     1
+    ],
+    [
+     "tag:účty",
+     1
+    ],
+    [
+     "Daily/2026-10-07.md",
+     1
+    ],
+    [
+     "tag:nápad",
+     1
+    ],
+    [
+     "Images/Graf výdajů.md",
+     1
+    ],
+    [
+     "Pages/Recept na koláč.md",
+     1
+    ],
+    [
+     "Tasks/Zaplatit fakturu.md",
+     1
+    ]
+   ],
+   "edges": [
+    "E6",
+    "E4",
+    "E9",
+    "E1",
+    "E2",
+    "E5",
+    "E8",
+    "E7",
+    "E16",
+    "E12"
+   ],
+   "styles": {},
+   "total": 9,
+   "unfiltered": 10,
+   "hidden": 1,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-h-types-none-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [
+     "page",
+     "task",
+     "quick-note",
+     "daily-note",
+     "cesta",
+     "osoba",
+     "projekt",
+     "schůzka",
+     "image",
+     "pdf",
+     "tag",
+     "recept"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 10,
+   "hidden": 9,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "plan-h-types-none-d2",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 2,
+    "hiddenTypes": [
+     "page",
+     "task",
+     "quick-note",
+     "daily-note",
+     "cesta",
+     "osoba",
+     "projekt",
+     "schůzka",
+     "image",
+     "pdf",
+     "tag",
+     "recept"
+    ],
+    "hiddenKinds": [],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 19,
+   "hidden": 18,
+   "truncated": false,
+   "typeCounts": [
+    5,
+    1,
+    0,
+    1,
+    0,
+    2,
+    1,
+    1,
+    1,
+    1,
+    5,
+    1
+   ]
+  },
+  {
+   "name": "plan-every-kind-off-d1",
+   "req": {
+    "centre": "Pages/Plán čtvrtletí.md",
+    "depth": 1,
+    "hiddenTypes": [],
+    "hiddenKinds": [
+     "link",
+     "relation",
+     "embed",
+     "tag"
+    ],
+    "cap": 150,
+    "showAll": false
+   },
+   "nodes": [
+    [
+     "Pages/Plán čtvrtletí.md",
+     0
+    ]
+   ],
+   "edges": [],
+   "styles": {},
+   "total": 1,
+   "unfiltered": 10,
+   "hidden": 9,
+   "truncated": false,
+   "typeCounts": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    2,
+    1
+   ]
+  }
+ ]
+}

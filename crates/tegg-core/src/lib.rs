@@ -161,6 +161,10 @@ struct Shared {
     /// ms6-trash-media §2, §3.2 (6A): the vault's non-note files and the trashed objects, read lazily from the file
     /// system and dropped on every change (part of the disposable index, AR-01).
     files: Mutex<Option<Arc<trash6a::FileCache>>>,
+    /// G1 (v1-graph §1.5, D-990): false while the first index build of an empty index runs.
+    graph_ready: AtomicBool,
+    /// G1 (v1-graph §1.5, D-995): the running graph request's flag per window.
+    graph_flags: Mutex<HashMap<String, tegg_index::CancelFlag>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -256,6 +260,7 @@ impl Core {
     fn start(vault: Vault, opts: CoreOptions) -> Result<Core, CoreError> {
         let local = vault.local_dir();
         let index = Index::open(&local.join(INDEX_FILE))?;
+        let graph_ready = AtomicBool::new(!index.is_empty());
         let recency: HashMap<String, i64> = tegg_vault::read_local_file(&local.join(RECENT_FILE))
             .and_then(|b| serde_json::from_slice::<HashMap<String, i64>>(&b).ok())
             .unwrap_or_default();
@@ -274,6 +279,8 @@ impl Core {
             not_utf8: Mutex::new(Default::default()),
             type_defs: Mutex::new(Default::default()),
             files: Mutex::new(None),
+            graph_ready,
+            graph_flags: Mutex::new(HashMap::new()),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
@@ -613,6 +620,15 @@ fn read_batch(s: &Shared, paths: &[String]) -> Vec<Prepared> {
 /// Architecture §5.1: brings the index up to the files by `(mtime, size)`; a fresh index is a full rebuild.
 /// Reports `IndexProgress` per batch and stops on cancel (FR-UX-07, D-110).
 fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
+    // G1 (D-990): the graph answers once this build ends, however it ends; set before `Done` is reported, so a
+    // listener that asks again on `done` gets the graph.
+    struct Ready<'a>(&'a AtomicBool);
+    impl Drop for Ready<'_> {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+    let ready = Ready(&s.graph_ready);
     let files = match listing.map(Ok).unwrap_or_else(|| s.vault.list_files()) {
         Ok(f) => f,
         Err(_) => return,
@@ -671,6 +687,7 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
         cancelled
     });
     let d = done.load(Ordering::SeqCst);
+    drop(ready);
     if cancelled {
         s.emit(CoreEvent::IndexProgress { done: d, total, state: ProgressState::Cancelled });
     } else {
@@ -1081,3 +1098,10 @@ pub use trash6a::{Moved, TrashEntry, TrashKind, TrashRemoval};
 // docs/contracts/ms4-tags.md §1: tags in the index (`tags4d.rs`).
 mod tags4d;
 pub use tags4d::{TagFileRef, TagObjectRow, TagRow, TagUsage};
+
+// ------------------------------------------------------------------------------------------------ slice G1
+// docs/contracts/v1-graph.md §1, §2: the local graph's neighbourhood query (`tegg_index::graph`, `graphg1.rs`).
+mod graphg1;
+pub use tegg_index::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
+#[cfg(any(test, feature = "test-hooks"))]
+pub use tegg_index::PauseHook;

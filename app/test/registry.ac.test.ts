@@ -3,7 +3,7 @@
 // imported dynamically inside each test so a missing module fails an assertion, not the file (TS-I1).
 import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { MILESTONE_ORDER, R1, R2, R3, R4, R4_P, RESERVED, STATIC_COMMANDS, expandReqs, shortcutClashes, showDue, type Due } from './shell-tables';
+import { MILESTONE_ORDER, R1, R2, R3, R4, R4_G1, R4_P, RESERVED, STATIC_COMMANDS, expandReqs, shortcutClashes, showDue, type Due } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -126,11 +126,11 @@ test('fr_ux_03_ac7_registry_integrity', async () => {
   for (const c of list) assert.ok(c.title in cat.en, `title of ${c.id} is not a catalog key: ${c.title}`);
   for (const c of list) assert.ok(!RESERVED.includes(c.shortcut), `${c.id} uses the reserved ${c.shortcut}`);
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
-  // Slice P (previews.md R106, D-943): R4 gains ⌥Space `Show preview` (R4_P).
-  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P].map((r) => r.keys).sort(), 'shortcut table = R4 (keys in ⌃⌥⇧⌘ order)');
+  // Slice P (previews.md R106, D-943): R4 gains ⌥Space `Show preview` (R4_P); slice G1 ⇧⌘G `Open graph` (R4_G1, D-918).
+  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P, ...R4_G1].map((r) => r.keys).sort(), 'shortcut table = R4 (keys in ⌃⌥⇧⌘ order)');
   // 4B (R17, D-127): ⌥⌘← / ⌥⌘→ are registered on daily routes only.
   const onDaily = cmd.commands({ ...CTX, route: { id: 'daily/YYYY-MM-DD', param: '2026-10-14', date: '2026-10-14' } }) as any[];
-  for (const row of [...R4, ...R4_P]) {
+  for (const row of [...R4, ...R4_P, ...R4_G1]) {
     const s = shortcuts.find((x) => x.keys === row.keys)!;
     const c = list.find((x) => x.id === s.command) ?? onDaily.find((x) => x.id === s.command);
     assert.ok(c, `${row.keys}: command ${s.command} is not registered`);

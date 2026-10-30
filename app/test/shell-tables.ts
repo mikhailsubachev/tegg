@@ -40,7 +40,8 @@ export const R1: R1Row[] = [
   { id: 'note/<path>', page: 'Edit note', built: true, due: d('MS3'), reqs: '', design: 'Main', goto: null },
   // D-520 (5A-1 feedback, ms5-tasks §12.2): the unsaved draft of a new object; no sidebar entry, no Go to command.
   { id: 'new/<type>', page: 'New object', built: true, due: d('MS5'), reqs: 'FR-TYP-09, FR-EDT-01', design: 'Main', goto: null },
-  { id: 'graph', page: 'Graph', built: false, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: 'Go to Graph' },
+  // Slice G1 (graph.md, app-shell changes in the commit that builds G1; D-914): the full view is `graph/<path>`, built.
+  { id: 'graph/<path>', page: 'Graph', built: true, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: null },
   { id: 'trash', page: 'Trash', built: true, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' }, // built in 6A (R75)
   { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
   // 4A (backlinks.md R16): vault checks, palette only (D-284).
@@ -165,6 +166,10 @@ export const R4: R4Row[] = [
  *  shortcut table as `R4` plus ⌥Space; the registry tests compare against `[...R4, ...R4_P]`. */
 export const R4_P: R4Row[] = [
   { keys: '⌥Space', press: 'Alt+Space', command: 'Show preview', enabled: true },
+];
+/** Slice G1's R4 row (graph.md FR-UX-03 AC-20, D-918): ⇧⌘G `Open graph` (`graph.open`, section `navigate`). */
+export const R4_G1: R4Row[] = [
+  { keys: '⇧⌘G', press: 'Meta+Shift+g', command: 'Open graph', enabled: true },
 ];
 /** R106: the palette command `link.edit` (`Edit link`) shows ⇧⌘K, shared with R4's `edit.link` (`Insert link`): at a chip
  *  ⇧⌘K opens `Edit link` (FR-LNK-13 AC-6). The only pair FR-UX-03 AC-7's conflict check exempts (as previews_catalog). */

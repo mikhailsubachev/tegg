@@ -2,6 +2,7 @@
 // Commands: docs/contracts/ms2-shell.md §2, ms3-shell.md §2.
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { GraphRequestDto, GraphResultDto } from '../graph/types';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
@@ -129,6 +130,8 @@ export const ipc = {
   embedLoad: (paths: string[], media = false) => invoke<EmbedNoteDto[]>('embed_load', media ? { paths, media } : { paths }),
   /** Slice P (v1-previews §2, D-935): a previewed object's path after a rename, by its `id`. */
   indexPathById: (id: string) => invoke<string | null>('index_path_by_id', { id }),
+  /** Slice G1 (v1-graph §2): the neighbourhood of an object; read-only, no recency. A newer call cancels this one. */
+  graphNeighbourhood: (req: GraphRequestDto) => invoke<GraphResultDto>('graph_neighbourhood', { req }),
   // 5B (ms5-capture §5, §7; D-578).
   inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
   inboxCount: () => invoke<number>('inbox_count'),

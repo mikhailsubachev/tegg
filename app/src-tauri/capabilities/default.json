@@ -101,6 +101,7 @@
     "allow-merge-start",
     "allow-job-plan",
     "allow-backup-reveal",
+    "allow-graph-neighbourhood",
     "allow-media-add",
     "allow-media-add-paths",
     "allow-media-pick",

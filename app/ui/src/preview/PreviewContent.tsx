@@ -11,7 +11,7 @@ import { Notice, PreviewBody } from './PreviewBody';
 import { StripList } from '../embeds/strip';
 import type { PreviewModel } from './load';
 import { getPrefs } from './store';
-import type { PreviewTarget } from './types';
+import type { PreviewTarget, PreviewExtraAction } from './types';
 
 const nfc = (s: string) => s.normalize('NFC');
 
@@ -49,7 +49,9 @@ export type ContentProps = {
   uid: string;
   model: PreviewModel | null;
   target: PreviewTarget;
-  extraLine: string | null;
+  /** D-982: the graph's lines after the type name, and its action before `Open`. */
+  extraLines: string[];
+  extraAction: PreviewExtraAction | null;
   bodyRef: RefObject<HTMLElement | null>;
   back: { title: string; onBack: () => void } | null;
   onClose: () => void;
@@ -58,7 +60,7 @@ export type ContentProps = {
   scrollToEmbedOf: string | null;
 };
 
-export function PreviewContent({ uid, model, target, extraLine, bodyRef, back, onClose, onOpen, resize, scrollToEmbedOf }: ContentProps) {
+export function PreviewContent({ uid, model, target, extraLines, extraAction, bodyRef, back, onClose, onOpen, resize, scrollToEmbedOf }: ContentProps) {
   const m = model;
   const title = m ? previewTitle(m, target) : '';
   const typeName = !m ? '' : m.state === 'tag' ? typeNameOf('tag') : m.state === 'day' ? typeNameOf('daily-note') : m.state === 'ok' ? typeNameOf(m.type) : '';
@@ -76,7 +78,7 @@ export function PreviewContent({ uid, model, target, extraLine, bodyRef, back, o
               <span data-user-content>{typeName}</span>
               {m?.state === 'ok' && m.details && <span data-user-content>{` · ${m.details.replace(new RegExp(`^${typeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · `), '')}`}</span>}
             </div>
-            {extraLine && <div id={`${uid}-extra`} className="preview-extra" data-user-content>{extraLine}</div>}
+            {extraLines.map((line, i) => <div key={i} id={`${uid}-extra${i ? `-${i}` : ''}`} className="preview-extra" data-user-content>{line}</div>)}
           </div>
         </div>
         {back && (
@@ -100,8 +102,12 @@ export function PreviewContent({ uid, model, target, extraLine, bodyRef, back, o
       </article>
       <footer className="preview-footer">
         <span className="preview-hint">{t(`preview.hint.${mode}`)}</span>
+        {extraAction && (
+          <button type="button" tabIndex={0} data-command="preview.extraAction" className="preview-action" aria-disabled={extraAction.disabled ? 'true' : undefined}
+            onClick={() => { if (!extraAction.disabled) extraAction.run(); }}>{extraAction.label}</button>
+        )}
         <button type="button" tabIndex={0} className="preview-open" data-command="preview.open" aria-label={t('preview.open', { title })} aria-disabled={gone ? 'true' : undefined} onClick={() => { if (!gone) onOpen(); }}>
-          {t('preview.openShort')} <span className="preview-key" aria-hidden="true">↩</span>
+          {t('preview.openShort')} <span className="preview-key" aria-hidden="true">{t('preview.openKey')}</span>
         </button>
         {resize && (
           <span role="button" tabIndex={0} className="preview-resize" data-command="preview.resize" data-preview-resize="" aria-label={t('preview.resize')} aria-description={t('preview.resizeHint')} {...resize}>
