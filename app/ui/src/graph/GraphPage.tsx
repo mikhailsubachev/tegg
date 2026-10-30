@@ -21,7 +21,7 @@ import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, n
 import { graphHover } from './hover';
 import { ARROWS, graphKeyAction, nearestInDirection } from './keyboard';
 import { layout, type Point } from './layout';
-import { currentPreset, isModified } from './presets';
+import { currentPreset, isModified, nameKey } from './presets';
 import { PresetControl, type PresetActions } from './PresetControl';
 import type { EdgeKindDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto } from './types';
 
@@ -473,9 +473,9 @@ export function GraphPage(p: GraphPageProps) {
   const setViewMode = (v: 'graph' | 'list') => { if (v !== viewMode) write({ view: v }); };
   // G3 (§16.4): a Tegg rename or delete changes `preset` in every view of the vault that named it, in one write.
   const onRenamed = (from: string, to: string | null) => {
-    const key = from.normalize('NFC').trim().toLowerCase();
+    const key = nameKey(from); // D-1123: one rule (White_Space trim, not U+FEFF; NFC; lower case) everywhere
     const fix = (v: GraphViewStateDto | undefined): GraphViewStateDto | undefined => {
-      if (!v || typeof v.preset !== 'string' || v.preset.normalize('NFC').trim().toLowerCase() !== key) return v;
+      if (!v || typeof v.preset !== 'string' || nameKey(v.preset) !== key) return v;
       const { preset: _old, ...rest } = v;
       void _old;
       return to === null ? rest : { ...rest, preset: to };

@@ -176,10 +176,12 @@ struct Parsed {
     items: Vec<RawItem>,
     has_version: bool,
     value: PresetsValue,
+    /// The first document as YAML read it (the parse-back check of every write compares against it).
+    doc: Yaml,
 }
 
 fn unreadable(line: Option<u32>, reason: impl Into<String>) -> Parsed {
-    Parsed { state: PresetsState::Unreadable { line, reason: reason.into() }, presets: Vec::new(), items: Vec::new(), has_version: false, value: PresetsValue::Missing }
+    Parsed { state: PresetsState::Unreadable { line, reason: reason.into() }, presets: Vec::new(), items: Vec::new(), has_version: false, value: PresetsValue::Missing, doc: Yaml::Null }
 }
 
 fn strings(y: &Yaml) -> Option<Vec<String>> {
@@ -193,6 +195,8 @@ fn strings(y: &Yaml) -> Option<Vec<String>> {
 /// R118 read rules (AP-922).
 fn parse(bytes: &[u8]) -> Parsed {
     let Ok(text) = std::str::from_utf8(bytes) else { return unreadable(None, "The file isn't valid UTF-8.") };
+    // A UTF-8 BOM opens the stream (YAML 1.2 §5.2); `yaml_rust2` would read it as part of the first key.
+    let text = text.strip_prefix('\u{FEFF}').unwrap_or(text);
     let docs = match YamlLoader::load_from_str(text) {
         Ok(d) => d,
         Err(e) => {
@@ -235,7 +239,7 @@ fn parse(bytes: &[u8]) -> Parsed {
         items.push(RawItem { listed, types: types.unwrap_or_default(), kinds: kinds.unwrap_or_default() });
     }
     let state = if version > u64::from(PRESETS_VERSION) { PresetsState::Newer { version } } else { PresetsState::Ok };
-    Parsed { state, presets, items, has_version, value }
+    Parsed { state, presets, items, has_version, value, doc: top }
 }
 
 /// The 1-based line where the outermost flow collection still open at character `at` started, if any: a parser
@@ -455,14 +459,20 @@ fn scan(lines: &[Line], parsed: &Parsed) -> Option<Layout> {
     if items.len() != parsed.items.len() {
         return None;
     }
-    // Each item ends at the last non-blank line before the next line indented at most as far as the dash.
+    // D-1122: a flow item (`- {name: x}`, `- [..]`) can't be patched by lines; the whole file then isn't.
+    if items.iter().any(|it| lines[it.start].body[it.dash + 1..].trim_start().starts_with(['{', '['])) {
+        return None;
+    }
+    // Each item ends at its last content line before the next content line indented at most as far as the dash.
+    // Comment lines are skipped like blank lines (QA G3): one inside the item, at any column, goes with the item;
+    // comments after its last content line stay outside it.
     for n in 0..items.len() {
         let dd = items[n].dash;
         let limit = items.get(n + 1).map(|x| x.start - 1).unwrap_or(region_end.max(items[n].start));
         let mut end = items[n].start;
         for i in items[n].start + 1..=limit.min(lines.len() - 1) {
             let b = &lines[i].body;
-            if blank(b) {
+            if !content(b) {
                 continue;
             }
             if indent(b) <= dd {
@@ -504,12 +514,14 @@ fn find_key(il: &[Line], k: usize, key: &str) -> Option<KeyAt> {
     let rest = &body[colon + 1..];
     let v_off = colon + 1 + (rest.len() - rest.trim_start_matches([' ', '\t']).len());
     let v = &body[v_off..];
-    // Continuation lines of a block value: deeper than the key, or a compact `- ` list at the key's column.
+    // Continuation lines of a block value: deeper than the key, or a compact `- ` list at the key's column. Comment
+    // lines are skipped like blank lines (QA G3): one between continuation lines goes with the value, one after the
+    // last stays.
     let block_end = |compact: bool| {
         let mut end = line;
         for i in line + 1..il.len() {
             let b = &il[i].body;
-            if blank(b) {
+            if !content(b) {
                 continue;
             }
             let ind = indent(b);
@@ -607,8 +619,16 @@ fn file_eol(lines: &[Line]) -> String {
 }
 
 /// The patched text of an existing file, or None when the operation leaves it as it is.
-fn patch(text: &str, parsed: &Parsed, op: &Resolved) -> Result<Option<String>, PresetError> {
+fn patch(full: &str, parsed: &Parsed, op: &Resolved) -> Result<Option<String>, PresetError> {
+    // A UTF-8 BOM stays first: the lines are patched without it.
+    let (bom, text) = match full.strip_prefix('\u{FEFF}') {
+        Some(rest) => ("\u{FEFF}", rest),
+        None => ("", full),
+    };
     let mut lines = split(text);
+    if several_documents(&lines) {
+        return Err(PresetError::Unreadable); // D-1122: only a one-document file is patched
+    }
     let layout = scan(&lines, parsed).ok_or(PresetError::Unreadable)?;
     let eol = file_eol(&lines);
     let item_of = |listed: usize| -> Result<(usize, ItemAt), PresetError> {
@@ -692,12 +712,128 @@ fn patch(text: &str, parsed: &Parsed, op: &Resolved) -> Result<Option<String>, P
         }
     }
     if !parsed.has_version {
-        // R118: a missing version is written as `version: 1` after the header comments.
-        let n = lines.iter().take_while(|l| comment(&l.body)).count();
+        // R118, D-1124: a missing version is written as `version: 1` after the header comments (and after leading `%`
+        // directives and a `---` line, QA G3).
+        let n = prelude(&lines);
         insert_after(&mut lines, n.checked_sub(1), vec![format!("version: {PRESETS_VERSION}")], &eol);
     }
-    let out = join(&lines);
-    Ok((out != text).then_some(out))
+    let out = format!("{bom}{}", join(&lines));
+    if out == full {
+        return Ok(None);
+    }
+    // The safety net (QA G3): the new text must read back as exactly the intended change, else nothing is written.
+    if !reads_back(parsed, &out, op) {
+        return Err(PresetError::Unreadable);
+    }
+    Ok(Some(out))
+}
+
+/// `body` is the document marker `m` (`---` or `...`) at column 0, alone or before a space.
+fn doc_marker(body: &str, m: &str) -> bool {
+    body.strip_prefix(m).is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t']))
+}
+
+/// Whether the text holds more than one YAML document: a `---` after content (or a second one), or a `...`.
+fn several_documents(lines: &[Line]) -> bool {
+    let mut started = false;
+    for l in lines {
+        let b = &l.body;
+        if !content(b) || (!started && b.starts_with('%')) {
+            continue;
+        }
+        if doc_marker(b, "...") || (doc_marker(b, "---") && started) {
+            return true;
+        }
+        started = true;
+    }
+    false
+}
+
+/// The number of leading lines `version: 1` goes after: comments, `%` directives and the first `---` line (alone or
+/// with a comment).
+fn prelude(lines: &[Line]) -> usize {
+    let mut started = false;
+    let mut n = 0;
+    for l in lines {
+        let b = &l.body;
+        let start = doc_marker(b, "---") && b[3..].trim_start().chars().next().is_none_or(|c| c == '#');
+        if comment(b) || (!started && (b.starts_with('%') || start)) {
+            started |= start;
+            n += 1;
+        } else {
+            break;
+        }
+    }
+    n
+}
+
+fn ystr(s: &str) -> Yaml {
+    Yaml::String(s.to_string())
+}
+fn ylist(values: &[String]) -> Yaml {
+    Yaml::Array(values.iter().map(|v| ystr(v)).collect())
+}
+
+/// The parse-back check: `out` reads as Ok, every top-level key but `version` and `presets` is unchanged, `version`
+/// is the old one (or 1 when it was missing), and the `presets` list is the old one with exactly `op` applied (other
+/// items unchanged in order and content). Covers what the line scanner can't see: anchors and aliases, a second
+/// document, a range it cut wrong.
+fn reads_back(old: &Parsed, out: &str, op: &Resolved) -> bool {
+    let new = parse(out.as_bytes());
+    if new.state != PresetsState::Ok {
+        return false;
+    }
+    let (Yaml::Hash(o), Yaml::Hash(n)) = (&old.doc, &new.doc) else { return false };
+    let skip = |k: &Yaml| matches!(k.as_str(), Some("version" | "presets"));
+    if o.iter().filter(|(k, _)| !skip(k)).count() != n.iter().filter(|(k, _)| !skip(k)).count() {
+        return false;
+    }
+    if o.iter().filter(|(k, _)| !skip(k)).any(|(k, v)| n.get(k) != Some(v)) {
+        return false;
+    }
+    let want_version = if old.has_version { o.get(&ystr("version")).cloned() } else { Some(Yaml::Integer(i64::from(PRESETS_VERSION))) };
+    if n.get(&ystr("version")).cloned() != want_version {
+        return false;
+    }
+    let mut want: Vec<Yaml> = match o.get(&ystr("presets")) {
+        Some(Yaml::Array(a)) => a.clone(),
+        _ => Vec::new(),
+    };
+    let raw_of = |listed: usize| old.items.iter().position(|it| it.listed == Some(listed));
+    match op {
+        Resolved::Save { name, types, kinds } => {
+            let mut h = yaml_rust2::yaml::Hash::new();
+            h.insert(ystr("name"), ystr(name));
+            h.insert(ystr("hidden-types"), ylist(types));
+            h.insert(ystr("hidden-kinds"), ylist(kinds));
+            want.push(Yaml::Hash(h));
+        }
+        Resolved::Update { listed, types, kinds } => {
+            let Some(raw) = raw_of(*listed) else { return false };
+            let old_item = &old.items[raw];
+            let Some(Yaml::Hash(h)) = want.get_mut(raw) else { return false };
+            for (key, values, changed) in [("hidden-types", types, !same_set(&old_item.types, types)), ("hidden-kinds", kinds, !same_set(&old_item.kinds, kinds))] {
+                match h.get_mut(&ystr(key)) {
+                    Some(v) if changed => *v = ylist(values),
+                    Some(_) => {}
+                    None => {
+                        h.insert(ystr(key), ylist(values));
+                    }
+                }
+            }
+        }
+        Resolved::Rename { listed, to } => {
+            let Some(raw) = raw_of(*listed) else { return false };
+            let Some(Yaml::Hash(h)) = want.get_mut(raw) else { return false };
+            let Some(v) = h.get_mut(&ystr("name")) else { return false };
+            *v = ystr(to);
+        }
+        Resolved::Delete { listed } => {
+            let Some(raw) = raw_of(*listed) else { return false };
+            want.remove(raw);
+        }
+    }
+    matches!(n.get(&ystr("presets")), Some(Yaml::Array(a)) if *a == want)
 }
 
 /// Whether YAML read `key` in raw item `raw` although the scanner didn't find it (then the file isn't patched).
@@ -751,7 +887,7 @@ impl Core {
         }
         let parsed = match &disk {
             Some((bytes, _)) => parse(bytes),
-            None => Parsed { state: PresetsState::Missing, presets: Vec::new(), items: Vec::new(), has_version: false, value: PresetsValue::Missing },
+            None => Parsed { state: PresetsState::Missing, presets: Vec::new(), items: Vec::new(), has_version: false, value: PresetsValue::Missing, doc: Yaml::Null },
         };
         match parsed.state {
             PresetsState::Newer { .. } => return Err(CoreError::Preset(PresetError::NewerVersion)),

@@ -535,6 +535,9 @@ Owner, 2026-10-30, as proposed:
 - **D-1126** G3 red-test corrections: `graph-helpers.ts` `menuRadio` matches the name up to a space or the end (`(?=\s|$)`, as JavaScript's `\b` fails after `ů`, `í`); FR-UX-03 AC-27's last step uses a fresh page; FR-UX-03 AC-23 and AC-25 wait for the graph to be ready before reading the route marks. Applied with the `AC-Test-Change` trailer.
 - **D-1127** When `route-ready:graph/<path>` is marked: In the same commit that first shows the result (a layout effect), not after the next frame; `graph-ready` keeps its frame wait. Amends contract §3.
 
+- **D-1128** AR-03 list in the presets test: the forbidden strings are built from parts, so the repository's AR-03
+  scan of test files doesn't flag the test itself.
+
 ### 16.11 Build notes (no owner decision)
 
 - No presets cache in the core: every call reads `.tegg/graph.yml`, so `vault:changed` needs no invalidation. `scalar`

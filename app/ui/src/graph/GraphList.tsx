@@ -32,7 +32,6 @@ export function GraphList(p: GraphListProps) {
   const byKey = useMemo(() => new Map(p.model.nodes.map((n) => [n.key, n])), [p.model]);
   const [collapsed, setCollapsed] = useState<Set<NodeKey>>(new Set());
   const centre = rows[0]?.key ?? null;
-  const stop = p.focusKey && byKey.has(p.focusKey) ? p.focusKey : centre;
   const rowOf = useMemo(() => new Map(rows.map((r) => [r.key, r])), [rows]);
 
   /** The rows a user can reach: none below a collapsed row. */
@@ -46,6 +45,14 @@ export function GraphList(p: GraphListProps) {
     for (const r of rows) if (r.parentKey === null) walk(r.key);
     return out;
   }, [rows, rowOf, collapsed]);
+  // The roving tab stop: the focused row, else the centre; a row hidden under a collapsed one (a pointer click on a
+  // twisty) hands it to its nearest visible ancestor, so the tree keeps a reachable tab stop (QA G3).
+  const stop = useMemo(() => {
+    let k: NodeKey | null = p.focusKey && byKey.has(p.focusKey) ? p.focusKey : centre;
+    const shown = new Set(visible);
+    while (k !== null && !shown.has(k)) k = rowOf.get(k)?.parentKey ?? null;
+    return k ?? centre;
+  }, [p.focusKey, byKey, centre, visible, rowOf]);
 
   const focusRow = (k: NodeKey) => {
     p.onFocusKey(k);

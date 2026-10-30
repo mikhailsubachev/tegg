@@ -6,7 +6,7 @@
 //
 // Values come from the `yaml` package (YAML 1.2, as NFR-POR-01 AC-3's standard parser); positions from a line scanner,
 // so a patch changes only the operated item's lines (AP-921).
-import { parse, parseDocument, isMap, isScalar, isSeq } from 'yaml';
+import { parse, parseAllDocuments, isMap, isScalar, isSeq } from 'yaml';
 import { validateName } from '../src/graph/presets';
 import { vaultTypeOrder } from './fake-graph';
 import type { GraphPresetDto, GraphPresetsDto, PresetOpDto } from '../src/graph/types';
@@ -27,7 +27,6 @@ const nfc = (s: string) => s.normalize('NFC');
 /** Unicode White_Space trim (not JS `trim`, which also strips U+FEFF), as the core. */
 const trimWs = (s: string) => s.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
 const low = (s: string) => nfc(trimWs(s)).toLowerCase();
-const indentOf = (l: string) => l.length - l.trimStart().length;
 const blank = (l: string) => l.trim() === '';
 const comment = (l: string) => l.trimStart().startsWith('#');
 const err = (kind: PresetsErr['kind'], message: string, more: Partial<PresetsErr> = {}): { error: PresetsErr } => ({ error: { kind, message, ...more } });
@@ -36,7 +35,16 @@ const err = (kind: PresetsErr['kind'], message: string, more: Partial<PresetsErr
 
 /** A listed preset and the index of its item in the `presets` list. */
 type Listed = GraphPresetDto & { item: number };
-type Parsed = { read: PresetsRead; listed: Listed[]; hasVersion: boolean };
+type Parsed = {
+  read: PresetsRead;
+  listed: Listed[];
+  hasVersion: boolean;
+  /** `presets` as YAML read it: absent, null (no presets) or a list. */
+  value: 'missing' | 'null' | 'list';
+  /** The first document and the `presets` items as JSON (the parse-back check of every write compares against them). */
+  doc: Record<string, unknown> | null;
+  items: unknown[];
+};
 
 /** The 1-based line of a YAML error: when it falls inside an unclosed `[` or `{`, the line where the outermost one
  *  opened; else the parser's line. */
@@ -57,17 +65,20 @@ function errorLine(text: string, offset: number | null, reported: number | null)
 }
 
 function parsed(text: string | null, utf8 = true): Parsed {
-  const unreadable = (line: number | null, reason: string): Parsed => ({ read: { state: 'unreadable', error: { line, reason }, presets: [] }, listed: [], hasVersion: true });
-  if (text === null) return { read: { state: 'missing', error: null, presets: [] }, listed: [], hasVersion: false };
+  const base = { hasVersion: false, value: 'missing' as const, doc: null, items: [] };
+  const unreadable = (line: number | null, reason: string): Parsed => ({ ...base, read: { state: 'unreadable', error: { line, reason }, presets: [] }, listed: [], hasVersion: true });
+  if (text === null) return { ...base, read: { state: 'missing', error: null, presets: [] }, listed: [] };
   if (!utf8) return unreadable(null, 'The file isn\'t valid UTF-8.');
-  const doc = parseDocument(text);
-  if (doc.errors.length) {
-    const e = doc.errors[0];
-    return unreadable(errorLine(text, e.pos?.[0] ?? null, e.linePos?.[0]?.line ?? null), e.message.split('\n')[0]);
-  }
-  const top = doc.contents;
-  if (top === null || (isScalar(top) && top.value === null)) return { read: { state: 'ok', error: null, presets: [] }, listed: [], hasVersion: false };
+  // As the core (`yaml_rust2`): every document must parse; the first one holds the presets.
+  const docs = [...parseAllDocuments(text)];
+  const e = docs.flatMap((d) => d.errors)[0];
+  if (e) return unreadable(errorLine(text, e.pos?.[0] ?? null, e.linePos?.[0]?.line ?? null), e.message.split('\n')[0]);
+  const doc = docs[0];
+  const top = doc?.contents ?? null;
+  if (top === null || (isScalar(top) && top.value === null)) return { ...base, doc: {}, read: { state: 'ok', error: null, presets: [] }, listed: [] };
   if (!isMap(top)) return unreadable(null, 'The top level isn\'t a mapping.');
+  let json: Record<string, unknown>;
+  try { json = doc.toJSON() as Record<string, unknown>; } catch (x) { return unreadable(null, (x as Error).message); } // an alias without its anchor
   const vNode = top.get('version', true);
   let version = 1;
   let hasVersion = false;
@@ -78,8 +89,9 @@ function parsed(text: string | null, utf8 = true): Parsed {
     version = Number((vNode as { value: unknown }).value);
   }
   const pNode = top.get('presets', true);
-  if (pNode !== undefined && pNode !== null && !(isScalar(pNode) && pNode.value === null) && !isSeq(pNode)) return unreadable(null, '`presets` isn\'t a list.');
-  const items = isSeq(pNode) ? (pNode.toJSON() as unknown[]) : [];
+  const value = pNode === undefined ? 'missing' : pNode === null || (isScalar(pNode) && pNode.value === null) ? 'null' : 'list';
+  if (value === 'list' && !isSeq(pNode)) return unreadable(null, '`presets` isn\'t a list.');
+  const items = Array.isArray(json.presets) ? (json.presets as unknown[]) : [];
   const listed: Listed[] = [];
   const isStrings = (v: unknown) => v === undefined || (Array.isArray(v) && v.every((x) => typeof x === 'string'));
   items.forEach((raw, item) => {
@@ -92,7 +104,7 @@ function parsed(text: string | null, utf8 = true): Parsed {
     listed.push({ name, hiddenTypes: ((o['hidden-types'] ?? []) as string[]).map(nfc), hiddenKinds: ((o['hidden-kinds'] ?? []) as string[]).map(nfc), item });
   });
   const presets = listed.map(({ item: _i, ...p }) => p);
-  return { read: { state: version > 1 ? 'newer' : 'ok', error: null, presets }, listed, hasVersion };
+  return { read: { state: version > 1 ? 'newer' : 'ok', error: null, presets }, listed, hasVersion, value, doc: json, items };
 }
 
 /** R118 read rules. `text` null: no file; `utf8` false: the bytes weren't valid UTF-8. */
@@ -137,34 +149,28 @@ function closeOf(s: string, start: number): number | null {
     }
     return null;
   }
-  let depth = 0;
-  let q: string | null = null;
-  for (let j = start; j < s.length; j++) {
-    const x = s[j];
-    if (q) { if (x === q) q = null; continue; }
-    if (x === '"' || x === '\'') { q = x; continue; }
-    if (x === '[' || x === '{') depth++;
-    if (x === ']' || x === '}') { depth--; if (depth === 0) return j + 1; }
-  }
   return null;
 }
-/** A trailing ` # comment` of a plain value, with the spaces before it; '' when there is none. */
-function trailing(value: string): string {
-  for (let j = 1; j < value.length; j++) {
-    if (value[j] === '#' && /\s/.test(value[j - 1])) {
-      let s = j;
-      while (s > 0 && /\s/.test(value[s - 1])) s--;
-      return value.slice(s);
-    }
+/** The flow collection's end across lines, as the core's `flow_end`: the index after it closes in `s`, or null when it
+ *  continues (`st` carries the depth and the open quote; a ` #` comment ends the line). */
+function flowEnd(s: string, st: { depth: number; quote: string | null }): number | null {
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (st.quote === '"') { if (c === '\\') i++; else if (c === '"') st.quote = null; continue; }
+    if (st.quote === '\'') { if (c === '\'') { if (s[i + 1] === '\'') i++; else st.quote = null; } continue; }
+    if (c === '"' || c === '\'') st.quote = c;
+    else if (c === '[' || c === '{') st.depth++;
+    else if (c === ']' || c === '}') { st.depth--; if (st.depth === 0) return i + 1; }
+    else if (c === '#' && i > 0 && (s[i - 1] === ' ' || s[i - 1] === '\t')) return null;
   }
-  return '';
+  return null;
 }
 
 /** A line with its own ending (`\r\n`, `\n`, or '' for a last line without one). */
 type Line = { text: string; end: string };
-type Item = { start: number; end: number; dash: number; key: number };
-type Key = { name: string; line: number; end: number; colon: number };
-type Layout = { presetsLine: number; items: Item[]; dash: number | null; key: number | null };
+type Item = { start: number; end: number; dash: number; keys: number };
+type Layout = { presets: number | null; items: Item[] };
+type KeyAt = { line: number; end: number; prefix: string; tail: string };
 
 function splitLines(text: string): Line[] {
   const out: Line[] = [];
@@ -176,67 +182,171 @@ function splitLines(text: string): Line[] {
   }
   return out;
 }
+const joinLines = (L: Line[]) => L.map((l) => l.text + l.end).join('');
 
-/** The `presets` key's line and each item of its block list: from its `- ` line at the dash indent (the first content
- *  line after `presets:`) to the last non-blank line before the next non-blank line indented at most as far. */
-function layout(lines: string[]): Layout {
-  const presetsLine = lines.findIndex((l) => /^presets\s*:/.test(l));
-  if (presetsLine < 0) return { presetsLine: -1, items: [], dash: null, key: null };
-  const first = lines.findIndex((l, i) => i > presetsLine && !blank(l));
-  const dash = first >= 0 && indentOf(lines[first]) > 0 ? indentOf(lines[first]) : first >= 0 && /^-(\s|$)/.test(lines[first]) ? 0 : null;
-  const items: Item[] = [];
-  if (dash === null) return { presetsLine, items, dash, key: null };
-  for (let i = first; i < lines.length; i++) {
-    const l = lines[i];
-    if (blank(l)) continue;
-    if (indentOf(l) < dash || (indentOf(l) === dash && !comment(l) && !/^\s*-(\s|$)/.test(l))) break;
-    if (indentOf(l) === dash && /^\s*-(\s|$)/.test(l)) items.push({ start: i, end: i, dash, key: -1 });
+// The core's line rules (graph_presets.rs): spaces only count as indentation; comment lines are skipped like blank
+// lines wherever a range is measured (QA G3), so only content lines end an item or a key's value.
+const spaces = (l: string) => l.length - l.replace(/^ +/, '').length;
+const content = (l: string) => !blank(l) && !comment(l);
+const dashAt = (l: string, at: number) => { const r = l.slice(at); return r === '-' || r.startsWith('- '); };
+const docMarker = (l: string, m: string) => l.startsWith(m) && (l.length === m.length || l[m.length] === ' ' || l[m.length] === '\t');
+
+/** The mapping key starting at `at` of `body` and the index of its `:` (plain or quoted, as the core's `key_at`). */
+function keyAt(body: string, at: number): { key: string; colon: number } | null {
+  const s = body.slice(at);
+  if (s === '') return null;
+  let key: string;
+  let after: number;
+  if (s[0] === '"' || s[0] === '\'') {
+    const end = closeOf(s, 0);
+    if (end === null) return null;
+    const inner = s.slice(1, end - 1);
+    if (s[0] === '\'') key = inner.replace(/''/g, '\'');
+    else { try { key = JSON.parse(s.slice(0, end)) as string; } catch { key = inner; } }
+    after = end;
+  } else {
+    let i = 0;
+    for (;;) {
+      const c = s.indexOf(':', i);
+      if (c < 0) return null;
+      if (c + 1 === s.length || s[c + 1] === ' ' || s[c + 1] === '\t') { key = s.slice(0, c).trimEnd(); after = c; break; }
+      i = c + 1;
+    }
   }
-  for (const it of items) {
+  const rest = s.slice(after);
+  const colon = after + (rest.length - rest.replace(/^[ \t]+/, '').length);
+  return s[colon] === ':' ? { key, colon: at + colon } : null;
+}
+
+/** The core's `scan`: the `presets` key line and its items' line ranges; null when the file can't be patched by lines
+ *  (D-1122: a non-empty flow list, `presets: ~`, a flow item, items that don't line up with what YAML read). */
+function layout(lines: string[], p: Parsed): Layout | null {
+  const at = lines.findIndex((l) => spaces(l) === 0 && content(l) && keyAt(l, 0)?.key === 'presets');
+  if (p.value === 'missing') return { presets: null, items: [] };
+  if (at < 0) return null;
+  const k = keyAt(lines[at], 0)!;
+  const inline = lines[at].slice(k.colon + 1).trimStart();
+  if (inline !== '' && !inline.startsWith('#')) return p.items.length === 0 && inline.startsWith('[') ? { presets: at, items: [] } : null;
+  const items: Item[] = [];
+  let d: number | null = null;
+  let regionEnd = at;
+  for (let i = at + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (!content(l)) continue;
+    const ind = spaces(l);
+    d ??= ind;
+    if (ind < d || (ind === d && !dashAt(l, ind))) break;
+    if (ind === d) items.push({ start: i, end: i, dash: d, keys: 0 });
+    regionEnd = i;
+  }
+  if (items.length !== p.items.length) return null;
+  if (items.some((it) => /^[{[]/.test(lines[it.start].slice(it.dash + 1).trimStart()))) return null;
+  items.forEach((it, n) => {
+    const limit = n + 1 < items.length ? items[n + 1].start - 1 : Math.max(regionEnd, it.start);
     let end = it.start;
-    for (let i = it.start + 1; i < lines.length; i++) {
-      if (blank(lines[i])) continue;
-      if (indentOf(lines[i]) <= dash) break;
+    for (let i = it.start + 1; i <= Math.min(limit, lines.length - 1); i++) {
+      if (!content(lines[i])) continue;
+      if (spaces(lines[i]) <= it.dash) break;
       end = i;
     }
     it.end = end;
-    const l = lines[it.start];
-    let k = dash + 1;
-    while (l[k] === ' ') k++;
-    if (k >= l.length || l[k] === '#') {
-      const c = lines.findIndex((x, i) => i > it.start && i <= end && !blank(x) && !comment(x));
-      k = c >= 0 ? indentOf(lines[c]) : dash + 2;
-    }
-    it.key = k;
-  }
-  return { presetsLine, items, dash, key: items[0]?.key ?? null };
+    const after = lines[it.start].slice(it.dash + 1);
+    if (after.trim() === '') {
+      const c = lines.slice(it.start + 1, end + 1).find(content);
+      it.keys = c !== undefined ? spaces(c) : it.dash + 2;
+    } else it.keys = it.dash + 1 + (after.length - after.replace(/^ +/, '').length);
+  });
+  return { presets: at, items };
 }
 
-/** The keys of an item's mapping at its key column, each with its block-list continuation lines. Null when the item
- *  isn't a block mapping the scanner can patch (a flow `- {…}` item, a quoted key). */
-function keysOf(lines: string[], it: Item): Key[] | null {
-  const out: Key[] = [];
-  if (lines[it.start][it.key] === '{' || lines[it.start][it.key] === '"' || lines[it.start][it.key] === '\'') return null;
-  for (let i = it.start; i <= it.end; i++) {
-    const l = lines[i];
-    if (i !== it.start && (blank(l) || indentOf(l) !== it.key || comment(l))) continue;
-    if (i === it.start && it.key >= l.length) continue;
-    const rest = l.slice(it.key);
-    if (/^["']/.test(rest)) return null;
-    if (/^-(\s|$)/.test(rest)) continue;
-    const m = /^([^\s#][^:]*?)\s*:(\s|$)/.exec(rest);
-    if (!m) continue;
-    let end = i;
-    for (let j = i + 1; j <= it.end; j++) {
-      const x = lines[j];
-      if (blank(x) || (comment(x) && indentOf(x) >= it.key)) continue; // comments between list lines go with them
-      if (indentOf(x) > it.key || (indentOf(x) === it.key && /^\s*-(\s|$)/.test(x))) { end = j; continue; }
-      break;
+/** The core's `find_key`: `key` among an item's lines (`il`, the dash line first) at column `k`, with the lines its
+ *  value takes (a block list, a flow collection over several lines, a plain scalar's continuation). */
+function findKey(il: string[], k: number, key: string): KeyAt | null {
+  const line = il.findIndex((b, i) => (i === 0 ? b.length > k : content(b) && spaces(b) === k) && keyAt(b, k)?.key === key);
+  if (line < 0) return null;
+  const body = il[line];
+  const { colon } = keyAt(body, k)!;
+  const rest = body.slice(colon + 1);
+  const vOff = colon + 1 + (rest.length - rest.replace(/^[ \t]+/, '').length);
+  const v = body.slice(vOff);
+  const blockEnd = () => {
+    let end = line;
+    for (let i = line + 1; i < il.length; i++) {
+      const b = il[i];
+      if (!content(b)) continue;
+      const ind = spaces(b);
+      if (ind > k || (ind === k && dashAt(b, ind))) end = i;
+      else break;
     }
-    out.push({ name: m[1], line: i, end, colon: it.key + m[0].lastIndexOf(':') });
+    return end;
+  };
+  if (v === '' || v.startsWith('#')) return { line, end: blockEnd(), prefix: `${body.slice(0, colon + 1)} `, tail: rest };
+  const prefix = body.slice(0, vOff);
+  if (v[0] === '[' || v[0] === '{') {
+    const st = { depth: 0, quote: null as string | null };
+    const p0 = flowEnd(v, st);
+    if (p0 !== null) return { line, end: line, prefix, tail: v.slice(p0) };
+    for (let i = line + 1; i < il.length; i++) {
+      const p1 = flowEnd(il[i], st);
+      if (p1 !== null) return { line, end: i, prefix, tail: il[i].slice(p1) };
+    }
+    return null;
   }
-  return out;
+  if (v[0] === '"' || v[0] === '\'') {
+    const close = closeOf(v, 0);
+    return close === null ? null : { line, end: line, prefix, tail: v.slice(close) };
+  }
+  const cuts = [' #', '\t#'].map((m) => v.indexOf(m)).filter((x) => x >= 0);
+  const cut = cuts.length ? Math.min(...cuts) : v.length;
+  const valueLen = v.slice(0, cut).trimEnd().length;
+  let end = line;
+  for (let i = line + 1; i < il.length; i++) {
+    const b = il[i];
+    if (blank(b)) continue;
+    if (spaces(b) > k && !comment(b) && cut === v.length) end = i;
+    else break;
+  }
+  return { line, end, prefix, tail: end === line ? v.slice(valueLen) : '' };
 }
+
+/** Replaces `L[from..=to]` with `texts` (the file's `nl`; the replaced block's last ending stays on the last new line),
+ *  keeping a missing final newline missing. */
+function spliceLines(L: Line[], from: number, to: number, texts: string[], nl: string) {
+  const lastEnd = L[to].end;
+  const add = texts.map((t, i) => ({ text: t, end: i === texts.length - 1 ? lastEnd : nl }));
+  const atEnd = to + 1 === L.length;
+  L.splice(from, to - from + 1, ...add);
+  if (!add.length && atEnd && lastEnd === '' && from > 0) L[from - 1].end = '';
+}
+/** Inserts `texts` after line `after` (null: at the start), keeping a missing final newline missing. */
+function insertAfter(L: Line[], after: number | null, texts: string[], nl: string) {
+  const at = after === null ? 0 : after + 1;
+  const add = texts.map((t) => ({ text: t, end: nl }));
+  if (after !== null && L[after].end === '') { L[after].end = nl; if (add.length) add[add.length - 1].end = ''; }
+  L.splice(at, 0, ...add);
+}
+
+/** More than one YAML document: a `---` after content (or a second one), or a `...` (D-1122: never patched). */
+function severalDocuments(lines: string[]): boolean {
+  let started = false;
+  for (const b of lines) {
+    if (!content(b) || (!started && b.startsWith('%'))) continue;
+    if (docMarker(b, '...') || (docMarker(b, '---') && started)) return true;
+    started = true;
+  }
+  return false;
+}
+/** The leading lines `version: 1` goes after (D-1124, QA G3): comments, `%` directives and the first `---` line. */
+function prelude(lines: string[]): number {
+  let started = false, n = 0;
+  for (const b of lines) {
+    const start = docMarker(b, '---') && /^\s*(#|$)/.test(b.slice(3));
+    if (comment(b) || (!started && (b.startsWith('%') || start))) { started ||= start; n++; } else break;
+  }
+  return n;
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** R118 write rules: the file's next text after `op` (`text` null: no file), or the refusal. `typeOrder` is the
  *  vault's D-977 type order (§16.1). An operation that leaves the bytes equal returns the same text. */
@@ -252,93 +362,26 @@ export function presetsPatch(text: string | null, op: PresetOpDto, typeOrder: st
     const e = validateName(name, listed, renaming);
     return e ? err(e.kind, `fake: ${e.kind}`, e.kind === 'NameTaken' ? { existing: e.existing } : {}) : null;
   };
-  const types = (v: string[], prev: string[]) => flowList(ordered(v, typeOrder, prev));
-  const kinds = (v: string[], prev: string[]) => flowList(ordered(v, KINDS, prev));
   const item = (d: number, k: number, name: string, ht: string[], hk: string[]) => [
-    `${' '.repeat(d)}-${' '.repeat(Math.max(1, k - d - 1))}name: ${scalar(nfc(trimWs(name)))}`, `${' '.repeat(k)}hidden-types: ${types(ht, [])}`, `${' '.repeat(k)}hidden-kinds: ${kinds(hk, [])}`,
+    `${' '.repeat(d)}-${' '.repeat(Math.max(1, k - d - 1))}name: ${scalar(name)}`, `${' '.repeat(d + 1 + Math.max(1, k - d - 1))}hidden-types: ${flowList(ht)}`, `${' '.repeat(d + 1 + Math.max(1, k - d - 1))}hidden-kinds: ${flowList(hk)}`,
   ];
 
-  if (text === null) {
-    if (op.op !== 'save') return err('NoSuchPreset', 'fake: no presets file');
-    const bad = named(op.name);
-    if (bad) return bad;
-    return done([HEADER, 'version: 1', 'presets:', ...item(2, 4, op.name, op.hiddenTypes, op.hiddenKinds)].join('\n') + '\n');
-  }
-
-  const L = splitLines(text);
-  const lines = L.map((l) => l.text);
-  const nl = L.find((l) => l.end !== '')?.end ?? '\n';
-  const lay = layout(lines);
-  // The raw items must line up with what YAML read, else the file can't be patched line by line.
-  const rawCount = (() => { const doc = parseDocument(text); const n = isMap(doc.contents) ? doc.contents.get('presets', true) : undefined; return isSeq(n) ? n.items.length : null; })();
-  const pLine = lay.presetsLine >= 0 ? lines[lay.presetsLine] : '';
-  const pRest = pLine.replace(/^presets\s*:/, '');
-  const emptyFlow = /^\s*\[\s*\]/.test(pRest);
-  if (rawCount !== null && rawCount > 0 && (rawCount !== lay.items.length || /^\s*\[/.test(pRest))) return unpatchable();
-  const itemOf = (x: Listed) => lay.items[x.item];
-  if (lay.items.some((it) => /^[{["']/.test(lines[it.start].slice(it.key)))) return unpatchable(); // a flow `- {…}` item, a quoted key
-
-  /** Replaces `del` lines at `at` with `texts`: new lines take the file's first ending; a replaced block's last ending
-   *  stays on the last new line; an append after a last line without an ending moves it to the new last line. */
-  const splice = (at: number, del: number, texts: string[]) => {
-    if (del > 0) {
-      const lastEnd = L[at + del - 1].end;
-      const add = texts.map((t2, i) => ({ text: t2, end: i === texts.length - 1 ? lastEnd : nl }));
-      if (!add.length && at + del === L.length && lastEnd === '' && at > 0) L[at - 1].end = '';
-      L.splice(at, del, ...add);
-      return;
-    }
-    const add = texts.map((t2) => ({ text: t2, end: nl }));
-    if (at === L.length && at > 0 && L[at - 1].end === '') { L[at - 1].end = nl; if (add.length) add[add.length - 1].end = ''; }
-    L.splice(at, 0, ...add);
-  };
-
+  // The operation after validation: what the parse-back check expects of the `presets` list.
+  type Want = { op: 'save'; name: string; types: string[]; kinds: string[] } | { op: 'update'; raw: number; types: string[]; kinds: string[]; t: boolean; k: boolean } | { op: 'rename'; raw: number; to: string } | { op: 'delete'; raw: number };
+  let want: Want;
   switch (op.op) {
     case 'save': {
       const bad = named(op.name);
       if (bad) return bad;
-      const d = lay.items.length ? lay.dash! : 2, k = lay.items.length ? lay.key! : 4;
-      const add = item(d, k, op.name, op.hiddenTypes, op.hiddenKinds);
-      if (lay.presetsLine < 0) splice(L.length, 0, ['presets:', ...add]);
-      else if (lay.items.length) splice(lay.items[lay.items.length - 1].end + 1, 0, add);
-      else if (emptyFlow) splice(lay.presetsLine, 1, [`presets:${pRest.replace(/^\s*\[\s*\]/, '')}`, ...add]);
-      else splice(lay.presetsLine + 1, 0, add);
+      want = { op: 'save', name: nfc(trimWs(op.name)), types: ordered(op.hiddenTypes, typeOrder, []), kinds: ordered(op.hiddenKinds, KINDS, []) };
       break;
     }
     case 'update': {
       const x = find(op.name);
       if (!x) return err('NoSuchPreset', `fake: no preset ${op.name}`);
-      const sameT = sameSet(op.hiddenTypes, x.hiddenTypes), sameK = sameSet(op.hiddenKinds, x.hiddenKinds);
-      if (sameT && sameK) return done(text); // D-1114
-      const it = itemOf(x);
-      const keys = keysOf(lines, it);
-      if (!keys) return unpatchable();
-      const values: [string, string, boolean][] = [
-        ['hidden-types', types(op.hiddenTypes, x.hiddenTypes), sameT],
-        ['hidden-kinds', kinds(op.hiddenKinds, x.hiddenKinds), sameK],
-      ];
-      const edits: { at: number; del: number; lines: string[] }[] = [];
-      const appended: string[] = [];
-      for (const [name, v, same] of values) {
-        const key = keys.find((y) => y.name === name);
-        if (!key) { appended.push(`${' '.repeat(it.key)}${name}: ${v}`); continue; }
-        if (same) continue;
-        const l = lines[key.line];
-        const after = l.slice(key.colon + 1);
-        const lead = /^\s*/.exec(after)![0];
-        const body = after.slice(lead.length);
-        let line: string;
-        if (body === '' || body.startsWith('#')) line = `${l.slice(0, key.colon + 1)} ${v}${after}`; // a block list
-        else if (body.startsWith('[')) {
-          const close = closeOf(after, lead.length);
-          if (close === null) return unpatchable();
-          line = `${l.slice(0, key.colon + 1)}${lead}${v}${after.slice(close)}`;
-        } else return unpatchable();
-        edits.push({ at: key.line, del: key.end - key.line + 1, lines: [line] });
-      }
-      if (appended.length) edits.push({ at: it.end + 1, del: 0, lines: appended });
-      edits.sort((e1, e2) => e2.at - e1.at);
-      for (const e of edits) splice(e.at, e.del, e.lines);
+      const t = !sameSet(op.hiddenTypes, x.hiddenTypes), k = !sameSet(op.hiddenKinds, x.hiddenKinds);
+      if (!t && !k) return done(text!); // D-1114
+      want = { op: 'update', raw: x.item, types: ordered(op.hiddenTypes, typeOrder, x.hiddenTypes), kinds: ordered(op.hiddenKinds, KINDS, x.hiddenKinds), t, k };
       break;
     }
     case 'rename': {
@@ -347,40 +390,125 @@ export function presetsPatch(text: string | null, op: PresetOpDto, typeOrder: st
       const bad = named(op.to, x.name);
       if (bad) return bad;
       const to = nfc(trimWs(op.to));
-      if (to === x.name) return done(text);
-      const keys = keysOf(lines, itemOf(x));
-      const key = keys?.find((y) => y.name === 'name');
-      if (!key) return unpatchable();
-      const l = lines[key.line];
-      const after = l.slice(key.colon + 1);
-      const lead = /^\s*/.exec(after)![0];
-      const body = after.slice(lead.length);
-      let tail: string;
-      if (body.startsWith('"') || body.startsWith('\'')) {
-        const close = closeOf(after, lead.length);
-        if (close === null) return unpatchable();
-        tail = after.slice(close);
-      } else tail = trailing(body);
-      splice(key.line, 1, [`${l.slice(0, key.colon + 1)}${lead || ' '}${scalar(to)}${tail}`]);
+      if (to === x.name) return done(text!);
+      want = { op: 'rename', raw: x.item, to };
       break;
     }
     case 'delete': {
       const x = find(op.name);
       if (!x) return err('NoSuchPreset', `fake: no preset ${op.name}`);
-      const it = itemOf(x);
-      splice(it.start, it.end - it.start + 1, []);
-      if (lay.items.length === 1) L[lay.presetsLine] = { ...L[lay.presetsLine], text: `presets: []${pRest}` };
+      want = { op: 'delete', raw: x.item };
       break;
     }
   }
-  // A missing `version` is written as `version: 1` after the leading comment lines (AR-07).
-  if (!p.hasVersion) {
-    let at = 0;
-    while (at < L.length && comment(L[at].text)) at++;
-    splice(at, 0, ['version: 1']);
+
+  if (text === null) {
+    if (want.op !== 'save') return err('NoSuchPreset', 'fake: no presets file');
+    return done([HEADER, 'version: 1', 'presets:', ...item(2, 4, want.name, want.types, want.kinds)].join('\n') + '\n');
   }
-  const next = L.map((l) => l.text + l.end).join('');
-  return done(next === text ? text : next);
+
+  // A UTF-8 BOM stays first: the lines are patched without it.
+  const bom = text.startsWith('﻿') ? '﻿' : '';
+  const L = splitLines(text.slice(bom.length));
+  const lines = L.map((l) => l.text);
+  if (severalDocuments(lines)) return unpatchable();
+  const lay = layout(lines, p);
+  if (!lay) return unpatchable();
+  const nl = L.find((l) => l.end !== '')?.end ?? '\n';
+
+  switch (want.op) {
+    case 'save': {
+      const last = lay.items[lay.items.length - 1];
+      const add = item(last ? last.dash : 2, last ? last.keys : 4, want.name, want.types, want.kinds);
+      if (last) insertAfter(L, last.end, add, nl);
+      else if (lay.presets !== null) {
+        const body = L[lay.presets].text;
+        const { colon } = keyAt(body, 0)!;
+        const inline = body.slice(colon + 1).trimStart();
+        if (inline.startsWith('[')) {
+          // `presets: []` becomes `presets:` (a trailing comment stays).
+          const close = flowEnd(inline, { depth: 0, quote: null });
+          if (close === null) return unpatchable();
+          L[lay.presets] = { ...L[lay.presets], text: `${body.slice(0, colon + 1)}${inline.slice(close)}` };
+        }
+        insertAfter(L, lay.presets, add, nl);
+      } else insertAfter(L, L.length ? L.length - 1 : null, ['presets:', ...add], nl);
+      break;
+    }
+    case 'update': {
+      const it = lay.items[want.raw];
+      const il = L.slice(it.start, it.end + 1);
+      const ilt = il.map((l) => l.text);
+      const found: [KeyAt, string][] = [];
+      const add: string[] = [];
+      for (const [key, values, changed] of [['hidden-types', want.types, want.t], ['hidden-kinds', want.kinds, want.k]] as const) {
+        const at = findKey(ilt, it.keys, key);
+        if (at) { if (changed) found.push([at, flowList(values)]); continue; }
+        // YAML read the key but the scanner can't find it (the core's `old_has`): the file isn't patched.
+        const raw = p.items[want.raw];
+        if (raw && typeof raw === 'object' && Object.prototype.hasOwnProperty.call(raw, key)) return unpatchable();
+        add.push(`${' '.repeat(it.keys)}${key}: ${flowList(values)}`);
+      }
+      found.sort((a, b) => b[0].line - a[0].line);
+      for (const [at, v] of found) spliceLines(il, at.line, at.end, [`${at.prefix}${v}${at.tail}`], nl);
+      if (add.length) insertAfter(il, il.length - 1, add, nl);
+      L.splice(it.start, it.end - it.start + 1, ...il);
+      break;
+    }
+    case 'rename': {
+      const it = lay.items[want.raw];
+      const il = L.slice(it.start, it.end + 1);
+      const at = findKey(il.map((l) => l.text), it.keys, 'name');
+      if (!at) return unpatchable();
+      spliceLines(il, at.line, at.end, [`${at.prefix}${scalar(want.to)}${at.tail}`], nl);
+      L.splice(it.start, it.end - it.start + 1, ...il);
+      break;
+    }
+    case 'delete': {
+      const it = lay.items[want.raw];
+      spliceLines(L, it.start, it.end, [], nl);
+      if (p.items.length === 1) {
+        // AP-926: the last item leaves `presets: []`; the file stays.
+        if (lay.presets === null) return unpatchable();
+        const body = L[lay.presets].text;
+        const { colon } = keyAt(body, 0)!;
+        L[lay.presets] = { ...L[lay.presets], text: `${body.slice(0, colon + 1)} []${body.slice(colon + 1)}` };
+      }
+      break;
+    }
+  }
+  // R118, D-1124: a missing `version` is written as `version: 1` after the leading comment lines (and leading `%`
+  // directives and a `---` line, QA G3).
+  if (!p.hasVersion) {
+    const n = prelude(L.map((l) => l.text));
+    insertAfter(L, n > 0 ? n - 1 : null, ['version: 1'], nl);
+  }
+  const next = bom + joinLines(L);
+  if (next === text) return done(text);
+
+  // The safety net (QA G3, as the core's `reads_back`): the new text reads as ok, every other top-level key is
+  // unchanged, `version` is the old one (or 1), and `presets` is the old list with exactly this operation applied.
+  const back = parsed(next);
+  if (back.read.state !== 'ok' || !back.doc || !p.doc) return unpatchable();
+  const others = (d: Record<string, unknown>) => Object.keys(d).filter((k) => k !== 'version' && k !== 'presets');
+  const od = p.doc, nd = back.doc;
+  if (others(od).length !== others(nd).length || others(od).some((k) => !(k in nd) || !same(od[k], nd[k]))) return unpatchable();
+  if (!same(nd.version, p.hasVersion ? od.version : 1)) return unpatchable();
+  const expected: unknown[] = structuredClone(p.items);
+  switch (want.op) {
+    case 'save': expected.push({ name: want.name, 'hidden-types': want.types, 'hidden-kinds': want.kinds }); break;
+    case 'update': {
+      const o = expected[want.raw] as Record<string, unknown>;
+      for (const [key, values, changed] of [['hidden-types', want.types, want.t], ['hidden-kinds', want.kinds, want.k]] as const) {
+        if (!(key in o) || changed) o[key] = values;
+      }
+      break;
+    }
+    case 'rename': (expected[want.raw] as Record<string, unknown>).name = want.to; break;
+    case 'delete': expected.splice(want.raw, 1); break;
+  }
+  if (!Array.isArray(nd.presets) || !same(nd.presets, expected)) return unpatchable();
+  return done(next);
 }
 
 // ------------------------------------------------------------------------------------------------ the fake's entry
