@@ -927,8 +927,10 @@ Owner, 2026-10-30, as proposed:
 - **D-1159** The canvas is the window's last tab stop: Tab wraps to the window's first tab stop and ⇧Tab from there returns to the canvas.
 - **D-1160** Dropped: R4 has no R123 rows; contract §17.5 already states that R123's commands act on the panel while it shows the Graph tab.
 
-### 17.12 QA decisions (D-1161, BRD v1.125)
+### 17.12 QA decisions (D-1161…D-1163, BRD v1.125)
 
 Owner, 2026-10-30, from the QA review of G3 in the panel:
 
 - **D-1161** `nfr_oth_02_ac15_panel_g3_strings_in_the_catalog` runs `Object preview: Hover to preview` and `Object preview: Off` without `.catch`, so a failed mode switch fails the test, and finds the footer by each mode's own pseudo-locale text (`graph.panel.footerHover`, `graph.panel.footerOff`), not by any `⟦…objects…⟧` text.
+- **D-1162** `tabNeighbour` on the panel's canvas skips a button without an explicit `tabindex`, as WebKit's own Tab: ⇧Tab from Plán focuses `List`, the last `View` button, and `Open full view` stays out of the tab order (D-1156). The full view's canvas keeps its toolbar buttons as neighbours (FR-UX-03 AC-22).
+- **D-1163** The catalog key `graph.a11y.name` `{title}, {type}` names a canvas node (`[data-graph-node]`) and a List `treeitem`. `data-user-content` sits only on the row title and the node label `<text>`, so the pseudo-locale check (NFR-OTH-02 AC-15) covers the rows' and nodes' catalog texts and `aria-description`.

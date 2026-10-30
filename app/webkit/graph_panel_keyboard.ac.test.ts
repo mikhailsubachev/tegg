@@ -82,7 +82,7 @@ test('fr_ux_03_ac31_panel_tab_lands_on_the_centre', async ({ page }) => {
   await page.keyboard.press('Shift+Tab');
   assert.equal((await pFocused(page)).key, nfc(P.plan), '⇧Tab back into the canvas lands on Plán');
   await page.keyboard.press('Shift+Tab');
-  assert.ok((await focused(page)).name.startsWith('Open full view'), `⇧Tab from Plán focuses \`Open full view\` (${(await focused(page)).name})`);
+  assert.equal(await pViewBtn(page, 'List').evaluate((e) => e === document.activeElement), true, `⇧Tab from Plán focuses \`List\`, the last \`View\` button, as Tab skips \`Open full view\` (D-1156, D-1162) (${(await focused(page)).name})`);
   // The focused node disappears in a live update: the tab stop and the focus move to the centre.
   await focusOn(page, P.zapis);
   const plan = (await core.files())[nfc(P.plan)];

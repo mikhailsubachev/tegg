@@ -105,8 +105,8 @@ export function GraphList(p: GraphListProps) {
     return (
       <div key={k} role="treeitem" data-graph-row={k} aria-level={r.level + 1} aria-selected={p.selected === k ? 'true' : 'false'}
         aria-expanded={r.children.length ? open : undefined} tabIndex={k === stop ? 0 : -1}
-        aria-label={`${displayTitle(n.node)}, ${typeNameOf(n.node.typeKey)}`} aria-description={nodeDescription(n.node, p.result, p.types, null)}
-        className="graph-row-item" data-user-content=""
+        aria-label={t('graph.a11y.name', { title: displayTitle(n.node), type: typeNameOf(n.node.typeKey) })} aria-description={nodeDescription(n.node, p.result, p.types, null)}
+        className="graph-row-item"
         onFocus={(e) => { if (e.target === e.currentTarget) p.onFocusKey(k); }}>
         <div className={`graph-row${p.selected === k ? ' selected' : ''}`} style={{ paddingLeft: panel ? r.level * 12 : 8 + r.level * 20 }}
           onClick={(e) => { e.stopPropagation(); p.onClick(n, e.currentTarget.parentElement as HTMLElement, e); }}

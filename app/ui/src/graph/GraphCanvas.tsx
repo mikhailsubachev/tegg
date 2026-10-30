@@ -5,6 +5,7 @@
 // the hover ring `[data-hover-ring]` filling over the delay (AP-942), the accessible descriptions (R121) and one
 // `keydown` listener that hands the keys to the page.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '../i18n/catalog';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { Icon } from '../shell/Icon';
 import { displayTitle, labelVisible, typeColour, sortKey, type GraphModel, type ModelNode, type NodeKey } from './graphModel';
@@ -92,10 +93,13 @@ export function nodeBox(n: ModelNode, scale: CanvasScale = 'full'): { w: number;
 }
 
 const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]';
-/** The first tab stop after (or before) `svg` in document order. */
-function tabNeighbour(svg: Element, back: boolean): HTMLElement | null {
+/** The first tab stop after (or before) `svg` in document order. From the panel's canvas, as WebKit's own Tab, a button
+ *  without an explicit `tabindex` is not a tab stop (`Open full view` stays out of the tab order, D-1156), so Tab and
+ *  ⇧Tab skip the same elements (D-1162). The full view keeps its toolbar buttons as the canvas's neighbours (AC-22). */
+function tabNeighbour(svg: Element, back: boolean, panel: boolean): HTMLElement | null {
   const all = [...document.querySelectorAll<HTMLElement>(TABBABLE)].filter((e) => {
     if (svg.contains(e) || e.tabIndex < 0 || (e as HTMLButtonElement).disabled) return false;
+    if (panel && e.tagName === 'BUTTON' && !e.hasAttribute('tabindex')) return false;
     const r = e.getBoundingClientRect();
     return r.width > 0 || r.height > 0;
   });
@@ -208,7 +212,7 @@ export function GraphCanvas(p: CanvasProps) {
         // WebKit finds no next element after a focused SVG `<g>`: Tab and ⇧Tab leave the canvas here (AP-935).
         if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
           const svg = e.currentTarget;
-          const next = tabNeighbour(svg, e.shiftKey);
+          const next = tabNeighbour(svg, e.shiftKey, scale === 'panel');
           if (next) {
             e.preventDefault();
             const wrapped = !!(svg.compareDocumentPosition(next) & (e.shiftKey ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING));
@@ -280,8 +284,8 @@ export function GraphCanvas(p: CanvasProps) {
             const typeName = typeNameOf(n.node.typeKey);
             const common = {
               'data-graph-node': '', 'data-type': n.node.typeKey, 'data-depth': n.node.depth, 'data-size-step': n.step,
-              'data-selected': selected ? 'true' : undefined, 'data-user-content': '', 'data-node-key': n.key, tabIndex: n.key === stop ? 0 : -1, role: 'img',
-              'aria-label': `${displayTitle(n.node)}, ${typeName}`, 'aria-description': p.describe?.(n),
+              'data-selected': selected ? 'true' : undefined, 'data-node-key': n.key, tabIndex: n.key === stop ? 0 : -1, role: 'img',
+              'aria-label': t('graph.a11y.name', { title: displayTitle(n.node), type: typeName }), 'aria-description': p.describe?.(n),
               className: `graph-node${n.centre ? ' centre' : ''}${p.entering.has(n.key) ? ' graph-enter' : ''}`,
               transform: `translate(${pos.x} ${pos.y})`, style: { opacity: dim ? 0.3 : 1 },
               onPointerEnter: () => { p.onHover(n.key); p.onNodePointer?.(n, true); },
@@ -308,7 +312,7 @@ export function GraphCanvas(p: CanvasProps) {
                   {selected && <rect x={-w / 2 - 4} y={-h / 2 - 4} width={w + 8} height={h + 8} rx={h / 2 + 4} className="graph-ring" />}
                   {keys && (focusedNode === n.key || held === n.key) && <rect x={-w / 2 - 5.5} y={-h / 2 - 5.5} width={w + 11} height={h + 11} rx={h / 2 + 5.5} className="graph-focus-ring" />}
                   {ring && <rect key={ring.seq} data-hover-ring="" x={-w / 2 - hoverPill} y={-h / 2 - hoverPill} width={w + 2 * hoverPill} height={h + 2 * hoverPill} rx={h / 2 + hoverPill} pathLength={100} className="graph-hover-ring" style={{ animationDuration: `${ring.ms}ms` }} />}
-                  <text className="graph-pill-text" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)', fontSize: pill.font }}>{cut(text, pill.font, '600', Math.min(max, w - 4))}</text>
+                  <text className="graph-pill-text" data-user-content="" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)', fontSize: pill.font }}>{cut(text, pill.font, '600', Math.min(max, w - 4))}</text>
                 </g>
               );
             }
@@ -328,7 +332,7 @@ export function GraphCanvas(p: CanvasProps) {
                 <g transform={`translate(${-iconSize / 2} ${-iconSize / 2})`} style={{ color: `var(--type-${colour})` }}>
                   <Icon name={icon.glyph} dataIcon={icon.def} size={iconSize} />
                 </g>
-                <text className={`graph-label${n.centre ? ' centre' : ''}`} y={(panelRing ? 30 : r) + (scale === 'panel' ? 5 : 7)} textAnchor="middle" dominantBaseline="hanging"
+                <text className={`graph-label${n.centre ? ' centre' : ''}`} data-user-content="" y={(panelRing ? 30 : r) + (scale === 'panel' ? 5 : 7)} textAnchor="middle" dominantBaseline="hanging"
                   style={{ fontSize, fontWeight: n.centre ? 650 : 400, display: showLabel ? undefined : 'none' }}>
                   {cut(n.node.title, fontSize, n.centre ? '650' : '400', max)}
                 </text>

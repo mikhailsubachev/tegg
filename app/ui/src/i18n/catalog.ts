@@ -1550,6 +1550,7 @@ export const en: Catalog = {
   'graph.view.list': 'List',
   'graph.list': 'Local graph as a list',
   'graph.connectionsCount': { one: '{count} connection', other: '{count} connections' },
+  'graph.a11y.name': '{title}, {type}',
   'graph.a11y.node': '{connections}. {relation}. {position}.',
   'graph.a11y.centre': '{connections}. Centre of the graph. {position}.',
   'graph.a11y.position': '{index} of {total}',
