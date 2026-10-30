@@ -341,7 +341,7 @@ export function GraphPage(p: GraphPageProps) {
   const banner = (() => {
     if (!result || deleted) return null;
     const lower = depth > 1 && result.depthTotals?.[depth - 2] !== undefined
-      ? <button type="button" className="link-button" onClick={() => setDepth((depth - 1) as 1 | 2)}>{t('graph.lowerDepth', { depth: depth - 1, count: fmt(result.depthTotals![depth - 2]) })}</button>
+      ? <button type="button" data-command="graph.lowerDepth" className="link-button" onClick={() => setDepth((depth - 1) as 1 | 2)}>{t('graph.lowerDepth', { depth: depth - 1, count: fmt(result.depthTotals![depth - 2]) })}</button>
       : null;
     if (result.truncated) {
       const over = result.total > MAX_DRAWN;
@@ -351,8 +351,8 @@ export function GraphPage(p: GraphPageProps) {
           <span>{over ? t('graph.tooMany.over') : t('graph.tooMany.showing', { shown: fmt(result.nodes.length) })}</span>
           <span className="graph-banner-actions">
             {lower}
-            <button type="button" className="link-button" onClick={filterTypes}>{t('graph.filterTypes')}</button>
-            {!over && <button type="button" className="link-button" onClick={() => setShowAll(true)}>{t('graph.showAll')}</button>}
+            <button type="button" data-command="graph.filterTypes" className="link-button" onClick={filterTypes}>{t('graph.filterTypes')}</button>
+            {!over && <button type="button" data-command="graph.showAll" className="link-button" onClick={() => setShowAll(true)}>{t('graph.showAll')}</button>}
           </span>
         </div>
       );
@@ -380,7 +380,7 @@ export function GraphPage(p: GraphPageProps) {
         <div role="status" className="graph-deleted">
           <h1 ref={p.heading} tabIndex={-1}>{t('graph.deleted')}</h1>
           <p>{t(failure.kind === 'trash' ? 'graph.deleted.trash' : 'graph.deleted.gone', { title: failure.title })}</p>
-          <button type="button" className="button" onClick={p.nav.back}>{t('graph.back')}</button>
+          <button type="button" data-command="nav.back" className="button" onClick={p.nav.back}>{t('graph.back')}</button>
         </div>
       ) : (
         <h1 ref={p.heading} tabIndex={-1} className="graph-heading">
@@ -395,14 +395,14 @@ export function GraphPage(p: GraphPageProps) {
       <div className="graph-toolbar">
         <div role="group" aria-label={t('graph.depth')} className="graph-depth">
           {([1, 2, 3] as const).map((d) => (
-            <button key={d} type="button" aria-pressed={depth === d} aria-disabled={controlsOff ? 'true' : undefined}
+            <button key={d} type="button" data-command={`graph.depth${d}`} aria-pressed={depth === d} aria-disabled={controlsOff ? 'true' : undefined}
               onClick={() => { if (!controlsOff) setDepth(d); }}>{d}</button>
           ))}
         </div>
         {result && !deleted && hiddenText(result) && <span role="status" className="graph-hidden">{hiddenText(result)}</span>}
-        <button type="button" className="button" aria-disabled={!selNode || selNode.centre || !selNode.node.path ? 'true' : undefined} onClick={recenter}>{t('graph.recenter')}</button>
+        <button type="button" data-command="graph.recenter" className="button" aria-disabled={!selNode || selNode.centre || !selNode.node.path ? 'true' : undefined} onClick={recenter}>{t('graph.recenter')}</button>
         {/* D-988: shown below 960 px by a container query, so the switch follows the width at once. */}
-        <button type="button" ref={filtersBtn} className="button graph-filters-btn" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((o) => !o)}>{t('graph.filtersButton')}</button>
+        <button type="button" ref={filtersBtn} data-command="graph.filters" className="button graph-filters-btn" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((o) => !o)}>{t('graph.filtersButton')}</button>
       </div>
       {banner}
       <div className="graph-body">
@@ -425,16 +425,16 @@ export function GraphPage(p: GraphPageProps) {
             {allHidden && (
               <div className="graph-state">
                 <p>{t(hiddenKinds.length ? 'graph.allHidden.filters' : 'graph.allHidden.types', { count: result!.hidden })}</p>
-                <button type="button" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknownHidden, hiddenKinds: [] }) : write({ hiddenTypes: unknownHidden }))}>
+                <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknownHidden, hiddenKinds: [] }) : write({ hiddenTypes: unknownHidden }))}>
                   {t(hiddenKinds.length ? 'graph.showEverything' : 'graph.showAllTypes')}
                 </button>
               </div>
             )}
             <p className="graph-hint">{t('graph.hint.click')}</p>
             <div className="graph-zoom">
-              <button type="button" className="icon-button" aria-label={t('graph.zoomIn')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) zoomBy(ZOOM_STEP); }}><Icon name="plus" size={14} /></button>
-              <button type="button" className="icon-button" aria-label={t('graph.zoomOut')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) zoomBy(1 / ZOOM_STEP); }}><Icon name="minus" size={14} /></button>
-              <button type="button" className="icon-button" aria-label={t('graph.fit')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) fit(); }}><Icon name="focus" size={14} /></button>
+              <button type="button" className="icon-button" data-command="graph.zoomIn" aria-label={t('graph.zoomIn')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) zoomBy(ZOOM_STEP); }}><Icon name="plus" size={14} /></button>
+              <button type="button" className="icon-button" data-command="graph.zoomOut" aria-label={t('graph.zoomOut')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) zoomBy(1 / ZOOM_STEP); }}><Icon name="minus" size={14} /></button>
+              <button type="button" className="icon-button" data-command="graph.fit" aria-label={t('graph.fit')} aria-disabled={deleted ? 'true' : undefined} onClick={() => { if (!deleted) fit(); }}><Icon name="focus" size={14} /></button>
             </div>
             {narrow && selNode && columnEl(true)}
           </div>

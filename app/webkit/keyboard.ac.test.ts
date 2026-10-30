@@ -29,6 +29,8 @@ async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
   if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-685 (D-747): tag/účty, on startFor's vault
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
+  // Slice G1 (D-1022): `graph/<path>` has no Go to command; it is the full view of a note, opened with ⌘⇧G.
+  if (row.id === 'graph/<path>') { await openNote(page, '2026-10-07 Porada'); await page.keyboard.press('Meta+Shift+g'); return 'Graph · 2026-10-07 Porada'; }
   if (row.id === 'type-settings/<type>') {
     await gotoType(page, 'Quick Notes');
     await page.getByRole('main').getByRole('button', { name: 'Type settings' }).or(page.getByRole('main').getByRole('link', { name: 'Type settings' })).first().click();

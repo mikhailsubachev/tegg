@@ -43,8 +43,8 @@ export function GraphFilters(p: FilterProps) {
       <fieldset className="graph-fieldset">
         <legend>{t('graph.types')}</legend>
         <div className="graph-all-none">
-          <button type="button" ref={p.allRef} className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(true); }}>{t('graph.types.all')}</button>
-          <button type="button" className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(false); }}>{t('graph.types.none')}</button>
+          <button type="button" ref={p.allRef} data-command="graph.types.all" className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(true); }}>{t('graph.types.all')}</button>
+          <button type="button" data-command="graph.types.none" className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(false); }}>{t('graph.types.none')}</button>
         </div>
         {p.typeCounts.map(([key, count]) => {
           const tag = key === 'tag';
@@ -52,7 +52,7 @@ export function GraphFilters(p: FilterProps) {
           const icon = chipIcon(key);
           return (
             <label key={key} className="graph-type-row" data-user-content>
-              <input type="checkbox" checked={!p.hiddenTypes.includes(key)} aria-disabled={off}
+              <input type="checkbox" data-command="graph.type" checked={!p.hiddenTypes.includes(key)} aria-disabled={off}
                 onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onType(key, e.currentTarget.checked); }} />
               {tag
                 ? <span className="graph-swatch pill" data-swatch="pill" aria-hidden="true" />
@@ -67,7 +67,7 @@ export function GraphFilters(p: FilterProps) {
         <legend>{t('graph.connections')}</legend>
         {KINDS.map(([kind, label]) => (
           <label key={kind} className="graph-kind-row">
-            <input type="checkbox" checked={!p.hiddenKinds.includes(kind)} aria-disabled={off}
+            <input type="checkbox" data-command={`graph.kind.${kind}`} checked={!p.hiddenKinds.includes(kind)} aria-disabled={off}
               onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onKind(kind, e.currentTarget.checked); }} />
             <svg className="graph-line-sample" width="24" height="8" aria-hidden="true">
               <line x1="1" y1="4" x2="23" y2="4" style={{ strokeWidth: SAMPLE[kind].width, strokeDasharray: SAMPLE[kind].dash ?? 'none' }} />
@@ -77,7 +77,7 @@ export function GraphFilters(p: FilterProps) {
         ))}
       </fieldset>
       <label className="graph-size-row">
-        <input type="checkbox" checked={p.sizeByLinks} aria-disabled={off}
+        <input type="checkbox" data-command="graph.sizeByLinks" checked={p.sizeByLinks} aria-disabled={off}
           onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onSize(e.currentTarget.checked); }} />
         <span>{t('graph.sizeByLinks')}</span>
       </label>

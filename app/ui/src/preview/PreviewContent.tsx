@@ -103,7 +103,7 @@ export function PreviewContent({ uid, model, target, extraLines, extraAction, bo
       <footer className="preview-footer">
         <span className="preview-hint">{t(`preview.hint.${mode}`)}</span>
         {extraAction && (
-          <button type="button" tabIndex={0} className="preview-action" aria-disabled={extraAction.disabled ? 'true' : undefined}
+          <button type="button" tabIndex={0} data-command="preview.extraAction" className="preview-action" aria-disabled={extraAction.disabled ? 'true' : undefined}
             onClick={() => { if (!extraAction.disabled) extraAction.run(); }}>{extraAction.label}</button>
         )}
         <button type="button" tabIndex={0} className="preview-open" data-command="preview.open" aria-label={t('preview.open', { title })} aria-disabled={gone ? 'true' : undefined} onClick={() => { if (!gone) onOpen(); }}>

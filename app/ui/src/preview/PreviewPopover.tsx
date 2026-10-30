@@ -156,7 +156,7 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       ctl?.abort();
       ctl = load(top.target, true);
     });
-    return () => { void off.then((f) => f()); offTypes(); if (timer) clearTimeout(timer); ctl?.abort(); };
+    return () => { void off.then((f) => f()).catch(() => {}); offTypes(); if (timer) clearTimeout(timer); ctl?.abort(); };
   }, [top]);
   const modelRef = useRef(model);
   modelRef.current = model;

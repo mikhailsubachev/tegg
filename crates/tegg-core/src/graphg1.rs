@@ -72,7 +72,7 @@ impl Core {
     /// D-981: the title of `centre` when the file sits in `.trash/` (its stem when it has none).
     fn trashed_centre(&self, centre: &str) -> Option<String> {
         let trashed = format!(".trash/{}", nfc(centre));
-        let bytes = std::fs::read(self.shared.vault.root().join(&trashed)).ok()?;
+        let (bytes, _) = self.shared.vault.read(&trashed).ok()?;
         let base = trashed.rsplit('/').next().unwrap_or(&trashed);
         let stem = base.strip_suffix(".md").unwrap_or(base);
         Some(nfc(&tegg_format::extract(&bytes, stem).title))

@@ -56,6 +56,13 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
       continue;
     }
     if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada').catch(() => failures.push('note: not opened')); await check('note page'); continue; }
+    if (row.id === 'graph/<path>') { // Slice G1 (D-1022): the full view of a note, opened with ⌘⇧G
+      await openNote(page, '2026-10-07 Porada').catch(() => failures.push('graph: note not opened'));
+      await page.keyboard.press('Meta+Shift+g');
+      if (!(await seen(page.locator('main [data-graph-node]').first(), 3000))) failures.push('graph/<path>: not reached');
+      await check('graph');
+      continue;
+    }
     if (row.id === 'new/<type>') { // D-520: New object (⌘N) opens an unsaved draft instead of a dialog
       await page.keyboard.press('Meta+n');
       if (await seen(page.getByRole('textbox', { name: /^⟦?Title⟧?$/ }), 1500)) { await sleep(300); await check('New object draft'); } else failures.push('new/<type>: no draft');
