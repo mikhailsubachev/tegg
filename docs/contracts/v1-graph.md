@@ -479,8 +479,8 @@ type GraphViewStateDto = {
   fake's `.tegg/graph.yml`, a TypeScript twin of §16.1's parser and patcher. It is checked against the Rust module on
   every `tests/fixtures/graph-presets/` input and `expected/` output (the L4 and L1 tests read the same files).
 - Handle additions: `presetCalls()` (ops in order with their bases), `presetsFail(kind)` (the next apply fails with
-  `Io`, `Conflict`, …), and the existing `setFile('.tegg/graph.yml', text, { event })` with `event: false` to make a
-  base stale (FR-SYN-03 AC-22). `writes()` counts `graph.yml` writes as vault writes.
+  `Io`, `Conflict`, …), and the existing `setFile('.tegg/graph.yml', text, { silent: true })` to make a
+  base stale (D-1110) (FR-SYN-03 AC-22). `writes()` counts `graph.yml` writes as vault writes.
 - L6: the helper process of ms3-shell §13.6 replaces, deletes and copies `.tegg/graph.yml` (FR-GRP-02 AC-19, AC-23,
   FR-SYN-03 AC-23); the data-safety AC-3 kill harness gains a `graph-presets` mode (FR-SYN-02 AC-8).
 
@@ -503,3 +503,21 @@ type GraphViewStateDto = {
 4. The NFC, case-insensitive name match is done in both the core and `presets.ts` from the same rule; neither depends
    on the region (FR-FMT-12 AC-7).
 
+### 16.9 Red-test decisions (D-1106…D-1119, BRD v1.117; red tests b3eee45)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1106** graphModel signatures: `nodeDescription(node, result, types, index)` takes the 1-based `<i>`; `null` leaves the position out (List rows); `positionOrder` returns node keys; `listTree` returns rows in pre-order with `level` = depth (0 for the centre), `parentKey` null for the centre, `children` as node keys in result order.
+- **D-1107** keyboard.ts signatures: `nearestInDirection(Map<NodeKey, Point>, from, 'left'|'right'|'up'|'down', Map<NodeKey, string>)` → `NodeKey | null`; `graphKeyAction(KeyLike, 'click'|'hover'|'off', 'node'|'row')`; plain Space, Tab and other letters → `null`; ⇧C still centres; the List handles the tree keys (↑ ↓ ← → Home End) itself.
+- **D-1108** presets.ts return shapes: `currentPreset` returns `null` for Default; `validateName` returns `{ kind: 'NameEmpty' | 'NameTaken' (existing) | 'NameTooLong' | 'NameControl' } | null`, as the core; `applyPreset(view, null)` removes `preset` and keeps depth, `sizeByLinks` and `view`.
+- **D-1109** The TypeScript twin's entry points: `presetsRead(text | null, utf8)` and `presetsPatch(text | null, op, typeOrder, utf8)` → `{ text, presets } | { error }` in `app/ui/test/fake-presets.ts`.
+- **D-1110** Fake-core hook name: §16.6's `setFile(…, { event: false })` is the existing `{ silent: true }`.
+- **D-1111** FR-LNK-12 AC-8 in the red commit: Its test first requires G3's hover ring in hover mode, then switches to click mode by the palette and checks G1's behaviour, so it is red before the build.
+- **D-1112** FR-UX-08 AC-3 token contrast: The token part already holds; the contrast is computed in the L5 test after the ring checks.
+- **D-1113** FR-SYN-02 AC-8 kill harness: At L4, re-running the test binary on a minimal vault (as `tegg-vault/tests/ac_crash.rs`), alternating `[kniha]` and `[tag, kniha]`; temp files are recognised by their `.tegg-tmp` suffix; no L6 harness mode.
+- **D-1114** An update with unchanged sets: Writes nothing, even when a `hidden-*` key is missing in the entry (FR-SYN-06 AC-40); AC-20's update of `Bez druhů` is tested with a real change.
+- **D-1115** Name rules in detail: `NameTaken.existing` is `Default` for Default; U+0085 is a control character; length counts Unicode scalar values (100 × `ř` allowed, 101 refused).
+- **D-1116** Unreadable files: An unreadable existing file has `version: Some`; a save with no base onto it may answer `Preset(Unreadable)` or `Conflict`.
+- **D-1117** List row text: The centre row reads `<title> · <n> connections` (no phrase); a row's own text excludes its children; the row description keeps its final period.
+- **D-1118** Hover tests and the clock: FR-LNK-12 AC-13's delay change goes `Go to Settings: Previews` → Home on the slider → ⌘[ and is checked by the ring animation's duration; the hover controller's timers run on the page clock (`page.clock.install`).
+- **D-1119** L6 scope: The synced atomic replace uses the existing helper's `rename` from a temp file; FR-GRP-02 AC-19's L6 test covers `invalid-yaml` only.
