@@ -18,6 +18,8 @@ export type ViewInput = {
   /** Tag keys. */
   tagFilter: string[];
   timeZone?: string;
+  /** The title search (D-1280): the Schedule and the Kanban only; `counts` ignores it (D-1281). */
+  search?: string;
 };
 
 export type Schedule = {
@@ -40,6 +42,14 @@ export type KanbanColumn = {
 };
 
 export type Counts = { open: number; overdue: number; dueToday: number; all: number; today: number; week: number; tags: { key: string; label: string; count: number }[] };
+
+/** Folded as the type page's title filter (FR-TYP-09 AC-4): NFC, lower case, marks removed. */
+const fold = (s: string) => s.normalize('NFC').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
+/** Whether a row's title contains the search (D-1280); a blank search keeps every row. */
+function matches(r: TaskRowDto, search: string | undefined): boolean {
+  const q = fold(search?.trim() ?? '');
+  return !q || fold(r.title).includes(q);
+}
 
 const isOpen = (r: TaskRowDto) => r.state === 'open' || r.state === 'in-progress';
 const bytes = (s: string) => new TextEncoder().encode(s.normalize('NFC'));
@@ -118,7 +128,7 @@ function doneInFilter(r: TaskRowDto, i: ViewInput, kanbanDays?: number): boolean
 }
 
 export function schedule(i: ViewInput): Schedule {
-  const open = i.tasks.filter((r) => isOpen(r) && hasTag(r, i.tagFilter) && inDateFilter(r, i));
+  const open = i.tasks.filter((r) => isOpen(r) && hasTag(r, i.tagFilter) && inDateFilter(r, i) && matches(r, i.search));
   const { last } = weekOf(i.today, i.firstWeekday);
   const s: Schedule = { today: { overdue: [], today: [] }, week: [], weekRange: last > i.today ? { from: addDays(i.today, 1), to: last } : null, later: [], none: [], done: [] };
   const days = new Map<string, TaskRowDto[]>();
@@ -135,7 +145,7 @@ export function schedule(i: ViewInput): Schedule {
   s.later.sort(sorter(i, 'due', 'priority', 'title'));
   s.none.sort(sorter(i, 'priority', 'title'));
   s.done = i.tasks
-    .filter((r) => r.state === 'done' && hasTag(r, i.tagFilter) && doneInFilter(r, i))
+    .filter((r) => r.state === 'done' && hasTag(r, i.tagFilter) && doneInFilter(r, i) && matches(r, i.search))
     .sort((a, b) => completedAt(b, i.timeZone) - completedAt(a, i.timeZone) || byteOrder(a.path, b.path));
   return s;
 }
@@ -158,10 +168,12 @@ export function tagSpellings(tasks: TaskRowDto[]): Map<string, string> {
 }
 
 export function kanban(i: ViewInput, groupBy: 'status' | 'tag', tagSpelling: Map<string, string>): { columns: KanbanColumn[] } {
-  const open = i.tasks.filter((r) => isOpen(r) && hasTag(r, i.tagFilter) && inDateFilter(r, i));
+  // The columns are those of the board without the search (D-1281); the search only hides cards.
+  const unsearched = i.tasks.filter((r) => isOpen(r) && hasTag(r, i.tagFilter) && inDateFilter(r, i));
+  const open = unsearched.filter((r) => matches(r, i.search));
   const order = sorter(i, 'dueLast', 'priority', 'title');
   if (groupBy === 'status') {
-    const done = i.tasks.filter((r) => r.state === 'done' && hasTag(r, i.tagFilter) && doneInFilter(r, i, 6));
+    const done = i.tasks.filter((r) => r.state === 'done' && hasTag(r, i.tagFilter) && doneInFilter(r, i, 6) && matches(r, i.search));
     const columns: KanbanColumn[] = i.defs.statuses
       .filter((o) => o.state !== 'cancelled')
       .map((o) => ({
@@ -169,11 +181,11 @@ export function kanban(i: ViewInput, groupBy: 'status' | 'tag', tagSpelling: Map
         tasks: (o.state === 'done' ? done : open).filter((r) => r.statusKnown && r.status === o.label).sort(order),
       }));
     const none = open.filter((r) => !r.statusKnown || r.status === null).sort(order);
-    if (none.length) columns.push({ id: 'no-status', label: t('tasks.column.noStatus'), color: null, state: null, dropTarget: false, tasks: none });
+    if (unsearched.some((r) => !r.statusKnown || r.status === null)) columns.push({ id: 'no-status', label: t('tasks.column.noStatus'), color: null, state: null, dropTarget: false, tasks: none });
     return { columns };
   }
   const label = (k: string) => tagSpelling.get(k) ?? k;
-  const keys = i.tagFilter.length ? [...i.tagFilter] : [...new Set(open.flatMap((r) => r.tags))];
+  const keys = i.tagFilter.length ? [...i.tagFilter] : [...new Set(unsearched.flatMap((r) => r.tags))];
   keys.sort((a, b) => i.collator.compare(label(a), label(b)) || byteOrder(a, b));
   const columns: KanbanColumn[] = keys.map((k) => ({
     id: `#${k}`, label: `#${label(k)}`, color: null, state: null, dropTarget: true, tasks: open.filter((r) => r.tags.includes(k)).sort(order),

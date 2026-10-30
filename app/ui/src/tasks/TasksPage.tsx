@@ -28,7 +28,7 @@ type Alert = { id: number; text: string; retry?: () => void };
 /** A task completed or changed on the Schedule stays where it was shown until the page is left. */
 type Stay = { section: 'today' | 'week' | 'later' | 'none'; group: string; index: number };
 
-export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSettings, commandRef }: {
+export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSettings, plural, commandRef }: {
   view: 'schedule' | 'kanban';
   refresh: number;
   heading: RefObject<HTMLHeadingElement | null>;
@@ -38,6 +38,8 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   go: (view: TasksView) => void;
   /** `Type settings` in the header (D-517, D-519). */
   onSettings: () => void;
+  /** The Task type's plural, for the search's name (D-1280). */
+  plural: string;
   commandRef: { current: ((id: string) => void) | null };
 }) {
   const data = useTasks(refresh);
@@ -47,6 +49,9 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const [live, setLive] = useState('');
   const [note, setNote] = useState('');
   const [stay, setStay] = useState<Map<string, Stay>>(new Map());
+  // The title search (D-1280): page state only, empty again after a view switch (D-1282).
+  const [search, setSearch] = useState('');
+  useEffect(() => { setSearch(''); }, [view]);
   const focusAfter = useRef<{ path: string; column: string } | null>(null);
   /** The card that had the focus last, for palette commands run after the palette took it (R45). */
   const lastCard = useRef<HTMLElement | null>(null);
@@ -61,11 +66,15 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const alertSeq = useRef(0);
   const collator = useMemo(() => new Intl.Collator(region), [region]);
   const tagMode = view === 'kanban' && ui.groupBy === 'tag';
-  const input: ViewInput = { tasks, defs, today, firstWeekday, collator, dateFilter: ui.dateFilter as ViewInput['dateFilter'], tagFilter: ui.tags, timeZone: zone };
+  const input: ViewInput = { tasks, defs, today, firstWeekday, collator, dateFilter: ui.dateFilter as ViewInput['dateFilter'], tagFilter: ui.tags, timeZone: zone, search };
   const c = countsOf(input);
   const spell = useMemo(() => tagSpellings(tasks), [tasks]);
-  const sched = useMemo(() => (view === 'schedule' ? withStay(schedule(input), stay, tasks) : null), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), stay, zone, collator]);
-  const board = useMemo(() => (view === 'kanban' ? kanban(input, tagMode ? 'tag' : 'status', spell).columns : []), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), tagMode, spell, zone, collator]);
+  const sched = useMemo(() => (view === 'schedule' ? withStay(schedule(input), stay, tasks) : null), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), stay, zone, collator, search]);
+  const board = useMemo(() => (view === 'kanban' ? kanban(input, tagMode ? 'tag' : 'status', spell).columns : []), [view, tasks, defs, today, firstWeekday, ui.dateFilter, ui.tags.join('\n'), tagMode, spell, zone, collator, search]);
+
+  const noMatch = !!search.trim() && loaded && (view === 'schedule'
+    ? !!sched && !sched.today.overdue.length && !sched.today.today.length && !sched.week.length && !sched.later.length && !sched.none.length && !sched.done.length
+    : board.every((x) => !x.tasks.length));
 
   // route-ready after the first paint of the cards (FR-TSK-04 AC-14).
   const marked = useRef(false);
@@ -229,10 +238,17 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
           {filterButton('week', t('tasks.filter.week'), c.week)}
         </div>
         <TagFilter tags={c.tags.map((x) => ({ key: x.key, label: x.label, count: x.count }))} selected={ui.tags} onChange={(tags) => onUi((u) => ({ ...u, tags }))} />
+        <input type="search" role="searchbox" className="type-filter" data-command="tasks.search" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
+          value={search} spellCheck={false} autoComplete="off" onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSearch(''); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); document.querySelector<HTMLElement>('main article[data-path]')?.focus(); }
+          }} />
         <button type="button" className="toggle tasks-sort" aria-disabled="true" aria-description={t('due.comingIn', { due: 'v1.0' })} data-command="tasks.sort">
           {t(view === 'schedule' ? 'tasks.sort.schedule' : 'tasks.sort.kanban')}
         </button>
       </div>
+      {noMatch && <p role="status" className="empty">{t('typePage.noMatch', { plural, text: search.trim() })}</p>}
       {view === 'kanban' && <p className="hint">{t(tagMode ? 'tasks.board.hintTag' : 'tasks.board.hintStatus')}</p>}
       {alerts.length > 0 && (
         <div className="task-alerts">
@@ -247,7 +263,7 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
       )}
       {view === 'schedule' && sched && (
         <ScheduleView s={sched} filter={ui.dateFilter as 'all' | 'today' | 'week'} today={today} region={region} firstWeekday={firstWeekday}
-          priorities={defs.priorities.map((p) => p.label)} renderCard={(r) => card(r)} doneExpanded={ui.doneExpanded}
+          priorities={defs.priorities.map((p) => p.label)} renderCard={(r) => card(r)} doneExpanded={ui.doneExpanded} searching={!!search.trim()}
           onToggleDone={() => onUi((u) => ({ ...u, doneExpanded: !u.doneExpanded }))} onCreate={create} />
       )}
       {view === 'kanban' && (

@@ -25,6 +25,11 @@ export function nextWeekday(today: string, target: number): string {
   return d;
 }
 
+/** `This week` (D-1286): the first Friday on or after `today`, so a Friday gives itself. */
+export function thisWeek(today: string): string {
+  return mondayIndex(today) === 4 ? today : nextWeekday(today, 4);
+}
+
 /** The long date of the region (R19, D-337): `středa 14. října 2026`, `Wednesday, October 14, 2026`. */
 export function longDate(date: string, loc = region() ?? undefined): string {
   return new Intl.DateTimeFormat(loc, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(utc(date));
@@ -124,7 +129,8 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
     go(`${tm.getUTCFullYear()}-${pad(tm.getUTCMonth() + 1)}-${pad(Math.min(fd, last))}`);
   };
   const dow = (d: string) => (new Date(utc(d)).getUTCDay() - start + 7) % 7;
-  const quick: [string, string][] = [['due.today', today], ['due.tomorrow', addDays(today, 1)], ['due.nextWeek', nextWeekday(today, 0)], ['due.fri', nextWeekday(today, 4)]];
+  // Three quick picks on one line (D-1285); only `This week` says which day it is (D-1287).
+  const quick: [string, string, string | undefined][] = [['due.today', today, undefined], ['due.tomorrow', addDays(today, 1), undefined], ['due.thisWeek', thisWeek(today), longDate(thisWeek(today), loc ?? undefined)]];
 
   const onKey = (e: React.KeyboardEvent) => {
     const k = e.key;
@@ -184,7 +190,7 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
         </span>
       )}
       <div className="cal-quick">
-        {quick.map(([key, d]) => <button key={key} type="button" onClick={() => onPick(d)}>{t(key)}</button>)}
+        {quick.map(([key, d, long]) => <button key={key} type="button" aria-description={long} title={long} onClick={() => onPick(d)}>{t(key)}</button>)}
       </div>
       <div className="cal-head">
         <h2 className="cal-month" data-user-content>{monthName}</h2>
