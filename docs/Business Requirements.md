@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.116, for review                                            |
+| **Document status** | Draft v1.117, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -130,6 +130,7 @@
 | v1.114  | 2026-10-30 | G1 red-test decisions (red tests 6313cbd): D-994…D-1009 (AP-851…AP-866, each as proposed): the type order from the core, the core signature, the test pause hook, a stub-only error, the graph model API, totals per depth, the trashed-centre title, edge data attributes and DOM details, the benchmark centre mark, FR-GRP-01 AC-13 and FR-SYN-06 AC-38 reworded, `index:progress` `done`, ids of unreadable notes, the window title in L6. `docs/contracts/v1-graph.md` §12 |
 | v1.115  | 2026-10-30 | G1 build decisions D-1021…D-1027 (owner, as proposed): d3-force allowed for the graph (exception to D-683's ban), the G1 AC-test changes, `Open graph`'s disabled reason, the preview's ↩ through the catalog, first paint at 100 % (amends D-985), fade-in only (amends D-992), `data-preview-path` for virtual tags in the column |
 | v1.116  | 2026-10-30 | Slice G2 graph in the right panel (v1.0, D-919), `docs/acceptance/graph-panel.md`: D-1030…D-1043 (AP-880…AP-893, each as proposed; G2 uses D-1030…D-1079, G3 D-1080 onward): AC numbers beside G3, the panel's scale and fit, `Size nodes by links` in the panel, the lower depth offered above 60, `In full graph`, no `Recenter` in the panel, ⌘⇧G with the panel on Graph (amends D-905), the hand-over of depth and selection, routes without a file, the deleted page, no panel on tag pages, selection and the popover, the centre's double-click, a panel benchmark for NFR-PERF-11. Contract `docs/contracts/v1-graph.md` §15 |
+| v1.117  | 2026-10-30 | G2 red-test decisions (red tests faa5875): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
 
 ---
 
@@ -1092,6 +1093,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1041 | Selection and the panel preview popover (AP-891) (owner, 2026-10-30; slice G2, `docs/acceptance/graph-panel.md`) | One state: a selected node always has its preview open; every close (Esc, `Close preview`, a click outside including the empty canvas, Tab out, route or tab change, the panel closing) clears the selection; Esc returns the focus to the node; position and size as slice P's panel popovers (no arrow). |
 | D-1042 | Double-click on the panel's centre (AP-892) (owner, 2026-10-30; slice G2, `docs/acceptance/graph-panel.md`) | A click previews the centre; a double-click on it does nothing (no history entry, no `nav_opened`). |
 | D-1043 | NFR-PERF-11 for the panel (AP-893) (owner, 2026-10-30; slice G2, `docs/acceptance/graph-panel.md`) | Measure the panel too, report-only until the v1.0 gate: 225 ms p95 of 20 runs (D-986) at depth 2 around the highest-degree object whose depth-2 total is ≤ 60; also report the Too many case. |
+| D-1044 | Panel totals test outside the red commit (AP-894) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `crates/tegg-index/tests/ac_graph_panel.rs` (FR-GRP-01 AC-32's depth totals) passes before G2, since `depth_totals` is G1's (D-999); it is committed on its own with `Red-First-Exempt: G2 adds no Rust code; depth_totals is G1's (D-999); approved-by: owner` |
+| D-1045 | The right panel in the command context (AP-895) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `ShellContext.panel?: { open: boolean; tab: 'backlinks' \| 'outline' \| 'graph' }` is the panel as drawn on the current route; `Graph: Depth 1…3` are listed when `panel.open && panel.tab === 'graph'` (or on `graph/<path>`) and run `actions.graphCommand('depthN')` (FR-UX-03 AC-21) |
+| D-1046 | Shortcut glyphs on `Open full view` (AP-896) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | The toolbar button renders the registry's keys (R4): `Open full view (⇧⌘G)`; the board's `⌘⇧G` is the same shortcut |
+| D-1047 | `panelFit` inputs (AP-897) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `panelFit(positions: Map<NodeKey, Point>, nodeBoxes: Map<NodeKey, { w, top, bottom }>, size: { width, height }, margin = 12)`: positions from `layout` with the centre pinned at the canvas centre, boxes in G1's `nodeBox` shape at 100 %; the scale is applied about the canvas centre; the result is the largest scale in [0.25, 1] that fits every box with the margin |
+| D-1048 | `panelState` input and precedence (AP-898) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `{ path, error: 'CentreInTrash' \| 'CentreNotFound' \| 'NotReady' \| null, waiting, result, cap? }`; precedence: No file, Deleted, Loading (`waiting` or NotReady), Too many (`total > cap`), No links (`unfiltered === 1`) or All hidden (`total === 1 < unfiltered`), else Graph |
+| D-1049 | Two `Open full view` buttons (AP-899) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | The Too many state has its own button `Open full view` (`graph.panel.openFull`); the toolbar's is `Open full view (⇧⌘G)` (`graph.panel.openFullShortcut`) |
 
 ---
 
