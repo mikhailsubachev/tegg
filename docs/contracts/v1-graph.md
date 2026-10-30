@@ -538,6 +538,8 @@ Owner, 2026-10-30, as proposed:
 - **D-1128** AR-03 list in the presets test: the forbidden strings are built from parts, so the repository's AR-03
   scan of test files doesn't flag the test itself.
 
+- **D-1129** Comments, safe writes and unpatchable files in `graph.yml`: Comment and blank lines never end a preset or a value range, at any column: a preset runs from its `- ` line to its last content line (comments inside it go with it on delete, comments after it stay); a block value runs over its deeper lines and compact `- ` lines, and comments between them are replaced on update. Before every write the new text is parsed back and must give exactly the expected presets and other keys, else the write is refused with `Unreadable`. A leading BOM stays first; `version: 1` goes after leading comments, `%` directives and the first `---`. A file with several YAML documents or a flow item (`- {…}`) lists its presets but is never written; an item that defines an anchor used elsewhere can't be deleted or updated (D-1122).
+
 ### 16.11 Build notes (no owner decision)
 
 - No presets cache in the core: every call reads `.tegg/graph.yml`, so `vault:changed` needs no invalidation. `scalar`
