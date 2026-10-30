@@ -36,6 +36,8 @@ export type UiStateDto = {
   inbox?: { filter: string };
   /** Slice PW (page-width.md §1, AP-753): the page width per note, keyed by `id`, else by the NFC path. */
   noteWidth?: Record<string, 'normal' | 'wide'>;
+  /** Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size. */
+  preview?: { mode?: 'click' | 'hover' | 'off'; hoverDelay?: number; width?: number; height?: number };
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
@@ -145,6 +147,9 @@ export type FakeCoreHandle = {
   graphNotReady(on: boolean): Promise<void>;
   /** The `graph_neighbourhood` requests, in call order. */
   graphCalls(): Promise<unknown[]>;
+  // ---------------------------------------------------------------- slice P (v1-previews §9)
+  /** Delays every later answer of `cmd` by `ms` (0 removes the delay), for abort and late-answer tests. */
+  delayCommand(cmd: string, ms: number): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -377,7 +382,15 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     graphDelay: (ms) => page.evaluate((m) => { (window as any).__teggFake.graphDelayMs = m; }, ms),
     graphNotReady: (on) => page.evaluate((o) => { (window as any).__teggFake.graphNotReady = o; }, on),
     graphCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'graph_neighbourhood').map((c: any) => c.args?.req ?? c.args)),
+    delayCommand: (cmd, ms) => page.evaluate(([c, m]) => { const d = ((window as any).__teggFake.delays ??= {}); d[c] = m; }, [cmd, ms] as const).then(() => undefined),
   };
+}
+
+/** Slice P (v1-previews §9, D-943): fake options whose stored UI state has `preview.mode` = `mode` before the page
+ *  loads, so the older tests D-943 changes keep their steps under `off`. Other options are kept. */
+export function setPreviewMode(mode: 'click' | 'hover' | 'off', opts: FakeOptions = {}): FakeOptions {
+  const base: UiStateDto = opts.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true };
+  return { ...opts, uiState: { ...base, preview: { ...(base.preview ?? {}), mode } } };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -403,6 +416,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
+    'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
   const state = {
@@ -564,10 +578,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     renameFile: (from: string, to: string, o: { silent?: boolean } = {}) => {
       const f = from.normalize('NFC'), t = to.normalize('NFC');
       if (!state.vault || state.vault.files[f] === undefined) return;
-      state.vault.files[t] = state.vault.files[f];
-      delete state.vault.files[f];
-      state.mtimes[t] = state.mtimes[f] ?? 0;
-      delete state.mtimes[f];
+      // An NFD-named copy of a path is the same vault path (paths are NFC, FR-FMT-12): only the event (slice P, previews.md
+      // FR-LNK-08 AC-10); renaming it onto itself used to delete the file.
+      if (t !== f) {
+        state.vault.files[t] = state.vault.files[f];
+        delete state.vault.files[f];
+        state.mtimes[t] = state.mtimes[f] ?? 0;
+        delete state.mtimes[f];
+      }
       if (o.silent) return undefined;
       // 6A (ms6-trash-media §4): the shell also emits `trash:changed` for a change under `.trash/`.
       if (f.startsWith('.trash/') || t.startsWith('.trash/')) void state.emit('trash:changed', null);
@@ -607,6 +625,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
     return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
   };
+  const targetsOf = new Map<string, { links: string[]; files: string[] }>();
   const objects = () => {
     if (!state.vault) return [];
     return Object.entries(state.vault.files)
@@ -1780,6 +1799,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
     perf_mark: () => null,
     // 4F (ms4-embeds §8): one call per nesting level, no recency.
+    // Slice P (v1-previews §2, D-935): the indexed object with this `id` (the last one, as the core's resolver picks).
+    index_path_by_id: (a) => {
+      const id = String(a.id ?? '').normalize('NFC');
+      if (!id) return null;
+      const hits = objects().filter((o) => o.id !== null && String(o.id).normalize('NFC') === id);
+      return hits.length ? hits[hits.length - 1].path.normalize('NFC') : null;
+    },
     embed_load: async (a) => {
       const out: any[] = [];
       const seen = new Set<string>();
@@ -1798,7 +1824,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
           continue;
         }
-        const targets = ((await w.__teggLinks('link_targets', { text }, {}, {})).result ?? []) as string[];
+        // Slice P (v1-previews §2): with `media`, the files the note links resolve too, after its note links (one
+        // round trip to Node for both; the lists of a text are kept, as the core's index would answer at once).
+        const got = targetsOf.get(text) ?? ((await w.__teggLinks('link_and_file_targets', { text }, {}, {})).result as { links: string[]; files: string[] });
+        targetsOf.set(text, got);
+        const targets = [...got.links];
+        if (a.media) for (const f of got.files) if (!targets.includes(f)) targets.push(f);
         const links = targets.length ? await (handlers.link_resolve as any)({ from: p, targets }) : [];
         out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links });
       }
@@ -1833,7 +1864,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         const k = low(t);
         const kmd = k.endsWith('.md') ? k : `${k}.md`;
-        let hit = objs.find((o) => low(o.path) === kmd)
+        // D-155 (ms3-shell §11.1): a path relative to the linking note's folder first (a Markdown link `Name.md`).
+        let hit = (fromDir ? objs.find((o) => low(o.path) === low(`${fromDir}/${kmd}`)) : undefined)
+          ?? objs.find((o) => low(o.path) === kmd)
           ?? objs.find((o) => o.id !== null && low(o.id) === k);
         if (!hit) {
           const same = objs.filter((o) => low(o.path.split('/').pop()!.replace(/\.md$/, '')) === k);
@@ -2175,7 +2208,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     if (!h) throw err('Io', `fake core: unknown command ${cmd}`);
     const settle = (ok: boolean) => { rec.endSeq = ++state.seq; rec.ok = ok; rec.endAt = Date.now(); };
     let out: Promise<unknown>;
-    try { out = Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
+    const delay = (x.delays ?? {})[cmd] as number | undefined; // slice P (v1-previews §9): delayCommand
+    try { out = delay ? new Promise((r) => setTimeout(r, delay)).then(() => h(args ?? {})) : Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
     return out.then((v) => { settle(true); rec.result = v === undefined ? undefined : JSON.parse(JSON.stringify(v)); return v; }, (e) => { settle(false); rec.result = JSON.parse(JSON.stringify(e ?? null)); throw e; });
   }, { shouldMockEvents: true });
   // 6A (ms6-trash-media §4): the mock drops invoke options; raw-body commands read their headers from here.

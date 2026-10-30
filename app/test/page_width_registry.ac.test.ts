@@ -11,7 +11,7 @@ import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { R4 } from './shell-tables';
+import { R4, R4_P, shortcutClashes } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -80,7 +80,8 @@ test('fr_ux_03_ac17_width_commands_are_registered_in_view_without_a_shortcut', a
   // R4 is unchanged: the shortcut table has no row for the width commands and still equals R4.
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
   assert.deepEqual(shortcuts.filter((s) => /^note\.width\./.test(s.command)), [], 'no R4 row for a width command');
-  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), R4.map((r) => r.keys).sort(), 'R4 unchanged');
+  // Slice P (previews.md R106, D-943): R4 gained ⌥Space only; the width commands still add nothing.
+  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P].map((r) => r.keys).sort(), 'R4 unchanged');
 });
 
 test('fr_ux_03_ac17_registry_integrity_holds_with_the_width_commands', async () => {
@@ -89,8 +90,8 @@ test('fr_ux_03_ac17_registry_integrity_holds_with_the_width_commands', async () 
   assert.ok(list.some((c) => c.id === 'note.width.wide'), 'note.width.wide is registered on note/<path>');
   const ids = list.map((c) => c.id);
   assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'duplicate command ids');
-  const keys = list.filter((c) => !c.due && c.shortcut).map((c) => c.shortcut);
-  assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), [], 'two enabled commands share a shortcut');
+  // D-943 (previews.md R106): `link.edit` shows R4's ⇧⌘K beside `edit.link`; that pair is the only one exempt.
+  assert.deepEqual(shortcutClashes(list), [], 'two enabled commands share a shortcut');
   const notKeys = list.filter((c) => !(c.title in cat.en)).map((c) => `${c.id}: ${c.title}`);
   assert.deepEqual(notKeys, [], 'every command title is a catalog key (FR-UX-03 AC-7)');
 });

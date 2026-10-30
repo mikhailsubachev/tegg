@@ -283,7 +283,7 @@ show(target, anchor, origin: PreviewOrigin, host?: PreviewHost, extraLines?: str
 4. `NodeId` separates tag nodes from object nodes, so a virtual tag and a Tag file share one node by key (D-974).
 5. The layout is synchronous and pure; the page never animates the simulation itself, only CSS fades (D-992).
 
-## 12. Red-test decisions (D-994…D-1009, BRD v1.112; red tests 6313cbd)
+## 12. Red-test decisions (D-994…D-1009, BRD v1.114; red tests 6313cbd)
 
 Owner, 2026-10-29, AP-851…AP-866 as proposed. They amend the sections above where they differ:
 

@@ -730,12 +730,20 @@ async fn link_resolve(state: State<'_, AppState>, from: String, targets: Vec<Str
         .collect())
 }
 
+/// `index_path_by_id` (v1-previews §2, D-935): a previewed object's path after a rename, by its `id`.
+#[tauri::command]
+async fn index_path_by_id(state: State<'_, AppState>, id: String) -> Result<Option<String>, IpcError> {
+    let core = core(&state)?;
+    Ok(core.path_by_id(&id))
+}
+
 /// `embed_load` (ms4-embeds §4, D-429): one call per nesting level; read-only, records no recency.
 #[tauri::command]
-async fn embed_load(state: State<'_, AppState>, paths: Vec<String>) -> Result<Vec<EmbedNoteDto>, IpcError> {
+async fn embed_load(state: State<'_, AppState>, paths: Vec<String>, media: Option<bool>) -> Result<Vec<EmbedNoteDto>, IpcError> {
     let core = core(&state)?;
+    // Slice P (v1-previews §2): `media: true` also resolves the files the notes embed (a preview's images).
     Ok(core
-        .embed_load(&paths)
+        .embed_load_with(&paths, media.unwrap_or(false))
         .into_iter()
         .map(|n| EmbedNoteDto {
             path: n.path,
@@ -1706,7 +1714,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
             vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
-            link_resolve, embed_load, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
+            link_resolve, embed_load, index_path_by_id, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
             daily_view, daily_dates, daily_draft, daily_create, daily_context, daily_backlinks,

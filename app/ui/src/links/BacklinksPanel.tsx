@@ -8,6 +8,7 @@ import { ipc } from '../ipc/client';
 import type { BacklinkEntryDto, BacklinksPanelDto, OccurrenceDto, TypeDefDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { chipParts } from './ChipParts';
+import { useReference } from '../preview/useReference';
 import { chipIcon } from './icons';
 import { orderBacklinks } from './order';
 
@@ -27,6 +28,12 @@ export type OpenMention = (source: string, occurrence: OccurrenceDto | null, rea
 
 /** 4B (D-348): a daily route asks by its date, so a virtual note has backlinks too. */
 const panelOf = (path: string, date?: string) => (date ? ipc.dailyBacklinks(date) : ipc.backlinks(path));
+
+/** A source chip (R104 row 5): a reference to the source note (D-929: ⏎ on it is the mode's click). */
+function BacklinkChip({ source, open, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { source: string; open: () => void; 'aria-description'?: string }) {
+  const { props } = useReference({ target: { path: source.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'chip', open }, { description: rest['aria-description'] });
+  return <a {...rest} {...props}>{children}</a>;
+}
 
 export function useBacklinkCount(path: string | null, refresh: number, date?: string): number {
   const [n, setN] = useState(0);
@@ -145,13 +152,14 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     const parts = chipParts({ kind: 'note', type: e.type, review: e.review, status: e.status, due: e.due, completed: e.completed });
     return (
       <div key={`e:${e.source}`} data-source={e.source} className="backlink-entry">
-        <a href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"
-          aria-label={e.title} aria-description={parts.description ?? undefined} title={e.title} {...parts.attrs}
-          onClick={(ev) => { ev.preventDefault(); onOpen(e.source, null, e.readOnly); }}>
+        {/* Slice P (R104 row 5): the chip is a reference: a click and ⏎ preview the source, a double-click opens it. */}
+        <BacklinkChip source={e.source} open={() => onOpen(e.source, null, e.readOnly)}
+          href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"
+          aria-label={e.title} aria-description={parts.description ?? undefined} title={e.title} {...parts.attrs}>
           {parts.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
           {/* D-764: the title wraps inside the chip; the suffix moves to the next line whole. */}
           <span className="chip-text"><span data-user-content>{e.title}</span>{parts.suffix}</span>
-        </a>
+        </BacklinkChip>
       </div>
     );
   };

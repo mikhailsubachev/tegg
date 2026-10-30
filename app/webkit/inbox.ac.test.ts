@@ -12,7 +12,9 @@ import {
   inboxHeading, inboxVault, ip, isDisabled, main, markAllBtn, must, mustBeOn, nfc, openTriage, reviewedBox, runCommand, seen,
   sidebarCount, sleep, startInbox, startMain, swap, vaultWrites, zero,
 } from './capture-helpers';
-import { goToListbox, goToQuery, pseudoLocale } from './helpers';
+import { goToListbox, goToQuery, pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as captureUi } from './capture-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import { axeContrast } from './read-helpers';
 import { editorBody } from './editor-helpers';
 
@@ -129,7 +131,8 @@ test('fr_inb_01_ac5_the_page_follows_external_changes', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-INB-01 AC-6
 
 test('fr_inb_01_ac6_open_an_item_and_come_back', async ({ page }) => {
-  const core = await startInbox(page);
+  // D-943: the steps run with Object preview Off; click mode (AP-812) follows.
+  const core = await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   await click(filterBtn(page, 'quick-note'), 'Quick Notes');
   await click(main(page).getByRole('link', { name: 'Koupit mléko', exact: true }), 'title link');
   await mustBeOn(page, 'Koupit mléko', 'note/Quick Notes/Koupit mléko.md', 3000);
@@ -142,6 +145,25 @@ test('fr_inb_01_ac6_open_an_item_and_come_back', async ({ page }) => {
   await page.keyboard.press('Enter');
   await must(main(page).getByRole('checkbox', { name: /^(Reviewed|Mark reviewed)$/ }), 'daily/2026-10-13 (D-321)', 3000); // D-607: a checkbox
   assert.deepEqual(await vaultWrites(core), [], 'opening writes nothing and marks nothing reviewed');
+
+  // Click to preview (D-943, AP-812): a click on a card title previews; a double-click and ⏎ open.
+  await switchPreviewMode(page, core, 'click');
+  await gotoInbox(page);
+  await click(filterBtn(page, 'quick-note'), 'Quick Notes (click mode)');
+  const title = main(page).getByRole('link', { name: 'Koupit mléko', exact: true });
+  await click(title, 'title link (click mode)');
+  await mustPreview(page, 'Koupit mléko', 'click mode: a click on the card title previews it');
+  assert.ok(await seen(inboxHeading(page), 500), 'click mode: the click keeps the Inbox');
+  await escPreview(page, 'click mode: the card preview');
+  await (await must(title, 'title link (double-click)')).dblclick();
+  await mustBeOn(page, 'Koupit mléko', 'click mode: a double-click on the title opens it', 3000);
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await page.keyboard.press('Meta+BracketLeft');
+  await must(inboxHeading(page), 'back on inbox (click mode)');
+  await (await must(cardAt(page, I.Q1), 'Q1 (click mode)')).focus();
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Koupit mléko', 'click mode: ⏎ on the focused card opens it (AP-811)', 3000);
+  assert.deepEqual(await vaultWrites(core), [], 'click mode: previewing and opening write nothing and mark nothing reviewed');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-INB-01 AC-7
@@ -234,7 +256,8 @@ for (const theme of ['light', 'dark'] as const) {
 // ------------------------------------------------------------------------------------------------ FR-INB-03
 
 test('fr_inb_03_ac1_the_review_row_matches_the_card', async ({ page }) => {
-  await startInbox(page);
+  // D-949: the titles are opened with a single click, so the steps run under preview.mode = off.
+  await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   await click(main(page).getByRole('link', { name: 'Divná hodnota', exact: true }), 'Q5');
   const row = await must(main(page).getByRole('region', { name: 'Properties' }).getByText(/Review/).first(), 'the Review row');
   assert.ok(flat(await row.evaluate((e) => e.closest('[role="row"], li, div')?.textContent ?? '')).includes('maybe'), 'Q5 shows the raw value as invalid');
@@ -311,7 +334,8 @@ test('fr_inb_03_ac5_review_commands_on_a_note', async ({ page }) => {
 });
 
 test('fr_inb_03_ac6_one_state_everywhere', async ({ page }) => {
-  await startInbox(page);
+  // D-949: the titles are opened with a single click, so the steps run under preview.mode = off.
+  await startInbox(page, setPreviewMode('off', { uiState: captureUi() }));
   const d1 = await must(cardAt(page, I.D1), 'D1');
   await click(reviewedBox(d1), 'D1 Reviewed');
   assert.equal(await eventually(() => sidebarCount(page), (c) => c === '12', 1000), '12', 'the count follows');

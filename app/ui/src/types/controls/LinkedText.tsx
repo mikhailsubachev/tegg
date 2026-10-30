@@ -2,17 +2,17 @@
 // opens its note (D-140), with the broken style when it doesn't resolve (D-142); the rest is plain text. `![[…]]`
 // in a value is a chip too, never an embed. Drawn over the field's input (whose text is then hidden): the text parts
 // are aria-hidden (the input already has the value), the chips are links; a chip takes no focus on mouse down.
-import { chipParts } from '../../links/ChipParts';
+import { chipParts, chipReference, RefAnchor } from '../../links/ChipParts';
 import { t } from '../../i18n/catalog';
 import type { LinkTargetDto, TypeDto } from '../../ipc/types';
 import { Icon } from '../../shell/Icon';
 import { chipIcon } from '../../links/icons';
-import { requestOffer } from '../../links/offer';
-import { openDate } from '../../daily/open';
 import { nfc } from '../util';
 
 /** `path`: the note being edited (link text and resolution are relative to it, D-73). */
-export type LinkContext = { links: Map<string, LinkTargetDto>; types: TypeDto[]; onOpen: (path: string) => void; path: string };
+export type LinkContext = { links: Map<string, LinkTargetDto>; types: TypeDto[]; onOpen: (path: string) => void; path: string;
+  /** Slice P (FR-TSK-08 AC-6, D-939): the `Source` row's preview starts at this task's embed. */
+  scrollToEmbedOf?: string };
 
 type Part = { text: string } | { target: string; alias: string | null };
 
@@ -49,20 +49,13 @@ export function LinkedText({ text, ctx }: { text: string; ctx: LinkContext }) {
         const icon = chipIcon(info?.type ?? (dated ? 'daily-note' : 'page'));
         const parts = ok ? chipParts(info) : null; // D-600
         return (
-          <a key={i} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : dated ? 'kind-date-missing' : 'kind-unresolved'}`}
+          <RefAnchor key={i} reference={chipReference({ info, target: p.target, from: ctx.path, onOpen: ctx.onOpen, scrollToEmbedOf: ctx.scrollToEmbedOf })} data-command="panel.text.link" href="#" tabIndex={-1} className={`chip link-chip ${ok ? '' : dated ? 'kind-date-missing' : 'kind-unresolved'}`}
             aria-description={ok ? parts?.description ?? undefined : dated ? undefined : t('link.noNote', { target: p.target })} {...parts?.attrs} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if ((dated || info?.kind === 'daily') && openDate(p.target)) return; // FR-DLY-08 AC-6
-              if (ok) ctx.onOpen(info!.path!);
-              else requestOffer({ from: ctx.path, target: p.target, relationTo: null, anchor: e.currentTarget }); // FR-LNK-04 AC-4
-            }}>
+            onMouseDown={(e) => e.preventDefault()}>
             {(ok || dated) && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
             <span data-user-content>{shown}</span>
             {parts?.suffix}
-          </a>
+          </RefAnchor>
         );
       })}
     </>

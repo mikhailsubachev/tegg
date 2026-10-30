@@ -10,6 +10,7 @@ import {
   E, block, caretIn, eventually, fileText, must, mustBeSaved, openEditor, original, selectIn, seen, sleep, titleField,
 } from './editor-helpers';
 import { M, embedTextbox, needFrame, openEmbeds, main } from './embeds-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 const ITEMS = ['Cut', 'Copy', 'Paste', 'Bold', 'Italic', 'Strikethrough', 'Code', 'Highlight', 'Link…', 'Turn into object'];
 const selectionMenu = (page: Page) => page.getByRole('menu', { name: 'Selection', exact: true });
@@ -122,7 +123,8 @@ test('fr_edt_05_ac7_keyboard_in_the_menu', async ({ page }) => {
 });
 
 test('fr_edt_05_ac7_only_a_text_selection_outside_code_and_fields_gets_the_menu', async ({ page }) => {
-  await openEditor(page, E.odstavce);
+  // D-943: the steps run with Object preview Off; the `Link` menu on a chip (FR-LNK-13 AC-5) is the same in every mode.
+  await openEditor(page, E.odstavce, setPreviewMode('off'));
   // Red guard: a selection gets Tegg's menu.
   await selectIn(page, 2, 'Druhý odstavec');
   assert.equal(await rightClick(page), true, 'guard: a text selection gets the menu');
@@ -161,6 +163,13 @@ test('fr_edt_05_ac7_only_a_text_selection_outside_code_and_fields_gets_the_menu'
   });
   await sleep(50);
   assert.equal(await rightClick(p2), false, 'inside a code block the system menu stays');
+  // Slice P (D-943, FR-LNK-13 AC-5): a right-click on a chip, without a selection, shows Tegg's `Link` menu.
+  await caretIn(p2, 10, 'Odkaz na ');
+  const chip = await must(block(p2, 10).getByRole('link', { name: 'Cíl', exact: true }), 'link chip Cíl in Deset bloků');
+  assert.equal(await rightClick(p2, chip), true, 'a right-click on a chip prevents the system menu');
+  await must(p2.getByRole('menu', { name: 'Link', exact: true }), 'menu "Link" on the chip');
+  assert.equal(await selectionMenu(p2).count(), 0, 'a right-click on a chip shows no Selection menu');
+  await p2.keyboard.press('Escape');
   await p2.close();
 });
 

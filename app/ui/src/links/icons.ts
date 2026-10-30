@@ -6,16 +6,29 @@ import { SYSTEM_DEFAULT, typeIconName } from '../shell/Icon';
 let defs = new Map<string, string>();
 let names = new Map<string, string>();
 let all: TypeDefDto[] = [];
+let allSig = '[]';
 
 /** The vault's types as last loaded (embed cards and modes read them, ms4-embeds §6). */
 export function chipTypes(): TypeDefDto[] {
   return all;
 }
 
+const typeListeners = new Set<() => void>();
+/** Called after the app loaded the vault's types again (a type file changed); returns the unsubscribe. */
+export function onChipTypes(f: () => void): () => void {
+  typeListeners.add(f);
+  return () => { typeListeners.delete(f); };
+}
+
 export function setChipTypes(types: TypeDefDto[]): void {
+  // The app hands a new array on every reload; listeners hear only of definitions that differ.
+  const sig = JSON.stringify(types);
+  const changed = sig !== allSig;
+  allSig = sig;
   all = types;
   defs = new Map(types.map((t) => [t.key.normalize('NFC'), t.icon]));
   names = new Map(types.map((t) => [t.key.normalize('NFC'), t.name]));
+  if (changed) for (const f of typeListeners) f();
 }
 
 /** `glyph` for `Icon name`, `def` for `data-icon`. */

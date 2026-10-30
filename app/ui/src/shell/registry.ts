@@ -72,7 +72,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
   // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
   { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
-  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: tbd('v1.0'), reqs: ['FR-SET-07'], design: null },
+  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: built, reqs: ['FR-SET-07'], design: null },
 ];
 
 export const PANEL_TABS: TabDef[] = [
@@ -158,6 +158,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⇧⌘O', command: 'edit.turnIntoObject' },
   // 6A (trash-media.md R75): on a note page, a focused card or row / in an editor.
   { keys: '⌘⌫', command: 'object.trash' },
+  // Slice P (previews.md R106, D-928): only with a reference focused or the editor's caret at a chip.
+  { keys: '⌥Space', command: 'preview.show' },
   { keys: '⇧⌘A', command: 'media.add' },
 ];
 

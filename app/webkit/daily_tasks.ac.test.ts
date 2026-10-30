@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 import { cmdD, gotoDaily, section, virtualMarker } from './daily-helpers';
 import {
   NOW, O, T, callsOf, click, description, eventually, fileText, fileWhen, flat, must, mustBeOn, nfc, original, seen, shortDate, startTasks, swap,
-  taskText, tasksVault, textOf, writeCalls, attr,
+  taskText, tasksVault, textOf, writeCalls, attr, ui as tasksUi,
 } from './tasks-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 /** Row titles of `Tasks due`, in order, from the R43 checkboxes (`Complete "<t>"` / `Mark "<t>" not done`). */
 async function rows(page: Page): Promise<string[]> {
@@ -55,7 +56,8 @@ test.describe('Tasks due in Europe/Prague', () => {
   });
 
   test('fr_dly_04_ac10_rows', async ({ page }) => {
-    const core = await startTasks(page);
+    // D-949: the old steps (a single click opens; no mode description) run under preview.mode = off.
+    const core = await startTasks(page, setPreviewMode('off', { uiState: tasksUi() }));
     await cmdD(page, '2026-10-14');
     await rowsWhen(page, (r) => r.length === 5);
     const r1 = row(page, 'Zavolat Janě');

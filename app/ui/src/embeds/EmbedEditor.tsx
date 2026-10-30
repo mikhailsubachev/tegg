@@ -18,6 +18,9 @@ import { MergeDialog, type Merge } from '../pages/NotePage';
 import { mountEmbed } from './slot';
 import type { EmbedStore } from './store';
 import type { EmbedNode } from './tree';
+import { editorChips } from '../preview/editorChips';
+import { openDate } from '../daily/open';
+import { requestOffer } from '../links/offer';
 
 const nfc = (s: string) => s.normalize('NFC');
 const localNow = () => localIso(Date.now());
@@ -30,6 +33,7 @@ function stamp(): string {
 export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard = false }: { node: EmbedNode; store: EmbedStore; getPos: () => number | undefined; title: string; gone?: boolean; taskCard?: boolean }) {
   const host = useRef<HTMLDivElement | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
+  const unregister = useRef<(() => void) | null>(null);
   const saverRef = useRef<Saver | null>(null);
   const disk = useRef<string>(node.note?.text ?? '');
   const nodeRef = useRef(node);
@@ -44,6 +48,18 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
     const note = { ...node.note, text: node.note.text };
     const links = new Map(note.links.map((l) => [nfc(l.target), l]));
     const childEmbeds = (value: string) => nodeRef.current.children.filter((c) => !c.inline && nfc(c.value) === nfc(value));
+    const chips = editorChips({
+      editor: () => edRef.current,
+      path: () => path,
+      resolve: (target) => links.get(nfc(target)),
+      open: (target, fragment) => {
+        const l = links.get(nfc(target));
+        if ((l?.kind === 'daily' || l?.kind === 'date-missing') && openDate(target)) return;
+        if (l?.path) store.host?.onOpen(l.path, fragment ?? undefined);
+      },
+      offer: (target, chip) => requestOffer({ from: path, target, relationTo: null, anchor: chip.dom }),
+      openTag: (key) => store.host?.onTag(key),
+    });
     const ui: EditorUi = {
       resolve: (target) => {
         const l = links.get(nfc(target));
@@ -65,11 +81,8 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
         const id = kind !== 'embed' ? kind : name === t('ph.embedPdf') ? 'embed-pdf' : name === t('ph.embedOther') ? 'embed-other' : 'embed-image';
         return { name, text: kind === 'embed' ? `${name}: ${v}` : name, id };
       },
-      onLink: (target) => {
-        const l = links.get(nfc(target));
-        if (l?.path) store.host?.onOpen(l.path);
-      },
-      onTag: (v) => store.host?.onTag(nfc(v).toLowerCase()),
+      // Slice P (FR-LNK-13 AC-8): the embedded note's chips behave as the note's; edits save the embedded note only.
+      ...chips,
       onExternal: (url) => store.host?.onExternal(url),
       // Slice MM (FR-MMP-02 AC-16, D-769): a top-level mindmap of the embedded note is drawn as in the note.
       ...mindmapUi({
@@ -114,6 +127,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
     }
     (ed.view.dom as HTMLElement).setAttribute('aria-description', t('embed.chip'));
     edRef.current = ed;
+    unregister.current = chips.register(host.current);
     disk.current = note.text;
     const s = new Saver(note.path, ed, (note.version ?? null) as VersionDto | null, {
       state: (state, failure) => { setSave({ state, failure }); store.stateChanged(); },
@@ -168,6 +182,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
       el.removeEventListener('focusout', out);
       void s.flush().finally(() => s.dispose());
       store.unregister(reg.id);
+      unregister.current?.();
       edRef.current = null;
       ed.destroy();
     };

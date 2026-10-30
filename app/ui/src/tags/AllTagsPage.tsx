@@ -1,5 +1,6 @@
 // All tags (`tags`; docs/acceptance/tags.md R81, board `TagsAll`, no descriptions, D-691): every tag with its colour
 // chip, count and Last used, `Find a tag…`, the remembered sort (D-703), and `New tag` (D-696). Viewing writes nothing.
+import { RefElement } from '../preview/useReference';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
@@ -92,18 +93,19 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1} onClick={() => onOpen(r.key)}
+              // Slice P (R104 row 10, D-937): a click previews the Tag; ⏎ and a double-click open its page.
+              <RefElement as="tr" reference={{ target: { path: '', fragment: null, kind: 'tag', key: r.key }, kind: 'row', open: () => onOpen(r.key) }}
+                key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1}
                 onKeyDown={(e) => {
                   const list = [...((e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('tr[data-tag]')) ?? [])];
                   const at = list.indexOf(e.currentTarget);
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus(); }
-                  else if (e.key === 'Enter') { e.preventDefault(); onOpen(r.key); }
                 }}>
-                <td><a data-command="tagsPage.c1" href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(r.key); }}><span data-user-content>#{r.name}</span></a></td>
+                <td><a data-command="tagsPage.c1" href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => e.preventDefault()}><span data-user-content>#{r.name}</span></a></td>
                 <td className="num">{r.count}</td>
                 <td>{r.lastUsed ? dateTimeText(r.lastUsed) : ''}</td>
                 <td aria-hidden="true" className="chevron">›</td>
-              </tr>
+              </RefElement>
             ))}
           </tbody>
         </table>

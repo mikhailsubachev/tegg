@@ -8,6 +8,8 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast } from './read-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as tagsUi } from './tags-helpers';
 import {
   NOW, P, callsOf, checkedSwatches, chip, chipColours, click, colourPopover, colourTile, description, eventually, fileWhen, main, must, openNote,
   openTagPage, original, runCommand, seen, sidebar, sleep, swap, swatch, tagAction, tagHeading, tagRowEl, vaultWrites,
@@ -113,7 +115,8 @@ const SURFACES = async (page: Page, colour: string, name: string): Promise<strin
 
 for (const theme of ['light', 'dark'] as const) {
   test(`fr_tag_05_ac6_every_surface_shows_the_colour (${theme})`, async ({ page }) => {
-    await openNote(page, P.rozpocet, 'Rozpočet', { theme });
+    // D-949: the All tags row is opened with a single click, so the steps run under preview.mode = off.
+    await openNote(page, P.rozpocet, 'Rozpočet', setPreviewMode('off', { uiState: tagsUi({ theme }) }));
     const bad: string[] = [];
     const want = async (what: string, loc: ReturnType<Page['locator']>, colour: string | null) => {
       if (!(await seen(loc, 1500))) { bad.push(`${what}: not shown`); return; }

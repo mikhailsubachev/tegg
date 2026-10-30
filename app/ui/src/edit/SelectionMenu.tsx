@@ -25,7 +25,7 @@ export function SelectionMenu({ x, y, disabled, onAction, onClose }: {
     item('cut', 'menu.cut'), item('copy', 'menu.copy'), item('paste', 'menu.paste'),
     { kind: 'separator' },
     ...MARKS.map(([a, l]) => item(a, l)),
-    item('link', 'menu.link'),
+    item('link', 'menu.linkField'),
     item('turnIntoObject', 'ctl.turnIntoObject'),
   ];
   const above = y + 340 > window.innerHeight;

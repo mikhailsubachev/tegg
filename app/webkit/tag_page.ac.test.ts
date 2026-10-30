@@ -15,6 +15,12 @@ import {
   tagActionsMenu, tagHeading, tagRoute, tagRowEl, tagsVault, typeFilterBtn, vaultWrites, vypln,
 } from './tags-helpers';
 import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as tagsUi } from './tags-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+
+/** D-943: the steps of FR-TAG-06 AC-1, AC-7 run with Object preview Off. */
+const OFF = () => setPreviewMode('off', { uiState: tagsUi() });
 
 const UCTY_MODIFIED_DESC = [P.faktura, P.rozpocet, P.den, P.najem, P.dvakrat, P.banka];
 const isEditor = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
@@ -22,7 +28,7 @@ const isEditor = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note bo
 // ------------------------------------------------------------------------------------------------ AC-1
 
 test('fr_tag_06_ac1_every_way_in_opens_the_tag_page', async ({ page }) => {
-  const core = await openNote(page, P.faktura, 'Faktura', { readView: true });
+  const core = await openNote(page, P.faktura, 'Faktura', { ...OFF(), readView: true });
   const ways: [string, () => Promise<void>][] = [
     ['the read view #účty chip', async () => { await click(main(page).getByRole('link', { name: /^#účty$/i }), '#účty in Faktura'); }],
     // D-761: the sidebar has no tag links any more (its `Tags` entry opens All tags, FR-TAG-07 AC-6).
@@ -43,16 +49,55 @@ test('fr_tag_06_ac1_every_way_in_opens_the_tag_page', async ({ page }) => {
   assert.deepEqual(await vaultWrites(core), [], 'opening writes nothing');
   // `type/tag`'s row Účty (no `Go to type` command for Tag, D-121: a page started on the route).
   const p2 = await page.context().newPage();
-  const c2 = await startTags(p2, { route: 'type/tag' });
+  const c2 = await startTags(p2, { ...OFF(), route: 'type/tag' });
   await click(main(p2).getByRole('link', { name: 'Účty', exact: true }), 'type/tag row Účty');
   await must(tagHeading(p2, 'Účty'), 'type/tag row: tag/účty', 3000);
   assert.equal(await isEditor(p2).count(), 0, 'no editor');
   assert.deepEqual(await vaultWrites(c2), [], 'nothing written');
+
+  // Click to preview (D-943, AP-819): a click previews the Tag; a double-click (and ⏎ on a row) opens tag/účty; the
+  // Go to row is not a reference (D-931) and still opens.
+  await p2.keyboard.press('Meta+BracketLeft');
+  await must(main(p2).getByRole('link', { name: 'Účty', exact: true }), 'Back to type/tag', 5000);
+  await switchPreviewMode(p2, c2, 'click');
+  await click(main(p2).getByRole('link', { name: 'Účty', exact: true }), 'type/tag row Účty (click mode)');
+  await mustPreview(p2, /^Preview: #?Účty$/, 'click mode: a click on the type/tag row previews the Tag');
+  await escPreview(p2, 'click mode: the type/tag row preview');
+  await (await must(main(p2).getByRole('link', { name: 'Účty', exact: true }), 'type/tag row Účty (double-click)')).dblclick();
+  await must(tagHeading(p2, 'Účty'), 'click mode: a double-click on the type/tag row opens tag/účty', 3000);
+  assert.deepEqual(await vaultWrites(c2), [], 'click mode: nothing written');
   await p2.close();
+
+  await switchPreviewMode(page, core, 'click');
+  await runCommand(page, 'Go to Inbox');
+  await sleep(200);
+  await goToQuery(page, 'Faktura');
+  await sleep(200);
+  await page.keyboard.press('Enter');
+  await mustOn(page, 'Faktura');
+  await click(main(page).getByRole('link', { name: /^#účty$/i }), '#účty in Faktura (click mode)');
+  await mustPreview(page, '#Účty', 'click mode: a click on the #účty chip previews the Tag');
+  await escPreview(page, 'click mode: the chip preview');
+  await (await must(main(page).getByRole('link', { name: /^#účty$/i }), '#účty in Faktura (double-click)')).dblclick();
+  await must(tagHeading(page, 'Účty'), 'click mode: a double-click on the chip opens tag/účty', 3000);
+  await goToQuery(page, 'Účty');
+  await sleep(200);
+  await page.keyboard.press('Enter');
+  await must(tagHeading(page, 'Účty'), 'click mode: the Go to row Účty still opens tag/účty', 3000);
+  await mustNoPreview(page, 'click mode: the Go to row never previews', 300);
+  await runCommand(page, 'Go to Tags');
+  await click(tagRowEl(page, 'účty'), 'All tags row účty (click mode)');
+  await mustPreview(page, '#Účty', 'click mode: a click on the All tags row previews the Tag');
+  await escPreview(page, 'click mode: the All tags row preview');
+  await (await must(tagRowEl(page, 'účty'), 'All tags row účty (⏎)')).focus();
+  await page.keyboard.press('Enter');
+  await must(tagHeading(page, 'Účty'), 'click mode: ⏎ on the All tags row opens tag/účty', 3000);
+  assert.deepEqual(await vaultWrites(core), [], 'click mode: previewing and opening write nothing');
 });
 
 test('fr_tag_06_ac1_links_and_routes_to_tag_files_redirect', async ({ page }) => {
-  await openNote(page, P.odkaz, 'Odkaz na štítek', { readView: true });
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  await openNote(page, P.odkaz, 'Odkaz na štítek', { ...OFF(), readView: true });
   await click(main(page).getByRole('link', { name: 'Účty', exact: true }), '[[Účty]] in Odkaz');
   await must(tagHeading(page, 'Účty'), '[[Účty]] opens tag/účty');
   await page.keyboard.press('Meta+BracketLeft');
@@ -176,7 +221,8 @@ test('fr_tag_06_ac4_text_filter', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ AC-6
 
 test('fr_tag_06_ac6_sort_filter_and_grouping_are_remembered_and_shared', async ({ page }) => {
-  const core = await openTagPage(page, 'účty');
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await openTagPage(page, 'účty', OFF());
   const table = await must(objectsTable(page, 'Účty'), 'table');
   await click(table.getByRole('columnheader', { name: /^Title/ }), 'Title ↑');
   await chooseRadio(page, typeFilterBtn(page), 'Task', 'Type filter');
@@ -197,7 +243,7 @@ test('fr_tag_06_ac6_sort_filter_and_grouping_are_remembered_and_shared', async (
 // ------------------------------------------------------------------------------------------------ AC-7, AC-8
 
 test('fr_tag_06_ac7_rows_open_their_object', async ({ page }) => {
-  await openTagPage(page, 'účty');
+  const core = await openTagPage(page, 'účty', OFF());
   await click(rowEl(page, 'Účty', P.rozpocet).getByRole('link', { name: /Rozpočet/ }), 'row Rozpočet');
   await mustOn(page, 'Rozpočet');
   await page.keyboard.press('Meta+BracketLeft');
@@ -212,6 +258,25 @@ test('fr_tag_06_ac7_rows_open_their_object', async ({ page }) => {
   await must(tagHeading(page, 'Účty'), 'back again');
   await click(rowEl(page, 'Účty', P.rozpocet).getByRole('link', { name: '#finance', exact: true }), 'Other-tags chip #finance');
   await must(tagHeading(page, 'finance'), 'the chip opens its tag page');
+
+  // Click to preview (D-943, AP-812, AP-819): a click on a row previews; ⏎ opens; an Other tags chip previews its Tag.
+  await page.keyboard.press('Meta+BracketLeft');
+  await must(tagHeading(page, 'Účty'), 'back (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  await click(rowEl(page, 'Účty', P.rozpocet).getByRole('link', { name: /Rozpočet/ }), 'row Rozpočet (click mode)');
+  await mustPreview(page, /^Preview: Rozpočet/, 'click mode: a click on the row previews Rozpočet');
+  assert.ok(await seen(tagHeading(page, 'Účty'), 500), 'click mode: the click keeps the tag page');
+  await escPreview(page, 'click mode: the row preview');
+  await (await must(rowEl(page, 'Účty', P.rozpocet), 'row Rozpočet (⏎)')).focus();
+  await page.keyboard.press('Enter');
+  await mustOn(page, 'Rozpočet');
+  await page.keyboard.press('Meta+BracketLeft');
+  await must(tagHeading(page, 'Účty'), 'back (click mode)');
+  await click(rowEl(page, 'Účty', P.rozpocet).getByRole('link', { name: '#finance', exact: true }), 'Other-tags chip #finance (click mode)');
+  await mustPreview(page, /^Preview: #finance$/i, 'click mode: a click on the Other tags chip previews the Tag');
+  await escPreview(page, 'click mode: the Tag preview');
+  await (await must(rowEl(page, 'Účty', P.rozpocet).getByRole('link', { name: '#finance', exact: true }), 'Other-tags chip #finance (double-click)')).dblclick();
+  await must(tagHeading(page, 'finance'), 'click mode: a double-click on the chip opens its tag page');
 });
 
 // FR-TAG-06 AC-8 (`New with #tag`, D-697) is superseded by D-762: tag_page_v068.ac.test.ts tests AC-12.
@@ -279,7 +344,8 @@ test('fr_tag_01_ac2_no_description_or_properties_on_the_tag_page', async ({ page
 });
 
 test('fr_tag_02_ac4_applying_a_tag_in_the_attribute_panel', async ({ page }) => {
-  const core = await openNote(page, vypln(2), 'Výplň 02');
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await openNote(page, vypln(2), 'Výplň 02', OFF());
   const tags = await must(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('group', { name: 'Tags' }), 'group Tags');
   await tags.getByRole('button', { name: 'Add tag', exact: true }).click();
   await page.getByRole('combobox', { name: 'Tag' }).fill('finance');
@@ -293,7 +359,8 @@ test('fr_tag_02_ac4_applying_a_tag_in_the_attribute_panel', async ({ page }) => 
 });
 
 test('fr_syn_06_ac31_browsing_tags_sends_no_write_command', async ({ page }) => {
-  const core = await startTags(page, { route: 'tags' });
+  // D-949: references are opened with a single click, so the steps run under preview.mode = off.
+  const core = await startTags(page, { ...OFF(), route: 'tags' });
   await must(page.getByRole('table', { name: 'Tags', exact: true }), 'All tags');
   for (const key of Object.keys(NAMES)) {
     await runCommand(page, 'Go to Tags');

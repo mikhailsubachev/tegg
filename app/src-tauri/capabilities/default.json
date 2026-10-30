@@ -29,6 +29,7 @@
     "allow-ui-state-set",
     "allow-link-resolve",
     "allow-embed-load",
+    "allow-index-path-by-id",
     "allow-open-external",
     "allow-note-write",
     "allow-note-create-exact",

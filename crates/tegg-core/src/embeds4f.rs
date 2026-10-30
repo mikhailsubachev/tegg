@@ -33,6 +33,12 @@ impl Core {
     /// D-429: reads every path once (first-seen order), from the files, records no recency, resolves each file's
     /// link targets from its own path.
     pub fn embed_load(&self, paths: &[String]) -> Vec<EmbedNote> {
+        self.embed_load_with(paths, false)
+    }
+
+    /// Slice P (v1-previews §2, D-938): `embed_load` that with `media` also resolves the files the notes embed (kind
+    /// `media`, after the note links), so a preview shows the images and PDF cards of the note it reads (R77).
+    pub fn embed_load_with(&self, paths: &[String], media: bool) -> Vec<EmbedNote> {
         let mut seen: Vec<String> = Vec::new();
         let mut out = Vec::new();
         for p in paths {
@@ -41,12 +47,12 @@ impl Core {
                 continue;
             }
             seen.push(path.clone());
-            out.push(self.embed_one(&path));
+            out.push(self.embed_one(&path, media));
         }
         out
     }
 
-    fn embed_one(&self, path: &str) -> EmbedNote {
+    fn embed_one(&self, path: &str, media: bool) -> EmbedNote {
         let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new() };
         // Never an embed target (FR-TPL-07, D-102).
         if path.starts_with("_templates/") {
@@ -70,12 +76,18 @@ impl Core {
         }
         let text = String::from_utf8_lossy(&bytes).into_owned();
         let stem = path.rsplit('/').next().unwrap_or(path).trim_end_matches(".md");
+        // Note links first; with `media` (slice P, v1-previews §2) the attachment targets after them, from one extract.
         let mut targets: Vec<String> = Vec::new();
+        let mut files: Vec<String> = Vec::new();
         for l in tegg_format::extract(&bytes, stem).links {
             let t = l.target.trim().to_string();
-            if !t.is_empty() && !is_attachment(&t) && !targets.contains(&t) {
-                targets.push(t);
+            let list = if is_attachment(&t) { &mut files } else { &mut targets };
+            if !t.is_empty() && !list.contains(&t) {
+                list.push(t);
             }
+        }
+        if media {
+            targets.extend(files);
         }
         let links = self.resolve_links(path, &targets);
         EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links }

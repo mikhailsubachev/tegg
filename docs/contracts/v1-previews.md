@@ -39,7 +39,7 @@ No new command for content. A preview reads only through:
 
 | Need | Command | Notes |
 | --- | --- | --- |
-| The previewed note (text, version, links resolved from its own path) | `embed_load([path])` (ms4-embeds §4) | read-only, no recency (D-138, D-943), never `note_read` |
+| The previewed note (text, version, links resolved from its own path) | `embed_load([path], media: true)` (ms4-embeds §4) | read-only, no recency (D-138, D-943), never `note_read`; `media: true` also resolves the files the note embeds (kind `media`, after its note links), so the body shows its images and PDF cards (R77) without a `link_resolve` of its own (FR-LNK-08 AC-10); without the flag `embed_load` is unchanged (FR-EMB-01 AC-2) |
 | The targets of its cards (D-933) | one `embed_load(paths)` with every card target, after the first | at most two calls per preview (previews.md FR-LNK-10 AC-4) |
 | Link targets in the host → paths | the host's existing resolution (`LinkTargetDto` from `note_read` / `embed_load` / `link_resolve`) | a broken target never opens a preview (D-939) |
 | Type, preview attributes, icon | `vault_types` (already in the UI store) | strip per FR-TYP-11, at most 4 |
@@ -61,7 +61,7 @@ impl Core {
 | --- | --- | --- |
 | `index_path_by_id` | `id: string` | `string \| null` |
 
-Lives in `tegg-index` (platform-neutral, AR-03); rebuilding the index gives the same answer (AR-01). L4:
+Lives in `tegg-core` over the indexed objects (platform-neutral, AR-03), so among files sharing an id it picks the one `resolve_links` picks; rebuilding the index gives the same answer (AR-01). L4:
 `crates/tegg-core/tests/ac_previews.rs`.
 
 ## 3. The preview module (`app/ui/src/preview/`)
@@ -125,11 +125,13 @@ export function useReference(opts: {
 
 - A single click in click mode waits for no double-click timer: the preview opens on the first click and a second
   click within the system double-click interval opens and closes the preview (D-37; previews.md R103 row 2).
-- `aria-describedby` points to one hidden element per mode with `link.hint.click` / `link.hint.hover`; none when Off.
+- The mode's description (`link.hint.click` / `link.hint.hover`; none when Off) is added to the element's own `aria-description` (`Unreviewed`, `In trash`, an embed's), joined by `, ` (FR-LNK-11 AC-13); the editor's chips get it from `EditorUi.linkHint()` (§5.1).
+- A chip in a read-only view (`menu` option) opens the `Link` menu with `Open` and `Show preview` on a right-click (FR-LNK-13 AC-5).
+- Components for surfaces: `RefElement` (`preview/useReference.ts`, rows and card titles), `RefAnchor` and `chipReference` (`links/ChipParts.tsx`, link chips of the panel and the Properties strip).
 - Surfaces wired (R104): `read/ReadView.tsx` and the read-view chips (`links/ChipParts.tsx`), `embeds/Embed.tsx`
   (card, link mode, a full embed's header title), `types/AttributePanel.tsx` and `read/PropertiesStrip.tsx`
   (relation chips, `TextWithLinks`), `links/BacklinksPanel.tsx`, `tasks/TaskCard.tsx` (title: `card`; source chip:
-  `chip` with `scrollToEmbedOf`), `pages/SearchPage.tsx` full-text rows (`row`), `pages/TypePage.tsx`,
+  `chip` with `scrollToEmbedOf`), the full-text rows of `Search.tsx` (`row`), `pages/TypePage.tsx`,
   `tags/TagPage.tsx`, `tags/AllTagsPage.tsx`, `links/DuplicateTitlesPage.tsx`, `daily/ContextSections.tsx` (`row`),
   `inbox/InboxPage.tsx` card titles (`card`), `mindmap/MindmapMap.tsx` node chips (`chip`, D-941), tag chips
   everywhere (`tags/chip.ts`, kind `tag`). Not wired (D-931): `GoTo.tsx`, `shell/Palette.tsx`, the sidebar, title bar,
@@ -213,7 +215,18 @@ onLink(target: string, fragment: string | null,
 onLinkHover?(target: string, fragment: string | null, chip: { pos: number; dom: HTMLElement }, phase: 'enter' | 'move' | 'leave'): void
 /** Slice P (D-927): right-click on a chip. Return true when the host showed its menu. */
 onLinkMenu?(target: string | null, chip: { pos: number; dom: HTMLElement }, event: MouseEvent): boolean
+/** Slice P (FR-LNK-11 AC-13): the mode's description a resolved chip adds, or null (Off). */
+linkHint?(): string | null
+/** R104 row 12: tag chips report the same gestures. */
+onTag(value: string, chip?: { pos: number; dom: HTMLElement | null }, gesture?: LinkGesture): void
 ```
+
+- A Markdown link to a note (`[odkaz](Rozpo%C4%8Det%202027.md)`) is a link chip: its decoded path and fragment are
+  reported with the gesture; other URLs go to `onExternal` as before.
+- ← and → move over a chip as one position (never a node selection, D-926); Home and End put the caret at the start /
+  end of the block's text (WebKit on macOS doesn't move it, FR-LNK-13 AC-4).
+- A double-click is the browser's count (`detail`), not ProseMirror's clock alone; the second click of a double-click
+  reports nothing.
 
 - `handleClickOn` on a `wikiLink` (and a Markdown link to a note) reports `click`, `dblclick` (from
   `handleDoubleClickOn`) or `modClick`; for `click` it sets a collapsed `TextSelection` right after the chip, never a
@@ -235,19 +248,20 @@ Commands on the editor handle, each one transaction and one undo step, serialize
 (only the link's source text changes):
 
 ```ts
+chipAtCaret(): { pos: number; target: string; fragment: string | null } | null   // the chip ⌘↩, ⌥Space, Remove link act on
 editLink(pos: number, next: { target: string; alias: string | null }): boolean  // rewrites [[target|alias]] / [[target]]
 removeLink(): boolean      // existing (editor.ts): the chip selected or at the caret becomes its visible text
 linkAt(pos: number): { target: string; fragment: string | null; alias: string | null } | null
 ```
 
-The app's `Link` menu (`shell/Menu.tsx`, name `Link`; it first puts the caret at the chip, so `removeLink()` acts on it) and the `Edit link` dialog (`preview/EditLinkDialog.tsx`,
+The app's `Link` menu (`shell/Menu.tsx`, name `Link`; it first puts the caret at the chip, so `removeLink()` acts on it) and the `Edit link` dialog (`preview/linkUi.tsx`,
 non-modal, fields `Link to` with the `[[` suggestions, `Link text`) call them. ⇧⌘K with the caret at a chip opens the
 dialog. The chip's `Create "<target>"` item reuses the Create offer (ms4-links).
 
 ## 6. Registry, palette, strings (R106, R107)
 
 - `shell/registry.ts`: `settings/previews` built; no new route.
-- `shell/commands.ts`: `preview.show` (⌥Space, section `navigate`, enabled only when `usePreview` reports a focused
+- `shell/commands.ts`: `link.edit` shows ⇧⌘K (R4's `edit.link` key: at a chip it opens `Edit link`). `preview.show` (⌥Space, section `navigate`, enabled only when `usePreview` reports a focused
   reference or the editor reports the caret at a chip), `preview.mode.click`, `preview.mode.hover`, `preview.mode.off`,
   `link.edit` (⇧⌘K), `link.remove` (the existing `linkField.remove` action), all `needsVault: true`.
 - `i18n`: every key of R107, in the English catalog; `preview.tag.count` with plural categories (D-133).
@@ -297,3 +311,7 @@ Fixture: `tests/fixtures/vaults/previews/` (its README); binaries and `Pages/Dlo
 4. `resolveRefInput` is the single source of the R103 table; surfaces never branch on the mode themselves.
 5. The older tests that D-943 changes get `setPreviewMode('off')` for their existing steps in the build commit, with
    the `AC-Test-Change` trailer naming D-943.
+6. Built with these interface details (2026-10-29): `embed_load`'s `media` flag (§2), `Core::path_by_id` in
+   `tegg-core` (§2), descriptions joined into `aria-description` (§3.2), `linkHint` and the tag gesture (§5.1),
+   `chipAtCaret` (§5.3), `link.edit` showing ⇧⌘K (§6). The catalog key `preview.resizeHint` (`Use the arrow keys to
+   resize.`, R102) is the one string R107 lacks (D-945, pending).

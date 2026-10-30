@@ -1,5 +1,6 @@
 // The Duplicate titles page (FR-LNK-14 AC-8, AC-9; D-284, D-290, D-307): one group per shared title; `Merge…` comes
 // with 4C. Browsing writes nothing.
+import { RefElement } from '../preview/useReference';
 import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
@@ -50,13 +51,15 @@ export function DuplicateTitlesPage({ heading, refresh, types, onOpen, mergeRef 
               const typeName = types.find((x) => x.key === o.type)?.name ?? o.type;
               return (
                 <li key={o.path}>
-                  <a href="#" tabIndex={0} className="dup-row" data-command="duplicates.open" onClick={(e) => { e.preventDefault(); onOpen(o.path); }}>
+                  {/* Slice P (R104 row 10): a click previews, ⏎ and a double-click open (D-929, D-930). */}
+                  <RefElement as="a" reference={{ target: { path: o.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(o.path) }}
+                    href="#" tabIndex={0} className="dup-row" data-command="duplicates.open">
                     <Icon name={icon.glyph} dataIcon={icon.def} size={14} />
                     <span data-user-content>{o.title}</span>
                     <span className="meta" data-user-content>{detailsText(o.details, typeName)}</span>
                     <span className="meta" data-user-content>{o.path}</span>
                     <span className="meta">{t('duplicates.backlinks', { count: o.backlinks })}</span>
-                  </a>
+                  </RefElement>
                 </li>
               );
             })}

@@ -10,7 +10,9 @@
 // test converts a mixed block/list selection (AP-456); the Quick Notes Dvojník `source` may carry `|Dvojník` (AP-455).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { pseudoLocale } from './helpers';
+import { pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as convertUi } from './convert-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import { axeContrast, colourLeaks } from './read-helpers';
 import { cmdD } from './daily-helpers';
 import {
@@ -830,7 +832,8 @@ async function scrollTop(sel: Locator): Promise<number> {
   });
 }
 test('fr_cnv_04_ac2_the_source_chip_opens_bloky_at_the_embed', async ({ page }) => {
-  const core = await openConvert(page, C.bloky);
+  // D-943: the D-486 click steps run with Object preview Off; click mode follows (a click previews, a double-click opens).
+  const core = await openConvert(page, C.bloky, setPreviewMode('off', { uiState: convertUi() }));
   await convertAt(page, ZAVOLAT);
   await saved(page, core, C.bloky, (x) => x !== B0);
   await page.keyboard.press('Meta+Enter');
@@ -848,10 +851,29 @@ test('fr_cnv_04_ac2_the_source_chip_opens_bloky_at_the_embed', async ({ page }) 
   await click(card.locator('[data-link-kind]').filter({ hasText: 'Bloky' }), 'the source chip on its Tasks-page card');
   await mustBeOn(page, 'Bloky', 'Bloky from the Tasks page', 5000);
   assert.ok(flat(await (await must(main(page).locator('[data-block-selected]'), 'selected embed')).innerText()).includes(ZAVOLAT), 'at the embed again');
+
+  // Click to preview (D-943): on the Tasks page a click on the source chip previews Bloky; a double-click opens it at
+  // the embed.
+  await switchPreviewMode(page, core, 'click');
+  await runCommand(page, 'Go to Tasks');
+  await must(main(page).getByRole('heading', { level: 1, name: 'Tasks' }), 'Tasks page (click mode)', 5000);
+  const chip = card.locator('[data-link-kind]').filter({ hasText: 'Bloky' });
+  await click(chip, 'the source chip on its Tasks-page card (click mode)');
+  await mustPreview(page, 'Bloky', 'click mode: a click on the source chip previews Bloky');
+  assert.ok(await seen(main(page).getByRole('heading', { level: 1, name: 'Tasks' }), 500), 'click mode: the click keeps the Tasks page');
+  await escPreview(page, 'click mode: the source preview');
+  await (await must(chip, 'the source chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Bloky', 'click mode: a double-click opens Bloky', 5000);
+  const sel2 = await must(main(page).locator('[data-block-selected]'), 'click mode: a selected block');
+  assert.ok(flat(await sel2.innerText()).includes(ZAVOLAT), 'click mode: the embed of the new task is selected');
+  const top2 = await scrollTop(sel2);
+  assert.ok(Math.abs(top2) <= 8, `click mode: at the top of the centre pane (± 8 px): ${top2}`);
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
 });
 
 test('fr_cnv_04_ac2_without_the_embed_bloky_opens_at_the_top', async ({ page }) => {
-  const core = await openConvert(page, C.bloky, { convert: { lastType: null, skipRemoveConfirm: true } });
+  // D-943: the click steps run with Object preview Off; click mode follows.
+  const core = await openConvert(page, C.bloky, setPreviewMode('off', { uiState: convertUi({ convert: { lastType: null, skipRemoveConfirm: true } }) }));
   await convertAt(page, ZAVOLAT);
   await saved(page, core, C.bloky, (x) => x !== B0);
   assert.ok((await selectedBlocks(page)).length > 0, 'the new embed is selected');
@@ -862,6 +884,18 @@ test('fr_cnv_04_ac2_without_the_embed_bloky_opens_at_the_top', async ({ page }) 
   await click(page.getByRole('region', { name: 'Properties', exact: true }).locator('[data-link-kind]').filter({ hasText: 'Bloky' }), 'Source chip');
   await mustBeOn(page, 'Bloky', 'Bloky', 5000);
   assert.equal(await main(page).locator('[data-block-selected]').count(), 0, 'nothing selected: Bloky opens at the top');
+
+  // Click to preview (D-943): a click previews Bloky, a double-click opens it at the top.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, ZAVOLAT, 'Back to the task', 5000);
+  await switchPreviewMode(page, core, 'click');
+  const chip = page.getByRole('region', { name: 'Properties', exact: true }).locator('[data-link-kind]').filter({ hasText: 'Bloky' });
+  await click(chip, 'Source chip (click mode)');
+  await mustPreview(page, 'Bloky', 'click mode: a click on the Source chip previews Bloky');
+  await escPreview(page, 'click mode: the Source preview');
+  await (await must(chip, 'Source chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Bloky', 'click mode: a double-click opens Bloky', 5000);
+  assert.equal(await main(page).locator('[data-block-selected]').count(), 0, 'click mode: nothing selected: Bloky opens at the top');
 });
 
 test('fr_cnv_04_ac3_backlinks_both_ways', async ({ page }) => {

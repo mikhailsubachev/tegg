@@ -5,7 +5,8 @@
 // lookup goes through `must`/`seen` and node:assert, so a missing element is an AssertionError (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { focused, gotoType, mainName, mustBeOn, shellVault, start, typeEntries } from './helpers';
+import { focused, gotoType, mainName, mustBeOn, shellVault, start, typeEntries, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   P, callsOf, control, description, eventually, fileText, fileWhen, fixture, gotoTypePage, isDisabled, lastWrite, main, must, newTypeDialog,
   noModified, openNoteByTitle, openTypes, original, props, runCommand, seen, settingsHeading, sleep, swap, typeFile, typeTable, typesVault,
@@ -229,7 +230,8 @@ test('fr_typ_08_ac13_no_source_value_is_invalid', async ({ page }) => {
 
 // The Description part is superseded by D-313 (no description on objects); its chip checks run on Source.
 test('fr_typ_08_ac14_source_chip_opens_the_note_and_shows_broken_targets', async ({ page }) => {
-  const core = await openTypes(page, P.obycejna);
+  // D-943: the D-140 steps run with Object preview Off; the click-mode steps sit in the middle, then Off again.
+  const core = await openTypes(page, P.obycejna, setPreviewMode('off'));
   await commitField(page, sourceField(page), 'Viz [[Rozpočet 2027]]', 'textbox Source');
   await written(core, P.obycejna, (x) => entry(x, 'source') !== '');
   await editorClickAway(page);
@@ -238,6 +240,19 @@ test('fr_typ_08_ac14_source_chip_opens_the_note_and_shows_broken_targets', async
   await mustBeOn(page, 'Rozpočet 2027', 'the chip opens the note (D-140)');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Obyčejná stránka', 'back');
+
+  // Click to preview (D-943): a click on the Source chip previews, a double-click opens.
+  await switchPreviewMode(page, core, 'click');
+  const chip2 = props(page).getByRole('link', { name: 'Rozpočet 2027', exact: true });
+  await (await must(chip2, 'link chip Rozpočet 2027 in Source (click mode)')).click();
+  await mustPreview(page, 'Rozpočet 2027', 'click mode: a click on the Source chip previews it');
+  assert.equal(await mainName(page), 'Obyčejná stránka', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the Source chip preview');
+  await (await must(chip2, 'the Source chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Rozpočet 2027', 'click mode: a double-click on the Source chip opens the note');
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Obyčejná stránka', 'back (click mode)');
+  await switchPreviewMode(page, core, 'off');
   await (await must(sourceField(page), 'Source')).click();
   assert.equal(await sourceField(page).inputValue(), 'Viz [[Rozpočet 2027]]', 'edit mode shows the raw text');
   await commitField(page, sourceField(page), 'Viz [[Neexistuje]]', 'Source');
@@ -299,13 +314,30 @@ test('fr_edt_07_ac18_long_text_keeps_its_block_with_the_link', async ({ page }) 
 
 test('fr_edt_07_ac18_chips_out_of_edit_mode_open_and_show_broken_targets', async ({ page }) => {
   const vault = typesVault((f) => { f[P.prazdna] = swap(f[P.prazdna], 'title: Prázdná schůzka\n', 'title: Prázdná schůzka\nmísto: "u [[Jana Nováková]] doma, pak [[Neexistuje]]"\n'); });
-  await openTypes(page, P.prazdna, { vault });
+  // D-943: the D-140 steps run with Object preview Off; click mode follows.
+  const core = await openTypes(page, P.prazdna, { ...setPreviewMode('off'), vault });
   const region = await must(props(page), 'Properties');
   const chip = await must(region.getByRole('link', { name: 'Jana Nováková', exact: true }), 'chip Jana Nováková in místo');
   const broken = await must(region.getByRole('link', { name: 'Neexistuje', exact: true }), 'chip Neexistuje');
   assert.match(await description(broken), /No note named Neexistuje/, 'broken style (D-142)');
   await chip.click();
   await mustBeOn(page, 'Jana Nováková', 'the chip opens the target (D-140)');
+
+  // Click to preview (D-943; previews.md FR-LNK-08 AC-3): a click previews and doesn't enter edit mode; a double-click
+  // opens.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Prázdná schůzka', 'Back');
+  await switchPreviewMode(page, core, 'click');
+  const chip2 = props(page).getByRole('link', { name: 'Jana Nováková', exact: true });
+  const textboxes = await props(page).getByRole('textbox').count();
+  await (await must(chip2, 'chip Jana Nováková (click mode)')).click();
+  await mustPreview(page, 'Jana Nováková', 'click mode: a click on a chip in a text value previews it');
+  assert.equal(await mainName(page), 'Prázdná schůzka', 'click mode: the click keeps the route');
+  assert.equal(await props(page).getByRole('textbox').count(), textboxes, 'click mode: the click doesn\'t enter edit mode');
+  await escPreview(page, 'click mode: the chip preview');
+  await (await must(chip2, 'chip Jana Nováková (double-click)')).dblclick();
+  await mustBeOn(page, 'Jana Nováková', 'click mode: a double-click on the chip opens the target');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-09 AC-13…AC-16

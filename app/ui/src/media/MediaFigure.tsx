@@ -30,9 +30,10 @@ export function MediaFigure({ path, title, object, onOpen }: { path: string; tit
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const open = () => { if (object && onOpen) onOpen(object); };
   return (
-    <figure className="media-figure" data-media-path={path.normalize('NFC')}>
+    // A double-click anywhere on the figure opens the object (FR-ATT-01 AC-13; slice P keeps it, D-938).
+    <figure className="media-figure" data-media-path={path.normalize('NFC')} data-media-object={object ?? undefined}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); open(); }}>
       <img src={mediaUrl(path)} alt={title} loading="lazy" draggable={false}
-        onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); open(); }}
         onClick={(e) => { if (e.metaKey) { e.preventDefault(); e.stopPropagation(); open(); } }}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY }); }}
         onLoad={() => { void ipc.perfMark(`media-ready:${path.normalize('NFC')}`).catch(() => {}); }} />

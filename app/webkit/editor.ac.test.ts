@@ -4,7 +4,9 @@
 // through `must`/`seen` and node:assert, so a missing element is an AssertionError, not a Playwright timeout (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { absent, mustBeOn, nonReadCalls, openNote, paletteDialog } from './helpers';
+import { absent, escPreview, mainName, mustBeOn, mustNoPreview, mustPreview, nonReadCalls, openNote, paletteDialog, switchPreviewMode } from './helpers';
+import { caretRel } from './previews-editor-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   E, addBelow, argText, block, blockMenu, blocksOf, bodyOf, caretIn, diffSpan, editorBody, eventually, fileText, handle,
   kindsOf, linkSuggestions, must, mustBeSaved, noModified, openEditor, original, paste, seen, selectIn, sleep, slashMenu,
@@ -283,7 +285,8 @@ test('fr_edt_01_ac10_title_field', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-EDT-02
 
 test('fr_edt_02_ac16_editor_looks_like_read_view_and_links_open', async ({ page }) => {
-  await openEditor(page, E.deset);
+  // D-943: the D-140 steps run with Object preview Off; the click-mode steps (AP-808) follow.
+  const core = await openEditor(page, E.deset, setPreviewMode('off'));
   const body = editorBody(page);
   await must(body.getByRole('heading', { name: 'Přehled' }), 'heading inside the editor');
   await must(body.getByRole('table'), 'table');
@@ -297,6 +300,27 @@ test('fr_edt_02_ac16_editor_looks_like_read_view_and_links_open', async ({ page 
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Meta+Enter');
   await mustBeOn(page, 'Cíl', '⌘↩ at the link opens it (AP-127)');
+
+  // Click to preview (D-943, AP-808): a click previews and leaves the caret after the chip; a double-click opens; ⌘↩
+  // unchanged.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Deset bloků', 'back (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  const chip = await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl (click mode)');
+  await chip.click();
+  await mustPreview(page, 'Cíl', 'click mode: a click on the chip previews');
+  assert.equal(await mainName(page), 'Deset bloků', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the chip preview');
+  assert.equal(await caretRel(chip), 'after', 'click mode: the caret is right after the chip (AP-808)');
+  await (await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl (double-click)')).dblclick();
+  await mustBeOn(page, 'Cíl', 'click mode: a double-click on the chip opens it');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Deset bloků', 'back (click mode)');
+  await caretIn(page, 10, 'Odkaz na ');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Cíl', 'click mode: ⌘↩ at the link still opens it');
 });
 
 const SLASH_BUILT: [string, string][] = [
@@ -451,7 +475,7 @@ test('fr_edt_03_ac1_slash_opens_only_where_it_should', async ({ page }) => {
   await page.keyboard.press('Escape');
   for (const [n, after] of [[5, 'Pátý'], [7, 'const'], [10, 'Odkaz na ']] as const) {
     await caretIn(page, n, after);
-    if (n === 10) { await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); } // past the [[Cíl]] chip (selected, then after it)
+    if (n === 10) await page.keyboard.press('ArrowRight'); // past the [[Cíl]] chip in one press (FR-LNK-13 AC-1, D-949)
     await page.keyboard.type('/');
     assert.ok(await absent(slashMenu(page), 500), `no slash menu after "${after}" in block ${n}`);
     await page.keyboard.press('Backspace');
@@ -699,10 +723,11 @@ test('fr_edt_05_ac5_remove_link_and_backspace_chip', async ({ page }) => {
   await (await must(page.getByRole('button', { name: 'Remove link', exact: true }), 'Remove link')).click();
   let t = await savedText(page, core, E.deset);
   assert.ok(t.includes('Pátý blok, který'), 'URL link → plain text');
-  await caretIn(page, 10, 'Odkaz na ');
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('Meta+Shift+k');
-  await (await must(page.getByRole('button', { name: 'Remove link', exact: true }), 'Remove link (wikilink)')).click();
+  // At a chip ⇧⌘K opens `Edit link` (D-927); the chip's `Link` offers `Remove link` in its Link menu (D-949).
+  const chip = await must(block(page, 10).getByRole('link', { name: 'blok', exact: true }), 'the [[Cíl|blok]] chip');
+  await chip.click({ button: 'right' });
+  const lm = await must(page.getByRole('menu', { name: /^⟦?Link⟧?$/ }), 'the Link menu on the [[Cíl|blok]] chip');
+  await (await must(lm.getByRole('menuitem', { name: 'Remove link', exact: true }), 'Remove link (wikilink)')).click();
   t = await savedText(page, core, E.deset);
   assert.ok(t.includes('Odkaz na blok a'), '[[Cíl|blok]] → blok');
   await caretIn(page, 10, 'blok');

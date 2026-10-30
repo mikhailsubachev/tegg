@@ -1,6 +1,6 @@
 // Relation and Source (link chips and the picker, FR-EDT-07 AC-6, FR-TYP-08 AC-10), Tags (FR-TYP-08 AC-8) and Aliases
 // (AC-9). Lists keep their style through @tegg/doc setValue (D-230); removing the last item removes the key (AC-9).
-import { chipParts } from '../../links/ChipParts';
+import { chipParts, chipReference, RefAnchor, TagRef } from '../../links/ChipParts';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
@@ -71,19 +71,13 @@ export function RelationControl({ name, desc, raw, to, multiple, links, types, p
         const parts = ok ? chipParts(info) : null; // D-600
         return (
           <span key={`${i}:${w.inner}`} className={`chip-wrap ${wrongType ? 'warn' : ''}`}>
-            <a data-command="panel.list.a1" href="#" aria-description={ok && parts?.description ? [d, parts.description].filter(Boolean).join(', ') : d} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'} {...parts?.attrs}
+            <RefAnchor reference={chipReference({ info, target: w.target, from: path, onOpen, relationTo: to && to.length ? to : null })} data-command="panel.list.a1" href="#" aria-description={ok && parts?.description ? [d, parts.description].filter(Boolean).join(', ') : d} data-link-kind={ok ? info!.kind : dated ? 'date-missing' : 'unresolved'} {...parts?.attrs}
               className={`chip link-chip kind-${ok ? info!.kind : dated ? 'date-missing' : 'unresolved'}`}
-              onClick={(e) => {
-                e.preventDefault();
-                if ((dated || info?.kind === 'daily') && openDate(w.target)) return; // FR-DLY-08 AC-6
-                if (ok) onOpen(info!.path!);
-                else requestOffer({ from: path, target: w.target, relationTo: to && to.length ? to : null, anchor: e.currentTarget }); // FR-LNK-04 AC-4, D-243
-              }}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); remove(i); } }}>
               {ok && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
               <span data-user-content>{shown}</span>
               {parts?.suffix}
-            </a>
+            </RefAnchor>
             {wrongType && <WarnIcon />}
             {!disabled && (
               <button data-command="panel.list.button2" type="button" tabIndex={-1} className="chip-remove" aria-label={t('panel.remove', { label: shown })} onClick={() => remove(i)}>
@@ -153,10 +147,10 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
         const name = x.replace(/^#/, '');
         return (
           <span key={`${i}:${x}`} className="chip tag-chip" style={look(name).style}>
-            <a data-command="panel.list.a4" href="#" data-tag={nfc(name).toLowerCase()} style={look(name).style} onClick={(e) => { e.preventDefault(); onTag(nfc(name).toLowerCase()); }}
+            <TagRef data-command="panel.list.a4" tagKey={nfc(name).toLowerCase()} style={look(name).style} onTag={onTag}
               onKeyDown={(e) => { if (!disabled && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); onValue(list.filter((_, j) => j !== i)); } }}>
               <span data-user-content>#{look(name).name}</span>
-            </a>
+            </TagRef>
             {!disabled && (
               <button data-command="panel.list.button5" type="button" tabIndex={-1} className="chip-remove" aria-label={t('panel.removeTag', { name })} onClick={() => onValue(list.filter((_, j) => j !== i))}>
                 <Icon name="x" size={11} />

@@ -12,6 +12,8 @@ import {
   prevDay, reviewToggle, runCommand, saveState, seen, sidebarToday, sleep, startDaily, stateIs, swap, templateBody, titleField, titleText,
   changeTypeItem, linkSuggestions, moreButton, todayBtn, typeChip, tzTag, virtualMarker, writeCalls,
 } from './daily-helpers';
+import { ui as dailyUi } from './daily-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
@@ -297,7 +299,8 @@ test.describe('virtual note', () => {
   test.use({ timezoneId: 'Europe/Prague' });
 
   test('fr_dly_02_ac1_opening_and_leaving_writes_nothing', async ({ page }) => {
-    const core = await startDaily(page, { at: D.zminky, panel: true });
+    // D-949: the date chips are opened with a single click, so the steps run under preview.mode = off.
+    const core = await startDaily(page, { at: D.zminky, panel: true, ...setPreviewMode('off', { uiState: dailyUi({ open: true }) }) });
     const before = await core.files();
     await mustBeOn(page, 'Zmínky', 'landing', 5000);
     for (const t of ['2026-10-14', '2026-10-20', '2026-10-16']) {

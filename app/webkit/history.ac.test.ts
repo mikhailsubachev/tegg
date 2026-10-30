@@ -4,7 +4,7 @@
 // lookup goes through `must`/`seen` and node:assert, so a missing element is an AssertionError (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { newEmptyVault } from '../ui/test/fake-core';
+import { newEmptyVault, setPreviewMode } from '../ui/test/fake-core';
 import {
   P, eventually, focused, mainName, must, mustBeOn, nonReadCalls, onPage, openNote, paletteDialog,
   runCommand, seen, sidebar, sleep, start, switcherDialog, theme, typesList,
@@ -148,7 +148,8 @@ test('fr_nav_03_ac4_back_restores_scroll_position', async ({ page }) => {
   await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
   const vault = readVault();
   vault.files[R.cil] = `${vault.files[R.cil].replace(/\n*$/, '\n')}\nOdkaz ven: [[Odkazy]]\n`; // Cíl needs a link to follow
-  await start(page, { vault, last: { path: R.cil, id: IDS[R.cil] } });
+  // D-949: the link is followed with a single click, so the steps run under preview.mode = off.
+  await start(page, { vault, last: { path: R.cil, id: IDS[R.cil] }, ...setPreviewMode('off') });
   await mustBeOn(page, 'Cíl', 'landing on Cíl', 5000);
   await must(article(page, 'Cíl'), 'Cíl body');
   await scrollToTop(page, headingFn('Druhá kapitola'));
@@ -165,7 +166,8 @@ test('fr_nav_03_ac4_back_restores_scroll_position', async ({ page }) => {
 
 test('fr_nav_03_ac4_fragment_entry_restored_to_its_scroll_not_the_fragment', async ({ page }) => {
   await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; }); // D-215: the read view
-  await start(page, { vault: readVault(), last: { path: R.odkazy, id: IDS[R.odkazy] } });
+  // D-949: the link is followed with a single click, so the steps run under preview.mode = off.
+  await start(page, { vault: readVault(), last: { path: R.odkazy, id: IDS[R.odkazy] }, ...setPreviewMode('off') });
   await mustBeOn(page, 'Odkazy', 'landing on Odkazy', 5000);
   const block = await must(page.locator('main li', { hasText: 'Blok:' }).getByRole('link'), 'link [[Cíl#^blok1]]');
   await block.click();

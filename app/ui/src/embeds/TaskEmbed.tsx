@@ -79,9 +79,11 @@ type Props = {
   onOpen: () => void;
   modeMenu: ReactNode;
   openButton: ReactNode;
+  /** Slice P (FR-LNK-09 AC-5): the title is a reference to the task. */
+  titleRef?: React.HTMLAttributes<HTMLElement>;
 };
 
-export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }: Props) {
+export function TaskEmbed({ node, editable, title, body, openButton, modeMenu, titleRef }: Props) {
   const d = useTaskDefs();
   const { today, zone } = useToday();
   const region = currentRegion();
@@ -173,7 +175,7 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu }:
       <div className="embed-header task-embed-header" onClick={(e) => e.stopPropagation()}>
         <Icon name={chipIcon('task').glyph} dataIcon={chipIcon('task').def} size={14} />
         <Checkbox row={row} onToggle={(v) => void act({ kind: 'complete', done: v })} />
-        <span className={`embed-title task-embed-title${done ? ' done' : ''}`} data-user-content>{name}</span>
+        <span className={`embed-title task-embed-title${done ? ' done' : ''}`} data-user-content data-embed-title="" {...titleRef}>{name}</span>
         {button({ ref: statusBtn, which: 'status', name: t('task.statusButton', { label: h.status ?? t('task.none') }), command: 'task.setStatus', attrs: { 'data-status': h.status ?? '' },
           children: <><span className="dot" data-color={statusColor ?? ''} style={statusColor ? { background: `var(--type-${statusColor})` } : undefined} /><span data-user-content>{h.status ?? t('task.none')}</span></> })}
         {button({ ref: priorityBtn, which: 'priority', name: t('task.priorityButton', { label: h.priority ?? t('task.none') }), command: 'task.setPriority', attrs: { 'data-priority': h.priority ?? '' },

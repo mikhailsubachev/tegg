@@ -348,7 +348,7 @@ export function ContextPanel({ tab, onTab, backlinks, width, room, limits, onWid
     onWidth(clamp(next));
   };
   return (
-    <aside className="context-panel" aria-label={t('frame.contextPanel')} style={{ width: drawn }}>
+    <aside className="context-panel" aria-label={t('frame.contextPanel')} data-preview-side="left" style={{ width: drawn }}>
       <div role="separator" tabIndex={0} className="panel-resizer" aria-label={t('panel.resize')} aria-orientation="vertical"
         aria-valuemin={min} aria-valuemax={max} aria-valuenow={drawn}
         onKeyDown={onKey}

@@ -58,7 +58,8 @@ export const R1: R1Row[] = [
   { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: null, goto: 'Go to Settings: Menu bar and startup' },
   { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: null, goto: 'Go to Settings: Backups' },
   { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: null, goto: 'Go to Settings: Trash and history' },
-  { id: 'settings/previews', page: 'Settings: Previews', built: false, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
+  // Built in slice P (previews.md R106, FR-SET-07 AC-1; D-943).
+  { id: 'settings/previews', page: 'Settings: Previews', built: true, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
 ];
 
 export type R2Row = { id: 'backlinks' | 'outline' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };
@@ -159,6 +160,23 @@ export const R4: R4Row[] = [
   { keys: '⌘⌫', press: 'Meta+Backspace', command: 'Move to trash', enabled: true },
   { keys: '⇧⌘A', press: 'Meta+Shift+a', command: 'Add image or PDF…', enabled: true },
 ];
+/** Slice P's R4 row (previews.md R106, D-943): ⌥Space `Show preview` (`preview.show`, section `navigate`), run only with a
+ *  focused reference or the caret at a chip. Kept apart from `R4` because previews_catalog.ac.test.ts checks the
+ *  shortcut table as `R4` plus ⌥Space; the registry tests compare against `[...R4, ...R4_P]`. */
+export const R4_P: R4Row[] = [
+  { keys: '⌥Space', press: 'Alt+Space', command: 'Show preview', enabled: true },
+];
+/** R106: the palette command `link.edit` (`Edit link`) shows ⇧⌘K, shared with R4's `edit.link` (`Insert link`): at a chip
+ *  ⇧⌘K opens `Edit link` (FR-LNK-13 AC-6). The only pair FR-UX-03 AC-7's conflict check exempts (as previews_catalog). */
+export const SHARED_SHORTCUT: { keys: string; ids: string[] } = { keys: '⇧⌘K', ids: ['edit.link', 'link.edit'] };
+/** Shortcuts used by more than one enabled command, except the R106 pair `SHARED_SHORTCUT`. */
+export function shortcutClashes(cmds: { id: string; shortcut?: string | null; due?: unknown }[]): string[] {
+  const owners = new Map<string, string[]>();
+  for (const c of cmds) if (!c.due && c.shortcut) owners.set(c.shortcut, [...(owners.get(c.shortcut) ?? []), c.id]);
+  return [...owners]
+    .filter(([k, v]) => v.length > 1 && !(k === SHARED_SHORTCUT.keys && v.every((x) => SHARED_SHORTCUT.ids.includes(x))))
+    .map(([k]) => k);
+}
 
 /** Shortcuts macOS reserves (FR-UX-03 AC-7). */
 export const RESERVED = ['⌘Q', '⌘H', '⌥⌘H', '⌘M', '⌘Tab', '⌘Space', '⌘`'];

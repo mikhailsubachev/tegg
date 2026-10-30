@@ -920,6 +920,17 @@ impl Core {
     pub fn resolve_links(&self, from: &str, targets: &[String]) -> Vec<LinkTarget> {
         self.resolve_links_with_fields(from, targets).into_iter().map(|(t, _)| t).collect()
     }
+
+    /// Slice P (D-935, v1-previews §2): the vault path of the indexed object whose frontmatter `id` equals `id` (NFC,
+    /// exact), outside `.trash/` and `_templates/`; `None` when there is none. Reads the index only; no recency.
+    pub fn path_by_id(&self, id: &str) -> Option<String> {
+        let id = nfc(id);
+        if id.is_empty() {
+            return None;
+        }
+        // The pick of `Resolver` (the last indexed object with the id), so a preview follows the file links go to.
+        self.objects().into_iter().filter(|o| o.id.as_deref() == Some(id.as_str())).last().map(|o| o.path)
+    }
 }
 
 /// The link lookup tables of `resolve_links`, built once so a type page resolves every row in one pass (D-233).
