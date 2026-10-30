@@ -223,7 +223,8 @@ export async function gotoTagPage(page: Page): Promise<string> {
   await runCommand(page, 'Go to Tags');
   const row = page.getByRole('main').getByRole('table').first().locator(`[data-tag="${TAG_ROUTE_KEY}"]`);
   await must(row, `All tags row ${TAG_ROUTE_KEY}`, 5000);
-  await row.first().click();
+  // D-949: the callers run in the default mode (click to preview), where a double-click on the row opens it (R103).
+  await row.first().dblclick();
   return `#${TAG_ROUTE_KEY}`;
 }
 
@@ -283,9 +284,45 @@ export const READ_COMMANDS = new Set([
   // 4E-2 (ms4-jobs §14.9.6): the delete dialogs start their job to read its plan; it writes nothing before job_confirm,
   // and Cancel or Esc cancels it in confirm.
   'value_remove_start', 'type_delete_start', 'job_plan', 'job_cancel',
+  'index_path_by_id', // slice P (v1-previews §2): read-only, no recency
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));
+}
+
+/**
+ * D-943 (previews.md "AC-test changes"): switches the Object preview mode of the running app with its palette command
+ * (R106 `preview.mode.*`) and waits until the machine-local UI state stores it (v1-previews §1). The older tests run
+ * their steps under `off` (started with `setPreviewMode('off', …)`) and then switch to `click` for the slice P steps.
+ */
+export async function switchPreviewMode(page: Page, core: FakeCoreHandle, mode: 'click' | 'hover' | 'off') {
+  const title = { click: 'Object preview: Click to preview', hover: 'Object preview: Hover to preview', off: 'Object preview: Off' }[mode];
+  await runCommand(page, title);
+  const got = await eventually(() => core.uiState().then((s) => (s as any)?.preview?.mode ?? 'click'), (m) => m === mode, 3000);
+  assert.equal(got, mode, `palette "${title}" stores preview.mode = ${mode}`);
+  await absent(paletteDialog(page), 1000);
+}
+/** The slice P preview popover of `title` (R102: a `dialog` named `Preview: <title>`). */
+export const previewDialog = (page: Page, title: string | RegExp) =>
+  typeof title === 'string' ? page.getByRole('dialog', { name: `Preview: ${title.normalize('NFC')}`, exact: true }) : page.getByRole('dialog', { name: title });
+/** Every slice P preview popover in the window. */
+export const anyPreviewDialog = (page: Page) => page.getByRole('dialog', { name: /^⟦?Preview: / });
+/** Asserts that `Preview: <title>` is shown and is the only preview popover (R102: one at a time). */
+export async function mustPreview(page: Page, title: string | RegExp, what: string, ms = 3000): Promise<Locator> {
+  const d = await must(previewDialog(page, title), `${what}: dialog "Preview: ${typeof title === 'string' ? title.normalize('NFC') : title}"`, ms);
+  assert.equal(await anyPreviewDialog(page).count(), 1, `${what}: exactly one preview popover`);
+  return d;
+}
+/** Waits `ms`, then asserts that no preview popover is shown. */
+export async function mustNoPreview(page: Page, what: string, ms = 500) {
+  await sleep(ms);
+  assert.equal(await anyPreviewDialog(page).count(), 0, `${what}: no preview popover`);
+}
+/** Esc closes the preview popover (R103). */
+export async function escPreview(page: Page, what: string) {
+  await page.keyboard.press('Escape');
+  const n = await eventually(() => anyPreviewDialog(page).count(), (c) => c === 0, 2000);
+  assert.equal(n, 0, `${what}: Esc closes the preview`);
 }
 
 /** Reads a registry entry and a catalog text in the page (dev server modules, ms3-shell §3.1–§3.2). */

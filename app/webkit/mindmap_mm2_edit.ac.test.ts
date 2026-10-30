@@ -141,9 +141,13 @@ test('fr_mmp_02_ac24_space_f2_and_double_click_open_the_field_and_esc_cancels', 
   s = await fieldState(fig);
   assert.equal(s?.value, 'Plán 2027', 'F2 opens the same field');
   await page.keyboard.press('Escape');
+  // D-943 (AP-823): a double-click on a node's chip opens the object; this one lands on a node without a chip
+  // (Plán 2027 is plain text, not Lisabon's chip), so it opens the field in every preview mode.
+  assert.equal(await plan.getByRole('link').count(), 0, 'guard: the double-clicked node Plán 2027 holds no chip');
   await plan.dblclick();
   s = await fieldState(fig);
   assert.equal(s?.value, 'Plán 2027', 'a double-click opens the same field');
+  assert.equal(await page.getByRole('dialog', { name: /^Preview: / }).count(), 0, 'a double-click off a chip shows no preview');
   await page.keyboard.press('Escape');
   await sleep(1500);
   assert.deepEqual(await writes(core), [], 'zero note_write after the autosave delay');

@@ -2,6 +2,7 @@
 // Written from docs/acceptance/app-shell.md and docs/contracts/ms3-shell.md only (D-61). Assertions use node:assert
 // so a failure is an AssertionError (TS-I1, tools/qa CONTRACT §5.2).
 import { test, type Page } from '@playwright/test';
+import { setPreviewMode } from '../ui/test/fake-core';
 import assert from 'node:assert/strict';
 import { R1, R2, R3, TYPES_CS, TYPE_KEYS, expandReqs, showDue } from '../test/shell-tables';
 import {
@@ -455,7 +456,8 @@ test('fr_ux_02_ac16_launch_landing_follows_core_answer', async ({ browser }) => 
 test('fr_ux_02_ac17_type_page_lists_sorted_rows_and_opens_them', async ({ page }) => {
   // Changed by D-242 / D-233 (types.md FR-TYP-09): the type page is a table sorted by Modified descending (objects
   // without `modified` last); `Type settings` leads to the built type-settings page; R3 controls as of 3D.
-  const core = await start(page, { prelude: collation('cs') });
+  // D-949: a row click opens it, so the steps run under preview.mode = off (⏎ on a row opens in every mode).
+  const core = await start(page, { prelude: collation('cs'), ...setPreviewMode('off') });
   const rows = (p: Page) => p.getByRole('main').getByRole('table').getByRole('row').filter({ has: p.locator('[data-user-content]') });
   const titles = async () => (await rows(page).allInnerTexts()).map((t) => t.split(/\n|\t/)[0].trim());
   await gotoType(page, 'Quick Notes');

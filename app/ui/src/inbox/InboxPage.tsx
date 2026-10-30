@@ -2,6 +2,7 @@
 // object waiting for review, newest first in Today / Yesterday / Earlier this week / Older, filterable by type, with
 // keyboard-first actions per card (mark reviewed, convert, append, link, tags, open) and on a selection (an `inbox`
 // job). A card marked reviewed stays dimmed in place until the user leaves the page or changes the filter (D-556).
+import { RefElement } from '../preview/useReference';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { CardText } from './CardText';
 import { TagField } from '../capture/TagField';
@@ -445,7 +446,9 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           <button type="button" tabIndex={0} className="icon-button inbox-triage" aria-haspopup="menu" data-command="inbox.triage" aria-label={t('inbox.triage', { title: r.title })}
             onClick={() => setMenu({ path: p, convert: false })}><Icon name="more-horizontal" size={14} /></button>
         </div>
-        <a href="#" className="inbox-card-title" data-command="inbox.open" onClick={(e) => { e.preventDefault(); open(r); }} data-user-content>{r.title}</a>
+        {/* Slice P (R104 row 10, D-930): the title is the card's reference; ⏎ on the card still opens (D-929). */}
+        <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => open(r) }}
+          href="#" className="inbox-card-title" data-command="inbox.open" data-user-content="">{r.title}</RefElement>
         {(tags.shown.length > 0 || tags.more > 0) && (
           <div className="inbox-card-tags">
             {tags.shown.map((x) => <span key={x} className="tag-chip" style={look(x).style} data-user-content>#{look(x).name}</span>)}

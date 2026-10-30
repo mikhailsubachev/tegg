@@ -9,7 +9,9 @@ import {
   B, SUBPATH_CHIP, chipNames, chips, createOffer, description, editorBody, eventually, fileText, flat, focus, gotoNote, isDisabled, linksVault, main, must,
   mustBeOn, mustPanel, nfc, openLinks, props, runCommand, seen, sleep, swap, writeCalls, type FakeCoreHandle,
 } from './links-helpers';
-import { absent } from './helpers';
+import { absent, mustNoPreview, switchPreviewMode } from './helpers';
+import { ui as linksUi } from './links-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -286,7 +288,9 @@ test('fr_lnk_04_ac12_opening_every_offer_writes_nothing', async ({ page }) => {
 });
 
 test('fr_syn_06_ac9_l5_zero_writes_then_one_create', async ({ page }) => {
-  const core = await openLinks(page, B.cil);
+  // D-943: the tour runs with Object preview Off, then again in click mode (backlinks chips followed with ⌘↩); the
+  // create runs with Off.
+  const core = await openLinks(page, B.cil, setPreviewMode('off', { uiState: linksUi() }));
   await mustPanel(page);
   await runCommand(page, 'Go to Broken links');
   await must(main(page).getByRole('heading', { name: 'Broken links', exact: true }), 'Broken links', 5000);
@@ -296,6 +300,20 @@ test('fr_syn_06_ac9_l5_zero_writes_then_one_create', async ({ page }) => {
   await offerFor(page, editorBody(page), 'Neexistuje');
   await page.keyboard.press('Escape');
   assert.deepEqual(await writeCalls(core), [], 'the tour writes nothing');
+
+  // Click mode (D-943): a backlinks chip is followed with ⌘↩; a broken chip still offers Create and never previews.
+  await switchPreviewMode(page, core, 'click');
+  await gotoNote(page, 'Cíl');
+  const panel = await mustPanel(page);
+  await (await must(chips(panel, 'Odkazy v textu'), 'backlinks chip Odkazy v textu (click mode)')).focus();
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Odkazy v textu', 'click mode: ⌘↩ follows the backlinks chip', 5000);
+  await gotoNote(page, 'Rozbité odkazy');
+  await offerFor(page, editorBody(page), 'Neexistuje');
+  await mustNoPreview(page, 'click mode: a broken chip never previews', 300);
+  await page.keyboard.press('Escape');
+  assert.deepEqual(await writeCalls(core), [], 'click mode: the tour writes nothing');
+  await switchPreviewMode(page, core, 'off');
   await (await createButton(await offerFor(page, editorBody(page), 'Neexistuje'), 'Neexistuje')).click();
   await mustBeOn(page, 'Neexistuje', 'created', 5000);
   assert.equal((await writeCalls(core)).length, 1, 'then exactly one write command');

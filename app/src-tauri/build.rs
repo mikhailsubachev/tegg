@@ -21,6 +21,7 @@ const COMMANDS: &[&str] = &[
     "ui_state_set",
     "link_resolve",
     "embed_load",
+    "index_path_by_id",
     "open_external",
     "note_write",
     "note_create_exact",

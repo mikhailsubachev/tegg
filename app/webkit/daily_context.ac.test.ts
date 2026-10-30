@@ -9,6 +9,9 @@ import {
   D, bodyOf, callsOf, caretAtEnd, cmdD, dailyVault, editorBody, eventually, fileText, fileWhen, flat, gotoDaily, must, mustBeOn, original,
   section, sleep, startDaily, stateIs, swap, writeCalls,
 } from './daily-helpers';
+import { ui as dailyUi } from './daily-helpers';
+import { escPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 const NAMES = ['Quick Notes', 'Tasks due', 'Created', 'Modified'] as const;
 type Name = (typeof NAMES)[number];
@@ -31,7 +34,8 @@ test.describe('sections in Europe/Prague', () => {
   test.use({ timezoneId: 'Europe/Prague' });
 
   test('fr_dly_04_ac1_four_sections_after_the_body_in_order', async ({ page }) => {
-    const core = await startDaily(page);
+    // D-943: the steps run with Object preview Off; click mode (AP-812) follows.
+    const core = await startDaily(page, setPreviewMode('off', { uiState: dailyUi() }));
     await cmdD(page, '2026-10-14');
     for (const n of NAMES) await must(section(page, n), `region "${n}"`);
     const tops = await Promise.all(NAMES.map(async (n) => (await section(page, n).first().boundingBox())?.y ?? -1));
@@ -46,6 +50,19 @@ test.describe('sections in Europe/Prague', () => {
     await link.click();
     await mustBeOn(page, 'Nápad z rána', 'the row opens the object');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
+
+    // Click to preview (D-943, AP-812): a click on a row previews; ⏎ on the focused row opens.
+    await page.keyboard.press('Meta+BracketLeft');
+    await must(section(page, 'Quick Notes').getByRole('link', { name: /Nápad z rána/ }), 'Back to 14 Oct: row Nápad z rána', 5000);
+    await switchPreviewMode(page, core, 'click');
+    const row = section(page, 'Quick Notes').getByRole('link', { name: /Nápad z rána/ });
+    await (await must(row, 'row Nápad z rána (click mode)')).click();
+    await mustPreview(page, 'Nápad z rána', 'click mode: a click on the row previews the object');
+    await escPreview(page, 'click mode: the row preview');
+    await (await must(row, 'row Nápad z rána (⏎)')).focus();
+    await page.keyboard.press('Enter');
+    await mustBeOn(page, 'Nápad z rána', 'click mode: ⏎ on the focused row opens the object');
+    assert.deepEqual(await writeCalls(core), [], 'click mode: nothing written');
   });
 
   test('fr_dly_04_ac1_sections_on_a_written_note_too', async ({ page }) => {

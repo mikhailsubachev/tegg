@@ -5,7 +5,9 @@
 // the ACs and the contract only (D-61). Every lookup goes through `must`/node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { mustBeDraft } from './helpers';
+import { mustBeDraft, escPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as linksUi } from './links-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import { B, description, editorBody, eventually, fileText, flat, gotoNote, isDisabled, main, must, mustBeOn, openLinks, props, runCommand, seen, sleep, swap, writeCalls } from './links-helpers';
 import { goToListbox, goToQuery, searchQueryField } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
 
@@ -81,7 +83,8 @@ const group = (page: Page, name: RegExp) => main(page).getByRole('group', { name
 test.describe('Duplicate titles page', () => {
   test.use({ timezoneId: 'Europe/Prague' });
   test('fr_lnk_14_ac8_page_groups_rows_and_counts', async ({ page }) => {
-    const core = await openLinks(page, B.osamela, { region: 'en-US' });
+    // D-943: the steps run with Object preview Off; click mode (AP-812) follows.
+    const core = await openLinks(page, B.osamela, { ...setPreviewMode('off', { uiState: linksUi() }), region: 'en-US' });
     await gotoDuplicates(page);
     assert.ok(await seen(main(page).getByText('2 titles shared by 6 objects', { exact: true }), 1000), 'summary');
     const names = (await main(page).getByRole('group').evaluateAll((gs) => gs.map((g) => {
@@ -108,6 +111,19 @@ test.describe('Duplicate titles page', () => {
     await page.keyboard.press('Enter');
     await mustBeOn(page, 'Senior Product Manager', '⏎ opens the object', 5000);
     assert.deepEqual(await writeCalls(core), [], 'opening and browsing write nothing');
+
+    // Click to preview (D-943, AP-812): a click on a row previews; ⏎ opens.
+    await switchPreviewMode(page, core, 'click');
+    await gotoDuplicates(page);
+    const spm2 = await must(group(page, /^Senior Product Manager, 4$/), 'group Senior Product Manager (click mode)');
+    await spm2.getByRole('link').first().click();
+    await mustPreview(page, 'Senior Product Manager', 'click mode: a click on a Duplicate titles row previews it');
+    assert.ok(await seen(main(page).getByRole('heading', { name: 'Duplicate titles', exact: true }), 500), 'click mode: the click keeps the page');
+    await escPreview(page, 'click mode: the row preview');
+    await spm2.getByRole('link').first().focus();
+    await page.keyboard.press('Enter');
+    await mustBeOn(page, 'Senior Product Manager', 'click mode: ⏎ on the row opens the object', 5000);
+    assert.deepEqual(await writeCalls(core), [], 'click mode: previewing and opening write nothing');
   });
 
   test('fr_lnk_14_ac8_external_title_change_updates_the_group', async ({ page }) => {
@@ -139,7 +155,8 @@ test.describe('Duplicate titles page', () => {
 // ------------------------------------------------------------------------------------------------ AC-10
 
 test('fr_lnk_14_ac10_new_object_never_takes_a_stem_in_use', async ({ page }) => {
-  const core = await openLinks(page, B.osamela);
+  // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+  const core = await openLinks(page, B.osamela, setPreviewMode('off', { uiState: linksUi() }));
   await page.keyboard.press('Meta+n');
   await mustBeDraft(page, 'New object'); // D-520: an unsaved draft; the title is typed there and ↩ creates it
   await page.keyboard.type('Jana Nováková');

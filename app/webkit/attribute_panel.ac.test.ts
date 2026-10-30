@@ -6,7 +6,8 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast } from './read-helpers';
 import { editorVault } from './editor-helpers';
-import { focused, mainName, mustBeOn, switcherDialog } from './helpers';
+import { focused, mainName, mustBeOn, switcherDialog, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   P, append, callsOf, control, description, dialog, eventually, fileText, isDisabled, lastWrite, main, must, noModified, nonReadCalls,
   dateOpener, openDatePicker, openNoteByTitle, openTypes, pickNoDate, pickTyped, original, otherProps, props, runCommand, seen, sleep, swap, typeFile, typesVault,
@@ -107,7 +108,8 @@ test('fr_edt_07_ac4_panel_edits_use_the_autosave_and_typing_alone_saves_nothing'
 });
 
 test('fr_edt_07_ac6_relation_chips_picker_and_written_values', async ({ page }) => {
-  const core = await openTypes(page, P.prazdna);
+  // D-943: the steps run with Object preview Off; click mode follows (a click previews, a double-click opens).
+  const core = await openTypes(page, P.prazdna, setPreviewMode('off'));
   await (await must(props(page).getByRole('button', { name: 'Add Účastníci', exact: true }), 'Add Účastníci')).click();
   const picker = await must(dialog(page, 'Choose Účastníci'), 'picker');
   await picker.getByRole('combobox', { name: 'Search' }).fill('a');
@@ -128,6 +130,23 @@ test('fr_edt_07_ac6_relation_chips_picker_and_written_values', async ({ page }) 
   assert.ok(!(await written(core, P.prazdna, (x) => !x.includes('účastníci')))?.includes('účastníci'), 'removing the last removes the key');
   await props(page).getByRole('link', { name: 'Rozpočet 2027' }).click();
   await mustBeOn(page, 'Rozpočet 2027', 'a chip opens the target (D-140)');
+
+  // Click to preview (D-943; previews.md FR-LNK-08 AC-3).
+  await page.keyboard.press('Meta+BracketLeft');
+  const chip = props(page).getByRole('link', { name: 'Rozpočet 2027' });
+  await must(chip, 'Back: the Projekt chip Rozpočet 2027', 5000);
+  const home = await mainName(page);
+  await switchPreviewMode(page, core, 'click');
+  const before = await lastWrite(core, P.prazdna);
+  await chip.first().click();
+  await mustPreview(page, 'Rozpočet 2027', 'click mode: a click on the relation chip previews it');
+  assert.equal(await mainName(page), home, 'click mode: the click keeps the route');
+  assert.equal(await dialog(page, 'Choose Projekt').count(), 0, 'click mode: the click opens no relation picker');
+  await escPreview(page, 'click mode: the relation preview');
+  assert.equal(await lastWrite(core, P.prazdna), before, 'click mode: the preview neither removes nor writes the value');
+  await (await must(chip, 'the chip (double-click)')).dblclick();
+  await mustBeOn(page, 'Rozpočet 2027', 'click mode: a double-click on the chip opens the target');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
 });
 
 test('fr_edt_07_ac6_picker_excludes_chosen_and_creates_without_leaving', async ({ page }) => {
@@ -358,10 +377,24 @@ test('fr_typ_08_ac8_tags_row', async ({ page, browser }) => {
 });
 
 test('fr_typ_08_ac8_tag_chip_opens_the_tag_page', async ({ page }) => {
-  await openTypes(page, P.porada);
+  // D-943: the D-218 step runs with Object preview Off; click mode (AP-819) follows.
+  const core = await openTypes(page, P.porada, setPreviewMode('off'));
   const chip = await must(props(page).getByRole('group', { name: 'Tags' }).getByRole('link', { name: '#finance' }), '#finance chip');
   await chip.click();
   assert.notEqual(await eventually(() => mainName(page), (n) => n !== '2026-10-07 Porada', 2000), '2026-10-07 Porada', 'opens the tag page (D-218)');
+  const tagPage = await mainName(page);
+
+  // Click to preview (AP-819): a click previews the Tag, a double-click opens its tag page.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, '2026-10-07 Porada', 'Back to Porada');
+  await switchPreviewMode(page, core, 'click');
+  const chip2 = props(page).getByRole('group', { name: 'Tags' }).getByRole('link', { name: '#finance' });
+  await (await must(chip2, '#finance chip (click mode)')).click();
+  await mustPreview(page, /^Preview: #finance$/i, 'click mode: a click on the tag chip previews the Tag');
+  assert.equal(await mainName(page), '2026-10-07 Porada', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the Tag preview');
+  await (await must(chip2, '#finance chip (double-click)')).dblclick();
+  assert.equal(await eventually(() => mainName(page), (n) => n === tagPage, 2000), tagPage, 'click mode: a double-click opens the tag page');
 });
 
 test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {

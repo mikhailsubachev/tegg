@@ -7,6 +7,8 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { absent, box, mustBeDraft, mustBeOn, runCommand, sidebar, sleep, start } from './helpers';
 import { axeContrast, tokenColour } from './read-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as tagsUi } from './tags-helpers';
 import {
   allTagsHeading, click, eventually, must, newTagDialog, openAllTags, seen, startTags, tagHeading, tagNameBox, tagRowEl, tagsVault,
 } from './tags-helpers';
@@ -80,7 +82,8 @@ test('fr_nav_01_ac14_new_object_and_search_by_click_and_enter_and_tab_order', as
 const current = (page: Page) => tagsEntry(page).first().evaluate((e) => e.getAttribute('aria-current'));
 
 test('fr_tag_07_ac6_one_tags_entry_with_icon_and_count', async ({ page }) => {
-  await startTags(page, { route: 'inbox' });
+  // D-949: the All tags rows are opened with a single click, so the steps run under preview.mode = off.
+  await startTags(page, { ...setPreviewMode('off', { uiState: tagsUi() }), route: 'inbox' });
   const entry = await must(tagsEntry(page), 'sidebar link "Tags" (R83, D-761)', 5000);
   assert.equal(await entry.locator('svg[data-icon="tags"]').count(), 1, 'the tags icon (data-icon="tags")');
   assert.equal(flat(await entry.innerText()).replace(/^Tags/, '').trim(), '10', 'the count 10 (R81 rows)');

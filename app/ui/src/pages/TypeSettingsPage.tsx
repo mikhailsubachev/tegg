@@ -24,7 +24,7 @@ const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'rev
 const UNIVERSAL_PREVIEW: [string, string][] = [['tags', 'attr.tags'], ['source', 'attr.source'], ['aliases', 'attr.aliases'], ['created', 'attr.created'], ['modified', 'attr.modified']];
 const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'embeds', 'review', 'templates', 'views', 'delete'] as const;
 const SECTION_LABEL: Record<(typeof SECTIONS)[number], string> = {
-  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'ts.preview', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
+  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'preview.properties', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
 };
 const NO_OPTIONS = new Set(['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'url', 'email', 'relation']);
 
@@ -978,12 +978,12 @@ function PreviewSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; 
     const all = [...next, ...type.preview.filter((k) => type.previewIgnored.includes(k))];
     if (focus) focusKey.current = focus;
     setType({ ...type, preview: all });
-    void w.send([{ op: 'preview', keys: all }], t('ts.preview'), 'preview');
+    void w.send([{ op: 'preview', keys: all }], t('preview.properties'), 'preview');
   };
   return (
-    <section id="ts-preview" aria-label={t('ts.preview')} className="ts-section">
-      <h2>{t('ts.preview')}</h2>
-      <ul aria-label={t('ts.previewList')} className="preview-chips">
+    <section id="ts-preview" aria-label={t('preview.properties')} className="ts-section">
+      <h2>{t('preview.properties')}</h2>
+      <ul aria-label={t('preview.properties')} className="preview-chips">
         {keys.map((k, i) => (
           <li key={k} tabIndex={0} className="chip preview-chip" data-preview={k}
             onKeyDown={(e) => {

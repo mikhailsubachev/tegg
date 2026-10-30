@@ -9,7 +9,9 @@ import {
   B, CIL_SOURCES, backlinksPanel, backlinksTab, callsOf, eventually, fileText, flat, focus, gotoNote, groupHeader, groups, linksVault,
   must, mustBeOn, mustPanel, openLinks, panelHeading, props, runCommand, seen, sleep, sourceRegion, swap, writeCalls,
 } from './links-helpers';
-import { absent } from './helpers';
+import { absent, escPreview, mainName, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as linksUi } from './links-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 const CIL_GROUPS = ['Pages, 4', 'Quick Notes, 1', 'Daily Notes, 1', 'Schůzky, 2', 'neznámý, 1'];
 const CIL_ORDER: Record<string, string[]> = {
@@ -98,7 +100,8 @@ test('fr_lnk_01_ac18_groups_and_chip_order_without_show_more', async ({ page }) 
 // ------------------------------------------------------------------------------------------------ FR-LNK-01 AC-19
 
 test('fr_lnk_01_ac19_porada_and_read_only_chips_open_like_any_open', async ({ page }) => {
-  const core = await openLinks(page, B.cil);
+  // D-943: the D-368 steps run with Object preview Off; click mode (AP-811) follows.
+  const core = await openLinks(page, B.cil, setPreviewMode('off', { uiState: linksUi() }));
   await mustPanel(page);
   await (await must(chip(page, '2026-10-08 Porada'), 'chip Porada')).click();
   await mustBeOn(page, '2026-10-08 Porada', 'the chip opens Porada', 5000);
@@ -112,10 +115,36 @@ test('fr_lnk_01_ac19_porada_and_read_only_chips_open_like_any_open', async ({ pa
   await mustBeOn(page, 'Neplatná hlavička', 'opens Neplatná hlavička', 5000);
   await must(sourceRegion(page), 'source view (NFR-REL-03 AC-3)');
   assert.deepEqual(await writeCalls(core), [], 'activating writes nothing');
+
+  // Click to preview (D-943): a click and ⏎ preview; a double-click and ⌘↩ open, as any open.
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Cíl', 'Back (before click mode)', 5000);
+  await mustPanel(page);
+  await switchPreviewMode(page, core, 'click');
+  await (await must(chip(page, '2026-10-08 Porada'), 'chip Porada (click mode)')).click();
+  await mustPreview(page, '2026-10-08 Porada', 'click mode: a click on the backlinks chip previews Porada');
+  assert.equal(await mainName(page), 'Cíl', 'click mode: the click keeps the route');
+  await escPreview(page, 'click mode: the chip preview');
+  await (await must(chip(page, '2026-10-08 Porada'), 'chip Porada (⏎)')).focus();
+  await page.keyboard.press('Enter');
+  await mustPreview(page, '2026-10-08 Porada', 'click mode: ⏎ on the focused chip previews (inline chip, AP-811)');
+  await escPreview(page, 'click mode: the ⏎ preview');
+  await (await must(chip(page, '2026-10-08 Porada'), 'chip Porada (double-click)')).dblclick();
+  await mustBeOn(page, '2026-10-08 Porada', 'click mode: a double-click opens Porada', 5000);
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
+  await sleep(300);
+  assert.equal(await focusTarget(page), 'body', 'click mode: caret placed as any open (D-247)');
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Cíl', 'Back (click mode)', 5000);
+  await (await must(chip(page, 'Neplatná hlavička'), 'chip Neplatná hlavička (⌘↩)')).focus();
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Neplatná hlavička', 'click mode: ⌘↩ on the chip opens Neplatná hlavička', 5000);
+  assert.deepEqual(await writeCalls(core), [], 'click mode: previewing and opening write nothing');
 });
 
 test('fr_lnk_01_ac19_chip_opens_the_source_without_at_and_back_restores', async ({ page }) => {
-  const core = await openLinks(page, B.cil);
+  // D-943: the D-368 steps run with Object preview Off; click mode (AP-811) follows.
+  const core = await openLinks(page, B.cil, setPreviewMode('off', { uiState: linksUi() }));
   const panel = await mustPanel(page);
   await panel.evaluate((el) => { el.scrollTop = 80; });
   const scroll = await panel.evaluate((el) => el.scrollTop);
@@ -141,6 +170,22 @@ test('fr_lnk_01_ac19_chip_opens_the_source_without_at_and_back_restores', async 
   await mustBeOn(page, 'Cíl', 'Back', 5000);
   const p2 = await mustPanel(page);
   assert.equal(await eventually(() => p2.evaluate((el) => el.scrollTop), (s) => Math.abs(s - scroll) < 2), scroll, 'scroll position restored');
+
+  // Click to preview (D-943): ⏎ on the focused chip previews; ⌘↩ opens the source without `at`.
+  await switchPreviewMode(page, core, 'click');
+  const c2 = await must(chip(page, 'Odkazy v textu'), 'chip Odkazy v textu (click mode)');
+  await c2.focus();
+  await page.keyboard.press('Enter');
+  await mustPreview(page, 'Odkazy v textu', 'click mode: ⏎ on the chip previews the source');
+  assert.equal(await mainName(page), 'Cíl', 'click mode: ⏎ keeps the route');
+  await escPreview(page, 'click mode: the ⏎ preview');
+  const n1 = (await callsOf(core, 'nav_opened')).length;
+  await (await must(chip(page, 'Odkazy v textu'), 'chip Odkazy v textu (⌘↩)')).focus();
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Odkazy v textu', 'click mode: ⌘↩ on the chip opens the source', 5000);
+  const opened2 = (await callsOf(core, 'nav_opened')).slice(n1).map((x) => x.args as any);
+  assert.ok(opened2.some((a) => a?.path === B.odkazy), `click mode: recorded with nav_opened: ${JSON.stringify(opened2)}`);
+  assert.ok(opened2.every((a) => !String(a?.route ?? '').includes('at=')), `click mode: no at parameter: ${JSON.stringify(opened2)}`);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-01 AC-20

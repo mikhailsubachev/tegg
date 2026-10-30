@@ -14,6 +14,8 @@ import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { CARD, I, cardNamed, gotoInbox, inboxEntry, main, must, runCommand, sidebar, sleep, startMain } from './capture-helpers';
 import { openNote } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as captureUi } from './capture-helpers';
 import { tokenColour } from './read-helpers';
 import { card, dateFilter, groupBy, quickAdd, tagInput as taskTagInput, viewTab, heading as tasksHeading } from './tasks-helpers';
 
@@ -110,7 +112,8 @@ async function oldBlueOutlines(page: Page): Promise<string[]> {
 // ------------------------------------------------------------------------------------------------ (a) pointer
 
 test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
-  await startMain(page);
+  // D-949: the pointer tour clicks references (cards, rows) as before slice P, so it runs under preview.mode = off.
+  await startMain(page, setPreviewMode('off', { uiState: captureUi() }));
   const states: NonNullable<State>[] = [];
   // Trash (6A: Home is removed, D-613) → a sidebar entry (Inbox).
   await runCommand(page, 'Go to Trash');

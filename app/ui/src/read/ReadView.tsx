@@ -1,7 +1,7 @@
 // Read view: the formatted, read-only note body (FR-EDT-02 display, slice 3B; docs/contracts/ms3-shell.md §11.3).
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
 // it, math and footnotes are shown as source text. Queries are R5 placeholders (D-144); a mindmap is drawn (slice MM).
-import { cloneElement, Fragment, isValidElement, useState, type ReactNode } from 'react';
+import { cloneElement, Fragment, isValidElement, useMemo, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
@@ -16,6 +16,8 @@ import { calloutType } from './callout';
 import { InNotePlaceholder } from './InNotePlaceholder';
 import { MediaView } from '../media/MediaView';
 import { openDate } from '../daily/open';
+import { useReference, type ReferenceOpts } from '../preview/useReference';
+import type { PreviewTarget } from '../preview/types';
 
 export type ReadViewProps = {
   text: string;
@@ -36,6 +38,10 @@ export type ReadViewProps = {
   noteTitle?: string;
   /** Slice MM (mm-mindmap §3.3): only the map of the first block, for the editor's mindmap block. */
   mindmapOnly?: { onNode: (path: number[] | null) => void; readOnly: boolean; edit?: MindmapEdit | null; onFocusedNode?: (path: number[] | null | undefined) => void };
+  /** Slice P (v1-previews §3.4): headings never above this level (the preview's title is its `h2`). */
+  minHeading?: number;
+  /** Slice P (D-934): only the top-level blocks `[from, to)`, each marked `data-preview-block` (a windowed preview). */
+  range?: [number, number];
 };
 
 // mdast nodes of `@tegg/doc` (with its wikiLink, tag, highlight and comment nodes), read structurally.
@@ -127,11 +133,22 @@ type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: b
   /** Inside a mindmap node: embeds show their chip only and files are never read (D-774). */
   inMap?: boolean };
 
-function Chip({ kind, name, type, description, disabled, onActivate, info }: {
+/** Slice P (R104 rows 2, 11): a chip that is a reference: click, double-click, keys and hover map through R103. */
+function RefChip(p: Parameters<typeof Chip>[0] & { reference: ReferenceOpts }) {
+  const parts = p.info ? chipParts(p.info) : null;
+  const { props } = useReference(p.reference, { description: joinDescriptions(p.description, parts?.description) });
+  return <Chip {...p} refProps={props} />;
+}
+
+function Chip({ kind, name, type, description, disabled, onActivate, info, reference, refProps }: {
   kind: string; name: string; type: string | null; description?: string; disabled?: boolean; onActivate?: (el: HTMLElement) => void;
   /** D-600: the resolved target, for the Unreviewed mark and a task's suffix. */
   info?: LinkTargetDto;
+  /** Slice P: the chip is a reference (its target, or null when broken; its open; the Create offer). */
+  reference?: ReferenceOpts;
+  refProps?: React.HTMLAttributes<HTMLElement>;
 }) {
+  if (reference && !refProps) return <RefChip kind={kind} name={name} type={type} description={description} disabled={disabled} info={info} reference={reference} />;
   const act = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!disabled) onActivate?.(e.currentTarget as HTMLElement);
@@ -141,6 +158,7 @@ function Chip({ kind, name, type, description, disabled, onActivate, info }: {
   return (
     <a
       href="#"
+      tabIndex={0}
       className={`chip link-chip kind-${kind}`}
       data-link-kind={kind}
       {...parts?.attrs}
@@ -148,6 +166,7 @@ function Chip({ kind, name, type, description, disabled, onActivate, info }: {
       aria-disabled={disabled ? 'true' : undefined}
       onClick={act}
       onKeyDown={(e) => e.key === 'Enter' && act(e)}
+      {...refProps}
     >
       {parts?.icon ?? (type && (icon ? <Icon name={icon.glyph} dataIcon={icon.def} size={13} /> : <Icon name="link" size={13} />))}
       <span data-user-content>{name}</span>
@@ -169,20 +188,23 @@ function NoteLink({ c, target, subpath, shown }: { c: Ctx; target: string; subpa
   if (info && (info.kind === 'note' || info.kind === 'daily') && info.path) {
     const title = info.title ?? target;
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title);
-    return <Chip kind={info.kind} name={name} type={info.type} info={info} onActivate={() => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); }} />;
+    const open = () => { if (!(info.kind === 'daily' && openDate(target))) c.onOpen(info.path!, subpath ?? undefined); };
+    const pt: PreviewTarget = { path: info.path.normalize('NFC'), fragment: subpath, kind: 'note' };
+    return <Chip kind={info.kind} name={name} type={info.type} info={info} reference={{ target: pt, kind: 'chip', open, menu: { name } }} />;
   }
   if (info?.kind === 'trashed' && info.path) {
-    // 6A (R74): only in the trash: struck through, `In trash`; opens the Trash with its row focused.
+    // 6A (R74): only in the trash: struck through, `In trash`; opens the Trash with its row focused. Never previews (D-939).
     const name = shown ?? info.title ?? target;
-    return <Chip kind="trashed" name={name} type={info.type} info={info} onActivate={() => c.onOpen(info.path!)} />;
+    const open = () => c.onOpen(info.path!);
+    return <Chip kind="trashed" name={name} type={info.type} info={info} reference={{ target: null, kind: 'chip', open, createOffer: open }} />;
   }
   if (info?.kind === 'date-missing') {
-    // FR-DLY-08 AC-5, AC-6 (D-142 ended): never broken; opens the virtual Daily Note.
+    // FR-DLY-08 AC-5, AC-6 (D-142 ended): never broken; opens the virtual Daily Note, previews `No note for this day yet.`
     const name = shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target);
-    return <Chip kind="date-missing" name={name} type="daily-note" onActivate={() => void openDate(target)} />;
+    return <Chip kind="date-missing" name={name} type="daily-note" reference={{ target: { path: '', fragment: null, kind: 'day', key: target.trim() }, kind: 'chip', open: () => void openDate(target) }} />;
   }
   return <Chip kind="unresolved" name={shown ?? (subpath && !subpath.startsWith('^') ? `${target} › ${subpath}` : target)} type={null} description={t('link.noNote', { target })}
-    onActivate={(el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el })} />;
+    reference={{ target: null, kind: 'chip', open: () => {}, createOffer: (el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el }), menu: { name: target } }} />;
 }
 
 function embedPlaceholder(c: Ctx, value: string, inline: boolean, line = 0): ReactNode {
@@ -214,16 +236,17 @@ function LinkModeEmbed({ c, value }: { c: Ctx; value: string }) {
   const title = ok ? (info!.title ?? target) : target;
   const name = subpath && !subpath.startsWith('^') ? `${title} › ${subpath}` : title;
   const icon = chipIcon(ok ? info!.type : info?.kind === 'date-missing' ? 'daily-note' : null);
-  const act = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    if (ok) c.onOpen(info!.path!, subpath ?? undefined);
-    else if (info?.kind === 'date-missing') void openDate(target);
-    else requestOffer({ from: c.path, target, relationTo: null, anchor: e.currentTarget as HTMLElement });
-  };
+  const day = info?.kind === 'date-missing';
+  const { props } = useReference({
+    target: ok ? { path: info!.path!.normalize('NFC'), fragment: subpath, kind: 'note' } : day ? { path: '', fragment: null, kind: 'day', key: target.trim() } : null,
+    kind: 'chip',
+    open: () => { if (ok) c.onOpen(info!.path!, subpath ?? undefined); else if (day) void openDate(target); },
+    createOffer: (el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el }),
+  });
   return (
-    <a href="#" role="link" className={`embed-chip embed-link${ok || info?.kind === 'date-missing' ? '' : ' kind-unresolved'}`} data-embed-mode="link"
+    <a href="#" role="link" tabIndex={0} className={`embed-chip embed-link${ok || info?.kind === 'date-missing' ? '' : ' kind-unresolved'}`} data-embed-mode="link"
       data-embed-state={ok || info?.kind === 'date-missing' ? 'ok' : 'broken'} data-embed-target={info?.path ?? target} data-icon={ok ? icon.def : undefined}
-      aria-label={name} aria-description={ok ? t('embed.chip') : t('link.noNote', { target })} onClick={act} onKeyDown={(e) => e.key === 'Enter' && act(e)}>
+      aria-label={name} aria-description={ok ? t('embed.chip') : t('link.noNote', { target })} {...props}>
       {ok && <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}
       <span data-user-content>{name}</span>
     </a>
@@ -288,15 +311,7 @@ function inline(c: Ctx, n: Any): ReactNode {
     case 'tag': {
       if (c.inLink) return `#${n.value}`;
       const key = String(n.value).normalize('NFC').toLowerCase();
-      const act = (e: React.SyntheticEvent) => {
-        e.preventDefault();
-        c.onTag(key);
-      };
-      return (
-        <a href="#" className="chip tag-chip" data-tag={key} data-tag-key={key} onClick={act} onKeyDown={(e) => e.key === 'Enter' && act(e)}>
-          <span data-user-content>#{String(n.value).normalize('NFC')}</span>
-        </a>
-      );
+      return <TagChip value={String(n.value)} tagKey={key} onTag={c.onTag} />;
     }
     case 'wikiLink': {
       const w = splitWikilink(n.value);
@@ -341,15 +356,28 @@ function inline(c: Ctx, n: Any): ReactNode {
   }
 }
 
-/** A trailing ` ^id` block id (dialect §5) is removed from the last text node and returned. */
+/** A `#tag` chip (R104 row 12, D-937): previews the Tag; opens `tag/<key>`. */
+function TagChip({ value, tagKey, onTag }: { value: string; tagKey: string; onTag: (k: string) => void }) {
+  const { props } = useReference({ target: { path: '', fragment: null, kind: 'tag', key: tagKey }, kind: 'chip', open: () => onTag(tagKey) });
+  return (
+    <a href="#" tabIndex={0} className="chip tag-chip" data-tag={tagKey} data-tag-key={tagKey} {...props}>
+      <span data-user-content>#{value.normalize('NFC')}</span>
+    </a>
+  );
+}
+
+/** Block ids already taken, per node: the parsed tree is reused across renders (ReadView's memo). */
+const takenIds = new WeakMap<object, string | null>();
+/** A trailing ` ^id` block id (dialect §5) is removed from the last text node and returned (again on a re-render). */
 function takeBlockId(n: Any): string | null {
+  if (takenIds.has(n)) return takenIds.get(n)!;
   const kids = n.children as Any[] | undefined;
   const last = kids?.[kids.length - 1];
-  if (!last || last.type !== 'text') return null;
-  const m = BLOCK_ID.exec(last.value);
-  if (!m) return null;
-  last.value = last.value.slice(0, m.index);
-  return `^${m[1]}`;
+  const m = last && last.type === 'text' ? BLOCK_ID.exec(last.value) : null;
+  if (m && last) last.value = last.value.slice(0, m.index);
+  const id = m ? `^${m[1]}` : null;
+  takenIds.set(n, id);
+  return id;
 }
 
 function Callout({ c, n, line, hint }: { c: Ctx; n: Any; line?: number; hint?: boolean }) {
@@ -465,7 +493,7 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
   switch (n.type) {
     case 'heading': {
       const id = takeBlockId(n);
-      const Tag = `h${Math.min(6, n.depth + 1)}` as 'h2';
+      const Tag = `h${Math.min(6, Math.max(c.minHeading ?? 0, n.depth + 1))}` as 'h2';
       const text = plainText(n).normalize('NFC').trim();
       return (
         <Tag key={key} id={id ?? c.slug(text)} data-heading={text}>
@@ -596,11 +624,16 @@ function blocks(c: Ctx, nodes: Any[]): ReactNode[] {
  *  the source view is toggled (D-146). Components take it as the `line` prop. */
 function topBlocks(c: Ctx, nodes: Any[], lineOffset: number): ReactNode[] {
   for (const n of nodes) c.tops.add(n);
-  return nodes.map((n, i) => {
+  const [from, to] = c.range ?? [0, nodes.length];
+  return nodes.slice(from, to).map((n, k) => {
+    const i = from + k;
     const el = block(c, n, i);
     if (!isValidElement(el)) return el;
     const line = lineOffset + n.position!.start.line;
-    return typeof el.type === 'string' ? cloneElement(el as React.ReactElement<Record<string, unknown>>, { 'data-src-line': line }) : cloneElement(el as React.ReactElement<{ line?: number }>, { line });
+    const mark = c.range ? { 'data-preview-block': i } : {};
+    if (typeof el.type === 'string') return cloneElement(el as React.ReactElement<Record<string, unknown>>, { 'data-src-line': line, ...mark });
+    if (c.range) return <div key={i} data-preview-block={i}>{cloneElement(el as React.ReactElement<{ line?: number }>, { line })}</div>;
+    return cloneElement(el as React.ReactElement<{ line?: number }>, { line });
   });
 }
 
@@ -612,11 +645,14 @@ export function noteTitle(doc: ReturnType<typeof parse>, path: string): string {
 
 export function ReadView(props: ReadViewProps) {
   const text = props.text.replace(/^﻿/, '');
-  const doc = parse(text);
-  // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
-  const shown = displayTablesAt(text.slice(doc.bodyStart));
+  // Parsed once per text: a windowed preview (D-934) renders again for every scroll step of a long note.
+  const { doc, shown, tree } = useMemo(() => {
+    const doc = parse(text);
+    // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
+    const shown = displayTablesAt(text.slice(doc.bodyStart));
+    return { doc, shown, tree: markdownTree(shown.text) as unknown as Any };
+  }, [text]);
   const body = shown.text;
-  const tree = markdownTree(body) as unknown as Any;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
   const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines), title: props.noteTitle ?? noteTitle(doc, props.path) };
   if (props.mindmapOnly) {

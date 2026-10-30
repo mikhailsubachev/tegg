@@ -187,7 +187,13 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   }
   const go = (id: string | null | undefined) => { if (id && ids.has(id)) { moved.current = true; wanted.current = info.get(id)?.path ?? null; setFocus(id); } };
   const goPath = (path: number[] | null | undefined) => { if (path !== undefined) { moved.current = true; wanted.current = path; setFocus(idOf(path)); } };
-  const openLink = (el: HTMLElement) => { el.querySelector<HTMLElement>('.chip, .embed-chip, a[href]')?.click(); };
+  /** ⌘↩ opens and ⌥Space previews the node's first link (FR-MMP-02 AC-8, D-941): the key goes to its chip, whose
+   *  reference does what R103 says. */
+  const linkKey = (el: HTMLElement, init: KeyboardEventInit) => {
+    const chip = el.querySelector<HTMLElement>('[data-preview-ref], .chip, .embed-chip, a[href]');
+    chip?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+  };
+  const openLink = (el: HTMLElement) => linkKey(el, { key: 'Enter', code: 'Enter', metaKey: true });
   const nodeOf = (id: string) => layout.nodes.find((n) => n.id === id);
   const lastDescendant = (id: string): string => {
     let last = id;
@@ -289,6 +295,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     else if (k === 'Home') go(order[0]);
     else if (k === 'End') go(order[order.length - 1]);
     else if (k === 'Enter' && meta) openLink(e.currentTarget as HTMLElement);
+    else if (k === ' ' && e.altKey && !meta) { e.preventDefault(); e.stopPropagation(); linkKey(e.currentTarget as HTMLElement, { key: ' ', code: 'Space', altKey: true }); }
     else if (!edit) { if (k === 'Enter' || k === ' ' || k === 'F2' || k === 'Backspace' || k === 'Delete') { /* navigation only (D-786): swallowed, nothing happens */ } else return; }
     else if (k === 'z' && meta) {
       if (e.shiftKey) { if (edit.redo() && stepAt.current < steps.current.length) goPath(steps.current[stepAt.current++].after); else moved.current = true; }

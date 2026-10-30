@@ -126,7 +126,9 @@ export const ipc = {
   editorOpen: (path: string) => invoke<void>('editor_open', { path }),
   editorClose: (path: string) => invoke<void>('editor_close', { path }),
   // 4F (ms4-embeds §4): one call per nesting level; records no recency.
-  embedLoad: (paths: string[]) => invoke<EmbedNoteDto[]>('embed_load', { paths }),
+  embedLoad: (paths: string[], media = false) => invoke<EmbedNoteDto[]>('embed_load', media ? { paths, media } : { paths }),
+  /** Slice P (v1-previews §2, D-935): a previewed object's path after a rename, by its `id`. */
+  indexPathById: (id: string) => invoke<string | null>('index_path_by_id', { id }),
   // 5B (ms5-capture §5, §7; D-578).
   inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
   inboxCount: () => invoke<number>('inbox_count'),

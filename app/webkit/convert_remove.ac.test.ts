@@ -10,6 +10,7 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { copyOrCut, paste } from './editor-helpers';
+import { switchPreviewMode } from './helpers';
 import {
   C, NOW, ZAVOLAT, ZAVOLAT_PARA, ZAVOLAT_TASK, absent, blockMenu, caretAfter, convertVault, eventually, fileText, hostText, must, mustBeOn, openConvert,
   original, removeDialog, saved, seen, selectTop, selectedBlocks, sleep, swap, topIndexOf, touched, writeLog, writesOf, type FakeCoreHandle,
@@ -188,6 +189,8 @@ test('fr_cnv_08_ac4_the_object_is_untouched', async ({ page }) => {
   assert.deepEqual(await core.version(ZAVOLAT_TASK), v, 'version (mtime) kept');
   await switchTo(page, ZAVOLAT);
   await mustBeOn(page, ZAVOLAT, 'the task', 5000);
+  // D-949: the Source chip is opened with a single click, so this step runs under preview.mode = off.
+  await switchPreviewMode(page, core, 'off');
   const chip = await must(page.getByRole('region', { name: 'Properties', exact: true }).locator('[data-link-kind]').filter({ hasText: 'Bloky' }), 'Source chip');
   await chip.click();
   await mustBeOn(page, 'Bloky', 'Bloky', 5000);

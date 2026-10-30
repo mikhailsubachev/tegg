@@ -11,6 +11,12 @@ import {
   flat, gotoDaily, isDisabled, linkSuggestions, longDate, main, must, mustBeOn, mustDaily, runCommand, seen, startDaily, stateIs, titleField, tzTag,
   virtualMarker, writeCalls,
 } from './daily-helpers';
+import { ui as dailyUi } from './daily-helpers';
+import { escPreview, mainName, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+
+/** D-943: the FR-DLY-08 AC-6 steps run with Object preview Off. */
+const OFF = () => setPreviewMode('off', { uiState: dailyUi() });
 
 const LOCAL: Record<string, string> = { 'Europe/Prague': '+02:00', 'America/Los_Angeles': '-07:00' };
 /** D-368: a backlinks panel entry is a `link` chip with `data-link-kind="note"` named by the source title. */
@@ -201,7 +207,7 @@ test.describe('date links', () => {
 
   test('fr_dly_08_ac6_activating_a_date_link_opens_the_note', async ({ page }) => {
     const v = dailyVault((f) => { f[D.zminky] = f[D.zminky].replace('Kolize [[2026-10-16]].', 'Kolize [[2026-10-16]].\n\nRáno [[2026-10-14#Ráno]].'); });
-    const core = await startDaily(page, { vault: v, at: D.zminky });
+    const core = await startDaily(page, { ...OFF(), vault: v, at: D.zminky });
     await mustBeOn(page, 'Zmínky', 'landing', 5000);
     const open = async (what: string, chip: ReturnType<typeof main>, date: string) => {
       const c = await must(chip, `chip ${what}`);
@@ -218,10 +224,26 @@ test.describe('date links', () => {
     await open('2026-10-14#Ráno', main(page).locator('[data-link-kind]').filter({ hasText: /^\s*2026-10-14( › |#)Ráno\s*$/ }), '2026-10-14');
     assert.ok(await absent(page.getByRole('dialog', { name: 'Create note' }), 300), 'no Create dialog');
     assert.deepEqual(await writeCalls(core), [], 'opening date links writes nothing');
+
+    // Click to preview (D-943; previews.md FR-LNK-10 AC-9): a click previews, a double-click and ⌘↩ open daily/<date>.
+    await switchPreviewMode(page, core, 'click');
+    await (await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20 (click mode)')).click();
+    await mustPreview(page, '2026-10-20', 'click mode: a click on [[2026-10-20]] previews the (virtual) Daily Note');
+    assert.equal(await mainName(page), 'Zmínky', 'click mode: the click keeps the route');
+    await escPreview(page, 'click mode: the date preview');
+    await page.keyboard.press('Meta+Enter');
+    await mustDaily(page, '2026-10-20', 'click mode: ⌘↩ with the caret after the chip');
+    await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Zmínky', 'Back (click mode)');
+    await (await must(chips(main(page), '2026-10-07'), 'chip 2026-10-07 (double-click)')).dblclick();
+    await mustDaily(page, '2026-10-07', 'click mode: a double-click on [[2026-10-07]]');
+    await mustNoPreview(page, 'click mode: after the double-click', 300);
+    assert.ok(await absent(page.getByRole('dialog', { name: 'Create note' }), 300), 'click mode: no Create dialog');
+    assert.deepEqual(await writeCalls(core), [], 'click mode: previewing and opening date links write nothing');
   });
 
   test('fr_dly_08_ac6_twelfth_opens_the_newest_and_twentieth_is_virtual', async ({ page }) => {
-    await startDaily(page, { at: D.zminky });
+    const core = await startDaily(page, { ...OFF(), at: D.zminky });
     await mustBeOn(page, 'Zmínky', 'landing', 5000);
     const c12 = await must(chips(main(page), '2026-10-12'), 'chip 2026-10-12');
     assert.equal(await isDisabled(c12), false, 'enabled');
@@ -233,11 +255,24 @@ test.describe('date links', () => {
     await (await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20')).click();
     await mustDaily(page, '2026-10-20', '[[2026-10-20]]');
     assert.ok(await seen(virtualMarker(page), 1000), 'virtual');
+
+    // Click to preview (D-943): the same opens by double-click.
+    await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Zmínky', 'Back (before click mode)');
+    await switchPreviewMode(page, core, 'click');
+    await (await must(chips(main(page), '2026-10-12'), 'chip 2026-10-12 (click mode)')).dblclick();
+    await mustDaily(page, '2026-10-12', 'click mode: a double-click on [[2026-10-12]]');
+    assert.ok(await seen(editorBody(page).getByText('Novější zápis z druhého zařízení.'), 2000), 'click mode: 12 Oct (2) (D-319)');
+    await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Zmínky', 'Back (click mode)');
+    await (await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20 (click mode)')).dblclick();
+    await mustDaily(page, '2026-10-20', 'click mode: a double-click on [[2026-10-20]]');
+    assert.ok(await seen(virtualMarker(page), 1000), 'click mode: virtual');
   });
 
   test('fr_dly_08_ac6_read_view_enter_on_a_focused_chip', async ({ page }) => {
     await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
-    const core = await startDaily(page, { at: D.zminky });
+    const core = await startDaily(page, { ...OFF(), at: D.zminky });
     await mustBeOn(page, 'Zmínky', 'landing', 5000);
     const c = await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20 in the read view');
     assert.equal(await isDisabled(c), false, 'enabled');
@@ -245,6 +280,21 @@ test.describe('date links', () => {
     await page.keyboard.press('Enter');
     await mustDaily(page, '2026-10-20', '⏎ on the focused chip');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
+
+    // Click to preview (D-943; FR-LNK-10 AC-9, AP-811): ⏎ on the focused chip previews; ⌘↩ opens.
+    await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Zmínky', 'Back (before click mode)');
+    await switchPreviewMode(page, core, 'click');
+    const c2 = await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20 in the read view (click mode)');
+    await c2.focus();
+    await page.keyboard.press('Enter');
+    await mustPreview(page, '2026-10-20', 'click mode: ⏎ on the focused chip previews the Daily Note');
+    assert.equal(await mainName(page), 'Zmínky', 'click mode: ⏎ keeps the route');
+    await escPreview(page, 'click mode: the ⏎ preview');
+    await (await must(chips(main(page), '2026-10-20'), 'chip 2026-10-20 (⌘↩)')).focus();
+    await page.keyboard.press('Meta+Enter');
+    await mustDaily(page, '2026-10-20', 'click mode: ⌘↩ on the focused chip');
+    assert.deepEqual(await writeCalls(core), [], 'click mode: nothing written');
   });
 
   test('fr_dly_08_ac7_backlinks_of_a_virtual_note', async ({ page }) => {
@@ -286,7 +336,8 @@ test.describe('date links', () => {
       f['.tegg/types/událost.yml'] = '# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg\'s type settings.\nversion: 1\nname: Událost\nplural: Události\nsystem: false\nfolder: Události\nicon: calendar\ncolor: teal\nreview: false\npreview: [poznámka]\nattributes:\n  - key: poznámka\n    name: Poznámka\n    type: text\n  - key: den\n    name: Den\n    type: relation\n';
       f['Události/Výlet.md'] = '---\nid: 01JB4B0000000000000000W031\ntype: událost\ntitle: Výlet\npoznámka: "[[2026-10-20]]"\nden: "[[2026-10-20]]"\ncreated: 2026-10-02T10:00:00+02:00\nmodified: 2026-10-02T10:00:00+02:00\n---\nNa hory.\n';
     });
-    const core = await startDaily(page, { vault: v, at: 'Události/Výlet.md', panel: true });
+    // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
+    const core = await startDaily(page, { vault: v, at: 'Události/Výlet.md', panel: true, ...setPreviewMode('off', { uiState: dailyUi({ open: true }) }) });
     await mustBeOn(page, 'Výlet', 'landing', 5000);
     const props = page.getByRole('region', { name: 'Properties', exact: true });
     const cs = props.locator('[data-link-kind]').filter({ hasText: /^\s*2026-10-20\s*$/ });

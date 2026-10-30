@@ -2,6 +2,7 @@
 // placeholder: on today's note overdue, due today and completed today; on other dates due that day and completed that
 // day. Rows: checkbox, type icon and title, due chip, source chip. Completing writes only the task (never the Daily
 // Note, which stays virtual if it is).
+import { RefElement } from '../preview/useReference';
 import { addDays, localDate } from '@tegg/doc';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/catalog';
@@ -67,9 +68,11 @@ export function DailyTasks({ date, onOpen }: { date: string; onOpen: (path: stri
             return (
               <li key={r.path} data-path={r.path.normalize('NFC')} className={`daily-task${r.state === 'done' ? ' done' : ''}`}>
                 <Checkbox row={r} onToggle={(d) => toggle(r, d)} />
-                <a href="#" tabIndex={0} className="daily-row" data-command="daily.openRow" onClick={(e) => { e.preventDefault(); onOpen(r.path); }}>
+                {/* Slice P (R104 row 7): the task's title is its card's reference (a click previews, ⏎ opens). */}
+                <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => onOpen(r.path) }}
+                  href="#" tabIndex={0} className="daily-row" data-command="daily.openRow" onClick={(e) => e.preventDefault()}>
                   <Icon name={icon.glyph} dataIcon={icon.def} size={14} /><span data-user-content>{r.title}</span>
-                </a>
+                </RefElement>
                 <DueChip row={r} today={today} region={region} zone={zone} />
                 <SourceChip row={r} nav={nav} />
               </li>

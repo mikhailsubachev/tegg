@@ -12,6 +12,8 @@ import {
   type FakeCoreHandle,
 } from './editor-helpers';
 import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 
 async function focusTarget(page: Page): Promise<string | null> {
   return page.evaluate(() => document.querySelector('[data-focus-target]')?.getAttribute('data-focus-target') ?? null);
@@ -66,7 +68,8 @@ test('fr_edt_01_ac11_switcher_open_puts_the_caret_at_the_start_of_the_body', asy
 });
 
 test('fr_edt_01_ac11_link_and_type_page_open_put_the_caret_in_the_body', async ({ page }) => {
-  await openEditor(page, E.deset);
+  // D-943: the click-to-open steps run with Object preview Off; in click mode the same opens are double-clicks.
+  const core = await openEditor(page, E.deset, setPreviewMode('off'));
   const link = await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl');
   await link.click();
   await mustBeOn(page, 'Cíl', 'followed the link');
@@ -81,6 +84,24 @@ test('fr_edt_01_ac11_link_and_type_page_open_put_the_caret_in_the_body', async (
   await mustBeOn(page, 'Deset bloků', 'opened from the type page');
   await expectCaretAtStartOfBody(page, 'Přehled', 'type page');
   void sidebar;
+
+  // Click to preview (D-943): a double-click on the chip and on the row opens; the caret rule is unchanged.
+  await switchPreviewMode(page, core, 'click');
+  await (await must(editorBody(page).getByRole('link', { name: 'Cíl' }), 'link chip Cíl (click mode)')).dblclick();
+  await mustBeOn(page, 'Cíl', 'click mode: a double-click follows the link');
+  await mustNoPreview(page, 'click mode: after the double-click on the chip', 300);
+  await sleep(200);
+  assert.equal(await focusTarget(page), 'body', 'click mode, link: data-focus-target="body"');
+  assert.ok(await caretInBody(page), 'click mode, link: caret in the body');
+  await (await must(typesList(page).getByRole('link', { name: /^Pages/ }).or(typesList(page).getByRole('button', { name: /^Pages/ })).first(), 'sidebar entry Pages (click mode)')).click();
+  await mustBeOn(page, 'Pages', 'type page Pages (click mode)');
+  const row2 = await must(page.getByRole('main').getByRole('row').filter({ hasText: 'Deset bloků' }), 'row Deset bloků (click mode)');
+  await row2.click();
+  await mustPreview(page, 'Deset bloků', 'click mode: a click on the row previews (AP-812)');
+  await escPreview(page, 'click mode: the row preview');
+  await row2.dblclick();
+  await mustBeOn(page, 'Deset bloků', 'click mode: a double-click on the row opens it');
+  await expectCaretAtStartOfBody(page, 'Přehled', 'click mode, type page');
 });
 
 test('fr_edt_01_ac11_a_read_only_first_block_puts_the_caret_in_the_first_editable_block', async ({ page }) => {
@@ -131,7 +152,8 @@ test('fr_edt_01_ac11_back_keeps_the_restored_scroll_position', async ({ page }) 
   const vault = editorVault();
   const extra = Array.from({ length: 80 }, (_, i) => `Odstavec číslo ${i + 1} s textem, aby se poznámka posouvala.`).join('\n\n');
   vault.files[E.deset] = `${vault.files[E.deset].replace(/\n*$/, '\n')}\n${extra}\n\nKonec: [[Cíl]]\n`;
-  await openEditor(page, E.prazdna, { vault });
+  // D-949: the link is followed with a single click, so the steps run under preview.mode = off.
+  await openEditor(page, E.prazdna, { ...setPreviewMode('off'), vault });
   await openNote(page, 'Deset bloků');
   const scroller = () => page.evaluate(() => {
     let s: Element | null = document.querySelector('[aria-label="Note body"]');

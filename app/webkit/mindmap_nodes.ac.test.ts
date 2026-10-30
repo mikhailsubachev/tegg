@@ -12,6 +12,12 @@ import {
   mindmapVault, must, mustBeOn, mustCaret, navs, needFigure, needNode, needTree, node, noModified, openMm, original, seen, sirokaText, sleep, swap,
   treeItems, treeNames, velkaText, viewOf, viewWhen, writes, fieldState, nodeField, pendingNode, radioRight,
 } from './mindmap-helpers';
+import { ui as mmUi } from './mindmap-helpers';
+import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+
+/** D-943: the FR-MMP-02 AC-10 steps run with Object preview Off. */
+const OFF = () => setPreviewMode('off', { uiState: mmUi() });
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -94,7 +100,7 @@ test('fr_mmp_02_ac9_checklist_boxes_are_read_only_and_numbers_not_drawn', async 
 // ------------------------------------------------------------------------------------------------ AC-10
 
 test('fr_mmp_02_ac10_link_chip_opens_the_note_without_switching', async ({ page }) => {
-  const core = await openMm(page, MM.vyjezd);
+  const core = await openMm(page, MM.vyjezd, OFF());
   const fig = await needFigure(page, 'Výjezd 2026');
   const lis = await needNode(fig, 'Lisabon');
   await click(lis.getByRole('link', { name: 'Lisabon' }), 'chip Lisabon');
@@ -110,10 +116,26 @@ test('fr_mmp_02_ac10_link_chip_opens_the_note_without_switching', async ({ page 
   await page.mouse.click(Math.min(bb.x + bb.width - 2, chip.x + chip.width + 3), bb.y + bb.height - 2);
   assert.equal(await viewOf(f2), 'map', 'elsewhere on the node: the node click focuses it (slice MM2, D-788)');
   assert.equal(await n.evaluate((el) => el === document.activeElement), true, 'Lisabon focused');
+
+  // Click to preview (D-943, AP-823): a click on the chip previews without switching to List; a double-click on the
+  // chip opens the note.
+  await switchPreviewMode(page, core, 'click');
+  const f3 = await needFigure(page, 'Výjezd 2026');
+  const lis3 = await needNode(f3, 'Lisabon');
+  await click(lis3.getByRole('link', { name: 'Lisabon' }), 'chip Lisabon (click mode)');
+  await mustPreview(page, 'Lisabon', 'click mode: a click on the node chip previews Lisabon');
+  await mustBeOn(page, 'Výjezd 2026', 'click mode: the chip click keeps the route');
+  assert.equal(await viewOf(f3), 'map', 'click mode: the chip click didn\'t switch to List');
+  await escPreview(page, 'click mode: the node chip preview');
+  const n0 = (await navs(core)).filter((p) => p === MM.lisabon).length;
+  await (await must((await needNode(f3, 'Lisabon')).getByRole('link', { name: 'Lisabon' }), 'chip Lisabon (double-click)')).dblclick();
+  await mustBeOn(page, 'Lisabon', 'click mode: a double-click on the chip opens note/Pages/Lisabon.md (AP-823)');
+  assert.equal((await navs(core)).filter((p) => p === MM.lisabon).length, n0 + 1, 'click mode: nav_opened recorded once');
+  await mustNoPreview(page, 'click mode: after the double-click', 300);
 });
 
 test('fr_mmp_02_ac10_tag_date_broken_and_task_chips_in_uzly', async ({ page }) => {
-  const core = await openMm(page, MM.uzly);
+  const core = await openMm(page, MM.uzly, OFF());
   let fig = await needFigure(page, 'Uzly');
   await click(fig.locator('[data-map-area] [data-tag="cestování"]').first(), 'tag chip #cestování'); // the map's chip, not the hidden list's
   await mustBeOn(page, '#cestování', 'tag/cestování');
@@ -132,6 +154,31 @@ test('fr_mmp_02_ac10_tag_date_broken_and_task_chips_in_uzly', async ({ page }) =
   await page.keyboard.press('Escape');
   await click(fig.locator('[role="treeitem"][data-node="0.3"]').getByRole('link').first(), 'chip Zalít květiny');
   await mustBeOn(page, 'Zalít květiny', 'the task opens');
+
+  // Click to preview (D-943, AP-819, AP-823): tag, date and task chips preview; the broken chip keeps the Create offer;
+  // a double-click opens.
+  await page.keyboard.press('Meta+[');
+  await mustBeOn(page, 'Uzly', 'Back (before click mode)');
+  await switchPreviewMode(page, core, 'click');
+  fig = await needFigure(page, 'Uzly');
+  await click(fig.locator('[data-map-area] [data-tag="cestování"]').first(), 'tag chip #cestování (click mode)');
+  await mustPreview(page, /^Preview: #cestování$/i, 'click mode: a click on the tag chip previews the Tag');
+  await mustBeOn(page, 'Uzly', 'click mode: the tag chip click keeps the route');
+  await escPreview(page, 'click mode: the Tag preview');
+  await click(fig.locator('[role="treeitem"][data-node="0.2"]').getByRole('link').first(), 'the date chip (click mode)');
+  await mustPreview(page, '2026-10-20', 'click mode: a click on the date chip previews the Daily Note');
+  await escPreview(page, 'click mode: the date preview');
+  await click(fig.locator('[role="treeitem"][data-node="0.3"]').getByRole('link').first(), 'chip Zalít květiny (click mode)');
+  await mustPreview(page, 'Zalít květiny', 'click mode: a click on the task chip previews the task');
+  await escPreview(page, 'click mode: the task preview');
+  await click(fig.locator('[role="treeitem"][data-node="0.9"]').getByRole('link').first(), 'chip Neexistuje (click mode)');
+  await must(page.getByRole('dialog', { name: 'Create note' }), 'click mode: the broken chip keeps the Create offer (FR-LNK-04 AC-4)');
+  await mustNoPreview(page, 'click mode: a broken chip never previews', 300);
+  await page.keyboard.press('Escape');
+  await (await must(fig.locator('[role="treeitem"][data-node="0.2"]').getByRole('link').first(), 'the date chip (double-click)')).dblclick();
+  await mustBeOn(page, '2026-10-20', 'click mode: a double-click on the date chip opens daily/2026-10-20');
+  await sleep(800);
+  assert.deepEqual((await core.calls()).map((c) => c.cmd).filter((c) => ['note_write', 'daily_create', 'note_create'].includes(c)), [], 'click mode: previewing and opening the day write nothing (FR-DLY-08)');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-11

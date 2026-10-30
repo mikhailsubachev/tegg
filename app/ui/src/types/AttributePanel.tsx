@@ -148,7 +148,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       if (row.key === 'aliases') return <AliasesControl raw={row.raw} desc={desc} disabled={disabled} inputRef={ref} onNext={next} onValue={(v) => set('aliases', v)} />;
       if (row.key === 'source') {
         // D-248, D-256: free text on every type, with links (D-257).
-        const toSource = onOpenSource ? { ...linked, onOpen: (p: string) => onOpenSource(p) } : linked;
+        const toSource = onOpenSource ? { ...linked, onOpen: (p: string) => onOpenSource(p), scrollToEmbedOf: path } : linked;
         return <TextControl name={row.label} desc={desc} raw={row.raw} kind="text" disabled={disabled} inputRef={ref} onNext={next} linked={toSource}
           onValue={(v) => set('source', v)} />;
       }

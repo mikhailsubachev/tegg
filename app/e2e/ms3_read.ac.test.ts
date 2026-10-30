@@ -9,7 +9,7 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { osa as guardedOsa } from './helpers/osa.ts';
@@ -217,6 +217,10 @@ test('fr_syn_06_ac6_read_view_tour_leaves_the_vault_untouched', { timeout: 900_0
   const base = tmp('syn06');
   const vault = readCopy(base);
   const support = join(base, 'support');
+  // D-943 (previews.md "AC-test changes"): the click tour runs with Object preview Off (ui-state.json written before
+  // launch, v1-previews §9); a double-click tour in click mode follows.
+  mkdirSync(support, { recursive: true });
+  writeFileSync(join(support, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, preview: { mode: 'off' } }));
   const log = join(base, 'perf.jsonl');
   const before = tree(vault);
   let d: Driver | undefined;
@@ -243,6 +247,24 @@ test('fr_syn_06_ac6_read_view_tour_leaves_the_vault_untouched', { timeout: 900_0
     assert.ok(await clickLabel(d, 'Properties'), 'attribute strip collapsed');
     await openBySwitcher(d, 'Bloky');
     for (const c of ['Složené', 'Rozbalené']) await clickLabel(d, c);
+
+    // Click to preview (D-943): the resolved links, date links and tags are followed by a double-click.
+    press('k', ['command']);
+    assert.ok(await shown(d, 'Command palette'), 'palette for Object preview: Click to preview');
+    paste('Object preview: Click to preview');
+    await sleep(300);
+    press('enter');
+    await sleep(500);
+    let followed = 0;
+    for (const l of ['Cíl', 'jiný text', 'text', 'kódovaný', 'Dvojník', '2026-10-07', '2026-10-08', '#projekt', '#Projekt/alfa']) {
+      await openBySwitcher(d, 'Odkazy');
+      const e = await firstShown(d, l);
+      if (!e) continue;
+      await e.doubleClick().catch(() => {});
+      await sleep(500);
+      followed++;
+    }
+    assert.ok(followed >= 8, `click mode: links found and followed by a double-click: ${followed}/9`);
   } finally {
     await end(d);
   }

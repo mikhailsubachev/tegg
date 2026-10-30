@@ -3,7 +3,8 @@
 // is injected (`__TEGG_REGION__`) for the date cells; the sort state goes to the machine-local UI state.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { focused, mainName } from './helpers';
+import { focused, mainName, escPreview, mustPreview, switchPreviewMode } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   P, callsOf, description, eventually, fileText, gotoTypePage, iconButtonLook, isDisabled, main, must, nonReadCalls, openTypes, rowTitles,
   runCommand, seen, settingsHeading, sleep, typeTable, typesVault,
@@ -99,7 +100,8 @@ test('fr_typ_09_ac4_title_filter_matches_like_the_switcher', async ({ page }) =>
 });
 
 test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
-  const core = await openTypes(page);
+  // D-943: the steps run with Object preview Off; click mode (AP-811, AP-812) follows.
+  const core = await openTypes(page, undefined, setPreviewMode('off'));
   await gotoTypePage(page, S);
   await typeTable(page, S).getByRole('row').nth(1).focus();
   await page.keyboard.press('ArrowDown');
@@ -110,6 +112,19 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
   await gotoTypePage(page, S);
   await typeTable(page, S).getByRole('row').filter({ hasText: 'Prázdná schůzka' }).click();
   assert.equal(await mainBName(page), 'Prázdná schůzka');
+
+  // Click to preview (D-943): a click on a row previews (AP-812); ⏎ on the focused row opens (AP-811).
+  await switchPreviewMode(page, core, 'click');
+  await gotoTypePage(page, S);
+  const row = typeTable(page, S).getByRole('row').filter({ hasText: 'Prázdná schůzka' });
+  await (await must(row, 'row Prázdná schůzka (click mode)')).click();
+  await mustPreview(page, 'Prázdná schůzka', 'click mode: a click on the row previews it');
+  assert.equal(await mainName(page), S, 'click mode: the click keeps the type page');
+  await escPreview(page, 'click mode: the row preview');
+  await typeTable(page, S).getByRole('row').nth(1).focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  assert.equal(await mainBName(page), 'Schůzka ve stránkách', 'click mode: ↓ then ⏎ still opens the second row');
 });
 
 // FR-TYP-09 AC-6 (the New object dialog) is superseded by D-520…D-523: `New <Name>` opens an unsaved draft, tested as

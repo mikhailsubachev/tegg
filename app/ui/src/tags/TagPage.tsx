@@ -1,6 +1,7 @@
 // The tag page `tag/<key>` (docs/acceptance/tags.md R82; board `TagPage`, table only, D-704): the breadcrumb, the colour
 // tile, the heading and its unfiltered summary, Tag actions (no `New with #tag`, D-762), the text and Type filters, the sort and the
 // grouping (D-690, D-702, D-703), and one table of every object carrying the tag. Viewing writes nothing (FR-SYN-06).
+import { RefElement } from '../preview/useReference';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '@tegg/doc';
 import { t } from '../i18n/catalog';
@@ -197,7 +198,7 @@ export function TagPage(p: TagPageProps) {
       suffix = [d.text, r.status].filter(Boolean).join(' · ');
     }
     return (
-      <a data-command="tagPage.c13" href="#" className="tag-row-title" data-state={st.task?.state} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onOpen(r.path); }} tabIndex={-1}>
+      <a data-command="tagPage.c13" href="#" className="tag-row-title" data-state={st.task?.state} onClick={(e) => e.preventDefault()} tabIndex={-1}>
         <span className="type-icon" aria-hidden="true" style={{ color: `var(--type-${tp?.color ?? 'gray'})` }}>
           <Icon name={glyph ?? typeIconName(r.type, tp?.icon)} size={14} />
         </span>
@@ -267,24 +268,25 @@ export function TagPage(p: TagPageProps) {
               const i = flat.indexOf(r);
               const st = chipState({ kind: 'note', type: r.type, review: r.review, status: r.status, due: r.due, completed: r.completed });
               return (
-                <tr key={r.path} className="type-row" data-index={i} data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
-                  onClick={() => p.onOpen(r.path)} onFocus={() => setCursor(i)}
+                <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => p.onOpen(r.path) }}
+                  key={r.path} className="type-row" data-index={i} data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
+                  onFocus={() => setCursor(i)}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;
                     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
-                    else if (e.key === 'Enter') { e.preventDefault(); p.onOpen(r.path); }
                   }}>
                   <td>{titleCell(r)}</td>
                   <td><span data-user-content>{typeNames[r.type] ?? r.type}</span></td>
                   <td>
                     <div className="tag-chips">
                       {[...r.tags].sort(collator().compare).map((k) => (
-                        <a data-command="tagPage.c3" key={k} href="#" className="tag-chip" style={tagChipStyle(colourOf(k))} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onTag(k); }}>#{tagName(k)}</a>
+                        <RefElement as="a" reference={{ target: { path: '', fragment: null, kind: 'tag', key: k }, kind: 'chip', open: () => p.onTag(k) }}
+                          data-command="tagPage.c3" key={k} href="#" className="tag-chip" style={tagChipStyle(colourOf(k))}>#{tagName(k)}</RefElement>
                       ))}
                     </div>
                   </td>
                   <td>{r.modified ? dateTimeText(r.modified) : ''}</td>
-                </tr>
+                </RefElement>
               );
             });
             const pad = (n: number, k: string) => n > 0 && <tr key={k} aria-hidden="true" className="spacer-row" style={{ height: n * rowH }}><td colSpan={4} /></tr>;

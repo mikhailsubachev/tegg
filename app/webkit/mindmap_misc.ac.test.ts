@@ -9,6 +9,8 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { createFromDraft, paletteDialog, pseudoLocale } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as mmUi } from './mindmap-helpers';
 import { axeContrast, colourLeaks } from './read-helpers';
 import {
   MM, NOTE_PATHS, TITLES, anyTree, blockMenu, calloutTypeItems, caretWhen, click, editorBody, emptyBtn, figure, figures, fileText, fileWhen,
@@ -115,7 +117,8 @@ test('fr_fmt_07_ac24_b_opening_every_note_writes_nothing_and_only_the_fence_is_a
 test('fr_syn_06_ac33_browsing_tour_sends_zero_writes', async ({ page }) => {
   test.setTimeout(180_000);
   const vault = mindmapVault((f) => { f['Pages/Široká mapa.md'] = sirokaText(); });
-  const core = await startMm(page, { vault, at: MM.vyjezd });
+  // D-949: the tour follows a node chip with a single click, so it runs under preview.mode = off.
+  const core = await startMm(page, { vault, at: MM.vyjezd, ...setPreviewMode('off', { uiState: mmUi() }) });
   await mustBeOn(page, 'Výjezd 2026', 'start');
   for (const [path, titles] of [...MAPS, ['Pages/Široká mapa.md', ['Široká']] as [string, string[]]]) {
     await gotoNote(page, path === 'Pages/Široká mapa.md' ? 'Široká mapa' : TITLES[path]);

@@ -3,6 +3,7 @@
 // properties and Modified from one index query (D-241), sortable per column with the choice kept in the machine-local
 // UI state (AC-3). `Columns` (D-252, D-260) checks and unchecks the preview properties, one write each, up to 4
 // (D-72), and offers `New property…`. Nothing here writes a note.
+import { RefElement } from '../preview/useReference';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { chipIcon } from '../links/icons';
 import { canDefine, validate } from '@tegg/schema';
@@ -247,23 +248,23 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           </thead>
           <tbody ref={tbody}>
             {shown.map((r, i) => (
-              <tr key={r.path} tabIndex={i === Math.min(cursor, shown.length - 1) ? 0 : -1} className="type-row"
+              // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
+              <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
+                key={r.path} tabIndex={i === Math.min(cursor, shown.length - 1) ? 0 : -1} className="type-row"
                 data-path={r.path.normalize('NFC')} data-title={r.title}
-                onClick={() => onOpen(r.path)}
                 // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
                 onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
                 onFocus={() => setCursor(i)}
                 onKeyDown={(e) => {
                   if (e.target !== e.currentTarget) return;
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
-                  else if (e.key === 'Enter') { e.preventDefault(); onOpen(r.path); }
                 }}>
                 {columns.map((c) => (
                   <td key={c.key}>
                     <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
                   </td>
                 ))}
-              </tr>
+              </RefElement>
             ))}
           </tbody>
         </table>

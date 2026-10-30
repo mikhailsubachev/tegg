@@ -4,7 +4,7 @@
 
 import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state'
 import { redo, undo } from '@tiptap/pm/history'
 import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
 import { displayTable, isAttachmentTarget, layoutOf, markdownTree, renderBlock, type MindmapLayout } from '@tegg/doc'
@@ -88,9 +88,17 @@ export interface EditorUi {
   mindmapIcon?: () => Element
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
-  /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A). */
-  onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }): void
-  onTag(value: string): void
+  /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A).
+   *  Slice P (v1-previews §5.1): `gesture` says how; the app maps it with `resolveRefInput` (R103). */
+  onLink(target: string, fragment: string | null, chip?: { pos: number; dom: HTMLElement | null }, gesture?: LinkGesture): void
+  /** Slice P (FR-LNK-11 AC-13): the description a resolved chip adds for the preview mode, or null (Off). */
+  linkHint?(): string | null
+  /** Slice P (D-942): the pointer rests on, moves over or leaves a chip (hover mode). */
+  onLinkHover?(target: string, fragment: string | null, chip: { pos: number; dom: HTMLElement }, phase: 'enter' | 'move' | 'leave'): void
+  /** Slice P (D-927): a right-click on a chip; true when the app showed its menu. */
+  onLinkMenu?(target: string | null, chip: { pos: number; dom: HTMLElement }, event: MouseEvent): boolean
+  /** Slice P (R104 row 12): with the chip and the gesture, so a tag click previews the Tag. */
+  onTag(value: string, chip?: { pos: number; dom: HTMLElement | null }, gesture?: LinkGesture): void
   onExternal(href: string): void
   /** 4F (ms4-embeds §7): renders a block embed (`rawBlock` kind `embed`); null keeps the 3C placeholder. */
   embed?(source: string, dom: HTMLElement, getPos: () => number | undefined): EmbedHandle | null
@@ -118,6 +126,27 @@ export const PENDING_EMBED: EmbedHandle = { update() {}, selected() {}, destroy(
 
 export const uiRefresh = new PluginKey('teggUi')
 
+/** Slice P (v1-previews §5.1): how a link chip was used. */
+export type LinkGesture = 'click' | 'dblclick' | 'modClick' | 'enter' | 'modEnter' | 'altSpace'
+
+/** A link chip a click or key acts on: a wikiLink (a link, or an inline embed that isn't a file). */
+export function isLinkChip(node: PMNode | null | undefined, ui?: Pick<EditorUi, 'embedChip'>): boolean {
+  if (!node || node.type.name !== 'wikiLink') return false
+  return !node.attrs.embed || (!!ui?.embedChip && !isAttachmentTarget(linkTarget(String(node.attrs.value)).target))
+}
+
+/** Slice P (D-209, D-928): the chip at the caret: the selected chip, else the one directly before the caret, else the
+ *  one directly after it. */
+export function chipAtCaret(state: EditorState, ui?: Pick<EditorUi, 'embedChip'>): { pos: number; node: PMNode } | null {
+  const sel = state.selection
+  if (sel instanceof NodeSelection && isLinkChip(sel.node, ui)) return { pos: sel.from, node: sel.node }
+  if (!sel.empty) return null
+  const { $from } = sel
+  if (isLinkChip($from.nodeBefore, ui)) return { pos: $from.pos - $from.nodeBefore!.nodeSize, node: $from.nodeBefore! }
+  if (isLinkChip($from.nodeAfter, ui)) return { pos: $from.pos, node: $from.nodeAfter! }
+  return null
+}
+
 /** The target part of a wikilink value: before `#`, `^` subpaths and the alias. */
 export function linkTarget(value: string): { target: string; fragment: string | null } {
   const pipe = /\\?\|/.exec(value)
@@ -141,7 +170,8 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
           const icon = chip.state !== 'broken' ? ui.chipIcon?.(chip.type ?? 'page')?.getAttribute('data-icon') ?? null : null
           decos.push(Decoration.node(pos, pos + node.nodeSize, {
             role: 'link', class: `embed-chip embed-link${chip.state === 'broken' ? ' kind-unresolved' : ''}`, 'data-embed': '', 'data-embed-mode': 'link',
-            'data-embed-state': chip.state, 'aria-label': chip.title, 'aria-description': chip.description,
+            'data-embed-state': chip.state, 'aria-label': chip.title,
+            'aria-description': [chip.description, chip.state === 'ok' ? ui.linkHint?.() : null].filter(Boolean).join(', '),
             ...(icon ? { 'data-icon': icon } : {}), ...(chip.state === 'broken' ? { 'data-link-kind': 'unresolved' } : {}), ...(chip.target ? { 'data-embed-target': chip.target } : {}),
           }))
           return false
@@ -160,11 +190,14 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
         // D-600: a changed review or task state changes the decoration, so the chip's view draws it again.
         'data-chip-sig': info ? `${info.review ?? ''}|${info.status ?? ''}|${info.due ?? ''}|${info.completed ?? ''}|${info.title ?? ''}` : '',
         ...(broken ? { 'aria-description': ui.unresolved(target) } : {}),
+        // Slice P: the mode's description is drawn by the chip's view; a mode change redraws it.
+        'data-hint': broken ? '' : ui.linkHint?.() ?? '',
       }))
       return false
     }
     if (node.type.name === 'tag') {
-      decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'link', class: 'chip tag-chip' }))
+      const hint = ui.linkHint?.()
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { role: 'link', class: 'chip tag-chip', ...(hint ? { 'aria-description': hint } : {}) }))
       return false
     }
     if (node.type.name === 'rawBlock' && node.attrs.kind === 'embed') {
@@ -297,7 +330,7 @@ class RawBlockView implements NodeView {
       if (e.button !== 0) return
       e.preventDefault()
       e.stopPropagation()
-      this.ui.onLink(target, fragment, { pos: this.getPos() ?? 0, dom: chip })
+      this.ui.onLink(target, fragment, { pos: this.getPos() ?? 0, dom: chip }, e.metaKey || e.ctrlKey ? 'modClick' : 'click')
     })
     this.dom.appendChild(chip)
   }
@@ -390,9 +423,11 @@ class WikiLinkView implements NodeView {
       const extra = ok ? this.ui.chipExtra?.(info!) ?? null : null
       if (extra) {
         for (const [k, val] of Object.entries(extra.attrs)) { this.dom.setAttribute(k, val); this.extraAttrs.push(k) }
-        if (extra.description) { this.dom.setAttribute('aria-description', extra.description); this.extraAttrs.push('aria-description') }
         suffix = extra.suffix
       }
+      // Slice P (FR-LNK-11 AC-13): the mode's description after the chip's own (Unreviewed, In trash).
+      const desc = [extra?.description, ok && info!.kind !== 'trashed' ? this.ui.linkHint?.() : null].filter(Boolean).join(', ')
+      if (desc) { this.dom.setAttribute('aria-description', desc); this.extraAttrs.push('aria-description') }
       const icon = extra?.icon ?? (ok ? this.ui.chipIcon?.(info!.type ?? 'page') : null)
       if (icon) this.dom.appendChild(icon)
     }
@@ -1022,6 +1057,33 @@ class CalloutView implements NodeView {
   }
 }
 
+/** A Markdown link URL that names a note in the vault (relative, no scheme, not an attachment): its decoded path and
+ *  fragment, as the read view resolves it (ms3-shell §11.1). */
+export function noteHref(url: string): { target: string; fragment: string | null } | null {
+  if (!url || url.startsWith('#') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(url) || url.startsWith('//')) return null
+  const hash = url.indexOf('#')
+  const dec = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
+  const target = dec(hash < 0 ? url : url.slice(0, hash)).normalize('NFC')
+  if (!target || isAttachmentTarget(target)) return null
+  return { target, fragment: hash < 0 ? null : dec(url.slice(hash + 1)) || null }
+}
+
+/** The last click reported on a chip per editor (its position and time). */
+const lastClick = new WeakMap<EditorView, { pos: number; at: number }>()
+/** The second click of a double-click on the chip just clicked: the double-click opens, so it reports nothing. */
+function secondClick(view: EditorView, pos: number, event: MouseEvent): boolean {
+  const now = typeof performance !== 'undefined' ? performance.now() : 0
+  const last = lastClick.get(view)
+  lastClick.set(view, { pos, at: now })
+  return event.detail > 1 && !(event.metaKey || event.ctrlKey) && !!last && last.pos === pos && now - last.at < 600
+}
+
+/** Editors whose last double-click on a chip was already reported from the mousedown. */
+const dblReported = new WeakSet<EditorView>()
+
+/** The chip each editor's pointer is over (hover mode, D-942). */
+const hovered = new WeakMap<EditorView, { target: string; fragment: string | null; pos: number; dom: HTMLElement }>()
+
 export function presentation(ui: EditorUi) {
   return Extension.create({
     name: 'teggPresentation',
@@ -1045,25 +1107,150 @@ export function presentation(ui: EditorUi) {
             },
             handleClickOn(view, _pos, node, nodePos, event) {
               if (event.button !== 0) return false
-              if (node.type.name === 'wikiLink' && (!node.attrs.embed || (ui.embedChip && !isAttachmentTarget(linkTarget(String(node.attrs.value)).target)))) {
-                // Links, and inline embeds (link mode, D-423), open their target.
+              if (isLinkChip(node, ui)) {
+                // Links and inline embeds (link mode, D-423) report the gesture (v1-previews §5.1). A click leaves a
+                // collapsed caret right after the chip, never a node selection (D-926); the second click of a
+                // double-click is the double-click's.
                 const { target, fragment } = linkTarget(String(node.attrs.value))
-                ui.onLink(target, fragment, { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null })
+                if (secondClick(view, nodePos, event)) return true
+                const mod = event.metaKey || event.ctrlKey
+                if (!mod) view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, nodePos + node.nodeSize)))
+                ui.onLink(target, fragment, { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null }, mod ? 'modClick' : 'click')
                 return true
               }
               if (node.type.name === 'tag') {
-                ui.onTag(String(node.attrs.value))
+                if (secondClick(view, nodePos, event)) return true
+                const mod = event.metaKey || event.ctrlKey
+                // The caret isn't moved after a tag: there it would open the `#` suggestions (FR-EDT-15).
+                ui.onTag(String(node.attrs.value), { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null }, mod ? 'modClick' : 'click')
                 return true
               }
               void view
               return false
             },
+            handleDoubleClickOn(view, _pos, node, nodePos, event) {
+              // ProseMirror tells a double-click by time and place; the browser's count is the user's (a frozen clock
+              // in tests made two clicks seconds apart a double-click).
+              if (event.button !== 0 || (node.type.name !== 'tag' && !isLinkChip(node, ui))) return false
+              // ProseMirror counts by its clock; when the browser counts one click it is a click (a frozen test clock).
+              if (event.detail < 2) return !!view.someProp('handleClickOn', (f) => f(view, _pos, node, nodePos, event, true))
+              dblReported.add(view)
+              const chip = { pos: nodePos, dom: view.nodeDOM(nodePos) as HTMLElement | null }
+              if (node.type.name === 'tag') ui.onTag(String(node.attrs.value), chip, 'dblclick')
+              else { const { target, fragment } = linkTarget(String(node.attrs.value)); ui.onLink(target, fragment, chip, 'dblclick') }
+              return true
+            },
+            handleTripleClickOn(view, _pos, node, nodePos, event) {
+              // As the double-click: ProseMirror's clock can count three clicks the browser counts as one or two.
+              if (event.button !== 0 || (node.type.name !== 'tag' && !isLinkChip(node, ui))) return false
+              if (event.detail < 2) return !!view.someProp('handleClickOn', (f) => f(view, _pos, node, nodePos, event, true))
+              if (event.detail < 3) return !!view.someProp('handleDoubleClickOn', (f) => f(view, _pos, node, nodePos, event, true))
+              return true
+            },
+            handleKeyDown(view, event) {
+              // FR-LNK-13 AC-1, AC-4 (D-926): ← and → move over a chip as one position (never a node selection).
+              if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
+                const sel = view.state.selection
+                const left = event.key === 'ArrowLeft'
+                if (sel instanceof NodeSelection && isLinkChip(sel.node, ui)) {
+                  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, left ? sel.from : sel.to)))
+                  return true
+                }
+                if (sel.empty) {
+                  const n = left ? sel.$from.nodeBefore : sel.$from.nodeAfter
+                  if (isLinkChip(n, ui)) {
+                    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, left ? sel.from - n!.nodeSize : sel.from + n!.nodeSize)))
+                    return true
+                  }
+                }
+              }
+              // ⌥Space at a chip previews (D-928); elsewhere it types what macOS gives. ⌘↩ at a chip opens (D-209).
+              const alt = event.altKey && !event.metaKey && !event.ctrlKey && (event.code === 'Space' || event.key === ' ' || event.key === '\u00a0')
+              const modEnter = (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key === 'Enter'
+              if (!alt && !modEnter) return false
+              const c = chipAtCaret(view.state, ui)
+              if (!c) return false
+              const { target, fragment } = linkTarget(String(c.node.attrs.value))
+              ui.onLink(target, fragment, { pos: c.pos, dom: view.nodeDOM(c.pos) as HTMLElement | null }, alt ? 'altSpace' : 'modEnter')
+              return true
+            },
             handleDOMEvents: {
-              click(_view, event) {
+              contextmenu(view, event) {
+                if (!ui.onLinkMenu) return false
+                const el = (event.target as HTMLElement | null)?.closest?.('.link-chip, [data-embed-mode="link"]') as HTMLElement | null
+                if (!el || !view.dom.contains(el)) return false
+                let pos: number
+                try { pos = view.posAtDOM(el, 0) } catch { return false }
+                const node = view.state.doc.nodeAt(pos)
+                const at = node && isLinkChip(node, ui) ? pos : isLinkChip(view.state.doc.nodeAt(pos - 1), ui) ? pos - 1 : -1
+                if (at < 0) return false
+                const n = view.state.doc.nodeAt(at)!
+                const { target } = linkTarget(String(n.attrs.value))
+                if (!ui.onLinkMenu(target, { pos: at, dom: el }, event)) return false
+                event.preventDefault()
+                return true
+              },
+              mousemove(view, event) {
+                if (!ui.onLinkHover) return false
+                const el = (event.target as HTMLElement | null)?.closest?.('.link-chip, [data-embed-mode="link"]') as HTMLElement | null
+                const prev = hovered.get(view)
+                if (prev && prev.dom !== el) { hovered.delete(view); ui.onLinkHover(prev.target, prev.fragment, { pos: prev.pos, dom: prev.dom }, 'leave') }
+                if (!el || !view.dom.contains(el)) return false
+                let pos: number
+                try { pos = view.posAtDOM(el, 0) } catch { return false }
+                const at = isLinkChip(view.state.doc.nodeAt(pos), ui) ? pos : isLinkChip(view.state.doc.nodeAt(pos - 1), ui) ? pos - 1 : -1
+                if (at < 0) return false
+                const { target, fragment } = linkTarget(String(view.state.doc.nodeAt(at)!.attrs.value))
+                const first = !prev || prev.dom !== el
+                hovered.set(view, { target, fragment, pos: at, dom: el })
+                ui.onLinkHover(target, fragment, { pos: at, dom: el }, first ? 'enter' : 'move')
+                return false
+              },
+              mouseleave(view) {
+                const prev = hovered.get(view)
+                if (prev && ui.onLinkHover) { hovered.delete(view); ui.onLinkHover(prev.target, prev.fragment, { pos: prev.pos, dom: prev.dom }, 'leave') }
+                return false
+              },
+              click(view, event) {
                 const a = (event.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null
                 if (!a) return false
                 event.preventDefault()
-                ui.onExternal(a.getAttribute('href') ?? '')
+                const href = a.getAttribute('href') ?? ''
+                // Slice P (R104 row 1): a Markdown link to a note is a link chip; any other URL opens outside.
+                const note = noteHref(href)
+                if (note && event.button === 0) {
+                  if (event.detail > 1 && !(event.metaKey || event.ctrlKey)) return true
+                  let pos = 0
+                  try { pos = view.posAtDOM(a, 0) } catch { /* keep 0 */ }
+                  ui.onLink(note.target, note.fragment, { pos, dom: a }, event.metaKey || event.ctrlKey ? 'modClick' : 'click')
+                  return true
+                }
+                ui.onExternal(href)
+                return true
+              },
+              dblclick(view, event) {
+                if (dblReported.delete(view)) return false
+                const chipEl = (event.target as HTMLElement | null)?.closest?.('.link-chip, .tag-chip, [data-embed-mode="link"]') as HTMLElement | null
+                if (chipEl && view.dom.contains(chipEl)) {
+                  let pos = -1
+                  try { pos = view.posAtDOM(chipEl, 0) } catch { /* not ours */ }
+                  const at = [pos, pos - 1].find((p) => p >= 0 && (isLinkChip(view.state.doc.nodeAt(p), ui) || view.state.doc.nodeAt(p)?.type.name === 'tag'))
+                  if (at !== undefined) {
+                    const n = view.state.doc.nodeAt(at)!
+                    const chip = { pos: at, dom: chipEl }
+                    event.preventDefault()
+                    if (n.type.name === 'tag') ui.onTag(String(n.attrs.value), chip, 'dblclick')
+                    else { const { target, fragment } = linkTarget(String(n.attrs.value)); ui.onLink(target, fragment, chip, 'dblclick') }
+                    return true
+                  }
+                }
+                const a = (event.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+                const note = a ? noteHref(a.getAttribute('href') ?? '') : null
+                if (!a || !note) return false
+                event.preventDefault()
+                let pos = 0
+                try { pos = view.posAtDOM(a, 0) } catch { /* keep 0 */ }
+                ui.onLink(note.target, note.fragment, { pos, dom: a }, 'dblclick')
                 return true
               },
             },

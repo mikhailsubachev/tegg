@@ -1,5 +1,6 @@
 // The live context sections of a Daily Note (FR-DLY-04, D-271, D-328, R19): Quick Notes, Tasks due (5A-1, DailyTasks),
 // Created and Modified of that day, after the body, never saved into it. The day window is the UI's (ms4-daily §1).
+import { RefElement } from '../preview/useReference';
 import { useEffect, useRef, useState } from 'react';
 import { afterNoteReady, noteReadyCount } from '../readiness';
 import { localMidnight as zonedMidnight } from '../zone';
@@ -62,9 +63,11 @@ export function ContextSections({ date, onOpen }: { date: string; onOpen: (path:
               const icon = chipIcon(r.type);
               return (
                 <li key={r.path}>
-                  <a href="#" tabIndex={0} className="daily-row" data-command="daily.openRow" onClick={(e) => { e.preventDefault(); onOpen(r.path); }}>
+                  {/* Slice P (R104 row 10): a click previews, ⏎ and a double-click open (D-929, D-930). */}
+                  <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
+                    href="#" tabIndex={0} className="daily-row" data-command="daily.openRow">
                     <Icon name={icon.glyph} dataIcon={icon.def} size={14} /><span data-user-content>{r.title}</span>
-                  </a>
+                  </RefElement>
                 </li>
               );
             })}

@@ -6,7 +6,9 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast } from './read-helpers';
-import { pseudoLocale } from './helpers';
+import { pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { ui as tasksUi } from './tasks-helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
 import {
   NOW, O, T, ZONES, absent, card, cardPaths, cardsWhen, checkbox, dateFilter, description, eventually, fileText, filterBtn, flat, gotoKanban, gotoTasks,
   groupsOf, heading, isDisabled, main, mainName, moreBtn, must, mustBeOn, navs, nfc, paths, pressed, quickAdd, runCommand, sectionIds, sectionOf, seen,
@@ -408,7 +410,8 @@ test.describe('opening and keyboard (Europe/Prague)', () => {
   test.use({ timezoneId: 'Europe/Prague' });
 
   test('fr_tsk_04_ac9_opening_a_task_and_back', async ({ page }) => {
-    const core = await startTasks(page);
+    // D-943: the steps run with Object preview Off; click mode (AP-812) follows.
+    const core = await startTasks(page, setPreviewMode('off', { uiState: tasksUi() }));
     await gotoTasks(page);
     await click(filterBtn(page, 'This week'), 'button This week');
     await (await must(doneToggle(page), 'Done')).click();
@@ -427,6 +430,24 @@ test.describe('opening and keyboard (Europe/Prague)', () => {
     await (await must(moreBtn(card(page, 'Zalít květiny'), 'Zalít květiny'), 'More')).click();
     await (await must(page.getByRole('menuitem', { name: 'Open', exact: true }), 'menu Open')).click();
     await mustBeOn(page, 'Zalít květiny', 'More › Open', 5000);
+
+    // Click to preview (D-943, AP-812): a click on a card title previews; a double-click and ⏎ open.
+    await page.keyboard.press('Meta+BracketLeft');
+    await must(heading(page), 'Back (before click mode)');
+    await switchPreviewMode(page, core, 'click');
+    const title = () => card(page, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true });
+    await (await must(title(), 'title link (click mode)')).click();
+    await mustPreview(page, 'Zavolat Janě', 'click mode: a click on the card title previews the task');
+    assert.ok(await seen(heading(page), 500), 'click mode: the click keeps the Tasks page');
+    await escPreview(page, 'click mode: the card preview');
+    await (await must(title(), 'title link (double-click)')).dblclick();
+    await mustBeOn(page, 'Zavolat Janě', 'click mode: a double-click on the title opens note/<path>', 5000);
+    await mustNoPreview(page, 'click mode: after the double-click', 300);
+    await page.keyboard.press('Meta+BracketLeft');
+    await must(heading(page), 'Back (click mode)');
+    await (await must(card(page, 'Poslat rozpočet'), 'card (click mode)')).focus();
+    await page.keyboard.press('Enter');
+    await mustBeOn(page, 'Poslat rozpočet', 'click mode: ⏎ on the focused card still opens (AP-811)', 5000);
   });
 
   test('fr_tsk_04_ac10_keyboard_only', async ({ page }) => {

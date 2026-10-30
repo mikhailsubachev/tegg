@@ -7,13 +7,15 @@ export type MenuEntry =
   | { kind: 'note'; key: string; content: React.ReactNode }
   | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
 
-export function PopupMenu({ label, anchor, entries, onClose, placement = 'below' }: {
+export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true }: {
   label: string;
   anchor: HTMLElement | null;
   entries: MenuEntry[];
   /** Called with whether focus should go back to the opener (always, except when a chosen item moves it). */
   onClose: () => void;
   placement?: 'below' | 'above';
+  /** False: the caller puts the focus back itself in `onClose` (slice P's `Link` menu: the caret after the chip). */
+  restoreFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 });
@@ -34,7 +36,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
       if (ref.current?.contains(t) || anchor?.contains(t)) return;
       onClose();
       // After the click's own focus change.
-      setTimeout(() => anchor?.focus(), 0);
+      if (restoreFocus) setTimeout(() => anchor?.focus(), 0);
     };
     document.addEventListener('mousedown', outside, true);
     return () => document.removeEventListener('mousedown', outside, true);
@@ -55,7 +57,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
       e.preventDefault();
       e.stopPropagation();
       onClose();
-      anchor?.focus();
+      if (restoreFocus) anchor?.focus();
     } else if (e.key === 'Tab') {
       e.preventDefault();
     }

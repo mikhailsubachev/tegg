@@ -1,4 +1,5 @@
 // One value of a type page row, as the type page and embed cards show it (FR-TYP-09, D-427; ms4-embeds §6).
+import { TagRef } from '../links/ChipParts';
 import { chipParts } from '../links/ChipParts';
 import { validate } from '@tegg/schema';
 import { chipIcon } from '../links/icons';
@@ -25,7 +26,8 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
         <Icon name={typeIconName(typeKey, type?.icon)} size={14} />
         {/* D-692: a Tag object's row is a link to its tag page. */}
         {typeKey === 'tag'
-          ? <a href="#" tabIndex={-1} data-user-content onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(row.path); }}>{row.title}</a>
+          // Slice P (D-930): the click goes to the row, which previews; ⏎ and a double-click on the row open it.
+          ? <a href="#" tabIndex={-1} data-user-content onClick={(e) => e.preventDefault()}>{row.title}</a>
           : <span data-user-content>{row.title}</span>}
       </span>
     );
@@ -36,9 +38,9 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
     return (
       <span className="chips">
         {list.map((x) => (
-          <a data-command="typePage.a0" key={x} href="#" className="chip tag-chip" style={look(x).style} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTag(nfc(x.replace(/^#/, '')).toLowerCase()); }}>
+          <TagRef data-command="typePage.a0" key={x} tagKey={nfc(x.replace(/^#/, '')).toLowerCase()} className="chip tag-chip" style={look(x).style} onTag={onTag}>
             <span data-user-content>#{look(x).name}</span>
-          </a>
+          </TagRef>
         ))}
       </span>
     );

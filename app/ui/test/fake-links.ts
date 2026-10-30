@@ -500,11 +500,14 @@ function duplicates(ctx: Ctx) {
 const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 
 /** 4F (ms4-embeds §4, §8): the targets `linkTargets` (read/ReadView.tsx) sends for a note text, in order. */
-async function linkTargets(text: string): Promise<string[]> {
+/** Slice P: the file targets (`![[graf.png]]`, `file: "[[x.pdf]]"`) of a text, in first-seen order. */
+const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
+
+/** Every link target of a note in order (wikilinks, then relative Markdown links), as `tegg_format::extract` gives them. */
+async function allTargets(text: string): Promise<string[]> {
   const d = await doc();
   const out: string[] = [];
-  const attachment = (x: string) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(x); return !!m && m[1].toLowerCase() !== 'md' && !/^\d{4}-\d{2}-\d{2}$/.test(x); };
-  const add = (x: string) => { if (x !== '' && !attachment(x) && !out.includes(x)) out.push(x); };
+  const add = (x: string) => { if (x !== '' && !out.includes(x)) out.push(x); };
   const parsed = d.parse(text);
   for (const l of d.wikilinks(parsed)) add(String(l.target).trim());
   const walk = (n: any) => {
@@ -522,8 +525,20 @@ async function linkTargets(text: string): Promise<string[]> {
   return out;
 }
 
+/** Slice P (`embed_load`'s `media`): the attachment targets the core resolves with the flag (any link, as the core). */
+async function fileTargets(text: string): Promise<string[]> {
+  return (await allTargets(text)).filter(attachment);
+}
+
+async function linkTargets(text: string): Promise<string[]> {
+  return (await allTargets(text)).filter((x) => !attachment(x));
+}
+
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
   if (cmd === 'link_targets') return { result: await linkTargets(String(a.text ?? '')) };
+  if (cmd === 'file_targets') return { result: await fileTargets(String(a.text ?? '')) };
+  // Slice P: both lists in one round trip (embed_load with `media`).
+  if (cmd === 'link_and_file_targets') { const all = await allTargets(String(a.text ?? '')); return { result: { links: all.filter((x) => !attachment(x)), files: all.filter(attachment) } }; }
   const ctx = await context(files, vers);
   if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {

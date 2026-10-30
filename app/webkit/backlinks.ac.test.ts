@@ -13,6 +13,8 @@ import {
   panelHeading, props, runCommand, seen, sleep, swap, writeCalls,
 } from './links-helpers';
 import { absent } from './helpers';
+import { setPreviewMode } from '../ui/test/fake-core';
+import { ui as linksUi } from './links-helpers';
 
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const CIL_GROUPS = ['Pages, 4', 'Quick Notes, 1', 'Daily Notes, 1', 'Schůzky, 2', 'neznámý, 1'];
@@ -116,7 +118,8 @@ test('fr_lnk_01_ac9_external_changes_update_the_open_panel', async ({ page }) =>
 });
 
 test('fr_lnk_01_ac10_own_links_show_up_within_1s_of_note_ready', async ({ page }) => {
-  await openLinks(page, B.osamela);
+  // D-949: the old steps run under preview.mode = off (a click on the chip opens it).
+  await openLinks(page, B.osamela, setPreviewMode('off', { uiState: linksUi() }));
   await (await must(editorBody(page), 'Note body')).click();
   await page.keyboard.press('End');
   await page.keyboard.type(' [[Cíl');

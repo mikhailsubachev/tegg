@@ -38,10 +38,10 @@ function linksCopy(base: string): string {
   return v;
 }
 /** Application Support with the Context panel open on Backlinks (ui-state.json, ms3-shell §2). */
-function support(base: string): string {
+function support(base: string, ui: Record<string, unknown> = {}): string {
   const s = join(base, 'support');
   mkdirSync(s, { recursive: true });
-  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: true, tab: 'backlinks' } }));
+  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: true, tab: 'backlinks' }, ...ui }));
   return s;
 }
 
@@ -230,7 +230,9 @@ test('fr_syn_06_ac9_keyboard_tour_writes_nothing_then_one_create', { timeout: 90
   let d: Driver | undefined;
   let afterTour: Record<string, Entry> = {};
   try {
-    d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'note/Pages/Cíl.md' }));
+    // D-943 (previews.md "AC-test changes"): the tour runs with Object preview Off (ui-state.json before launch); a
+    // click-mode leg follows the panel's chips with ⌘↩ (a click and ⏎ preview there).
+    d = await session(testEnv(support(base, { preview: { mode: 'off' } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'note/Pages/Cíl.md' }));
     assert.ok(await waitMark(log, 'route-ready:note/Pages/Cíl.md'), 'Cíl shown');
     assert.ok(await shown(d, '9 objects link here', 5000), "Cíl's Backlinks panel (FR-LNK-01 AC-1)");
     // Every fixture note opened with the panel open; every Show <n> more on Cíl.
@@ -265,6 +267,21 @@ test('fr_syn_06_ac9_keyboard_tour_writes_nothing_then_one_create', { timeout: 90
       paste(q);
       await sleep(500);
       press('escape');
+    }
+    // Click mode (D-943): every chip of Cíl's panel previewed by a click, closed with Esc, followed with ⌘↩, and Back.
+    await paletteRun(d, 'Object preview: Click to preview');
+    await openByTitle(d, 'Cíl');
+    for (const title of ['Odkazy v textu', 'Rozbité odkazy', 'Markdown odkaz', 'Neplatná hlavička', 'Rychlá poznámka']) {
+      const e = await firstShown(d, title);
+      if (!e) continue;
+      await e.click();
+      await sleep(400);
+      press('escape');
+      await sleep(200);
+      press('enter', ['command']);
+      await sleep(500);
+      press('lbracket', ['command']);
+      await sleep(500);
     }
     // Every broken chip's offer opened and cancelled (FR-LNK-04 AC-12).
     await openByTitle(d, 'Rozbité odkazy');

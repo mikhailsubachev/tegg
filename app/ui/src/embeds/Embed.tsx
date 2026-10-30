@@ -16,6 +16,8 @@ import { formatDate } from '../read/PropertiesStrip';
 import { TypeCell, type TypeColumn } from '../types/cell';
 import type { EmbedNode } from './tree';
 import { isTaskCard, TaskEmbed } from './TaskEmbed';
+import { useReference } from '../preview/useReference';
+import type { PreviewTarget } from '../preview/types';
 
 export type EmbedProps = {
   node: EmbedNode;
@@ -31,6 +33,8 @@ export type EmbedProps = {
   modeDisabled?: string | null;
   onTag?: (key: string) => void;
   onExternal?: (url: string) => void;
+  /** Slice P (D-933, FR-LNK-11 AC-10): a card inside a preview is one chip: its values aren't links of their own. */
+  inPreview?: boolean;
 };
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -60,6 +64,14 @@ function open(node: EmbedNode, onOpen: EmbedProps['onOpen']) {
   if (node.target.path) onOpen(node.target.path, node.subpath && !node.subpath.startsWith('^') ? node.subpath : undefined);
 }
 
+/** Slice P (R104 row 3): what a preview of the embed shows: its target (a section of it), the virtual day, or null
+ *  when it doesn't resolve (D-939). */
+export function embedPreviewTarget(node: EmbedNode): PreviewTarget | null {
+  if (node.state === 'date-missing') return { path: '', fragment: null, kind: 'day', key: node.target.target.trim() };
+  if (node.state === 'broken' || node.state === 'trashed' || !node.target.path) return null;
+  return { path: node.target.path.normalize('NFC'), fragment: node.subpath, kind: 'note' };
+}
+
 /** D-418: a link-mode embed: an inline chip with the embed look. */
 function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   const broken = node.state === 'broken';
@@ -67,12 +79,12 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   const icon = chipIcon(type);
   const description = broken ? t('link.noNote', { target: node.target.target }) : node.state === 'too-deep' ? t('embed.tooDeep') : t('embed.chip');
   const parts = broken ? null : chipParts(node.target); // D-600
-  const act = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: e.currentTarget as HTMLElement, stay: true });
-    else open(node, onOpen);
-  };
+  const { props: ref } = useReference({
+    target: node.state === 'too-deep' ? null : embedPreviewTarget(node),
+    kind: 'chip',
+    open: () => open(node, onOpen),
+    createOffer: (el) => { if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: el, stay: true }); else open(node, onOpen); },
+  }, { description: joinDescriptions(description, parts?.description) });
   return (
     <a
       href="#"
@@ -90,8 +102,7 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
       {...parts?.attrs}
       aria-description={joinDescriptions(description, parts?.description)}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={act}
-      onKeyDown={(e) => e.key === 'Enter' && act(e)}
+      {...ref}
     >
       {!broken && (parts?.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />)}
       <span data-user-content>{broken ? node.target.target : titleOf(node)}</span>
@@ -187,10 +198,14 @@ function OpenButton({ props }: { props: EmbedProps }) {
 
 function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
   const { node } = props;
+  // Slice P (FR-LNK-09 AC-3): the header's icon and title are a reference to the embedded note (or its section).
+  const { props: ref } = useReference({ target: embedPreviewTarget(node), kind: 'chip', open: () => open(node, props.onOpen) });
   return (
     <div className="embed-header">
-      {showIcon && <TypeIcon type={typeOf(node)} />}
-      <span className="embed-title" data-user-content>{title}</span>
+      <span className="embed-head-ref" data-embed-title="" {...ref} onMouseDown={(e) => e.preventDefault()}>
+        {showIcon && <TypeIcon type={typeOf(node)} />}
+        <span className="embed-title" data-user-content>{title}</span>
+      </span>
       {node.state === 'ok' && isUnreviewed(node.target) && <span className="embed-unrev" data-review="unreviewed"><span className="chip-unrev" aria-hidden="true" />{t('link.unreviewed')}</span>}
       {node.mode === 'full' && node.readOnly && node.state === 'ok' && props.editable === false && node.note && (!node.note.utf8 || badFrontmatter(node.note.text ?? '')) && (
         <span className="embed-readonly">{t('embed.readOnly')}</span>
@@ -287,6 +302,8 @@ export function EmbedBody(props: EmbedProps) {
 
 export function Embed(props: EmbedProps): ReactNode {
   const { node } = props;
+  // Slice P (FR-LNK-09 AC-1, R104 row 3): a card is a reference (click and ⏎ preview in click mode, D-929).
+  const { props: cardRef } = useReference({ target: embedPreviewTarget(node), kind: 'chip', open: () => open(node, props.onOpen) });
   if (node.inline || node.mode === 'link' || node.state === 'too-deep') {
     // D-598 (D-428): a block embed in link mode keeps its `Display as` menu after the chip; inline ones don't (D-419).
     if (!node.inline && node.state !== 'too-deep' && node.state !== 'broken' && node.state !== 'date-missing') {
@@ -307,11 +324,22 @@ export function Embed(props: EmbedProps): ReactNode {
     'data-embed-depth': depth,
     // D-423: a click or ⏎ on a card (outside its buttons) opens the note; the card isn't a Tab stop (AP-350).
     ...(card ? { tabIndex: -1 } : {}),
-    onClick: (e: React.MouseEvent) => {
-      if (card && !(e.target as HTMLElement).closest('button, a, [role="menu"]')) open(node, props.onOpen);
+    ...(card ? {
+      'data-preview-ref': '',
+      'aria-description': cardRef['aria-description'],
+      onPointerMove: cardRef.onPointerMove,
+      onPointerLeave: cardRef.onPointerLeave,
+      onFocus: cardRef.onFocus,
+      onBlur: cardRef.onBlur,
+    } : {}),
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      if (card && (props.inPreview || !(e.target as HTMLElement).closest('button, a, [role="menu"], [data-embed-title]'))) cardRef.onClick?.(e);
     },
-    onKeyDown: (e: React.KeyboardEvent) => {
-      if (card && e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); open(node, props.onOpen); }
+    onDoubleClick: (e: React.MouseEvent<HTMLElement>) => {
+      if (card && (props.inPreview || !(e.target as HTMLElement).closest('button, a, [role="menu"], [data-embed-title]'))) cardRef.onDoubleClick?.(e);
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if (card && e.target === e.currentTarget) cardRef.onKeyDown?.(e);
     },
   };
   if (node.state === 'trashed') {
@@ -320,8 +348,9 @@ export function Embed(props: EmbedProps): ReactNode {
     return (
       <section {...base} className="embed embed-trashed" data-embed-state="trashed" data-embed-target={from}>
         <p className="embed-trashed-text">
-          {t('trash.placeholder', { title })}{' '}
-          <button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button>
+          {t('trash.placeholder', { title })}
+          {/* A preview writes nothing (FR-SYN-06 AC-37, FR-LNK-11 AC-9): no Restore inside one. */}
+          {!props.inPreview && <>{' '}<button type="button" tabIndex={0} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (from) void ipc.trashRestore(from).catch(() => {}); }}>{t('cmd.trashRestore')}</button></>}
         </p>
       </section>
     );
@@ -354,8 +383,8 @@ export function Embed(props: EmbedProps): ReactNode {
   if (isTaskCard(node)) {
     // D-74, D-497: the Task card (R52) in the 4F card frame; no preview strip.
     return (
-      <section {...base} onClick={undefined} onKeyDown={undefined} className="embed embed-card embed-task" aria-label={t('embed.name', { title })} data-embed-state="ok" data-embed-target={node.target.path ?? node.target.target} data-task-card="">
-        <TaskEmbed node={node} editable={props.editable} title={title} body={props.body} onOpen={() => open(node, props.onOpen)}
+      <section {...base} onClick={undefined} onDoubleClick={undefined} onKeyDown={undefined} onPointerMove={undefined} onFocus={undefined} onBlur={undefined} data-preview-ref={undefined} aria-description={undefined} className="embed embed-card embed-task" aria-label={t('embed.name', { title })} data-embed-state="ok" data-embed-target={node.target.path ?? node.target.target} data-task-card="">
+        <TaskEmbed node={node} editable={props.editable} title={title} body={props.body} onOpen={() => open(node, props.onOpen)} titleRef={cardRef}
           openButton={<OpenButton props={props} />}
           modeMenu={<ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} />} />
       </section>
@@ -370,7 +399,7 @@ export function Embed(props: EmbedProps): ReactNode {
     const msg = sub.startsWith('^') ? t('embed.noBlock', { id: sub.slice(1), title: node.target.title ?? node.target.target }) : t('embed.noHeading', { heading: sub, title: node.target.title ?? node.target.target });
     content = <p className="embed-message" data-embed-message>{msg}</p>;
   } else if (node.state === 'date-missing') content = <p className="embed-message" data-embed-message>{t('embed.noDay')}</p>;
-  else if (node.mode === 'card') content = <CardStrip node={node} onOpen={props.onOpen} onTag={props.onTag} />;
+  else if (node.mode === 'card') content = <CardStrip node={node} onOpen={props.inPreview ? () => {} : props.onOpen} onTag={props.inPreview ? () => {} : props.onTag} />;
   else if (node.note) {
     const editable = props.editable && !node.readOnly && !!props.body;
     content = (
