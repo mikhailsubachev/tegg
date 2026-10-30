@@ -278,6 +278,7 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
         RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
         RuleError::PreviewFull => ("previewFull", None, None, None),
+        RuleError::ColumnsUnreadable => ("columnsUnreadable", None, None, None),
         RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
         RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };

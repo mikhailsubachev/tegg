@@ -185,6 +185,10 @@ pub struct Parsed {
     pub preview_ignored: Vec<String>,
     /// Raw value of the top-level `embed` key, trimmed; None when absent (D-417, ms4-embeds §3).
     pub embed_raw: Option<String>,
+    /// D-1245 (type-columns §1): `columns` is neither absent nor a list of strings. STUB: always false.
+    pub columns_unreadable: bool,
+    /// D-1245: `columns` entries that are neither attributes nor universal keys (`title` excluded). STUB: always empty.
+    pub columns_ignored: Vec<String>,
 }
 
 /// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
@@ -325,9 +329,9 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 .filter(|p| !def.attributes.iter().any(|a| &a.key == *p) && !UNIVERSAL_KEYS.contains(&p.as_str()))
                 .cloned()
                 .collect();
-            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text) }
+            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text), columns_unreadable: false, columns_ignored: Vec::new() }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new() },
     }
 }
 
@@ -537,6 +541,8 @@ pub enum RuleError {
     OptionUsed { label: String },
     /// More than 4 preview keys (FR-TYP-11 AC-1).
     PreviewFull,
+    /// D-1245 (type-columns §1): a `SetColumns` on a file whose `columns` value can't be read.
+    ColumnsUnreadable,
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
@@ -976,6 +982,8 @@ pub enum TypeOp {
     SetPreview(Vec<String>),
     /// FR-TYP-17, D-316.
     SetHidden(Vec<String>),
+    /// D-1240 (type-columns §1): the `columns` line. STUB (red tests, TS-I1): changes nothing yet.
+    SetColumns(Vec<String>),
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1150,6 +1158,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_top(lines, "preview", render_top("preview", def));
             }
         }
+        TypeOp::SetColumns(_) => {} // STUB (red tests, TS-I1)
         TypeOp::SetHidden(keys) => {
             let mut out: Vec<String> = Vec::new();
             for k in keys.iter().map(|k| nfc(k)) {
