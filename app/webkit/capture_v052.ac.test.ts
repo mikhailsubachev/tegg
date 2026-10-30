@@ -77,7 +77,7 @@ test('fr_cap_01_ac19_quick_picks_days_and_months', async ({ page }) => {
   assert.equal(await eventually(() => dueText(page), (t) => t === dueLabel('2026-10-20'), 1000), dueLabel('2026-10-20'), 'day 20 sets 2026-10-20');
   dlg = await openDue(page);
   await click(dlg.getByRole('button', { name: 'Tomorrow', exact: true }), 'Tomorrow');
-  assert.equal(await eventually(() => dueText(page), (t) => t === dueLabel('2026-10-15'), 1000), dueLabel('2026-10-15'), 'Tomorrow sets 2026-10-15');
+  assert.equal(await eventually(() => dueText(page), (t) => t === 'Due: Tomorrow', 1000), 'Due: Tomorrow', 'Tomorrow sets 2026-10-15 (R55 due label `Tomorrow`)');
   dlg = await openDue(page);
   await click(dlg.getByRole('button', { name: 'Next month', exact: true }).or(dlg.getByRole('button', { name: '›', exact: true })), '›');
   assert.ok(await seen(dlg.getByText('November 2026', { exact: true }), 1000), '› shows November');
