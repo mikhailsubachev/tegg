@@ -326,3 +326,201 @@ Owner, 2026-10-30, as proposed:
   (follow-up).
 - The DTOs in `ui/src/graph/types.ts` are hand-written beside `shellg1.rs` (not generated yet; follow-up).
 
+## 15. Slice G2: the graph in the right panel
+
+Interfaces of slice G2 for the test author (D-61) and the build. ACs: `docs/acceptance/graph-panel.md` (R114…R117,
+FR-GRP-01 AC-28…AC-44, FR-GRP-02 AC-7…AC-10, FR-GRP-03 AC-6…AC-9, FR-GRP-05 AC-5, AC-6, FR-GRP-06 AC-6…AC-9,
+FR-GRP-07 AC-4, FR-GRP-08 AC-6, FR-NAV-05 AC-1 (changed, inbox.md), AC-2, AC-3, NFR-PERF-11 AC-3, FR-SYN-06 AC-39,
+FR-UX-03 AC-21, FR-UX-05 AC-16, NFR-OTH-02 AC-13). Open points D-1030…D-1043 (→ D-1030…D-1043); this section follows
+their proposals and is amended where a decision differs. Boards: `GraphPanel`(`Dark`) A, B, C, `GraphStates`(`Dark`)
+panel variants. G2 adds **no IPC command, no event and no Rust code**; it writes nothing to the vault. G3 appends §16
+(presets, keyboard, List; it adds `view` and `preset` to `GraphViewStateDto` and the `.tegg/graph.yml` store, which
+this section does not define).
+
+### 15.1 The request (§1, §2; D-912, R116)
+
+The panel calls the existing `graph_neighbourhood` with:
+
+```ts
+const req: GraphRequestDto = { centre, depth: panel.depth ?? 1, hiddenTypes: panel.hiddenTypes ?? [],
+                               hiddenKinds: panel.hiddenKinds ?? [], cap: 60, showAll: false };
+```
+
+- `centre`: the page's object path, NFC: `note/<path>` → `<path>`; `daily/<date>` → the day's file (`daily_view`'s
+  `path`, as `objectPathOf` for `graph.open`). `new/<type>`, a virtual day, and a page whose file is gone send **no**
+  request (R115 No file, Deleted).
+- `total > 60` → the Too many state, nothing drawn; the result's `nodes` are not used. Otherwise every node of the
+  result is drawn (`truncated` is false then, because R111 keeps everything when `total ≤ cap`).
+- Lower depth (D-1033): `lowerDepthOffer(depthTotals, depth, 60)` = the largest `d' < depth` with
+  `depthTotals[d'-1] <= 60`, or `null`.
+- Errors as §3: `CentreInTrash` / `CentreNotFound` → the panel's Deleted state (after `index_path_by_id(objectId)` as
+  the full view does); `NotReady` → Loading; `Cancelled` → ignored (a newer request is running).
+- Requests are sent only while the panel is shown **and** its tab is `graph` (FR-GRP-01 AC-40). One in-flight graph
+  request per window (§1.5) still holds: the panel and the full view are never shown together (D-988).
+
+### 15.2 Modules (`app/ui/src/graph/`)
+
+| Module | Owns |
+| --- | --- |
+| `panelModel.ts` | Pure, L1: `lowerDepthOffer(depthTotals, depth, cap)`; `panelState(input) → 'graph' \| 'noLinks' \| 'allHidden' \| 'loading' \| 'tooMany' \| 'noFile' \| 'deleted'`; `triggerText(depth, hidden)`; `footerText(count)`; `panelFit(positions, nodeBoxes, size, margin = 12) → scale` (≤ 1, ≥ 0.25, centre pinned; D-1031); `PANEL_SCALE` (R114 sizes). |
+| `GraphPanel.tsx` | The `tabpanel` `Graph`: request lifecycle (§6 rules: 300 ms loading, latest-request-wins, debounced re-query), R115 states, selection, the popover hand-over (§15.4), the trigger and its popover, `Open full view`. |
+| `GraphFilters.tsx` | Gains `variant: 'column' \| 'popover'`; the popover variant renders the `Depth` `radiogroup` first, then Types, Connections, `Size nodes by links` and `graph.panel.filtersNote`, with a slot after `Depth` for G3's preset row. |
+| `GraphCanvas.tsx` | Gains `scale: 'full' \| 'panel'` (R114 sizes and the label width 96 px; panel: no zoom buttons, no hint, labels always shown, fit per `panelFit`) and `onSelect(node \| null)`, `onOpen(node)`, `selected` as controlled props (unchanged semantics). |
+
+```ts
+// GraphPanel.tsx
+export function GraphPanel(props: {
+  /** The page's object; null path = no file (new/<type>, a virtual day) → R115 No file. */
+  centre: { path: string | null; title: string; objectId: string | null };
+  vaultPath: string;                                   // NFC; the `vaults` key (D-993)
+  state: GraphViewStateDto;                            // vaults[vaultPath].graph.panel, defaults applied by the reader
+  onState(next: GraphViewStateDto): void;              // one ui_state_set per committed change (§15.3)
+  onOpen(node: GraphNodeDto): void;                    // double-click / `Open`: the shell's open (route + nav_opened)
+  onOpenFull(handover: GraphHandover): void;           // `Open full view`, `In full graph`, ⌘⇧G (§15.5)
+  refresh: number;                                     // the shell's refresh tick (own saves, type changes)
+  width: number;                                       // the panel's drawn width; canvas = width − 28
+  types: TypeDefDto[];                                 // type order, names, icons (D-994 via the core, D-998 phrases)
+}): JSX.Element;
+```
+
+`ContextPanel` (`shell/Frame.tsx`) renders `<GraphPanel>` for `tab === 'graph'` when `PANEL_TABS`' `graph` row is built,
+the same way it renders `BacklinksPanel`; the Backlinks badge keeps counting (`BadgeCount`).
+
+### 15.3 Machine-local state (§5; D-906, D-993)
+
+```ts
+type UiStateDto = {
+  // … as before …
+  vaults?: Record<string, { graph?: { full?: GraphViewStateDto; panel?: GraphViewStateDto } }>;
+};
+// GraphViewStateDto is §5's type, unchanged: { depth?, hiddenTypes?, hiddenKinds?, sizeByLinks? }.
+```
+
+- `graph.panel` is written only by the panel, `graph.full` only by the full view (FR-GRP-02 AC-10). Written through
+  `ui_state_set` once per committed change: a depth radio, a palette `Graph: Depth n` while the panel shows Graph, the
+  offer `Depth <d'> · <m>`, a type or kind checkbox, `All`, `None`, `Show all types`, `Show everything`, `Size nodes by
+  links`. Never on open, never on a hand-over (D-1037).
+- Missing or invalid values read as the defaults and are left as they are until the user changes that value (§5).
+- `rightPanel.tab: 'graph'` and `rightPanel.open` are the existing fields (ms3-shell §2); `Show local graph` sets both in
+  one write.
+
+### 15.4 The node preview in the panel (§7; D-917, D-982; D-1034, D-1041)
+
+```ts
+preview.show(
+  { path: node.path ?? '', fragment: null, kind: node.tagKey ? 'tag' : 'note', key: node.tagKey ?? undefined },
+  { el: nodeElement },                       // the node's <g>, inside `.context-panel[data-preview-side="left"]`
+  'click',
+  { placement: 'popover' },
+  graphLines(node, result, types),           // line 1 `<Type> · <n> connections`; line 2 the D-982 phrase, none for the centre
+  { label: t('graph.panel.inFullGraph'), run: () => onOpenFull({ depth, select: node.id }) },
+);
+```
+
+- Placement and size are slice P's for panel references (v1-previews §3.3, `data-preview-side="left"`: left of the
+  panel, top at the anchor's top, the stored or default size); no new placement code.
+- `GraphPanel` watches `usePreview().current`: when it no longer targets the selected node (any close reason, or another
+  surface's preview), the selection clears. A selected node missing from a new result closes the preview
+  (`close('outside')`) and clears the selection (D-915; the slice P `gone` state is not shown for graph nodes).
+- The panel never shows `Center graph here`.
+
+### 15.5 To the full view (D-905, D-970; R116; D-1036, D-1037)
+
+```ts
+type GraphHandover = { depth: 1 | 2 | 3; select: NodeIdDto | null };
+// shell/history.ts
+export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHandover };
+// App.tsx: go(route, opts?: { graph?: GraphHandover })  → push(route) with the hand-over on the new entry
+```
+
+- `Open full view` and `In full graph` call `onOpenFull`; the shell pushes `graph/<centre path>` (NFC) with the
+  hand-over on the new entry. The node selected when the toolbar button's `pointerdown` arrived is handed over (the
+  outside-click close comes after it is read).
+- `graph.open` (⌘⇧G, `Open graph`): when the panel is shown with tab `graph` and a centre path, it runs the same
+  hand-over (the panel's depth and current selection); otherwise unchanged (§3, the full view's own depth).
+  `Open full view` carries `data-command="graph.open"`; `aria-disabled` with `cmd.needsObject` where `graph.open` is
+  disabled (D-1023).
+- `GraphPage` reads `entry.graph` first: `depth` overrides `graph.full.depth` for that entry only (not written);
+  `select` is applied after the first result when that node is drawn, and the column previews it. Back / Forward to the
+  entry restore its hand-over. A depth change in the full view writes `graph.full` as before and updates the entry's
+  `graph.depth`, so Back / Forward show what was last seen.
+- Back from the full view shows the note with the panel as it was (`graph.panel` unchanged; no selection).
+
+### 15.6 Commands and registry
+
+| Id | Title (R117) | Section | Listed / enabled | Runs |
+| --- | --- | --- | --- | --- |
+| `panel.graph` | `cmd.graph.showLocal` `Show local graph` | `view` | on `note/<path>`, `daily/<date>`, `new/<type>` (as `panel.backlinks`) | opens the panel on `graph` (one `ui_state_set`), focus on `Depth and filters` |
+| `graph.depth1`…`depth3` | R112 | `navigate` | also while the panel is shown with tab `graph` (D-1035) | sets the panel's depth there; the full view's on `graph/<path>` |
+| `graph.recenter` | R112 | `navigate` | only on `graph/<path>` (unchanged) | — |
+| `graph.open` | R112 | `navigate` | unchanged (§3) | §15.5 |
+
+- `PANEL_TABS` row `graph` becomes `status: { built: true, due: { milestone: 'v1.0' } }`, `reqs: ['FR-GRP-01',
+  'FR-NAV-05']` (app-shell R2, in the commit that builds G2). The tab keeps `data-command="panel.graph"`, now a
+  registered command.
+- No new shortcut (R4 unchanged). Strings: every R117 key in the English catalog, plurals per D-133.
+
+### 15.7 Live updates and timing (§6; D-980, D-1026)
+
+- While the Graph tab is shown: `vault:changed` (any paths) or a `refresh` tick → debounced 300 ms → the same request;
+  equal result → nothing redrawn; otherwise the layout runs with `previous` (surviving nodes fixed, new ones next to a
+  kept neighbour, 150 ms fade-in, none under Reduce motion).
+- A centre change (navigation, rename) → a new request with no `previous` (a fresh seeded layout) and no selection; a
+  rename keeps the layout when `objectId` is unchanged (node keys, §4).
+- Loading only when no answer arrived 300 ms after the request; the panel's loading has no animation at all.
+- Marks: `perfMark('graph-request')` / `perfMark('graph-ready')` as §6, for NFR-PERF-11 AC-3, without a `detail`
+  (the IPC `perf_mark` takes a name only): the panel and the full view are never shown together (D-988), so the marks
+  of a run are the shown view's.
+
+### 15.8 Fake core and test hooks
+
+- No new handle. `graphCalls()` (§8) records the panel's requests (with `cap: 60`); `graphDelay`, `graphNotReady`,
+  `setFile`, `rename`, `trash`, `restore` as G1. `uiState()` exposes `vaults[…].graph.panel` and `rightPanel`.
+- L5 start option `rightPanel: { open: true, tab: 'graph', width }` through `__TEGG_UI_STATE__`.
+- L6: `TEGG_ROUTE=note/<path>` with a seeded `ui-state.json` (`rightPanel.tab: 'graph'`); `route-ready:note/<path>` then
+  `perfMark('graph-ready')` for the panel.
+
+### 15.9 Test layout
+
+| Layer | Files |
+| --- | --- |
+| L1 | `app/test/graph_panel_model.ac.test.ts` (`lowerDepthOffer`, `panelState`, texts, `panelFit`), `graph_panel_catalog.ac.test.ts` (R117) |
+| L5 | `app/webkit/graph_panel.ac.test.ts` (tab, routes, depth, cap, filters, selection, preview, hand-over, ⌘⇧G, states), `graph_panel_live.ac.test.ts` (live, renames, deleted, requests only while shown), `graph_panel_themes.ac.test.ts`; `app/webkit/sidebar_5b.ac.test.ts` (FR-NAV-05 AC-1, changed with the trailer) |
+| L6 | `app/e2e/graph_panel.ac.test.ts` (relaunch, ⌘⇧G, external edit and trash, FR-SYN-06 AC-39), `app/e2e/nfr_perf_11_graph_panel.ac.test.ts` (outside the push run, report-only until the v1.0 release gate) |
+
+### 15.10 Contract choices (no owner decision needed)
+
+1. The panel reuses `graph_neighbourhood` with `cap: 60` and decides Too many from `total`, so the core has no
+   panel-specific parameter (§9's seam).
+2. `GraphFilters` and `GraphCanvas` take a variant instead of being copied, so the panel and the full view can't drift.
+3. The hand-over lives on the history entry, not in the route string: `graph/<path>` stays the one route form (D-914)
+   and no view state reaches the URL or `ui-state.json`.
+4. The panel queries nothing while its Graph tab is hidden; switching to it asks once.
+5. `panel.graph` is both the tab's command and `Show local graph`, as `panel.backlinks` is for `Show backlinks`.
+
+
+### 15.11 Build notes and open points of the G2 build (AP-900 → D-1050…AP-905 → D-1055, for the owner)
+
+Build notes (no decision needed):
+
+- The panel's layout keeps every free node's box inside the canvas with the 12 px margin and pulls nodes towards the
+  vertical centre line (`layout(…, { bounds, squeeze })`), so `panelFit` gives 100 % whenever the graph fits (Plán up to
+  depth 3 at 260 px); `buildModel(result, { sizeByLinks, scale: 'panel' })` and `GraphCanvas scale="panel"` carry R114's
+  sizes. A width change moves no node and re-centres (no re-layout, no request).
+- The panel re-asks after the page's own save (`NotePage onWritten` → the `refresh` tick), since the watcher doesn't
+  report Tegg's own writes.
+- Back returns to a note with its caret (graph.md FR-GRP-01 AC-11, AC-34 here): the history entry keeps the editor's
+  selection (`HistoryEntry.caret`, `NotePageApi.caret`, `NotePage restoreCaret`).
+- `ShellActions.showLocalGraph` runs `panel.graph`; `GraphPanel` exposes `commandRef` (depth, hand-over) for
+  `Graph: Depth n` and ⌘⇧G while the panel shows the Graph tab (D-1035, D-1036).
+
+Open points:
+
+| AP | Point | Proposal |
+| --- | --- | --- |
+| AP-900 → D-1050 | Test defect: `graph-panel-helpers.ts` `graphPanel` names the tab panel `'Graph'` with `exact: true`, which the pseudo-locale (`⟦Graph⟧`) never matches, so `nfr_oth_02_ac13_panel_graph_strings_in_the_catalog` (WebKit) fails in `openPanel` before its checks. | `name: /^⟦?Graph⟧?$/` (as `graphTab`); a corrected copy passes. |
+| AP-901 → D-1051 | Test defect: `fr_grp_01_ac28_panel_graph_tab_on_a_note` counts every `nav_opened`, including the landing route's own (D-138 records opening `note/<path>`), so it reads 1. | Count from after `openPanel` (`navCount` delta); a corrected copy passes. |
+| AP-902 → D-1052 | Test defect: the 800 × 500 part of `fr_grp_06_ac7_panel_preview_opens_left_of_the_panel` starts with `sidebarOpen: false`, but `start` waits for the Sidebar (not drawn when closed) and `startPanel` resets the viewport to 1,440 × 980. | `startPanel(…, { sidebarOpen: false, frame: 'none' })`, then `setViewportSize(800 × 500)`; a corrected copy passes. |
+| AP-903 → D-1053 | Test defect: L1 `fr_ux_03_ac21_panel_graph_commands` gives the daily route as `id: 'daily/<date>'` (the contract's notation); the registry's route id is `daily/YYYY-MM-DD`, so `panel.graph` (listed like `panel.backlinks`) isn't found there. | `id: 'daily/YYYY-MM-DD'` in the test; a corrected copy passes all three L1 checks. |
+| AP-904 → D-1054 | A rename moves the file, then rewrites links in steps (4C); a query in between draws a neighbourhood missing the not-yet-rewritten linkers (FR-GRP-01 AC-41 "keeps the 10 nodes"). | While a `note-rename` job (4C) reports `job:progress` without an end phase, a centre change (shown as Loading) and live re-asks wait for its end (at most 5 s), then ask once. |
+| AP-905 → D-1055 | Test timing: `fr_ux_05_ac16_panel_graph_in_light_and_dark_light` runs axe right after the preview popover appears, during slice P's 120 ms fade-in; about 1 run in 4 reports `color-contrast` on the popover's text. | Wait until the popover is fully shown (or emulate Reduce motion) before axe, as the R115 states part does with `sleep(200)`. |

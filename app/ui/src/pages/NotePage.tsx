@@ -98,6 +98,8 @@ export type NotePageApi = {
   /** 6A (FR-HIS-01 AC-1, D-196): saves first, then what Move to trash needs; null when the save failed or there is
    *  no file (a virtual Daily Note, an unsaved object). */
   trashTarget: () => Promise<{ path: string; base: VersionDto; title: string } | null>;
+  /** The editor's selection (Back restores it), or null outside the editor. */
+  caret: () => { anchor: number; head: number } | null;
   /** 6A (FR-HIS-01 AC-3): why there is nothing to trash, or null. */
   trashBlocked: () => string | null;
   /** 6A (FR-HIS-01 AC-2): re-reads the file after a refused trash. */
@@ -114,7 +116,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, restoreCaret, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, onWritten, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -127,6 +129,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   /** 5A-1 (FR-TSK-08 AC-3): open a note with this note's embed selected. */
   onOpenSource?: (path: string) => void;
   restoreScroll?: number;
+  /** Back/Forward: the caret the entry was left with (graph.md FR-GRP-01 AC-11, graph-panel.md AC-34). */
+  restoreCaret?: { anchor: number; head: number };
   types: TypeDefDto[];
   heading: React.RefObject<HTMLHeadingElement | null>;
   onType: (key: string) => void;
@@ -150,6 +154,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onToggleOther?: () => void;
   /** 3D: a save changed the note's type (sidebar counts follow, FR-TYP-07 AC-5). */
   onTypeSaved?: () => void;
+  /** Slice G2 (v1-graph §15.7): the page's own save landed (the panel graph re-asks). */
+  onWritten?: () => void;
   /** 4B (ms4-daily §4.1, R17, R19): this page shows a Daily Note (virtual while `daily.virtual` is set). */
   daily?: DailyInfo;
   /** 4B: a note route opened a Daily Note (type daily-note with a valid date). */
@@ -324,6 +330,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         setDiskText(text);
         syncHead();
         if (noteMeta(live.current.path, text).type !== before) onTypeSaved?.();
+        onWrittenRef.current?.();
         savedTitle.current = noteMeta(live.current.path, text).title;
         const written = savedTitle.current;
         setTitle((cur) => (cur.trim() === '' ? written : cur)); // D-523: an empty title was written as `Untitled`
@@ -433,6 +440,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       return { path, base, title: live.current.daily?.date ?? (titleRef.current.trim() || stem) };
     },
     trashBlocked: () => (live.current.daily?.virtual || live.current.draft ? t('trash.nothing') : null),
+    caret: () => {
+      const ed = pane.current?.ed;
+      if (!ed || live.current.loaded?.mode !== 'edit') return null;
+      const s = ed.view.state.selection;
+      return { anchor: s.anchor, head: s.head };
+    },
     reload: () => { void externalRef.current(); },
     discardDraft: () => { if (isDraft()) saver.current?.discard(); },
     // D-494: only the note's own editor converts; the read view, the source view and read-only files don't.
@@ -524,7 +537,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // Back restores the scroll position again once the embeds have their height (FR-EMB-02 AC-9).
   const embedSnap = embeds.getSnapshot();
   const restoredAfterEmbeds = useRef(false);
+  const onWrittenRef = useRef(onWritten);
+  onWrittenRef.current = onWritten;
   const restoreAtOpen = useRef(restoreScroll); // the App clears its value once restored the first time
+  const caretAtOpen = useRef(restoreCaret); // likewise: the caret to restore once, when the editor is ready
   useEffect(() => {
     const target = restoreAtOpen.current;
     if (restoredAfterEmbeds.current || target === undefined || !embedSnap.tree) return;
@@ -850,6 +866,26 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     if (edit && live.current.daily?.virtual && pane.current?.caretToEnd()) {
       setFocusTarget('body');
       return;
+    }
+    // Back/Forward: the caret the entry was left with.
+    const restoreCaretNow = caretAtOpen.current;
+    if (edit && restoreCaretNow && !fragment && pane.current?.ed) {
+      caretAtOpen.current = undefined;
+      const restoreCaret = restoreCaretNow;
+      const ed = pane.current.ed;
+      const size = ed.view.state.doc.content.size;
+      const clamp = (n: number) => Math.max(0, Math.min(n, size));
+      // D-255: the caret never scrolls; the focus first, without scrolling, then the selection.
+      ed.view.dom.focus({ preventScroll: true });
+      if (ed.editor.commands.setTextSelection({ from: clamp(restoreCaret.anchor), to: clamp(restoreCaret.head) })) {
+        setFocusTarget('body');
+        const main = root.current?.closest('main');
+        if (restoreScroll !== undefined && main) {
+          main.scrollTop = restoreScroll;
+          requestAnimationFrame(() => { main.scrollTop = restoreScroll; });
+        }
+        return;
+      }
     }
     if (edit && pane.current?.caretToStart(fragment)) {
       setFocusTarget('body');

@@ -146,7 +146,13 @@ test('fr_nav_05_ac1_right_panel_tabs', async ({ page }) => {
   const tabs = (await panel.getByRole('tab').allInnerTexts()).map(flat);
   assert.deepEqual(tabs.map((t) => t.replace(/\s*\d+$/, '')), ['Backlinks', 'Outline', 'Graph'], 'R2 tabs; no Attributes tab (D-127)');
   assert.equal(await description(panel.getByRole('tab', { name: /^Outline/ })), 'Coming in v1.0', 'Outline: Coming in v1.0 (D-376)');
-  assert.equal(await description(panel.getByRole('tab', { name: /^Graph/ })), 'Coming in v1.0', 'Graph: Coming in v1.0');
+  // D-920 (graph-panel.md, slice G2): the Graph tab is built; selecting it shows the local graph of R114.
+  const graph = panel.getByRole('tab', { name: /^Graph/ });
+  assert.doesNotMatch(await description(graph), /Coming in/, 'Graph: built, no `Coming in v1.0` description (D-920)');
+  await click(graph, 'tab "Graph"');
+  assert.equal(await graph.getAttribute('aria-selected'), 'true', 'Graph selected');
+  await must(panel.getByRole('tabpanel', { name: 'Graph', exact: true }).getByRole('group', { name: /^Local graph: Plán webu/ }), 'selecting it shows the local graph (graph-panel.md R114)');
+  assert.equal((await eventually(() => core.uiState(), (s) => s?.rightPanel.tab === 'graph', 2000))?.rightPanel.tab, 'graph', 'the tab is kept per machine (FR-UX-02 AC-10)');
   await page.keyboard.press('Meta+Backslash');
   assert.equal((await core.uiState())?.rightPanel.open, false, 'the open state is kept per machine (FR-UX-02 AC-7)');
 });

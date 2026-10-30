@@ -1511,6 +1511,20 @@ export const en: Catalog = {
   'cmd.graph.recenter': 'Graph: Recenter',
   // G1 build point (D-987): why `Open graph` is listed disabled.
   'cmd.needsObject': 'Open an object first',
+  // Slice G2 (graph-panel.md R117): the local graph in the right panel.
+  'graph.panel.filters': 'Depth and filters',
+  'graph.panel.trigger': 'Depth {depth}',
+  'graph.panel.triggerHidden': { one: 'Depth {depth} · {count} hidden', other: 'Depth {depth} · {count} hidden' },
+  'graph.panel.filtersNote': 'Remembered for the panel; the full view keeps its own.',
+  'graph.panel.openFull': 'Open full view',
+  'graph.panel.openFullShortcut': 'Open full view ({shortcut})',
+  'graph.panel.footer': { one: '{count} object · click a node to preview', other: '{count} objects · click a node to preview' },
+  'graph.panel.loading': 'Loading…',
+  'graph.panel.tooMany': 'Too many to show here',
+  'graph.panel.tooManyCount': '{count} objects at depth {depth}',
+  'graph.panel.noFile': 'The graph appears once this note is saved.',
+  'graph.panel.inFullGraph': 'In full graph',
+  'cmd.graph.showLocal': 'Show local graph',
 };
 
 let current: Catalog = en;

@@ -68,6 +68,8 @@ import { tagKey } from './tags/keys';
 import type { TagPageUi, TagsSort } from './tags/model';
 import { PreviewProvider } from './preview/PreviewProvider';
 import { GraphPage } from './graph/GraphPage';
+import type { GraphPanelCommands, GraphPanelProps } from './graph/GraphPanel';
+import type { GraphHandover } from './shell/history';
 import type { GraphViewStateDto } from './graph/types';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
 import type { PreviewTarget, PreviewUiDto } from './preview/types';
@@ -95,7 +97,7 @@ type PanelTab = 'backlinks' | 'outline' | 'graph';
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
 type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
   /** Slice G1 (v1-graph §5, D-993): per-vault state, keyed by the vault's absolute path (NFC); G2 adds `graph.panel`. */
-  vaults?: Record<string, { graph?: { full?: GraphViewStateDto; panel?: unknown } & Record<string, unknown> } & Record<string, unknown>> };
+  vaults?: Record<string, { graph?: { full?: GraphViewStateDto; panel?: GraphViewStateDto } & Record<string, unknown> } & Record<string, unknown>> };
 const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, typeSort: {}, otherPropertiesOpen: false };
 
 function initialUi(): UiState {
@@ -135,9 +137,20 @@ export function App() {
   // 4A: the Create offer of a broken link (FR-LNK-04 AC-4) and `Show backlinks` (R16).
   const [offer, setOffer] = useState<OfferRequest | null>(null);
   const [focusBacklinks, setFocusBacklinks] = useState(0);
+  /** Slice G2 (FR-NAV-05 AC-2): `Show local graph` puts the focus on `Depth and filters`. */
+  const [focusGraph, setFocusGraph] = useState(0);
+  /** Slice G2 (v1-graph §15.5): the shown history entry's hand-over from the panel to the full view. */
+  const [handover, setHandover] = useState<GraphHandover | null>(null);
+  /** Slice G2: the shown panel graph's commands (`Graph: Depth n`, ⌘⇧G); whether the panel shows the Graph tab. */
+  const panelGraph = useRef<GraphPanelCommands | null>(null);
+  const panelShowsGraph = useRef(false);
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
+  /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
+   *  A subscription, not state: an autosave doesn't re-render the App. */
+  const ownSaveListeners = useRef(new Set<() => void>());
+  const onOwnSave = useCallback((f: () => void) => { ownSaveListeners.current.add(f); return () => { ownSaveListeners.current.delete(f); }; }, []);
   // Slice PW (AP-754, AP-759): the vault's default page width, read again after every vault change (live).
   const [vaultWidth, setVaultWidth] = useState<PageWidth>('normal');
   // 4B: the calendar popover (R18) and the daily info of a note route showing a Daily Note that doesn't win (D-319).
@@ -166,6 +179,9 @@ export function App() {
   // The `id` of every note shown, so Back/Forward can follow a note renamed in the meantime (FR-NAV-03 AC-5).
   const knownIds = useRef(new Map<string, string>());
   const centreScroll = () => document.querySelector('main')?.scrollTop ?? 0;
+  /** The note editor's caret on the page being left (Back returns with it). */
+  const centreCaret = () => noteApi.current?.caret?.() ?? null;
+  const pendingCaret = useRef<{ anchor: number; head: number } | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -309,7 +325,7 @@ export function App() {
   // ------------------------------------------------------------------ navigation
   /** D-760: a `Go to` jump from Search replaces the Search entry, so Back leaves it out as the ⌘O switcher did (FR-NAV-03). */
   const jumpFrom = useRef<string | null>(null);
-  const go = useCallback(async (r0: Route, o: { keepDialog?: boolean } = {}) => {
+  const go = useCallback(async (r0: Route, o: { keepDialog?: boolean; graph?: GraphHandover } = {}) => {
     const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
     setChooser(null);
@@ -317,10 +333,11 @@ export function App() {
     setFocusMode(false);
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
-    history.current.saveScroll(centreScroll());
+    history.current.saveScroll(centreScroll(), centreCaret());
     if (jumpFrom.current !== null && jumpFrom.current === shownRoute.current) history.current.replace(r);
-    else history.current.push(r);
+    else history.current.push(r, o.graph);
     jumpFrom.current = null;
+    setHandover(o.graph ?? null);
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
     justCreated.current = settleCreated(justCreated.current, r); // D-367: a marker of a route not landed on goes
@@ -331,7 +348,7 @@ export function App() {
   const step = useCallback(async (dir: 'back' | 'forward') => {
     if (dir === 'back' ? !history.current.canBack() : !history.current.canForward()) return;
     await flushNote();
-    history.current.saveScroll(centreScroll());
+    history.current.saveScroll(centreScroll(), centreCaret());
     const e = dir === 'back' ? history.current.back() : history.current.forward();
     if (!e) return;
     setChooser(null);
@@ -339,9 +356,11 @@ export function App() {
     pendingReturn.current = null;
     pendingFocus.current = true;
     pendingScroll.current = e.scrollTop;
+    pendingCaret.current = e.caret ?? null;
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
     justCreated.current = settleCreated(justCreated.current, e.route);
+    setHandover(e.graph ?? null);
     setRoute(e.route);
   }, []);
   // A focus the user makes before the new page is ready wins over the pending heading focus.
@@ -629,6 +648,12 @@ export function App() {
       updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'backlinks' } }));
       setFocusBacklinks((n) => n + 1);
     },
+    // Slice G2 (FR-NAV-05 AC-2, D-918): one write of `rightPanel.open` and `tab`.
+    showLocalGraph: () => {
+      if (!isNoteRoute(route)) return;
+      updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'graph' } }));
+      setFocusGraph((n) => n + 1);
+    },
     toggleFocus: () => {
       if (!isNoteRoute(route)) return;
       setFocusMode((f) => !f);
@@ -654,23 +679,56 @@ export function App() {
     showPreview: () => { setTimeout(() => showPreviewAction()?.(), 0); }, // after the palette gave the focus back (D-139)
     setPreviewMode: (m) => { if (getPreviewPrefs().mode !== m) updatePrefs((d) => ({ ...d, mode: m })); },
     // Slice G1 (D-918, D-987): the full view of the current object; the graph route's commands.
+    // Slice G2 (R116 rules 3, 4; D-1036): with the panel on the Graph tab, the panel's hand-over.
     openGraph: () => {
+      if (route?.id !== 'graph/<path>' && panelShowsGraph.current && panelGraph.current) { panelGraph.current.openFull(); return; }
       const path = objectPathOf(route);
       if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') });
     },
-    graphCommand: (id) => { if (route?.id === 'graph/<path>') graphCommand.current?.(id); },
+    graphCommand: (id) => {
+      if (route?.id === 'graph/<path>') graphCommand.current?.(id);
+      else if (panelShowsGraph.current && id !== 'recenter') panelGraph.current?.depth(Number(id.slice(5)) as 1 | 2 | 3);
+    },
     editLink: () => { setTimeout(() => editorLinkAction('edit'), 0); },
     removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
     edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
   }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile]);
 
+  // Slice G2 (v1-graph §15.2): the right panel's Graph tab, around the page's object (D-1038: no file on new/<type>
+  // and a virtual day).
+  const panelGraphProps: Omit<GraphPanelProps, 'width'> | undefined = (() => {
+    if (!vault || !isNoteRoute(route)) return undefined;
+    const vp = vault.path.normalize('NFC');
+    const path = route?.id === 'new/<type>' ? null : objectPathOf(route);
+    const pending = route?.id === DAILY && !(noteDaily && noteDaily.date === route.param) && !(dailyFile && dailyFile.date === route.param);
+    const title = route?.id === DAILY ? (route.param ?? '') : (meta?.title ?? (path ? path.split('/').pop()!.replace(/\.md$/, '') : ''));
+    return {
+      centre: { path: path ? path.normalize('NFC') : null, title, objectId: null },
+      vaultPath: vp,
+      state: ui.vaults?.[vp]?.graph?.panel ?? {},
+      onState: (next) => updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...(u.vaults?.[vp]?.graph ?? {}), panel: next } } } })),
+      onOpen: (n) => {
+        if (n.typeKey === 'tag') { void go({ id: 'tag/<key>', param: tagKey(n.tagKey ?? n.title) }); return; }
+        if (n.typeKey === 'daily-note' && /^\d{4}-\d{2}-\d{2}$/.test(n.title)) { openDay(n.title); return; }
+        if (n.path) openNote(n.path);
+      },
+      onOpenFull: (h) => { if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') }, { graph: h }); },
+      refresh,
+      onOwnSave,
+      types,
+      pending,
+      focusTrigger: focusGraph,
+      commandRef: panelGraph,
+    };
+  })();
   // D-562: a note route carries its object's type, so the review commands follow its Review row.
   setDateTimeSetting(ui.dateTime);
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param, path: objectPathOf(route) } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter }
     : route?.id === 'tag/<key>' ? { ...route, path: objectPathOf(route) } : route;
-  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter]);
+  panelShowsGraph.current = showPanel && ui.rightPanel.tab === 'graph';
+  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: ui.rightPanel.tab as PanelTab } };
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -873,6 +931,7 @@ export function App() {
         selectEmbedOf={daily ? undefined : route?.selectEmbedOf}
         onOpenSource={(p) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: path.normalize('NFC') }); }}
         restoreScroll={restoreFor === routeKey ? (pendingScroll.current ?? undefined) : undefined}
+        restoreCaret={restoreFor === routeKey ? (pendingCaret.current ?? undefined) : undefined}
         onRestored={() => { pendingScroll.current = null; }}
         knownId={knownIds.current.get(path)}
         onId={(id) => knownIds.current.set(path, id)}
@@ -902,6 +961,7 @@ export function App() {
         onWidth={setNoteWidth}
         onRekeyWidth={(from, to, w) => setNoteWidth(to, w, from)}
         onTypeSaved={loadTypes}
+        onWritten={() => { for (const f of ownSaveListeners.current) f(); }}
         daily={daily}
         draft={draftInfo}
         onDaily={(date) => onNoteDaily(path, date)}
@@ -974,6 +1034,7 @@ export function App() {
     const graphKey = routeKey;
     body = (
       <GraphPage key={navKey} path={route.param} heading={heading} commandRef={graphCommand}
+        handover={handover} onHandoverDepth={(d) => { if (!handover) return; const next = { ...handover, depth: d }; history.current.setGraph(next); setHandover(next); }}
         view={ui.vaults?.[vp]?.graph?.full}
         onView={(next) => updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...(u.vaults?.[vp]?.graph ?? {}), full: next } } } }))}
         onTitle={(title) => setGraphTitle((g) => (g?.route === graphKey && g.title === title ? g : { route: graphKey, title }))}
@@ -1120,7 +1181,8 @@ export function App() {
         {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
           width={panelWidth} room={panelRoom} limits={[PANEL_MIN, PANEL_MAX, PANEL_W]}
           onWidth={(w) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, width: w } }))}
-          backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined} />}
+          backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined}
+          graph={panelGraphProps} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
             onCreated={(p) => { if (offer.stay) return; justCreated.current = p.normalize('NFC'); openNote(p); }}

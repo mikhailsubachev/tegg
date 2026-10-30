@@ -169,6 +169,22 @@ modified: 2026-10-01T09:00:00+02:00
 
 Široký is at depth 4 from Rozcestník, so it is never in Rozcestník's results.
 
+## Panel (G2, `docs/acceptance/graph-panel.md`)
+
+No new file: the panel uses the objects, edges, filter scenarios and hub above. Its own expectations (cap 60, R116;
+the lower depth is the deepest one whose total is ≤ 60, D-1033; totals include the centre):
+
+| Centre | Totals at depth 1 / 2 / 3 | Panel shows |
+| --- | --- | --- |
+| Plán | 10 / 19 / 22 | the graph at every depth (labels shown) |
+| Rozcestník | 41 / 161 / 1,361 | depth 1: 41 nodes, 40 edges; depth 2 and 3: Too many, `Depth 1 · 41` |
+| Uzel 01-a | 17 / 21 / 231 | depth 1: 17 nodes (Paprsek 01, List 01-a-01…15); depth 2: 21 nodes, 21 edges (+ Rozcestník, Uzel 01-b, Uzel 01-c, Široký); depth 3: Too many, `Depth 2 · 21` |
+| Paprsek 01 | 5 / 74 / 192 | depth 1: 5 nodes; depth 2 (+ Paprsek 02…40, List 01-a-*, List 01-b-*): Too many, `Depth 1 · 5`; depth 3 (+ Uzel 02…40-a/b/c, Široký): Too many, `Depth 1 · 5` |
+| Široký | 161 / 241 / — | depth 1: Too many, no lower depth, only `Open full view` |
+
+Uzel 01-a at depth 3: 39 Paprsek (through Rozcestník) + 15 List 01-b-* (through Uzel 01-b) + 158 Lists through Široký
+(160 minus List 01-a-01, -02), of which List 01-b-01, -02 are already counted: 21 + 39 + 15 + 156 = 231.
+
 ## Created at runtime by the tests (never committed)
 
 - `_attachments/graf.png`: a copy of `tests/fixtures/vaults/trash-media/_attachments/záhon.png` (64 × 48 PNG, 1,234 bytes); `_attachments/Smlouva.pdf`: a copy of `tests/fixtures/vaults/trash-media/_attachments/Rozpočet.pdf` (2 pages, 844 bytes), so Graf's and Smlouva's metadata are true and their previews show the files.
