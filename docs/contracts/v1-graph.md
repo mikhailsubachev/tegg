@@ -332,7 +332,7 @@ Public interfaces of slice G3, for the test author (D-61) and the build. ACs: `d
 (R118…R124; FR-GRP-02 AC-11…AC-25, FR-SYN-03 AC-22…AC-24, FR-SYN-02 AC-8, FR-SYN-06 AC-40, FR-FMT-07 AC-27,
 FR-FMT-12 AC-7, NFR-POR-01 AC-3, FR-STO-06 AC-1, FR-LNK-12 AC-8…AC-13, FR-UX-03 AC-22…AC-30, FR-UX-08 AC-1…AC-9,
 FR-UX-05 AC-17, NFR-OTH-02 AC-14). Decisions: D-906, D-907, D-916…D-918, D-923, D-925, D-928, D-929, D-942, D-970;
-open points AP-920…AP-945 (pending; this section follows their proposals and changes with the answers). Fixtures:
+AP-920…AP-945, accepted as proposed: D-1080…D-1105 (BRD v1.116). Fixtures:
 `tests/fixtures/vaults/graph/` and `tests/fixtures/graph-presets/`. §15 is slice G2's.
 
 G3 is the first graph slice that **writes a vault file**: `.tegg/graph.yml`, only on `save`, `update`, `rename` and
