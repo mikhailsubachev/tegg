@@ -1,8 +1,9 @@
 // v0.52 feedback, real-app test (L6, Appium mac2 on the built test app, D-382): docs/acceptance/capture.md FR-CAP-01
 // AC-19, the L6 part ("once for the click", D-602): in the built capture window opened by ⌃⌥T, a click on `Due: No date`
-// opens the dialog `Pick a due date`, a click on `Fri` sets the next Friday, and ⌘↩ writes `due:` with that date.
+// opens the dialog `Pick a due date`, a click on `This week` sets the first Friday on or after today (v0.94, D-1286,
+// D-1289), and ⌘↩ writes `due:` with that date.
 // Interface: docs/contracts/ms5-capture.md §1 (the `capture` window `Quick Capture`, hotkeys), §16.3 (strings
-// `capture.dueTitle` `Pick a due date`, `capture.noDate` `No date`, `due.fri` `Fri`), §11.1 (test hooks). Always
+// `capture.dueTitle` `Pick a due date`, `capture.noDate` `No date`, `due.thisWeek` `This week`), §11.1 (test hooks). Always
 // TEGG_TEST=1 with TEGG_NOW = 2026-10-14T12:00:00+02:00 (a Wednesday, D-504), a temporary Application Support and a
 // temporary copy of the synthetic inbox fixture (D-62). Kept in its own file so the existing AC test files stay unchanged
 // (TS-I3). Written from the AC and the contracts only (D-61).
@@ -18,7 +19,7 @@ import {
 after(appiumDown);
 process.on('exit', appiumDown);
 
-test('fr_cap_01_ac19_a_click_on_due_opens_the_calendar_and_fri_is_saved', { timeout: 300_000 }, async () => {
+test('fr_cap_01_ac19_a_click_on_due_opens_the_calendar_and_this_week_is_saved', { timeout: 300_000 }, async () => {
   await ready();
   const base = tmp('cap01ac19');
   const vault = inboxCopy(base);
@@ -36,9 +37,9 @@ test('fr_cap_01_ac19_a_click_on_due_opens_the_calendar_and_fri_is_saved', { time
     const due = await need(d, 'Due: No date');
     await due.click();
     await need(d, 'Pick a due date');
-    const fri = await need(d, 'Fri');
-    await fri.click();
-    assert.ok(await waitFor(async () => !(await need(d!, 'Pick a due date', 200).then(() => true, () => false)), 2000), 'Fri closes the dialog');
+    const thisWeek = await need(d, 'This week');
+    await thisWeek.click();
+    assert.ok(await waitFor(async () => !(await need(d!, 'Pick a due date', 200).then(() => true, () => false)), 2000), 'This week closes the dialog');
     press('enter', ['command']);
     const text = await waitFor(() => (read(vault, 'Tasks/Zavolat kominíkovi.md') ?? '').includes('\ndue: '), 3000);
     assert.ok(text, 'the task is written');

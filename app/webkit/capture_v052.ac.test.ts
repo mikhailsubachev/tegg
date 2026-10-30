@@ -47,7 +47,8 @@ test('fr_cap_01_ac19_no_date_chip_and_the_dialog', async ({ page }) => {
   assert.ok([await tokenColour(page, 'muted'), await tokenColour(page, 'faint')].includes(colour), `a grey calendar icon (muted or faint, got ${colour})`);
   const dlg = await openDue(page);
   assert.ok((await dlg.getByRole('textbox').count()) >= 1, 'the typed-date field (D-537)');
-  for (const b of ['Today', 'Tomorrow', 'Next week', 'Fri', 'No date']) await must(dlg.getByRole('button', { name: b, exact: true }), `button ${b}`);
+  for (const b of ['Today', 'Tomorrow', 'This week', 'No date']) await must(dlg.getByRole('button', { name: b, exact: true }), `button ${b}`);
+  for (const b of ['Next week', 'Fri']) assert.equal(await dlg.getByRole('button', { name: b, exact: true }).count(), 0, `no button ${b} (v0.94, D-1289)`);
   assert.ok(await seen(dlg.getByText('October 2026', { exact: true }), 1000), 'the month October 2026');
   for (const b of ['Previous month', 'Next month']) {
     const nav = dlg.getByRole('button', { name: b, exact: true }).or(dlg.getByRole('button', { name: b === 'Previous month' ? '‹' : '›', exact: true }));
@@ -68,15 +69,15 @@ test('fr_cap_01_ac19_no_date_chip_and_the_dialog', async ({ page }) => {
 test('fr_cap_01_ac19_quick_picks_days_and_months', async ({ page }) => {
   await startTask(page);
   let dlg = await openDue(page);
-  await click(dlg.getByRole('button', { name: 'Fri', exact: true }), 'Fri');
-  assert.ok(await eventually(() => dueDialog(page).count(), (n) => n === 0, 1000) === 0, 'Fri closes the dialog');
-  assert.equal(await dueText(page), dueLabel('2026-10-16'), 'Fri sets 2026-10-16 (R55 due label)');
+  await click(dlg.getByRole('button', { name: 'This week', exact: true }), 'This week');
+  assert.ok(await eventually(() => dueDialog(page).count(), (n) => n === 0, 1000) === 0, 'This week closes the dialog');
+  assert.equal(await dueText(page), dueLabel('2026-10-16'), 'This week sets 2026-10-16 (R55 due label)');
   dlg = await openDue(page);
   await (await must(day(dlg, 20), 'day 20')).click();
   assert.equal(await eventually(() => dueText(page), (t) => t === dueLabel('2026-10-20'), 1000), dueLabel('2026-10-20'), 'day 20 sets 2026-10-20');
   dlg = await openDue(page);
-  await click(dlg.getByRole('button', { name: 'Next week', exact: true }), 'Next week');
-  assert.equal(await eventually(() => dueText(page), (t) => t === dueLabel('2026-10-19'), 1000), dueLabel('2026-10-19'), 'Next week sets next Monday 2026-10-19');
+  await click(dlg.getByRole('button', { name: 'Tomorrow', exact: true }), 'Tomorrow');
+  assert.equal(await eventually(() => dueText(page), (t) => t === dueLabel('2026-10-15'), 1000), dueLabel('2026-10-15'), 'Tomorrow sets 2026-10-15');
   dlg = await openDue(page);
   await click(dlg.getByRole('button', { name: 'Next month', exact: true }).or(dlg.getByRole('button', { name: '›', exact: true })), '›');
   assert.ok(await seen(dlg.getByText('November 2026', { exact: true }), 1000), '› shows November');
@@ -107,7 +108,7 @@ test('fr_cap_01_ac19_the_saved_file_has_the_chosen_due', async ({ page }) => {
   const core = await startTask(page);
   await typeInCapture(page, 'Zavolat kominíkovi');
   const dlg = await openDue(page);
-  await click(dlg.getByRole('button', { name: 'Fri', exact: true }), 'Fri');
+  await click(dlg.getByRole('button', { name: 'This week', exact: true }), 'This week');
   await capText(page).focus();
   await saveWithKeys(page);
   const c = await creates(core);
