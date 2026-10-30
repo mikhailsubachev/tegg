@@ -302,3 +302,16 @@ Owner, 2026-10-29, AP-851…AP-866 as proposed. They amend the sections above wh
 13. **D-1006**, **D-1007** FR-SYN-06 AC-38: `#nápad` is selected and previewed, not centred; only the graph's own write (`ui-state.json`) is checked in Application Support.
 14. **D-1008** a note with unreadable frontmatter has `objectId: null`.
 15. **D-1009** the window title is checked in L6; L5 checks the title bar's tab.
+
+## 13. Build decisions (D-1021…D-1027, BRD v1.115)
+
+Owner, 2026-10-30, as proposed:
+
+1. **D-1021** `d3-force` 3.0.0 and its dependencies are the one exception to FR-FMT-05 AC-6's d3 ban (ADR 0004).
+2. **D-1022** the AC-test changes of the build (app-shell R1/R4 rows, the R2 tab staying TBD, FR-GRP-06 AC-2, FR-GRP-01 AC-13, AC-20, FR-GRP-08 AC-5).
+3. **D-1023** `Open graph` disabled reason: `cmd.needsObject` (`Open an object first`).
+4. **D-1024** slice P's ↩ after `Open` is `preview.openKey`.
+5. **D-1025** first paint at 100 % (amends D-985).
+6. **D-1026** fade-in only (amends D-992).
+7. **D-1027** the column's `data-preview-path` is empty for a virtual tag.
+

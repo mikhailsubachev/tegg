@@ -783,7 +783,9 @@ test('fr_grp_06_ac2_every_kind_of_node_previews', async ({ page }) => {
   }
   await clickNode(page, 'tag:účty');
   const order = await eventually(async () => flat(await previewCol(page).innerText().catch(() => '')), (x) => x.includes('Faktury'), 2000);
-  assert.ok(order.indexOf('Rozpočet 2027') < order.indexOf('Plán čtvrtletí') && order.indexOf('Plán čtvrtletí') < order.indexOf('Faktury'), 'most recently modified first');
+  // D-1022: the D-982 line (`Tag of Plán čtvrtletí`) comes before the object list; the order is checked within the list.
+  const list = order.slice(order.indexOf('3 objects'));
+  assert.ok(list.indexOf('Rozpočet 2027') < list.indexOf('Plán čtvrtletí') && list.indexOf('Plán čtvrtletí') < list.indexOf('Faktury'), 'most recently modified first');
   assert.equal(await core.writes(), 0, 'nothing written');
 });
 

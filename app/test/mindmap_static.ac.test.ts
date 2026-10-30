@@ -11,6 +11,8 @@ import { join, resolve } from 'node:path';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const BANNED = /^(mermaid|markmap|markmap-.+|d3|d3-.+|@mermaid-js\/.+)$/;
+/** D-1021 (G1, ADR 0004, D-913): the local graph's layout package and its dependencies are allowed; nothing else of d3. */
+const GRAPH_LAYOUT = new Set(['d3-force', 'd3-quadtree', 'd3-dispatch', 'd3-timer', '@types/d3-force']);
 
 function manifests(): string[] {
   const out = [join(REPO, 'app/package.json'), join(REPO, 'app/package-lock.json')];
@@ -33,7 +35,7 @@ test('fr_fmt_05_ac6_no_mermaid_markmap_or_d3_package', () => {
       if (m) names.add(m[1]);
       for (const k of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) for (const n of Object.keys(j.packages[key]?.[k] ?? {})) names.add(n);
     }
-    for (const n of names) if (BANNED.test(n)) hits.push(`${f.slice(REPO.length + 1)}: ${n}`);
+    for (const n of names) if (BANNED.test(n) && !GRAPH_LAYOUT.has(n)) hits.push(`${f.slice(REPO.length + 1)}: ${n}`);
   }
   assert.deepEqual(hits, [], 'Tegg ships no Mermaid, markmap or d3 (D-679, D-683)');
 });

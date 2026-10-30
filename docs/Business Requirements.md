@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.114, for review                                            |
+| **Document status** | Draft v1.115, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -128,6 +128,7 @@
 | v1.112  | 2026-10-29 | D-1020 (owner, push-gate property seed 241404554, FR-FMT-07 AC-15): two same-marker lists that both hold an embed line and become adjacent are separated by a hidden `<!-- -->` line instead of being re-marked; extends D-67. Numbered from D-1020, as D-994…D-1009 are taken by the G1 red tests. The AC-15 property test applies the D-67 exceptions |
 | v1.113  | 2026-10-30 | Slice P build decisions D-945…D-949 (owner, as proposed): the resize handle's catalog key, the PDF preview keeps R77's card, the due label is the Tasks page's R44 label, Home / End in the editor go to the block's text start / end, and D-943's AC-test rule covers the older tests that click a reference to open it |
 | v1.114  | 2026-10-30 | G1 red-test decisions (red tests 6313cbd): D-994…D-1009 (AP-851…AP-866, each as proposed): the type order from the core, the core signature, the test pause hook, a stub-only error, the graph model API, totals per depth, the trashed-centre title, edge data attributes and DOM details, the benchmark centre mark, FR-GRP-01 AC-13 and FR-SYN-06 AC-38 reworded, `index:progress` `done`, ids of unreadable notes, the window title in L6. `docs/contracts/v1-graph.md` §12 |
+| v1.115  | 2026-10-30 | G1 build decisions D-1021…D-1027 (owner, as proposed): d3-force allowed for the graph (exception to D-683's ban), the G1 AC-test changes, `Open graph`'s disabled reason, the preview's ↩ through the catalog, first paint at 100 % (amends D-985), fade-in only (amends D-992), `data-preview-path` for virtual tags in the column |
 
 ---
 
@@ -1069,6 +1070,13 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1008 | Ids of unreadable notes (AP-865) (owner, 2026-10-29; G1 red tests 6313cbd, `docs/contracts/v1-graph.md`) | A note whose frontmatter can't be read has no `objectId` (Chybná: null), so its layout key is its path |
 | D-1009 | Window title check (AP-866) (owner, 2026-10-29; G1 red tests 6313cbd, `docs/contracts/v1-graph.md`) | The window title `Graph · <title>` is checked in L6; L5 checks the title bar's tab |
 | D-1020 | Lists with embed lines meet behind a separator (owner, 2026-10-29; FR-FMT-07 AC-15, push-gate seed 241404554) | Extends D-67: when deleting or moving a block makes two same-marker lists adjacent and **both hold an embed line**, neither is re-marked (that would change an embed line's bytes); a `<!-- -->` line is written between them instead. Like the one before indented code, it isn't shown in the editor, and its bytes stay in the file until one of the lists moves or is deleted. The AC-15 property test (`embeds_property.ac.test.ts`) accepts both D-67 exceptions where two lists meet |
+| D-1021 | d3-force allowed for the graph (owner, 2026-10-30; G1 build) | FR-FMT-05 AC-6's ban on d3 packages (D-683, the mindmap) gains one exception: the graph's layout package `d3-force` and its dependencies `d3-quadtree`, `d3-dispatch`, `d3-timer` (and `@types/d3-force`), as ADR 0004 / D-913 chose. Mermaid, markmap and the rest of d3 stay banned; AC-test change approved |
+| D-1022 | G1 AC-test changes (owner, 2026-10-30; G1 build) | Approved with the build: app-shell R1 `graph` → `graph/<path>` built and R4 ⇧⌘G (registry, page-width and previews tests); the R2 Graph tab stays TBD until G2 (graph_catalog checks routes only); FR-GRP-06 AC-2 checks the tag preview's order within its object list (the D-982 line comes first); FR-GRP-01 AC-13 expects 9 objects after an external rename of Plán (Recept's title link breaks, FR-LNK-14); FR-GRP-01 AC-20 re-mounts the page instead of reloading (the fake core resets on reload); FR-GRP-08 AC-5 also accepts the tag page's `radio` colour choices |
+| D-1023 | Why `Open graph` is unavailable (AP-867) (owner, 2026-10-30; G1 build) | The palette lists `Open graph` disabled with the reason `Open an object first` (`cmd.needsObject`), outside the R112 `graph.` keys |
+| D-1024 | The preview's Open key glyph (AP-868) (owner, 2026-10-30; G1 build) | The ↩ after `Open` in slice P's preview comes from the catalog (`preview.openKey`), like every visible text (NFR-OTH-02) |
+| D-1025 | First paint at 100 % (AP-869) (owner, 2026-10-30; G1 build) | The full view always first paints at 100 %; D-985's "or fitted when larger" is dropped (the label rules of FR-GRP-01 AC-18 assume 100 %). `Fit to screen` fits on request |
+| D-1026 | Fade-in only (AP-870) (owner, 2026-10-30; G1 build) | On a live update or a filter change new nodes fade in over 150 ms; removed nodes go without a fade-out; nothing animates under Reduce motion. Amends D-992 |
+| D-1027 | Virtual tag in the preview column (AP-871) (owner, 2026-10-30; G1 build) | The graph's preview column carries `data-preview-path` for every previewed node; a virtual tag (no file) has it empty |
 
 ---
 

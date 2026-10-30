@@ -42,8 +42,10 @@ test('fr_grp_01_ac13_route_and_labels_follow_renames', async ({ page }) => {
   await core.setFile(q4, swap(original(P.plan), 'title: Plán čtvrtletí', 'title: Plán Q4'));
   assert.ok(await routeReady(core, graphRoute(q4), LIVE), 'the route follows to graph/Pages/Plán Q4.md within 2 s (index_path_by_id)');
   await must(titleTab(page, 'Graph · Plán Q4'), 'the tab title', LIVE);
-  assert.ok(await headingIs(page, 'Local graph of Plán Q4 · 10 objects', LIVE), `heading: ${await headingText(page)}`);
-  assert.equal((await drawnEdges(page)).length, edges0, 'the same edges');
+  // D-1022: links resolve by path, id or file name, never by title (FR-LNK-14), so Recept's `[[Plán čtvrtletí]]` breaks
+  // with the rename: 9 objects and one edge fewer; everything else stays.
+  assert.ok(await headingIs(page, 'Local graph of Plán Q4 · 9 objects', LIVE), `heading: ${await headingText(page)}`);
+  assert.equal((await drawnEdges(page)).length, edges0 - 1, 'the same edges but Recept\'s');
   assert.ok(!(await seen(page.getByText('This object was deleted'), 300)), 'a rename is never shown as deleted');
   await page.keyboard.press('Meta+BracketLeft');
   assert.ok((await eventually(() => headingText(page, 200), (t) => t.startsWith('Local graph of Shrnutí'), 3000)).startsWith('Local graph of Shrnutí'),
@@ -93,7 +95,10 @@ test('fr_grp_01_ac20_live_updates_within_two_seconds', async ({ page }) => {
   await sleep(1200);
   assert.ok((await core.graphCalls()).length - n0 <= 3, `ten changes within 500 ms: at most 3 graph_neighbourhood calls (got ${(await core.graphCalls()).length - n0})`);
   const fresh = (await drawnKeys(page)).join('|');
-  await page.reload();
+  // D-1022: the fake core resets its files on a reload, so a fresh query is a new mount of the page (away and Back).
+  await page.keyboard.press('Meta+Shift+i');
+  await eventually(() => drawnKeys(page), (k) => k.length === 0, 3000);
+  await page.keyboard.press('Meta+BracketLeft');
   await waitDrawn(page, 10, 5000);
   assert.equal((await drawnKeys(page)).join('|'), fresh, 'the final graph equals a fresh query');
   const before = await positions(page);
@@ -227,7 +232,8 @@ test('fr_grp_08_ac5_tag_colour_changes_are_live', async ({ page }) => {
   await clickNode(page, 'tag:účty', { double: true });
   assert.ok(await routeReady(core, `tag/${encodeURIComponent('účty')}`, 4000) || await routeReady(core, 'tag/účty', 100), 'on tag/účty');
   await (await must(page.getByRole('button', { name: 'Tag colour', exact: true }), 'Tag colour (FR-TAG-05 AC-1)')).click();
-  await (await must(page.getByRole('menuitemradio', { name: 'Green', exact: true }).or(page.getByRole('option', { name: 'Green', exact: true })), 'Green')).click();
+  // D-1022: the tag page's colour choices are radio buttons (tags.md, TagDialogs).
+  await (await must(page.getByRole('menuitemradio', { name: 'Green', exact: true }).or(page.getByRole('option', { name: 'Green', exact: true })).or(page.getByRole('radio', { name: 'Green', exact: true })), 'Green')).click();
   await page.keyboard.press('Meta+BracketLeft');
   await must(canvas(page), 'back on the graph', 4000);
   assert.ok(await eventually(green, (x) => x, LIVE), 'the pill is green after choosing Green on the tag page');

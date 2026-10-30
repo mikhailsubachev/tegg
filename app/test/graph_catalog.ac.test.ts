@@ -113,7 +113,8 @@ test('fr_grp_01_ac10_graph_route_title_and_nfc_registry', async () => {
   const nfd = 'graph/Pages/Plán čtvrtletí.md'.normalize('NFD');
   assert.deepEqual(routes.parseRoute(nfd), { id: 'graph/<path>', param: 'Pages/Plán čtvrtletí.md' }, 'parseRoute normalizes the path to NFC');
   assert.equal(routes.routeString({ id: 'graph/<path>', param: 'Pages/Plán čtvrtletí.md'.normalize('NFD') }), 'graph/Pages/Plán čtvrtletí.md', 'routeString is NFC');
-  assert.ok(!(reg.overdue('v1.0') as string[]).some((l) => /^graph\b/.test(l) && !/graph\//.test(l)), 'no overdue `graph` placeholder');
+  // D-1022: the right panel's Graph tab (R2) stays `Coming in v1.0` until G2; only the route placeholder must be gone.
+  assert.ok(!(reg.ROUTES as any[]).some((x) => String(x.id).startsWith('graph') && !x.status.built), 'no unbuilt `graph` route placeholder');
 });
 
 test('fr_ux_03_ac20_graph_commands_and_shortcut', async () => {
