@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadConfig, type Config, type Gate } from './config.ts';
 import { checkRed, protectedChanges } from './checks.ts';
+import { acquireGateLock } from './gate-lock.ts';
 import { writeReport } from './coverage.ts';
 import { cargoCacheDir, nightlyWarning, runCommitGate, runTreeGate } from './gates.ts';
 import { AC_TEST_CHANGE_TRAILER, UsageError, git, gitTry, hasTrailer, parseNameStatusZ, repoRoot, treeOf } from './proc.ts';
@@ -92,6 +93,7 @@ async function hookPrePush(root: string): Promise<number> {
       console.log(`verify: ${localSha.slice(0, 10)} already passed ./verify push; skipping`);
       continue;
     }
+    await acquireGateLock('hook pre-push', root);
     const s = await runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true, lanes: lanesOption([]) });
     if (s.result !== 'pass') failed = true;
   }
@@ -284,6 +286,9 @@ async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<num
 // main
 // ---------------------------------------------------------------------------
 
+/** The commands that run a gate's steps or test runners: one at a time on this machine (D-1330, CONTRACT §3.5). */
+const LOCKED = new Set(['push', 'nightly', 'milestone', 'release', 'merge', 'check-red']);
+
 async function main(argv: string[]): Promise<number> {
   const [cmd, ...args] = argv;
   if (cmd === undefined || cmd === 'help' || cmd === '--help' || cmd === '-h') {
@@ -307,6 +312,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const cfg = loadConfig(root);
+  if (LOCKED.has(cmd)) await acquireGateLock(cmd, root);
   switch (cmd) {
     case 'commit':
       return runCommitGate(root, cfg).result === 'pass' ? 0 : 1;
