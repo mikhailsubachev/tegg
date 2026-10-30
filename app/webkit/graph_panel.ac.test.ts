@@ -50,6 +50,7 @@ const LIVE = 2000;
 
 test('fr_grp_01_ac28_panel_graph_tab_on_a_note', async ({ page }) => {
   const core = await openPanel(page, P.plan);
+  const navBase = await navCount(core); // D-1051: the landing route's own nav_opened (D-138) isn't the panel's
   await must(GP(page).getByRole('group', { name: 'Local graph: Plán čtvrtletí and the objects linked to it, 1 level deep', exact: true }), 'the canvas named per R109');
   assert.deepEqual(await eventually(() => keysIn(page), (k) => same(k, D1), 3000), D1, 'exactly G1\'s depth-1 result: 10 nodes');
   const all = await drawnEdges(page, GP(page));
@@ -59,7 +60,7 @@ test('fr_grp_01_ac28_panel_graph_tab_on_a_note', async ({ page }) => {
   assert.equal(await footerText(page), '10 objects · click a node to preview', 'the footer');
   assert.equal(await labelsShown(page), 10, 'every label is shown (R114)');
   assert.deepEqual(await lastReq(core), { centre: nfc(P.plan), depth: 1, hiddenTypes: [], hiddenKinds: [], cap: 60, showAll: false }, 'the request (§15.1)');
-  assert.equal(await navCount(core), 0, 'showing it calls nav_opened zero times');
+  assert.equal(await navCount(core), navBase, 'showing it calls nav_opened zero times');
 });
 
 for (const [route, keys, edgesN, footer] of [
@@ -916,8 +917,9 @@ test('fr_grp_06_ac7_panel_preview_opens_left_of_the_panel', async ({ page }) => 
     assert.ok(Math.abs(b2.x + b2.width - (p2b.x - 8)) <= 1, 'left of the wider panel');
   }
   const small = await page.context().newPage();
+  // D-1052: no Sidebar to wait for, and the window size is set after startPanel's default viewport.
+  await startPanel(small, noteRoute(P.plan), { sidebarOpen: false, frame: 'none' });
   await small.setViewportSize({ width: 800, height: 500 });
-  await startPanel(small, noteRoute(P.plan), { sidebarOpen: false });
   await waitDrawn(small, 10, 5000, GP(small));
   await clickNode(small, P.recept, {}, GP(small));
   const ds = await mustPreview(small, 'Recept na koláč', 'at 800 × 500');

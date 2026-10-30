@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.117, for review                                            |
+| **Document status** | Draft v1.118, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -131,6 +131,7 @@
 | v1.115  | 2026-10-30 | G1 build decisions D-1021…D-1027 (owner, as proposed): d3-force allowed for the graph (exception to D-683's ban), the G1 AC-test changes, `Open graph`'s disabled reason, the preview's ↩ through the catalog, first paint at 100 % (amends D-985), fade-in only (amends D-992), `data-preview-path` for virtual tags in the column |
 | v1.116  | 2026-10-30 | Slice G2 graph in the right panel (v1.0, D-919), `docs/acceptance/graph-panel.md`: D-1030…D-1043 (AP-880…AP-893, each as proposed; G2 uses D-1030…D-1079, G3 D-1080 onward): AC numbers beside G3, the panel's scale and fit, `Size nodes by links` in the panel, the lower depth offered above 60, `In full graph`, no `Recenter` in the panel, ⌘⇧G with the panel on Graph (amends D-905), the hand-over of depth and selection, routes without a file, the deleted page, no panel on tag pages, selection and the popover, the centre's double-click, a panel benchmark for NFR-PERF-11. Contract `docs/contracts/v1-graph.md` §15 |
 | v1.117  | 2026-10-30 | G2 red-test decisions (red tests faa5875): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
+| v1.118  | 2026-10-30 | G2 build decisions D-1050…D-1055 (AP-900…AP-905, each as proposed): four AC-test corrections (pseudo-locale tabpanel name, the `nav_opened` baseline, the 800 × 500 window, the daily route id), the panel waits for a running rename job, theme checks after transitions end |
 
 ---
 
@@ -1099,6 +1100,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1047 | `panelFit` inputs (AP-897) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `panelFit(positions: Map<NodeKey, Point>, nodeBoxes: Map<NodeKey, { w, top, bottom }>, size: { width, height }, margin = 12)`: positions from `layout` with the centre pinned at the canvas centre, boxes in G1's `nodeBox` shape at 100 %; the scale is applied about the canvas centre; the result is the largest scale in [0.25, 1] that fits every box with the margin |
 | D-1048 | `panelState` input and precedence (AP-898) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | `{ path, error: 'CentreInTrash' \| 'CentreNotFound' \| 'NotReady' \| null, waiting, result, cap? }`; precedence: No file, Deleted, Loading (`waiting` or NotReady), Too many (`total > cap`), No links (`unfiltered === 1`) or All hidden (`total === 1 < unfiltered`), else Graph |
 | D-1049 | Two `Open full view` buttons (AP-899) (owner, 2026-10-30; G2 red tests faa5875, `docs/contracts/v1-graph.md` §15) | The Too many state has its own button `Open full view` (`graph.panel.openFull`); the toolbar's is `Open full view (⇧⌘G)` (`graph.panel.openFullShortcut`) |
+| D-1050 | Pseudo-locale name of the panel's tabpanel (AP-900) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: `graphPanel` in `graph-panel-helpers.ts` matches the tabpanel as `/^⟦?Graph⟧?$/`, so NFR-OTH-02 AC-13 runs under the pseudo-locale |
+| D-1051 | `nav_opened` count in FR-GRP-01 AC-28 (AP-901) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: the count starts after the panel is open; the landing route's own `nav_opened` (D-138) isn't the panel's |
+| D-1052 | 800 × 500 case of FR-GRP-06 AC-7 (AP-902) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: the small window starts with `frame: 'none'` (no Sidebar to wait for) and sets 800 × 500 after `startPanel` |
+| D-1053 | Daily route id in FR-UX-03 AC-21 (AP-903) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: the L1 test uses the registry's route id `daily/YYYY-MM-DD` |
+| D-1054 | The panel waits for a running rename job (AP-904) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | While a job (4C rename and link rewrite) runs, a centre change or live update in the panel waits for the job to end (at most 5 s) and then asks once, so no half-rewritten graph is drawn (FR-GRP-01 AC-41) |
+| D-1055 | Theme checks after transitions end (AP-905) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: FR-UX-05 AC-16 runs axe once no animation or transition is running (slice P's 120 ms preview fade-in) |
 
 ---
 

@@ -33,6 +33,8 @@ async function svgLeaks(page: Page, theme: 'light' | 'dark'): Promise<string[]> 
   }, theme);
 }
 async function check(page: Page, theme: 'light' | 'dark', what: string) {
+  // D-1055: axe runs once the preview's fade-in (slice P, 120 ms) and any other transition have ended.
+  await page.waitForFunction(() => document.getAnimations().every((x) => x.playState !== 'running'), undefined, { timeout: 3000 });
   assert.deepEqual(await axeContrast(page), [], `${theme}, ${what}: axe color-contrast`);
   assert.deepEqual(await colourLeaks(page, theme), [], `${theme}, ${what}: only theme tokens (FR-UX-05 AC-5)`);
 }

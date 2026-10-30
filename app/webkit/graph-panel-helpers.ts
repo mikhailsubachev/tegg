@@ -62,7 +62,7 @@ export const ctxPanel = (page: Page) => page.getByRole('complementary', { name: 
 export const graphTab = (page: Page) => ctxPanel(page).getByRole('tab', { name: /^⟦?Graph/ });
 export const backlinksTab = (page: Page) => ctxPanel(page).getByRole('tab', { name: /^⟦?Backlinks/ });
 /** The `tabpanel` `Graph`: the scope of every panel probe. */
-export const graphPanel = (page: Page) => ctxPanel(page).getByRole('tabpanel', { name: 'Graph', exact: true });
+export const graphPanel = (page: Page) => ctxPanel(page).getByRole('tabpanel', { name: /^⟦?Graph⟧?$/ });
 export const GP = graphPanel;
 export const pCanvas = (page: Page) => graphPanel(page).getByRole('group', { name: /^⟦?Local graph: / });
 export const trigger = (page: Page) => graphPanel(page).getByRole('button', { name: 'Depth and filters', exact: true });

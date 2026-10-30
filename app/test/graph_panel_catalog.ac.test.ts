@@ -84,7 +84,7 @@ const VAULT = { name: 'Graf', path: '/tmp/Graf', placeholders: 0 };
 type Panel = { open: boolean; tab: 'backlinks' | 'outline' | 'graph' } | undefined;
 const ctx = (route: Record<string, unknown> | null, panel?: Panel) => ({ vault: VAULT, types: [], counts: { page: 10 }, ...(route ? { route } : {}), ...(panel ? { panel } : {}) });
 const NOTE = { id: 'note/<path>', param: 'Pages/Plán čtvrtletí.md', path: 'Pages/Plán čtvrtletí.md', type: 'page' };
-const DAILY = { id: 'daily/<date>', param: '2026-10-07', date: '2026-10-07', path: 'Daily/2026-10-07.md' };
+const DAILY = { id: 'daily/YYYY-MM-DD', param: '2026-10-07', date: '2026-10-07', path: 'Daily/2026-10-07.md' };
 const NEW = { id: 'new/<type>', param: 'page', type: 'page', path: null };
 const GRAPH = { id: 'graph/<path>', param: 'Pages/Plán čtvrtletí.md', path: 'Pages/Plán čtvrtletí.md' };
 const TAG = { id: 'tag/<key>', param: 'účty', key: 'účty' };
