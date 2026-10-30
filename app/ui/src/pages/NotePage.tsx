@@ -875,8 +875,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const ed = pane.current.ed;
       const size = ed.view.state.doc.content.size;
       const clamp = (n: number) => Math.max(0, Math.min(n, size));
+      // D-255: the caret never scrolls; the focus first, without scrolling, then the selection.
+      ed.view.dom.focus({ preventScroll: true });
       if (ed.editor.commands.setTextSelection({ from: clamp(restoreCaret.anchor), to: clamp(restoreCaret.head) })) {
-        ed.view.focus();
         setFocusTarget('body');
         const main = root.current?.closest('main');
         if (restoreScroll !== undefined && main) {

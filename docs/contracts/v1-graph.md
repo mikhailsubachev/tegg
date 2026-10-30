@@ -468,8 +468,9 @@ export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHando
 - A centre change (navigation, rename) → a new request with no `previous` (a fresh seeded layout) and no selection; a
   rename keeps the layout when `objectId` is unchanged (node keys, §4).
 - Loading only when no answer arrived 300 ms after the request; the panel's loading has no animation at all.
-- Marks: `perfMark('graph-request')` / `perfMark('graph-ready')` as §6, with `detail: { view: 'panel' }`, for
-  NFR-PERF-11 AC-3.
+- Marks: `perfMark('graph-request')` / `perfMark('graph-ready')` as §6, for NFR-PERF-11 AC-3, without a `detail`
+  (the IPC `perf_mark` takes a name only): the panel and the full view are never shown together (D-988), so the marks
+  of a run are the shown view's.
 
 ### 15.8 Fake core and test hooks
 
@@ -521,5 +522,5 @@ Open points:
 | AP-901 → D-1051 | Test defect: `fr_grp_01_ac28_panel_graph_tab_on_a_note` counts every `nav_opened`, including the landing route's own (D-138 records opening `note/<path>`), so it reads 1. | Count from after `openPanel` (`navCount` delta); a corrected copy passes. |
 | AP-902 → D-1052 | Test defect: the 800 × 500 part of `fr_grp_06_ac7_panel_preview_opens_left_of_the_panel` starts with `sidebarOpen: false`, but `start` waits for the Sidebar (not drawn when closed) and `startPanel` resets the viewport to 1,440 × 980. | `startPanel(…, { sidebarOpen: false, frame: 'none' })`, then `setViewportSize(800 × 500)`; a corrected copy passes. |
 | AP-903 → D-1053 | Test defect: L1 `fr_ux_03_ac21_panel_graph_commands` gives the daily route as `id: 'daily/<date>'` (the contract's notation); the registry's route id is `daily/YYYY-MM-DD`, so `panel.graph` (listed like `panel.backlinks`) isn't found there. | `id: 'daily/YYYY-MM-DD'` in the test; a corrected copy passes all three L1 checks. |
-| AP-904 → D-1054 | A rename moves the file, then rewrites links in steps (4C); a query in between draws a neighbourhood missing the not-yet-rewritten linkers (FR-GRP-01 AC-41 "keeps the 10 nodes"). | While a job reports `job:progress` without an end phase, a centre change and live re-asks wait for its end (at most 5 s), then ask once. |
+| AP-904 → D-1054 | A rename moves the file, then rewrites links in steps (4C); a query in between draws a neighbourhood missing the not-yet-rewritten linkers (FR-GRP-01 AC-41 "keeps the 10 nodes"). | While a `note-rename` job (4C) reports `job:progress` without an end phase, a centre change (shown as Loading) and live re-asks wait for its end (at most 5 s), then ask once. |
 | AP-905 → D-1055 | Test timing: `fr_ux_05_ac16_panel_graph_in_light_and_dark_light` runs axe right after the preview popover appears, during slice P's 120 ms fade-in; about 1 run in 4 reports `color-contrast` on the popover's text. | Wait until the popover is fully shown (or emulate Reduce motion) before axe, as the R115 states part does with `sleep(200)`. |

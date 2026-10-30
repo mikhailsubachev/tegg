@@ -147,8 +147,10 @@ export function App() {
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
-  /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks. */
-  const [ownSaves, setOwnSaves] = useState(0);
+  /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
+   *  A subscription, not state: an autosave doesn't re-render the App. */
+  const ownSaveListeners = useRef(new Set<() => void>());
+  const onOwnSave = useCallback((f: () => void) => { ownSaveListeners.current.add(f); return () => { ownSaveListeners.current.delete(f); }; }, []);
   // Slice PW (AP-754, AP-759): the vault's default page width, read again after every vault change (live).
   const [vaultWidth, setVaultWidth] = useState<PageWidth>('normal');
   // 4B: the calendar popover (R18) and the daily info of a note route showing a Daily Note that doesn't win (D-319).
@@ -712,7 +714,8 @@ export function App() {
         if (n.path) openNote(n.path);
       },
       onOpenFull: (h) => { if (path) void go({ id: 'graph/<path>', param: path.normalize('NFC') }, { graph: h }); },
-      refresh: refresh + ownSaves,
+      refresh,
+      onOwnSave,
       types,
       pending,
       focusTrigger: focusGraph,
@@ -958,7 +961,7 @@ export function App() {
         onWidth={setNoteWidth}
         onRekeyWidth={(from, to, w) => setNoteWidth(to, w, from)}
         onTypeSaved={loadTypes}
-        onWritten={() => setOwnSaves((n) => n + 1)}
+        onWritten={() => { for (const f of ownSaveListeners.current) f(); }}
         daily={daily}
         draft={draftInfo}
         onDaily={(date) => onNoteDaily(path, date)}

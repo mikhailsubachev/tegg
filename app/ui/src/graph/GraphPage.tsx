@@ -3,26 +3,21 @@
 // (D-912), the R110 states, the cap's banner, live updates (D-980), the preview column (D-982) and the narrow layout
 // (D-988). It writes nothing to the vault; its state goes to `ui-state.json` through `onView`.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { region } from '../i18n/collate';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { usePreview } from '../preview/PreviewProvider';
-import type { PreviewTarget } from '../preview/types';
 import { Icon } from '../shell/Icon';
 import { GraphCanvas, nodeBox, type View } from './GraphCanvas';
 import { GraphFilters } from './GraphFilters';
-import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, sortKey, type ModelNode, type NodeKey, type RelationNames } from './graphModel';
+import { buildModel, connectionPhrase, displayTitle, headingCount, hiddenText, sortKey, type ModelNode, type NodeKey } from './graphModel';
 import { layout, type Point } from './layout';
+import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
 import type { EdgeKindDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
 
 const CAP = 150;
 const MAX_DRAWN = 1000;
-const LOADING_AFTER = 300;
-const DEBOUNCE = 300;
 const NARROW = 960;
-const ZOOM_MIN = 0.25, ZOOM_MAX = 4, ZOOM_STEP = 1.25;
-const KIND_KEYS: EdgeKindDto[] = ['link', 'relation', 'embed', 'tag'];
 
 /** Positions per centre and depth for this session (never stored, D-913): Back shows the picture it left. */
 const placed = new Map<string, Map<NodeKey, Point>>();
@@ -54,16 +49,6 @@ export type GraphPageProps = {
 
 type Failure = { kind: 'trash' | 'gone'; title: string };
 
-const stemOf = (p: string) => (p.split('/').pop() ?? p).replace(/\.md$/, '');
-const validDepth = (d: unknown): 1 | 2 | 3 => (d === 1 || d === 2 || d === 3 ? d : 1);
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-const kindsOf = (v: unknown): EdgeKindDto[] => strings(v).filter((k): k is EdgeKindDto => (KIND_KEYS as string[]).includes(k));
-const fmt = (n: number) => new Intl.NumberFormat(region() ?? 'en-US').format(n);
-const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-function relationNames(): RelationNames {
-  return chipTypes().map((x) => ({ key: x.key, attributes: ((x as { attributes?: { key: string; name: string }[] }).attributes ?? []).map((a) => ({ key: a.key, name: a.name })) }));
-}
 
 export function GraphPage(p: GraphPageProps) {
   const centrePath = p.path.normalize('NFC');
@@ -214,17 +199,14 @@ export function GraphPage(p: GraphPageProps) {
   const lines = useCallback((n: ModelNode) => {
     if (!result) return [];
     const first = t('graph.preview.connections', { type: typeNameOf(n.node.typeKey), count: n.node.degree });
-    const second = connectionPhrase(n.node, result, relationNames());
+    const second = connectionPhrase(n.node, result, relationNames(chipTypes()));
     return second ? [first, second] : [first];
   }, [result]);
-  const targetOf = (n: ModelNode): PreviewTarget => (n.node.typeKey === 'tag'
-    ? { kind: 'tag', key: n.node.tagKey ?? n.node.title, path: n.node.path ?? '', fragment: null }
-    : { kind: 'note', path: n.node.path ?? '', fragment: null });
   const centreable = (n: ModelNode) => !n.centre && !!n.node.path;
   const showPreview = (n: ModelNode, el: Element) => {
     const container = column.current;
     if (!container) return;
-    preview.show(targetOf(n), { el: el as HTMLElement }, 'click', { placement: 'column', container }, lines(n),
+    preview.show(targetOf(n.node), { el: el as HTMLElement }, 'click', { placement: 'column', container }, lines(n),
       { label: t('graph.centerHere'), disabled: !centreable(n), run: () => { if (centreable(n)) p.nav.centre(n.node.path!); } });
   };
   const pendingShow = useRef<{ n: ModelNode; el: Element } | null>(null);
@@ -293,9 +275,9 @@ export function GraphPage(p: GraphPageProps) {
     if (p.handover) p.onHandoverDepth?.(d);
   };
   const known = (result?.typeCounts ?? []).map(([k]) => k);
-  const unknownHidden = hiddenTypes.filter((k) => !known.includes(k));
+  const unknown = unknownHidden(hiddenTypes, known);
   const setType = (key: string, visible: boolean) => write({ hiddenTypes: visible ? hiddenTypes.filter((k) => k !== key) : [...hiddenTypes, key] });
-  const setAll = (visible: boolean) => write({ hiddenTypes: visible ? unknownHidden : [...unknownHidden, ...known] });
+  const setAll = (visible: boolean) => write({ hiddenTypes: typesAfterAll(hiddenTypes, known, visible) });
   const setKind = (kind: EdgeKindDto, visible: boolean) => write({ hiddenKinds: visible ? hiddenKinds.filter((k) => k !== kind) : [...hiddenKinds, kind] });
   const recenter = () => {
     const n = model?.nodes.find((x) => x.key === selected);
@@ -458,7 +440,7 @@ export function GraphPage(p: GraphPageProps) {
             {allHidden && (
               <div className="graph-state">
                 <p>{t(hiddenKinds.length ? 'graph.allHidden.filters' : 'graph.allHidden.types', { count: result!.hidden })}</p>
-                <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknownHidden, hiddenKinds: [] }) : write({ hiddenTypes: unknownHidden }))}>
+                <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknown, hiddenKinds: [] }) : write({ hiddenTypes: unknown }))}>
                   {t(hiddenKinds.length ? 'graph.showEverything' : 'graph.showAllTypes')}
                 </button>
               </div>

@@ -61,7 +61,11 @@ export function createHistory(): {
       if (caret) entries[at].caret = { ...caret }; else delete entries[at].caret;
     },
     replace(r) {
-      if (at >= 0) entries[at] = { route: { ...r }, scrollTop: entries[at].scrollTop };
+      // The same view under its new path (a rename the full view or the note follows) keeps its hand-over and caret
+      // (§15.5); another view starts without them.
+      if (at < 0) return;
+      const e = entries[at];
+      entries[at] = e.route.id === r.id ? { ...e, route: { ...r } } : { route: { ...r }, scrollTop: e.scrollTop };
     },
     current: () => (at >= 0 ? copy(entries[at]) : null),
     setGraph(graph) {

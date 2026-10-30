@@ -4,20 +4,21 @@
 // full view (§15.5). It reuses G1's canvas, filters, model and layout with their panel variants. It writes nothing to the
 // vault; its state goes to `ui-state.json` (`graph.panel`) through `onState`.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { region } from '../i18n/collate';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { TypeDefDto } from '../ipc/types';
 import { typeNameOf } from '../links/icons';
 import { usePreview } from '../preview/PreviewProvider';
+import { close as closePreview, getCurrent as currentPreview } from '../preview/store';
 import type { PreviewTarget } from '../preview/types';
 import { SHORTCUTS } from '../shell/registry';
 import { GraphCanvas, nodeBox, type View } from './GraphCanvas';
 import { GraphFilters } from './GraphFilters';
-import { buildModel, connectionPhrase, displayTitle, type ModelNode, type NodeKey, type RelationNames } from './graphModel';
+import { buildModel, connectionPhrase, displayTitle, type ModelNode, type NodeKey } from './graphModel';
 import { layout, type Point } from './layout';
 import { PANEL_CAP, footerText, lowerDepthOffer, panelFit, panelState, triggerText } from './panelModel';
 import type { EdgeKindDto, GraphNodeDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
+import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
 
 /** §15.5: what the panel hands to the full view, on the new history entry. */
 export type GraphHandover = { depth: 1 | 2 | 3; select: NodeIdDto | null };
@@ -40,15 +41,16 @@ export type GraphPanelProps = {
   pending?: boolean;
   /** `Show local graph` (FR-NAV-05 AC-2): each change puts the focus on `Depth and filters`. */
   focusTrigger?: number;
+  /** The page's own saves (the watcher doesn't report them): subscribe, get the unsubscribe (§15.7). */
+  onOwnSave?: (f: () => void) => () => void;
   /** Set while mounted: the shell's commands for the shown panel graph. */
   commandRef?: React.MutableRefObject<GraphPanelCommands | null>;
 };
 
-const LOADING_AFTER = 300;
-const DEBOUNCE = 300;
+/** D-1054: a centre change or a live update waits at most this long for a running rename job. */
 const JOB_WAIT = 5000;
-const ZOOM_MIN = 0.25, ZOOM_MAX = 4, ZOOM_STEP = 1.25;
-const KIND_KEYS: EdgeKindDto[] = ['link', 'relation', 'embed', 'tag'];
+/** D-1054: the job kinds that move a file and rewrite its links in steps (4C). */
+const RENAME_JOBS = new Set(['note-rename']);
 /** D-1031: the panel's tighter forces. */
 const PANEL_FORCES = { distance: 72, charge: -150, gap: 14 };
 const POPOVER_W = 268;
@@ -59,19 +61,6 @@ type Failure = { kind: 'trash' | 'gone'; title: string };
 let focusSeen = 0;
 type Shown = { centre: string; objectId: string | null; depth: number; filters: string; json: string };
 
-const stemOf = (p: string) => (p.split('/').pop() ?? p).replace(/\.md$/, '');
-const validDepth = (d: unknown): 1 | 2 | 3 => (d === 1 || d === 2 || d === 3 ? d : 1);
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-const kindsOf = (v: unknown): EdgeKindDto[] => strings(v).filter((k): k is EdgeKindDto => (KIND_KEYS as string[]).includes(k));
-const fmt = (n: number) => new Intl.NumberFormat(region() ?? 'en-US').format(n);
-const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-function relationNames(types: TypeDefDto[]): RelationNames {
-  return types.map((x) => ({ key: x.key, attributes: ((x as { attributes?: { key: string; name: string }[] }).attributes ?? []).map((a) => ({ key: a.key, name: a.name })) }));
-}
-const targetOf = (n: GraphNodeDto): PreviewTarget => (n.typeKey === 'tag'
-  ? { kind: 'tag', key: n.tagKey ?? n.title, path: n.path ?? '', fragment: null }
-  : { kind: 'note', path: n.path ?? '', fragment: null });
 const sameTarget = (a: PreviewTarget, n: GraphNodeDto) => {
   const b = targetOf(n);
   return a.kind === b.kind && (a.kind === 'tag' ? (a.key ?? '').normalize('NFC') === (b.key ?? '').normalize('NFC') : a.path.normalize('NFC') === b.path.normalize('NFC'));
@@ -107,8 +96,13 @@ export function GraphPanel(p: GraphPanelProps) {
   const radioRef = useRef<HTMLButtonElement>(null);
   const seq = useRef(0);
   const shown = useRef<Shown | null>(null);
-  const objectId = useRef<string | null>(p.centre.objectId);
-  const lastTitle = useRef<string | null>(null);
+  /** The last answered centre: its object id (to follow a rename, D-914) and title (the Deleted line). Used only for
+   *  that same centre, and reset when the page's centre changes, so a failure never follows the previous centre. */
+  const known = useRef<{ centre: string; objectId: string | null; title: string } | null>(null);
+  /** The path a rename of the page's centre was followed to (§15.1), until the page's centre changes. */
+  const followed = useRef<string | null>(null);
+  const centreTitle = useRef(p.centre.title);
+  centreTitle.current = p.centre.title;
   const preview = usePreview();
   const types = p.types;
 
@@ -147,7 +141,7 @@ export function GraphPanel(p: GraphPanelProps) {
       setError(null);
       setFailure(null);
       const centre = res.nodes.find((n) => n.depth === 0);
-      if (centre) { objectId.current = centre.objectId ?? objectId.current; lastTitle.current = displayTitle(centre); }
+      if (centre) known.current = { centre: r.centre, objectId: centre.objectId ?? (known.current?.centre === r.centre ? known.current.objectId : null), title: displayTitle(centre) };
       setLastCounts(res.typeCounts);
       // An equal result redraws nothing (D-980).
       if (live && shown.current?.json === JSON.stringify(res) && shown.current.centre === r.centre) return;
@@ -160,17 +154,23 @@ export function GraphPanel(p: GraphPanelProps) {
       if (err?.kind === 'NotReady') { setWaiting(false); setError('NotReady'); return; } // D-990: Loading until done
       if (err?.kind === 'CentreNotFound' || err?.kind === 'CentreInTrash') {
         // A rename is followed, never shown as deleted (D-914, D-1039).
-        if (err.kind === 'CentreNotFound' && objectId.current) {
-          const moved = await ipc.indexPathById(objectId.current).catch(() => null);
+        const mine = known.current?.centre === r.centre ? known.current : null;
+        if (err.kind === 'CentreNotFound' && mine?.objectId) {
+          const moved = await ipc.indexPathById(mine.objectId).catch(() => null);
           if (seq.current !== my) return;
-          if (moved && moved.normalize('NFC') !== r.centre) { void askRef.current({ ...r, centre: moved.normalize('NFC') }, true); return; }
+          if (moved && moved.normalize('NFC') !== r.centre) {
+            followed.current = moved.normalize('NFC');
+            void askRef.current({ ...r, centre: followed.current }, true);
+            return;
+          }
         }
         setWaiting(false);
         setError(null);
         setResult(null);
         shown.current = null;
-        clearSelection();
-        const title = err.kind === 'CentreInTrash' ? (err.title ?? err.name ?? lastTitle.current ?? stemOf(r.centre)) : (lastTitle.current ?? (p.centre.title || stemOf(r.centre)));
+        dropSelection();
+        const fallback = mine?.title ?? (centreTitle.current || stemOf(r.centre));
+        const title = err.kind === 'CentreInTrash' ? (err.title ?? err.name ?? fallback) : fallback;
         setFailure({ kind: err.kind === 'CentreInTrash' ? 'trash' : 'gone', title });
         return;
       }
@@ -195,6 +195,8 @@ export function GraphPanel(p: GraphPanelProps) {
   };
   const deferIfJob = (live: boolean): boolean => {
     if (jobs.current.size === 0) return false;
+    // A centre change waits in the Loading state, never beside the previous centre's graph (D-1054).
+    if (!live) { seq.current++; setWaiting(true); }
     const d = deferred.current;
     if (d) { d.live = d.live && live; return true; }
     deferred.current = { live, timer: window.setTimeout(() => { jobs.current.clear(); flushDeferred(); }, JOB_WAIT) };
@@ -202,6 +204,7 @@ export function GraphPanel(p: GraphPanelProps) {
   };
   useEffect(() => {
     const off = events.jobProgress((x) => {
+      if (!RENAME_JOBS.has(x.kind)) return;
       if (x.phase === 'done' || x.phase === 'cancelled' || x.phase === 'failed') {
         jobs.current.delete(x.jobId);
         if (jobs.current.size === 0) flushDeferred();
@@ -221,9 +224,21 @@ export function GraphPanel(p: GraphPanelProps) {
     if (prevCentre !== null && prevCentre !== req.centre && deferIfJob(false)) return;
     void askRef.current(req, false);
   }, [req]);
-  // A centre change (navigation): nothing selected (AC-30).
-  useEffect(() => { clearSelection(); setFiltersOpen(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [centrePath]);
-  useEffect(() => { if (p.centre.objectId) objectId.current = p.centre.objectId; }, [p.centre.objectId]);
+  // A centre change (navigation): nothing selected (AC-30); what was known of the previous centre is forgotten.
+  const lastCentre = useRef(centrePath);
+  useEffect(() => {
+    if (lastCentre.current === centrePath) return;
+    // A rename of the shown centre (followed already, or the same object) keeps what is known of it (FR-GRP-01 AC-41).
+    if (centrePath !== followed.current) known.current = null;
+    followed.current = null;
+    lastCentre.current = centrePath;
+    dropSelection();
+    setFiltersOpen(false);
+  }, [centrePath]);
+  useEffect(() => {
+    if (p.centre.objectId && centrePath) known.current = { centre: centrePath, objectId: p.centre.objectId, title: known.current?.title ?? p.centre.title };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.centre.objectId]);
   // D-980: every vault change re-asks (debounced); the shell's refresh tick (own saves) and D-990's `done` too.
   const again = useRef<() => void>(() => {});
   useEffect(() => {
@@ -233,19 +248,23 @@ export function GraphPanel(p: GraphPanelProps) {
     const offB = events.progress((x) => { if (x.state === 'done') again.current(); });
     return () => { window.clearTimeout(timer); again.current = () => {}; void offA.then((f) => f()).catch(() => {}); void offB.then((f) => f()).catch(() => {}); };
   }, []);
+  useEffect(() => p.onOwnSave?.(() => again.current()), [p.onOwnSave]);
   const lastRefresh = useRef(p.refresh);
   useEffect(() => { if (lastRefresh.current === p.refresh) return; lastRefresh.current = p.refresh; again.current(); }, [p.refresh]);
 
   // ------------------------------------------------------------------ state of the tab (R115, D-1048)
-  const res = result && centrePath ? result.res : null;
-  const state = panelState({ path: centrePath, error: failure ? (failure.kind === 'trash' ? 'CentreInTrash' : 'CentreNotFound') : error, waiting, result: res, cap: PANEL_CAP });
+  // Only an answer for the page's centre (or the path its rename was followed to) is drawn: never the previous centre's.
+  const forCentre = !!result && !!centrePath && (result.req.centre === centrePath || result.req.centre === followed.current);
+  const res = forCentre ? result!.res : null;
+  // The day's file isn't known yet (`daily_view` pending): nothing, never No file (R115).
+  const state = p.pending ? null : panelState({ path: centrePath, error: failure ? (failure.kind === 'trash' ? 'CentreInTrash' : 'CentreNotFound') : error, waiting, result: res, cap: PANEL_CAP });
   const drawable = !!res && res.total <= PANEL_CAP;
 
   // ------------------------------------------------------------------ model, layout and the first-paint fit (D-1031)
   const model = useMemo(() => (res && drawable ? buildModel(res, { sizeByLinks, scale: 'panel' }) : null), [res, drawable, sizeByLinks]);
   const sizeReady = !!size;
   useEffect(() => {
-    if (!result || !model || !size) return;
+    if (!result || !res || !model || !size) return;
     const r = result.req;
     const json = JSON.stringify(result.res);
     const centreNode = result.res.nodes.find((n) => n.depth === 0);
@@ -297,12 +316,15 @@ export function GraphPanel(p: GraphPanelProps) {
     setFiltersOpen(false);
     showPreview(n.node, el, res);
   };
-  function clearSelection() {
+  /** Clears the selection and closes its preview (D-1041). Reads only refs and the preview store, so a callback made
+   *  at mount (`ask`) calls it safely. */
+  function dropSelection() {
     if (selRef.current === null) return;
     setSelected(null);
     setHovered(null); // the pointer still on the node highlights again only once it re-enters
-    if (preview.current) preview.close('outside');
+    if (currentPreview()) closePreview('outside');
   }
+  const clearSelection = dropSelection;
   // Any close of the preview (Esc, its button, a click outside, a route or tab change) clears the selection (D-1041).
   const cur = preview.current;
   useEffect(() => {
@@ -324,15 +346,15 @@ export function GraphPanel(p: GraphPanelProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [res]);
   // Closing the panel (⌘\, a tab change, the window too narrow) closes the preview it opened (D-1041).
-  useEffect(() => () => { if (selRef.current) preview.close('outside'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => () => { if (selRef.current) closePreview('outside'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   // ------------------------------------------------------------------ view state (§15.3)
   const write = (patch: Partial<GraphViewStateDto>) => p.onState({ ...(p.state ?? {}), ...patch });
   const setDepth = (d: 1 | 2 | 3) => { if (d !== depth) write({ depth: d }); };
-  const known = (res?.typeCounts ?? lastCounts).map(([k]) => k);
-  const unknownHidden = hiddenTypes.filter((k) => !known.includes(k));
+  const knownTypes = (res?.typeCounts ?? lastCounts).map(([k]) => k);
+  const unknown = unknownHidden(hiddenTypes, knownTypes);
   const setType = (key: string, visible: boolean) => write({ hiddenTypes: visible ? hiddenTypes.filter((k) => k !== key) : [...hiddenTypes, key] });
-  const setAll = (visible: boolean) => write({ hiddenTypes: visible ? unknownHidden : [...unknownHidden, ...known.filter((k) => !unknownHidden.includes(k))] });
+  const setAll = (visible: boolean) => write({ hiddenTypes: typesAfterAll(hiddenTypes, knownTypes, visible) });
   const setKind = (kind: EdgeKindDto, visible: boolean) => write({ hiddenKinds: visible ? hiddenKinds.filter((k) => k !== kind) : [...hiddenKinds, kind] });
 
   // ------------------------------------------------------------------ to the full view (§15.5)
@@ -451,7 +473,7 @@ export function GraphPanel(p: GraphPanelProps) {
         {state === 'allHidden' && res && (
           <div className="graph-state">
             <p>{t(hiddenKinds.length ? 'graph.allHidden.filters' : 'graph.allHidden.types', { count: res.hidden })}</p>
-            <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknownHidden, hiddenKinds: [] }) : write({ hiddenTypes: unknownHidden }))}>
+            <button type="button" data-command="graph.showAllTypes" className="button" onClick={() => (hiddenKinds.length ? write({ hiddenTypes: unknown, hiddenKinds: [] }) : write({ hiddenTypes: unknown }))}>
               {t(hiddenKinds.length ? 'graph.showEverything' : 'graph.showAllTypes')}
             </button>
           </div>
