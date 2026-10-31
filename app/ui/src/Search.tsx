@@ -188,7 +188,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
     loaded.current = next.length;
     report();
   };
-  // The first new row gets the focus once it is rendered; a frame callback could run before React renders it (#105).
+  // The first new row gets the focus once it is rendered; a frame callback could run before React renders it (issue 105).
   useLayoutEffect(() => {
     const at = focusRow.current;
     focusRow.current = null;

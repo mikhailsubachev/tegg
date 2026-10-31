@@ -139,7 +139,7 @@ export function PresetControl(p: PresetControlProps) {
 
   // ------------------------------------------------------------------ actions
   // Closed at once for the menu's own effects: a choice made before React ran an earlier render's effects (a pointer
-  // move setting the active item) must not have the item take the focus back from where the choice sends it (#108).
+  // move setting the active item) must not have the item take the focus back from where the choice sends it (issue 108).
   const menuOpen = useRef(false);
   const hideMenu = () => { menuOpen.current = false; setMenu(null); };
   const closeMenu = (focus: boolean) => {

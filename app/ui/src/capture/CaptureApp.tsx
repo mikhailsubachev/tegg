@@ -149,7 +149,7 @@ export function CaptureApp() {
     shownVault.current = c?.vault ? { id: c.vault.id, name: c.vault.name } : null;
     draftArmed.current = true;
     requestAnimationFrame(() => {
-      // The text gets the focus unless the user has already moved it to a control of the window (#104).
+      // The text gets the focus unless the user has already moved it to a control of the window (issue 104).
       const now = document.activeElement;
       if (!now || now === document.body || now === before || now === textRef.current) focusText();
       requestAnimationFrame(() => requestAnimationFrame(() => void captureIpc.ready(o.seq)));
