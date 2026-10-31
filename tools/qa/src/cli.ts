@@ -277,6 +277,7 @@ async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<num
     process.stderr.write(`verify merge: HEAD does not contain ${base}; merge ${base} first, then run ./verify merge again\n`);
     return 1;
   }
+  await acquireGateLock('merge', root); // after the base check, which needs no wait (CONTRACT §3.5)
   const s = await runTreeGate(root, cfg, 'push', { lanes, all: args.includes('--all') });
   reviewPrep(root, base);
   console.log(s.result === 'pass' ? `verify merge: READY (tree ${s.tree})` : 'verify merge: NOT READY');
@@ -289,6 +290,8 @@ async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<num
 
 /** The commands that run a gate's steps or test runners: one at a time on this machine (D-1330, CONTRACT §3.5). */
 const LOCKED = new Set(['push', 'nightly', 'milestone', 'release', 'merge', 'check-red']);
+/** Of those, the ones whose own flow takes the lock after its quick checks. */
+const LOCKS_ITSELF = new Set(['merge']);
 
 /** Usage errors of the locked commands, found before they wait for the lock (CONTRACT §3.5). */
 function checkUsage(root: string, cmd: string, args: string[]): void {
@@ -326,7 +329,7 @@ async function main(argv: string[]): Promise<number> {
   const cfg = loadConfig(root);
   if (LOCKED.has(cmd)) {
     checkUsage(root, cmd, args);
-    await acquireGateLock(cmd, root);
+    if (!LOCKS_ITSELF.has(cmd)) await acquireGateLock(cmd, root);
   }
   switch (cmd) {
     case 'commit':

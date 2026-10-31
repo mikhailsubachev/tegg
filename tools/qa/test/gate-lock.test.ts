@@ -38,6 +38,17 @@ test('ts_verify_ac8_merge_waits_and_prints_waiting_line', (t) => {
   assertWaits(repo, ['merge', '--base', 'main'], dir, 'verify merge');
 });
 
+test('ts_verify_ac8_merge_behind_its_base_exits_1_without_waiting', (t) => {
+  // CONTRACT §3.5, §11: the base check needs no wait for the lock.
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const repo = makeRepo(t);
+  holdLock(t, dir);
+  const r = verify(repo, ['merge', '--base', 'nowhere-ahead'], { env: lockEnv(dir), timeout: 5000 });
+  assert.equal(r.status, 1, `verify merge with a base HEAD doesn't contain\n${describe(r)}`);
+  assert.match(r.stderr, /merge nowhere-ahead first/);
+  assert.doesNotMatch(r.stdout, WAITING);
+});
+
 test('ts_verify_ac8_check_red_waits_and_prints_waiting_line', (t) => {
   const dir = tmpDir(t, 'tegg-qa-lock-');
   const repo = makeRepo(t);
