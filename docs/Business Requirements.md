@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.120, for review                                            |
+| **Document status** | Draft v1.121, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -132,8 +132,9 @@
 | v1.116  | 2026-10-30 | Slice G2 graph in the right panel (v1.0, D-919), `docs/acceptance/graph-panel.md`: D-1030…D-1043 (AP-880…AP-893, each as proposed; G2 uses D-1030…D-1079, G3 D-1080 onward): AC numbers beside G3, the panel's scale and fit, `Size nodes by links` in the panel, the lower depth offered above 60, `In full graph`, no `Recenter` in the panel, ⌘⇧G with the panel on Graph (amends D-905), the hand-over of depth and selection, routes without a file, the deleted page, no panel on tag pages, selection and the popover, the centre's double-click, a panel benchmark for NFR-PERF-11. Contract `docs/contracts/v1-graph.md` §15 |
 | v1.117  | 2026-10-30 | G2 red-test decisions (red tests 504998b): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
 | v1.118  | 2026-10-30 | G2 build decisions D-1050…D-1055 (AP-900…AP-905, each as proposed): four AC-test corrections (pseudo-locale tabpanel name, the `nav_opened` baseline, the 800 × 500 window, the daily route id), the panel waits for a running rename job, theme checks after transitions end |
-| v1.119  | 2026-10-30 | Preview v0.94 feedback, tasks search and date picker: D-1280…D-1289 (AP-1180…AP-1189, each as proposed): the All tasks title filter on Schedule and Kanban, what it hides and which counts follow, not remembered, quick-add while searching, the `Filter tasks` command; the date picker's quick picks `Today`, `Tomorrow`, `This week` (the first Friday on or after today, its long date as description), typed words unchanged, the AC-test changes (amends D-602, D-763). `docs/acceptance/tasks.md` FR-TSK-04 AC-19…AC-21, FR-TSK-05 AC-16; `docs/acceptance/date-picker.md` FR-TYP-02 AC-9, AC-10 |
-| v1.120  | 2026-10-30 | v0.94 red-test and build decisions D-1290…D-1295 (AP-1190…AP-1195, each as proposed): the quick-add bytes on the Schedule while searching, the no-match status for any text, the quick picks' container, no description or tooltip on `Today` and `Tomorrow`, the user's text inside a catalog message, the capture's `Due: Tomorrow` (AC-test change) |
+| v1.119  | 2026-10-30 | D-1330 (owner): one `./verify` gate at a time on the machine, through a lock the heavy commands wait for (QA tooling, CONTRACT §3.5) |
+| v1.120  | 2026-10-30 | Preview v0.94 feedback, tasks search and date picker: D-1280…D-1289 (AP-1180…AP-1189, each as proposed): the All tasks title filter on Schedule and Kanban, what it hides and which counts follow, not remembered, quick-add while searching, the `Filter tasks` command; the date picker's quick picks `Today`, `Tomorrow`, `This week` (the first Friday on or after today, its long date as description), typed words unchanged, the AC-test changes (amends D-602, D-763). `docs/acceptance/tasks.md` FR-TSK-04 AC-19…AC-21, FR-TSK-05 AC-16; `docs/acceptance/date-picker.md` FR-TYP-02 AC-9, AC-10 |
+| v1.121  | 2026-10-30 | v0.94 red-test and build decisions D-1290…D-1295 (AP-1190…AP-1195, each as proposed): the quick-add bytes on the Schedule while searching, the no-match status for any text, the quick picks' container, no description or tooltip on `Today` and `Tomorrow`, the user's text inside a catalog message, the capture's `Due: Tomorrow` (AC-test change) |
 
 ---
 
@@ -1124,6 +1125,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1293 | `Today` and `Tomorrow` have no description (AP-1193) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | "None" in FR-TYP-02 AC-9 covers `aria-description`, `aria-describedby` text and `title` |
 | D-1294 | User text inside catalog messages (AP-1194) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | In the pseudo-locale check, a catalog message that contains the user's text (the search, the Task plural) counts as one marked message |
 | D-1295 | `Due: Tomorrow` in the capture (AP-1195) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | AC-test correction: after `Tomorrow` the capture chip shows R55's due label `Due: Tomorrow` (FR-CAP-01 AC-19); the test changes with `AC-Test-Change: R55 due label for tomorrow (D-1295); approved-by: owner` |
+| D-1330 | One `./verify` gate at a time (owner, 2026-10-30) | Parallel gates of several sessions loaded the machine (load average up to 44) and made timing-sensitive WebKit tests fail falsely. The heavy commands (`push`, `nightly`, `milestone`, `release`, `merge`, `check-red`, and the pre-push hook when it runs the push gate) take a machine-wide lock and wait for it; `verify commit` doesn't. The lock is a folder outside every checkout, released on exit, and taken over when its owner process is gone. Contract `tools/qa/CONTRACT.md` §3.5 |
 
 ---
 
