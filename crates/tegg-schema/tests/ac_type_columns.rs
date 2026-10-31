@@ -235,7 +235,7 @@ fn fr_typ_09_ac25_a_value_that_is_not_a_list_keeps_the_file_valid_and_refuses_co
 fn fr_typ_09_ac26_remove_attribute_removes_every_columns_entry_in_the_same_write() {
     let s = swap(&schuzka(), PREVIEW_S, &format!("preview: [datum, místo]\nhidden: [místo]\ncolumns: [datum, místo, {NFD_MISTO}, modified, místo]\n"));
     let item = "  - key: místo\n    name: Místo\n    type: text\n    description: Kde se schůzka konala\n";
-    let want = swap(&swap(&s, item, ""), &format!("preview: [datum, místo]\nhidden: [místo]\ncolumns: [datum, místo, {NFD_MISTO}, modified, místo]\n"), "preview: [datum]\ncolumns: [datum, modified]\n");
+    let want = swap(&swap(&s, item, ""), &format!("preview: [datum, místo]\nhidden: [místo]\ncolumns: [datum, místo, {NFD_MISTO}, modified, místo]\n"), "preview: [datum]\nhidden: []\ncolumns: [datum, modified]\n"); // D-1256: `hidden: []` stays (FR-TYP-17 AC-1)
     assert_eq!(
         do_patch("schůzka", &s, vec![TypeOp::RemoveAttribute("místo".into())]),
         Ok(Some(want)),

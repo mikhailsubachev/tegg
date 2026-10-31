@@ -490,13 +490,24 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .view-tab { padding: 4px 10px; border-radius: 6px; background: var(--row); color: var(--text); font-size: 13px; }
 .type-filter { height: 30px; width: 220px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 .type-filter::placeholder { color: var(--muted); }
-.table-scroll { overflow-x: auto; }
-.type-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.type-table th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+/* D-1247, D-1248: fixed column widths from the colgroup; the table scrolls sideways inside the page column. */
+.type-table { table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+.type-table th { position: relative; text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--bg); user-select: none; }
 .type-table th.sorted { color: var(--text); }
-.type-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
-.type-row:hover { background: var(--row); }
-.type-row:focus-visible { outline: none; background: var(--hover); }
+.type-table th.reordering { cursor: grabbing; color: var(--text); }
+.type-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.type-table td .chips { flex-wrap: nowrap; }
+/* D-1247: Title stays on the left, opaque, while the other columns pass under it. */
+.type-table th:first-child, .type-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); }
+.type-table th:first-child { z-index: 3; } /* above the other headers' resize handles */
+.type-row:hover, .type-row:hover td:first-child { background: var(--row); }
+.type-row:focus-visible, .type-row:focus-visible td:first-child { outline: none; background: var(--hover); }
+/* D-1248, D-1249: the resize handle on a header's right edge. */
+.type-table .col-resize { position: absolute; top: 0; bottom: 0; right: 0; width: 9px; cursor: col-resize; touch-action: none; z-index: 2; }
+.type-table .col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; right: 3px; width: 2px; border-radius: 1px; background: var(--muted); opacity: 0.35; }
+.type-table th:hover .col-resize::after, .type-table .col-resize:focus-visible::after { opacity: 1; }
+.type-table .col-resize:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .cell-title { display: inline-flex; align-items: center; gap: 6px; }
 .cell-title .icon { color: var(--muted); }
 .sort-mark { margin-left: 4px; }

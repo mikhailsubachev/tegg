@@ -2,6 +2,7 @@
 // field sends one `type_patch` with the version of the last read (D-235); writes to the type file are serialized; a
 // `Conflict` reloads the disk version and says which change wasn't saved (NFR-REL-02); newer-version and invalid
 // files are read-only. Nothing here writes a note (FR-TYP-04 AC-5).
+import { toggleColumn } from '../types/columns';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES, widerTypes, type AttrType } from '@tegg/schema';
@@ -509,10 +510,10 @@ function NewPropertyForm({ type, onAdd, onCancel, error }: {
   );
 }
 
-/** `New property…` in the type page's Columns menu (D-252, D-260): the Add property flow; the new property also
- *  becomes a preview column when fewer than 4 are chosen, in the same write. `onDone(true)` when it got the column. */
-export function NewPropertyDialog({ type, types, withPreview, onClose, onDone }: {
-  type: TypeDto; types: TypeDto[]; withPreview?: boolean; onClose: () => void; onDone: (withColumn: boolean) => void;
+/** `New property…` in the type page's Columns menu (D-252): the Add property flow; the new property is also appended
+ *  to `columns`, seeded when absent, in the same write (D-1240, type-columns AC-24); `preview` is never touched. */
+export function NewPropertyDialog({ type, types, onClose, onDone }: {
+  type: TypeDto; types: TypeDto[]; onClose: () => void; onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   return (
@@ -520,12 +521,10 @@ export function NewPropertyDialog({ type, types, withPreview, onClose, onDone }:
       <h2>{t('ts.addProperty')}</h2>
       <NewPropertyForm type={type} types={types} error={error} onCancel={onClose}
         onAdd={async (attr) => {
-          const ops: TypeOpDto[] = [{ op: 'addAttribute', attribute: attr }];
-          const column = !!withPreview && type.preview.length < 4;
-          if (column) ops.push({ op: 'preview', keys: [...type.preview, attr.key] });
+          const ops: TypeOpDto[] = [{ op: 'addAttribute', attribute: attr }, { op: 'columns', keys: toggleColumn(type, attr.key, true) }];
           try {
             await ipc.typePatch(type.key, type.exists ? type.version : null, ops);
-            onDone(column);
+            onDone();
             return null;
           } catch (e) {
             const m = typeErrorMessage(e);

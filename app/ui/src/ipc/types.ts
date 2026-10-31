@@ -159,6 +159,18 @@ review: string, preview: Array<string>, previewIgnored: Array<string>,
  */
 hidden: Array<string>, 
 /**
+ * The type page's columns after Title as written; null when the key is absent (D-1240, type-columns §2).
+ */
+columns: Array<string> | null, 
+/**
+ * `columns` entries that are neither properties nor universal keys (D-1245).
+ */
+columnsIgnored: Array<string>, 
+/**
+ * `columns` is present but not a list of strings: the Columns menu is disabled (D-1245).
+ */
+columnsUnreadable: boolean, 
+/**
  * The effective default embed mode: `full`, `card` or `link` (D-417, ms4-embeds §3).
  */
 embed: string, 
@@ -187,7 +199,7 @@ supported: boolean,
 readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
 export type TypeTemplateDto = { path: string, text: string, };
@@ -264,7 +276,12 @@ tagsSort?: SortUiDto,
  * Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size; missing reads as
  * the defaults.
  */
-preview?: PreviewUiDto, };
+preview?: PreviewUiDto, 
+/**
+ * Type-page column widths in px per type key, then column key (`title` included); machine-local, never in the
+ * vault (D-1241, type-columns §2); missing reads as empty.
+ */
+typeColumnWidths?: { [key in string]?: { [key in string]?: number } }, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

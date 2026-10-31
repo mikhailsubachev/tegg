@@ -1225,6 +1225,9 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         preview: d.preview,
         preview_ignored: t.preview_ignored,
         hidden: d.hidden,
+        columns: d.columns,
+        columns_ignored: t.columns_ignored,
+        columns_unreadable: t.columns_unreadable,
         embed: t.embed.as_str().into(),
         embed_raw: t.embed_raw,
         template: d.template,
@@ -1326,6 +1329,7 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         }
         TypeOpDto::Review { on } => TypeOp::SetReview(on),
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
+        TypeOpDto::Columns { keys } => TypeOp::SetColumns(keys),
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
             Some(m) => m,

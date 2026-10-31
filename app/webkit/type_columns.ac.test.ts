@@ -151,7 +151,8 @@ async function titleColumn(page: Page, plural: string) {
     const rows = ([...t.querySelectorAll('[role="row"], tr')] as HTMLElement[]).filter((r) => !r.querySelector('[role="columnheader"], th'));
     const cells = [head, ...rows.map((r) => r.querySelector('[role="cell"], [role="gridcell"], [role="rowheader"], td') as HTMLElement | null)].filter(Boolean) as HTMLElement[];
     const vh = window.innerHeight;
-    return cells.filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < vh; }).map((c) => {
+    // D-1256: only cells whose middle is inside the window (a row cut by the window's edge has nothing under its probe).
+    return cells.filter((c) => { const r = c.getBoundingClientRect(); const mid = r.top + r.height / 2; return mid > 0 && mid < vh; }).map((c) => {
       const r = c.getBoundingClientRect();
       const hit = document.elementFromPoint(r.right - 4, r.top + r.height / 2);
       return { left: r.left, right: r.right, alpha: alpha(getComputedStyle(c).backgroundColor), onTop: !!hit && (hit === c || c.contains(hit)) };
@@ -748,8 +749,9 @@ test('fr_typ_09_ac29_many_columns_scroll_with_a_sticky_title', async ({ page }) 
   const s0 = await hScroll(page, 'Projekty');
   assert.ok(s0.found && s0.scrollWidth > s0.clientWidth, `the table's scroll container scrolls sideways: ${JSON.stringify(s0)}`);
   assert.equal(s0.docScroll, false, 'the page itself has no horizontal scroll');
+  // D-1256: the pointer goes to the visible part of the scroll container (the table itself is wider than the window).
   const tb = await (await must(typeTable(page, 'Projekty'), 'table')).boundingBox();
-  await page.mouse.move(tb!.x + tb!.width / 2, tb!.y + 40);
+  await page.mouse.move(s0.left + s0.clientWidth / 2, tb!.y + 40);
   await page.mouse.wheel(300, 0);
   await sleep(200);
   assert.ok((await hScroll(page, 'Projekty')).scrollLeft > 0, 'a horizontal wheel scrolls it');
