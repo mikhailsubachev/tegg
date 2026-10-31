@@ -1,6 +1,6 @@
 // Process and git helpers for the QA tooling (tools/qa/CONTRACT.md).
 
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 export type Result = { status: number; stdout: string; stderr: string };
 
@@ -25,6 +25,10 @@ export function exec(cmd: string, args: string[], opts: RunOpts): Result {
  *  (the tree gates' lanes, CONTRACT §3.2.2). */
 export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<Result> {
   return new Promise((resolve) => {
+    if (stopping) {
+      resolve({ status: 1, stdout: '', stderr: 'verify: not started, the gate is stopping\n' });
+      return;
+    }
     let child: ReturnType<typeof spawn>;
     try {
       // No input: stdin is /dev/null (EOF at once). Writing to a pipe of a child that already exited raises EPIPE.
@@ -40,8 +44,7 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
     child.stdout!.setEncoding('utf8').on('data', (d: string) => (stdout += d));
     child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d));
     child.on('error', (e) => resolve({ status: 127, stdout, stderr: stderr + String(e.message) }));
-    running.add(child);
-    child.on('exit', () => running.delete(child));
+    if (child.pid) groups.add(child.pid);
     child.on('close', (code) => resolve({ status: code ?? 1, stdout, stderr }));
     if (child.stdin) {
       child.stdin.on('error', () => {}); // the child may exit before reading its input
@@ -50,28 +53,38 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
   });
 }
 
-/** The background processes `execAsync` started that haven't exited yet. */
-const running = new Set<ChildProcess>();
+/** The process groups `execAsync` started (each step leads its own); a group may outlive its leader. */
+const groups = new Set<number>();
+/** Set once the gate is stopping: no new background process starts after that. */
+let stopping = false;
 
-function killGroup(child: ChildProcess, sig: NodeJS.Signals): void {
+function signalGroup(pgid: number, sig: NodeJS.Signals | 0): boolean {
   try {
-    process.kill(-child.pid!, sig);
-  } catch {
-    // the group is gone already
+    process.kill(-pgid, sig);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
 
-/** Passes `sig` on to the process groups of the running background processes and resolves once they've exited;
- *  a group still there after `graceMs` gets SIGKILL. */
-export function stopSteps(sig: NodeJS.Signals, graceMs = 10_000): Promise<void> {
-  const children = [...running];
-  if (children.length === 0) return Promise.resolve();
-  for (const c of children) killGroup(c, sig);
-  const exited = children.map((c) => new Promise<void>((r) => (c.exitCode !== null || c.signalCode !== null ? r() : c.once('exit', () => r()))));
-  const timer = setTimeout(() => {
-    for (const c of children) killGroup(c, 'SIGKILL');
-  }, graceMs);
-  return Promise.all(exited).then(() => clearTimeout(timer));
+/** Kills every process group the background processes started, at once. */
+export function killSteps(): void {
+  stopping = true;
+  for (const g of groups) signalGroup(g, 'SIGKILL');
+}
+
+/** Stops starting background processes, passes `sig` on to their process groups and resolves once every group is
+ *  empty; groups still there after `graceMs` get SIGKILL. */
+export async function stopSteps(sig: NodeJS.Signals, graceMs = 10_000): Promise<void> {
+  stopping = true;
+  for (const g of groups) signalGroup(g, sig);
+  const deadline = Date.now() + graceMs;
+  for (;;) {
+    for (const g of groups) if (!signalGroup(g, 0)) groups.delete(g);
+    if (groups.size === 0) return;
+    if (Date.now() >= deadline) killSteps();
+    await new Promise((r) => setTimeout(r, 100));
+  }
 }
 
 // Git sets these for hooks; children working in another checkout must not inherit them (CONTRACT §2.1).

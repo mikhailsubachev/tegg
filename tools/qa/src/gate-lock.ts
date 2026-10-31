@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { stopSteps } from './proc.ts';
+import { killSteps, stopSteps } from './proc.ts';
 
 /** Set while a gate holds the lock; a `verify` started by that gate's steps doesn't wait for its own parent. */
 const HELD = 'VERIFY_GATE_LOCK_HELD';
@@ -30,9 +30,10 @@ function alive(pid: number): boolean {
   }
 }
 
-/** When `pid` started, as `ps` prints it; undefined if the system can't tell. Together with the pid it names one process. */
+/** When `pid` started, as `ps` prints it; undefined if the system can't tell. Together with the pid it names one process.
+ *  A fixed locale and time zone, so every shell and launchd print the same string for the same process. */
 function procStart(pid: number): string | undefined {
-  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' });
+  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', TZ: 'UTC0' } });
   const s = r.status === 0 ? r.stdout.trim() : '';
   return s || undefined;
 }
@@ -60,15 +61,41 @@ function readOwner(lock: string): Owner | undefined {
   }
 }
 
-/** A lock is stale when it has no owner record, its owner has exited, the machine restarted since, or the pid now
- *  belongs to another process. A lock never lacks its owner record while it's being made (it's renamed into place). */
+/** A lock is stale when it has no owner record, its owner has exited, or the pid now belongs to another process:
+ *  told by the start time, else by the boot time (the system moves it when the clock is set, so it's the fallback).
+ *  A lock never lacks its owner record while it's being made (it's renamed into place). */
 function stale(o: Owner | undefined): boolean {
   if (!o) return true;
   if (!alive(o.pid)) return true;
-  const boot = o.boot === undefined ? undefined : bootTime();
-  if (boot !== undefined && boot !== o.boot) return true;
   const start = o.procStart === undefined ? undefined : procStart(o.pid);
-  return start !== undefined && start !== o.procStart;
+  if (start !== undefined) return start !== o.procStart;
+  const boot = o.boot === undefined ? undefined : bootTime();
+  return boot !== undefined && boot !== o.boot;
+}
+
+function oldFolder(f: string): boolean {
+  try {
+    return Date.now() - fs.statSync(f).mtimeMs > 60_000;
+  } catch {
+    return false;
+  }
+}
+
+/** Removes the folders that stale owners left next to the lock: drafts of killed waiters, locks moved aside. One
+ *  without an owner record is only removed after a minute: it may be another waiter's draft in the making. */
+function sweep(dir: string): void {
+  let names: string[];
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const f = path.join(dir, n);
+    if (!n.startsWith('gate.lock.')) continue;
+    const o = readOwner(f);
+    if (o ? stale(o) : oldFolder(f)) fs.rmSync(f, { recursive: true, force: true });
+  }
 }
 
 /** Removes the stale lock judged from `judged`. It's moved aside first and moved back if it turns out to be another
@@ -94,8 +121,9 @@ function breakStale(lock: string, judged: Owner | undefined): void {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Waits until this process holds the gate lock. Returns at once inside a gate that already holds it. */
-export async function acquireGateLock(command: string, checkout: string): Promise<void> {
+/** Waits until this process holds the gate lock. Returns at once inside a gate that already holds it. With
+ *  `signals: false` the lock is only released on exit, for a host that handles its own signals (Playwright). */
+export async function acquireGateLock(command: string, checkout: string, opts: { signals?: boolean } = {}): Promise<void> {
   if (process.env[HELD]) return;
   const dir = gateLockDir();
   const lock = path.join(dir, 'gate.lock');
@@ -110,6 +138,7 @@ export async function acquireGateLock(command: string, checkout: string): Promis
     process.stderr.write(`verify: warning: can't create the gate lock folder ${dir} (${(e as Error).message}); running without the one-gate-at-a-time lock\n`);
     return;
   }
+  sweep(dir);
   // Until the lock is taken, an exit or a signal only removes the draft; afterwards it releases the lock, which is
   // moved aside first so it's never seen without its owner record.
   let held = false;
@@ -128,14 +157,24 @@ export async function acquireGateLock(command: string, checkout: string): Promis
     fs.rmSync(aside, { recursive: true, force: true });
   };
   process.on('exit', cleanup);
-  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-    process.once(sig, () => {
-      // The steps run in their own process groups, so they only get the signal when it's passed on; the lock stays
-      // until they've exited, or another gate would start next to them.
-      void stopSteps(sig).then(() => {
-        cleanup();
-        process.kill(process.pid, sig);
-      });
+  // The steps run in their own process groups, so they only get a signal when it's passed on; the lock stays until
+  // they've exited, or another gate would start next to them. A second signal kills them at once.
+  const signals = opts.signals === false ? [] : (['SIGINT', 'SIGTERM', 'SIGHUP'] as const);
+  for (const sig of signals) {
+    let stopping = false;
+    const exitBy = () => {
+      cleanup();
+      for (const s of signals) process.removeAllListeners(s);
+      process.kill(process.pid, sig);
+    };
+    process.on(sig, () => {
+      if (stopping) {
+        killSteps();
+        exitBy();
+        return;
+      }
+      stopping = true;
+      void stopSteps(sig).then(exitBy);
     });
   }
   let waitingSince = 0;

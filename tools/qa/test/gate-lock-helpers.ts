@@ -17,9 +17,9 @@ export const lockEnv = (dir: string, extra: Record<string, string | undefined> =
   ...extra,
 });
 
-/** `ps -o lstart= -p <pid>`, trimmed (CONTRACT §3.5 `procStart`). Empty if the process doesn't exist. */
+/** `ps -o lstart= -p <pid>` with `LC_ALL=C TZ=UTC0`, trimmed (CONTRACT §3.5 `procStart`). Empty if the process doesn't exist. */
 export function procStartOf(pid: number): string {
-  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' });
+  const r = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', TZ: 'UTC0' } });
   return (r.stdout ?? '').trim();
 }
 

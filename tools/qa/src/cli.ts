@@ -301,6 +301,7 @@ function checkUsage(root: string, cmd: string, args: string[]): void {
     if (gitTry(root, ['rev-parse', '--verify', '--quiet', `${args[0]}^{commit}`]).status !== 0) throw new UsageError(`verify check-red: unknown commit ${args[0]}`);
   } else {
     lanesOption(args);
+    for (const name of ['--commit', '--range', '--base']) option(args, name); // a flag without its value
   }
 }
 

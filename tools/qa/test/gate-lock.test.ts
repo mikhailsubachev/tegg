@@ -7,13 +7,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { assertExit, describe, headSha, makeRepo, markStep, output, REPO_ROOT, tmpDir, verify, ZERO_SHA } from './helpers.ts';
 import {
-  describeAsync, exitWithin, holdLock, lockEnv, procStartOf, settlesWithin, startVerify, waitUntil,
+  describeAsync, exitWithin, holdLock, isAlive, killQuietly, lockEnv, procStartOf, settlesWithin, sleepMs, startVerify, waitUntil,
 } from './gate-lock-helpers.ts';
 
 const WAITING = /waiting for push in \/elsewhere/;
 
 function assertWaits(repo: string, args: string[], dir: string, what: string, input?: string) {
-  const r = verify(repo, args, { env: lockEnv(dir), timeout: 3000, input });
+  const r = verify(repo, args, { env: lockEnv(dir), timeout: 6000, input });
   assert.equal(r.status, null, `${what}: still waiting when the timeout killed it\n${describe(r)}`);
   assert.match(r.stdout, WAITING, `${what}: prints a waiting line naming the owner's command and checkout\n${describe(r)}`);
 }
@@ -191,4 +191,106 @@ test('ts_verify_ac8_lock_folder_cannot_be_created_warns_and_runs', (t) => {
   const r = verify(repo, ['push'], { env: lockEnv(path.join(file, 'locks')), timeout: 20_000 });
   assertExit(r, 0, 'verify push without a lock folder');
   assert.ok(r.stderr.includes('without the one-gate-at-a-time lock'), `stderr warns about running without the lock\n${output(r)}`);
+});
+
+// Review findings of the hardened lock (CONTRACT §3.5): what a signal does to lanes with several steps, a repeated
+// signal, a command interrupted while it waits, leftovers of stale owners.
+
+function pidOf(file: string): number {
+  const s = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
+  return /^\d+$/.test(s) ? Number(s) : 0;
+}
+
+test('ts_verify_ac8_signal_starts_no_further_lane_step_and_waits_for_every_lane', async (t) => {
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const out = tmpDir(t, 'tegg-qa-out-');
+  const [first, next, slow] = ['first', 'next', 'slow'].map((n) => path.join(out, `${n}.pid`));
+  const repo = makeRepo(t, {
+    config: {
+      steps: [
+        { id: 'a1', run: `echo $$ > '${first}'; exec sleep 30`, level: 'push', lane: 'a' },
+        { id: 'a2', run: `echo $$ > '${next}'; exec sleep 30`, level: 'push', lane: 'a' },
+        // exits a second after SIGTERM, so lane a would have time to start its next step
+        { id: 'b1', run: `echo $$ > '${slow}'; trap 'sleep 1; exit 1' TERM; sleep 30 & wait`, level: 'push', lane: 'b' },
+      ],
+    },
+  });
+  const run = startVerify(t, repo, ['push'], lockEnv(dir));
+  assert.ok(await waitUntil(() => pidOf(first) > 0 && pidOf(slow) > 0, 20_000), `the steps start\n${describeAsync(run)}`);
+  const pids = [pidOf(first), pidOf(slow)];
+  t.after(() => pids.forEach((p) => killQuietly(p)));
+  await sleepMs(200);
+  process.kill(run.pid, 'SIGTERM');
+  assert.notEqual(await exitWithin(run, 20_000), 'timeout', `verify exits after SIGTERM\n${describeAsync(run)}`);
+  await sleepMs(300);
+  assert.equal(pidOf(next), 0, 'no lane step starts after the signal');
+  for (const p of pids) assert.equal(isAlive(p), false, `step pid ${p} has ended`);
+  assert.equal(fs.existsSync(path.join(dir, 'gate.lock')), false, 'the lock is gone');
+});
+
+test('ts_verify_ac8_second_signal_kills_the_steps_at_once', async (t) => {
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const pidFile = path.join(tmpDir(t, 'tegg-qa-out-'), 'step.pid');
+  const repo = makeRepo(t, {
+    config: {
+      steps: [
+        { id: 'stubborn', run: `echo $$ > '${pidFile}'; trap '' INT TERM; exec sleep 30`, level: 'push', lane: 'a' },
+        { id: 'other', run: 'sleep 30', level: 'push', lane: 'b' },
+      ],
+    },
+  });
+  const run = startVerify(t, repo, ['push'], lockEnv(dir));
+  assert.ok(await waitUntil(() => pidOf(pidFile) > 0, 20_000), `the step starts\n${describeAsync(run)}`);
+  const stepPid = pidOf(pidFile);
+  t.after(() => killQuietly(stepPid));
+  await sleepMs(200);
+  const started = Date.now();
+  process.kill(run.pid, 'SIGINT');
+  await sleepMs(300);
+  assert.equal(isAlive(stepPid), true, 'the step ignores the forwarded SIGINT');
+  process.kill(run.pid, 'SIGINT');
+  assert.notEqual(await exitWithin(run, 5000), 'timeout', `verify exits on the second SIGINT\n${describeAsync(run)}`);
+  assert.ok(Date.now() - started < 5000, 'well before the 10 s grace period');
+  await sleepMs(300);
+  assert.equal(isAlive(stepPid), false, 'the step was killed');
+  assert.equal(fs.existsSync(path.join(dir, 'gate.lock')), false, 'the lock is gone');
+});
+
+test('ts_verify_ac8_command_interrupted_while_waiting_removes_its_private_folder', async (t) => {
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const repo = makeRepo(t);
+  holdLock(t, dir);
+  const run = startVerify(t, repo, ['push'], lockEnv(dir));
+  assert.ok(await waitUntil(() => /waiting for/.test(run.stdout()), 10_000), `verify waits\n${describeAsync(run)}`);
+  process.kill(run.pid, 'SIGINT');
+  assert.notEqual(await exitWithin(run, 5000), 'timeout', `verify exits on SIGINT\n${describeAsync(run)}`);
+  assert.deepEqual(fs.readdirSync(dir), ['gate.lock'], 'only the other owner\'s lock is left');
+});
+
+test('ts_verify_ac8_leftovers_of_stale_owners_are_removed', (t) => {
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const repo = makeRepo(t);
+  const leftover = path.join(dir, 'gate.lock.0f0f-draft');
+  fs.mkdirSync(leftover, { recursive: true });
+  fs.writeFileSync(path.join(leftover, 'owner.json'), JSON.stringify({ pid: 2 ** 22 + 3, command: 'push', checkout: '/gone', started: 'then', id: 'gone' }));
+  assertExit(verify(repo, ['push'], { env: lockEnv(dir), timeout: 20_000 }), 0, 'verify push');
+  assert.deepEqual(fs.readdirSync(dir), [], 'the stale draft and the released lock are gone');
+});
+
+test('ts_verify_ac8_proc_start_does_not_depend_on_locale_or_time_zone', async (t) => {
+  // A waiter started with another locale and time zone than the owner still sees the owner's lock as live.
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const repo = makeRepo(t);
+  holdLock(t, dir, (pid) => ({ procStart: procStartOf(pid) }));
+  const r = verify(repo, ['push'], { env: lockEnv(dir, { LC_ALL: 'cs_CZ.UTF-8', TZ: 'Pacific/Kiritimati' }), timeout: 4000 });
+  assert.equal(r.status, null, `still waiting\n${describe(r)}`);
+});
+
+test('ts_verify_ac8_usage_error_flag_without_value_exits_2_without_waiting', (t) => {
+  const dir = tmpDir(t, 'tegg-qa-lock-');
+  const repo = makeRepo(t);
+  holdLock(t, dir);
+  for (const args of [['push', '--commit'], ['push', '--range'], ['merge', '--base']]) {
+    assertExit(verify(repo, args, { env: lockEnv(dir), timeout: 5000 }), 2, `verify ${args.join(' ')}`);
+  }
 });
