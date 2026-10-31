@@ -169,3 +169,63 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
 
 - Every page control carries a page-local `data-command` (FR-UX-03 AC-8, as the tag page's `tagPage.cN`; D-1218 keeps them out of the palette): `search.clear`, `search.type`, `search.clearFilters`, `search.open` (row link), `search.filterTag` (row chip), `search.showNext`. The `⇧⌘F` hint is the catalog key `search.shortcut` (NFR-OTH-02 AC-1).
 - The history entry's `focusPath` is the focused row's path, or null once focus is anywhere else on the page; on Back, a row that no longer exists gives the focus to the field (D-1217).
+
+## 9. Search without `Go to` (preview v0.109; D-1340…D-1343)
+
+ACs: `docs/acceptance/search-navigation.md` § "Search without `Go to`" (FR-SRC-01 AC-23…AC-25, FR-SRC-04 AC-8…AC-11,
+FR-NAV-01 AC-20…AC-23). Feedback: `docs/feedback/ms6-v0109-search.md`. The ACs win over this section.
+
+### 9.1 Core order (D-1341) and the prefix (D-1342), `tegg-index` `Index::search`
+
+- **Query words.** The positive unquoted words, folded (FR-FMT-12, the existing `fold`); quoted phrases and `-word`
+  keep ms3-shell §15.1. **Prefix (D-1342):** when the raw query does not end with whitespace and its last item is an
+  unquoted, non-negative word of at least 2 characters, that word also matches every index word that starts with it
+  (folded). A word matched only through its prefix counts as matched for every tier and group, and ranks as a typo
+  match does (after exact); it does **not** set `typo` (the UI's `similar spelling` mark is for D-101 only). Title,
+  alias, attribute and snippet highlights cover the matched prefix only (the query's characters, mapped to the
+  original text as today).
+- **Groups (D-1341), for a query with at least one positive word:**
+  1. the title's or the file stem's folded words contain every query word (a word counts when matched exactly, by a
+     D-101 typo or by the D-1342 prefix); step 1a the title's (or stem's) folded word sequence equals the query's,
+     1b the query words appear as a contiguous sequence in the title or stem, 1c otherwise;
+  2. not group 1, and one alias contains every query word, with the same three steps on that alias;
+  3. everything else, in ms3-shell §15.1's order (tier, exact before typo, field, bm25).
+  Inside a step of groups 1 and 2: exact before typo-or-prefix, then bm25, then path. A query of only quoted phrases
+  uses the phrase's words for the groups, after the phrase filter. Filters never change the order; D-1205 (no text)
+  is unchanged. `SearchResult` gains no field; `tier` and `matched_in` keep their meaning (a group-1 result has
+  `matched_in == Title` or `FileName`, a group-2 result `Alias`).
+- **Speed.** The prefix expansion uses the index vocabulary the D-101 typo lookup already loads (a sorted vocabulary
+  allows a range scan); FR-SRC-04 AC-11 holds the NFR-PERF-04 core target on the reference vault.
+
+### 9.2 UI (D-1340, D-1343)
+
+- `app/ui/src/Search.tsx` no longer renders `GoTo`; `SearchPage`'s and `App`'s `onGoTo` go. `app/ui/src/GoTo.tsx` is
+  deleted when nothing else imports it; `index_switcher` and its pickers stay.
+- **Field keys.** ↓: focus the first row's `a.result`; ⏎: open the first result through the row's open path (a new
+  history entry, D-1217); ⌥⏎: `onCreate(text, defaultType)`; Esc as today. `Search query` loses `aria-controls` and
+  `aria-activedescendant`. On a row, ↑ from the first row focuses the field.
+- **Create buttons.** In the count line, after the count text: `button.create` `Create “<q>”`
+  (`data-command="search.create"`) and `button.create-as` `as…` (`aria-haspopup="menu"`,
+  `data-command="search.createAs"`) opening the existing create Type menu (D-550; the same menu the `Go to` row used).
+  In the no-match empty state (no filters), the body and the same two buttons. They call the existing `onCreate` (the
+  one creation path, D-232).
+- **Strings.** New catalog keys: `search.create` (`Create “{q}”`), `search.createAs` (`as…`),
+  `search.noMatchCreate` (`No matches. Create “{q}”?`). Removed: `search.noMatchBody` and the `Go to` list's keys once
+  unused (the palette's `cmd.goto.*` stay).
+
+### 9.3 Tests (for the test author)
+
+- L4 (Rust): `crates/tegg-core/tests/ac_search_title.rs` — FR-SRC-01 AC-23…AC-25, FR-SRC-04 AC-8…AC-10 (AC-11 perf at
+  G2 nightly, as D-1228). Runtime notes of the `search-title/` table are written by the test.
+- L5 (WebKit): `app/webkit/search_no_goto.ac.test.ts` — FR-NAV-01 AC-20…AC-23, FR-SRC-01 AC-23's rendered order,
+  FR-SRC-04 AC-10's mark. The fake core's `index_search` (`app/webkit`) gets D-1341's groups and D-1342's prefix so the
+  L5 order matches the core (the test author extends it).
+- L1: the three catalog keys (AC-23).
+- L6: `app/e2e/search_page.ac.test.ts` gets FR-NAV-01 AC-22's created file once.
+- **Existing tests that contradict the new ACs** (AC-test changes, each needs `AC-Test-Change: <reason>;
+  approved-by: owner`): `app/webkit/search_goto.ac.test.ts` (FR-NAV-01 AC-15…AC-17, AC-19, superseded: removed);
+  `app/webkit/search_page.ac.test.ts` `fr_nav_01_ac19_*`, `fr_src_03_ac8_*` (no `Go to` in the layout),
+  `fr_src_03_ac13_*` (no `Go to` to hide), `fr_src_03_ac16_*` (superseded by AC-22), `fr_src_03_ac17_*` (field keys,
+  create buttons in the Tab order), `fr_src_03_ac20_*` (the create buttons are the only writes), `fr_src_02_ac17_*` (no
+  `Go to` jump); `crates/tegg-core/tests/ac_search_ranking.rs` `fr_src_01_ac17_*` (order per AC-24);
+  `fr_nav_01_ac18_*` and `app/test/v068_registry.ac.test.ts` (the palette's `Go to Search`) stay.
