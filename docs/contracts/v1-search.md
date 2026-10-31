@@ -222,8 +222,8 @@ FR-NAV-01 AC-20…AC-23). Feedback: `docs/feedback/ms6-v0109-search.md`. The ACs
   L5 order matches the core (the test author extends it).
 - L1: the three catalog keys (AC-23).
 - L6: `app/e2e/search_page.ac.test.ts` gets FR-NAV-01 AC-22's created file once.
-- **Existing tests that contradict the new ACs** (AC-test changes, each needs `AC-Test-Change: <reason>;
-  approved-by: owner`): `app/webkit/search_goto.ac.test.ts` (FR-NAV-01 AC-15…AC-17, AC-19, superseded: removed);
+- **Existing tests that contradict the new ACs** (AC-test changes, approved by the owner on 2026-11-01; each
+  commit carries `AC-Test-Change: <reason>; approved-by: owner`): `app/webkit/search_goto.ac.test.ts` (FR-NAV-01 AC-15…AC-17, AC-19, superseded: removed);
   `app/webkit/search_page.ac.test.ts` `fr_nav_01_ac19_*`, `fr_src_03_ac8_*` (no `Go to` in the layout),
   `fr_src_03_ac13_*` (no `Go to` to hide), `fr_src_03_ac16_*` (superseded by AC-22), `fr_src_03_ac17_*` (field keys,
   create buttons in the Tab order), `fr_src_03_ac20_*` (the create buttons are the only writes), `fr_src_02_ac17_*` (no
