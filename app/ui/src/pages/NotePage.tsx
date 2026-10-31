@@ -541,7 +541,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onWrittenRef.current = onWritten;
   const restoreAtOpen = useRef(restoreScroll); // the App clears its value once restored the first time
   const caretAtOpen = useRef(restoreCaret); // likewise: the caret to restore once, when the editor is ready
-  // Bug #102: once the reader scrolls, clicks, touches or presses a key, the late restores below stop; moving the page
+  // Issue 102: once the reader scrolls, clicks, touches or presses a key, the late restores below stop; moving the page
   // back under the pointer sent a double-click's second click to another embed and closed an open preview.
   const readerActed = useRef(false);
   useEffect(() => {
