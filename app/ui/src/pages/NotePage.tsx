@@ -541,11 +541,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onWrittenRef.current = onWritten;
   const restoreAtOpen = useRef(restoreScroll); // the App clears its value once restored the first time
   const caretAtOpen = useRef(restoreCaret); // likewise: the caret to restore once, when the editor is ready
+  // Bug #102: once the reader scrolls, clicks, touches or presses a key, the late restores below stop; moving the page
+  // back under the pointer sent a double-click's second click to another embed and closed an open preview.
+  const readerActed = useRef(false);
+  useEffect(() => {
+    if (restoreAtOpen.current === undefined) return;
+    const acted = () => { readerActed.current = true; };
+    const inputs = ['wheel', 'pointerdown', 'touchstart', 'keydown'] as const;
+    for (const e of inputs) window.addEventListener(e, acted, { capture: true, passive: true });
+    return () => { for (const e of inputs) window.removeEventListener(e, acted, { capture: true }); };
+  }, []);
   useEffect(() => {
     const target = restoreAtOpen.current;
     if (restoredAfterEmbeds.current || target === undefined || !embedSnap.tree) return;
     restoredAfterEmbeds.current = true;
-    const apply = () => { const main = root.current?.closest('main'); if (main && Math.abs(main.scrollTop - target) > 1) main.scrollTop = target; };
+    const apply = () => {
+      const main = root.current?.closest('main');
+      if (!readerActed.current && main && Math.abs(main.scrollTop - target) > 1) main.scrollTop = target;
+    };
     requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); for (const ms of [100, 300, 600]) setTimeout(apply, ms); });
   }, [embedSnap.version]);
   // A type's default changed (FR-EMB-02 AC-7, AC-10).
