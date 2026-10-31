@@ -2,7 +2,7 @@
 // `resolveRefInput` (R103; v1-previews §5.1) to the preview, the editor's own open or the Create offer; the right-click
 // opens the `Link` menu (D-927); hover mode previews after the delay (D-942); the palette's `Show preview`, `Edit link`
 // and `Remove link` act on the chip at the caret (R106).
-import type { EditorUi, LinkGesture, TeggEditor } from '@tegg/editor';
+import { noteHref, type EditorUi, type LinkGesture, type TeggEditor } from '@tegg/editor';
 import { chipPreviewTarget } from '../links/ChipParts';
 import { registerEditorLinks } from './editorLink';
 import { hoverLeave, hoverMove } from './hover';
@@ -59,7 +59,9 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
   const gesture = (t: string, f: string | null, chip: Chip | undefined, g: LinkGesture) => {
     const pt = target(t, f);
     const r = h.resolve(t.normalize('NFC'));
-    const action = resolveRefInput(getPrefs().mode, 'chip', g, pt === null);
+    // D-1166 (R130): an inline link-mode embed opens on a click in every mode; ⌥Space and `Show preview` still preview it.
+    const kind = chip?.dom?.closest?.('[data-embed-mode="link"]') ? 'embedLink' : 'chip';
+    const action = resolveRefInput(getPrefs().mode, kind, g, pt === null);
     if (action === 'preview' && chip) preview(pt!, chip, g === 'click' ? 'click' : 'key', () => h.open(t, f, chip));
     else if (action === 'open') { if (getCurrent()) close('open'); h.open(t, f, chip); }
     else if (action === 'createOffer') {
@@ -91,7 +93,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
     onLink: (t, f, chip, g) => gesture(t, f, chip, g ?? 'click'),
     onLinkHover: (t, f, chip, phase) => {
       if (phase === 'leave') { hoverLeave(); return; }
-      if (getPrefs().mode !== 'hover') return;
+      if (getPrefs().mode !== 'hover' || chip.dom.closest('[data-embed-mode="link"]')) return; // embeds: no hover (D-1166)
       const pt = target(t, f);
       if (pt) hoverMove(pt, chip.dom, false, () => h.open(t, f, chip));
     },
@@ -151,12 +153,42 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
         if (getPrefs().mode !== 'off' && (e.target as HTMLElement | null)?.closest?.('[data-link-kind]')) void ipc.perfMark('preview-click').catch(() => {});
       };
       dom.addEventListener('pointerup', onUp);
+      // Hover mode on a `#tag` chip and on a Markdown link to a note (R104 rows 1 and 12; FR-SYN-06 AC-42 rests on every
+      // resolved reference of a note): the editor reports link chips only, so these are followed here (the same delay,
+      // grace and hiding, D-942).
+      let overTag: HTMLElement | null = null;
+      const onTagMove = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') return;
+        const t0 = e.target as HTMLElement | null;
+        const tag = t0?.closest?.('.tag-chip') as HTMLElement | null;
+        const md = tag ? null : t0?.closest?.('a[href]:not(.link-chip)') as HTMLAnchorElement | null;
+        const el = tag ?? md;
+        if (overTag && overTag !== el) { overTag = null; hoverLeave(); }
+        if (!el || !dom.contains(el) || el.closest('[data-link-host]') !== dom || getPrefs().mode !== 'hover') return;
+        if (tag) {
+          const key = (tag.textContent ?? '').trim().replace(/^#/, '').normalize('NFC').toLowerCase();
+          if (!key) return;
+          overTag = tag;
+          hoverMove({ path: '', fragment: null, kind: 'tag', key }, tag, e.buttons !== 0, () => h.openTag(key));
+          return;
+        }
+        const note = noteHref(md!.getAttribute('href') ?? '');
+        const pt = note ? target(note.target, note.fragment) : null;
+        if (!note || !pt) return;
+        overTag = md;
+        hoverMove(pt, md!, e.buttons !== 0, () => h.open(note.target, note.fragment, { pos: 0, dom: md }));
+      };
+      const onTagLeave = () => { if (overTag) { overTag = null; hoverLeave(); } };
+      dom.addEventListener('pointermove', onTagMove);
+      dom.addEventListener('pointerleave', onTagLeave);
       // A mode change redraws the chips' descriptions (FR-LNK-12 AC-4).
       let mode = getPrefs().mode;
       const off = subscribe(() => { const m = getPrefs().mode; if (m !== mode) { mode = m; h.editor()?.refreshUi(); } });
       return () => {
         dom.removeEventListener('focusin', onFocus);
         dom.removeEventListener('pointerup', onUp);
+        dom.removeEventListener('pointermove', onTagMove);
+        dom.removeEventListener('pointerleave', onTagLeave);
         dom.removeEventListener('focusout', onOut);
         dom.removeEventListener('pointerdown', onMove);
         dom.removeEventListener('keydown', onMove);

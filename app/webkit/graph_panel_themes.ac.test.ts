@@ -1,8 +1,8 @@
 // Slice G2, L5 (WebKit + fake core): the panel graph in both themes (docs/acceptance/graph-panel.md FR-UX-05 AC-16; boards
 // GraphPanelDark, GraphStatesDark): axe `color-contrast` with zero violations and app-shell FR-UX-05 AC-5 (no colour that
 // isn't a token of the theme, also for the panel's SVG fill and stroke) on Plán at depth 2 with Rozpočet previewed, with
-// the filter popover open, and in each R115 state; edges `--edge`, the selected node's edges `--hl`. Written from the ACs
-// and the contracts only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
+// the filter popover open, and in each R115 state; edges `--muted` (D-1167), the selected node's edges `--hl`. Written
+// from the ACs and the contracts only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mustPreview } from './helpers';
@@ -48,8 +48,9 @@ for (const theme of ['light', 'dark'] as const) {
     await mustPreview(page, 'Rozpočet 2027', 'Rozpočet previewed');
     await check(page, theme, 'Plán d2 with Rozpočet previewed');
     assert.deepEqual(await svgLeaks(page, theme), [], `${theme}: nodes, edges, canvas dots and pills use the theme's tokens`);
-    const edge = await tokenColour(page, 'edge'), hl = await tokenColour(page, 'hl');
-    assert.equal((await edgeStyle(page, P.plan, P.zapis, GP(page)))?.stroke, edge, `${theme}: an edge is --edge`);
+    // D-1167, D-1178: an edge is the theme's --muted; the selected node's edges stay --hl.
+    const edge = await tokenColour(page, 'muted'), hl = await tokenColour(page, 'hl');
+    assert.equal((await edgeStyle(page, P.plan, P.zapis, GP(page)))?.stroke, edge, `${theme}: an edge is --muted`);
     assert.equal((await edgeStyle(page, P.plan, P.rozpocet, GP(page)))?.stroke, hl, `${theme}: the selected node's edge is --hl`);
     await page.keyboard.press('Escape');
     await openPopover(page);

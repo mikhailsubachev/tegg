@@ -21,6 +21,7 @@ import { ARROWS, graphKeyAction, nearestInDirection } from './keyboard';
 import { layout, type Point } from './layout';
 import { currentPreset, isModified, nameKey } from './presets';
 import { PresetControl, type PresetActions } from './PresetControl';
+import { installCanvasInput, zoomCentre } from './canvasInput';
 import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
 import type { EdgeKindDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
 
@@ -514,7 +515,8 @@ export function GraphPage(p: GraphPageProps) {
   };
 
   // ------------------------------------------------------------------ zoom and pan (D-985)
-  const zoomBy = (f: number) => setView((v) => ({ ...v, zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(v.zoom * f * 10000) / 10000)) }));
+  // `Zoom in`, `Zoom out` and `+` / `−` zoom around the canvas's centre (D-985, R120).
+  const zoomBy = (f: number) => setView((v) => zoomCentre(v, f, size ?? null));
   // Fit uses every node's box with its label as drawn at 100 % (shown or not), so labels that appear at the new zoom
   // still fit (D-985).
   const fit = () => {
@@ -532,17 +534,8 @@ export function GraphPage(p: GraphPageProps) {
     const zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.min((size.width - 48) / b.width, (size.height - 48) / b.height)));
     setView({ zoom, panX: -(b.x + b.width / 2) * zoom, panY: -(b.y + b.height / 2) * zoom });
   };
-  useEffect(() => {
-    const onWheel = (e: WheelEvent) => {
-      if (!canvasBox.current?.contains(e.target as Node)) return;
-      hover.cancel(); // a wheel hides a hover preview (AP-941)
-      if (!e.metaKey) return;
-      e.preventDefault();
-      zoomBy(e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, []);
+  // D-1169: a plain wheel pans, a ⌘- or ctrl-wheel and a pinch zoom around the pointer; any of them hides a hover preview.
+  useEffect(() => installCanvasInput({ box: () => canvasBox.current, setView, onInput: () => hover.cancel() }), []);
 
   // ------------------------------------------------------------------ keys: Esc closes the popover, then the preview
   useEffect(() => {

@@ -171,7 +171,8 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
           decos.push(Decoration.node(pos, pos + node.nodeSize, {
             role: 'link', class: `embed-chip embed-link${chip.state === 'broken' ? ' kind-unresolved' : ''}`, 'data-embed': '', 'data-embed-mode': 'link',
             'data-embed-state': chip.state, 'aria-label': chip.title,
-            'aria-description': [chip.description, chip.state === 'ok' ? ui.linkHint?.() : null].filter(Boolean).join(', '),
+            // D-1175: an embed carries no preview-mode description (it opens on a click, D-1166).
+            'aria-description': chip.description,
             ...(icon ? { 'data-icon': icon } : {}), ...(chip.state === 'broken' ? { 'data-link-kind': 'unresolved' } : {}), ...(chip.target ? { 'data-embed-target': chip.target } : {}),
           }))
           return false

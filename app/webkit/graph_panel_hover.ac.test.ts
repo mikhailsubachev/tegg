@@ -153,7 +153,7 @@ test('fr_lnk_12_ac15_panel_hover_ring_then_popover_centre_and_tag', async ({ pag
 // ------------------------------------------------------------------------------------------------ FR-LNK-12 AC-16
 
 test('fr_lnk_12_ac16_panel_hover_grace_and_hiding', async ({ page }) => {
-  await hoverPanel(page);
+  const core = await hoverPanel(page);
   await pauseClock(page);
   await pPointAt(page, P.rozpocet);
   await tick(page, 450);
@@ -162,14 +162,18 @@ test('fr_lnk_12_ac16_panel_hover_grace_and_hiding', async ({ page }) => {
   await page.mouse.move(db.x + db.width / 2, db.y + 40, { steps: 6 });
   await tick(page, 600);
   await mustPreview(page, 'Rozpočet 2027', 'from the node straight onto the popover: it stays');
+  const n0 = await navCount(core);
   await page.mouse.click(db.x + db.width / 2, db.y + Math.min(80, db.height / 2));
-  await sleep(100);
-  assert.ok(await d.evaluate((e) => e.contains(document.activeElement)), 'a click inside its body makes it a clicked preview (the focus moves in)');
-  await page.mouse.move(5, 5);
-  await tick(page, 600);
-  await mustPreview(page, 'Rozpočet 2027', 'which stays after the pointer leaves');
-  await page.keyboard.press('Escape');
-  assert.ok(await noPreview(page, 300), 'until Esc');
+  await page.clock.resume(); // the open runs on the page's own timers and frames
+  // D-1165: a click inside the hover popover opens Rozpočet in the centre pane (no clicked-preview state any more).
+  assert.equal(await eventually(() => mainName(page), (n) => n === 'Rozpočet 2027', 4000), 'Rozpočet 2027', 'a click inside its body opens Rozpočet');
+  assert.equal((await navCount(core)) - n0, 1, 'one nav_opened');
+  assert.equal((await eventually(() => drawn(page, GP(page)), (x) => x.length === 7, 4000)).length, 7, 'the panel then shows Rozpočet\'s 7 nodes');
+  assert.ok(await noPreview(page, 100), 'and the popover is closed');
+  await page.keyboard.press('Meta+BracketLeft');
+  assert.equal(await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000), 'Plán čtvrtletí', 'Back to Plán');
+  assert.equal((await eventually(() => drawn(page, GP(page)), (x) => x.length === 10, 4000)).length, 10, 'Plán in the panel again');
+  await pauseClock(page);
   // From the node onto the empty canvas: hidden 300 ms (± 50 ms) after leaving the node (not the column rule).
   const e = await emptySpot(page);
   await pPointAt(page, P.rozpocet);

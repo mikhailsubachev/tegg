@@ -239,7 +239,7 @@ function LinkModeEmbed({ c, value }: { c: Ctx; value: string }) {
   const day = info?.kind === 'date-missing';
   const { props } = useReference({
     target: ok ? { path: info!.path!.normalize('NFC'), fragment: subpath, kind: 'note' } : day ? { path: '', fragment: null, kind: 'day', key: target.trim() } : null,
-    kind: 'chip',
+    kind: 'embedLink', // D-1166: an embed opens on a click and doesn't preview by pointer
     open: () => { if (ok) c.onOpen(info!.path!, subpath ?? undefined); else if (day) void openDate(target); },
     createOffer: (el) => requestOffer({ from: c.path, target, relationTo: null, anchor: el }),
   });

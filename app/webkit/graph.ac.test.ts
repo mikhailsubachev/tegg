@@ -30,10 +30,6 @@ const EDGES_D2: [string, string, string][] = [
   [P.zapis, P.petr, 'relation'], [P.zapis, P.rozpocet, 'embed'], [P.zapis, P.smlouva, 'embed'], [P.zapis, 'tag:cestování', 'tag'],
   [P.shrnuti, 'tag:archiv', 'tag'], [P.bez, P.shrnuti, 'link'], [P.chybna, P.shrnuti, 'link'],
 ];
-/** R108 lines: width and whether dashed or dotted. */
-const LINE: Record<string, { width: number; dashed: boolean }> = {
-  embed: { width: 3, dashed: false }, relation: { width: 1.5, dashed: true }, link: { width: 1.5, dashed: false }, tag: { width: 1, dashed: true },
-};
 
 async function depth(page: Page, d: 1 | 2 | 3, n: number) {
   await click(depthBtn(page, d), `depth ${d}`);
@@ -154,19 +150,23 @@ test('fr_grp_01_ac14_depth_defaults_to_one_and_is_remembered', async ({ page, br
 
 // ------------------------------------------------------------------------------------------------ FR-GRP-01: edges, cap, labels, layout
 
-test('fr_grp_01_ac3_one_edge_per_pair_in_the_strongest_style', async ({ page }) => {
+test('fr_grp_01_ac3_one_edge_per_pair_one_style', async ({ page }) => {
   await openGraph(page, P.plan);
   await depth(page, 2, 19);
   const all = await drawnEdges(page);
   assert.equal(all.length, 21, `21 [data-graph-edge] at depth 2 (got ${all.length})`);
   assert.equal(new Set(all.map((e) => e.pair)).size, 21, 'one per pair');
+  const muted = await tokenColour(page, 'muted');
   for (const [a, b, style] of EDGES_D2) {
     const e = pairOf(all, a, b);
+    // D-1177: `data-style` stays as data (the strongest visible kind); nothing draws from it.
     assert.equal(e?.style, style, `${a} – ${b}: data-style ${style}`);
     const cs = await edgeStyle(page, a, b);
     assert.ok(cs, `${a} – ${b}: computed style`);
-    assert.equal(parseFloat(cs!.width), LINE[style].width, `${a} – ${b}: ${LINE[style].width} px (R108)`);
-    assert.equal(cs!.dash !== 'none' && cs!.dash !== '', LINE[style].dashed, `${a} – ${b}: ${LINE[style].dashed ? 'dashed or dotted' : 'solid'}`);
+    // D-1167: every edge is one 1.5 px solid line in --muted.
+    assert.equal(parseFloat(cs!.width), 1.5, `${a} – ${b}: 1.5 px`);
+    assert.ok(cs!.dash === 'none' || cs!.dash === '', `${a} – ${b}: solid`);
+    assert.equal(cs!.stroke, muted, `${a} – ${b}: --muted`);
   }
   const arrows = await canvas(page).evaluate((svg) => svg.querySelectorAll('marker, [marker-start], [marker-end]').length
     + [...svg.querySelectorAll('[data-graph-edge]')].filter((e) => { const s = getComputedStyle(e); return (s.markerStart && s.markerStart !== 'none') || (s.markerEnd && s.markerEnd !== 'none'); }).length);
@@ -914,9 +914,11 @@ test('fr_grp_08_ac1_tag_pills_in_tag_colours', async ({ page }) => {
     assert.equal(paint?.text, ink, `${key}: text`);
     assert.equal(parseFloat(paint?.strokeWidth ?? '0'), 1.5, `${key}: 1.5 px border`);
   }
+  // D-1167: a tag edge is the same 1.5 px solid --muted line as every edge.
   const s = await edgeStyle(page, P.plan, 'tag:účty');
-  assert.equal(parseFloat(s?.width ?? '0'), 1, 'tag edges are 1 px');
-  assert.ok(s && s.dash !== 'none', 'dotted');
+  assert.equal(parseFloat(s?.width ?? '0'), 1.5, 'tag edges are 1.5 px');
+  assert.ok(s && (s.dash === 'none' || s.dash === ''), 'solid');
+  assert.equal(s?.stroke, await tokenColour(page, 'muted'), '--muted');
 });
 
 test('fr_grp_08_ac2_tag_nodes_follow_type_and_kind_filters', async ({ page, browser }) => {

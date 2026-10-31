@@ -1,5 +1,5 @@
-// The preview popover (previews.md R102; v1-previews §3.3, §3.5, §7; D-921…D-924, D-932, D-935, D-942): a non-modal
-// dialog anchored to its reference, or (the graph's full view, §7) the same content in a column. Read-only.
+// The preview popover (previews.md R102, R129; v1-previews §3.3, §3.5, §7; D-921…D-924, D-932, D-935, D-1165): a
+// non-modal dialog anchored to its reference, or (the graph's full view, §7) the same content in a column. Read-only.
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../i18n/catalog';
@@ -8,7 +8,7 @@ import { onChipTypes } from '../links/icons';
 import { forgetPreviewCaches, loadPreview, type PreviewModel } from './load';
 import { PreviewContent, plainTitle, previewTitle } from './PreviewContent';
 import { DEFAULT_WIDTH, MAX_AUTO_HEIGHT, SIZE } from './state';
-import { close, getPrefs, insideDoubleClick, previewHost, promote, setCloser, setInside, updatePrefs, type Current } from './store';
+import { close, getPrefs, insideDoubleClick, previewHost, setCloser, setInside, updatePrefs, type Current } from './store';
 import { keepHover, popoverGone, startGrace } from './hover';
 import type { PreviewTarget } from './types';
 
@@ -17,6 +17,18 @@ const GAP = 8;
 const nfc = (s: string) => s.normalize('NFC');
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"]), input, select, textarea';
+/** R129: what keeps its own job inside a preview (links, embed cards, Back, Close, the resize handle, menus, fields). */
+const OWN_JOB = 'a, button, [role="button"], [role="link"], [role="menu"], [data-preview-ref], [data-preview-resize], input:not([type="checkbox"]), select, textarea';
+/** R129: the parts a primary click opens the previewed object from: the header, the strip and the body (not the footer). */
+const OPENS = '.preview-header, .preview-strip, .preview-notice, .preview-body';
+
+/** Whether a press at (x, y) is on `el`'s own scrollbar (a classic scrollbar takes room inside the border box). */
+function onScrollbar(el: Element | null, x: number, y: number): boolean {
+  // Only a scroll container has a scrollbar (an inline element's client box is 0 × 0).
+  if (!(el instanceof HTMLElement) || !/(auto|scroll)/.test(getComputedStyle(el).overflowY + getComputedStyle(el).overflowX)) return false;
+  const r = el.getBoundingClientRect();
+  return (el.offsetWidth - el.clientWidth > 2 && x > r.left + el.clientLeft + el.clientWidth) || (el.offsetHeight - el.clientHeight > 2 && y > r.top + el.clientTop + el.clientHeight);
+}
 
 type Anchor = { text: string; offset: number };
 const BLOCKS = 'p, h1, h2, h3, h4, h5, h6, li, [data-embed-mode]';
@@ -64,9 +76,16 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const [pos, setPos] = useState<{ left: number; top: number; maxH: number } | null>(null);
+  const posRef = useRef(pos);
+  posRef.current = pos;
+  /** The content shown is not the reference's own (a link inside replaced it). */
+  const inPlace = useRef(false);
+  inPlace.current = stack.length > 1;
   const [shown, setShown] = useState(false);
   const restore = useRef<number | null>(null);
   const ready = useRef(false);
+  const originRef = useRef(cur.origin);
+  originRef.current = cur.origin;
 
   // A new reference (not one inside this popover) starts a new history (D-932).
   useEffect(() => {
@@ -168,11 +187,13 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       const scrollTop = body.current?.scrollTop ?? 0;
       const title = modelRef.current ? plainTitle(modelRef.current, stack[stack.length - 1].target) : null;
       setStack((s) => [...s.slice(0, -1), { ...s[s.length - 1], scrollTop, title }, { target, scrollTop: 0, title: null }]);
-      requestAnimationFrame(() => box.current?.focus({ preventScroll: true }));
+      // A hover preview never takes the focus (FR-LNK-12 AC-2), also when a link inside replaced it (D-1170).
+      if (originRef.current !== 'hover') requestAnimationFrame(() => box.current?.focus({ preventScroll: true }));
     });
     return () => setInside(null);
   }, [stack]);
-  const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+  // Back forgets the link just followed: a later double-click doesn't open it (D-1190).
+  const back = () => { insideDoubleClick(); setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)); };
 
   // ------------------------------------------------------------------ position (AC-5)
   const place = useCallback(() => {
@@ -198,7 +219,8 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       // The Context panel's chips: to the left of the panel (AC-4).
       const p = side.getBoundingClientRect();
       const maxH = H - 2 * GAP;
-      setPos({ left: Math.max(GAP, p.left - GAP - w), top: Math.max(GAP, Math.min(r.top, H - GAP - Math.min(h, maxH))), maxH });
+      const kept = inPlace.current && posRef.current;
+      setPos(kept ? { ...posRef.current!, maxH } : { left: Math.max(GAP, p.left - GAP - w), top: Math.max(GAP, Math.min(r.top, H - GAP - Math.min(h, maxH))), maxH });
       return;
     }
     const below = H - GAP - (r.bottom + GAP);
@@ -208,7 +230,9 @@ export function PreviewPopover({ cur }: { cur: Current }) {
     const hh = Math.min(h, maxH);
     const topPx = useAbove ? r.top - GAP - hh : r.bottom + GAP;
     const left = Math.max(GAP, Math.min(r.left, W - GAP - w));
-    setPos({ left, top: topPx, maxH });
+    // A link inside replaced the content (D-932, D-1170): the dialog stays where it is, whatever the new height.
+    const kept = inPlace.current && posRef.current;
+    setPos(kept ? { ...posRef.current!, maxH } : { left, top: topPx, maxH });
   }, [cur, size, column]);
   // A preview asked for by key (⌥Space on a selected embed) brings its reference into view first.
   useLayoutEffect(() => {
@@ -289,6 +313,28 @@ export function PreviewPopover({ cur }: { cur: Current }) {
     close('open');
     if (own) own();
     else previewHost()?.open(target.kind === 'note' && model.state === 'ok' ? { ...target, path: model.path } : target);
+  };
+
+  // D-1165 (R129): a primary click on the header, the strip or the body opens the previewed object, as `Open` does, in
+  // every mode. Links, cards, Back, Close and the resize handle keep their job (they handle the click themselves); so do
+  // a drag (≥ 4 px, FR-LNK-08 AC-7), a press on the scrollbar, a click that leaves or only collapses a selection and
+  // ⌘-click on text (D-1173). The first click of a double-click opens (D-1173): the popover is gone for the second.
+  const press = useRef<{ x: number; y: number; selected: boolean; bar: boolean } | null>(null);
+  const selectedInside = (root: Element) => {
+    const sel = typeof getSelection === 'function' ? getSelection() : null;
+    return !!sel && !sel.isCollapsed && !!sel.anchorNode && root.contains(sel.anchorNode);
+  };
+  const onPress = (e: React.PointerEvent<HTMLElement>) => {
+    press.current = e.button !== 0 ? null : { x: e.clientX, y: e.clientY, selected: selectedInside(e.currentTarget), bar: onScrollbar(e.target as Element, e.clientX, e.clientY) };
+  };
+  const onClickInside = (e: React.MouseEvent<HTMLElement>) => {
+    const p = press.current;
+    press.current = null;
+    if (!p || e.button !== 0 || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    if (p.selected || p.bar || Math.hypot(e.clientX - p.x, e.clientY - p.y) >= 4 || selectedInside(e.currentTarget)) return;
+    const el = e.target as Element;
+    if (!el.closest?.(OPENS) || el.closest(OWN_JOB)) return;
+    openIt();
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -381,6 +427,10 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   };
   const resetSize = (e: React.MouseEvent) => {
     e.preventDefault();
+    // D-1190: the double-click is the handle's: it never reaches the popover's "double-click opens what the first click
+    // replaced" (insideDoubleClick), which opened the last link followed inside (Jana) instead.
+    e.stopPropagation();
+    insideDoubleClick();
     setSize({ w: DEFAULT_WIDTH, h: null });
     updatePrefs((d) => { const { width: _w, height: _h, ...rest } = d; void _w; void _h; return rest; });
   };
@@ -395,8 +445,8 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   if (column) {
     return createPortal(
       <div className="preview preview-column" role="region" tabIndex={-1} aria-label={t('preview.name', { title })} data-preview-path={model?.state === 'ok' ? model.path : model?.state === 'tag' ? model.path ?? '' : top.target.kind === 'note' ? nfc(top.target.path) : undefined} onKeyDown={onKeyDown}
-        // G3 (D-942, graph.md FR-LNK-12 AC-10): a click inside a hover preview makes it a clicked one; the focus moves in.
-        onPointerDown={(e) => { if (cur.origin === 'hover') { promote(); e.currentTarget.focus({ preventScroll: true }); } }}>{content}</div>,
+        // D-1165 (graph.md FR-GRP-06 AC-11): a click on the header, strip or body opens the node's object, in every mode.
+        onPointerDown={onPress} onClick={onClickInside}>{content}</div>,
       (cur.host as { container: HTMLElement }).container,
     );
   }
@@ -417,7 +467,7 @@ export function PreviewPopover({ cur }: { cur: Current }) {
         previewHost()?.open(tg);
       }}
       onPointerEnter={() => keepHover()} onPointerLeave={() => startGrace(true)}
-      onPointerDown={() => { if (cur.origin === 'hover') { promote(); box.current?.focus({ preventScroll: true }); } }}>
+      onPointerDown={onPress} onClick={onClickInside}>
       {content}
     </div>,
     document.body,

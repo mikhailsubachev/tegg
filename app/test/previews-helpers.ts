@@ -231,9 +231,16 @@ export type PreviewApi = {
   current: { target: any; origin: string } | null;
 };
 
-/** Mounts `PreviewProvider` (v1-previews §3) with a probe child that holds `usePreview()` and an anchor button. */
-export async function mountProvider() {
+/** Mounts `PreviewProvider` (v1-previews §3) with a probe child that holds `usePreview()` and an anchor button. D-1164's
+ *  test rule (previews.md part three, AC-test change row 4): a preview store without a stored mode is seeded with
+ *  `{ mode: 'click' }` (its other stored fields kept) first, unless `nothingStored` (the new hover default). */
+export async function mountProvider(o: { nothingStored?: boolean } = {}) {
   const mod = await need('../ui/src/preview/PreviewProvider.tsx', 'PreviewProvider', 'usePreview');
+  if (!o.nothingStored) {
+    const store = await need('../ui/src/preview/store.ts', 'getRawPrefs', 'setStoredPrefs');
+    const raw = store.getRawPrefs() as Record<string, unknown> | undefined;
+    if (!raw || !('mode' in raw)) store.setStoredPrefs({ ...(raw ?? {}), mode: 'click' });
+  }
   let api: PreviewApi | null = null;
   function Probe() {
     api = mod.usePreview() as PreviewApi;

@@ -28,7 +28,8 @@ import { PANEL_CAP, footerText, lowerDepthOffer, panelFit, panelState, triggerTe
 import { currentPreset, isModified, nameKey } from './presets';
 import { PresetControl, type PresetActions } from './PresetControl';
 import type { EdgeKindDto, GraphNodeDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
-import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
+import { installCanvasInput, zoomCentre } from './canvasInput';
+import { DEBOUNCE, LOADING_AFTER, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
 
 /** §15.5: what the panel hands to the full view, on the new history entry. */
 export type GraphHandover = { depth: 1 | 2 | 3; select: NodeIdDto | null };
@@ -523,7 +524,8 @@ export function GraphPanel(p: GraphPanelProps) {
       return dx || dy ? { ...v, panX: v.panX + dx, panY: v.panY + dy } : v;
     });
   };
-  const zoomBy = (f: number) => setView((v) => ({ ...v, zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(v.zoom * f * 10000) / 10000)) }));
+  // `+` / `−` zoom around the canvas's centre (D-985).
+  const zoomBy = (f: number) => setView((v) => zoomCentre(v, f, size ?? null));
   /** AP-963 (D-1133): `0` returns to the first-paint fit, the centre pinned. */
   const refit = () => {
     if (!model || !size) return;
@@ -713,18 +715,9 @@ export function GraphPanel(p: GraphPanelProps) {
   useEffect(() => () => { if (p.commandRef) p.commandRef.current = null; cmdLayer.current?.disconnect(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   // ------------------------------------------------------------------ zoom and pan (D-985, D-1031)
-  useEffect(() => {
-    const onWheel = (e: WheelEvent) => {
-      if (!canvasBox.current?.contains(e.target as Node)) return;
-      hover.cancel(); // a wheel hides a hover preview (AP-941)
-      if (!(e.metaKey || e.ctrlKey)) return;
-      e.preventDefault();
-      const f = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-      setView((v) => ({ ...v, zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(v.zoom * f * 10000) / 10000)) }));
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, [hover]);
+  // D-1169: a plain wheel pans, a ⌘- or ctrl-wheel and a pinch zoom around the pointer, and neither the tab panel nor
+  // the note behind scrolls; any wheel over the canvas hides a hover popover at once (R126).
+  useEffect(() => installCanvasInput({ box: () => canvasBox.current, setView, onInput: () => hover.cancel() }), [hover]);
 
   // ------------------------------------------------------------------ the `Depth and filters` popover (R114, R125)
   const triggerOff = state === 'noLinks' || state === 'noFile' || state === 'deleted' || !!p.pending;

@@ -110,8 +110,8 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
 }
 
 // ------------------------------------------------------------------ Previews (FR-SET-07, D-923; v1-previews §4)
-// The Object preview mode and the hover delay, machine-local.
-const MODES: [PreviewMode, string][] = [['click', 'settings.preview.click'], ['hover', 'settings.preview.hover'], ['off', 'settings.preview.off']];
+// The Object preview mode and the hover delay, machine-local. D-1164: hover, the default, comes first.
+const MODES: [PreviewMode, string][] = [['hover', 'settings.preview.hover'], ['click', 'settings.preview.click'], ['off', 'settings.preview.off']];
 
 export function setPreviewMode(mode: PreviewMode): void {
   if (getPrefs().mode === mode) return;

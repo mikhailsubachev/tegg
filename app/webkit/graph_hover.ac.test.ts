@@ -94,7 +94,7 @@ test('fr_lnk_12_ac9_graph_hover_ring_then_preview_leaving_early', async ({ page 
 // ------------------------------------------------------------------------------------------------ FR-LNK-12 AC-10
 
 test('fr_lnk_12_ac10_graph_hover_stays_replaces_and_hides', async ({ page }) => {
-  await openGraph(page, P.plan, { previewMode: 'hover', hoverDelay: 400, install: true, graph: { depth: 2 } });
+  const core = await openGraph(page, P.plan, { previewMode: 'hover', hoverDelay: 400, install: true, graph: { depth: 2 } });
   await waitDrawn(page, 19);
   await pauseClock(page);
   await pointAt(page, P.rozpocet);
@@ -142,14 +142,12 @@ test('fr_lnk_12_ac10_graph_hover_stays_replaces_and_hides', async ({ page }) => 
   await tick(page, 450);
   const p2 = await must(shown(page, P.rozpocet), 'the hover preview again');
   const b2 = (await p2.boundingBox())!;
+  const n0 = (await callsOf(core, 'nav_opened')).length;
   await page.mouse.click(b2.x + b2.width / 2, b2.y + Math.min(80, b2.height / 2));
-  await sleep(100);
-  assert.ok(await p2.evaluate((e) => e.contains(document.activeElement)), 'a click inside makes it a clicked preview (the focus moves in)');
-  await page.mouse.move(o.x, o.y);
-  await tick(page, 600);
-  await must(shown(page, P.rozpocet), 'which stays after the pointer leaves');
-  await page.keyboard.press('Escape');
-  assert.ok(!(await seen(anyShown(page), 500)), 'until Esc');
+  await page.clock.resume(); // the open runs on the page's own timers and frames
+  // D-1165: a click inside the hover preview opens the node's object (no clicked-preview state any more).
+  assert.ok(await routeReady(core, `note/${nfc(P.rozpocet)}`), 'a click inside the hover preview opens note/Projekty/Rozpočet 2027.md');
+  assert.deepEqual((await callsOf(core, 'nav_opened')).slice(n0).map((c) => nfc(String((c.args as any)?.path ?? ''))), [nfc(P.rozpocet)], 'one nav_opened');
 });
 
 test('fr_ux_03_ac26_escape_closes_then_leaves_hover', async ({ page }) => {
@@ -220,7 +218,8 @@ test('fr_lnk_12_ac12_graph_off_click_opens', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-LNK-12 AC-13
 
 test('fr_lnk_12_ac13_graph_follows_mode_changes', async ({ page }) => {
-  await openGraph(page, P.plan, { realTime: true });
+  // D-1192: the delay is stored at 400 ms first (the default is 1,000 ms, D-1164); click mode as D-1164's test rule.
+  await openGraph(page, P.plan, { realTime: true, hoverDelay: 400 });
   await clickNode(page, P.rozpocet);
   await must(shown(page, P.rozpocet), 'a clicked preview (setup)');
   await runCommand(page, 'Object preview: Hover to preview');

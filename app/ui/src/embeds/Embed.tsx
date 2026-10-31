@@ -73,7 +73,7 @@ export function embedPreviewTarget(node: EmbedNode): PreviewTarget | null {
 }
 
 /** D-418: a link-mode embed: an inline chip with the embed look. */
-function LinkEmbed({ node, onOpen, host }: EmbedProps) {
+function LinkEmbed({ node, onOpen, host, inPreview }: EmbedProps) {
   const broken = node.state === 'broken';
   const type = typeOf(node);
   const icon = chipIcon(type);
@@ -81,9 +81,12 @@ function LinkEmbed({ node, onOpen, host }: EmbedProps) {
   const parts = broken ? null : chipParts(node.target); // D-600
   const { props: ref } = useReference({
     target: node.state === 'too-deep' ? null : embedPreviewTarget(node),
-    kind: 'chip',
+    // D-1166: an embed opens on a click and never previews by pointer; inside a preview it is a link (D-1174).
+    kind: inPreview ? 'chip' : 'embedLink',
     open: () => open(node, onOpen),
     createOffer: (el) => { if (broken) requestOffer({ from: host, target: node.target.target, relationTo: null, anchor: el, stay: true }); else open(node, onOpen); },
+    // FR-LNK-13 AC-5 (R130): a right-click on the chip opens the `Link` menu, whose `Show preview` still previews it.
+    ...(inPreview ? {} : { menu: { name: node.target.target } }),
   }, { description: joinDescriptions(description, parts?.description) });
   return (
     <a
@@ -198,8 +201,9 @@ function OpenButton({ props }: { props: EmbedProps }) {
 
 function Header({ props, title, showIcon }: { props: EmbedProps; title: ReactNode; showIcon: boolean }) {
   const { node } = props;
-  // Slice P (FR-LNK-09 AC-3): the header's icon and title are a reference to the embedded note (or its section).
-  const { props: ref } = useReference({ target: embedPreviewTarget(node), kind: 'chip', open: () => open(node, props.onOpen) });
+  // Slice P: the header's icon and title are a reference to the embedded note (or its section); D-1166: it opens on a
+  // click (R130), ⌥Space on the selected embed still previews.
+  const { props: ref } = useReference({ target: embedPreviewTarget(node), kind: props.inPreview ? 'chip' : 'embed', open: () => open(node, props.onOpen) });
   return (
     <div className="embed-header">
       <span className="embed-head-ref" data-embed-title="" {...ref} onMouseDown={(e) => e.preventDefault()}>
@@ -302,8 +306,9 @@ export function EmbedBody(props: EmbedProps) {
 
 export function Embed(props: EmbedProps): ReactNode {
   const { node } = props;
-  // Slice P (FR-LNK-09 AC-1, R104 row 3): a card is a reference (click and ⏎ preview in click mode, D-929).
-  const { props: cardRef } = useReference({ target: embedPreviewTarget(node), kind: 'chip', open: () => open(node, props.onOpen) });
+  // A card is a reference (R130, D-1166): a click and ⏎ open it in every mode, hover does nothing, ⌥Space previews; a
+  // card inside a preview behaves as a link inside it (D-1174).
+  const { props: cardRef } = useReference({ target: embedPreviewTarget(node), kind: props.inPreview ? 'chip' : 'embed', open: () => open(node, props.onOpen) });
   if (node.inline || node.mode === 'link' || node.state === 'too-deep') {
     // D-598 (D-428): a block embed in link mode keeps its `Display as` menu after the chip; inline ones don't (D-419).
     if (!node.inline && node.state !== 'too-deep' && node.state !== 'broken' && node.state !== 'date-missing') {

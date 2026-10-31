@@ -9,7 +9,7 @@ import {
   editorBody, embedLoadsSince, eventually, fileText, flat, focusInfo, focusInside, frame, header, isDisabled, linkEmbed, main, mainName, mainScrollTop,
   mark, mustBeOn, navsSince, need, needAnyPreview, needClosed, needNoPreview, needOdkazyLink, needPreview, nfc, noModified, openBtn, placementOf,
   previewCount, previewPath, previews, previewsVault, readArticle, resizeHandle, runCommand, scrollState, searchFor, sidebar, sleep, snapshot,
-  startPreviews, swap, tagRoute, taskCard, tokenColour, topEmbed, typeTable, writesSince, type FakeCoreHandle,
+  startPreviews, swap, tagRoute, taskCard, tokenColour, topEmbed, typeTable, writesSince, selectHostBlock, type FakeCoreHandle,
 } from './previews-helpers';
 import { openNote, pseudoLocale } from './helpers';
 import { axeContrast, colourLeaks } from './read-helpers';
@@ -84,10 +84,16 @@ test('fr_lnk_11_ac2_stays_open_until_a_click_outside_or_esc', async ({ page }) =
   await page.mouse.down();
   await page.mouse.move(b.x + 80, b.y + b.height / 2, { steps: 4 });
   await page.mouse.up();
-  await page.mouse.click(b.x + 30, b.y + b.height / 2);
+  // D-1165: a click on body text opens the previewed object now (FR-LNK-11 AC-17); a press and drag on the body's
+  // scrollbar keeps its job (AC-19). WebKit draws overlay scrollbars: the test gives the body a classic one.
+  await page.addStyleTag({ content: '[role="dialog"][data-preview-path] *::-webkit-scrollbar { width: 12px; height: 12px; } [role="dialog"][data-preview-path] *::-webkit-scrollbar-thumb { background: #888; min-height: 40px; }' });
+  await sleep(100);
   const ab = (await art.boundingBox())!;
-  await page.mouse.click(ab.x + ab.width - 3, ab.y + 20);
-  assert.equal(await previewCount(page), 1, 'selecting text and clicks inside (text, scrollbar) keep it open');
+  await page.mouse.move(ab.x + ab.width - 5, ab.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(ab.x + ab.width - 5, ab.y + 55, { steps: 4 });
+  await page.mouse.up();
+  assert.equal(await previewCount(page), 1, 'a selecting drag and a scrollbar press keep it open');
   await page.keyboard.press('Escape');
   await needClosed(page, 'Esc');
   assert.equal((await focusInfo(page)).inBody, true, 'Esc returns the focus to the editor (the caret after the chip)');
@@ -372,15 +378,23 @@ test('fr_lnk_11_ac9_nothing_in_the_popover_is_editable_and_text_can_be_copied', 
   });
   const core = await startPreviews(page, { at: PV.odkazy, vault });
   const files0 = await snapshot(core);
-  const d = await clickToPreview(page, await needOdkazyLink(page, 'Seznam'), 'Seznam', 'Seznam');
+  let d = await clickToPreview(page, await needOdkazyLink(page, 'Seznam'), 'Seznam', 'Seznam');
   const editable = await d.evaluate((x) => x.querySelectorAll('[contenteditable="true"], [contenteditable=""], input:not([type="checkbox"]), textarea, select').length);
   assert.equal(editable, 0, 'no contenteditable and no text input');
   const boxes = d.getByRole('checkbox');
   assert.equal(await boxes.count(), 2, 'the two checklist boxes are shown');
   for (let i = 0; i < 2; i++) assert.equal(await boxes.nth(i).getAttribute('aria-readonly'), 'true', `checkbox ${i + 1} aria-readonly="true"`);
   const was = await boxes.first().getAttribute('aria-checked');
+  await boxes.first().focus();
+  await page.keyboard.press('Space');
+  assert.equal(await boxes.first().getAttribute('aria-checked'), was, 'Space on the focused checkbox changes nothing');
+  // D-1165: a click on a read-only checkbox is a click on the body: it opens the previewed object and writes nothing.
+  const nw = await mark(core);
   await boxes.first().click();
-  assert.equal(await boxes.first().getAttribute('aria-checked'), was, 'clicking a checkbox changes nothing');
+  await mustBeOn(page, 'Seznam', 'a click on the first checkbox opens note/Pages/Seznam.md (D-1165)', 5000);
+  assert.deepEqual(await writesSince(core, nw), [], 'the click sends no write command');
+  await back(page, 'Odkazy');
+  d = await clickToPreview(page, await needOdkazyLink(page, 'Seznam'), 'Seznam', 'Seznam again');
   const n0 = await mark(core);
   await d.focus();
   await page.keyboard.type('abc');
@@ -478,16 +492,22 @@ test('fr_lnk_11_ac12_embeds_in_vlozeni_preview_without_nav_opened_or_note_read',
   const core = await startPreviews(page, { at: PV.vlozeni });
   await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
   const n0 = await mark(core);
-  const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
-  await card.scrollIntoViewIfNeeded();
-  const cb = (await card.boundingBox())!;
-  await page.mouse.click(cb.x + cb.width - 12, cb.y + 12);
+  // D-1166: embeds preview on request only: ⌥Space with the card or the full embed selected as a block, or the
+  // link-mode chip focused.
+  await selectHostBlock(page, 3, 'card Jana');
+  await page.keyboard.press('Alt+Space');
   await needPreview(page, 'Jana Nováková', 'card');
   await page.keyboard.press('Escape');
-  await clickToPreview(page, await need(linkEmbed(editorBody(page), 'Petr Dvořák'), 'link-mode Petr'), 'Petr Dvořák', 'link mode');
+  await needClosed(page, 'Esc');
+  await (await need(linkEmbed(editorBody(page), 'Petr Dvořák'), 'link-mode Petr')).focus();
+  await page.keyboard.press('Alt+Space');
+  await needPreview(page, 'Petr Dvořák', 'link mode');
   await page.keyboard.press('Escape');
-  const full = await need(topEmbed(editorBody(page), 0), 'full embed');
-  await clickToPreview(page, await need(full.locator(':scope > *').first().getByText('Rozpočet 2027', { exact: true }), 'full header title'), 'Rozpočet 2027', 'full embed header');
+  await needClosed(page, 'Esc');
+  await need(topEmbed(editorBody(page), 0), 'full embed');
+  await selectHostBlock(page, 2, 'the full embed');
+  await page.keyboard.press('Alt+Space');
+  await needPreview(page, 'Rozpočet 2027', 'full embed');
   await page.keyboard.press('Escape');
   assert.deepEqual(await navsSince(core, n0), [], 'nav_opened zero times');
   assert.equal((await callsSince(core, n0, 'note_read')).length, 0, 'note_read zero times');

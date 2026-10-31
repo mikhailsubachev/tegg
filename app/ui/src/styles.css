@@ -1262,13 +1262,13 @@ button.tag-tile { cursor: pointer; }
 .graph-type-name { flex: 1; }
 .graph-type-count { color: var(--text); font-variant-numeric: tabular-nums; }
 .graph-type-count.zero { color: var(--muted); }
-.graph-line-sample line { stroke: var(--muted); }
 .graph-canvas-wrap { flex: 1; min-width: 0; display: flex; }
 .graph-canvas { flex: 1; position: relative; min-height: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--canvas); }
 .graph-svg { fill: none; display: block; position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .graph-bg { fill: var(--canvas); }
 .graph-dot { fill: var(--dot); }
-.graph-edge { stroke: var(--edge); stroke-linecap: round; }
+/* D-1167, D-1178: every edge is one 1.5 px solid line in --muted; the highlighted node's edges are --hl. */
+.graph-edge { stroke: var(--muted); stroke-width: 1.5px; stroke-linecap: round; }
 .graph-edge.hl { stroke: var(--hl); }
 .graph-node { cursor: pointer; }
 .graph-node:focus { outline: none; }
