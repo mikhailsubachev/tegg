@@ -2,7 +2,7 @@
 // It answers the shell's IPC commands (ms2-shell §2, ms3-shell §2) over an in-memory vault, through
 // `@tauri-apps/api/mocks` `mockIPC` with event mocking, injected into the page before the app's scripts run.
 // Search and the switcher match titles by folded substring only (their real behaviour is tested at the core, MS2).
-import type { Page } from '@playwright/test';
+import { test, type Page } from '@playwright/test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { STARTER, handle as handleTypes } from './fake-schema';
@@ -173,6 +173,11 @@ export type JobReportDto = {
 export type RecentVaultDto = { name: string; path: string; exists: boolean };
 export type FakeOptions = {
   uiState?: UiStateDto;
+  /** D-1164's test rule (previews.md part three, AC-test change row 1): a UI state without `preview.mode` is stored with
+   *  `preview.mode = click` (its other `preview` fields kept), so older tests keep their click-mode meaning. `asGiven`
+   *  stores the UI state as given ("nothing stored" = no `preview` key, the new hover default); it is the default of the
+   *  test files written for v0.94 on (`*_v094*.ac.test.ts`), whose tests each name the mode they store. */
+  previewStored?: 'clickIfMissing' | 'asGiven';
   /** 4E-1 (D-819): the core watches the vault, so it runs the tidy job (at open, after quiet periods). Off by default,
    *  as a Rust test core opened without its watcher: older fixtures keep objects outside their type's folder. */
   tidy?: boolean;
@@ -259,7 +264,23 @@ const MOCKS = resolve(import.meta.dirname, '../../node_modules/@tauri-apps/api/m
 /** 5B: pages installed with the same vault object (main window and capture window of one test). */
 const GROUPS = new WeakMap<FakeVault, Set<Page>>();
 
+const DEFAULT_UI: UiStateDto = { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true };
+/** The test files that store the UI state as given (see `FakeOptions.previewStored`). */
+const AS_GIVEN = /_v094[^/]*\.ac\.test\.ts$/;
+function runningFile(): string {
+  try { return test.info().file; } catch { return ''; }
+}
+/** D-1164's test rule: the UI state the fake stores before the page loads. */
+export function storedUiState(opts: FakeOptions): UiStateDto | undefined {
+  const how = opts.previewStored ?? (AS_GIVEN.test(runningFile()) ? 'asGiven' : 'clickIfMissing');
+  if (how === 'asGiven') return opts.uiState;
+  const base = opts.uiState ?? DEFAULT_UI;
+  const p = (base.preview ?? {}) as NonNullable<UiStateDto['preview']>;
+  return p.mode !== undefined ? base : { ...base, preview: { ...p, mode: 'click' } };
+}
+
 export async function installFakeCore(page: Page, vault: FakeVault | null, opts: FakeOptions = {}): Promise<FakeCoreHandle> {
+  opts = { ...opts, uiState: storedUiState(opts) };
   const mocks = readFileSync(MOCKS, 'utf8').replace(/export\s*\{[^}]*\};?\s*$/, '');
   await page.addInitScript({ content: `(() => {${mocks}\nwindow.__teggMocks = { mockIPC, mockWindows };})();` });
   // 3D (ms3-shell §14.8): type-file commands run in Node (fake-schema.ts) over a snapshot of the in-page files.

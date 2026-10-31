@@ -300,7 +300,8 @@ export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
 export async function switchPreviewMode(page: Page, core: FakeCoreHandle, mode: 'click' | 'hover' | 'off') {
   const title = { click: 'Object preview: Click to preview', hover: 'Object preview: Hover to preview', off: 'Object preview: Off' }[mode];
   await runCommand(page, title);
-  const got = await eventually(() => core.uiState().then((s) => (s as any)?.preview?.mode ?? 'click'), (m) => m === mode, 3000);
+  // A missing `preview.mode` is the default, hover (D-1164).
+  const got = await eventually(() => core.uiState().then((s) => (s as any)?.preview?.mode ?? 'hover'), (m) => m === mode, 3000);
   assert.equal(got, mode, `palette "${title}" stores preview.mode = ${mode}`);
   await absent(paletteDialog(page), 1000);
 }

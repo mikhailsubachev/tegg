@@ -901,7 +901,7 @@ test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
   await mustBeOn(page, 'Saturnin', '⏎ on the link-mode embed opens Saturnin');
   assert.deepEqual(await writeCalls(core), [], 'opening writes nothing');
 
-  // Click to preview (D-943; FR-LNK-09 AC-1, AC-2): a click and ⏎ preview; a double-click opens.
+  // Click to preview: embeds don't preview on a click (D-1166, R130): a click and ⏎ open them, a double-click opens once.
   const backToHost = async (what: string) => {
     await page.keyboard.press('Meta+BracketLeft');
     await mustBeOn(page, 'Režimy', `Back (${what})`);
@@ -912,23 +912,34 @@ test('fr_emb_02_ac9_card_and_link_mode_open_their_target', async ({ page }) => {
   await switchPreviewMode(page, core, 'click');
   await scrollSteady(page, 'the host note after the palette');
   const janaTitle = async () => must((await needTop(main(page), 1, "Jana's card")).locator(':scope > :first-child').getByText('Jana Nováková', { exact: true }), "the card's title (click mode)");
+  const navs = async () => (await core.calls()).filter((c) => c.cmd === 'nav_opened').length;
   await (await janaTitle()).click();
-  await mustPreview(page, 'Jana Nováková', 'click mode: a click on the card previews Jana');
-  assert.equal(await mainName(page), 'Režimy', 'click mode: the card click keeps the route');
-  await escPreview(page, 'click mode: the card preview');
+  await mustBeOn(page, 'Jana Nováková', 'click mode: a click on the card opens Jana');
+  await mustNoPreview(page, 'click mode: no preview of the card', 300);
+  await backToHost('click mode, card click');
   await (await needTop(main(page), 1, "Jana's card")).focus();
   await page.keyboard.press('Enter');
-  await mustPreview(page, 'Jana Nováková', 'click mode: ⏎ on the card previews Jana');
-  await escPreview(page, 'click mode: the ⏎ preview of the card');
+  await mustBeOn(page, 'Jana Nováková', 'click mode: ⏎ on the card opens Jana');
+  await backToHost('click mode, card ⏎');
+  let n0 = await navs();
   await (await janaTitle()).dblclick();
   await mustBeOn(page, 'Jana Nováková', 'click mode: a double-click on the card opens Jana');
   await mustNoPreview(page, 'click mode: after the double-click on the card', 300);
-  await backToHost('click mode, card');
+  assert.equal((await navs()) - n0, 1, 'click mode: the double-click on the card opens once');
+  await backToHost('click mode, card double-click');
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();
-  await mustPreview(page, 'Saturnin', 'click mode: a click on the link-mode embed previews Saturnin');
-  await escPreview(page, 'click mode: the link-mode preview');
+  await mustBeOn(page, 'Saturnin', 'click mode: a click on the link-mode embed opens Saturnin');
+  await mustNoPreview(page, 'click mode: no preview of the link-mode embed', 300);
+  await backToHost('click mode, link-mode click');
+  await (await needTop(main(page), 4, 'Saturnin link-mode embed')).focus();
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Saturnin', 'click mode: ⏎ on the link-mode embed opens Saturnin');
+  await backToHost('click mode, link-mode ⏎');
+  n0 = await navs();
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).dblclick();
   await mustBeOn(page, 'Saturnin', 'click mode: a double-click on the link-mode embed opens Saturnin');
+  await mustNoPreview(page, 'click mode: after the double-click on the link-mode embed', 300);
+  assert.equal((await navs()) - n0, 1, 'click mode: the double-click on the link-mode embed opens once');
   assert.deepEqual(await writeCalls(core), [], 'click mode: previewing and opening write nothing');
 });
 

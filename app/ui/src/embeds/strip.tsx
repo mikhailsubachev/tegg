@@ -27,9 +27,11 @@ export function stripColumns(typeKey: string, data: Record<string, unknown>, lim
   return cols.filter((c) => (c.attr?.type === 'date-range' ? !empty(data[`${c.key}-start`]) : !empty(data[c.key]))).slice(0, limit);
 }
 
-export function StripList({ cols, data, links, path, title, typeKey, label, className = 'embed-props', onOpen, onTag }: {
+export function StripList({ cols, data, links, path, title, typeKey, label, className = 'embed-props', onOpen, onTag, refs }: {
   cols: TypeColumn[]; data: Record<string, unknown>; links: LinkTargetDto[]; path: string; title: string; typeKey: string;
   label?: string; className?: string; onOpen?: (p: string) => void; onTag?: (k: string) => void;
+  /** A preview's strip: relation chips are references (D-1189). */
+  refs?: boolean;
 }) {
   if (cols.length === 0) return null;
   const types = chipTypes() as TypeDto[];
@@ -45,7 +47,7 @@ export function StripList({ cols, data, links, path, title, typeKey, label, clas
               ? <TaskDue data={data} />
               : c.attr?.type === 'date' && typeof data[c.key] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(String(data[c.key]).trim())
               ? <span data-user-content>{formatDate(String(data[c.key]).trim())}</span> // D-160 medium date (FR-EMB-02 AC-4)
-              : <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen?.(p)} onTag={onTag ?? (() => {})} typeKey={typeKey} />}
+              : <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen?.(p)} onTag={onTag ?? (() => {})} typeKey={typeKey} refs={refs} />}
           </span>
         </li>
       ))}

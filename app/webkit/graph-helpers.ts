@@ -95,6 +95,7 @@ export type StartGraph = StartOptions & {
   region?: string;
   theme?: UiStateDto['theme'];
   graph?: GraphState;
+  /** The stored Object preview mode (missing = click stored, D-1164's test rule; see `FakeOptions.previewStored`). */
   previewMode?: 'click' | 'hover' | 'off';
   /** Real time (no fixed clock): for tests that measure delays. */
   realTime?: boolean;
@@ -353,7 +354,8 @@ export const expectedText = (name: string) => readFileSync(join(PRESETS_FX, 'exp
 export function presetsVault(text: string | null, edit?: (files: Record<string, string>) => void): FakeVault {
   return graphVault({ edit: (f) => { if (text !== null) f[GRAPH_YML] = text; edit?.(f); } });
 }
-/** The stored UI state with per-view graph states (`full`, `panel`) for the vault, and the preview setting. */
+/** The stored UI state with per-view graph states (`full`, `panel`) for the vault, and the preview setting (without a
+ *  mode the fake stores `click`, D-1164's test rule). */
 export const uiG3 = (o: { theme?: UiStateDto['theme']; full?: GraphState; panel?: GraphState; vault?: string; preview?: { mode?: 'click' | 'hover' | 'off'; hoverDelay?: number }; more?: Record<string, unknown> } = {}): UiStateDto =>
   ({
     version: 1, theme: o.theme ?? 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' },

@@ -1,5 +1,5 @@
 // One value of a type page row, as the type page and embed cards show it (FR-TYP-09, D-427; ms4-embeds §6).
-import { TagRef } from '../links/ChipParts';
+import { RefAnchor, TagRef } from '../links/ChipParts';
 import { chipParts } from '../links/ChipParts';
 import { validate } from '@tegg/schema';
 import { chipIcon } from '../links/icons';
@@ -16,8 +16,10 @@ import { useTagLook } from '../tags/store';
 export type TypeColumn = { key: string; label: string; attr: AttributeDto | null; userNamed: boolean };
 type Column = TypeColumn;
 
-export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
+export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }: {
   row: TypeRowDto; col: Column; type: TypeDto | undefined; types: TypeDto[]; onOpen: (p: string) => void; onTag: (k: string) => void; typeKey: string;
+  /** A preview's strip (v1-previews §3.4): its relation chips are references like the body's links (D-932, D-1170). */
+  refs?: boolean;
 }) {
   const look = useTagLook();
   if (col.key === 'title') {
@@ -70,27 +72,43 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
     const list = Array.isArray(v) ? v : [v];
     return (
       <span className="chips">
-        {list.map((x, i) => <LinkCell key={i} value={x} links={row.links} types={types} onOpen={onOpen} />)}
+        {list.map((x, i) => <LinkCell key={i} value={x} links={row.links} types={types} onOpen={onOpen} refs={refs} />)}
       </span>
     );
   }
   return <span data-user-content>{rawText(v)}</span>;
 }
 
-function LinkCell({ value, links, types, onOpen }: { value: unknown; links: LinkTargetDto[]; types: TypeDto[]; onOpen: (p: string) => void }) {
+function LinkCell({ value, links, types, onOpen, refs }: { value: unknown; links: LinkTargetDto[]; types: TypeDto[]; onOpen: (p: string) => void; refs?: boolean }) {
   const w = wiki(value);
   if (!w) return <span data-user-content>{rawText(value)}</span>;
   const info = links.find((l) => [nfc(w.target), nfc(w.inner), nfc(String(value))].includes(nfc(l.target)));
   const ok = !!info?.path && (info.kind === 'note' || info.kind === 'daily' || info.kind === 'trashed');
   const shown = w.alias ?? (ok ? info!.title ?? w.target : w.target);
   const parts = ok ? chipParts(info, 12) : null; // D-600
+  const inner = (
+    <>
+      {ok && (parts?.icon ?? <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} dataIcon={chipIcon(info!.type ?? 'page').def} size={12} />)}
+      <span data-user-content>{shown}</span>
+      {parts?.suffix}
+    </>
+  );
+  if (refs && ok && info!.kind !== 'trashed') {
+    // D-1189: in a preview's strip a relation chip is a reference: a click replaces the content in click mode (D-932),
+    // resting on it in hover mode does (D-1170), and the preview's click-to-open leaves it alone (R129).
+    const target = { path: nfc(info!.path!), fragment: null, kind: 'note' as const };
+    return (
+      <RefAnchor data-command="typePage.a1" href="#" className="chip link-chip " aria-description={parts?.description ?? undefined} {...parts?.attrs}
+        data-link-kind={info!.kind} reference={{ target, kind: 'chip', open: () => onOpen(info!.path!) }}>
+        {inner}
+      </RefAnchor>
+    );
+  }
   return (
     <a data-command="typePage.a1" href="#" className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`} aria-description={ok ? parts?.description ?? undefined : t('link.noNote', { target: w.target })} {...parts?.attrs}
       data-link-kind={ok ? info!.kind : 'unresolved'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ok) onOpen(info!.path!); }}>
-      {ok && (parts?.icon ?? <Icon name={typeIconName(info!.type ?? 'page', types.find((x) => nfc(x.key) === nfc(info!.type ?? ''))?.icon)} dataIcon={chipIcon(info!.type ?? 'page').def} size={12} />)}
-      <span data-user-content>{shown}</span>
-      {parts?.suffix}
+      {inner}
     </a>
   );
 }

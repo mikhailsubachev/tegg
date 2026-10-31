@@ -67,10 +67,9 @@ export const light: Tokens = {
   // F9 (capture.md R55 look): the board's primary button.
   btn: '#1C1C1E',
   'btn-fg': '#FFFFFF',
-  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid, edges and the selection highlight.
+  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid and the selection highlight (edges are `--muted`, D-1178).
   canvas: '#FBFBFA',
   dot: '#E2E2DE',
-  edge: '#B9B9B3',
   hl: '#1D5CCB',
   // Search redesign (board `Search`, D-1210): the highlight of matches in results.
   'sel-hl': '#FFE7A3',
@@ -106,10 +105,9 @@ export const dark: Tokens = {
   'unrev-bg': '#33270F',
   btn: '#ECECEE',
   'btn-fg': '#1C1C1E',
-  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid, edges and the selection highlight.
+  // G1 (graph.md R109, board Graph): the graph canvas, its dot grid and the selection highlight (edges are `--muted`, D-1178).
   canvas: '#18181A',
   dot: '#2A2A2D',
-  edge: '#4A4A50',
   hl: '#86AEFF',
   'sel-hl': '#5A4718',
   ...typeTokens(TYPE_DARK),

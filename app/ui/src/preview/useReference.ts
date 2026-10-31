@@ -55,13 +55,17 @@ export function useReference(opts: ReferenceOpts, extra?: { description?: string
   // A drag (the pointer moved ≥ 4 px before release, FR-LNK-08 AC-7) is never a click on the reference.
   const down = useRef<{ x: number; y: number } | null>(null);
   const lastClick = useRef(-Infinity);
-  // A broken reference never previews (D-939): it keeps only its own description.
-  const described = opts.target ? withHint(extra?.description, mode) : extra?.description ?? undefined;
+  /** When this reference's last single click opened its target (or offered Create). */
+  const opened = useRef(-Infinity);
+  // A broken reference never previews (D-939): it keeps only its own description; an embed carries no mode description
+  // in any mode (D-1175).
+  const embed = opts.kind === 'embed' || opts.kind === 'embedLink';
+  const described = opts.target && !embed ? withHint(extra?.description, mode) : extra?.description ?? undefined;
   const props: ReferenceProps = {
     'data-preview-ref': '',
     'aria-description': described,
     // NFR-PERF-12 (v1-previews §8): the benchmark measures from the pointer-up on a reference.
-    onPointerUp: () => { if (getPrefs().mode !== 'off') void ipc.perfMark('preview-click').catch(() => {}); },
+    onPointerUp: () => { if (getPrefs().mode !== 'off' && !embed) void ipc.perfMark('preview-click').catch(() => {}); },
     onPointerDown: (e) => { down.current = { x: e.clientX, y: e.clientY }; },
     onClick: (e) => {
       if (e.button !== 0) return;
@@ -74,12 +78,15 @@ export function useReference(opts: ReferenceOpts, extra?: { description?: string
       lastClick.current = now;
       if (second) { e.preventDefault(); return; }
       const a = act(o.current, mod(e) ? 'modClick' : 'click', e.currentTarget as HTMLElement);
+      opened.current = a === 'open' || a === 'createOffer' ? now : -Infinity;
       if (a !== 'default') { e.preventDefault(); e.stopPropagation(); }
     },
     onDoubleClick: (e) => {
       // The first click of this double-click replaced a preview's content: the double-click opens that target.
       const first = insideDoubleClick();
       if (first) { e.preventDefault(); e.stopPropagation(); close('open'); previewHost()?.open(first); return; }
+      // Its first click already opened (hover and Off, an embed): one open (R130).
+      if (performance.now() - opened.current < 600) { opened.current = -Infinity; e.preventDefault(); e.stopPropagation(); return; }
       const a = act(o.current, mod(e) ? 'modDblclick' : 'dblclick', e.currentTarget as HTMLElement);
       if (a !== 'default') { e.preventDefault(); e.stopPropagation(); }
     },

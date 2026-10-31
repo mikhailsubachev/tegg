@@ -868,7 +868,8 @@ export function App() {
   }, []);
 
 
-  // Mouse back/forward buttons and a two-finger horizontal swipe (FR-NAV-03, ms3-shell §12.2).
+  // Mouse back/forward buttons and the shell's native navigation events (FR-NAV-03, ms3-shell §12.2). A horizontal wheel
+  // or trackpad scroll never navigates: it scrolls what is under the pointer (D-1168).
   useEffect(() => {
     // The page's mouseup (where the webview passes it) and the shell's native event (where it doesn't, 3C feedback)
     // may both report one press: the second within 300 ms is ignored.
@@ -885,31 +886,10 @@ export function App() {
       press(e.button === 3 ? 'back' : 'forward', 'page');
     };
     const unNative = events.navMouse((d) => press(d, 'native'));
-    let dx = 0;
-    let since = 0;
-    let fired = false;
-    const scrollsX = (el: Element | null) => {
-      for (let n = el; n; n = n.parentElement) {
-        if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true;
-      }
-      return false;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (live.current.dialog || Math.abs(e.deltaX) <= 3 * Math.abs(e.deltaY) || scrollsX(e.target as Element)) return;
-      if (e.timeStamp - since > 120) { dx = 0; fired = false; }
-      since = e.timeStamp;
-      dx += e.deltaX;
-      if (!fired && Math.abs(dx) >= 80) {
-        fired = true;
-        void step(dx < 0 ? 'back' : 'forward'); // fingers to the right scroll left: back, as in Safari
-      }
-    };
     window.addEventListener('mouseup', onMouse);
-    window.addEventListener('wheel', onWheel, { passive: true });
     return () => {
       void unNative.then((f) => f());
       window.removeEventListener('mouseup', onMouse);
-      window.removeEventListener('wheel', onWheel);
     };
   }, [step]);
 
@@ -1148,7 +1128,12 @@ export function App() {
         refresh={refresh}
         heading={heading}
         ui={tui}
-        onUi={(f) => updateUi((u) => ({ ...u, tasks: f({ ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}) }) }))}
+        onUi={(f) => updateUi((u) => {
+          // A change to what is already stored writes nothing (FR-SYN-06 AC-42: reaching a stored view is no write).
+          const was = { ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}) };
+          const next = f(was);
+          return u.tasks && JSON.stringify(next) === JSON.stringify(was) ? u : { ...u, tasks: next };
+        })}
         nav={{
           openNote: (p) => openNote(p),
           openSource: (p, task) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); },

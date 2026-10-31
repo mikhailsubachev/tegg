@@ -1,6 +1,7 @@
 // Slice G1 (docs/contracts/v1-graph.md §4; graph.md R109; D-910, D-977): the filter list, which is also the legend:
 // Types (`All`, `None`, one checkbox per type in the D-977 order with its swatch, plural name and count), Connections
-// (the four kinds with their R108 line sample) and `Size nodes by links`. G3's preset control sits above Types (R119).
+// (the four kinds, a checkbox and a label each, no line sample since D-1167) and `Size nodes by links`. G3's preset
+// control sits above Types (R119).
 // Slice G2 (v1-graph §15.2): the `popover` variant (the right panel's `Depth and filters`) starts with the `Depth`
 // radiogroup and ends with the note `graph.panel.filtersNote`; G3's preset row goes after `Depth`.
 import { t } from '../i18n/catalog';
@@ -11,9 +12,6 @@ import { region } from '../i18n/collate';
 import type { EdgeKindDto } from './types';
 
 export const KINDS: [EdgeKindDto, string][] = [['link', 'graph.kind.links'], ['relation', 'graph.kind.relations'], ['embed', 'graph.kind.embeds'], ['tag', 'graph.kind.tags']];
-const SAMPLE: Record<EdgeKindDto, { width: number; dash?: string }> = {
-  embed: { width: 3 }, relation: { width: 1.5, dash: '5 4' }, link: { width: 1.5 }, tag: { width: 1, dash: '1 3' },
-};
 
 export type FilterProps = {
   typeCounts: [string, number][];
@@ -101,15 +99,13 @@ export function GraphFilters(p: FilterProps) {
           );
         })}
       </fieldset>
+      {/* D-1167: one edge style, so the kinds have a checkbox and a label, no line sample. */}
       <fieldset className="graph-fieldset">
         <legend>{t('graph.connections')}</legend>
         {KINDS.map(([kind, label]) => (
           <label key={kind} className="graph-kind-row">
             <input type="checkbox" data-command={`graph.kind.${kind}`} checked={!p.hiddenKinds.includes(kind)} aria-disabled={off}
               onChange={(e) => { if (p.disabled) { e.preventDefault(); return; } p.onKind(kind, e.currentTarget.checked); }} />
-            <svg className="graph-line-sample" width="24" height="8" aria-hidden="true">
-              <line x1="1" y1="4" x2="23" y2="4" style={{ strokeWidth: SAMPLE[kind].width, strokeDasharray: SAMPLE[kind].dash ?? 'none' }} />
-            </svg>
             <span>{t(label)}</span>
           </label>
         ))}

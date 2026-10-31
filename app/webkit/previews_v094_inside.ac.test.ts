@@ -88,7 +88,11 @@ for (const view of ['editor', 'read'] as const) {
       assert.ok(Math.abs(s - scroll0) <= 24, `${view}: Back returns to Odkazy at its scroll position (${scroll0} → ${s})`);
     }
     // The section and the block keep their fragment.
-    d = await clickPreview(page, 'Sekce', 0, 'Rozpočet 2027', 'Rozpočet 2027 › Rozsah');
+    // D-1185: a section preview's dialog is named `Preview: Rozpočet 2027 › Rozsah` or `Preview: Rozpočet 2027`; its
+    // header title is exactly `Rozpočet 2027 › Rozsah`.
+    await (await needOdkazyLink(page, 'Sekce', 0)).click();
+    d = await need(page.getByRole('dialog', { name: /^Preview: Rozpočet 2027( › Rozsah)?$/ }), `${view}: a click on the section link (click mode)`);
+    assert.equal((await d.locator('header h2').first().innerText().catch(() => '')).replace(/\s+/g, ' ').trim(), 'Rozpočet 2027 › Rozsah', `${view}: the section preview's title`);
     n0 = await mark(core);
     await clickAtWord(page, anyContent(d), 'Personál', `${view}: the section body`);
     await openedRozpocet(page, core, n0, `${view}: a click on the section body`);
@@ -577,11 +581,11 @@ for (const mode of ['click', 'hover', 'off'] as const) {
     const core = await startPreviews(page, { at: PV.odkazy, mode, hoverDelay: mode === 'hover' ? 400 : undefined, readView: true });
     const show = async () => {
       const chip = await rozpocetChip(page);
+      // D-1184: a hover preview never takes the focus, so in hover mode the keyboard reaches its links after ⌥Space on
+      // the reference (a focused preview, D-942), as in Off.
       if (mode === 'click') { await chip.click(); }
-      else if (mode === 'hover') { const b = (await chip.boundingBox())!; await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 }); }
       else { await chip.focus(); await page.keyboard.press('Alt+Space'); }
       const d = await needPreview(page, 'Rozpočet 2027', `${mode}: the preview of Rozpočet`, 2500);
-      if (mode === 'hover') { const db = (await d.boundingBox())!; await page.mouse.move(db.x + db.width - 20, db.y + 20, { steps: 6 }); }
       const jana = await need(chipNamed(content(d, 'Rozpočet 2027'), 'Jana Nováková'), `${mode}: the chip Jana Nováková inside`);
       await jana.focus();
       return d;

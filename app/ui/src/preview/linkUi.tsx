@@ -69,7 +69,9 @@ function LinkMenu({ req }: { req: LinkMenuReq }) {
     if (req.edit) entries.push({ kind: 'item', key: 'edit', label: t('link.menu.edit'), content: t('link.menu.edit'), onChoose: done(req.edit) });
     if (req.remove) entries.push({ kind: 'item', key: 'remove', label: t('link.menu.remove'), content: t('link.menu.remove'), onChoose: done(req.remove) });
   }
-  return <PopupMenu label={t('menu.link')} anchor={req.anchor} entries={entries} onClose={() => { set({ menu: null }); req.restore(); }} restoreFocus={false} />;
+  // Above the reference when the menu (about 32 px a row) wouldn't fit below it in the window.
+  const below = (req.anchor?.getBoundingClientRect().bottom ?? 0) + 4 + 32 * entries.length + 16 <= window.innerHeight;
+  return <PopupMenu label={t('menu.link')} anchor={req.anchor} entries={entries} placement={below ? 'below' : 'above'} onClose={() => { set({ menu: null }); req.restore(); }} restoreFocus={false} />;
 }
 
 function EditLink({ req }: { req: EditLinkReq }) {

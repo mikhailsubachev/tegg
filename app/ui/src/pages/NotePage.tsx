@@ -894,6 +894,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       if (restoreScroll !== undefined && main) {
         main.scrollTop = restoreScroll;
         requestAnimationFrame(() => { main.scrollTop = restoreScroll; });
+      } else if (fragment) {
+        // D-1189 b: the caret keeps the scroll position it found, which can still be the previous note's (clamped); a
+        // `#Heading` / `#^id` open lands on its target, after the caret's own restore in the next frame.
+        scrollToFragment(root.current, fragment);
+        requestAnimationFrame(() => scrollToFragment(root.current, fragment));
       }
       return;
     }

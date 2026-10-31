@@ -10,7 +10,7 @@ import { Icon } from '../shell/Icon';
 import { Notice, PreviewBody } from './PreviewBody';
 import { StripList } from '../embeds/strip';
 import type { PreviewModel } from './load';
-import { getPrefs } from './store';
+import { getPrefs, previewHost } from './store';
 import type { PreviewTarget, PreviewExtraAction } from './types';
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -93,7 +93,9 @@ export function PreviewContent({ uid, model, target, extraLines, extraAction, bo
       </header>
       {m?.state === 'ok' && m.strip.length > 0 && (
         <div role="region" aria-label={t('preview.properties')} className="preview-strip">
-          <StripList cols={m.strip} data={m.data} links={m.links} path={m.path} title={m.title} typeKey={m.type} className="preview-props" />
+          <StripList cols={m.strip} data={m.data} links={m.links} path={m.path} title={m.title} typeKey={m.type} className="preview-props" refs
+            onOpen={(p) => previewHost()?.open({ path: nfc(p), fragment: null, kind: 'note' })}
+            onTag={(k) => previewHost()?.open({ path: '', fragment: null, kind: 'tag', key: k })} />
         </div>
       )}
       {m?.state === 'ok' && <Notice m={m} />}

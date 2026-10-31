@@ -1,5 +1,5 @@
 // Slice P (v1.0, object previews) L5: the surfaces of R104. docs/acceptance/previews.md FR-LNK-08 AC-1…AC-12,
-// FR-LNK-09 AC-1…AC-7, FR-TSK-08 AC-4…AC-6; contract docs/contracts/v1-previews.md §3. Written from the ACs and the
+// FR-LNK-09 AC-4, AC-6, AC-7 (AC-1…AC-3, AC-5 retired by D-1166), FR-TSK-08 AC-4…AC-6; contract docs/contracts/v1-previews.md §3. Written from the ACs and the
 // contract only (D-61). Red until slice P is built: today every click opens, so the preview assertions fail.
 import { test } from '@playwright/test';
 import { mustCaret } from './embeds-helpers';
@@ -10,7 +10,7 @@ import {
   needPreview, nfc, nfd, noteBody, openBtn, paletteDialog, para, placementOf, previewCount, previewPath, previewsVault, props, readArticle, runCommand,
   savedWithin, searchFor, selectedBlocks, sidebar, sleep, sourceRegion, startPreviews, swap, tagObjectsTable, tagRoute, tagsTable, taskCard,
   taskCheckbox, topEmbed, topInScroller, typeTable, writesSince, dailySection, goToList, searchQuery, anyContent, TOGGLE_SOURCE, eventually, backlinksPanel,
-  contextPanel, linkIn, noModified,
+  contextPanel, linkIn, noModified, selectHostBlock,
 } from './previews-helpers';
 
 test.use({ timezoneId: ZONE });
@@ -431,92 +431,25 @@ test('fr_lnk_08_ac12_hover_mode_loads_when_the_delay_ends', async ({ page }) => 
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-09
 
-test('fr_lnk_09_ac1_card_embed_click_previews_double_click_opens_enter_previews', async ({ page }) => {
-  const core = await startPreviews(page, { at: PV.vlozeni });
-  const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card "Embedded: Jana Nováková"');
-  await card.scrollIntoViewIfNeeded();
-  const b = (await card.boundingBox())!;
-  await page.mouse.click(b.x + b.width - 12, b.y + 12);
-  const d = await needPreview(page, 'Jana Nováková', 'a click on the card outside its strip values');
-  const pl = await placementOf(page, d, card);
-  assert.ok(pl.ok, `anchored to the card: ${pl.why}`);
-  await page.keyboard.press('Escape');
-  await needClosed(page, 'Esc');
-  const n0 = await mark(core);
-  await page.mouse.dblclick(b.x + b.width - 12, b.y + 12);
-  await mustBeOn(page, 'Jana Nováková', 'a double-click opens note/Osoby/Jana Nováková.md', 5000);
-  assert.deepEqual(await navsSince(core, n0), [nfc(PV.jana)], 'nav_opened once');
-  await back(page, 'Vložení');
-  const card2 = await need(frame(editorBody(page), 'Jana Nováková'), 'the card after Back');
-  await card2.focus();
-  await page.keyboard.press('Enter');
-  await needPreview(page, 'Jana Nováková', '⏎ on the focused card previews (AP-811)');
-});
-
-test('fr_lnk_09_ac2_link_mode_embed_click_previews_double_click_opens', async ({ page }) => {
-  await startPreviews(page, { at: PV.vlozeni });
-  const l = await need(linkEmbed(editorBody(page), 'Petr Dvořák'), 'link-mode embed "Petr Dvořák"');
-  await clickToPreview(page, l, 'Petr Dvořák', 'a click on the link-mode chip');
-  await page.keyboard.press('Escape');
-  await needClosed(page, 'Esc');
-  await l.dblclick();
-  await mustBeOn(page, 'Petr Dvořák', 'a double-click opens Petr', 5000);
-});
-
-test('fr_lnk_09_ac3_full_embed_header_title_previews_and_its_buttons_keep_their_jobs', async ({ page }) => {
-  await startPreviews(page, { at: PV.vlozeni });
-  const f = await need(topEmbed(editorBody(page), 0), 'the full embed of Rozpočet');
-  const hdr = f.locator(':scope > *').first();
-  await clickToPreview(page, await need(hdr.getByText('Rozpočet 2027', { exact: true }), 'the header title text'), 'Rozpočet 2027', 'a click on the full embed header title');
-  await page.keyboard.press('Escape');
-  await needClosed(page, 'Esc');
-  await (await need(f.getByRole('button', { name: 'Display as', exact: true }), 'button "Display as"')).click();
-  await need(page.getByRole('menu', { name: 'Display as', exact: true }), 'the Display as menu opens on a single click');
-  assert.equal(await previewCount(page), 0, 'Display as shows no preview');
-  await page.keyboard.press('Escape');
-  const body = await need(f.getByText('Návrh rozpočtu na rok 2027 pro celý tým.'), 'the embed body text');
-  await body.click();
-  await needNoPreview(page, 'a click inside the embed body', 400);
-  await (await need(f.getByRole('button', { name: 'Open Rozpočet 2027', exact: true }), 'button "Open Rozpočet 2027"')).click();
-  await mustBeOn(page, 'Rozpočet 2027', 'Open Rozpočet 2027 opens the note (embeds.md FR-EMB-02 AC-9)', 5000);
-  assert.equal(await previewCount(page), 0, 'no preview');
-});
-
-test('fr_lnk_09_ac3_section_embed_header_previews_the_section', async ({ page }) => {
-  await startPreviews(page, { at: PV.vlozeni });
-  const f = await need(topEmbed(editorBody(page), 3), 'the section embed ![[Rozpočet 2027#Rozsah]]');
-  const hdr = f.locator(':scope > *').first();
-  await (await need(hdr.getByText(/Rozpočet 2027/).first(), 'its header title')).click();
-  const d = await need(page.getByRole('dialog', { name: /^Preview: Rozpočet 2027( › Rozsah)?$/ }), 'the section preview');
-  assert.equal(flat(await d.locator('header h2').first().innerText().catch(() => '')), 'Rozpočet 2027 › Rozsah', 'the header title of R105 (D-156)');
-});
+// FR-LNK-09 AC-1, AC-2, AC-3 and AC-5 are retired (D-1166: embeds don't preview on a click or hover; a click opens):
+// previews_v094_embeds.ac.test.ts has FR-LNK-09 AC-8…AC-13.
 
 test('fr_lnk_09_ac4_card_and_link_mode_previews_show_the_full_content', async ({ page }) => {
   await startPreviews(page, { at: PV.vlozeni });
-  const card = await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
-  await card.scrollIntoViewIfNeeded();
-  const b = (await card.boundingBox())!;
-  await page.mouse.click(b.x + b.width - 12, b.y + 12);
+  await need(frame(editorBody(page), 'Jana Nováková'), 'card Jana');
+  // D-1166: an embed previews on request: ⌥Space on the card selected as a block, or on the focused link-mode chip.
+  await selectHostBlock(page, 3, 'Jana\'s card');
+  await page.keyboard.press('Alt+Space');
   const d = await needPreview(page, 'Jana Nováková', 'card preview');
   assert.equal(await d.locator('[data-embed-mode]').count(), 0, 'not a second card');
   await need(d.getByRole('region', { name: 'Properties', exact: true }), 'the R105 content: all attributes (empty body)');
   await page.keyboard.press('Escape');
   await needClosed(page, 'Esc');
-  const d2 = await clickToPreview(page, await need(linkEmbed(editorBody(page), 'Petr Dvořák'), 'link-mode Petr'), 'Petr Dvořák', 'link-mode preview');
+  await (await need(linkEmbed(editorBody(page), 'Petr Dvořák'), 'link-mode Petr')).focus();
+  await page.keyboard.press('Alt+Space');
+  const d2 = await needPreview(page, 'Petr Dvořák', 'link-mode preview');
   assert.equal(flat(await anyContent(d2).first().innerText().catch(() => '')), 'Vede tým nákupu.', 'the body of Petr');
   assert.equal(await d2.locator('[data-embed-mode]').count(), 0, 'no card inside');
-});
-
-test('fr_lnk_09_ac5_task_embed_card_title_previews_checkbox_keeps_its_job', async ({ page }) => {
-  const core = await startPreviews(page, { at: PV.porada });
-  const f = await need(main(page).locator('[data-embed-mode]').filter({ hasText: 'Zavolat Janě' }), 'the task embed card');
-  await clickToPreview(page, await need(f.getByRole('link', { name: 'Zavolat Janě', exact: true }).or(f.getByText('Zavolat Janě', { exact: true })), 'the card title'), 'Zavolat Janě', 'a click on the task card title');
-  await page.keyboard.press('Escape');
-  await needClosed(page, 'Esc');
-  await (await need(f.getByRole('checkbox').first(), 'the card checkbox')).click();
-  await needNoPreview(page, 'the checkbox', 300);
-  const t = await fileWhen(core, PV.ukol, (x) => !!x && !x.includes('status: To do'), 3000);
-  assert.ok(t && !t.includes('status: To do'), 'the checkbox still changes the task (conversion.md FR-CNV-05)');
 });
 
 test('fr_lnk_09_ac6_image_figure_click_selects_double_click_opens_alt_space_previews', async ({ page }) => {

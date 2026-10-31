@@ -116,7 +116,8 @@ export const noModified = (t: string | undefined) => (t ?? '').replace(/^modifie
 
 export type PreviewMode = 'click' | 'hover' | 'off';
 export type PreviewUi = NonNullable<UiStateDto['preview']>;
-/** The stored UI state; `preview` is left out when not given (the default mode, click, D-923). */
+/** The stored UI state; `preview` is left out when not given (the fake then stores `click`, D-1164's test rule, unless
+ *  `previewStored: 'asGiven'`). */
 export const ui = (o: { theme?: UiStateDto['theme']; panel?: boolean; preview?: PreviewUi } = {}): UiStateDto => ({
   version: 1, theme: o.theme ?? 'light', sidebarOpen: true, rightPanel: { open: o.panel ?? false, tab: 'backlinks' }, propertiesOpen: true,
   ...(o.preview ? { preview: o.preview } : {}),
@@ -128,7 +129,8 @@ export type PreviewsStart = StartOptions & {
   at?: string;
   /** Start on this route (`window.__TEGG_ROUTE__`, ms3-shell §3.7), e.g. `tasks`, `type/osoba`. */
   route?: string;
-  /** The stored Object preview mode (missing = no `preview` key = click). */
+  /** The stored Object preview mode (missing = click stored, D-1164's test rule; `previewStored: 'asGiven'` and the
+   *  v0.94 files store nothing: hover, the default). */
   mode?: PreviewMode;
   hoverDelay?: number;
   /** The stored popover size. */
@@ -447,6 +449,23 @@ export const mapNode = (fig: Locator, text: string) => fig.getByRole('treeitem',
 /** Indexes (1-based) of host blocks with `data-block-selected`. */
 export async function selectedBlocks(page: Page): Promise<number[]> {
   return editorBody(page).first().evaluate((b) => [...b.children].map((e, i) => (e.hasAttribute('data-block-selected') ? i + 1 : 0)).filter(Boolean)).catch(() => []);
+}
+/** Selects host block `n` (1-based) as a block from the keyboard (embeds.md FR-EMB-02 AC-14): the caret at the end of
+ *  the first host block, then ↓ until `n` is selected; inside a full embed's editable body (FR-EMB-03) Esc selects the
+ *  embed as a block. D-1166: embeds are previewed this way (⌥Space) now that a click opens them. */
+export async function selectHostBlock(page: Page, n: number, what: string) {
+  const first = editorBody(page).locator(':scope > *').first();
+  await first.scrollIntoViewIfNeeded();
+  const fb = (await first.boundingBox())!;
+  await page.mouse.click(fb.x + fb.width - 4, fb.y + fb.height / 2);
+  await page.keyboard.press('End');
+  await sleep(100);
+  for (let i = 0; i < 12 && !(await selectedBlocks(page)).includes(n); i++) {
+    await page.keyboard.press('ArrowDown');
+    await sleep(100);
+    if ((await selectedBlocks(page)).length === 0) { await page.keyboard.press('Escape'); await sleep(100); }
+  }
+  assert.deepEqual(await selectedBlocks(page), [n], `${what}: host block ${n} is selected as a block`);
 }
 /** Waits for `Save state` to read `Saved` (editor.md R9). */
 export async function savedWithin(page: Page, ms = 3000): Promise<boolean> {

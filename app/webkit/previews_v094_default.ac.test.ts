@@ -296,7 +296,9 @@ function cmdWheel(page: Page, at: Locator, deltaY: number) {
 
 test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_write_nothing', async ({ page }) => {
   test.setTimeout(240_000);
-  const uiState = { ...ui(), rightPanel: { open: true, tab: 'graph' as const } };
+  // D-1187: the tour starts on tasks/kanban with the panel open on Graph and the Kanban view stored before the start, so
+  // reaching them writes no `ui_state` (the app stores `tasks` when the view is shown without it).
+  const uiState = { ...ui(), rightPanel: { open: true, tab: 'graph' as const }, tasks: { view: 'kanban', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: false } } as ReturnType<typeof ui>;
   const core = await startPreviews(page, { route: 'tasks/kanban', uiState });
   const files0 = await snapshot(core);
   // Horizontal wheels on tasks/kanban (FR-NAV-03 AC-8, AC-9).

@@ -319,21 +319,23 @@ async function state() {
   return m.readPreviewUi as (dto: unknown) => { mode: string; hoverDelay: number; width: number | null; height: number | null };
 }
 
-test('fr_lnk_12_ac5_hover_delay_defaults_to_400_and_steps_by_100_from_200_to_1500', async () => {
+test('fr_lnk_12_ac5_hover_delay_defaults_to_1000_and_steps_by_100_from_200_to_1500', async () => {
   const read = await state();
-  assert.deepEqual(read(undefined), { mode: 'click', hoverDelay: 400, width: null, height: null }, 'missing reads as the defaults');
-  assert.deepEqual(read({}), { mode: 'click', hoverDelay: 400, width: null, height: null });
+  // D-1164: hover with 1,000 ms is the default.
+  assert.deepEqual(read(undefined), { mode: 'hover', hoverDelay: 1000, width: null, height: null }, 'missing reads as the defaults');
+  assert.deepEqual(read({}), { mode: 'hover', hoverDelay: 1000, width: null, height: null });
   const delays: [number, number][] = [[200, 200], [400, 400], [600, 600], [1500, 1500], [100, 200], [0, 200], [-300, 200], [1600, 1500], [1720, 1500], [99999, 1500],
     [430, 400], [470, 500], [1449, 1400], [1451, 1500], [201, 200], [299, 300]];
   const bad = delays.filter(([v, w]) => read({ mode: 'hover', hoverDelay: v }).hoverDelay !== w).map(([v, w]) => `${v} → ${read({ mode: 'hover', hoverDelay: v }).hoverDelay}, want ${w}`);
   assert.deepEqual(bad, [], 'clamped to 200…1500 and rounded to the nearest 100 ms step');
-  assert.equal(read({ mode: 'hover' }).hoverDelay, 400, 'a missing delay is 400');
+  assert.equal(read({ mode: 'hover' }).hoverDelay, 1000, 'a missing delay is 1000');
 });
 
-test('fr_set_07_ac3_a_bad_stored_mode_reads_as_click', async () => {
+test('fr_set_07_ac3_a_bad_stored_mode_reads_as_the_default', async () => {
   const read = await state();
   for (const mode of ['click', 'hover', 'off'] as const) assert.equal(read({ mode }).mode, mode, `${mode} is kept`);
-  for (const mode of ['sometimes', 'Hover', 'OFF', '', 'náhled', 3, null, true]) assert.equal(read({ mode }).mode, 'click', `${JSON.stringify(mode)} reads as click`);
+  // D-1172: a bad stored mode reads as the default, hover (D-1164).
+  for (const mode of ['sometimes', 'Hover', 'OFF', '', 'náhled', 3, null, true]) assert.equal(read({ mode }).mode, 'hover', `${JSON.stringify(mode)} reads as hover`);
 });
 
 test('fr_set_07_ac3_stored_sizes_are_clamped_and_missing_is_the_default', async () => {

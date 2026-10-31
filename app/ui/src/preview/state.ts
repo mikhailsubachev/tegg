@@ -1,8 +1,10 @@
 // The Object preview setting and the popover size, machine-local in `ui-state.json` (v1-previews §1; D-922, D-923;
-// FR-SET-07 AC-3): stored values are read leniently and never rewritten until the user changes them.
+// FR-SET-07 AC-3): stored values are read leniently and never rewritten until the user changes them. D-1164: hover with
+// 1,000 ms is the default; a value already stored stays (no migration), and a bad stored mode reads as hover (D-1172).
 import type { PreviewMode, PreviewUiDto } from './types';
 
-export const DEFAULT_DELAY = 400;
+export const DEFAULT_DELAY = 1000;
+export const DEFAULT_MODE: PreviewMode = 'hover';
 export const DELAY_MIN = 200;
 export const DELAY_MAX = 1500;
 export const DELAY_STEP = 100;
@@ -26,7 +28,7 @@ export function normalDelay(v: unknown): number {
 
 export function readPreviewUi(dto: PreviewUiDto | null | undefined): PreviewUi {
   const d = (dto && typeof dto === 'object' ? dto : {}) as PreviewUiDto;
-  const mode: PreviewMode = d.mode === 'hover' || d.mode === 'off' || d.mode === 'click' ? d.mode : 'click';
+  const mode: PreviewMode = d.mode === 'hover' || d.mode === 'off' || d.mode === 'click' ? d.mode : DEFAULT_MODE;
   const w = num(d.width);
   const h = num(d.height);
   return {

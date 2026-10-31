@@ -214,14 +214,19 @@ test('fr_lnk_11_ac9_nothing_in_the_popover_is_editable', async () => {
     const fields = [...d.querySelectorAll('input, textarea, select, [role="textbox"], [role="combobox"], [role="spinbutton"]')]
       .filter((i) => !(((i as HTMLInputElement).type === 'checkbox' || i.getAttribute('role') === 'checkbox') && i.getAttribute('aria-readonly') === 'true'));
     assert.deepEqual(fields.map((f) => f.outerHTML.slice(0, 80)), [], `${target.path}: no text input; checkboxes are aria-readonly`);
-    const boxes = [...d.querySelectorAll('input[type="checkbox"], [role="checkbox"]')] as HTMLElement[];
-    for (const b of boxes) {
-      await act(async () => { fireEvent.click(b); });
+    const boxes = () => [...document.querySelectorAll('[data-preview-popover] input[type="checkbox"], [data-preview-popover] [role="checkbox"]')] as HTMLElement[];
+    const n = boxes().length;
+    for (let i = 0; i < n; i++) {
+      // D-1165: a primary click on a read-only checkbox opens the previewed object (through the host's `open`); the
+      // preview is shown again for the next box.
+      await act(async () => { fireEvent.pointerDown(boxes()[i], { button: 0, clientX: 5, clientY: 5 }); fireEvent.click(boxes()[i], { button: 0, clientX: 5, clientY: 5 }); });
+      if (boxes().length === 0) await show(p.api(), target, p.anchor, 'click');
     }
+    const d2 = theDialog();
     await act(async () => {
-      fireEvent.keyDown(d, { key: 'x', code: 'KeyX' });
-      fireEvent.keyDown(d, { key: 'Backspace', code: 'Backspace' });
-      fireEvent.keyDown(d, { key: 'z', code: 'KeyZ', metaKey: true });
+      fireEvent.keyDown(d2, { key: 'x', code: 'KeyX' });
+      fireEvent.keyDown(d2, { key: 'Backspace', code: 'Backspace' });
+      fireEvent.keyDown(d2, { key: 'z', code: 'KeyZ', metaKey: true });
     });
   }
   const writes = ipc.calls.filter((c) => /^(note_write|note_create|note_create_exact|link_create|daily_create|note_trash|object_trash|type_patch|inbox_bulk)$/.test(c.cmd));

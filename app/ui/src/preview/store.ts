@@ -122,11 +122,6 @@ export function show(target: PreviewTarget, anchor: PreviewAnchor, origin: Previ
   emit();
 }
 
-/** Replaces the shown preview's origin (a click inside a hover preview makes it a clicked one, D-942). */
-export function promote(): void {
-  if (current && current.origin === 'hover') { current = { ...current, origin: 'click' }; emit(); }
-}
-
 let prefetch: ((target: PreviewTarget) => void) | null = null;
 /** Starts a shown target's read in `show` itself, a frame before the popover's effects run (NFR-PERF-12). */
 export function setPrefetch(f: ((target: PreviewTarget) => void) | null): void {
