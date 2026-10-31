@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.136, for review                                            |
+| **Document status** | Draft v1.137, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -150,6 +150,7 @@
 | v1.134  | 2026-10-31 | v0.94 graph and preview ACs (previews.md and graph.md part three, app-shell.md FR-NAV-03 AC-8…AC-10): D-1172…D-1180 (AP-1002…AP-1010, each as proposed) and the AC-test changes D-1181 |
 | v1.135  | 2026-10-31 | v0.94 graph and preview red-test decisions (red tests ce25acc): D-1182…D-1190 (AP-1011…AP-1019, each as proposed): the swipe mapping's L4 evidence, embed input kinds, the keyboard in a hover preview, a section preview's name, the selecting drag, the tour's start, parts covered elsewhere, three existing bugs fixed in the build with regression tests |
 | v1.136  | 2026-10-31 | v0.94 graph and preview build decisions (build 6e39fee): D-1191…D-1196 (AP-1020…AP-1025, each as proposed): "nothing stored" in the fake, three older AC-test changes, red-test corrections of the wheel, Settings and FR-LNK-11 tests, the table rows as read |
+| v1.137  | 2026-10-31 | v0.94 build: D-1197 (the editor opens a `#^id` block, AP-1026) and D-1198 (whole-pixel points in the wheel tests, AP-1027), as proposed |
 
 ---
 
@@ -1241,6 +1242,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1194 | FR-SET-07 AC-6's write count (AP-1023) (owner, 2026-10-31; v0.94 build, `docs/feedback/ms6-v094-graph-previews.md`) | Red-test correction: the test counts `ui_state_set` calls after each press |
 | D-1195 | Four FR-LNK-11 tests and the fixture (AP-1024) (owner, 2026-10-31; v0.94 build, `docs/feedback/ms6-v094-graph-previews.md`) | Red-test corrections, no fixture change: AC-17 checks the block is in view as far as the pane can scroll and matches it by its text start; AC-19 checks the open after the first click and that the second click opens nothing new on a body word away from figures; AC-20 clicks a word that is in view |
 | D-1196 | How three AC-test table rows were read (AP-1025) (owner, 2026-10-31; v0.94 build, `docs/feedback/ms6-v094-graph-previews.md`) | Accepted as built: row 11 also moves the slider default (1,000), the arrow steps (1,100 / 1,000) and the arrow targets under the new order; row 22's L6 test previews Vložení's embeds with ↓ selection plus ⌥Space and the right-click `Show preview`; row 5 doesn't cover suites that write their own `ui-state.json` |
+| D-1197 | The editor opens a `#^id` block (AP-1026) (owner, 2026-10-31; v0.94 build, `docs/feedback/ms6-v094-graph-previews.md`) | An existing bug fixed in this slice: on a `^id` open the editor scrolls the block to the top (as far as the pane can scroll) and puts the caret in it, as the read view does (FR-EDT-02 AC-7). A regression test `bug_v094gp_fr_lnk_11_editor_block_open_…` comes first |
+| D-1198 | Whole-pixel points in the wheel tests (AP-1027) (owner, 2026-10-31; v0.94 build, `docs/feedback/ms6-v094-graph-previews.md`) | FR-GRP-01 AC-48 / AC-49's tests first pan the drawing by the node centre's fraction with one synthetic wheel, then zoom at its whole-pixel point (D-1193) |
 | D-1200 | `Go to` stays on the redesigned Search page (AP-1100) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | The `Go to` list (D-760) stays, between the `Filters` group and the count line, only while the query has text; the board shows only the full-text part (FR-NAV-01 AC-19) |
 | D-1201 | No separate create button on Search (AP-1101) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | The no-match empty state has no `Create page` button and ⌘↩ is not bound; its text points to `Go to`'s `Create "<q>"` row (default type, Type menu, D-106, D-550) |
 | D-1202 | Search copy says "matches" (AP-1102) (owner, 2026-10-30; Search redesign, preview v0.94, board `Search`, `docs/acceptance/search-navigation.md`) | Empty-state copy says `matches`, never "exact phrase"; search behaviour (D-253 tiers) is unchanged |
