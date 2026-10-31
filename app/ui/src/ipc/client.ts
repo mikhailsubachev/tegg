@@ -2,7 +2,7 @@
 // Commands: docs/contracts/ms2-shell.md §2, ms3-shell.md §2.
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { GraphRequestDto, GraphResultDto } from '../graph/types';
+import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
@@ -132,6 +132,11 @@ export const ipc = {
   indexPathById: (id: string) => invoke<string | null>('index_path_by_id', { id }),
   /** Slice G1 (v1-graph §2): the neighbourhood of an object; read-only, no recency. A newer call cancels this one. */
   graphNeighbourhood: (req: GraphRequestDto) => invoke<GraphResultDto>('graph_neighbourhood', { req }),
+  /** Slice G3 (v1-graph §16.2): `.tegg/graph.yml` as read; never writes, never creates. */
+  graphPresetsGet: () => invoke<GraphPresetsDto>('graph_presets_get'),
+  /** Slice G3 (§16.2): one preset operation, at most one atomic write; `base` is the version last read (FR-SYN-03 AC-22).
+   *  Errors `Conflict` (with `disk`), `Gone`, the name errors, `NoSuchPreset`, `NewerVersion`, `Unreadable`, `Io`. */
+  graphPresetsApply: (base: VersionDto | null, op: PresetOpDto) => invoke<GraphPresetsDto>('graph_presets_apply', { base, op }),
   // 5B (ms5-capture §5, §7; D-578).
   inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
   inboxCount: () => invoke<number>('inbox_count'),

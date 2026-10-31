@@ -66,9 +66,9 @@ export function triggerText(depth: number, hidden: number): string {
   return hidden > 0 ? t('graph.panel.triggerHidden', { depth, count: hidden }) : t('graph.panel.trigger', { depth });
 }
 
-/** `<n> objects · click a node to preview` (R117). */
-export function footerText(count: number): string {
-  return t('graph.panel.footer', { count });
+/** `<n> objects · click a node to preview` (R117); per Object preview setting (R128, AP-964 = D-1134). */
+export function footerText(count: number, mode: 'click' | 'hover' | 'off' = 'click'): string {
+  return t(mode === 'hover' ? 'graph.panel.footerHover' : mode === 'off' ? 'graph.panel.footerOff' : 'graph.panel.footer', { count });
 }
 
 /** D-1031, D-1047: the largest scale in [0.25, 1] at which every node's box (at 100 %), scaled about the canvas centre

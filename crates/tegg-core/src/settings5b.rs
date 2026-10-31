@@ -3,7 +3,8 @@
 //! keeps comments and other lines byte for byte, and needs the file's current version as base (D-235).
 
 use tegg_format::{nfc, type_key};
-use yaml_rust2::{Yaml, YamlLoader};
+
+use crate::yaml_text::{scalar, top};
 
 use crate::{Core, CoreError, FileVersion, VaultError};
 
@@ -55,30 +56,11 @@ impl VaultKey {
     }
 }
 
-fn top(text: &str) -> Option<Yaml> {
-    YamlLoader::load_from_str(text).ok()?.into_iter().next()
-}
-
 /// D-239, D-541: the default type of `vault.yml`'s text; `exists` tells whether a type key is defined.
 pub(crate) fn default_type_of(text: Option<&str>, exists: impl Fn(&str) -> bool) -> DefaultTypeSetting {
     let raw = text.and_then(top).and_then(|y| y["default-type"].as_str().map(nfc));
     let key = raw.as_deref().map(type_key).filter(|k| !k.is_empty() && exists(k));
     DefaultTypeSetting { valid: key.is_some(), key: key.unwrap_or_else(|| "quick-note".into()), raw }
-}
-
-/// A YAML scalar for a fresh value: plain when YAML reads it back as the same string, else double-quoted (D-230).
-fn scalar(v: &str) -> String {
-    let plain = !v.is_empty()
-        && !v.starts_with(|c: char| c.is_whitespace() || "-?:,[]{}#&*!|>'\"%@`".contains(c))
-        && !v.ends_with(char::is_whitespace)
-        && !v.contains(": ")
-        && !v.contains(" #")
-        && matches!(top(&format!("k: {v}")).map(|y| y["k"].clone()), Some(Yaml::String(s)) if s == v);
-    if plain {
-        v.to_string()
-    } else {
-        serde_json::to_string(v).unwrap_or_default()
-    }
 }
 
 /// The text with `key`'s top-level line set to `value`, or the key appended after the last entry.

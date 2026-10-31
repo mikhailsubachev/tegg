@@ -40,7 +40,9 @@ const PLURALS: [string, Record<string, string | number>, string][] = [
   ['graph.panel.footer', { count: 1 }, '1 object · click a node to preview'], ['graph.panel.footer', { count: 10 }, '10 objects · click a node to preview'],
   ['graph.panel.triggerHidden', { depth: 1, count: 2 }, 'Depth 1 · 2 hidden'], ['graph.panel.triggerHidden', { depth: 2, count: 1 }, 'Depth 2 · 1 hidden'],
 ];
-const G2_KEYS = new Set([...R117.map(([k]) => k), ...PLURALS.map(([k]) => k)]);
+// Slice "G3 in the panel" (R128, AP-964 = D-1134, AC-test change AP-974 = D-1144): the two footer keys per mode.
+const R128_KEYS = ['graph.panel.footerHover', 'graph.panel.footerOff'];
+const G2_KEYS = new Set([...R117.map(([k]) => k), ...PLURALS.map(([k]) => k), ...R128_KEYS]);
 const fill = (text: string, vars: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k]));
 
 test('nfr_oth_02_ac13_panel_graph_strings_in_the_catalog', async () => {
@@ -60,7 +62,7 @@ test('nfr_oth_02_ac13_panel_graph_strings_in_the_catalog', async () => {
   }
   assert.deepEqual(bad, [], 'every R117 key with its English text (plural forms per D-133)');
   const panelKeys = Object.keys(en).filter((k) => k.startsWith('graph.panel.') || k === 'cmd.graph.showLocal');
-  assert.deepEqual(panelKeys.filter((k) => !G2_KEYS.has(k)), [], 'G2 adds exactly the R117 keys');
+  assert.deepEqual(panelKeys.filter((k) => !G2_KEYS.has(k)), [], 'G2 adds exactly the R117 keys (and "G3 in the panel" R128\'s two footer keys)');
 });
 
 test('nfr_oth_02_ac13_panel_graph_strings_in_the_catalog_czech_plurals', async () => {

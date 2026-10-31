@@ -1,6 +1,6 @@
 // Slice G1 (docs/contracts/v1-graph.md §4; graph.md R109; D-910, D-977): the filter list, which is also the legend:
 // Types (`All`, `None`, one checkbox per type in the D-977 order with its swatch, plural name and count), Connections
-// (the four kinds with their R108 line sample) and `Size nodes by links`. G3 puts the preset select above Types.
+// (the four kinds with their R108 line sample) and `Size nodes by links`. G3's preset control sits above Types (R119).
 // Slice G2 (v1-graph §15.2): the `popover` variant (the right panel's `Depth and filters`) starts with the `Depth`
 // radiogroup and ends with the note `graph.panel.filtersNote`; G3's preset row goes after `Depth`.
 import { t } from '../i18n/catalog';
@@ -26,6 +26,8 @@ export type FilterProps = {
   onKind: (kind: EdgeKindDto, visible: boolean) => void;
   onSize: (on: boolean) => void;
   allRef?: React.RefObject<HTMLButtonElement | null>;
+  /** G3 (R119): the preset control, first in the column. */
+  preset?: React.ReactNode;
   /** Slice G2: `popover` adds the `Depth` radiogroup first and the note last. */
   variant?: 'column' | 'popover';
   depth?: 1 | 2 | 3;
@@ -74,7 +76,8 @@ export function GraphFilters(p: FilterProps) {
           <DepthRadios depth={p.depth} onDepth={p.onDepth} radioRef={p.radioRef} />
         </div>
       )}
-      <fieldset className="graph-fieldset">
+      {p.preset}
+      <fieldset className="graph-fieldset" role="group" aria-label={t('graph.types')}>
         <legend>{t('graph.types')}</legend>
         <div className="graph-all-none">
           <button type="button" ref={p.allRef} data-command="graph.types.all" className="link-button" aria-disabled={off} onClick={() => { if (!p.disabled) p.onAll(true); }}>{t('graph.types.all')}</button>

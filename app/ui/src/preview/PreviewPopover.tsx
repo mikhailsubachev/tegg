@@ -394,7 +394,9 @@ export function PreviewPopover({ cur }: { cur: Current }) {
   );
   if (column) {
     return createPortal(
-      <div className="preview preview-column" role="region" aria-label={t('preview.name', { title })} data-preview-path={model?.state === 'ok' ? model.path : model?.state === 'tag' ? model.path ?? '' : top.target.kind === 'note' ? nfc(top.target.path) : undefined} onKeyDown={onKeyDown}>{content}</div>,
+      <div className="preview preview-column" role="region" tabIndex={-1} aria-label={t('preview.name', { title })} data-preview-path={model?.state === 'ok' ? model.path : model?.state === 'tag' ? model.path ?? '' : top.target.kind === 'note' ? nfc(top.target.path) : undefined} onKeyDown={onKeyDown}
+        // G3 (D-942, graph.md FR-LNK-12 AC-10): a click inside a hover preview makes it a clicked one; the focus moves in.
+        onPointerDown={(e) => { if (cur.origin === 'hover') { promote(); e.currentTarget.focus({ preventScroll: true }); } }}>{content}</div>,
       (cur.host as { container: HTMLElement }).container,
     );
   }
