@@ -12,6 +12,8 @@ if (gate && !Number.isInteger(port)) throw new Error('VERIFY_GATE is set but VER
 export default defineConfig({
   testDir: 'webkit',
   testMatch: /\.ac\.test\.ts$|\/bug_[^/]+\.test\.ts$/, // AC tests and bug regressions (bug_<issue>_<req-id>_…)
+  // D-1330: a run outside ./verify waits for the machine-wide gate lock, so it never overlaps a gate.
+  globalSetup: './webkit/gate-lock.setup.ts',
   timeout: 60_000,
   // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
   // shares state. Under ./verify 6 workers (12-core reference Mac; 8 saturated the machine once the gate ran its lanes
