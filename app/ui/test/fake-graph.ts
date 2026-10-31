@@ -310,3 +310,8 @@ export async function handle(cmd: string, a: any, files: Record<string, string>,
     return { error: e as GraphErr };
   }
 }
+
+/** G3 (v1-graph §16.1): the vault's D-977 type order for the presets twin's `hidden-types` (fake-presets.ts). */
+export function vaultTypeOrder(files: Record<string, string>): string[] {
+  return typeOrder(files, objectsOf(files));
+}

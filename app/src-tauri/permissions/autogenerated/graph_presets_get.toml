@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-graph-presets-get"
+description = "Enables the graph_presets_get command without any pre-configured scope."
+commands.allow = ["graph_presets_get"]
+
+[[permission]]
+identifier = "deny-graph-presets-get"
+description = "Denies the graph_presets_get command without any pre-configured scope."
+commands.deny = ["graph_presets_get"]

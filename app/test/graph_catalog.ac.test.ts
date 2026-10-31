@@ -58,6 +58,19 @@ const PLURALS: [string, Record<string, string | number>, string][] = [
   ['graph.canvas', { title: 'Plán čtvrtletí', count: 2 }, 'Local graph: Plán čtvrtletí and the objects linked to it, 2 levels deep'],
 ];
 const ALL_KEYS = new Set([...R112.map(([k]) => k), ...PLURALS.map(([k]) => k)]);
+/** G3's keys (graph.md R124), which this G1 check leaves out (AP-944, D-1104). */
+const R124_KEYS = new Set([
+  'graph.preset.label', 'graph.preset.button', 'graph.preset.default', 'graph.preset.builtIn', 'graph.preset.modified', 'graph.preset.modifiedA11y',
+  'graph.preset.menu', 'graph.preset.update', 'graph.preset.revert', 'graph.preset.saveAs', 'graph.preset.updateNamed', 'graph.preset.renameNamed',
+  'graph.preset.deleteNamed', 'graph.preset.notModified', 'graph.preset.isDefault', 'graph.preset.saveTitle', 'graph.preset.name', 'graph.preset.saveNote',
+  'graph.preset.cancel', 'graph.preset.save', 'graph.preset.renameField', 'graph.preset.renameHint', 'graph.preset.deleteTitle', 'graph.preset.deleteNote',
+  'graph.preset.delete', 'graph.preset.err.empty', 'graph.preset.err.taken', 'graph.preset.err.long', 'graph.preset.err.control', 'graph.preset.unreadable',
+  'graph.preset.unreadableLine', 'graph.preset.fixFile', 'graph.preset.newer', 'graph.preset.changedOutside', 'graph.preset.saveFailed', 'graph.view',
+  'graph.view.graph', 'graph.view.list', 'graph.list', 'graph.connectionsCount', 'graph.a11y.node', 'graph.a11y.centre', 'graph.a11y.position',
+  'graph.canvas.help', 'graph.hint.hover', 'graph.hint.off', 'graph.preview.emptyHover', 'graph.preview.emptyHoverNote', 'graph.preview.emptyOff',
+  'graph.preview.emptyOffNote', 'cmd.graph.applyPreset', 'cmd.graph.savePreset', 'cmd.graph.updatePreset', 'cmd.graph.revertPreset',
+  'cmd.graph.renamePreset', 'cmd.graph.deletePreset', 'cmd.graph.showList', 'cmd.graph.showGraph',
+]);
 
 const fill = (text: string, vars: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k]));
 
@@ -79,8 +92,8 @@ test('nfr_oth_02_ac12_graph_strings_in_the_catalog', async () => {
   assert.deepEqual(bad, [], 'every R112 key with its English text (plural forms per D-133)');
   // D-1030…D-1043 (slice G2): the panel's R117 keys (`graph.panel.*`, `cmd.graph.showLocal`) come on top of R112.
   const g2 = (k: string) => k.startsWith('graph.panel.') || k === 'cmd.graph.showLocal';
-  const extra = Object.keys(en).filter((k) => (k.startsWith('graph.') || k.startsWith('cmd.graph.')) && !ALL_KEYS.has(k) && !g2(k));
-  assert.deepEqual(extra, [], 'G1 adds exactly the R112 keys (G2 adds R117\'s)');
+  const extra = Object.keys(en).filter((k) => (k.startsWith('graph.') || k.startsWith('cmd.graph.')) && !ALL_KEYS.has(k) && !g2(k) && !R124_KEYS.has(k));
+  assert.deepEqual(extra, [], 'G1 adds exactly the R112 keys (G2 adds R117\'s, G3 R124\'s, AP-944)');
 });
 
 test('nfr_oth_02_ac12_graph_strings_in_the_catalog_czech_plurals', async () => {
@@ -151,9 +164,6 @@ test('fr_ux_03_ac20_graph_commands_and_shortcut', async () => {
   // D-918 (slice G2): `Show local graph` is in the registry, on a note and not on graph/<path>.
   assert.ok(onNote.map(title).includes('Show local graph'), '`Show local graph` is on a note (G2)');
   assert.ok(!onGraph.map(title).includes('Show local graph'), '`Show local graph` is not on graph/<path>');
-  for (const t of ['Graph: Apply preset…', 'Graph: Show as list', 'Show as graph', 'Graph: Show as graph']) {
-    assert.ok(!all.includes(t), `${t} is not in the registry in G1 or G2 (G3)`);
-  }
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TAG-05 AC-9

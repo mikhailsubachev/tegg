@@ -286,6 +286,7 @@ export const READ_COMMANDS = new Set([
   'value_remove_start', 'type_delete_start', 'job_plan', 'job_cancel',
   'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
   'index_path_by_id', // slice P (v1-previews §2): read-only, no recency
+  'graph_presets_get', // G3 (v1-graph §16.2): read-only, never creates `.tegg/graph.yml`
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

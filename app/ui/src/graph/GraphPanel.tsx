@@ -465,7 +465,7 @@ export function GraphPanel(p: GraphPanelProps) {
         {showCanvas && (
           <GraphCanvas model={model!} positions={positions} size={size!} view={view} onView={setView} scale="panel"
             selected={selected} hovered={hovered} onHover={setHovered} entering={entering} contentRef={content} name={canvasName}
-            onSelect={(n, el) => select(n, el)}
+            onNodeClick={(n, el) => select(n, el)}
             onOpen={(n) => { if (!n.centre) p.onOpen(n.node); }}
             onEmpty={() => { setFiltersOpen(false); clearSelection(); }} />
         )}

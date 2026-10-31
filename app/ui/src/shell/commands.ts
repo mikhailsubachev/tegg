@@ -85,10 +85,19 @@ export type ShellActions = {
   removeLink?: () => void;
   /** Slice G1 (graph.md FR-UX-03 AC-20, D-918): the full view of the current object; a graph route command. */
   openGraph?: () => void;
-  graphCommand?: (id: 'depth1' | 'depth2' | 'depth3' | 'recenter') => void;
+  graphCommand?: (id: GraphCommandId) => void;
+  /** Slice G3 (R123): the shown graph's view and preset state, for the commands' listing and `disabled()` reasons. */
+  graphStatus?: () => GraphStatus | null;
   /** Slice G2 (FR-NAV-05 AC-2, D-918): opens the Context panel on the Graph tab, focus on `Depth and filters`. */
   showLocalGraph?: () => void;
 };
+
+/** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
+export type GraphCommandId = 'depth1' | 'depth2' | 'depth3' | 'recenter' | 'preset.apply' | 'preset.save' | 'preset.update' | 'preset.revert'
+  | 'preset.rename' | 'preset.delete' | 'view.list' | 'view.graph';
+/** Slice G3 (R123): what the reasons depend on. `file` is the presets file's state (§16.2); `stored` a listed preset is
+ *  current (else Default). */
+export type GraphStatus = { view: 'graph' | 'list'; stored: boolean; modified: boolean; file: 'missing' | 'ok' | 'newer' | 'unreadable' };
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
@@ -262,6 +271,24 @@ export function commands(ctx: ShellContext): Command[] {
     list.push(
       ...((r?.id === 'graph/<path>' ? ['depth1', 'depth2', 'depth3', 'recenter'] : ['depth1', 'depth2', 'depth3']) as ('depth1' | 'depth2' | 'depth3' | 'recenter')[]).map((id): Command => ({ id: `graph.${id}`, title: `cmd.graph.${id}`, section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.(id) })),
     );
+    // Slice G3 (R123, AP-932): presets and the view; no shortcuts. Each lists its reason while it can't run.
+    const st = () => a(ctx)?.graphStatus?.() ?? null;
+    const fileReason = () => { const f = st()?.file; return f === 'unreadable' ? t('graph.preset.fixFile') : f === 'newer' ? t('graph.preset.newer') : null; };
+    const defaultReason = () => (st()?.stored ? null : t('graph.preset.isDefault'));
+    const modifiedReason = () => (st()?.modified ? null : t('graph.preset.notModified'));
+    const preset = (id: 'apply' | 'save' | 'update' | 'revert' | 'rename' | 'delete', title: string, disabled: () => string | null): Command =>
+      ({ id: `graph.preset.${id}`, title, section: 'navigate', needsVault: true, disabled, run: (c) => a(c)?.graphCommand?.(`preset.${id}`) });
+    list.push(
+      preset('apply', 'cmd.graph.applyPreset', () => null),
+      preset('save', 'cmd.graph.savePreset', fileReason),
+      preset('update', 'cmd.graph.updatePreset', () => fileReason() ?? defaultReason() ?? modifiedReason()),
+      preset('revert', 'cmd.graph.revertPreset', modifiedReason),
+      preset('rename', 'cmd.graph.renamePreset', () => fileReason() ?? defaultReason()),
+      preset('delete', 'cmd.graph.deletePreset', () => fileReason() ?? defaultReason()),
+    );
+    // Listed only when it changes something (AP-932).
+    if ((st()?.view ?? 'graph') === 'graph') list.push({ id: 'graph.view.list', title: 'cmd.graph.showList', section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.('view.list') });
+    else list.push({ id: 'graph.view.graph', title: 'cmd.graph.showGraph', section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.('view.graph') });
   }
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(

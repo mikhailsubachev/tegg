@@ -1325,3 +1325,59 @@ button.tag-tile { cursor: pointer; }
 }
 @keyframes graph-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes graph-pulse { 50% { opacity: 0.5; } }
+
+/* Slice G3 (graph.md R119…R122; boards Graph B8, B9, GraphDetails B, C, D): the preset control and its layers, the
+   View switch, the List, the focus ring and the hover ring. */
+.graph-filters.side { order: 0; }
+.graph-canvas-wrap { order: 1; }
+.graph-preview-column.side { order: 2; }
+.graph-view-switch button { padding: 0 8px; }
+.graph-preset { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; }
+.graph-preset-label { font-weight: 600; color: var(--muted); font-size: 12px; }
+.graph-preset-button { display: flex; align-items: center; gap: 4px; width: 100%; min-height: 28px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); text-align: left; cursor: pointer; }
+.graph-preset-modified { white-space: nowrap; }
+.graph-preset-row { display: flex; gap: 6px; }
+.graph-preset-small { padding: 2px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); cursor: pointer; font-size: 13px; }
+.graph-preset-small.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.graph-preset-small.primary[aria-disabled="true"] { background: var(--bg); border-color: var(--border); color: var(--muted); cursor: default; }
+.graph-preset-small.danger { color: var(--danger); border-color: var(--danger); }
+.graph-preset-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.graph-preset-rename input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--focus); border-radius: 6px; background: var(--bg); color: var(--text); }
+.graph-preset-hint { color: var(--muted); font-size: 12px; }
+.graph-preset-msg { color: var(--danger); font-size: 12px; min-height: 0; }
+.graph-preset-msg:empty { display: none; }
+.graph-preset-alert { color: var(--danger); background: var(--danger-bg); border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+.graph-preset-layer { position: fixed; z-index: 100; background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); font-size: 13px; }
+.graph-preset-menu { min-width: 220px; max-width: 320px; padding: 4px; outline: none; }
+.graph-preset-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; cursor: pointer; outline: none; }
+.graph-preset-item.active, .graph-preset-item:focus { background: var(--sel); }
+.graph-preset-item[aria-disabled="true"] { color: var(--muted); cursor: default; }
+.graph-preset-item .muted { color: var(--muted); }
+.graph-preset-item.active .muted, .graph-preset-item:focus .muted { color: var(--text); }
+.graph-preset-check { width: 12px; flex: none; }
+.graph-preset-check.on::before { content: '✓'; }
+.graph-preset-sep { height: 1px; margin: 4px 0; background: var(--border); }
+.graph-preset-note { color: var(--muted); font-size: 12px; margin: 2px 8px 4px; }
+.graph-preset-dialog { width: 300px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.graph-preset-dialog h2 { font-size: 14px; margin: 0; }
+.graph-preset-dialog p { margin: 0; }
+.graph-preset-field { display: flex; flex-direction: column; gap: 4px; }
+.graph-preset-field span { color: var(--muted); font-size: 12px; }
+.graph-preset-field input { height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.graph-preset-buttons { display: flex; justify-content: flex-end; gap: 6px; }
+.graph-focus-ring { fill: none; stroke: var(--focus); stroke-width: 2.5; display: none; pointer-events: none; }
+.graph-svg:not([data-pointer]) .graph-node:focus-visible .graph-focus-ring { display: inline; }
+.graph-hover-ring { fill: none; stroke: var(--hl); stroke-width: 2.5; stroke-dasharray: 100; stroke-dashoffset: 100; animation: graph-ring-fill linear forwards; pointer-events: none; }
+@keyframes graph-ring-fill { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .graph-hover-ring { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; } }
+.graph-canvas.list { overflow: auto; }
+.graph-list { padding: 6px 0; font-size: 13px; color: var(--text); }
+.graph-row-item { outline: none; }
+.graph-row { display: flex; align-items: center; gap: 6px; padding-top: 3px; padding-bottom: 3px; padding-right: 8px; cursor: pointer; border-radius: 6px; }
+.graph-row.selected { background: var(--sel); }
+.graph-row-item:focus-visible > .graph-row { box-shadow: inset 0 0 0 2px var(--focus); }
+.graph-row-twisty { width: 12px; flex: none; }
+.graph-row-twisty:not(.none)::before { content: '▸'; color: var(--muted); }
+.graph-row-twisty.open::before { content: '▾'; }
+.graph-row-icon { display: inline-flex; color: var(--muted); }
+.graph-row-meta { color: var(--muted); }

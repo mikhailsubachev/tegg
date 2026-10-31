@@ -19,7 +19,7 @@ import { TypeSettingsPage } from './pages/TypeSettingsPage';
 import { createObject, prepareObject, type Prepared } from './types/create';
 import { NewTypeDialog } from './types/NewTypeDialog';
 import { StarterTypesDialog } from './types/StarterTypesDialog';
-import { commands, type Command, type ShellActions, type ShellContext, type ThemeChoice } from './shell/commands';
+import { commands, type Command, type GraphCommandId, type GraphStatus, type ShellActions, type ShellContext, type ThemeChoice } from './shell/commands';
 import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
 import { eventKeys } from './shell/keys';
@@ -542,7 +542,8 @@ export function App() {
     ipc.dailyView(date).then((v) => { if (live) setDailyFile({ date, path: v.path }); }, () => {});
     return () => { live = false; };
   }, [route?.id, route?.param, refresh]);
-  const graphCommand = useRef<((id: 'depth1' | 'depth2' | 'depth3' | 'recenter') => void) | null>(null);
+  const graphCommand = useRef<((id: GraphCommandId) => void) | null>(null);
+  const graphStatus = useRef<(() => GraphStatus) | null>(null);
   const [graphTitle, setGraphTitle] = useState<{ route: string; title: string } | null>(null);
   // D-692: every way of opening a Tag object opens its tag page.
   useEffect(() => {
@@ -701,7 +702,13 @@ export function App() {
     },
     graphCommand: (id) => {
       if (route?.id === 'graph/<path>') graphCommand.current?.(id);
-      else if (panelShowsGraph.current && id !== 'recenter') panelGraph.current?.depth(Number(id.slice(5)) as 1 | 2 | 3);
+      else if (panelShowsGraph.current && /^depth[123]$/.test(id)) panelGraph.current?.depth(Number(id.slice(5)) as 1 | 2 | 3);
+    },
+    graphStatus: () => {
+      const st = route?.id === 'graph/<path>' ? graphStatus.current?.() ?? null : null;
+      // The stored view, which the palette's list follows before the page re-renders (R123).
+      const v = vault ? uiRef.current?.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
+      return st ? { ...st, view: v === 'list' ? 'list' : 'graph' } : null;
     },
     editLink: () => { setTimeout(() => editorLinkAction('edit'), 0); },
     removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
@@ -742,7 +749,9 @@ export function App() {
     : route?.id === 'tag/<key>' ? { ...route, path: objectPathOf(route) } : route;
   panelShowsGraph.current = showPanel && ui.rightPanel.tab === 'graph';
   const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: ui.rightPanel.tab as PanelTab } };
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
+  // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
+  const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -1054,10 +1063,15 @@ export function App() {
     const vp = vault.path.normalize('NFC');
     const graphKey = routeKey;
     body = (
-      <GraphPage key={navKey} path={route.param} heading={heading} commandRef={graphCommand}
+      <GraphPage key={navKey} path={route.param} heading={heading} commandRef={graphCommand} statusRef={graphStatus}
         handover={handover} onHandoverDepth={(d) => { if (!handover) return; const next = { ...handover, depth: d }; history.current.setGraph(next); setHandover(next); }}
         view={ui.vaults?.[vp]?.graph?.full}
         onView={(next) => updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...(u.vaults?.[vp]?.graph ?? {}), full: next } } } }))}
+        onViews={(f) => updateUi((u) => {
+          const g = u.vaults?.[vp]?.graph ?? {};
+          const next = f({ full: g.full, panel: g.panel as GraphViewStateDto | undefined });
+          return { ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), graph: { ...g, ...next } } } };
+        })}
         onTitle={(title) => setGraphTitle((g) => (g?.route === graphKey && g.title === title ? g : { route: graphKey, title }))}
         nav={{
           open: (n) => {

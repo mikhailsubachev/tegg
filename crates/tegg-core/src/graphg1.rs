@@ -52,7 +52,7 @@ impl Core {
 
     /// D-977, D-994: defined types in D-121 order (user types by name), then `tag`, then undefined values. Reads the
     /// cached definitions and the graph's type keys: no file listing per request (NFR-PERF-11).
-    fn graph_type_order(&self, data: &tegg_index::graph::GraphData) -> Vec<String> {
+    pub(crate) fn graph_type_order(&self, data: &tegg_index::graph::GraphData) -> Vec<String> {
         let types: Vec<tegg_schema::TypeFile> = self.shared.type_defs().into_values().collect();
         let defined: std::collections::BTreeSet<String> = types.iter().map(|t| nfc(&t.key)).collect();
         let mut order: Vec<String> = FIRST.iter().filter(|k| defined.contains(**k)).map(|k| k.to_string()).collect();

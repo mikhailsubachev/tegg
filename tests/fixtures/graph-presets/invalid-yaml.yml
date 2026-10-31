@@ -1,0 +1,6 @@
+# Tegg graph filter presets (FR-GRP-02, D-906, D-907). Edit them in the graph's Preset menu.
+version: 1
+presets:
+  - name: Bez štítků
+    hidden-types: [tag, page
+    hidden-kinds: []

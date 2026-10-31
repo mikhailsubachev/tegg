@@ -102,6 +102,8 @@
     "allow-job-plan",
     "allow-backup-reveal",
     "allow-graph-neighbourhood",
+    "allow-graph-presets-get",
+    "allow-graph-presets-apply",
     "allow-media-add",
     "allow-media-add-paths",
     "allow-media-pick",

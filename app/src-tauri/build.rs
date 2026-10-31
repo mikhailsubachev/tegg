@@ -113,6 +113,9 @@ const COMMANDS: &[&str] = &[
     "backup_reveal",
     // G1 (v1-graph §2).
     "graph_neighbourhood",
+    // G3 (v1-graph §16.2).
+    "graph_presets_get",
+    "graph_presets_apply",
 ];
 
 fn main() {

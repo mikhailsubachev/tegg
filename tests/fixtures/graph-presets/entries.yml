@@ -1,0 +1,28 @@
+# Tegg graph filter presets (FR-GRP-02, D-906, D-907). Edit them in the graph's Preset menu.
+version: 1
+presets:
+  - name: Lidé
+    hidden-types: [page]
+    hidden-kinds: []
+  - name: lidé
+    hidden-types: [tag]
+    hidden-kinds: []
+  - name: Default
+    hidden-types: [tag]
+    hidden-kinds: []
+  - name: "   "
+    hidden-types: []
+    hidden-kinds: []
+  - hidden-types: [task]
+    hidden-kinds: []
+  - name: Špatný seznam
+    hidden-types: tag
+    hidden-kinds: []
+  - name: 42
+    hidden-types: []
+    hidden-kinds: []
+  - name: Bez druhů
+    hidden-types: [task]
+  - name: Neznámé spoje
+    hidden-types: []
+    hidden-kinds: [link, backlink]

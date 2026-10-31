@@ -78,7 +78,7 @@ export function swap(text: string | undefined, from: string, to: string): string
 }
 export const VAULT_PATH = '/fake/Graf';
 
-export type GraphState = { depth?: unknown; hiddenTypes?: unknown; hiddenKinds?: unknown; sizeByLinks?: unknown };
+export type GraphState = { depth?: unknown; hiddenTypes?: unknown; hiddenKinds?: unknown; sizeByLinks?: unknown; view?: unknown; preset?: unknown };
 export const ui = (o: { theme?: UiStateDto['theme']; graph?: GraphState; vault?: string; extra?: Record<string, unknown> } = {}): UiStateDto =>
   ({
     version: 1, theme: o.theme ?? 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' },
@@ -98,6 +98,12 @@ export type StartGraph = StartOptions & {
   previewMode?: 'click' | 'hover' | 'off';
   /** Real time (no fixed clock): for tests that measure delays. */
   realTime?: boolean;
+  /** G3: the preview's hover delay (slice P `preview.hoverDelay`, D-923). */
+  hoverDelay?: number;
+  /** G3: `page.clock.install` at NOW instead of a fixed time (hover tests advance it with `page.clock.runFor`). */
+  install?: boolean;
+  /** G3: `prefers-reduced-motion`. */
+  reducedMotion?: 'reduce' | 'no-preference';
 };
 /** `graph/<path>` (D-914: the path NFC, as `note/<path>`). */
 export const graphRoute = (path: string) => `graph/${nfc(path)}`;
@@ -106,11 +112,13 @@ export const graphRoute = (path: string) => `graph/${nfc(path)}`;
 export async function startGraph(page: Page, o: StartGraph = {}): Promise<FakeCoreHandle> {
   await page.addInitScript((r) => { (window as any).__TEGG_REGION__ = r; }, o.region ?? 'en-US');
   if (o.route) await page.addInitScript((r) => { (window as any).__TEGG_ROUTE__ = r; }, o.route);
-  if (!o.realTime) await page.clock.setFixedTime(new Date(NOW));
+  if (o.reducedMotion) await page.emulateMedia({ reducedMotion: o.reducedMotion });
+  if (o.install) await page.clock.install({ time: new Date(NOW) });
+  else if (!o.realTime) await page.clock.setFixedTime(new Date(NOW));
   const vault = o.vault ?? graphVault();
   const last = o.at ? { path: nfc(o.at), id: /^id: (\S+)$/m.exec(vault.files[nfc(o.at)] ?? '')?.[1] ?? null } : null;
   const prelude = o.region && o.region !== 'cs' ? `import { setCollationLocale as __tcl } from '/src/i18n/collate.ts'; __tcl(${JSON.stringify(o.region)});` : undefined;
-  const extra = o.previewMode ? { preview: { mode: o.previewMode } } : undefined;
+  const extra = o.previewMode || o.hoverDelay ? { preview: { ...(o.previewMode ? { mode: o.previewMode } : {}), ...(o.hoverDelay ? { hoverDelay: o.hoverDelay } : {}) } } : undefined;
   return start(page, { ...(prelude ? { prelude } : {}), ...o, vault, last, uiState: o.uiState ?? ui({ theme: o.theme, graph: o.graph, extra }) });
 }
 /** Starts on `graph/<path>` and waits for the canvas (or a state). */
@@ -330,3 +338,204 @@ export async function typeRows(page: Page): Promise<string[]> {
   }));
 }
 export const READMEROWS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Osoby', 'Projekty', 'Schůzky', 'Images', 'PDFs', 'Tags', 'recept'];
+
+// ------------------------------------------------------------------------------------------------ G3 (graph.md part two)
+// Slice G3 helpers (docs/acceptance/graph.md R118…R124; docs/contracts/v1-graph.md §16): the presets fixtures as
+// `.tegg/graph.yml` of the fake vault, locators of R119 / R122, focus and description probes. No AC assertions here
+// except `must`-based lookups (TS-I1).
+
+export const PRESETS_FX = resolve(REPO, 'tests/fixtures/graph-presets');
+export const GRAPH_YML = '.tegg/graph.yml';
+/** `tests/fixtures/graph-presets/<name>.yml` (or `expected/<name>.yml`) as text. */
+export const presetsText = (name: string) => readFileSync(join(PRESETS_FX, `${name}.yml`), 'utf8');
+export const expectedText = (name: string) => readFileSync(join(PRESETS_FX, 'expected', `${name}.yml`), 'utf8');
+/** The graph vault with `text` as `.tegg/graph.yml` (null: no file). */
+export function presetsVault(text: string | null, edit?: (files: Record<string, string>) => void): FakeVault {
+  return graphVault({ edit: (f) => { if (text !== null) f[GRAPH_YML] = text; edit?.(f); } });
+}
+/** The stored UI state with per-view graph states (`full`, `panel`) for the vault, and the preview setting. */
+export const uiG3 = (o: { theme?: UiStateDto['theme']; full?: GraphState; panel?: GraphState; vault?: string; preview?: { mode?: 'click' | 'hover' | 'off'; hoverDelay?: number }; more?: Record<string, unknown> } = {}): UiStateDto =>
+  ({
+    version: 1, theme: o.theme ?? 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' },
+    vaults: { [nfc(o.vault ?? VAULT_PATH)]: { graph: { ...(o.full ? { full: o.full } : {}), ...(o.panel ? { panel: o.panel } : {}) } }, ...(o.more ?? {}) },
+    ...(o.preview ? { preview: o.preview } : {}),
+  } as UiStateDto);
+/** The panel view's stored state (G2's key; G3 writes `preset` there on a rename or delete). */
+export async function panelState(core: FakeCoreHandle, vault = VAULT_PATH): Promise<GraphState | null> {
+  const s = (await core.uiState()) as any;
+  return s?.vaults?.[nfc(vault)]?.graph?.panel ?? null;
+}
+export async function graphYml(core: FakeCoreHandle): Promise<string | undefined> {
+  return (await core.files())[GRAPH_YML];
+}
+/** Paths written by the fake (successful writes), and the `graph_presets_apply` calls. */
+export async function presetWrites(core: FakeCoreHandle): Promise<string[]> {
+  return (await core.writesTo()).map(nfc);
+}
+
+// R119 locators.
+export const presetBtn = (page: Page) => page.getByRole('button', { name: /^⟦?Preset: / });
+export const presetLabel = (page: Page) => page.getByText('Preset', { exact: true });
+export const presetMenu = (page: Page) => page.getByRole('menu', { name: 'Presets', exact: true });
+export const menuRadio = (page: Page, name: string) => presetMenu(page).getByRole('menuitemradio', { name: new RegExp(`^${escRe(nfc(name))}(?=\\s|$)`) });
+export const menuItem = (page: Page, name: string) => presetMenu(page).getByRole('menuitem', { name: nfc(name), exact: true });
+export const saveDialog = (page: Page) => page.getByRole('dialog', { name: 'Save preset', exact: true });
+export const nameField = (page: Page) => saveDialog(page).getByRole('textbox', { name: 'Name', exact: true });
+export const saveBtn = (page: Page) => saveDialog(page).getByRole('button', { name: 'Save', exact: true });
+export const cancelBtn = (page: Page) => saveDialog(page).getByRole('button', { name: 'Cancel', exact: true });
+export const renameField = (page: Page) => page.getByRole('textbox', { name: 'Preset name', exact: true });
+export const deleteConfirm = (page: Page, name: string) => page.getByRole('alertdialog', { name: `Delete “${nfc(name)}”?`, exact: true });
+export const updateBtn = (page: Page) => page.getByRole('button', { name: 'Update', exact: true });
+export const revertBtn = (page: Page) => page.getByRole('button', { name: 'Revert', exact: true });
+export const presetAlert = (page: Page) => page.getByRole('alert').filter({ hasText: /Presets changed outside Tegg|Couldn't save the presets/ });
+export const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** The preset button's name (`Preset: <name>`), its visible text and description. */
+export async function presetState(page: Page): Promise<{ name: string; text: string; desc: string }> {
+  const b = await must(presetBtn(page), 'the preset button `Preset: …` (R119)');
+  return b.evaluate((e) => {
+    const ids = (e.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    return {
+      name: (e.getAttribute('aria-label') ?? e.textContent ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      text: (e.textContent ?? '').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' · ').trim().normalize('NFC'),
+      desc: (e.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim(),
+    };
+  });
+}
+/** Waits until the preset button is named `Preset: <name>`. */
+export async function presetIs(page: Page, name: string, ms = 3000): Promise<boolean> {
+  const want = `Preset: ${nfc(name)}`;
+  return (await eventually(async () => (await seen(presetBtn(page), 200)) ? (await presetState(page)).name : '', (n) => n === want, ms)) === want;
+}
+export async function openPresetMenu(page: Page) {
+  await click(presetBtn(page), 'the preset button');
+  await must(presetMenu(page), 'the menu `Presets` (R119)');
+}
+/** The open menu's items: role, accessible name, checked, disabled and description, in order. */
+export async function menuItems(page: Page): Promise<{ role: string; name: string; checked: string | null; disabled: boolean; desc: string }[]> {
+  const m = await must(presetMenu(page), 'the menu `Presets`');
+  return m.evaluate((menu) => ([...menu.querySelectorAll('[role="menuitemradio"], [role="menuitem"], [role="separator"]')] as HTMLElement[]).map((e) => {
+    const ids = (e.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    return {
+      role: e.getAttribute('role') ?? '',
+      name: (e.getAttribute('aria-label') ?? e.textContent ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      checked: e.getAttribute('aria-checked'),
+      disabled: e.getAttribute('aria-disabled') === 'true',
+      desc: (e.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim(),
+    };
+  }));
+}
+/** Applies a preset (or `Default`) through the menu. */
+export async function choosePreset(page: Page, name: string) {
+  await openPresetMenu(page);
+  await click(menuRadio(page, name), `the menu item ${name}`);
+}
+/** Saves the current filters as `name` through the Save dialog. */
+export async function saveAs(page: Page, name: string) {
+  await openPresetMenu(page);
+  await click(menuItem(page, 'Save as new preset…'), '`Save as new preset…`');
+  const f = await must(nameField(page), 'the Save dialog\'s `Name` field');
+  await f.fill(name);
+  await page.keyboard.press('Enter');
+}
+
+// R122 locators.
+export const viewGroup = (page: Page) => main(page).getByRole('group', { name: 'View', exact: true });
+export const viewBtn = (page: Page, v: 'Graph' | 'List') => viewGroup(page).getByRole('button', { name: v, exact: true });
+export const listTree = (page: Page) => main(page).getByRole('tree', { name: 'Local graph as a list', exact: true });
+export const treeRows = (page: Page) => listTree(page).getByRole('treeitem');
+export const treeRow = (page: Page, title: string) => listTree(page).getByRole('treeitem', { name: new RegExp(`^${escRe(nfc(title))}, `) });
+export type Row = { name: string; level: number; expanded: string | null; selected: string | null; tabindex: string | null; text: string; desc: string; visible: boolean };
+/** Every treeitem in DOM order: name, `aria-level`, `aria-expanded`, `aria-selected`, tabindex, its own row text (not its
+ *  children's) and description. */
+export async function rows(page: Page): Promise<Row[]> {
+  if (!(await seen(listTree(page), 1000))) return [];
+  return listTree(page).evaluate((t) => ([...t.querySelectorAll('[role="treeitem"]')] as HTMLElement[]).map((e) => {
+    const ids = (e.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    const parts: string[] = [];
+    const walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const p = n.parentElement;
+      if (p && p.closest('[role="treeitem"]') === e && !(p.closest('[role="group"]') && e.contains(p.closest('[role="group"]')))) parts.push(n.textContent ?? '');
+    }
+    const r = e.getBoundingClientRect();
+    return {
+      name: (e.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      level: Number(e.getAttribute('aria-level') ?? '0'),
+      expanded: e.getAttribute('aria-expanded'), selected: e.getAttribute('aria-selected'), tabindex: e.getAttribute('tabindex'),
+      text: parts.join('').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' · ').trim().normalize('NFC'),
+      desc: (e.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim().normalize('NFC'),
+      visible: r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden',
+    };
+  }));
+}
+
+// Focus and hover probes.
+export type Focused = { key: string | null; role: string; name: string; tag: string; inGraph: boolean };
+/** The focused element: a graph node's key (`data-path` or `tag:<data-tag-key>`), a treeitem's name, its role. */
+export async function focused(page: Page): Promise<Focused> {
+  return page.evaluate(() => {
+    const a = document.activeElement as HTMLElement | null;
+    if (!a || a === document.body) return { key: null, role: '', name: '', tag: 'body', inGraph: false };
+    const n = a.closest('[data-graph-node]');
+    const key = n ? (n.getAttribute('data-path') ?? `tag:${n.getAttribute('data-tag-key') ?? ''}`).normalize('NFC') : null;
+    return {
+      key, role: a.getAttribute('role') ?? '', tag: a.tagName.toLowerCase(),
+      name: (a.getAttribute('aria-label') ?? (a as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'),
+      inGraph: !!a.closest('svg[role="group"], [role="tree"]'),
+    };
+  });
+}
+/** The node keys with `tabindex="0"`. */
+export async function tabStops(page: Page): Promise<string[]> {
+  return main(page).evaluate((m) => ([...m.querySelectorAll('[data-graph-node]')] as Element[])
+    .filter((e) => e.getAttribute('tabindex') === '0' || e.querySelector('[tabindex="0"]'))
+    .map((e) => (e.getAttribute('data-path') ?? `tag:${e.getAttribute('data-tag-key') ?? ''}`).normalize('NFC'))).catch(() => []);
+}
+/** A node's accessible description (aria-description or aria-describedby). */
+export async function nodeDescription(page: Page, k: string): Promise<string> {
+  if (!(await seen(nodeOf(page, k), 1000))) return '';
+  return nodeOf(page, k).first().evaluate((e) => {
+    const el = (e.getAttribute('aria-label') ? e : e.querySelector('[aria-label]')) ?? e;
+    const ids = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    return (el.getAttribute('aria-description') ?? ids.map((i) => document.getElementById(i)?.textContent ?? '').join(' ')).replace(/\s+/g, ' ').trim().normalize('NFC');
+  });
+}
+export const hoverRing = (page: Page) => main(page).locator('[data-hover-ring]');
+/** Moves the pointer onto a node's shape (two small moves, as a resting pointer). */
+export async function pointAt(page: Page, k: string) {
+  const el = await must(nodeOf(page, k), `node ${k}`);
+  const shape = el.locator('circle, rect, ellipse').first();
+  const box = await ((await shape.count()) ? shape : el).boundingBox();
+  assert.ok(box, `node ${k} has a box`);
+  await page.mouse.move(box!.x + box!.width / 2 - 2, box!.y + box!.height / 2);
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+/** The running animations of the hover ring: count and durations (ms). */
+export async function ringAnimations(page: Page): Promise<number[]> {
+  return main(page).evaluate((m) => {
+    const r = m.querySelector('[data-hover-ring]');
+    if (!r) return [];
+    const all = [r, ...r.querySelectorAll('*')].flatMap((e) => (e as Element).getAnimations());
+    return all.filter((a) => a.playState === 'running').map((a) => Number(a.effect?.getComputedTiming().duration ?? 0));
+  }).catch(() => []);
+}
+/** Pauses an installed clock 1 s ahead (as slice P's hover tests), so `runFor` alone advances it. */
+export async function pauseClock(page: Page) {
+  const t = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(t + 1000));
+}
+export const hint = (page: Page, text: string) => main(page).getByText(text, { exact: true });
+/** The palette's option for `title`: whether it is listed, aria-disabled and its description (reason). */
+export async function paletteEntry(page: Page, title: string): Promise<{ listed: boolean; disabled: boolean; text: string }> {
+  await page.keyboard.press('Meta+k');
+  await must(page.getByRole('dialog', { name: 'Command palette' }), 'the command palette');
+  await page.getByRole('combobox', { name: 'Command query' }).fill(title);
+  await sleep(250);
+  const opt = page.getByRole('listbox', { name: 'Commands' }).getByRole('option').filter({ hasText: title });
+  const listed = (await opt.count()) > 0;
+  const out = listed
+    ? await opt.first().evaluate((e) => ({ disabled: e.getAttribute('aria-disabled') === 'true', text: (e.textContent ?? '').replace(/\s+/g, ' ').trim() }))
+    : { disabled: false, text: '' };
+  await page.keyboard.press('Escape');
+  return { listed, ...out };
+}
