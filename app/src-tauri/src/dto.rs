@@ -282,6 +282,12 @@ pub struct TypeDto {
     pub preview_ignored: Vec<String>,
     /// Properties left out of the attribute panel's rows (FR-TYP-17, D-316).
     pub hidden: Vec<String>,
+    /// The type page's columns after Title as written; null when the key is absent (D-1240, type-columns §2).
+    pub columns: Option<Vec<String>>,
+    /// `columns` entries that are neither properties nor universal keys (D-1245).
+    pub columns_ignored: Vec<String>,
+    /// `columns` is present but not a list of strings: the Columns menu is disabled (D-1245).
+    pub columns_unreadable: bool,
     /// The effective default embed mode: `full`, `card` or `link` (D-417, ms4-embeds §3).
     pub embed: String,
     /// The raw `embed` value of the type file, or null when absent.
@@ -398,6 +404,8 @@ pub enum TypeOpDto {
     Set { field: String, value: Option<String> },
     Review { on: bool },
     Preview { keys: Vec<String> },
+    /// D-1240 (type-columns §2).
+    Columns { keys: Vec<String> },
     /// FR-TYP-17, D-316.
     Hidden { keys: Vec<String> },
     /// D-417 (ms4-embeds §3): `full`, `card` or `link`.
@@ -552,6 +560,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub preview: Option<PreviewUiDto>,
+    /// Type-page column widths in px per type key, then column key (`title` included); machine-local, never in the
+    /// vault (D-1241, type-columns §2); missing reads as empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub type_column_widths: Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>>,
 }
 
 /// Slice P (v1-previews §1): `mode` `click` | `hover` | `off` (anything else reads as `click` in the UI), `hoverDelay`
@@ -1073,7 +1086,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None }
     }
 }
 

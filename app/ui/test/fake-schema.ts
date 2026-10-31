@@ -12,7 +12,7 @@ const REPO = resolve(import.meta.dirname, '../../..');
 const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'];
 const UNIVERSAL_PREVIEW = ['tags', 'source', 'aliases', 'created', 'modified'];
-const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'embed', 'template', 'attributes'];
+const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'columns', 'embed', 'template', 'attributes'];
 /** R31 (D-417): the built-in default embed mode of a type key. */
 const defaultEmbed = (key: string) => (['page', 'quick-note', 'daily-note'].includes(key) ? 'full' : 'card');
 const embedMode = (raw: unknown): string | null => { const m = typeof raw === 'string' ? raw.trim().toLowerCase() : ''; return ['full', 'card', 'link'].includes(m) ? m : null; };
@@ -59,7 +59,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const system = SYSTEM.includes(key);
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
-    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
+    state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], columns: null, columnsIgnored: [], columnsUnreadable: false, embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -104,10 +104,24 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     review: y.review === 'locked' ? 'locked' : y.review === true ? 'on' : 'off', preview,
     previewIgnored: preview.filter((p) => !attributes.some((a: any) => a.key === p) && !UNIVERSAL_PREVIEW.includes(p)),
     hidden: Array.isArray(y.hidden) ? y.hidden.map((x: unknown) => String(x).normalize('NFC')) : [],
+    // D-1240, D-1245 (type-columns §2): `columns` as written; a value that isn't a list of strings reads as absent.
+    ...columnsOf(y, attributes),
     // 4F (D-417, ms4-embeds §3): the raw value and the effective mode.
     embed: embedMode(y.embed) ?? defaultEmbed(key), embedRaw: y.embed === undefined || y.embed === null || String(y.embed).trim() === '' ? null : String(y.embed).trim(),
     template: y.template ?? null, attributes,
   };
+}
+
+const UNIVERSAL_COLUMNS = ['tags', 'source', 'aliases', 'review', 'created', 'modified'];
+function columnsOf(y: any, attributes: { key: string }[]) {
+  const v = y.columns;
+  const ok = Array.isArray(v) && v.every((x: unknown) => typeof x === 'string');
+  const columns: string[] | null = ok ? v : null;
+  const ignored: string[] = [];
+  for (const c of (columns ?? []).map((x) => x.normalize('NFC'))) {
+    if (c !== 'title' && !attributes.some((a) => a.key === c) && !UNIVERSAL_COLUMNS.includes(c) && !ignored.includes(c)) ignored.push(c);
+  }
+  return { columns, columnsIgnored: ignored, columnsUnreadable: v !== undefined && v !== null && !ok };
 }
 
 export function listTypes(files: Files, vers: Record<string, VersionDto>): TypeDto[] {
@@ -254,6 +268,11 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.keys.length > 4) return rule({ reason: 'previewFull' });
       if (JSON.stringify(op.keys) === JSON.stringify(t.preview)) continue;
       setTop(es, 'preview', `preview: ${flow(op.keys)}\n`);
+    } else if (op.op === 'columns') {
+      // D-1240, D-1245: one flow line in NFC; an unreadable value is refused; the same list on an existing key is no write.
+      if (t.columnsUnreadable) return rule({ reason: 'columnsUnreadable' });
+      if (t.columns && JSON.stringify(op.keys) === JSON.stringify(t.columns)) continue;
+      setTop(es, 'columns', `columns: ${flow(op.keys.map((k: string) => k.normalize('NFC')))}\n`);
     } else if (op.op === 'embed') {
       // D-417: the same value (any case) is no write; otherwise the line is replaced or inserted after hidden/preview.
       if (String(t.embedRaw ?? '').toLowerCase() === op.mode) continue;
@@ -281,6 +300,7 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
           const rest = t.hidden.filter((p: string) => p !== nfc(op.key));
           setTop(es, 'hidden', `hidden: ${flow(rest)}\n`);
         }
+        if (t.columns?.some((c: string) => nfc(c) === nfc(op.key))) setTop(es, 'columns', `columns: ${flow(t.columns.filter((c: string) => nfc(c) !== nfc(op.key)).map(nfc))}\n`);
       } else if (op.op === 'moveAttribute') {
         const i = find(op.key);
         if (i < 0 || i === op.to) continue;
@@ -483,7 +503,8 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
         result: objs.map((o) => {
           const values: Record<string, unknown> = {};
           const links: unknown[] = [];
-          for (const k of t?.preview ?? []) {
+          // D-1240: a value for every effective column key (the `columns` list, else the preview keys).
+          for (const k of (t?.columns ?? t?.preview ?? []).map(nfc)) {
             const at = t?.attributes.find((x: any) => x.key === k);
             if (at?.type === 'date-range') { for (const h of ['start', 'end']) if (o.data[`${k}-${h}`] !== undefined) values[`${k}-${h}`] = o.data[`${k}-${h}`]; continue; }
             if (o.data[k] === undefined) continue;
