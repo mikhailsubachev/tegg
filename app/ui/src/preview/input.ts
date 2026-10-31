@@ -1,8 +1,10 @@
-// What an input on a reference does (previews.md R103; docs/contracts/v1-previews.md §3.1): the one source of the
+// What an input on a reference does (previews.md R103, R130; docs/contracts/v1-previews.md §3.1): the one source of the
 // table, so surfaces never branch on the preview mode themselves (contract §11.4).
 import type { PreviewMode } from './types';
 
-export type RefKind = 'chip' | 'row' | 'card' | 'figure';
+/** `embed`: a card embed, or the header title and type icon of a full or section embed; `embedLink`: a link-mode
+ *  embed's chip (D-1183). An embed inside a preview stays a `chip` (D-1174). */
+export type RefKind = 'chip' | 'row' | 'card' | 'figure' | 'embed' | 'embedLink';
 export type RefInput = 'click' | 'dblclick' | 'modClick' | 'modDblclick' | 'enter' | 'modEnter' | 'altSpace' | 'hoverRest' | 'contextmenu';
 export type RefAction = 'preview' | 'open' | 'menu' | 'createOffer' | 'none' | 'default';
 
@@ -14,6 +16,14 @@ function resolved(mode: PreviewMode, kind: RefKind, input: RefInput): RefAction 
     if (input === 'altSpace') return 'preview';
     if (input === 'hoverRest') return 'none';
     if (input === 'click' || input === 'enter' || input === 'contextmenu') return 'default';
+    return 'open';
+  }
+  if (kind === 'embed' || kind === 'embedLink') {
+    // D-1166 (R130): embeds don't preview on a click or hover, in any mode; ⌥Space still previews on request (D-928),
+    // and a link-mode chip's right-click is the `Link` menu (FR-LNK-13 AC-5).
+    if (input === 'altSpace') return 'preview';
+    if (input === 'hoverRest') return 'none';
+    if (input === 'contextmenu') return kind === 'embedLink' ? 'menu' : 'default';
     return 'open';
   }
   switch (input) {

@@ -1,7 +1,8 @@
 // Slice P (v1.0, object previews) L5: the three Object preview modes on every surface. docs/acceptance/previews.md
 // FR-LNK-12 AC-1…AC-7, FR-NAV-08 AC-1 (one parameterized suite over the R104 rows, run in each mode); contract
 // docs/contracts/v1-previews.md §1, §3.1–§3.3. Written from the ACs and the contract only (D-61). The mode is stored
-// before the page loads (ui-state `preview.mode`, v1-previews §9); "click" leaves it out (the default, D-923).
+// before the page loads (ui-state `preview.mode`, v1-previews §9); "click" leaves it out (the fake then stores click,
+// D-1164's test rule).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
@@ -95,13 +96,17 @@ async function clickColumn(page: Page, row: Row, mode: PreviewMode | null) {
   await row.opened(page, `${tag}: ⌘↩`);
 }
 
-for (const row of ROWS) {
+/** D-1166: embeds don't preview on a click or hover, so row 3 (a link-mode embed) leaves the click and hover columns;
+ *  the Off column keeps it (FR-NAV-08 AC-1, FR-LNK-12 AC-6 as changed; its new behaviour is FR-LNK-09 AC-8…AC-11). */
+const POINTER_ROWS = ROWS.filter((r) => r.name !== 'link_mode_embed');
+
+for (const row of POINTER_ROWS) {
   test(`fr_nav_08_ac1_row${String(row.n).padStart(2, '0')}_${row.name}_click_previews_double_click_and_cmd_enter_open`, async ({ page }) => {
     await clickColumn(page, row, null);
   });
 }
 
-for (const row of ROWS) {
+for (const row of POINTER_ROWS) {
   test(`fr_lnk_12_ac6_hover_row${String(row.n).padStart(2, '0')}_${row.name}_rest_previews_click_opens`, async ({ page }) => {
     await arrive(page, row, 'hover');
     const tag = `hover row ${row.n} ${row.name}`;
@@ -146,17 +151,13 @@ for (const row of ROWS) {
 
 // ------------------------------------------------------------------------------------------------ AC-1
 
-test('fr_lnk_12_ac1_click_is_the_default_in_a_new_application_support', async ({ page }) => {
-  const core = await startPreviews(page, { at: PV.odkazy });
-  assert.equal((await core.uiState())?.preview, undefined, 'no stored preview state');
+test('fr_lnk_12_ac1_click_to_preview_when_chosen', async ({ page }) => {
+  // D-1164: hover is the default now (FR-LNK-12 AC-19); click mode is a stored choice.
+  await startPreviews(page, { at: PV.odkazy, mode: 'click' });
   await (await needOdkazyLink(page, 'Hlavní')).click();
-  const d = await needPreview(page, 'Rozpočet 2027', 'a single click previews by default');
+  const d = await needPreview(page, 'Rozpočet 2027', 'a single click previews in click mode');
   assert.ok((await d.innerText()).includes('Double-click or ⌘↩ to open'), 'the footer hint of click mode (preview.hint.click)');
   await page.keyboard.press('Escape');
-  await runCommand(page, 'Go to Settings: Previews');
-  const g = await need(main(page).getByRole('radiogroup', { name: 'Object preview', exact: true }), 'radiogroup "Object preview"', 5000);
-  assert.equal(await g.getByRole('radio', { name: 'Click to preview, double-click to open', exact: true }).getAttribute('aria-checked').catch(() => null)
-    ?? String(await g.getByRole('radio', { name: 'Click to preview, double-click to open', exact: true }).isChecked()), 'true', 'Click to preview is checked');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-2
@@ -274,8 +275,8 @@ test('fr_lnk_12_ac2_typing_scrolling_held_keys_and_buttons_hide_or_block_it', as
   await page.mouse.up();
 });
 
-test('fr_lnk_12_ac2_a_click_inside_a_hover_preview_makes_it_a_clicked_preview', async ({ page }) => {
-  await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
+test('fr_lnk_12_ac2_a_click_inside_a_hover_preview_opens_it', async ({ page }) => {
+  const core = await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 400, install: true });
   await pauseClock(page);
   const chip = await needOdkazyLink(page, 'Hlavní');
   const b = (await chip.boundingBox())!;
@@ -283,14 +284,15 @@ test('fr_lnk_12_ac2_a_click_inside_a_hover_preview_makes_it_a_clicked_preview', 
   await page.clock.runFor(450); await sleep(150);
   const d = await needPreview(page, 'Rozpočet 2027', 'hover');
   const t = await need(content(d, 'Rozpočet 2027').getByText('Návrh rozpočtu na rok 2027 pro celý tým.'), 'body text');
+  const n0 = await mark(core);
   await t.click();
-  await page.mouse.move(1300, 880);
-  await page.clock.runFor(800); await sleep(100);
-  assert.equal(await previewCount(page), 1, 'it stays after the pointer leaves (a clicked preview, FR-LNK-11 AC-2)');
-  assert.equal((await focusInfo(page)).inPreview, true, 'and the focus moved into it');
-  await page.keyboard.press('Escape');
-  await needClosed(page, 'Esc');
-  await chip.click();
+  await page.clock.resume(); // the open runs on the page's own timers and frames
+  // D-1165: a click inside a preview opens the previewed object (no "clicked preview" state, D-942 superseded).
+  await mustBeOn(page, 'Rozpočet 2027', 'a click on the body text of the hover preview opens Rozpočet', 5000);
+  assert.deepEqual(await navsSince(core, n0), [nfc(PV.rozpocet)], 'one nav_opened');
+  assert.equal(await previewCount(page), 0, 'no popover left');
+  await back(page, 'Odkazy');
+  await (await needOdkazyLink(page, 'Hlavní')).click();
   await mustBeOn(page, 'Rozpočet 2027', 'a single click on a reference opens it in hover mode (R103)', 5000);
 });
 
@@ -340,14 +342,15 @@ test('fr_lnk_12_ac4_palette_mode_changes_apply_at_once_and_close_an_open_preview
 // ------------------------------------------------------------------------------------------------ AC-5
 
 test('fr_lnk_12_ac5_the_stored_hover_delay_is_used', async ({ page }) => {
-  await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 1000, install: true });
+  // 1,200 ms: 1,000 ms is the default now (D-1164), so a stored value must differ from it.
+  await startPreviews(page, { at: PV.odkazy, mode: 'hover', hoverDelay: 1200, install: true });
   await pauseClock(page);
   const b = (await (await needOdkazyLink(page, 'Hlavní')).boundingBox())!;
   await page.mouse.move(b.x + 4, b.y + b.height / 2);
-  await page.clock.runFor(940); await sleep(80);
-  assert.equal(await previewCount(page), 0, 'not before 1,000 ms (± 50 ms)');
+  await page.clock.runFor(1140); await sleep(80);
+  assert.equal(await previewCount(page), 0, 'not before 1,200 ms (± 50 ms)');
   await page.clock.runFor(120); await sleep(150);
-  await needPreview(page, 'Rozpočet 2027', 'shown after the 1,000 ms delay');
+  await needPreview(page, 'Rozpočet 2027', 'shown after the 1,200 ms delay');
 });
 
 test('fr_lnk_12_ac5_the_delay_applies_only_in_hover_mode', async ({ page }) => {

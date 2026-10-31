@@ -48,7 +48,11 @@ export const fx = (rel: string) => readFileSync(join(FX, 'inbox', rel), 'utf8');
 export function support(base: string, o: { ui?: Record<string, unknown>; shell?: { showStatusItem: boolean; openAtLogin: boolean }; name?: string } = {}): string {
   const s = join(base, o.name ?? 'support');
   mkdirSync(s, { recursive: true });
-  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, ...(o.ui ?? {}) }));
+  // D-1164's test rule (previews.md part three, AC-test change row 5): `preview.mode = click` unless the test gives its own
+  // `preview`, so the older suites keep their click-mode meaning under the new hover default.
+  const ui = { version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, ...(o.ui ?? {}) };
+  if (!('preview' in ui)) (ui as Record<string, unknown>).preview = { mode: 'click' };
+  writeFileSync(join(s, 'ui-state.json'), JSON.stringify(ui));
   if (o.shell) writeFileSync(join(s, 'shell-settings.json'), JSON.stringify(o.shell));
   return s;
 }

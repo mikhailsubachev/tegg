@@ -600,7 +600,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (n.type.name === 'rawBlock' || (n.isAtom && n.isBlock)) return false; // read-only blocks (D-191)
       if (n.isTextblock) {
         if (first === null) first = p + 1;
-        if (want && n.type.name === 'heading' && n.textContent.normalize('NFC').toLowerCase() === want) pos = p + 1;
+        if (want && !want.startsWith('^') && n.type.name === 'heading' && n.textContent.normalize('NFC').toLowerCase() === want) pos = p + 1;
+        // D-1197: a `#^id` open puts the caret in the block that ends with ` ^id` (read-view FR-EDT-02 AC-7).
+        if (want?.startsWith('^') && n.textContent.normalize('NFC').trimEnd().toLowerCase().endsWith(` ${want}`)) pos = p + 1;
         return false;
       }
       return true;

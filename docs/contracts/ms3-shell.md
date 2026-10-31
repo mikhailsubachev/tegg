@@ -428,7 +428,7 @@ export function createHistory(): {
 - Commands `nav.back` (`Go back`, ⌘[) and `nav.forward` (`Go forward`, ⌘]), section `navigate`, `needsVault: true`; they do nothing when there is nothing in their direction. They replace the R3 disabled controls `ctl.back` / `ctl.forward` (R3 and R4 changed, app-shell.md).
 - Title-bar buttons `Back` / `Forward` keep their labels and `data-command="nav.back"` / `"nav.forward"`; without history in their direction they are `aria-disabled="true"` with no description (not "Coming in", D-130).
 - Mouse: one `mouseup` listener on the window maps `button === 3` to Back and `4` to Forward (and prevents the default), ignored while a dialog is open.
-- Trackpad: a horizontal two-finger swipe (wheel events with |deltaX| > 3 × |deltaY|, accumulated over 120 ms, threshold 80 px, outside horizontally scrollable elements) goes back (swipe right) or forward (swipe left). Manual check only (AC-3).
+- Trackpad and horizontal mouse scrolling never navigate (D-1168): wheel events only scroll what is under the pointer (over the graph they pan it, D-1169). The shell's native `nav:mouse` event (the AppKit monitor's `OtherMouseUp` 3 / 4 and navigation swipes, e.g. a three-finger swipe or a mouse utility's Back) still goes back or forward; a page `mouseup` and a native event of one press within 300 ms are one step. Manual check (AC-3), L5 FR-NAV-03 AC-8…AC-10.
 
 ### 12.3 Logo (D-164)
 

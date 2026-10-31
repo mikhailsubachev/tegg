@@ -10,12 +10,9 @@ import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { Icon } from '../shell/Icon';
 import { displayTitle, labelVisible, typeColour, sortKey, type GraphModel, type ModelNode, type NodeKey } from './graphModel';
 import type { Point } from './layout';
-import type { EdgeKindDto } from './types';
 
-/** R108 lines (D-902): width and dash per style. */
-const LINE: Record<EdgeKindDto, { width: number; dash?: string }> = {
-  embed: { width: 3 }, relation: { width: 1.5, dash: '5 4' }, link: { width: 1.5 }, tag: { width: 1, dash: '1 3' },
-};
+/** D-1167: every edge is one 1.5 px solid line (R108); its kinds stay data (`data-kinds`, `data-style`, D-1177). */
+const EDGE_WIDTH = 1.5;
 const TAG_COLORS = new Set(['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow']);
 const LABEL_MAX = 150;
 /** Slice G2 (R114, D-1031): the panel's label width. */
@@ -262,13 +259,12 @@ export function GraphCanvas(p: CanvasProps) {
             const pa = a && positions.get(a.key), pb = b && positions.get(b.key);
             if (!a || !b || !pa || !pb) return null;
             const touches = !!near && (a.sortKey === near.sort || b.sortKey === near.sort);
-            const line = LINE[e.style];
             const kinds = [...new Set(e.ways.map((w) => w.kind))].join(' ');
             return (
               <line key={`${a.sortKey}|${b.sortKey}`} data-graph-edge="" data-a={a.sortKey} data-b={b.sortKey} data-kinds={kinds} data-style={e.style}
                 x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
                 className={`graph-edge${touches ? ' hl' : ''}`}
-                style={{ strokeWidth: line.width, strokeDasharray: line.dash ?? 'none', opacity: near && !touches ? 0.35 : 1 }} />
+                style={{ strokeWidth: EDGE_WIDTH, strokeDasharray: 'none', opacity: near && !touches ? 0.35 : 1 }} />
             );
           })}
         </g>

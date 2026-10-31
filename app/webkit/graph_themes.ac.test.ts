@@ -1,8 +1,8 @@
 // Slice G1, L5 (WebKit + fake core): the full view in both themes (docs/acceptance/graph.md FR-UX-05 AC-15, FR-TAG-05
 // AC-9; boards GraphDark, GraphStatesDark, GraphDetailsDark A): axe `color-contrast` with zero violations; app-shell
-// FR-UX-05 AC-5 (no colour that isn't a token of the theme, now also for SVG fill and stroke); edges `--edge`, the
-// selected node's edges `--hl`; each R110 state; the tag pills in each of the eight colours. Written from the ACs and the
-// contracts only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
+// FR-UX-05 AC-5 (no colour that isn't a token of the theme, now also for SVG fill and stroke); edges `--muted`
+// (D-1167), the selected node's edges `--hl`; each R110 state; the tag pills in each of the eight colours. Written from
+// the ACs and the contracts only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast, colourLeaks } from './read-helpers';
@@ -47,8 +47,9 @@ for (const theme of ['light', 'dark'] as const) {
     await clickNode(page, P.rozpocet);
     await check(page, theme, 'Plán d2 with Rozpočet selected');
     assert.deepEqual(await svgLeaks(page, theme), [], `${theme}: node fills, borders, icons, edges, canvas dots and pills use the theme's tokens`);
-    const edge = await tokenColour(page, 'edge'), hl = await tokenColour(page, 'hl');
-    assert.equal((await edgeStyle(page, P.plan, P.zapis))?.stroke, edge, `${theme}: an edge is --edge`);
+    // D-1167, D-1178: an edge is the theme's --muted; the selected node's edges stay --hl.
+    const edge = await tokenColour(page, 'muted'), hl = await tokenColour(page, 'hl');
+    assert.equal((await edgeStyle(page, P.plan, P.zapis))?.stroke, edge, `${theme}: an edge is --muted`);
     assert.equal((await edgeStyle(page, P.plan, P.rozpocet))?.stroke, hl, `${theme}: the selected node's edge is --hl`);
   });
 

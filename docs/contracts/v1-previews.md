@@ -13,12 +13,12 @@ Slice P adds **no vault write** except the two link edits of §5.3, which go thr
 ```ts
 type UiStateDto = {
   // … as before (version stays 1) …
-  /** Slice P (D-923, D-922): the Object preview setting and the last popover size; missing reads as the defaults. */
+  /** Slice P (D-923, D-922; D-1164): the Object preview setting and the last popover size; missing reads as the defaults. */
   preview?: PreviewUiDto;
 };
 type PreviewUiDto = {
-  mode?: 'click' | 'hover' | 'off';   // missing or unknown → 'click'
-  hoverDelay?: number;                // ms, 200…1500 in steps of 100; missing → 400; out of range → clamped, off-step → nearest step
+  mode?: 'click' | 'hover' | 'off';   // missing or unknown → 'hover' (D-1164, D-1172)
+  hoverDelay?: number;                // ms, 200…1500 in steps of 100; missing → 1000 (D-1164); out of range → clamped, off-step → nearest step
   width?: number;                     // px, 300…720; missing → 380
   height?: number;                    // px, 200…800; missing → content height up to 480
 };
@@ -29,6 +29,9 @@ type PreviewUiDto = {
   the resize handle removes `width` and `height`.
 - Read at start from `window.__TEGG_UI_STATE__`, else `ui_state_get`. The capture window doesn't read it (it has no
   references).
+- v0.94 (D-1164, D-1172): the default is `hover` with 1,000 ms. A value already stored stays as stored (no migration),
+  and a missing or bad value is read as the default without being written: nothing is written until the user changes
+  the setting, and then only the changed field (FR-SET-07 AC-3). Choosing the mode already in effect writes nothing.
 - The Rust `UiState` struct gains `preview: Option<PreviewUi>` with `#[serde(default)]`; unknown fields inside are kept
   on write, as for the other sub-objects.
 - Tegg Preview builds use their own Application Support (D-118), so their setting is separate.
@@ -96,7 +99,7 @@ export function usePreview(): {
 
 ```ts
 // preview/input.ts
-type RefKind = 'chip' | 'row' | 'card' | 'figure';
+type RefKind = 'chip' | 'row' | 'card' | 'figure' | 'embed' | 'embedLink';
 type RefInput = 'click' | 'dblclick' | 'modClick' | 'modDblclick' | 'enter' | 'modEnter' | 'altSpace' | 'hoverRest' | 'contextmenu';
 type RefAction = 'preview' | 'open' | 'menu' | 'createOffer' | 'none' | 'default';
 export function resolveRefInput(mode: 'click' | 'hover' | 'off', kind: RefKind, input: RefInput, broken: boolean): RefAction;
@@ -107,6 +110,13 @@ Exactly R103 with D-925 (⌘ inputs → `open`), D-928 (`altSpace` → `preview`
 i.e. D-622 selection; `altSpace` → `preview`), D-939 (broken: `altSpace` → `none`, everything else → `createOffer`),
 `contextmenu` on a `chip` in an editable note → `menu`, elsewhere `default`. `default` means the element's existing
 behaviour. Tests: `app/test/previews_input.ac.test.ts` table-driven over all combinations.
+
+v0.94 (previews.md R130; D-1166, D-1183): two kinds for embeds, the same in every mode. `embed` is a card embed, or the
+header title and type icon of a full or section embed; `embedLink` is a link-mode embed's chip. `click`, `dblclick`,
+`modClick`, `modDblclick`, `enter` and `modEnter` → `open`; `hoverRest` → `none`; `altSpace` → `preview` (D-928);
+`contextmenu` → `menu` on `embedLink`, `default` on `embed`. A broken embed: what would open → `createOffer`,
+`altSpace` → `none`, `hoverRest` → `none`, `contextmenu` as a resolved one. An embed inside a preview stays a `chip`
+(D-933, D-1174: it behaves as a link inside the preview). Tests: `app/test/previews_v094.ac.test.ts`.
 
 ### 3.2 References: one hook for every surface (R104)
 
@@ -125,7 +135,8 @@ export function useReference(opts: {
 
 - A single click in click mode waits for no double-click timer: the preview opens on the first click and a second
   click within the system double-click interval opens and closes the preview (D-37; previews.md R103 row 2).
-- The mode's description (`link.hint.click` / `link.hint.hover`; none when Off) is added to the element's own `aria-description` (`Unreviewed`, `In trash`, an embed's), joined by `, ` (FR-LNK-11 AC-13); the editor's chips get it from `EditorUi.linkHint()` (§5.1).
+- The mode's description (`link.hint.click` / `link.hint.hover`; none when Off) is added to the element's own `aria-description` (`Unreviewed`, `In trash`), joined by `, ` (FR-LNK-11 AC-13); the editor's chips get it from `EditorUi.linkHint()` (§5.1). An embed (`embed`, `embedLink`) carries no mode description in any mode (D-1175): a link-mode embed is described `Embedded note`.
+- A double-click whose first click already opened the target (hover and Off, an embed) opens once.
 - A chip in a read-only view (`menu` option) opens the `Link` menu with `Open` and `Show preview` on a right-click (FR-LNK-13 AC-5).
 - Components for surfaces: `RefElement` (`preview/useReference.ts`, rows and card titles), `RefAnchor` and `chipReference` (`links/ChipParts.tsx`, link chips of the panel and the Properties strip).
 - Surfaces wired (R104): `read/ReadView.tsx` and the read-view chips (`links/ChipParts.tsx`), `embeds/Embed.tsx`
@@ -150,12 +161,22 @@ body (its own scroll container), footer, `Close preview`, resize handle `[data-p
   the focus to the anchor (in the editor: the caret after the chip, §5). Tab past the last control closes it
   (`close('tab')`) and lets the focus move on.
 - **Outside click:** a `pointerdown` listener in the capture phase closes the popover and does **not** stop the event.
-- **History** (D-932): a stack inside the popover; a click on a reference in the body pushes and replaces the
-  content; `Back to <title>` pops; the stack is dropped on close.
+- **History** (D-932): a stack inside the popover; a reference in the body or the strip pushes and replaces the
+  content when its input previews (R129: a click in click mode, resting on it in hover mode, ⌥Space in every mode);
+  `Back to <title>` pops; the stack is dropped on close. A replacement in a hover preview doesn't move the focus.
+- **A click inside** (previews.md R129; D-1165, D-1173): a primary click on the header, the strip or the body (outside
+  links, cards and controls) opens the previewed object as `Open` does at that moment, in every mode and in the graph's
+  column. Not an open: a press that moved ≥ 4 px, a press on the body's scrollbar, a click that leaves a selection
+  inside the popover or only collapses one, a click with ⌘, ⌃, ⌥ or ⇧, the second click of a double-click, the footer,
+  `Open` while it is `aria-disabled`. Links, embed cards, `Back to <title>`, `Close preview` and the resize handle keep
+  their own job; the keyboard is unchanged.
 - **Hover** (D-942): the provider starts the delay on `pointermove` over a reference and restarts it on each move;
   `keydown`, `wheel`, `scroll`, and a held button cancel it; leaving both the reference and the popover starts the
-  300 ms grace (D-917); a click inside a hover popover turns its origin into `click` and focuses it.
+  300 ms grace (D-917). D-1165 supersedes "a click inside a hover popover turns its origin into `click`": the click
+  opens the object.
 - **Reduce motion** (FR-UX-08): no open/close transition.
+- v0.94 fixes: the strip's relation chips are references (D-1189 a); a double-click on the resize handle only resets
+  the size, and Back forgets the link just followed, so neither opens it (D-1190). A replaced preview keeps its place.
 
 ### 3.4 Content (`preview/load.ts`, `preview/PreviewBody.tsx`)
 
@@ -196,7 +217,7 @@ gone: `index_path_by_id(id)`; a path → follow it (`data-preview-path` updated)
 
 | Element | Role | Name / value |
 | --- | --- | --- |
-| Mode | `radiogroup` `Object preview` | three `radio`s with `settings.preview.click` / `.hover` / `.off` |
+| Mode | `radiogroup` `Object preview` | three `radio`s, in this order (D-1164): `settings.preview.hover` / `.click` / `.off` |
 | Delay | `slider` `Hover delay` | `aria-valuemin=200`, `max=1500`, step 100, `aria-valuetext` `<n> ms`; `aria-disabled` unless the mode is Hover; description `Used with Hover to preview.` |
 
 A change applies at once in every open window (the provider re-reads the store), with one `ui_state_set` (§1).
@@ -274,6 +295,9 @@ The graph calls `show(target, anchor, 'click' | 'hover' | 'key', host, extraLine
   closing, inside the given container (the full view's right column); `'popover'` is the panel case.
 - `extraLine` is the D-917 line (`<Type> · <n> connections`), rendered after the type name (previews.md
   FR-LNK-10 AC-16). Slice P ships the slot and its L1 test only.
+- v0.94 (D-1165, D-1170): a click on the column's or the panel popover's header, strip or body opens the node's object
+  as its `Open` does (§3.3, R129); its links follow the mode as in any preview. The strip's relation chips are
+  references in every preview (D-1189).
 
 ## 8. Speed (NFR-PERF-12, D-940)
 

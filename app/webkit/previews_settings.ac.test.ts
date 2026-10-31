@@ -22,7 +22,8 @@ test.use({ timezoneId: 'Europe/Prague' });
 const CLICK = 'Click to preview, double-click to open';
 const HOVER = 'Hover to preview, click to open';
 const OFF = 'Off: click opens';
-const RADIOS = [CLICK, HOVER, OFF];
+/** D-1164: Hover, the default, comes first. */
+const RADIOS = [HOVER, CLICK, OFF];
 const CMD_IDS: Record<string, string> = { [CLICK]: 'preview.mode.click', [HOVER]: 'preview.mode.hover', [OFF]: 'preview.mode.off' };
 
 const group = (page: Page) => main(page).getByRole('radiogroup', { name: /^⟦?Object preview⟧?$/ });
@@ -72,24 +73,25 @@ test('fr_set_07_ac1_the_previews_section_is_built', async ({ page }) => {
     const id = r.getAttribute('aria-labelledby');
     return (r.getAttribute('aria-label') ?? (id ? document.getElementById(id)?.textContent : null) ?? (r as HTMLInputElement).labels?.[0]?.textContent ?? r.textContent ?? '').replace(/\s+/g, ' ').trim();
   })));
-  assert.deepEqual(names, RADIOS, 'the three radios in order');
-  assert.deepEqual(await checkedRadios(page), [CLICK], 'Click to preview is checked by default');
+  assert.deepEqual(names, RADIOS, 'the three radios in order (Hover, Click, Off, D-1164)');
+  // Click stored (D-1164's test rule); with nothing stored Hover is checked (FR-SET-07 AC-6).
+  assert.deepEqual(await checkedRadios(page), [CLICK], 'Click to preview is checked');
   const s = await sliderState(page);
-  assert.deepEqual({ min: s.min, max: s.max, now: s.now, text: s.text }, { min: '200', max: '1500', now: '400', text: '400 ms' }, 'slider Hover delay 200…1500, 400, "400 ms"');
+  assert.deepEqual({ min: s.min, max: s.max, now: s.now, text: s.text }, { min: '200', max: '1500', now: '1000', text: '1000 ms' }, 'slider Hover delay 200…1500, 1000, "1000 ms" (D-1164)');
   assert.equal(s.disabled, true, 'the slider is aria-disabled unless hover is checked');
   assert.equal(await description(slider(page)), 'Used with Hover to preview.', 'the note "Used with Hover to preview."');
   assert.ok(await seen(main(page).getByText('Used with Hover to preview.', { exact: true }), 500), 'the note is shown');
-  // Arrow keys move within the radiogroup.
+  // Arrow keys move within the radiogroup (Hover, Click, Off).
   await radio(page, CLICK).first().focus();
   await page.keyboard.press('ArrowDown');
   await sleep(60);
-  assert.equal(await focusInside(radio(page, HOVER)), true, '↓ moves to "Hover to preview, click to open"');
+  assert.equal(await focusInside(radio(page, OFF)), true, '↓ moves to "Off: click opens"');
   await page.keyboard.press('ArrowUp');
   await sleep(60);
   assert.equal(await focusInside(radio(page, CLICK)), true, '↑ moves back');
   await page.keyboard.press('ArrowRight');
   await sleep(60);
-  assert.equal(await focusInside(radio(page, HOVER)), true, '→ moves too');
+  assert.equal(await focusInside(radio(page, OFF)), true, '→ moves too');
   await page.keyboard.press('ArrowLeft');
   await sleep(60);
   assert.equal(await focusInside(radio(page, CLICK)), true, '← moves too');
@@ -98,9 +100,9 @@ test('fr_set_07_ac1_the_previews_section_is_built', async ({ page }) => {
   assert.equal((await sliderState(page)).disabled, false, 'the slider is enabled with hover checked');
   await slider(page).first().focus();
   await page.keyboard.press('ArrowRight');
-  assert.equal((await sliderState(page)).now, '500', '→ adds 100 ms');
+  assert.equal((await sliderState(page)).now, '1100', '→ adds 100 ms');
   await page.keyboard.press('ArrowLeft');
-  assert.equal((await sliderState(page)).now, '400', '← takes 100 ms');
+  assert.equal((await sliderState(page)).now, '1000', '← takes 100 ms');
   await page.keyboard.press('End');
   assert.deepEqual([(await sliderState(page)).now, (await sliderState(page)).text], ['1500', '1500 ms'], 'End: 1500');
   await page.keyboard.press('Home');
@@ -115,7 +117,8 @@ test('fr_set_07_ac1_the_previews_section_is_built', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-SET-07 AC-2 (L5)
 
 test('fr_set_07_ac2_hover_and_600_ms_are_stored_machine_local_and_the_vault_is_untouched', async ({ page }) => {
-  const core = await startPv(page, PV.odkazy);
+  // D-1192: the delay is stored at 400 ms first, so the two steps reach 600 under the 1,000 ms default (D-1164).
+  const core = await startPv(page, PV.odkazy, { preview: { hoverDelay: 400 } });
   const before = hash(await core.files());
   await gotoPreviews(page, 'Settings: Previews');
   const from = await callCount(core);

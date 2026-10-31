@@ -99,8 +99,8 @@ for (const theme of ['light', 'dark'] as const) {
       assert.equal(b.bc, border, `${what}: embed-border`);
       assert.equal(b.bg, bg, `${what}: embed-bg`);
       assert.ok(b.icon, `${what}: data-icon of the target type`);
-      // D-949: a previewable reference adds its mode description in click mode (FR-LNK-11 AC-13).
-      assert.equal(d, 'Embedded note, Click to preview, double-click to open', `${what}: description`);
+      // D-1175: an embed carries no preview-mode description in any mode (FR-LNK-11 AC-13 as changed).
+      assert.equal(d, 'Embedded note', `${what}: description`);
     }
     const chip = await must(main(page).locator('[data-link-kind="note"]').filter({ hasText: /^\s*Cíl\s*$/ }), 'the [[Cíl]] link chip');
     const c = await boxOf(chip);

@@ -245,11 +245,24 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
     // Every embed of Vložení.
     await openNote('Vložení');
     assert.ok(await waitMark(c.log, `route-ready:note/${P.vlozeni}`, 5000), 'Vložení shown');
-    await previewAndClose(d, await need(d, 'Jana Nováková'), 'Jana Nováková', 'the card embed of Jana');
-    await previewAndClose(d, await need(d, 'Petr Dvořák'), 'Petr Dvořák', 'the link-mode embed of Petr');
-    await previewAndClose(d, await need(d, 'Rozpočet 2027'), 'Rozpočet 2027', 'the full embed\'s header title');
-    const sec = await needAny(d, ['Rozpočet 2027 › Rozsah', 'Rozsah']);
-    await previewAndClose(d, sec, null, 'the section embed\'s header title');
+    // D-1166: a click on an embed opens it, so the tour previews them on request: ⌥Space with the embed selected as a
+    // block (↓ from the paragraph above walks the blocks, embeds.md FR-EMB-02 AC-14), and the Link menu's Show preview.
+    await (await need(d, 'Před vloženími.')).click();
+    press('end');
+    for (const [title, what] of [['Rozpočet 2027', 'the full embed'], ['Jana Nováková', 'the card embed of Jana'], [null, 'the section embed']] as const) {
+      press('down');
+      if (title === null) press('down'); // past Petr's link-mode embed
+      await sleep(200);
+      press('space', ['option']);
+      assert.ok(await previewShown(d, title, 3000), `${what}: ⌥Space on the selected embed previews it`);
+      press('escape');
+      assert.ok(await noPreview(d), `${what}: Esc closes the preview`);
+    }
+    await d.execute('macos: rightClick', { elementId: (await need(d, 'Petr Dvořák')).elementId });
+    await (await need(d, 'Show preview')).click();
+    assert.ok(await previewShown(d, 'Petr Dvořák', 3000), 'the link-mode embed of Petr: the Link menu\'s Show preview');
+    press('escape');
+    assert.ok(await noPreview(d), 'Petr: Esc closes the preview');
     await (await needAny(d, ['Graf', 'graf.png'])).click();
     await sleep(200);
     press('space', ['option']);
@@ -320,7 +333,8 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
 
 test('fr_set_07_ac2_hover_and_600_ms_survive_a_relaunch_and_apply_in_another_vault', { timeout: 400_000 }, async () => {
   await ready();
-  const c = fresh('set07ac2');
+  // D-1192: the delay is stored at 400 ms first (click mode as D-1164's test rule), so the two steps reach 600.
+  const c = fresh('set07ac2', { preview: { mode: 'click', hoverDelay: 400 } });
   const before = tree(c.vault);
   const other = previewsCopy(c.base, 'Druhý trezor');
   try {

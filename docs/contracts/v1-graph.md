@@ -51,7 +51,7 @@ pub struct GraphNode {
 pub struct GraphEdge {
     pub a: NodeId, pub b: NodeId,       // a < b by sort key (§1.6)
     pub ways: Vec<EdgeWay>,             // every way the pair is joined, visible or not; order §1.6
-    pub style: EdgeKind,                // the strongest **visible** kind (D-973)
+    pub style: EdgeKind,                // the strongest **visible** kind (D-973); data only since D-1177 (§18.1)
 }
 pub struct EdgeWay {
     pub kind: EdgeKind,
@@ -177,7 +177,7 @@ Generated from Rust like the other DTOs (architecture §6). No new event.
 | `graphModel.ts` | Pure: `GraphResultDto` → view model (node sizes per R113 and D-975 steps, label rules D-985, the connection phrases of D-982 from `ways`, heading and banner texts). L1-tested without the DOM. |
 | `layout.ts` | Pure over d3-force (ADR 0004): `layout(model, size, previous?) → Map<NodeKey, {x, y}>`, where `NodeKey` is `objectId` when present, else the sort key (§1.6), so a renamed node keeps its place and its selection (FR-GRP-01 AC-13). Seeded, centre pinned at the canvas centre, run to rest synchronously (no rAF ticks); with `previous`, surviving nodes are fixed at their old positions and new ones start next to their first kept neighbour (D-913). |
 | `GraphPage.tsx` | The route: request lifecycle (§6), state (§5), the 300 ms loading rule (D-912), R110 states, history. |
-| `GraphCanvas.tsx` | SVG `role="group"`: one `<g data-graph-node tabindex="-1">` per node (G3 adds roving focus), one `<line data-graph-edge>` per edge (R109 data attributes), zoom and pan (D-985), selection and hover highlight (D-983), fades per D-992 (none under Reduce motion). |
+| `GraphCanvas.tsx` | SVG `role="group"`: one `<g data-graph-node tabindex="-1">` per node (G3 adds roving focus), one `<line data-graph-edge>` per edge (R109 data attributes; one line style since D-1167, §18.1), zoom and pan (D-985; wheel and pinch, §18.2), selection and hover highlight (D-983), fades per D-992 (none under Reduce motion). |
 | `GraphFilters.tsx` | `complementary` `Graph filters`: Types (`All`, `None`, one checkbox per type in D-121 order then Tag then undefined types, D-977), Connections, `Size nodes by links`. Slot above Types for G3's preset select. |
 
 Commands (`shell/commands.ts`, section `navigate`, `needsVault: true`): `graph.open` (⌘⇧G), `graph.depth1`…`depth3`,
@@ -934,3 +934,45 @@ Owner, 2026-10-30, from the QA review of G3 in the panel:
 - **D-1161** `nfr_oth_02_ac15_panel_g3_strings_in_the_catalog` runs `Object preview: Hover to preview` and `Object preview: Off` without `.catch`, so a failed mode switch fails the test, and finds the footer by each mode's own pseudo-locale text (`graph.panel.footerHover`, `graph.panel.footerOff`), not by any `⟦…objects…⟧` text.
 - **D-1162** `tabNeighbour` on the panel's canvas skips a button without an explicit `tabindex`, as WebKit's own Tab: ⇧Tab from Plán focuses `List`, the last `View` button, and `Open full view` stays out of the tab order (D-1156). The full view's canvas keeps its toolbar buttons as neighbours (FR-UX-03 AC-22).
 - **D-1163** The catalog key `graph.a11y.name` `{title}, {type}` names a canvas node (`[data-graph-node]`) and a List `treeitem`. `data-user-content` sits only on the row title and the node label `<text>`, so the pseudo-locale check (NFR-OTH-02 AC-15) covers the rows' and nodes' catalog texts and `aria-description`.
+
+## 18. v0.94: one edge style, wheel and pinch, clicks inside the preview
+
+The graph side of the v0.94 feedback (graph.md part three; D-1164…D-1171, D-1177…D-1180, D-1189). The full view and
+the panel alike; nothing here writes (previews.md FR-SYN-06 AC-42).
+
+### 18.1 One edge style (R108; D-1167, D-1177, D-1178)
+
+- Every `[data-graph-edge]` is one 1.5 px solid line in `--muted` (`stroke-width: 1.5`, no `stroke-dasharray`, no
+  marker), whatever its kinds; still one line per pair (D-902). The `--edge` token is gone.
+- The edges of the selected, hovered or focused node are `--hl` at 1.5 px and the others go to 0.35 opacity, as before
+  (D-1178).
+- `GraphEdge.style` (§1) and the DOM's `data-style` stay as data: the strongest visible kind, which orders the kinds in
+  the connection phrases (D-982). Nothing draws from them (D-1177). `data-kinds` lists the visible kinds.
+- `GraphFilters.tsx`: `Connections` holds the four checkboxes with their labels and no line sample.
+
+### 18.2 Wheel and pinch (`graph/canvasInput.ts`; D-1169, D-1179, D-1180)
+
+One module installs the window listeners for both views (`installCanvasInput({ box, setView, onInput })`):
+
+| Input over the canvas `svg` | Effect |
+| --- | --- |
+| `wheel` without ⌘ / ⌃ | pans by (−deltaX, −deltaY) screen pixels at any zoom, no limit (line and page deltas converted to pixels) |
+| `wheel` with `metaKey` or `ctrlKey` | zoom × 1.25^(−deltaY ⁄ 120) around the pointer (a 120 px notch is one × 1.25 step) |
+| `gesturestart` / `gesturechange` / `gestureend` (WebKit pinch) | zoom = the zoom at `gesturestart` × the event's `scale`, around its `clientX` / `clientY` |
+
+- Zoom stays within `ZOOM_MIN`…`ZOOM_MAX` (25–400 %, D-985); "around the pointer" keeps the drawing's point under the
+  pointer in place (`zoomAround`). `Zoom in`, `Zoom out` and `+` / `−` zoom × 1.25 around the canvas's centre
+  (`zoomCentre`); `Fit to screen` / `0` as before.
+- Every such event is `preventDefault`ed: the page, the tab panel and the note behind don't scroll, and WebKit doesn't
+  zoom the page. A horizontal wheel never navigates (D-1168, ms3-shell §12.2).
+- Any wheel or pinch whose target is inside the canvas's box calls `onInput` (it hides a hover preview, AP-941); in
+  List the box holds the tree, which scrolls as a list (no pan, no zoom).
+- Panning sends no `graph_neighbourhood` and no `ui_state_set` (the camera isn't stored, D-913).
+
+### 18.3 The preview (v1-previews §3.3, §7; D-1164, D-1165, D-1170, D-1189)
+
+- With nothing stored the graph is in hover mode: the hint `graph.hint.hover`, the ring filling over 1,000 ms.
+- A click on the column's or the panel popover's header, strip or body opens the node's object as its `Open` does
+  (previews.md R129); `Center graph here`, `In full graph` and `Open` keep their jobs.
+- The strip's relation chips are references (`types/cell.tsx` with `refs`): in click mode a click replaces the
+  content with `Back to <title>` (D-932, the bug of D-1189 a), in hover mode resting on one does and a click opens it.
