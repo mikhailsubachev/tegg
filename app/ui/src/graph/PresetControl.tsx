@@ -138,9 +138,13 @@ export function PresetControl(p: PresetControlProps) {
   };
 
   // ------------------------------------------------------------------ actions
+  // Closed at once for the menu's own effects: a choice made before React ran an earlier render's effects (a pointer
+  // move setting the active item) must not have the item take the focus back from where the choice sends it (#108).
+  const menuOpen = useRef(false);
+  const hideMenu = () => { menuOpen.current = false; setMenu(null); };
   const closeMenu = (focus: boolean) => {
     const back = menu?.returnTo ?? null;
-    setMenu(null);
+    hideMenu();
     if (!focus) return;
     // Over the open Save dialog the menu gives the focus back to its field (FR-SYN-03 AC-22).
     if (save && nameInput.current) nameInput.current.focus();
@@ -148,17 +152,18 @@ export function PresetControl(p: PresetControlProps) {
     else backToButton();
   };
   const choose = (preset: typeof current) => { closeMenu(true); setAlert(null); p.onApply(applyPreset(graphRef.current, preset)); };
-  const openSave = () => { if (readOnly) return; setMenu(null); setConfirm(false); setAlert(null); setSave({ name: '', tried: false, error: null }); };
+  const openSave = () => { if (readOnly) return; hideMenu(); setConfirm(false); setAlert(null); setSave({ name: '', tried: false, error: null }); };
   const doUpdate = () => {
     if (!current || updateReason) return;
-    setMenu(null);
+    hideMenu();
     void run({ op: 'update', name: current.name, hiddenTypes: p.graph.hiddenTypes ?? [], hiddenKinds: (p.graph.hiddenKinds ?? []) as string[] });
   };
   const doRevert = () => { if (!modified) return; setAlert(null); p.onApply(applyPreset(graphRef.current, current)); };
-  const startRename = () => { if (!current || readOnly) return; setMenu(null); setAlert(null); setRename({ text: current.name, error: null }); };
-  const openDelete = () => { if (!current || readOnly) return; setMenu(null); setAlert(null); setConfirm(true); };
+  const startRename = () => { if (!current || readOnly) return; hideMenu(); setAlert(null); setRename({ text: current.name, error: null }); };
+  const openDelete = () => { if (!current || readOnly) return; hideMenu(); setAlert(null); setConfirm(true); };
   const openMenu = (returnTo?: HTMLElement | null) => {
     setActive(-1);
+    menuOpen.current = true;
     setMenu({ returnTo: returnTo ?? button.current });
   };
   if (p.actionsRef) p.actionsRef.current = { openMenu, save: openSave, update: doUpdate, revert: doRevert, rename: startRename, remove: openDelete };
@@ -214,7 +219,7 @@ export function PresetControl(p: PresetControlProps) {
   const focusable = entries.filter((e): e is Entry => e !== 'separator');
   // The menu opens with the focus on the checked item.
   useEffect(() => {
-    if (!menu) return;
+    if (!menu || !menuOpen.current) return;
     if (active < 0) { setActive(Math.max(0, focusable.findIndex((e) => e.checked))); return; }
     items.current[active]?.focus();
   }, [menu, active]);
@@ -242,7 +247,7 @@ export function PresetControl(p: PresetControlProps) {
     const outside = (e: PointerEvent) => {
       const tg = e.target as Node;
       if (layer.current?.contains(tg) || button.current?.contains(tg)) return;
-      setMenu(null);
+      hideMenu();
     };
     document.addEventListener('pointerdown', outside, true);
     return () => document.removeEventListener('pointerdown', outside, true);
