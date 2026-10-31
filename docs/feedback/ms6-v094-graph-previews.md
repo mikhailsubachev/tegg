@@ -91,3 +91,8 @@ fixture, not in the build. None of them was changed. Decisions go to D-1191…D-
 | AP-1025 | **How three table rows were read.** Row 11 also moves the slider default (1,000), the arrow-step values (1,100 / 1,000) and the arrow targets under the new order; row 22's L6 test previews Vložení's embeds with ↓ selection plus ⌥Space and the right-click `Show preview` (written, not run before a built app); row 5 doesn't cover suites that write their own `ui-state.json` (e.g. `ms4_links`), as they don't go through `support()`. | Accept as built | — |
 
 Decided (owner, 2026-10-31), all as proposed: AP-1020…AP-1025 → **D-1191…D-1196** (BRD v1.136).
+
+| Point | Question | Proposal | Alternative |
+|---|---|---|---|
+| AP-1026 | **The editor doesn't scroll to a `#^id` block on open** (found by FR-LNK-11 AC-17, editor). Opening `[[Rozpočet 2027#^otazka1]]` in the editor leaves the block 706 px down; the read view lands on it. The editor renders no `id="^otazka1"` and its caret code matches headings only. An existing bug, not a v0.94 change. | Bug fix in this slice: on a `^id` open the editor scrolls the block to the top (as far as the pane can scroll) and puts the caret in it, as the read view does (FR-EDT-02 AC-7); a regression test `bug_v094gp_fr_lnk_11_editor_block_open_…` first | AC-17's block step applies to the read view only; the editor gap goes to its own issue |
+| AP-1027 | **The whole-pixel reading of D-1193.** Rozpočet's centre sits on a fractional pixel, so the corrected FR-GRP-01 AC-48 / AC-49 tests first pan the drawing by that fraction with one synthetic wheel, then zoom at the node's now whole-pixel point. | Accept | The tests round the point instead and widen the tolerance to 1 px |
