@@ -1,18 +1,19 @@
 # Contract: configurable type-page columns (v0.94 feedback; D-1240…D-1252)
 
-ACs: [docs/acceptance/type-columns.md](../acceptance/type-columns.md) (FR-TYP-09 AC-18…AC-34, FR-TYP-11 AC-4, AR-07 AC-8) and its table R130. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests. Extends [ms3-shell.md](ms3-shell.md) §14 (types) and replaces §15.7's link to `preview`. Approved criteria, 2026-10-30.
+ACs: [docs/acceptance/type-columns.md](../acceptance/type-columns.md) (FR-TYP-09 AC-18…AC-34, FR-TYP-11 AC-4, AR-07 AC-8) and its table R130. Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests. Extends [ms3-shell.md](ms3-shell.md) §14 (types) and replaces §15.7's link to `preview`. Approved criteria, 2026-10-30; red tests 759ad83, red-test decisions D-1253…D-1255.
 
 ## 1. `tegg-schema` (`crates/tegg-schema`)
 
 - `TypeFile` gains `pub columns: Option<Vec<String>>` (None = key absent; `Some(vec![])` = `columns: []`), read from a flow or block list of strings, keys as written (NFC matching is the reader's job). `CURRENT_VERSION` stays 1 (D-1251).
 - A `columns` value that is neither a list nor absent (scalar, mapping, a list holding a non-string) does not make the file invalid: `columns` reads as None and `Parsed` gains `columns_unreadable: bool` (AC-25 (d)). `Parsed` also gains `columns_ignored: Vec<String>`: entries that are neither an attribute key, a universal key of R130 (`tags`, `source`, `aliases`, `review`, `created`, `modified`) nor anything else readable; `title` is skipped without a warning (D-1245).
-- `TOP_ORDER` gains `columns` after `hidden`: `… preview, hidden, columns, embed, template, attributes` (D-1243). Whole-file writers (new type, starter, built-in) never write `columns` (AR-07 AC-8).
+- `TOP_ORDER` gains `columns` after `hidden`: `… preview, hidden, columns, embed, template, attributes` (D-1243). New, starter and built-in type files have no `columns`; `serialize` writes the key only when the definition has one (AR-07 AC-6 round trip, D-1255).
 - `TypeOp::SetColumns(Vec<String>)`: writes only the `columns` line(s) as one flow list (`render_top`), inserting the line at its TOP place when absent; a block list is replaced by the one flow line; keys written NFC; no limit; refused (`RuleError::ColumnsUnreadable`) when `columns_unreadable`. A no-op when the list is unchanged and the key exists.
 - `TypeOp::RemoveAttribute(key)` also removes every entry of the key from `columns` (NFC-compared, repeats included) in the same write, as it does for `preview` and `hidden` (D-807, AC-26). The 4E delete-property job's type-file change uses the same op.
 - `SetPreview` keeps its 4-limit (`PreviewFull`).
 
 ## 2. Core and IPC (`tegg-core`, `app/src-tauri`, `app/ui/src/ipc/types.ts`)
 
+- Rust `TypeInfo` gains `columns: Option<Vec<String>>`, `columns_ignored: Vec<String>`, `columns_unreadable: bool`; `RuleError::ColumnsUnreadable` maps to the IPC reason `columnsUnreadable` (D-1255).
 - `TypeDto` gains `columns: string[] | null` (null = key absent), `columnsIgnored: string[]` and `columnsUnreadable: boolean`.
 - `TypeOpDto` gains `{ op: 'columns', keys: string[] }` → `TypeOp::SetColumns`. `type_patch` is unchanged otherwise: one atomic write per call, base `version`, `Conflict` on an external change (FR-TYP-01 AC-7). A missing system type file is created from its built-in default plus the change (D-90).
 - `New property…` sends `[addAttribute, columns]` in one `type_patch` (AC-24); `alsoPreview` is removed from that path. Type settings' `Add property` sends `addAttribute` alone.
