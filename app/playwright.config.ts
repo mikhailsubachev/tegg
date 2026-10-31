@@ -1,12 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
+import { gatePortBase } from '../tools/qa/src/port.ts';
 
 // L5 (test-strategy §4): the real UI on WebKit (the engine of Tauri's WKWebView) with the fake core over mocked IPC
-// (ui/test/fake-core.ts, docs/contracts/ms3-shell.md §5). Under ./verify (VERIFY_GATE set) a per-run port is used
-// and a running dev server is never reused, so the gate tests the checkout's code.
+// (ui/test/fake-core.ts, docs/contracts/ms3-shell.md §5). Every run uses its own port and never reuses a running dev
+// server, so it tests the checkout's code.
 const gate = !!process.env.VERIFY_GATE;
 // Under the gate the port comes from the runner (VERIFY_PORT_BASE, CONTRACT §3.2.1), one per run, so two gates of the
 // same repository can run at the same time (D-343).
-const port = gate ? Number(process.env.VERIFY_PORT_BASE) : 5177;
+// Outside the gate every run gets its own free port too, picked once in the runner (the workers load this config again
+// and inherit it): Playwright starts the dev server before globalSetup waits for the gate lock (D-1330), so a run that
+// reused another run's server would lose it, and test that run's checkout, when the other run ends.
+if (!gate) process.env.TEGG_WEBKIT_PORT ??= String(gatePortBase(`${process.cwd()}:${process.pid}`));
+const port = Number(gate ? process.env.VERIFY_PORT_BASE : process.env.TEGG_WEBKIT_PORT);
 if (gate && !Number.isInteger(port)) throw new Error('VERIFY_GATE is set but VERIFY_PORT_BASE is not a port');
 
 export default defineConfig({
@@ -27,5 +32,5 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
   projects: [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } }],
-  webServer: { command: `npx vite --port ${port} --strictPort`, port, reuseExistingServer: !gate },
+  webServer: { command: `npx vite --port ${port} --strictPort`, port, reuseExistingServer: false },
 });
