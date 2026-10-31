@@ -77,7 +77,7 @@ Decided (owner, 2026-10-31), all as proposed: AP-1011…AP-1019 → **D-1182…D
 
 ## Points for the owner (from the build)
 
-Build: e1293da (regression tests), 6e39fee (build and the approved AC-test changes), 5f50274 (contracts). 110 of the
+Build: e47902a (regression tests), 78b3821 (build and the approved AC-test changes), 9eb4263 (contracts). 110 of the
 118 v0.94 L5 tests pass; the eight that fail, and three older tests, conflict with the decisions in the test or the
 fixture, not in the build. None of them was changed. Decisions go to D-1191…D-1199.
 
@@ -103,9 +103,9 @@ Decided (owner, 2026-10-31), as proposed: AP-1026 → **D-1197**, AP-1027 → **
 
 | Point | Question | Proposal | Alternative |
 |---|---|---|---|
-| AP-1028 | **Hover on editor `#tag` chips and Markdown links.** The editor reported only `[[…]]` chips to hover, so R104 rows 1 and 12 never hovered there; the build added `#tag` chips and Markdown note links (needed by FR-SYN-06 AC-42's tour). An existing gap fixed without a decision or a `bug_` test. | Accept as part of D-1164's hover default (R104 applies in the editor too); add `bug_v094gp_fr_lnk_12_editor_hover_tags_and_markdown_links` now, shown failing on 3426b3e (before the build) | Revert it; AC-42's tour avoids those references |
+| AP-1028 | **Hover on editor `#tag` chips and Markdown links.** The editor reported only `[[…]]` chips to hover, so R104 rows 1 and 12 never hovered there; the build added `#tag` chips and Markdown note links (needed by FR-SYN-06 AC-42's tour). An existing gap fixed without a decision or a `bug_` test. | Accept as part of D-1164's hover default (R104 applies in the editor too); add `bug_v094gp_fr_lnk_12_editor_hover_tags_and_markdown_links` now, shown failing on 074da8b (before the build) | Revert it; AC-42's tour avoids those references |
 | AP-1029 | **The `Link` menu opens above when it wouldn't fit below** (`linkUi.tsx`), needed for the right-click `Show preview` near the pane's bottom (FR-LNK-09 AC-12). | Accept as a build decision under FR-LNK-13 (D-927): a menu that doesn't fit below its reference opens above it, as the other menus do | Keep it below and scroll the pane instead |
-| AP-1030 | **Tasks don't rewrite an unchanged `tasks.view`** (`App.tsx`): reaching the stored view no longer writes `ui_state`, an existing machine-local write. | Accept under FR-SYN-06 (minimal writes); add `bug_v094gp_fr_syn_06_tasks_view_unchanged_writes_nothing`, shown failing on 3426b3e | Revert it; D-1187's tour setup already avoids the write |
+| AP-1030 | **Tasks don't rewrite an unchanged `tasks.view`** (`App.tsx`): reaching the stored view no longer writes `ui_state`, an existing machine-local write. | Accept under FR-SYN-06 (minimal writes); add `bug_v094gp_fr_syn_06_tasks_view_unchanged_writes_nothing`, shown failing on 074da8b | Revert it; D-1187's tour setup already avoids the write |
 | AP-1031 | **Three small test fixes the review found** in this slice's own tests: the L6 FR-LNK-09 AC-12 step `if (fig) {…}` skips the ⌥Space check when the figure is missing (it should fail instead); a stale comment in `graph.ac.test.ts:33` above the removed `LINE` table; unused imports kept by `void previews; void eventually;` in `previews_v094_default.ac.test.ts`. | One AC-test change commit (trailer `AC-Test-Change: v0.94 QA review fixes, D-11xx; approved-by: owner`) | Leave them |
 | AP-1032 | **FR-SYN-06 AC-42's L6 tour is narrower than the AC** ("AC-37's tour once more … with clicks inside previews and on embeds"): it hovers 7 links, clicks inside one preview and on 3 embeds; the section embed and five other preview kinds are only in L5. | Accept: L6 checks that the real app writes nothing on these inputs; the per-kind behaviour is L5's, as for AC-37. The AC says so | Extend the L6 tour to every kind |
 
