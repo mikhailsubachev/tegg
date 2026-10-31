@@ -25,10 +25,16 @@ export function exec(cmd: string, args: string[], opts: RunOpts): Result {
  *  (the tree gates' lanes, CONTRACT §3.2.2). */
 export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<Result> {
   return new Promise((resolve) => {
+    if (stopping) {
+      resolve({ status: 1, stdout: '', stderr: 'verify: not started, the gate is stopping\n' });
+      return;
+    }
     let child: ReturnType<typeof spawn>;
     try {
       // No input: stdin is /dev/null (EOF at once). Writing to a pipe of a child that already exited raises EPIPE.
-      child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: [opts.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+      // Its own process group, so a signal to the gate can be passed on to the step and everything it started
+      // (stopSteps, CONTRACT §3.5).
+      child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: [opts.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], detached: true });
     } catch (e) {
       resolve({ status: 127, stdout: '', stderr: String((e as Error).message) });
       return;
@@ -38,12 +44,47 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
     child.stdout!.setEncoding('utf8').on('data', (d: string) => (stdout += d));
     child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d));
     child.on('error', (e) => resolve({ status: 127, stdout, stderr: stderr + String(e.message) }));
+    if (child.pid) groups.add(child.pid);
     child.on('close', (code) => resolve({ status: code ?? 1, stdout, stderr }));
     if (child.stdin) {
       child.stdin.on('error', () => {}); // the child may exit before reading its input
       child.stdin.end(opts.input);
     }
   });
+}
+
+/** The process groups `execAsync` started (each step leads its own); a group may outlive its leader. */
+const groups = new Set<number>();
+/** Set once the gate is stopping: no new background process starts after that. */
+let stopping = false;
+
+function signalGroup(pgid: number, sig: NodeJS.Signals | 0): boolean {
+  try {
+    process.kill(-pgid, sig);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/** Kills every process group the background processes started, at once. */
+export function killSteps(): void {
+  stopping = true;
+  for (const g of groups) signalGroup(g, 'SIGKILL');
+}
+
+/** Stops starting background processes, passes `sig` on to their process groups and resolves once every group is
+ *  empty; groups still there after `graceMs` get SIGKILL. */
+export async function stopSteps(sig: NodeJS.Signals, graceMs = 10_000): Promise<void> {
+  stopping = true;
+  for (const g of groups) signalGroup(g, sig);
+  const deadline = Date.now() + graceMs;
+  for (;;) {
+    for (const g of groups) if (!signalGroup(g, 0)) groups.delete(g);
+    if (groups.size === 0) return;
+    if (Date.now() >= deadline) killSteps();
+    await new Promise((r) => setTimeout(r, 100));
+  }
 }
 
 // Git sets these for hooks; children working in another checkout must not inherit them (CONTRACT §2.1).
