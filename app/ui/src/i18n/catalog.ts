@@ -481,6 +481,7 @@ export const en: Catalog = {
   'search.count': { one: '{count} result', other: '{count} results' },
   // Search page redesign (board `Search`, v1-search §3; D-1200…D-1230).
   'search.clear': 'Clear search',
+  'search.shortcut': '⇧⌘F',
   'search.filters': 'Filters',
   'search.typeAll': 'Type: all',
   'search.typeOne': 'Type: {type}',

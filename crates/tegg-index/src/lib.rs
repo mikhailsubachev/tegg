@@ -459,7 +459,7 @@ fn window(text: &str, highlights: Vec<(usize, usize)>) -> Snippet {
 
 /// Top-level frontmatter keys in the order they are written (the attribute map itself is sorted).
 fn frontmatter_keys(raw: &str) -> Vec<String> {
-    let mut lines = raw.split('\n');
+    let mut lines = raw.strip_prefix('\u{feff}').unwrap_or(raw).split('\n');
     if lines.next().map(|l| l.trim_end()) != Some("---") {
         return Vec::new();
     }

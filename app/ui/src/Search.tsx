@@ -168,11 +168,12 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
     if (p === null || !rows.length) return;
     restoreFocus.current = null;
     const a = [...(list.current?.querySelectorAll<HTMLElement>('a.result') ?? [])].find((x) => x.dataset.path === p);
-    a?.focus({ preventScroll: true });
+    if (a) a.focus({ preventScroll: true });
+    else inputRef.current?.focus({ preventScroll: true });
   }, [rows]);
 
   const showNext = async () => {
-    const n = seq.current;
+    const n = ++seq.current;
     const at = rows.length;
     const p = await search(at, PAGE).catch(() => null);
     if (!p || n !== seq.current) return;
@@ -241,7 +242,8 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
   };
 
   return (
-    <section className="search">
+    <section className="search"
+      onFocus={(e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('a.result'); focusPath.current = a?.dataset.path ?? null; report(); }}>
       <div role="search" className="search-field">
         <Icon name="search" />
         <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
@@ -251,11 +253,11 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
             if (goto.current?.onKey(e)) return;
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
           }} />
-        {text && <button type="button" tabIndex={0} className="clear-search" aria-label={t('search.clear')} onClick={() => { setText(''); inputRef.current?.focus(); }}><Icon name="x" /></button>}
-        <span className="shortcut-hint" aria-hidden="true">⇧⌘F</span>
+        {text && <button type="button" tabIndex={0} className="clear-search" data-command="search.clear" aria-label={t('search.clear')} onClick={() => { setText(''); inputRef.current?.focus(); }}><Icon name="x" /></button>}
+        <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>
       </div>
       <div className="filters" role="group" aria-label={t('search.filters')}>
-        <button ref={typeButton} type="button" tabIndex={0} className="type-filter" aria-haspopup="menu" aria-expanded={menuOpen} data-active={type !== null || undefined}
+        <button ref={typeButton} type="button" tabIndex={0} className="type-filter" data-command="search.type" aria-haspopup="menu" aria-expanded={menuOpen} data-active={type !== null || undefined}
           aria-label={type === null ? t('search.typeAll') : t('search.typeOne', { type: typeName(type) })}
           onClick={() => setMenuOpen((o) => !o)}
           onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuOpen(true); } }}>
@@ -265,7 +267,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
         </button>
         {menuOpen && <PopupMenu label={t('search.typeLabel')} anchor={typeButton.current} entries={menu} onClose={() => setMenuOpen(false)} />}
         <TagFilter tags={options} selected={tagFilter} onChange={setTagFilter} colors={colors} allHint={t('search.tagAll')} />
-        {hasFilter && <button type="button" tabIndex={0} className="text-button" onClick={clearFilters}>{t('search.clearFilters')}</button>}
+        {hasFilter && <button type="button" tabIndex={0} className="text-button" data-command="search.clearFilters" onClick={clearFilters}>{t('search.clearFilters')}</button>}
       </div>
       <GoTo q={text} keys={goto} onActive={setActive} onOpen={onGoTo} onCreate={onCreate} onRefocus={() => inputRef.current?.focus()} />
       {!empty && total !== null && <div className="count" role="status">{countLine()}</div>}
@@ -274,11 +276,10 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
           <span className="empty-icon" aria-hidden="true"><Icon name="search" /></span>
           <h2>{empty.title}</h2>
           <p>{empty.body}</p>
-          {empty.clear && <button type="button" tabIndex={0} className="text-button" onClick={clearFilters}>{t('search.clearFilters')}</button>}
+          {empty.clear && <button type="button" tabIndex={0} className="text-button" data-command="search.clearFilters" onClick={clearFilters}>{t('search.clearFilters')}</button>}
         </section>
       )}
-      <ul ref={list} aria-label={t('search.results')}
-        onFocus={(e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('a.result'); focusPath.current = a?.dataset.path ?? null; report(); }}>
+      <ul ref={list} aria-label={t('search.results')}>
         {!empty && rows.map((r) => {
           const label = r.attribute ? (types.find((x) => x.key === r.type)?.attributes.find((a) => a.key === r.attribute!.key)?.name ?? r.attribute.key) : '';
           return (
@@ -286,7 +287,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
               {/* A link row, not a <button>: WebKit centres a flex button's content (3C preview feedback). */}
               {/* Slice P (R104 row 8, D-930): a click anywhere on the row previews; ⏎ and a double-click open it. */}
               <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
-                href="#" tabIndex={0} className="result" data-path={r.path} aria-label={r.title} aria-description={[typeName(r.type), date(r)].filter(Boolean).join(' · ')} onClick={(e) => e.preventDefault()}
+                href="#" tabIndex={0} className="result" data-command="search.open" data-path={r.path} aria-label={r.title} aria-description={[typeName(r.type), date(r)].filter(Boolean).join(' · ')} onClick={(e) => e.preventDefault()}
                 onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveRow(e.currentTarget, e.key === 'ArrowDown' ? 1 : -1); }
                 }}>
@@ -330,7 +331,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
               {r.tags.length > 0 && (
                 <span className="tags">
                   {tagOrder(r.tags).map((k) => (
-                    <button key={k} type="button" tabIndex={0} className="tag-chip" style={tagChipStyle(colors[k])} aria-label={t('search.filterTag', { tag: tagName(k) })}
+                    <button key={k} type="button" tabIndex={0} className="tag-chip" data-command="search.filterTag" style={tagChipStyle(colors[k])} aria-label={t('search.filterTag', { tag: tagName(k) })}
                       onClick={() => addTag(k)}>#<span data-user-content>{tagName(k)}</span></button>
                   ))}
                 </span>
@@ -340,7 +341,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
         })}
       </ul>
       {!empty && total !== null && rows.length < total && (
-        <button type="button" tabIndex={0} className="show-next" onClick={() => void showNext()}>{t('search.showNext', { count: Math.min(PAGE, total - rows.length) })}</button>
+        <button type="button" tabIndex={0} className="show-next" data-command="search.showNext" onClick={() => void showNext()}>{t('search.showNext', { count: Math.min(PAGE, total - rows.length) })}</button>
       )}
     </section>
   );

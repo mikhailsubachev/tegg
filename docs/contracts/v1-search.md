@@ -95,7 +95,7 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
 | Filters | `div[role=group]` named `Filters`: `button[aria-haspopup=menu]` `Type: all` / `Type: <Name>` with `data-active` when a type is chosen; menu `role=menu` named `Type` with `menuitemradio`s `All types`, `<Name> <count>`; then tags.md's `combobox` `Filter by tag`; then `button` `Clear filters` (only with a type or tag) |
 | Go to | `listbox` `Go to` (D-760, unchanged; between Filters and the count; filters don't apply, D-1220) |
 | Count | `div[role=status]` with the count line (D-1204), absent in empty states |
-| Results | `ul` named `Search results`; each `li` holds the row `a.result` (link, name = title, `aria-describedby` → type name and date) and after it the tag chip `button`s `Filter by #<name>` (D-1211) |
+| Results | `ul` named `Search results`; each `li` holds the row `a.result` (link, name = title, `aria-description` = type name and date) and after it the tag chip `button`s `Filter by #<name>` (D-1211) |
 | Row parts | `.icon` (`data-icon`), `.title` (`data-user-content`, `mark` elements for highlights), `.typo` `similar spelling`, `.type` singular name, `time.modified[datetime=<modified>]` formatted date, one of `.file-name` / `.alias` / `.attribute` lines with `mark`s, `.snippet` (with or without `mark`s), `.tags` chips |
 | Show next | `button` `Show next <k>`, k = min(50, total − loaded) |
 | Empty state | `section` (`role=region`) named by its `h2` title; body `p`; optional `button` `Clear filters` |
@@ -164,3 +164,8 @@ Components: `app/ui/src/pages/SearchPage.tsx`, `app/ui/src/Search.tsx` (rewritte
 
 - **D-1231** FR-SRC-01 AC-22's filter-only test doesn't require `modified` values on the reference vault (it has none).
 - **D-1232** FR-SRC-03 AC-10's last step waits for the `ostružina` row itself.
+
+## 8. Build notes (no new decision)
+
+- Every page control carries a page-local `data-command` (FR-UX-03 AC-8, as the tag page's `tagPage.cN`; D-1218 keeps them out of the palette): `search.clear`, `search.type`, `search.clearFilters`, `search.open` (row link), `search.filterTag` (row chip), `search.showNext`. The `⇧⌘F` hint is the catalog key `search.shortcut` (NFR-OTH-02 AC-1).
+- The history entry's `focusPath` is the focused row's path, or null once focus is anywhere else on the page; on Back, a row that no longer exists gives the focus to the field (D-1217).
