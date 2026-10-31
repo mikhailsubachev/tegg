@@ -92,7 +92,16 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const latest = useRef<TypeDto | undefined>(type);
   // The type as the last write returned it: the version the next queued write is based on.
   const disk = useRef<TypeDto | null>(null);
-  useEffect(() => { if (pending.current === 0) { setLocal(null); latest.current = type; disk.current = null; } }, [type]);
+  // Bumped by a refused or failed write: the writes queued behind it are dropped, never sent on top of the outside
+  // change (NFR-REL-02, AC-27 (a)).
+  const generation = useRef(0);
+  // The latest `type` prop; one that arrives while writes are pending is applied once they are done (AC-28).
+  const typeNow = useRef(type);
+  const typeMissed = useRef(false);
+  useEffect(() => {
+    typeNow.current = type;
+    if (pending.current === 0) { setLocal(null); latest.current = type; disk.current = null; } else typeMissed.current = true;
+  }, [type]);
   const cur = local ?? type;
   const [cursor, setCursor] = useState(0);
   const tbody = useRef<HTMLTableSectionElement | null>(null);
@@ -162,7 +171,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const others = columns.slice(1).reduce((n, c) => n + (stored[c.key] ?? WIDTH.default), 0);
   const widthOf = (key: string) => stored[key] ?? (key === 'title' ? Math.max(WIDTH.titleFill, boxWidth - others) : WIDTH.default);
   const tableWidth = widthOf('title') + others;
-  const commitWidths = (w: ColumnWidths) => { window.clearTimeout(saveTimer.current); setDraft(null); onWidths?.(w); };
+  const commitWidths = (w: ColumnWidths) => { window.clearTimeout(saveTimer.current); flush.current = null; setDraft(null); onWidths?.(w); };
   const setWidth = (key: string, px: number | null, save: 'now' | 'later' | 'no') => {
     const next = { ...stored };
     // AC-30: resizing a column never changes another's width, so a filling Title keeps the width it has now.
@@ -170,9 +179,15 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     if (px === null) delete next[key]; else next[key] = clampWidth(key, px);
     if (save === 'now') { commitWidths(next); return; }
     setDraft(next);
-    if (save === 'later') { window.clearTimeout(saveTimer.current); saveTimer.current = window.setTimeout(() => commitWidths(next), 500); }
+    if (save === 'later') {
+      window.clearTimeout(saveTimer.current);
+      flush.current = () => onWidths?.(next);
+      saveTimer.current = window.setTimeout(() => { flush.current = null; commitWidths(next); }, 500);
+    }
   };
-  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+  // A keyboard change still waiting to be stored is stored when the page goes away (AC-32: within 1 s).
+  const flush = useRef<(() => void) | null>(null);
+  useEffect(() => () => { window.clearTimeout(saveTimer.current); flush.current?.(); }, []);
 
   // ---- row windowing (AC-33): at most MAX_ROWS rows in the DOM; the first and last rendered rows carry the space of
   // the rows left out, so the page's scroll height stays that of the whole table.
@@ -239,23 +254,36 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     latest.current = shown;
     setLocal(shown);
     pending.current++;
+    const gen = generation.current;
     queue.current = queue.current.then(async () => {
-      const on = disk.current ?? base;
       try {
+        if (gen !== generation.current) return; // an earlier write was refused: this change is dropped
+        const on = disk.current ?? base;
         const next = await ipc.typePatch(on.key, on.exists ? on.version : null, [{ op: 'columns', keys: list }]);
         disk.current = next;
         setNotice(null);
       } catch (e) {
+        generation.current++;
         const x = e as { kind?: string; disk?: TypeDto };
         disk.current = x.kind === 'Conflict' && x.disk ? x.disk : null;
-        latest.current = disk.current ?? type;
+        latest.current = disk.current ?? typeNow.current;
         setLocal(disk.current);
         setNotice({ text: x.kind === 'Conflict' && x.disk ? t('ts.conflict', { field: t('typePage.columns') }) : typeErrorMessage(e), alert: true });
       } finally {
-        if (--pending.current === 0 && disk.current) { latest.current = disk.current; setLocal(disk.current); }
+        if (--pending.current === 0) {
+          if (typeMissed.current) {
+            // A vault change came in meanwhile: show the type as it is now.
+            typeMissed.current = false;
+            disk.current = null;
+            latest.current = typeNow.current;
+            setLocal(null);
+          } else if (disk.current) { latest.current = disk.current; setLocal(disk.current); }
+        }
       }
     });
   };
+  /** The type to build a write outside the queue on (`New property…`), once the queued writes are done. */
+  const settled = async (): Promise<TypeDto | undefined> => { await queue.current; return disk.current ?? latest.current; };
 
   return (
     <div className="page-column type-page">
@@ -338,7 +366,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
               return (
                 // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
                 <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
-                  key={r.path} tabIndex={i === Math.min(cursor, shown.length - 1) ? 0 : -1} className="type-row"
+                  key={r.path} tabIndex={i === Math.min(Math.max(cursor, win.from), win.to - 1, shown.length - 1) ? 0 : -1} className="type-row"
                   data-path={r.path.normalize('NFC')} data-title={r.title} data-index={i}
                   // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
                   onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
@@ -366,12 +394,12 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
             onChoose: () => { const el = rowMenu; setRowMenu(null); el.focus(); trashRequest.current?.(); } }]} />
       )}
       {columnsOpen && cur && (
-        <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)} disabledFocusable
+        <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)} disabledFocusable scrollable
           entries={columnEntries(cur, (key, on) => writeColumns((x) => toggleColumn(x, key, on)), () => { setColumnsOpen(false); setAdding(true); },
             () => commitWidths({}))} />
       )}
       {adding && cur && (
-        <NewPropertyDialog type={cur} types={types}
+        <NewPropertyDialog type={cur} types={types} fresh={settled}
           onClose={() => { setAdding(false); addBtn.current?.focus(); }}
           onDone={() => { setAdding(false); addBtn.current?.focus(); }} />
       )}
@@ -543,7 +571,7 @@ function HeaderCell({ col, first, sort, width, movable, scroller, titleWidth, on
           e.stopPropagation();
           const r = resize.current;
           resize.current = null;
-          if (r) onWidth(r.last, 'now');
+          if (r && r.last !== r.w) onWidth(r.last, 'now'); // a press without a move stores nothing
         }}
         onKeyDown={(e) => {
           const step = e.shiftKey ? 50 : 10;

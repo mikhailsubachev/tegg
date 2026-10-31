@@ -512,8 +512,11 @@ function NewPropertyForm({ type, onAdd, onCancel, error }: {
 
 /** `New property…` in the type page's Columns menu (D-252): the Add property flow; the new property is also appended
  *  to `columns`, seeded when absent, in the same write (D-1240, type-columns AC-24); `preview` is never touched. */
-export function NewPropertyDialog({ type, types, onClose, onDone }: {
-  type: TypeDto; types: TypeDto[]; onClose: () => void; onDone: () => void;
+export function NewPropertyDialog({ type, types, fresh, onClose, onDone }: {
+  type: TypeDto; types: TypeDto[];
+  /** The type once the page's queued column writes are done: the write is based on it (version and columns). */
+  fresh?: () => Promise<TypeDto | undefined>;
+  onClose: () => void; onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   return (
@@ -521,9 +524,10 @@ export function NewPropertyDialog({ type, types, onClose, onDone }: {
       <h2>{t('ts.addProperty')}</h2>
       <NewPropertyForm type={type} types={types} error={error} onCancel={onClose}
         onAdd={async (attr) => {
-          const ops: TypeOpDto[] = [{ op: 'addAttribute', attribute: attr }, { op: 'columns', keys: toggleColumn(type, attr.key, true) }];
+          const on = (await fresh?.()) ?? type;
+          const ops: TypeOpDto[] = [{ op: 'addAttribute', attribute: attr }, { op: 'columns', keys: toggleColumn(on, attr.key, true) }];
           try {
-            await ipc.typePatch(type.key, type.exists ? type.version : null, ops);
+            await ipc.typePatch(on.key, on.exists ? on.version : null, ops);
             onDone();
             return null;
           } catch (e) {

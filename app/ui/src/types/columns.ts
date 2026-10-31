@@ -71,7 +71,7 @@ export function dropColumn(type: TypeDto, key: string, beforeKey: string | null)
   const k = nfc(key);
   if (!eff.includes(k) || beforeKey === 'title') return null;
   const before = beforeKey === null ? null : nfc(beforeKey);
-  if (before !== null && !eff.includes(before)) return null;
+  if (before === k || (before !== null && !eff.includes(before))) return null; // dropped on itself: no move
   const order = eff.filter((c) => c !== k);
   const at = before === null ? order.length : order.indexOf(before);
   if ([...order.slice(0, at), k, ...order.slice(at)].join('\n') === eff.join('\n')) return null;
