@@ -285,9 +285,8 @@ export function GraphPage(p: GraphPageProps) {
     if (!want) return;
     const n = model.nodes.find((x) => x.sortKey === sortKey(want));
     if (!n) return;
-    const el = root.current?.querySelector(n.node.typeKey === 'tag'
-      ? `[data-graph-node][data-tag-key="${CSS.escape(n.node.tagKey ?? '')}"]`
-      : `[data-graph-node][data-path="${CSS.escape(n.node.path ?? '')}"]`);
+    // In List (graph.full.view "list") the node's row is selected and previews (graph-panel-g3.md FR-GRP-01 AC-45).
+    const el = elementOf(n.key);
     if (el) select(n, el);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, positions]);

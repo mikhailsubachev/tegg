@@ -97,7 +97,11 @@ export type GraphCommandId = 'depth1' | 'depth2' | 'depth3' | 'recenter' | 'pres
   | 'preset.rename' | 'preset.delete' | 'view.list' | 'view.graph';
 /** Slice G3 (R123): what the reasons depend on. `file` is the presets file's state (§16.2); `stored` a listed preset is
  *  current (else Default). */
-export type GraphStatus = { view: 'graph' | 'list'; stored: boolean; modified: boolean; file: 'missing' | 'ok' | 'newer' | 'unreadable' };
+export type GraphStatus = {
+  view: 'graph' | 'list'; stored: boolean; modified: boolean; file: 'missing' | 'ok' | 'newer' | 'unreadable';
+  /** Slice "G3 in the panel" (D-1145): the panel graph's state, for AP-972's reasons (absent for the full view). */
+  state?: 'noFile' | 'deleted' | 'pending' | 'noLinks' | 'ready' | null;
+};
 
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
@@ -273,11 +277,19 @@ export function commands(ctx: ShellContext): Command[] {
     );
     // Slice G3 (R123, AP-932): presets and the view; no shortcuts. Each lists its reason while it can't run.
     const st = () => a(ctx)?.graphStatus?.() ?? null;
+    // "G3 in the panel" (AP-972 = D-1142): in the panel's No file, Deleted and pending states every preset and view
+    // command needs an object; in No links the preset commands say so (the List still shows the centre row).
+    const stateReason = (view: boolean) => {
+      const s = st()?.state;
+      if (s === 'noFile' || s === 'deleted' || s === 'pending') return t('cmd.needsObject');
+      if (s === 'noLinks' && !view) return t('graph.noLinks');
+      return null;
+    };
     const fileReason = () => { const f = st()?.file; return f === 'unreadable' ? t('graph.preset.fixFile') : f === 'newer' ? t('graph.preset.newer') : null; };
     const defaultReason = () => (st()?.stored ? null : t('graph.preset.isDefault'));
     const modifiedReason = () => (st()?.modified ? null : t('graph.preset.notModified'));
     const preset = (id: 'apply' | 'save' | 'update' | 'revert' | 'rename' | 'delete', title: string, disabled: () => string | null): Command =>
-      ({ id: `graph.preset.${id}`, title, section: 'navigate', needsVault: true, disabled, run: (c) => a(c)?.graphCommand?.(`preset.${id}`) });
+      ({ id: `graph.preset.${id}`, title, section: 'navigate', needsVault: true, disabled: () => stateReason(false) ?? disabled(), run: (c) => a(c)?.graphCommand?.(`preset.${id}`) });
     list.push(
       preset('apply', 'cmd.graph.applyPreset', () => null),
       preset('save', 'cmd.graph.savePreset', fileReason),
@@ -287,8 +299,8 @@ export function commands(ctx: ShellContext): Command[] {
       preset('delete', 'cmd.graph.deletePreset', () => fileReason() ?? defaultReason()),
     );
     // Listed only when it changes something (AP-932).
-    if ((st()?.view ?? 'graph') === 'graph') list.push({ id: 'graph.view.list', title: 'cmd.graph.showList', section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.('view.list') });
-    else list.push({ id: 'graph.view.graph', title: 'cmd.graph.showGraph', section: 'navigate', needsVault: true, run: (c) => a(c)?.graphCommand?.('view.graph') });
+    if ((st()?.view ?? 'graph') === 'graph') list.push({ id: 'graph.view.list', title: 'cmd.graph.showList', section: 'navigate', needsVault: true, disabled: () => stateReason(true), run: (c) => a(c)?.graphCommand?.('view.list') });
+    else list.push({ id: 'graph.view.graph', title: 'cmd.graph.showGraph', section: 'navigate', needsVault: true, disabled: () => stateReason(true), run: (c) => a(c)?.graphCommand?.('view.graph') });
   }
   // R16 (backlinks.md): no shortcuts (D-281).
   list.push(

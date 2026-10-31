@@ -3,7 +3,8 @@
 // non-modal Save dialog, the rename field in place of the button, the delete `alertdialog` and the alert. The page holds
 // the presets file as read (`state`); this control writes it only through `graph_presets_apply`, one call at a time,
 // with the version last read as base (FR-SYN-03 AC-22). No error changes the view's filters. Mounted with
-// `view="full"` in the full view's filter column (G2 mounts it with `view="panel"`).
+// `view="full"` in the full view's filter column and with `view="panel"` in the right panel's `Depth and filters`
+// popover, the label and the button on one row (slice "G3 in the panel", R125, board GraphPanel B).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../i18n/catalog';
@@ -95,6 +96,19 @@ export function PresetControl(p: PresetControlProps) {
   useEffect(() => {
     if (focusButton.current && button.current) { focusButton.current = false; button.current.focus(); }
   });
+  // The alert is a layer too (R125): Esc with only the alert shown dismisses it, one layer at a time (FR-GRP-02 AC-33).
+  const otherLayer = !!menu || !!save || !!rename || confirm;
+  useEffect(() => {
+    if (!alert || otherLayer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setAlert(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [alert, otherLayer]);
   const backToButton = () => { focusButton.current = true; setTimeout(() => { if (focusButton.current && button.current) { focusButton.current = false; button.current.focus(); } }, 0); };
 
   // ------------------------------------------------------------------ writes (§16.2)
@@ -260,7 +274,7 @@ export function PresetControl(p: PresetControlProps) {
   let index = -1;
 
   return (
-    <div ref={root} className="graph-preset" data-preset-control="">
+    <div ref={root} className={`graph-preset${p.view === 'panel' ? ' panel' : ''}`} data-preset-control="">
       <div className="graph-preset-label">{t('graph.preset.label')}</div>
       {rename ? (
         <div className="graph-preset-rename">
@@ -276,7 +290,7 @@ export function PresetControl(p: PresetControlProps) {
           {rename.error && <div id={`${uid}-rename-msg`} className="graph-preset-msg" aria-live="polite">{nameMessage(rename.error)}</div>}
         </div>
       ) : (
-        <button ref={button} type="button" className="graph-preset-button" data-command="graph.preset.apply" aria-haspopup="menu" aria-expanded={!!menu}
+        <button ref={button} type="button" tabIndex={0} className="graph-preset-button" data-command="graph.preset.apply" aria-haspopup="menu" aria-expanded={!!menu}
           aria-label={t('graph.preset.button', { name: shownName })} aria-description={modified ? t('graph.preset.modifiedA11y') : undefined}
           onClick={(e) => { e.currentTarget.focus(); if (menu) closeMenu(false); else openMenu(save ? (document.activeElement as HTMLElement | null) : null); }}>
           {current ? <span data-user-content="">{current.name}</span> : <span>{t('graph.preset.default')}</span>}
@@ -290,7 +304,7 @@ export function PresetControl(p: PresetControlProps) {
           <button type="button" className="graph-preset-small" data-command="graph.preset.revert" onClick={doRevert}>{t('graph.preset.revert')}</button>
         </div>
       )}
-      {alert && <div role="alert" className="graph-preset-alert">{alert}</div>}
+      {alert && <div role="alert" className="graph-preset-alert" data-preset-layer="">{alert}</div>}
 
       {menu && createPortal(
         <div ref={layer} role="menu" aria-label={t('graph.preset.menu')} className="graph-preset-menu graph-preset-layer" data-preset-layer="" style={style} onKeyDown={onMenuKey}>

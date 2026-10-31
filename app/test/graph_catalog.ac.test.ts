@@ -66,7 +66,7 @@ const R124_KEYS = new Set([
   'graph.preset.cancel', 'graph.preset.save', 'graph.preset.renameField', 'graph.preset.renameHint', 'graph.preset.deleteTitle', 'graph.preset.deleteNote',
   'graph.preset.delete', 'graph.preset.err.empty', 'graph.preset.err.taken', 'graph.preset.err.long', 'graph.preset.err.control', 'graph.preset.unreadable',
   'graph.preset.unreadableLine', 'graph.preset.fixFile', 'graph.preset.newer', 'graph.preset.changedOutside', 'graph.preset.saveFailed', 'graph.view',
-  'graph.view.graph', 'graph.view.list', 'graph.list', 'graph.connectionsCount', 'graph.a11y.node', 'graph.a11y.centre', 'graph.a11y.position',
+  'graph.view.graph', 'graph.view.list', 'graph.list', 'graph.connectionsCount', 'graph.a11y.name', 'graph.a11y.node', 'graph.a11y.centre', 'graph.a11y.position',
   'graph.canvas.help', 'graph.hint.hover', 'graph.hint.off', 'graph.preview.emptyHover', 'graph.preview.emptyHoverNote', 'graph.preview.emptyOff',
   'graph.preview.emptyOffNote', 'cmd.graph.applyPreset', 'cmd.graph.savePreset', 'cmd.graph.updatePreset', 'cmd.graph.revertPreset',
   'cmd.graph.renamePreset', 'cmd.graph.deletePreset', 'cmd.graph.showList', 'cmd.graph.showGraph',

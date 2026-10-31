@@ -758,3 +758,179 @@ Owner, 2026-10-30, as proposed:
 - List rows' descriptions drop the position (D-1106); `· modified` shows once, in the button, and the row under it holds
   `Update` / `Revert`; panning a focused node into view is instant in every motion setting; the hover ring stays full
   while its preview is shown.
+
+## 17. G3 in the panel
+
+Interfaces of the follow-up slice "G3 in the panel" for the test author (D-61) and the build. ACs:
+`docs/acceptance/graph-panel-g3.md` (R125…R128; FR-GRP-01 AC-45, FR-GRP-02 AC-26…AC-34, FR-GRP-06 AC-10, FR-LNK-12
+AC-14…AC-18, FR-UX-03 AC-31…AC-38, FR-UX-08 AC-10…AC-15, FR-SYN-03 AC-25, FR-SYN-06 AC-41, FR-UX-05 AC-18,
+NFR-OTH-02 AC-15). AP-960…AP-974 were accepted as proposed: D-1130…D-1144 (BRD v1.129). It hooks up §16's pieces in §15's panel ("Merged after G2", §16.11). **No IPC command, no event, no
+Rust change**: the panel uses `graph_neighbourhood` (§15.1, unchanged), `graph_presets_get` / `graph_presets_apply`
+(§16.2) and `ui_state_set`. The only vault file it can write is `.tegg/graph.yml`, through `PresetControl`.
+
+### 17.1 Modules touched (`app/ui/src/graph/`, `app/ui/src/App.tsx`, `shell/`)
+
+| Module | Change |
+| --- | --- |
+| `GraphPanel.tsx` | Holds `presets: GraphPresetsDto \| null` (read on mount, again each time the popover opens, and on `vault:changed` naming `.tegg/graph.yml`); passes `<PresetControl view="panel" …>` into `GraphFilters`' popover slot after `Depth` (§15.2); renders the `View` switch (R125) and, for `view === 'list'`, `GraphList` in the canvas's box; owns `focusKey`, the hover controller (§17.4), the ring, the key handler (`keyboard.ts`), `describe` / `help` (R121) and passes them to `GraphCanvas` as `GraphPage` does; the footer per mode; the panel's commands and status (§17.5). Its outside-click and Esc handlers of the popover ignore events inside `[data-preset-layer]` (R125, FR-GRP-02 AC-33). |
+| `GraphCanvas.tsx` | No new prop. The panel now passes `onKey`, `focusKey`, `onFocusKey`, `describe`, `help`, `ring`, `onNodePointer`, `onPan`; the "no tab stop without `onKey`" branch stays for other callers. |
+| `GraphList.tsx` | Gains `variant?: 'full' \| 'panel'` (default `'full'`): the panel's row layout (AP-967: 12 px indent per level, title cut with `…`, phrase and count wrapped) and its own scroll container; rows carry `data-graph-row="<node key>"` (the popover's anchor). Inputs unchanged. |
+| `PresetControl.tsx` | No API change. `view="panel"` renders the label and the button on one row (board `GraphPanel` B); every layer it opens carries `data-preset-layer`. |
+| `hover.ts` | `graphHover(host, opts?: { grace: 'column' \| 'popover' })`, default `'column'` (§16.3, AP-941). `'popover'` (the panel): the hover preview hides 300 ms after the pointer has left both the node it shows and the popover (`area('popover', inside)`); the empty canvas counts as outside (D-917, D-923). The cancel rules of D-942 are the same. |
+| `panelModel.ts` | `footerText(count, mode: 'click' \| 'hover' \| 'off' = 'click')` (R128; the default keeps G2's L1 test as it is). |
+| `GraphFilters.tsx` | No change (the popover slot exists, §15.2). |
+| `App.tsx`, `shell/commands.ts` | Commands routing (§17.5). `GraphPanelProps` gains `onViews` (as `GraphPage`, §16.4: a Tegg rename or delete changes `preset` in both views in one `ui_state_set`) and `onFocusTab(): void` (AP-960: the second Esc focuses the `Context panel`'s `tab` `Graph`). |
+
+```ts
+// GraphPanel.tsx (additions to §15.2's props)
+export type GraphPanelProps = {
+  // … §15.2 …
+  onViews(f: (g: { full?: GraphViewStateDto; panel?: GraphViewStateDto }) =>
+                 { full?: GraphViewStateDto; panel?: GraphViewStateDto }): void;
+  onFocusTab(): void;
+};
+export type GraphPanelCommands = {
+  depth(d: 1 | 2 | 3): void;            // G2, unchanged
+  openFull(): void;                     // G2, unchanged (R116 rule 3)
+  command(id: GraphCommandId): void;    // R127: 'preset.*', 'view.list', 'view.graph' (and 'depth1'…'depth3')
+  status(): GraphStatus;                // { view, stored, modified, file } of graph.panel and the panel's presets
+  state(): 'graph' | 'noLinks' | 'allHidden' | 'loading' | 'tooMany' | 'noFile' | 'deleted' | null;  // AP-972
+};
+```
+
+### 17.2 Machine-local state (§15.3, §16.4)
+
+- `graph.panel` gains §16.4's `view` and `preset`; the type `GraphViewStateDto` is unchanged. Written only by the panel
+  (and by a Tegg rename or delete of a preset, in both views, §16.4), once per committed change: applying a preset or
+  Default (filters and `preset` together), `Revert`, a successful `save`, the `View` switch, plus G2's changes.
+- Missing or invalid `view` / `preset` read as Graph / Default and are left as they are (§16.4).
+- The hand-over (§15.5) is unchanged: `GraphHandover = { depth, select }`; the panel's `preset` and `view` are never
+  copied to the full view, and the hand-over writes nothing (D-905, D-1037; FR-GRP-01 AC-45). `select` is the selected
+  node, or the previewed node for `In full graph` from a hover or ⌥Space preview (AP-973).
+
+### 17.3 Presets in the panel (§16.1–§16.3)
+
+- The panel's `PresetControl` gets `state={presets}`, `onState={setPresets}`, `graph={state}`, `onApply={onState}`,
+  `onRenamed` (both views through `onViews`, as `GraphPage.onRenamed`).
+- Every write passes the version of the panel's last read as base (§16.1). Because Tegg's own writes produce no
+  `vault:changed` (§15.11), the panel re-reads `graph_presets_get` when it mounts and each time the popover opens, so a
+  write made in the full view before is never the panel's stale base (FR-SYN-03 AC-25's last case; a stale base would
+  only give a false `Conflict`, never an overwrite, since the core checks it).
+- `isModified(graph.panel, current)` per view (AP-929, AP-931): an `Update` in either view writes the file and leaves
+  the other view's filters as they are.
+
+### 17.4 Keyboard, focus and hover in the panel (§16.5)
+
+- Keys: one `keydown` handler for the canvas (`GraphCanvas onKey`) and one for the tree (`GraphList onKey`), mapped by
+  `graphKeyAction(event, mode, 'node' | 'row')` (§16.3); R126's panel differences: `'centre'` does nothing (AP-962);
+  `'zoomIn'` / `'zoomOut'` multiply the view's zoom by `ZOOM_STEP` within `ZOOM_MIN`…`ZOOM_MAX`, `'fit'` sets
+  `panelFit(…)` with the centre pinned (AP-963); `'open'` on the centre does nothing (D-1042); `'escape'`: closes the
+  preview if one is shown (or hides a hover preview), else calls `onFocusTab()` (AP-960).
+- ⏎ in click mode and ⌥Space call `preview.show(target, { el }, 'key', { placement: 'popover' }, lines, inFullGraph)`;
+  slice P moves the focus into the popover (D-924, AP-961) and its Esc returns it to the anchor (the node's `<g>` or the
+  row).
+- Arrows: `nearestInDirection(positions, focusKey, dir, sortKeys)` on the panel's layout positions; the panel pans the
+  newly focused node into view with a 24 px margin (as `GraphPage.panInto`).
+- Hover: `graphHover(host, { grace: 'popover' })`; `ring` only on canvas nodes; nothing starts while the filters
+  popover or a `[data-preset-layer]` is open (AP-970); a mode change cancels it (FR-LNK-12 AC-18).
+- Clicks per mode (R126): click mode → select and preview (G2); hover and Off → `onOpen(node)` unless the node is the
+  centre (D-1042).
+- The `View` switch closes a shown node preview (`close('outside')`) and clears the selection (AP-969).
+
+### 17.5 Commands routing (R127; §15.6, §16.3)
+
+```ts
+// App.tsx (sketch)
+graphCommand: (id) => {
+  if (route?.id === 'graph/<path>') graphCommand.current?.(id);           // the full view, unchanged
+  else if (panelShowsGraph.current && id !== 'recenter') panelGraph.current?.command(id);
+},
+graphStatus: () => {
+  if (route?.id === 'graph/<path>') return /* §16.3, with graph.full.view */;
+  if (panelShowsGraph.current && panelGraph.current) {
+    const st = panelGraph.current.status();
+    const v = uiRef.current?.vaults?.[vaultKey]?.graph?.panel?.view;      // the stored view leads the palette's list
+    return { ...st, view: v === 'list' ? 'list' : 'graph' };
+  }
+  return null;
+},
+```
+
+- `shell/commands.ts` keeps the listing rule `r?.id === 'graph/<path>' || panelGraph` (already merged); the `disabled()`
+  reasons read `graphStatus()` and, for the panel, `panelGraph.current.state()`: `noFile` / `deleted` (and a pending
+  day) → `cmd.needsObject` for the preset and view commands; `noLinks` → `graph.noLinks` for the preset commands
+  (AP-972). The memo of `commands(ctx)` also depends on `graph.panel.view`.
+- `graph.preset.*` from the palette (after the palette gave the focus back, D-139): open the popover, then the layer
+  (`PresetActions` of the panel's control); a popover opened this way closes with that layer and the focus returns to
+  the element focused before the palette (AP-968 c).
+- No new command id, no shortcut (R4 unchanged except the "while the right panel shows the Graph tab" note on R123's
+  rows).
+
+### 17.6 Strings
+
+R128: `graph.panel.footerHover`, `graph.panel.footerOff` (plurals, D-133), only if AP-964 is accepted as proposed;
+everything else reuses R112, R117, R124.
+
+### 17.7 Fake core and test hooks
+
+- No new fake-core handle: `graphCalls()`, `presetCalls()`, `presetsFail(kind)`, `setFile(…, { silent: true })`
+  (D-1110), `writes()`, `writesTo()`, `uiState()` as §15.8, §16.6.
+- `app/webkit/graph-panel-helpers.ts` gains, without changing existing exports: `StartPanel.presets?: string | null`
+  (text of `.tegg/graph.yml`, via `presetsVault`), `StartPanel.hoverDelay?: number`, `GraphState` with `view` and
+  `preset`; panel-scoped locators `pViewGroup`, `pViewBtn(page, 'Graph' | 'List')`, `pListTree`, `pTreeRows`,
+  `pRows(page)` (as `rows`, inside the tab panel), `pTabStops(page)`, `pFocused(page)`, `pHoverRing(page)`,
+  `pFooterText(page)` (matching every R128 / R117 footer). G3's `presetBtn`, `presetMenu`, `menuRadio`, `saveDialog`,
+  `deleteConfirm`, `presetState`, `choosePreset`, `saveAs` are page-scoped already and are reused.
+- L6: the ms3-shell §13.6 helper process replaces `.tegg/graph.yml` before a panel `Save` (FR-SYN-03 AC-25); the
+  relaunch reads the seeded `ui-state.json` with `graph.panel.view` and `.preset`.
+
+### 17.8 Test layout
+
+| Layer | Files |
+| --- | --- |
+| L1 | `app/test/graph_panel_g3.ac.test.ts` (`footerText` per mode, R128 keys and plurals, R127 listing with `panel: { open: true, tab: 'graph' }`, the AP-972 reasons) |
+| L5 | `app/webkit/graph_panel_presets.ac.test.ts` (FR-GRP-02 AC-26…AC-33, FR-SYN-03 AC-25, FR-GRP-01 AC-45), `graph_panel_keyboard.ac.test.ts` (FR-UX-03 AC-31…AC-38), `graph_panel_list.ac.test.ts` (FR-UX-08 AC-10…AC-13, FR-GRP-06 AC-10), `graph_panel_hover.ac.test.ts` (FR-LNK-12 AC-14…AC-18, FR-UX-08 AC-14), `graph_panel_themes_g3.ac.test.ts` (FR-UX-05 AC-18, NFR-OTH-02 AC-15) |
+| L6 | `app/e2e/graph_panel_g3.ac.test.ts` (graph-panel-g3.md "Real-app tests") |
+
+### 17.9 Contract choices (no owner decision needed)
+
+1. The panel mounts G3's modules (`PresetControl`, `GraphList`, `keyboard.ts`, `hover.ts`, `graphModel`'s descriptions)
+   instead of copies, so panel and full view can't drift; differences are options (`grace`, `variant`) or the panel's
+   own key handler.
+2. The panel keeps its own `GraphPresetsDto` and re-reads it on mount and popover open rather than sharing a store with
+   the full view: the two are never shown together (D-988), and the core's base check stays the only guard.
+3. Commands keep their ids; `App.tsx` routes them to whichever graph is shown (R127).
+
+### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.130; red tests 1d3bae0)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1145** `GraphStatus` gains an optional `state` (the panel's `noFile` / `deleted` / `pending` / `noLinks` / `ready`), filled by `App.graphStatus` from the panel graph, so R123's commands give the D-1142 reasons.
+- **D-1146** FR-UX-03 AC-38 starts with `graph.panel = { depth: 2, hiddenTypes: ['tag'] }` in `ui-state.json`; the `.tegg/graph.yml` it writes must equal `tests/fixtures/graph-presets/expected/created.yml` byte for byte.
+- **D-1147** `aria-disabled` menu items stay focusable (WAI-ARIA): in the preset menu `Rename…` is ↓3 and `Delete…` ↓4; `Graph` and `List` are separate tab stops.
+- **D-1148** The focus ring's contrast is computed inside the L5 test; no L1 test (it would pass before the build).
+- **D-1149** Each such test first requires a feature only this slice adds, as D-1111.
+- **D-1150** Unreachable from the panel (disabled while the filters match); the tours test a rename to the same name instead, and the L4 tests keep covering D-1114.
+- **D-1151** The L6 test asserts the safe outcome (no lost external change) whether the watcher reloads before `Save` or a Conflict appears; the strict Conflict check stays in L5.
+- **D-1152** By the ring element's bounding box without stroke: 10 px wider than a circle node, 8 px wider than a tag pill.
+- **D-1153** The pressed button's background is `--bg`; the `View` group's background is `--hover`.
+
+### 17.11 Build decisions (D-1154…D-1160, BRD v1.131; build 879c9d8)
+
+Owner, 2026-10-30, as proposed:
+
+- **D-1154** The title bar's current-page tab always shows the open title, so the L5 check "no tab named Rozpočet" after ⌘⇧⏎ becomes "one title-bar tab" (`[role="tab"][data-command="tab.current"]`), as G3's own check; the panel's own tabs don't count (AC-test change).
+- **D-1155** ⌘⏎ / ⌘⇧⏎ from the graph focuses the page heading `h1` (`tabindex="-1"`, D-130); a click open keeps the caret in the body (D-247, D-255).
+- **D-1156** Not a tab stop, as in G2: Tab from `List` lands on the tree's first row (AC-38); the button stays reachable by ⌘⇧G and the palette.
+- **D-1157** The preset error alert is a preset layer (`data-preset-layer`): Esc closes it first, one layer at a time, in the panel and the full view.
+- **D-1158** The node keeps its focus ring (`data-focus-held`) until the focus comes back to the graph or moves elsewhere (FR-UX-08 AC-14 with D-1131).
+- **D-1159** The canvas is the window's last tab stop: Tab wraps to the window's first tab stop and ⇧Tab from there returns to the canvas.
+- **D-1160** Dropped: R4 has no R123 rows; contract §17.5 already states that R123's commands act on the panel while it shows the Graph tab.
+
+### 17.12 QA decisions (D-1161…D-1163, BRD v1.132)
+
+Owner, 2026-10-30, from the QA review of G3 in the panel:
+
+- **D-1161** `nfr_oth_02_ac15_panel_g3_strings_in_the_catalog` runs `Object preview: Hover to preview` and `Object preview: Off` without `.catch`, so a failed mode switch fails the test, and finds the footer by each mode's own pseudo-locale text (`graph.panel.footerHover`, `graph.panel.footerOff`), not by any `⟦…objects…⟧` text.
+- **D-1162** `tabNeighbour` on the panel's canvas skips a button without an explicit `tabindex`, as WebKit's own Tab: ⇧Tab from Plán focuses `List`, the last `View` button, and `Open full view` stays out of the tab order (D-1156). The full view's canvas keeps its toolbar buttons as neighbours (FR-UX-03 AC-22).
+- **D-1163** The catalog key `graph.a11y.name` `{title}, {type}` names a canvas node (`[data-graph-node]`) and a List `treeitem`. `data-user-content` sits only on the row title and the node label `<text>`, so the pseudo-locale check (NFR-OTH-02 AC-15) covers the rows' and nodes' catalog texts and `aria-description`.

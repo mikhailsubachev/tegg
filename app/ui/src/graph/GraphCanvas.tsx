@@ -4,7 +4,8 @@
 // roving focus (one node with `tabindex="0"`, the centre by default, AP-935), the `--focus` ring (`:focus-visible`),
 // the hover ring `[data-hover-ring]` filling over the delay (AP-942), the accessible descriptions (R121) and one
 // `keydown` listener that hands the keys to the page.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '../i18n/catalog';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { Icon } from '../shell/Icon';
 import { displayTitle, labelVisible, typeColour, sortKey, type GraphModel, type ModelNode, type NodeKey } from './graphModel';
@@ -92,16 +93,37 @@ export function nodeBox(n: ModelNode, scale: CanvasScale = 'full'): { w: number;
 }
 
 const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]';
-/** The first tab stop after (or before) `svg` in document order. */
-function tabNeighbour(svg: Element, back: boolean): HTMLElement | null {
+/** The first tab stop after (or before) `svg` in document order. From the panel's canvas, as WebKit's own Tab, a button
+ *  without an explicit `tabindex` is not a tab stop (`Open full view` stays out of the tab order, D-1156), so Tab and
+ *  ⇧Tab skip the same elements (D-1162). The full view keeps its toolbar buttons as the canvas's neighbours (AC-22). */
+function tabNeighbour(svg: Element, back: boolean, panel: boolean): HTMLElement | null {
   const all = [...document.querySelectorAll<HTMLElement>(TABBABLE)].filter((e) => {
     if (svg.contains(e) || e.tabIndex < 0 || (e as HTMLButtonElement).disabled) return false;
+    if (panel && e.tagName === 'BUTTON' && !e.hasAttribute('tabindex')) return false;
     const r = e.getBoundingClientRect();
     return r.width > 0 || r.height > 0;
   });
   const after = all.filter((e) => !!(svg.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING));
   const before = all.filter((e) => !!(svg.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_PRECEDING));
-  return back ? before[before.length - 1] ?? null : after[0] ?? null;
+  // The last canvas of the window (the right panel's): Tab wraps to the first tab stop, as the window's tab order does.
+  return back ? before[before.length - 1] ?? after[after.length - 1] ?? null : after[0] ?? before[0] ?? null;
+}
+
+/** After Tab wrapped from the canvas to the window's first tab stop (or ⇧Tab to its last), the opposite key from
+ *  there comes back to the canvas's tab stop, as the window's tab order cycles (FR-UX-03 AC-31). */
+function armReturn(from: HTMLElement, svg: Element, back: boolean) {
+  const off = () => { window.removeEventListener('keydown', onKey, true); from.removeEventListener('blur', off); };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Shift' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Control') return;
+    off();
+    if (e.key !== 'Tab' || e.shiftKey === back || document.activeElement !== from) return;
+    const stop = svg.isConnected ? svg.querySelector<SVGElement>('[tabindex="0"]') : null;
+    if (!stop) return;
+    e.preventDefault();
+    stop.focus();
+  };
+  window.addEventListener('keydown', onKey, true);
+  from.addEventListener('blur', off);
 }
 
 export type CanvasProps = {
@@ -126,7 +148,7 @@ export type CanvasProps = {
   /** The node with the tab stop (null: the centre) and its changes; null on focus leaving the canvas (AP-935). */
   focusKey?: NodeKey | null;
   onFocusKey?: (k: NodeKey | null) => void;
-  /** G3's keyboard map; without it (the panel until G2 hooks it up) no node is a tab stop. */
+  /** G3's keyboard map; without it no node is a tab stop and no focus ring is drawn. */
   onKey?: (e: React.KeyboardEvent, n: ModelNode, el: SVGGElement) => void;
   /** The pointer over a node, for the hover controller (`over` false: it left). */
   onNodePointer?: (n: ModelNode, over: boolean) => void;
@@ -145,6 +167,22 @@ export function GraphCanvas(p: CanvasProps) {
   const max = labelMax(scale);
   const drag = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
   const [, setTick] = useState(0);
+  /** The node with the DOM focus: only it draws the focus ring element (shown by `:focus-visible`). */
+  const [focusedNode, setFocusedNode] = useState<NodeKey | null>(null);
+  /** The focused node whose preview, opened by key, took the focus (AP-961): it keeps its ring until the focus comes
+   *  back or goes elsewhere (FR-UX-08 AC-14 in the panel: the ring also when the node is selected). */
+  const [held, setHeld] = useState<NodeKey | null>(null);
+  useEffect(() => {
+    if (!held) return;
+    const away = (e: Event) => {
+      const tg = e.target as Element | null;
+      if (tg?.closest?.('[data-preview-popover]')) return;
+      setHeld(null);
+    };
+    document.addEventListener('focusin', away, true);
+    document.addEventListener('pointerdown', away, true);
+    return () => { document.removeEventListener('focusin', away, true); document.removeEventListener('pointerdown', away, true); };
+  }, [held]);
   const focus = p.hovered ?? p.selected;
   const near = useMemo(() => {
     if (!focus) return null;
@@ -160,8 +198,11 @@ export function GraphCanvas(p: CanvasProps) {
   const bySort = useMemo(() => new Map(model.nodes.map((n) => [n.sortKey, n])), [model]);
   const drawn = model.nodes.length;
   const tx = size.width / 2 + view.panX, ty = size.height / 2 + view.panY;
-  // The panel draws no focus ring and no tab stop until G2 hooks up the keyboard map (v1-graph §16 seams).
+  // Without a keyboard map (`onKey`) the canvas draws no focus ring and no tab stop (v1-graph §16 seams).
   const keys = !!p.onKey;
+  // R125 (D-1152): the panel's hover ring is a circle 5 px outside the node's shape (the centre's too), on a pill a
+  // rounded rectangle 4 px outside it; the full view's is 6.25 px outside (R120).
+  const hoverPill = scale === 'panel' ? 4 : 5.25;
   const stop = !keys ? null : p.focusKey && bySort.size && model.nodes.some((n) => n.key === p.focusKey) ? p.focusKey : model.centre;
 
   return (
@@ -170,8 +211,14 @@ export function GraphCanvas(p: CanvasProps) {
         e.currentTarget.removeAttribute('data-pointer');
         // WebKit finds no next element after a focused SVG `<g>`: Tab and ⇧Tab leave the canvas here (AP-935).
         if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-          const next = tabNeighbour(e.currentTarget, e.shiftKey);
-          if (next) { e.preventDefault(); next.focus(); }
+          const svg = e.currentTarget;
+          const next = tabNeighbour(svg, e.shiftKey, scale === 'panel');
+          if (next) {
+            e.preventDefault();
+            const wrapped = !!(svg.compareDocumentPosition(next) & (e.shiftKey ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING));
+            next.focus();
+            if (wrapped) armReturn(next, svg, e.shiftKey);
+          }
           return;
         }
         const el = (e.target as Element).closest('[data-graph-node]') as SVGGElement | null;
@@ -237,14 +284,20 @@ export function GraphCanvas(p: CanvasProps) {
             const typeName = typeNameOf(n.node.typeKey);
             const common = {
               'data-graph-node': '', 'data-type': n.node.typeKey, 'data-depth': n.node.depth, 'data-size-step': n.step,
-              'data-selected': selected ? 'true' : undefined, 'data-user-content': '', 'data-node-key': n.key, tabIndex: n.key === stop ? 0 : -1, role: 'img',
-              'aria-label': `${displayTitle(n.node)}, ${typeName}`, 'aria-description': p.describe?.(n),
+              'data-selected': selected ? 'true' : undefined, 'data-node-key': n.key, tabIndex: n.key === stop ? 0 : -1, role: 'img',
+              'aria-label': t('graph.a11y.name', { title: displayTitle(n.node), type: typeName }), 'aria-description': p.describe?.(n),
               className: `graph-node${n.centre ? ' centre' : ''}${p.entering.has(n.key) ? ' graph-enter' : ''}`,
               transform: `translate(${pos.x} ${pos.y})`, style: { opacity: dim ? 0.3 : 1 },
               onPointerEnter: () => { p.onHover(n.key); p.onNodePointer?.(n, true); },
               onPointerMove: () => p.onNodePointer?.(n, true),
               onPointerLeave: () => { p.onHover(null); p.onNodePointer?.(n, false); },
-              onFocus: () => p.onFocusKey?.(n.key),
+              onFocus: () => { setFocusedNode(n.key); setHeld(null); p.onFocusKey?.(n.key); },
+              onBlur: (e: React.FocusEvent) => {
+                const to = e.relatedTarget as Element | null;
+                if (to?.closest?.('[data-preview-popover]')) setHeld(n.key);
+                setFocusedNode((k) => (k === n.key ? null : k));
+              },
+              'data-focus-held': held === n.key ? '' : undefined,
               onClick: (e: React.MouseEvent<SVGGElement>) => { e.stopPropagation(); p.onNodeClick(n, e.currentTarget, e); },
               onDoubleClick: (e: React.MouseEvent) => { e.stopPropagation(); p.onOpen(n); },
             } as const;
@@ -257,9 +310,9 @@ export function GraphCanvas(p: CanvasProps) {
                 <g key={n.key} {...common} data-tag-key={n.node.tagKey ?? ''} data-path={undefined}>
                   <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2} className="graph-pill" style={{ fill: c ? `var(--type-${c}-bg)` : 'var(--hover)', stroke: c ? `var(--type-${c})` : 'var(--muted)' }} />
                   {selected && <rect x={-w / 2 - 4} y={-h / 2 - 4} width={w + 8} height={h + 8} rx={h / 2 + 4} className="graph-ring" />}
-                  {keys && <rect x={-w / 2 - 5.5} y={-h / 2 - 5.5} width={w + 11} height={h + 11} rx={h / 2 + 5.5} className="graph-focus-ring" />}
-                  {ring && <rect key={ring.seq} data-hover-ring="" x={-w / 2 - 5.25} y={-h / 2 - 5.25} width={w + 10.5} height={h + 10.5} rx={h / 2 + 5.25} pathLength={100} className="graph-hover-ring" style={{ animationDuration: `${ring.ms}ms` }} />}
-                  <text className="graph-pill-text" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)', fontSize: pill.font }}>{cut(text, pill.font, '600', Math.min(max, w - 4))}</text>
+                  {keys && (focusedNode === n.key || held === n.key) && <rect x={-w / 2 - 5.5} y={-h / 2 - 5.5} width={w + 11} height={h + 11} rx={h / 2 + 5.5} className="graph-focus-ring" />}
+                  {ring && <rect key={ring.seq} data-hover-ring="" x={-w / 2 - hoverPill} y={-h / 2 - hoverPill} width={w + 2 * hoverPill} height={h + 2 * hoverPill} rx={h / 2 + hoverPill} pathLength={100} className="graph-hover-ring" style={{ animationDuration: `${ring.ms}ms` }} />}
+                  <text className="graph-pill-text" data-user-content="" textAnchor="middle" dominantBaseline="central" style={{ fill: c ? `var(--type-${c})` : 'var(--muted)', fontSize: pill.font }}>{cut(text, pill.font, '600', Math.min(max, w - 4))}</text>
                 </g>
               );
             }
@@ -274,12 +327,12 @@ export function GraphCanvas(p: CanvasProps) {
                 <circle r={r} className="graph-circle" style={{ fill: `var(--type-${colour}-bg)`, stroke: `var(--type-${colour})`, strokeWidth: n.centre && scale !== 'panel' ? 3 : 1.5 }} />
                 {panelRing && <circle r={30} className="graph-centre-ring" style={{ stroke: `var(--type-${colour})` }} />}
                 {selected && <circle r={(panelRing ? 30 : r) + 4} className="graph-ring" />}
-                {keys && <circle r={(panelRing ? 30 : r) + 5.5} className="graph-focus-ring" />}
-                {ring && <circle key={ring.seq} data-hover-ring="" r={(panelRing ? 30 : r) + 6.25} pathLength={100} transform="rotate(-90)" className="graph-hover-ring" style={{ animationDuration: `${ring.ms}ms` }} />}
+                {keys && (focusedNode === n.key || held === n.key) && <circle r={(panelRing ? 30 : r) + 5.5} className="graph-focus-ring" />}
+                {ring && <circle key={ring.seq} data-hover-ring="" r={scale === 'panel' ? r + 5 : r + 6.25} pathLength={100} transform="rotate(-90)" className="graph-hover-ring" style={{ animationDuration: `${ring.ms}ms` }} />}
                 <g transform={`translate(${-iconSize / 2} ${-iconSize / 2})`} style={{ color: `var(--type-${colour})` }}>
                   <Icon name={icon.glyph} dataIcon={icon.def} size={iconSize} />
                 </g>
-                <text className={`graph-label${n.centre ? ' centre' : ''}`} y={(panelRing ? 30 : r) + (scale === 'panel' ? 5 : 7)} textAnchor="middle" dominantBaseline="hanging"
+                <text className={`graph-label${n.centre ? ' centre' : ''}`} data-user-content="" y={(panelRing ? 30 : r) + (scale === 'panel' ? 5 : 7)} textAnchor="middle" dominantBaseline="hanging"
                   style={{ fontSize, fontWeight: n.centre ? 650 : 400, display: showLabel ? undefined : 'none' }}>
                   {cut(n.node.title, fontSize, n.centre ? '650' : '400', max)}
                 </text>

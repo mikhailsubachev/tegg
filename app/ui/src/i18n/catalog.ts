@@ -1577,6 +1577,7 @@ export const en: Catalog = {
   'graph.view.list': 'List',
   'graph.list': 'Local graph as a list',
   'graph.connectionsCount': { one: '{count} connection', other: '{count} connections' },
+  'graph.a11y.name': '{title}, {type}',
   'graph.a11y.node': '{connections}. {relation}. {position}.',
   'graph.a11y.centre': '{connections}. Centre of the graph. {position}.',
   'graph.a11y.position': '{index} of {total}',
@@ -1605,6 +1606,9 @@ export const en: Catalog = {
   'graph.panel.openFull': 'Open full view',
   'graph.panel.openFullShortcut': 'Open full view ({shortcut})',
   'graph.panel.footer': { one: '{count} object · click a node to preview', other: '{count} objects · click a node to preview' },
+  // Slice "G3 in the panel" (R128, AP-964 = D-1134): the footer per Object preview setting.
+  'graph.panel.footerHover': { one: '{count} object · hover to preview', other: '{count} objects · hover to preview' },
+  'graph.panel.footerOff': { one: '{count} object · click to open', other: '{count} objects · click to open' },
   'graph.panel.loading': 'Loading…',
   'graph.panel.tooMany': 'Too many to show here',
   'graph.panel.tooManyCount': '{count} objects at depth {depth}',

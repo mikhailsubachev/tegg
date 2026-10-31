@@ -6,6 +6,8 @@ These files are **not** a vault and never sit in `tests/fixtures/vaults/graph/`:
 
 **Byte rules.** LF line endings, UTF-8 without BOM, every file ends with exactly one `\n`, NFC everywhere. Don't open and re-save these files in an editor; the `expected/` files are compared byte for byte. NFD and CRLF variants are made at runtime (below), because an editor or Git can normalize them.
 
+The follow-up slice "G3 in the panel" (`docs/acceptance/graph-panel-g3.md`) uses the same files and expected outputs from the right panel's Graph tab, unchanged: `valid.yml` (FR-GRP-01 AC-45, FR-GRP-02 AC-26…AC-30, AC-32, AC-33, FR-UX-03 AC-37, FR-SYN-03 AC-25, FR-SYN-06 AC-41), `invalid-yaml.yml` and `newer-version.yml` (FR-GRP-02 AC-31), `expected/created.yml` (FR-GRP-02 AC-29, FR-UX-03 AC-38), `expected/valid-after-update.yml` (FR-GRP-02 AC-28), and the NFD runtime copy (FR-GRP-02 AC-29).
+
 ## Input files
 
 | File | What it holds | Used by |
