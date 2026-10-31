@@ -279,6 +279,7 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::OptionDuplicate => ("optionDuplicate", Some("optionLabel".into()), None, None),
         RuleError::OptionUsed { label } => ("optionUsed", Some("optionLabel".into()), None, Some(label.clone())),
         RuleError::PreviewFull => ("previewFull", None, None, None),
+        RuleError::ColumnsUnreadable => ("columnsUnreadable", None, None, None),
         RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
         RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };
@@ -447,6 +448,7 @@ async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Resu
             .results
             .into_iter()
             .map(|r| SearchResultDto {
+                title_highlights: r.title_highlights.iter().map(|&(a, b)| (utf16(&r.title, a), utf16(&r.title, b))).collect(),
                 path: r.path,
                 type_key: r.r#type,
                 title: r.title,
@@ -467,6 +469,10 @@ async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Resu
                 typo: r.typo,
                 snippet: r.snippet.map(snippet_dto),
                 file_name: r.file_name.map(snippet_dto),
+                modified: r.modified,
+                tags: r.tags,
+                alias: r.alias.map(snippet_dto),
+                attribute: r.attribute.map(|h| AttributeHitDto { key: h.key, value: snippet_dto(h.value) }),
             })
             .collect(),
     })
@@ -1225,6 +1231,9 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         preview: d.preview,
         preview_ignored: t.preview_ignored,
         hidden: d.hidden,
+        columns: d.columns,
+        columns_ignored: t.columns_ignored,
+        columns_unreadable: t.columns_unreadable,
         embed: t.embed.as_str().into(),
         embed_raw: t.embed_raw,
         template: d.template,
@@ -1326,6 +1335,7 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         }
         TypeOpDto::Review { on } => TypeOp::SetReview(on),
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
+        TypeOpDto::Columns { keys } => TypeOp::SetColumns(keys),
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
             Some(m) => m,

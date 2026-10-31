@@ -90,6 +90,9 @@ const PANEL_W = 288;
 const PANEL_MIN = 240;
 const PANEL_MAX = 480;
 const MIN_CENTRE = 400; // D-136
+const QUICK_ADD = 'main [data-quick-add] input';
+/** The task views' search: Schedule and Kanban (D-1280), or All tasks' type-page filter. */
+const TASK_SEARCH = 'main [data-command="tasks.search"], main input.type-filter';
 
 type Dialog = 'palette' | 'newType' | 'starter' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
@@ -125,8 +128,8 @@ export function App() {
   const newTagCommand = useRef<(() => void) | null>(null);
   const mergeCommand = useRef<(() => void) | null>(null);
   const pendingNewTag = useRef(false);
-  /** D-520: New Task lands on the Tasks page with the caret in the quick-add row. */
-  const focusQuickAdd = useRef(false);
+  /** Where the focus goes when a task view is shown: the quick-add row (New Task, D-520) or the search (D-1284). */
+  const focusOnLand = useRef<string | null>(null);
   /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
   const lastBoard = useRef<'tasks' | 'tasks/kanban' | null>(null);
   const [focusMode, setFocusMode] = useState(false);
@@ -468,21 +471,26 @@ export function App() {
   }, [openNote, createToday]);
   const createFrom = useCallback((item: SwitcherItemDto, prepared?: Prepared | null) => createOf(item.type, item.title, prepared ?? null), [createOf]);
 
+  /** Opens the last of Schedule and Kanban (D-520) and puts the focus in `selector` there. */
+  const landOnTasks = useCallback((selector: string) => {
+    focusOnLand.current = selector;
+    void go({ id: lastBoard.current ?? (uiRef.current?.tasks?.view === 'kanban' ? 'tasks/kanban' : 'tasks') }).then(() => setTimeout(() => {
+      // Already on that view: no new route to focus, so focus it here.
+      const el = focusOnLand.current ? document.querySelector<HTMLInputElement>(focusOnLand.current) : null;
+      if (el) { focusOnLand.current = null; el.focus({ preventScroll: true }); }
+    }, 100));
+  }, [go]);
+
   /** D-520: where `New <Name>` goes: today's Daily Note, the Tasks quick-add row, or an unsaved draft. */
   const newOf = useCallback((key0: string) => {
     const key = key0.normalize('NFC');
     if (key === 'daily-note') { createToday(); return; }
     if (key === 'task') {
-      focusQuickAdd.current = true;
-      void go({ id: lastBoard.current ?? (uiRef.current?.tasks?.view === 'kanban' ? 'tasks/kanban' : 'tasks') }).then(() => setTimeout(() => {
-        // Already on that view: no new route to focus, so focus the row here.
-        const quick = focusQuickAdd.current ? document.querySelector<HTMLInputElement>('main [data-quick-add] input') : null;
-        if (quick) { focusQuickAdd.current = false; quick.focus({ preventScroll: true }); }
-      }, 100));
+      landOnTasks(QUICK_ADD);
       return;
     }
     void go({ id: 'new/<type>', param: key });
-  }, [go, createToday]);
+  }, [go, createToday, landOnTasks]);
 
   // D-520: a draft's bytes come from the creation path (D-232) with an empty title; its first write creates the file
   // and the route becomes the note's without remounting the page (as a rename, FR-FMT-08 AC-5).
@@ -635,6 +643,12 @@ export function App() {
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
     taskCommand: (id: string) => taskCommand.current?.(id),
+    filterTasks: () => {
+      // D-1284: on a task view the focus goes to its field; elsewhere the last of Schedule and Kanban opens with it.
+      const field = document.querySelector<HTMLInputElement>(TASK_SEARCH);
+      if (field && (route?.id === 'tasks' || route?.id === 'tasks/kanban' || (route?.id === 'type/<type>' && route.param?.normalize('NFC') === 'task'))) field.focus();
+      else landOnTasks('main [data-command="tasks.search"]');
+    },
     tagCommand: (id: string) => tagCommand.current?.(id),
     mergeFocused: () => mergeCommand.current?.(),
     newTag: () => {
@@ -930,8 +944,8 @@ export function App() {
       if (pendingFocus.current && !live.current.dialog) {
         pendingFocus.current = false;
         // A note places the focus itself: title of a new note, caret in the body, or its heading (D-247, D-255).
-        const quick = focusQuickAdd.current ? document.querySelector<HTMLInputElement>('main [data-quick-add] input') : null;
-        if (quick) { focusQuickAdd.current = false; quick.focus({ preventScroll: true }); } // D-520: New Task
+        const quick = focusOnLand.current ? document.querySelector<HTMLInputElement>(focusOnLand.current) : null;
+        if (quick) { focusOnLand.current = null; quick.focus({ preventScroll: true }); } // D-520: New Task, D-1284: Filter tasks
         else if ((isNote || route.id === DAILY) && noteApi.current && !headingFocus.current) { if (route.param === justCreated.current || `daily:${route.param}` === justCreated.current) justCreated.current = null; noteApi.current.placeFocus(); }
         // Search starts in its field (owner feedback F3, docs/feedback/ms3-3d.md); other pages focus the heading.
         else if (route.id === 'search' && searchInput.current) searchInput.current.focus({ preventScroll: true });
@@ -1051,6 +1065,13 @@ export function App() {
       heading,
       sort: ui.typeSort?.[key],
       onSort: (s: TypeSort) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } })),
+      // D-1241: column widths per type key, machine-local; an empty map drops the type's entry (Reset column widths).
+      widths: ui.typeColumnWidths?.[key] as Record<string, number> | undefined,
+      onWidths: (w: Record<string, number>) => updateUi((u) => {
+        const all = { ...(u.typeColumnWidths ?? {}) };
+        if (Object.keys(w).length) all[key] = w; else delete all[key];
+        return { ...u, typeColumnWidths: all };
+      }),
       onOpen: openNote,
       onTag: openTag,
       onSettings: () => go({ id: 'type-settings/<type>', param: key }),
@@ -1135,6 +1156,7 @@ export function App() {
         }}
         go={(v) => { void go(tasksRoute(v)); }}
         onSettings={() => go({ id: 'type-settings/<type>', param: 'task' })}
+        plural={types.find((x) => x.key.normalize('NFC') === 'task')?.plural ?? t('tasks.title')}
         commandRef={taskCommand}
       />
     );
@@ -1166,7 +1188,8 @@ export function App() {
       onGoTo={(p) => { jumpFrom.current = shownRoute.current; openNote(p); }}
       onCreate={(i, p) => { jumpFrom.current = shownRoute.current; createFrom(i, p); }}
       onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
-      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
+      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined}
+      types={types} dateTime={ui.dateTime} initial={history.current.current()?.search} onState={(st) => history.current.setSearch(st)} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}

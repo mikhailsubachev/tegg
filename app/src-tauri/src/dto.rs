@@ -71,6 +71,24 @@ pub struct SearchResultDto {
     pub snippet: Option<SnippetDto>,
     /// The file stem with its matches, only for a `fileName` match (D-254).
     pub file_name: Option<SnippetDto>,
+    /// Frontmatter `modified` as written (ISO 8601 with offset), else null (D-1206).
+    pub modified: Option<String>,
+    /// Tag keys, NFC lower case (D-1211).
+    pub tags: Vec<String>,
+    /// `[start, end)` in UTF-16 code units of `title` (D-1210, D-1223).
+    pub title_highlights: Vec<(u32, u32)>,
+    /// The matched alias, only for an `alias` match; `line` 0 (D-1209).
+    pub alias: Option<SnippetDto>,
+    /// The matched attribute, only for an `attribute` match (D-1208).
+    pub attribute: Option<AttributeHitDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct AttributeHitDto {
+    /// The frontmatter key as written.
+    pub key: String,
+    /// The matched value as written; `line` 0.
+    pub value: SnippetDto,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -269,6 +287,12 @@ pub struct TypeDto {
     pub preview_ignored: Vec<String>,
     /// Properties left out of the attribute panel's rows (FR-TYP-17, D-316).
     pub hidden: Vec<String>,
+    /// The type page's columns after Title as written; null when the key is absent (D-1240, type-columns §2).
+    pub columns: Option<Vec<String>>,
+    /// `columns` entries that are neither properties nor universal keys (D-1245).
+    pub columns_ignored: Vec<String>,
+    /// `columns` is present but not a list of strings: the Columns menu is disabled (D-1245).
+    pub columns_unreadable: bool,
     /// The effective default embed mode: `full`, `card` or `link` (D-417, ms4-embeds §3).
     pub embed: String,
     /// The raw `embed` value of the type file, or null when absent.
@@ -385,6 +409,8 @@ pub enum TypeOpDto {
     Set { field: String, value: Option<String> },
     Review { on: bool },
     Preview { keys: Vec<String> },
+    /// D-1240 (type-columns §2).
+    Columns { keys: Vec<String> },
     /// FR-TYP-17, D-316.
     Hidden { keys: Vec<String> },
     /// D-417 (ms4-embeds §3): `full`, `card` or `link`.
@@ -539,6 +565,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub preview: Option<PreviewUiDto>,
+    /// Type-page column widths in px per type key, then column key (`title` included); machine-local, never in the
+    /// vault (D-1241, type-columns §2); missing reads as empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub type_column_widths: Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>>,
 }
 
 /// Slice P (v1-previews §1): `mode` `click` | `hover` | `off` (anything else reads as `click` in the UI), `hoverDelay`
@@ -1060,7 +1091,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None }
     }
 }
 
@@ -1418,6 +1449,7 @@ pub fn typescript() -> String {
         SearchQueryDto::decl(),
         SnippetDto::decl(),
         SearchResultDto::decl(),
+        AttributeHitDto::decl(),
         SearchPageDto::decl(),
         SwitcherItemDto::decl(),
         NoteDto::decl(),

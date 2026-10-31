@@ -30,7 +30,7 @@ behaviour and needs a D-xx. Decisions are D-1164…D-1199; points are AP-994 onw
 ## Decided points (owner, 2026-10-31)
 
 All as proposed: AP-994 → **D-1164**, AP-995 → **D-1165**, AP-996 → **D-1166**, AP-997 → **D-1167**, AP-998 →
-**D-1168**, AP-999 → **D-1169**, AP-1000 → **D-1170**, AP-1001 → **D-1171** (BRD v1.126).
+**D-1168**, AP-999 → **D-1169**, AP-1000 → **D-1170**, AP-1001 → **D-1171** (BRD v1.133).
 
 ## Points for the owner (from writing the v0.94 ACs)
 
@@ -52,7 +52,7 @@ D-1172…D-1199.
 
 Decided (owner, 2026-10-31), all as proposed: AP-1002 → **D-1172**, AP-1003 → **D-1173**, AP-1004 → **D-1174**,
 AP-1005 → **D-1175**, AP-1006 → **D-1176**, AP-1007 → **D-1177**, AP-1008 → **D-1178**, AP-1009 → **D-1179**,
-AP-1010 → **D-1180**; the AC-test-change table → **D-1181** (BRD v1.127).
+AP-1010 → **D-1180**; the AC-test-change table → **D-1181** (BRD v1.134).
 
 ## Points for the owner (from writing the red tests)
 
@@ -72,3 +72,5 @@ to D-1182…D-1199.
 | AP-1017 | **Parts not checked.** FR-GRP-01 AC-48's "label rules follow the zoom" (Plán has fewer than 60 nodes), AC-47's "the preview column's body scrolls" (the body is too short; checked as "doesn't pan"), FR-LNK-11 AC-17's caret (D-247). | Accept: FR-GRP-01 AC-18 and D-247's own tests already cover them; the ACs say "covered by" | Add a fixture with ≥ 60 nodes and a long body |
 | AP-1018 | **Two failures where the AC says "unchanged".** (a) In click mode a click on the strip chip `Jana Nováková` in the graph's Preview column doesn't replace the content (FR-GRP-06 AC-12, D-932); (b) opening Vložení's section embed `#Rozsah` lands 293 px above the pane's top (FR-LNK-09 AC-10 Off), and the embed's own `Open Rozpočet 2027` does the same. | Both are existing bugs (triage: bug). They're fixed in this slice's build, each with a regression test `bug_v094gp_<req>_…` written first | (b) goes to its own fix; the AC-10 Off test is quarantined until then |
 | AP-1019 | **A double-click on `Resize preview` opens Jana (FR-LNK-11 AC-19).** The popover shrinks between the two clicks, so the second lands on a chip behind it. | An existing bug: the resize handle doesn't change the size on a click without a drag. Fixed in the build with a regression test | The AC drops the double-click on the handle |
+
+Decided (owner, 2026-10-31), all as proposed: AP-1011…AP-1019 → **D-1182…D-1190** (BRD v1.135).
