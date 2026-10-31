@@ -110,3 +110,7 @@ Decided (owner, 2026-10-31), as proposed: AP-1026 → **D-1197**, AP-1027 → **
 | AP-1032 | **FR-SYN-06 AC-42's L6 tour is narrower than the AC** ("AC-37's tour once more … with clicks inside previews and on embeds"): it hovers 7 links, clicks inside one preview and on 3 embeds; the section embed and five other preview kinds are only in L5. | Accept: L6 checks that the real app writes nothing on these inputs; the per-kind behaviour is L5's, as for AC-37. The AC says so | Extend the L6 tour to every kind |
 
 Decided (owner, 2026-10-31), all as proposed: AP-1028…AP-1032 → **D-1233…D-1237** (BRD v1.138; after the Search redesign's D-1232, as D-1164…D-1199 is used up).
+
+| Point | Question | Proposal | Alternative |
+|---|---|---|---|
+| AP-1033 | **A race in FR-NAV-03 AC-8's red test** (`app/webkit/history_v094.ac.test.ts`). After `⌘[` the test takes its `route-ready` count as soon as the page heading shows; under load the Tasks or type page's own `route-ready` mark arrives a moment later, and the test reads it as a Back / Forward round trip (`tasks`, `sidebar`, `title_bar` failed in two gates; 18 of 18 alone). | Red-test correction: before taking the count, the test waits until the Back's `route-ready` mark has arrived (the count grew by one since `⌘[`, or 2 s). The check itself is unchanged | Leave it; it passes alone |
