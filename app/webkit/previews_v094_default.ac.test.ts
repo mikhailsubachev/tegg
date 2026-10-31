@@ -197,7 +197,8 @@ test('fr_set_07_ac6_the_order_and_the_default', async ({ page }) => {
   assert.deepEqual(await sliderState(page), { now: '1000', text: '1000 ms', disabled: false }, 'the slider is enabled at 1000');
   await (await need(radio(page, HOVER), 'radio Hover')).focus();
   for (const want of [CLICK, OFF, HOVER]) {
-    const from = (await uiSets(core)).length;
+    // D-1194: `uiSets` takes a call index, so the press's writes are counted from the calls made so far.
+    const from = (await core.calls()).length;
     await page.keyboard.press('ArrowDown');
     const sets = await eventually(() => uiSets(core, from), (x) => x.length > 0, 2000);
     assert.deepEqual(await checkedRadios(page), [want], `↓ checks ${want}`);

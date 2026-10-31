@@ -218,7 +218,8 @@ test('fr_lnk_12_ac12_graph_off_click_opens', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-LNK-12 AC-13
 
 test('fr_lnk_12_ac13_graph_follows_mode_changes', async ({ page }) => {
-  await openGraph(page, P.plan, { realTime: true });
+  // D-1192: the delay is stored at 400 ms first (the default is 1,000 ms, D-1164); click mode as D-1164's test rule.
+  await openGraph(page, P.plan, { realTime: true, hoverDelay: 400 });
   await clickNode(page, P.rozpocet);
   await must(shown(page, P.rozpocet), 'a clicked preview (setup)');
   await runCommand(page, 'Object preview: Hover to preview');

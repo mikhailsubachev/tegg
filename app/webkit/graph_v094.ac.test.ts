@@ -105,6 +105,20 @@ async function emptyPoint(page: Page, at?: Scope) {
   const r = (await (await must(canvas(page, at), 'the canvas')).boundingBox())!;
   return { x: r.x + 8, y: r.y + 8 };
 }
+/** D-1193: a wheel's `clientX` / `clientY` are whole pixels in WebKit, so a zoom "around the pointer" is checked at a
+ *  whole-pixel point: the drawing is panned by the fraction (a wheel at an empty point of the canvas) until `k`'s
+ *  on-screen centre is on a whole pixel, which is returned. */
+async function wholePixelCentre(page: Page, k: string, at?: Scope) {
+  const c = await centreOf(page, k, at);
+  const fx = c.x - Math.round(c.x), fy = c.y - Math.round(c.y);
+  if (Math.abs(fx) > 0.01 || Math.abs(fy) > 0.01) {
+    const e = await emptyPoint(page, at);
+    await wheelAt(page, e.x, e.y, fx, fy);
+    await sleep(250);
+  }
+  const q = await centreOf(page, k, at);
+  return { x: Math.round(q.x), y: Math.round(q.y) };
+}
 async function centreOf(page: Page, k: string, at?: Scope) {
   const p = await positions(page, at);
   assert.ok(p[nfc(k)], `${k} is drawn`);
@@ -190,11 +204,16 @@ test('fr_grp_01_ac47_wheel_pans_the_full_view', async ({ page }) => {
     assert.equal(await wheelAt(page, e.x, e.y, dx, dy), true, `(${dx}, ${dy}): the wheel event is defaultPrevented`);
     await sleep(200);
   }
+  // D-1193: wheel back to the first view (each step above panned twice, the real wheel and the checked one), so
+  // Rozpočet is on the canvas for the next steps.
+  await page.mouse.move(e.x, e.y);
+  await page.mouse.wheel(-280, -160);
+  await sleep(250);
   // Over a node: the same pan; Rozpočet isn't selected anew, previewed or opened by it.
   await page.mouse.move(1, 1);
   await clickNode(page, P.zapis);
   await must(shown(page, P.zapis), 'Zápis selected');
-  const rc = await centreOf(page, P.rozpocet);
+  const rc = await wholePixelCentre(page, P.rozpocet);
   await page.mouse.move(rc.x, rc.y);
   const a = await positions(page);
   await page.mouse.wheel(0, 120);
@@ -246,7 +265,7 @@ test('fr_grp_01_ac47_wheel_pans_the_full_view', async ({ page }) => {
 test('fr_grp_01_ac48_cmd_wheel_and_pinch_zoom_around_the_pointer', async ({ page }) => {
   await openGraph(page, P.plan, { previewMode: 'click' });
   await waitDrawn(page, 10);
-  let p = await centreOf(page, P.rozpocet);
+  let p = await wholePixelCentre(page, P.rozpocet);
   const s0 = await scaleOf(page);
   const fixed = async (what: string, want: number) => {
     await sleep(250);
@@ -266,7 +285,7 @@ test('fr_grp_01_ac48_cmd_wheel_and_pinch_zoom_around_the_pointer', async ({ page
   // Fit, then a pinch and a ctrl-wheel.
   await click(fitBtn(page), 'Fit to screen');
   await sleep(300);
-  p = await centreOf(page, P.rozpocet);
+  p = await wholePixelCentre(page, P.rozpocet);
   const s1 = await scaleOf(page);
   const pv = await pinchAt(page, p.x, p.y, 1.25);
   assert.deepEqual(pv.slice(0, 2), [true, true], 'gesturestart and gesturechange are defaultPrevented');
@@ -329,12 +348,16 @@ test('fr_grp_01_ac49_wheel_pans_and_zooms_the_panel', async ({ page }) => {
   await page.mouse.wheel(-400, 0);
   await sleep(500);
   assert.equal(await mainName(page), 'Plán čtvrtletí', 'a horizontal wheel never navigates');
+  // D-1193: wheel back to the first-paint view, so Rozpočet is on the panel's canvas for the zoom steps.
+  await page.mouse.move(e.x, e.y);
+  await page.mouse.wheel(260, -80);
+  await sleep(250);
   assert.equal(await navCount(core), n0, 'no nav_opened');
   assert.equal(await tabTop(), 0, 'the tab panel\'s scrollTop stays 0');
   const note1 = await page.evaluate(() => { const m = document.querySelector('main'); const sc = [m, ...(m ? [...m.querySelectorAll('*')] : [])].find((e) => e && (e as HTMLElement).scrollHeight > (e as HTMLElement).clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(e as HTMLElement).overflowY)) as HTMLElement | undefined; const sel = getSelection(); return { top: sc?.scrollTop ?? -1, anchor: sel?.anchorOffset ?? -1 }; });
   assert.deepEqual(note1, note0, 'the note\'s centre pane keeps its scrollTop and caret');
   // ⌘-wheel, ctrl-wheel and a pinch zoom around the pointer.
-  let r = await centreOf(page, P.rozpocet, GP(page));
+  let r = await wholePixelCentre(page, P.rozpocet, GP(page));
   const zoomed = async (what: string, want: number) => {
     await sleep(250);
     const got = await pScale(page, P.plan);

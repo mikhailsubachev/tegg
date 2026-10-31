@@ -333,7 +333,8 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
 
 test('fr_set_07_ac2_hover_and_600_ms_survive_a_relaunch_and_apply_in_another_vault', { timeout: 400_000 }, async () => {
   await ready();
-  const c = fresh('set07ac2');
+  // D-1192: the delay is stored at 400 ms first (click mode as D-1164's test rule), so the two steps reach 600.
+  const c = fresh('set07ac2', { preview: { mode: 'click', hoverDelay: 400 } });
   const before = tree(c.vault);
   const other = previewsCopy(c.base, 'Druhý trezor');
   try {

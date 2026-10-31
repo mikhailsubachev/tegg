@@ -117,7 +117,8 @@ test('fr_set_07_ac1_the_previews_section_is_built', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-SET-07 AC-2 (L5)
 
 test('fr_set_07_ac2_hover_and_600_ms_are_stored_machine_local_and_the_vault_is_untouched', async ({ page }) => {
-  const core = await startPv(page, PV.odkazy);
+  // D-1192: the delay is stored at 400 ms first, so the two steps reach 600 under the 1,000 ms default (D-1164).
+  const core = await startPv(page, PV.odkazy, { preview: { hoverDelay: 400 } });
   const before = hash(await core.files());
   await gotoPreviews(page, 'Settings: Previews');
   const from = await callCount(core);

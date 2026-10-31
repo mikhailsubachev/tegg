@@ -351,7 +351,7 @@ test('fr_set_07_ac3_the_provider_reads_bad_values_without_rewriting_them', async
   const ipc = await installIpc({ uiState: { ...DEFAULT_UI_STATE, preview: BAD_PREVIEW } });
   const p = await mountProvider();
   await settle();
-  assert.equal(p.api().mode, 'click', 'a stored mode `sometimes` reads as click');
+  assert.equal(p.api().mode, 'hover', 'a stored mode `sometimes` reads as hover, the default (D-1172, D-1192)');
   assert.equal(p.api().hoverDelay, 1500, 'a stored delay 1720 reads as 1500');
   await show(p.api(), note(P.rozpocet), p.anchor, 'click');
   theDialog();

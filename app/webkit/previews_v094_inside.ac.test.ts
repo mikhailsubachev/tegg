@@ -104,9 +104,19 @@ for (const view of ['editor', 'read'] as const) {
     n0 = await mark(core);
     await (await need(anyContent(d).getByText('Kdo schvaluje nákup licencí?', { exact: true }), 'the block')).click();
     await openedRozpocet(page, core, n0, `${view}: a click on the block`);
-    const bl = await need(main(page).getByText('Kdo schvaluje nákup licencí?', { exact: true }), 'the block in the note');
-    const btop = await eventually(() => topInScroller(bl), (t) => t !== null && Math.abs(t) <= 8, 2000);
-    assert.ok(btop !== null && Math.abs(btop) <= 8, `${view}: the note scrolled to ^otazka1 (read-view FR-EDT-02 AC-7): ${btop}`);
+    // D-1195: the block is matched by its text start (the editor shows its id), and it is at the top as far as the pane
+    // can scroll (it is near the note's end).
+    const bl = await need(main(page).locator('p, li').filter({ hasText: /^\s*Kdo schvaluje nákup licencí\?/ }), 'the block in the note');
+    const atBlock = () => bl.first().evaluate((e) => {
+      let sc: HTMLElement | null = e.parentElement;
+      while (sc && !(sc.scrollHeight > sc.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      const box = sc ?? document.documentElement;
+      const top = e.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
+      return { top, ok: Math.abs(top) <= 8 || (atEnd && top > 0 && top < box.clientHeight) };
+    }).catch(() => ({ top: NaN, ok: false }));
+    const bst = await eventually(atBlock, (x) => x.ok, 2000);
+    assert.ok(bst.ok, `${view}: the note scrolled to ^otazka1, at the top as far as the pane scrolls (read-view FR-EDT-02 AC-7): ${bst.top}`);
     await back(page, 'Odkazy', `${view}: Back`);
     // The strip of Projekt Alfa.
     d = await clickPreview(page, 'Projekt', 0, 'Projekt Alfa');
@@ -334,10 +344,14 @@ test('fr_lnk_11_ac19_cmd_click_on_text_a_collapsing_click_and_a_double_click_per
   assert.equal(await page.evaluate(() => String(getSelection() ?? '')), '', 'the click clears the selection');
   assert.equal(await mainName(page), 'Odkazy', 'and opens nothing (D-1173)');
   assert.deepEqual(await navsSince(core, n0), [], 'no nav_opened so far');
-  // A double-click on body text: the first click opens.
+  // A double-click on body text: the first click opens (D-1173). D-1195: a body word away from figures (in the preview
+  // and, for the second click, in the opened note), which opens nothing new.
   n0 = await mark(core);
-  await clickAtWord(page, art, 'rozpočtu', 'the double-click on body text', { double: true });
+  await clickAtWord(page, art, 'Personál', 'the double-click on body text', { double: true });
   await openedRozpocet(page, core, n0, 'a double-click on body text (the first click opens, D-1173)');
+  await sleep(400);
+  assert.deepEqual(await navsSince(core, n0), [nfc(PV.rozpocet)], 'the second click opens nothing new');
+  assert.equal(await mainName(page), 'Rozpočet 2027', 'and Rozpočet stays shown');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-11 AC-20
@@ -404,7 +418,8 @@ test('fr_lnk_11_ac20_click_mode_a_click_on_the_source_previews_body_opens_porada
   await (await src()).click();
   d = await needPreview(page, 'Porada 2026-10-27', 'the source preview again');
   const n0 = await mark(core);
-  await clickAtWord(page, anyContent(d), 'Bod', 'the source preview\'s body');
+  // D-1195: a word that is in view (the source preview starts at the task's embed, D-939).
+  await clickAtWord(page, anyContent(d), 'Konec', 'the source preview\'s body');
   await mustBeOn(page, 'Porada 2026-10-27', 'a click on the body opens note/Pages/Porada 2026-10-27.md', 5000);
   assert.deepEqual(await navsSince(core, n0), [nfc(PV.porada)], 'one nav_opened');
   const sel = await eventually(() => selectedBlocks(page), (x) => x.length > 0, 2000);
