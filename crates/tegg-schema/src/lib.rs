@@ -162,6 +162,8 @@ pub struct TypeFile {
     pub preview: Vec<String>,
     /// Properties not shown among the attribute panel's rows on this type's objects (FR-TYP-17, D-316).
     pub hidden: Vec<String>,
+    /// The type page's columns after Title, as written (D-1240); None = key absent (the page falls back to `preview`).
+    pub columns: Option<Vec<String>>,
     /// Vault path of the default template (D-232).
     pub template: Option<String>,
     pub attributes: Vec<AttrDef>,
@@ -185,6 +187,10 @@ pub struct Parsed {
     pub preview_ignored: Vec<String>,
     /// Raw value of the top-level `embed` key, trimmed; None when absent (D-417, ms4-embeds §3).
     pub embed_raw: Option<String>,
+    /// D-1245 (type-columns §1): `columns` is neither absent nor a list of strings.
+    pub columns_unreadable: bool,
+    /// D-1245: `columns` entries that are neither attributes nor universal keys (`title` excluded), each once.
+    pub columns_ignored: Vec<String>,
 }
 
 /// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
@@ -289,8 +295,21 @@ fn fallback_def(key: &str) -> TypeFile {
         review: Review::Off,
         preview: Vec::new(),
         hidden: Vec::new(),
+        columns: None,
         template: None,
         attributes: Vec::new(),
+    }
+}
+
+/// D-1245: a `columns` value that is present but not a list of strings (null reads as absent).
+fn columns_unreadable(text: &str) -> bool {
+    match tegg_format::parse_yaml_value(text) {
+        Ok(Some(Value::Object(top))) => match top.get("columns") {
+            None | Some(Value::Null) => false,
+            Some(Value::Array(a)) => !a.iter().all(Value::is_string),
+            Some(_) => true,
+        },
+        _ => false,
     }
 }
 
@@ -325,9 +344,16 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 .filter(|p| !def.attributes.iter().any(|a| &a.key == *p) && !UNIVERSAL_KEYS.contains(&p.as_str()))
                 .cloned()
                 .collect();
-            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text) }
+            let mut columns_ignored: Vec<String> = Vec::new();
+            for c in def.columns.iter().flatten().map(|c| nfc(c)) {
+                if c != "title" && !def.attributes.iter().any(|a| a.key == c) && !UNIVERSAL_KEYS.contains(&c.as_str()) && !columns_ignored.contains(&c) {
+                    columns_ignored.push(c);
+                }
+            }
+            let columns_unreadable = columns_unreadable(text);
+            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text), columns_unreadable, columns_ignored }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new() },
     }
 }
 
@@ -451,6 +477,11 @@ fn read_def(key: &str, text: &str) -> Result<(TypeFile, Readability), (String, u
             Some(Value::Array(a)) => a.iter().filter_map(scalar_text).collect(),
             _ => Vec::new(),
         },
+        // D-1240, D-1245: kept as written (NFD included); a value that isn't a list of strings reads as absent.
+        columns: match top.get("columns") {
+            Some(Value::Array(a)) if a.iter().all(Value::is_string) => Some(a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
+            _ => None,
+        },
         template: text_of("template"),
         attributes,
         name,
@@ -537,6 +568,8 @@ pub enum RuleError {
     OptionUsed { label: String },
     /// More than 4 preview keys (FR-TYP-11 AC-1).
     PreviewFull,
+    /// D-1245 (type-columns §1): a `SetColumns` on a file whose `columns` value can't be read.
+    ColumnsUnreadable,
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
@@ -839,7 +872,7 @@ fn option_text(o: &OptionDef) -> String {
 // ------------------------------------------------------------------------------------------------ writing: whole files
 
 /// Canonical top-level order (§14.1.4, from the approved fixtures).
-const TOP_ORDER: [&str; 14] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "embed", "template", "attributes"];
+const TOP_ORDER: [&str; 15] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "hidden", "columns", "embed", "template", "attributes"];
 /// Canonical attribute item order.
 const ITEM_ORDER: [&str; 9] = ["key", "name", "type", "default", "required", "options", "to", "multiple", "description"];
 const ITEM_INDENT: usize = 2;
@@ -862,6 +895,7 @@ fn render_top(field: &str, def: &TypeFile) -> Option<Vec<String>> {
         }),
         "preview" => one(flow_list(&def.preview)),
         "hidden" => one(flow_list(&def.hidden)), // FR-TYP-17, D-316
+        "columns" => def.columns.as_ref().and_then(|c| one(flow_list(c))), // D-1240
         "template" => def.template.as_ref().and_then(|t| one(scalar(t, false))),
         "attributes" => {
             if def.attributes.is_empty() {
@@ -954,6 +988,7 @@ pub fn new_type_file_in(name: &str, plural: &str, folder: Option<&str>) -> Strin
         review: Review::Off,
         preview: Vec::new(),
         hidden: Vec::new(),
+        columns: None,
         template: None,
         attributes: Vec::new(),
         name,
@@ -976,6 +1011,8 @@ pub enum TypeOp {
     SetPreview(Vec<String>),
     /// FR-TYP-17, D-316.
     SetHidden(Vec<String>),
+    /// D-1240 (type-columns §1): the `columns` line, one flow list in NFC, no limit.
+    SetColumns(Vec<String>),
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1040,6 +1077,9 @@ fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: 
         Readability::Invalid { .. } => return Err(SchemaError::Invalid),
         Readability::Newer(_) => return Err(SchemaError::NewerVersion),
         Readability::Ok => {}
+    }
+    if parsed.columns_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetColumns(_))) {
+        return Err(SchemaError::Rule(RuleError::ColumnsUnreadable)); // D-1245: fixed in the file first
     }
     let mut def = parsed.def;
     let (mut lines, final_nl) = split_lines(text);
@@ -1148,6 +1188,13 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             if def.preview != keys {
                 def.preview = keys;
                 set_top(lines, "preview", render_top("preview", def));
+            }
+        }
+        TypeOp::SetColumns(keys) => {
+            // D-1243, D-1245: an unchanged list on an existing key writes nothing; a block list becomes one flow line.
+            if def.columns.as_ref() != Some(keys) {
+                def.columns = Some(keys.iter().map(|k| nfc(k)).collect());
+                set_top(lines, "columns", render_top("columns", def));
             }
         }
         TypeOp::SetHidden(keys) => {
@@ -1278,6 +1325,11 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             if def.hidden.contains(&key) {
                 def.hidden.retain(|p| *p != key);
                 set_top(lines, "hidden", render_top("hidden", def));
+            }
+            // D-1240 (type-columns AC-26): and every columns entry of it, repeats and NFD spellings included.
+            if let Some(cols) = def.columns.as_mut().filter(|c| c.iter().any(|c| nfc(c) == key)) {
+                cols.retain(|c| nfc(c) != key);
+                set_top(lines, "columns", render_top("columns", def));
             }
         }
         TypeOp::MoveAttribute { key, to } => {

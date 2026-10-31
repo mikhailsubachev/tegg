@@ -1,10 +1,11 @@
 // The type page (FR-TYP-09, D-233; ms3-shell §14.7): header with the type icon, plural, description, count, `Type
 // settings` and `New <Name>`; the view tab `All <Plural>`; a title filter; a read-only table of Title, the preview
-// properties and Modified from one index query (D-241), sortable per column with the choice kept in the machine-local
-// UI state (AC-3). `Columns` (D-252, D-260) checks and unchecks the preview properties, one write each, up to 4
-// (D-72), and offers `New property…`. Nothing here writes a note.
+// chosen columns from one index query (D-241), sortable per column with the choice kept in the machine-local UI state
+// (AC-3). `Columns` (D-252, D-1240…D-1245) checks, unchecks and offers `New property…`; headers are dragged or moved
+// with ⌥←/⌥→ to reorder (D-1244), one `columns` write each; widths are resized by pointer or keyboard and kept in the
+// machine-local UI state (D-1241, D-1248, D-1249). Rows are windowed beyond 100 (AC-33). Nothing here writes a note.
 import { RefElement } from '../preview/useReference';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { chipIcon } from '../links/icons';
 import { canDefine, validate } from '@tegg/schema';
 import { parse as parseDoc } from '@tegg/doc';
@@ -22,8 +23,13 @@ import type { TypeOpDto } from '../ipc/types';
 import { typeErrorMessage } from '../types/util';
 import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } from '../types/util';
 
+import { WIDTH, clampWidth, columnChoices, columnsRequest, defaultSort, dropColumn, effectiveColumns, moveColumn, toggleColumn } from '../types/columns';
+
 export type TypeSort = { column: string; dir: 'asc' | 'desc' };
-const DEFAULT_SORT: TypeSort = { column: 'modified', dir: 'desc' };
+/** Column widths in px by column key (D-1241); a missing key is the R130 default. */
+export type ColumnWidths = Record<string, number>;
+/** Rows rendered at most (AC-33): beyond this many the table windows its rows. */
+const MAX_ROWS = 100;
 
 const UNIVERSAL: Record<string, string> = { tags: 'attr.tags', aliases: 'attr.aliases', source: 'attr.source', created: 'attr.created', modified: 'attr.modified', review: 'attr.review' };
 
@@ -50,7 +56,7 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, onOpen, onSettings, onNew, onTag, onDefine, header }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, widths, onWidths, onOpen, onSettings, onNew, onTag, onDefine, header }: {
   typeKey: string;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
@@ -60,6 +66,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   heading: React.RefObject<HTMLHeadingElement | null>;
   sort: TypeSort | undefined;
   onSort: (s: TypeSort) => void;
+  /** This type's stored column widths, and their replacement (D-1241: machine-local UI state). */
+  widths?: ColumnWidths;
+  onWidths?: (w: ColumnWidths) => void;
   onOpen: (path: string) => void;
   onSettings: () => void;
   onNew: () => void;
@@ -77,7 +86,22 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const [notice, setNotice] = useState<{ text: string; alert: boolean } | null>(null);
   // The type as last written from this page, so quick toggles build on each other (D-252).
   const [local, setLocal] = useState<TypeDto | null>(null);
-  useEffect(() => { setLocal(null); }, [type]);
+  // Writes go one after another, each from the last result (AC-20 (h)); `latest` is what the next one builds on.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const pending = useRef(0);
+  const latest = useRef<TypeDto | undefined>(type);
+  // The type as the last write returned it: the version the next queued write is based on.
+  const disk = useRef<TypeDto | null>(null);
+  // Bumped by a refused or failed write: the writes queued behind it are dropped, never sent on top of the outside
+  // change (NFR-REL-02, AC-27 (a)).
+  const generation = useRef(0);
+  // The latest `type` prop; one that arrives while writes are pending is applied once they are done (AC-28).
+  const typeNow = useRef(type);
+  const typeMissed = useRef(false);
+  useEffect(() => {
+    typeNow.current = type;
+    if (pending.current === 0) { setLocal(null); latest.current = type; disk.current = null; } else typeMissed.current = true;
+  }, [type]);
   const cur = local ?? type;
   const [cursor, setCursor] = useState(0);
   const tbody = useRef<HTMLTableSectionElement | null>(null);
@@ -106,18 +130,13 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     return () => { live = false; };
   }, [type, firstPath, typeKey]);
 
-  const columns: Column[] = useMemo(() => {
-    const out: Column[] = [{ key: 'title', label: t('typePage.title'), attr: null, userNamed: false }];
-    for (const k of type?.preview ?? []) {
-      const a = type?.attributes.find((x) => nfc(x.key) === nfc(k));
-      if (a) out.push({ key: a.key, label: a.name, attr: a as AttributeDto, userNamed: true });
-      else if (UNIVERSAL[k] && k !== 'modified') out.push({ key: k, label: t(UNIVERSAL[k]), attr: null, userNamed: false });
-    }
-    out.push({ key: 'modified', label: t('typePage.modified'), attr: null, userNamed: false });
-    return out;
-  }, [type]);
+  const columns: Column[] = useMemo(() => [
+    { key: 'title', label: t('typePage.title'), attr: null, userNamed: false },
+    ...effectiveColumns(cur).map((k) => columnOf(cur, k)),
+  ], [cur]);
 
-  const current = sort && columns.some((c) => c.key === sort.column) ? sort : DEFAULT_SORT;
+  // D-1246: a remembered sort on a column that isn't shown is set aside (kept in the UI state).
+  const current = sort && columns.some((c) => c.key === sort.column) ? sort : defaultSort(columns.slice(1).map((c) => c.key));
   const shown = useMemo(() => {
     if (!rows) return [];
     const q = fold(filter.trim());
@@ -134,15 +153,84 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     });
   }, [rows, filter, current.column, current.dir, columns]);
 
+  // ---- widths (D-1241, D-1248): stored per column; Title without one fills what the others leave (≥ 240 px).
+  const scrollBox = useRef<HTMLDivElement | null>(null);
+  const [boxWidth, setBoxWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = scrollBox.current;
+    if (!el) return;
+    setBoxWidth(el.clientWidth);
+    const ro = new ResizeObserver(() => setBoxWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // A drag or key presses change `draft` at once; the UI state gets it on release, or 500 ms after the last key.
+  const [draft, setDraft] = useState<ColumnWidths | null>(null);
+  const saveTimer = useRef<number | undefined>(undefined);
+  const stored = draft ?? widths ?? {};
+  const others = columns.slice(1).reduce((n, c) => n + (stored[c.key] ?? WIDTH.default), 0);
+  const widthOf = (key: string) => stored[key] ?? (key === 'title' ? Math.max(WIDTH.titleFill, boxWidth - others) : WIDTH.default);
+  const tableWidth = widthOf('title') + others;
+  const commitWidths = (w: ColumnWidths) => { window.clearTimeout(saveTimer.current); flush.current = null; setDraft(null); onWidths?.(w); };
+  const setWidth = (key: string, px: number | null, save: 'now' | 'later' | 'no') => {
+    const next = { ...stored };
+    // AC-30: resizing a column never changes another's width, so a filling Title keeps the width it has now.
+    if (key !== 'title' && next.title === undefined) next.title = widthOf('title');
+    if (px === null) delete next[key]; else next[key] = clampWidth(key, px);
+    if (save === 'now') { commitWidths(next); return; }
+    setDraft(next);
+    if (save === 'later') {
+      window.clearTimeout(saveTimer.current);
+      flush.current = () => onWidths?.(next);
+      saveTimer.current = window.setTimeout(() => { flush.current = null; commitWidths(next); }, 500);
+    }
+  };
+  // A keyboard change still waiting to be stored is stored when the page goes away (AC-32: within 1 s).
+  const flush = useRef<(() => void) | null>(null);
+  useEffect(() => () => { window.clearTimeout(saveTimer.current); flush.current?.(); }, []);
+
+  // ---- row windowing (AC-33): at most MAX_ROWS rows in the DOM; the first and last rendered rows carry the space of
+  // the rows left out, so the page's scroll height stays that of the whole table.
+  const win = useRowWindow(tbody, scrollBox, shown.length);
+  // AC-30: a cut cell shows its full text as a tooltip.
+  useLayoutEffect(() => {
+    for (const td of tbody.current?.querySelectorAll<HTMLTableCellElement>('td') ?? []) {
+      const text = (td.textContent ?? '').trim();
+      if (td.title !== text) td.title = text;
+    }
+  });
+
   const activate = (key: string) => onSort(current.column === key ? { column: key, dir: current.dir === 'asc' ? 'desc' : 'asc' } : { column: key, dir: 'asc' });
   const focusRow = (i: number) => {
     const n = Math.max(0, Math.min(shown.length - 1, i));
     setCursor(n);
-    (tbody.current?.querySelectorAll<HTMLElement>('tr')[n])?.focus();
+    const focus = () => {
+      const scroller = scrollBox.current, x = scroller?.scrollLeft ?? 0;
+      (tbody.current?.querySelector<HTMLElement>(`tr[data-index="${n}"]`))?.focus();
+      // AC-29: moving between rows never scrolls sideways.
+      if (scroller) scroller.scrollLeft = x;
+    };
+    if (n >= win.from && n < win.to) focus();
+    else { win.reveal(n); requestAnimationFrame(focus); }
   };
   const name = type?.name ?? typeKey;
   const pluralName = type?.plural ?? plural;
   const writable = !!type && type.state === 'ok';
+  // D-1245: a `columns` value that isn't a list disables the menu until it is fixed in the file.
+  const menuOk = writable && !type.columnsUnreadable;
+  const columnsReason = !type ? undefined : type.state === 'newer' ? t('ts.newer') : type.state !== 'ok' ? t('typePage.columnsInvalid')
+    : t('typePage.columnsUnreadable', { file: `.tegg/types/${type.key}.yml` });
+  // D-1249: the palette's `Choose columns…` and `Reset column widths` act on this page.
+  const request = useRef<(what: 'choose' | 'reset') => void>(() => {});
+  request.current = (what) => {
+    if (what === 'reset') commitWidths({});
+    else if (menuOk) { setNotice(null); setColumnsOpen(true); }
+  };
+  useEffect(() => {
+    const h = (what: 'choose' | 'reset') => request.current(what);
+    columnsRequest.current = h;
+    return () => { if (columnsRequest.current === h) columnsRequest.current = null; };
+  }, []);
   const gone = !type && rows !== null && rows.length === 0;
 
   if (gone) {
@@ -154,25 +242,48 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     );
   }
 
-  /** One `preview` write (D-252); a file changed outside Tegg is refused with the alert of FR-TYP-01 AC-7. */
-  const togglePreview = async (keys: string[]) => {
-    if (!cur) return;
-    const ops: TypeOpDto[] = [{ op: 'preview', keys }];
-    setLocal({ ...cur, preview: keys });
-    try {
-      setLocal(await ipc.typePatch(cur.key, cur.exists ? cur.version : null, ops));
-      setNotice(null);
-    } catch (e) {
-      const x = e as { kind?: string; disk?: TypeDto };
-      if (x.kind === 'Conflict' && x.disk) {
-        setLocal(x.disk);
-        setNotice({ text: t('ts.conflict', { field: t('typePage.columns') }), alert: true });
-      } else {
-        setLocal(null);
-        setNotice({ text: typeErrorMessage(e), alert: true });
+  /** One `columns` write (D-1240), queued after the previous one and based on its result; a file changed outside
+   *  Tegg is refused with the alert of FR-TYP-01 AC-7 and the page shows the disk state. `keys` builds the list from
+   *  the type as last written (or as shown, while writes are pending). */
+  const writeColumns = (keys: (t: TypeDto) => string[] | null) => {
+    const base = latest.current;
+    if (!base || base.state !== 'ok' || base.columnsUnreadable) return;
+    const list = keys(base);
+    if (!list) return;
+    const shown: TypeDto = { ...base, columns: list };
+    latest.current = shown;
+    setLocal(shown);
+    pending.current++;
+    const gen = generation.current;
+    queue.current = queue.current.then(async () => {
+      try {
+        if (gen !== generation.current) return; // an earlier write was refused: this change is dropped
+        const on = disk.current ?? base;
+        const next = await ipc.typePatch(on.key, on.exists ? on.version : null, [{ op: 'columns', keys: list }]);
+        disk.current = next;
+        setNotice(null);
+      } catch (e) {
+        generation.current++;
+        const x = e as { kind?: string; disk?: TypeDto };
+        disk.current = x.kind === 'Conflict' && x.disk ? x.disk : null;
+        latest.current = disk.current ?? typeNow.current;
+        setLocal(disk.current);
+        setNotice({ text: x.kind === 'Conflict' && x.disk ? t('ts.conflict', { field: t('typePage.columns') }) : typeErrorMessage(e), alert: true });
+      } finally {
+        if (--pending.current === 0) {
+          if (typeMissed.current) {
+            // A vault change came in meanwhile: show the type as it is now.
+            typeMissed.current = false;
+            disk.current = null;
+            latest.current = typeNow.current;
+            setLocal(null);
+          } else if (disk.current) { latest.current = disk.current; setLocal(disk.current); }
+        }
       }
-    }
+    });
   };
+  /** The type to build a write outside the queue on (`New property…`), once the queued writes are done. */
+  const settled = async (): Promise<TypeDto | undefined> => { await queue.current; return disk.current ?? latest.current; };
 
   return (
     <div className="page-column type-page">
@@ -223,49 +334,55 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         <Disabled control="ctl.addView" />
         {type && (
           <button ref={addBtn} type="button" className="text-button" data-command="typePage.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
-            aria-disabled={writable ? undefined : 'true'} aria-description={writable ? undefined : t(type.state === 'newer' ? 'typePage.columnsNewer' : 'typePage.columnsInvalid')}
-            onClick={() => { if (writable) { setNotice(null); setColumnsOpen((o) => !o); } }}>
+            aria-disabled={menuOk ? undefined : 'true'} aria-description={menuOk ? undefined : columnsReason}
+            onClick={() => { if (menuOk) { setNotice(null); setColumnsOpen((o) => !o); } }}>
             <Icon name="panel" size={12} />{t('typePage.columns')}
           </button>
         )}
       </div>
       {rows && filter.trim() && shown.length === 0 && <p role="status" className="empty">{t('typePage.noMatch', { plural: pluralName, text: filter.trim() })}</p>}
-      <div className="table-scroll">
-        <table className="type-table" aria-label={pluralName}>
+      <div className="table-scroll" ref={scrollBox}>
+        <table className="type-table" aria-label={pluralName} style={{ width: tableWidth }}>
+          <colgroup>{columns.map((c) => <col key={c.key} style={{ width: widthOf(c.key) }} />)}</colgroup>
           <thead>
             <tr>
-              {columns.map((c) => {
-                const on = current.column === c.key;
-                return (
-                  <th key={c.key} role="columnheader" tabIndex={0} aria-sort={on ? (current.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className={on ? 'sorted' : ''} onClick={() => activate(c.key)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); activate(c.key); } }}>
-                    <span data-user-content={c.userNamed ? '' : undefined}>{c.label}</span>
-                  </th>
-                );
-              })}
+              {columns.map((c, i) => (
+                <HeaderCell key={c.key} col={c} first={i === 0} sort={current.column === c.key ? current.dir : null} width={widthOf(c.key)}
+                  movable={i > 0 && writable && !cur?.columnsUnreadable} scroller={scrollBox} titleWidth={widthOf('title')}
+                  onSort={() => activate(c.key)}
+                  onMove={(delta) => writeColumns((x) => moveColumn(x, c.key, delta))}
+                  onDrop={(before) => writeColumns((x) => dropColumn(x, c.key, before))}
+                  onWidth={(px, save) => setWidth(c.key, px, save)}
+                  onCancelWidth={() => setDraft(null)} />
+              ))}
             </tr>
           </thead>
           <tbody ref={tbody}>
-            {shown.map((r, i) => (
-              // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
-              <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
-                key={r.path} tabIndex={i === Math.min(cursor, shown.length - 1) ? 0 : -1} className="type-row"
-                data-path={r.path.normalize('NFC')} data-title={r.title}
-                // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
-                onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
-                onFocus={() => setCursor(i)}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
-                }}>
-                {columns.map((c) => (
-                  <td key={c.key}>
-                    <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
-                  </td>
-                ))}
-              </RefElement>
-            ))}
+            {shown.slice(win.from, win.to).map((r, j) => {
+              const i = win.from + j;
+              // AC-33: the first and last rendered rows hold the height of the rows left out above and below.
+              const padTop = j === 0 ? win.from * win.rowH : 0;
+              const padBottom = i === win.to - 1 ? (shown.length - win.to) * win.rowH : 0;
+              return (
+                // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
+                <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
+                  key={r.path} tabIndex={i === Math.min(Math.max(cursor, win.from), win.to - 1, shown.length - 1) ? 0 : -1} className="type-row"
+                  data-path={r.path.normalize('NFC')} data-title={r.title} data-index={i}
+                  // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
+                  onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
+                  onFocus={() => setCursor(i)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
+                  }}>
+                  {columns.map((c) => (
+                    <td key={c.key} style={padTop || padBottom ? { paddingTop: 6 + padTop, paddingBottom: 6 + padBottom } : undefined}>
+                      <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
+                    </td>
+                  ))}
+                </RefElement>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -277,43 +394,194 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
             onChoose: () => { const el = rowMenu; setRowMenu(null); el.focus(); trashRequest.current?.(); } }]} />
       )}
       {columnsOpen && cur && (
-        <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)}
-          entries={columnEntries(cur, (keys) => void togglePreview(keys), () => { setColumnsOpen(false); setAdding(true); })} />
+        <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)} disabledFocusable scrollable
+          entries={columnEntries(cur, (key, on) => writeColumns((x) => toggleColumn(x, key, on)), () => { setColumnsOpen(false); setAdding(true); },
+            () => commitWidths({}))} />
       )}
       {adding && cur && (
-        <NewPropertyDialog type={cur} types={types} withPreview
+        <NewPropertyDialog type={cur} types={types} fresh={settled}
           onClose={() => { setAdding(false); addBtn.current?.focus(); }}
-          onDone={(withColumn) => { setAdding(false); addBtn.current?.focus(); if (!withColumn) setNotice({ text: t('typePage.columnLimitAdded'), alert: false }); }} />
+          onDone={() => { setAdding(false); addBtn.current?.focus(); }} />
       )}
     </div>
   );
 }
 
-/** D-260: the type's attributes in schema order, then Tags, Source, Aliases, Created (`Modified` is always the last
- *  column); checked = in `preview`; with 4 chosen (hand-written keys count too) the rest are disabled. */
-function columnEntries(type: TypeDto, write: (keys: string[]) => void, onNewProperty: () => void): MenuEntry[] {
-  const choices: [string, string][] = [
-    ...type.attributes.map((a): [string, string] => [a.key, a.name]),
-    ...(['tags', 'source', 'aliases', 'created'] as const).map((k): [string, string] => [k, t(UNIVERSAL[k])]),
-  ];
-  const has = (k: string) => type.preview.some((p) => nfc(p) === nfc(k));
-  const full = type.preview.length >= 4;
+/** R130 (D-1242): Title (always shown), the type's attributes in schema order, then Tags, Source, Aliases, Review
+ *  (while the workflow is on), Created, Modified; checked = an effective column; then `New property…` and
+ *  `Reset column widths`. No limit (D-1240). */
+function columnEntries(type: TypeDto, toggle: (key: string, on: boolean) => void, onNewProperty: () => void, onReset: () => void): MenuEntry[] {
+  const shown = new Set(effectiveColumns(type));
   const out: MenuEntry[] = [];
-  if (type.previewIgnored.length) {
-    out.push({ kind: 'note', key: 'ignored', content: <span className="warning-text">{t('ts.previewIgnored', { keys: type.previewIgnored.join(', ') })}</span> });
+  if (type.columnsIgnored.length) {
+    out.push({ kind: 'note', key: 'ignored', content: <span className="warning-text">{t('typePage.columnsIgnored', { type: type.name, keys: type.columnsIgnored.join(', ') })}</span> });
   }
-  for (const [k, label] of choices) {
-    const on = has(k);
-    const off = !on && full;
+  const check = (on: boolean) => <span className="menu-check" aria-hidden="true">{on && <Icon name="check" size={14} />}</span>;
+  out.push({
+    kind: 'checkbox', key: 'title', label: t('typePage.title'), checked: true, disabled: true, description: t('typePage.alwaysShown'),
+    content: <>{check(true)}<span className="menu-title">{t('typePage.title')}</span></>, onChoose: () => {},
+  });
+  for (const k of columnChoices(type)) {
+    const c = columnOf(type, k);
+    const on = shown.has(k);
     out.push({
-      kind: 'checkbox', key: k, label, checked: on, disabled: off, description: off ? t('typePage.columnLimit') : undefined,
-      content: <><span className="menu-check" aria-hidden="true">{on && <Icon name="check" size={14} />}</span><span className="menu-title" data-user-content>{label}</span></>,
-      onChoose: () => write(on ? type.preview.filter((p) => nfc(p) !== nfc(k)) : [...type.preview, k]),
+      kind: 'checkbox', key: k, label: c.label, checked: on,
+      content: <>{check(on)}<span className="menu-title" data-user-content={c.userNamed ? '' : undefined}>{c.label}</span></>,
+      onChoose: () => toggle(k, !on),
     });
   }
   out.push({ kind: 'separator' });
   // D-693: no new property on the Tag type.
   if (type.key !== 'tag') out.push({ kind: 'item', key: 'new', label: t('typePage.newProperty'), content: <span className="menu-title">{t('typePage.newProperty')}</span>, onChoose: onNewProperty });
+  out.push({ kind: 'separator' });
+  out.push({ kind: 'item', key: 'reset', label: t('typePage.resetWidths'), content: <span className="menu-title">{t('typePage.resetWidths')}</span>, onChoose: onReset });
   return out;
 }
 
+
+/** The label and attribute of a column key (R130 names: an attribute's Name, else the universal label). */
+function columnOf(type: TypeDto | undefined, key: string): Column {
+  const a = type?.attributes.find((x) => nfc(x.key) === key);
+  if (a) return { key: a.key, label: a.name, attr: a as AttributeDto, userNamed: true };
+  return { key, label: key === 'modified' ? t('typePage.modified') : t(UNIVERSAL[key] ?? key), attr: null, userNamed: false };
+}
+
+/** The nearest ancestor that scrolls vertically (the page), or null for the document. */
+function verticalScroller(el: HTMLElement | null): HTMLElement | null {
+  for (let p = el?.parentElement ?? null; p; p = p.parentElement) {
+    if (['auto', 'scroll'].includes(getComputedStyle(p).overflowY)) return p;
+  }
+  return null;
+}
+
+/** Which rows to render: all up to MAX_ROWS, else a window around the visible part of the page (AC-33). */
+function useRowWindow(tbody: React.RefObject<HTMLTableSectionElement | null>, box: React.RefObject<HTMLDivElement | null>, count: number) {
+  const [start, setStart] = useState(0);
+  const rowH = useRef(33);
+  const windowed = count > MAX_ROWS;
+  useEffect(() => {
+    if (!windowed) { setStart(0); return; }
+    const scroller = verticalScroller(box.current);
+    const target: HTMLElement | Window = scroller ?? window;
+    const update = () => {
+      const body = tbody.current;
+      if (!body) return;
+      const sample = body.querySelector<HTMLElement>('tr[data-index]:not(:first-child)');
+      if (sample) rowH.current = sample.getBoundingClientRect().height || rowH.current;
+      const top = scroller ? scroller.getBoundingClientRect().top : 0;
+      const view = scroller ? scroller.clientHeight : window.innerHeight;
+      const first = Math.floor((top - body.getBoundingClientRect().top) / rowH.current);
+      const want = Math.max(0, Math.min(count - MAX_ROWS, first - Math.floor((MAX_ROWS - Math.ceil(view / rowH.current)) / 2)));
+      setStart((s) => (s === want ? s : want));
+    };
+    update();
+    target.addEventListener('scroll', update, { passive: true });
+    return () => target.removeEventListener('scroll', update);
+  }, [windowed, count, tbody, box]);
+  const from = windowed ? Math.min(start, count - MAX_ROWS) : 0;
+  const to = windowed ? from + MAX_ROWS : count;
+  return {
+    from, to, rowH: rowH.current,
+    /** Brings row `i` into the rendered window (keyboard moves past its edge). */
+    reveal: (i: number) => { if (windowed && (i < from || i >= to)) setStart(Math.max(0, Math.min(count - MAX_ROWS, i - MAX_ROWS / 2))); },
+  };
+}
+
+/** A column header: sorts on click / ⏎ / Space (AC-3); is dragged or moved with ⌥←/⌥→ to reorder (D-1244); ends with
+ *  its resize handle, a WAI-ARIA window splitter (D-1248, D-1249). */
+function HeaderCell({ col, first, sort, width, movable, scroller, titleWidth, onSort, onMove, onDrop, onWidth, onCancelWidth }: {
+  col: Column; first: boolean; sort: 'asc' | 'desc' | null; width: number; movable: boolean;
+  scroller: React.RefObject<HTMLDivElement | null>; titleWidth: number;
+  onSort: () => void; onMove: (delta: number) => void; onDrop: (before: string | null) => void;
+  onWidth: (px: number | null, save: 'now' | 'later' | 'no') => void; onCancelWidth: () => void;
+}) {
+  const press = useRef<{ x: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
+  const resize = useRef<{ x: number; w: number; last: number } | null>(null);
+  const [reordering, setReordering] = useState(false);
+  /** AC-23: the column a header dropped at `x` goes before (null = at the end; never before Title). */
+  const dropTarget = (th: HTMLElement, x: number): string | null => {
+    const hs = [...(th.parentElement?.children ?? [])] as HTMLElement[];
+    for (const h of hs.slice(1)) {
+      const r = h.getBoundingClientRect();
+      if (x < r.left + r.width / 2) return h.dataset.key ?? null;
+    }
+    return null;
+  };
+  /** AC-29: a focused header is scrolled fully into view right of the sticky Title column. */
+  const reveal = (el: HTMLElement) => {
+    const box = scroller.current;
+    if (!box || first) return;
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.left < b.left + titleWidth) box.scrollLeft -= b.left + titleWidth - r.left;
+    else if (r.right > b.left + box.clientWidth) box.scrollLeft += r.right - (b.left + box.clientWidth);
+  };
+  const min = first ? WIDTH.titleMin : WIDTH.min;
+  return (
+    <th role="columnheader" tabIndex={0} data-key={col.key} aria-label={col.label} aria-sort={sort ? (sort === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={[sort ? 'sorted' : '', first ? 'col-title' : '', reordering ? 'reordering' : ''].filter(Boolean).join(' ') || undefined}
+      onFocus={(e) => { if (e.target === e.currentTarget) reveal(e.currentTarget); }}
+      onClick={() => { if (dragged.current) { dragged.current = false; return; } onSort(); }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSort(); }
+        else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); e.stopPropagation(); if (movable) onMove(e.key === 'ArrowLeft' ? -1 : 1); }
+      }}
+      onPointerDown={(e) => { if (movable && e.button === 0) { press.current = { x: e.clientX, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); } }}
+      onPointerMove={(e) => {
+        const p = press.current;
+        if (p && !p.moved && Math.abs(e.clientX - p.x) > 4) { p.moved = true; setReordering(true); }
+      }}
+      onPointerUp={(e) => {
+        const p = press.current;
+        press.current = null;
+        setReordering(false);
+        if (p?.moved) { dragged.current = true; onDrop(dropTarget(e.currentTarget, e.clientX)); }
+      }}
+      onPointerCancel={() => { press.current = null; setReordering(false); }}>
+      <span className="th-label" data-user-content={col.userNamed ? '' : undefined}>{col.label}</span>
+      <span role="separator" aria-orientation="vertical" aria-label={t('typePage.resize', { column: col.label })} tabIndex={0} className="col-resize"
+        aria-valuenow={Math.round(width)} aria-valuemin={min} aria-valuemax={WIDTH.max}
+        onFocus={(e) => reveal(e.currentTarget.parentElement as HTMLElement)}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => { e.stopPropagation(); onWidth(null, 'now'); }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          resize.current = { x: e.clientX, w: width, last: width };
+          const esc = (k: KeyboardEvent) => {
+            if (k.key !== 'Escape' || !resize.current) return;
+            k.preventDefault(); k.stopPropagation();
+            resize.current = null;
+            onCancelWidth();
+          };
+          window.addEventListener('keydown', esc, { capture: true });
+          const end = () => { window.removeEventListener('keydown', esc, { capture: true }); window.removeEventListener('pointerup', end, true); };
+          window.addEventListener('pointerup', end, true);
+        }}
+        onPointerMove={(e) => {
+          const r = resize.current;
+          if (!r) return;
+          r.last = clampWidth(col.key, r.w + e.clientX - r.x);
+          onWidth(r.last, 'no');
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          const r = resize.current;
+          resize.current = null;
+          if (r && r.last !== r.w) onWidth(r.last, 'now'); // a press without a move stores nothing
+        }}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 50 : 10;
+          const next = e.key === 'ArrowRight' ? width + step : e.key === 'ArrowLeft' ? width - step : e.key === 'Home' ? min : e.key === 'End' ? WIDTH.max
+            : e.key === 'Backspace' || e.key === 'Delete' ? null : undefined;
+          if (next === undefined) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onWidth(next, 'later');
+        }} />
+    </th>
+  );
+}

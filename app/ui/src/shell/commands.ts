@@ -1,5 +1,6 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
+import { columnsRequest } from '../types/columns';
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
 import { t } from '../i18n/catalog';
 import { reviewable } from '../review';
@@ -336,6 +337,10 @@ export function commands(ctx: ShellContext): Command[] {
   if (!(definedType && definedType.key === 'task') && ctx.types.some((x) => x.key === 'task')) {
     list.push({ id: 'task.new', title: 'cmd.newOfType', vars: { name: ctx.types.find((x) => x.key === 'task')!.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.('task') });
   }
+  // Type-page columns (type-columns §4, D-1249): `Choose columns…` on defined types, `Reset column widths` on every
+  // type page.
+  if (definedType) list.push({ id: 'typePage.chooseColumns', title: 'typePage.chooseColumns', section: 'navigate', needsVault: true, run: () => columnsRequest.current?.('choose') });
+  if (route?.id === 'type/<type>') list.push({ id: 'typePage.resetWidths', title: 'typePage.resetWidths', section: 'navigate', needsVault: true, run: () => columnsRequest.current?.('reset') });
   if (definedType) {
     const key = definedType.key;
     list.push({ id: 'type.newObject', title: 'cmd.newOfType', vars: { name: definedType.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.(key) });
