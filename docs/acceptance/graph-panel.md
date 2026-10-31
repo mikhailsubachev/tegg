@@ -133,7 +133,7 @@ Accessible names are catalog strings (R117) except titles, type names and tag na
 
 ### FR-UX-05 Themes (adds to app-shell.md and graph.md AC-15)
 
-- **AC-16** **The panel graph in both themes.** Plán in the panel at depth 2 with Rozpočet previewed, the filter popover open, and each R115 state, in light and dark: axe `color-contrast` zero violations; FR-UX-05 AC-5 (no colour leaks); nodes, edges (`--edge`, `--hl`), the canvas dots, the tag pills and the popover use the theme's tokens (boards `GraphPanelDark`, `GraphStatesDark`). *(L5)* *(changed by D-1167: an edge is `--muted`; the selected node's edges per AP-1008 (proposal: `--hl`))* Test: `fr_ux_05_ac16_panel_graph_in_light_and_dark`
+- **AC-16** **The panel graph in both themes.** Plán in the panel at depth 2 with Rozpočet previewed, the filter popover open, and each R115 state, in light and dark: axe `color-contrast` zero violations; FR-UX-05 AC-5 (no colour leaks); nodes, edges (`--edge`, `--hl`), the canvas dots, the tag pills and the popover use the theme's tokens (boards `GraphPanelDark`, `GraphStatesDark`). *(L5)* *(changed by D-1167: an edge is `--muted`; the selected node's edges per D-1178 (AP-1008, decided: `--hl`))* Test: `fr_ux_05_ac16_panel_graph_in_light_and_dark`
 
 ### NFR-OTH-02 Strings (adds to app-shell.md and graph.md AC-12)
 
