@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.118, for review                                            |
+| **Document status** | Draft v1.119, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -132,6 +132,7 @@
 | v1.116  | 2026-10-30 | Slice G2 graph in the right panel (v1.0, D-919), `docs/acceptance/graph-panel.md`: D-1030…D-1043 (AP-880…AP-893, each as proposed; G2 uses D-1030…D-1079, G3 D-1080 onward): AC numbers beside G3, the panel's scale and fit, `Size nodes by links` in the panel, the lower depth offered above 60, `In full graph`, no `Recenter` in the panel, ⌘⇧G with the panel on Graph (amends D-905), the hand-over of depth and selection, routes without a file, the deleted page, no panel on tag pages, selection and the popover, the centre's double-click, a panel benchmark for NFR-PERF-11. Contract `docs/contracts/v1-graph.md` §15 |
 | v1.117  | 2026-10-30 | G2 red-test decisions (red tests 504998b): D-1044…D-1049 (AP-894…AP-899, each as proposed): the panel totals test outside the red commit, the right panel in the command context, `⇧⌘G` on `Open full view`, `panelFit` and `panelState` inputs, two `Open full view` buttons |
 | v1.118  | 2026-10-30 | G2 build decisions D-1050…D-1055 (AP-900…AP-905, each as proposed): four AC-test corrections (pseudo-locale tabpanel name, the `nav_opened` baseline, the 800 × 500 window, the daily route id), the panel waits for a running rename job, theme checks after transitions end |
+| v1.119  | 2026-10-30 | D-1330 (owner): one `./verify` gate at a time on the machine, through a lock the heavy commands wait for (QA tooling, CONTRACT §3.5) |
 
 ---
 
@@ -1106,6 +1107,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1053 | Daily route id in FR-UX-03 AC-21 (AP-903) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: the L1 test uses the registry's route id `daily/YYYY-MM-DD` |
 | D-1054 | The panel waits for a running rename job (AP-904) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | While a job (4C rename and link rewrite) runs, a centre change or live update in the panel waits for the job to end (at most 5 s) and then asks once, so no half-rewritten graph is drawn (FR-GRP-01 AC-41) |
 | D-1055 | Theme checks after transitions end (AP-905) (owner, 2026-10-30; G2 build, `docs/contracts/v1-graph.md` §15.11) | AC-test correction: FR-UX-05 AC-16 runs axe once no animation or transition is running (slice P's 120 ms preview fade-in) |
+| D-1330 | One `./verify` gate at a time (owner, 2026-10-30) | Parallel gates of several sessions loaded the machine (load average up to 44) and made timing-sensitive WebKit tests fail falsely. The heavy commands (`push`, `nightly`, `milestone`, `release`, `merge`, `check-red`, and the pre-push hook when it runs the push gate) take a machine-wide lock and wait for it; `verify commit` doesn't. The lock is a folder outside every checkout, released on exit, and taken over when its owner process is gone. Contract `tools/qa/CONTRACT.md` §3.5 |
 
 ---
 
