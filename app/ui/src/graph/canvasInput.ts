@@ -73,10 +73,7 @@ export function installCanvasInput(o: Input): () => void {
     e.preventDefault();
     o.onInput();
     if (e.type === 'gestureend') { pinch = null; return; }
-    if (e.type === 'gesturestart') {
-      o.setView((v) => { pinch = { zoom: v.zoom }; return v; });
-      return;
-    }
+    if (e.type === 'gesturestart') { pinch = null; return; } // the first change takes the zoom it starts from
     const scale = typeof g.scale === 'number' && Number.isFinite(g.scale) && g.scale > 0 ? g.scale : 1;
     const { at, size } = local(svg, g.clientX ?? 0, g.clientY ?? 0);
     o.setView((v) => {
