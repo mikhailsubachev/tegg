@@ -1126,7 +1126,8 @@ export function App() {
       onGoTo={(p) => { jumpFrom.current = shownRoute.current; openNote(p); }}
       onCreate={(i, p) => { jumpFrom.current = shownRoute.current; createFrom(i, p); }}
       onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
-      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined} />;
+      tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined}
+      types={types} dateTime={ui.dateTime} initial={history.current.current()?.search} onState={(st) => history.current.setSearch(st)} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}

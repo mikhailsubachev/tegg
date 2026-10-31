@@ -474,11 +474,35 @@ export const en: Catalog = {
   'error.unknown': 'Something went wrong.',
 
   // MS2 texts (search, switcher, progress, banner).
-  'search.placeholder': 'Search notes',
+  'search.placeholder': 'Search for a phrase',
   'search.label': 'Search query',
   'search.results': 'Search results',
   'search.none': 'No results',
   'search.count': { one: '{count} result', other: '{count} results' },
+  // Search page redesign (board `Search`, v1-search §3; D-1200…D-1230).
+  'search.clear': 'Clear search',
+  'search.shortcut': '⇧⌘F',
+  'search.filters': 'Filters',
+  'search.typeAll': 'Type: all',
+  'search.typeOne': 'Type: {type}',
+  'search.allTypes': 'All types',
+  'search.typeLabel': 'Type',
+  'search.clearFilters': 'Clear filters',
+  'search.alias': 'Alias: {alias}',
+  'search.attribute': '{label}: {value}',
+  'search.showNext': { one: 'Show next {count}', other: 'Show next {count}' },
+  'search.filterTag': 'Filter by #{tag}',
+  'search.filterType': 'Type {type}',
+  'search.countTags': { one: '{count} object with {tags}', other: '{count} objects with {tags}' },
+  'search.countType': { one: '{count} object of type {type}', other: '{count} objects of type {type}' },
+  'search.countTypeTags': { one: '{count} object of type {type} with {tags}', other: '{count} objects of type {type} with {tags}' },
+  'search.emptyTitle': 'Search all your objects',
+  'search.emptyBody': 'Type a phrase to search titles, text, file names and attribute values, or pick a type or tag. A filter alone is a search too.',
+  'search.noResultsTitle': 'No results for “{q}”',
+  'search.noResultsBody': 'Nothing matches “{q}” with {filters}. Clear the filters to search everything.',
+  'search.noObjectsTitle': 'No objects with {filters}',
+  'search.noObjectsBody': 'Clear the filters to search everything.',
+  'search.noMatchBody': 'Nothing in this vault matches “{q}”. Use Create “{q}” above to make it.',
   // 4C (ms4-jobs §10, FR-UX-07 AC-9, FR-LNK-03 AC-16, D-387, D-406).
   'job.rename.running': { one: 'Updating links in {count} note', other: 'Updating links in {count} notes' },
   'job.rename.done': { one: 'Updated links in {count} note', other: 'Updated links in {count} notes' },
@@ -1529,10 +1553,17 @@ export const en: Catalog = {
 
 let current: Catalog = en;
 let plural = new Intl.PluralRules('en');
+let lang = 'en';
+
+/** The catalog's language (lists joined by `Intl.ListFormat`, D-1214). */
+export function catalogLocale(): string {
+  return lang;
+}
 
 /** Swaps the catalog (tests: a Czech test catalog, the pseudo-locale). */
 export function setCatalog(c: Catalog, locale: string): void {
   current = c;
+  lang = locale;
   plural = new Intl.PluralRules(locale);
 }
 

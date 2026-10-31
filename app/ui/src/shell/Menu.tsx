@@ -29,8 +29,9 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])') ?? [])];
 
   useEffect(() => {
-    const first = items()[0];
-    first?.focus();
+    // A radio menu opens on its checked item (the Search page's Type filter, FR-SRC-03 AC-17).
+    const list = items();
+    (list.find((e) => e.getAttribute('aria-checked') === 'true' && e.getAttribute('role') === 'menuitemradio') ?? list[0])?.focus();
     const outside = (e: MouseEvent) => {
       const t = e.target as Node;
       if (ref.current?.contains(t) || anchor?.contains(t)) return;

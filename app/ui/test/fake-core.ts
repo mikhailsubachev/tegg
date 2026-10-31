@@ -16,6 +16,7 @@ import { handle as handleMedia, sniff } from './fake-media';
 import { handle as handleTags } from './fake-tags';
 import { handle as handleMoves } from './fake-moves';
 import { handle as handleGraph } from './fake-graph';
+import { handle as handleSearch } from './fake-search';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -282,6 +283,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // G1 (v1-graph §8): the reference walk of the neighbourhood query in Node (fake-graph.ts).
   await page.exposeFunction('__teggGraph', (cmd: string, args: unknown, files: Record<string, string>, bin: string[]) =>
     handleGraph(cmd, args, files, bin)).catch(() => {});
+  // Search page redesign (v1-search §2): `index_search` in Node (fake-search.ts) with the real @tegg/doc.
+  await page.exposeFunction('__teggSearch', (cmd: string, args: unknown, files: Record<string, string>) => handleSearch(cmd, args, files)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleTags(cmd, args, files, vers as any)).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
@@ -1523,66 +1526,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return out;
     },
     index_list: (a) => objects().filter((o) => o.type === String(a.type).normalize('NFC')).map((o) => ({ path: o.path, id: o.id, title: o.title, type: o.type, modified: o.modified })),
+    // v1-search §2 (Search page redesign): the query runs in Node (fake-search.ts), which keeps §15.8's tiers, phrases,
+    // exclusions and file stems and ms4-tags §1.5's all-of tags, and adds the v1-search fields, `types`, the filter-only
+    // order (newest `modified` first, D-1205) and `offset`/`limit`.
     index_search: async (a) => {
-      // §15.8: words in tiers (D-253), quoted phrases strict, `-word` excluded, file stems searched (D-254). No typos.
-      // AP-684 (D-746): `query.tags` requires every key (all of); tags without text list every matching object.
-      const tagKeys = ((a.query?.tags ?? []) as unknown[]).map(String);
-      const tagged = tagKeys.length && state.vault
-        ? new Set(((await w.__teggTags('search_tag_paths', { keys: tagKeys }, state.vault.files, {})).result ?? []) as string[])
-        : null;
-      const inTags = (p: string) => !tagged || tagged.has(p.normalize('NFC'));
-      const words = (t: string) => [...t.normalize('NFC').matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => ({ at: m.index!, end: m.index! + m[0].length, w: fold(m[0]) }));
-      const toks = (t: string) => words(t).map((x) => x.w);
-      const items: { toks: string[]; neg: boolean; quoted: boolean }[] = [];
-      for (const m of String(a.query?.text ?? '').matchAll(/(-?)(?:["„“]([^"“”]*)["“”]?|(\S+))/g)) {
-        const tk = toks(m[2] ?? m[3] ?? '');
-        if (tk.length) items.push({ toks: tk, neg: m[1] === '-' && (m[2] !== undefined || (m[3] ?? '').length > 0), quoted: m[2] !== undefined });
-      }
-      const pos = items.filter((i) => !i.neg);
-      const seqIn = (hay: string[], need: string[]) => hay.some((_, k) => need.every((x, j) => hay[k + j] === x));
-      if (!pos.length && tagged) {
-        const only = objects().filter((o) => inTags(o.path) && !items.some((i) => i.neg && [o.title, o.path.split('/').pop()!.replace(/\.md$/, ''), state.vault!.files[o.path]].some((t) => seqIn(toks(t), i.toks))))
-          .sort((x, y) => x.title.localeCompare(y.title) || x.path.localeCompare(y.path))
-          .map((o) => ({ path: o.path, type: o.type, title: o.title, matched_in: 'title', tier: 'phrase', typo: false, snippet: null, file_name: null }));
-        return { results: only, total: only.length };
-      }
-      if (!pos.length) return { results: [], total: 0 };
-      const seq = (hay: string[], its: { toks: string[] }[]) => {
-        const need = its.flatMap((i) => i.toks);
-        return hay.some((_, k) => need.every((w, j) => hay[k + j] === w));
-      };
-      const unq = pos.filter((i) => !i.quoted);
-      const rows = objects().filter((o) => inTags(o.path)).flatMap((o) => {
-        const text = state.vault!.files[o.path];
-        const fm = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(text);
-        const body = fm ? text.slice(fm[0].length) : text;
-        const f = front(text);
-        const stem = o.path.split('/').pop()!.replace(/\.md$/, '');
-        const attrs = Object.entries(f).filter(([k]) => !['id', 'type', 'title', 'aliases', 'tags', 'created', 'modified'].includes(k)).map(([, v]) => v).join(' \n ');
-        const fields = { title: toks(o.title), fileName: toks(stem), attribute: toks(attrs), body: toks(body) };
-        const all = Object.values(fields);
-        const has = (i: { toks: string[] }) => all.some((h) => seq(h, [i]));
-        if (items.some((i) => i.neg && has(i)) || pos.some((i) => i.quoted && !has(i))) return [];
-        const matched = pos.filter(has);
-        if (unq.length && !unq.some(has)) return [];
-        const tier = unq.length <= 1 ? 'phrase' : !unq.every(has) ? 'anyWord' : all.some((h) => seq(h, unq)) ? 'phrase' : 'allWords';
-        const field = (Object.keys(fields) as (keyof typeof fields)[]).find((k) => matched.some((i) => seq(fields[k], [i])))!;
-        const mark = (t: string): [number, number][] => {
-          const ws = words(t);
-          return ws.flatMap((w, k) => matched.filter((i) => i.toks.every((x, j) => ws[k + j]?.w === x)).map((i) => [w.at, ws[k + i.toks.length - 1].end] as [number, number]));
-        };
-        const lines = body.split(/\r?\n/);
-        const hit = lines.findIndex((l) => mark(l).length);
-        const lead = lines.findIndex((l) => l.trim());
-        const snippet = hit >= 0 ? { text: lines[hit], highlights: mark(lines[hit]), line: hit + 1 } : field === 'fileName' && lead >= 0 ? { text: lines[lead], highlights: [], line: lead + 1 } : null;
-        return [{ rank: [['phrase', 'allWords', 'anyWord'].indexOf(tier), field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field)], r: {
-          path: o.path, type: o.type, title: o.title, matched_in: field, tier, typo: false, snippet,
-          file_name: field === 'fileName' ? { text: stem.normalize('NFC'), highlights: mark(stem.normalize('NFC')), line: 0 } : null,
-        } }];
-      });
-      rows.sort((x, y) => x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.r.path.localeCompare(y.r.path));
-      const results = rows.map((x) => x.r);
-      return { results, total: results.length };
+      if (!state.vault) return { results: [], total: 0 };
+      const r = await w.__teggSearch('index_search', a ?? {}, state.vault.files);
+      if (r.error) throw r.error;
+      return r.result;
     },
     index_switcher: (a) => {
       const raw = String(a.q ?? '').trim().normalize('NFC');
