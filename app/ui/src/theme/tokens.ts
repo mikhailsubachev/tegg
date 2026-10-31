@@ -72,6 +72,8 @@ export const light: Tokens = {
   dot: '#E2E2DE',
   edge: '#B9B9B3',
   hl: '#1D5CCB',
+  // Search redesign (board `Search`, D-1210): the highlight of matches in results.
+  'sel-hl': '#FFE7A3',
   // The app mark on the capture's saved panel (D-164 colours, both themes).
   ...typeTokens(TYPE_LIGHT),
 };
@@ -109,6 +111,7 @@ export const dark: Tokens = {
   dot: '#2A2A2D',
   edge: '#4A4A50',
   hl: '#86AEFF',
+  'sel-hl': '#5A4718',
   ...typeTokens(TYPE_DARK),
 };
 
