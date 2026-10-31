@@ -83,6 +83,7 @@ const ZERO = /^0+$/;
 
 async function hookPrePush(root: string): Promise<number> {
   const cfg = loadConfig(root);
+  const lanes = lanesOption([]); // a usage error before waiting for the gate lock
   let failed = false;
   for (const line of readStdin().split('\n')) {
     const parts = line.trim().split(/\s+/);
@@ -94,7 +95,7 @@ async function hookPrePush(root: string): Promise<number> {
       continue;
     }
     await acquireGateLock('hook pre-push', root);
-    const s = await runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true, lanes: lanesOption([]) });
+    const s = await runTreeGate(root, cfg, 'push', { commit: localSha, range: ZERO.test(remoteSha) ? undefined : `${remoteSha}..${localSha}`, fromHook: true, lanes });
     if (s.result !== 'pass') failed = true;
   }
   return failed ? 1 : 0;
@@ -276,6 +277,7 @@ async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<num
     process.stderr.write(`verify merge: HEAD does not contain ${base}; merge ${base} first, then run ./verify merge again\n`);
     return 1;
   }
+  await acquireGateLock('merge', root); // after the base check, which needs no wait (CONTRACT §3.5)
   const s = await runTreeGate(root, cfg, 'push', { lanes, all: args.includes('--all') });
   reviewPrep(root, base);
   console.log(s.result === 'pass' ? `verify merge: READY (tree ${s.tree})` : 'verify merge: NOT READY');
@@ -288,6 +290,20 @@ async function mergeFlow(root: string, cfg: Config, args: string[]): Promise<num
 
 /** The commands that run a gate's steps or test runners: one at a time on this machine (D-1330, CONTRACT §3.5). */
 const LOCKED = new Set(['push', 'nightly', 'milestone', 'release', 'merge', 'check-red']);
+/** Of those, the ones whose own flow takes the lock after its quick checks. */
+const LOCKS_ITSELF = new Set(['merge']);
+
+/** Usage errors of the locked commands, found before they wait for the lock (CONTRACT §3.5). */
+function checkUsage(root: string, cmd: string, args: string[]): void {
+  if (cmd === 'milestone' && !option(args, '--milestone')) throw new UsageError('verify milestone: --milestone <MSn> is required');
+  if (cmd === 'check-red') {
+    if (!args[0]) throw new UsageError('verify check-red: <commit> required');
+    if (gitTry(root, ['rev-parse', '--verify', '--quiet', `${args[0]}^{commit}`]).status !== 0) throw new UsageError(`verify check-red: unknown commit ${args[0]}`);
+  } else {
+    lanesOption(args);
+    for (const name of ['--commit', '--range', '--base']) option(args, name); // a flag without its value
+  }
+}
 
 async function main(argv: string[]): Promise<number> {
   const [cmd, ...args] = argv;
@@ -312,7 +328,10 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const cfg = loadConfig(root);
-  if (LOCKED.has(cmd)) await acquireGateLock(cmd, root);
+  if (LOCKED.has(cmd)) {
+    checkUsage(root, cmd, args);
+    if (!LOCKS_ITSELF.has(cmd)) await acquireGateLock(cmd, root);
+  }
   switch (cmd) {
     case 'commit':
       return runCommitGate(root, cfg).result === 'pass' ? 0 : 1;
@@ -323,9 +342,7 @@ async function main(argv: string[]): Promise<number> {
       return s.result === 'pass' ? 0 : 1;
     }
     case 'milestone': {
-      const ms = option(args, '--milestone');
-      if (!ms) throw new UsageError('verify milestone: --milestone <MSn> is required');
-      return (await runTreeGate(root, cfg, 'milestone', { milestone: ms, lanes: lanesOption(args) })).result === 'pass' ? 0 : 1;
+      return (await runTreeGate(root, cfg, 'milestone', { milestone: option(args, '--milestone')!, lanes: lanesOption(args) })).result === 'pass' ? 0 : 1;
     }
     case 'coverage': {
       const results = option(args, '--results') ?? path.join(root, '.verify', 'last-results');
@@ -333,10 +350,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case 'check-red': {
-      if (!args[0]) throw new UsageError('verify check-red: <commit> required');
-      const sha = gitTry(root, ['rev-parse', '--verify', '--quiet', `${args[0]}^{commit}`]);
-      if (sha.status !== 0) throw new UsageError(`verify check-red: unknown commit ${args[0]}`);
-      const r = checkRed(root, cfg, sha.stdout.trim());
+      const r = checkRed(root, cfg, git(root, ['rev-parse', '--verify', '--quiet', `${args[0]}^{commit}`]).trim());
       for (const m of r.messages) console.log(`✗ ${m}`);
       console.log(`verify check-red: ${r.ok ? 'PASS (all added AC tests fail by assertion)' : 'FAIL'}`);
       return r.ok ? 0 : 1;

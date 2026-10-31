@@ -19,6 +19,7 @@ export const NODE_DIR = path.dirname(process.execPath);
 /** The gate lock of the `verify` runs these tests start (D-1330): one per test process, so they never wait for a
  *  real gate on this machine or for another test file. A test passes its own `VERIFY_GATE_LOCK_DIR` to override it. */
 export const TEST_GATE_LOCK_DIR = path.join(os.tmpdir(), `tegg-qa-gate-lock-${process.pid}`);
+process.on('exit', () => fs.rmSync(TEST_GATE_LOCK_DIR, { recursive: true, force: true }));
 
 export const ZERO_SHA = '0000000000000000000000000000000000000000';
 
