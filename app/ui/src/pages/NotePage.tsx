@@ -58,8 +58,11 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string) {
   // The note body: the read view's article, else the editor (not the title field, which comes first).
   const art = root.querySelector('article') ?? root.querySelector('.editor-host [contenteditable]');
   if (!art) return;
+  // The read view gives a block its `^id` as the element id; the editor keeps the id in the block's text (D-1197).
+  const block = () => art.querySelector(`[id="${CSS.escape(f)}"]`)
+    ?? [...art.querySelectorAll<HTMLElement>(':scope > *, li')].find((b) => nfc(b.textContent ?? '').trimEnd().toLowerCase().endsWith(` ${f.toLowerCase()}`));
   const el = f.startsWith('^')
-    ? art.querySelector(`[id="${CSS.escape(f)}"]`)
+    ? block()
     : [...art.querySelectorAll<HTMLElement>('[data-heading], h1, h2, h3, h4, h5, h6')].find((h) => nfc(h.dataset.heading ?? h.textContent ?? '').trim().toLowerCase() === f.toLowerCase());
   el?.scrollIntoView({ block: 'start' });
 }
