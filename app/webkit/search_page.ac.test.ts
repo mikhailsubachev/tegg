@@ -1,7 +1,8 @@
 // Search page redesign, L5 (WebKit + fake core): docs/acceptance/search-navigation.md § "Search page redesign" (board
 // `Search`; D-1200…D-1222): FR-SRC-02 AC-13…AC-18 (Type filter, filter-only order, Clear filters, state per history
 // entry, row tag chips), FR-SRC-03 AC-8…AC-21 (layout, count line, rows, dates, paging, Clear search, empty states,
-// keyboard, strings, themes, zero writes, live updates), FR-NAV-01 AC-19 (`Go to` on the redesigned page). Interface
+// keyboard, strings, themes, zero writes, live updates). FR-NAV-01 AC-19 (`Go to`) and FR-SRC-03 AC-16 are superseded
+// by D-1340, D-1343 (v0.109; app/webkit/search_no_goto.ac.test.ts); AC-8 and AC-17 follow their v0.109 notes. Interface
 // docs/contracts/v1-search.md §2, §3; the fake core's `index_search` is app/ui/test/fake-search.ts. Region `cs-CZ`,
 // Date format `ISO`, TZ Europe/Prague unless stated. Written from the ACs and the contract only (D-61); every lookup
 // goes through `must`/node:assert (TS-I1). Not automated here: the typo mark `similar spelling` (the fake core has no
@@ -9,7 +10,7 @@
 // relaunch (L6, app/e2e/search_page.ac.test.ts) and FR-SRC-03 AC-18's L1 part (app/test/search_page.ac.test.ts).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { collation, mainName, mustBeOn, mustPreview, nonReadCalls, paletteDialog, paletteOptions, pseudoLocale, runCommand, settled } from './helpers';
+import { collation, mainName, mustBeOn, mustPreview, nonReadCalls, paletteDialog, paletteOptions, pseudoLocale, runCommand } from './helpers';
 import {
   P, T, addHromada, addTag, chooseType, clearFiltersBtn, clearSearchBtn, click, countLine, countWhen, description, emptyState,
   eventually, filtersGroup, flat, focusName, focusedRowTitle, goToList, heading, hromada, main, must, pageVault, removeChip, results,
@@ -179,13 +180,13 @@ test('fr_src_03_ac8_layout_in_the_page_elements_order', async ({ page }) => {
   assert.ok(hint.includes('⇧⌘F'), `the decorative hint ⇧⌘F: ${hint.join(' | ')}`);
   await typeQuery(page, 'rozpočet');
   await must(region.getByRole('button', { name: 'Clear search', exact: true }), 'Clear search while there is text');
-  await must(goToList(page), 'listbox "Go to"');
   assert.equal(await countWhen(page, '5 results'), '5 results', 'the count line');
+  assert.equal(await goToList(page).count(), 0, 'no Go to list between Filters and the count line (v0.109, D-1340)');
   const ys = [
-    await topOf(heading(page)), await topOf(searchRegion(page)), await topOf(filtersGroup(page)), await topOf(goToList(page)),
-    await topOf(main(page).getByRole('status').filter({ hasText: /^\d+ results?$/ })), await topOf(results(page)),
+    await topOf(heading(page)), await topOf(searchRegion(page)), await topOf(filtersGroup(page)),
+    await topOf(main(page).getByRole('status').filter({ hasText: /^\d+ results?\b/ })), await topOf(results(page)),
   ];
-  assert.ok(ys.every((y, i) => !Number.isNaN(y) && (i === 0 || y > ys[i - 1])), `heading, search, Filters, Go to, count, results top to bottom: ${ys.join(', ')}`);
+  assert.ok(ys.every((y, i) => !Number.isNaN(y) && (i === 0 || y > ys[i - 1])), `heading, search, Filters, count, results top to bottom: ${ys.join(', ')}`);
   await page.keyboard.press('Tab');
   await page.keyboard.press('Meta+Shift+f');
   const sel = await eventually(() => page.evaluate(() => {
@@ -370,7 +371,7 @@ test('fr_src_03_ac13_clear_search_with_a_tag_only', async ({ page }) => {
   assert.equal(await countWhen(page, '1 object with #finance'), '1 object with #finance', 'filter-only: 1 object with #finance');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SRC-03 AC-14…AC-16
+// ------------------------------------------------------------------------------------------------ FR-SRC-03 AC-14, AC-15
 
 const EMPTY_BODY = 'Type a phrase to search titles, text, file names and attribute values, or pick a type or tag. A filter alone is a search too.';
 
@@ -410,29 +411,6 @@ test('fr_src_03_ac15_empty_state_no_results_with_filters', async ({ page }) => {
   await must(none.getByRole('button', { name: 'Clear filters', exact: true }), 'Clear filters in the empty state');
 });
 
-test('fr_src_03_ac16_empty_state_no_match_points_to_go_to_create', async ({ page }) => {
-  const core = await startPage(page);
-  await typeQuery(page, 'borůvkový koláč');
-  const region = await must(emptyState(page, 'No results for “borůvkový koláč”'), 'region "No results for “borůvkový koláč”"');
-  const body = flat(await region.locator('p').first().innerText());
-  assert.equal(body, 'Nothing in this vault matches “borůvkový koláč”. Use Create “borůvkový koláč” above to make it.', 'the body');
-  assert.ok(!/exact phrase/i.test(flat(await main(page).innerText())), 'the copy never says "exact phrase"');
-  assert.equal(await region.getByRole('button').count(), 0, 'no separate create button');
-  await settled(page, 'Go to', 'borůvkový koláč');
-  const opt = await must(goToList(page).getByRole('option', { name: 'Create "borůvkový koláč"', exact: true }), 'Go to: Create "borůvkový koláč"');
-  assert.equal(await opt.getAttribute('aria-selected'), 'true', 'selected (D-106)');
-  await must(goToList(page).getByRole('option', { name: 'Create "borůvkový koláč" as…', exact: true }), 'its as… row (D-550)');
-  await (await must(searchQuery(page), 'Search query')).focus();
-  await page.keyboard.press('Meta+Enter');
-  await sleep(500);
-  assert.deepEqual(await core.writesTo(), [], '⌘↩ does nothing here');
-  assert.equal(await mainName(page), 'Search', 'still on search');
-  await page.keyboard.press('Enter');
-  await mustBeOn(page, 'borůvkový koláč', '⏎ creates and opens it', 5000);
-  const w = await eventually(() => core.writesTo(), (x) => x.length > 0, 3000);
-  assert.deepEqual(w, ['Quick Notes/borůvkový koláč.md'], 'one write through the one creation path');
-});
-
 // ------------------------------------------------------------------------------------------------ FR-SRC-03 AC-17
 
 test('fr_src_03_ac17_tab_order', async ({ page }) => {
@@ -442,12 +420,13 @@ test('fr_src_03_ac17_tab_order', async ({ page }) => {
   await titlesWhen(page, (t) => t.length === 1 && t[0] === T.chata);
   await (await must(searchQuery(page), 'Search query')).focus();
   const seenNames: string[] = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     await page.keyboard.press('Tab');
     seenNames.push((await focusName(page)).name);
   }
-  assert.deepEqual(seenNames, ['Clear search', 'Type: Page', 'Filter by tag', 'Clear filters', T.chata, 'Filter by #hory', 'Filter by #účty', 'Filter by #zima'],
-    'field → Clear search → Type → Filter by tag → Clear filters → the row link → its chips');
+  // v0.109 (D-1343): the count line's create buttons follow Clear filters.
+  assert.deepEqual(seenNames, ['Clear search', 'Type: Page', 'Filter by tag', 'Clear filters', 'Create “mlyn”', 'as…', T.chata, 'Filter by #hory', 'Filter by #účty', 'Filter by #zima'],
+    'field → Clear search → Type → Filter by tag → Clear filters → Create “mlyn” → as… → the row link → its chips');
 });
 
 test('fr_src_03_ac17_type_menu_keys', async ({ page }) => {
@@ -490,10 +469,10 @@ test('fr_src_03_ac17_row_keys_names_and_the_palette', async ({ page }) => {
   assert.equal(await focusedRowTitle(page), t[1], '↓ moves to the next row link (chips skipped)');
   await page.keyboard.press('ArrowUp');
   assert.equal(await focusedRowTitle(page), t[0], '↑ moves back');
-  // The ↓/↑/⏎ of the field keep driving Go to (FR-NAV-01 AC-16).
+  // v0.109 (D-1340): ↓ in the field moves to the first row (FR-NAV-01 AC-21).
   await (await must(searchQuery(page), 'Search query')).focus();
   await page.keyboard.press('ArrowDown');
-  assert.equal((await focusName(page)).name, 'Search query', '↓ in the field keeps the caret in the field');
+  assert.equal(await eventually(() => focusedRowTitle(page), (x) => x === t[0], 1000), t[0], '↓ in the field focuses the first row link');
   // A click on a row previews (D-930, default mode).
   await click(rowLink(page, t[0]), 'the first row');
   await mustPreview(page, t[0], 'a click on a row previews');
@@ -601,24 +580,4 @@ test('fr_src_03_ac21_live_updates_keep_the_loaded_rows', async ({ page }) => {
   await core.setFile(hromada(1), null);
   const gone = await titlesWhen(page, (t) => !t.includes('Hromada 01'), 2000);
   assert.ok(!gone.includes('Hromada 01') && gone.length === 60, `the deleted note's row is removed within 2 s (${gone.length} rows)`);
-});
-
-// ------------------------------------------------------------------------------------------------ FR-NAV-01 AC-19
-
-test('fr_nav_01_ac19_go_to_on_the_redesigned_page', async ({ page }) => {
-  await startPage(page);
-  await chooseType(page, 'Task');
-  await typeQuery(page, 'cteni');
-  await must(goToList(page), 'listbox "Go to"');
-  await settled(page, 'Go to', 'cteni');
-  const first = flat((await goToList(page).getByRole('option').first().innerText()).split('\n')[0]);
-  assert.equal(first, T.cteni, 'the Type filter doesn\'t narrow Go to: Čtení first (D-1220)');
-  await titlesWhen(page, () => true, 500);
-  const ys = [await topOf(filtersGroup(page)), await topOf(goToList(page)), await topOf(main(page).getByRole('status').filter({ hasText: /^\d+ (results?|objects?)/ })), await topOf(results(page))];
-  assert.ok(!Number.isNaN(ys[0]) && ys[0] < ys[1], `Go to below the Filters group: ${ys.join(', ')}`);
-  await typeQuery(page, '');
-  assert.equal(await eventually(() => goToList(page).count(), (c) => c === 0, 1000), 0, 'no Go to list with an empty query');
-  assert.deepEqual(await rowsWhen(page, [T.tomas]), [T.tomas], 'the filter-only results show instead');
-  await chooseType(page, 'All types');
-  await must(emptyState(page, 'Search all your objects'), 'or the empty state of FR-SRC-03 AC-14');
 });
