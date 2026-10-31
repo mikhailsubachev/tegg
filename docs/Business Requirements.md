@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.138, for review                                            |
+| **Document status** | Draft v1.139, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -152,6 +152,7 @@
 | v1.136  | 2026-10-31 | v0.94 graph and preview build decisions (build 78b3821): D-1191…D-1196 (AP-1020…AP-1025, each as proposed): "nothing stored" in the fake, three older AC-test changes, red-test corrections of the wheel, Settings and FR-LNK-11 tests, the table rows as read |
 | v1.137  | 2026-10-31 | v0.94 build: D-1197 (the editor opens a `#^id` block, AP-1026) and D-1198 (whole-pixel points in the wheel tests, AP-1027), as proposed |
 | v1.138  | 2026-10-31 | QA review of v0.94 graph and previews: D-1233…D-1237 (AP-1028…AP-1032, as proposed; numbered after the Search redesign's D-1232, as this slice's D-1164…D-1199 block is used up): editor hover on tags and Markdown links, the `Link` menu above its reference, an unchanged Tasks view writes nothing, QA fixes to the slice's tests, the L6 tour's scope |
+| v1.139  | 2026-10-31 | D-1238 (AP-1033, owner): the FR-NAV-03 AC-8 test counts route marks after the Back's own mark |
 
 ---
 
@@ -1283,6 +1284,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1235 | An unchanged Tasks view writes nothing (AP-1030) (owner, 2026-10-31; QA review of v0.94 graph and previews, `qa/reviews/v094-graph-previews.md`) | Under FR-SYN-06: reaching the stored `tasks.view` doesn't rewrite `ui_state`. Regression test `bug_v094gp_fr_syn_06_tasks_view_unchanged_writes_nothing`, shown failing before the build (074da8b) |
 | D-1236 | QA fixes to the slice's own tests (AP-1031) (owner, 2026-10-31; QA review of v0.94 graph and previews, `qa/reviews/v094-graph-previews.md`) | One AC-test change: the L6 FR-LNK-09 AC-12 step fails when the figure is missing instead of skipping its ⌥Space check; the stale comment above the removed `LINE` table in `graph.ac.test.ts` goes; the unused imports in `previews_v094_default.ac.test.ts` go |
 | D-1237 | FR-SYN-06 AC-42's L6 tour (AP-1032) (owner, 2026-10-31; QA review of v0.94 graph and previews, `qa/reviews/v094-graph-previews.md`) | The L6 tour checks that the real app writes nothing on the new inputs; the per-kind behaviour is L5's, as for AC-37. The AC text says so |
+| D-1238 | The Back's mark in FR-NAV-03 AC-8's test (AP-1033) (owner, 2026-10-31; v0.94 merge gate, `docs/feedback/ms6-v094-graph-previews.md`) | Red-test correction: before taking its `route-ready` count, the test waits until the Back's own mark has arrived (the count grew since `⌘[`, or 2 s); the check itself is unchanged |
 | D-1240 | Type page columns are a `columns:` key in the type file (owner, 2026-10-30; v0.94 feedback, `docs/acceptance/type-columns.md`) | The chosen columns (which, in what order) are a new top-level flow list `columns:` in `.tegg/types/<key>.yml`, separate from `preview`; `preview` keeps its role and its 4-limit for previews, embed cards and the graph and is edited only in Type settings. A type without `columns` shows its preview properties plus `Modified`. One minimal atomic write per change, refused on an external change (FR-TYP-01 AC-7). Supersedes D-252's link to `preview` and the 4-column limit (FR-TYP-09, FR-TYP-11) |
 | D-1241 | Column widths are machine-local (owner, 2026-10-30; v0.94 feedback, `docs/acceptance/type-columns.md`) | Widths set by dragging are UI state in Application Support per type key and column key (`typeColumnWidths`), never written to the vault (FR-STO-07) |
 | D-1242 | Columns menu contents (AP-1140) (owner, 2026-10-30; v0.94 feedback, `docs/acceptance/type-columns.md`) | R130: the type's attributes, `Tags`, `Source`, `Aliases`, `Review` (only while the review workflow is on or locked; the key stays in the file while it's off), `Created`, `Modified`; `Title` listed first, checked and aria-disabled `Always shown`; no `Description`. Supersedes D-260's list |

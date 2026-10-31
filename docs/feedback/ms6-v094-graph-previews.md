@@ -114,3 +114,5 @@ Decided (owner, 2026-10-31), all as proposed: AP-1028…AP-1032 → **D-1233…D
 | Point | Question | Proposal | Alternative |
 |---|---|---|---|
 | AP-1033 | **A race in FR-NAV-03 AC-8's red test** (`app/webkit/history_v094.ac.test.ts`). After `⌘[` the test takes its `route-ready` count as soon as the page heading shows; under load the Tasks or type page's own `route-ready` mark arrives a moment later, and the test reads it as a Back / Forward round trip (`tasks`, `sidebar`, `title_bar` failed in two gates; 18 of 18 alone). | Red-test correction: before taking the count, the test waits until the Back's `route-ready` mark has arrived (the count grew by one since `⌘[`, or 2 s). The check itself is unchanged | Leave it; it passes alone |
+
+Decided (owner, 2026-10-31): AP-1033 → **D-1238** (BRD v1.139).

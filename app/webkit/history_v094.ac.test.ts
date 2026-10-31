@@ -10,7 +10,7 @@
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { gotoKanban, main as tMain, startTasks } from './tasks-helpers';
-import { P, mainName, must, mustBeOn, openNote, paletteDialog, runCommand, sidebar, sleep, start, typesList, type FakeCoreHandle } from './helpers';
+import { P, eventually, mainName, must, mustBeOn, openNote, paletteDialog, runCommand, sidebar, sleep, start, typesList, type FakeCoreHandle } from './helpers';
 
 const PORADA = '2026-10-07 Porada';
 const backBtn = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
@@ -70,8 +70,11 @@ for (const s of SURFACES) {
     const other = name === 'Search' ? 'Inbox' : 'Search';
     if (other === 'Search') { await page.keyboard.press('Meta+Shift+f'); await mustBeOn(page, 'Search', 'search'); }
     else { await runCommand(page, 'Go to Inbox'); await mustBeOn(page, 'Inbox', 'Inbox'); }
+    const rBack = await routeMarks(core);
     await page.keyboard.press('Meta+BracketLeft');
     await mustBeOn(page, name, `Back to ${name}`);
+    // D-1238: the Back's own route-ready mark can land after the heading shows; count from after it.
+    await eventually(() => routeMarks(core), (n) => n > rBack, 2000);
     if (s.again) await s.again(page);
     const at = await must(s.at(page), `${s.name}: the element under the pointer`, 5000);
     if (s.focus === 'editor') await at.click();
