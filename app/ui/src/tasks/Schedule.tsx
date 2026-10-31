@@ -11,7 +11,7 @@ import { shortDate, weekOf, type Schedule as Buckets } from './views';
 export type SectionId = 'today' | 'week' | 'later' | 'none' | 'done';
 type Group = { key: string; heading: string | null; danger?: boolean; date?: boolean; rows: TaskRowDto[] };
 
-export function ScheduleView({ s, filter, today, region, firstWeekday, priorities, renderCard, doneExpanded, onToggleDone, onCreate }: {
+export function ScheduleView({ s, filter, today, region, firstWeekday, priorities, renderCard, doneExpanded, searching, onToggleDone, onCreate }: {
   s: Buckets;
   filter: 'all' | 'today' | 'week';
   today: string;
@@ -20,6 +20,8 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
   priorities: string[];
   renderCard: (row: TaskRowDto) => ReactNode;
   doneExpanded: boolean;
+  /** With a search, sections and groups without a match aren't shown (D-1281). */
+  searching: boolean;
   onToggleDone: () => void;
   onCreate: (title: string, values: [string, Value][]) => Promise<boolean>;
 }) {
@@ -29,6 +31,7 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
   const date = (d: string) => shortDate(d, region);
   const section = (id: SectionId, label: string, groups: Group[], hint: string | null, add: { label: string; due: string | null } | null) => {
     const count = groups.reduce((n, g) => n + g.rows.length, 0);
+    if (searching && !count) return null;
     return (
       <section key={id} className="task-section" data-section={id} role="region" aria-label={label}>
         <header className="task-section-head">
@@ -40,7 +43,7 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
           <QuickAdd inline autoFocus presets={{ due: add.due }} today={today} region={region} priorities={priorities} label={add.label}
             onClose={() => setAdding(null)} onCreate={async (title, values) => { const ok = await onCreate(title, values); if (ok) setAdding(null); return ok; }} />
         )}
-        {groups.map((g) => (
+        {groups.filter((g) => !searching || g.rows.length).map((g) => (
           <div key={g.key} className="task-group">
             {/* A day group's heading is the region's date (Intl), not catalog text (NFR-OTH-02). */}
             {g.heading && <h3 className={g.danger ? 'danger' : undefined}>{g.date ? <span data-user-content>{g.heading}</span> : g.heading}</h3>}
@@ -65,7 +68,7 @@ export function ScheduleView({ s, filter, today, region, firstWeekday, prioritie
     out.push(section('none', t('tasks.section.none'), [{ key: 'none', heading: null, rows: s.none }], t('tasks.hint.none'), { label: t('tasks.add.none'), due: null }));
   }
   const done = s.done;
-  out.push(
+  if (!searching || done.length) out.push(
     <section key="done" className="task-section" data-section="done" role="region" aria-label={t('tasks.section.done')}>
       <h2 className="task-done-head">
         <button type="button" data-command="tasks.toggleDone" aria-expanded={doneExpanded} onClick={onToggleDone}>

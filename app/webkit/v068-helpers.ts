@@ -87,7 +87,8 @@ export const dueDialog = (page: Page) => page.getByRole('dialog', { name: 'Pick 
 /** The Daily Notes calendar's name for it (daily-notes.md R18). */
 export const calendarDialog = (page: Page) => page.getByRole('dialog', { name: 'Calendar', exact: true });
 export const dateField = (dlg: Locator) => dlg.getByRole('textbox', { name: 'Date', exact: true });
-export const QUICK_PICKS = ['Today', 'Tomorrow', 'Next week', 'Fri'] as const;
+/** R89 quick picks (v0.94, D-1285: `Next week` and `Fri` removed; `This week` is the first Friday on or after today). */
+export const QUICK_PICKS = ['Today', 'Tomorrow', 'This week'] as const;
 export const HINT = 'or type “fri”, “next week”';
 
 /** The R18/R19 long date of a region (`úterý 20. října 2026` in cs), which names a day button of the grid (R89). */
