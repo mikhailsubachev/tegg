@@ -2,7 +2,7 @@
 
 Public interfaces of the Search page redesign, for the test author (D-61) and the build. ACs:
 `docs/acceptance/search-navigation.md` § "Search page redesign" (FR-SRC-01 AC-18…AC-22, FR-SRC-02 AC-13…AC-18,
-FR-SRC-03 AC-8…AC-21, FR-NAV-01 AC-19). Decisions: D-1200…D-1222 (BRD v1.119; AP-1100…AP-1122). Board:
+FR-SRC-03 AC-8…AC-21, FR-NAV-01 AC-19). Decisions: D-1200…D-1222 (BRD v1.120; AP-1100…AP-1122). Board:
 `design/edit-note-page/Search.dc.html` (states via the `state` prop; `SearchNoMatch`, `SearchNoResults` are the same
 file). Builds on ms2-core §2.1 (search), ms3-shell §15.1 (tiers, file names), ms4-tags §1.5 (tag filter, D-706) and
 D-760 (`Go to`). Where this contract and the ACs disagree, the ACs win and this file is corrected before the red tests.
