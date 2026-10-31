@@ -97,9 +97,14 @@ export async function addTag(page: Page, typed: string) {
   await must(removeChip(page, typed), `the filter chip #${typed}`);
 }
 
-/** The count line (`status` in main with a number of results or objects), or null. */
+/** The count line (`status` in main with a number of results or objects), or null. The text of buttons inside it
+ *  (D-1343's create buttons, if the build puts them there) is left out, so the count reads the same either way. */
 export async function countLine(page: Page): Promise<string | null> {
-  const texts = (await main(page).getByRole('status').allInnerTexts().catch(() => [] as string[])).map(flat);
+  const texts = (await main(page).getByRole('status').evaluateAll((els) => els.map((e) => {
+    let t = (e as HTMLElement).innerText ?? '';
+    for (const b of e.querySelectorAll('button')) t = t.replace((b as HTMLElement).innerText ?? '', ' ');
+    return t;
+  })).catch(() => [] as string[])).map(flat);
   return texts.find((t) => /^⟦?\d+ (results?|objects?)\b/.test(t)) ?? null;
 }
 export async function countWhen(page: Page, want: string | null, ms = 3000): Promise<string | null> {
