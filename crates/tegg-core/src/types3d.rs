@@ -32,6 +32,9 @@ pub struct TypeInfo {
     pub readability: Readability,
     pub def: TypeFile,
     pub preview_ignored: Vec<String>,
+    /// D-1245 (type-columns §2): `columns` entries that aren't properties, and a `columns` value that isn't a list.
+    pub columns_ignored: Vec<String>,
+    pub columns_unreadable: bool,
     /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
@@ -109,6 +112,8 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         readability: parsed.readability.clone(),
         def: parsed.def.clone(),
         preview_ignored: parsed.preview_ignored.clone(),
+        columns_ignored: parsed.columns_ignored.clone(),
+        columns_unreadable: parsed.columns_unreadable,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
     }
@@ -412,7 +417,13 @@ impl Core {
         let key = type_key(key);
         let def = self.shared.type_defs().remove(&key);
         let attrs: Vec<AttrDef> = def.as_ref().map(|d| d.attributes.clone()).unwrap_or_default();
-        let preview: Vec<String> = def.map(|d| d.preview).unwrap_or_default();
+        // D-1240 (type-columns §2): a value for every effective column key, else the preview keys.
+        let preview: Vec<String> = def
+            .map(|d| match d.columns {
+                Some(c) => c.iter().map(|k| nfc(k)).collect(),
+                None => d.preview,
+            })
+            .unwrap_or_default();
         let all = self.index().objects();
         let resolver = crate::Resolver::new(&all, &self.shared);
         all.iter()

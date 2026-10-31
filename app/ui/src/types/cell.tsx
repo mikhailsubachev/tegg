@@ -45,6 +45,13 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey }: {
       </span>
     );
   }
+  if (col.key === 'review') {
+    // D-1242: the Review column shows the workflow's labels; another value is shown as written with the warning icon.
+    const r = row.values.review;
+    if (isEmpty(r)) return null;
+    if (r === 'unreviewed' || r === 'reviewed') return <span>{t(r === 'reviewed' ? 'review.reviewed' : 'review.unreviewed')}</span>;
+    return <span className="raw-value"><span data-user-content>{rawText(r)}</span><span className="warn-icon" title={t('panel.invalid', { type: attrTypeLabel('select') })}><Icon name="warning" size={12} /></span></span>;
+  }
   const a = col.attr;
   const v = a?.type === 'date-range' ? null : row.values[col.key];
   const validity = a ? validate(a as never, row.values) : { state: isEmpty(v) ? 'empty' : 'valid' };
