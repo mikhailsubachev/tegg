@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Search</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--sel-hl:#FFE7A3;--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--embed:#F7F7F5;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--unrev:#D98A00;--unrev-ring:#F2C46B}
+.tg.dark{--sel-hl:#5A4718;--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--embed:#232326;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--unrev:#F0B34A;--unrev-ring:#7A5A1E}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+{{tabLabel}}
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Left sidebar -->
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<div style="display: flex; gap: 6px">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; flex: 1; min-width: 0; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<button aria-label="Search or jump to (⌘O)" title="Search or jump to · ⌘O" style="flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{n.bg}}; font-weight: {{n.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{n.meta}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<a href="TagsAll.dc.html" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; background: {{allSideBg}}; font-size: 13px; font-weight: {{allSideWeight}}; color: var(--text); text-align: left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"></path></svg><span style="flex: 1">Tags</span><span style="font-size: 12px; color: var(--muted)">{{tagTotal}}</span></a>
+</div>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
+</div>
+</nav>
+
+<!-- Search (route `search`, ⌘⇧F; FR-SRC-01…04) -->
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="Back" style="display: flex; align-items: center; gap: 8px; margin-bottom: -6px">
+<a href="Main.dc.html" title="Go back" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px; margin-left: -6px; border-radius: 7px; font-size: 13px; color: var(--muted); text-decoration: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg><span style="color: var(--text); font-weight: 500">Back</span></a>
+</nav>
+<h1 style="margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em">Search</h1>
+
+<!-- Query field -->
+<div role="search" style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<span role="searchbox" aria-label="Search all objects" style="flex: 1; font-size: 16px; color: {{qFg}}">{{qText}}<span aria-hidden="true" style="display: inline-block; width: 1.5px; height: 18px; background: var(--text); vertical-align: -3px; margin-left: 1px"></span></span>
+<sc-if value="{{hasQuery}}" hint-placeholder-val="{{ true }}"><button aria-label="Clear search" style="width: 24px; height: 24px; border-radius: 12px; background: var(--hover); color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></sc-if>
+<span style="font-size: 12px; color: var(--faint)">⌘⇧F</span>
+</div>
+</div>
+
+<!-- Filters (FR-SRC-02): all combine with AND -->
+<div role="group" aria-label="Filters" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{filters}}" as="f" hint-placeholder-count="5">
+<button aria-haspopup="listbox" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; font-size: 13px; white-space: nowrap"><span>{{f.label}}</span><span style="font-weight: {{f.weight}}">{{f.value}}</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</sc-for>
+<!-- Tag filter: combobox like Tasks (D-518, D-706) -->
+<div role="combobox" aria-label="Filter by tag" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 4px 0 10px; border-radius: 15px; border: 1px solid {{tagBorder}}; background: {{tagBg}}; font-size: 13px">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"></path></svg>
+<sc-for list="{{tagChips}}" as="t" hint-placeholder-count="1"><span style="display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 4px 0 8px; border-radius: 11px; background: var(--{{t.c}}-bg); color: var(--{{t.c}}); font-size: 12px; font-weight: 500">#{{t.name}}<button aria-label="Remove #{{t.name}}" style="width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span></sc-for>
+<span style="color: var(--faint); padding: 0 6px 0 2px">{{tagPlaceholder}}</span>
+</div>
+<sc-if value="{{anyFilter}}" hint-placeholder-val="{{ true }}"><button style="height: 30px; padding: 0 8px; font-size: 13px; color: var(--link)">Clear filters</button></sc-if>
+</div>
+
+<!-- Result count -->
+<sc-if value="{{showResults}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 4px">
+<span role="status" style="font-size: 13px; font-weight: 600">{{countLabel}}</span>
+</div>
+
+<!-- Results: one row per object (D-107) -->
+<div role="list" aria-label="Search results" style="display: flex; flex-direction: column">
+<sc-for list="{{results}}" as="r" hint-placeholder-count="7">
+
+<a role="listitem" href="#" style="display: flex; gap: 12px; padding: 10px 12px; border-radius: 8px; background: {{r.bg}}; text-decoration: none">
+<span aria-hidden="true" style="flex: none; width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin-top: 1px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{r.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{r.d}}"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; align-items: baseline; gap: 8px">
+<span style="font-size: 14.5px; font-weight: 600; color: var(--text)"><sc-for list="{{r.title}}" as="s" hint-placeholder-count="2"><span style="background: {{s.bg}}; border-radius: 3px">{{s.t}}</span></sc-for></span>
+<span style="font-size: 12px; color: var(--muted); white-space: nowrap">{{r.type}}</span>
+<span style="flex: 1"></span>
+<span style="font-size: 12px; color: var(--muted); white-space: nowrap">{{r.modified}}</span>
+</span>
+<sc-if value="{{r.hasFile}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: var(--muted)">File name: <sc-for list="{{r.file}}" as="s" hint-placeholder-count="2"><span style="background: {{s.bg}}; border-radius: 3px; color: var(--text)">{{s.t}}</span></sc-for></span></sc-if>
+<sc-if value="{{r.hasAttr}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: var(--muted)">{{r.attrName}}: <sc-for list="{{r.attr}}" as="s" hint-placeholder-count="2"><span style="background: {{s.bg}}; border-radius: 3px; color: var(--text)">{{s.t}}</span></sc-for></span></sc-if>
+<sc-if value="{{r.hasSnippet}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: var(--muted); line-height: 1.5"><sc-for list="{{r.snippet}}" as="s" hint-placeholder-count="3"><span style="background: {{s.bg}}; color: {{s.fg}}; border-radius: 3px">{{s.t}}</span></sc-for></span></sc-if>
+<sc-if value="{{r.hasTags}}" hint-placeholder-val="{{ false }}"><span style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px"><sc-for list="{{r.tags}}" as="g" hint-placeholder-count="2"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: var(--{{g.c}}-bg); color: var(--{{g.c}}); font-size: 11.5px; font-weight: 500; display: inline-flex; align-items: center">#{{g.name}}</span></sc-for></span></sc-if>
+</span>
+</a>
+</sc-for>
+</div>
+<sc-if value="{{hasMore}}" hint-placeholder-val="{{ false }}"><button style="align-self: flex-start; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; margin-top: 4px">Show next 50</button></sc-if>
+</sc-if>
+
+<!-- Empty and no-result states -->
+<sc-if value="{{showEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 72px 20px; text-align: center; color: var(--muted)">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+<div style="font-size: 15px; font-weight: 600; color: var(--text)">{{emptyTitle}}</div>
+<div style="font-size: 13px; max-width: 420px">{{emptyBody}}</div>
+<sc-if value="{{showCreate}}" hint-placeholder-val="{{ false }}"><button style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 8px; background: var(--btn); color: var(--btn-fg); font-size: 13px; font-weight: 600; margin-top: 10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5"></path></svg>Create page “{{qText}}”<span style="font-weight: 400; opacity: .7">⌘↩</span></button></sc-if>
+<sc-if value="{{showClear}}" hint-placeholder-val="{{ false }}"><button style="height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); font-size: 13px; margin-top: 10px">Clear filters</button></sc-if>
+</div>
+</sc-if>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"state":{"editor":"enum","options":["results","tag filter only","no results","no match","empty"],"default":"results"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? false;
+const state = this.props.state ?? 'results';
+const I = {
+home: 'M4 11l8-7 8 7M6 10v10h12V10', inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z', cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5', task: 'M5 5h14v14H5zM9 12l2 2 4-4', box: 'M5 5h14v14H5z', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z', person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z'
+};
+const nav = [{ label: 'Inbox', d: I.inbox, meta: '4' }, { label: 'Today', d: I.cal, meta: '⌘D' }, { label: 'Tasks', d: I.task, meta: '4' }].map((n) => ({ ...n, bg: 'transparent', weight: '400' }));
+const types = [
+{ label: 'Pages', d: I.page, color: 'var(--muted)', count: '128' }, { label: 'Quick Notes', d: I.bolt, color: 'var(--o)', count: '212' },
+{ label: 'Daily Notes', d: I.cal, color: 'var(--muted)', count: '340' }, { label: 'Ideas', d: I.idea, color: 'var(--idea)', count: '10' },
+{ label: 'Meetings', d: I.meet, color: 'var(--accent)', count: '58' }, { label: 'Projects', d: I.proj, color: 'var(--o)', count: '9' },
+{ label: 'People', d: I.person, color: 'var(--p)', count: '31' }
+].map((t) => ({ ...t, bg: 'transparent', weight: '400' }));
+const sideTags = [['offsite', 10], ['finance', 14], ['q4', 8], ['podcast', 6], ['reading', 4]].map(([label, c]) => ({ label, count: String(c), bg: 'transparent', weight: '400', pick: () => {} }));
+const TC = { offsite: 't', finance: 'o', q4: 'p', productivity: 'link' };
+const HL = 'var(--sel-hl)';
+// "a [b] c" → segments; text in [ ] is highlighted
+const seg = (s) => s.split(/(\[[^\]]*\])/).filter(Boolean).map((p) => p[0] === '[' ? { t: p.slice(1, -1), bg: HL, fg: 'var(--text)' } : { t: p, bg: 'transparent', fg: 'inherit' });
+const TY = { proj: ['Project', 'var(--o)', I.proj], meet: ['Meeting', 'var(--accent)', I.meet], task: ['Task', 'var(--link)', I.box], quick: ['Quick Note', 'var(--o)', I.bolt], idea: ['Idea', 'var(--idea)', I.idea], page: ['Page', 'var(--muted)', I.page], daily: ['Daily Note', 'var(--muted)', I.cal], person: ['Person', 'var(--p)', I.person] };
+const R = (k, title, o) => ({ k, title, ...o });
+const SETS = {
+results: [
+R('page', '[Offsite budget]', { snip: 'Per-person cap for the [offsite budget] is €900, travel included. Jana approves anything above that…', tags: ['offsite', 'finance'], mod: 'Today' }),
+R('quick', 'Hotel options near LX Factory', { file: '[Offsite budget] hotels', snip: 'Avenida, Lumiares and two smaller places within walking distance…', snipPlain: true, tags: ['offsite'], mod: 'Yesterday' }),
+R('task', 'Ask Jana about the travel cap', { attrName: 'Budget line', attr: '[Offsite budget] 2026', snip: '', tags: ['finance'], mod: 'Tue' }),
+R('meet', '2026-10-07 Weekly Sync', { snip: '…then Jana asked for the [offsite budget] before Friday so finance can close the Q4 numbers…', tags: ['offsite', 'finance', 'q4'], mod: 'Mon' }),
+R('daily', '2026-10-19', { snip: '17:00 call with the venue: the [offsite budget] covers two nights, not three…', tags: ['offsite'], mod: '19 Oct' })
+],
+'tag filter only': [
+R('page', 'Q4 Budget', { snip: 'Headcount, travel, tools. Draft due to finance before the review.', snipPlain: true, tags: ['finance', 'q4'], mod: 'Wed' }),
+R('task', 'Send Q4 budget draft to Jana', { snip: 'Use the numbers from the finance sheet and flag the travel line.', snipPlain: true, tags: ['finance', 'q4'], mod: 'Thu' }),
+R('meet', '2026-10-07 Weekly Sync', { snip: 'Agenda: Q4 budget status, offsite logistics. Finance wants the draft before Friday.', snipPlain: true, tags: ['offsite', 'finance', 'q4'], mod: 'Mon' }),
+R('quick', 'Ask Jana about the travel cap', { snip: 'Is the cap per person or per team?', snipPlain: true, tags: ['finance'], mod: 'Tue' }),
+R('page', 'Invoices 2026', { snip: 'Paid, pending and disputed invoices with links to the PDFs.', snipPlain: true, tags: ['finance'], mod: '14 Oct' })
+]
+};
+const list = SETS[state] || [];
+const results = list.map((r, i) => {
+const snippet = r.snip ? (r.snipPlain ? [{ t: r.snip, bg: 'transparent', fg: 'inherit' }] : seg(r.snip)) : [];
+return {
+title: seg(r.title), type: TY[r.k][0], color: TY[r.k][1], d: TY[r.k][2], modified: r.mod,
+bg: i === 0 ? 'var(--hover)' : 'transparent',
+hasFile: !!r.file, file: r.file ? seg(r.file) : [], hasAttr: !!r.attr, attrName: r.attrName || '', attr: r.attr ? seg(r.attr) : [],
+hasSnippet: snippet.length > 0, snippet, hasTags: (r.tags || []).length > 0, tags: (r.tags || []).map((name) => ({ name, c: TC[name] || 'link' }))
+};
+});
+const q = { results: 'offsite budget', 'tag filter only': '', 'no results': 'offsite budget', 'no match': 'offsite budget 2027', empty: '' }[state];
+const chips = state === 'tag filter only' ? [{ name: 'finance', c: 'o' }] : state === 'no results' ? [{ name: 'q4', c: 'p' }] : [];
+const typeOn = state === 'no results';
+const F = (label, value, on) => ({ label, value, bg: on ? 'var(--hover)' : 'var(--bg)', border: on ? 'var(--hover)' : 'var(--border)', fg: 'var(--text)', weight: on ? '700' : '400' });
+const filters = [F('Type', typeOn ? 'Task' : 'All', typeOn)];
+const showResults = results.length > 0;
+const counts = { results: '5 results', 'tag filter only': '14 objects with #finance' };
+return {
+themeClass: dark ? 'dark' : '', nav, types, sideTags, tabLabel: 'Search',
+allSideBg: 'transparent', allSideFg: 'var(--muted)', allSideWeight: '400', tagTotal: '11', toAll: () => {},
+qText: q || 'Search for a phrase', qFg: q ? 'var(--text)' : 'var(--faint)', hasQuery: !!q,
+filters, tagChips: chips, tagBorder: chips.length ? 'var(--hover)' : 'var(--border)', tagBg: chips.length ? 'var(--hover)' : 'var(--bg)', tagPlaceholder: chips.length ? '' : 'Tags',
+anyFilter: chips.length > 0 || typeOn,
+showResults, results, countLabel: counts[state] || '', hasMore: false,
+showEmpty: !showResults, showCreate: state === 'no match', showClear: state === 'no results',
+emptyTitle: state === 'no match' ? 'No results for “offsite budget 2027”' : state === 'no results' ? 'No results for “offsite budget”' : 'Search all your objects',
+emptyBody: state === 'no match' ? 'Nothing in this vault contains this exact phrase. Create a page with it as the title.' : state === 'no results' ? 'Nothing contains this exact phrase with Type Task and tag #q4. Clear the filters to search everything.' : 'Type a phrase to search titles, text, file names and attribute values, or pick a type or tag. A filter alone is a search too.'
+};
+}
+}
+</script>
+</body>
+</html>
