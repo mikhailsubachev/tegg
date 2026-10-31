@@ -85,6 +85,12 @@ test('fr_dly_03_ac7_daily_calendar_is_the_same_picker', async ({ page }) => {
   assert.ok(marked > 0, 'the data-has-note marks stay');
   await click(cal.getByRole('button', { name: 'Tomorrow', exact: true }), 'Tomorrow');
   await mustDaily(page, '2026-10-15', 'Tomorrow opens daily/2026-10-15');
+  // v0.94 (D-1289): `This week` opens the first Friday on or after today.
+  await click(pickDate(page), 'Pick date');
+  cal = await must(calendarDialog(page), 'Calendar (This week)');
+  for (const b of ['Next week', 'Fri']) assert.equal(await cal.getByRole('button', { name: b, exact: true }).count(), 0, `no ${b} (D-1285)`);
+  await click(cal.getByRole('button', { name: 'This week', exact: true }), 'This week');
+  await mustDaily(page, '2026-10-16', 'This week opens daily/2026-10-16');
   await click(pickDate(page), 'Pick date');
   cal = await must(calendarDialog(page), 'Calendar again');
   const f = await must(dateField(cal), 'textbox "Date"');
