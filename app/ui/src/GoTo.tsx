@@ -79,7 +79,9 @@ export function GoTo({ q, keys, onActive, onOpen, onCreate, onRefocus }: {
         const d = e.key === 'ArrowDown' ? 1 : -1;
         setSel((s) => (s + d + shown.length) % shown.length);
       } else if (e.key === 'Enter' && e.altKey && shown[sel]?.kind === 'create') openAs(shown[sel]);
-      else if (e.key === 'Enter') choose(shown[sel]);
+      // ⌘↩ is not bound on Search (D-1201): only a plain ⏎ chooses.
+      else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) choose(shown[sel]);
+      else if (e.key === 'Enter') { e.preventDefault(); return true; }
       else return false;
       e.preventDefault();
       return true;
