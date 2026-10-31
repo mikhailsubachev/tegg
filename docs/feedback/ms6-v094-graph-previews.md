@@ -53,3 +53,22 @@ D-1172…D-1199.
 Decided (owner, 2026-10-31), all as proposed: AP-1002 → **D-1172**, AP-1003 → **D-1173**, AP-1004 → **D-1174**,
 AP-1005 → **D-1175**, AP-1006 → **D-1176**, AP-1007 → **D-1177**, AP-1008 → **D-1178**, AP-1009 → **D-1179**,
 AP-1010 → **D-1180**; the AC-test-change table → **D-1181** (BRD v1.127).
+
+## Points for the owner (from writing the red tests)
+
+Red tests: `app/webkit/previews_v094_{embeds,inside,default}.ac.test.ts`, `graph_v094.ac.test.ts`,
+`history_v094.ac.test.ts`, `app/test/previews_v094.ac.test.ts`, `app/e2e/previews_v094.ac.test.ts` (124 L1/L5 tests:
+102 fail, 22 already pass where the AC says the behaviour exists; 3 L6 tests, not run before the build). Decisions go
+to D-1182…D-1199.
+
+| Point | Question | Proposal | Alternative |
+|---|---|---|---|
+| AP-1011 | **FR-NAV-03 AC-10's L4 part.** The native swipe mapping (`nav_of` in `app/src-tauri/src/lib.rs`) is private; a `tests/ac_*.rs` can't reach it (TS-I1). | The existing unit test `bug_ms5b_fr_nav_03_swipe_goes_back` is the L4 evidence; AC-10 names it. No new interface | The build exports a probe (`nav_mouse_probe`, like `acl_probe`) and adds `app/src-tauri/tests/ac_nav_mouse.rs` |
+| AP-1012 | **Embed input kinds in `resolveRefInput` (FR-LNK-09 AC-14).** Contract `v1-previews.md` §3.1 doesn't name them. | Two kinds: `embed` (a card, or a full or section embed's header) and `embedLink` (a link-mode chip). A broken embed: what would open → `createOffer`, ⌥Space → `none`, resting → `none`, right-click as a resolved embed. Added to §3.1 in the build | Other names, chosen by the build |
+| AP-1013 | **⏎ and ⌥Space on a link inside a hover preview (D-1176).** A hover preview never takes the focus (FR-LNK-12 AC-2), so the keyboard can't reach its links. | The keyboard reaches them after ⌥Space on the reference, which makes it a focused preview (D-942) in hover mode too; then ⏎ on a link inside opens it (hover's click action) and ⌥Space replaces in place. FR-LNK-11 AC-22's hover steps start that way (AC-test change to the red test) | D-1176's keyboard steps apply to click and Off only |
+| AP-1014 | **A section preview's dialog name (FR-LNK-09 AC-12).** The AC names `Preview: Rozpočet 2027 › Rozsah`; slice P's section tests accept that or `Preview: Rozpočet 2027`. | As slice P: either name; the header `h2` is exactly `Rozpočet 2027 › Rozsah`. The AC text says so | The dialog name must include the section |
+| AP-1015 | **The selecting drag (FR-LNK-11 AC-19).** WebKit's 80 px drag from `Návrh` selects `Návrh rozp`, not exactly `Návrh rozpo`. | The test checks that a selection starting `Návrh roz` exists and nothing opens | A fixed character count measured per run |
+| AP-1016 | **The L5 tour's start (FR-SYN-06 AC-42).** Switching to Kanban or opening the panel during the tour writes `ui_state` (`tasks.view`, the panel), which the AC forbids. | The tour starts on `tasks/kanban` with the panel already open on Graph (stored before the start); "Plán's graph" is the previews fixture's `Pages/Plán.md` | The AC allows `ui_state` writes and forbids vault writes only |
+| AP-1017 | **Parts not checked.** FR-GRP-01 AC-48's "label rules follow the zoom" (Plán has fewer than 60 nodes), AC-47's "the preview column's body scrolls" (the body is too short; checked as "doesn't pan"), FR-LNK-11 AC-17's caret (D-247). | Accept: FR-GRP-01 AC-18 and D-247's own tests already cover them; the ACs say "covered by" | Add a fixture with ≥ 60 nodes and a long body |
+| AP-1018 | **Two failures where the AC says "unchanged".** (a) In click mode a click on the strip chip `Jana Nováková` in the graph's Preview column doesn't replace the content (FR-GRP-06 AC-12, D-932); (b) opening Vložení's section embed `#Rozsah` lands 293 px above the pane's top (FR-LNK-09 AC-10 Off), and the embed's own `Open Rozpočet 2027` does the same. | Both are existing bugs (triage: bug). They're fixed in this slice's build, each with a regression test `bug_v094gp_<req>_…` written first | (b) goes to its own fix; the AC-10 Off test is quarantined until then |
+| AP-1019 | **A double-click on `Resize preview` opens Jana (FR-LNK-11 AC-19).** The popover shrinks between the two clicks, so the second lands on a chip behind it. | An existing bug: the resize handle doesn't change the size on a click without a drag. Fixed in the build with a regression test | The AC drops the double-click on the handle |
