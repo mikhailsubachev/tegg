@@ -14,7 +14,7 @@ import { goToQuery, paletteOptions } from './helpers';
 import { previewOfSet, uiSets, wordPoint } from './previews-editor-helpers';
 import {
   PV, ZONE, back, backlinksPanel, chipNamed, content, description, editorBody, eventually, focusInfo, frame, linkEmbed, main, mainName, mapNode,
-  mark, mindmapFigure, mustBeOn, need, needAnyPreview, needClosed, needOdkazyLink, needPreview, nfc, previewCount, previewPath, previews, props,
+  mark, mindmapFigure, mustBeOn, need, needAnyPreview, needClosed, needOdkazyLink, needPreview, nfc, previewCount, previewPath, props,
   readArticle, runCommand, searchFor, sleep, snapshot, startPreviews, taskCard, topEmbed, typeTable, ui, type FakeCoreHandle, type PreviewUi,
   type PreviewsStart,
 } from './previews-helpers';
@@ -388,5 +388,3 @@ test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_writ
   assert.deepEqual(Object.keys(files1).sort(), Object.keys(files0).sort(), 'no file created (no Daily/2026-10-30.md, no Tags/nápad.md)');
   assert.deepEqual(files1, files0, 'every vault file unchanged');
 });
-
-void previews; void eventually;

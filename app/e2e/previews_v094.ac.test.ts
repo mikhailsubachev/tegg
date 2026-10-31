@@ -197,7 +197,8 @@ test('fr_syn_06_ac42_the_tour_with_no_ui_state_json_writes_nothing', { timeout: 
     }
     // ⌥Space on the selected figure still previews (D-938), then Esc.
     const fig = await firstShown(d, 'Graf');
-    if (fig) { await clickable(d, fig).click(); await sleep(200); press('space', ['option']); assert.ok(await previewShown(d, 'Graf'), '⌥Space on the selected figure previews Graf'); press('escape'); }
+    assert.ok(fig, 'the figure of ![[graf.png]] is shown in Vložení');
+    await clickable(d, fig).click(); await sleep(200); press('space', ['option']); assert.ok(await previewShown(d, 'Graf'), '⌥Space on the selected figure previews Graf'); press('escape');
     palette('Go to Tasks');
     assert.ok(await waitMark(c.log, 'route-ready:tasks', 5000), 'tasks shown');
     await sleep(800);

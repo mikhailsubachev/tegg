@@ -30,7 +30,6 @@ const EDGES_D2: [string, string, string][] = [
   [P.zapis, P.petr, 'relation'], [P.zapis, P.rozpocet, 'embed'], [P.zapis, P.smlouva, 'embed'], [P.zapis, 'tag:cestování', 'tag'],
   [P.shrnuti, 'tag:archiv', 'tag'], [P.bez, P.shrnuti, 'link'], [P.chybna, P.shrnuti, 'link'],
 ];
-/** R108 lines: width and whether dashed or dotted. */
 
 async function depth(page: Page, d: 1 | 2 | 3, n: number) {
   await click(depthBtn(page, d), `depth ${d}`);
