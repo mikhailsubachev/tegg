@@ -160,6 +160,7 @@ Parallel gates load the machine so much that timing-sensitive WebKit tests fail 
 - **Waiting:** a command that finds the lock taken waits for it, without a time limit. Every minute it prints a line on stdout containing `waiting for`, the owner's command and checkout. It starts once the lock is free.
 - **Release:** the owner removes the lock when it exits, also on SIGINT, SIGTERM or SIGHUP. A lock whose owner process no longer exists, or that has no `owner.json` 30 s after it was made, is stale; the next command removes it and takes the lock.
 - **Nested runs:** while it holds the lock, a command sets `VERIFY_GATE_LOCK_HELD` in its environment, so a `verify` started by its steps doesn't wait for its own parent.
+- **WebKit runs outside a gate:** the app's Playwright config takes the same lock in its `globalSetup` (command `app webkit`), so a targeted `npx playwright test` waits for a running gate and a gate waits for it. Inside a gate it returns at once (nested run).
 - **No lock:** if the lock folder can't be created, the command prints a warning on stderr and runs without the lock.
 - The QA tool tests give each test process its own `VERIFY_GATE_LOCK_DIR`, so they never wait for a real gate.
 
