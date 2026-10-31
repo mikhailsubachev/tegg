@@ -52,6 +52,8 @@ export type ShellActions = {
   setReviewed?: (reviewed: boolean) => void;
   /** 5A-1 (tasks.md R45): open the Tasks page at its last view (D-481); run a Tasks page or card command. */
   goTasks?: () => void;
+  /** D-1284: `Filter tasks`. */
+  filterTasks?: () => void;
   taskCommand?: (id: string) => void;
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
@@ -196,6 +198,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
     { id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
     { id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks/kanban' }) },
+    { id: 'tasks.search', title: 'cmd.tasks.search', section: 'navigate', needsVault: true, run: (c) => a(c)?.filterTasks?.() },
     ...([
       ['tasks.groupStatus', 'cmd.tasks.groupStatus'], ['tasks.groupTag', 'cmd.tasks.groupTag'], ['tasks.filterAll', 'cmd.tasks.filterAll'],
       ['tasks.filterToday', 'cmd.tasks.filterToday'], ['tasks.filterWeek', 'cmd.tasks.filterWeek'], ['tasks.add', 'cmd.tasks.add'],

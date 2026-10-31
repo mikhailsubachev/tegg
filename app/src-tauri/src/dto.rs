@@ -71,6 +71,24 @@ pub struct SearchResultDto {
     pub snippet: Option<SnippetDto>,
     /// The file stem with its matches, only for a `fileName` match (D-254).
     pub file_name: Option<SnippetDto>,
+    /// Frontmatter `modified` as written (ISO 8601 with offset), else null (D-1206).
+    pub modified: Option<String>,
+    /// Tag keys, NFC lower case (D-1211).
+    pub tags: Vec<String>,
+    /// `[start, end)` in UTF-16 code units of `title` (D-1210, D-1223).
+    pub title_highlights: Vec<(u32, u32)>,
+    /// The matched alias, only for an `alias` match; `line` 0 (D-1209).
+    pub alias: Option<SnippetDto>,
+    /// The matched attribute, only for an `attribute` match (D-1208).
+    pub attribute: Option<AttributeHitDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct AttributeHitDto {
+    /// The frontmatter key as written.
+    pub key: String,
+    /// The matched value as written; `line` 0.
+    pub value: SnippetDto,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -1426,6 +1444,7 @@ pub fn typescript() -> String {
         SearchQueryDto::decl(),
         SnippetDto::decl(),
         SearchResultDto::decl(),
+        AttributeHitDto::decl(),
         SearchPageDto::decl(),
         SwitcherItemDto::decl(),
         NoteDto::decl(),

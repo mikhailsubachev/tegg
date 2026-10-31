@@ -167,13 +167,41 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 .ts-embed-modes { width: fit-content; }
 
 /* search (MS2) */
-.search input { width: 100%; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
-.search ul { list-style: none; margin: 12px 0 0; padding: 0; }
-.search li .result { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 8px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 12px; border-radius: 8px; color: var(--text); text-decoration: none; }
-.search li .result:hover, .search li .result:focus-visible { background: var(--row); }
-.search .count { padding: 0 12px; }
-.search .count, .search .typo, .search .snippet, .search .file-name { color: var(--muted); font-size: 13px; }
-.search .snippet, .search .file-name { flex-basis: 100%; }
+/* Search page (board `Search`, v1-search §3; D-1200…D-1230). */
+.search .search-field { position: relative; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
+.search .search-field:focus-within { border-color: var(--focus); }
+.search .search-field > .icon { color: var(--muted); flex: none; }
+.search .search-field input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; outline: none; font-size: 15px; color: var(--text); }
+.search .search-field input::-webkit-search-cancel-button { display: none; }
+.search .clear-search { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--hover); color: var(--muted); cursor: pointer; }
+.search .shortcut-hint { flex: none; font-size: 12px; color: var(--muted); }
+.search .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.search .type-filter { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+.search .type-filter[data-active] { background: var(--hover); border-color: var(--hover); }
+.search .type-filter b { font-weight: 700; }
+.search ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.search li { position: relative; border-radius: 8px; }
+.search li:hover, .search li:focus-within { background: var(--row); }
+.search li .result { display: grid; grid-template-columns: 22px 1fr; column-gap: 10px; row-gap: 3px; align-items: baseline; width: 100%; box-sizing: border-box; text-align: left; padding: 10px 12px; color: var(--text); text-decoration: none; }
+.search li .result > :not(.icon) { grid-column: 2; }
+.search li .result .icon { grid-row: 1; align-self: center; }
+.search li .result .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; min-width: 0; }
+.search li .result .title { font-weight: 600; }
+.search li .result .meta { display: inline-flex; gap: 6px; margin-left: auto; color: var(--muted); font-size: 12px; }
+.search li .result .meta .type + .modified::before { content: '·'; margin-right: 6px; }
+/* The chips sit over the bottom of the row link (outside it in the DOM, D-1211), so the rest of the row still previews. */
+.search li .result { padding-bottom: 10px; }
+.search li.has-tags .result { padding-bottom: 36px; }
+.search li .tags { position: absolute; left: 44px; right: 12px; bottom: 10px; display: flex; flex-wrap: nowrap; overflow: hidden; gap: 4px; }
+.search .tag-chip { font-size: 12px; padding: 1px 7px; border-radius: 10px; border: 0; cursor: pointer; }
+.search .search mark, .search .result mark { background: var(--sel-hl); color: var(--text); border-radius: 2px; }
+.search .count { padding: 0 12px; margin: 4px 0; }
+.search .count, .search .typo, .search .snippet, .search .line { color: var(--muted); font-size: 13px; }
+.search .show-next { margin: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+.search .search-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 56px 16px; color: var(--muted); }
+.search .search-empty h2 { margin: 6px 0 0; font-size: 16px; color: var(--text); }
+.search .search-empty p { margin: 0; max-width: 420px; font-size: 13px; }
+.search .search-empty .empty-icon .icon { width: 28px; height: 28px; color: var(--faint); }
 mark { background: var(--accent-bg); color: var(--text); }
 
 /* banners */
@@ -941,8 +969,8 @@ html:has(body.capture-body), body.capture-body { background: transparent; }
 .pick-date input[type='text'] { width: 100%; box-sizing: border-box; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
 .pick-date-field { display: flex; flex-direction: column; gap: 4px; }
 .pick-date-field .field-error { color: var(--danger); font-size: 12px; }
-.cal-quick { display: flex; flex-wrap: wrap; gap: 6px; }
-.cal-quick button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--text); }
+.cal-quick { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; }
+.cal-quick button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--text); }
 .cal-head { display: flex; align-items: center; gap: 2px; }
 .cal-month { flex: 1; margin: 0; font-size: 13px; font-weight: 700; }
 .cal-grid { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; text-align: center; }

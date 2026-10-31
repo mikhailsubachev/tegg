@@ -19,7 +19,7 @@ use tegg_format::{nfc, sanitize_file_stem};
 use tegg_index::{is_indexable, prepare, Index, Prepared};
 pub use tegg_index::{
     AttrFilter, Backlink, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, QueryTier, SearchPage,
-    SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
+    AttributeHit, SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
 pub use tegg_jobs;

@@ -38,7 +38,36 @@ tier: string, typo: boolean, snippet: SnippetDto | null,
 /**
  * The file stem with its matches, only for a `fileName` match (D-254).
  */
-file_name: SnippetDto | null, };
+file_name: SnippetDto | null, 
+/**
+ * Frontmatter `modified` as written (ISO 8601 with offset), else null (D-1206).
+ */
+modified: string | null, 
+/**
+ * Tag keys, NFC lower case (D-1211).
+ */
+tags: Array<string>, 
+/**
+ * `[start, end)` in UTF-16 code units of `title` (D-1210, D-1223).
+ */
+title_highlights: Array<[number, number]>, 
+/**
+ * The matched alias, only for an `alias` match; `line` 0 (D-1209).
+ */
+alias: SnippetDto | null, 
+/**
+ * The matched attribute, only for an `attribute` match (D-1208).
+ */
+attribute: AttributeHitDto | null, };
+export type AttributeHitDto = { 
+/**
+ * The frontmatter key as written.
+ */
+key: string, 
+/**
+ * The matched value as written; `line` 0.
+ */
+value: SnippetDto, };
 export type SearchPageDto = { results: Array<SearchResultDto>, total: number, };
 export type SwitcherItemDto = { 
 /**

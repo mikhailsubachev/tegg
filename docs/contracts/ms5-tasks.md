@@ -443,3 +443,11 @@ AP-452…AP-454 came with this contract, AP-455…AP-460 from the L1/L2/L4 red r
 - L1: `app/test/tasks_views.ac.test.ts` (all-of filter, `counts.tags`), `app/test/history.ac.test.ts` (draft entries).
 - L5: `app/webkit/tasks_all_view.ac.test.ts` (FR-TSK-04 AC-15), `tasks_header.ac.test.ts` (AC-16), `tasks_schedule.ac.test.ts` (AC-5), and the D-520 changes of `create_object`, `caret_on_create`, `type_page`, `keyboard` and the other tests that used the `New object` dialog.
 - L6: `app/e2e/ms3_shell.ac.test.ts` FR-NAV-01 AC-13 (a) and (b) through the draft.
+
+## 13. Preview v0.94 feedback: search on Schedule and Kanban, three quick picks (D-1280…D-1289)
+
+- `ViewInput` (`app/ui/src/tasks/views.ts`) gains `search?: string`. `schedule()` and `kanban()` keep only rows whose title, folded as the type page's filter (NFC, lower case, marks removed), contains the folded trimmed text; an empty or blank text filters nothing. `counts()` ignores `search` (D-1281). `kanban()` returns the same columns with and without a search; `schedule()` leaves out sections and day groups with no row.
+- The field is the type page's: `input type="search"`, `role="searchbox"`, name and placeholder `typePage.filter` with the Task plural, the no-match `status` `typePage.noMatch`. Its text is `TasksPage` state only, never in `TasksUiDto` (D-1282).
+- Palette command id `tasks.search`, catalog `cmd.tasks.search` `Filter tasks` (D-1284), no shortcut; the field carries `data-command="tasks.search"`.
+- Date picker (`app/ui/src/dates/PickDate.tsx`): `export function thisWeek(today: string): string`, the first Friday on or after `today` (`YYYY-MM-DD`, D-1286). Quick picks `due.today`, `due.tomorrow`, `due.thisWeek` `This week` (D-1285); `due.nextWeek` and `due.fri` are removed. `This week` has `aria-description` and `title` = `longDate(thisWeek(today))` (D-1287).
+

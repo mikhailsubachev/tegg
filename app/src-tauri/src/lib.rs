@@ -447,6 +447,7 @@ async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Resu
             .results
             .into_iter()
             .map(|r| SearchResultDto {
+                title_highlights: r.title_highlights.iter().map(|&(a, b)| (utf16(&r.title, a), utf16(&r.title, b))).collect(),
                 path: r.path,
                 type_key: r.r#type,
                 title: r.title,
@@ -467,6 +468,10 @@ async fn index_search(state: State<'_, AppState>, query: SearchQueryDto) -> Resu
                 typo: r.typo,
                 snippet: r.snippet.map(snippet_dto),
                 file_name: r.file_name.map(snippet_dto),
+                modified: r.modified,
+                tags: r.tags,
+                alias: r.alias.map(snippet_dto),
+                attribute: r.attribute.map(|h| AttributeHitDto { key: h.key, value: snippet_dto(h.value) }),
             })
             .collect(),
     })

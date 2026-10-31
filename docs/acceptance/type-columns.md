@@ -2,9 +2,9 @@
 
 See [README](README.md) for conventions. Source: the owner's Preview v0.94 feedback (2026-10-30): any column can be removed or added (Title always stays), `Modified` doesn't have to be shown, many columns with horizontal scroll, and column widths changed by dragging and remembered. Builds on [types.md](types.md) FR-TYP-09 (type page, D-233, D-252, D-260), FR-TYP-11 (preview properties), FR-TYP-17 (hidden properties, D-316), AR-07 (versioned type files), and on [type-moves.md](type-moves.md) FR-TYP-04 AC-6…AC-10 (deleting a property, D-807).
 
-**Status: approved, 2026-10-30.** The owner decided D-1240 and D-1241, then AP-1140…AP-1150 each as proposed (D-1242…D-1252, BRD v1.120).
+**Status: approved, 2026-10-30.** The owner decided D-1240 and D-1241, then AP-1140…AP-1150 each as proposed (D-1242…D-1252, BRD v1.125).
 
-**Owner decisions these criteria follow (2026-10-30, BRD v1.120):**
+**Owner decisions these criteria follow (2026-10-30, BRD v1.125):**
 
 - **D-1240.** The chosen columns (which ones, in what order) are a new top-level key `columns:` in `.tegg/types/<key>.yml` (portable, a flow list of keys like `preview`), separate from `preview`. `preview` keeps its role and its 4-item limit for previews, embed cards and the graph (FR-TYP-11, FR-LNK-10, FR-EMB-02, FR-GRP-06), and from now on is edited only in Type settings. A type with no `columns` key shows its preview properties as columns, so existing vaults look the same until changed. Each change is one minimal atomic write, refused if the type file changed on disk (as FR-TYP-01 AC-7).
 - **D-1241.** Column widths set by dragging are machine-local UI state in Application Support (per type key, like `typeSort` in `UiStateDto`). They are never written to the vault.

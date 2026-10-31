@@ -170,6 +170,25 @@ pub struct SearchResult {
     pub snippet: Option<Snippet>,
     /// Some only when `matched_in` is `FileName`: the stem with the matches highlighted, `line` 0 (D-254).
     pub file_name: Option<Snippet>,
+    /// Frontmatter `modified` as written when it is a valid date-time, else None; never a file date (D-103, D-1206).
+    pub modified: Option<String>,
+    /// Tag keys (frontmatter and inline), NFC, lower case, de-duplicated, sorted (D-1211).
+    pub tags: Vec<String>,
+    /// Matches in `title`, byte ranges, typo-matched words included (D-1210).
+    pub title_highlights: Vec<(usize, usize)>,
+    /// Some only when `matched_in` is `Alias`: the matched alias as written, `line` 0 (D-1209).
+    pub alias: Option<Snippet>,
+    /// Some only when `matched_in` is `Attribute` (D-1208).
+    pub attribute: Option<AttributeHit>,
+}
+
+/// The first attribute matching the query, in frontmatter order (D-1208, v1-search §1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttributeHit {
+    /// The frontmatter key as written.
+    pub key: String,
+    /// The matched value as written (a list: the matched item; > 160 characters: a window around the match), `line` 0.
+    pub value: Snippet,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -393,10 +412,9 @@ impl DateVal {
     }
 }
 
-/// D-254: the stem (NFC) with every word of the query highlighted by byte ranges.
-fn file_name_snippet(stem: &str, positives: &[&Item]) -> Snippet {
-    let text = nfc(stem);
-    let ws = text::words(&text);
+/// Every match of the query's words in `text`, as sorted byte ranges.
+fn highlights_in(text: &str, positives: &[&Item]) -> Vec<(usize, usize)> {
+    let ws = text::words(text);
     let mut highlights: Vec<(usize, usize)> = positives
         .iter()
         .flat_map(|it| text::match_positions(&ws, it))
@@ -404,8 +422,62 @@ fn file_name_snippet(stem: &str, positives: &[&Item]) -> Snippet {
         .collect();
     highlights.sort();
     highlights.dedup();
+    highlights
+}
+
+/// D-254: the stem (NFC) with every word of the query highlighted by byte ranges.
+fn file_name_snippet(stem: &str, positives: &[&Item]) -> Snippet {
+    let text = nfc(stem);
+    let highlights = highlights_in(&text, positives);
     let byte_in_line = highlights.first().map_or(0, |h| h.0);
     Snippet { text, highlights, line: 0, byte_in_line }
+}
+
+const WINDOW_CHARS: usize = 160;
+
+/// D-1208: `text` with its highlights, cut to ≤ 160 characters around the first match (an `…` marks a cut end).
+fn window(text: &str, highlights: Vec<(usize, usize)>) -> Snippet {
+    let starts: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+    if starts.len() <= WINDOW_CHARS {
+        let byte_in_line = highlights.first().map_or(0, |h| h.0);
+        return Snippet { text: text.to_string(), highlights, line: 0, byte_in_line };
+    }
+    let first = highlights.first().map_or(0, |h| h.0);
+    let at = starts.iter().position(|&b| b >= first).unwrap_or(0);
+    // One character each for the ellipses.
+    let room = WINDOW_CHARS - 2;
+    let from_c = at.saturating_sub(40).min(starts.len() - room);
+    let to_c = from_c + room;
+    let from_b = starts[from_c];
+    let to_b = starts.get(to_c).copied().unwrap_or(text.len());
+    let (pre, post) = (if from_c > 0 { "…" } else { "" }, if to_b < text.len() { "…" } else { "" });
+    let shift = pre.len();
+    let highlights = highlights.into_iter().filter(|h| h.0 >= from_b && h.1 <= to_b).map(|h| (h.0 - from_b + shift, h.1 - from_b + shift)).collect::<Vec<_>>();
+    let byte_in_line = highlights.first().map_or(0, |h| h.0);
+    Snippet { text: format!("{pre}{}{post}", &text[from_b..to_b]), highlights, line: 0, byte_in_line }
+}
+
+/// Top-level frontmatter keys in the order they are written (the attribute map itself is sorted).
+fn frontmatter_keys(raw: &str) -> Vec<String> {
+    let mut lines = raw.strip_prefix('\u{feff}').unwrap_or(raw).split('\n');
+    if lines.next().map(|l| l.trim_end()) != Some("---") {
+        return Vec::new();
+    }
+    let mut keys = Vec::new();
+    for line in lines {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line == "---" || line == "..." {
+            break;
+        }
+        if line.starts_with([' ', '\t', '-', '#']) || line.is_empty() {
+            continue;
+        }
+        if let Some((k, _)) = line.split_once(':') {
+            let k = k.trim().trim_matches(|c| c == '"' || c == '\'');
+            keys.push(k.to_string());
+        }
+    }
+    keys
 }
 
 fn collapse(s: &str) -> String {
@@ -964,25 +1036,62 @@ impl Index {
         }
         // D-253: tier, then exact before typo, then title/file name, alias, attribute, body (D-107), then bm25.
         let field_rank = |f: MatchField| if f == MatchField::FileName { MatchField::Title } else { f };
-        hits.sort_by(|a, b| {
-            let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
-            let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
-            (a.1, a.2, field_rank(a.3)).cmp(&(b.1, b.2, field_rank(b.3))).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
-        });
+        if positives.is_empty() {
+            // D-1205: filters only: the newest `modified` instant first, missing or invalid last, ties by path.
+            let at = |m: &Meta| match m.modified {
+                Some(DateVal::Instant(t)) => Some(t.timestamp_nanos_opt().unwrap_or(t.timestamp().saturating_mul(1_000_000_000))),
+                _ => None,
+            };
+            hits.sort_by(|a, b| at(b.0).cmp(&at(a.0)).then_with(|| a.0.path.cmp(&b.0.path)));
+        } else {
+            hits.sort_by(|a, b| {
+                let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
+                let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
+                (a.1, a.2, field_rank(a.3)).cmp(&(b.1, b.2, field_rank(b.3))).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
+            });
+        }
         let total = hits.len();
         let limit = if q.limit == 0 { 50 } else { q.limit };
         let mut results = Vec::new();
         for (m, tier, typo, field) in hits.into_iter().skip(q.offset).take(limit) {
             let mut snippet = if positives.is_empty() { None } else { self.snippet_for(m, &items)? };
-            let file_name = if field == MatchField::FileName {
-                if snippet.is_none() {
-                    snippet = self.lead_for(m)?;
-                }
-                Some(file_name_snippet(&m.stem, &positives))
+            // D-1207: without a body match, the body's lead without highlights.
+            if snippet.is_none() {
+                snippet = self.lead_for(m)?;
+            }
+            let file_name = (field == MatchField::FileName).then(|| file_name_snippet(&m.stem, &positives));
+            let alias = if field == MatchField::Alias {
+                m.s.aliases.iter().map(|a| nfc(a)).find_map(|a| {
+                    let h = highlights_in(&a, &positives);
+                    (!h.is_empty()).then(|| window(&a, h))
+                })
             } else {
                 None
             };
-            results.push(SearchResult { path: m.path.clone(), r#type: m.s.r#type.clone(), title: m.s.title.clone(), matched_in: field, tier, typo, snippet, file_name });
+            let attribute = if field == MatchField::Attribute { self.attribute_hit(m, &positives)? } else { None };
+            let modified = match (m.modified, m.s.attributes.get("modified").and_then(|v| v.as_str())) {
+                (Some(DateVal::Instant(_)), Some(v)) => Some(v.trim().to_string()),
+                _ => None,
+            };
+            let mut tags: Vec<String> = m.s.tags.iter().map(|t| nfc(t).to_lowercase()).collect();
+            tags.sort();
+            tags.dedup();
+            let title_highlights = if positives.is_empty() { Vec::new() } else { highlights_in(&m.s.title, &positives) };
+            results.push(SearchResult {
+                path: m.path.clone(),
+                r#type: m.s.r#type.clone(),
+                title: m.s.title.clone(),
+                matched_in: field,
+                tier,
+                typo,
+                snippet,
+                file_name,
+                modified,
+                tags,
+                title_highlights,
+                alias,
+                attribute,
+            });
         }
         Ok(SearchPage { results, total })
     }
@@ -999,6 +1108,26 @@ impl Index {
         let Some(raw) = self.raw_of(m)? else { return Ok(None) };
         let body = raw.get(m.s.body_start..).unwrap_or("");
         Ok(text::lead(body).map(|s| Snippet { text: s.text, highlights: s.highlights, line: m.s.body_line + s.body_line + 1, byte_in_line: s.byte_in_line }))
+    }
+
+    /// D-1208: the first non-reserved attribute value (a list item on its own) matching the query, in frontmatter order.
+    fn attribute_hit(&self, m: &Meta, positives: &[&Item]) -> Result<Option<AttributeHit>, IndexError> {
+        let Value::Object(attrs) = &m.s.attributes else { return Ok(None) };
+        let mut keys = self.raw_of(m)?.map(|raw| frontmatter_keys(&raw)).unwrap_or_default();
+        keys.retain(|k| attrs.contains_key(k));
+        keys.extend(attrs.keys().filter(|k| !keys.contains(k)).cloned().collect::<Vec<_>>());
+        for key in keys.iter().filter(|k| !NOT_ATTRIBUTE_TEXT.contains(&k.as_str())) {
+            let mut values = Vec::new();
+            value_texts(&attrs[key.as_str()], &mut values);
+            for v in values {
+                let v = nfc(&v);
+                let h = highlights_in(&v, positives);
+                if !h.is_empty() {
+                    return Ok(Some(AttributeHit { key: key.clone(), value: window(&v, h) }));
+                }
+            }
+        }
+        Ok(None)
     }
 
     fn snippet_for(&self, m: &Meta, items: &[Item]) -> Result<Option<Snippet>, IndexError> {
