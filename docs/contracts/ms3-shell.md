@@ -1279,6 +1279,8 @@ pub struct SearchResult {
 
 ### 15.7 Columns menu (D-252, D-260)
 
+> Superseded in part by D-1240…D-1252 ([type-columns.md](type-columns.md)): toggles write `columns`, not `preview`; no 4-limit; `New property…` sends `[addAttribute, columns]`.
+
 - `TypePage` toolbar: button `Columns` (i18n `typePage.columns`, `aria-haspopup="menu"`) replaces `typePage.addColumn`, which is removed. Menu `role="menu"`, name `Columns`; items `menuitemcheckbox` labelled with the attribute name or `Tags`, `Source`, `Aliases`, `Created`; separator; `menuitem` `New property…` (`typePage.newProperty`).
 - Each toggle calls the existing `type_patch` with `{ preview: string[] }` (one line written, §14.1.4); the 4-limit description is `typePage.columnLimit` = `Up to 4 columns`; the message after a property added at the limit is `typePage.columnLimitAdded`.
 - `New property…` uses the Add property flow with `alsoPreview: preview.length < 4` and one `type_patch`.

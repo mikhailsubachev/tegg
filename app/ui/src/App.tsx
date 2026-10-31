@@ -1065,6 +1065,13 @@ export function App() {
       heading,
       sort: ui.typeSort?.[key],
       onSort: (s: TypeSort) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } })),
+      // D-1241: column widths per type key, machine-local; an empty map drops the type's entry (Reset column widths).
+      widths: ui.typeColumnWidths?.[key] as Record<string, number> | undefined,
+      onWidths: (w: Record<string, number>) => updateUi((u) => {
+        const all = { ...(u.typeColumnWidths ?? {}) };
+        if (Object.keys(w).length) all[key] = w; else delete all[key];
+        return { ...u, typeColumnWidths: all };
+      }),
       onOpen: openNote,
       onTag: openTag,
       onSettings: () => go({ id: 'type-settings/<type>', param: key }),

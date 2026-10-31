@@ -7,7 +7,7 @@ export type MenuEntry =
   | { kind: 'note'; key: string; content: React.ReactNode }
   | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
 
-export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true }: {
+export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true, disabledFocusable = false, scrollable = false }: {
   label: string;
   anchor: HTMLElement | null;
   entries: MenuEntry[];
@@ -16,6 +16,10 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   placement?: 'below' | 'above';
   /** False: the caller puts the focus back itself in `onClose` (slice P's `Link` menu: the caret after the chip). */
   restoreFocus?: boolean;
+  /** Arrow keys also stop on disabled items (WAI-ARIA; the type page's Columns menu, whose first item is Title). */
+  disabledFocusable?: boolean;
+  /** Capped at the window's height and scrolling (the type page's Columns menu, which has no limit, D-1240). */
+  scrollable?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 });
@@ -26,7 +30,8 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
     setPos(placement === 'below' ? { left: r.left, top: r.bottom + 4 } : { left: r.left, bottom: window.innerHeight - r.top + 4 });
   }, [anchor, placement]);
 
-  const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])') ?? [])];
+  const items = () => [...(ref.current?.querySelectorAll<HTMLElement>(disabledFocusable ? '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]'
+    : '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])') ?? [])];
 
   useEffect(() => {
     // A radio menu opens on its checked item (the Search page's Type filter, FR-SRC-03 AC-17).
@@ -65,7 +70,9 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   };
 
   return (
-    <div ref={ref} className="popup-menu" role="menu" aria-label={label} style={{ left: pos.left, top: pos.top, bottom: pos.bottom }} onKeyDown={onKeyDown}>
+    // A scrollable menu taller than the window scrolls; focusing an item keeps it in view.
+    <div ref={ref} className="popup-menu" role="menu" aria-label={label} onKeyDown={onKeyDown}
+      style={{ left: pos.left, top: pos.top, bottom: pos.bottom, ...(scrollable ? { maxHeight: `calc(100vh - ${(pos.top ?? pos.bottom ?? 0) + 8}px)`, overflowY: 'auto' as const } : {}) }}>
       {entries.map((m, i) => {
         if (m.kind === 'separator') return <div key={`sep${i}`} role="separator" className="menu-sep" />;
         if (m.kind === 'note') return <div key={m.key} className="menu-note">{m.content}</div>;

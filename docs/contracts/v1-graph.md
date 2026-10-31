@@ -764,7 +764,7 @@ Owner, 2026-10-30, as proposed:
 Interfaces of the follow-up slice "G3 in the panel" for the test author (D-61) and the build. ACs:
 `docs/acceptance/graph-panel-g3.md` (R125…R128; FR-GRP-01 AC-45, FR-GRP-02 AC-26…AC-34, FR-GRP-06 AC-10, FR-LNK-12
 AC-14…AC-18, FR-UX-03 AC-31…AC-38, FR-UX-08 AC-10…AC-15, FR-SYN-03 AC-25, FR-SYN-06 AC-41, FR-UX-05 AC-18,
-NFR-OTH-02 AC-15). AP-960…AP-974 were accepted as proposed: D-1130…D-1144 (BRD v1.128). It hooks up §16's pieces in §15's panel ("Merged after G2", §16.11). **No IPC command, no event, no
+NFR-OTH-02 AC-15). AP-960…AP-974 were accepted as proposed: D-1130…D-1144 (BRD v1.129). It hooks up §16's pieces in §15's panel ("Merged after G2", §16.11). **No IPC command, no event, no
 Rust change**: the panel uses `graph_neighbourhood` (§15.1, unchanged), `graph_presets_get` / `graph_presets_apply`
 (§16.2) and `ui_state_set`. The only vault file it can write is `.tegg/graph.yml`, through `PresetControl`.
 
@@ -901,7 +901,7 @@ everything else reuses R112, R117, R124.
    the full view: the two are never shown together (D-988), and the core's base check stays the only guard.
 3. Commands keep their ids; `App.tsx` routes them to whichever graph is shown (R127).
 
-### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.129; red tests 1d3bae0)
+### 17.10 Red-test decisions (D-1145…D-1153, BRD v1.130; red tests 1d3bae0)
 
 Owner, 2026-10-30, as proposed:
 
@@ -915,7 +915,7 @@ Owner, 2026-10-30, as proposed:
 - **D-1152** By the ring element's bounding box without stroke: 10 px wider than a circle node, 8 px wider than a tag pill.
 - **D-1153** The pressed button's background is `--bg`; the `View` group's background is `--hover`.
 
-### 17.11 Build decisions (D-1154…D-1160, BRD v1.130; build 879c9d8)
+### 17.11 Build decisions (D-1154…D-1160, BRD v1.131; build 879c9d8)
 
 Owner, 2026-10-30, as proposed:
 
@@ -927,7 +927,7 @@ Owner, 2026-10-30, as proposed:
 - **D-1159** The canvas is the window's last tab stop: Tab wraps to the window's first tab stop and ⇧Tab from there returns to the canvas.
 - **D-1160** Dropped: R4 has no R123 rows; contract §17.5 already states that R123's commands act on the panel while it shows the Graph tab.
 
-### 17.12 QA decisions (D-1161…D-1163, BRD v1.131)
+### 17.12 QA decisions (D-1161…D-1163, BRD v1.132)
 
 Owner, 2026-10-30, from the QA review of G3 in the panel:
 
