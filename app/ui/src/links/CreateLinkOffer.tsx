@@ -31,7 +31,10 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
     const r = req.anchor?.getBoundingClientRect();
     if (r) setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 340)), top: Math.min(r.bottom + 6, window.innerHeight - 220) });
   }, [req.anchor]);
-  useEffect(() => { if (plan) create.current?.focus(); }, [plan]);
+  // `Create` has the focus as soon as the offer opens, so Esc closes it before the plan arrives (FR-LNK-04 AC-4, #103).
+  // A new plan (another type) keeps the focus in the offer; the user who went back to the note keeps it there (D-287).
+  useLayoutEffect(() => { create.current?.focus(); }, []);
+  useLayoutEffect(() => { if (plan && box.current?.contains(document.activeElement)) create.current?.focus(); }, [plan]);
 
   const close = () => {
     onClose();
