@@ -26,3 +26,8 @@ behaviour and needs a D-xx. Decisions are D-1164…D-1199; points are AP-994 onw
 | AP-999 | **Scrolling pans the graph (F5).** Today a plain wheel over the canvas does nothing; ⌘-wheel zooms, a drag pans. | In the full view and the panel, a plain wheel or two-finger scroll pans the canvas in both directions by its deltas (no zoom); ⌘-wheel and a trackpad pinch zoom around the pointer; it still hides a hover preview (AP-941). At the canvas's pan limits the page doesn't scroll | (b) only horizontal scroll pans; vertical scroll keeps scrolling the page or panel |
 | AP-1000 | **Links inside a preview (with AP-994, AP-995).** D-932: a click on a link in a preview replaces the content in place, with `Back to <title>`. | Unchanged in `click` mode. In `hover` mode a link in a preview behaves like any reference: hover replaces the content in place after the delay (D-932's Back); a click opens the link's target | (b) a click on a link in a preview always replaces in place, in both modes |
 | AP-1001 | **Where the follow-up lands.** | One slice on top of G3 in the panel (PR #99): ACs in `docs/acceptance/previews.md` and `graph.md` (new criteria plus the changed ones listed with each point), red tests first, then the build. The real-app check of AP-998 stays manual (D-170) | Split: previews (AP-994…AP-996, AP-1000) and graph or navigation (AP-997…AP-999) as two PRs |
+
+## Decided points (owner, 2026-10-31)
+
+All as proposed: AP-994 → **D-1164**, AP-995 → **D-1165**, AP-996 → **D-1166**, AP-997 → **D-1167**, AP-998 →
+**D-1168**, AP-999 → **D-1169**, AP-1000 → **D-1170**, AP-1001 → **D-1171** (BRD v1.126).
