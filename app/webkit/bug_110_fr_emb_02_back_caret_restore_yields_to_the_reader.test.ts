@@ -13,11 +13,14 @@ const top = (page: Page) => page.evaluate(() => document.querySelector('main')?.
 test('bug_110_fr_emb_02_a_scroll_right_after_back_stays_when_frames_lag', async ({ page }) => {
   await openEmbeds(page, M.rezimy, setPreviewMode('off', { uiState: embedsUi() }));
   await needEmbeds(main(page), 12, 'the host note');
-  await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();
+  const saturnin = await needTop(main(page), 4, 'Saturnin link-mode embed');
+  await saturnin.scrollIntoViewIfNeeded();
+  const before = await top(page); // the position Back restores
+  await saturnin.click();
   await mustBeOn(page, 'Saturnin', 'a click on the link-mode embed opens Saturnin');
-  // The reader scrolls up right after the first restore, before the frames that follow it (held back by 300 ms, as on
-  // a busy machine): a wheel event, then the scroll the wheel makes.
-  await page.evaluate(() => {
+  // The reader scrolls up 100 ms after the restore, before the frames that follow it (held back by 300 ms, as on a busy
+  // machine): a wheel event, then the scroll the wheel makes.
+  await page.evaluate((target) => {
     const w = window as any;
     const raf = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = (cb: FrameRequestCallback) => raf(() => { setTimeout(() => cb(performance.now()), 300); });
@@ -27,7 +30,7 @@ test('bug_110_fr_emb_02_a_scroll_right_after_back_stays_when_frames_lag', async 
       get() { return d.get!.call(this); },
       set(v: number) {
         d.set!.call(this, v);
-        if ((this as Element).tagName !== 'MAIN' || w.__readerScrolled || v < 100) return;
+        if ((this as Element).tagName !== 'MAIN' || w.__readerScrolled || Math.abs(v - target) > 2) return;
         w.__readerScrolled = true;
         const m = this as HTMLElement;
         setTimeout(() => {
@@ -35,15 +38,15 @@ test('bug_110_fr_emb_02_a_scroll_right_after_back_stays_when_frames_lag', async 
           d.set!.call(m, d.get!.call(m) - 300);
           w.__restored = v;
           w.__moved = d.get!.call(m);
-        }, 0);
+        }, 100);
       },
     });
-  });
+  }, before);
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Režimy', 'Back');
   await needEmbeds(main(page), 12, 'the host note after Back');
   const r = await eventually(() => page.evaluate(() => ({ restored: (window as any).__restored as number | undefined, moved: (window as any).__moved as number | undefined })), (x) => x.moved !== undefined, 5000);
-  assert.ok((r.restored ?? 0) > 100 && r.moved !== undefined, `Back restores a scroll position and the reader scrolls (${JSON.stringify(r)})`);
+  assert.ok(before > 100 && r.moved !== undefined, `Back restores ${before} and the reader scrolls (${JSON.stringify(r)})`);
   await page.waitForTimeout(1500); // past every delayed frame and the last restore
   const now = await top(page);
   assert.ok(Math.abs(now - r.moved!) <= 2, `the reader's scroll stays (restored ${r.restored}, the reader scrolled to ${r.moved}, now ${now})`);
