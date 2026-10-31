@@ -151,18 +151,21 @@ Every gate run writes a JSON summary to `.verify/runs/<timestamp>-<gate>.json` a
 - **Budget:** if `durationMs` exceeds the gate's budget, stdout gets a line containing `exceeded` and the budget, followed by the up-to-3 slowest steps, one per line, each containing the step `id` and its duration. The exit code doesn't change.
 - All steps run even after one fails; the gate fails if any check or step failed.
 
-### 3.5 One gate at a time (D-1330)
+### 3.5 One gate at a time (D-1330, TS-VERIFY AC-8)
 
 Parallel gates load the machine so much that timing-sensitive WebKit tests fail falsely, so only one heavy command runs on the machine at a time.
 
 - **Which commands:** `push`, `nightly`, `milestone`, `release`, `merge`, `check-red`, and `hook pre-push` when it runs the push gate. `commit` and the other tools don't take the lock.
-- **The lock:** a folder `gate.lock` in `$VERIFY_GATE_LOCK_DIR`, by default `~/Library/Caches/tegg-verify/` on macOS (`~/.cache/tegg-verify/` elsewhere). It's shared by every checkout and worktree of the user. It holds `owner.json` with the owner's `pid`, `command`, `checkout` and `started`.
-- **Waiting:** a command that finds the lock taken waits for it, without a time limit. Every minute it prints a line on stdout containing `waiting for`, the owner's command and checkout. It starts once the lock is free.
-- **Release:** the owner removes the lock when it exits, also on SIGINT, SIGTERM or SIGHUP. A lock whose owner process no longer exists, or that has no `owner.json` 30 s after it was made, is stale; the next command removes it and takes the lock.
+- **Usage errors first:** a command checks its arguments before it takes the lock, so a usage error (`milestone` without `--milestone`, `check-red` without a commit or with an unknown one, a bad `--lanes` or `VERIFY_LANES`) exits 2 at once, also while another gate holds the lock.
+- **The lock:** a folder `gate.lock` in `$VERIFY_GATE_LOCK_DIR`, by default `~/Library/Caches/tegg-verify/` on macOS (`~/.cache/tegg-verify/` elsewhere). It's shared by every checkout and worktree of the user. It holds `owner.json` with the owner's `pid`, `command`, `checkout`, `started` (ISO 8601), a random `id`, and, when the system reports them, `procStart` (the owner process's start time as `ps -o lstart= -p <pid>` prints it, trimmed) and `boot` (the system boot time in seconds since the epoch: `kern.boottime` on macOS, `btime` in `/proc/stat` on Linux).
+- **Taking it:** the command makes a private folder next to `gate.lock` (a name starting with `gate.lock.`), writes `owner.json` into it, and renames that folder to `gate.lock`. The rename fails while a lock exists, so the lock and its owner record appear in one atomic step; a `gate.lock` without `owner.json` is never a lock in the making.
+- **Waiting:** a command that finds the lock taken waits for it, without a time limit. Right away and then every minute it prints a line on stdout containing `waiting for`, the owner's command and checkout. It starts once the lock is free.
+- **Stale locks:** a lock is stale if its `owner.json` is missing or unreadable, if the owner `pid` no longer exists, if `boot` is recorded and differs from the current boot time (the folder survived a restart), or if `procStart` is recorded and differs from the start time of the process that now has that `pid` (the pid was reused). A missing `boot` or `procStart`, or a value the system can't report now, doesn't make a lock stale. The next command moves a stale lock aside under a unique name, checks that what it moved is the lock it judged stale (same `id`; otherwise it moves it back), removes it and takes the lock.
+- **Release:** the owner removes the lock when it exits, and only a lock whose `id` is its own. On SIGINT, SIGTERM or SIGHUP it first passes the signal on to its running step processes (each step runs in its own process group, and the signal goes to the whole group), waits until they have exited (after 10 s it kills them with SIGKILL), then removes the lock and exits by the same signal.
 - **Nested runs:** while it holds the lock, a command sets `VERIFY_GATE_LOCK_HELD` in its environment, so a `verify` started by its steps doesn't wait for its own parent.
-- **WebKit runs outside a gate:** the app's Playwright config takes the same lock in its `globalSetup` (command `app webkit`), so a targeted `npx playwright test` waits for a running gate and a gate waits for it. Inside a gate it returns at once (nested run).
-- **No lock:** if the lock folder can't be created, the command prints a warning on stderr and runs without the lock.
-- The QA tool tests give each test process its own `VERIFY_GATE_LOCK_DIR`, so they never wait for a real gate.
+- **WebKit runs outside a gate:** the app's Playwright config takes the same lock in its `globalSetup` (command `app webkit`), so a targeted `npx playwright test` waits for a running gate and a gate waits for it. Inside a gate (`VERIFY_GATE_LOCK_HELD` set) it returns at once (nested run). Playwright's UI and watch modes hold the lock for as long as they stay open.
+- **No lock:** if the lock folder can't be created, the command prints a warning on stderr containing `without the one-gate-at-a-time lock` and runs without the lock.
+- The QA tool tests give each test process its own `VERIFY_GATE_LOCK_DIR`, so they never wait for a real gate, and remove it when the test process exits.
 
 ## 4. Hooks
 
