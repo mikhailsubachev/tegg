@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.141, for review                                            |
+| **Document status** | Draft v1.143, for review                                            |
 | **Date**            | 2026-10-31                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -155,6 +155,7 @@
 | v1.139  | 2026-10-31 | D-1238 (AP-1033, owner): the FR-NAV-03 AC-8 test counts route marks after the Back's own mark |
 | v1.140  | 2026-10-31 | Preview v0.109 Search feedback (`docs/feedback/ms6-v0109-search.md`): D-1340…D-1343 (AP-1200…AP-1203, as proposed): no `Go to` on the Search page, quick switching is the results list (supersedes D-760's page part, D-1200, D-1201); title-first order for text queries (amends D-253, restores D-107); the last word also matches as a prefix; `Create "<q>"` and `as…` buttons in the count line. FR-NAV-01's text changes |
 | v1.141  | 2026-11-01 | Search without `Go to`, red-test decisions (red tests f50d186, c45f74b): D-1344…D-1346 (AP-1204…AP-1206, as proposed): the create buttons sit after the count line's `status` element; helpers and direct AC-test uses of `Go to` move to the results list; the `search.noMatchBody` string check goes |
+| v1.143  | 2026-11-01 | Search without `Go to`, build decisions (build 4efdb9a…6282bdd): D-1348…D-1351 (AP-1207…AP-1210, as proposed): tests stop relying on Back skipping Search; colliding titles show the details line on result rows; the typo-order test is per group step; the create Type menu opens from `as…`. (v1.142 and D-1347 are PR #111's gate-worker decision) |
 
 ---
 
@@ -1328,6 +1329,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1344 | Create buttons outside the live region (AP-1204) (owner, 2026-11-01; red tests f50d186) | `Create "<q>"` and `as…` are siblings placed after the count line's `status` element, not inside it, so VoiceOver announces only the count (`5 results`). FR-SRC-03 AC-9 and AC-18's count-line checks stay as written |
 | D-1345 | Older tests stop using `Go to` (AP-1205) (owner, 2026-11-01; red tests f50d186) | Shared test helpers (`openNote`, `goToQuery`, `goToListbox`, the v0.68 `goTo` helpers, `switcherFor`) open an object by typing its title in `Search query`, waiting for the first result row and pressing ⏎ (D-1340, D-1341); they are not AC tests. AC tests that use the `Go to` list directly move to result rows or the create buttons (D-1343) in one commit with the `AC-Test-Change` trailer, keeping every check |
 | D-1346 | `search.noMatchBody` leaves the string check (AP-1206) (owner, 2026-11-01; red tests f50d186) | FR-SRC-03 AC-18's catalog test (`fr_src_03_ac18_every_string_is_a_catalog_key_with_its_english_text`) drops its `search.noMatchBody` row: D-1343 replaces that text with `search.noMatchCreate`. Same `AC-Test-Change` commit as D-1345 |
+| D-1348 | Back returns to Search in older tests (AP-1207) (owner, 2026-11-01; build 6282bdd) | Opening a result stays a new history entry (D-1340, FR-NAV-01 AC-21). AC tests that open a note through Search and then expect Back to reach the page before Search open their note the way they mean to test, or step Back over `Search` once more, keeping every check; FR-SET-02 AC-9's check of the old `Go to` replace goes. One commit with the `AC-Test-Change` trailer |
+| D-1349 | Details line for duplicate titles in Search (AP-1208) (owner, 2026-11-01; build 6282bdd) | Result rows whose titles collide with another result's title show D-289's details line (folder, type, modified), as the pickers do. FR-LNK-14 AC-6's quick-switcher part now applies to the Search results |
+| D-1350 | Typo order within a group step (AP-1209) (owner, 2026-11-01; build 6282bdd) | FR-SRC-04 AC-5 (typo matches after exact matches) holds within each D-1341 group step, not across groups; `fr_src_04_ac5_typo_matches_rank_after_exact_matches` changes accordingly (`AC-Test-Change`) |
+| D-1351 | The create Type menu opens from `as…` (AP-1210) (owner, 2026-11-01; build 6282bdd) | ⌥⏎ in the Search field creates with the default type (D-1343); the Type menu (D-550, AP-478) opens from the `as…` button (click, or Tab to it and ⏎). FR-VLT-05 AC-3's key part follows; the move in 6282bdd is approved |
 
 ---
 

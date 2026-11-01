@@ -48,7 +48,7 @@ Decided 2026-11-01: AP-1204…AP-1206 accepted as proposed → D-1344…D-1346 (
 
 ## Build points (build 4efdb9a…6282bdd)
 
-Open: for the owner.
+Decided 2026-11-01: AP-1207…AP-1210 accepted as proposed → D-1348…D-1351 (BRD v1.143).
 
 | Point | Question | Proposal | Alternative |
 |---|---|---|---|
