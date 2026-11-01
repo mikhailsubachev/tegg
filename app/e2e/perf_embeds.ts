@@ -1,7 +1,7 @@
 // FR-EMB-02 AC-13 benchmark ([MS8], report only in MS4, D-152; docs/acceptance/embeds.md AP-332 / D-429;
 // docs/contracts/ms4-embeds.md §6 mark `embeds-painted`): on the reference vault with the read-view benchmark note
 // (`tools/gen-vault --perf-note`: 5,000 words, 10 embeds, 50 links), 20 launches of the release test build. Each launch
-// starts on the Inbox (6A, D-613), opens the note through the Search page's Go to list (⇧⌘F, paste the title, ⏎; D-760) and exits after `embeds-painted`
+// starts on the Inbox (6A, D-613), opens the note through the Search page's Go to list (⇧⌘F, paste the title, ⏎ opens the first result; D-760, D-1340) and exits after `embeds-painted`
 // (TEGG_EXIT_AFTER), or 5 s after `note-ready` if that mark never comes. Records per launch `note-ready − switcher-enter`
 // (editor NFR-PERF-05 AC-4 with embeds rendered) and `embeds-painted − note-ready`. Never touches the owner's
 // Application Support or vault (D-62). Used by nfr_perf_embeds.ac.test.ts; no assertions about the AC outcome here.

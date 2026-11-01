@@ -15,7 +15,7 @@ import {
   rowsWhen, runCommand, seen, sidebar, sleep, startTM, tmVault, toastWith, trashHeading, trashList, trashRow, undoIn, vaultWrites6a, ws, zeroRegion,
   type FakeCoreHandle,
 } from './trash-media-helpers';
-import { goToListbox, goToQuery, gotoType, openNote, pseudoLocale } from './helpers';
+import { goToQuery, gotoType, openNote, pseudoLocale, searchResultsList } from './helpers';
 import { axeContrast } from './read-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -66,7 +66,9 @@ test('fr_his_01_ac1_cmd_backspace_outside_the_text_goes_back', async ({ page }) 
   await page.keyboard.press('Meta+Backspace');
   const calls = await eventually(() => trashCalls(core), (c) => c.length > 0, 2000);
   assert.equal(calls.length, 1, '⌘⌫ outside the text moves the note to the trash');
-  await mustBeOn(page, 'Plán zahrady', 'the app goes Back');
+  await mustBeOn(page, 'Search', 'the app goes Back (to the Search entry the note was opened from, D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Plán zahrady', 'and Back again to Plán zahrady');
 });
 
 test('fr_his_01_ac1_unsaved_edits_are_saved_first', async ({ page }) => {
@@ -244,8 +246,8 @@ test('fr_his_01_ac5_restore_puts_the_file_back', async ({ page }) => {
   assert.equal(files['Quick Notes/Stará poznámka.md'], original(TM.t1), 'bytes untouched');
   assert.ok(!(await rowsWhen(page, (r) => !r.includes(TM.t1))).includes(TM.t1), 'the row leaves');
   assert.ok(await liveSays(page, 'Restored "Stará poznámka"'), 'the live region');
-  await goToQuery(page, 'Stará'); // D-760: the Search page's Go to list replaces the ⌘O switcher
-  assert.ok(await seen(goToListbox(page).getByRole('option', { name: /Stará poznámka/ }), 2000), 'in the Go to list again');
+  await goToQuery(page, 'Stará'); // D-1345: the Search page's results (D-1340; before it the Go to list, D-760)
+  assert.ok(await seen(searchResultsList(page).getByRole('link', { name: /Stará poznámka/ }), 2000), 'in the Search results again');
 });
 
 test('fr_his_01_ac5_r_restores_the_focused_row', async ({ page }) => {

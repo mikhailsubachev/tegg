@@ -334,8 +334,6 @@ export function App() {
   }, [vault === undefined]);
 
   // ------------------------------------------------------------------ navigation
-  /** D-760: a `Go to` jump from Search replaces the Search entry, so Back leaves it out as the ⌘O switcher did (FR-NAV-03). */
-  const jumpFrom = useRef<string | null>(null);
   const go = useCallback(async (r0: Route, o: { keepDialog?: boolean; graph?: GraphHandover; heading?: boolean } = {}) => {
     const r = r0.id === 'today' ? todayRoute() : r0;
     await flushNote();
@@ -346,9 +344,7 @@ export function App() {
     pendingFocus.current = true;
     headingFocus.current = !!o.heading;
     history.current.saveScroll(centreScroll(), centreCaret());
-    if (jumpFrom.current !== null && jumpFrom.current === shownRoute.current) history.current.replace(r);
-    else history.current.push(r, o.graph);
-    jumpFrom.current = null;
+    history.current.push(r, o.graph);
     setHandover(o.graph ?? null);
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
@@ -1170,8 +1166,7 @@ export function App() {
     body = <ConflictsPage heading={heading} onCount={setConflicts} />;
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote}
-      onGoTo={(p) => { jumpFrom.current = shownRoute.current; openNote(p); }}
-      onCreate={(i, p) => { jumpFrom.current = shownRoute.current; createFrom(i, p); }}
+      onCreate={(i, p) => { createFrom(i, p); }}
       onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
       tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined}
       types={types} dateTime={ui.dateTime} initial={history.current.current()?.search} onState={(st) => history.current.setSearch(st)} />;

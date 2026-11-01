@@ -12,6 +12,15 @@
 // - `types` filters (one key, D-1203); without text the results are ordered by the `modified` instant, newest first,
 //   missing or invalid last, ties by path (D-1205);
 // - `offset` / `limit` slice the one ordered list; `total` counts it (FR-SRC-03 AC-12).
+// Search without `Go to` (v1-search §9.1; D-1341, D-1342):
+// - prefix: when the raw text doesn't end with whitespace and its last item is an unquoted, positive word of at least
+//   2 characters, that word also matches every word starting with it (folded); a prefix-only match ranks after an exact
+//   one (as a typo would) and never sets `typo`; highlights cover the matched prefix only;
+// - groups for a text query: 1 the title's or the file stem's words contain every query word (a: the word sequence
+//   equals the query's, b: the words in a row, c: otherwise), 2 an alias does (same steps), 3 the rest in the order
+//   above (tier, exact before prefix, field, the bm25 stand-in); inside a step of groups 1 and 2: exact before prefix,
+//   then the bm25 stand-in (a shorter title first), then path. A group-1 result has `matched_in` `title` (or
+//   `fileName` when only the stem holds the words), a group-2 result `alias`.
 import { byBytes, objectsOf, type TagObj } from './fake-tags';
 
 type Files = Record<string, string>;
@@ -94,13 +103,21 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
   const wantTypes = ((q.types ?? []) as unknown[]).map((t) => String(t).normalize('NFC'));
   const objs = objectsOf(files, d).filter((o) => wantTags.every((k) => o.occ.some((t) => t.key === k)) && (!wantTypes.length || wantTypes.includes(o.type)));
 
-  const items: { toks: string[]; neg: boolean; quoted: boolean }[] = [];
-  for (const m of String(q.text ?? '').matchAll(/(-?)(?:["„“]([^"“”]*)["“”]?|(\S+))/g)) {
+  const raw = String(q.text ?? '');
+  const items: { toks: string[]; neg: boolean; quoted: boolean; pl: boolean }[] = [];
+  for (const m of raw.matchAll(/(-?)(?:["„“]([^"“”]*)["“”]?|(\S+))/g)) {
     const tk = toks(m[2] ?? m[3] ?? '');
-    if (tk.length) items.push({ toks: tk, neg: m[1] === '-' && (m[2] !== undefined || (m[3] ?? '').length > 0), quoted: m[2] !== undefined });
+    if (tk.length) items.push({ toks: tk, neg: m[1] === '-' && (m[2] !== undefined || (m[3] ?? '').length > 0), quoted: m[2] !== undefined, pl: false });
   }
+  // D-1342: the last item's last word also matches as a prefix (≥ 2 characters, unquoted, positive, no trailing space).
+  const lastItem = items[items.length - 1];
+  const pfx = !!lastItem && !lastItem.neg && !lastItem.quoted && !/\s$/u.test(raw) && [...lastItem.toks[lastItem.toks.length - 1]].length >= 2;
+  if (pfx) lastItem.pl = true;
   const pos = items.filter((i) => !i.neg);
-  const seq = (hay: string[], need: string[]) => hay.some((_, k) => need.every((x, j) => hay[k + j] === x));
+  /** `hay` holds `need` in a row; with `pl` the last word of `need` may be a prefix of the word it meets. */
+  const seqP = (hay: string[], need: string[], pl: boolean) =>
+    hay.some((_, k) => need.every((x, j) => { const h = hay[k + j]; return h !== undefined && (h === x || (pl && j === need.length - 1 && h.startsWith(x))); }));
+  const seq = (hay: string[], need: string[]) => seqP(hay, need, false);
   const base = (o: TagObj) => ({
     path: o.path, type: o.type, title: titleOf(o), modified: o.modifiedNs !== null ? o.modified : null, tags: tagKeys(o),
   });
@@ -122,33 +139,59 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
   }
 
   const unq = pos.filter((i) => !i.quoted);
+  // D-1341: the query words of the groups (the unquoted positive words; a query of only phrases uses their words).
+  const W = (unq.length ? unq : pos).flatMap((i) => i.toks);
+  const wPl = pfx && unq.length > 0;
+  const holdsAll = (hay: string[], pl: boolean) => W.every((w, j) => hay.some((h) => h === w || (pl && j === W.length - 1 && h.startsWith(w))));
+  /** The step of a field in groups 1 and 2: 0 the word sequence equals the query's, 1 in a row, 2 otherwise; null: not all words. */
+  const stepOf = (hay: string[]): number | null => (!holdsAll(hay, wPl) ? null : hay.length === W.length && seqP(hay, W, wPl) ? 0 : seqP(hay, W, wPl) ? 1 : 2);
   const rows = objs.flatMap((o) => {
     const title = titleOf(o);
     const body = bodyOf(o.text);
     const stem = o.stem.normalize('NFC');
     const aliases = aliasesOf(o);
     const attrs = rawAttributes(o.text).filter((x) => !RESERVED.includes(x.key));
+    // As the core's title words: a Daily Note's date, then its stored `title:` when it differs (D-334, D-342).
     const fields = {
-      title: toks(title), fileName: toks(stem), alias: toks(aliases.join(' \n ')),
+      title: title !== o.title && o.title ? [...toks(title), ...toks(o.title)] : toks(title), fileName: toks(stem), alias: toks(aliases.join(' \n ')),
       attribute: toks(attrs.flatMap((x) => x.values).join(' \n ')), body: toks(body),
     };
     const all = Object.values(fields);
-    const has = (i: { toks: string[] }) => all.some((h) => seq(h, i.toks));
-    if (items.some((i) => i.neg && has(i)) || pos.some((i) => i.quoted && !has(i))) return [];
+    const has = (i: { toks: string[]; pl: boolean }) => all.some((h) => seqP(h, i.toks, i.pl));
+    const hasExact = (i: { toks: string[] }) => all.some((h) => seq(h, i.toks));
+    if (items.some((i) => i.neg && hasExact(i)) || pos.some((i) => i.quoted && !hasExact(i))) return [];
     const matched = pos.filter(has);
     if (unq.length && !unq.some(has)) return [];
-    const tier = unq.length <= 1 ? 'phrase' : !unq.every(has) ? 'anyWord' : all.some((h) => seq(h, unq.flatMap((i) => i.toks))) ? 'phrase' : 'allWords';
-    const field = (Object.keys(fields) as (keyof typeof fields)[]).find((k) => matched.some((i) => seq(fields[k], i.toks)))!;
+    const tier = unq.length <= 1 ? 'phrase' : !unq.every(has) ? 'anyWord' : all.some((h) => seqP(h, unq.flatMap((i) => i.toks), pfx)) ? 'phrase' : 'allWords';
+    // Exact before prefix (D-1342, as D-101's exact before typo): every matched item also matches without the prefix.
+    const exact = matched.every(hasExact) ? 0 : 1;
+    // D-1341 groups.
+    const tStep = stepOf(fields.title);
+    const sStep = stepOf(fields.fileName);
+    const g1 = tStep !== null || sStep !== null;
+    const aSteps = g1 ? [] : aliases.map((x) => stepOf(toks(x))).filter((x): x is number => x !== null);
+    const g2 = aSteps.length > 0;
+    const gExact = (hays: string[][]) => (hays.some((h) => holdsAll(h, false)) ? 0 : 1);
+    const field: keyof typeof fields = g1 ? (tStep !== null ? 'title' : 'fileName') : g2 ? 'alias'
+      : (Object.keys(fields) as (keyof typeof fields)[]).find((k) => matched.some((i) => seqP(fields[k], i.toks, i.pl)))!;
     const mark = (t: string): [number, number][] => {
       const ws = words(t);
-      return ws.flatMap((w, k) => matched.filter((i) => i.toks.every((x, j) => ws[k + j]?.w === x)).map((i) => [w.at, ws[k + i.toks.length - 1].end] as [number, number]));
+      return ws.flatMap((w, k) => matched.filter((i) => i.toks.every((x, j) => {
+        const h = ws[k + j]?.w;
+        return h !== undefined && (h === x || (i.pl && j === i.toks.length - 1 && h.startsWith(x)));
+      })).map((i) => {
+        const lw = ws[k + i.toks.length - 1];
+        const lx = i.toks[i.toks.length - 1];
+        // A prefix match covers the matched prefix only (D-1342): as many characters as the query's word.
+        return [w.at, lw.w === lx ? lw.end : lw.at + [...lx].join('').length] as [number, number];
+      }));
     };
     const lines = body.split(/\r?\n/);
     const hit = lines.findIndex((l) => mark(l).length);
     const snippet = hit >= 0 ? { text: lines[hit], highlights: mark(lines[hit]), line: hit + 1 } : lead(body);
     let alias: Snip | null = null;
     if (field === 'alias') {
-      const al = aliases.find((x) => mark(x).length);
+      const al = aliases.find((x) => stepOf(toks(x)) !== null) ?? aliases.find((x) => mark(x).length);
       if (al !== undefined) alias = { text: al, highlights: mark(al), line: 0 };
     }
     let attribute: { key: string; value: Snip } | null = null;
@@ -161,7 +204,10 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
     return [{
       // The third key stands in for the core's bm25 inside a field: a shorter title ranks first (`Rozpočet 2026` before
       // `Projekt a rozpočet`, FR-SRC-03 AC-10).
-      rank: [['phrase', 'allWords', 'anyWord'].indexOf(tier), field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field), field === 'title' ? toks(title).length : 0],
+      // Group 1 and 2 (D-1341): [group, step, exact, the bm25 stand-in]; group 3: [3, tier, exact, field, stand-in].
+      rank: g1 ? [1, Math.min(tStep ?? 9, sStep ?? 9), gExact([fields.title, fields.fileName]), toks(title).length, 0]
+        : g2 ? [2, Math.min(...aSteps), gExact(aliases.map(toks)), toks(title).length, 0]
+        : [3, ['phrase', 'allWords', 'anyWord'].indexOf(tier), exact, field === 'fileName' ? 0 : ['title', 'alias', 'attribute', 'body'].indexOf(field), field === 'title' ? toks(title).length : 0],
       r: {
         ...base(o), matched_in: field, tier, typo: false, snippet,
         file_name: field === 'fileName' ? { text: stem, highlights: mark(stem), line: 0 } : null,
@@ -169,6 +215,6 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
       },
     }];
   });
-  rows.sort((x, y) => x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.rank[2] - y.rank[2] || x.r.path.localeCompare(y.r.path));
+  rows.sort((x, y) => x.rank.reduce((d, v, k) => d || v - y.rank[k], 0) || x.r.path.localeCompare(y.r.path));
   return page(rows.map((x) => x.r));
 }

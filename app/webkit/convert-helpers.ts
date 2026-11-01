@@ -13,7 +13,7 @@ import {
   embedList, topEmbeds, blockMenu, caretAt, description, displayAsButton, editorBody, embedBody, focusInside, frame, hostBlock, isDisabled, linkEmbed, mergeDialog, nestedEditors,
   openButton, saveState, selectedBlocks, slashMenu, addBelow,
 } from './embeds-helpers';
-import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery } from './helpers'; // D-1345: the Search page's first result (D-1340)
 
 export { absent, eventually, mainName, must, mustBeOn, runCommand, seen, sleep };
 export { embedList, topEmbeds, blockMenu, caretAt, description, displayAsButton, editorBody, embedBody, focusInside, frame, hostBlock, isDisabled, linkEmbed, mergeDialog, nestedEditors, openButton, saveState, selectedBlocks, slashMenu, addBelow };
@@ -173,7 +173,7 @@ export async function click(loc: Locator, what: string, ms = 3000) {
 
 // ------------------------------------------------------------------------------------------------ caret and entry points
 
-/** Opens a note through the Search page's Go to list (D-760; before it the ⌘O switcher): asserts the switcher, types `title`, ⏎ (the caller checks the page). */
+/** Opens a note through the Search page (D-1345): types `title` in `Search query`, ⏎ on the first result (the caller checks the page). */
 export async function switchTo(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');

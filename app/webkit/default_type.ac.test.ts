@@ -12,7 +12,7 @@ import {
   callsOf, click, eventually, fileText, flat, inboxVault, main, must, runCommand, seen, sleep, startCapture, startMain, swap, typeBtn,
   vaultWrites, type FakeCoreHandle,
 } from './capture-helpers';
-import { goToListbox, mustBeDraft, searchQueryField } from './helpers';
+import { mustBeDraft, searchQueryField, settledFirstResult } from './helpers';
 import { editorBody, linkSuggestions } from './editor-helpers';
 import { createOffer } from './links-helpers';
 
@@ -35,14 +35,18 @@ async function newDraft(page: Page) {
 async function creates(core: FakeCoreHandle) {
   return (await callsOf(core, 'note_create')).map((c) => c.args as { type?: string; title: string; text: string });
 }
+/** The Search page's create buttons for `q`, in order (D-1343, D-1345; before them the `Go to` list's create rows,
+ *  D-760, and the ⌘O switcher's). */
 async function switcherRows(page: Page, q: string): Promise<string[]> {
-  // D-760: the Search page's `Go to` list replaces the ⌘O switcher.
   await page.keyboard.press('Meta+Shift+f');
   await (await must(searchQueryField(page), 'Search query', 5000)).fill(q);
-  const d = await must(goToListbox(page), 'listbox "Go to"', 3000);
-  await sleep(200);
-  return (await d.getByRole('option').allInnerTexts()).map(flat);
+  await settledFirstResult(page, q);
+  await must(createButton(page, q), `button Create “${q}”`, 3000);
+  return (await page.getByRole('main').getByRole('button').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') ?? e.textContent ?? '')))).map(flat)
+    .filter((t) => /^Create “/.test(t) || t === 'as…');
 }
+const createButton = (page: Page, q: string) => page.getByRole('main').getByRole('button', { name: `Create “${q}”`, exact: true });
+const createAsButton = (page: Page) => page.getByRole('main').getByRole('button', { name: 'as…', exact: true });
 async function chooseOption(page: Page, combo: string, option: string) {
   const c = await must(page.getByRole('combobox', { name: combo, exact: true }), `combobox ${combo}`);
   if (await c.evaluate((e) => e.tagName === 'SELECT')) await c.selectOption({ label: option });
@@ -82,7 +86,7 @@ test('fr_vlt_05_ac2_quick_note_is_preselected_everywhere', async ({ page }) => {
   assert.ok(await seen(offer.getByText('Type: Quick Note', { exact: true }).or(offer.getByRole('combobox', { name: 'Type', exact: true }).filter({ hasText: 'Quick Note' })), 1000), 'the Create offer: Type Quick Note');
   await page.keyboard.press('Escape');
   const rows = await switcherRows(page, 'Výlet do Tater');
-  assert.ok(rows.some((r) => r.startsWith('Create "Výlet do Tater"') && !r.includes('as…')), `the switcher's create row: ${rows.join(' | ')}`);
+  assert.ok(rows.some((r) => r === 'Create “Výlet do Tater”'), `the Search page's create button (D-1343): ${rows.join(' | ')}`);
   await page.keyboard.press('Escape');
   // The capture window opened from the palette starts with the default type (capture.md FR-CAP-05 AC-1 for the hotkey).
   await runCommand(page, 'Quick Capture');
@@ -91,16 +95,17 @@ test('fr_vlt_05_ac2_quick_note_is_preselected_everywhere', async ({ page }) => {
 
 test('fr_vlt_05_ac2_with_default_napad_every_path_creates_a_napad', async ({ page }) => {
   const core = await startMain(page, { vault: vault('nápad'), at: ROZBITA });
-  // The switcher's create row.
+  // The Search page's create button (D-1343; before it the switcher's create row).
   await switcherRows(page, 'Nový nápad');
-  await click(goToListbox(page).getByRole('option', { name: /^Create "Nový nápad"$/ }), 'Create "Nový nápad"');
+  await click(createButton(page, 'Nový nápad'), 'Create “Nový nápad”');
   const c = await eventually(() => creates(core), (x) => x.length === 1, 3000);
   assert.equal(c[0]?.type, 'nápad', 'note_create with the type nápad');
   const t = c[0]?.text ?? '';
   for (const line of ['type: nápad', 'hodnocení: 3', 'oblast: osobní', 'review: unreviewed']) assert.ok(t.includes(`\n${line}\n`), `${line} (FR-TYP-12, D-232)`);
   assert.ok((await core.writesTo()).includes('Nápady/Nový nápad.md'), 'written in Nápady/');
   // `[[` in the editor.
-  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's
+  await page.keyboard.press('Meta+BracketLeft'); // the app's Back (⌘[), not the browser's: to Search (D-1217)
+  await page.keyboard.press('Meta+BracketLeft'); // and on to the note Search was opened from
   await (await must(editorBody(page), 'Note body', 5000)).click();
   await page.keyboard.press('End');
   await page.keyboard.type(' [[Druhý nápad');
@@ -126,17 +131,19 @@ test('fr_vlt_05_ac3_the_create_offer_type_combobox', async ({ page }) => {
 test('fr_vlt_05_ac3_create_as_in_the_switcher', async ({ page }) => {
   const core = await startMain(page, { vault: vault() });
   const rows = await switcherRows(page, 'Výlet');
-  const at = rows.findIndex((r) => r.startsWith('Create "Výlet"') && !r.includes('as…'));
-  assert.ok(at >= 0 && rows[at + 1]?.startsWith('Create "Výlet" as…'), `Create "Výlet" as… below the create row: ${rows.join(' | ')}`);
-  await click(goToListbox(page).getByRole('option', { name: 'Create "Výlet" as…', exact: true }), 'Create "Výlet" as…');
+  const at = rows.findIndex((r) => r === 'Create “Výlet”');
+  assert.ok(at >= 0 && rows[at + 1] === 'as…', `as… after Create “Výlet” (D-1343): ${rows.join(' | ')}`);
+  await click(createAsButton(page), 'as…');
   const menu = await must(page.getByRole('menu', { name: 'Type', exact: true }), 'menu Type (the shared TypeMenu)');
   await click(menu.getByRole('menuitemradio', { name: 'Page', exact: true }), 'Page');
   const t = await eventually(() => fileText(core, 'Pages/Výlet.md'), (x) => x !== undefined, 3000);
   assert.ok(t?.includes('\ntype: page\n'), 'Pages/Výlet.md');
-  // ⌥⏎ on the create row opens the same menu.
+  // From the keyboard, ⏎ on `as…` opens the same menu (D-1343: ⌥⏎ in the field now creates with the default type,
+  // FR-NAV-01 AC-22; before it ⌥⏎ on the create row opened this menu).
   await switcherRows(page, 'Další');
-  await page.keyboard.press('Alt+Enter');
-  await must(page.getByRole('menu', { name: 'Type', exact: true }), '⌥⏎ opens the Type menu');
+  await (await must(createAsButton(page), 'as…')).focus();
+  await page.keyboard.press('Enter');
+  await must(page.getByRole('menu', { name: 'Type', exact: true }), '⏎ on as… opens the Type menu');
 });
 
 test('fr_vlt_05_ac3_create_as_in_link_autocomplete', async ({ page }) => {

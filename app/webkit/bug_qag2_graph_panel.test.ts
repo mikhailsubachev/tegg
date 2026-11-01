@@ -7,7 +7,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { anyPreviewDialog, mustPreview } from './helpers';
 import { P, clickNode, drawn, drawnKeys, eventually, mainName, must, nfc, sleep, waitDrawn } from './graph-helpers';
-import { GP, VIEWPORT, openPanel, panelText, searchOpen } from './graph-panel-helpers';
+import { GP, VIEWPORT, openPanel, panelText, searchOpen, stepOverSearch } from './graph-panel-helpers';
 
 test.use({ timezoneId: 'Europe/Prague', locale: 'en-US', viewport: VIEWPORT });
 
@@ -18,13 +18,13 @@ test('bug_qag2_fr_grp_01_panel_never_shows_the_previous_centre', async ({ page }
   assert.equal((await waitDrawn(page, 10, 3000, GP(page))).length, 10, 'Plán: 10 nodes');
   await searchOpen(page, 'Rozpočet 2027');
   assert.equal((await waitDrawn(page, 7, 3000, GP(page))).length, 7, 'Rozpočet: 7 nodes');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Rozpočet was opened from
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000), 'Plán čtvrtletí', 'Back on Plán');
   await waitDrawn(page, 10, 3000, GP(page));
   // Another program deletes Rozpočet outright (no trash); Plán's panel follows (9 nodes).
   await core.setFile(P.rozpocet, null);
   assert.equal((await waitDrawn(page, 9, 3000, GP(page))).length, 9, 'Plán without Rozpočet');
-  await page.keyboard.press('Meta+BracketRight');
+  await stepOverSearch(page, 'forward');
   // Rozpočet's page: its graph is gone, and Plán's graph must never be drawn there.
   const seenPlan: string[] = [];
   const end = Date.now() + 2500;

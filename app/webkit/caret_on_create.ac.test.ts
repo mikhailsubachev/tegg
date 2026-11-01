@@ -12,7 +12,7 @@ import { mustBeDraft, mustBeOn, runCommand, sidebar, switcherDialog, typesList }
 import { E, editorBody, eventually, fileText, must, noModified, openEditor, sleep, titleField, type FakeCoreHandle } from './editor-helpers';
 import { B, createOffer, chips, openLinks } from './links-helpers';
 import { D, callsOf, dailyVault, mustDaily, startDaily, swap } from './daily-helpers';
-import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchCreateButton } from './helpers'; // D-1345: the Search page's results and create buttons (D-1340)
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -101,7 +101,7 @@ test('fr_edt_01_ac13_switcher_create_item_puts_the_caret_at_the_end_of_the_title
   const core = await openEditor(page, E.deset);
   await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await searchCreateButton(page).click(); // D-1343, D-1345: the Search page's `Create “…”` button (before it the Go to create row)
   await expectTitleCaretThenType(page, core, 'Úplně nový', 'Quick Notes/Úplně nový.md', 'switcher create item');
 });
 

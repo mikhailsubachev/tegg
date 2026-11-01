@@ -45,5 +45,7 @@ test('bug_3c_fr_nav_03_native_mouse_back_button', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await openNote(page, 'Cíl');
   await core.emit('nav:mouse' as any, 'back');
+  await mustBeOn(page, 'Search', 'native back button: the Search entry Cíl was opened from (D-1348)');
+  await core.emit('nav:mouse' as any, 'back');
   await mustBeOn(page, 'Deset bloků', 'native back button');
 });

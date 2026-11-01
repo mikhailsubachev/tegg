@@ -242,13 +242,13 @@ test('fr_nav_01_ac13_a_nfd_title_writes_nothing_until_enter_then_one_nfc_file_li
   assert.ok(nav.includes(QN_NEW), `(a) the route becomes note/${QN_NEW}: ${JSON.stringify(nav)}`);
   assert.equal(await page.evaluate(() => (window as any).__teggSamePage ?? null), 'kept', '(a) without reloading the page');
   assert.ok(await eventually(() => caretInBody(page), (x) => x, 1000), '(a) the caret is in the body');
-  // The switcher's create item for the same title and type, on a second app (FR-NAV-01 AC-7).
+  // The Search page's create path for the same title and type, on a second app (FR-NAV-01 AC-7): ⌥⏎ in the field
+  // creates with the default type (D-1343, D-1345; before it ⏎ on the Go to list's create item, D-760).
   const p2 = await browser.newPage();
   const core2 = await start(p2);
   await goToQuery(p2, 'Nový nápad');
   await sleep(150);
-  // No object matches, so the Create item is the only one (D-106).
-  await p2.keyboard.press('Enter');
+  await p2.keyboard.press('Alt+Enter');
   const viaSwitcher = (await eventually(() => core2.files(), (f) => QN_NEW in f, 3000))[QN_NEW];
   assert.ok(viaSwitcher !== undefined, 'switcher create wrote the reference file');
   assert.equal(mask(after[QN_NEW]), mask(viaSwitcher), '(a) same bytes as the switcher apart from id and timestamps');

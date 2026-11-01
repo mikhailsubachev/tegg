@@ -24,7 +24,7 @@ use tegg_format::nfc;
 use tegg_vault::FileVersion;
 
 pub use text::fold;
-use text::{contains_item, contains_sequence, parse_query, tokens, within_one_edit, Item};
+use text::{contains_item, contains_item_exact, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
 const SCHEMA_VERSION: i64 = 5; // 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
@@ -417,8 +417,7 @@ fn highlights_in(text: &str, positives: &[&Item]) -> Vec<(usize, usize)> {
     let ws = text::words(text);
     let mut highlights: Vec<(usize, usize)> = positives
         .iter()
-        .flat_map(|it| text::match_positions(&ws, it))
-        .map(|r| (ws[r.start].0.start, ws[r.end - 1].0.end))
+        .flat_map(|it| text::match_spans(text, &ws, it))
         .collect();
     highlights.sort();
     highlights.dedup();
@@ -949,26 +948,34 @@ impl Index {
         let words: Vec<&Item> = positives.iter().copied().filter(|i| !i.quoted).collect();
         let phrases: Vec<&Item> = positives.iter().copied().filter(|i| i.quoted).collect();
 
-        // Per item: rows matching it exactly, and rows matching it at all (exactly, by a typo, D-101, or in the file
-        // stem, D-254).
+        // Per item: rows matching it exactly; rows matching it exactly or by the D-1342 prefix; rows matching it at all
+        // (exactly, by the prefix, by a typo, D-101, or in the file stem, D-254).
         let mut exact_of: Vec<BTreeSet<i64>> = Vec::new();
+        let mut pre_of: Vec<BTreeSet<i64>> = Vec::new();
         let mut full_of: Vec<BTreeSet<i64>> = Vec::new();
         for it in &positives {
             let mut e: BTreeSet<i64> = self.fts_rowids(&quote(&it.tokens))?.into_iter().map(|(r, _)| r).collect();
+            // FTS5: a `*` after a string marks its last token as a prefix (a range scan of the term index).
+            let mut p: BTreeSet<i64> = if it.prefix { self.fts_rowids(&format!("{}*", quote(&it.tokens)))?.into_iter().map(|(r, _)| r).collect() } else { BTreeSet::new() };
             let mut f = BTreeSet::new();
             for chunk in it.alternatives.chunks(200) {
                 let alt = chunk.iter().map(|a| quote(std::slice::from_ref(a))).collect::<Vec<_>>().join(" OR ");
                 f.extend(self.fts_rowids(&alt)?.into_iter().map(|(r, _)| r));
             }
+            let bare = Item { alternatives: Vec::new(), ..(*it).clone() };
             for m in self.metas.values() {
-                if m.stem_t.windows(it.tokens.len().max(1)).any(|w| w == it.tokens.as_slice()) {
+                if contains_item_exact(&m.stem_t, it) {
                     e.insert(m.rowid);
+                } else if it.prefix && contains_item(&m.stem_t, &bare) {
+                    p.insert(m.rowid);
                 } else if it.tokens.len() == 1 && m.stem_t.iter().any(|t| it.alternatives.contains(t)) {
                     f.insert(m.rowid);
                 }
             }
-            f.extend(e.iter().copied());
+            p.extend(e.iter().copied());
+            f.extend(p.iter().copied());
             exact_of.push(e);
+            pre_of.push(p);
             full_of.push(f);
         }
         let idx = |it: &Item| positives.iter().position(|p| std::ptr::eq(*p, it)).unwrap_or(0);
@@ -996,29 +1003,60 @@ impl Index {
                 full.remove(&r);
             }
         }
-        // bm25 of the exact words, for ranking within a group (lower is better).
+        // bm25 of the words (the prefix item as a prefix), for ranking within a group (lower is better).
         let mut score: HashMap<i64, f64> = HashMap::new();
         if !positives.is_empty() {
-            let any = positives.iter().map(|i| quote(&i.tokens)).collect::<Vec<_>>().join(" OR ");
+            let any = positives.iter().map(|i| if i.prefix { format!("{}*", quote(&i.tokens)) } else { quote(&i.tokens) }).collect::<Vec<_>>().join(" OR ");
             score = self.fts_rowids(&any)?.into_iter().collect();
         }
+        // D-1341: the query words of the groups, one item per token (the unquoted positive words; a query of only
+        // phrases uses the phrases' words). A word's D-101 alternatives and D-1342 prefix go with it.
+        let group_words: Vec<Item> = (if words.is_empty() { &phrases } else { &words })
+            .iter()
+            .flat_map(|it| {
+                let n = it.tokens.len();
+                it.tokens.iter().enumerate().map(move |(k, t)| Item {
+                    tokens: vec![t.clone()],
+                    negative: false,
+                    quoted: false,
+                    alternatives: if n == 1 { it.alternatives.clone() } else { Vec::new() },
+                    prefix: it.prefix && k == n - 1,
+                })
+            })
+            .collect();
+        let group_refs: Vec<&Item> = group_words.iter().collect();
+        let holds_all = |toks: &[String], loose: bool| !group_words.is_empty() && group_words.iter().all(|w| if loose { contains_item(toks, w) } else { contains_item_exact(toks, w) });
+        // Step a: the folded word sequence equals the query's; b: the words in a row; c: otherwise; None: not every word.
+        let step_of = |toks: &[String]| -> Option<u8> {
+            if !holds_all(toks, true) {
+                None
+            } else if contains_sequence(toks, &group_refs) {
+                Some(if toks.len() == group_words.len() { 0 } else { 1 })
+            } else {
+                Some(2)
+            }
+        };
 
-        let mut hits: Vec<(&Meta, QueryTier, bool, MatchField)> = Vec::new();
+        // Sort key: (group, step or tier, exact before typo-or-prefix, field rank); then bm25, then path. The last
+        // field marks a row whose tier waits for the body check (`Phrase` until then; resolved below).
+        type Hit<'a> = (&'a Meta, (u8, u8, bool, MatchField), bool, QueryTier, MatchField, bool);
+        let mut hits: Vec<Hit> = Vec::new();
         for m in full.iter().filter_map(|r| self.metas.get(r)).filter(|m| self.passes(m, q)) {
             let matched: Vec<&Item> = positives.iter().copied().filter(|it| full_of[idx(it)].contains(&m.rowid)).collect();
-            let typo = matched.iter().any(|it| !exact_of[idx(it)].contains(&m.rowid));
+            let typo = matched.iter().any(|it| !pre_of[idx(it)].contains(&m.rowid));
+            let inexact = matched.iter().any(|it| !exact_of[idx(it)].contains(&m.rowid));
             let all_words = words.iter().all(|w| full_of[idx(w)].contains(&m.rowid));
+            // NFR-PERF-04: the body's word sequence is read only for rows that can reach the page (below).
+            let mut pending = false;
             let tier = if words.len() <= 1 {
                 QueryTier::Phrase
             } else if !all_words {
                 QueryTier::AnyWord
-            } else if [&m.title_t, &m.stem_t, &m.attr_t].iter().any(|t| contains_sequence(t, &words))
-                || m.alias_t.iter().any(|a| contains_sequence(a, &words))
-                || self.body_tokens(m)?.is_some_and(|b| contains_sequence(&b, &words))
-            {
+            } else if [&m.title_t, &m.stem_t, &m.attr_t].iter().any(|t| contains_sequence(t, &words)) || m.alias_t.iter().any(|a| contains_sequence(a, &words)) {
                 QueryTier::Phrase
             } else {
-                QueryTier::AllWords
+                pending = true;
+                QueryTier::Phrase
             };
             let any = |toks: &[String]| matched.iter().any(|i| contains_item(toks, i));
             let field = if positives.is_empty() || any(&m.title_t) {
@@ -1032,10 +1070,26 @@ impl Index {
             } else {
                 MatchField::Body
             };
-            hits.push((m, tier, typo, field));
+            // D-253: title/file name, alias, attribute, body (D-107).
+            let field_rank = if field == MatchField::FileName { MatchField::Title } else { field };
+            let (title_step, stem_step) = if positives.is_empty() { (None, None) } else { (step_of(&m.title_t), step_of(&m.stem_t)) };
+            let alias_step = if title_step.is_some() || stem_step.is_some() || positives.is_empty() { None } else { m.alias_t.iter().filter_map(|a| step_of(a)).min() };
+            let (key, field) = if let Some(step) = title_step.into_iter().chain(stem_step).min() {
+                let exact = holds_all(&m.title_t, false) || holds_all(&m.stem_t, false);
+                ((1, step, !exact, MatchField::Title), if title_step.is_some() { MatchField::Title } else { MatchField::FileName })
+            } else if let Some(step) = alias_step {
+                let exact = m.alias_t.iter().any(|a| holds_all(a, false));
+                ((2, step, !exact, MatchField::Title), MatchField::Alias)
+            } else {
+                ((3, tier as u8, inexact, field_rank), field)
+            };
+            hits.push((m, key, typo, tier, field, pending));
         }
-        // D-253: tier, then exact before typo, then title/file name, alias, attribute, body (D-107), then bm25.
-        let field_rank = |f: MatchField| if f == MatchField::FileName { MatchField::Title } else { f };
+        let by_rank = |a: &Hit, b: &Hit| {
+            let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
+            let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
+            a.1.cmp(&b.1).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
+        };
         if positives.is_empty() {
             // D-1205: filters only: the newest `modified` instant first, missing or invalid last, ties by path.
             let at = |m: &Meta| match m.modified {
@@ -1044,16 +1098,39 @@ impl Index {
             };
             hits.sort_by(|a, b| at(b.0).cmp(&at(a.0)).then_with(|| a.0.path.cmp(&b.0.path)));
         } else {
-            hits.sort_by(|a, b| {
-                let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
-                let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
-                (a.1, a.2, field_rank(a.3)).cmp(&(b.1, b.2, field_rank(b.3))).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
-            });
+            // D-1341: title or file name first, then alias, then the rest in D-253's order (tier, exact before typo,
+            // field); inside each: exact before typo-or-prefix (D-1342), then bm25, then path.
+            hits.sort_by(by_rank);
         }
         let total = hits.len();
         let limit = if q.limit == 0 { 50 } else { q.limit };
+        // A pending row is `Phrase` if its body holds the words in a row, else `AllWords` (a later place in group 3;
+        // groups 1 and 2 don't sort by tier). Walking the order with pending rows as `Phrase`, a row found `AllWords`
+        // only moves back, so once the rows that keep their place fill the page, the rest can't enter it.
+        let need = q.offset.saturating_add(limit);
+        let (mut kept, mut moved) = (0usize, false);
+        for h in hits.iter_mut() {
+            if kept >= need {
+                break;
+            }
+            if h.5 {
+                h.5 = false;
+                if !self.body_tokens(h.0)?.is_some_and(|b| contains_sequence(&b, &words)) {
+                    h.3 = QueryTier::AllWords;
+                    if h.1 .0 == 3 {
+                        h.1 .1 = QueryTier::AllWords as u8;
+                        moved = true;
+                        continue;
+                    }
+                }
+            }
+            kept += 1;
+        }
+        if moved {
+            hits.sort_by(by_rank);
+        }
         let mut results = Vec::new();
-        for (m, tier, typo, field) in hits.into_iter().skip(q.offset).take(limit) {
+        for (m, _, typo, tier, field, _) in hits.into_iter().skip(q.offset).take(limit) {
             let mut snippet = if positives.is_empty() { None } else { self.snippet_for(m, &items)? };
             // D-1207: without a body match, the body's lead without highlights.
             if snippet.is_none() {
@@ -1061,7 +1138,9 @@ impl Index {
             }
             let file_name = (field == MatchField::FileName).then(|| file_name_snippet(&m.stem, &positives));
             let alias = if field == MatchField::Alias {
-                m.s.aliases.iter().map(|a| nfc(a)).find_map(|a| {
+                // D-1341: a group-2 result shows the alias holding every word.
+                let whole = m.s.aliases.iter().map(|a| nfc(a)).find(|a| step_of(&tokens(a)).is_some());
+                whole.into_iter().chain(m.s.aliases.iter().map(|a| nfc(a))).find_map(|a| {
                     let h = highlights_in(&a, &positives);
                     (!h.is_empty()).then(|| window(&a, h))
                 })
@@ -1100,8 +1179,11 @@ impl Index {
         Ok(self.conn.prepare_cached("SELECT raw FROM notes WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?)
     }
 
+    /// The body's folded tokens: the FTS `body` column, which holds exactly `fts_text(body)` (the tokens joined by
+    /// spaces; a token never holds whitespace). Reading it skips folding the raw body again (NFR-PERF-04, D-1341).
     fn body_tokens(&self, m: &Meta) -> Result<Option<Vec<String>>, IndexError> {
-        Ok(self.raw_of(m)?.map(|raw| tokens(raw.get(m.s.body_start..).unwrap_or(""))))
+        let body: Option<String> = self.conn.prepare_cached("SELECT body FROM fts WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?;
+        Ok(body.map(|b| b.split(' ').filter(|t| !t.is_empty()).map(str::to_string).collect()))
     }
 
     fn lead_for(&self, m: &Meta) -> Result<Option<Snippet>, IndexError> {
@@ -1716,4 +1798,61 @@ fn in_value_range(v: &str, from: Option<&str>, to: Option<&str>, tz: chrono_tz::
         return bound(from, |n, b| n >= b) && bound(to, |n, b| n <= b);
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn version(bytes: &[u8]) -> tegg_vault::FileVersion {
+        let mut hash = [0u8; 32];
+        for (i, b) in bytes.iter().enumerate() {
+            hash[i % 32] ^= *b;
+        }
+        tegg_vault::FileVersion { mtime_ns: 1_790_000_000_000_000_000, size: bytes.len() as u64, hash }
+    }
+
+    /// The lazy D-253 tier walk (body read only for rows that can reach the page) gives every page as the slice of
+    /// one fully resolved order, with the same tiers, typo flags and total (QA review of c663072, FR-SRC-03 AC-12).
+    #[test]
+    fn lazy_tier_pages_slice_the_full_order() {
+        let dir = tempfile::tempdir().expect("setup: tempdir");
+        let mut idx = Index::open(&dir.path().join("index.sqlite")).expect("setup: open");
+        let mut put = |path: &str, text: &str| idx.upsert(path, text.as_bytes(), &version(text.as_bytes())).expect("setup: upsert");
+        put("Pages/Účet chaty.md", "# Účet chaty\n\nnic\n");
+        put("Pages/Lipno účet.md", "# Lipno účet\n\nchaty opravy\n");
+        for i in 0..24 {
+            let body = match i % 4 {
+                0 => "Platba za účet chaty na horách.",
+                1 => "Chaty jsou drahé, účet přijde později.",
+                2 => "Jen účet bez druhého slova.",
+                _ => "U chaty se opravy protáhly, účet čeká.",
+            };
+            put(&format!("Pages/Poznámka {i:02}.md"), &format!("# Poznámka {i:02}\n\n{body}\n"));
+        }
+        for text in ["účet chaty", "ucet chaty", "\"účet chaty\"", "účet chaty -opravy", "chaty účet", "účt chaty"] {
+            let mut full_q = SearchQuery::text(text, chrono_tz::Europe::Prague);
+            full_q.limit = 1000;
+            let full = idx.search(&full_q).expect("search");
+            assert!(full.total > 5, "{text:?}: enough rows to page");
+            let key = |r: &SearchResult| (r.path.clone(), r.tier, r.typo);
+            let want: Vec<_> = full.results.iter().map(key).collect();
+            if text == "účet chaty" {
+                // Body phrases and body "all words" rows both reach the walk.
+                assert!(want.iter().any(|w| w.1 == QueryTier::Phrase) && want.iter().any(|w| w.1 == QueryTier::AllWords), "{text:?}: {want:?}");
+            }
+            for limit in 1..=5 {
+                for offset in 0..=5 {
+                    let mut q = full_q.clone();
+                    q.offset = offset;
+                    q.limit = limit;
+                    let p = idx.search(&q).expect("search");
+                    assert_eq!(p.total, full.total, "{text:?} offset {offset} limit {limit}: total");
+                    let got: Vec<_> = p.results.iter().map(key).collect();
+                    let end = (offset + limit).min(want.len());
+                    assert_eq!(got, want[offset.min(end)..end].to_vec(), "{text:?} offset {offset} limit {limit}");
+                }
+            }
+        }
+    }
 }

@@ -166,11 +166,18 @@ export async function graphOpenKeys(page: Page): Promise<string> {
   });
 }
 
-/** Search (D-760), then ⏎: opens the object titled `title`. */
+/** Search (D-1345), then ⏎ on the first result: opens the object titled `title`. */
 export async function searchOpen(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');
   await mustBeOn(page, title, `open "${title}" from Search`, 5000);
+}
+/** D-1348: a note opened from Search has the Search entry behind it; ⌘[ (or ⌘]) twice steps over it, checking it. */
+export async function stepOverSearch(page: Page, dir: 'back' | 'forward', wait = true) {
+  const key = dir === 'back' ? 'Meta+BracketLeft' : 'Meta+BracketRight';
+  await page.keyboard.press(key);
+  if (wait) await mustBeOn(page, 'Search', `${dir === 'back' ? 'Back' : 'Forward'} over the Search entry (D-1348)`, 4000);
+  await page.keyboard.press(key);
 }
 
 // ------------------------------------------------------------------------------------------------ geometry

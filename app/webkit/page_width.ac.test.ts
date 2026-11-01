@@ -271,6 +271,8 @@ test('fr_set_02_ac7_switch_applies_at_once_to_this_note_only', async ({ page }) 
   await openNote(page, UVODNI);
   await mustBeWidth(page, 'normal', 'Úvodní has no entry: Normal');
   await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Search', 'Back (⌘[) over the Search entry Úvodní was opened from (D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, PORADA, 'Back (⌘[)');
   await mustBeWidth(page, 'wide', 'Back to Porada: Wide still checked');
 });
@@ -426,8 +428,10 @@ test('fr_set_02_ac9_keyboard_only_run_from_search_to_back', async ({ page }) => 
   await mustBeWidth(page, 'wide', '→ sets Wide');
   await openNote(page, UVODNI);
   await mustBeWidth(page, 'normal', 'Úvodní: Normal');
+  // D-1348: Úvodní was opened from Search, which stays an entry; the old check that one ⌘[ skips it (D-760) is gone.
   await page.keyboard.press('Meta+BracketLeft');
-  await mustBeOn(page, PORADA, '⌘[');
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, PORADA, '⌘[ twice');
   await mustBeWidth(page, 'wide', 'Back finds Wide checked');
 });
 

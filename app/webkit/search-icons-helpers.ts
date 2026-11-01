@@ -2,7 +2,7 @@
 // except `must` (re-exported through capture-helpers), which turns a missing element into an AssertionError (TS-I1).
 import type { Locator, Page } from '@playwright/test';
 import { must, mustBeOn, sidebar, sleep } from './capture-helpers';
-import { goToListbox, searchQueryField, typesList } from './helpers';
+import { searchQueryField, searchResultsList, settledFirstResult, typesList } from './helpers';
 
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{25A0}-\u{25FF}]/u;
 
@@ -17,14 +17,14 @@ export async function searchFor(page: Page, query: string, title: string): Promi
   await sleep(500);
   return page.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: title }).first();
 }
-/** Opens the Search page (⇧⌘F), types `query` and returns the `Go to` option that contains `title` (D-760: the Go to
- *  list replaces the ⌘O switcher). */
+/** Opens the Search page (⇧⌘F), types `query` and returns the result row that contains `title` (D-1345: quick
+ *  switching is the results list, D-1340; before it the `Go to` list, D-760). */
 export async function switcherFor(page: Page, query: string, title: string): Promise<Locator> {
   await page.keyboard.press('Meta+Shift+f');
   await (await must(searchQueryField(page), 'Search query')).fill(query);
-  const list = await must(goToListbox(page), 'listbox "Go to"');
-  await sleep(300);
-  return list.getByRole('option').filter({ hasText: title }).first();
+  const list = await must(searchResultsList(page), 'list "Search results"');
+  await settledFirstResult(page, query);
+  return list.getByRole('listitem').filter({ hasText: title }).first();
 }
 /** The `data-icon` values of the SVGs in a row, and any emoji / geometric-shape glyphs in its text. */
 export async function iconsIn(row: Locator): Promise<{ icons: string[]; emoji: string[] }> {

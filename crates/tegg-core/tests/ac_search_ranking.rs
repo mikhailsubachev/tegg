@@ -1,6 +1,7 @@
-//! MS3 3D follow-up AC tests at the core (L4): FR-SRC-01 AC-12…AC-17 (file names in search, ranking tiers, D-246,
+//! MS3 3D follow-up AC tests at the core (L4): FR-SRC-01 AC-12…AC-16 (file names in search, ranking tiers, D-246,
 //! D-253, D-254). docs/acceptance/search-navigation.md; interface docs/contracts/ms3-shell.md §15.1 (additive to
-//! ms2-core §2.1). Written from the ACs and the contract only (D-61).
+//! ms2-core §2.1). Written from the ACs and the contract only (D-61). AC-17 is superseded by D-1341 (v0.109): its
+//! typo order is FR-SRC-01 AC-24, tested in ac_search_title.rs.
 //!
 //! Fixture: tests/fixtures/vaults/search-ranking + new-empty/.tegg, copied to a temporary directory.
 //!
@@ -33,7 +34,6 @@ const PRESNA: &str = "Pages/Přesná fráze.md";
 const OBE: &str = "Pages/Obě slova.md";
 const JEDNO: &str = "Pages/Jedno slovo.md";
 const DRUHE: &str = "Pages/Druhé slovo.md";
-const PREKLEP: &str = "Pages/Překlep.md";
 const TRASHED: &str = ".trash/Pages/Lipno účet chaty.md";
 const TEMPLATE: &str = "_templates/Page/Lipno šablona.md";
 
@@ -319,32 +319,4 @@ fn fr_src_01_ac16_single_word_has_one_tier_and_d107_order() {
         _ => 3,
     };
     assert!(fields.windows(2).all(|w| rank(&w[0]) <= rank(&w[1])), "title, then attribute, then body: {fields:?}");
-}
-
-// ---------------------------------------------------------------- AC-17
-
-#[test]
-fn fr_src_01_ac17_typo_word_counts_for_the_tiers() {
-    let sb = sandbox();
-    let root = ranking_vault(&sb);
-    let core = open(&root, &sb.dirs, false);
-    ac15_check(&core, "účet chatty");
-}
-
-#[test]
-fn fr_src_01_ac17_exact_words_rank_above_typo_matches_in_a_tier() {
-    let sb = sandbox();
-    let root = ranking_vault(&sb);
-    write_raw(
-        &root,
-        PREKLEP,
-        "---\nid: 01JB0R00000000000000000R08\ntype: page\ntitle: Překlep\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-01T09:00:00+02:00\n---\nÚčet chatty.\n".as_bytes(),
-    );
-    let core = open(&root, &sb.dirs, false);
-    let p = page(&core, "účet chatty");
-    let got: Vec<(String, String, bool)> = p.results.iter().map(|r| (tegg_format::nfc(&r.path), tier(r), r.typo)).collect();
-    assert!(got.len() >= 3, "at least three results: {got:?}");
-    assert_eq!(got[0], (PREKLEP.to_string(), "Phrase".to_string(), false), "the exact note first in tier 1");
-    assert_eq!(got[1], (UCET.to_string(), "Phrase".to_string(), true), "then the typo-matched title");
-    assert_eq!(got[2], (PRESNA.to_string(), "Phrase".to_string(), true), "then the typo-matched body");
 }

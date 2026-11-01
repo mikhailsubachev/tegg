@@ -9,7 +9,7 @@ import { mustBeDraft, escPreview, mustPreview, switchPreviewMode } from './helpe
 import { ui as linksUi } from './links-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { B, description, editorBody, eventually, fileText, flat, gotoNote, isDisabled, main, must, mustBeOn, openLinks, props, runCommand, seen, sleep, swap, writeCalls } from './links-helpers';
-import { goToListbox, goToQuery, searchQueryField } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchQueryField, searchResultsList } from './helpers'; // D-1349: the Search page's results (D-1340)
 
 const DETAILS_PRAGUE: [RegExp, string][] = [
   [/^Senior Product Manager\b/, 'Page · Sep 1, 2026'],
@@ -18,6 +18,10 @@ const DETAILS_PRAGUE: [RegExp, string][] = [
   [/^SENIOR PRODUCT MANAGER\b/, 'Quick Note · SPM velkými'],
 ];
 
+/** Search result row texts without a leading icon glyph (D-1349: the quick switcher is the results list, D-1340). */
+async function rowTexts(list: Locator): Promise<string[]> {
+  return (await list.getByRole('listitem').allInnerTexts()).map((t) => flat(t).replace(/^[^\p{L}\p{N}]+/u, ''));
+}
 /** Option texts without a leading icon glyph. */
 async function optionTexts(list: Locator): Promise<string[]> {
   return (await list.getByRole('option').allInnerTexts()).map((t) => flat(t).replace(/^[^\p{L}\p{N}]+/u, ''));
@@ -37,13 +41,14 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles'] as const) {
       const readsBefore = (await core.calls()).filter((c) => c.cmd === 'note_read').length; // the landing note's own read
       await goToQuery(page, 'senior');
       await sleep(250);
-      const list = await must(goToListbox(page), 'the Search page\'s Go to list (D-760)');
+      const list = await must(searchResultsList(page), 'the Search page\'s results (D-1340, D-1349)');
       const want = tz === 'Europe/Prague' ? prague : prague.map((d) => d.replace('Oct 2, 2026', 'Oct 1, 2026'));
-      checkDetails(await optionTexts(list), want, 'switcher');
+      await eventually(() => rowTexts(list), (o) => want.every((d) => o.some((x) => x.includes(d))), 3000);
+      checkDetails(await rowTexts(list), want, 'switcher');
       assert.equal((await core.calls()).filter((c) => c.cmd === 'note_read').length - readsBefore, 0, 'details come with the results (no note_read)');
       await searchQueryField(page).fill('Odkaz na SPM');
       await sleep(250);
-      const row = (await optionTexts(list)).find((o) => o.startsWith('Odkaz na SPM'));
+      const row = (await eventually(() => rowTexts(list), (o) => o.some((x) => x.startsWith('Odkaz na SPM')), 3000)).find((o) => o.startsWith('Odkaz na SPM'));
       assert.ok(row && !row.includes(' · '), `a title nobody shares has no details line: ${row}`);
     });
   });

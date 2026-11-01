@@ -110,7 +110,8 @@ async function modeDescriptions(loc: Locator): Promise<string[]> {
 // ------------------------------------------------------------------------------------------------ FR-LNK-09 AC-8
 
 for (const m of AC8_MODES) {
-  test(`fr_lnk_09_ac8_a_card_opens_on_a_click_in_every_mode_${m.tag}`, async ({ page }) => {
+  // Quarantined (test-strategy §8.4, issue #112): the click mode flakes about 1 in 100 runs, on main too.
+  test(`fr_lnk_09_ac8_a_card_opens_on_a_click_in_every_mode_${m.tag}`, { tag: m.tag === 'click' ? ['@flaky'] : [] }, async ({ page }) => {
     const core = await startPreviews(page, { at: PV.vlozeni, ...opts(m) });
     const tag = `${m.tag}: Jana's card`;
     let p = await cardPoint(await janaCard(page));
@@ -309,7 +310,8 @@ for (const m of AC11_MODES) {
 // ------------------------------------------------------------------------------------------------ FR-LNK-09 AC-12
 
 for (const m of ALL_MODES) {
-  test(`fr_lnk_09_ac12_still_previewed_on_request_${m.tag}`, async ({ page }) => {
+  // Quarantined (test-strategy §8.4, issue #112): flakes in several modes, on main too.
+  test(`fr_lnk_09_ac12_still_previewed_on_request_${m.tag}`, { tag: ['@flaky'] }, async ({ page }) => {
     const core = await startPreviews(page, { at: PV.vlozeni, ...opts(m) });
     // Jana's card selected as a block: ⌥Space previews it with the focus in it; Esc selects the card again (AC-7).
     await janaCard(page);

@@ -14,7 +14,7 @@ import {
 } from './daily-helpers';
 import { ui as dailyUi } from './daily-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
-import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchResultsList } from './helpers'; // D-1345: the Search page's results (D-1340)
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
 const LONG_15_EN = 'Thursday, October 15, 2026';
@@ -264,8 +264,8 @@ test.describe('which note a date opens', () => {
     await gotoDaily(page, '2026-10-09');
     assert.equal(await titleText(page), '2026-10-09', 'title field shows the date, not Pátek');
     await goToQuery(page, 'Pátek');
-    const sw = goToListbox(page); // D-760: the Search page's Go to list replaces the ⌘O switcher
-    assert.ok(await seen(sw.getByRole('option', { name: /^2026-10-09\b/ }), 2000), 'Go to finds Pátek and lists it as 2026-10-09 (D-334)');
+    const sw = searchResultsList(page); // D-1345: the Search page's results (D-1340; before it the Go to list, D-760)
+    assert.ok(await seen(sw.getByRole('link', { name: /^2026-10-09\b/ }), 2000), 'Search finds Pátek and lists it as 2026-10-09 (D-334)');
     await page.keyboard.press('Escape');
     assert.deepEqual(await writeCalls(core), [], 'opening and reading write nothing');
     await caretAtEnd(page);

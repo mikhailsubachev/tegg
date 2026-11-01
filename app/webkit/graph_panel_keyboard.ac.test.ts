@@ -403,7 +403,9 @@ test('fr_ux_03_ac36_panel_single_keys_only_in_the_graph', async ({ page }) => {
   await needIn(page, 7, 'Rozpočet');
   await focusOn(page, P.plan);
   await page.keyboard.press('Meta+BracketLeft');
-  assert.equal(await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000), 'Plán čtvrtletí', '⌘[ still goes Back');
+  assert.equal(await eventually(() => mainName(page), (n) => n === 'Search', 4000), 'Search', '⌘[ still goes Back (to the Search entry Rozpočet was opened from, D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
+  assert.equal(await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000), 'Plán čtvrtletí', '⌘[ again: Plán');
   await needIn(page, 10, 'Plán');
   await focusOn(page, P.rozpocet);
   await page.keyboard.press('Meta+Backslash');

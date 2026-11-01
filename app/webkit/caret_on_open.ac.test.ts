@@ -11,7 +11,7 @@ import {
   E, TITLES, bodyOf, editorBody, editorVault, fileText, must, mustBeSaved, noModified, openEditor, original, sleep, titleField, writes,
   type FakeCoreHandle,
 } from './editor-helpers';
-import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchCreateButton } from './helpers'; // D-1345: the Search page's results and create buttons (D-1340)
 import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 
@@ -213,7 +213,7 @@ test('fr_edt_01_ac12_switcher_create_item_opens_with_the_title_focused', async (
   await openEditor(page, E.deset);
   await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await searchCreateButton(page).click(); // D-1343, D-1345: the Search page's `Create “…”` button (before it the Go to create row)
   await mustBeOn(page, 'Úplně nový', 'new note opens');
   await sleep(300);
   assert.equal(await focusTarget(page), 'title', 'data-focus-target="title"');

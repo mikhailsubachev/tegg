@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtureVault, type CallRecord, type FakeVault } from '../ui/test/fake-core';
 import { eventually, must, mustBeOn, nonReadCalls, runCommand, seen, settled, sidebar, sleep, start, typesList, type FakeCoreHandle, type StartOptions } from './helpers';
-import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery } from './helpers'; // D-1345: the Search page's first result (D-1340)
 
 export { eventually, must, nonReadCalls, runCommand, seen, sidebar, sleep, typesList };
 export type { FakeCoreHandle };

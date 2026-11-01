@@ -6,7 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault, type CallRecord, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
 import { READ_COMMANDS, absent, eventually, mainName, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
-import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery } from './helpers'; // D-1345: the Search page's first result (D-1340)
 
 export { absent, eventually, mainName, must, mustBeOn, runCommand, seen, sleep };
 export type { CallRecord, FakeCoreHandle };
@@ -413,7 +413,7 @@ export async function nestedEditors(page: Page): Promise<NestedEditor[]> {
 
 // ------------------------------------------------------------------------------------------------ navigation
 
-/** Opens a note through the Search page's Go to list (D-760; before it the ⌘O switcher). */
+/** Opens a note through the Search page (D-1345): its title in `Search query`, ⏎ on the first result. */
 export async function gotoNote(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');
