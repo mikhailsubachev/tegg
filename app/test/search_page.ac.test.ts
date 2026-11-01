@@ -42,7 +42,6 @@ const STRINGS: [string, Record<string, string | number>, string][] = [
   ['search.noResultsBody', { q: 'rozpočet', filters: 'Type Task and #hory' }, 'Nothing matches “rozpočet” with Type Task and #hory. Clear the filters to search everything.'],
   ['search.noObjectsTitle', { filters: 'Type Task and #hory' }, 'No objects with Type Task and #hory'],
   ['search.noObjectsBody', {}, 'Clear the filters to search everything.'],
-  ['search.noMatchBody', { q: 'borůvkový koláč' }, 'Nothing in this vault matches “borůvkový koláč”. Use Create “borůvkový koláč” above to make it.'],
   // Unchanged (AC-18): the field's name, the list's name, the file-name line and the typo mark.
   ['search.label', {}, 'Search query'],
   ['search.results', {}, 'Search results'],

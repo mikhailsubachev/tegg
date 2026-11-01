@@ -469,11 +469,12 @@ test('fr_fmt_12_ac6_nfd_file_name_edit_keeps_one_file', { timeout: 300_000 }, as
     const names = readdirSync(join(vault, 'Pages')).filter((n) => n.normalize('NFC') === 'Cíl.md');
     assert.equal(names.length, 1, `exactly one file named Cíl.md under NFC: ${names.map((n) => JSON.stringify(n)).join(', ')}`);
     assert.ok(readFileSync(join(vault, 'Pages', names[0]), 'utf8').includes('Cílová stránka pro odkazy. NFD'), 'containing the edit');
-    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F opens the Search page in place of ⌘O
     paste('Cíl');
     await sleep(600);
-    // A switcher row exposes "<title> <folder>" as its title; the query field and the page also show "Cíl".
-    const rows = await d.$$('-ios predicate string:title == "Cíl Pages"');
+    // A result row is a link named by its title (D-1340, D-1345; before it a Go to row exposed "<title> <folder>");
+    // the query field also shows "Cíl", as a text field, not a link.
+    const rows = await d.$$('-ios predicate string:elementType == 39 AND (label == "Cíl" OR title == "Cíl")');
     let shownRows = 0;
     for (const h of rows) if (await h.isDisplayed().catch(() => false)) shownRows++;
     assert.equal(shownRows, 1, 'the switcher lists one object for it');

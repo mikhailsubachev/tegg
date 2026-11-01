@@ -12,7 +12,7 @@ import {
   inboxHeading, inboxVault, ip, isDisabled, main, markAllBtn, must, mustBeOn, nfc, openTriage, reviewedBox, runCommand, seen,
   sidebarCount, sleep, startInbox, startMain, swap, vaultWrites, zero,
 } from './capture-helpers';
-import { goToListbox, goToQuery, pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { goToQuery, pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
 import { ui as captureUi } from './capture-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { axeContrast } from './read-helpers';
@@ -276,9 +276,9 @@ test('fr_inb_03_ac2_every_quick_note_path_writes_unreviewed', async ({ page }) =
   await must(page.getByRole('textbox', { name: 'Title', exact: true }), 'draft title', 5000);
   await page.keyboard.insertText('Z kláves');
   await page.keyboard.press('Enter');
-  // The create row of the Search page's Go to list (D-760; before it, the switcher's).
+  // The Search page's create button (D-1343, D-1345; before it the Go to list's create row, D-760, and the switcher's).
   await goToQuery(page, 'Z přepínače');
-  await click(goToListbox(page).getByRole('option', { name: 'Create "Z přepínače"', exact: true }), 'Create row');
+  await click(page.getByRole('main').getByRole('button', { name: 'Create “Z přepínače”', exact: true }), 'Create button');
   const texts = await eventually(async () => {
     const f = await core.files();
     return ['Quick Notes/Z kláves.md', 'Quick Notes/Z přepínače.md'].map((p) => f[p] ?? '');

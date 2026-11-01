@@ -9,7 +9,7 @@ import {
   focusInside, frame, linkEmbed, main, mainName, mark, mindmapFigure, mapNode, mustBeOn, navsSince, need, needClosed, needNoPreview, needOdkazyLink,
   needPreview, nfc, nfd, noteBody, openBtn, paletteDialog, para, placementOf, previewCount, previewPath, previewsVault, props, readArticle, runCommand,
   savedWithin, searchFor, selectedBlocks, sidebar, sleep, sourceRegion, startPreviews, swap, tagObjectsTable, tagRoute, tagsTable, taskCard,
-  taskCheckbox, topEmbed, topInScroller, typeTable, writesSince, dailySection, goToList, searchQuery, anyContent, TOGGLE_SOURCE, eventually, backlinksPanel,
+  taskCheckbox, topEmbed, topInScroller, typeTable, writesSince, dailySection, searchQuery, anyContent, TOGGLE_SOURCE, eventually, backlinksPanel,
   contextPanel, linkIn, noModified, selectHostBlock,
 } from './previews-helpers';
 
@@ -139,11 +139,12 @@ test('fr_lnk_08_ac5_search_result_row_previews_double_click_and_enter_open', asy
   await (((await focusable.count()) > 0) ? focusable : row).focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Rozpočet 2027', '⏎ on the focused result opens it (AP-811)', 5000);
+  // D-1345: quick switching is ⏎ in the field on the first result (D-1340; before it a click on the Go to option).
   await searchFor(page, 'rozpočet', 'Rozpočet 2027');
-  const opt = await need(goToList(page).getByRole('option').filter({ hasText: 'Rozpočet 2027' }), 'Go to option "Rozpočet 2027"');
-  await opt.click();
-  await mustBeOn(page, 'Rozpočet 2027', 'the Go to option opens (never previews)', 5000);
-  assert.equal(await previewCount(page), 0, 'Go to shows no preview');
+  await (await need(searchQuery(page), 'textbox "Search query"')).focus();
+  await page.keyboard.press('Enter');
+  await mustBeOn(page, 'Rozpočet 2027', '⏎ in the field opens the first result (never previews)', 5000);
+  assert.equal(await previewCount(page), 0, 'quick switching shows no preview');
 });
 
 test('fr_lnk_08_ac6_type_page_row_previews_enter_opens_header_sorts', async ({ page }) => {

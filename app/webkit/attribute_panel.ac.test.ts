@@ -12,7 +12,7 @@ import {
   P, append, callsOf, control, description, dialog, eventually, fileText, isDisabled, lastWrite, main, must, noModified, nonReadCalls,
   dateOpener, openDatePicker, openNoteByTitle, openTypes, pickNoDate, pickTyped, original, otherProps, props, runCommand, seen, sleep, swap, typeFile, typesVault,
 } from './types-helpers';
-import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchResultsList } from './helpers'; // D-1345: the Search page's results (D-1340)
 
 const editorBody = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
 const titleField = (page: Page) => page.getByRole('textbox', { name: 'Title', exact: true });
@@ -408,7 +408,7 @@ test('fr_typ_08_ac9_aliases_row_and_switcher', async ({ page }) => {
   const t = await written(core, P.styl, (x) => x.includes('Třetí'));
   assert.equal(noModified(t ?? ''), noModified(swap(original(P.styl), 'aliases: [Styl, Hodnoty]\n', 'aliases: [Styl, Hodnoty, Třetí]\n')), 'flow list kept; key spelling and value style kept (FR-EDT-07 AC-8)');
   await goToQuery(page, 'třetí');
-  assert.ok(await seen(goToListbox(page).getByRole('option').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
+  assert.ok(await seen(searchResultsList(page).getByRole('listitem').filter({ hasText: 'Styl hodnot' }), 2000), 'found by the alias within 2 s');
 });
 
 test('fr_typ_08_ac11_review_select', async ({ page }) => {

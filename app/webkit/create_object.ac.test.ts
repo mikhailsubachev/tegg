@@ -10,7 +10,7 @@ import { createFromDraft, mainName, switcherDialog } from './helpers';
 import {
   P, callsOf, eventually, gotoTypePage, main, must, openTypes, props, runCommand, sleep, typeFile, typesVault, swap, dialog,
 } from './types-helpers';
-import { goToListbox, goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery, searchCreateButton } from './helpers'; // D-1345: the Search page's results and create buttons (D-1340)
 
 const NOW = '2026-10-14T10:00:00+02:00';
 test.use({ timezoneId: 'Europe/Prague' });
@@ -82,7 +82,7 @@ test('fr_typ_03_ac12_switcher_create_item_uses_the_same_path', async ({ page }) 
   const core = await openTypes(page);
   await goToQuery(page, 'Úplně nový');
   await sleep(150);
-  await goToListbox(page).getByRole('option', { name: /^Create "[^"]*"$/ }).click(); // 5B: `Create "…" as…` follows the create row (FR-VLT-05 AC-3)
+  await searchCreateButton(page).click(); // D-1343, D-1345: the Search page's `Create “…”` button (before it the Go to create row)
   const c = await created(core);
   await onePathCalls(core, 'quick-note');
   assert.equal(mask(c.text), `${head('quick-note', 'Úplně nový')}review: unreviewed\n${tail}`);

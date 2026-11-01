@@ -551,15 +551,16 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
     assert.deepEqual(tree(vaultA)[CTVRTEK], ctvrtek, '(b) Čtvrtek byte-identical');
     await end(d);
     d = undefined;
-    // The create item of the Search page's Go to list (D-760; before it, the switcher's) for the same title and type.
+    // The Search page's create path for the same title and type: ⌥⏎ in `Search query` creates with the default type
+    // (D-1343, D-1345; before it the Go to list's create item, D-760, and the switcher's).
     const logB = join(base, 'perf-b.jsonl');
     d = await session(testEnv(join(base, 'support-b'), logB, { TEGG_VAULT: vaultB }));
     assert.ok(await waitMark(logB, 'ui-ready'), 'ui-ready (b)');
-    press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
+    press('f', ['command', 'shift']); // D-760: ⇧⌘F opens the Search page in place of ⌘O
     assert.ok(await shown(d, 'Search query'), 'switcher');
     paste('Nový nápad');
     await sleep(500);
-    press('enter');
+    press('enter', ['option']);
     await sleep(1500);
     const viaDraft = readFileSync(join(vaultA, 'Quick Notes/Nový nápad.md'), 'utf8');
     const viaSwitcher = readFileSync(join(vaultB, 'Quick Notes/Nový nápad.md'), 'utf8');

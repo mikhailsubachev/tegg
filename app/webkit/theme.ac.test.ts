@@ -7,7 +7,7 @@ import type { UiStateDto } from '../ui/test/fake-core';
 import {
   absent, eventually, gotoType, mainName, must, mustBeDraft, mustBeOn, openNote, paletteDialog, runCommand, seen, sleep,
   start, switcherDialog, theme,
-  goToListbox, searchQueryField,
+  firstResultRow, searchQueryField,
 } from './helpers';
 
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
@@ -41,8 +41,8 @@ test('fr_ux_05_ac4_axe_color_contrast_has_no_violations', async ({ browser }) =>
     assert.equal(await eventually(() => theme(page), (v) => v === t), t, `theme ${t} applied`);
     for (const [name, go] of VIEWS) { await go(page); await sleep(100); await axe(`${t} ${name}`); }
     await page.keyboard.press('Meta+k'); await must(paletteDialog(page), 'palette'); await axe(`${t} palette`); await page.keyboard.press('Escape');
-    // D-760: the Search page's Go to list replaces the ⌘O switcher.
-    await page.keyboard.press('Meta+Shift+f'); await (await must(searchQueryField(page), 'Search query')).fill('Porada'); await must(goToListbox(page), 'Go to'); await axe(`${t} search Go to`);
+    // D-1345: the Search page's results with the create buttons (D-1340, D-1343; before them the Go to list, D-760).
+    await page.keyboard.press('Meta+Shift+f'); await (await must(searchQueryField(page), 'Search query')).fill('Porada'); await must(firstResultRow(page), 'the first result'); await axe(`${t} search results`);
     await page.keyboard.press('Meta+n'); await mustBeDraft(page, 'New object'); await axe(`${t} New object draft`); // D-520: no dialog
     await page.close();
     page = await browser.newPage();
