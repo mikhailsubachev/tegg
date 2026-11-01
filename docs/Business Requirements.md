@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.139, for review                                            |
+| **Document status** | Draft v1.142, for review                                            |
 | **Date**            | 2026-10-30                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -153,6 +153,7 @@
 | v1.137  | 2026-10-31 | v0.94 build: D-1197 (the editor opens a `#^id` block, AP-1026) and D-1198 (whole-pixel points in the wheel tests, AP-1027), as proposed |
 | v1.138  | 2026-10-31 | QA review of v0.94 graph and previews: D-1233…D-1237 (AP-1028…AP-1032, as proposed; numbered after the Search redesign's D-1232, as this slice's D-1164…D-1199 block is used up): editor hover on tags and Markdown links, the `Link` menu above its reference, an unchanged Tasks view writes nothing, QA fixes to the slice's tests, the L6 tour's scope |
 | v1.139  | 2026-10-31 | D-1238 (AP-1033, owner): the FR-NAV-03 AC-8 test counts route marks after the Back's own mark |
+| v1.142  | 2026-11-01 | D-1347 (owner): the gates run the WebKit tests with 4 Playwright workers instead of 6 |
 
 ---
 
@@ -1319,6 +1320,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1294 | User text inside catalog messages (AP-1194) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | In the pseudo-locale check, a catalog message that contains the user's text (the search, the Task plural) counts as one marked message |
 | D-1295 | `Due: Tomorrow` in the capture (AP-1195) (owner, 2026-10-30; v0.94 red tests ae91704 and build) | AC-test correction: after `Tomorrow` the capture chip shows R55's due label `Due: Tomorrow` (FR-CAP-01 AC-19); the test changes with `AC-Test-Change: R55 due label for tomorrow (D-1295); approved-by: owner` |
 | D-1330 | One `./verify` gate at a time (owner, 2026-10-30) | Parallel gates of several sessions loaded the machine (load average up to 44) and made timing-sensitive WebKit tests fail falsely. The heavy commands (`push`, `nightly`, `milestone`, `release`, `merge`, `check-red`, and the pre-push hook when it runs the push gate) take a machine-wide lock and wait for it; `verify commit` doesn't. The lock is a folder outside every checkout, released on exit, and taken over when its owner process is gone. Contract `tools/qa/CONTRACT.md` §3.5 |
+| D-1347 | 4 WebKit workers in the gates (owner, 2026-11-01) | Refines D-343 and D-1330 (and D-609's 6 workers; D-688 had found 4 no help on its own). Even a lone `./verify merge` drove the load average to about 14 (median) and 24 (peak) on the 12-core reference Mac, and the remaining WebKit timing failures (page↔Node round trips of the fake core, 3 s waits) came under that load. Under `./verify`, `app/playwright.config.ts` runs Playwright with 4 workers instead of 6; runs outside the gates keep Playwright's default |
 
 ---
 
