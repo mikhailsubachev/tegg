@@ -303,7 +303,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   };
   const createButtons = () => (
     <>
-      <button type="button" tabIndex={0} className="text-button create" data-command="search.create" onClick={() => void createDefault()}>{withUser('search.create', {}, { q })}</button>
+      <button type="button" tabIndex={0} className="text-button create" data-command="search.create" onClick={() => void createDefault()}>{withUser('search.create', {}, { q: createTitle() })}</button>
       <button type="button" tabIndex={0} className="text-button create-as" data-command="search.createAs" aria-haspopup="menu" aria-expanded={!!asMenu}
         onClick={(e) => openAs(e.currentTarget)}>{t('search.createAs')}</button>
     </>
@@ -330,7 +330,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
               if (hasText) void createDefault();
             } else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
               e.preventDefault();
-              if (!hasText && !hasFilter) return;
+              if (!hasText) return; // D-1352: ⏎ with only filters set does nothing (FR-NAV-01 AC-21)
               if (rowsKey.current === keyOf) { if (rows[0]) openFirst(rows[0].path); }
               else pendingEnter.current = keyOf;
             } else if (e.key === 'Enter') {

@@ -84,6 +84,7 @@ pub fn parse_query(q: &str) -> Vec<Item> {
     let q: String = q.nfc().collect();
     let chars: Vec<char> = q.chars().collect();
     let mut items = Vec::new();
+    let mut last_raw_is_word = false; // D-1342: the raw last item, not the last item that yielded words
     let mut i = 0;
     while i < chars.len() {
         if chars[i].is_whitespace() {
@@ -113,12 +114,13 @@ pub fn parse_query(q: &str) -> Vec<Item> {
             text = chars[start..i].iter().collect();
         }
         let toks = tokens(&text);
+        last_raw_is_word = !toks.is_empty() && !quoted && !negative;
         if !toks.is_empty() {
             items.push(Item { tokens: toks, negative, quoted, alternatives: Vec::new(), prefix: false });
         }
     }
     // D-1342: the last word as a prefix.
-    if !q.ends_with(char::is_whitespace) {
+    if !q.ends_with(char::is_whitespace) && last_raw_is_word {
         if let Some(last) = items.last_mut() {
             if !last.quoted && !last.negative && last.tokens.last().is_some_and(|t| t.chars().count() >= 2) {
                 last.prefix = true;
@@ -399,6 +401,11 @@ mod tests {
         assert_eq!(p("\"rozpo\""), vec![false]);
         assert_eq!(p("rozpo výlet"), vec![false, true]);
         assert_eq!(p("rozpočet -kr"), vec![false, false]);
+        // The raw last item decides (v1-search §9.1): a trailing `-`, quote or symbol leaves no prefix.
+        for q in ["rozpo -", "rozpo \"", "rozpo !!"] {
+            assert_eq!(p(q), vec![false], "{q:?}");
+        }
+        assert_eq!(p("20"), vec![true]); // D-1354: any 2 characters
     }
 
     #[test]

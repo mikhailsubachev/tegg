@@ -216,6 +216,12 @@ test('fr_nav_01_ac21_enter_with_no_results_or_an_empty_query_does_nothing', asyn
   await page.keyboard.press('Enter');
   await sleep(400);
   assert.equal(await mainName(page), 'Search', '⏎ with an empty query: still on search');
+  await chooseType(page, 'Page'); // D-1352: filters but no text is still an empty query
+  assert.ok((await eventually(() => rows(page), (r) => r.length > 0)).length > 0, 'filtered result rows');
+  await (await must(searchQuery(page), 'Search query')).focus();
+  await page.keyboard.press('Enter');
+  await sleep(400);
+  assert.equal(await mainName(page), 'Search', '⏎ with only a Type filter: still on search');
   assert.deepEqual(await nonReadCalls(core), [], 'only read commands');
   assert.equal(JSON.stringify(await core.files()), files0, 'the vault is byte-identical');
 });
