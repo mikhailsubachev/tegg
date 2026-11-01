@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.140, for review                                            |
+| **Document status** | Draft v1.141, for review                                            |
 | **Date**            | 2026-10-31                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -154,6 +154,7 @@
 | v1.138  | 2026-10-31 | QA review of v0.94 graph and previews: D-1233…D-1237 (AP-1028…AP-1032, as proposed; numbered after the Search redesign's D-1232, as this slice's D-1164…D-1199 block is used up): editor hover on tags and Markdown links, the `Link` menu above its reference, an unchanged Tasks view writes nothing, QA fixes to the slice's tests, the L6 tour's scope |
 | v1.139  | 2026-10-31 | D-1238 (AP-1033, owner): the FR-NAV-03 AC-8 test counts route marks after the Back's own mark |
 | v1.140  | 2026-10-31 | Preview v0.109 Search feedback (`docs/feedback/ms6-v0109-search.md`): D-1340…D-1343 (AP-1200…AP-1203, as proposed): no `Go to` on the Search page, quick switching is the results list (supersedes D-760's page part, D-1200, D-1201); title-first order for text queries (amends D-253, restores D-107); the last word also matches as a prefix; `Create "<q>"` and `as…` buttons in the count line. FR-NAV-01's text changes |
+| v1.141  | 2026-11-01 | Search without `Go to`, red-test decisions (red tests f50d186, c45f74b): D-1344…D-1346 (AP-1204…AP-1206, as proposed): the create buttons sit after the count line's `status` element; helpers and direct AC-test uses of `Go to` move to the results list; the `search.noMatchBody` string check goes |
 
 ---
 
@@ -1324,6 +1325,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1341 | Title first in Search (AP-1201) (owner, 2026-10-31; preview v0.109 feedback, `docs/feedback/ms6-v0109-search.md`) | A text query orders results in three groups: 1 the title or file name contains every query word (a title equal to the query, then the words as a phrase in the title, then all words in the title); 2 an alias contains every query word (same three steps); 3 the rest in D-253's order (tier, exact before typo, field, bm25). Inside groups 1 and 2: exact words before typo or prefix matches (D-101, D-1342), then bm25, then path. Quoted phrases must still match somewhere and `-word` still excludes (D-253); D-1205 (filters only) is unchanged. Amends D-253; restores D-107 |
 | D-1342 | The last word matches as a prefix (AP-1202) (owner, 2026-10-31; preview v0.109 feedback, `docs/feedback/ms6-v0109-search.md`) | The last unquoted word of a query, when it has at least 2 letters and the query doesn't end with a space, also matches words that start with it, diacritics folded (FR-FMT-12). A prefix-only match ranks after an exact word match in the same step of D-1341, as a typo match does; its highlight covers the matched prefix. Other words stay whole-word |
 | D-1343 | Create from Search without `Go to` (AP-1203) (owner, 2026-10-31; preview v0.109 feedback, `docs/feedback/ms6-v0109-search.md`) | While the query has text, the count line ends with a `button` `Create "<q>"` (default type, FR-VLT-05) and a `Type` menu button `as…` (D-550), whether or not objects match; the no-match empty state says `No matches. Create "<q>"?` with the same two buttons; ⌥⏎ in the field creates with the default type. ⌘↩ stays unbound |
+| D-1344 | Create buttons outside the live region (AP-1204) (owner, 2026-11-01; red tests f50d186) | `Create "<q>"` and `as…` are siblings placed after the count line's `status` element, not inside it, so VoiceOver announces only the count (`5 results`). FR-SRC-03 AC-9 and AC-18's count-line checks stay as written |
+| D-1345 | Older tests stop using `Go to` (AP-1205) (owner, 2026-11-01; red tests f50d186) | Shared test helpers (`openNote`, `goToQuery`, `goToListbox`, the v0.68 `goTo` helpers, `switcherFor`) open an object by typing its title in `Search query`, waiting for the first result row and pressing ⏎ (D-1340, D-1341); they are not AC tests. AC tests that use the `Go to` list directly move to result rows or the create buttons (D-1343) in one commit with the `AC-Test-Change` trailer, keeping every check |
+| D-1346 | `search.noMatchBody` leaves the string check (AP-1206) (owner, 2026-11-01; red tests f50d186) | FR-SRC-03 AC-18's catalog test (`fr_src_03_ac18_every_string_is_a_catalog_key_with_its_english_text`) drops its `search.noMatchBody` row: D-1343 replaces that text with `search.noMatchCreate`. Same `AC-Test-Change` commit as D-1345 |
 
 ---
 

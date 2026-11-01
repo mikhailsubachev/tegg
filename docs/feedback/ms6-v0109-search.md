@@ -36,6 +36,16 @@ Decided 2026-10-31: AP-1200…AP-1203 accepted as proposed → D-1340…D-1343 (
 | AP-1202 | **Partial last word.** `Go to` matched a word as you typed it (`summ` found Summer); the full-text search matches whole words only (plus D-101 typos for words of 5+ letters), so with `Go to` gone, typing `summ` finds nothing until the word is complete. | The last unquoted word of the query, when it has at least 2 letters and the query doesn't end with a space, also matches as a word prefix (`summ` finds `summer`, `Summer`, `summertime`), diacritics folded (FR-FMT-12). A prefix-only match ranks after an exact word match inside the same step of AP-1201, as a typo match does. Highlights cover the matched prefix. Other words stay whole-word | (b) no prefix matching: whole words only, as today |
 | AP-1203 | **Create without `Go to`.** `Go to` carried `Create "<q>"` and `Create "<q>" as…` (D-106, D-550), and the no-match empty state points to it (D-1201). | While the query has text, the count line ends with a `button` `Create "<q>"` (default type, FR-VLT-05) and a `Type` menu button `as…` (D-550), always visible, so an object can be created even when other objects match. The no-match empty state says `No matches. Create "<q>"?` with the same two buttons. ⌥⏎ in the field creates with the default type; there is no other new shortcut (D-1201: ⌘↩ stays unbound) | (b) the create buttons only in the no-match empty state |
 
+## Red-test points (test author, red tests f50d186)
+
+Decided 2026-11-01: AP-1204…AP-1206 accepted as proposed → D-1344…D-1346 (BRD v1.141).
+
+| Point | Question | Proposal |
+|---|---|---|
+| AP-1204 | Where the create buttons sit in the count line | After the `status` element, as siblings, so the live region announces only the count |
+| AP-1205 | About 25 WebKit AC files and some L6 tests open or create objects through `Go to` | Helpers type the title in `Search query` and press ⏎ on the first row; direct AC uses move to result rows or the create buttons in one `AC-Test-Change` commit |
+| AP-1206 | `fr_src_03_ac18_every_string_is_a_catalog_key_with_its_english_text` still checks `search.noMatchBody` | Drop that row in the same commit |
+
 ## Affected documents
 
 - BRD: FR-NAV-01's text, D-760 (page part), D-1200, D-1201, D-253 / D-107 (order), new D-1340…D-1343.
