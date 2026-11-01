@@ -188,6 +188,7 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 .search li .result .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; min-width: 0; }
 .search li .result .title { font-weight: 600; }
 .search li .result .meta { display: inline-flex; gap: 6px; margin-left: auto; color: var(--muted); font-size: 12px; }
+.search li .result .details .meta { margin-left: 0; }
 .search li .result .meta .type + .modified::before { content: '·'; margin-right: 6px; }
 /* The chips sit over the bottom of the row link (outside it in the DOM, D-1211), so the rest of the row still previews. */
 .search li .result { padding-bottom: 10px; }

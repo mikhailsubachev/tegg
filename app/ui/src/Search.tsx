@@ -14,8 +14,10 @@ import { tagKey } from './tags/keys';
 import { tagChipStyle } from './theme/tagChip';
 import { PopupMenu, type MenuEntry } from './shell/Menu';
 import { TypeMenu } from './shell/TypeMenu';
+import { DuplicateDetails } from './links/DuplicateDetails';
+import { typeNameOf } from './links/icons';
 import type { SearchState } from './shell/history';
-import type { SwitcherItemDto } from './ipc/types';
+import type { DuplicateDetailsDto, SwitcherItemDto } from './ipc/types';
 import { prepareObject, type Prepared } from './types/create';
 
 const PAGE = 50;
@@ -163,6 +165,25 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     }, same || !hasText ? 0 : 120);
     return () => clearTimeout(timer);
   }, [keyOf, refresh]);
+
+  // D-1349 (FR-LNK-14 AC-6): rows whose titles collide with another result's title get D-289's details line, read from
+  // the core's switcher answer for that title (the same details the pickers show; no note is read).
+  const [details, setDetails] = useState<Record<string, DuplicateDetailsDto>>({});
+  useEffect(() => {
+    const key = (x: string) => x.normalize('NFC').toLowerCase();
+    const count = new Map<string, number>();
+    for (const r of rows) count.set(key(r.title), (count.get(key(r.title)) ?? 0) + 1);
+    const titles = [...new Set(rows.filter((r) => (count.get(key(r.title)) ?? 0) > 1).map((r) => r.title))];
+    if (!titles.length) { setDetails({}); return; }
+    let live = true;
+    Promise.all(titles.map((x) => ipc.switcher(x, 30).catch(() => [] as SwitcherItemDto[]))).then((all) => {
+      if (!live) return;
+      const out: Record<string, DuplicateDetailsDto> = {};
+      for (const it of all.flat()) if (it.path && it.duplicate) out[it.path.normalize('NFC')] = it.duplicate;
+      setDetails(out);
+    });
+    return () => { live = false; };
+  }, [rows]);
 
   useLayoutEffect(() => {
     const k = keepScroll.current;
@@ -369,6 +390,9 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
                     {r.modified && date(r) && <time className="modified" dateTime={r.modified}>{date(r)}</time>}
                   </span>
                 </span>
+                {details[r.path.normalize('NFC')] && (
+                  <span className="details line"><DuplicateDetails details={details[r.path.normalize('NFC')]} typeName={typeNameOf(r.type)} /></span>
+                )}
                 {r.file_name && (() => {
                   // D-254: a hit by its file name only says so, with the stem's matches highlighted.
                   const [before, after = ''] = t('search.fileName').split('{stem}');
