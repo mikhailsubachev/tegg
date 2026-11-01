@@ -141,6 +141,7 @@ Core services against **temporary vaults on APFS** (`$TMPDIR`), never mocks of t
   - online-only warning;
   - window and tab restore.
 - **Every slice adds to the suite (TS-I7, D-382):** an AC with `L6` in its layer marker gets an `app/e2e/` test in the slice's red commit, next to its L4/L5 tests; the push gate's `l6-coverage` check enforces it.
+- **Harness (D-1355):** every L6 step loads `app/e2e/helpers/l6-guard.ts` (`node --import`). Element clicks are mouse clicks at the element's centre (XCTest's own element click crashes WebDriverAgent on web content with Xcode 27.2); a WebDriverAgent that dies is restarted and the leftover test build quit, so one crash fails one test, not the rest of the run; a locked screen fails the run at once, and `caffeinate` keeps the display awake.
 - **Network check (NFR-SEC-01):** during every L6 run, a monitor samples `lsof -i -a -p <app pids>` and fails on any socket other than local IPC.
 - **Feasibility is unproven:** driving content inside a WKWebView through accessibility may be limited. **Spike S3 must prove** hotkey, menu bar and capture-window automation, and a basic in-webview interaction, before we rely on L6 (exit criterion in §10.1).
 
