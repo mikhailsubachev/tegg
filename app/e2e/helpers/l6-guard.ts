@@ -1,17 +1,20 @@
 // Guard for every real-app (L6) test file, loaded with `node --import ./e2e/helpers/l6-guard.ts --test …` (qa.config.json
 // `app-e2e`, `app-e2e-nightly`, `app-perf`; `npm run test:e2e`). `node --test` runs each file in its own process, so this
 // runs once per file. It keeps one failure from failing the rest of the run:
-// - **Locked screen:** XCTest's click asserts in SkyLight (`SLSGetDisplaysWithRect`) and kills WebDriverAgent while the
-//   screen is locked or the display sleeps (L6 run of 2026-11-01). A locked screen fails the file at once with a clear
-//   message; while the file runs, `caffeinate` keeps the display awake (D-62's nightly runs under `caffeinate` too).
+// - **Locked screen:** XCTest can't drive the app behind a locked screen, so a locked screen fails the file at once with
+//   a clear message; while the file runs, `caffeinate` keeps the display awake so the screen doesn't lock (D-62's
+//   nightly runs under `caffeinate` too).
 // - **A dead WebDriverAgent:** when its runner crashes, `xcodebuild` keeps running, so the Mac2 driver still thinks
 //   WebDriverAgent is up and every later session fails with ECONNREFUSED. The watchdog stops that `xcodebuild` once its
 //   runner is gone; the next session then starts a new WebDriverAgent.
 // - **A leftover app:** after such a crash `end()` cannot quit the test build, and Tegg is single-instance, so the next
 //   launch (`preflight()`, `spawnApp`) hands off to the leftover copy and never shows its route. Leftover copies of the
 //   test build are quit when a file starts and when WebDriverAgent dies.
+// - **Clicks:** XCTest's element click is what crashes, so every element click becomes a mouse click at the element's
+//   centre (helpers/l6-clicks.ts, put in place of `webdriverio` by helpers/l6-resolve.mjs).
 // Only the test build of this checkout (`APP`) and Appium's own WebDriverAgent are touched; never Tegg Preview.
 import { execFileSync, spawn } from 'node:child_process';
+import { register } from 'node:module';
 import { resolve } from 'node:path';
 
 const EXE = resolve(import.meta.dirname, '../../src-tauri/target/release/bundle/macos/Tegg.app/Contents/MacOS/tegg');
@@ -40,6 +43,8 @@ function screenLocked(): boolean {
     return false;
   }
 }
+
+register('./l6-resolve.mjs', import.meta.url);
 
 if (screenLocked()) {
   throw new Error('L6 needs an unlocked screen: XCTest cannot click while the screen is locked. Unlock the Mac and run again.');
