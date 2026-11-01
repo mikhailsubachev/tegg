@@ -57,6 +57,16 @@ Decided 2026-11-01: AP-1207…AP-1210 accepted as proposed → D-1348…D-1351 (
 | AP-1209 | **Typo order in Rust (1 test).** `ac_search.rs` `fr_src_04_ac5_typo_matches_rank_after_exact_matches` expects every typo match after every exact match; under D-1341 a title with a typo (group 1) ranks above an exact body match (AC-24) | Change the test to "after exact matches within the same group step" (`AC-Test-Change`) | — |
 | AP-1210 | **Type menu key (FR-VLT-05 AC-3).** AP-478 opened the create row's Type menu with ⌥⏎; D-1343 makes ⌥⏎ in the field create with the default type | The Type menu opens from `as…` (click, or Tab to it and ⏎); FR-VLT-05 AC-3's key part follows (moved in 6282bdd) | (b) another shortcut for the menu |
 
+## QA review points (review of the build, 2026-11-01)
+
+Decided 2026-11-01: AP-1211…AP-1213 accepted as proposed → D-1352…D-1354 (BRD v1.144).
+
+| Point | Question | Proposal | Alternative |
+|---|---|---|---|
+| AP-1211 | ⏎ in `Search query` with filters but no text opened the first row | Do nothing, as AC-21's "empty query"; the AC-21 test checks it | (b) open the first filtered row, reword AC-21 |
+| AP-1212 | `fr_nav_03_ac6_*` gained a check that Back to Search focuses `Search query`, against AC-6's "page heading" | Approve the check; AC-6 names the Search exception | — |
+| AP-1213 | D-1342 says "2 letters"; the code counts any 2 characters (`20` matches `2026`) | Any 2 characters; D-1342 reworded | (b) letters only |
+
 ## Affected documents
 
 - BRD: FR-NAV-01's text, D-760 (page part), D-1200, D-1201, D-253 / D-107 (order), new D-1340…D-1343.

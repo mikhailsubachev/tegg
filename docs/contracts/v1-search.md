@@ -179,7 +179,8 @@ FR-NAV-01 AC-20…AC-23). Feedback: `docs/feedback/ms6-v0109-search.md`. The ACs
 
 - **Query words.** The positive unquoted words, folded (FR-FMT-12, the existing `fold`); quoted phrases and `-word`
   keep ms3-shell §15.1. **Prefix (D-1342):** when the raw query does not end with whitespace and its last item is an
-  unquoted, non-negative word of at least 2 characters, that word also matches every index word that starts with it
+  unquoted, non-negative word of at least 2 characters (digits count, D-1354; the raw last item decides, so a trailing
+  `-`, quote or symbol leaves no prefix), that word also matches every index word that starts with it
   (folded). A word matched only through its prefix counts as matched for every tier and group, and ranks as a typo
   match does (after exact); it does **not** set `typo` (the UI's `similar spelling` mark is for D-101 only). Title,
   alias, attribute and snippet highlights cover the matched prefix only (the query's characters, mapped to the
@@ -194,8 +195,8 @@ FR-NAV-01 AC-20…AC-23). Feedback: `docs/feedback/ms6-v0109-search.md`. The ACs
   uses the phrase's words for the groups, after the phrase filter. Filters never change the order; D-1205 (no text)
   is unchanged. `SearchResult` gains no field; `tier` and `matched_in` keep their meaning (a group-1 result has
   `matched_in == Title` or `FileName`, a group-2 result `Alias`).
-- **Speed.** The prefix expansion uses the index vocabulary the D-101 typo lookup already loads (a sorted vocabulary
-  allows a range scan); FR-SRC-04 AC-11 holds the NFR-PERF-04 core target on the reference vault.
+- **Speed.** The prefix expansion is an FTS5 prefix query (`"word"*`, a range scan of the term index) plus an
+  in-memory check of the file-name stems; FR-SRC-04 AC-11 holds the NFR-PERF-04 core target on the reference vault.
 
 ### 9.2 UI (D-1340, D-1343)
 
