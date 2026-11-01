@@ -89,6 +89,8 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   const focusPath = useRef<string | null>(initial?.focusPath ?? null);
   const restoreFocus = useRef<string | null>(initial?.focusPath ?? null);
   const restored = useRef(!!initial);
+  /** The row `Show next` focuses once it is rendered (FR-SRC-03 AC-12). */
+  const focusRow = useRef<number | null>(null);
   const seq = useRef(0);
   // The query the shown rows answer, and a ⏎ typed before they arrived (opened once they do).
   const rowsKey = useRef<string | null>(null);
@@ -208,13 +210,19 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     if (!p || n !== seq.current) return;
     const seen = new Set(rows.map((r) => r.path));
     const next = [...rows, ...p.results.filter((r) => !seen.has(r.path))];
+    focusRow.current = at;
     setRows(next);
     setTotal(p.total);
     totalRef.current = p.total;
     loaded.current = next.length;
     report();
-    requestAnimationFrame(() => list.current?.querySelectorAll<HTMLElement>('a.result')[at]?.focus({ preventScroll: true }));
   };
+  // The first new row gets the focus once it is rendered; a frame callback could run before React renders it (issue 105).
+  useLayoutEffect(() => {
+    const at = focusRow.current;
+    focusRow.current = null;
+    if (at !== null) list.current?.querySelectorAll<HTMLElement>('a.result')[at]?.focus({ preventScroll: true });
+  }, [rows]);
 
   const clearFilters = () => {
     setType(null);

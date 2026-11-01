@@ -810,7 +810,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     readyFor.current = key;
     requestAnimationFrame(() => {
       const main = root.current?.closest('main');
-      if (restoreScroll !== undefined && main) main.scrollTop = restoreScroll;
+      if (restoreScroll !== undefined && main) { if (!readerActed.current) main.scrollTop = restoreScroll; }
       else if (fragment) scrollToFragment(root.current, fragment);
       onRestored?.();
       placeFocus.current();
@@ -822,6 +822,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     });
   }, [loaded, fragment, path]);
 
+  /** Back's scroll position, now and again a frame later, unless the reader has scrolled, clicked or typed since the
+   *  note opened (issue 110, as the late restores of issue 102). */
+  const keepRestored = (main: Element, top: number) => {
+    if (readerActed.current) return;
+    main.scrollTop = top;
+    requestAnimationFrame(() => { if (!readerActed.current) main.scrollTop = top; });
+  };
   placeFocus.current = () => {
     if (!wantFocus.current || !loaded) return;
     if (document.querySelector('[role="dialog"]')) { wantFocus.current = false; return; }
@@ -896,10 +903,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       if (ed.editor.commands.setTextSelection({ from: clamp(restoreCaret.anchor), to: clamp(restoreCaret.head) })) {
         setFocusTarget('body');
         const main = root.current?.closest('main');
-        if (restoreScroll !== undefined && main) {
-          main.scrollTop = restoreScroll;
-          requestAnimationFrame(() => { main.scrollTop = restoreScroll; });
-        }
+        if (restoreScroll !== undefined && main) keepRestored(main, restoreScroll);
         return;
       }
     }
@@ -908,8 +912,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       // Back/Forward restore a scroll position: the caret never moves it (D-255).
       const main = root.current?.closest('main');
       if (restoreScroll !== undefined && main) {
-        main.scrollTop = restoreScroll;
-        requestAnimationFrame(() => { main.scrollTop = restoreScroll; });
+        keepRestored(main, restoreScroll);
       } else if (fragment) {
         // D-1189 b: the caret keeps the scroll position it found, which can still be the previous note's (clamped); a
         // `#Heading` / `#^id` open lands on its target, after the caret's own restore in the next frame.

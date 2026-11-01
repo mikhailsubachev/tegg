@@ -130,6 +130,7 @@ export function CaptureApp() {
 
   const onOpen = useCallback(async (o: CaptureOpen) => {
     shown.current = true;
+    const before = document.activeElement;
     // ⌃⌥T sets Task at once, also on an open window or a restored draft (D-542).
     if (o.kind === 'task') setType('task');
     const c = (await loadContext()) ?? ctx;
@@ -148,7 +149,9 @@ export function CaptureApp() {
     shownVault.current = c?.vault ? { id: c.vault.id, name: c.vault.name } : null;
     draftArmed.current = true;
     requestAnimationFrame(() => {
-      focusText();
+      // The text gets the focus unless the user has already moved it to a control of the window (issue 104).
+      const now = document.activeElement;
+      if (!now || now === document.body || now === before || now === textRef.current) focusText();
       requestAnimationFrame(() => requestAnimationFrame(() => void captureIpc.ready(o.seq)));
     });
   }, [ctx, loadContext]);
