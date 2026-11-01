@@ -1037,24 +1037,26 @@ impl Index {
             }
         };
 
-        // Sort key: (group, step or tier, exact before typo-or-prefix, field rank); then bm25, then path.
-        let mut hits: Vec<(&Meta, (u8, u8, bool, MatchField), bool, QueryTier, MatchField)> = Vec::new();
+        // Sort key: (group, step or tier, exact before typo-or-prefix, field rank); then bm25, then path. The last
+        // field marks a row whose tier waits for the body check (`Phrase` until then; resolved below).
+        type Hit<'a> = (&'a Meta, (u8, u8, bool, MatchField), bool, QueryTier, MatchField, bool);
+        let mut hits: Vec<Hit> = Vec::new();
         for m in full.iter().filter_map(|r| self.metas.get(r)).filter(|m| self.passes(m, q)) {
             let matched: Vec<&Item> = positives.iter().copied().filter(|it| full_of[idx(it)].contains(&m.rowid)).collect();
             let typo = matched.iter().any(|it| !pre_of[idx(it)].contains(&m.rowid));
             let inexact = matched.iter().any(|it| !exact_of[idx(it)].contains(&m.rowid));
             let all_words = words.iter().all(|w| full_of[idx(w)].contains(&m.rowid));
+            // NFR-PERF-04: the body's word sequence is read only for rows that can reach the page (below).
+            let mut pending = false;
             let tier = if words.len() <= 1 {
                 QueryTier::Phrase
             } else if !all_words {
                 QueryTier::AnyWord
-            } else if [&m.title_t, &m.stem_t, &m.attr_t].iter().any(|t| contains_sequence(t, &words))
-                || m.alias_t.iter().any(|a| contains_sequence(a, &words))
-                || self.body_tokens(m)?.is_some_and(|b| contains_sequence(&b, &words))
-            {
+            } else if [&m.title_t, &m.stem_t, &m.attr_t].iter().any(|t| contains_sequence(t, &words)) || m.alias_t.iter().any(|a| contains_sequence(a, &words)) {
                 QueryTier::Phrase
             } else {
-                QueryTier::AllWords
+                pending = true;
+                QueryTier::Phrase
             };
             let any = |toks: &[String]| matched.iter().any(|i| contains_item(toks, i));
             let field = if positives.is_empty() || any(&m.title_t) {
@@ -1081,8 +1083,13 @@ impl Index {
             } else {
                 ((3, tier as u8, inexact, field_rank), field)
             };
-            hits.push((m, key, typo, tier, field));
+            hits.push((m, key, typo, tier, field, pending));
         }
+        let by_rank = |a: &Hit, b: &Hit| {
+            let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
+            let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
+            a.1.cmp(&b.1).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
+        };
         if positives.is_empty() {
             // D-1205: filters only: the newest `modified` instant first, missing or invalid last, ties by path.
             let at = |m: &Meta| match m.modified {
@@ -1093,16 +1100,37 @@ impl Index {
         } else {
             // D-1341: title or file name first, then alias, then the rest in D-253's order (tier, exact before typo,
             // field); inside each: exact before typo-or-prefix (D-1342), then bm25, then path.
-            hits.sort_by(|a, b| {
-                let sa = score.get(&a.0.rowid).copied().unwrap_or(0.0);
-                let sb = score.get(&b.0.rowid).copied().unwrap_or(0.0);
-                a.1.cmp(&b.1).then(sa.total_cmp(&sb)).then_with(|| a.0.path.cmp(&b.0.path))
-            });
+            hits.sort_by(by_rank);
         }
         let total = hits.len();
         let limit = if q.limit == 0 { 50 } else { q.limit };
+        // A pending row is `Phrase` if its body holds the words in a row, else `AllWords` (a later place in group 3;
+        // groups 1 and 2 don't sort by tier). Walking the order with pending rows as `Phrase`, a row found `AllWords`
+        // only moves back, so once the rows that keep their place fill the page, the rest can't enter it.
+        let need = q.offset.saturating_add(limit);
+        let (mut kept, mut moved) = (0usize, false);
+        for h in hits.iter_mut() {
+            if kept >= need {
+                break;
+            }
+            if h.5 {
+                h.5 = false;
+                if !self.body_tokens(h.0)?.is_some_and(|b| contains_sequence(&b, &words)) {
+                    h.3 = QueryTier::AllWords;
+                    if h.1 .0 == 3 {
+                        h.1 .1 = QueryTier::AllWords as u8;
+                        moved = true;
+                        continue;
+                    }
+                }
+            }
+            kept += 1;
+        }
+        if moved {
+            hits.sort_by(by_rank);
+        }
         let mut results = Vec::new();
-        for (m, _, typo, tier, field) in hits.into_iter().skip(q.offset).take(limit) {
+        for (m, _, typo, tier, field, _) in hits.into_iter().skip(q.offset).take(limit) {
             let mut snippet = if positives.is_empty() { None } else { self.snippet_for(m, &items)? };
             // D-1207: without a body match, the body's lead without highlights.
             if snippet.is_none() {
@@ -1151,8 +1179,11 @@ impl Index {
         Ok(self.conn.prepare_cached("SELECT raw FROM notes WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?)
     }
 
+    /// The body's folded tokens: the FTS `body` column, which holds exactly `fts_text(body)` (the tokens joined by
+    /// spaces; a token never holds whitespace). Reading it skips folding the raw body again (NFR-PERF-04, D-1341).
     fn body_tokens(&self, m: &Meta) -> Result<Option<Vec<String>>, IndexError> {
-        Ok(self.raw_of(m)?.map(|raw| tokens(raw.get(m.s.body_start..).unwrap_or(""))))
+        let body: Option<String> = self.conn.prepare_cached("SELECT body FROM fts WHERE rowid = ?1")?.query_row(params![m.rowid], |r| r.get(0)).optional()?;
+        Ok(body.map(|b| b.split(' ').filter(|t| !t.is_empty()).map(str::to_string).collect()))
     }
 
     fn lead_for(&self, m: &Meta) -> Result<Option<Snippet>, IndexError> {
