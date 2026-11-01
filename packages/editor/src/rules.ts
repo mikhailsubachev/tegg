@@ -6,7 +6,7 @@
 import { Extension } from '@tiptap/core'
 import { InputRule, inputRules, undoInputRule } from '@tiptap/pm/inputrules'
 import type { MarkType, NodeType, Node as PMNode } from '@tiptap/pm/model'
-import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { findWrapping } from '@tiptap/pm/transform'
 
 /** The caret at the start or end of the textblock holding it (Home / End). */
@@ -216,6 +216,13 @@ export const TeggRules = Extension.create({
       // at a line's end is reached by End then ← (previews.md FR-LNK-13 AC-4).
       Home: ({ editor }) => caretTo(editor.state, editor.view.dispatch, 'start'),
       End: ({ editor }) => caretTo(editor.state, editor.view.dispatch, 'end'),
+      // ⌘↑ goes to the note's start as a transaction: left to WebKit, ProseMirror undoes a move to the start that comes
+      // within 200 ms of a focus, taking it for the browser resetting the selection (#107).
+      'Mod-ArrowUp': ({ editor }) => {
+        const { doc } = editor.state
+        editor.view.dispatch(editor.state.tr.setSelection(Selection.findFrom(doc.resolve(0), 1, true) ?? Selection.atStart(doc)).scrollIntoView())
+        return true
+      },
       Backspace: ({ editor }) => undoInputRule(editor.state, editor.view.dispatch),
     }
   },

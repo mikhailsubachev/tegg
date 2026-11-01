@@ -21,6 +21,14 @@ export async function handle(cmd: string, args: any, files: Files): Promise<any>
     const r = d.transform(args.source, args.text, args.ops);
     return r.kind === 'bytes' ? r.text : null;
   }
+  // One round trip for a whole job's files (a call per file paced the job by the page↔Node latency under load).
+  if (cmd === 'transformAll') {
+    return (args.items as { source: string; text?: string; ops: unknown[] }[]).map((x) => {
+      if (typeof x.text !== 'string') return null;
+      const r = d.transform(x.source, x.text, x.ops);
+      return r.kind === 'bytes' ? r.text : null;
+    });
+  }
   if (cmd === 'plan_rename') {
     const path = nfc(args.path);
     const text = files[path];

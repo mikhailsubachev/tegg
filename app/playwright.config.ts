@@ -21,10 +21,10 @@ export default defineConfig({
   globalSetup: './webkit/gate-lock.setup.ts',
   timeout: 60_000,
   // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
-  // shares state. Under ./verify 6 workers (12-core reference Mac; 8 saturated the machine once the gate ran its lanes
-  // concurrently, D-609; 4 was tried and didn't help, D-688); otherwise Playwright's default.
+  // shares state. Under ./verify 4 workers (12-core reference Mac; 6 drove the load average to ~24 next to the gate's
+  // other lanes, D-1347; 8 saturated it, D-609); otherwise Playwright's default.
   fullyParallel: true,
-  workers: gate ? 6 : undefined,
+  workers: gate ? 4 : undefined,
   // test-strategy §8.4: quarantined tests (`@flaky`, each with an issue) stay out of the gates' main run; the nightly
   // step `app-webkit-flaky` sets VERIFY_FLAKY=1 and runs only them.
   grepInvert: gate && !process.env.VERIFY_FLAKY ? /@flaky/ : undefined,

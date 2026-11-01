@@ -1144,7 +1144,9 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         if (want === undefined && files[p] === undefined) return finish('failed', total, zip, `changed:${p}`, done);
       }
       let n = 0;
-      for (const f of plan.files) {
+      // A file is transformed only while it still holds the planned text, so every output can be made up front.
+      const outs: (string | null)[] = await w.__teggJobs('transformAll', { items: plan.files.map((f: any) => ({ source: f.path, text: f.text, ops: f.ops })) }, {});
+      for (const [i, f] of (plan.files as any[]).entries()) {
         const p = f.path;
         state.plans[jobId].files[p] = f.ops;
         const skip = state.jobSkips[p];
@@ -1158,7 +1160,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
           if (rr === 'written') { report.written.push(p); done.written.push([p, await sha(files[p])]); } else report.skipped.push({ path: p, reason: 'changed' });
         } else if (cur !== f.text || state.stale.has(p)) report.skipped.push({ path: p, reason: 'changed' });
         else {
-          const out = await w.__teggJobs('transform', { source: p, text: cur, ops: f.ops }, files);
+          const out = outs[i];
           if (f.rename) {
             const to = f.rename.to;
             jobs.move(p, to, out ?? cur);
