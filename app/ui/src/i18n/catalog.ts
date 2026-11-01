@@ -502,7 +502,10 @@ export const en: Catalog = {
   'search.noResultsBody': 'Nothing matches “{q}” with {filters}. Clear the filters to search everything.',
   'search.noObjectsTitle': 'No objects with {filters}',
   'search.noObjectsBody': 'Clear the filters to search everything.',
-  'search.noMatchBody': 'Nothing in this vault matches “{q}”. Use Create “{q}” above to make it.',
+  // Search without `Go to` (v1-search §9.2, D-1343): the create buttons and the no-match body.
+  'search.create': 'Create “{q}”',
+  'search.createAs': 'as…',
+  'search.noMatchCreate': 'No matches. Create “{q}”?',
   // 4C (ms4-jobs §10, FR-UX-07 AC-9, FR-LNK-03 AC-16, D-387, D-406).
   'job.rename.running': { one: 'Updating links in {count} note', other: 'Updating links in {count} notes' },
   'job.rename.done': { one: 'Updated links in {count} note', other: 'Updated links in {count} notes' },
@@ -563,10 +566,6 @@ export const en: Catalog = {
   'cmd.showNotUpdated': 'Show notes not updated', // D-737
   'search.typo': 'similar spelling',
   'search.fileName': 'File name: {stem}',
-  'goto.label': 'Go to',
-  'goto.heading': 'Go to',
-  'switcher.create': 'Create "{title}"',
-  'switcher.alias': 'alias: {alias}',
   'progress.label': 'Indexing progress',
   'progress.running': 'Indexing {done} of {total}',
   'progress.cancelled': 'Indexing paused',

@@ -13,10 +13,10 @@ import { useTags } from './tags/store';
 import { tagKey } from './tags/keys';
 import { tagChipStyle } from './theme/tagChip';
 import { PopupMenu, type MenuEntry } from './shell/Menu';
-import { GoTo, type GoToKeys } from './GoTo';
+import { TypeMenu } from './shell/TypeMenu';
 import type { SearchState } from './shell/history';
 import type { SwitcherItemDto } from './ipc/types';
-import type { Prepared } from './types/create';
+import { prepareObject, type Prepared } from './types/create';
 
 const PAGE = 50;
 
@@ -44,14 +44,13 @@ function withUser(key: string, vars: Record<string, string>, user: Record<string
   return text.split('\u0000').map((part, i) => (i % 2 === 1 ? <span key={i} data-user-content>{user[marks[Number(part)]]}</span> : part));
 }
 
-/** FR-SRC-01…04: the Search page (board `Search`; docs/contracts/v1-search.md §3, D-1200…D-1230): the query field, the
- *  Type and tag filters (D-1203, D-706), the `Go to` list (FR-NAV-01, D-760, D-1200), the count line, result rows with
- *  type, date, match line, snippet or body lead and tag chips, `Show next`, and the empty states. Its state belongs to
- *  the history entry (D-1217): `initial` restores it, `onState` reports it. */
-export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState }: {
+/** FR-SRC-01…04: the Search page (board `Search`; docs/contracts/v1-search.md §3, §9.2, D-1200…D-1230, D-1340…D-1344):
+ *  the query field, the Type and tag filters (D-1203, D-706), the count line with the create buttons, result rows with
+ *  type, date, match line, snippet or body lead and tag chips, `Show next`, and the empty states. Quick switching is
+ *  the results list (FR-NAV-01, D-1340): ↓ goes to the first row, ⏎ opens it, ⌥⏎ creates. Its state belongs to the
+ *  history entry (D-1217): `initial` restores it, `onState` reports it. */
+export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState }: {
   onOpen: (path: string) => void;
-  /** A `Go to` row: replaces the Search entry in the history (D-760). */
-  onGoTo: (path: string) => void;
   /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
   onLeave: () => boolean;
   onCreate: (item: SwitcherItemDto, prepared?: Prepared | null) => void;
@@ -89,8 +88,11 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
   const restoreFocus = useRef<string | null>(initial?.focusPath ?? null);
   const restored = useRef(!!initial);
   const seq = useRef(0);
-  const goto = useRef<GoToKeys>(null);
-  const [active, setActive] = useState<string | undefined>();
+  // The query the shown rows answer, and a ⏎ typed before they arrived (opened once they do).
+  const rowsKey = useRef<string | null>(null);
+  const pendingEnter = useRef<string | null>(null);
+  const [asMenu, setAsMenu] = useState<{ left: number; top: number; button: HTMLElement | null } | null>(null);
+  const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [menuOpen, setMenuOpen] = useState(false);
   const typeButton = useRef<HTMLButtonElement>(null);
@@ -117,6 +119,7 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
     const n = ++seq.current;
     if (!hasText && !hasFilter) {
       lastKey.current = keyOf;
+      rowsKey.current = keyOf;
       setRows([]);
       setTotal(null);
       totalRef.current = null;
@@ -148,7 +151,12 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
         setTotal(p.total);
         totalRef.current = p.total;
         loaded.current = p.results.length;
+        rowsKey.current = keyOf;
         report();
+        if (pendingEnter.current === keyOf) {
+          pendingEnter.current = null;
+          if (p.results[0]) openFirst(p.results[0].path);
+        }
       } catch {
         /* the next change asks again */
       }
@@ -218,14 +226,14 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
     return t('search.countTags', { count: n, tags: tagsText });
   };
   const q = text.trim();
-  let empty: { title: React.ReactNode; label: string; body: React.ReactNode; clear: boolean } | null = null;
+  let empty: { title: React.ReactNode; label: string; body: React.ReactNode; clear: boolean; create?: boolean } | null = null;
   if (!hasText && !hasFilter) {
     empty = { title: t('search.emptyTitle'), label: t('search.emptyTitle'), body: t('search.emptyBody'), clear: false };
   } else if (total === 0) {
     if (hasText && hasFilter) {
       empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noResultsBody', { filters: filterList() }, { q }), clear: true };
     } else if (hasText) {
-      empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noMatchBody', {}, { q }), clear: false };
+      empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noMatchCreate', {}, { q }), clear: false, create: true };
     } else {
       const f = filterList();
       empty = { title: t('search.noObjectsTitle', { filters: f }), label: t('search.noObjectsTitle', { filters: f }), body: t('search.noObjectsBody'), clear: true };
@@ -233,8 +241,44 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
   }
   const moveRow = (from: HTMLElement, dir: 1 | -1) => {
     const links = [...(list.current?.querySelectorAll<HTMLElement>('a.result') ?? [])];
-    links[links.indexOf(from) + dir]?.focus();
+    const at = links.indexOf(from);
+    // ↑ on the first row returns to the field (FR-NAV-01 AC-21).
+    if (at === 0 && dir === -1) inputRef.current?.focus();
+    else links[at + dir]?.focus();
   };
+
+  // ⏎ in the field: the first result through the row's open path, a new history entry (D-1217, D-1340).
+  function openFirst(path: string) {
+    void ipc.perfMark('switcher-enter').catch(() => {}); // NFR-PERF-05 AC-2 (ms3-shell §11.5)
+    onOpen(path);
+  }
+  // D-1343: the create buttons and ⌥⏎ make the query an object through the one creation path (D-232). The core's
+  // switcher answer names the default type (FR-VLT-05); its type is read once, so a later create writes at once.
+  const createTitle = () => text.split(/\s+/).filter(Boolean).join(' ').normalize('NFC');
+  const createDefault = async () => {
+    const title = createTitle();
+    if (!title) return;
+    const c = (await ipc.switcher(title, 1).catch(() => [] as SwitcherItemDto[])).find((x) => x.kind === 'create');
+    if (!c) return;
+    const ready = prepared.current?.key === c.type ? prepared.current.p : null;
+    onCreate({ ...c, title }, ready);
+    if (prepared.current?.key !== c.type) {
+      const slot = { key: c.type, p: null as Prepared | null };
+      prepared.current = slot;
+      prepareObject(c.type).then((p) => { slot.p = p; }, () => {});
+    }
+  };
+  const openAs = (button: HTMLElement) => {
+    const r = button.getBoundingClientRect();
+    setAsMenu({ left: r.left, top: r.bottom + 4, button });
+  };
+  const createButtons = () => (
+    <>
+      <button type="button" tabIndex={0} className="text-button create" data-command="search.create" onClick={() => void createDefault()}>{withUser('search.create', {}, { q })}</button>
+      <button type="button" tabIndex={0} className="text-button create-as" data-command="search.createAs" aria-haspopup="menu" aria-expanded={!!asMenu}
+        onClick={(e) => openAs(e.currentTarget)}>{t('search.createAs')}</button>
+    </>
+  );
   const tagOrder = (keys: string[]) => [...keys].sort((a, b) => collator().compare(tagName(a), tagName(b)));
   const date = (r: SearchResultDto) => {
     const day = r.modified ? localDay(r.modified) : null;
@@ -247,11 +291,22 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
       <div role="search" className="search-field">
         <Icon name="search" />
         <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
-          aria-controls={active ? 'goto-list' : undefined} aria-activedescendant={active}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (goto.current?.onKey(e)) return;
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
+            if (e.key === 'ArrowDown') {
+              const first = list.current?.querySelector<HTMLElement>('a.result');
+              if (first) { e.preventDefault(); first.focus(); }
+            } else if (e.key === 'Enter' && e.altKey && !e.metaKey && !e.ctrlKey) {
+              e.preventDefault();
+              if (hasText) void createDefault();
+            } else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+              e.preventDefault();
+              if (!hasText && !hasFilter) return;
+              if (rowsKey.current === keyOf) { if (rows[0]) openFirst(rows[0].path); }
+              else pendingEnter.current = keyOf;
+            } else if (e.key === 'Enter') {
+              e.preventDefault(); // ⌘↩ is not bound on Search (D-1201)
+            } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
           }} />
         {text && <button type="button" tabIndex={0} className="clear-search" data-command="search.clear" aria-label={t('search.clear')} onClick={() => { setText(''); inputRef.current?.focus(); }}><Icon name="x" /></button>}
         <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>
@@ -269,15 +324,29 @@ export function Search({ onOpen, onGoTo, onCreate, onLeave, refresh, inputRef, t
         <TagFilter tags={options} selected={tagFilter} onChange={setTagFilter} colors={colors} allHint={t('search.tagAll')} />
         {hasFilter && <button type="button" tabIndex={0} className="text-button" data-command="search.clearFilters" onClick={clearFilters}>{t('search.clearFilters')}</button>}
       </div>
-      <GoTo q={text} keys={goto} onActive={setActive} onOpen={onGoTo} onCreate={onCreate} onRefocus={() => inputRef.current?.focus()} />
-      {!empty && total !== null && <div className="count" role="status">{countLine()}</div>}
+      {!empty && total !== null && (
+        // D-1344: the create buttons follow the `status`, so the live region announces only the count.
+        <div className="count-line">
+          <div className="count" role="status">{countLine()}</div>
+          {hasText && createButtons()}
+        </div>
+      )}
       {empty && (
         <section className="search-empty" aria-label={empty.label}>
           <span className="empty-icon" aria-hidden="true"><Icon name="search" /></span>
           <h2>{empty.title}</h2>
           <p>{empty.body}</p>
           {empty.clear && <button type="button" tabIndex={0} className="text-button" data-command="search.clearFilters" onClick={clearFilters}>{t('search.clearFilters')}</button>}
+          {empty.create && <div className="create-buttons">{createButtons()}</div>}
         </section>
+      )}
+      {asMenu && (
+        <TypeMenu at={asMenu} onClose={() => { const b = asMenu.button; setAsMenu(null); b?.focus(); }}
+          onChoose={(ty) => {
+            setAsMenu(null);
+            const title = createTitle();
+            if (title) onCreate({ kind: 'create', path: null, title, type: ty.key, folder: ty.folder, matched_alias: null, created: null, duplicate: null }, null);
+          }} />
       )}
       <ul ref={list} aria-label={t('search.results')}>
         {!empty && rows.map((r) => {
