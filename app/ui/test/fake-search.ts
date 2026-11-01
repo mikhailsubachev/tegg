@@ -151,8 +151,9 @@ export async function handle(cmd: string, a: any, files: Files): Promise<{ resul
     const stem = o.stem.normalize('NFC');
     const aliases = aliasesOf(o);
     const attrs = rawAttributes(o.text).filter((x) => !RESERVED.includes(x.key));
+    // As the core's title words: a Daily Note's date, then its stored `title:` when it differs (D-334, D-342).
     const fields = {
-      title: toks(title), fileName: toks(stem), alias: toks(aliases.join(' \n ')),
+      title: title !== o.title && o.title ? [...toks(title), ...toks(o.title)] : toks(title), fileName: toks(stem), alias: toks(aliases.join(' \n ')),
       attribute: toks(attrs.flatMap((x) => x.values).join(' \n ')), body: toks(body),
     };
     const all = Object.values(fields);
