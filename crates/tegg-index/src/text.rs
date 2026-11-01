@@ -59,6 +59,9 @@ pub struct Item {
     pub quoted: bool,
     /// D-101: alternative tokens within one edit (filled by the index for single words of ≥ 5 letters).
     pub alternatives: Vec<String>,
+    /// D-1342 (v1-search §9.1): the query's last item, unquoted and positive, its last token ≥ 2 characters, the raw
+    /// query not ending with whitespace: that token also matches every word starting with it.
+    pub prefix: bool,
 }
 
 impl Item {
@@ -111,7 +114,15 @@ pub fn parse_query(q: &str) -> Vec<Item> {
         }
         let toks = tokens(&text);
         if !toks.is_empty() {
-            items.push(Item { tokens: toks, negative, quoted, alternatives: Vec::new() });
+            items.push(Item { tokens: toks, negative, quoted, alternatives: Vec::new(), prefix: false });
+        }
+    }
+    // D-1342: the last word as a prefix.
+    if !q.ends_with(char::is_whitespace) {
+        if let Some(last) = items.last_mut() {
+            if !last.quoted && !last.negative && last.tokens.last().is_some_and(|t| t.chars().count() >= 2) {
+                last.prefix = true;
+            }
         }
     }
     items
@@ -138,30 +149,61 @@ pub fn within_one_edit(a: &str, b: &str) -> bool {
     }
 }
 
-/// Positions (indexes into `ws`) where `item` matches: its tokens in sequence, or one of its alternatives.
-pub fn match_positions(ws: &[(Range<usize>, String)], item: &Item) -> Vec<Range<usize>> {
+/// Whether `item` matches `toks` starting at `at`: its tokens in sequence (the last one as a prefix too when
+/// `loose` and the item is a D-1342 prefix), or, when `loose`, one of its D-101 alternatives.
+pub fn item_at(toks: &[String], at: usize, item: &Item, loose: bool) -> bool {
+    let n = item.tokens.len();
+    if n == 0 || at + n > toks.len() {
+        return false;
+    }
+    let seq = (0..n).all(|k| toks[at + k] == item.tokens[k] || (loose && item.prefix && k == n - 1 && toks[at + k].starts_with(item.tokens[k].as_str())));
+    seq || (loose && n == 1 && item.alternatives.contains(&toks[at]))
+}
+
+/// Bytes of `word` (as written) that its first `chars` folded characters come from, combining marks after them
+/// included (D-1342: a prefix highlight covers the query's characters, mapped to the original text).
+fn prefix_bytes(word: &str, chars: usize) -> usize {
+    let mut end = word.len();
+    for (i, _) in word.char_indices().skip(1) {
+        if fold(&word[..i]).chars().count() >= chars {
+            end = i;
+            break;
+        }
+    }
+    let rest = &word[end..];
+    end + rest.chars().take_while(|c| is_combining_mark(*c)).map(char::len_utf8).sum::<usize>()
+}
+
+/// Byte ranges in `s` (whose words are `ws`) where `item` matches, exactly, by a typo (the whole word) or by the
+/// D-1342 prefix (the matched prefix only).
+pub fn match_spans(s: &str, ws: &[(Range<usize>, String)], item: &Item) -> Vec<(usize, usize)> {
     let n = item.tokens.len();
     let mut out = Vec::new();
     if n == 0 || ws.len() < n {
         return out;
     }
+    let toks: Vec<String> = ws.iter().map(|w| w.1.clone()).collect();
     for i in 0..=ws.len() - n {
-        let exact = (0..n).all(|k| ws[i + k].1 == item.tokens[k]);
-        let alt = n == 1 && item.alternatives.iter().any(|a| *a == ws[i].1);
-        if exact || alt {
-            out.push(i..i + n);
+        if !item_at(&toks, i, item, true) {
+            continue;
         }
+        let last = &ws[i + n - 1];
+        let want = &item.tokens[n - 1];
+        let whole = last.1 == *want || (n == 1 && item.alternatives.contains(&last.1));
+        let end = if whole { last.0.end } else { last.0.start + prefix_bytes(&s[last.0.clone()], want.chars().count()) };
+        out.push((ws[i].0.start, end));
     }
     out
 }
 
-/// Whether the folded token list contains the item (exactly or through an alternative).
+/// Whether the folded token list contains the item (exactly, through an alternative or the D-1342 prefix).
 pub fn contains_item(toks: &[String], item: &Item) -> bool {
-    let n = item.tokens.len();
-    if n == 0 || toks.len() < n {
-        return false;
-    }
-    toks.windows(n).any(|w| w == item.tokens.as_slice()) || (n == 1 && toks.iter().any(|t| item.alternatives.contains(t)))
+    (0..toks.len()).any(|i| item_at(toks, i, item, true))
+}
+
+/// Whether the folded token list contains the item exactly (no alternative, no prefix).
+pub fn contains_item_exact(toks: &[String], item: &Item) -> bool {
+    (0..toks.len()).any(|i| item_at(toks, i, item, false))
 }
 
 pub struct SnippetParts {
@@ -214,8 +256,8 @@ pub fn snippet(body: &str, items: &[Item]) -> Option<SnippetParts> {
         let ws = words(line);
         let mut hits: Vec<Range<usize>> = Vec::new();
         for it in &positives {
-            for r in match_positions(&ws, it) {
-                hits.push(ws[r.start].0.start..ws[r.end - 1].0.end);
+            for (a, b) in match_spans(line, &ws, it) {
+                hits.push(a..b);
             }
         }
         if hits.is_empty() {
@@ -248,8 +290,8 @@ pub fn snippet(body: &str, items: &[Item]) -> Option<SnippetParts> {
     None
 }
 
-/// Whether `items` occur next to each other, in order, in the folded token list (each exactly or, for a single
-/// token, through an alternative): the phrase tier of D-253.
+/// Whether `items` occur next to each other, in order, in the folded token list (each exactly, through the D-1342
+/// prefix or, for a single token, through an alternative): the phrase tier of D-253.
 pub fn contains_sequence(toks: &[String], items: &[&Item]) -> bool {
     let n: usize = items.iter().map(|i| i.tokens.len()).sum();
     if n == 0 || toks.len() < n {
@@ -258,9 +300,8 @@ pub fn contains_sequence(toks: &[String], items: &[&Item]) -> bool {
     (0..=toks.len() - n).any(|start| {
         let mut at = start;
         items.iter().all(|it| {
-            let k = it.tokens.len();
-            let ok = toks[at..at + k] == it.tokens[..] || (k == 1 && it.alternatives.contains(&toks[at]));
-            at += k;
+            let ok = item_at(toks, at, it, true);
+            at += it.tokens.len();
             ok
         })
     })
@@ -347,6 +388,26 @@ mod tests {
         assert!(within_one_edit("rozpocetx", "rozpocet"));
         assert!(within_one_edit("rozpocex", "rozpocet"));
         assert!(!within_one_edit("rozpoctu", "rozpocet"));
+    }
+
+    #[test]
+    fn prefix_rule() {
+        let p = |q: &str| parse_query(q).into_iter().map(|i| i.prefix).collect::<Vec<_>>();
+        assert_eq!(p("rozpo"), vec![true]);
+        assert_eq!(p("rozpo "), vec![false]);
+        assert_eq!(p("r"), vec![false]);
+        assert_eq!(p("\"rozpo\""), vec![false]);
+        assert_eq!(p("rozpo výlet"), vec![false, true]);
+        assert_eq!(p("rozpočet -kr"), vec![false, false]);
+    }
+
+    #[test]
+    fn prefix_highlight_maps_to_the_original_text() {
+        let items = parse_query("cten");
+        for (text, want) in [("Čtení knih", 5), ("C\u{30C}tení knih", 6)] {
+            let ws = words(text);
+            assert_eq!(match_spans(text, &ws, &items[0]), vec![(0, want)], "{text:?}");
+        }
     }
 
     #[test]
