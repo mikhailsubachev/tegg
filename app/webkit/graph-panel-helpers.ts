@@ -166,7 +166,7 @@ export async function graphOpenKeys(page: Page): Promise<string> {
   });
 }
 
-/** Search (D-760), then ⏎: opens the object titled `title`. */
+/** Search (D-1345), then ⏎ on the first result: opens the object titled `title`. */
 export async function searchOpen(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');

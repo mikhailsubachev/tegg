@@ -51,7 +51,7 @@ export function longestNote(vault: string): { path: string; title: string; text:
 
 const osa = guardedOsa; // D-758: ⌘Q/⌘W only while Tegg is frontmost
 
-/** One launch: wait for `ui-ready`, ⇧⌘F (the Search page's Go to list, D-760), paste the title, ⏎; the app exits after `note-ready`. Returns the marks. */
+/** One launch: wait for `ui-ready`, ⇧⌘F (the Search page, D-760), paste the title, ⏎ opens the first result (D-1340); the app exits after `note-ready`. Returns the marks. */
 export async function oneRun(env: Record<string, string>, log: string, title: string, timeoutMs = 60_000): Promise<Mark[]> {
   const clean = { ...process.env };
   for (const k of Object.keys(clean)) if (k.startsWith('TEGG_')) delete clean[k];

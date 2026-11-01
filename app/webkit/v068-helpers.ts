@@ -5,7 +5,7 @@
 // AssertionError instead of a Playwright timeout (TS-I1). Written from the ACs only (D-61).
 import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { eventually, must, mustBeOn, seen, settled, sidebar } from './helpers';
+import { eventually, firstResultRow, must, mustBeOn, seen, settledFirstResult, sidebar } from './helpers';
 
 export const nfc = (s: string) => s.normalize('NFC');
 export const flat = (s: string | null | undefined) => nfc((s ?? '').replace(/\s+/g, ' ').trim());
@@ -16,7 +16,7 @@ export const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** The Search page's field (ms2-shell §3 `Search query`). */
 export const searchQuery = (page: Page) =>
   page.getByRole('searchbox', { name: 'Search query', exact: true }).or(page.getByRole('textbox', { name: 'Search query', exact: true })).first();
-/** The `Go to` list above the full-text results (search-navigation.md FR-NAV-01 AC-15). */
+/** The former `Go to` list (search-navigation.md FR-NAV-01 AC-15), gone since D-1340: kept to assert its absence. */
 export const goToList = (page: Page) => page.getByRole('listbox', { name: 'Go to', exact: true });
 export const searchResults = (page: Page) => page.getByRole('list', { name: 'Search results', exact: true });
 
@@ -26,19 +26,19 @@ export async function openSearch(page: Page): Promise<Locator> {
   await mustBeOn(page, 'Search', 'the search route (⇧⌘F)', 5000);
   return must(searchQuery(page), 'textbox "Search query"', 3000);
 }
-/** The `Go to` options as their first line of text (title), in order. */
+/** The result rows' titles, in order (D-1345: the results list replaces the `Go to` options, D-1340). */
 export async function goToOptions(page: Page): Promise<string[]> {
-  if (!(await seen(goToList(page), 500))) return [];
-  return (await goToList(page).getByRole('option').allInnerTexts()).map((t) => flat(t.split('\n')[0]));
+  if (!(await seen(searchResults(page), 500))) return [];
+  return (await searchResults(page).locator('a.result').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''))).map(flat);
 }
-/** Opens an object through the Search page's `Go to` list (D-760): ⇧⌘F, the query, ⏎ on the selected first option. */
+/** Opens an object through the Search page (D-1340, D-1345): ⇧⌘F, the query, ⏎ on the first result. */
 export async function goTo(page: Page, query: string, title = query, ms = 5000) {
   const q = await openSearch(page);
   await q.fill(query);
-  await must(goToList(page), `listbox "Go to" for ${JSON.stringify(query)}`, 3000);
-  await settled(page, 'Go to', query);
+  await must(firstResultRow(page), `the first row of "Search results" for ${JSON.stringify(query)}`, 3000);
+  await settledFirstResult(page, query);
   await page.keyboard.press('Enter');
-  await mustBeOn(page, nfc(title), `open "${title}" from the Search page's Go to list`, ms);
+  await mustBeOn(page, nfc(title), `open "${title}" from the Search page's first result`, ms);
 }
 
 // ------------------------------------------------------------------------------------------------ sidebar (D-759, D-761)

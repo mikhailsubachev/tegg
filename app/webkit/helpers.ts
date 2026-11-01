@@ -155,9 +155,9 @@ export async function mustBeOn(page: Page, name: string, how: string, ms = 5000)
 // `Go to type: Osoby`.
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 /**
- * Waits until the selected option of `list` (the palette's `Commands` or the Search page's `Go to`, D-760) answers
- * `query`: its first line contains the query, accents and case aside. `Go to` asks the core for its results, so
- * right after typing the list can still show the previous query's; ⏎ then opens the wrong note. A fixed sleep was not
+ * Waits until the selected option of `list` (the palette's `Commands`) answers
+ * `query`: its first line contains the query, accents and case aside. A list that asks the core for its results can,
+ * right after typing, still show the previous query's; ⏎ then opens the wrong option. A fixed sleep was not
  * enough under the push gate's load. Gives up after `ms` without failing, for fuzzy queries no option spells out (the
  * test's next assertion still decides), and logs that it did.
  */
@@ -187,23 +187,56 @@ export async function paletteOptions(page: Page): Promise<string[]> {
 /** D-760 (search-navigation.md FR-NAV-01 AC-15…AC-18): ⌘O and the Quick switcher are gone; the Search page's field. */
 export const searchQueryField = (page: Page) =>
   page.getByRole('searchbox', { name: /^⟦?Search query⟧?$/ }).or(page.getByRole('textbox', { name: /^⟦?Search query⟧?$/ })).first();
-/** The Search page's `Go to` list (D-760). Both accept the pseudo-locale's ⟦⟧ (NFR-OTH-02 AC-3). */
+/** The Search page's former `Go to` list (D-760), gone since D-1340: kept so tests can assert its absence. */
 export const goToListbox = (page: Page) => page.getByRole('listbox', { name: /^⟦?Go to⟧?$/ });
-/** ⇧⌘F, `query` typed in `Search query`, then waits until the selected `Go to` option answers it (D-760). The caret stays
- *  in the field, so ⏎ opens the selected option and ↓/↑ move the selection. */
+/** The Search page's results list and its first row's link (D-1340: quick switching is the results list). Both accept
+ *  the pseudo-locale's ⟦⟧ (NFR-OTH-02 AC-3). */
+export const searchResultsList = (page: Page) => page.getByRole('list', { name: /^⟦?Search results⟧?$/ });
+export const firstResultRow = (page: Page) => searchResultsList(page).locator('a.result').first();
+/**
+ * Waits until the first row of `Search results` answers `query` (its title contains the query, accents and case
+ * aside) or the page says nothing matches it (`No results for “<query>”`). Right after typing the rows can still answer
+ * the previous query (D-1345). Gives up after `ms` without failing, for queries no title spells out (the test's next
+ * assertion still decides), and logs that it did. True when the first row answers the query.
+ */
+export async function settledFirstResult(page: Page, query: string, ms = 3000): Promise<boolean> {
+  const want = fold(query);
+  const row = firstResultRow(page);
+  const none = page.getByRole('region', { name: new RegExp(`^⟦?No results for “${query.trim().normalize('NFC').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}”⟧?$`) });
+  const state = async () => {
+    const t = fold((await row.getAttribute('aria-label', { timeout: 200 }).catch(() => null)) ?? '');
+    if (t.includes(want)) return 'row';
+    return (await none.count().catch(() => 0)) > 0 ? 'none' : t;
+  };
+  const got = await eventually(state, (t) => t === 'row' || t === 'none', ms);
+  if (got !== 'row' && got !== 'none') console.warn(`settledFirstResult: the first result did not match ${JSON.stringify(query)} within ${ms} ms (last: ${JSON.stringify(got)})`);
+  return got === 'row';
+}
+/** ⇧⌘F, `query` typed in `Search query`, then waits until the first result row answers it (D-1340, D-1345). The caret
+ *  stays in the field, so ⏎ opens the first result and ↓ moves to the first row. */
 export async function goToQuery(page: Page, query: string) {
   await page.keyboard.press('Meta+Shift+f');
   const q = await must(searchQueryField(page), `textbox "Search query" (⇧⌘F, for ${JSON.stringify(query)})`, 5000);
   await q.fill(query);
-  await must(goToListbox(page), `listbox "Go to" (for ${JSON.stringify(query)})`, 3000);
-  await settled(page, 'Go to', query);
+  await settledFirstResult(page, query);
+}
+/** The Search page's `Create “<q>”` button (D-1343), after the count line or in the no-match state. */
+export const searchCreateButton = (page: Page) => page.getByRole('button', { name: /^⟦?Create “.*”⟧?$/ }).first();
+/** ⇧⌘F, `title` typed in `Search query`, then `Create “<title>”` (D-1343): creates it with the default type. */
+export async function createFromSearch(page: Page, title: string) {
+  await page.keyboard.press('Meta+Shift+f');
+  const q = await must(searchQueryField(page), `textbox "Search query" (⇧⌘F, for ${JSON.stringify(title)})`, 5000);
+  await q.fill(title);
+  const want = `Create “${title.trim().split(/\s+/).join(' ').normalize('NFC')}”`;
+  const b = page.getByRole('button', { name: want, exact: true }).first();
+  await (await must(b, `button ${want}`, 3000)).click();
 }
 
-/** Opens a note through the Search page's `Go to` list (D-760; before it, the ⌘O switcher). */
+/** Opens a note through the Search page (D-1340, D-1345): its title in `Search query`, ⏎ on the first result. */
 export async function openNote(page: Page, title: string) {
   await goToQuery(page, title);
   await page.keyboard.press('Enter');
-  await mustBeOn(page, title, `open "${title}" from the Search page's Go to list`);
+  await mustBeOn(page, title, `open "${title}" from the Search page's first result`);
 }
 
 export async function gotoType(page: Page, plural: string) {

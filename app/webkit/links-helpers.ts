@@ -6,7 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { loadFixtureVault, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
 import { READ_COMMANDS, eventually, must, mustBeOn, runCommand, seen, settled, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
-import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { goToQuery } from './helpers'; // D-1345: the Search page's first result (D-1340)
 
 export { eventually, must, mustBeOn, runCommand, seen, sleep };
 export type { FakeCoreHandle };

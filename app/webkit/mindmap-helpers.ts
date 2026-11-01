@@ -394,7 +394,7 @@ export async function copy(page: Page): Promise<{ plain: string; html: string }>
   });
 }
 
-/** Opens a note through the Search page's `Go to` list (D-760). */
+/** Opens a note through the Search page (D-1345): its title in `Search query`, ⏎ on the first result. */
 export { goToQuery } from './helpers';
 export async function gotoNote(page: Page, title: string) {
   const { goToQuery } = await import('./helpers');
