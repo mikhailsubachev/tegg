@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.144, for review                                            |
+| **Document status** | Draft v1.145, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -158,6 +158,7 @@
 | v1.142  | 2026-11-01 | D-1347 (owner): the gates run the WebKit tests with 4 Playwright workers instead of 6 |
 | v1.143  | 2026-11-01 | Search without `Go to`, build decisions (build 4efdb9a…6282bdd): D-1348…D-1351 (AP-1207…AP-1210, as proposed): tests stop relying on Back skipping Search; colliding titles show the details line on result rows; the typo-order test is per group step; the create Type menu opens from `as…`. (v1.142 and D-1347 are PR #111's gate-worker decision) |
 | v1.144  | 2026-11-01 | QA review of Search without `Go to`: D-1352…D-1354 (AP-1211…AP-1213, as proposed): ⏎ with only filters does nothing; Back to Search focuses `Search query` (FR-NAV-03 AC-6); the prefix needs any 2 characters (D-1342 reworded) |
+| v1.145  | 2026-11-01 | D-1355 (owner): every real-app (L6) element click is a mouse click at the element's centre (D-751 generalised), after Xcode 27.2's element click kills WebDriverAgent on web content |
 
 ---
 
@@ -1339,6 +1340,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1352 | ⏎ with only filters (AP-1211) (owner, 2026-11-01; QA review of the Search build) | ⏎ in `Search query` with filters set but no text does nothing, as FR-NAV-01 AC-21's "empty query"; the AC-21 test checks it (`AC-Test-Change`) |
 | D-1353 | Focus after Back to Search (AP-1212) (owner, 2026-11-01; QA review of the Search build) | After Back or Forward lands on `search`, the focus is in `Search query` (3D feedback F3, FR-NAV-01 AC-21), not on the page heading; FR-NAV-03 AC-6 names the exception and `fr_nav_03_ac6_*`'s added check is approved |
 | D-1354 | Any 2 characters start a prefix (AP-1213) (owner, 2026-11-01; QA review of the Search build) | D-1342's "at least 2 letters" means any 2 characters after folding, digits included (`20` matches `2026`) |
+| D-1355 | L6 clicks at the element's centre (owner, 2026-11-01: "Yes, record and merge"; L6 run on main + `claude/l6-harness`) | With Xcode 27.2 on macOS 26.6, XCTest's element click asserts in SkyLight and kills WebDriverAgent for elements inside Tegg's web content, and every later session fails. The L6 harness (`app/e2e/helpers/l6-guard.ts`, loaded with `node --import` by every L6 step) turns every element click, double-click and element-based `macos:` gesture into a mouse event at the element's centre (D-751 did this only where XCTest's click does nothing). Trade-off: a centre click doesn't check hittability, so a covered element fails at the next assertion instead of at the click. The harness also restarts a dead WebDriverAgent, quits a leftover test build, and fails at once on a locked screen. No AC test changes. |
 
 ---
 

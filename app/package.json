@@ -15,7 +15,7 @@
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "vitest run",
     "test:webkit": "playwright test",
-    "test:e2e": "node --test --test-concurrency=1 --test-reporter=spec e2e/*.ac.test.ts",
+    "test:e2e": "node --import ./e2e/helpers/l6-guard.ts --test --test-concurrency=1 --test-reporter=spec e2e/*.ac.test.ts",
     "e2e:setup": "APPIUM_HOME=e2e/.appium appium driver install mac2 && APPIUM_HOME=e2e/.appium appium driver run mac2 open-wda"
   },
   "dependencies": {

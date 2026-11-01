@@ -369,7 +369,9 @@ export async function captureValue(d: Driver): Promise<string> {
 // ------------------------------------------------------------------------------------------------ preflight
 
 let pre: Promise<string | null> | undefined;
-/** The built app exists and opens the `inbox` route (5B) with the test hooks. */
+/** The built app exists and opens the `inbox` route (5B) with the test hooks. Only a pass is kept: a failed check runs
+ *  again for the next test, so one bad start (a leftover app after a WebDriverAgent crash, helpers/l6-guard.ts) doesn't
+ *  fail every later test of the file. */
 export function preflight(): Promise<string | null> {
   pre ??= (async () => {
     if (!existsSync(EXE)) return `app not built: ${EXE} (cd app && npm run app:build)`;
@@ -381,6 +383,7 @@ export function preflight(): Promise<string | null> {
     quitApp(child);
     await waitExit(child);
     rmSync(base, { recursive: true, force: true });
+    if (!ok) pre = undefined;
     return ok ? null : 'the app does not open the route inbox (route-ready:inbox missing)';
   })();
   return pre;

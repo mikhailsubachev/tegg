@@ -16,3 +16,6 @@ path = "src/main.rs"
 
 [dev-dependencies]
 tempfile = "3"
+
+# Standalone: not part of the product workspace, also when this checkout is a worktree nested in another checkout.
+[workspace]
