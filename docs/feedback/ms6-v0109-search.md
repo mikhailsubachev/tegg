@@ -46,6 +46,17 @@ Decided 2026-11-01: AP-1204…AP-1206 accepted as proposed → D-1344…D-1346 (
 | AP-1205 | About 25 WebKit AC files and some L6 tests open or create objects through `Go to` | Helpers type the title in `Search query` and press ⏎ on the first row; direct AC uses move to result rows or the create buttons in one `AC-Test-Change` commit |
 | AP-1206 | `fr_src_03_ac18_every_string_is_a_catalog_key_with_its_english_text` still checks `search.noMatchBody` | Drop that row in the same commit |
 
+## Build points (build 4efdb9a…6282bdd)
+
+Open: for the owner.
+
+| Point | Question | Proposal | Alternative |
+|---|---|---|---|
+| AP-1207 | **Back after opening from Search (31 tests).** With `Go to`, opening an object replaced the Search entry (D-760), so Back skipped Search. D-1340 (FR-NAV-01 AC-21) makes it a new entry, so Back now lands on Search. Tests that open notes through the helpers and then expect Back to reach the page before fail: history (10), history_v094 FR-NAV-03 AC-8 (4), editor_save FR-EDT-09 AC-5, rename FR-FMT-08 AC-5, trash FR-HIS-01 AC-1, type_moves FR-STO-04 AC-4, page_width FR-SET-02 AC-7, AC-9 (AC-9 asserts the old replace), graph panel FR-GRP-01 AC-30, AC-31, AC-39, AC-40, FR-GRP-06 AC-8, FR-UX-03 AC-36, FR-GRP-02 AC-33, and regression tests bug_3c, bug_qag2 | One more `AC-Test-Change` commit: these tests open their notes the way they mean to test (or press Back once more over `Search`), keeping every check; page_width AC-9's replace check goes | (b) opening from Search replaces the Search entry again, as `Go to` did; then Back never returns to the search (reverses AC-21 and AC-23) |
+| AP-1208 | **Duplicate titles in Search (2 tests).** FR-LNK-14 AC-6 shows D-289's details line (folder, type, modified) for objects with the same title in the quick switcher; result rows show type and date only | Result rows whose titles collide also show the details line, as the pickers do | (b) drop the quick-switcher part of AC-6; the `[[`, `@` and relation pickers keep it |
+| AP-1209 | **Typo order in Rust (1 test).** `ac_search.rs` `fr_src_04_ac5_typo_matches_rank_after_exact_matches` expects every typo match after every exact match; under D-1341 a title with a typo (group 1) ranks above an exact body match (AC-24) | Change the test to "after exact matches within the same group step" (`AC-Test-Change`) | — |
+| AP-1210 | **Type menu key (FR-VLT-05 AC-3).** AP-478 opened the create row's Type menu with ⌥⏎; D-1343 makes ⌥⏎ in the field create with the default type | The Type menu opens from `as…` (click, or Tab to it and ⏎); FR-VLT-05 AC-3's key part follows (moved in 6282bdd) | (b) another shortcut for the menu |
+
 ## Affected documents
 
 - BRD: FR-NAV-01's text, D-760 (page part), D-1200, D-1201, D-253 / D-107 (order), new D-1340…D-1343.
