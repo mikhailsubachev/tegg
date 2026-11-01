@@ -67,6 +67,8 @@ test('fr_fmt_08_ac5_back_returns_to_the_renamed_note_not_a_dead_entry', async ({
   await gotoNote(page, 'Beta');
   const before = (await callsOf(core, 'note_read')).length;
   await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Search', 'Back over the Search entry Beta was opened from (D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Gama', 'Back lands on Gama (the history entry was rewritten)');
   assert.equal(await seen(page.getByRole('alert'), 500), false, 'no "missing note" alert');
   const reads = (await callsOf(core, 'note_read')).map((c) => nfc(String(args(c).path)));

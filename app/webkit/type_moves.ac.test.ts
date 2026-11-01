@@ -67,6 +67,8 @@ test('fr_sto_04_ac4_change_type_without_a_dialog_moves_and_replaces_the_route', 
   assert.equal(await eventually(() => typeCount(page, 'Knihy'), (n) => n === kn + 1, 2000), kn + 1, 'Knihy +1 within 2 s');
   assert.deepEqual((await core.backups()).filter((b) => b.kind === 'type-move'), [], 'no zip for the move (board G; the zip of the tidy job at open is its own)');
   await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Search', 'Back goes to the Search entry Plán was opened from (D-1348): the route was replaced, not pushed');
+  await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Odkazy', 'Back goes to Odkazy: the route was replaced, not pushed');
   await sleep(6000);
   assert.equal(await seen(jobStatus(page, 'Now a Kniha'), 200), false, 'Undo is offered for 5 s');

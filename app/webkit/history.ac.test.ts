@@ -37,8 +37,9 @@ const TRIGGERS: Trigger[] = [
   { name: 'mouse_buttons', back: (p) => mouse(p, 3), forward: (p) => mouse(p, 4) },
 ];
 
-/** AC-1 setup: the fixture on `home`, then Porada (switcher) → type/schůzka (sidebar Types list; no breadcrumb, D-315)
- *  → search (⌘⇧F). */
+/** AC-1 setup: the fixture on `home`, then Porada (opened from Search, which stays an entry: D-1340, D-1348) →
+ *  type/schůzka (sidebar Types list; no breadcrumb, D-315) → search (⌘⇧F). History: Inbox, Search, Porada, Schůzky,
+ *  Search. */
 async function visitThree(page: Page) {
   await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-614)');
   await openNote(page, PORADA);
@@ -57,7 +58,9 @@ test('fr_nav_03_ac1_back_and_forward_through_the_visited_routes', async ({ page 
   const t = TRIGGERS[1];
   await t.back(page); await mustBeOn(page, 'Schůzky', 'Back from search');
   await t.back(page); await mustBeOn(page, PORADA, 'Back again');
+  await t.back(page); await mustBeOn(page, 'Search', 'Back over the Search entry Porada was opened from (D-1348)');
   await t.back(page); await mustBeOn(page, 'Inbox', 'Back again');
+  await t.forward(page); await mustBeOn(page, 'Search', 'Forward to the Search entry Porada was opened from (D-1348)');
   await t.forward(page); await mustBeOn(page, PORADA, 'Forward');
   await t.forward(page); await mustBeOn(page, 'Schůzky', 'Forward again');
 });
@@ -96,9 +99,11 @@ for (const t of TRIGGERS) {
     await visitThree(page);
     await t.back(page); await mustBeOn(page, 'Schůzky', `${t.name}: Back from search`);
     await t.back(page); await mustBeOn(page, PORADA, `${t.name}: Back again`);
+    await t.back(page); await mustBeOn(page, 'Search', `${t.name}: Back over the Search entry Porada was opened from (D-1348)`);
     await t.back(page); await mustBeOn(page, 'Inbox', `${t.name}: Back again`);
     await t.back(page); await sleep(300);
     assert.equal(await mainName(page), 'Inbox', `${t.name}: Back with nothing behind does nothing`);
+    await t.forward(page); await mustBeOn(page, 'Search', `${t.name}: Forward to the Search entry Porada was opened from (D-1348)`);
     await t.forward(page); await mustBeOn(page, PORADA, `${t.name}: Forward`);
     await t.forward(page); await mustBeOn(page, 'Schůzky', `${t.name}: Forward again`);
     await t.forward(page); await mustBeOn(page, 'Search', `${t.name}: Forward again`);
@@ -128,6 +133,8 @@ test('fr_nav_03_ac2_title_bar_buttons_disabled_only_without_history', async ({ p
   await openNote(page, PORADA);
   assert.equal(await eventually(() => disabled(page, 'Back'), (v) => !v, 1000), false, 'Back enabled with an entry behind');
   assert.equal(await disabled(page, 'Forward'), true, 'Forward still disabled');
+  await backBtn(page).click({ force: true });
+  await mustBeOn(page, 'Search', 'Back over the Search entry Porada was opened from (D-1348)');
   await backBtn(page).click({ force: true });
   await mustBeOn(page, 'Inbox', 'Back');
   assert.equal(await eventually(() => disabled(page, 'Back'), (v) => v, 1000), true, 'Back disabled at the start');
@@ -215,6 +222,8 @@ for (const how of ['trashed', 'deleted'] as const) {
     await mustBeOn(page, 'Search', 'Forward to search');
     await page.keyboard.press('Meta+BracketLeft');
     await page.keyboard.press('Meta+BracketLeft');
+    await mustBeOn(page, 'Search', 'Back past the gone note to the Search entry Porada was opened from (D-1348)');
+    await page.keyboard.press('Meta+BracketLeft');
     await mustBeOn(page, 'Inbox', 'Back past the gone note to the Inbox');
     assert.deepEqual(await nonReadCalls(core), [], 'no write');
   });
@@ -271,14 +280,17 @@ for (const [dialog, key, loc] of [
 test('fr_nav_03_ac6_focus_on_page_heading_after_back_and_forward', async ({ page }) => {
   await start(page);
   await visitThree(page);
-  for (const [step, want] of [['back', 'Schůzky'], ['back', PORADA], ['forward', 'Schůzky'], ['back', PORADA], ['back', 'Inbox']] as const) {
+  // D-1348: Back from Porada passes the Search entry it was opened from; Search puts the focus in its field (D-1217).
+  for (const [step, want] of [['back', 'Schůzky'], ['back', PORADA], ['forward', 'Schůzky'], ['back', PORADA], ['back', 'Search'], ['back', 'Inbox']] as const) {
     await (await must(sidebar(page), 'sidebar')).focus().catch(() => {});
     if (step === 'back') await backBtn(page).click({ force: true }); else await fwdBtn(page).click({ force: true });
     await mustBeOn(page, want, `${step}`);
     // A note gets the caret in its body (D-247, FR-EDT-01 AC-11); other pages focus their heading (D-130).
     const note = want === PORADA;
-    const f = await eventually(() => focused(page), (x) => x.inMain && (note ? x.label === 'Note body' : x.heading), 1500);
-    assert.ok(f.inMain && (note ? f.label === 'Note body' : f.heading), `${step} to ${want}: ${note ? 'caret in the note body' : 'focus on the page heading'}, got ${JSON.stringify(f)}`);
+    const search = want === 'Search';
+    const ok = (x: Awaited<ReturnType<typeof focused>>) => x.inMain && (note ? x.label === 'Note body' : search ? x.label === 'Search query' : x.heading);
+    const f = await eventually(() => focused(page), ok, 1500);
+    assert.ok(ok(f), `${step} to ${want}: ${note ? 'caret in the note body' : search ? 'focus in Search query' : 'focus on the page heading'}, got ${JSON.stringify(f)}`);
   }
 });
 
@@ -290,7 +302,9 @@ test('fr_nav_03_ac7_back_forward_write_nothing_and_record_opens', async ({ page 
   const from = (await core.calls()).length;
   await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Schůzky', 'Back');
   await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, PORADA, 'Back');
+  await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Search', 'Back over the Search entry Porada was opened from (D-1348)');
   await page.keyboard.press('Meta+BracketLeft'); await mustBeOn(page, 'Inbox', 'Back');
+  await page.keyboard.press('Meta+BracketRight'); await mustBeOn(page, 'Search', 'Forward to the Search entry Porada was opened from (D-1348)');
   await page.keyboard.press('Meta+BracketRight'); await mustBeOn(page, PORADA, 'Forward');
   await sleep(300);
   const calls = (await core.calls()).slice(from);

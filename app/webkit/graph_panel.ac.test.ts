@@ -22,7 +22,7 @@ import {
 import {
   FILTERS_NOTE, GP, P, VIEWPORT, anyLowerBtn, backlinksTab, chooseDepth, circleSizes, closePopover, ctxPanel, depthRadio, depthRadios, footerIs,
   footerText, graphOpenKeys, graphPanel, graphTab, labelsShown, lowerBtn, navCount, nodeGeometry, noteRoute, openFullBtn, openPanel, openPopover,
-  panelStored, panelText, pAll, pCanvas, pKindBox, pKinds, pNone, popover, pSizeBox, pTypeBox, pTypes, requests, searchOpen, startPanel, stateOpenFull,
+  panelStored, panelText, pAll, pCanvas, pKindBox, pKinds, pNone, popover, pSizeBox, pTypeBox, pTypes, requests, searchOpen, startPanel, stateOpenFull, stepOverSearch,
   tagRoute, trigger, triggerIs, triggerText, uiSetCount,
 } from './graph-panel-helpers';
 
@@ -120,21 +120,21 @@ test('fr_grp_01_ac30_panel_centre_follows_navigation', async ({ page }) => {
   assert.deepEqual(await eventually(() => keysIn(page), (k) => same(k, ROZ1), LIVE), ROZ1, 'redrawn around Rozpočet within 2 s');
   assert.ok(await footerIs(page, '7 objects · click a node to preview'), `footer: ${await footerText(page)}`);
   assert.deepEqual(await selectedIn(page), [], 'nothing is selected after a navigation');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Rozpočet was opened from
   assert.deepEqual(await eventually(() => keysIn(page), (k) => same(k, D1), LIVE), D1, 'Back: Plán\'s 10 nodes');
   assert.deepEqual(samePlaces(planPos, await positions(page, GP(page)), 0.01), [], 'the same centre again: the same seeded layout (± 0.01 px)');
   assert.deepEqual(await selectedIn(page), [], 'nothing selected after Back');
-  await page.keyboard.press('Meta+BracketRight');
+  await stepOverSearch(page, 'forward');
   assert.deepEqual(await eventually(() => keysIn(page), (k) => same(k, ROZ1), LIVE), ROZ1, 'Forward: Rozpočet\'s 7');
   // The answer for Plán arrives after 800 ms; going Forward to Rozpočet before it draws only Rozpočet.
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Rozpočet was opened from
   assert.deepEqual(await eventually(() => keysIn(page), (k) => same(k, D1), LIVE), D1, 'Back on Plán');
-  await page.keyboard.press('Meta+BracketRight');
+  await stepOverSearch(page, 'forward');
   await eventually(() => keysIn(page), (k) => same(k, ROZ1), LIVE);
   await core.graphDelay(800);
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back', false); // D-1348: over the Search entry Rozpočet was opened from
   await sleep(100);
-  await page.keyboard.press('Meta+BracketRight');
+  await stepOverSearch(page, 'forward', false);
   const seenSets: string[] = [];
   const end = Date.now() + 2500;
   while (Date.now() < end) { seenSets.push((await keysIn(page)).join('|')); await sleep(25); }
@@ -144,7 +144,7 @@ test('fr_grp_01_ac30_panel_centre_follows_navigation', async ({ page }) => {
   // Depth belongs to the panel: depth 2 on Rozpočet, then Back draws Plán at depth 2.
   await chooseDepth(page, 2);
   await closePopover(page);
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Rozpočet was opened from
   assert.equal((await waitIn(page, 19, LIVE)).length, 19, 'Back: Plán at the panel\'s depth 2 (D-906)');
 });
 
@@ -169,7 +169,7 @@ test('fr_grp_01_ac31_panel_depth_default_and_remembered', async ({ page }) => {
   assert.ok(await triggerIs(page, 'Depth 2'), 'the next note opens at depth 2 in the panel');
   const r = await eventually(() => lastReq(core), (x) => x?.centre === nfc(P.rozpocet), 3000);
   assert.equal(r?.depth, 2, 'its request has depth 2');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Rozpočet was opened from
   await waitIn(page, 19, LIVE);
   await click(backlinksTab(page), 'tab "Backlinks"');
   await runCommand(page, 'Open graph');
@@ -975,7 +975,7 @@ test('fr_grp_06_ac8_panel_preview_closes_and_clears_the_selection', async ({ pag
   await open();
   await searchOpen(page, 'Výdaje 2026');
   await closed('a route change');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Výdaje was opened from
   await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000);
   const d2 = await open();
   await (await must(d2.getByRole('button', { name: /^Open\b/ }), '`Open`')).focus();

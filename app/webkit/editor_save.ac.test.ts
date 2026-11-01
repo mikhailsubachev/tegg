@@ -352,6 +352,8 @@ test('fr_edt_09_ac5_history_is_per_shown_note', async ({ page }) => {
   await saved(page, core, E.deset);
   await openNote(page, 'Cíl');
   await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Search', 'back over the Search entry Cíl was opened from (D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Deset bloků', 'back');
   await must(editorBody(page), 'editor');
   const n = (await writes(core)).length;

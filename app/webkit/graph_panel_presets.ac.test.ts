@@ -21,7 +21,7 @@ import {
 } from './graph-helpers';
 import {
   GP, P, VIEWPORT, backlinksTab, chooseDepth, closePopover, ctxPanel, depthRadio, depthRadios, fullStored, openFullBtn, openPanel, openPopover,
-  panelStored, pCanvas, pKindBox, pKinds, pListTree, popover, pRows, pSizeBox, pTypeBox, pTypes, pViewBtn, requests, searchOpen, startPanel,
+  panelStored, pCanvas, pKindBox, pKinds, pListTree, popover, pRows, pSizeBox, pTypeBox, pTypes, pViewBtn, requests, searchOpen, startPanel, stepOverSearch,
   noteRoute, trigger, triggerText, uiSetCount, FILTERS_NOTE,
 } from './graph-panel-helpers';
 
@@ -582,7 +582,7 @@ test('fr_grp_02_ac33_panel_preset_layers_and_escape_closing', async ({ page }) =
   await typed();
   await searchOpen(page, 'Výdaje 2026');
   await allClosed('a route change (Search, ⏎)');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Výdaje was opened from
   await eventually(() => mainName(page), (n) => n === 'Plán čtvrtletí', 4000);
   await typed();
   await click(backlinksTab(page), 'tab "Backlinks"');

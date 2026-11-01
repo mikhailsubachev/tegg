@@ -66,7 +66,9 @@ test('fr_his_01_ac1_cmd_backspace_outside_the_text_goes_back', async ({ page }) 
   await page.keyboard.press('Meta+Backspace');
   const calls = await eventually(() => trashCalls(core), (c) => c.length > 0, 2000);
   assert.equal(calls.length, 1, '⌘⌫ outside the text moves the note to the trash');
-  await mustBeOn(page, 'Plán zahrady', 'the app goes Back');
+  await mustBeOn(page, 'Search', 'the app goes Back (to the Search entry the note was opened from, D-1348)');
+  await page.keyboard.press('Meta+BracketLeft');
+  await mustBeOn(page, 'Plán zahrady', 'and Back again to Plán zahrady');
 });
 
 test('fr_his_01_ac1_unsaved_edits_are_saved_first', async ({ page }) => {

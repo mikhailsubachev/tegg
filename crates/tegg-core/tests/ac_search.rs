@@ -473,9 +473,16 @@ fn fr_src_04_ac5_typo_matches_rank_after_exact_matches() {
     let core = open_core(&root, &sb.dirs, false);
     let p = page(&core, &q("rozpcoet"));
     let order: Vec<(String, bool)> = p.results.iter().map(|r| (r.path.clone(), r.typo)).collect();
-    assert_eq!(order.first(), Some(&("Pages/Překlep.md".to_string(), false)), "{order:?}");
     assert_eq!(order.len(), 6, "{order:?}");
-    assert!(order[1..].iter().all(|(_, typo)| *typo), "{order:?}");
+    // D-1350: typo matches rank after exact matches within the same D-1341 group step. The titles holding the word by a
+    // typo (Rozpočet, Projekt: group 1) come first; Překlep (exact, body) leads the rest, all typo matches.
+    let group1 = ["Pages/Rozpočet 2026.md", "Pages/Projekt a rozpočet.md"];
+    let (g1, rest): (Vec<_>, Vec<_>) = order.iter().cloned().partition(|(path, _)| group1.contains(&path.as_str()));
+    assert_eq!(g1.len(), 2, "the two titles holding the word by a typo form group 1, first: {order:?}");
+    assert!(order[..2].iter().all(|(path, _)| group1.contains(&path.as_str())), "group 1 first: {order:?}");
+    assert!(g1.iter().all(|(_, typo)| *typo), "group 1 matches by a typo only: {order:?}");
+    assert_eq!(rest.first(), Some(&("Pages/Překlep.md".to_string(), false)), "the exact match first in the rest: {order:?}");
+    assert!(rest[1..].iter().all(|(_, typo)| *typo), "then the typo matches: {order:?}");
 }
 
 #[test]

@@ -15,7 +15,7 @@ import {
 } from './graph-helpers';
 import {
   GP, P, VIEWPORT, backlinksTab, ctxPanel, footerIs, footerText, graphPanel, graphTab, noteRoute, openFullBtn, openPanel, panelText, requests,
-  searchOpen, startPanel, trigger,
+  searchOpen, startPanel, stepOverSearch, trigger,
 } from './graph-panel-helpers';
 
 test.use({ timezoneId: 'Europe/Prague', locale: 'en-US', viewport: VIEWPORT });
@@ -68,7 +68,7 @@ test('fr_grp_01_ac39_panel_live_updates_within_two_seconds', async ({ page }) =>
   assert.ok(n <= 3, `ten changes within 500 ms: at most 3 graph_neighbourhood calls (got ${n})`);
   const final = (await keysIn(page)).join('|');
   await searchOpen(page, 'Výdaje 2026');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Výdaje was opened from
   await eventually(() => mainName(page), (x) => x === 'Plán čtvrtletí', 4000);
   await waitIn(page, 11, 4000);
   assert.equal((await keysIn(page)).join('|'), final, 'the final graph equals a fresh query');
@@ -128,7 +128,7 @@ test('fr_grp_01_ac40_panel_queries_only_while_the_graph_tab_is_shown', async ({ 
   await goToQuery(page, '2026-10-07');
   await page.keyboard.press('Enter');
   assert.ok(await routeReady(core, 'daily/2026-10-07', 5000), 'on Den');
-  await page.keyboard.press('Meta+BracketLeft');
+  await stepOverSearch(page, 'back'); // D-1348: over the Search entry Den was opened from
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Rozpočet 2027', 4000), 'Rozpočet 2027', 'Back on Rozpočet');
   for (let i = 0; i < 3; i++) { await core.setFile(P.plan, `${original(P.plan).trimEnd()} změna ${i}\n`); await sleep(150); }
   await sleep(800);

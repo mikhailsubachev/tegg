@@ -36,7 +36,7 @@ async function hscroll(page: Page, loc: Locator) {
   await page.mouse.wheel(400, 0); await sleep(300);
 }
 
-type Surface = { name: string; readView?: boolean; reach: (page: Page) => Promise<string>; at: (page: Page) => Locator; focus?: 'editor' | 'none'; again?: (page: Page) => Promise<void> };
+type Surface = { name: string; readView?: boolean; viaSearch?: boolean; reach: (page: Page) => Promise<string>; at: (page: Page) => Locator; focus?: 'editor' | 'none'; again?: (page: Page) => Promise<void> };
 const viaTypes = async (page: Page) => {
   await (await must(typesList(page).getByRole('link', { name: /^Schůzky\b/ }), 'sidebar Types entry "Schůzky"')).click();
   await mustBeOn(page, 'Schůzky', 'type/schůzka');
@@ -48,10 +48,10 @@ async function searchPorada(p: Page) {
   await must(p.getByRole('list', { name: 'Search results' }), 'Search results', 5000);
 }
 const SURFACES: Surface[] = [
-  { name: 'porada_editor_text', reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }) },
-  { name: 'porada_editor_text_focused', reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }), focus: 'editor' },
-  { name: 'porada_editor_text_nothing_focused', reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }), focus: 'none' },
-  { name: 'porada_read_view', readView: true, reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('main').getByRole('article').first() },
+  { name: 'porada_editor_text', viaSearch: true, reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }) },
+  { name: 'porada_editor_text_focused', viaSearch: true, reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }), focus: 'editor' },
+  { name: 'porada_editor_text_nothing_focused', viaSearch: true, reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('textbox', { name: 'Note body' }), focus: 'none' },
+  { name: 'porada_read_view', readView: true, viaSearch: true, reach: async (p) => { await openNote(p, PORADA); return PORADA; }, at: (p) => p.getByRole('main').getByRole('article').first() },
   { name: 'type_schuzka_table', reach: viaTypes, at: (p) => p.getByRole('main').getByRole('table').first() },
   { name: 'search_results', reach: async (p) => { await p.keyboard.press('Meta+Shift+f'); await mustBeOn(p, 'Search', 'search'); await searchPorada(p); return 'Search'; }, again: searchPorada, at: (p) => p.getByRole('list', { name: 'Search results' }) },
   { name: 'tasks', reach: async (p) => { await runCommand(p, 'Go to Tasks'); await mustBeOn(p, 'Tasks', 'tasks'); return 'Tasks'; }, at: (p) => p.getByRole('main') },
@@ -93,6 +93,10 @@ for (const s of SURFACES) {
     await mustBeOn(page, other, `${s.name}: Forward still leads to ${other}`);
     await page.keyboard.press('Meta+BracketLeft');
     await mustBeOn(page, name, `${s.name}: Back leads to ${name}`);
+    if (s.viaSearch) {
+      await page.keyboard.press('Meta+BracketLeft');
+      await mustBeOn(page, 'Search', `${s.name}: Back over the Search entry the note was opened from (D-1348)`);
+    }
     await page.keyboard.press('Meta+BracketLeft');
     await mustBeOn(page, 'Inbox', `${s.name}: and Back again to Inbox`);
   });
