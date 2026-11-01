@@ -1799,3 +1799,60 @@ fn in_value_range(v: &str, from: Option<&str>, to: Option<&str>, tz: chrono_tz::
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn version(bytes: &[u8]) -> tegg_vault::FileVersion {
+        let mut hash = [0u8; 32];
+        for (i, b) in bytes.iter().enumerate() {
+            hash[i % 32] ^= *b;
+        }
+        tegg_vault::FileVersion { mtime_ns: 1_790_000_000_000_000_000, size: bytes.len() as u64, hash }
+    }
+
+    /// The lazy D-253 tier walk (body read only for rows that can reach the page) gives every page as the slice of
+    /// one fully resolved order, with the same tiers, typo flags and total (QA review of c663072, FR-SRC-03 AC-12).
+    #[test]
+    fn lazy_tier_pages_slice_the_full_order() {
+        let dir = tempfile::tempdir().expect("setup: tempdir");
+        let mut idx = Index::open(&dir.path().join("index.sqlite")).expect("setup: open");
+        let mut put = |path: &str, text: &str| idx.upsert(path, text.as_bytes(), &version(text.as_bytes())).expect("setup: upsert");
+        put("Pages/Účet chaty.md", "# Účet chaty\n\nnic\n");
+        put("Pages/Lipno účet.md", "# Lipno účet\n\nchaty opravy\n");
+        for i in 0..24 {
+            let body = match i % 4 {
+                0 => "Platba za účet chaty na horách.",
+                1 => "Chaty jsou drahé, účet přijde později.",
+                2 => "Jen účet bez druhého slova.",
+                _ => "U chaty se opravy protáhly, účet čeká.",
+            };
+            put(&format!("Pages/Poznámka {i:02}.md"), &format!("# Poznámka {i:02}\n\n{body}\n"));
+        }
+        for text in ["účet chaty", "ucet chaty", "\"účet chaty\"", "účet chaty -opravy", "chaty účet", "účt chaty"] {
+            let mut full_q = SearchQuery::text(text, chrono_tz::Europe::Prague);
+            full_q.limit = 1000;
+            let full = idx.search(&full_q).expect("search");
+            assert!(full.total > 5, "{text:?}: enough rows to page");
+            let key = |r: &SearchResult| (r.path.clone(), r.tier, r.typo);
+            let want: Vec<_> = full.results.iter().map(key).collect();
+            if text == "účet chaty" {
+                // Body phrases and body "all words" rows both reach the walk.
+                assert!(want.iter().any(|w| w.1 == QueryTier::Phrase) && want.iter().any(|w| w.1 == QueryTier::AllWords), "{text:?}: {want:?}");
+            }
+            for limit in 1..=5 {
+                for offset in 0..=5 {
+                    let mut q = full_q.clone();
+                    q.offset = offset;
+                    q.limit = limit;
+                    let p = idx.search(&q).expect("search");
+                    assert_eq!(p.total, full.total, "{text:?} offset {offset} limit {limit}: total");
+                    let got: Vec<_> = p.results.iter().map(key).collect();
+                    let end = (offset + limit).min(want.len());
+                    assert_eq!(got, want[offset.min(end)..end].to_vec(), "{text:?} offset {offset} limit {limit}");
+                }
+            }
+        }
+    }
+}
