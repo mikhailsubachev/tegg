@@ -14,7 +14,7 @@ import { chmodSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
-  APP, FX, NOW, NetMonitor, REPO, activateFinder, appPids, appiumDown, captureOpen, captureValue, changedPaths, closeMain, end, frontmost,
+  APP, FX, NOW, NetMonitor, REPO, activateFinder, appPids, appiumDown, captureOpen, captureValue, changedPaths, closeMain, end, firstShown, frontmost,
   holdHotkey, hotkey, inboxCopy, mainOpen, maskId, need, palette, paste, pasteboard, press, quitApp, read, ready, session,
   setPasteboard, shown, sleep, spawnApp, statusItem, support, testEnv, tmp, tree, typeAscii, waitExit, waitFile, waitFor, waitMark,
   type Driver,
@@ -243,22 +243,65 @@ test('fr_cap_01_ac12_a_pasted_image_is_saved_with_the_capture', { timeout: 300_0
   } finally { await cleanup(c); }
 });
 
+// D-1358 (v0.113 feedback, ms5-capture §17): the panel shows 1.5 s (was 4 s); while the pointer is over it, it stays,
+// and it hides 1.5 s after the pointer leaves. Clicking `Open` puts the pointer over the panel, so the pointer is moved
+// away afterwards. Pointer moves are `macos: hover` at screen points (no click).
+type Rect = { x: number; y: number; width: number; height: number };
+const centreOf = (r: Rect) => ({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
+/** Moves the pointer well below `r` (the capture window or the panel), where neither window is. */
+async function pointerAwayFrom(d: Driver, r: Rect | null) {
+  const p = r ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height + 420) } : { x: 60, y: 420 };
+  await d.execute('macos: hover', p);
+}
+async function rectOf(d: Driver, label: string): Promise<Rect | null> {
+  const e = await firstShown(d, label);
+  return e ? d.getElementRect(e.elementId) : null;
+}
+/** Waits until the panel is gone; returns the ms since `from`, or null if it is still shown after `ms`. */
+async function goneAfter(d: Driver, from: number, ms: number): Promise<number | null> {
+  const ok = await waitFor(async () => !(await firstShown(d, 'Saved to Inbox')), ms);
+  return ok ? Date.now() - from : null;
+}
+
 test('fr_cap_01_ac13_the_confirmation_panel_and_open', { timeout: 300_000 }, async () => {
   await ready();
   const c = fresh('cap01ac13');
   try {
     const d = await launch(c);
     await closeMain(d);
+    // 1. The pointer elsewhere: the panel hides 1.5 s after it shows.
+    await openByHotkey(d);
+    await typeCapture('Zalít květiny na balkoně');
+    await pointerAwayFrom(d, await rectOf(d, 'Capture text'));
+    const saved1 = Date.now();
+    press('enter', ['command']);
+    assert.ok(await shown(d, 'Saved to Inbox', 2000), 'Saved to Inbox');
+    const panel = await rectOf(d, 'Saved to Inbox');
+    assert.ok(panel, 'the panel is on screen');
+    assert.ok(await shown(d, 'Quick Note · Zalít květiny na balkoně', 1000), 'the line');
+    assert.equal(frontmost(), 'Finder', 'the panel never takes the key focus');
+    const gone1 = await goneAfter(d, saved1, 3500);
+    assert.ok(gone1 !== null, 'gone within 3.5 s of the save (1.5 s, D-1358; was 4 s)');
+    assert.ok(gone1! >= 1400, `shown for 1.5 s, not less (gone after ${gone1} ms)`);
+    // 2. The pointer over the panel: it stays; `Open` shows the note; the pointer leaves: hidden 1.5 s later.
     await openByHotkey(d);
     await typeCapture('Koupit dárek pro Janu');
     press('enter', ['command']);
-    assert.ok(await shown(d, 'Saved to Inbox', 2000), 'Saved to Inbox');
+    assert.ok(await shown(d, 'Saved to Inbox', 2000), 'Saved to Inbox (second capture)');
+    await d.execute('macos: hover', centreOf(panel!));
     assert.ok(await shown(d, 'Quick Note · Koupit dárek pro Janu', 1000), 'the line');
-    assert.equal(frontmost(), 'Finder', 'the panel never takes the key focus');
+    assert.equal(frontmost(), 'Finder', 'the panel never takes the key focus, also while hovered');
+    await sleep(3000);
+    assert.ok(await shown(d, 'Saved to Inbox', 300), 'held while the pointer is over the panel (3 s)');
     await (await need(d, 'Open')).click();
     assert.ok(await waitMark(c.log, 'route-ready:note/Quick Notes/Koupit dárek pro Janu.md', 3000), 'Open shows the note');
-    await sleep(4500);
-    assert.ok(!(await shown(d, 'Saved to Inbox', 200)), 'gone after 4 s');
+    await sleep(2000);
+    assert.ok(await shown(d, 'Saved to Inbox', 300), 'after Open the pointer is still over the panel, so it stays');
+    await pointerAwayFrom(d, panel);
+    const left = Date.now();
+    const gone2 = await goneAfter(d, left, 3500);
+    assert.ok(gone2 !== null, 'gone within 3.5 s of the pointer leaving');
+    assert.ok(gone2! >= 1300, `hidden 1.5 s after the pointer left, not at once (after ${gone2} ms)`);
   } finally { await cleanup(c); }
 });
 

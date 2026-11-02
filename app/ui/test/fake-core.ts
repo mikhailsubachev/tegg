@@ -119,8 +119,11 @@ export type FakeCoreHandle = {
    *  `capture:context-changed` and a new vault id. */
   setVault(v: FakeVault | null): Promise<void>;
   /** The capture page's records: `capture_ready` seqs, `capture_hide` count, `capture_open_main` paths,
-   *  `capture_saved_show` payloads, `capture_open` (main window) kinds. */
-  captureLog(): Promise<{ ready: number[]; hides: number; openMain: (string | null)[]; saved: { typeName: string; title: string; path: string }[]; opens: string[] }>;
+   *  `capture_saved_show` payloads, `capture_open` (main window) kinds. D-1358 (ms5-capture §17): `savedHover`, the
+   *  `capture_saved_hover(inside)` calls in order; `savedVisible`, whether the `capture-saved` panel is shown by the
+   *  shell's rule (shown by `capture_saved_show` / `showSaved`, hidden 1,500 ms later unless the pointer is inside,
+   *  then 1,500 ms after it leaves). The timers use the page's clock, so `page.clock` drives them. */
+  captureLog(): Promise<{ ready: number[]; hides: number; openMain: (string | null)[]; saved: { typeName: string; title: string; path: string }[]; opens: string[]; savedHover: boolean[]; savedVisible: boolean }>;
   // ---------------------------------------------------------------- 6A (ms6-trash-media §9.2)
   /** Binary vault files as they are now (vault path → bytes). */
   binary(): Promise<Record<string, Uint8Array>>;
@@ -376,7 +379,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     },
     skipOnWrite: (path, reason) => page.evaluate(([p, r]) => { (window as any).__teggFake.jobSkips[p.normalize('NFC')] = r; }, [path, reason] as const),
     openCapture: (o) => page.evaluate((oo) => (window as any).__teggFake.openCapture(oo.trigger ?? 'hotkey', oo.kind ?? 'default'), o ?? {}),
-    showSaved: (o) => page.evaluate((oo) => (window as any).__teggFake.emit('capture:saved', oo), o),
+    showSaved: (o) => page.evaluate((oo) => (window as any).__teggFake.savedShow(oo, true), o),
     setHotkeys: (list) => page.evaluate((l) => { const f = (window as any).__teggFake; f.hotkeys = l; return f.emit('hotkeys:state', l); }, list),
     shellCalls: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.shellCalls)) as ShellSettingsDto[]),
     reveals: () => ev(() => [...(window as any).__teggFake.reveals] as string[]),
@@ -450,7 +453,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     // 5B (ms5-capture §2.2, §5, §7.1): read-only, or machine-local only (never a vault write).
     'vault_settings', 'vault_reveal', 'shell_settings', 'shell_settings_set', 'hotkeys', 'hotkeys_retry', 'inbox_list', 'inbox_count', 'index_versions',
     'capture_open', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get',
-    'capture_draft_set', 'capture_saved_show', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
+    'capture_draft_set', 'capture_saved_show', 'capture_saved_hover', 'capture_suggest', // v0.52 (ms5-capture §16.1, D-603): read-only suggestions
     'trash_list', 'media_pick', 'media_open', 'media_reveal', // 6A (ms6-trash-media §4): read-only / a dialog / the shell opens a file
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
@@ -537,7 +540,22 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     indexVer: {} as Record<string, VersionDto>,
     vaultId: 1,
     captureSeq: 0,
-    captureLog: { ready: [] as number[], hides: 0, openMain: [] as (string | null)[], saved: [] as unknown[], opens: [] as string[] },
+    captureLog: { ready: [] as number[], hides: 0, openMain: [] as (string | null)[], saved: [] as unknown[], opens: [] as string[], savedHover: [] as boolean[], savedVisible: false },
+    /** D-1358 (ms5-capture §17): the shell's hide timer of `capture-saved` and its generation counter. */
+    savedTimer: 0 as unknown as ReturnType<typeof setTimeout> | 0,
+    savedGen: 0,
+    /** Shows the panel as `capture_saved_show` does: a new generation, hidden after SAVED_MS; `emit` fills this page. */
+    savedShow: (payload: unknown, emit: boolean) => {
+      state.savedGen++;
+      state.captureLog.savedVisible = true;
+      state.savedHideLater();
+      return emit ? state.emit('capture:saved', payload) : undefined;
+    },
+    savedHideLater: () => {
+      if (state.savedTimer) clearTimeout(state.savedTimer);
+      const gen = state.savedGen;
+      state.savedTimer = setTimeout(() => { if (gen === state.savedGen) state.captureLog.savedVisible = false; state.savedTimer = 0; }, 1500);
+    },
     lastCount: null as number | null,
     countTimer: 0 as unknown as ReturnType<typeof setTimeout> | 0,
     remoteApplying: false,
@@ -564,7 +582,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         if (m.b64 === null) delete (state as any).bin[p]; else (state as any).bin[p] = m.b64;
         if (opts.window !== 'capture') void state.emit('vault:changed', { paths: [p] });
       } else if (m.kind === 'capture-open' && opts.window === 'capture') state.openCapture(m.trigger, m.captureKind);
-      else if (m.kind === 'saved' && opts.window === 'capture') void state.emit('capture:saved', m.payload);
+      else if (m.kind === 'saved' && opts.window === 'capture') void state.savedShow(m.payload, true);
       else if (m.kind === 'ui-state' && opts.window === 'capture') void state.emit('ui:state', m.payload);
       else if (m.kind === 'route' && opts.window !== 'capture') void state.emit('shell:route', { route: m.route });
       return null;
@@ -2190,7 +2208,16 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     capture_saved_show: (a) => {
       const payload = { typeName: String(a.typeName), title: String(a.title), path: String(a.path) };
       state.captureLog.saved.push(payload);
+      void state.savedShow(payload, false);
       state.sync({ kind: 'saved', payload });
+      return null;
+    },
+    // D-1358 (ms5-capture §17): `true` cancels the pending hide, `false` hides the panel 1,500 ms later.
+    capture_saved_hover: (a) => {
+      const inside = a.inside === true;
+      state.captureLog.savedHover.push(inside);
+      if (inside) { if (state.savedTimer) clearTimeout(state.savedTimer); state.savedTimer = 0; }
+      else if (state.captureLog.savedVisible) state.savedHideLater();
       return null;
     },
   };
