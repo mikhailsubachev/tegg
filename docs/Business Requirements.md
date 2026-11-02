@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.146, for review                                            |
+| **Document status** | Draft v1.147, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -160,6 +160,7 @@
 | v1.144  | 2026-11-01 | QA review of Search without `Go to`: D-1352…D-1354 (AP-1211…AP-1213, as proposed): ⏎ with only filters does nothing; Back to Search focuses `Search query` (FR-NAV-03 AC-6); the prefix needs any 2 characters (D-1342 reworded) |
 | v1.145  | 2026-11-01 | D-1355 (owner): every real-app (L6) element click is a mouse click at the element's centre (D-751 generalised), after Xcode 27.2's element click kills WebDriverAgent on web content |
 | v1.146  | 2026-11-02 | Preview v0.113 feedback (`docs/feedback/ms6-v0113.md`): D-1356…D-1358 (AP-1214…AP-1216, as proposed): a click below the last block and ⏎⏎ / ⌘⏎ leave a code block (FR-EDT-01 AC-14, FR-EDT-02 AC-23); Kanban status columns reorder by drag, ⌥←/⌥→ and the palette, writing the option order in `task.yml` (FR-TSK-05 AC-17, AC-18); the capture confirmation shows 1.5 s, longer while hovered (FR-CAP-01 AC-13, changes D-543) |
+| v1.147  | 2026-11-02 | v0.113 feedback, red-test and build decisions (red tests 35316ea, build f3aa064): D-1359…D-1361 (AP-1217…AP-1219, as proposed): existing tests follow `capture_saved_hover` and R46's two keys; two red-test defects fixed; drop halves, disabled column commands, the area below the last block, the panel's hold on enter only, the hint in any empty paragraph with the caret |
 
 ---
 
@@ -1345,6 +1346,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1356 | Leaving the last block (AP-1214) (owner, 2026-11-02: "Accept all"; v0.113 feedback F1) | A click in the empty area below the last block puts the caret in a new empty paragraph at the end (never written while empty, FR-EDT-01 AC-3). In a code block, ⏎ on an empty last line removes that line and leaves the block into a new paragraph; ⌘⏎ leaves it from any line; ↓ at the end of the last block keeps working. The editor still adds no trailing paragraph to files (FR-FMT-07). FR-EDT-01 AC-14, FR-EDT-02 AC-23 |
 | D-1357 | Reordering Kanban columns (AP-1215) (owner, 2026-11-02: "Accept all"; v0.113 feedback F2) | Grouped by status, a column heading drags left or right; the drop moves that option's line in `.tegg/types/task.yml` as on `type-settings/task` (FR-TSK-03 AC-2), and no task file is written. `No status` stays last and can't be dragged. Keyboard: ⌥← / ⌥→ on a focused heading and the palette commands `Move column left` / `Move column right`. Grouped by tag, columns can't be reordered. FR-TSK-05 AC-17, AC-18 |
 | D-1358 | The capture confirmation's time (AP-1216) (owner, 2026-11-02: "Accept all"; v0.113 feedback F3) | The panel of D-543 shows 1.5 s instead of 4 s; while the pointer is over it it stays, and it closes 1.5 s after the pointer leaves. FR-CAP-01 AC-13 |
+| D-1359 | Existing tests follow D-1357, D-1358 (AP-1217) (owner, 2026-11-02: "Accept all") | `capture_saved_hover` joins the capture capability lists of NFR-SEC-03 AC-1 and FR-TAG-05 AC-8's tests; R46 has 89 keys (FR-TSK-04 AC-11) |
+| D-1360 | Two red-test defects (AP-1218) (owner, 2026-11-02: "Accept all") | FR-EDT-02 AC-23's inner-line L1 test lets the first save write the code edit made before ⌘⏎; FR-EDT-01 AC-14's L5 tests read the paragraph's text without the AC-9 hint widget |
+| D-1361 | v0.113 build details (AP-1219) (owner, 2026-11-02: "Accept all") | A dragged column lands before the target on its left half, after it on its right half; `Move column left` / `right` are always listed, disabled with `Focus a status column on the Kanban grouped by status` when they can't run; the area below the last block is the note's `main` below it, within 40 px of the editor's sides; the capture panel holds only after the pointer enters it; the AC-9 hint shows in any empty top-level paragraph holding the caret |
 
 ---
 

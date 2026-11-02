@@ -24,7 +24,7 @@ function json(rel: string): any {
 /** `allow-capture_context` and `allow-capture-context` are the same app-command permission. */
 const norm = (p: string) => p.replace(/_/g, '-');
 
-const CAPTURE_COMMANDS = ['capture_context', 'capture_create', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get', 'capture_draft_set', 'capture_saved_show', 'capture_suggest', 'capture_media_add']; // v0.52: capture_suggest (D-603, amends D-553); 6A: capture_media_add (D-624)
+const CAPTURE_COMMANDS = ['capture_context', 'capture_create', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get', 'capture_draft_set', 'capture_saved_show', 'capture_saved_hover', 'capture_suggest', 'capture_media_add']; // v0.52: capture_suggest (D-603, amends D-553); 6A: capture_media_add (D-624); v0.113: capture_saved_hover (D-1358)
 const CORE = ['core:event:allow-listen', 'core:event:allow-unlisten', 'core:window:allow-start-dragging'];
 
 test('nfr_sec_03_ac1_the_capture_capability_grants_exactly_the_capture_commands', () => {

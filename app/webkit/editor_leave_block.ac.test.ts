@@ -37,7 +37,8 @@ async function caretState(page: Page): Promise<{ blocks: { tag: string; text: st
     const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null;
     const top = el ? kids.findIndex((k) => k === el || k.contains(el)) : -1;
     return {
-      blocks: kids.map((k) => ({ tag: k.tagName.toLowerCase(), text: (k.textContent ?? '').replace(/​/g, '') })),
+      // The AC-9 hint is a widget inside the paragraph (aria-hidden, never saved): not part of its text.
+      blocks: kids.map((k) => { const c = k.cloneNode(true) as HTMLElement; c.querySelectorAll('.editor-hint').forEach((h) => h.remove()); return { tag: k.tagName.toLowerCase(), text: (c.textContent ?? '').replace(/​/g, '') }; }),
       caret: top,
       inEditor: !!document.activeElement && (document.activeElement === root || root.contains(document.activeElement)),
     };

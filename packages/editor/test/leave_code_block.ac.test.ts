@@ -38,8 +38,10 @@ function mustHaveLeft(ed: TeggEditor, code: string, what: string) {
   assert.equal(b[1].text, '', `${what}: the new paragraph is empty`);
   assert.deepEqual(caretBlock(ed), { index: 1, name: 'paragraph' }, `${what}: the caret is in the new paragraph`);
 }
-async function savedAfterTyping(ed: TeggEditor, orig: string): Promise<string> {
-  assert.equal(await ed.save(), null, 'an empty paragraph is never written (FR-EDT-01 AC-3)');
+async function savedAfterTyping(ed: TeggEditor, orig: string, codeEdited = false): Promise<string> {
+  // With the code edited first, that edit is written; the empty paragraph adds nothing to it (FR-EDT-01 AC-3).
+  if (codeEdited) await ed.save();
+  else assert.equal(await ed.save(), null, 'an empty paragraph is never written (FR-EDT-01 AC-3)');
   type(ed, 'Dál');
   const out = await ed.save();
   assert.ok(out !== null, 'typing Dál is saved');
@@ -71,7 +73,7 @@ test('fr_edt_02_ac23_enter_on_an_inner_empty_line_stays_and_cmd_enter_leaves_fro
   mustBeInCode(ed, '\n\nlet a = 1', '⏎ on an empty line that isn\'t the last one stays a new line in the code');
   press(ed, 'Enter', { meta: true });
   mustHaveLeft(ed, '\n\nlet a = 1', '⌘⏎ on an inner empty line leaves the code block');
-  const out = await savedAfterTyping(ed, orig);
+  const out = await savedAfterTyping(ed, orig, true);
   assert.equal(await body(out), '```js\n\n\nlet a = 1\n```\n\nDál\n', '⌘⏎ changed nothing in the code');
   ed.destroy();
 });

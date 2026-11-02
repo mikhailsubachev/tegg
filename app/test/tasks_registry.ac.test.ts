@@ -107,7 +107,7 @@ test('fr_dly_04_ac8_the_daily_tasks_placeholder_is_gone', async () => {
 test('fr_tsk_04_ac11_r46_strings_are_catalog_keys_with_the_exact_english', async () => {
   const { cat } = await mods();
   const pairs = r46();
-  assert.equal(pairs.length, 87, `R46 has ${pairs.length} keys`); // D-518, D-516: +8 keys, tasks.tagAny removed
+  assert.equal(pairs.length, 89, `R46 has ${pairs.length} keys`); // D-518, D-516: +8 keys, tasks.tagAny removed; D-1357: +2 keys
   const bad: string[] = [];
   for (const [key, text] of pairs) {
     if (key === 'tasks.summary') continue; // composed of plural parts, below
