@@ -19,6 +19,7 @@
     "allow-capture-draft-get",
     "allow-capture-draft-set",
     "allow-capture-saved-show",
+    "allow-capture-saved-hover",
     "allow-capture-suggest",
     "allow-capture-media-add"
   ]

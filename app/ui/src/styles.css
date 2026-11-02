@@ -776,6 +776,12 @@ button.toggle .count { margin-left: 0; }
 .task-column-head { display: flex; align-items: center; gap: 6px; }
 .task-column-head h2 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 6px; flex: 1; }
 .task-column-head h2 .count { margin-left: 2px; }
+/* D-1357: the column handle and where a dragged column lands. */
+.column-handle { cursor: grab; color: var(--muted); font-size: 11px; letter-spacing: -2px; padding: 2px 4px; border-radius: 4px; user-select: none; }
+.column-handle:hover, .column-handle:focus-visible { color: var(--text); background: var(--hover); }
+.task-column.column-dragging { opacity: 0.6; }
+.task-column.column-drop-before { box-shadow: inset 3px 0 0 var(--focus); }
+.task-column.column-drop-after { box-shadow: inset -3px 0 0 var(--focus); }
 .task-column .task-list { flex-direction: column; margin-top: 8px; }
 .task-column .empty, .drop-label { color: var(--muted); font-size: 12px; margin: 6px 0; }
 .task-board.dragging, .task-board.dragging * { cursor: grabbing; user-select: none; }

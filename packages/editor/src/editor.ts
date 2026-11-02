@@ -488,7 +488,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
     onTransaction: ({ transaction }) => {
       followConversions(transaction)
-      if (transaction.docChanged && !loading && !transaction.getMeta('teggLoad')) {
+      // `teggEmptyBlock` (D-1356): an empty paragraph added by a click below the last block isn't an edit; it has no
+      // Markdown form (FR-EDT-01 AC-3), and a virtual Daily Note stays virtual until text is typed (D-322).
+      if (transaction.docChanged && !loading && !transaction.getMeta('teggLoad') && !transaction.getMeta('teggEmptyBlock')) {
         dirty = true
         opts.onChange?.(true)
       }

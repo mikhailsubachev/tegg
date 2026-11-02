@@ -6,10 +6,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { Value } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { TaskRowDto, UiStateDto } from '../ipc/types';
+import type { TaskRowDto, TypeDto, UiStateDto } from '../ipc/types';
 import { createObject } from '../types/create';
 import { CardMenu, type MenuTarget } from './CardMenu';
-import { KanbanView } from './Kanban';
+import { KanbanView, type ColumnDrop } from './Kanban';
 import { QuickAdd } from './QuickAddRow';
 import { ScheduleView } from './Schedule';
 import { TagFilter } from './TagFilter';
@@ -28,7 +28,7 @@ type Alert = { id: number; text: string; retry?: () => void };
 /** A task completed or changed on the Schedule stays where it was shown until the page is left. */
 type Stay = { section: 'today' | 'week' | 'later' | 'none'; group: string; index: number };
 
-export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSettings, plural, commandRef }: {
+export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSettings, plural, commandRef, commandStateRef }: {
   view: 'schedule' | 'kanban';
   refresh: number;
   heading: RefObject<HTMLHeadingElement | null>;
@@ -41,6 +41,8 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   /** The Task type's plural, for the search's name (D-1280). */
   plural: string;
   commandRef: { current: ((id: string) => void) | null };
+  /** D-1357: why a page command can't run now, or null. */
+  commandStateRef?: { current: ((id: string) => string | null) | null };
 }) {
   const data = useTasks(refresh);
   const { tasks, defs, today, zone, region, firstWeekday, reload, loaded } = data;
@@ -59,7 +61,7 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
   const lastCard = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const on = (e: FocusEvent) => {
-      const a = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('main article[data-path]');
+      const a = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('main article[data-path], main [data-column-handle]');
       if (a) lastCard.current = a;
     };
     window.addEventListener('focusin', on);
@@ -146,6 +148,49 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
     drop(row, column, to, false);
   };
 
+  // D-1357 (FR-TSK-05 AC-17, AC-18; ms5-tasks §14): a status column moves by one `moveOption` on `status` in the Task
+  // type, based on the version read when the drag started; an outside change in between cancels it (NFR-REL-02).
+  const colBase = useRef<Promise<TypeDto | null> | null>(null);
+  const focusColumn = useRef<string | null>(null);
+  const statusColumns = () => board.filter((x) => x.id !== 'no-status').map((x) => x.id);
+  const moveColumn = async (id: string, to: ColumnDrop, base: Promise<TypeDto | null>) => {
+    const ty = await base.catch(() => null);
+    const options = ty?.attributes.find((x) => x.key === 'status')?.options?.map((o) => o.label) ?? [];
+    const from = options.indexOf(id);
+    let at = options.indexOf(to.target);
+    if (!ty || from < 0 || at < 0 || to.target === id) return;
+    if (to.side === 'after') at += 1;
+    if (from < at) at -= 1;
+    if (at === from) return;
+    try {
+      await ipc.typePatch('task', ty.exists ? ty.version : null, [{ op: 'moveOption', attr: 'status', label: id, to: at }]);
+      focusColumn.current = id;
+      setLive(t('tasks.column.moved', { column: board.find((x) => x.id === id)?.label ?? id }));
+    } catch { /* a stale version (an outside change) or a failed write: nothing is written, the columns stay */ }
+    await reload();
+  };
+  const columnBy = (id: string, dir: 1 | -1) => {
+    const cols = statusColumns();
+    const i = cols.indexOf(id);
+    const next = i < 0 ? undefined : cols[i + dir];
+    if (!next) return;
+    void moveColumn(id, { target: next, side: dir === 1 ? 'after' : 'before' }, ipc.typeGet('task'));
+  };
+  /** The status column whose handle or card has (or last had) the focus, on the Kanban by status. */
+  const focusedColumn = (): string | null => {
+    if (view !== 'kanban' || tagMode) return null;
+    const act = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('main article[data-path], main [data-column-handle]');
+    const el = act ?? (lastCard.current && document.contains(lastCard.current) ? lastCard.current : null);
+    const id = el?.closest('[data-column]')?.getAttribute('data-column') ?? null;
+    return id && statusColumns().includes(id) ? id : null;
+  };
+  useLayoutEffect(() => {
+    const id = focusColumn.current;
+    if (!id) return;
+    const el = document.querySelector<HTMLElement>(`main [data-column="${cssEsc(id)}"] [data-column-handle]`);
+    if (el) { focusColumn.current = null; el.focus(); }
+  });
+
   const create = useCallback(async (title: string, values: [string, Value][]) => {
     try {
       await createObject('task', title, values);
@@ -201,9 +246,23 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
       case 'task.setStatus': if (row && focused) setMenu({ row, anchor: focused, opener: focused, column }); break;
       case 'task.moveNext': if (row && column && view === 'kanban') moveBy(row, column, 1); break;
       case 'task.movePrevious': if (row && column && view === 'kanban') moveBy(row, column, -1); break;
+      case 'tasks.columnLeft': case 'tasks.columnRight': {
+        const col = focusedColumn();
+        if (col) columnBy(col, id === 'tasks.columnRight' ? 1 : -1);
+        break;
+      }
     }
   };
-  useEffect(() => () => { commandRef.current = null; }, []);
+  if (commandStateRef) {
+    commandStateRef.current = (id: string) => {
+      if (id !== 'tasks.columnLeft' && id !== 'tasks.columnRight') return null;
+      const col = focusedColumn();
+      const cols = statusColumns();
+      const i = col ? cols.indexOf(col) : -1;
+      return i >= 0 && cols[i + (id === 'tasks.columnRight' ? 1 : -1)] ? null : t('tasks.column.cantMove');
+    };
+  }
+  useEffect(() => () => { commandRef.current = null; if (commandStateRef) commandStateRef.current = null; }, []);
 
   const card = (row: TaskRowDto, column?: KanbanColumn, drag?: Record<string, unknown>) => (
     <TaskCard key={`${column?.id ?? ''}:${row.path}`} row={row} defs={defs} today={today} region={region} zone={zone} nav={nav}
@@ -271,7 +330,10 @@ export function TasksPage({ view, refresh, heading, ui, onUi, nav, go, onSetting
       )}
       {view === 'kanban' && (
         <KanbanView columns={board} tagMode={tagMode} today={today} region={region} priorities={defs.priorities.map((p) => p.label)}
-          renderCard={(r, col, d) => card(r, col, d)} onDrop={drop} onCreate={create} />
+          renderCard={(r, col, d) => card(r, col, d)} onDrop={drop} onCreate={create}
+          onColumnStart={() => { colBase.current = ipc.typeGet('task'); }}
+          onColumnDrop={(id, to) => { const base = colBase.current ?? ipc.typeGet('task'); colBase.current = null; void moveColumn(id, to, base); }}
+          onColumnKey={columnBy} />
       )}
       <div role="status" className="sr-live" aria-live="polite">{live}</div>
       {note && <div role="status" className="task-note">{note}</div>}

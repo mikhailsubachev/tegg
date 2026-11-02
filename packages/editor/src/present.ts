@@ -1098,7 +1098,13 @@ export function presentation(ui: EditorUi) {
           },
           props: {
             decorations(state) {
-              return uiRefresh.getState(state) as DecorationSet
+              const set = uiRefresh.getState(state) as DecorationSet
+              // FR-EDT-01 AC-9 (and AC-14, D-1356): the hint also shows in an empty top-level paragraph holding the caret.
+              const { $from, empty } = state.selection
+              const doc = state.doc
+              if (!empty || $from.depth !== 1 || $from.parent.type.name !== 'paragraph' || $from.parent.content.size > 0) return set
+              if (doc.childCount === 1) return set // the empty note's hint is already there
+              return set.add(doc, [Decoration.widget($from.pos, (view) => hintElement(view, ui.hint), { side: 1, ignoreSelection: true, key: 'hint-caret' })])
             },
             nodeViews: {
               callout: (node, view, getPos) => new CalloutView(node, view, getPos as () => number | undefined, ui),

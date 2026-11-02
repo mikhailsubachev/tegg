@@ -8,7 +8,7 @@ import { absent, escPreview, mainName, mustBeOn, mustNoPreview, mustPreview, non
 import { caretRel } from './previews-editor-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import {
-  E, addBelow, argText, block, blockMenu, blocksOf, bodyOf, caretIn, diffSpan, editorBody, eventually, fileText, handle,
+  E, addBelow, argText, block, blockMenu, blocksOf, bodyOf, caretIn, diffSpan, editorBody, editorVault, eventually, fileText, handle,
   kindsOf, linkSuggestions, must, mustBeSaved, noModified, openEditor, original, paste, seen, selectIn, sleep, slashMenu,
   sourceBlocks, stateIs, titleField, toolbar, writes, type FakeCoreHandle,
 } from './editor-helpers';
@@ -461,6 +461,21 @@ test('fr_edt_02_ac21_embeds_typed_by_hand', async ({ page }) => {
   // D-630, D-632 (6A, trash-media.md R77): the embed-image placeholder is retired; a missing file shows `Can't find`.
   assert.ok(await seen(editorBody(page).getByText('Can\'t find "obrázek.png"', { exact: true }), 3000), 'the broken-media text for the missing obrázek.png (R77)');
   assert.equal((await core.calls()).filter((c) => /attachment|image|read_file/.test(c.cmd)).length, 0, 'no image file read');
+});
+
+// D-1356 (v0.113 feedback): ↓ at the end of the last block still leaves it (TipTap's `exitOnArrowDown`). Unchanged
+// behaviour, so this guard is green before the build; the red ⏎⏎ / ⌘⏎ and click-below cases are in
+// editor_leave_block.ac.test.ts.
+test('fr_edt_02_ac23_arrow_down_at_the_end_of_the_last_code_block_still_leaves', async ({ page }) => {
+  const vault = editorVault();
+  vault.files[E.prazdna] = vault.files[E.prazdna] + '```js\nlet a = 1\n```\n';
+  const written = vault.files[E.prazdna];
+  const core = await openEditor(page, E.prazdna, { vault });
+  await caretIn(page, 1); // the end of `let a = 1`
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.type('Dál');
+  const t = await savedText(page, core, E.prazdna);
+  assert.equal(noModified(t), noModified(written) + '\nDál\n', '↓ leaves into a new paragraph: the code block byte-identical, one blank line, Dál');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-03

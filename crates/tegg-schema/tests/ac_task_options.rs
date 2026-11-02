@@ -226,3 +226,30 @@ fn fr_tsk_02_ac9_absent_and_unknown_states_are_open() {
 fn fr_tsk_03_ac2_priority_options_order_add_remove_rename() {
     assert_cases("FR-TSK-03/AC-2", 5);
 }
+
+// ------------------------------------------------------------------------------------------------ FR-TSK-05 AC-17 (L4)
+// D-1357 (v0.113 feedback): the Kanban writes a column move as the `moveOption` of type settings
+// (docs/contracts/ms5-tasks.md §14), with `to` in the full `status` list, hidden `Cancelled` included. The op exists
+// since FR-TSK-02 AC-2, so these bytes are green before the build; the red part (the Kanban sends it) is L5,
+// app/webkit/tasks_kanban_columns.ac.test.ts.
+
+#[test]
+fn fr_tsk_05_ac17_column_moves_move_one_status_line() {
+    let base = task_yml();
+    let others = names();
+    let ctx = PatchContext { others: &others };
+    let todo = "      - { label: To do, state: open, color: gray }\n";
+    let in_progress = "      - { label: In progress, state: in-progress, color: blue }\n";
+    let waiting = "      - { label: Waiting, state: open, color: yellow }\n";
+    let done = "      - { label: Done, state: done, color: green }\n";
+    let cancelled = "      - { label: Cancelled, state: cancelled, color: red }\n";
+    let shipped = [todo, in_progress, waiting, done, cancelled].concat();
+    assert!(base.contains(&shipped), "setup: the shipped status lines");
+    let mv = |text: &str, label: &str, to: usize| patch("task", text, &[TypeOp::MoveOption { attr: "status".into(), label: label.into(), to }], &ctx);
+    // `Waiting` dropped before `To do` (index 0).
+    let first = base.replacen(&shipped, &[waiting, todo, in_progress, done, cancelled].concat(), 1);
+    assert_eq!(mv(&base, "Waiting", 0), Ok(Some(first.clone())), "Waiting before To do moves only the Waiting line");
+    // `To do` (index 1) dropped after the last status column `Done` (index 3): 3 + 1 − 1 = 3, before `Cancelled`.
+    let second = first.replacen(&[waiting, todo, in_progress, done, cancelled].concat(), &[waiting, in_progress, done, todo, cancelled].concat(), 1);
+    assert_eq!(mv(&first, "To do", 3), Ok(Some(second)), "To do just after Done; Cancelled keeps its place");
+}

@@ -1733,7 +1733,7 @@ pub fn run() {
             job_resolve_interrupted, backups_list, backup_restore, editor_open, editor_close,
             task_list, daily_tasks,
             shell5b::capture_context, shell5b::capture_create, shell5b::capture_ready, shell5b::capture_hide, shell5b::capture_resize,
-            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show, shell5b::capture_suggest,
+            shell5b::capture_open_main, shell5b::capture_draft_get, shell5b::capture_draft_set, shell5b::capture_saved_show, shell5b::capture_saved_hover, shell5b::capture_suggest,
             shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::vault_reveal, shell5b::shell_settings,
             shell5b::shell_settings_set, shell5b::hotkeys, shell5b::hotkeys_retry, shell5b::inbox_list, shell5b::inbox_count,
             shell5b::inbox_bulk, shell5b::capture_open, shell5b::index_versions,

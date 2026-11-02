@@ -299,6 +299,59 @@ test('fr_cap_01_ac13_the_confirmation_panel', async ({ page }) => {
   assert.deepEqual((await core.captureLog()).openMain, ['Quick Notes/Koupit dárek pro Janu.md'], 'Open asks the shell to show the note');
 });
 
+// D-1358 (v0.113 feedback, ms5-capture §17): the panel shows 1.5 s (was 4 s); while the pointer is over it, it stays,
+// and it hides 1.5 s after the pointer leaves. The panel reports the pointer with `capture_saved_hover(inside)`; the
+// fake core keeps the shell's timer (`captureLog().savedHover`, `savedVisible`) on the page's clock. Leaving the panel
+// is the pointer leaving the page (the panel is the whole `capture-saved` window).
+test('fr_cap_01_ac13_the_panel_hides_after_1_5_s_and_stays_while_hovered', async ({ page }) => {
+  const core = await startCapture(page, { hash: '#saved', install: true });
+  await sleep(300);
+  const t = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(t + 1000));
+  const log = () => core.captureLog();
+  const show = async (title: string) => {
+    await core.showSaved({ typeName: 'Quick Note', title, path: `Quick Notes/${title}.md` });
+    assert.ok(await seen(page.getByText(`Quick Note · ${title}`, { exact: true }), 2000), `the panel shows ${title}`);
+  };
+  // No pointer over the panel: hidden 1,500 ms after it is shown.
+  await show('Koupit dárek pro Janu');
+  assert.equal((await log()).savedVisible, true, 'shown');
+  await page.clock.runFor(1400);
+  assert.equal((await log()).savedVisible, true, 'still shown at 1.4 s');
+  await page.clock.runFor(200);
+  assert.equal((await log()).savedVisible, false, 'hidden by 1.6 s (1.5 s, D-1358)');
+  assert.deepEqual((await log()).savedHover, [], 'no pointer, no capture_saved_hover');
+  // The pointer enters the panel: it stays; it leaves: hidden 1.5 s later.
+  await show('Zavolat Petrovi');
+  await page.clock.runFor(500);
+  const box = await (await must(page.getByText('Saved to Inbox', { exact: true }), 'Saved to Inbox')).boundingBox();
+  assert.ok(box, 'the panel is on screen');
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await sleep(100);
+  assert.deepEqual((await log()).savedHover, [true], 'pointerenter → capture_saved_hover(true)');
+  await page.clock.runFor(3000);
+  assert.equal((await log()).savedVisible, true, 'held while the pointer is over the panel (3.5 s after showing)');
+  await page.mouse.move(-10, -10);
+  await sleep(100);
+  assert.deepEqual((await log()).savedHover, [true, false], 'pointerleave → capture_saved_hover(false)');
+  await page.clock.runFor(1400);
+  assert.equal((await log()).savedVisible, true, 'still shown 1.4 s after the pointer left');
+  await page.clock.runFor(200);
+  assert.equal((await log()).savedVisible, false, 'hidden 1.5 s after the pointer left');
+  // Clicking `Open` puts the pointer over the panel, so the panel stays until the pointer leaves.
+  await show('Koupit dárek pro Janu');
+  await click(page.getByRole('button', { name: 'Open', exact: true }), 'Open');
+  await sleep(100);
+  assert.deepEqual((await log()).openMain, ['Quick Notes/Koupit dárek pro Janu.md'], 'Open asks the shell to show the note');
+  assert.deepEqual((await log()).savedHover.slice(2), [true], 'the click on Open is a pointer over the panel');
+  await page.clock.runFor(3000);
+  assert.equal((await log()).savedVisible, true, 'held after Open while the pointer is over it');
+  await page.mouse.move(-10, -10);
+  await sleep(100);
+  await page.clock.runFor(1600);
+  assert.equal((await log()).savedVisible, false, 'hidden 1.5 s after the pointer left');
+});
+
 // ------------------------------------------------------------------------------------------------ FR-CAP-01 AC-14
 
 test('fr_cap_01_ac14_pseudo_locale_marks_every_ui_text', async ({ page }) => {

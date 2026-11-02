@@ -24,6 +24,8 @@ export const captureIpc = {
   suggest: (query: string) => invoke<CaptureSuggestDto[]>('capture_suggest', { query }),
   /** `heading`: D-604's `Saved to <plural>` on a type without the review workflow (default `Saved to Inbox`). */
   savedShow: (typeName: string, title: string, path: string, heading?: string) => invoke<void>('capture_saved_show', { typeName, title, path, heading: heading ?? null }),
+  /** D-1358: the pointer is over the panel (it stays) or left it (it hides 1.5 s later). */
+  savedHover: (inside: boolean) => invoke<void>('capture_saved_hover', { inside }),
 };
 
 export type CaptureUiState = { theme?: string; dateTime?: DateTimeUiDto | null };

@@ -20,7 +20,7 @@ test('fr_tag_05_ac8_capture_window_reads_name_and_colour_only', () => {
   const cap = JSON.parse(read('src-tauri/capabilities/capture.json'));
   assert.deepEqual([...cap.permissions].sort(), [
     'allow-capture-context', 'allow-capture-create', 'allow-capture-draft-get', 'allow-capture-draft-set', 'allow-capture-hide',
-    'allow-capture-media-add', 'allow-capture-open-main', 'allow-capture-ready', 'allow-capture-resize', 'allow-capture-saved-show',
+    'allow-capture-media-add', 'allow-capture-open-main', 'allow-capture-ready', 'allow-capture-resize', 'allow-capture-saved-hover', 'allow-capture-saved-show',
     'allow-capture-suggest', 'core:event:allow-listen', 'core:event:allow-unlisten', 'core:window:allow-start-dragging',
   ], 'the capture capability gains no read (no index_tags, tag_objects, note_read)');
   const ts = read('ui/src/ipc/types.ts');
