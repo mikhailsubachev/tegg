@@ -84,7 +84,7 @@ A refused call never reaches a command function (NFR-SEC-03 AC-2, tested through
 | `capture_resize` | `height` | — | Sets the window's content height (min 160, max 560 pt). |
 | `capture_open_main` | `path: string \| null` | — | Shows `main`; with a path emits `shell:route { route: 'note/<path>' }` (the panel's `Open`, FR-CAP-01 AC-13; `Open Tegg`). |
 | `capture_draft_get` / `capture_draft_set` | — / `draft: CaptureDraftDto \| null` | `CaptureDraftDto \| null` / — | `capture-draft.json` in Application Support (FR-STO-07, FR-CAP-01 AC-8); `null` deletes it. |
-| `capture_saved_show` | `typeName`, `title`, `path` | — | Fills and shows `capture-saved` for 4 s (§1.2). |
+| `capture_saved_show` | `typeName`, `title`, `path` | — | Fills and shows `capture-saved` for 1.5 s (§1.2; D-1358, §17). |
 | `capture_suggest` | `query: string` | `CaptureSuggestDto[]` (≤ 8) | D-603 (amends D-553): the switcher's matching (`Core::switcher`, aliases included, no create rows, no templates, no trash) as `{ link, title, type, alias }`: `link` the D-184 link text from the vault root, `alias` the matched alias or null. No body, excerpt or path field. Errors: `NoVault`. |
 
 ```ts
@@ -366,3 +366,9 @@ Raised while writing the 5B red tests (D-61). Each test follows the recommendati
 3. **Due calendar (D-602):** the capture's `Due` dialog reuses `daily/Calendar.tsx` (the D-587 `Choose date` grid) with the quick picks above it. Strings: `capture.dueTitle` `Pick a due date`, `capture.noDate` `No date`, `due.today` `Today`, `due.tomorrow` `Tomorrow`, `due.thisWeek` `This week` (D-1285; `due.nextWeek` and `due.fri` removed), `capture.dueHint` `or type “fri”, “next week”`.
 4. **Title caret (bug of D-592):** `.capture-mirror-title` keeps the textarea's font weight and draws bold with `-webkit-text-stroke` (≈ 0.6 px, `currentColor`), so every glyph keeps its advance width.
 
+
+## 17. Preview v0.113 feedback: the confirmation panel's time (D-1358)
+
+- The panel hides **1,500 ms** after `capture_saved_show` (was 4 s). Constant `SAVED_MS = 1500` in `app/src-tauri/src/shell5b.rs`.
+- New command `capture_saved_hover(inside: bool)` (capability of the `capture-saved` window): `true` cancels the pending hide; `false` schedules a hide 1,500 ms later. A newer `capture_saved_show` supersedes both (the generation counter).
+- The panel (`capture.html#saved`) calls it on `pointerenter` (`true`) and `pointerleave` (`false`). The fake core records the calls in `captureLog().savedHover` (an array of booleans) and hides the panel by the same rule, so L5 can check the timing.

@@ -451,3 +451,10 @@ AP-452…AP-454 came with this contract, AP-455…AP-460 from the L1/L2/L4 red r
 - Palette command id `tasks.search`, catalog `cmd.tasks.search` `Filter tasks` (D-1284), no shortcut; the field carries `data-command="tasks.search"`.
 - Date picker (`app/ui/src/dates/PickDate.tsx`): `export function thisWeek(today: string): string`, the first Friday on or after `today` (`YYYY-MM-DD`, D-1286). Quick picks `due.today`, `due.tomorrow`, `due.thisWeek` `This week` (D-1285); `due.nextWeek` and `due.fri` are removed. `This week` has `aria-description` and `title` = `longDate(thisWeek(today))` (D-1287).
 
+
+## 14. Preview v0.113 feedback: reordering Kanban columns (D-1357)
+
+- The Kanban (`app/ui/src/tasks/Kanban.tsx`) writes a column move as one `ipc.typePatch('task', version, [{ op: 'moveOption', attr: 'status', label, to }])`, the op `type-settings/task` sends for an option drag (FR-TSK-03 AC-2). `to` is the index in the **full** `status` option list (hidden `Cancelled` included): dropping before column `X` gives `X`'s index (minus one when the moved option was before `X`); dropping after the last status column gives that column's index + 1 (same correction). A stale `version` (`TypeChanged`, an outside change during the drag) cancels the move: nothing is written and the columns go back (NFR-REL-02).
+- Each status column heading holds a drag handle: an element with `role="button"`, `tabIndex=0`, `draggable`, `aria-label` `tasks.column.drag` `Drag to reorder columns` and `aria-describedby` the column's name. It is absent with `Group by` `Tag` and on `No status`. ⌥← / ⌥→ with the handle focused move the column; afterwards the focus is on the moved column's handle.
+- Palette commands `tasks.columnLeft` (`cmd.tasks.columnLeft` `Move column left`) and `tasks.columnRight` (`cmd.tasks.columnRight` `Move column right`), `needsVault`, no shortcut, enabled on `tasks/kanban` grouped by status when a column handle or a card of a status column is focused and the move is possible.
+- Announcement `tasks.column.moved` `Moved column {column}` in the page's polite live region.
