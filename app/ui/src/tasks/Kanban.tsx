@@ -109,7 +109,7 @@ export function KanbanView({ columns, tagMode, today, region, priorities, render
           <section key={c.id} className={`task-column${over ? ' drop-over' : ''}${colOver ? ` column-drop-${colOver}` : ''}${colDrag?.from === c.id ? ' column-dragging' : ''}`} data-column={c.id} role="region" aria-label={label}>
             <header className="task-column-head">
               {movable(c.id) && (
-                <span role="button" tabIndex={0} draggable className="column-handle" data-column-handle={c.id} aria-label={t('tasks.column.drag')} aria-describedby={`col-name-${cssId(c.id)}`}
+                <span role="button" tabIndex={0} draggable className="column-handle" data-command="tasks.columnDrag" data-column-handle={c.id} aria-label={t('tasks.column.drag')} aria-describedby={`col-name-${cssId(c.id)}`}
                   title={t('tasks.column.drag')} onMouseDown={startColumnDrag(c.id)} onDragStart={(ev) => ev.preventDefault()}
                   onKeyDown={(ev) => {
                     if (!ev.altKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;

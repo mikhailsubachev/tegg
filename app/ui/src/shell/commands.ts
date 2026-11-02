@@ -220,11 +220,16 @@ export function commands(ctx: ShellContext): Command[] {
       ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
     ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
 
-    // D-1357 (FR-TSK-05 AC-18): listed disabled unless a status column (its handle or a card in it) is focused.
-    ...([['tasks.columnLeft', 'cmd.tasks.columnLeft'], ['tasks.columnRight', 'cmd.tasks.columnRight']] as const).map(([id, title]): Command => ({
-      id, title, section: 'edit', needsVault: true, disabled: () => { const r = a(ctx)?.taskCommandState?.(id); return r === undefined ? t('tasks.column.cantMove') : r; }, run: tc(id),
-    })),
   );
+  // D-1357 (FR-TSK-05 AC-18): on the Kanban only, disabled unless a status column (its handle or a card in it) is
+  // focused and the move is possible.
+  if (ctx.route?.id === 'tasks/kanban') {
+    list.push(
+      ...([['tasks.columnLeft', 'cmd.tasks.columnLeft'], ['tasks.columnRight', 'cmd.tasks.columnRight']] as const).map(([id, title]): Command => ({
+        id, title, section: 'edit', needsVault: true, disabled: () => { const r = a(ctx)?.taskCommandState?.(id); return r === undefined ? t('tasks.column.cantMove') : r; }, run: tc(id),
+      })),
+    );
+  }
   // 4D-lite (tags.md R87, D-234: no shortcuts): Tags, New tag and Backups everywhere; tag page commands run on
   // `tag/<key>` only (elsewhere they do nothing); Merge… on `duplicate-titles`.
   const onTag = (id: string) => (c: ShellContext) => (c.route?.id === 'tag/<key>' ? a(c)?.tagCommand?.(id) : undefined);

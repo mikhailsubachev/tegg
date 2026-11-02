@@ -407,7 +407,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
 
   // 5A-2 (D-497): a Task card wrote its task, or found it changed: the nested editors of that file take the new text
   // and the tree is rebuilt (the core's own writes don't come back as vault:changed).  // D-1356 (FR-EDT-01 AC-14): a click in the note's empty area below the last block puts the caret in a new empty
-  // paragraph after it (never written while empty, AC-3); below a last paragraph, at that paragraph's end.
+  // paragraph after it (never written while empty, AC-3); below a last paragraph or heading, at its end (a virtual
+  // Daily Note, which ends with a template heading, stays untouched, D-326).
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const ed = edRef.current;
@@ -415,7 +416,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (!ed || !root || e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey || !ed.editor.isEditable) return;
       const target = e.target instanceof Element ? e.target : null;
       const main = root.closest('main');
-      if (!target || !main || !main.contains(target)) return;
+      // Only the editor itself and the empty layout around it (its ancestors in `main`), never a sibling below it such as
+      // Backlinks or a virtual Daily Note's sections.
+      if (!target || !main || !main.contains(target) || !(root.contains(target) || target.contains(root))) return;
       if (target.closest('button, a, input, textarea, select, [role="button"], [role="menu"], [role="dialog"], [role="listbox"], [contenteditable="false"]') && !ed.view.dom.contains(target)) return;
       const kids = [...ed.view.dom.children];
       const last = kids[kids.length - 1];
@@ -425,11 +428,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       e.preventDefault();
       const { state } = ed.view;
       const end = state.doc.lastChild;
-      if (end && end.type.name === 'paragraph') {
+      if (end && end.isTextblock && end.type.name !== 'codeBlock') {
         ed.editor.commands.setTextSelection(state.doc.content.size - 1);
       } else {
         const at = state.doc.content.size;
-        ed.view.dispatch(state.tr.insert(at, state.schema.nodes.paragraph.create()));
+        ed.view.dispatch(state.tr.insert(at, state.schema.nodes.paragraph.create()).setMeta('teggEmptyBlock', true).setMeta('addToHistory', false));
         ed.editor.commands.setTextSelection(at + 1);
       }
       ed.view.focus();

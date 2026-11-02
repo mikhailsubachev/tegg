@@ -218,7 +218,10 @@ export async function caretInfo(page: Page): Promise<{ text: string; atEnd: bool
       r2.setEnd(s.getRangeAt(0).startContainer, s.getRangeAt(0).startOffset);
       atStart = r2.toString().length === 0;
     }
-    return { text: (blockEl?.textContent ?? '').normalize('NFC'), atEnd, atStart, inBody: !!body && !!document.activeElement && body.contains(document.activeElement) };
+    // D-1360: the AC-9 hint is a widget in an empty paragraph (aria-hidden, never saved), not the block's text.
+    const own = blockEl ? (blockEl.cloneNode(true) as HTMLElement) : null;
+    own?.querySelectorAll('.editor-hint').forEach((h) => h.remove());
+    return { text: (own?.textContent ?? '').normalize('NFC'), atEnd, atStart, inBody: !!body && !!document.activeElement && body.contains(document.activeElement) };
   });
 }
 export async function caretWhen(page: Page, ok: (c: Awaited<ReturnType<typeof caretInfo>>) => boolean, ms = 2000) {
