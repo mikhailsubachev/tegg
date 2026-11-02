@@ -197,6 +197,7 @@ export function App() {
   const uiLoaded = useRef(false);
   // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
   const taskCommand = useRef<((id: string) => void) | null>(null);
+  const taskCommandState = useRef<((id: string) => string | null) | null>(null);
   const inboxCommand = useRef<((id: string) => void) | null>(null);
   const trashCommand = useRef<((id: 'restore' | 'delete') => void) | null>(null);
   const uiRef = useRef<UiState | null>(null);
@@ -639,6 +640,7 @@ export function App() {
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
     goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
     taskCommand: (id: string) => taskCommand.current?.(id),
+    taskCommandState: (id: string) => taskCommandState.current?.(id),
     filterTasks: () => {
       // D-1284: on a task view the focus goes to its field; elsewhere the last of Schedule and Kanban opens with it.
       const field = document.querySelector<HTMLInputElement>(TASK_SEARCH);
@@ -1139,6 +1141,7 @@ export function App() {
         onSettings={() => go({ id: 'type-settings/<type>', param: 'task' })}
         plural={types.find((x) => x.key.normalize('NFC') === 'task')?.plural ?? t('tasks.title')}
         commandRef={taskCommand}
+        commandStateRef={taskCommandState}
       />
     );
   } else if (route?.id === 'inbox' && vault) {

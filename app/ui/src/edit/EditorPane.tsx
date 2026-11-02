@@ -4,7 +4,7 @@
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { createEditor, embedTarget, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { createEditor, embedTarget, leaveCodeBlock, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
 import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
@@ -406,7 +406,39 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   }, []);
 
   // 5A-2 (D-497): a Task card wrote its task, or found it changed: the nested editors of that file take the new text
-  // and the tree is rebuilt (the core's own writes don't come back as vault:changed).
+  // and the tree is rebuilt (the core's own writes don't come back as vault:changed).  // D-1356 (FR-EDT-01 AC-14): a click in the note's empty area below the last block puts the caret in a new empty
+  // paragraph after it (never written while empty, AC-3); below a last paragraph, at that paragraph's end.
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const ed = edRef.current;
+      const root = wrap.current;
+      if (!ed || !root || e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey || !ed.editor.isEditable) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const main = root.closest('main');
+      if (!target || !main || !main.contains(target)) return;
+      if (target.closest('button, a, input, textarea, select, [role="button"], [role="menu"], [role="dialog"], [role="listbox"], [contenteditable="false"]') && !ed.view.dom.contains(target)) return;
+      const kids = [...ed.view.dom.children];
+      const last = kids[kids.length - 1];
+      if (!last) return;
+      const host = ed.view.dom.getBoundingClientRect();
+      if (e.clientY <= last.getBoundingClientRect().bottom || e.clientX < host.left - 40 || e.clientX > host.right + 40) return;
+      e.preventDefault();
+      const { state } = ed.view;
+      const end = state.doc.lastChild;
+      if (end && end.type.name === 'paragraph') {
+        ed.editor.commands.setTextSelection(state.doc.content.size - 1);
+      } else {
+        const at = state.doc.content.size;
+        ed.view.dispatch(state.tr.insert(at, state.schema.nodes.paragraph.create()));
+        ed.editor.commands.setTextSelection(at + 1);
+      }
+      ed.view.focus();
+    };
+    document.addEventListener('mousedown', onDown, true);
+    return () => document.removeEventListener('mousedown', onDown, true);
+  }, []);
+
+
   useEffect(() => {
     if (!embeds) return;
     const on = (p: string, w: { text: string; version: unknown } | null) => {
@@ -994,6 +1026,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         const sel = e.selectedEmbed();
         if (sel) { embedKey(sel.pos, 'open'); break; }
         const $f = e.view.state.selection.$from;
+        if ($f.parent.type.name === 'codeBlock') { leaveCodeBlock(e.view.state, e.view.dispatch, false); break; } // D-1356
         const n = [$f.nodeBefore, $f.nodeAfter].find((x) => x?.type.name === 'wikiLink');
         if (n) {
           const { target, fragment } = linkTarget(String(n.attrs.value));

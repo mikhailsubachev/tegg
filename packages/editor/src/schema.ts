@@ -11,7 +11,7 @@ import { ListItem } from '@tiptap/extension-list'
 import Strike from '@tiptap/extension-strike'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
-import { Plugin } from '@tiptap/pm/state'
+import { Plugin, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { TagRules } from './tagRules'
 
@@ -223,6 +223,43 @@ export const FrontmatterAttr = Extension.create({
 // so `2 * 3 * 4` stays text (FR-EDT-04 AC-2, AC-4).
 const noRules = { addInputRules: () => [], addPasteRules: () => [], addKeyboardShortcuts: () => ({}) }
 
+/** Leaves the code block holding the caret into a new empty paragraph after it; `trim` first removes the block's last
+ *  `\n` (the empty last line). */
+export function leaveCodeBlock(state: EditorState, dispatch: ((tr: Transaction) => void) | undefined, trim: boolean): boolean {
+  const { $from, empty } = state.selection
+  if (!empty || $from.parent.type.name !== 'codeBlock') return false
+  if (!dispatch) return true
+  const tr = state.tr
+  const end = $from.end()
+  if (trim) tr.delete(end - 1, end)
+  const after = tr.mapping.map($from.after())
+  tr.insert(after, state.schema.nodes.paragraph.create())
+  tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView()
+  dispatch(tr)
+  return true
+}
+
+/** D-1356 (FR-EDT-02 AC-23): ⏎ on the empty last line of a code block removes that line and leaves the block; ⌘⏎
+ *  leaves it from any line. Before TipTap's own code-block keys (its three-⏎ exit and ↓ at the end still work). */
+const CodeBlockExit = Extension.create({
+  name: 'teggCodeBlockExit',
+  priority: 200,
+  addKeyboardShortcuts() {
+    const leaveAny = () => leaveCodeBlock(this.editor.state, this.editor.view.dispatch, false)
+    return {
+      Enter: () => {
+        const { $from, empty } = this.editor.state.selection
+        if (!empty || $from.parent.type.name !== 'codeBlock') return false
+        const text = $from.parent.textContent
+        if ($from.parentOffset !== text.length || !text.endsWith('\n')) return false
+        return leaveCodeBlock(this.editor.state, this.editor.view.dispatch, true)
+      },
+      'Mod-Enter': leaveAny,
+      'Meta-Enter': leaveAny,
+    }
+  },
+})
+
 export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
   return [
     StarterKit.configure({
@@ -239,6 +276,7 @@ export function teggExtensions(extra: AnyExtension[] = []): AnyExtension[] {
       dropcursor: false,
       hardBreak: false,
     }),
+    CodeBlockExit,
     HardBreak.extend({ addKeyboardShortcuts: () => ({ 'Shift-Enter': ({ editor }) => editor.commands.setHardBreak() }) }),
     Bold.extend(noRules),
     Italic.extend(noRules),

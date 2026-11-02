@@ -483,6 +483,33 @@ pub(crate) async fn capture_draft_set(app: AppHandle, draft: Option<CaptureDraft
 }
 
 static SAVED_GEN: AtomicU64 = AtomicU64::new(0);
+/// D-1358: the panel hides 1.5 s after it is shown, or 1.5 s after the pointer leaves it.
+const SAVED_MS: u64 = 1500;
+
+/// Hides the panel after `SAVED_MS` unless a newer show or hover (a newer generation) came in between.
+fn hide_saved_later(app: AppHandle, gen: u64) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(SAVED_MS));
+        if SAVED_GEN.load(Ordering::SeqCst) == gen {
+            let a = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Some(p) = a.get_webview_window(SAVED) {
+                    let _ = p.hide();
+                }
+            });
+        }
+    });
+}
+
+/// D-1358 (ms5-capture §17): the pointer entered (`true`, the panel stays) or left (`false`, it hides 1.5 s later).
+#[tauri::command]
+pub(crate) async fn capture_saved_hover(app: AppHandle, inside: bool) -> Result<(), IpcError> {
+    let gen = SAVED_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    if !inside {
+        hide_saved_later(app, gen);
+    }
+    Ok(())
+}
 
 #[tauri::command]
 pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title: String, path: String, heading: Option<String>) -> Result<(), IpcError> {
@@ -499,17 +526,7 @@ pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title:
         let _ = panel.show();
     })
     .map_err(|e| err("Io", e))?;
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(4));
-        if SAVED_GEN.load(Ordering::SeqCst) == gen {
-            let a = app.clone();
-            let _ = app.run_on_main_thread(move || {
-                if let Some(p) = a.get_webview_window(SAVED) {
-                    let _ = p.hide();
-                }
-            });
-        }
-    });
+    hide_saved_later(app, gen);
     Ok(())
 }
 
