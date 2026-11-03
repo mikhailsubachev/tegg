@@ -195,7 +195,7 @@ export const en: Catalog = {
   // Editor (slice 3C, docs/contracts/ms3-shell.md §13.5, editor.md R6–R9).
   'editor.body': 'Note body',
   'editor.title': 'Title',
-  'editor.hint': 'Type / for blocks, [[ to link, # to tag',
+  'editor.hint': 'Type here',
   'editor.addBelow': 'Add block below',
   'editor.handle': 'Drag to move, click for block menu',
   'editor.sourceBlock': 'Source block',

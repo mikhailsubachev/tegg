@@ -11,7 +11,7 @@ import {
   E, block, caretIn, editorBody, editorVault, fileText, must, mustBeSaved, noModified, openEditor, seen, sleep, writes, type FakeCoreHandle,
 } from './editor-helpers';
 
-const HINT = 'Type / for blocks, [[ to link, # to tag';
+const HINT = 'Type here';
 const CODE = '```js\nlet a = 1\n```\n';
 
 /** The editor vault with Prázdná's body replaced by `body` (Prázdná's original body is empty) and extra notes. */
