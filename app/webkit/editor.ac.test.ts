@@ -242,7 +242,7 @@ test('fr_edt_01_ac8_source_block_can_be_moved_duplicated_deleted', async ({ page
 
 test('fr_edt_01_ac9_empty_body_hint_and_first_text', async ({ page }) => {
   const core = await openEditor(page, E.prazdna);
-  const hint = 'Type / for blocks, [[ to link, # to tag';
+  const hint = 'Type here';
   assert.ok(await seen(editorBody(page).getByText(hint)), 'hint in the empty body');
   await editorBody(page).first().click();
   await page.keyboard.press('Meta+a');

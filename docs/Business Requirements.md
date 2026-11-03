@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.148, for review                                            |
+| **Document status** | Draft v1.149, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -162,6 +162,7 @@
 | v1.146  | 2026-11-02 | Preview v0.113 feedback (`docs/feedback/ms6-v0113.md`): D-1356…D-1358 (AP-1214…AP-1216, as proposed): a click below the last block and ⏎⏎ / ⌘⏎ leave a code block (FR-EDT-01 AC-14, FR-EDT-02 AC-23); Kanban status columns reorder by drag, ⌥←/⌥→ and the palette, writing the option order in `task.yml` (FR-TSK-05 AC-17, AC-18); the capture confirmation shows 1.5 s, longer while hovered (FR-CAP-01 AC-13, changes D-543) |
 | v1.147  | 2026-11-02 | v0.113 feedback, red-test and build decisions (red tests 35316ea, build f3aa064): D-1359…D-1361 (AP-1217…AP-1219, as proposed): existing tests follow `capture_saved_hover` and R46's two keys; two red-test defects fixed; drop halves, disabled column commands, the area below the last block, the panel's hold on enter only, the hint in any empty paragraph with the caret |
 | v1.148  | 2026-11-02 | v0.113 push-gate findings (build 882470d): D-1362…D-1364 (AP-1220…AP-1222, as proposed): the column commands only on `tasks/kanban` (changes D-1361 (b)); a click below a last heading puts the caret at its end, and the added paragraph isn't an edit (refines D-1356); the mindmap caret helper ignores the AC-9 hint |
+| v1.149  | 2026-11-03 | v0.116 feedback: D-1365, the empty-paragraph hint is `Type here` (FR-EDT-01 AC-9) |
 
 ---
 
@@ -1353,6 +1354,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1362 | The column commands' place (AP-1220) (owner, 2026-11-02: "Accept all") | `Move column left` / `Move column right` are listed on `tasks/kanban` only, disabled there with D-1361's reason when they can't run (FR-UX-03 AC-2 runs every listed command). Changes D-1361 (b) |
 | D-1363 | A click below a last heading (AP-1221) (owner, 2026-11-02: "Accept all") | Below a last paragraph or heading the click puts the caret at its end and adds nothing; a paragraph is added only below a block that can't take typed text after it (code block, table, callout, divider, mindmap, embed), and adding it isn't an edit, so a virtual Daily Note stays untouched (D-326). Refines D-1356, FR-EDT-01 AC-14 |
 | D-1364 | The hint in the mindmap helper (AP-1222) (owner, 2026-11-02: "Accept all") | `caretInfo` (`app/webkit/mindmap-helpers.ts`) reads a block's text without the AC-9 hint widget, as D-1360 (b) |
+| D-1365 | The editor hint's text (owner, 2026-11-03: "Replace this text with just “Type here”") | The hint in an empty paragraph that holds the caret (FR-EDT-01 AC-9) reads `Type here` instead of `Type / for blocks, [[ to link, # to tag` |
 
 ---
 
