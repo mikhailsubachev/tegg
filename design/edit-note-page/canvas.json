@@ -2,25 +2,91 @@
   "v": 3,
   "attachments": {},
   "boards": {
-    "Artboard-z6er.dc.html": {
-      "h": 600,
-      "page": "page-n7qph1",
-      "title": "Artboard 1",
-      "w": 800,
-      "x": 0,
-      "y": 0
+    "Brand.dc.html": {
+      "h": 1240,
+      "title": "Brand · Tegg mark in the app",
+      "w": 1680,
+      "x": 6560,
+      "y": 1100
+    },
+    "CardAnatomy.dc.html": {
+      "h": 1520,
+      "is_interactive": true,
+      "title": "Universal object card · proposal",
+      "w": 1680,
+      "x": 3280,
+      "y": 3500
     },
     "Graph.dc.html": {
       "expand": "fill",
       "h": 980,
+      "page": "page-n7qph1",
       "title": "Local graph · full view",
       "w": 1440,
-      "x": 3040,
+      "x": 880,
       "y": 0
+    },
+    "GraphDark.dc.html": {
+      "expand": "fill",
+      "h": 980,
+      "page": "page-n7qph1",
+      "title": "Local graph · full view (dark)",
+      "w": 1440,
+      "x": 2400,
+      "y": 0
+    },
+    "GraphDetails.dc.html": {
+      "h": 1720,
+      "page": "page-n7qph1",
+      "title": "Local graph · tags, hover, keyboard, presets",
+      "w": 1680,
+      "x": 3520,
+      "y": 1060
+    },
+    "GraphDetailsDark.dc.html": {
+      "h": 1720,
+      "page": "page-n7qph1",
+      "title": "Local graph · tags, hover, keyboard, presets (dark)",
+      "w": 1680,
+      "x": 3520,
+      "y": 2900
+    },
+    "GraphPanel.dc.html": {
+      "h": 1120,
+      "page": "page-n7qph1",
+      "title": "Local graph · side panel",
+      "w": 1680,
+      "x": 0,
+      "y": 1060
+    },
+    "GraphPanelDark.dc.html": {
+      "h": 1120,
+      "page": "page-n7qph1",
+      "title": "Local graph · side panel (dark)",
+      "w": 1680,
+      "x": 0,
+      "y": 2900
+    },
+    "GraphStates.dc.html": {
+      "h": 1660,
+      "page": "page-n7qph1",
+      "title": "Local graph · empty, loading, too many, deleted",
+      "w": 1680,
+      "x": 1760,
+      "y": 1060
+    },
+    "GraphStatesDark.dc.html": {
+      "h": 1660,
+      "page": "page-n7qph1",
+      "title": "Local graph · empty, loading, too many, deleted (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 2900
     },
     "Home.dc.html": {
       "expand": "fill",
       "h": 1440,
+      "is_interactive": true,
       "title": "Home",
       "w": 1440,
       "x": 0,
@@ -35,6 +101,22 @@
       "x": 1520,
       "y": 0
     },
+    "Inbox.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "is_interactive": true,
+      "title": "Inbox",
+      "w": 1440,
+      "x": 1760,
+      "y": 3380
+    },
+    "LinkChips.dc.html": {
+      "h": 1200,
+      "title": "Link chip variants",
+      "w": 1680,
+      "x": 6560,
+      "y": 2420
+    },
     "Logos.dc.html": {
       "h": 2320,
       "title": "Logo directions",
@@ -42,20 +124,102 @@
       "x": 3040,
       "y": 1100
     },
-    "FolderLogos.dc.html": {
-      "h": 1180,
-      "title": "Folder logo variants",
-      "w": 1680,
-      "x": 4800,
-      "y": 1100
-    },
     "Main.dc.html": {
       "expand": "fill",
       "h": 1840,
+      "is_interactive": true,
       "title": "Edit note · Meeting",
       "w": 1440,
       "x": 0,
       "y": 0
+    },
+    "MainProperties.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "title": "Edit note · Meeting (date properties)",
+      "w": 1440,
+      "x": 8320,
+      "y": 0
+    },
+    "MainUnreviewed.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "title": "Edit note · Meeting (unreviewed)",
+      "w": 1440,
+      "x": 6800,
+      "y": 3540
+    },
+    "QuickCapture.dc.html": {
+      "h": 2000,
+      "is_interactive": true,
+      "title": "Quick Capture",
+      "w": 1680,
+      "x": 3040,
+      "y": 5100
+    },
+    "TagPage.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "title": "Tag page · #offsite",
+      "w": 1440,
+      "x": 1520,
+      "y": 7560
+    },
+    "TagPagePostMVP.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "title": "Tag page · #offsite (post-MVP: Cards view)",
+      "w": 1440,
+      "x": 3040,
+      "y": 7560
+    },
+    "TagsAll.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "title": "Tags · all tags",
+      "w": 1440,
+      "x": 1520,
+      "y": 6380
+    },
+    "Tasks.dc.html": {
+      "expand": "fill",
+      "h": 1640,
+      "is_interactive": true,
+      "title": "Tasks · schedule",
+      "w": 1440,
+      "x": 0,
+      "y": 4640
+    },
+    "TasksAll.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "title": "Tasks · all tasks (type page)",
+      "w": 1440,
+      "x": 0,
+      "y": 6388
+    },
+    "TasksBoard.dc.html": {
+      "expand": "fill",
+      "h": 1240,
+      "is_interactive": true,
+      "title": "Task board · kanban",
+      "w": 1440,
+      "x": 1520,
+      "y": 4640
+    },
+    "TypeCards.dc.html": {
+      "expand": "fill",
+      "h": 1200,
+      "title": "Object cards · system types + Idea",
+      "w": 1680,
+      "x": 5040,
+      "y": 3500
     },
     "TypeSettings.dc.html": {
       "expand": "fill",
@@ -72,115 +236,22 @@
       "x": 0,
       "y": 3520
     },
-    "Inbox.dc.html": {
-      "expand": "fill",
-      "h": 1100,
-      "title": "Inbox",
-      "w": 1440,
-      "x": 1760,
-      "y": 3380,
-      "is_interactive": true
-    },
-    "CardAnatomy.dc.html": {
-      "h": 1520,
-      "title": "Universal object card · proposal",
-      "w": 1680,
-      "x": 3280,
-      "y": 3500,
-      "is_interactive": true
-    },
-    "TypeCards.dc.html": {
-      "expand": "fill",
-      "h": 1200,
-      "title": "Object cards · system types + Idea",
-      "w": 1680,
-      "x": 5040,
-      "y": 3500
-    },
-    "Tasks.dc.html": {
-      "expand": "fill",
-      "h": 1640,
-      "title": "Tasks · schedule",
-      "w": 1440,
-      "x": 0,
-      "y": 4640,
-      "is_interactive": true
-    },
-    "TasksBoard.dc.html": {
-      "expand": "fill",
-      "h": 1240,
-      "title": "Task board · kanban",
-      "w": 1440,
-      "x": 1520,
-      "y": 4640,
-      "is_interactive": true
-    },
-    "QuickCapture.dc.html": {
-      "h": 2000,
-      "title": "Quick Capture",
-      "w": 1680,
-      "x": 3040,
-      "y": 5100,
-      "is_interactive": true
-    },
-    "TasksAll.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "title": "Tasks · all tasks (type page)",
-      "w": 1440,
-      "x": 0,
-      "y": 6380,
-      "is_interactive": true
-    },
-    "Brand.dc.html": {
-      "h": 1240,
-      "title": "Brand · Tegg mark in the app",
-      "w": 1680,
-      "x": 6560,
-      "y": 1100
-    },
-    "LinkChips.dc.html": {
-      "h": 1200,
-      "title": "Link chip variants",
-      "w": 1680,
-      "x": 6560,
-      "y": 2420
-    },
-    "MainUnreviewed.dc.html": {
+    "MainDark.dc.html": {
       "expand": "fill",
       "h": 1840,
-      "title": "Edit note · Meeting (unreviewed)",
+      "is_interactive": true,
+      "title": "Edit note · Meeting (dark)",
       "w": 1440,
-      "x": 6800,
-      "y": 3540,
-      "is_interactive": true
+      "x": 9840,
+      "y": 0
     },
-    "TagPage.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "title": "Tag page · #offsite",
-      "w": 1440,
-      "x": 1520,
-      "y": 7560,
-      "is_interactive": true
-    },
-    "TagsAll.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "title": "Tags · all tags",
-      "w": 1440,
-      "x": 1520,
-      "y": 6380,
-      "is_interactive": true
-    },
-    "TagPagePostMVP.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "title": "Tag page · #offsite (post-MVP: Cards view)",
-      "w": 1440,
-      "x": 3040,
-      "y": 7560,
-      "is_interactive": true
+    "LogoDots.dc.html": {
+      "h": 1440,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-logodots",
+      "title": "Logo · cross-connected dots"
     },
     "MindmapLayouts.dc.html": {
       "h": 1700,
@@ -238,6 +309,66 @@
       "page": "page-4e",
       "title": "Type moves and schema rewrites · dialogs (4E)"
     },
+    "Search.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · results (exact phrase; type and tag filters)"
+    },
+    "SearchNoResults.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no results with filters"
+    },
+    "SearchDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 0,
+      "y": 1200,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · results (dark)"
+    },
+    "SearchNoMatch.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 3040,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no match, no filters (create page)"
+    },
+    "SearchNoResultsDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 1520,
+      "y": 1200,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no results with filters (dark)"
+    },
+    "SearchNoMatchDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 3040,
+      "y": 1200,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no match, no filters (dark)"
+    },
     "ObjectPreview.dc.html": {
       "h": 3480,
       "page": "page-previews",
@@ -265,15 +396,20 @@
   },
   "notes": {},
   "order": [
+    "Graph.dc.html",
+    "GraphDark.dc.html",
+    "GraphPanel.dc.html",
+    "GraphStates.dc.html",
+    "GraphDetails.dc.html",
+    "GraphPanelDark.dc.html",
+    "GraphStatesDark.dc.html",
+    "GraphDetailsDark.dc.html",
     "Main.dc.html",
     "Ideas.dc.html",
-    "Graph.dc.html",
     "TypeSettings.dc.html",
     "Logos.dc.html",
     "Home.dc.html",
     "VaultSwitcher.dc.html",
-    "Artboard-z6er.dc.html",
-    "FolderLogos.dc.html",
     "Inbox.dc.html",
     "CardAnatomy.dc.html",
     "TypeCards.dc.html",
@@ -287,12 +423,21 @@
     "TagsAll.dc.html",
     "TagPage.dc.html",
     "TagPagePostMVP.dc.html",
+    "MainProperties.dc.html",
+    "MainDark.dc.html",
+    "LogoDots.dc.html",
     "MindmapLayouts.dc.html",
     "LayoutNormalPanel.dc.html",
     "LayoutNormal.dc.html",
     "LayoutWidePanel.dc.html",
     "LayoutWide.dc.html",
     "TypeJobs.dc.html",
+    "Search.dc.html",
+    "SearchNoResults.dc.html",
+    "SearchDark.dc.html",
+    "SearchNoMatch.dc.html",
+    "SearchNoResultsDark.dc.html",
+    "SearchNoMatchDark.dc.html",
     "ObjectPreview.dc.html",
     "ObjectPreviewDark.dc.html"
   ],
@@ -303,7 +448,11 @@
     },
     {
       "id": "page-n7qph1",
-      "name": "Page 2"
+      "name": "Graph"
+    },
+    {
+      "id": "page-logodots",
+      "name": "Logo · dots"
     },
     {
       "id": "page-mindmap",
@@ -316,6 +465,10 @@
     {
       "id": "page-4e",
       "name": "Type moves & schema (4E)"
+    },
+    {
+      "id": "page-search",
+      "name": "Search"
     },
     {
       "id": "page-previews",
