@@ -1,5 +1,5 @@
 // Index extraction reference (spike S4, S4-QA AC-4): what the index stores about a note.
-// The Rust extractor in spikes/s4-index must produce the same JSON for every round-trip
+// The Rust extractor of spike S4 (removed, D-1366) produced the same JSON for every round-trip
 // fixture; `test/extract.test.ts` writes it to tests/fixtures/format/extract/expected.json.
 
 import { parse } from './parse.js'

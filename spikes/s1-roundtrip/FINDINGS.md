@@ -59,3 +59,7 @@ Each of these would have silently damaged notes in a naive "editor model → Mar
 ## Dialect changes from S1
 
 Recorded in `docs/markdown-dialect.md`: an edited block keeps its list-marker style; trailing empty `>` lines are kept; edits are verified and may add a blank line to an adjacent gap; tags allow combining marks.
+
+## Spike code removed (D-1366)
+
+The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.

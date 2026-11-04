@@ -73,3 +73,7 @@ Recommendation: option 1, with P3 recorded as a dialect note ("links inside `$$`
 - `cargo run --release --bin perf -- --vault <dir> --runs 20 [--label slow] [--out r.json]`; slow profile: prefix with `taskpolicy -b` (nightly step `s4-perf`, normal profile)
 - `cargo bench --bench perf`: criterion trend (generates `target/bench-vault` once)
 - Regenerate the reference contract after an intended extraction change: `cd spikes/s1-roundtrip && UPDATE_EXTRACT=1 npx vitest run test/extract.test.ts`
+
+## Spike code removed (D-1366)
+
+The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.

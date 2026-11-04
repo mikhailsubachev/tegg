@@ -60,3 +60,10 @@ The write phase (atomic writes, backup zip, cancel = vault byte-identical), prog
 - `cargo test --release` (in `spikes/s5-capacities-import`): fixture tests; `./verify push` step `s5-test`
 - `cargo run --release --bin capacities-dryrun -- <export.zip|folder>` lists spaces; add `--space NAME [--tz ZONE] [--vault DIR] [--json | --counts-only]` for the preview
 - Real export (owner only, D-62): `TEGG_REAL_EXPORTS=1 cargo test --release --test real_export -- --nocapture`
+
+## Spike code removed (D-1366)
+
+The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.
+
+
+The MVP Capacities importer (MS7) is ported from this code at that commit (D-83, D-1366); until then no test runs the fixtures in `tests/fixtures/import/capacities/`.

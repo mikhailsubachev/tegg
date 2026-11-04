@@ -59,6 +59,8 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 
 ## Spike QA exit criteria (test-strategy §10.1)
 
+*Historical (D-1369): every spike has passed or been closed, and the spike code was removed (D-1366). The criteria below are kept as a record; their tests are in commit `75b3382`.*
+
 ### S2-QA Editor spike
 
 - **AC-1** Every fixture in `tests/fixtures/format/roundtrip/` opened in the TipTap prototype, with one block edited through real ProseMirror transactions and saved, differs from the original only in that block's byte range (FR-FMT-07/AC-3).
