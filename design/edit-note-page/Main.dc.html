@@ -83,7 +83,7 @@ Q4 Budget
 </div>
 <!-- Version (bottom left): no logo inside the app -->
 <div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
-<button aria-haspopup="menu" aria-label="Tegg v0.49: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.49</button>
+<button aria-haspopup="menu" aria-label="Tegg v0.xx: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.xx</button>
 </div>
 </nav>
 </sc-if>
@@ -92,11 +92,7 @@ Q4 Budget
 <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
 <!-- Editor toolbar -->
 <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap">
-<div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); flex: 1; min-width: 0">
-<a href="#">Meetings</a>
-<span aria-hidden="true">/</span>
-<span style="color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">2026-10-07 Weekly Sync</span>
-</div>
+<span style="flex: 1"></span>
 <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
 Saved
@@ -334,6 +330,10 @@ plan. <a href="TagPage.dc.html" style="color: var(--o); font-weight: 500">#finan
 <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--border); background: var(--embed); font-size: 13px; flex-wrap: wrap">
 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg>
 <span style="font-weight: 600; flex: 1">Mindmap</span>
+<div role="radiogroup" aria-label="Mindmap layout" style="display: flex; padding: 2px; border-radius: 7px; background: var(--hover); gap: 2px">
+<button role="radio" aria-checked="{{mmRightOn}}" aria-label="Layout: branches to the right" title="Branches to the right" style="width: 30px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: {{mmRightBg}}; color: {{mmRightFg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8"></path></svg></button>
+<button role="radio" aria-checked="{{mmSpiderOn}}" aria-label="Layout: spider, branches on both sides" title="Spider: branches on both sides" style="width: 30px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: {{mmSpiderBg}}; color: {{mmSpiderFg}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 12h5M9.5 12c-2 0-2-5-4.5-5H3M9.5 12c-2 0-2 5-4.5 5H3M14.5 12c2 0 2-5 4.5-5H21M14.5 12c2 0 2 5 4.5 5H21"></path></svg></button>
+</div>
 <div role="group" aria-label="Mindmap view" style="display: flex; padding: 2px; border-radius: 7px; background: var(--hover); gap: 2px">
 <button aria-pressed="{{mmVisualPressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmVisualBg}}; color: {{mmVisualFg}}">Visual</button>
 <button aria-pressed="{{mmSourcePressed}}" style="height: 26px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 600; background: {{mmSourceBg}}; color: {{mmSourceFg}}">Source</button>
@@ -345,7 +345,7 @@ plan. <a href="TagPage.dc.html" style="color: var(--o); font-weight: 500">#finan
 
 <sc-if value="{{mmVisual}}" hint-placeholder-val="{{ true }}">
 <div style="overflow-x: auto; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 18px 18px">
-<div style="position: relative; width: 640px; height: 268px; margin: 12px 16px">
+<div style="position: relative; width: {{mmW}}px; height: 268px; margin: 12px 16px">
 <sc-for list="{{mmLines}}" as="l" hint-placeholder-count="12">
 <div style="position: absolute; left: {{l.x}}px; top: {{l.y}}px; width: {{l.w}}px; height: {{l.h}}px; background: var(--faint)"></div>
 </sc-for>
@@ -438,14 +438,15 @@ plan. <a href="TagPage.dc.html" style="color: var(--o); font-weight: 500">#finan
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"overlay":{"editor":"enum","options":["object menu","slash menu","selection toolbar","link preview","none"],"default":"object menu"},"focusMode":{"editor":"boolean","default":false},"mindmap":{"editor":"enum","options":["visual editing","source","inserting (/mind)"],"default":"visual editing"},"$preview":{"width":1440,"height":1840}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"overlay":{"editor":"enum","options":["object menu","slash menu","selection toolbar","link preview","none"],"default":"object menu"},"focusMode":{"editor":"boolean","default":false},"mindmap":{"editor":"enum","options":["visual editing","source","inserting (/mind)"],"default":"visual editing"},"mmLayout":{"editor":"enum","options":["right","spider"],"default":"right"},"$preview":{"width":1440,"height":1840}}'>
 class Component extends DCLogic {
 mindmap() {
 const step = this.props.mindmap ?? 'visual editing';
+const spider = (this.props.mmLayout ?? 'right') === 'spider';
 const C = { a: 'link', v: 'o', t: 'p', m: 't' };
 const kid = (k) => ({ bg: 'var(--' + C[k] + '-bg)', fg: 'var(--' + C[k] + ')', border: '0', weight: '600' });
 const leaf = { bg: 'var(--bg)', fg: 'var(--text)', border: '1px solid var(--border)', weight: '400' };
-const N = [
+const NR = [
 { label: 'Offsite 2026', x: 0, y: 118, w: 130, bg: 'var(--text)', fg: 'var(--bg)', border: '0', weight: '650' },
 { label: 'Agenda', x: 190, y: 28, w: 150, ...kid('a') },
 { label: 'Venue', x: 190, y: 108, w: 150, ...kid('v') },
@@ -456,17 +457,36 @@ const N = [
 { label: 'Lisbon Offsite 2026', x: 400, y: 88, w: 200, ...leaf, isLink: true },
 { label: 'Budget cap per person', x: 400, y: 128, w: 200, ...leaf }
 ];
+const NS = [
+{ label: 'Offsite 2026', x: 380, y: 118, w: 150, bg: 'var(--text)', fg: 'var(--bg)', border: '0', weight: '650' },
+{ label: 'Agenda', x: 560, y: 68, w: 110, ...kid('a') },
+{ label: 'Travel', x: 560, y: 168, w: 110, ...kid('t'), collapsed: true },
+{ label: 'Venue', x: 220, y: 68, w: 130, ...kid('v') },
+{ label: 'Team activities', x: 220, y: 168, w: 130, ...kid('m'), editing: true },
+{ label: 'Q4 review', x: 700, y: 48, w: 140, ...leaf },
+{ label: 'Roadmap 2027', x: 700, y: 88, w: 140, ...leaf },
+{ label: 'Lisbon Offsite 2026', x: 10, y: 48, w: 180, ...leaf, isLink: true },
+{ label: 'Budget cap per person', x: 10, y: 88, w: 180, ...leaf }
+];
+const N = spider ? NS : NR;
 const mmNodes = N.map((n) => ({
 ...n, isLink: !!n.isLink, isText: !n.isLink, collapsed: !!n.collapsed, editing: !!n.editing,
 ring: n.editing ? '0 0 0 2px var(--bg), 0 0 0 4px var(--link)' : 'none'
 }));
 const h = (x, y, w) => ({ x, y: y - 1, w, h: 2 });
 const v = (x, y1, y2) => ({ x: x - 1, y: y1, w: 2, h: y2 - y1 });
-const mmLines = [
+const LR = [
 h(130, 134, 30), v(160, 44, 224), h(160, 44, 30), h(160, 124, 30), h(160, 184, 30), h(160, 224, 30),
 h(340, 44, 30), v(370, 24, 64), h(370, 24, 30), h(370, 64, 30),
 h(340, 124, 30), v(370, 104, 144), h(370, 104, 30), h(370, 144, 30)
 ];
+const LS = [
+h(530, 134, 15), v(545, 84, 184), h(545, 84, 15), h(545, 184, 15),
+h(670, 84, 15), v(685, 64, 104), h(685, 64, 15), h(685, 104, 15),
+h(365, 134, 15), v(365, 84, 184), h(350, 84, 15), h(350, 184, 15),
+h(205, 84, 15), v(205, 64, 104), h(190, 64, 15), h(190, 104, 15)
+];
+const mmLines = spider ? LS : LR;
 const mmCode = '```mermaid\nmindmap\n  root((Offsite 2026))\n    Agenda\n      Q4 review\n      Roadmap 2027\n    Venue\n      [[Lisbon Offsite 2026]]\n      Budget cap per person\n    Travel\n      Flights\n      Hotel\n      Airport transfer\n    Team activities\n```';
 const ins = step === 'inserting (/mind)', src = step === 'source';
 return {
@@ -474,7 +494,10 @@ mmInsert: ins, mmBlock: !ins, mmVisual: !ins && !src, mmSource: src,
 mmVisualPressed: src ? 'false' : 'true', mmSourcePressed: src ? 'true' : 'false',
 mmVisualBg: src ? 'transparent' : 'var(--bg)', mmVisualFg: src ? 'var(--muted)' : 'var(--text)',
 mmSourceBg: src ? 'var(--bg)' : 'transparent', mmSourceFg: src ? 'var(--text)' : 'var(--muted)',
-mmNodes, mmLines, mmCode
+mmNodes, mmLines, mmCode, mmW: spider ? 850 : 640,
+mmRightOn: spider ? 'false' : 'true', mmSpiderOn: spider ? 'true' : 'false',
+mmRightBg: spider ? 'transparent' : 'var(--bg)', mmRightFg: spider ? 'var(--muted)' : 'var(--text)',
+mmSpiderBg: spider ? 'var(--bg)' : 'transparent', mmSpiderFg: spider ? 'var(--text)' : 'var(--muted)'
 };
 }
 renderVals() {
