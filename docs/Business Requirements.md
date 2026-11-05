@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.149, for review                                            |
+| **Document status** | Draft v1.150, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -163,6 +163,7 @@
 | v1.147  | 2026-11-02 | v0.113 feedback, red-test and build decisions (red tests 35316ea, build f3aa064): D-1359…D-1361 (AP-1217…AP-1219, as proposed): existing tests follow `capture_saved_hover` and R46's two keys; two red-test defects fixed; drop halves, disabled column commands, the area below the last block, the panel's hold on enter only, the hint in any empty paragraph with the caret |
 | v1.148  | 2026-11-02 | v0.113 push-gate findings (build 882470d): D-1362…D-1364 (AP-1220…AP-1222, as proposed): the column commands only on `tasks/kanban` (changes D-1361 (b)); a click below a last heading puts the caret at its end, and the added paragraph isn't an edit (refines D-1356); the mindmap caret helper ignores the AC-9 hint |
 | v1.149  | 2026-11-03 | v0.116 feedback: D-1365, the empty-paragraph hint is `Type here` (FR-EDT-01 AC-9) |
+| v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
 
 ---
 
@@ -1355,6 +1356,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1363 | A click below a last heading (AP-1221) (owner, 2026-11-02: "Accept all") | Below a last paragraph or heading the click puts the caret at its end and adds nothing; a paragraph is added only below a block that can't take typed text after it (code block, table, callout, divider, mindmap, embed), and adding it isn't an edit, so a virtual Daily Note stays untouched (D-326). Refines D-1356, FR-EDT-01 AC-14 |
 | D-1364 | The hint in the mindmap helper (AP-1222) (owner, 2026-11-02: "Accept all") | `caretInfo` (`app/webkit/mindmap-helpers.ts`) reads a block's text without the AC-9 hint widget, as D-1360 (b) |
 | D-1365 | The editor hint's text (owner, 2026-11-03: "Replace this text with just “Type here”") | The hint in an empty paragraph that holds the caret (FR-EDT-01 AC-9) reads `Type here` instead of `Type / for blocks, [[ to link, # to tag` |
+| D-1366 | Spike code removed (AP-1223) (owner, 2026-11-04: "lets remove spikes, but keep spikes reports"; AP-1223…AP-1226 "accept all") | The code of spikes S1–S5 is removed from the repository; each `spikes/<name>/FINDINGS.md` stays and names the last commit with the code (`75b3382`). The MVP Capacities importer (MS7) is ported from S5 at that commit (D-83); until then no test runs the Capacities fixtures (`tests/fixtures/import/capacities/`, which stay) |
+| D-1367 | The signing script (AP-1224) (owner, 2026-11-04: "lets remove spikes, but keep spikes reports"; AP-1223…AP-1226 "accept all") | `spikes/s3-platform/scripts/sign-notarize.sh` moves to `app/scripts/sign-notarize.sh` and signs the app DMG (AR-08) |
+| D-1368 | The spike gate steps (AP-1225) (owner, 2026-11-04: "lets remove spikes, but keep spikes reports"; AP-1223…AP-1226 "accept all") | The 12 spike steps leave `qa.config.json` (`s1-*`, `s2-*`, `s3-*`, `s4-*`, `s5-*`); the product steps cover round-trip, extraction and performance (`doc-*`, `core-*`, `core-perf`). The S2 WebKit editor flow and the nightly S4 TS↔Rust extractor differential end; the product property tests (`property_links`) stay |
+| D-1369 | The spike docs (AP-1226) (owner, 2026-11-04: "lets remove spikes, but keep spikes reports"; AP-1223…AP-1226 "accept all") | `CLAUDE.md` lists the spike commands as removed; the spike QA exit criteria in `docs/acceptance/qa-infrastructure.md` are historical; the S2 playground leaves `.claude/launch.json` |
 
 ---
 

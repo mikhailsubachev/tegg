@@ -63,3 +63,10 @@ Other numbers: `.app` 6.0 MB, DMG 2.3 MB. Idle memory: app process 106 MB RSS pl
 - `npm run test:rust`: vault write tests (`fr_cap_04_*`, `fr_fmt_08/11/12_*`, `fr_lnk_14_*`, `fr_syn_02_*`)
 - `node e2e-appium/netmon.ts`: standalone network monitor (start it before launching the app, Ctrl-C prints the report)
 - Spike vault: `$TEGG_S3_VAULT`, default `$TMPDIR/tegg-s3-vault` (synthetic, D-62)
+
+## Spike code removed (D-1366)
+
+The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.
+
+
+`scripts/sign-notarize.sh` moved to `app/scripts/sign-notarize.sh` (D-1367).

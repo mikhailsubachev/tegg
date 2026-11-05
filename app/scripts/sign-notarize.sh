@@ -1,5 +1,5 @@
 #!/bin/sh
-# AR-08 / S3-QA AC-5: Developer ID signing + notarization of the spike DMG.
+# AR-08 / S3-QA AC-5: Developer ID signing + notarization of the app DMG (moved from the S3 spike, D-1367).
 # Needs (owner-provided, never committed): a "Developer ID Application" certificate in the
 # login keychain and a notarytool keychain profile created once with
 #   xcrun notarytool store-credentials tegg-notary --apple-id <id> --team-id <team>
@@ -15,4 +15,4 @@ codesign --sign "$IDENTITY" --timestamp "$DMG"
 xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
 xcrun stapler staple "$DMG"
 spctl --assess --type open --context context:primary-signature -v "$DMG"
-echo "OK: $DMG is signed, notarized and stapled. Copy it to the second Mac for AC-5."
+echo "OK: $DMG is signed, notarized and stapled. Copy it to a second Mac to check it opens."

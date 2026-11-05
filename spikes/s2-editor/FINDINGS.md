@@ -112,3 +112,7 @@ Measured with Playwright typing one key per 40 ms, one browser at a time (`npx p
 - `fit()` NFC-normalizes the whole rendered block. FR-FMT-12 requires NFC only for file names and link targets, so this is a choice. It stays inside changed blocks and is noted in the dialect spec.
 - Not checked in Obsidian itself: the inline math rules (E9) and whether `== a ==` with inner spaces is a highlight. Both follow the documented Obsidian behaviour as I understand it; verify once in Obsidian (NFR-POR-01 manual AC).
 - KaTeX, a dependency of `micromark-extension-math`, has a low-severity advisory. Tegg uses only the parser, not KaTeX rendering.
+
+## Spike code removed (D-1366)
+
+The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.
