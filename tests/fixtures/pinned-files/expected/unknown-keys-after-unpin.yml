@@ -1,0 +1,15 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+# Ručně upravené: komentáře a neznámé klíče zůstávají.
+version: 1
+x-sidebar: wide
+pins:
+  # Projekty nahoře
+  - id: 01JB5P00000000000000000001
+    path: 'Projekty/Rozpočet 2027.md'
+    x-note: z Macu
+  # porada každý týden
+  - id: 01JB5P00000000000000000003
+    # komentář uvnitř položky
+    path: "Schůzky/2026-10-07 Týdenní porada.md"
+  - type: projekt
+# konec

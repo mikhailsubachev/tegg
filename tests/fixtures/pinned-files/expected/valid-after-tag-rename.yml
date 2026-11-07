@@ -1,0 +1,13 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+version: 1
+pins:
+  - id: 01JB5P00000000000000000001
+    path: Projekty/Rozpočet 2027.md
+  - id: 01JB5P00000000000000000002
+    path: Projekty/Výjezd Lisabon 2026.md
+  - id: 01JB5P00000000000000000003
+    path: Schůzky/2026-10-07 Týdenní porada.md
+  - tag: offsite
+  - type: projekt
+  - query: Otevřené úkoly tento týden
+  - tag: finance

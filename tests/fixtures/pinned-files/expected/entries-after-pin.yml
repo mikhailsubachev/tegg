@@ -1,0 +1,21 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+version: 1
+pins:
+  - id: 01JB5P00000000000000000001
+    path: Projekty/Rozpočet 2027.md
+  - path: Projekty/Rozpočet 2027.md
+  - id: 01JB5P00000000000000000004
+    path: Pages/Čajovna.md
+  - tag: Offsite
+  - tag: "#offsite"
+  - tag: účty
+    type: projekt
+  - type: ""
+  - path: /etc/hosts
+  - path: ../mimo.md
+  - path: .tegg/vault.yml
+  - id: 42
+  - x-route: inbox
+  - jen text
+  - type: schůzka
+  - query: Otevřené úkoly tento týden
