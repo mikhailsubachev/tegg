@@ -117,6 +117,9 @@ const COMMANDS: &[&str] = &[
     // G3 (v1-graph §16.2).
     "graph_presets_get",
     "graph_presets_apply",
+    // Slice PIN (v1-pinned §2).
+    "pins_get",
+    "pins_apply",
 ];
 
 fn main() {

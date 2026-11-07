@@ -104,6 +104,8 @@
     "allow-graph-neighbourhood",
     "allow-graph-presets-get",
     "allow-graph-presets-apply",
+    "allow-pins-get",
+    "allow-pins-apply",
     "allow-media-add",
     "allow-media-add-paths",
     "allow-media-pick",

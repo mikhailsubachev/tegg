@@ -256,6 +256,11 @@ pub struct IpcError {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     #[ts(skip)]
     pub presets: Option<crate::shellg3::PresetsErrorExtra>,
+    /// Slice PIN (v1-pinned §2): with `Conflict` from `pins_apply`, `disk: PinsDto`. Flattened and kept out of the
+    /// generated types: the UI types them in `app/ui/src/ipc/pins.ts`.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub pins: Option<crate::shellpin::PinsErrorExtra>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the

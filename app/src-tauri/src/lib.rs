@@ -13,6 +13,7 @@ mod shell4d;
 mod shell4e;
 mod shellg1;
 mod shellg3;
+mod shellpin;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -196,7 +197,7 @@ fn test_drop(app: &AppHandle) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
@@ -1745,7 +1746,8 @@ pub fn run() {
             shell4e::value_remove_start, shell4e::type_delete_start,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal,
             shellg1::graph_neighbourhood,
-            shellg3::graph_presets_get, shellg3::graph_presets_apply
+            shellg3::graph_presets_get, shellg3::graph_presets_apply,
+            shellpin::pins_get, shellpin::pins_apply
         ])
         .build(context())
         .expect("error while building Tegg")
