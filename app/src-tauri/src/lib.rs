@@ -1654,6 +1654,11 @@ pub fn run() {
         // ms6-trash-media §3.6 (D-626): vault media for the webviews, read-only.
         .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
         .setup(|app| {
+            // Slice PIN (v1-pinned §5, FR-HOM-02 AC-20; test build): `TEGG_TEST_HOLD=first-index:<ms>` holds the end of
+            // the vault's first index build, so the Pinned rows' `Loading` state can be seen.
+            if let Some(ms) = test_var("TEGG_TEST_HOLD").and_then(|v| v.strip_prefix("first-index:").and_then(|m| m.parse::<u64>().ok())) {
+                tegg_core::set_first_index_hold_ms(ms);
+            }
             let handle = app.handle().clone();
             // FR-CNV-03 AC-7 (test build): `TEGG_TEST_HOLD=during-source-save:<vault path>` holds that file's next
             // replacing write after its temp file is written, before the rename.

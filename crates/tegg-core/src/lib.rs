@@ -622,6 +622,15 @@ fn read_batch(s: &Shared, paths: &[String]) -> Vec<Prepared> {
 }
 
 /// Architecture §5.1: brings the index up to the files by `(mtime, size)`; a fresh index is a full rebuild.
+/// Test builds only (v1-pinned §5, FR-HOM-02 AC-20): how long the first index build after open holds its end, in ms
+/// (`TEGG_TEST_HOLD=first-index:<ms>`, set by the app). 0: no hold.
+static FIRST_INDEX_HOLD_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Sets the test hold of the first index build (v1-pinned §5); the app calls it only in a test build.
+pub fn set_first_index_hold_ms(ms: u64) {
+    FIRST_INDEX_HOLD_MS.store(ms, Ordering::SeqCst);
+}
+
 /// Reports `IndexProgress` per batch and stops on cancel (FR-UX-07, D-110).
 fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
     // G1 (D-990): the graph answers once this build ends, however it ends; set before `Done` is reported, so a
@@ -633,6 +642,13 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
         }
     }
     let ready = Ready(&s.graph_ready);
+    // The test hold (v1-pinned §5): the first build's end waits, once.
+    if !s.graph_ready.load(Ordering::SeqCst) {
+        let hold = FIRST_INDEX_HOLD_MS.swap(0, Ordering::SeqCst);
+        if hold > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(hold));
+        }
+    }
     let files = match listing.map(Ok).unwrap_or_else(|| s.vault.list_files()) {
         Ok(f) => f,
         Err(_) => return,
@@ -717,6 +733,11 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
         if !types.is_empty() {
             s.refresh_types();
             changed.extend(types.into_iter().cloned());
+        }
+        // Slice PIN (v1-pinned §1.5, §2): the pins file's changes are reported, so the section re-reads it
+        // (FR-SYN-03 AC-27, FR-HOM-02 AC-22). Conflict copies (`pinned 2.yml`) aren't the pins file.
+        if paths.contains(pinned::PINNED_YML) {
+            changed.insert(pinned::PINNED_YML.to_string());
         }
     }
     let mut read: Vec<String> = Vec::new();
