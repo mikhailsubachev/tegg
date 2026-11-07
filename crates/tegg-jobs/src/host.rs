@@ -203,6 +203,42 @@ pub trait Host: Send + Sync {
         let _ = (r#type, key, base);
         Err(WriteError::Io("this host has no type files".into()))
     }
+
+    // -------------------------------------------------------------------------------- slice PIN (v1-pinned §1.6)
+
+    /// Patches `.tegg/pinned.yml` with `patches` (a base-checked line patch, v1-pinned §1.6; FR-LNK-03 AC-22,
+    /// FR-HOM-02 AC-21, D-1373, D-1402). `Ok(None)`: nothing written (no file, no matching item, an unreadable, newer or
+    /// unpatchable file, or equal bytes). `Changed` / `Missing`: the file changed or went away between its read and the
+    /// write; the job skips it and still succeeds.
+    fn patch_pins(&self, patches: &[PinPatch]) -> Result<Option<PinsWrite>, WriteError> {
+        let _ = patches;
+        Ok(None)
+    }
+}
+
+/// The pins file (v1-pinned §1.1): a job row with this path is the pin patch (§1.6).
+pub const PINS_PATH: &str = ".tegg/pinned.yml";
+
+/// A change a job hands to the pins file (v1-pinned §1.1, §1.6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PinPatch {
+    /// An object moved from `from` to `to` (rename, type move, folder move). `id`: the object's `id` after the job.
+    Moved { from: String, to: String, id: Option<String> },
+    /// A tag key renamed (tag rename).
+    TagRenamed { from: String, to: String },
+    /// D-1402 (AP-1259): the object at `from` (with `from_id`) was merged into the object at `to` (with `id`); a pin of
+    /// it now pins the kept object.
+    Merged { from: String, from_id: Option<String>, to: String, id: Option<String> },
+}
+
+/// What `Host::patch_pins` wrote: the bytes and versions before and after, for the job's undo record (a byte row,
+/// ms4-jobs §7) and its journal (§8).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PinsWrite {
+    pub pre: Vec<u8>,
+    pub pre_v: FileVersion,
+    pub post: Vec<u8>,
+    pub post_v: FileVersion,
 }
 
 /// ms4-jobs §14.5: one schema property as the 4E planners see it.
