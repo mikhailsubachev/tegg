@@ -1226,7 +1226,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (ed && !e.shiftKey && e.button === 0 && ed.view.dom.contains(e.target as Node)) {
       const item = chipPinRequest(e.target as Element, path, (target) => links.current.get(target));
       if (item) {
-        startPinDrag(e.nativeEvent, item);
+        // A drag isn't a click: ProseMirror would take the next press on the chip within 500 ms as a double-click
+        // (which opens the link), so the drag clears its last click.
+        startPinDrag(e.nativeEvent, item, () => { (ed.view as unknown as { input: { lastClick: { time: number } } }).input.lastClick.time = 0; });
         const chip = (e.target as Element).closest('[data-wikilink], span[data-tag], [data-embed-target]');
         chip?.addEventListener('dragstart', (d) => d.preventDefault(), { once: true });
       }

@@ -54,7 +54,7 @@ function where(x: number, y: number, from: number | null): { over: boolean; at: 
 
 /** Starts watching a press on a source; `item` null: not a source (nothing happens). Returns whether it took the press.
  *  `from`: the dragged row (reorder); `pinned`: a dragged-in target's own row, discounted like a reordered row (D-1379). */
-function press(e: { button: number; clientX: number; clientY: number }, item: DragItem | null, from: number | null, drop: (d: NonNullable<DragState>) => void, pinned: number | null = null): boolean {
+function press(e: { button: number; clientX: number; clientY: number }, item: DragItem | null, from: number | null, drop: (d: NonNullable<DragState>) => void, pinned: number | null = null, onStart?: () => void): boolean {
   if (!item || e.button !== 0) return false;
   const own = from ?? pinned;
   const x0 = e.clientX, y0 = e.clientY;
@@ -64,6 +64,7 @@ function press(e: { button: number; clientX: number; clientY: number }, item: Dr
       if (Math.abs(m.clientX - x0) + Math.abs(m.clientY - y0) < 5) return;
       started = true;
       window.getSelection()?.removeAllRanges();
+      onStart?.();
     }
     m.preventDefault();
     publish({ kind: from === null ? 'in' : 'row', item, from, x: m.clientX, y: m.clientY, ...where(m.clientX, m.clientY, own) });
@@ -111,7 +112,8 @@ export function pinDragSource(item: DragItem | null): { onMouseDown?: (e: React.
 }
 
 /** For sources outside React (editor chips): watch this press. Returns whether it took it. */
-export function startPinDrag(e: MouseEvent, item: DragItem | null): boolean {
+/** `onStart`: runs once the press becomes a drag (the editor forgets the press as a click then). */
+export function startPinDrag(e: MouseEvent, item: DragItem | null, onStart?: () => void): boolean {
   if (!item) return false;
   // A target already pinned moves to the line (D-1379): its own row doesn't count for the position.
   const pinned = findPin(pinsNow(), item.request);
@@ -119,7 +121,7 @@ export function startPinDrag(e: MouseEvent, item: DragItem | null): boolean {
     if (d.at === null) return;
     if (pinned !== null) void move(pinned, d.at);
     else void pinTarget(item.request, d.at, () => item.label);
-  }, pinned);
+  }, pinned, onStart);
 }
 
 /** A pinned row's press: reorders on a drop inside the section; a drop at its own place writes nothing (store.move). */
