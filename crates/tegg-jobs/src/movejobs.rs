@@ -448,6 +448,9 @@ impl Inner {
             let left: Vec<String> = host.local_exempt_paths().into_iter().filter(|p| !paths.contains(&key(p))).collect();
             host.set_local_exempt_paths(&left);
         }
+        // v1-pinned §1.6 (FR-LNK-03 AC-22): last, pins of the moved notes follow the moves that really happened.
+        let patches = self.moved_patches(real.iter().cloned());
+        self.write_pins(run, &patches, single);
         Ok(())
     }
 

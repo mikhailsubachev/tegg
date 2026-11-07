@@ -16,7 +16,7 @@ mod movejobs;
 #[path = "deletejobs.rs"]
 mod deletejobs;
 
-use crate::host::{Host, ReadError, WriteError, Wrote};
+use crate::host::{Host, PinPatch, ReadError, WriteError, Wrote, PINS_PATH};
 use crate::{
     InboxJobChange,
     Counts, FileVersion, Interrupted, JobError, JobId, JobKind, JobOp, JobPlan, JobPoint,
@@ -576,11 +576,12 @@ struct Run {
 }
 
 impl Run {
+    /// The pins file's row (v1-pinned §1.6) is listed in the report but not counted (FR-UX-07 AC-8).
     fn counts(&self) -> Counts {
         Counts {
-            written: self.written.len(),
+            written: self.written.iter().filter(|p| *p != PINS_PATH).count(),
             unchanged: self.unchanged.len(),
-            skipped: self.skipped.len(),
+            skipped: self.skipped.iter().filter(|s| s.path != PINS_PATH).count(),
         }
     }
     fn skip(&mut self, path: &str, reason: SkipReason) {
@@ -855,8 +856,18 @@ impl Inner {
                     self.step(id, i + 1);
                 }
             }
-            JobOp::TagRename { .. } | JobOp::TagDelete { .. } => self.write_tag_job(run, &plan),
-            JobOp::Merge { .. } => self.write_merge(run, &plan)?,
+            JobOp::TagRename { from, to } => {
+                self.write_tag_job(run, &plan);
+                // v1-pinned §1.6 (FR-HOM-02 AC-21): a pinned tag follows its new key; a pinned Tag file its new path.
+                let mut patches = vec![PinPatch::TagRenamed { from: from.clone(), to: to.clone() }];
+                patches.extend(self.moved_patches(run.renamed.iter().cloned()));
+                self.write_pins(run, &patches, false);
+            }
+            JobOp::TagDelete { .. } => self.write_tag_job(run, &plan),
+            JobOp::Merge { .. } => {
+                self.write_merge(run, &plan)?;
+                self.pin_merge(run, &plan);
+            }
             JobOp::Restore { name } => self.write_restore(run, name, &plan),
             JobOp::TypeMove { .. } | JobOp::FolderMove { .. } => self.write_moves(run, &mut plan, op)?,
             // §14.9.4: `false` is a cancel while writing, after its rows were reversed.
@@ -1109,6 +1120,75 @@ impl Inner {
                 None => crate::journal::progress_none(host.as_ref(), id, &f.path),
             }
             self.step(id, i + 1);
+        }
+        // v1-pinned §1.6 (FR-LNK-03 AC-22): last, the pin of the renamed note follows its final path and `id`.
+        let patches = self.moved_patches(run.renamed.iter().cloned());
+        self.write_pins(run, &patches, true);
+    }
+
+    // -------------------------------------------------------------------------------------------- pins (v1-pinned §1.6)
+
+    /// `Moved` patches for the moves that really happened, each with the moved file's `id` as it is now.
+    fn moved_patches(&self, moves: impl IntoIterator<Item = (String, String)>) -> Vec<PinPatch> {
+        let host = self.host();
+        moves
+            .into_iter()
+            .map(|(from, to)| {
+                let id = host.read(&to).ok().and_then(|(b, _)| extract(&b, &stem_of(&to)).id).map(|i| nfc(i.trim()));
+                PinPatch::Moved { from, to, id }
+            })
+            .collect()
+    }
+
+    /// D-1402: a pin of an object merged away now pins the kept object (its path and `id`).
+    fn pin_merge(&self, run: &mut Run, plan: &JobPlan) {
+        let Some(keep) = plan.files.first() else { return };
+        let Some(TextOp::MergeInto { others, .. }) = keep.ops.first() else { return };
+        let host = self.host();
+        let id = host.read(&keep.path).ok().and_then(|(b, _)| extract(&b, &stem_of(&keep.path)).id).map(|i| nfc(i.trim()));
+        let patches: Vec<PinPatch> = others
+            .iter()
+            .filter(|o| run.moved.trashes.iter().any(|(p, _)| *p == o.path))
+            .map(|o| PinPatch::Merged {
+                from: o.path.clone(),
+                from_id: extract(o.text.as_bytes(), &stem_of(&o.path)).id.map(|i| nfc(i.trim())),
+                to: keep.path.clone(),
+                id: id.clone(),
+            })
+            .collect();
+        self.write_pins(run, &patches, false);
+    }
+
+    /// The pins file's write step, last in the job (v1-pinned §1.6, D-1373): a row of the job like any other file
+    /// (listed in `written`, a byte row of the undo record, a journal entry of a single-note job), a conflict skipped
+    /// and listed, never a job failure.
+    fn write_pins(&self, run: &mut Run, patches: &[PinPatch], journal: bool) {
+        if patches.is_empty() {
+            return;
+        }
+        let host = self.host().clone();
+        match host.patch_pins(patches) {
+            Ok(Some(w)) => {
+                if journal {
+                    let entry = crate::journal::Entry { at: PINS_PATH.into(), to: PINS_PATH.into(), pre: w.pre.clone(), target: Some(w.post.clone()) };
+                    crate::journal::add_entry(host.as_ref(), run.id, &entry);
+                    crate::journal::progress(host.as_ref(), run.id, PINS_PATH, PINS_PATH, &w.post_v);
+                }
+                run.written.push(PINS_PATH.to_string());
+                run.undo.files.push(Written {
+                    before: PINS_PATH.to_string(),
+                    after: PINS_PATH.to_string(),
+                    pre: w.pre,
+                    pre_v: w.pre_v,
+                    post: w.post,
+                    post_v: w.post_v,
+                    via_op: false,
+                    direct: true,
+                    trashed: None,
+                });
+            }
+            Ok(None) => {}
+            Err(e) => run.skip(PINS_PATH, write_reason(&e)),
         }
     }
 
