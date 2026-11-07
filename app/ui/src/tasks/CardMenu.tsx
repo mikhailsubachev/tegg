@@ -6,6 +6,7 @@ import { moveToTrash } from '../trash/moveToTrash';
 import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
+import { usePinMenuEntry } from '../pinned/PinMenu';
 import { PickDate } from '../dates/PickDate';
 import { localDate } from '../zone';
 import type { KanbanColumn } from './views';
@@ -30,6 +31,7 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
   onClose: () => void;
 }) {
   const [level, setLevel] = useState<'root' | 'status' | 'priority' | 'move' | 'also' | 'due'>('root');
+  const pinEntry = usePinMenuEntry();
   const { row } = target;
   const close = () => { onClose(); (target.opener ?? target.anchor)?.focus(); };
   const run = (f: () => void) => () => { close(); f(); };
@@ -61,7 +63,10 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
     entries = real.map((c) => ({ kind: 'item', key: `m-${c.id}`, disabled, description: why, content: <span data-user-content>{c.label}</span>, label: c.label,
       onChoose: run(() => actions.moveTo?.(row, target.column ?? '', c, level === 'also')) }));
   } else {
+    // Slice PIN (R134): `Pin to sidebar` / `Unpin from sidebar` first.
+    const pin = pinEntry({ request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title }, onClose);
     entries = [
+      ...(pin ? [pin] : []),
       { kind: 'item', key: 'open', content: t('task.open'), onChoose: run(() => actions.open(row)) },
       { kind: 'item', key: 'status', content: t('task.status'), disabled, description: why, onChoose: () => setLevel('status') },
       { kind: 'item', key: 'priority', content: t('task.priority'), disabled, description: why, onChoose: () => setLevel('priority') },

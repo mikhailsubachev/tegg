@@ -1,5 +1,6 @@
 // Slice 5A-1: the universal task card (tasks.md R43, CardAnatomy; D-482) and its chips: checkbox, title, More, tags,
 // body start, status, due (R44, FR-TSK-09), priority, source (FR-TSK-08, D-486), and "also in" on the Kanban by tag.
+import { startPinDrag } from '../pinned/drag';
 import { RefElement } from '../preview/useReference';
 import type { PreviewTarget } from '../preview/types';
 import type { ReactNode } from 'react';
@@ -141,6 +142,8 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
         {/* Slice P (R104 row 7, D-930): the title is the card's reference: a click previews, ⏎ and a double-click open. */}
         <RefElement as="a" reference={{ target: { path: row.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => nav.openNote(row.path) }}
           href="#" tabIndex={0} draggable={false} data-command="task.open" className="task-title"
+          // Slice PIN (R135): a drag from the title link pins the task; the card's status drag starts elsewhere on it.
+          onMouseDown={(e: React.MouseEvent) => { if (e.button === 0 && startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' })) e.stopPropagation(); }}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           <span data-user-content>{row.title}</span>
         </RefElement>

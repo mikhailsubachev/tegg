@@ -9,6 +9,7 @@ import { PopupMenu } from '../shell/Menu';
 import { Icon, typeIconName } from '../shell/Icon';
 import { typeEntries } from '../shell/types';
 import { colorName, nfc } from './util';
+import { usePinMenuEntry, type PinTargetOf } from '../pinned/PinMenu';
 
 const FIXED = new Set(['daily-note', 'tag', 'image', 'pdf']);
 
@@ -16,7 +17,9 @@ export type TypeChipApi = { open: () => void };
 
 /** D-369: the chip is a link to `type/<key>` (FR-TYP-07 AC-11); `Change type…` lives in the `More` menu and the
  *  palette (AC-12), with AC-4's targets and disabled cases. */
-export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onOpenType }: {
+export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onOpenType, pin }: {
+  /** Slice PIN (R134): the note's pin target; its entry is the More menu's first item. */
+  pin?: PinTargetOf | null;
   apiRef?: Ref<TypeChipApi>;
   /** The note's type definition (null: a `type` value without a definition). */
   type: TypeDto | null;
@@ -27,6 +30,7 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
   onOpenType: (key: string) => void;
 }) {
   const [more, setMore] = useState(false);
+  const pinEntry = usePinMenuEntry();
   const [open, setOpen] = useState(false);
   const moreBtn = useRef<HTMLButtonElement | null>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -53,11 +57,11 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
       </button>
       {more && (
         <PopupMenu label={t('note.more')} anchor={moreBtn.current} onClose={() => { setMore(false); moreBtn.current?.focus(); }}
-          entries={[{
+          entries={[...(() => { const e = pinEntry(pin ?? null, () => { setMore(false); moreBtn.current?.focus(); }); return e ? [e] : []; })(), {
             kind: 'item' as const, key: 'changeType', label: t('note.more.changeType'), disabled: !!disabledWhy, description: disabledWhy ?? undefined,
             content: <span className="menu-title">{t('note.more.changeType')}</span>,
             onChoose: () => { setMore(false); show(moreBtn.current); },
-          }, {
+          }, { kind: 'separator' as const }, {
             // 6A (FR-HIS-01 AC-1, Main board's More menu): Move to trash, ⌘⌫.
             kind: 'item' as const, key: 'trash', label: t('cmd.trash'),
             content: <><span className="menu-title">{t('cmd.trash')}</span><span className="menu-kbd" aria-hidden="true">⌘⌫</span></>,

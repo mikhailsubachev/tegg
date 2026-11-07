@@ -64,6 +64,10 @@ import type { InterruptedDto } from './ipc/types';
 import { TagPage } from './tags/TagPage';
 import { AllTagsPage } from './tags/AllTagsPage';
 import { refreshTags, tagOfFile, useTags } from './tags/store';
+import { findPin, editReason } from './pinned/model';
+import { pinsForVault, pinsNow, pinTarget, unpin, usePins } from './pinned/store';
+import { focusedPinnedRow, moveFocusedPinned } from './pinned/PinnedSection';
+import type { PinRequestDto } from './ipc/pins';
 import { tagKey } from './tags/keys';
 import type { TagPageUi, TagsSort } from './tags/model';
 import { PreviewProvider } from './preview/PreviewProvider';
@@ -535,11 +539,31 @@ export function App() {
   const taskBadge = useTaskBadge(refresh, !!vault);
   const inboxCount = useInboxCount(refresh, !!vault);
   const tagList = useTags();
+  // Slice PIN: re-render (and re-list `Pin to sidebar` / `Unpin from sidebar`) when the pins change.
+  const pinsState = usePins().pins;
   /** Slice G1 (D-987): the file of the object a route shows (a note, a day with its note, a tag with its Tag file). */
   const objectPathOf = (r: Route | null | undefined): string | null =>
     r?.id === 'note/<path>' || r?.id === 'graph/<path>' ? (r.param ?? null)
       : r?.id === DAILY ? (noteDaily && noteDaily.date === r.param ? noteDaily.path : dailyFile && dailyFile.date === r.param ? dailyFile.path : null)
       : r?.id === 'tag/<key>' ? (tagList.find((x) => x.key === r.param)?.file?.path ?? null) : null;
+  /** Slice PIN (D-1382): what the route can pin; `unsaved` for `new/<type>` and a virtual day. */
+  const pinRequestOf = (r: Route | null | undefined): PinRequestDto | 'unsaved' | null => {
+    if (!r) return null;
+    if (r.id === 'new/<type>') return 'unsaved';
+    if (r.id === 'tag/<key>') return r.param ? { kind: 'tag', key: r.param } : null;
+    if (r.id === 'type/<type>') return r.param ? { kind: 'type', key: r.param } : null;
+    if (r.id === 'note/<path>') return r.param ? { kind: 'object', path: r.param.normalize('NFC') } : null;
+    if (r.id === DAILY) { const p = objectPathOf(r); return p ? { kind: 'object', path: p.normalize('NFC') } : 'unsaved'; }
+    return null;
+  };
+  /** The label `Pinned …` / `Unpinned …` names (R133's label for the route's target). */
+  const pinLabelOf = (r: Route | null | undefined): string | null => {
+    if (!r) return null;
+    if (r.id === 'tag/<key>') return `#${tagList.find((x) => x.key === r.param)?.name ?? r.param ?? ''}`;
+    if (r.id === 'type/<type>') return types.find((x) => x.key === r.param)?.plural ?? r.param ?? null;
+    if (r.id === DAILY) return r.param ?? null;
+    return meta?.title ?? (r.param ? r.param.split('/').pop()!.replace(/\.md$/, '') : null);
+  };
   // D-987: a day route's note file (null: a virtual day), for `Open graph`.
   const [dailyFile, setDailyFile] = useState<{ date: string; path: string | null } | null>(null);
   useEffect(() => {
@@ -559,6 +583,8 @@ export function App() {
     if (k) replaceRoute({ id: 'tag/<key>', param: k });
   }, [routeKey, tagList]);
   useEffect(() => { if (vault) void refreshTags(); }, [vault?.path, refresh]);
+  // Slice PIN (§2): the pins of the open vault; a vault switch forgets the last vault's.
+  useEffect(() => { pinsForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -735,7 +761,26 @@ export function App() {
     removeLink: () => { setTimeout(() => editorLinkAction('remove'), 0); },
     edit: (a) => { if (isNoteRoute(route)) noteApi.current?.edit(a); },
     convertBlocked: () => (!isNoteRoute(route) ? null : noteApi.current ? noteApi.current.convertBlocked() : t('convert.readOnly')),
-  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile]);
+    // Slice PIN (R136, v1-pinned §3.4): what the route pins, and the focused pinned row's moves.
+    pinStatus: () => {
+      const r = pinRequestOf(route);
+      if (r === null) return null;
+      if (r === 'unsaved') return { pinned: false, disabled: t('pinned.notSaved') };
+      const lock = editReason(pinsNow());
+      return { pinned: findPin(pinsNow(), r) !== null, disabled: lock ? t(lock) : null };
+    },
+    pinCurrent: () => {
+      const r = pinRequestOf(route);
+      if (r && r !== 'unsaved' && !editReason(pinsNow())) void pinTarget(r, null, () => pinLabelOf(route));
+    },
+    unpinCurrent: () => {
+      const r = pinRequestOf(route);
+      const i = r && r !== 'unsaved' ? findPin(pinsNow(), r) : null;
+      if (i !== null && !editReason(pinsNow())) void unpin(i, pinLabelOf(route) ?? undefined);
+    },
+    movePinned: (dir) => moveFocusedPinned(dir),
+    pinnedRowFocused: () => focusedPinnedRow() !== null,
+  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile, meta?.title, types, pinsState]);
 
   // Slice G2 (v1-graph §15.2): the right panel's Graph tab, around the page's object (D-1038: no file on new/<type>
   // and a virtual day).
@@ -783,7 +828,7 @@ export function App() {
   // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
   const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
   const panelView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.panel?.view : undefined;
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -845,6 +890,13 @@ export function App() {
       if (s.command.startsWith('edit.') && e.defaultPrevented) return;
       // 6A (FR-HIS-01 AC-1): in text (the editor, a field) ⌘⌫ keeps deleting to the line start.
       if (s.command === 'object.trash' && el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      // Slice PIN (R136, D-1386): ⌥⌘↑ / ⌥⌘↓ act only with the focus on a pinned row; elsewhere the key is left alone.
+      if (s.command === 'sidebar.pinned.moveUp' || s.command === 'sidebar.pinned.moveDown') {
+        if (L.dialog || focusedPinnedRow() === null) return;
+        e.preventDefault();
+        moveFocusedPinned(s.command === 'sidebar.pinned.moveUp' ? -1 : 1);
+        return;
+      }
       e.preventDefault();
       if (s.command === 'app.palette') {
         if (L.dialog !== 'palette') {
@@ -1209,6 +1261,9 @@ export function App() {
             taskCount={taskBadge}
             inboxCount={inboxCount}
             onTasks={actions.goTasks}
+            onOpenPinned={(r) => { if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r, { heading: true }); }}
+            pinnedCollapsed={!!(ui.vaults?.[vault.path.normalize('NFC')] as { sidebar?: { pinnedCollapsed?: boolean } } | undefined)?.sidebar?.pinnedCollapsed}
+            onPinnedCollapse={(c) => { const vp = vault.path.normalize('NFC'); updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), sidebar: { ...((u.vaults?.[vp] as { sidebar?: object } | undefined)?.sidebar ?? {}), pinnedCollapsed: c } } } })); }}
           />
         )}
         <div className="centre">

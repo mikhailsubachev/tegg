@@ -3,6 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
+import type { PinOpDto, PinsDto } from './pins';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
@@ -137,6 +138,11 @@ export const ipc = {
   /** Slice G3 (§16.2): one preset operation, at most one atomic write; `base` is the version last read (FR-SYN-03 AC-22).
    *  Errors `Conflict` (with `disk`), `Gone`, the name errors, `NoSuchPreset`, `NewerVersion`, `Unreadable`, `Io`. */
   graphPresetsApply: (base: VersionDto | null, op: PresetOpDto) => invoke<GraphPresetsDto>('graph_presets_apply', { base, op }),
+  /** Slice PIN (v1-pinned §2): `.tegg/pinned.yml` resolved in one call; never writes, never creates. */
+  pinsGet: () => invoke<PinsDto>('pins_get'),
+  /** Slice PIN (§2): one pin operation, at most one atomic write; `base` is the version last read. Errors `Conflict` (with
+   *  `disk`), `Gone`, `NewerVersion`, `Unreadable`, `NotPinnable`, `NoSuchPin`, `Io`. */
+  pinsApply: (base: VersionDto | null, op: PinOpDto) => invoke<PinsDto>('pins_apply', { base, op }),
   // 5B (ms5-capture §5, §7; D-578).
   inboxList: () => invoke<InboxRowDto[]>('inbox_list'),
   inboxCount: () => invoke<number>('inbox_count'),

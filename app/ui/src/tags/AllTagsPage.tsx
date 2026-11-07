@@ -6,6 +6,8 @@ import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
 import { PopupMenu } from '../shell/Menu';
+import { PinContextMenu } from '../pinned/PinMenu';
+import { pinDragSource } from '../pinned/drag';
 import { dateTimeText } from '../types/util';
 import { tagChipStyle } from './chip';
 import { DEFAULT_TAGS_SORT, allTagsRows, type TagsSort } from './model';
@@ -32,6 +34,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
   const [find, setFind] = useState('');
   const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState(false);
+  const [rowMenu, setRowMenu] = useState<{ key: string; name: string; anchor: HTMLElement } | null>(null);
   const [objects, setObjects] = useState<number | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   useLayoutEffect(() => {
@@ -96,7 +99,11 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
               // Slice P (R104 row 10, D-937): a click previews the Tag; ⏎ and a double-click open its page.
               <RefElement as="tr" reference={{ target: { path: '', fragment: null, kind: 'tag', key: r.key }, kind: 'row', open: () => onOpen(r.key) }}
                 key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1}
+                // Slice PIN (R134, R135): `Tag` menu (right-click, ⇧F10) and a drag source of the tag.
+                onContextMenu={(e) => { e.preventDefault(); setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); }}
+                {...pinDragSource({ request: { kind: 'tag', key: r.key }, label: `#${r.name}`, icon: 'hash', color: r.color })}
                 onKeyDown={(e) => {
+                  if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); return; }
                   const list = [...((e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('tr[data-tag]')) ?? [])];
                   const at = list.indexOf(e.currentTarget);
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus(); }
@@ -113,6 +120,10 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
       {menu && (
         <PopupMenu label={t('tag.sortMenu')} anchor={sortBtn.current} onClose={() => setMenu(false)}
           entries={(['count', 'name', 'lastUsed'] as const).map((k) => ({ kind: 'radio' as const, key: k, label: t(COLUMNS.find((c) => c.key === k)!.menu), content: t(COLUMNS.find((c) => c.key === k)!.menu), checked: sort.column === k, onChoose: () => { setMenu(false); onSort({ column: k, dir: k === 'name' ? 'asc' : 'desc' }); } }))} />
+      )}
+      {rowMenu && (
+        <PinContextMenu label={t('tagsAll.rowMenu')} anchor={rowMenu.anchor} target={{ request: { kind: 'tag', key: rowMenu.key }, label: `#${rowMenu.name}` }}
+          onOpen={() => onOpen(rowMenu.key)} onClose={() => { const a = rowMenu.anchor; setRowMenu(null); if (a.isConnected) a.focus(); }} />
       )}
       {dialog && <NewTagDialog onClose={() => setDialog(false)} onOpen={onOpen} />}
     </div>
