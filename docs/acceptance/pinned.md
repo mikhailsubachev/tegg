@@ -489,3 +489,14 @@ Decided 2026-11-07: AP-1277…AP-1280 approved → D-1420…D-1423. Also under D
 | AP-1278 | `type_moves.ac.test.ts` FR-UX-03 AC-18 opens the note's `More` menu by keyboard and takes its first item as `Change type…`; R134 (D-1385) puts `Pin to sidebar` first. | Choose `Change type…` by name (or one ↓ more). | FR-UX-03 AC-18 (type moves) |
 | AP-1279 | NFR-OTH-02 AC-3's pseudo-locale check strips `⟦…⟧` in one pass, so a translated string inside another (R132's empty area: `Drag things here, or use ⟦⋯ › Pin to sidebar⟧.`) reads as unmarked. | Strip `⟦…⟧` repeatedly until nothing changes (nested strings count as marked). | NFR-OTH-02 AC-3 |
 | AP-1280 | FR-HOM-02 AC-3 checks the focus on the heading at the moment the page name changes; the heading takes the focus a frame later, so the check is flaky (fails about 1 in 3). | Wait for the focus (`eventually`, up to 1 s). | FR-HOM-02 AC-3 |
+
+## Real-app points (build 2e750ef)
+
+The real-app run found three product bugs, fixed in 2e750ef (the watcher now reports `.tegg/pinned.yml`; `ui-state.json` keeps `vaults`; the `first-index` test hold). Nine of the thirteen L6 tests pass. The four left fail in the tests:
+
+| AP | Point | Proposal | Affects |
+|---|---|---|---|
+| AP-1281 | FR-UX-08 AC-16 (L6) reads the header's `value`, `help` and `label`: WebDriverAgent rejects `help`, `label` is the name `Pinned` (which L5 requires exactly), and `value` is empty for a button. The description can't be read this way. | Check the description as the AC's other rows do: the `span.sr-only` text after the header in the tree (add that span, as the Inbox entry has), and `aria-expanded` through the element's `expanded` state. | FR-UX-08 AC-16 |
+| AP-1282 | FR-HOM-02 AC-13 (L6) finds the `[[Plán (2)]]` chip by the text `Plán (2)`; the chip shows its title `Plán` (D-73), as in L5 (AP-1266). | Find the chip by its title `Plán` in Odkazy's second-to-last line (or by position), as AP-1266 did for L5. | FR-HOM-02 AC-13 |
+| AP-1283 | FR-HOM-02 AC-15 (L6) reads `vaults[<the temp path>]`, but the core opens the vault at its real path (`/private/var/…` for `/var/…`), and the UI keys the state by that path. | Read the key under `realpathSync(c.vault)` (NFC). The graph tests in issue #115 that read `vaults[…]` likely have the same defect. | FR-HOM-02 AC-15 |
+| AP-1284 | FR-SYN-06 AC-43 (L6) pins through `palette('Go to type: Schůzky')` and `palette('Pin to sidebar')`; in this environment the helper's paste + ↩ doesn't run palette commands at all (`Go to Tags` doesn't navigate either; a probe started on `type/schůzka` pinned nothing through it). Not Tegg: the same command runs in L5. | Pin through the type page's Types entry menu (`<Type> actions` › `Pin to sidebar`) or start the step on `type/schůzka` and use the menu; fixing the palette helper belongs to issue #115. | FR-SYN-06 AC-43 |
