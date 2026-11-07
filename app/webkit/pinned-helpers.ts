@@ -132,8 +132,9 @@ export const lifted = (page: Page) => page.locator('[data-pin-lifted]');
 export const dragChip = (page: Page) => page.locator('[data-pin-drag-chip]');
 export const rowMenu = (page: Page) => page.getByRole('menu', { name: /^⟦?Pinned item⟧?$/ });
 export const menuItem = (menu: Locator, name: string) => menu.getByRole('menuitem', { name, exact: true });
-export const moreBtn = (page: Page) => main(page).getByRole('button', { name: 'More', exact: true });
-export const moreMenu = (page: Page) => page.getByRole('menu', { name: 'More', exact: true });
+/** The note's `More` button and menu, also under the pseudo-locale (`⟦More⟧`, D-1419). */
+export const moreBtn = (page: Page) => main(page).getByRole('button', { name: /^⟦?More⟧?$/ });
+export const moreMenu = (page: Page) => page.getByRole('menu', { name: /^⟦?More⟧?$/ });
 export const typesList = (page: Page) => sidebar(page).getByRole('list', { name: 'Types', exact: true });
 export const typesEntry = (page: Page, plural: string) => typesList(page).getByRole('link', { name: new RegExp(`^${plural}\\b`) }).first();
 export const tagsEntry = (page: Page) => sidebar(page).getByRole('link', { name: 'Tags', exact: true });

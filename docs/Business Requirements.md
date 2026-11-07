@@ -166,7 +166,7 @@
 | v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
 | v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
 | v1.152  | 2026-11-07 | Slice PIN red-test decisions D-1393…D-1404 (AP-1250…AP-1261, as proposed): duplicates, the last unpin, Rust stubs, the perf test nightly, the merge job patches pins, row shape |
-| v1.153  | 2026-11-08 | Slice PIN build points D-1405…D-1418 (AP-1262…AP-1275, as proposed): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
+| v1.153  | 2026-11-08 | Slice PIN build points D-1405…D-1419 (AP-1262…AP-1275, as proposed): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
 
 ---
 
@@ -1412,6 +1412,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1416 | Slice PIN build point (AP-1273): The L4 tag test deletes Tags/Offsite (owner, 2026-11-08: "Accept all"; build 5c273f8) | Run the `TagDelete` job, as the AC says, before asserting `noObjects`. |
 | D-1417 | Slice PIN build point (AP-1274): The SIGKILL harness starts each child with the same move, so after a kill at an odd write  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Restore `valid.yml` before each cycle (or accept any byte-exact permutation that lists five pins). |
 | D-1418 | Slice PIN build point (AP-1275): The build's choices the contract didn't fix: a `PinPatch::Merged` variant for D-1402 (the  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Accept as built; align the TS twin with the core on the duplicate and `.trash/` rules. |
+| D-1419 | Slice PIN test point (AP-1276): the More button under the pseudo-locale (owner, 2026-11-08: "Approve") | The pseudo-locale test finds the note's `More` button and menu as `More` or `⟦More⟧` |
 
 ---
 
