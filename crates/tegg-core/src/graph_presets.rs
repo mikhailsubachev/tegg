@@ -245,7 +245,7 @@ fn parse(bytes: &[u8]) -> Parsed {
 /// The 1-based line where the outermost flow collection still open at character `at` started, if any: a parser
 /// error inside an unclosed `[` or `{` is reported on the line that opened it (FR-GRP-02 AC-19: `invalid-yaml`'s
 /// unclosed list on line 5, where `yaml_rust2` stops on line 6).
-fn open_flow_line(text: &str, at: usize) -> Option<usize> {
+pub(crate) fn open_flow_line(text: &str, at: usize) -> Option<usize> {
     let mut stack: Vec<usize> = Vec::new();
     for (n, line) in text.split_inclusive('\n').enumerate() {
         let mut quote: Option<char> = None;
@@ -280,13 +280,13 @@ fn open_flow_line(text: &str, at: usize) -> Option<usize> {
 // ------------------------------------------------------------------------------------------------ the line scanner
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Line {
-    body: String,
+pub(crate) struct Line {
+    pub(crate) body: String,
     /// `""`, `"\n"` or `"\r\n"`.
-    eol: String,
+    pub(crate) eol: String,
 }
 
-fn split(text: &str) -> Vec<Line> {
+pub(crate) fn split(text: &str) -> Vec<Line> {
     text.split_inclusive('\n')
         .map(|part| {
             let body = part.strip_suffix("\r\n").or_else(|| part.strip_suffix('\n')).unwrap_or(part);
@@ -295,31 +295,31 @@ fn split(text: &str) -> Vec<Line> {
         .collect()
 }
 
-fn join(lines: &[Line]) -> String {
+pub(crate) fn join(lines: &[Line]) -> String {
     lines.iter().map(|l| format!("{}{}", l.body, l.eol)).collect()
 }
 
-fn indent(body: &str) -> usize {
+pub(crate) fn indent(body: &str) -> usize {
     body.len() - body.trim_start_matches(' ').len()
 }
-fn blank(body: &str) -> bool {
+pub(crate) fn blank(body: &str) -> bool {
     body.trim().is_empty()
 }
-fn comment(body: &str) -> bool {
+pub(crate) fn comment(body: &str) -> bool {
     body.trim_start().starts_with('#')
 }
 /// A content line (not blank, not a comment).
-fn content(body: &str) -> bool {
+pub(crate) fn content(body: &str) -> bool {
     !blank(body) && !comment(body)
 }
 /// A block sequence entry at column `at`: `-` followed by a space or the end of the line.
-fn dash_at(body: &str, at: usize) -> bool {
+pub(crate) fn dash_at(body: &str, at: usize) -> bool {
     let rest = &body[at.min(body.len())..];
     rest == "-" || rest.starts_with("- ")
 }
 
 /// The mapping key starting at byte `at` of `body`: (key, byte index of its `:`).
-fn key_at(body: &str, at: usize) -> Option<(String, usize)> {
+pub(crate) fn key_at(body: &str, at: usize) -> Option<(String, usize)> {
     let s = body.get(at..)?;
     let (key, after) = match s.chars().next()? {
         q @ ('"' | '\'') => {
@@ -346,7 +346,7 @@ fn key_at(body: &str, at: usize) -> Option<(String, usize)> {
 }
 
 /// The byte index of the quote closing the quoted scalar that starts `s` (on one line).
-fn closing_quote(s: &str, q: char) -> Option<usize> {
+pub(crate) fn closing_quote(s: &str, q: char) -> Option<usize> {
     let b = s.as_bytes();
     let mut i = 1;
     while i < b.len() {
@@ -368,7 +368,7 @@ fn closing_quote(s: &str, q: char) -> Option<usize> {
 
 /// The byte after the flow collection starting `s[0]` (`[` or `{`) closes, within `s`; None when it continues.
 /// `depth` and `quote` carry the state across lines.
-fn flow_end(s: &str, depth: &mut i32, quote: &mut Option<char>) -> Option<usize> {
+pub(crate) fn flow_end(s: &str, depth: &mut i32, quote: &mut Option<char>) -> Option<usize> {
     let b = s.as_bytes();
     let mut i = 0;
     while i < b.len() {
@@ -590,7 +590,7 @@ fn splice(lines: &mut Vec<Line>, from: usize, to: usize, new: Vec<String>, eol: 
 }
 
 /// Inserts `new` after line `after` (None: at the start), keeping a missing final newline missing.
-fn insert_after(lines: &mut Vec<Line>, after: Option<usize>, new: Vec<String>, eol: &str) {
+pub(crate) fn insert_after(lines: &mut Vec<Line>, after: Option<usize>, new: Vec<String>, eol: &str) {
     let at = after.map_or(0, |a| a + 1);
     let mut add: Vec<Line> = new.into_iter().map(|body| Line { body, eol: eol.to_string() }).collect();
     if let Some(a) = after {
@@ -614,7 +614,7 @@ fn item_lines(dash: usize, keys: usize, name: &str, types: &[String], kinds: &[S
 }
 
 /// The file's line ending: the first one it has, else LF.
-fn file_eol(lines: &[Line]) -> String {
+pub(crate) fn file_eol(lines: &[Line]) -> String {
     lines.iter().map(|l| l.eol.clone()).find(|e| !e.is_empty()).unwrap_or_else(|| "\n".into())
 }
 
@@ -729,12 +729,12 @@ fn patch(full: &str, parsed: &Parsed, op: &Resolved) -> Result<Option<String>, P
 }
 
 /// `body` is the document marker `m` (`---` or `...`) at column 0, alone or before a space.
-fn doc_marker(body: &str, m: &str) -> bool {
+pub(crate) fn doc_marker(body: &str, m: &str) -> bool {
     body.strip_prefix(m).is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t']))
 }
 
 /// Whether the text holds more than one YAML document: a `---` after content (or a second one), or a `...`.
-fn several_documents(lines: &[Line]) -> bool {
+pub(crate) fn several_documents(lines: &[Line]) -> bool {
     let mut started = false;
     for l in lines {
         let b = &l.body;
@@ -751,7 +751,7 @@ fn several_documents(lines: &[Line]) -> bool {
 
 /// The number of leading lines `version: 1` goes after: comments, `%` directives and the first `---` line (alone or
 /// with a comment).
-fn prelude(lines: &[Line]) -> usize {
+pub(crate) fn prelude(lines: &[Line]) -> usize {
     let mut started = false;
     let mut n = 0;
     for l in lines {
