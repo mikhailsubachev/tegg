@@ -46,12 +46,9 @@ test('fr_nav_04_ac5_routes_follow_r62', async () => {
   }
   assert.equal(r('inbox').design, 'Inbox', 'inbox: the Inbox board');
   assert.equal(r('capture'), undefined, 'capture is a window, not a route (AP-491)');
-  // 6A (trash-media.md R75, D-613): `home` is removed; `pinned` stays TBD.
+  // 6A (trash-media.md R75, D-613): `home` is removed. Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `pinned` too.
   assert.equal(r('home'), undefined, 'home is removed in 6A (D-613)');
-  for (const id of ['pinned']) {
-    assert.equal(r(id)?.status.built, false, `${id} stays TBD`);
-    assert.equal(showDue(r(id).status.due), 'v1.0', `${id}: Coming in v1.0 (D-515, D-376)`);
-  }
+  assert.equal(r('pinned'), undefined, 'pinned is removed in slice PIN (D-1375)');
   const outline = (reg.PANEL_TABS as any[]).find((t) => t.id === 'outline');
   assert.equal(showDue(outline.status.due), 'v1.0', 'Outline tab: Coming in v1.0 (D-376)');
   // FR-UX-02 AC-13 with VERIFY_MILESTONE=MS5: no 5B entry (R62) and none of AP-493's MS3 (3E) entries is overdue.

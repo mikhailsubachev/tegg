@@ -35,7 +35,7 @@ export const R1: R1Row[] = [
   // 4D-lite (tags.md R87): All tags is built (board TagsAll); the tag page and Settings › Backups are new built routes.
   { id: 'tags', page: 'Tags', built: true, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'TagsAll', goto: 'Go to Tags' },
   { id: 'tag/<key>', page: 'Tag page', built: true, due: d('MS4'), reqs: 'FR-TAG-06', design: 'TagPage', goto: null },
-  { id: 'pinned', page: 'Pinned', built: false, due: d('v1.0'), reqs: 'FR-HOM-02', design: null, goto: 'Go to Pinned' }, // 5B R62 (D-376)
+  // Slice PIN (pinned.md FR-NAV-04 AC-10, AP-1232 = D-1375): the `pinned` route and `Go to Pinned` are removed.
   { id: 'saved-queries', page: 'Saved queries', built: false, due: d('v1.0'), reqs: 'FR-QRY-06', design: null, goto: 'Go to Saved queries' },
   { id: 'note/<path>', page: 'Edit note', built: true, due: d('MS3'), reqs: '', design: 'Main', goto: null },
   // D-520 (5A-1 feedback, ms5-tasks §12.2): the unsaved draft of a new object; no sidebar entry, no Go to command.
@@ -170,6 +170,12 @@ export const R4_P: R4Row[] = [
 /** Slice G1's R4 row (graph.md FR-UX-03 AC-20, D-918): ⇧⌘G `Open graph` (`graph.open`, section `navigate`). */
 export const R4_G1: R4Row[] = [
   { keys: '⇧⌘G', press: 'Meta+Shift+g', command: 'Open graph', enabled: true },
+];
+/** Slice PIN's R4 rows (pinned.md R136, AP-1243 = D-1386): ⌥⌘↑ / ⌥⌘↓ move the focused pinned row (`sidebar.pinned.moveUp`,
+ *  `sidebar.pinned.moveDown`, section `edit`), listed and run only while a pinned row has the focus. */
+export const R4_PIN: R4Row[] = [
+  { keys: '⌥⌘↑', press: 'Alt+Meta+ArrowUp', command: 'Move up', enabled: true },
+  { keys: '⌥⌘↓', press: 'Alt+Meta+ArrowDown', command: 'Move down', enabled: true },
 ];
 /** R106: the palette command `link.edit` (`Edit link`) shows ⇧⌘K, shared with R4's `edit.link` (`Insert link`): at a chip
  *  ⇧⌘K opens `Edit link` (FR-LNK-13 AC-6). The only pair FR-UX-03 AC-7's conflict check exempts (as previews_catalog). */

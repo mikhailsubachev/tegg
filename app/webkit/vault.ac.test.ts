@@ -141,7 +141,7 @@ test('fr_vlt_03_ac4_placeholder_banner_non_modal', async ({ browser }) => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Meta+Shift+f');
     assert.ok(await seen(searchQueryField(page)), 'search works (D-760) with the banner');
-    for (const e of ['Inbox', 'Today', 'Tasks', 'Pinned', 'Saved queries']) { // 6A: no Home entry (D-613)
+    for (const e of ['Inbox', 'Today', 'Tasks', 'Saved queries']) { // 6A: no Home entry (D-613); slice PIN: no Pinned route (D-1375)
       await sidebar(page).getByText(e, { exact: true }).click();
       await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `sidebar ${e} with the banner`); // 4B: named by its date
     }
