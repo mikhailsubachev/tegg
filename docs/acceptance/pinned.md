@@ -457,6 +457,8 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 ## Build points (build 5c273f8, Rust 2abebb8…5becba6)
 
+Decided 2026-11-08: AP-1262…AP-1275 accepted as proposed → D-1405…D-1418 (BRD v1.153).
+
 Defects found in the red tests and gaps the build hit. Every test change carries `AC-Test-Change: …; approved-by: owner`.
 
 | AP | Point | Proposal | Affects |

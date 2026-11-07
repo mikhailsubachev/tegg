@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.152, for review                                            |
+| **Document status** | Draft v1.153, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -166,6 +166,7 @@
 | v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
 | v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
 | v1.152  | 2026-11-07 | Slice PIN red-test decisions D-1393…D-1404 (AP-1250…AP-1261, as proposed): duplicates, the last unpin, Rust stubs, the perf test nightly, the merge job patches pins, row shape |
+| v1.153  | 2026-11-08 | Slice PIN build points D-1405…D-1418 (AP-1262…AP-1275, as proposed): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
 
 ---
 
@@ -1397,6 +1398,20 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1402 | Pins and the merge job (AP-1259) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | A pin of an object merged away is patched to the kept object (its path and id), as a written, undoable row of the merge job |
 | D-1403 | `rowView`'s output shape (AP-1260) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `color` is the colour name (`orange`), `route` is `{ id, param }`, `opens` is `route` / `trash` / `alert` / `none`, `tooltip` is the label, a newline, then the path (contract §3.1) |
 | D-1404 | The tag row's icon (AP-1261) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `hash`, the icon of the Tag type |
+| D-1405 | Slice PIN build point (AP-1262): The Search field is an `<input type="search">` (role `searchbox`); nine L5 tests look for  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Use `getByRole('searchbox', { name: 'Search query' })`. |
+| D-1406 | Slice PIN build point (AP-1263): `rowNamed` matches `title` by prefix, so `2026-10-07` finds `2026-10-07 Týdenní porada` fi (owner, 2026-11-08: "Accept all"; build 5c273f8) | Match the label exactly (the `title` equals it, or starts with it plus a newline). |
+| D-1407 | Slice PIN build point (AP-1264): AC-11 moves the focus "outside" to the Inbox entry's text `span`, which can't take the foc (owner, 2026-11-08: "Accept all"; build 5c273f8) | Focus the Inbox link (`inboxEntry`) or the page heading. |
+| D-1408 | Slice PIN build point (AP-1265): Existing screens differ from what the tests assume: the `Rename tag…` item also shows `upd (owner, 2026-11-08: "Accept all"; build 5c273f8) | Compare the menu item's first line; find the Delete confirmation and the Trash and Backlinks entries by their real roles. |
+| D-1409 | Slice PIN build point (AP-1266): The chip of `[[Plán (2)]]` shows its title `Plán` (D-73), so the `chip(page, 'Plán (2)')`  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Find chips by `data-wikilink` (the link text). |
+| D-1410 | Slice PIN build point (AP-1267): AC-12's Esc check drags `Plán` from Search while the query is still `Čajovna` (owner, 2026-11-08: "Accept all"; build 5c273f8) | Search for `Plán` first. |
+| D-1411 | Slice PIN build point (AP-1268): FR-SYN-06 AC-43 counts `ui_state_set` after `page (owner, 2026-11-08: "Accept all"; build 5c273f8) | Count the two writes before the reload. |
+| D-1412 | Slice PIN build point (AP-1269): AC-25 counts every `note_read` since start; the Inbox page itself reads the daily note for (owner, 2026-11-08: "Accept all"; build 5c273f8) | Start on a route that reads no notes (`tags`), or count calls only from the section's first draw. |
+| D-1413 | Slice PIN build point (AP-1270): `nonReadCalls` (app/webkit/helpers (owner, 2026-11-08: "Accept all"; build 5c273f8) | Add `pins_get` to the read-only lists. |
+| D-1414 | Slice PIN build point (AP-1271): NFR-OTH-02 AC-16 wants every row description in `⟦ ⟧`, but an object row's description is  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Type names are user content like plurals: AC-16's exception list gains "type names"; the kind and state words stay wrapped. |
+| D-1415 | Slice PIN build point (AP-1272): FR-LNK-03 AC-22's id-less case expects the rename to write an `id` (owner, 2026-11-08: "Accept all"; build 5c273f8) | The tests save an `id` into Bez hlavičky first, as the editor would; renames keep not adding ids (4C unchanged). |
+| D-1416 | Slice PIN build point (AP-1273): The L4 tag test deletes Tags/Offsite (owner, 2026-11-08: "Accept all"; build 5c273f8) | Run the `TagDelete` job, as the AC says, before asserting `noObjects`. |
+| D-1417 | Slice PIN build point (AP-1274): The SIGKILL harness starts each child with the same move, so after a kill at an odd write  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Restore `valid.yml` before each cycle (or accept any byte-exact permutation that lists five pins). |
+| D-1418 | Slice PIN build point (AP-1275): The build's choices the contract didn't fix: a `PinPatch::Merged` variant for D-1402 (the  (owner, 2026-11-08: "Accept all"; build 5c273f8) | Accept as built; align the TS twin with the core on the duplicate and `.trash/` rules. |
 
 ---
 
