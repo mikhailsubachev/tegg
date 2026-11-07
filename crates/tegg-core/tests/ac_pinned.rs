@@ -215,9 +215,33 @@ fn fr_hom_02_ac21_tag_and_type_pins_follow_their_keys() {
     }
     reread(&core, &[ROZPOCET, LISABON]);
     assert_eq!(states(&core.pins())[4], "missing", "no definition and no objects: missing");
-    std::fs::remove_file(root.join(STITEK)).expect("setup: delete Tag file");
-    reread(&core, &[STITEK]);
+    // AP-1273 (D-1416): `Delete tag…` is the TagDelete job (ms4-tags §2): it removes `#offsite` from Odkazy and moves
+    // Tags/Offsite.md to `.trash/`. Deleting only the Tag file would leave the occurrence, so the tag would still exist (R79).
+    let report = tag_delete(&core, "offsite");
+    assert_eq!(report.phase, tegg_jobs::Phase::Done, "the TagDelete job ends done: {report:?}");
+    let _ = core.wait_idle(Duration::from_secs(30));
+    assert!(!root.join(STITEK).exists(), "the job moved Tags/Offsite.md to the trash");
     assert_eq!(states(&core.pins())[3], "noObjects", "offsite without a file or an occurrence: no objects");
+}
+
+/// Runs `JobOp::TagDelete { tag, keep_text: false }` (ms4-tags §2) with the real `@tegg/doc` transformer
+/// (`npm run build --prefix packages/doc`), confirming it when it asks, and returns its report (60 s).
+fn tag_delete(core: &Core, tag: &str) -> tegg_jobs::JobReport {
+    let t = match tegg_jobs::testing::NodeTransformer::from_repo(&repo_root()) {
+        Ok(t) => t,
+        Err(e) => panic!("setup: NodeTransformer (npm run build --prefix packages/doc): {e}"),
+    };
+    core.jobs().set_transformer(std::sync::Arc::new(t));
+    let job = ok!(core.jobs().start(tegg_jobs::JobOp::TagDelete { tag: tag.into(), keep_text: false }), "Jobs::start(TagDelete)");
+    let end = Instant::now() + Duration::from_secs(30);
+    while core.jobs().confirm(job).is_err() && core.jobs().report(job).is_none() {
+        assert!(Instant::now() < end, "the TagDelete job never asked for confirmation");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    match core.jobs().wait(job, Duration::from_secs(60)) {
+        Some(r) => r,
+        None => panic!("no TagDelete report within 60 s"),
+    }
 }
 
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-20 (core)
@@ -448,6 +472,9 @@ fn fr_syn_02_ac9_pinned_yml_atomic_writes_survive_sigkill() {
     let mut seed: u64 = 0x5049_4e20_2611_07;
     let mut bad: Vec<String> = Vec::new();
     for cycle in 0..KILL_CYCLES {
+        // AP-1274 (D-1417): every child starts with the same move, so each cycle starts from `valid.yml` (a kill after an
+        // odd number of writes would otherwise leave the moved order, and the next cycle's move a third order).
+        std::fs::write(root.join(YML), &old).expect("setup: restore valid.yml");
         let ready = work.join(format!("ready-{cycle}"));
         let mut child = Command::new(&exe)
             .args(["--exact", KILL_TEST, "--nocapture", "--test-threads=1"])

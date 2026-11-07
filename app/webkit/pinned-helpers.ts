@@ -115,8 +115,12 @@ export const header = (page: Page) => sidebar(page).getByRole('button', { name: 
 export const list = (page: Page) => sidebar(page).getByRole('list', { name: /^⟦?Pinned⟧?$/ });
 export const rowLinks = (page: Page) => section(page).locator('[data-pinned-row]');
 export const rowAt = (page: Page, i: number) => section(page).locator(`[data-pinned-row="${i}"]`);
-/** A row's link by its label (the first line of its `title`, §3.2). */
-export const rowNamed = (page: Page, label: string) => rowLinks(page).and(page.locator(`[title^="${nfc(label).replace(/"/g, '\\"')}"]`)).first();
+/** A row's link by its label (the first line of its `title`, §3.2), matched exactly: the `title` equals the label or
+ *  starts with the label plus a newline (AP-1263, D-1406; CSS `\a ` is the newline). */
+export const rowNamed = (page: Page, label: string) => {
+  const q = nfc(label).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return rowLinks(page).and(page.locator(`[title="${q}"], [title^="${q}\\a "]`)).first();
+};
 export const unpinBtn = (page: Page, label: string) => section(page).getByRole('button', { name: `Unpin ${nfc(label)}`, exact: true });
 export const emptyArea = (page: Page) => section(page).locator('.pinned-empty');
 export const alertBox = (page: Page) => section(page).getByRole('alert');
@@ -142,11 +146,17 @@ export const tagsTable = (page: Page) => main(page).getByRole('table', { name: '
 export const tagRow = (page: Page, key: string) => tagsTable(page).locator(`[data-tag="${nfc(key)}"]`).first();
 export const typeRow = (page: Page, title: string) => main(page).getByRole('row').filter({ hasText: nfc(title) }).first();
 export const backlinksPanel = (page: Page) => page.getByRole('tabpanel', { name: 'Backlinks' });
-export const backlinkEntry = (page: Page, title: string) => backlinksPanel(page).getByRole('article', { name: title, exact: true });
+/** A Backlinks entry (the `.backlink-entry` element, the drag source) by its chip, a link named by the title (AP-1265, D-1408). */
+export const backlinkEntry = (page: Page, title: string) =>
+  backlinksPanel(page).locator('.backlink-entry').filter({ has: page.getByRole('link', { name: nfc(title), exact: true }) }).first();
 export const editorBody = (page: Page) => page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ });
 export const titleField = (page: Page) => page.getByRole('textbox', { name: 'Title', exact: true });
-/** A link, tag or embed chip in the editor by its text. */
-export const chip = (page: Page, text: string) => editorBody(page).locator('a, [data-link], [data-tag], .chip').filter({ hasText: nfc(text) }).first();
+/** An editor chip by its source text, not its visible text (AP-1266, D-1409): `#key` finds the tag chip
+ *  (`data-tag="key"`), anything else the link chip whose `data-wikilink` is the link text (`[[Plán (2)]]` shows `Plán`). */
+export const chip = (page: Page, text: string) => {
+  const q = (x: string) => nfc(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return editorBody(page).locator(text.startsWith('#') ? `[data-tag="${q(text.slice(1))}"]` : `[data-wikilink="${q(text)}"]`).first();
+};
 export const kanbanCard = (page: Page, title: string) => main(page).getByRole('article', { name: `Task: ${nfc(title)}`, exact: true });
 /** R134's Types entry menu name (D-1392: `typeEntry.menu` = `{name} actions`). */
 export const typeEntryMenu = (page: Page, name: string) => page.getByRole('menu', { name: `${nfc(name)} actions`, exact: true });

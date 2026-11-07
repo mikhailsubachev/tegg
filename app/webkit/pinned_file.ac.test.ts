@@ -43,7 +43,7 @@ test('fr_hom_02_ac22_unreadable_pins_file_is_never_rewritten', async ({ page }) 
     assert.equal(await opt.getAttribute('aria-disabled'), 'true', `${v.name}: the palette command is aria-disabled`);
     await p.keyboard.press('Escape');
     await p.keyboard.press('Meta+Shift+f');
-    await p.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+    await p.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
     await drag(p, searchRow(p, 'Čajovna'), section(p), { hold: true, what: 'drag-in' });
     assert.equal(await section(p).evaluate((s) => s.hasAttribute('data-drop-over')), false, `${v.name}: no highlight`);
     await p.mouse.up();
@@ -108,7 +108,7 @@ test('fr_hom_02_ac24_skipped_entries_are_kept', async ({ page }) => {
   const steps: [string, (p: typeof page) => Promise<void>][] = [
     ['pin', async (p) => {
       await p.keyboard.press('Meta+Shift+f');
-      await p.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+      await p.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
       await drag(p, searchRow(p, 'Čajovna'), await gapAfter(p, 0), { what: 'Čajovna to position 2' });
     }],
     ['unpin', async (p) => { await (await must(rowAt(p, 1), '#offsite')).hover(); await click(section(p).getByRole('button', { name: 'Unpin #offsite', exact: true }), 'Unpin #offsite'); }],
@@ -142,7 +142,8 @@ test('fr_hom_02_ac25_many_pins_one_read', async ({ page }) => {
     else { const path = `Generated/Bez id ${i}.md`; vault.files[path] = `Text ${i}.\n`; lines.push(`  - path: ${path}`); want.push(`Bez id ${i}`); }
   }
   vault.files[PINS] = `${lines.join('\n')}\n`;
-  const core = await openPinned(page, { vault, route: 'inbox' });
+  // AP-1269 (D-1412): start on a route that reads no notes (Inbox reads the daily note for its card).
+  const core = await openPinned(page, { vault, route: 'tags' });
   assert.equal((await eventually(() => rows(page), (r) => r.length === 200, 8000)).length, 200, 'all 200 rows, no cap');
   assert.deepEqual((await rows(page)).map((r) => r.label), want, 'in file order');
   assert.equal(await section(page).getByText(/Show (more|all)/).count(), 0, 'no `Show more`');
@@ -253,6 +254,9 @@ test('fr_syn_06_ac43_only_pin_actions_write_pinned_yml', async ({ page }) => {
   await drag(page, rowAt(page, 1), rowAt(page, 1), { dy: 6, what: 'a drop at the same place' });
   await (await must(rowAt(page, 0), 'first row')).focus();
   await page.keyboard.press('Alt+Meta+ArrowUp');
+  // AP-1268 (D-1411): count the collapse and expand writes before the reload, which clears the fake core's call log.
+  const sets = (await core.calls()).filter((c) => c.cmd === 'ui_state_set').length;
+  assert.ok(sets >= 2, 'collapsing wrote only ui-state.json (ui_state_set)');
   await page.reload();
   await rowsAre(page, VALID_ROWS);
   await sleep(300);
@@ -273,8 +277,6 @@ test('fr_syn_06_ac43_only_pin_actions_write_pinned_yml', async ({ page }) => {
   }
   const after = await core.files();
   for (const k of Object.keys(files0)) if (k !== PINS) assert.equal(after[k], files0[k], `${k} untouched`);
-  const sets = (await core.calls()).filter((c) => c.cmd === 'ui_state_set').length;
-  assert.ok(sets >= 2, 'collapsing wrote only ui-state.json (ui_state_set)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-8
@@ -297,7 +299,7 @@ test('fr_fmt_12_ac8_pins_are_nfc', async ({ page }) => {
     const want = [...nfd.slice(0, 3), nfd[5], nfd[6], nfd[3], nfd[4], ...nfd.slice(7)].join('\n');
     assert.equal(await eventually(() => pinsText(core), (t) => t === want), want, `${region}: a move keeps every NFD byte`);
     await p.keyboard.press('Meta+Shift+f');
-    await p.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+    await p.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
     await click(searchRow(p, 'Čajovna'), 'Čajovna');
     await runCommand(p, PIN);
     const t = await eventually(() => pinsText(core), (x) => !!x && x.includes(`${ID('04')}`));

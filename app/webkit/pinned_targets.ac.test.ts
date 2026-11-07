@@ -62,9 +62,10 @@ test('fr_hom_02_ac17_trashed_targets_stay_pinned', async ({ page }) => {
   assert.equal(await rowAt(page, 1).evaluate((a) => getComputedStyle(a).color), muted, 'the label in --muted');
   await click(rowAt(page, 1), 'trashed row');
   await mustBeOn(page, 'Trash', 'a click opens trash');
-  const restore = page.getByRole('main').getByRole('row').filter({ hasText: 'Výjezd Lisabon 2026' }).first();
-  await (await must(restore, 'Trash row Lisabon')).click({ button: 'right' });
-  await click(page.getByRole('menu').last().getByRole('menuitem', { name: 'Restore', exact: true }), 'Restore');
+  // AP-1265 (D-1408): Trash rows are `listitem`s with a `Restore "<title>"` button.
+  const trashRow = page.getByRole('main').getByRole('listitem').filter({ hasText: 'Výjezd Lisabon 2026' }).first();
+  await must(trashRow, 'Trash row Lisabon');
+  await click(trashRow.getByRole('button', { name: 'Restore "Výjezd Lisabon 2026"', exact: true }), 'Restore');
   assert.equal((await eventually(() => rows(page), (x) => x[1]?.state === 'ok', 1000))[1]?.state, 'ok', 'restored: normal within 1 s');
   await core.renameFile(P.porada, `.trash/${P.porada}`);
   assert.equal((await eventually(() => rows(page), (x) => x[2]?.state === 'trashed', 2000))[2]?.state, 'trashed', 'a helper\'s move to .trash/ gives trashed within 2 s');
@@ -131,9 +132,10 @@ test('fr_hom_02_ac21_tag_rename_patches_the_pin_inside_the_job', async ({ page }
   await click(tagRow(page, 'účty'), 'tag účty');
   await page.keyboard.press('Enter');
   await click(tagActionsBtn(page), 'Tag actions');
-  const ti = (await tagActionsMenu(page).getByRole('menuitem').allInnerTexts()).map(flat);
+  // AP-1265 (D-1408): an item may show a second line (`Rename tag…` / `Updates n notes…`); compare the first line.
+  const ti = (await tagActionsMenu(page).getByRole('menuitem').allInnerTexts()).map((x) => flat(x.trim().split('\n')[0]));
   assert.deepEqual(ti.slice(0, 3), ['Unpin from sidebar', 'Rename tag…', 'Colour…'], 'Tag actions: the pin item first (R134)');
-  await click(menuItem(tagActionsMenu(page), 'Rename tag…'), 'Rename tag…');
+  await click(tagActionsMenu(page).getByRole('menuitem', { name: /^Rename tag…/ }).first(), 'Rename tag…');
   const dlg = page.getByRole('dialog').last();
   await (await must(dlg.getByRole('textbox').first(), 'new name')).fill('finance');
   await click(dlg.getByRole('button', { name: /^Rename/ }).first(), 'Rename');
@@ -153,8 +155,10 @@ test('fr_hom_02_ac21_tag_delete_and_type_changes_keep_the_rows', async ({ page }
   await rowsAre(page, VALID_ROWS);
   await click(rowAt(page, 3), 'row #offsite');
   await click(tagActionsBtn(page), 'Tag actions');
-  await click(menuItem(tagActionsMenu(page), 'Delete tag…'), 'Delete tag…');
-  await click(page.getByRole('dialog').last().getByRole('button', { name: /^Delete/ }).first(), 'Delete');
+  await click(tagActionsMenu(page).getByRole('menuitem', { name: /^Delete tag…/ }).first(), 'Delete tag…');
+  // AP-1265 (D-1408): the confirmation is an `alertdialog` `Delete #offsite?`; `Remove from n objects` deletes the tag.
+  const confirm = page.getByRole('alertdialog', { name: 'Delete #offsite?', exact: true });
+  await click(confirm.getByRole('button', { name: /^Remove from \d+ objects?$/ }).first(), 'Remove from n objects');
   const r = await eventually(() => rows(page), (x) => x[3]?.state === 'noObjects', 5000);
   assert.deepEqual([r[3]?.label, r[3]?.state], ['#offsite', 'noObjects'], '#offsite stays with `No objects`');
   await click(rowAt(page, 3), 'row #offsite');
@@ -188,7 +192,7 @@ test('fr_lnk_03_ac22_renames_patch_pins', async ({ page }) => {
   const n = (await core.writesTo()).filter((p) => p === PINS).length;
   await click(rowAt(page, 1), 'Lisabon');
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Výplň 01');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Výplň 01');
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Výplň 01', 'Výplň 01');
   await retitle(page, 'Výplň 01 nová');
@@ -197,13 +201,16 @@ test('fr_lnk_03_ac22_renames_patch_pins', async ({ page }) => {
 });
 
 test('fr_lnk_03_ac22_idless_rename_adds_the_id', async ({ page }) => {
-  const core = await openPinned(page, { pins: 'stale.yml', route: `note/${P.bez}` });
+  // AP-1272 (D-1415): the `id` comes from the editor's first-edit save (AP-4, D-174), before the rename; the rename itself
+  // never adds one (4C unchanged). The path-only pin gains `- id:` from the renamed note.
+  const BEZ_ID = '01JB5P000000000000000000BH';
+  const vault = pinnedVault({ pins: 'stale.yml', edit: (f) => { f[P.bez] = `---\nid: ${BEZ_ID}\n---\n${f[P.bez]}`; } });
+  const core = await openPinned(page, { vault, route: `note/${P.bez}` });
   await mustBeOn(page, 'Bez hlavičky', 'Bez hlavičky');
   await retitle(page, 'Bez hlavičky 2');
-  const note = await eventually(async () => (await core.files())['Pages/Bez hlavičky 2.md'], (t) => !!t && /^id: /m.test(t), 5000);
-  const id = /^id: (\S+)$/m.exec(note ?? '')?.[1];
-  assert.ok(id, 'the rename wrote an id into the note (AP-4)');
-  const want = pinsFx('expected/stale-after-rename-bez-hlavicky.yml').replace('<ID>', id!);
+  const note = await eventually(async () => (await core.files())['Pages/Bez hlavičky 2.md'], (t) => !!t, 5000);
+  assert.equal(/^id: (\S+)$/m.exec(note ?? '')?.[1], BEZ_ID, 'the renamed note keeps the id its first edit saved');
+  const want = pinsFx('expected/stale-after-rename-bez-hlavicky.yml').replace('<ID>', BEZ_ID);
   assert.equal(await eventually(() => pinsText(core), (t) => t === want, 5000), want, 'expected/stale-after-rename-bez-hlavicky.yml');
 });
 

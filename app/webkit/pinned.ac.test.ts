@@ -7,7 +7,7 @@ import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   EMPTY_TEXT, ID, NOT_SAVED, P, PINS, VALID_ROWS, VAULT_PATH, anyPreview, box, click, contextMenu, description, drag,
-  emptyArea, eventually, flat, focusName, header, labels, list, liveSays, main, menuItem, menuNamed, moreBtn, moreMenu, must, mustBeOn,
+  emptyArea, eventually, flat, focusName, header, inboxEntry, labels, list, liveSays, main, menuItem, menuNamed, moreBtn, moreMenu, must, mustBeOn,
   nfc, openPinned, otherWrites, paletteDialog, paletteOptions, pinnedVault, pinsFx, pinsText, pinsWrites, retitle, rowAt, rowMenu, rowNamed, rows,
   rowsAre, runCommand, searchRow, seen, sidebar, sleep, tagRow, tokenColor, typeEntryMenu, typeRow, typesEntry,
   typesList, ui, unpinBtn,
@@ -145,7 +145,7 @@ test('fr_hom_02_ac5_pin_from_more_creates_the_file_once', async ({ page }) => {
   await page.keyboard.press('Escape');
   const bez = (await core.files())[P.bez];
   await runCommand(page, 'Search');
-  await main(page).getByRole('searchbox').or(page.getByRole('textbox', { name: 'Search query' })).first().fill('Jen text');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Jen text');
   await click(searchRow(page, 'Bez hlavičky'), 'Search result Bez hlavičky');
   await mustBeOn(page, 'Bez hlavičky', 'open Bez hlavičky');
   await click(moreBtn(page), 'More');
@@ -198,7 +198,7 @@ test('fr_hom_02_ac6_pin_from_context_menus', async ({ page }) => {
   await expectAppend('  - tag: účty\n', 'All tags row');
   // Search result Čajovna (NFC path).
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
   await contextMenu(searchRow(page, 'Čajovna'), 'Search result Čajovna');
   const sr = await must(menuNamed(page, 'Search result'), 'menu `Search result`');
   assert.deepEqual((await sr.getByRole('menuitem').allInnerTexts()).map(flat), ['Open', PIN], 'Open, Pin to sidebar');
@@ -239,7 +239,7 @@ test('fr_hom_02_ac7_pin_and_unpin_from_the_palette', async ({ page }) => {
   assert.equal(await paletteDialog(page).isVisible(), false, 'the palette closes');
   assert.equal((await focusName(page)).role !== 'body', true, 'the focus returns where it was');
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
   await click(searchRow(page, 'Čajovna'), 'open Čajovna');
   await mustBeOn(page, 'Čajovna', 'Čajovna');
   o = await listed('sidebar');
@@ -387,7 +387,9 @@ test('fr_hom_02_ac11_reorder_by_keyboard', async ({ page }) => {
   assert.equal(await menuItem(rowMenu(page), 'Move down').getAttribute('aria-disabled'), 'true', 'Move down aria-disabled on the last row');
   await page.keyboard.press('Escape');
   const n = (await core.pinCalls()).length;
-  await (await must(main(page).getByRole('heading', { level: 1 }).or(sidebar(page).getByText('Inbox', { exact: true })).first(), 'outside')).focus();
+  // AP-1264 (D-1407): a focusable element outside the section, the sidebar's Inbox link.
+  await (await must(inboxEntry(page), 'the Inbox link (outside the section)')).focus();
+  assert.equal(await page.evaluate(() => !!document.activeElement && !document.activeElement.closest('.sidebar-pinned') && document.activeElement !== document.body), true, 'the focus is outside the section');
   await page.keyboard.press('Alt+Meta+ArrowUp');
   await page.keyboard.press('Alt+Meta+ArrowDown');
   await sleep(300);
@@ -411,7 +413,7 @@ test('fr_hom_02_ac14_empty_area_until_something_is_pinned', async ({ page }) => 
   }
   const core = await openPinned(page, { route: 'inbox' });
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
   await drag(page, searchRow(page, 'Čajovna'), emptyArea(page), { what: 'Search result Čajovna' });
   assert.deepEqual(await rowsAre(page, ['Čajovna']), ['Čajovna'], 'dropping on the area pins at position 1');
   assert.equal(await seen(emptyArea(page), 300), false, 'the row replaces the area');
@@ -482,7 +484,7 @@ test('fr_hom_02_ac19_daily_notes_and_media', async ({ page }) => {
   assert.notEqual(await menuItem(moreMenu(page), PIN).getAttribute('aria-disabled'), 'true', 'enabled within 1 s of the file being written');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Graf');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Graf');
   await click(searchRow(page, 'Graf'), 'Graf');
   await mustBeOn(page, 'Graf', 'Graf\'s Image page');
   await click(moreBtn(page), 'More on Graf');

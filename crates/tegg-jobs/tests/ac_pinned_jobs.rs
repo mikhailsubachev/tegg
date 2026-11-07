@@ -13,7 +13,7 @@ mod tags_setup;
 
 use std::path::{Path, PathBuf};
 
-use common::{copy_dir, open_core, read_text, rename, repo_root, run_job, sandbox, snapshot, write_raw, Sandbox};
+use common::{assert_setup, copy_dir, open_core, read_text, rename, repo_root, run_job, sandbox, snapshot, write_raw, Sandbox};
 use tags_setup::{run_confirmed, zip_entries, zips};
 use tegg_jobs::{JobOp, Phase};
 
@@ -58,17 +58,24 @@ fn fr_lnk_03_ac22_renames_patch_pins() {
     assert!(!r2.written.iter().any(|p| p == YML), "not written");
 }
 
+/// AP-1272 (D-1415): the `id` comes from the editor's first-edit save (D-174), before the rename; the rename itself
+/// never adds one (4C unchanged). The path-only pin gains `- id:` from the renamed note.
 #[test]
 fn fr_lnk_03_ac22_idless_rename_adds_the_id() {
+    const BEZ_ID: &str = "01JB5P000000000000000000BH";
     let sb = sandbox();
     let root = pinned_vault(&sb, Some(&fx("stale.yml")));
+    let body = read_text(&root, BEZ).expect("setup: Bez hlavičky");
+    assert_setup(!body.starts_with("---"), "Bez hlavičky has no frontmatter");
+    // The editor's first-edit save: the note gets its `id` (AP-4, D-174).
+    write_raw(&root, BEZ, format!("---\nid: {BEZ_ID}\n---\n{body}").as_bytes());
     let core = ok!(open_core(&root, &sb.dirs, false), "open");
     let (_, report) = ok!(rename(&core, BEZ, "Bez hlavičky 2"), "rename Bez hlavičky");
     assert_eq!(report.phase, Phase::Done, "{report:?}");
     let note = read_text(&root, "Pages/Bez hlavičky 2.md").unwrap_or_default();
     let id = note.lines().find_map(|l| l.strip_prefix("id: ")).map(str::to_string);
-    assert!(id.is_some(), "the rename wrote an id (AP-4)");
-    assert_eq!(pins(&root), Some(fx("expected/stale-after-rename-bez-hlavicky.yml").replace("<ID>", &id.unwrap_or_default())), "`- id:` / `path:`");
+    assert_eq!(id.as_deref(), Some(BEZ_ID), "the note keeps the id its first edit saved");
+    assert_eq!(pins(&root), Some(fx("expected/stale-after-rename-bez-hlavicky.yml").replace("<ID>", BEZ_ID)), "`- id:` / `path:`");
 }
 
 #[test]

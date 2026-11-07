@@ -343,7 +343,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 - **AC-22** **Tegg's renames and moves patch the pin (T1).**
   - With `valid`, committing Rozpočet's title as `Rozpočet 2028` runs the rename job. Besides the note and its links, it rewrites only line 5 of `.tegg/pinned.yml` to `    path: Projekty/Rozpočet 2028.md` (`expected/valid-after-rename.yml`), once, with the job's base check.
-  - Pinning Bez hlavičky, then committing its title `Bez hlavičky 2`, writes `id` into the note (first edit, AP-4). The pin item becomes `- id: <that id>` / `path: Pages/Bez hlavičky 2.md` (`expected/stale-after-rename-bez-hlavicky.yml`).
+  - Pinning Bez hlavičky, then editing it (the editor's first-edit save writes its `id`, AP-4, D-174) and committing its title `Bez hlavičky 2`: the rename job patches the pin item to `- id: <that id>` / `path: Pages/Bez hlavičky 2.md` (`expected/stale-after-rename-bez-hlavicky.yml`). The rename itself never adds an `id` (4C unchanged; AP-1272).
   - A type change that moves Lisabon to another folder (4E) patches its `path:` line the same way.
   - An unreadable or newer pins file is skipped by the job, which still succeeds; the pin still resolves by `id`.
   - Undoing the rename restores the pins file's previous bytes.
@@ -424,7 +424,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 ### NFR-OTH-02 Strings (adds to app-shell.md)
 
-- **AC-16** **Catalog only.** The catalog has exactly R137's keys added by this slice, with the texts given, and the commands' titles are these keys. Plural forms use `Intl.PluralRules`: the Czech test catalog shows `pinned.countA11y` for 1, 3 and 5. With the pseudo-locale, every visible text and accessible name of the section, its menus, the alert and the notice is inside `⟦ ⟧`, except labels (titles, tag names, type plurals, paths). *(L1; L5)* Test: `nfr_oth_02_ac16_pins_strings`
+- **AC-16** **Catalog only.** The catalog has exactly R137's keys added by this slice, with the texts given, and the commands' titles are these keys. Plural forms use `Intl.PluralRules`: the Czech test catalog shows `pinned.countA11y` for 1, 3 and 5. With the pseudo-locale, every visible text and accessible name of the section, its menus, the alert and the notice is inside `⟦ ⟧`, except labels (titles, tag names, type names, type plurals, paths; AP-1271). The kind and state words of a row description stay wrapped. *(L1; L5)* Test: `nfr_oth_02_ac16_pins_strings`
 
 ---
 

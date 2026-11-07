@@ -127,15 +127,17 @@ function targetOf(raw: unknown): PinStoredDto | 'query' | null {
   }
   return { kind: 'object', id, path };
 }
-/** AP-1236 (D-1379): the same target as an earlier listed item. A path-only item matches any earlier object item's
- *  stored path (red-test point AP-1251). */
+/** AP-1236 (D-1379), D-1394: the same target as an earlier listed item. Object items are the same when they share an
+ *  `id`, or when their NFC paths match and at least one of them is path-only, in either order (an id+path item after a
+ *  path-only item with the same path is a duplicate; two different ids with the same path are not). As the core's
+ *  `same_target` (AP-1275 = D-1418). */
 function duplicateOf(t: PinStoredDto, listed: PinStoredDto[]): boolean {
   return listed.some((x) => {
     if (t.kind === 'tag' && x.kind === 'tag') return t.key === x.key;
     if (t.kind === 'type' && x.kind === 'type') return t.key === x.key;
     if (t.kind === 'object' && x.kind === 'object') {
-      if (t.id !== null) return x.id === t.id;
-      return t.path !== null && x.path === t.path;
+      if (t.id !== null && x.id !== null && t.id === x.id) return true;
+      return (t.id === null || x.id === null) && t.path !== null && t.path === x.path;
     }
     return false;
   });
@@ -645,9 +647,12 @@ export function pinsResolve(read: PinsRead, files: Record<string, string>, index
       if (t.id !== null) { const o = live.find((x) => x.id === t.id); if (o) return ok(o, 'ok'); }
       if (t.id !== null) { const o = trash.find((x) => x.id === t.id); if (o) return ok(o, 'trashed'); }
       if (t.path !== null) {
+        // §1.3: a live file at `path` with no `id` or the same one; a file there with another `id` is never adopted, and
+        // then `.trash/<path>` is checked as when no file is there (AP-1275 = D-1418, as the core).
         const o = live.find((x) => x.path === t.path);
         if (o && (o.id === null || o.id === t.id || t.id === null)) return ok(o, 'ok');
-        if (!o) { const tr = trash.find((x) => x.path === `.trash/${t.path}`); if (tr) return ok(tr, 'trashed'); }
+        const tr = trash.find((x) => x.path === `.trash/${t.path}`);
+        if (tr) return ok(tr, 'trashed');
       }
       return row;
     }

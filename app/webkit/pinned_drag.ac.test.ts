@@ -59,7 +59,7 @@ test('fr_hom_02_ac10_reorder_by_pointer', async ({ page }) => {
 test('fr_hom_02_ac12_drag_in_from_search_at_the_line', async ({ page }) => {
   const core = await openPinned(page, { pins: 'valid.yml', route: 'search' });
   await rowsAre(page, VALID_ROWS);
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
   await drag(page, searchRow(page, 'Čajovna'), await gapAfter(page, 0), { hold: true, what: 'Search result Čajovna' });
   assert.equal(await overSection(page), true, 'the section is highlighted (data-drop-over)');
   const c = await must(dragChip(page), 'the drag-in chip');
@@ -74,6 +74,9 @@ test('fr_hom_02_ac12_drag_in_from_search_at_the_line', async ({ page }) => {
   assert.deepEqual((await rows(page)).map((r) => r.label), ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Čajovna', 'Projekty'], 'moved, not added twice');
   assert.equal((String(await pinsText(core)).match(/Pages\/Čajovna\.md/g) ?? []).length, 1, 'one item for Čajovna');
   const n = (await core.pinCalls()).length;
+  // AP-1267 (D-1410): Plán must be in the results first.
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Plán');
+  await must(searchRow(page, 'Plán'), 'Search result Plán');
   await drag(page, searchRow(page, 'Plán'), await gapAfter(page, 0), { esc: true, what: 'Esc' });
   await drag(page, searchRow(page, 'Plán'), main(page), { what: 'drop outside' });
   await sleep(300);
@@ -101,7 +104,7 @@ test('fr_hom_02_ac12_every_source_pins_in_one_write', async ({ page }) => {
   await pinsBy('All tags row #účty', () => tagRow(page, 'účty'), 'tag: účty');
   await click(rowAt(page, 1), 'unpin later');
   await page.keyboard.press('Meta+Shift+f');
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Odkazy');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Odkazy');
   await click(searchRow(page, 'Odkazy'), 'open Odkazy');
   await mustBeOn(page, 'Odkazy', 'Odkazy');
   await pinsBy('link chip [[Čajovna]]', () => chip(page, 'Čajovna'), `path: ${P.cajovna}`);
@@ -185,7 +188,7 @@ test('fr_ux_08_ac17_pins_reduce_motion', async ({ page }) => {
   assert.equal(anim, false, 'nothing animates');
   await page.keyboard.press('Escape');
   await page.mouse.up();
-  await page.getByRole('textbox', { name: 'Search query' }).fill('Čajovna');
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
   await drag(page, searchRow(page, 'Čajovna'), await gapAfter(page, 0), { hold: true, what: 'drag-in' });
   const c = await must(dragChip(page), 'the drag-in chip');
   assert.equal(await c.evaluate((e) => { const t = getComputedStyle(e).transform; return t === 'none' || /^matrix\(1, 0, 0, 1,/.test(t); }), true, 'the chip isn\'t tilted');

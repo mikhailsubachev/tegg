@@ -180,7 +180,15 @@ test('nfr_oth_02_ac16_pins_strings', async ({ page }) => {
   assert.ok(wrapped(await list(page).getAttribute('aria-label') ?? ''), 'list name in ⟦ ⟧');
   const r = await rows(page);
   assert.ok(r.every((x) => !wrapped(x.label)), 'labels aren\'t wrapped (user content)');
-  assert.ok(r.filter((x) => x.description).every((x) => /⟦/.test(x.description)), 'descriptions wrapped');
+  // AP-1271 (D-1414): a row description's type Name comes from the vault's type file (user content, like plurals); its
+  // kind and state words are catalog strings and stay wrapped.
+  const typeNames = new Set(Object.entries(pinnedVault().files).filter(([k]) => /^\.tegg\/types\/[^/]+\.yml$/.test(k))
+    .map(([, v]) => /^name: (.+)$/m.exec(v)?.[1]?.trim()).filter((x): x is string => !!x).map((x) => x.normalize('NFC')));
+  const unwrappedParts = (d: string) => d.replace(/⟦[^⟧]*⟧/g, ',').split(',').map((x) => x.trim()).filter(Boolean);
+  for (const x of r.filter((y) => y.description)) {
+    assert.deepEqual(unwrappedParts(x.description).filter((w) => !typeNames.has(w.normalize('NFC'))), [], `${x.label}: description words outside ⟦ ⟧ are only type names (${x.description})`);
+  }
+  assert.ok(r.filter((x) => x.state !== 'ok' || x.label.startsWith('#') || x.label === 'Projekty').every((x) => /⟦/.test(x.description)), 'kind and state words wrapped');
   await click(rowAt(page, 5), 'missing row');
   assert.match(await (await must(alertBox(page), 'alert')).innerText(), /⟦/, 'the alert is wrapped');
   await contextMenu(rowAt(page, 0), 'row menu');
