@@ -87,6 +87,8 @@ pub enum CoreError {
     TooLarge,
     /// v1-graph §16.1 (G3): a preset operation the core refuses; nothing was written.
     Preset(PresetError),
+    /// v1-pinned §1.4 (slice PIN): a pin operation the core refuses; nothing was written.
+    Pin(pinned::PinError),
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -1111,5 +1113,7 @@ pub use tegg_index::PauseHook;
 // ------------------------------------------------------------------------------------------------ slice G3
 // docs/contracts/v1-graph.md §16.1: graph filter presets in `.tegg/graph.yml` (`graph_presets.rs`).
 pub mod graph_presets;
+// docs/contracts/v1-pinned.md §1: sidebar pins in `.tegg/pinned.yml` (`pinned.rs`).
+pub mod pinned;
 mod yaml_text;
 pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};
