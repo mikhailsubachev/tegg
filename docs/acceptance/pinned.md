@@ -492,6 +492,8 @@ Decided 2026-11-07: AP-1277…AP-1280 approved → D-1420…D-1423. Also under D
 
 ## Real-app points (build 2e750ef)
 
+Decided 2026-11-07: AP-1281…AP-1284 approved → D-1424…D-1427.
+
 The real-app run found three product bugs, fixed in 2e750ef (the watcher now reports `.tegg/pinned.yml`; `ui-state.json` keeps `vaults`; the `first-index` test hold). Nine of the thirteen L6 tests pass. The four left fail in the tests:
 
 | AP | Point | Proposal | Affects |

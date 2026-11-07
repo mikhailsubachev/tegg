@@ -166,7 +166,7 @@
 | v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
 | v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
 | v1.152  | 2026-11-07 | Slice PIN red-test decisions D-1393…D-1404 (AP-1250…AP-1261, as proposed): duplicates, the last unpin, Rust stubs, the perf test nightly, the merge job patches pins, row shape |
-| v1.153  | 2026-11-07 | Slice PIN build points D-1405…D-1423 (AP-1262…AP-1275, as proposed): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
+| v1.153  | 2026-11-07 | Slice PIN build points D-1405…D-1427 (AP-1262…AP-1275, as proposed): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
 
 ---
 
@@ -1417,6 +1417,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1421 | Slice PIN test point (AP-1278): More by keyboard in type moves (owner, 2026-11-07: "Approve"; slice PIN push gate, build 1cc004d) | `type_moves.ac.test.ts` FR-UX-03 AC-18 steps past `Pin to sidebar` (first, R134) to `Change type…` |
 | D-1422 | Slice PIN test point (AP-1279): nested pseudo-locale strings (owner, 2026-11-07: "Approve"; slice PIN push gate, build 1cc004d) | NFR-OTH-02 AC-3's check strips `⟦…⟧` until nothing changes, so a translated string inside another counts as marked |
 | D-1423 | Slice PIN test point (AP-1280): the focus check in FR-HOM-02 AC-3 (owner, 2026-11-07: "Approve"; slice PIN push gate, build 1cc004d) | The test waits up to 1 s for the heading to take the focus |
+| D-1424 | Slice PIN test point (AP-1281): the header description in the macOS tree (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The header's description `<n> pinned items` is also hidden text after it (span.sr-only, the Inbox entry's way); FR-UX-08 AC-16 (L6) checks that text |
+| D-1425 | Slice PIN test point (AP-1282): the chip lookup in FR-HOM-02 AC-13 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test finds the `[[Plán (2)]]` chip by its title `Plán`, taking the match furthest right (the editor, not a sidebar row) |
+| D-1426 | Slice PIN test point (AP-1283): the vault key in FR-HOM-02 AC-15 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test reads `vaults[…]` under the vault's real path (`realpathSync`, NFC), as the core opens it |
+| D-1427 | Slice PIN test point (AP-1284): pinning in FR-SYN-06 AC-43 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test pins through the Types entry's `<Type> actions` menu; the palette helper's paste + ↩ is issue #115's |
 
 ---
 

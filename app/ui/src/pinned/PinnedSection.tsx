@@ -111,6 +111,8 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
         <span className={`pinned-chevron ${collapsed ? 'closed' : ''}`} aria-hidden="true"><Icon name="chevron-down" size={12} /></span>
         {n > 0 && <span className="pinned-count">{n}</span>}
       </button>
+      {/* D-1424: the header's description also as hidden text, for the macOS tree (the Inbox entry's way, R62). */}
+      {n > 0 && <span className="sr-only">{t('pinned.countA11y', { count: n })}</span>}
       {fileNotice && !collapsed && <p className="pinned-notice">{fileNotice}</p>}
       {listed && (
         <ul className="pinned-list" id="pinned-list" ref={listRef} aria-label={t('pinned.section')}>
