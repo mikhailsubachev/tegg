@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.151, for review                                            |
+| **Document status** | Draft v1.152, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -165,6 +165,7 @@
 | v1.149  | 2026-11-03 | v0.116 feedback: D-1365, the empty-paragraph hint is `Type here` (FR-EDT-01 AC-9) |
 | v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
 | v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
+| v1.152  | 2026-11-07 | Slice PIN red-test decisions D-1393…D-1404 (AP-1250…AP-1261, as proposed): duplicates, the last unpin, Rust stubs, the perf test nightly, the merge job patches pins, row shape |
 
 ---
 
@@ -1384,6 +1385,18 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1390 | Changed AC tests (AP-1247) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Approve the changes listed under "Existing criteria this slice changes", committed by the test author with `AC-Test-Change: slice PIN builds the Pinned section (FR-HOM-02); approved-by: owner`. |
 | D-1391 | Types section collapse (AP-1248) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Out of this slice: the chevron on `Types` is a board detail. Decide it separately. |
 | D-1392 | The Types entry menu name (AP-1249) (owner, 2026-11-07: "Yes, “<Type> actions”"; slice PIN contract §7) | The Types entry's context menu is named `<Type> actions` (`Schůzka actions`), catalog key `typeEntry.menu` `{name} actions`, added to R137 |
+| D-1393 | Unpin with skipped duplicates (AP-1250) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | The write's read-back expects R131 applied to the expected items: unpinning the first of two items for one target leaves the hand-written duplicate, which is then listed (the row stays). An unpin never removes other items |
+| D-1394 | Duplicates between id and path-only items (AP-1251) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | Object items are duplicates when they share an `id`, or when their NFC paths match, in either order (an id+path item after a path-only item with the same path is skipped too) |
+| D-1395 | How the registry knows a pinned row has the focus (AP-1252) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `ShellActions.pinnedRowFocused?(): boolean`; ⌥⌘↑ / ⌥⌘↓ and the move commands are listed and run only while it is true |
+| D-1396 | The file after the last unpin (AP-1253) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `pins: []` is written only when no item at all remains; reserved `query:` items stay under `pins:` (valid YAML). FR-HOM-02 AC-8's wording follows |
+| D-1397 | Čajovna's NFD file name (AP-1254) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | git keeps the fixture name in NFC; the tests rename the file to NFD at runtime, as the `shell/` fixture does |
+| D-1398 | Rust red tests (AP-1255) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | The main session commits compile-only stubs (contract §1.1 types, refusing functions), then the Rust tests as a second red commit checked with `./verify check-red` |
+| D-1399 | The 200-pin performance test (AP-1256) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `crates/tegg-core/tests/ac_pinned_perf.rs` runs in the nightly `core-perf-ac` step, not the push gate (one `qa.config.json` change; amends contract §6 "no new step") |
+| D-1400 | Where the `yaml` package check runs (AP-1257) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | NFR-POR-01 AC-4's parse with the `yaml` package runs in the fake-pins contract test and the Rust L4 test, not in L1 (it would pass at red against the twin) |
+| D-1401 | Details FR-FMT-07 AC-28 leaves open (AP-1258) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | The moved commented item is Porada to position 1; the pin at position 2 is Čajovna (fixture README) |
+| D-1402 | Pins and the merge job (AP-1259) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | A pin of an object merged away is patched to the kept object (its path and id), as a written, undoable row of the merge job |
+| D-1403 | `rowView`'s output shape (AP-1260) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `color` is the colour name (`orange`), `route` is `{ id, param }`, `opens` is `route` / `trash` / `alert` / `none`, `tooltip` is the label, a newline, then the path (contract §3.1) |
+| D-1404 | The tag row's icon (AP-1261) (owner, 2026-11-07: "Accept all"; slice PIN red tests 65320b0) | `hash`, the icon of the Tag type |
 
 ---
 
