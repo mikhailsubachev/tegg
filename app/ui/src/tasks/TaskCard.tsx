@@ -142,7 +142,7 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
         {/* Slice P (R104 row 7, D-930): the title is the card's reference: a click previews, ⏎ and a double-click open. */}
         <RefElement as="a" reference={{ target: { path: row.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => nav.openNote(row.path) }}
           href="#" tabIndex={0} draggable={false} data-command="task.open" className="task-title"
-          // Slice PIN (R135): a drag from the title link pins the task; the card's status drag starts elsewhere on it.
+          // Slice PIN (R135, D-1381): a drag from the title link can pin the task (a drop on Pinned).
           // The press also reaches the card, so a drop on a column still changes the status; a drop on Pinned pins.
           onMouseDown={(e: React.MouseEvent) => { if (e.button === 0) startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' }); }}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>

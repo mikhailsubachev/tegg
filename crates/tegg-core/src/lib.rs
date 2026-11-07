@@ -621,7 +621,6 @@ fn read_batch(s: &Shared, paths: &[String]) -> Vec<Prepared> {
     })
 }
 
-/// Architecture §5.1: brings the index up to the files by `(mtime, size)`; a fresh index is a full rebuild.
 /// Test builds only (v1-pinned §5, FR-HOM-02 AC-20): how long the first index build after open holds its end, in ms
 /// (`TEGG_TEST_HOLD=first-index:<ms>`, set by the app). 0: no hold.
 static FIRST_INDEX_HOLD_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -631,6 +630,7 @@ pub fn set_first_index_hold_ms(ms: u64) {
     FIRST_INDEX_HOLD_MS.store(ms, Ordering::SeqCst);
 }
 
+/// Architecture §5.1: brings the index up to the files by `(mtime, size)`; a fresh index is a full rebuild.
 /// Reports `IndexProgress` per batch and stops on cancel (FR-UX-07, D-110).
 fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
     // G1 (D-990): the graph answers once this build ends, however it ends; set before `Done` is reported, so a

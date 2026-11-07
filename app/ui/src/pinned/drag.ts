@@ -118,14 +118,17 @@ export function startPinDrag(e: MouseEvent, item: DragItem | null, onStart?: () 
   if (!item) return false;
   // A target already pinned moves to the line (D-1379): its own row doesn't count for the position.
   const pinned = findPin(pinsNow(), item.request, tagOfFile);
+  // The pins the press saw: a move sends that base, so an outside change during the drag is a conflict (D-1371).
+  const base = pinsNow()?.version ?? null;
   return press(e, item, null, (d) => {
     if (d.at === null) return;
-    if (pinned !== null) void move(pinned, d.at);
+    if (pinned !== null) void move(pinned, d.at, { base });
     else void pinTarget(item.request, d.at, () => item.label);
   }, pinned, onStart);
 }
 
 /** A pinned row's press: reorders on a drop inside the section; a drop at its own place writes nothing (store.move). */
 export function startRowDrag(e: React.MouseEvent, index: number, item: DragItem) {
-  press(e, item, index, (d) => { if (d.at !== null) void move(index, d.at); });
+  const base = pinsNow()?.version ?? null; // as for a drag in: the index belongs to these pins (D-1371)
+  press(e, item, index, (d) => { if (d.at !== null) void move(index, d.at, { base }); });
 }
