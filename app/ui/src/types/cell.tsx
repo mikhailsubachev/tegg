@@ -8,6 +8,9 @@ import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto } from '../ipc/ty
 import { Icon, typeIconName } from '../shell/Icon';
 import { attrTypeLabel, dateText, dateTimeText, nfc, rawText, wiki } from './util';
 
+/** `[[…]]` / `![[…]]` inside a text value; `split` keeps each link at the odd indexes. */
+const TEXT_LINK = /(!?\[\[[^[\]\n]+?\]\])/;
+
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
 import { tagChipStyle } from '../theme/tagChip';
@@ -68,6 +71,16 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }
   if (a?.type === 'date') return <span data-user-content>{dateText(v)}</span>;
   if (a?.type === 'date-time') return <span data-user-content>{dateTimeText(v)}</span>;
   if (a?.type === 'checkbox') return <span>{t(v === true ? 'panel.checked' : 'panel.unchecked')}</span>;
+  if (typeof v === 'string' && (col.key === 'source' || a?.type === 'text' || a?.type === 'long-text') && TEXT_LINK.test(v)) {
+    // Links inside a text value are chips, the rest stays text (D-249, D-257).
+    return (
+      <span className="linked-text">
+        {v.split(TEXT_LINK).map((p, i) => (i % 2
+          ? <LinkCell key={i} value={p.replace(/^!/, '')} links={row.links} types={types} onOpen={onOpen} refs={refs} />
+          : p && <span key={i} data-user-content>{p}</span>))}
+      </span>
+    );
+  }
   if (a?.type === 'relation' || col.key === 'source') {
     const list = Array.isArray(v) ? v : [v];
     return (

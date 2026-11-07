@@ -527,6 +527,10 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .type-table th.reordering { cursor: grabbing; color: var(--text); }
 .type-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .type-table td .chips { flex-wrap: nowrap; }
+/* D-249 in a cell: text with link chips as one row; inline chips after text in an ellipsis cell miss clicks in WebKit. */
+.type-table td .linked-text { display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; vertical-align: top; }
+.type-table td .linked-text > * { flex: none; }
+.type-table td .linked-text > [data-user-content] { white-space: pre; }
 /* D-1247: Title stays on the left, opaque, while the other columns pass under it. */
 .type-table th:first-child, .type-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); }
 .type-table th:first-child { z-index: 3; } /* above the other headers' resize handles */
