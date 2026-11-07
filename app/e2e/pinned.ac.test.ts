@@ -14,7 +14,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import {
   FX, REPO, appiumDown, changedPaths, end, marks, need, needMenuItem, palette, press, ready, session, shown, sleep, support, testEnv, textContains,
@@ -101,6 +101,27 @@ async function dragFromTo(d: Driver, from: { x: number; y: number }, to: { x: nu
   await sleep(500);
 }
 const centre = (r: { x: number; y: number; width: number; height: number }) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+/** The rect of the Types entry whose label starts with `plural` (its name carries the count, D-1427). */
+async function typesEntry(d: Driver, plural: string) {
+  for (const e of await d.$$(`-ios predicate string:label BEGINSWITH "${plural}"`).catch(() => [] as any[])) {
+    if (await e.isDisplayed().catch(() => false)) return d.getElementRect(e.elementId);
+  }
+  return assert.fail(`Types entry ${plural} is shown`);
+}
+/** The shown element with one of these labels furthest right: a chip in the editor, not a sidebar row (D-1425). */
+async function chipRect(d: Driver, labels: string[]) {
+  let best: { x: number; y: number; width: number; height: number } | null = null;
+  for (const label of labels) {
+    const l = label.replace(/"/g, '\\"');
+    for (const e of await d.$$(`-ios predicate string:(label == "${l}" OR title == "${l}" OR value == "${l}")`).catch(() => [] as any[])) {
+      if (!(await e.isDisplayed().catch(() => false))) continue;
+      const r = await d.getElementRect(e.elementId);
+      if (!best || r.x > best.x) best = r;
+    }
+  }
+  assert.ok(best, `chip ${labels[0]} is shown`);
+  return best!;
+}
 async function rowsInOrder(d: Driver, labels: string[]): Promise<boolean> {
   const ys: number[] = [];
   for (const l of labels) { if (!(await shown(d, l, 3000))) return false; ys.push((await rect(d, l)).y); }
@@ -137,9 +158,9 @@ test('fr_ux_08_ac16_pins_for_voiceover_in_the_real_app', { timeout: 300_000 }, a
   const c = fresh('ux16', 'valid.yml');
   try {
     const d = await launch(c);
-    const h = await need(d, 'Pinned', 5000);
-    const value = `${await h.getAttribute('value').catch(() => '')} ${await h.getAttribute('help').catch(() => '')} ${await h.getAttribute('label').catch(() => '')}`;
-    assert.match(value, /expanded|5 pinned items/, `the header's macOS element carries its state or description (${value})`);
+    await need(d, 'Pinned', 5000);
+    // D-1424: the description is the hidden text after the header (span.sr-only), as the Inbox entry's (R62).
+    assert.ok(await textShown(d, '5 pinned items', 3000), "the header's description `5 pinned items` in the tree (span.sr-only)");
     for (const [label, desc] of [['Výjezd Lisabon 2026', 'Projekt'], ['#offsite', 'Tag'], ['Projekty', 'Type page']]) {
       assert.ok(await shown(d, label, 3000), `${label} in the tree`);
       assert.ok(await textShown(d, desc, 3000), `its description ${desc} in the tree (span.sr-only)`);
@@ -194,14 +215,16 @@ test('fr_hom_02_ac13_dragging_a_chip_never_edits_the_note_in_the_real_app', { ti
     const d = await launch(c, `note/${P.odkazy}`);
     assert.ok(await textShown(d, 'Neexistuje', 8000), 'Odkazy in the editor');
     const before = stamp(c, P.odkazy);
-    for (const chip of ['Plán (2)', 'offsite', 'Rozpočet 2027']) {
-      const s = centre(await rect(d, chip));
+    // D-1425: the chip of [[Plán (2)]] shows its title `Plán` (D-73); a pinned row may have the same label, so the chip
+    // is the match furthest right (the editor), never the sidebar row.
+    for (const chip of [['Plán'], ['#offsite', 'offsite'], ['Rozpočet 2027']]) {
+      const s = centre(await chipRect(d, chip));
       const sec = await rect(d, 'Projekty');
       await dragFromTo(d, s, { x: sec.x + sec.width / 2, y: sec.y + sec.height - 2 });
       const types = await rect(d, 'Pages');
-      await dragFromTo(d, centre(await rect(d, chip)), centre(types));
+      await dragFromTo(d, centre(await chipRect(d, chip)), centre(types));
       const line = await rect(d, 'Neexistuje');
-      await dragFromTo(d, centre(await rect(d, chip)), { x: line.x + 10, y: line.y + line.height + 20 });
+      await dragFromTo(d, centre(await chipRect(d, chip)), { x: line.x + 10, y: line.y + line.height + 20 });
     }
     await sleep(2500);
     assert.deepEqual(stamp(c, P.odkazy), before, 'Pages/Odkazy.md: bytes, mtime and inode unchanged');
@@ -223,7 +246,7 @@ test('fr_hom_02_ac15_collapse_is_remembered_after_a_relaunch', { timeout: 300_00
     let d = await launch(c);
     const before = tree(c.vault);
     await (await need(d, 'Pinned', 5000)).click();
-    assert.ok(await waitFor(() => uiState(c.sup)?.vaults?.[c.vault.normalize('NFC')]?.sidebar?.pinnedCollapsed === true, 3000), 'ui-state.json: pinnedCollapsed true');
+    assert.ok(await waitFor(() => uiState(c.sup)?.vaults?.[realpathSync(c.vault).normalize('NFC')]?.sidebar?.pinnedCollapsed === true, 3000), 'ui-state.json: pinnedCollapsed true');
     assert.equal(await shown(d, 'Rozpočet 2027', 800), false, 'rows hidden');
     d = await relaunch(c);
     assert.ok(await shown(d, 'Pinned', 5000), 'header after the relaunch');
@@ -336,10 +359,12 @@ test('fr_syn_06_ac43_only_pin_actions_write_pinned_yml_in_the_real_app', { timeo
     await dragFromTo(d, lis, { x: off.x + off.width / 2, y: off.y + off.height - 2 });
     assert.ok(await waitFor(() => read(c, YML) === fx('expected/valid-after-move.yml'), 3000), 'move: expected bytes');
     assert.deepEqual(changedPaths(pre, tree(c.vault)), [YML], 'move wrote exactly .tegg/pinned.yml');
-    palette('Go to type: Schůzky');
-    await sleep(800);
+    // D-1427: pin through the Types entry's `<Type> actions` menu (the palette helper's paste + ↩ runs no command in
+    // this environment; issue #115).
     const pre2 = tree(c.vault);
-    palette('Pin to sidebar');
+    const entry = await typesEntry(d, 'Schůzky');
+    await d.execute('macos: rightClick', { x: Math.round(entry.x + entry.width / 2), y: Math.round(entry.y + entry.height / 2) });
+    await (await needMenuItem(d, 'Pin to sidebar', 3000)).click();
     assert.ok(await waitFor(() => String(read(c, YML)).includes('type: schůzka'), 3000), 'pin wrote');
     assert.deepEqual(changedPaths(pre2, tree(c.vault)), [YML], 'pin wrote exactly .tegg/pinned.yml (no note, no type file)');
   } finally { await cleanup(c); }
