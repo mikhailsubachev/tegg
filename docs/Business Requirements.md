@@ -164,7 +164,7 @@
 | v1.148  | 2026-11-02 | v0.113 push-gate findings (build 882470d): D-1362…D-1364 (AP-1220…AP-1222, as proposed): the column commands only on `tasks/kanban` (changes D-1361 (b)); a click below a last heading puts the caret at its end, and the added paragraph isn't an edit (refines D-1356); the mindmap caret helper ignores the AC-9 hint |
 | v1.149  | 2026-11-03 | v0.116 feedback: D-1365, the empty-paragraph hint is `Type here` (FR-EDT-01 AC-9) |
 | v1.150  | 2026-11-04 | Spikes removed, reports kept: D-1366…D-1369 (AP-1223…AP-1226, as proposed): the spike code goes, each `FINDINGS.md` stays; the signing script moves to `app/`; the spike gate steps go; the spike exit criteria are historical |
-| v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1391 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
+| v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
 
 ---
 
@@ -1383,6 +1383,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1389 | Previews on pinned rows (AP-1246) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | No preview on pinned rows (like the Types list). A click opens. The tooltip shows the label and path. |
 | D-1390 | Changed AC tests (AP-1247) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Approve the changes listed under "Existing criteria this slice changes", committed by the test author with `AC-Test-Change: slice PIN builds the Pinned section (FR-HOM-02); approved-by: owner`. |
 | D-1391 | Types section collapse (AP-1248) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Out of this slice: the chevron on `Types` is a board detail. Decide it separately. |
+| D-1392 | The Types entry menu name (AP-1249) (owner, 2026-11-07: "Yes, \"<Type> actions\""; slice PIN contract §7) | The Types entry's context menu is named `<Type> actions` (`Schůzka actions`), catalog key `typeEntry.menu` `{name} actions`, added to R137 |
 
 ---
 

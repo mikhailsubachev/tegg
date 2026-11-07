@@ -388,12 +388,12 @@ One `ui_state_set` per header toggle; nothing else of the section is stored. ⌃
   `keyboard.ac.test.ts`, `vault.ac.test.ts`, `app/test/registry.ac.test.ts`, `registry_5b.ac.test.ts`,
   `shell-tables.ts`).
 
-## 7. Open point for the owner
+## 7. Owner decision
 
 1. **The Types entry's context menu name.** R134 names it `<Type> actions`, but R137 has no key for it and
    NFR-OTH-02 AC-16 says the slice adds exactly R137's keys. Proposal: add `typeEntry.menu` `{name} actions` (the
    type's Name, `Schůzka actions`) to R137, or name the menu with the existing `typePage.rowMenu` (`Object actions`).
-   Until decided, the build uses the proposal.
+   **Decided 2026-11-07: the proposal, D-1392 (AP-1249).** R137 has the key.
 
 ## 8. Contract choices (no owner decision needed)
 
