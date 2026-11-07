@@ -478,3 +478,12 @@ Defects found in the red tests and gaps the build hit. Every test change carries
 | AP-1274 | The SIGKILL harness starts each child with the same move, so after a kill at an odd write a cycle produces a third valid order and the test calls it torn. | Restore `valid.yml` before each cycle (or accept any byte-exact permutation that lists five pins). | FR-SYN-02 AC-9 (L4) |
 | AP-1275 | The build's choices the contract didn't fix: a `PinPatch::Merged` variant for D-1402 (the kept object has another `id`); D-1394's duplicate rule applied both ways in the core (the TS twin misses an id+path item after a path-only one); `.trash/<path>` checked as §1.3 says (the twin differs); `pin_lookup` also returns tag keys, type keys and daily dates (one index lock); a job's pins read-back allows a renamed tag to land on a pinned key (§8 13). | Accept as built; align the TS twin with the core on the duplicate and `.trash/` rules. | contract §1, fake-pins.ts |
 | AP-1276 | The pseudo-locale test finds the note's `More` button by the exact name `More`; under the pseudo-locale it is `⟦More⟧`. | Accept both, as the header lookup does. Decided 2026-11-08: approved → D-1419. | NFR-OTH-02 AC-16 |
+
+## Push-gate points (build 1cc004d)
+
+| AP | Point | Proposal | Affects |
+|---|---|---|---|
+| AP-1277 | `read_view.ac.test.ts` FR-EDT-02 AC-13 allows a fixed list of IPC commands while placeholders render; the vault's first `pins_get` (one read, D-1374) isn't on it. | Add `pins_get` to that test's allowed read commands. | FR-EDT-02 AC-13 |
+| AP-1278 | `type_moves.ac.test.ts` FR-UX-03 AC-18 opens the note's `More` menu by keyboard and takes its first item as `Change type…`; R134 (D-1385) puts `Pin to sidebar` first. | Choose `Change type…` by name (or one ↓ more). | FR-UX-03 AC-18 (type moves) |
+| AP-1279 | NFR-OTH-02 AC-3's pseudo-locale check strips `⟦…⟧` in one pass, so a translated string inside another (R132's empty area: `Drag things here, or use ⟦⋯ › Pin to sidebar⟧.`) reads as unmarked. | Strip `⟦…⟧` repeatedly until nothing changes (nested strings count as marked). | NFR-OTH-02 AC-3 |
+| AP-1280 | FR-HOM-02 AC-3 checks the focus on the heading at the moment the page name changes; the heading takes the focus a frame later, so the check is flaky (fails about 1 in 3). | Wait for the focus (`eventually`, up to 1 s). | FR-HOM-02 AC-3 |
