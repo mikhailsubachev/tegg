@@ -3,7 +3,7 @@
 // imported dynamically inside each test so a missing module fails an assertion, not the file (TS-I1).
 import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { MILESTONE_ORDER, R1, R2, R3, R4, R4_G1, R4_P, RESERVED, STATIC_COMMANDS, expandReqs, shortcutClashes, showDue, type Due } from './shell-tables';
+import { MILESTONE_ORDER, R1, R2, R3, R4, R4_G1, R4_P, R4_PIN, RESERVED, STATIC_COMMANDS, expandReqs, shortcutClashes, showDue, type Due } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -96,7 +96,7 @@ test('fr_ux_02_ac13_placeholders_cannot_outlive_their_milestone', async () => {
   const ms3 = (reg.overdue('MS3') as string[]).join('\n');
   // 5B (inbox.md R62, D-565): settings/date-time is built and the Appearance extras are v1.0, so nothing is left at MS3.
   assert.equal(ms3, '', `overdue('MS3') is empty after 5B:\n${ms3}`);
-  for (const id of ['inbox', 'today', 'pinned', 'Type picker', 'New tab']) {
+  for (const id of ['inbox', 'today', 'Type picker', 'New tab']) { // slice PIN: no `pinned` route (D-1375)
     assert.ok(!ms3.includes(id), `overdue('MS3') must not list ${id} (due later):\n${ms3}`);
   }
   const tbd = R1.filter((r) => !r.built).length + R2.filter((r) => !r.built).length;
@@ -126,8 +126,10 @@ test('fr_ux_03_ac7_registry_integrity', async () => {
   for (const c of list) assert.ok(c.title in cat.en, `title of ${c.id} is not a catalog key: ${c.title}`);
   for (const c of list) assert.ok(!RESERVED.includes(c.shortcut), `${c.id} uses the reserved ${c.shortcut}`);
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
-  // Slice P (previews.md R106, D-943): R4 gains ⌥Space `Show preview` (R4_P); slice G1 ⇧⌘G `Open graph` (R4_G1, D-918).
-  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P, ...R4_G1].map((r) => r.keys).sort(), 'shortcut table = R4 (keys in ⌃⌥⇧⌘ order)');
+  // Slice P (previews.md R106, D-943): R4 gains ⌥Space `Show preview` (R4_P); slice G1 ⇧⌘G `Open graph` (R4_G1, D-918);
+  // slice PIN ⌥⌘↑ / ⌥⌘↓ (R4_PIN, pinned.md R136; their commands are listed only with a pinned row focused, so the loop
+  // below checks R4, R4_P and R4_G1, and app/test/pinned_registry.ac.test.ts checks R4_PIN).
+  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P, ...R4_G1, ...R4_PIN].map((r) => r.keys).sort(), 'shortcut table = R4 (keys in ⌃⌥⇧⌘ order)');
   // 4B (R17, D-127): ⌥⌘← / ⌥⌘→ are registered on daily routes only.
   const onDaily = cmd.commands({ ...CTX, route: { id: 'daily/YYYY-MM-DD', param: '2026-10-14', date: '2026-10-14' } }) as any[];
   for (const row of [...R4, ...R4_P, ...R4_G1]) {

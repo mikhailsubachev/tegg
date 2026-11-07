@@ -369,6 +369,22 @@
       "page": "page-search",
       "title": "Search · no match, no filters (dark)"
     },
+    "SidebarPinned.dc.html": {
+      "h": 1880,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-pinned",
+      "title": "Sidebar · Pinned (pin, unpin, drag)"
+    },
+    "SidebarPinnedDark.dc.html": {
+      "h": 1880,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-pinned",
+      "title": "Sidebar · Pinned (dark)"
+    },
     "ObjectPreview.dc.html": {
       "h": 3480,
       "page": "page-previews",
@@ -438,6 +454,8 @@
     "SearchNoMatch.dc.html",
     "SearchNoResultsDark.dc.html",
     "SearchNoMatchDark.dc.html",
+    "SidebarPinned.dc.html",
+    "SidebarPinnedDark.dc.html",
     "ObjectPreview.dc.html",
     "ObjectPreviewDark.dc.html"
   ],
@@ -469,6 +487,10 @@
     {
       "id": "page-search",
       "name": "Search"
+    },
+    {
+      "id": "page-pinned",
+      "name": "Pinned"
     },
     {
       "id": "page-previews",

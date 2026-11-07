@@ -1,0 +1,14 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+version: 1
+pins:
+  - id: 01JB5P00000000000000000001
+    path: Projekty/Starý název.md
+  - path: Pages/Bez hlavičky.md
+  - id: 01JB5P00000000000000000008
+    path: Pages/Starý plán.md
+  - id: 01JB5P000000000000000000ZZ
+    path: Pages/Smazaný.md
+  - id: 01JB5P000000000000000000ZY
+    path: Pages/Plán.md
+  - tag: zrušený
+  - type: kniha

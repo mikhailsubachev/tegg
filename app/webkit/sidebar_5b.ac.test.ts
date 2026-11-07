@@ -22,7 +22,9 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
     // D-759 (tags.md FR-NAV-04 AC-8): the first row is `New object` + `Search`; no `Search or jump to…`.
     ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
     ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')],
-    ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Pinned', entry(page, 'Pinned')],
+    // Slice PIN (pinned.md FR-NAV-04 AC-9, D-1375): the Pinned section's header between Tasks and the Types section.
+    ['Pinned', sb.getByRole('button', { name: 'Pinned', exact: true })],
+    ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })],
     ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')], ['logo', sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true })],
   ];
   let last = -1;
@@ -34,7 +36,8 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
   }
   assert.equal(await sidebarCount(page), '13', 'Inbox with its count');
   assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
-  for (const e of ['Pinned', 'Saved queries']) assert.match(await description(entry(page, e)), /Coming in v1\.0/, `${e}: Coming in v1.0`);
+  // Slice PIN (D-1375): Pinned is built; Saved queries stays TBD v1.0.
+  for (const e of ['Saved queries']) assert.match(await description(entry(page, e)), /Coming in v1\.0/, `${e}: Coming in v1.0`);
   const types = (await sb.getByRole('list', { name: 'Types' }).getByRole('listitem').allInnerTexts()).map(flat);
   assert.ok(!types.some((t) => /^Tasks\b/.test(t)), 'no Task in the Types section (D-516)');
 });
@@ -116,9 +119,10 @@ test('fr_nav_04_ac5_registry_in_the_ui', async ({ page }) => {
     await must(main(page).getByRole('heading', { name: ok }), `${cmd}: a built page`);
     assert.equal(await main(page).getByText(/Coming in MS\d/).count(), 0, `${cmd}: no Coming in MS…`);
   }
-  // 6A (D-613): `Go to Home` is removed.
-  await runCommand(page, 'Go to Pinned');
-  assert.ok(await seen(main(page).getByText(/Coming in v1\.0/), 2000), 'Pinned: Coming in v1.0');
+  // 6A (D-613): `Go to Home` is removed. Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `Go to Pinned` too; Saved queries
+  // stays TBD v1.0.
+  await runCommand(page, 'Go to Saved queries');
+  assert.ok(await seen(main(page).getByText(/Coming in v1\.0/), 2000), 'Saved queries: Coming in v1.0');
 });
 
 test('fr_nav_02_ac1_every_5b_command_is_listed_found_and_runs', async ({ page }) => {

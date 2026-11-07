@@ -385,7 +385,8 @@ test('fr_ux_03_ac18_the_dialog_works_by_keyboard_and_esc_returns_the_focus', asy
   const more = await must(moreButton(page), 'More');
   await more.focus();
   await page.keyboard.press('Enter');
-  await page.keyboard.press('Enter'); // the first item, Change type…
+  await page.keyboard.press('ArrowDown'); // R134 (D-1385, D-1421): Pin to sidebar is first, then Change type…
+  await page.keyboard.press('Enter');
   const menu = await must(changeTypeMenu(page), 'menu "Change type"');
   const items = (await menu.getByRole('menuitem').allInnerTexts()).map(flat);
   const at = items.indexOf('Schůzka');

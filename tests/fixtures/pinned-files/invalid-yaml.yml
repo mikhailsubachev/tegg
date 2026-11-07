@@ -1,0 +1,7 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+version: 1
+pins:
+  - id: 01JB5P00000000000000000001
+    path: [Projekty/Rozpočet 2027.md
+  - tag: offsite
+  - type: projekt

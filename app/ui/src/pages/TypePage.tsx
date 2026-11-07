@@ -34,6 +34,9 @@ const MAX_ROWS = 100;
 const UNIVERSAL: Record<string, string> = { tags: 'attr.tags', aliases: 'attr.aliases', source: 'attr.source', created: 'attr.created', modified: 'attr.modified', review: 'attr.review' };
 
 import { TypeCell as Cell, type TypeColumn as Column } from '../types/cell';
+import { usePinMenuEntry } from '../pinned/PinMenu';
+import { pinDragSource } from '../pinned/drag';
+import { typeIconName as pinIconName } from '../shell/Icon';
 
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -82,6 +85,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState(false);
   const [rowMenu, setRowMenu] = useState<HTMLElement | null>(null);
+  const pinEntry = usePinMenuEntry();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [notice, setNotice] = useState<{ text: string; alert: boolean } | null>(null);
   // The type as last written from this page, so quick toggles build on each other (D-252).
@@ -370,9 +374,11 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
                   data-path={r.path.normalize('NFC')} data-title={r.title} data-index={i}
                   // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
                   onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
+                  {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(typeKey, type?.icon), color: type?.color })}
                   onFocus={() => setCursor(i)}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;
+                    if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu(e.currentTarget); return; }
                     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
                   }}>
                   {columns.map((c) => (
@@ -390,7 +396,13 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       {notice && <p role={notice.alert ? 'alert' : 'status'} className={notice.alert ? 'warning-text' : 'type-notice'}>{notice.text}</p>}
       {rowMenu && (
         <PopupMenu label={t('typePage.rowMenu')} anchor={rowMenu} onClose={() => { const el = rowMenu; setRowMenu(null); el.focus(); }}
-          entries={[{ kind: 'item', key: 'trash', label: t('cmd.trash'), content: t('cmd.trash'),
+          entries={[
+            // Slice PIN (R134): Open, Pin to sidebar / Unpin from sidebar, then Move to trash after a separator.
+            { kind: 'item', key: 'open', label: t('pinned.open'), content: <span className="menu-title">{t('pinned.open')}</span>,
+              onChoose: () => { const el = rowMenu; setRowMenu(null); const path = el.getAttribute('data-path'); if (path) onOpen(path); } },
+            ...(() => { const path = rowMenu.getAttribute('data-path') ?? ''; const e = pinEntry({ request: { kind: 'object', path }, label: rowMenu.getAttribute('data-title') ?? '' }, () => { const el = rowMenu; setRowMenu(null); el.focus(); }); return e ? [e] : []; })(),
+            { kind: 'separator' },
+            { kind: 'item', key: 'trash', label: t('cmd.trash'), content: t('cmd.trash'),
             onChoose: () => { const el = rowMenu; setRowMenu(null); el.focus(); trashRequest.current?.(); } }]} />
       )}
       {columnsOpen && cur && (

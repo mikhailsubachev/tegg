@@ -417,6 +417,28 @@ impl Host for CoreHost {
             other => WriteError::Io(format!("{other:?}")),
         })
     }
+
+    /// v1-pinned §1.6: `pinned::read` + `pinned::patch_text`, written against the version just read (a conflict is the
+    /// job's `changed` skip). Never creates the file; an unreadable, newer or unpatchable file is left alone.
+    fn patch_pins(&self, patches: &[tegg_jobs::host::PinPatch]) -> Result<Option<tegg_jobs::host::PinsWrite>, WriteError> {
+        use crate::pinned::{self, PINNED_YML};
+        let (pre, pre_v) = match self.shared.vault.read(PINNED_YML) {
+            Ok(x) => x,
+            Err(VaultError::NotFound) => return Ok(None),
+            Err(VaultError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(write_error(e)),
+        };
+        let Ok(text) = std::str::from_utf8(&pre) else { return Ok(None) };
+        let Some(post) = pinned::patch_text(text, &pinned::read(&pre), patches) else { return Ok(None) };
+        match self.shared.vault.write(PINNED_YML, post.as_bytes(), Some(&pre_v)) {
+            Ok(WriteOutcome::Written(post_v)) => {
+                self.shared.emit(CoreEvent::VaultChanged { paths: vec![PINNED_YML.to_string()] });
+                Ok(Some(tegg_jobs::host::PinsWrite { pre, pre_v, post: post.into_bytes(), post_v }))
+            }
+            Ok(WriteOutcome::Unchanged) => Ok(None),
+            Err(e) => Err(write_error(e)),
+        }
+    }
 }
 
 impl CoreHost {

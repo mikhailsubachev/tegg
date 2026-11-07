@@ -65,6 +65,21 @@ pub struct ObjectInfo {
     pub stored_title: Option<String>,
 }
 
+/// Slice PIN (v1-pinned §1.3): `Index::pin_lookup`'s answer.
+#[derive(Debug, Clone, Default)]
+pub struct PinLookup {
+    /// Requested ids (NFC) → the live object holding it.
+    pub by_id: HashMap<String, ObjectInfo>,
+    /// Requested paths (NFC) → the object at that path.
+    pub by_path: HashMap<String, ObjectInfo>,
+    /// Tag keys with an occurrence or a Tag file (tags.md R79).
+    pub tags: std::collections::HashSet<String>,
+    /// Matched type keys with at least one indexed object (D-121).
+    pub types: std::collections::HashSet<String>,
+    /// Daily Note dates of the objects found, by path.
+    pub dates: HashMap<String, NaiveDate>,
+}
+
 /// 5A-1: what a task row needs beyond `ObjectInfo` (ms5-tasks §2.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteState {
@@ -898,6 +913,52 @@ impl Index {
         let mut v: Vec<ObjectInfo> = self.metas.values().map(Meta::info).collect();
         v.sort_by(|a, b| a.path.cmp(&b.path));
         v
+    }
+
+    /// Slice PIN (v1-pinned §1.3, FR-HOM-02 AC-25): everything the sidebar's pins resolve against, in one read: the
+    /// objects of `ids` (the primary of a duplicate-id group, as links resolve them, FR-SYN-04 AC-1) and of `paths`
+    /// (NFC), every tag key with an occurrence or a Tag file (tags.md R79), the matched type keys with an object, and
+    /// the dates of the Daily Notes found.
+    pub fn pin_lookup(&self, ids: &[String], paths: &[String]) -> PinLookup {
+        let wanted: std::collections::HashSet<&str> = ids.iter().map(String::as_str).collect();
+        let mut groups: HashMap<String, Vec<&Meta>> = HashMap::new();
+        let mut out = PinLookup::default();
+        for m in self.metas.values() {
+            if !wanted.is_empty() {
+                if let Some(id) = &m.s.id {
+                    let key = nfc(id.trim_matches(char::is_whitespace));
+                    if wanted.contains(key.as_str()) {
+                        groups.entry(key).or_default().push(m);
+                    }
+                }
+            }
+            out.types.insert(m.s.r#type.clone());
+            out.tags.extend(m.s.tags.iter().cloned());
+            if m.s.r#type == "tag" && m.s.type_single {
+                let title = m.s.attributes.get("title").and_then(Value::as_str).map(|t| t.trim()).filter(|t| !t.is_empty());
+                out.tags.insert(tegg_format::tag_key(title.unwrap_or(&m.stem)));
+            }
+        }
+        let mut found: Vec<&Meta> = Vec::new();
+        for (id, group) in groups {
+            let primary = self.primary(&group);
+            if let Some(m) = group.iter().find(|m| m.path == primary) {
+                out.by_id.insert(id, m.info());
+                found.push(m);
+            }
+        }
+        for p in paths {
+            if let Some(m) = self.meta(p) {
+                out.by_path.insert(nfc(p), m.info());
+                found.push(m);
+            }
+        }
+        for m in found {
+            if let Some(d) = m.daily {
+                out.dates.insert(m.path.clone(), d);
+            }
+        }
+        out
     }
 
     /// D-784 (ms4-tags §1.6): the number of indexed objects with an occurrence of any tag, without copying them

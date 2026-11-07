@@ -246,6 +246,24 @@ pub(crate) fn link_inner(v: &Value) -> Option<String> {
     s.strip_prefix("[[").and_then(|r| r.strip_suffix("]]")).map(str::to_string).filter(|s| !s.trim().is_empty())
 }
 
+/// Every `[[…]]` / `![[…]]` inside a text value → its inner link text, in order (D-249).
+pub(crate) fn text_link_inners(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while let Some(o) = s[i..].find("[[") {
+        let open = i + o;
+        let Some(c) = s[open + 2..].find("]]") else { break };
+        let inner = &s[open + 2..open + 2 + c];
+        if inner.contains('[') || inner.contains('\n') || inner.trim().is_empty() {
+            i = open + 2;
+            continue;
+        }
+        out.push(inner.to_string());
+        i = open + 2 + c + 2;
+    }
+    out
+}
+
 impl Core {
     /// `vault_types` (3A, changed in 3D): one per type file plus every system key without a file (D-90). Fresh read.
     pub fn types(&self) -> Vec<TypeInfo> {
@@ -444,10 +462,18 @@ impl Core {
                     }
                     if let Some(v) = fm.get(p) {
                         values.insert(p.clone(), v.clone());
-                        if a.is_some_and(|a| a.r#type == AttrType::Relation) || p == "source" {
+                        if a.is_some_and(|a| a.r#type == AttrType::Relation) {
                             match v {
                                 Value::Array(items) => targets.extend(items.iter().filter_map(link_inner)),
                                 other => targets.extend(link_inner(other)),
+                            }
+                        } else if p == "source" || a.is_some_and(|a| matches!(a.r#type, AttrType::Text | AttrType::LongText)) {
+                            // Links inside text values are chips in the cell too (D-249, D-257); a `source:` list keeps
+                            // its whole-value links.
+                            match v {
+                                Value::String(s) => targets.extend(text_link_inners(s)),
+                                Value::Array(items) => targets.extend(items.iter().filter_map(link_inner)),
+                                _ => {}
                             }
                         }
                     }

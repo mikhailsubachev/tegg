@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pins-apply"
+description = "Enables the pins_apply command without any pre-configured scope."
+commands.allow = ["pins_apply"]
+
+[[permission]]
+identifier = "deny-pins-apply"
+description = "Denies the pins_apply command without any pre-configured scope."
+commands.deny = ["pins_apply"]

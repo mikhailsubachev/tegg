@@ -1045,6 +1045,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       <div className="note-column" data-width={pageWidth}>
         <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource || moving}
+            pin={{ request: daily?.virtual || draft ? 'unsaved' : { kind: 'object', path: path.normalize('NFC') }, label: title || (daily?.date ?? path.split('/').pop()!.replace(/\.md$/, '')) }}
             onChange={(key) => { void changeType(key); }} onOpenType={onType} />
           {moveError && <span className="warning-text" role="alert">{moveError}</span>}
           {mapping && (

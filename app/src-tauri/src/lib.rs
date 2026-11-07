@@ -13,6 +13,7 @@ mod shell4d;
 mod shell4e;
 mod shellg1;
 mod shellg3;
+mod shellpin;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -196,7 +197,7 @@ fn test_drop(app: &AppHandle) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
@@ -1653,6 +1654,11 @@ pub fn run() {
         // ms6-trash-media §3.6 (D-626): vault media for the webviews, read-only.
         .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
         .setup(|app| {
+            // Slice PIN (v1-pinned §5, FR-HOM-02 AC-20; test build): `TEGG_TEST_HOLD=first-index:<ms>` holds the end of
+            // the vault's first index build, so the Pinned rows' `Loading` state can be seen.
+            if let Some(ms) = test_var("TEGG_TEST_HOLD").and_then(|v| v.strip_prefix("first-index:").and_then(|m| m.parse::<u64>().ok())) {
+                tegg_core::set_first_index_hold_ms(ms);
+            }
             let handle = app.handle().clone();
             // FR-CNV-03 AC-7 (test build): `TEGG_TEST_HOLD=during-source-save:<vault path>` holds that file's next
             // replacing write after its temp file is written, before the rename.
@@ -1745,7 +1751,8 @@ pub fn run() {
             shell4e::value_remove_start, shell4e::type_delete_start,
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal,
             shellg1::graph_neighbourhood,
-            shellg3::graph_presets_get, shellg3::graph_presets_apply
+            shellg3::graph_presets_get, shellg3::graph_presets_apply,
+            shellpin::pins_get, shellpin::pins_apply
         ])
         .build(context())
         .expect("error while building Tegg")

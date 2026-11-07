@@ -86,6 +86,16 @@ fn write_header(host: &dyn Host, job: JobId, kind: &str, op: Option<&TextOp>, ti
     let _ = host.local_write(&d.join(format!("{job}.log")), b"");
 }
 
+/// An entry known only while the job writes (the pins file, v1-pinned §1.6): added to the header before its log line.
+pub(crate) fn add_entry(host: &dyn Host, job: JobId, entry: &Entry) {
+    let path = dir(host).join(format!("{job}.json"));
+    let Some(mut v) = host.local_read(&path).and_then(|b| serde_json::from_slice::<Value>(&b).ok()) else { return };
+    if let Some(files) = v["files"].as_array_mut() {
+        files.push(json!({ "at": entry.at, "to": entry.to, "pre": hex(&entry.pre), "target": entry.target.as_ref().map(|t| hex(t)) }));
+    }
+    let _ = host.local_write(&path, v.to_string().as_bytes());
+}
+
 fn append(host: &dyn Host, job: JobId, line: String) {
     let log = dir(host).join(format!("{job}.log"));
     let mut b = host.local_read(&log).unwrap_or_default();
@@ -171,7 +181,10 @@ pub(crate) fn interrupted(host: &dyn Host) -> Vec<Interrupted> {
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .filter_map(|p| p.file_stem()?.to_str()?.parse::<JobId>().ok())
         .filter_map(|job| {
-            let l = load(host, job)?;
+            let mut l = load(host, job)?;
+            // The pins file's entry isn't counted (v1-pinned §1.6, FR-UX-07 AC-8).
+            l.entries.retain(|e| e.at != crate::host::PINS_PATH);
+            l.done.retain(|d| d != crate::host::PINS_PATH);
             let moved = l.entries.iter().find(|e| e.at != e.to).or(l.entries.first())?;
             // ms4-jobs §14.6: a type move counts its links only (`<done> of <total> links updated`).
             if l.kind == "type-move" {
@@ -277,7 +290,8 @@ fn finish_rest(host: &dyn Host, transformer: &dyn Transformer, l: &Loaded) {
         }
         for e in l.entries.iter().filter(|e| e.at == e.to && pending(e)) {
             if let Some((b, v)) = unchanged(e) {
-                if let Some(out) = apply(&e.at, &b, std::slice::from_ref(&op)) {
+                // An entry with its bytes known in advance (the pins file, v1-pinned §1.6) gets them, never the link op.
+                if let Some(out) = e.target.clone().or_else(|| apply(&e.at, &b, std::slice::from_ref(&op))) {
                     let _ = matches!(host.write(&e.at, &out, &v), Ok(Wrote::Written(_)));
                 }
             }

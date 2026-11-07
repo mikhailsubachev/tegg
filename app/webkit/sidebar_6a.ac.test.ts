@@ -20,9 +20,11 @@ test('fr_nav_04_ac6_sidebar_without_home', async ({ page }) => {
   const parts: [string, ReturnType<typeof entry>][] = [
     // D-759 (tags.md FR-NAV-04 AC-8): the first row is `New object` + `Search`; no `Search or jump to…`.
     ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
-    ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')], ['Types', sb.getByRole('list', { name: 'Types' })],
+    ['Inbox', entry(page, 'Inbox')], ['Today', entry(page, 'Today')], ['Tasks', entry(page, 'Tasks')],
+    // Slice PIN (pinned.md FR-NAV-04 AC-9, D-1375): the Pinned section's header between Tasks and the Types section.
+    ['Pinned', sb.getByRole('button', { name: 'Pinned', exact: true })], ['Types', sb.getByRole('list', { name: 'Types' })],
     // D-761 (tags.md FR-NAV-04 AC-8, R83): one `Tags` entry after the Types list.
-    ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Pinned', entry(page, 'Pinned')], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
+    ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
   ];
   let last = -1;
   for (const [name, loc] of parts) {

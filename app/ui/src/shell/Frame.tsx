@@ -19,6 +19,9 @@ import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
 const keysOf = (command: string) => t('shortcut.keys', { keys: SHORTCUTS.find((s) => s.command === command)?.keys ?? '' });
 import type { Route } from './routes';
 import type { TypeEntry } from './types';
+import { PinnedSection } from '../pinned/PinnedSection';
+import { PinContextMenu } from '../pinned/PinMenu';
+import { pinDragSource } from '../pinned/drag';
 import { useTags } from '../tags/store';
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
@@ -138,7 +141,6 @@ const TOP: Entry[] = [
   { id: 'tasks', label: 'route.tasks', icon: 'task' },
 ];
 const BOTTOM: Entry[] = [
-  { id: 'pinned', label: 'route.pinned', icon: 'pin' },
   { id: 'saved-queries', label: 'route.savedQueries', icon: 'query' },
   // 6A (D-618): the Trash, last, without a count.
   { id: 'trash', label: 'route.trash', icon: 'trash' },
@@ -193,7 +195,12 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks }: {
+export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks, pinnedCollapsed = false, onPinnedCollapse, onOpenPinned }: {
+  /** Slice PIN (FR-HOM-02 AC-3): opening a pinned row focuses the page heading (D-130). */
+  onOpenPinned?: (r: Route) => void;
+  /** Slice PIN (R132, D-1383): the Pinned section's collapsed state, stored per vault by the caller. */
+  pinnedCollapsed?: boolean;
+  onPinnedCollapse?: (collapsed: boolean) => void;
   /** 5A-1 (R45 R1, D-481): overdue + due today, hidden at 0; the entry opens the last task view. */
   taskCount?: number;
   /** 5B (FR-NAV-04 AC-2): the Inbox query's count; none at 0. */
@@ -212,6 +219,8 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   conflicts?: number;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  // Slice PIN (R134): the Types entries' `<Type> actions` menu (D-1392).
+  const [typeMenu, setTypeMenu] = useState<{ entry: TypeEntry; anchor: HTMLElement } | null>(null);
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
@@ -285,6 +294,8 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
             </a>
           )}
         </div>
+        {/* Slice PIN (R132, D-1375): Pinned between the top group and Types. */}
+        <PinnedSection route={route} types={types} onGo={onOpenPinned ?? onGo} collapsed={pinnedCollapsed} onCollapse={(c) => onPinnedCollapse?.(c)} />
         <div className="section-head">
           <span>{t('frame.types')}</span>
           <button tabIndex={0} type="button" className="icon-button small" aria-label={t('frame.newType')} title={t('frame.newType')} data-command="type.new"
@@ -307,6 +318,9 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   data-command={`goto.type:${e.key}`}
                   style={{ ['--type' as string]: `var(--type-${e.color || 'gray'})` }}
                   onClick={(ev) => { ev.preventDefault(); onGo({ id: 'type/<type>', param: e.key }); }}
+                  onContextMenu={(ev) => { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); }}
+                  onKeyDown={(ev) => { if (ev.key === 'F10' && ev.shiftKey) { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); } }}
+                  {...pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color })}
                 >
                   <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
@@ -319,6 +333,12 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
             );
           })}
         </ul>
+        {typeMenu && (
+          <PinContextMenu label={t('typeEntry.menu', { name: typeMenu.entry.name })} anchor={typeMenu.anchor}
+            target={{ request: { kind: 'type', key: typeMenu.entry.key }, label: typeMenu.entry.plural }}
+            onOpen={() => onGo({ id: 'type/<type>', param: typeMenu.entry.key })}
+            onClose={() => { const a = typeMenu.anchor; setTypeMenu(null); if (a.isConnected) a.focus(); }} />
+        )}
         <SidebarTags route={route} onGo={onGo} />
         <div className="sidebar-group">{BOTTOM.map(link)}</div>
       </div>

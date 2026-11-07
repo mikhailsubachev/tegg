@@ -1,6 +1,7 @@
 // The Backlinks tab (FR-LNK-01, FR-LNK-02; backlinks.md R15; ms4-links §5.2; D-276…D-285): who links to the open
 // note, grouped by type, one chip per source (D-368: no excerpts). Data comes from one index query per note (`index_backlinks`),
 // re-asked on every vault change; nothing here writes.
+import { pinDragSource } from '../pinned/drag';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
@@ -151,7 +152,9 @@ export function BacklinksPanel({ path, date, types, refresh, onOpen, focusFirst,
     // D-633: the D-600 states of a note's chip (Unreviewed, the task box and suffix); the name stays the title.
     const parts = chipParts({ kind: 'note', type: e.type, review: e.review, status: e.status, due: e.due, completed: e.completed });
     return (
-      <div key={`e:${e.source}`} data-source={e.source} className="backlink-entry">
+      // Slice PIN (R135): an entry can be dragged into the Pinned section (its linking object).
+      <div key={`e:${e.source}`} data-source={e.source} className="backlink-entry"
+        {...pinDragSource({ request: { kind: 'object', path: e.source.normalize('NFC') }, label: e.title, icon: icon.glyph })}>
         {/* Slice P (R104 row 5): the chip is a reference: a click and ⏎ preview the source, a double-click opens it. */}
         <BacklinkChip source={e.source} open={() => onOpen(e.source, null, e.readOnly)}
           href="#" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.backlinks.open"

@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { PinContextMenu } from './pinned/PinMenu';
+import { pinDragSource } from './pinned/drag';
+import { typeIconName as pinIconName } from './shell/Icon';
 import { RefElement } from './preview/useReference';
 import { ipc } from './ipc/client';
 import type { DateTimeUiDto, SearchResultDto, TypeDto } from './ipc/types';
@@ -95,6 +98,8 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   // The query the shown rows answer, and a ⏎ typed before they arrived (opened once they do).
   const rowsKey = useRef<string | null>(null);
   const pendingEnter = useRef<string | null>(null);
+  // Slice PIN (R134): a result's `Search result` menu.
+  const [rowMenu, setRowMenu] = useState<{ path: string; title: string; anchor: HTMLElement } | null>(null);
   const [asMenu, setAsMenu] = useState<{ left: number; top: number; button: HTMLElement | null } | null>(null);
   const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -386,7 +391,10 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
               {/* Slice P (R104 row 8, D-930): a click anywhere on the row previews; ⏎ and a double-click open it. */}
               <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
                 href="#" tabIndex={0} className="result" data-command="search.open" data-path={r.path} aria-label={r.title} aria-description={[typeName(r.type), date(r)].filter(Boolean).join(' · ')} onClick={(e) => e.preventDefault()}
+                onContextMenu={(e: React.MouseEvent<HTMLElement>) => { e.preventDefault(); setRowMenu({ path: r.path, title: r.title, anchor: e.currentTarget }); }}
+                {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(r.type ?? 'page', types.find((x) => x.key === r.type)?.icon), color: types.find((x) => x.key === r.type)?.color })}
                 onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
+                  if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu({ path: r.path, title: r.title, anchor: e.currentTarget }); return; }
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveRow(e.currentTarget, e.key === 'ArrowDown' ? 1 : -1); }
                 }}>
                 <span className="icon"><TypeIcon type={r.type} /></span>
@@ -441,6 +449,10 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
           );
         })}
       </ul>
+      {rowMenu && (
+        <PinContextMenu label={t('searchResult.menu')} anchor={rowMenu.anchor} target={{ request: { kind: 'object', path: rowMenu.path.normalize('NFC') }, label: rowMenu.title }}
+          onOpen={() => onOpen(rowMenu.path)} onClose={() => { const a = rowMenu.anchor; setRowMenu(null); if (a.isConnected) a.focus(); }} />
+      )}
       {!empty && total !== null && rows.length < total && (
         <button type="button" tabIndex={0} className="show-next" data-command="search.showNext" onClick={() => void showNext()}>{t('search.showNext', { count: Math.min(PAGE, total - rows.length) })}</button>
       )}

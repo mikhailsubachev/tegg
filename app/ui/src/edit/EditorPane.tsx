@@ -2,6 +2,8 @@
 // block menu (FR-EDT-01 AC-3…AC-6), the slash menu (FR-EDT-03), the formatting toolbar and link field (FR-EDT-05),
 // `[[` and `#` autocomplete (FR-EDT-06, -15), block selection (FR-EDT-13) and paste notices (FR-EDT-14). The editor
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
+import { chipPinRequest } from '../pinned/editorDrag';
+import { startPinDrag } from '../pinned/drag';
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { createEditor, embedTarget, leaveCodeBlock, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
@@ -1220,6 +1222,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   // Shift-click selects blocks from the caret's block (FR-EDT-13 AC-1).
   const onMouseDownCapture = (e: React.MouseEvent) => {
     const ed = edRef.current;
+    // Slice PIN (R135, D-1381): a chip pressed here can be dragged into the Pinned section; its native drag is refused.
+    if (ed && !e.shiftKey && e.button === 0 && ed.view.dom.contains(e.target as Node)) {
+      const item = chipPinRequest(e.target as Element, path, (target) => links.current.get(target));
+      if (item) {
+        // A drag isn't a click: ProseMirror would take the next press on the chip within 500 ms as a double-click
+        // (which opens the link), so the drag clears its last click.
+        startPinDrag(e.nativeEvent, item, () => { (ed.view as unknown as { input: { lastClick: { time: number } } }).input.lastClick.time = 0; });
+        const chip = (e.target as Element).closest('[data-wikilink], span[data-tag], [data-embed-target]');
+        chip?.addEventListener('dragstart', (d) => d.preventDefault(), { once: true });
+      }
+      return;
+    }
     if (!ed || !e.shiftKey) return;
     const k = blockAt(e.clientY);
     if (k === null) return;

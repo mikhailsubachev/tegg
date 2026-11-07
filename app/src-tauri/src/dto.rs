@@ -256,6 +256,11 @@ pub struct IpcError {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     #[ts(skip)]
     pub presets: Option<crate::shellg3::PresetsErrorExtra>,
+    /// Slice PIN (v1-pinned §2): with `Conflict` from `pins_apply`, `disk: PinsDto`. Flattened and kept out of the
+    /// generated types: the UI types them in `app/ui/src/ipc/pins.ts`.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub pins: Option<crate::shellpin::PinsErrorExtra>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
@@ -570,6 +575,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub type_column_widths: Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>>,
+    /// Per-vault state by the vault's NFC path, kept as the UI wrote it: the graph views (v1-graph §5) and the Pinned
+    /// section's collapse (v1-pinned §4, D-1383). Machine-local, never in the vault.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "Record<string, unknown>")]
+    pub vaults: Option<std::collections::BTreeMap<String, serde_json::Value>>,
 }
 
 /// Slice P (v1-previews §1): `mode` `click` | `hover` | `off` (anything else reads as `click` in the UI), `hoverDelay`
@@ -1091,7 +1101,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None }
     }
 }
 
@@ -1579,5 +1589,22 @@ mod tests {
         }
         let have = std::fs::read_to_string(&path).unwrap_or_default();
         assert_eq!(have, want, "app/ui/src/ipc/types.ts is stale: regenerate with UPDATE_TYPES=1");
+    }
+}
+
+#[cfg(test)]
+mod ui_state_vaults_tests {
+    use super::UiStateDto;
+
+    /// Regression test for slice PIN's real-app run (L6): `ui_state_set` dropped `vaults`, so the Pinned section's
+    /// collapsed state (v1-pinned §4, FR-HOM-02 AC-15) and the graph views' state (v1-graph §5) never reached
+    /// `ui-state.json` and were gone after a relaunch.
+    #[test]
+    fn bug_l6pin_fr_hom_02_ac15_ui_state_keeps_the_vaults_map() {
+        let json = r#"{"version":1,"theme":"light","sidebarOpen":true,"rightPanel":{"open":false,"tab":"backlinks"},"vaults":{"/tmp/Pinned":{"sidebar":{"pinnedCollapsed":true},"graph":{"full":{"depth":2}}}}}"#;
+        let state: UiStateDto = serde_json::from_str(json).expect("parse");
+        let back: serde_json::Value = serde_json::to_value(&state).expect("serialize");
+        assert_eq!(back["vaults"]["/tmp/Pinned"]["sidebar"]["pinnedCollapsed"], serde_json::json!(true), "pinnedCollapsed survives a save");
+        assert_eq!(back["vaults"]["/tmp/Pinned"]["graph"]["full"]["depth"], serde_json::json!(2), "the graph state survives too");
     }
 }

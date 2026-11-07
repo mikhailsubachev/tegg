@@ -20,7 +20,9 @@ export function grouped(list: ShortcutDef[] = SHORTCUTS): Map<ShortcutGroup, Sho
 }
 
 /** Titles of commands that exist only on some routes (the palette lists them there), by catalog key. */
-export const ROUTE_TITLES: Record<string, string> = { 'daily.previous': 'daily.previous', 'daily.next': 'daily.next', 'media.add': 'cmd.mediaAdd', 'object.trash': 'cmd.trash' };
+export const ROUTE_TITLES: Record<string, string> = { 'daily.previous': 'daily.previous', 'daily.next': 'daily.next', 'media.add': 'cmd.mediaAdd', 'object.trash': 'cmd.trash',
+  // Slice PIN (R136): listed only while a pinned row has the focus.
+  'sidebar.pinned.moveUp': 'pinned.moveUp', 'sidebar.pinned.moveDown': 'pinned.moveDown' };
 
 /** Inbox keys on a focused card (D-561), not in the registry: they act only inside the Inbox list. */
 export const INBOX_KEYS: [string, string][] = [['R', 'cmd.markReviewed'], ['C', 'cmd.inbox.convert'], ['A', 'cmd.inbox.append'], ['L', 'cmd.inbox.link'], ['#', 'cmd.inbox.tags'], ['Space', 'help.inbox.select'], ['↩', 'help.inbox.open']];

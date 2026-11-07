@@ -92,6 +92,13 @@ export type ShellActions = {
   graphStatus?: () => GraphStatus | null;
   /** Slice G2 (FR-NAV-05 AC-2, D-918): opens the Context panel on the Graph tab, focus on `Depth and filters`. */
   showLocalGraph?: () => void;
+  /** Slice PIN (v1-pinned §3.4, R136): the current route's pin state (null: nothing pinnable here), pin or unpin it, and
+   *  move the focused pinned row; whether a pinned row has the focus (D-1395). */
+  pinStatus?: () => { pinned: boolean; disabled: string | null } | null;
+  pinCurrent?: () => void;
+  unpinCurrent?: () => void;
+  movePinned?: (dir: -1 | 1) => void;
+  pinnedRowFocused?: () => boolean;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -228,6 +235,20 @@ export function commands(ctx: ShellContext): Command[] {
       ...([['tasks.columnLeft', 'cmd.tasks.columnLeft'], ['tasks.columnRight', 'cmd.tasks.columnRight']] as const).map(([id, title]): Command => ({
         id, title, section: 'edit', needsVault: true, disabled: () => { const r = a(ctx)?.taskCommandState?.(id); return r === undefined ? t('tasks.column.cantMove') : r; }, run: tc(id),
       })),
+    );
+  }
+  // Slice PIN (R136): `Pin to sidebar` / `Unpin from sidebar` on a pinnable route (one of the two); ⌥⌘↑ / ⌥⌘↓ only while
+  // a pinned row has the focus (D-1386, D-1395).
+  const pin = a(ctx)?.pinStatus?.() ?? null;
+  if (pin) {
+    list.push(pin.pinned
+      ? { id: 'sidebar.unpin', title: 'cmd.unpin', section: 'edit', needsVault: true, run: (c) => a(c)?.unpinCurrent?.() }
+      : { id: 'sidebar.pin', title: 'cmd.pin', section: 'edit', needsVault: true, disabled: () => a(ctx)?.pinStatus?.()?.disabled ?? null, run: (c) => a(c)?.pinCurrent?.() });
+  }
+  if (a(ctx)?.pinnedRowFocused?.()) {
+    list.push(
+      { id: 'sidebar.pinned.moveUp', title: 'pinned.moveUp', section: 'edit', shortcut: shortcutOf('sidebar.pinned.moveUp'), needsVault: true, run: (c) => a(c)?.movePinned?.(-1) },
+      { id: 'sidebar.pinned.moveDown', title: 'pinned.moveDown', section: 'edit', shortcut: shortcutOf('sidebar.pinned.moveDown'), needsVault: true, run: (c) => a(c)?.movePinned?.(1) },
     );
   }
   // 4D-lite (tags.md R87, D-234: no shortcuts): Tags, New tag and Backups everywhere; tag page commands run on

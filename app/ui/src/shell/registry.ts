@@ -50,7 +50,6 @@ export const ROUTES: RouteDef[] = [
   // 4D-lite (tags.md R87): All tags, the tag page (D-703) and Settings › Backups (D-705).
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
   { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },
-  { id: 'pinned', name: 'route.pinned', purpose: 'purpose.pinned', status: tbd('v1.0'), reqs: ['FR-HOM-02'], design: null }, // 5B R62 (D-376)
   { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
   // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
@@ -119,6 +118,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   // 4B (R17, D-329): on daily routes only.
   { keys: '⌥⌘←', command: 'daily.previous' },
   { keys: '⌥⌘→', command: 'daily.next' },
+  // Slice PIN (R136, D-1386): only with the focus on a pinned row.
+  { keys: '⌥⌘↑', command: 'sidebar.pinned.moveUp' },
+  { keys: '⌥⌘↓', command: 'sidebar.pinned.moveDown' },
   { keys: '⇧⌘I', command: 'goto.inbox' },
   { keys: '⌘\\', command: 'view.toggleRightPanel' },
   { keys: '⌃⌘S', command: 'view.toggleSidebar' },

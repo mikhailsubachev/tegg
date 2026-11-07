@@ -1,0 +1,4 @@
+# Tegg sidebar pins (FR-HOM-02). Pin, unpin and reorder them in the sidebar.
+version: 1
+pins:
+  - query: Otevřené úkoly tento týden

@@ -19,6 +19,7 @@ import { handle as handleGraph } from './fake-graph';
 import { handle as handlePresets } from './fake-presets';
 import type { PresetOpDto } from '../src/graph/types';
 import { handle as handleSearch } from './fake-search';
+import { handle as handlePins, type PinOpDto } from './fake-pins';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -161,6 +162,14 @@ export type FakeCoreHandle = {
   presetCalls(): Promise<{ op: PresetOpDto; base: VersionDto | null }[]>;
   /** The next `graph_presets_apply` fails with `kind` (`Io`, `Conflict`, `Gone`, …) without writing. */
   presetsFail(kind: string): Promise<void>;
+  // ---------------------------------------------------------------- slice PIN (v1-pinned §5)
+  /** The `pins_apply` calls in order, each with its op and base (`null`: none). */
+  pinCalls(): Promise<{ op: PinOpDto; base: VersionDto | null }[]>;
+  /** The next `pins_apply` fails with `kind` (`Io`, `Conflict`, `Gone`, …) without writing. */
+  pinsFail(kind: string): Promise<void>;
+  /** While on, `pins_get` answers `indexReady: false` with §1.3's pending rule (an empty index, as the first build runs);
+   *  turning it off emits `index:progress` with `state: 'done'`. */
+  pinsNotReady(on: boolean): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -317,6 +326,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // G3 (v1-graph §16.6): the presets twin of `.tegg/graph.yml` in Node (fake-presets.ts).
   await page.exposeFunction('__teggPresets', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[]) =>
     handlePresets(cmd, args, files, invalid)).catch(() => {});
+  // Slice PIN (v1-pinned §5): the pins twin of `.tegg/pinned.yml` and its resolution in Node (fake-pins.ts).
+  await page.exposeFunction('__teggPins', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[], ready: boolean) =>
+    handlePins(cmd, args, files, invalid, ready)).catch(() => {});
   // Search page redesign (v1-search §2): `index_search` in Node (fake-search.ts) with the real @tegg/doc.
   await page.exposeFunction('__teggSearch', (cmd: string, args: unknown, files: Record<string, string>) => handleSearch(cmd, args, files)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
@@ -423,6 +435,16 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     // G3 (v1-graph §16.6).
     presetCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'graph_presets_apply').map((c: any) => ({ op: c.args?.op, base: c.args?.base ?? null }))),
     presetsFail: (kind) => page.evaluate((k) => { (window as any).__teggFake.presetsFail = k; }, kind),
+    // Slice PIN (v1-pinned §5).
+    pinCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'pins_apply').map((c: any) => ({ op: c.args?.op, base: c.args?.base ?? null }))),
+    pinsFail: (kind) => page.evaluate((k) => { (window as any).__teggFake.pinsFail = k; }, kind),
+    pinsNotReady: (on) => page.evaluate((o) => {
+      const f = (window as any).__teggFake;
+      const was = !!f.pinsNotReady;
+      f.pinsNotReady = o;
+      if (was && !o) return f.emit('index:progress', { done: 1, total: 1, state: 'done' });
+      return undefined;
+    }, on).then(() => undefined),
   };
 }
 
@@ -458,6 +480,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'tag_objects', 'index_tagged_objects', 'tag_usage', 'tag_new_path', 'job_plan', 'backup_reveal', // 4D-lite (ms4-tags §3, §4.4, §5.2): read-only
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
     'graph_presets_get', // G3 (v1-graph §16.2): read-only
+    'pins_get', // slice PIN (v1-pinned §2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
@@ -790,6 +813,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   x.staged = [] as { token: string; name: string }[];
   x.stagedBytes = {} as Record<string, string>;
   x.idSeq = 0;
+  x.pinsNotReady = !!w.__teggPinsNotReadyAtStart; // slice PIN (v1-pinned §5): `pinsNotReady` from the first answer
   x.lastOptions = null as any;
   const changed6a = (paths: string[]) => {
     void state.emit('vault:changed', { paths });
@@ -927,6 +951,24 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   const fileOf = (text: string | undefined) => { const m = /\[\[([^\]|#]+)/.exec(front(text ?? '').file ?? ''); return m ? m[1].trim().normalize('NFC') : null; };
   const extType = (p: string) => (/\.(png|jpe?g|gif|webp|heic|svg)$/i.test(p) ? 'image' : /\.pdf$/i.test(p) ? 'pdf' : null);
 
+  // Slice PIN (v1-pinned §1.6, §5): a job's patch of `.tegg/pinned.yml`, written last; a row of the job (written, undo).
+  const PINS = '.tegg/pinned.yml';
+  const pinsJob = async (patches: unknown[], report: any, undo: { before: string; after: string; pre: string; post: string; direct?: boolean }[] | null) => {
+    const files = state.vault!.files;
+    const pre = files[PINS];
+    if (pre === undefined || PINS in state.invalid || !patches.length) return;
+    const r = await w.__teggPins('pins_job', { patches }, files, Object.keys(state.invalid), true);
+    const post = r?.result as string | null;
+    if (typeof post !== 'string' || post === pre) return;
+    files[PINS] = post;
+    state.touch(PINS);
+    state.writtenPaths.push(PINS);
+    void state.emit('vault:changed', { paths: [PINS] });
+    report.written.push(PINS);
+    undo?.push({ before: PINS, after: PINS, pre, post, direct: true });
+  };
+  const idIn = (text: string | undefined) => /^id:[ \t]*(\S+)/m.exec(/^---\r?\n([\s\S]*?)\r?\n---/.exec(text ?? '')?.[1] ?? '')?.[1] ?? null;
+
   // 4C (ms4-jobs §11): the in-page job runner.
   const jobs = {
     progress: (jobId: number, phase: string, done: number, total: number, counts?: unknown) =>
@@ -1001,6 +1043,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         await jobs.progress(jobId, 'writing', ++done, total);
       }
+      // Slice PIN (v1-pinned §1.6): the pin of the renamed note follows it, last.
+      await pinsJob([{ kind: 'moved', from: path, to: plan.toPath, id: idIn(files[plan.toPath]) }], report, undo);
       state.undo[jobId] = { op: plan.op, files: undo };
       await jobs.finish(jobId, report, total);
     },
@@ -1195,6 +1239,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         else { const t = freeTrash(p); moveRaw(p, t, files[p], 'trash'); done.trashes.push([p, t]); }
         await progress('writing', ++n, total);
       }
+      // Slice PIN (v1-pinned §1.6): a tag rename patches the pins file's `tag:` items, last (not tag-delete).
+      if (plan.kind === 'tag-rename') await pinsJob([{ kind: 'tagRenamed', from: plan.tag, to: plan.to }], report, null);
       await finish('done', total, zip, undefined, done);
     })();
     return { jobId };
@@ -1373,6 +1419,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         if (!folderMove) await progress('writing', ++n, total);
       }
+      // Slice PIN (v1-pinned §1.6): the moves that really happened patch their pins, last.
+      await pinsJob(done.renames.map(([from, to]: string[]) => ({ kind: 'moved', from, to, id: idIn(files[to]) })), report, undo);
       state.undo[jobId] = { op: null, kind: plan.kind, ids: o.folder ? {} : plan.ids ?? {}, files: undo };
       // D-812: a note whose type or type's folder changed is no longer exempt.
       if (plan.kind === 'type-move' || o.folder) for (const u of undo) {
@@ -1742,6 +1790,25 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       if (r.error) throw r.error.disk ? { ...r.error, disk: { ...r.error.disk, version: state.ver('.tegg/graph.yml') } } : r.error;
       return { ...r.result, version: state.ver('.tegg/graph.yml') };
+    },
+    // Slice PIN (v1-pinned §2, §5): the pins twin in Node; `pinsFail` makes the next apply fail without writing,
+    // `pinsNotReady` answers as the first index build runs.
+    pins_get: async () => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const r = await w.__teggPins('pins_get', {}, state.vault.files, Object.keys(state.invalid), !x.pinsNotReady);
+      if (r.error) throw r.error;
+      return { ...r.result, version: state.ver(PINS) };
+    },
+    pins_apply: async (a) => {
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      if (x.pinsFail) { const k = String(x.pinsFail); x.pinsFail = null; throw err(k, `fake: pins_apply fails (${k})`); }
+      const r = await w.__teggPins('pins_apply', a ?? {}, state.vault.files, Object.keys(state.invalid), !x.pinsNotReady);
+      if (r.writes) {
+        for (const [p, t] of Object.entries(r.writes as Record<string, string>)) { state.vault.files[p] = t; delete state.invalid[p]; state.touch(p); state.writtenPaths.push(p); }
+        void state.emit('vault:changed', { paths: Object.keys(r.writes) });
+      }
+      if (r.error) throw r.error.disk ? { ...r.error, disk: { ...r.error.disk, version: state.ver(PINS) } } : r.error;
+      return { ...r.result, version: state.ver(PINS) };
     },
     tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
     index_tagged_objects: () => viaTags('index_tagged_objects', {}), // D-784 (§1.6)

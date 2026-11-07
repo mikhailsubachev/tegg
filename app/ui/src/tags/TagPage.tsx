@@ -9,6 +9,8 @@ import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
 import type { TagObjectRowDto, TagUsageDto, TypeDefDto } from '../ipc/types';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
+import { usePinMenuEntry } from '../pinned/PinMenu';
+import { pinDragSource } from '../pinned/drag';
 import { Icon, typeIconName } from '../shell/Icon';
 import { chipState, taskGlyph } from '../links/chip';
 import { currentRegion } from '../tasks/useTasks';
@@ -155,9 +157,13 @@ export function TagPage(p: TagPageProps) {
   const sortLabel = `${t(COLUMNS.find((c) => c.key === ui.sort.column)?.label ?? 'tag.col.modified')} ${ui.sort.dir === 'asc' ? '↑' : '↓'}`;
   const typeLabel = ui.type === null ? t('tag.typeAll') : t('tag.typeOne', { type: typeNames[ui.type] ?? ui.type });
 
+  const pinEntry = usePinMenuEntry();
   const menuEntries = (): MenuEntry[] => {
     if (menu === 'actions') {
+      // Slice PIN (R134): `Pin to sidebar` / `Unpin from sidebar` first.
+      const pin = pinEntry(row ? { request: { kind: 'tag', key: row.key }, label: `#${row.name}` } : null, () => setMenu(null));
       return [
+        ...(pin ? [pin] : []),
         { kind: 'item', key: 'rename', label: t('tag.rename'), content: <><span>{t('tag.rename')}</span><span className="menu-desc">{t('tag.renameUpdates', { count: row?.count ?? 0 })}</span></>, description: t('tag.renameUpdates', { count: row?.count ?? 0 }), onChoose: () => { setMenu(null); setDialog('rename'); } },
         { kind: 'item', key: 'colour', label: t('tag.colourMenu'), content: t('tag.colourMenu'), onChoose: () => { setMenu(null); setDialog('colour'); } },
         { kind: 'separator' },
@@ -270,6 +276,7 @@ export function TagPage(p: TagPageProps) {
               return (
                 <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => p.onOpen(r.path) }}
                   key={r.path} className="type-row" data-index={i} data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
+                  {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: 'file' })}
                   onFocus={() => setCursor(i)}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;

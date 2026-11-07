@@ -310,7 +310,12 @@ preview?: PreviewUiDto,
  * Type-page column widths in px per type key, then column key (`title` included); machine-local, never in the
  * vault (D-1241, type-columns §2); missing reads as empty.
  */
-typeColumnWidths?: { [key in string]?: { [key in string]?: number } }, };
+typeColumnWidths?: { [key in string]?: { [key in string]?: number } }, 
+/**
+ * Per-vault state by the vault's NFC path, kept as the UI wrote it: the graph views (v1-graph §5) and the Pinned
+ * section's collapse (v1-pinned §4, D-1383). Machine-local, never in the vault.
+ */
+vaults?: Record<string, unknown>, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

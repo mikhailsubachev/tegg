@@ -509,7 +509,11 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
             if (at?.type === 'date-range') { for (const h of ['start', 'end']) if (o.data[`${k}-${h}`] !== undefined) values[`${k}-${h}`] = o.data[`${k}-${h}`]; continue; }
             if (o.data[k] === undefined) continue;
             values[k] = o.data[k];
-            if (at?.type === 'relation' || k === 'source') for (const v of ([] as unknown[]).concat(o.data[k] as any)) { const l = resolveLink(v); if (l) links.push(l); }
+            if (at?.type === 'relation') for (const v of ([] as unknown[]).concat(o.data[k] as any)) { const l = resolveLink(v); if (l) links.push(l); }
+            // Links inside Text, Long text and source values (D-249, D-257).
+            else if ((k === 'source' || at?.type === 'text' || at?.type === 'long-text') && typeof o.data[k] === 'string') {
+              for (const m of (o.data[k] as string).matchAll(/\[\[([^[\]\n]+?)\]\]/g)) { const l = resolveLink(`[[${m[1]}]]`); if (l) links.push({ ...l, target: m[1] }); }
+            }
           }
           return { path: o.path, id: o.id, title: o.title, created: (o.data.created as string) ?? null, modified: (o.data.modified as string) ?? null, values, links, typeSingle: o.single };
         }),
