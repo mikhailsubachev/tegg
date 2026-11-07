@@ -59,3 +59,21 @@ fn bug_v0117_fr_typ_09_links_inside_text_and_source_values_are_resolved() {
     assert_eq!(resolved("Rozpočet 2027").as_deref(), Some("Projekty/Rozpočet 2027.md"), "a link inside mixed source text");
     assert!(porada.links.iter().any(|l| tegg_format::nfc(&l.target) == "Neexistuje" && l.path.is_none()), "an unresolved link is listed, without a path");
 }
+
+#[test]
+fn bug_v0117_fr_typ_09_a_source_list_keeps_its_links() {
+    let sb = sandbox();
+    let root = types_vault(&sb);
+    swap(&root, SCHUZKA, "preview: [datum, účastníci]\n", "preview: [datum, účastníci]\ncolumns: [source]\n");
+    swap(&root, PORADA, "místo:\n", "místo:\nsource:\n  - \"[[Rozpočet 2027]]\"\n  - \"[[Jana Nováková]]\"\n");
+    let core = match Core::open(&root, &sb.dirs, CoreOptions { watch: false, sync: None }) {
+        Ok(c) => c,
+        Err(e) => panic!("Core::open failed: {e:?}"),
+    };
+    assert!(core.wait_idle(Duration::from_secs(60)), "indexing did not become idle within 60 s");
+    let rows = core.type_rows("schůzka");
+    let porada = rows.iter().find(|r| tegg_format::nfc(&r.path) == PORADA).expect("Porada's row");
+    for name in ["Rozpočet 2027", "Jana Nováková"] {
+        assert!(porada.links.iter().any(|l| tegg_format::nfc(&l.target).starts_with(name) && l.path.is_some()), "{name} in a source list resolves (QA review)");
+    }
+}

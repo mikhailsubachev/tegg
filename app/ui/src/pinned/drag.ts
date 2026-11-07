@@ -3,6 +3,7 @@
 // (|dx| + |dy|); a shorter press and release stays a click; after a drag the click is swallowed; Esc cancels. The drop
 // zone is found with `elementFromPoint(…).closest('[data-pinned-drop]')`. Not HTML5 drag and drop, so Tauri's file-drop
 // handling is never involved.
+import { tagOfFile } from '../tags/store';
 import { useEffect, useState } from 'react';
 import type { PinRequestDto } from '../ipc/pins';
 import { dropIndex, editReason, findPin } from './model';
@@ -116,7 +117,7 @@ export function pinDragSource(item: DragItem | null): { onMouseDown?: (e: React.
 export function startPinDrag(e: MouseEvent, item: DragItem | null, onStart?: () => void): boolean {
   if (!item) return false;
   // A target already pinned moves to the line (D-1379): its own row doesn't count for the position.
-  const pinned = findPin(pinsNow(), item.request);
+  const pinned = findPin(pinsNow(), item.request, tagOfFile);
   return press(e, item, null, (d) => {
     if (d.at === null) return;
     if (pinned !== null) void move(pinned, d.at);

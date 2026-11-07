@@ -1,6 +1,7 @@
 // Slice PIN (docs/contracts/v1-pinned.md §3.1 `PinMenu.tsx`; R134, D-1385): the one `Pin to sidebar` / `Unpin from sidebar`
 // entry every pinnable surface uses (only one of the two, by whether the target is pinned), and the `Open` + entry
 // context menu of the Types entries, All tags rows, Search result rows and type-page rows (right-click or ⇧F10).
+import { tagOfFile } from '../tags/store';
 import { t } from '../i18n/catalog';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import type { PinRequestDto, PinsDto } from '../ipc/pins';
@@ -16,7 +17,7 @@ export function pinMenuEntry(target: PinTargetOf, pins: PinsDto | null, done: ()
     return { kind: 'item', key: 'pin', label: t('cmd.pin'), content: <span className="menu-title">{t('cmd.pin')}</span>, disabled: true, description: t('pinned.notSaved'), onChoose: () => {} };
   }
   const request = target.request;
-  const index = findPin(pins, request);
+  const index = findPin(pins, request, tagOfFile);
   const lock = editReason(pins);
   const title = index === null ? t('cmd.pin') : t('cmd.unpin');
   return {
@@ -25,7 +26,8 @@ export function pinMenuEntry(target: PinTargetOf, pins: PinsDto | null, done: ()
       done();
       if (lock) return;
       if (index === null) void pinTarget(request, null, () => target.label);
-      else void unpin(index, target.label);
+      // The pins the menu was built from: an outside change since is a conflict, never another row's unpin.
+      else void unpin(index, target.label, { base: pins?.version ?? null });
     },
   };
 }

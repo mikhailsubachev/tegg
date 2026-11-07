@@ -468,9 +468,12 @@ impl Core {
                                 other => targets.extend(link_inner(other)),
                             }
                         } else if p == "source" || a.is_some_and(|a| matches!(a.r#type, AttrType::Text | AttrType::LongText)) {
-                            // Links inside text values are chips in the cell too (D-249, D-257).
-                            if let Some(s) = v.as_str() {
-                                targets.extend(text_link_inners(s));
+                            // Links inside text values are chips in the cell too (D-249, D-257); a `source:` list keeps
+                            // its whole-value links.
+                            match v {
+                                Value::String(s) => targets.extend(text_link_inners(s)),
+                                Value::Array(items) => targets.extend(items.iter().filter_map(link_inner)),
+                                _ => {}
                             }
                         }
                     }

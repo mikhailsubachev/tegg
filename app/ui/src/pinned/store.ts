@@ -9,8 +9,9 @@ import type { PinOpDto, PinRequestDto, PinsDto } from '../ipc/pins';
 
 export type PinsUi = {
   pins: PinsDto | null;
-  /** `role="alert"` text, with the missing row's index when it offers Unpin (R132). */
-  alert: { text: string; unpin: number | null } | null;
+  /** `role="alert"` text, with the missing row's index when it offers Unpin (R132) and the pins version it was read
+   *  from (an Unpin sends that base, so an outside change in between is a conflict, never another row's unpin). */
+  alert: { text: string; unpin: number | null; base?: PinsDto['version'] } | null;
   /** The live region's text, with a sequence so one text said twice is announced twice. */
   live: { text: string; seq: number } | null;
 };
@@ -104,11 +105,13 @@ export function announce(text: string) {
 }
 
 /** One `pins_apply`; resolves true when it wrote (or was a no-op the core accepted), false on an error (§2). */
-function apply(op: PinOpDto, said: (p: PinsDto) => string | null): Promise<boolean> {
+/** `base`: the version the action was chosen against (a menu or alert opened earlier); default the last answer's. */
+type Base = { base: PinsDto['version'] } | undefined;
+function apply(op: PinOpDto, said: (p: PinsDto) => string | null, at?: Base): Promise<boolean> {
   setPinsAlert(null);
   const task = queue.then(async () => {
     try {
-      const next = await ipc.pinsApply(state.pins?.version ?? null, op);
+      const next = await ipc.pinsApply(at ? at.base : state.pins?.version ?? null, op);
       publish({ pins: next });
       const text = said(next);
       if (text) announce(text);
@@ -142,13 +145,13 @@ export function pinTarget(request: PinRequestDto, at: number | null = null, labe
   });
 }
 
-export function unpin(index: number, label?: string): Promise<boolean> {
-  return apply({ op: 'unpin', index }, () => (label ? t('pinned.unpinnedAnnounce', { label }) : null));
+export function unpin(index: number, label?: string, at?: Base): Promise<boolean> {
+  return apply({ op: 'unpin', index }, () => (label ? t('pinned.unpinnedAnnounce', { label }) : null), at);
 }
 
 /** Moves listed pin `from` to final position `to`; a move to its own place sends nothing. */
-export function move(from: number, to: number): Promise<boolean> {
+export function move(from: number, to: number, at?: Base): Promise<boolean> {
   const n = state.pins?.rows.length ?? 0;
   if (from === to || to < 0 || to >= n) return Promise.resolve(false);
-  return apply({ op: 'move', from, to }, (p) => t('pinned.moved', { position: to + 1, total: p.rows.length }));
+  return apply({ op: 'move', from, to }, (p) => t('pinned.moved', { position: to + 1, total: p.rows.length }), at);
 }

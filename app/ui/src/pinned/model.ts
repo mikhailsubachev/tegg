@@ -69,10 +69,11 @@ export function rowView(row: PinRowDto, types: PinTypeEntry[], tagLook: PinTagLo
 }
 
 /** The listed index of the pin of `target`, or null (NFC; a Tag object is pinned as its tag, D-1382). */
-export function findPin(pins: PinsDto | null, target: PinRequestDto | null): number | null {
+export function findPin(pins: PinsDto | null, target: PinRequestDto | null, tagOfFile?: (path: string) => string | null): number | null {
   if (!pins || !target) return null;
-  const want: PinRequestDto = target.kind === 'object' && /^Tags\//.test(nfc(target.path))
-    ? { kind: 'tag', key: tagKey(stem(target.path)) } : target;
+  // A Tag object is its tag (D-1382): the tag store knows the file's tag (its title); without it, the file name.
+  const tagFile = target.kind === 'object' && /^Tags\//.test(nfc(target.path)) ? (tagOfFile?.(nfc(target.path)) ?? tagKey(stem(target.path))) : null;
+  const want: PinRequestDto = tagFile !== null ? { kind: 'tag', key: tagFile } : target;
   for (const r of pins.rows) {
     const s = r.target;
     if (want.kind === 'object' && s.kind === 'object') {

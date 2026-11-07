@@ -12,7 +12,7 @@ import type { Route } from '../shell/routes';
 import type { TypeEntry } from '../shell/types';
 import { colourOf, useTags } from '../tags/store';
 import { tagKey } from '../tags/keys';
-import type { PinRowDto } from '../ipc/pins';
+import type { PinRowDto, PinsDto } from '../ipc/pins';
 import { editReason, moveTarget, rowView, type PinTagLook, type RowView } from './model';
 import { move, setPinsAlert, unpin, usePins } from './store';
 import { startRowDrag, useDrag, type DragItem } from './drag';
@@ -42,7 +42,8 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
   const { pins, alert, live } = usePins();
   const tagLook = useTagLookColour();
   const drag = useDrag();
-  const [menu, setMenu] = useState<{ index: number; anchor: HTMLElement } | null>(null);
+  // The pins version a menu was opened on: its Unpin and moves send it as the base (no other row by a stale index).
+  const [menu, setMenu] = useState<{ index: number; anchor: HTMLElement; base: PinsDto['version'] } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const focusAfter = useRef<{ index: number | 'header'; base: unknown } | null>(null);
@@ -63,21 +64,21 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
     el?.focus();
   });
 
-  const doUnpin = (i: number) => {
+  const doUnpin = (i: number, at?: { base: PinsDto['version'] }) => {
     const label = views[i]?.label;
     focusAfter.current = { index: n - 1 > 0 ? Math.min(i, n - 2) : 'header', base: pins };
-    void unpin(i, label);
+    void unpin(i, label, at);
   };
-  const doMove = (i: number, dir: -1 | 1) => {
+  const doMove = (i: number, dir: -1 | 1, at?: { base: PinsDto['version'] }) => {
     const j = moveTarget(i, dir, n);
     if (j === null) return;
     focusAfter.current = { index: j, base: pins };
-    void move(i, j);
+    void move(i, j, at);
   };
   const open = (i: number) => {
     const v = views[i];
     if (!v) return;
-    if (v.opens === 'alert') setPinsAlert({ text: t('pinned.missingAlert', { label: v.label }), unpin: i });
+    if (v.opens === 'alert') setPinsAlert({ text: t('pinned.missingAlert', { label: v.label }), unpin: i, base: pins?.version ?? null });
     else if ((v.opens === 'route' || v.opens === 'trash') && v.route) onGo(v.route);
   };
 
@@ -127,8 +128,8 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
                   onDragStart={(e) => e.preventDefault()}
                   onMouseDown={(e) => { if (!locked) startRowDrag(e, i, itemOf(i)); }}
                   onClick={(e) => { e.preventDefault(); open(i); }}
-                  onContextMenu={(e) => { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget }); }}
-                  onKeyDown={(e) => { if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget }); } }}>
+                  onContextMenu={(e) => { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); }}
+                  onKeyDown={(e) => { if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); } }}>
                   <span className="type-icon" style={{ ['--type' as string]: v.muted ? 'var(--muted)' : v.color ? `var(--type-${v.color})` : r.target.kind === 'tag' ? 'var(--tag-default, var(--muted))' : 'var(--muted)' }}>
                     <Icon name={glyph(r, v)} dataIcon={v.icon} />
                   </span>
@@ -160,7 +161,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
         <div role="alert" className="pinned-alert">
           <span>{alert.text}</span>
           {alert.unpin !== null && rows[alert.unpin] && (
-            <button type="button" className="text-button" onClick={() => { const i = alert.unpin!; setPinsAlert(null); doUnpin(i); }}>{t('pinned.unpin')}</button>
+            <button type="button" className="text-button" onClick={() => { const i = alert.unpin!; const base = alert.base ?? null; setPinsAlert(null); doUnpin(i, { base }); }}>{t('pinned.unpin')}</button>
           )}
         </div>
       )}
@@ -169,12 +170,12 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
         <PopupMenu label={t('pinned.menu')} anchor={menu.anchor} onClose={() => { const a = menu.anchor; setMenu(null); a.focus(); }} disabledFocusable entries={[
           { kind: 'item', key: 'open', content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { const i = menu.index; setMenu(null); open(i); } },
           { kind: 'item', key: 'unpin', content: <span className="menu-title">{t('cmd.unpin')}</span>, disabled: !!locked, description: locked ? t(locked) : undefined,
-            onChoose: () => { const i = menu.index; setMenu(null); doUnpin(i); } },
+            onChoose: () => { const i = menu.index; const base = menu.base; setMenu(null); doUnpin(i, { base }); } },
           { kind: 'separator' },
           { kind: 'item', key: 'up', content: <span className="menu-title">{t('pinned.moveUp')}</span>, disabled: menu.index === 0 || !!locked,
-            onChoose: () => { const i = menu.index; setMenu(null); doMove(i, -1); } },
+            onChoose: () => { const i = menu.index; const base = menu.base; setMenu(null); doMove(i, -1, { base }); } },
           { kind: 'item', key: 'down', content: <span className="menu-title">{t('pinned.moveDown')}</span>, disabled: menu.index === n - 1 || !!locked,
-            onChoose: () => { const i = menu.index; setMenu(null); doMove(i, 1); } },
+            onChoose: () => { const i = menu.index; const base = menu.base; setMenu(null); doMove(i, 1, { base }); } },
         ]} />
       )}
       <DragLayer />

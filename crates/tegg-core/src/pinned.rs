@@ -759,14 +759,31 @@ fn set_object(lines: &mut Vec<Line>, item: &ItemAt, id: IdChange, path: &str, eo
     }
     let idv = find_value(lines, item, "id");
     let pv = find_value(lines, item, "path");
-    if let (IdChange::Drop, Some(_)) = (&id, &idv) {
-        // The kept object has no `id`: the item becomes path-only (D-1402).
-        let new: Vec<Line> = item_lines(&PinTarget::Object { id: None, path: Some(path.to_string()) }, item.dash, item.keys).into_iter().map(|b| line(b, eol)).collect();
-        cut(lines, item.start, item.end);
-        put(lines, item.start, new, eol);
+    let p = scalar(&nfc(path));
+    if let (IdChange::Drop, Some(v)) = (&id, &idv) {
+        // The kept object has no `id`: the item becomes path-only (D-1402). Only the `id:` line goes and the `path:`
+        // value changes; every other line, comment and unknown key of the item stays (FR-FMT-07, R131).
+        if v.line == item.start {
+            // `- id: …` holds the dash: that line becomes `- path: …`, and a separate `path:` line goes.
+            let head = lines[v.line].body[..item.keys].to_string();
+            lines[v.line].body = format!("{head}path: {p}{}", v.tail);
+            if let Some(pl) = &pv {
+                if pl.line != v.line {
+                    lines.remove(pl.line);
+                }
+            }
+        } else {
+            lines.remove(v.line);
+            match &pv {
+                Some(pl) => {
+                    let at = if pl.line > v.line { pl.line - 1 } else { pl.line };
+                    lines[at].body = format!("{}{p}{}", pl.prefix, pl.tail);
+                }
+                None => lines.insert(v.line, line(format!("{}path: {p}", " ".repeat(item.keys)), eol)),
+            }
+        }
         return true;
     }
-    let p = scalar(&nfc(path));
     if let (IdChange::Set(new), Some(v)) = (&id, &idv) {
         lines[v.line].body = format!("{}{}{}", v.prefix, scalar(new), v.tail);
     }

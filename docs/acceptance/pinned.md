@@ -457,7 +457,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 ## Build points (build 5c273f8, Rust 2abebb8…5becba6)
 
-Decided 2026-11-08: AP-1262…AP-1275 accepted as proposed → D-1405…D-1418 (BRD v1.153).
+Decided 2026-11-07: AP-1262…AP-1275 accepted as proposed → D-1405…D-1418 (BRD v1.153).
 
 Defects found in the red tests and gaps the build hit. Every test change carries `AC-Test-Change: …; approved-by: owner`.
 
@@ -477,11 +477,11 @@ Defects found in the red tests and gaps the build hit. Every test change carries
 | AP-1273 | The L4 tag test deletes Tags/Offsite.md and Lisabon but leaves `Štítek #offsite.` in Odkazy, so the tag still exists (R79). | Run the `TagDelete` job, as the AC says, before asserting `noObjects`. | FR-HOM-02 AC-21 (L4) |
 | AP-1274 | The SIGKILL harness starts each child with the same move, so after a kill at an odd write a cycle produces a third valid order and the test calls it torn. | Restore `valid.yml` before each cycle (or accept any byte-exact permutation that lists five pins). | FR-SYN-02 AC-9 (L4) |
 | AP-1275 | The build's choices the contract didn't fix: a `PinPatch::Merged` variant for D-1402 (the kept object has another `id`); D-1394's duplicate rule applied both ways in the core (the TS twin misses an id+path item after a path-only one); `.trash/<path>` checked as §1.3 says (the twin differs); `pin_lookup` also returns tag keys, type keys and daily dates (one index lock); a job's pins read-back allows a renamed tag to land on a pinned key (§8 13). | Accept as built; align the TS twin with the core on the duplicate and `.trash/` rules. | contract §1, fake-pins.ts |
-| AP-1276 | The pseudo-locale test finds the note's `More` button by the exact name `More`; under the pseudo-locale it is `⟦More⟧`. | Accept both, as the header lookup does. Decided 2026-11-08: approved → D-1419. | NFR-OTH-02 AC-16 |
+| AP-1276 | The pseudo-locale test finds the note's `More` button by the exact name `More`; under the pseudo-locale it is `⟦More⟧`. | Accept both, as the header lookup does. Decided 2026-11-07: approved → D-1419. | NFR-OTH-02 AC-16 |
 
 ## Push-gate points (build 1cc004d)
 
-Decided 2026-11-08: AP-1277…AP-1280 approved → D-1420…D-1423. Also under D-1390: `app/test/previews_catalog.ac.test.ts` FR-UX-03 AC-19 lists ⌥⌘↑ / ⌥⌘↓.
+Decided 2026-11-07: AP-1277…AP-1280 approved → D-1420…D-1423. Also under D-1390: `app/test/previews_catalog.ac.test.ts` FR-UX-03 AC-19 lists ⌥⌘↑ / ⌥⌘↓.
 
 | AP | Point | Proposal | Affects |
 |---|---|---|---|

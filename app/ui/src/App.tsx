@@ -767,7 +767,7 @@ export function App() {
       if (r === null) return null;
       if (r === 'unsaved') return { pinned: false, disabled: t('pinned.notSaved') };
       const lock = editReason(pinsNow());
-      return { pinned: findPin(pinsNow(), r) !== null, disabled: lock ? t(lock) : null };
+      return { pinned: findPin(pinsNow(), r, tagOfFile) !== null, disabled: lock ? t(lock) : null };
     },
     pinCurrent: () => {
       const r = pinRequestOf(route);
@@ -775,7 +775,7 @@ export function App() {
     },
     unpinCurrent: () => {
       const r = pinRequestOf(route);
-      const i = r && r !== 'unsaved' ? findPin(pinsNow(), r) : null;
+      const i = r && r !== 'unsaved' ? findPin(pinsNow(), r, tagOfFile) : null;
       if (i !== null && !editReason(pinsNow())) void unpin(i, pinLabelOf(route) ?? undefined);
     },
     movePinned: (dir) => moveFocusedPinned(dir),
