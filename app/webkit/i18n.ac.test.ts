@@ -25,7 +25,9 @@ async function unmarked(page: Page): Promise<string[]> {
       for (const c of n.childNodes) walk(c);
     };
     walk(document.body);
-    const outside = all.replace(/⟦[^⟦⟧]*⟧/g, ' ');
+    // D-1422: a translated string inside another (⟦… ⟦…⟧ …⟧) counts as marked: strip until nothing changes.
+    let outside = all;
+    for (let prev = ''; prev !== outside;) { prev = outside; outside = outside.replace(/⟦[^⟦⟧]*⟧/g, ' '); }
     return (outside.match(/[\p{L}][\p{L}'’]*/gu) ?? []).filter((w, i, a) => a.indexOf(w) === i);
   });
 }

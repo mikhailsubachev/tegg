@@ -78,7 +78,8 @@ test('fr_hom_02_ac3_rows_open_their_targets', async ({ page }) => {
     if (how === 'click') await click(rowAt(page, i), `row ${i}`);
     else { await (await must(rowAt(page, i), `row ${i}`)).focus(); await page.keyboard.press('Enter'); }
     await mustBeOn(page, names[i], `row ${i} (${how})`);
-    const f = await page.evaluate(() => { const a = document.activeElement as HTMLElement | null; return !!a && (/^h1$/i.test(a.tagName) || a.getAttribute('aria-level') === '1'); });
+    // D-1423: the heading takes the focus a frame after the page name changes; wait up to 1 s.
+    const f = await eventually(() => page.evaluate(() => { const a = document.activeElement as HTMLElement | null; return !!a && (/^h1$/i.test(a.tagName) || a.getAttribute('aria-level') === '1'); }), (x) => x, 1000);
     assert.ok(f, `row ${i}: the focus moves to the page heading (D-130)`);
     assert.equal(await rowAt(page, i).getAttribute('aria-current'), 'page', `row ${i}: aria-current="page"`);
     assert.deepEqual((await rows(page)).filter((r) => r.current === 'page').map((r) => r.index), [i], 'only the shown row is current');
