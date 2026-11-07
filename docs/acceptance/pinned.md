@@ -481,6 +481,8 @@ Defects found in the red tests and gaps the build hit. Every test change carries
 
 ## Push-gate points (build 1cc004d)
 
+Decided 2026-11-08: AP-1277…AP-1280 approved → D-1420…D-1423. Also under D-1390: `app/test/previews_catalog.ac.test.ts` FR-UX-03 AC-19 lists ⌥⌘↑ / ⌥⌘↓.
+
 | AP | Point | Proposal | Affects |
 |---|---|---|---|
 | AP-1277 | `read_view.ac.test.ts` FR-EDT-02 AC-13 allows a fixed list of IPC commands while placeholders render; the vault's first `pins_get` (one read, D-1374) isn't on it. | Add `pins_get` to that test's allowed read commands. | FR-EDT-02 AC-13 |
