@@ -147,8 +147,11 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
       {empty && (
         <div className="pinned-empty">
           {(() => {
-            const [a, b] = t('pinned.empty', { path: '\u0000' }).split('\u0000');
-            return <>{a}<span className="pinned-empty-path">{t('pinned.emptyPath')}</span>{b}</>;
+            // The path part in --text, weight 600: the sentence is split around the translated path (pseudo-locale safe).
+            const path = t('pinned.emptyPath');
+            const full = t('pinned.empty', { path });
+            const at = full.indexOf(path);
+            return at < 0 ? full : <>{full.slice(0, at)}<span className="pinned-empty-path">{path}</span>{full.slice(at + path.length)}</>;
           })()}
         </div>
       )}

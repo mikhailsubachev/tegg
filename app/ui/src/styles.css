@@ -87,7 +87,7 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 .types { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 /* Slice PIN (R132, R133, R135; boards SidebarPinned A–G). */
 .sidebar-pinned { position: relative; border-radius: 8px; margin: 0 -2px; padding: 0 2px; }
-.sidebar-pinned[data-drop-over] { background: var(--type-blue-bg); box-shadow: inset 0 0 0 1.5px var(--focus); }
+.sidebar-pinned[data-drop-over] { background: var(--link-bg); box-shadow: inset 0 0 0 1.5px var(--focus); }
 .pinned-head { width: 100%; border: 0; background: transparent; cursor: pointer; justify-content: flex-start; gap: 4px; }
 .pinned-head:hover { color: var(--text); }
 .pinned-chevron { display: inline-flex; }
@@ -111,7 +111,7 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 .pin-drop-line::before { content: ''; position: absolute; left: -4px; top: -3px; width: 6px; height: 6px; border: 1.5px solid var(--focus); border-radius: 50%; background: var(--bg); }
 .pin-lifted { position: fixed; z-index: 60; pointer-events: none; background: var(--bg); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); transform: rotate(-1.5deg); width: 200px; }
 .pin-drag-chip { position: fixed; z-index: 60; pointer-events: none; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; background: var(--bg); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); font-size: 13px; color: var(--text); white-space: nowrap; }
-.pin-badge { font-size: 11px; font-weight: 600; padding: 0 5px; border-radius: 4px; background: var(--type-blue-bg); color: var(--link); }
+.pin-badge { font-size: 11px; font-weight: 600; padding: 0 5px; border-radius: 4px; background: var(--link-bg); color: var(--link); }
 @media (prefers-reduced-motion: reduce) { .pin-lifted { transform: none; } }
 .type-icon { color: var(--type, var(--muted)); display: inline-flex; }
 .count { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -190,7 +190,7 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 /* v0.52 H1 (FR-EMB-02 AC-17): Type settings' embed modes are radios drawn as the segmented control. */
 .segmented [role="radio"] { display: inline-flex; align-items: center; height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
 .segmented [role="radio"]:hover { color: var(--text); }
-.segmented [role="radio"][aria-checked="true"] { background: var(--type-blue-bg); color: var(--link); font-weight: 600; }
+.segmented [role="radio"][aria-checked="true"] { background: var(--link-bg); color: var(--link); font-weight: 600; }
 .segmented [role="radio"][aria-disabled="true"] { cursor: default; opacity: .6; }
 .ts-embed-modes { width: fit-content; }
 
@@ -793,7 +793,7 @@ button.toggle .count { margin-left: 0; }
 .task-chip .dot, .task-column-head .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 .task-chip.due { font-weight: 400; color: var(--muted); background: var(--hover); }
 .task-chip.due.tone-overdue { font-weight: 600; color: var(--danger); background: var(--danger-bg); }
-.task-chip.due.tone-today { font-weight: 600; color: var(--link); background: var(--type-blue-bg); }
+.task-chip.due.tone-today { font-weight: 600; color: var(--link); background: var(--link-bg); }
 .task-also { margin: 0; font-size: 12px; color: var(--muted); }
 /* Columns stretch to the board, which fills the page: a column is a drop target over its whole height (5B feedback F5). */
 .task-board { display: flex; gap: 12px; overflow-x: hidden; overflow-y: hidden; padding-bottom: 12px; align-items: stretch; min-height: calc(100vh - 260px); }
