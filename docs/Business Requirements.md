@@ -1383,7 +1383,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1389 | Previews on pinned rows (AP-1246) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | No preview on pinned rows (like the Types list). A click opens. The tooltip shows the label and path. |
 | D-1390 | Changed AC tests (AP-1247) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Approve the changes listed under "Existing criteria this slice changes", committed by the test author with `AC-Test-Change: slice PIN builds the Pinned section (FR-HOM-02); approved-by: owner`. |
 | D-1391 | Types section collapse (AP-1248) (owner, 2026-11-07: "Accept all"; slice PIN, `docs/acceptance/pinned.md`) | Out of this slice: the chevron on `Types` is a board detail. Decide it separately. |
-| D-1392 | The Types entry menu name (AP-1249) (owner, 2026-11-07: "Yes, \"<Type> actions\""; slice PIN contract §7) | The Types entry's context menu is named `<Type> actions` (`Schůzka actions`), catalog key `typeEntry.menu` `{name} actions`, added to R137 |
+| D-1392 | The Types entry menu name (AP-1249) (owner, 2026-11-07: "Yes, “<Type> actions”"; slice PIN contract §7) | The Types entry's context menu is named `<Type> actions` (`Schůzka actions`), catalog key `typeEntry.menu` `{name} actions`, added to R137 |
 
 ---
 
