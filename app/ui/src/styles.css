@@ -28,7 +28,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='
   padding: 0 12px 0 80px; /* room for the window buttons (FR-UX-01 AC-2) */
   background: var(--side); border-bottom: 1px solid var(--border); color: var(--muted);
 }
-.titlebar-controls, .tabs { display: flex; align-items: center; gap: 4px; }
+.titlebar-controls, .titlebar-tabs { display: flex; align-items: center; gap: 4px; }
 .tab {
   display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; max-width: 320px;
   border-radius: 7px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-weight: 500; font-size: 13px;
