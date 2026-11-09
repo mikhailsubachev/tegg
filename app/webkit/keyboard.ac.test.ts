@@ -8,6 +8,7 @@ import {
   paletteDialog, paletteOptions, runCommand, seen, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
   searchQueryField,
 } from './helpers';
+import { pressNewObject, typePickerField } from './helpers'; // D-1431: ⌘N / New object… open the type picker first
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
 const query = (page: Page) => page.getByRole('combobox', { name: 'Command query' });
@@ -25,7 +26,7 @@ const startFor = (page: Page, row: (typeof R1)[number]) => start(page, row.id ==
 /** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
 async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'chooser') { await runCommand(page, 'Open vault…'); return 'Choose a vault'; }
-  if (row.id === 'new/<type>') { await page.keyboard.press('Meta+n'); return DRAFT; } // D-520: New object (⌘N)
+  if (row.id === 'new/<type>') { await pressNewObject(page, 'route new/<type>'); return DRAFT; } // D-520: New object (⌘N); D-1431: ⏎ in the type picker
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
   if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-685 (D-747): tag/účty, on startFor's vault
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
@@ -82,7 +83,7 @@ test('fr_ux_03_ac1_palette_opens_from_every_route_and_focus: over the search fie
   await page.keyboard.press('Meta+k');
   assert.ok(await seen(paletteDialog(page)), 'palette over the search field');
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, 'New object'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'New object');
   await page.keyboard.press('Meta+Shift+p');
   assert.ok(await seen(paletteDialog(page)), 'palette over the New object draft');
@@ -116,7 +117,12 @@ async function checkEffect(page: Page, title: string, before: { main: string | n
       return (await seen(page.getByRole('main', { name: 'Choose a vault' }), 1500)) || (await seen(page.getByRole('form', { name: 'New vault' }), 300)) ? null : `${title}: no chooser`;
     // D-520: an unsaved draft with an empty title (the caret is checked in fr_nav_01_ac13 and fr_ux_03_ac1).
     // 3 s as `isDraft`: ⌘N reaches the draft through several async steps (switcher, flush, prepareObject).
-    case 'New object': return (await seen(draftStatus(page), 3000)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
+    // D-1431: `New object…` opens the type picker; ⏎ in it opens the default type's draft.
+    case 'New object…': {
+      if (!(await seen(newObjectDialog(page), 1500))) return `${title}: no type picker (dialog "New object")`;
+      await typePickerField(page).press('Enter', { timeout: 1000 }).catch(() => {});
+      return (await seen(draftStatus(page), 3000)) && (await titleState(page)).text === '' ? null : `${title}: no unsaved draft`;
+    }
     case 'Toggle sidebar': return (await seen(sidebar(page), 800)) !== before.sidebar ? null : `${title}: sidebar unchanged`;
     case 'Toggle right panel': return (await seen(panel(page), 800)) !== before.panel ? null : `${title}: panel unchanged`;
     case 'Toggle focus mode': return (await absent(sidebar(page), 800)) ? null : `${title}: sidebar still shown`;
@@ -231,7 +237,7 @@ test('fr_ux_03_ac5_keyboard_inside_the_palette', async ({ page }) => {
 test('fr_ux_03_ac6_shortcut_display_and_disabled_commands', async ({ page }) => {
   const core = await start(page);
   const shown: [string, string][] = [
-    ['Go to Search', '⇧⌘F'], ['Toggle sidebar', '⌃⌘S'], ['New object', '⌘N'], // D-760: no ⌘O
+    ['Go to Search', '⇧⌘F'], ['Toggle sidebar', '⌃⌘S'], ['New object…', '⌘N'], // D-760: no ⌘O; D-1431: `New object…`
     ['Go to Today', '⌘D'], ['Go to Inbox', '⇧⌘I'], ['Toggle right panel', '⌘\\'], ['Toggle focus mode', '⇧⌘\\'],
   ];
   for (const [title, keys] of shown) {
@@ -399,7 +405,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     await page.keyboard.press('Space');
     if (want) assert.equal(await eventually(() => theme(page), (v) => v === want, 500), want, `keyboard: theme ${name}`);
   }
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, 'keyboard: New object'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'keyboard: New object');
   await page.keyboard.insertText('Klávesnicový nápad');
   await page.keyboard.press('Enter');

@@ -66,7 +66,7 @@ Q4 Budget
 </sc-for>
 </div>
 <div style="display: flex; flex-direction: column; gap: 1px">
-<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 12px; font-weight: 600; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
 <sc-for list="{{types}}" as="t" hint-placeholder-count="7">
 <a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>

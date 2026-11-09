@@ -13,6 +13,7 @@ import { E, editorBody, eventually, fileText, must, noModified, openEditor, slee
 import { B, createOffer, chips, openLinks } from './links-helpers';
 import { D, callsOf, dailyVault, mustDaily, startDaily, swap } from './daily-helpers';
 import { goToQuery, searchCreateButton } from './helpers'; // D-1345: the Search page's results and create buttons (D-1340)
+import { pickNewObjectType, pressNewObject } from './helpers'; // D-1431: ⌘N / New object open the type picker first
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -87,13 +88,14 @@ async function expectDraftTitleCaret(page: Page, core: FakeCoreHandle, title: st
 
 test('fr_edt_01_ac13_cmd_n_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await expectDraftTitleCaret(page, core, 'Nový zápis', 'Quick Notes/Nový zápis.md', '⌘N');
 });
 
 test('fr_edt_01_ac13_palette_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
-  await runCommand(page, 'New object');
+  await runCommand(page, 'New object…'); // D-1431: the palette command opens the type picker
+  await pickNewObjectType(page, 'palette New object…');
   await expectDraftTitleCaret(page, core, 'Zápis z palety', 'Quick Notes/Zápis z palety.md', 'palette New object');
 });
 
@@ -116,6 +118,7 @@ test('fr_edt_01_ac13_type_page_new_puts_the_caret_at_the_end_of_the_title', asyn
 test('fr_edt_01_ac13_sidebar_new_object_puts_the_caret_at_the_end_of_the_title', async ({ page }) => {
   const core = await openEditor(page, E.deset);
   await (await must(sidebar(page).getByRole('button', { name: /^New object/ }), 'sidebar button "New object"')).click();
+  await pickNewObjectType(page, 'sidebar New object'); // D-1431
   await expectDraftTitleCaret(page, core, 'Ze sidebaru', 'Quick Notes/Ze sidebaru.md', 'sidebar New object');
 });
 
@@ -167,7 +170,7 @@ async function expectDailyBodyCaretThenType(page: Page, core: FakeCoreHandle, ho
 test('fr_edt_01_ac13_daily_note_by_cmd_n_with_default_type_gets_the_caret_in_the_body', async ({ page }) => {
   const v = dailyVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Daily Note'); });
   const core = await startDaily(page, { vault: v });
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N with default-type Daily Note'); // D-1431, D-1432: Daily Note preselected
   await expectDailyBodyCaretThenType(page, core, '⌘N with default-type Daily Note');
 });
 

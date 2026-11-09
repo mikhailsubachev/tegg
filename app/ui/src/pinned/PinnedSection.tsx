@@ -43,6 +43,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
   const tagLook = useTagLookColour();
   const drag = useDrag();
   // The pins version a menu was opened on: its Unpin and moves send it as the base (no other row by a stale index).
+  const [emptyOpen, setEmptyOpen] = useState(false);
   const [menu, setMenu] = useState<{ index: number; anchor: HTMLElement; base: PinsDto['version'] } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -94,26 +95,32 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
   }, [drag?.over, drag?.at, drag?.from, n]);
 
   useEffect(() => { if (menu && !rows[menu.index]) setMenu(null); }, [rows.length]);
+  useEffect(() => { if (n > 0) setEmptyOpen(false); }, [n > 0]);
 
   const over = !!drag?.over;
-  const listed = !collapsed && n > 0;
-  const empty = !collapsed && n === 0 && pins?.state !== 'unreadable';
+  // D-1429 (v0.120 feedback): with nothing pinned the section shows collapsed, whatever is stored; a click on the
+  // header shows the hint until something is pinned (not stored). With pins, the stored collapse applies (AC-15).
+  // While the pins load, the stored collapse applies (no flash); an unreadable file keeps it too (its notice shows).
+  const isEmpty = !!pins && n === 0 && pins.state !== 'unreadable';
+  const shut = isEmpty ? !emptyOpen : collapsed;
+  const listed = !shut && n > 0;
+  const empty = !shut && isEmpty;
   const fileNotice = pins?.state === 'unreadable'
     ? (pins.error?.line ? t('pinned.unreadableLine', { line: pins.error.line }) : t('pinned.unreadable')) : null;
   const itemOf = (i: number): DragItem => ({ request: { kind: 'tag', key: '' }, label: views[i].label, icon: glyph(rows[i], views[i]), color: views[i].color });
 
   return (
     <div className="sidebar-pinned" ref={sectionRef} data-pinned-drop="" {...(over ? { 'data-drop-over': '' } : {})}>
-      <button tabIndex={0} type="button" className="section-head pinned-head" aria-label={t('pinned.section')} aria-expanded={!collapsed}
+      <button tabIndex={0} type="button" className="section-head pinned-head" aria-label={t('pinned.section')} aria-expanded={!shut}
         aria-controls="pinned-list" {...(n > 0 ? { 'aria-description': t('pinned.countA11y', { count: n }) } : {})} data-command="sidebar.pinned.toggle"
-        onClick={() => onCollapse(!collapsed)}>
+        onClick={() => (isEmpty ? setEmptyOpen(!emptyOpen) : onCollapse(!collapsed))}>
         <span className="pinned-title">{t('pinned.section')}</span>
-        <span className={`pinned-chevron ${collapsed ? 'closed' : ''}`} aria-hidden="true"><Icon name="chevron-down" size={12} /></span>
+        <span className={`pinned-chevron ${shut ? 'closed' : ''}`} aria-hidden="true"><Icon name="chevron-down" size={12} /></span>
         {n > 0 && <span className="pinned-count">{n}</span>}
       </button>
       {/* D-1424: the header's description also as hidden text, for the macOS tree (the Inbox entry's way, R62). */}
       {n > 0 && <span className="sr-only">{t('pinned.countA11y', { count: n })}</span>}
-      {fileNotice && !collapsed && <p className="pinned-notice">{fileNotice}</p>}
+      {fileNotice && !shut && <p className="pinned-notice">{fileNotice}</p>}
       {listed && (
         <ul className="pinned-list" id="pinned-list" ref={listRef} aria-label={t('pinned.section')}>
           {rows.map((r, i) => {
@@ -159,7 +166,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
         </div>
       )}
       {lineTop !== null && <div className="pin-drop-line" data-pin-drop-line={drag?.at ?? 0} aria-hidden="true" style={{ top: lineTop }} />}
-      {alert && !collapsed && (
+      {alert && (!shut || isEmpty) && (
         <div role="alert" className="pinned-alert">
           <span>{alert.text}</span>
           {alert.unpin !== null && rows[alert.unpin] && (

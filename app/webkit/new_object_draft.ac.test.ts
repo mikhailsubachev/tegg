@@ -10,6 +10,7 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { draftStatus, mustBeDraft, mustBeOn, nonReadCalls, sidebar, titleState } from './helpers';
+import { pickNewObjectType } from './helpers'; // D-1431: ⌘N / New object open the type picker first
 import { caretIn, editorBody } from './editor-helpers';
 import {
   callsOf, control, eventually, fileText, gotoTypePage, main, must, openTypes, props, runCommand, seen, sleep,
@@ -283,10 +284,12 @@ test('fr_tsk_04_ac17_new_object_with_default_type_task_focuses_quick_add', async
   const vault = tasksVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Task'); });
   const core = await startTasks(page, { vault });
   await page.keyboard.press('Meta+n');
+  await pickNewObjectType(page, '⌘N with default type Task'); // D-1431, D-1432: Task preselected; ⏎ does AC-17
   await expectTasksWithQuickAdd(page, 'Schedule', '⌘N with default type Task');
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await mustBeOn(page, 'Inbox', 'leave');
   await (await must(sidebar(page).getByRole('button', { name: /^New object/ }), 'sidebar button "New object"')).click();
+  await pickNewObjectType(page, 'sidebar New object with default type Task'); // D-1431
   await expectTasksWithQuickAdd(page, 'Schedule', 'sidebar New object with default type Task');
   await sleep(500);
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');

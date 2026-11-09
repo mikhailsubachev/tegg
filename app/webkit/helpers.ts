@@ -79,8 +79,31 @@ export const panel = (page: Page) => page.getByRole('complementary', { name: 'Co
 export const paletteDialog = (page: Page) => page.getByRole('dialog', { name: 'Command palette' });
 /** The `Quick switcher` dialog, removed by D-760: tests only assert that it is absent. */
 export const switcherDialog = (page: Page) => page.getByRole('dialog', { name: 'Quick switcher' });
-/** The `New object` dialog, removed by D-520 (ms5-tasks §12.2): tests only assert that it is absent. */
-export const newObjectDialog = (page: Page) => page.getByRole('dialog', { name: 'New object' });
+/** The `New object` type picker (D-1431, capture.md FR-VLT-05 AC-8): a `dialog` named `New object` that ⌘N, the
+ *  sidebar's `New object` button and the palette's `New object…` open. (D-520 had removed the earlier dialog of this
+ *  name; tests assert that the picker is gone again once a type is chosen.) The pseudo-locale wraps the name in ⟦⟧. */
+export const newObjectDialog = (page: Page) => page.getByRole('dialog', { name: /^⟦?New object⟧?$/ });
+/** The picker's filter field (FR-VLT-05 AC-8: `combobox` `Choose a type`). */
+export const typePickerField = (page: Page) => newObjectDialog(page).getByRole('combobox', { name: /^⟦?Choose a type⟧?$/ });
+/**
+ * D-1431 (AC-Test-Change): ⌘N, the sidebar's `New object` and the palette's `New object…` open the type picker first.
+ * Asserts it is open, then creates: ⏎ in its field (the preselected default type, D-1432, so the old one-step ⌘N
+ * behaviour follows), or a click on the option `type`. The draft (or route) is then checked by the caller as before.
+ */
+export async function pickNewObjectType(page: Page, how: string, type?: string, ms = 3000) {
+  const dialog = await must(newObjectDialog(page), `${how}: dialog "New object" (the type picker, D-1431)`, ms);
+  if (type === undefined) {
+    const field = await must(typePickerField(page), `${how}: combobox "Choose a type" in the type picker (D-1431)`, 1000);
+    await field.press('Enter');
+  } else {
+    await (await must(dialog.getByRole('option', { name: type, exact: true }), `${how}: option "${type}" in the type picker`, 1000)).click();
+  }
+}
+/** ⌘N, then the type picker's default (⏎) or `type` (D-1431, D-1432). */
+export async function pressNewObject(page: Page, how = '⌘N', type?: string, ms = 3000) {
+  await page.keyboard.press('Meta+n');
+  await pickNewObjectType(page, how, type, ms);
+}
 export const typesList = (page: Page) => page.getByRole('list', { name: 'Types' });
 
 // ------------------------------------------------------------------------------------------------ unsaved drafts (D-520)
@@ -115,7 +138,7 @@ export async function mustBeDraft(page: Page, how: string, ms = 3000) {
   const s = await eventually(() => titleState(page), (x) => x.text === '' && x.focused, ms);
   assert.deepEqual(s, { text: '', focused: true }, `${how}: an empty Title field holds the caret (D-520)`);
   assert.ok(await seen(draftStatus(page), 1000), `${how}: the status "${NOT_SAVED}" is shown`);
-  assert.equal(await page.getByRole('dialog').count(), 0, `${how}: no dialog opens (D-520 removes the New object dialog)`);
+  assert.equal(await page.getByRole('dialog').count(), 0, `${how}: no dialog stays open (D-520; the D-1431 type picker closes on a choice)`);
 }
 
 /** From a just-opened draft: types `title` in the Title field and commits it with ↩ (D-522); waits for the note. */

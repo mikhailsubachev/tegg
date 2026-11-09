@@ -146,7 +146,7 @@ Until the index has finished its first scan after the vault opens, unresolved pi
 | Row | a `link` inside the `listitem` (30 px, the sidebar entry style) | R133's icon, colour and label. No count (board A). The tooltip (`title`) is the full label, and for an object also its vault path. `aria-current="page"` when the centre pane shows the target |
 | Grip | decorative handle at the row's left, shown on hover and while the row or its Unpin button has the focus | `aria-hidden`; tooltip `Drag to reorder`; a pointer drag works from anywhere on the row (R135) |
 | Unpin button | `button` at the row's right, shown on hover and on focus-within | name `Unpin <label>`, tooltip `Unpin`; in the Tab order right after its row's link |
-| Empty area | when there are 0 rows and the section is expanded | a dashed box (`1.5px dashed --border`) with the text `Drag things here, or use ⋯ › Pin to sidebar.` (`⋯ › Pin to sidebar` in `--text`, weight 600); it is the drop target while dragging (AP-1241) |
+| Empty area | when there are 0 rows and the user opened the empty section with a click on the header (D-1429: an empty section shows collapsed) | a dashed box (`1.5px dashed --border`) with the text `Drag things here, or use ⋯ › Pin to sidebar.` (`⋯ › Pin to sidebar` in `--text`, weight 600); it is the drop target while dragging (AP-1241) |
 | Alert | `role="alert"` under the list | R133's missing-target text with a `button` `Unpin`, `Pins changed outside Tegg. Your change wasn't saved.` or `Couldn't save the pins. Try again.`; it stays until the next pin action or 10 s |
 | File notice | muted line in place of the rows | `The pins file can't be read (line <n>).` (or without the line), or nothing extra for a newer version (rows shown) |
 | Collapsed | header only | the chevron points right; the count stays; rows, empty area and alert are hidden; stored per vault in `ui-state.json` as `vaults[<path>].sidebar.pinnedCollapsed` (AP-1240), default expanded |
@@ -234,7 +234,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 - **AC-5** **Pin from the note's More menu, and the first pin creates the file (R131, R134; T1).** With no `.tegg/pinned.yml`, on Rozpočet:
   - `More` lists `Pin to sidebar` first.
   - Choosing it creates `.tegg/pinned.yml` byte-identical to `expected/created.yml` (an atomic exclusive create).
-  - The empty area is replaced by the row `Rozpočet 2027`.
+  - Before it, the section shows collapsed with no area (D-1429); after it, the section is expanded with the row `Rozpočet 2027`.
   - VoiceOver hears `Pinned Rozpočet 2027`.
   - `More` now lists `Unpin from sidebar`.
 
@@ -282,7 +282,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 **Empty and collapsed**
 
-- **AC-14** **Empty state (board F; AP-1241).** With no `pinned.yml`, and again with `expected/valid-after-unpin-all.yml`, the section shows the header `Pinned` with no count and no description, and the dashed area `Drag things here, or use ⋯ › Pin to sidebar.` Dropping the Search result Čajovna on the area pins it at position 1. The first pin replaces the area with the row, and unpinning the last row brings the area back. The area isn't focusable and has no role. A file holding only `query:` items or skipped items shows the area too. *(L5)* Test: `fr_hom_02_ac14_empty_area_until_something_is_pinned`
+- **AC-14** **Empty state: collapsed (board F; AP-1241; changed by D-1429).** With no `pinned.yml`, again with `expected/valid-after-unpin-all.yml`, and with a file holding only `query:` items or skipped items, the section shows the header `Pinned` with no count and no description, collapsed (`aria-expanded="false"`) and with no area, whatever collapse is stored. A click on the header opens it with the dashed area `Drag things here, or use ⋯ › Pin to sidebar.` (not focusable, no role); Space on the header closes it again. That open state isn't stored. Dropping the Search result Čajovna on the collapsed header pins it at position 1, and the section shows expanded with the row. Unpinning the last row collapses the section again, with no area. *(L5)* Test: `fr_hom_02_ac14_collapsed_until_something_is_pinned`
 - **AC-15** **Collapse (board G; AP-1240).** With `valid`, a click or ⏎/Space on the header collapses the section: `aria-expanded="false"`, the chevron points right, the count `5` stays, and the rows are gone. One `ui_state_set` stores `vaults[<vault>].sidebar.pinnedCollapsed: true`, and no vault file is written. While collapsed, pinning from a menu updates the count to `6` and stays collapsed. After a relaunch the section is still collapsed. Another vault opened in the same app starts expanded. ⌃⌘S (the whole sidebar) doesn't change the stored value. *(L5; L6 for the relaunch)* Test: `fr_hom_02_ac15_collapse_is_remembered_per_vault`
 
 **Targets that change**
@@ -338,6 +338,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 
 - **AC-9** **Order.** Top to bottom: the `New object` / `Search` row (D-759), `Inbox`, `Today`, `Tasks` (and `Conflicts` while shown), the `Pinned` section, the `Types` section, the `Tags` entry (D-761), `Saved queries` (`Coming in v1.0`), `Trash`. There is no `Pinned` entry with `Coming in v1.0` any more. *(L5; L6 once)* Test: `fr_nav_04_ac9_order_with_pinned_section`
 - **AC-10** **The placeholder route is gone (R1, R4).** The route registry has no `pinned`, the palette has no `Go to Pinned`, and `__TEGG_ROUTE__="pinned"` lands like an unknown route (FR-UX-02's not-found rule). `Saved queries` stays TBD v1.0. FR-UX-02 AC-11 holds with these changes. *(L1; L5)* Test: `fr_nav_04_ac10_pinned_route_removed`
+- **AC-11** **Section headers in sentence case (D-1430; v0.120 feedback F3; boards updated).** The sidebar's section headers read `Pinned` and `Types` exactly as written (rendered text, case-sensitive: not `PINNED`, `TYPES`), with computed `text-transform: none`, `letter-spacing: normal`, `font-size: 12px`, `font-weight: 600` and colour `--muted`, in light and dark. Menu group headers keep their uppercase style. *(L5)* Test: `fr_nav_04_ac11_section_headers_in_sentence_case`
 
 ### FR-LNK-03 Renames reach pins (adds to rename.md, mindmap.md AC-21; AP-1230)
 
@@ -356,7 +357,7 @@ On `new/<type>` and a virtual daily note, `sidebar.pin` is listed `aria-disabled
 - **AC-26** **Never overwrite a version Tegg didn't read (T1).** Every write passes the version of the last `pins_get` as base. With `valid` read, and then changed on disk without `vault:changed` (L4: other bytes on disk; L5: the fake core), each of `pin`, `unpin` and `move` is refused with `Conflict`. Nothing is written (the disk bytes stay), the rows reload from disk, and the alert `Pins changed outside Tegg. Your change wasn't saved.` appears. A dragged row goes back. A disk change to the same bytes (only the mtime) is not a conflict (D-175). A base given while the file is gone gives `Gone`, shown the same way, and nothing is created. *(L4; L5)* Test: `fr_syn_03_ac26_pins_writes_check_the_base`
 - **AC-27** **Changes from outside reload the rows (T1).** With `valid` open, another program does each of the following, and the change shows within 2 s with no Tegg write:
   - replacing the file atomically with a version that reorders and adds `- tag: účty` shows the new order and row;
-  - deleting the file shows the empty area, and nothing is created until the next pin;
+  - deleting the file shows the section empty and collapsed (D-1429), and nothing is created until the next pin;
   - creating a file while none was read (base none) before Tegg's first pin makes that pin `Conflict` (no file is replaced: `RENAME_EXCL`, ms3-shell §13), and the other file's rows show.
 
   The conflict copies `.tegg/pinned (conflicted copy 2026-11-07).yml` and `.tegg/pinned 2.yml` are never listed, read, written or deleted: bytes, mtime and inode are unchanged after a tour of AC-5…AC-12. *(L6 once with the helper; L4; L5)* Test: `fr_syn_03_ac27_external_and_synced_pins_changes`

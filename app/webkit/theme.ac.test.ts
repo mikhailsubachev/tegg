@@ -9,6 +9,7 @@ import {
   start, switcherDialog, theme,
   firstResultRow, searchQueryField,
 } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker first
 
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const ui = (t: UiStateDto['theme']): UiStateDto => ({ version: 1, theme: t, sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' } });
@@ -43,7 +44,7 @@ test('fr_ux_05_ac4_axe_color_contrast_has_no_violations', async ({ browser }) =>
     await page.keyboard.press('Meta+k'); await must(paletteDialog(page), 'palette'); await axe(`${t} palette`); await page.keyboard.press('Escape');
     // D-1345: the Search page's results with the create buttons (D-1340, D-1343; before them the Go to list, D-760).
     await page.keyboard.press('Meta+Shift+f'); await (await must(searchQueryField(page), 'Search query')).fill('Porada'); await must(firstResultRow(page), 'the first result'); await axe(`${t} search results`);
-    await page.keyboard.press('Meta+n'); await mustBeDraft(page, 'New object'); await axe(`${t} New object draft`); // D-520: no dialog
+    await pressNewObject(page, 'New object'); await mustBeDraft(page, 'New object'); // D-1431: ⏎ in the type picker await axe(`${t} New object draft`); // D-520: no dialog
     await page.close();
     page = await browser.newPage();
     await start(page, { vault: null, uiState: ui(t) });

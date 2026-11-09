@@ -6,6 +6,7 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { absent, box, mustBeDraft, mustBeOn, runCommand, sidebar, sleep, start } from './helpers';
+import { pickNewObjectType } from './helpers'; // D-1431: New object opens the type picker first
 import { axeContrast, tokenColour } from './read-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { ui as tagsUi } from './tags-helpers';
@@ -55,10 +56,12 @@ for (const theme of ['light', 'dark'] as const) {
 test('fr_nav_01_ac14_new_object_and_search_by_click_and_enter_and_tab_order', async ({ page }) => {
   await start(page);
   await click(newObjectBtn(page), 'New object');
+  await pickNewObjectType(page, 'a click on New object'); // D-1431: the type picker, ⏎ takes the default
   await mustBeDraft(page, 'a click on New object (AC-13)');
   await runCommand(page, 'Go to Inbox');
   await (await must(newObjectBtn(page), 'New object')).focus();
   await page.keyboard.press('Enter');
+  await pickNewObjectType(page, '⏎ on New object'); // D-1431
   await mustBeDraft(page, '⏎ on New object (AC-13)');
   await runCommand(page, 'Go to Inbox');
   await click(searchBtn(page), 'Search');

@@ -15,6 +15,7 @@ import {
 import { ui as dailyUi } from './daily-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { goToQuery, searchResultsList } from './helpers'; // D-1345: the Search page's results (D-1340)
+import { pickNewObjectType } from './helpers'; // D-1431: ⌘N / New object open the type picker first
 
 const LONG_14: Record<string, string> = { cs: 'středa 14. října 2026', en: 'Wednesday, October 14, 2026' };
 const LONG_15_EN = 'Thursday, October 15, 2026';
@@ -127,11 +128,14 @@ test.describe('which note a date opens', () => {
     // D-353: every create path whose type is Daily Note opens today's Daily Note instead of a dialog.
     const v = dailyVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Daily Note'); });
     const core = await startDaily(page, { vault: v });
+    // D-1431, D-1432: ⌘N and the palette's `New object…` open the type picker with Daily Note selected; ⏎ opens today.
     await page.keyboard.press('Meta+n');
+    await pickNewObjectType(page, '⌘N (New object) with default-type Daily Note');
     await mustDaily(page, '2026-10-14', '⌘N (New object) with default-type Daily Note');
     assert.ok(await absent(page.getByRole('dialog', { name: 'New object' }), 300), 'no New object dialog');
-    await runCommand(page, 'New object');
-    await mustDaily(page, '2026-10-14', 'palette New object');
+    await runCommand(page, 'New object…');
+    await pickNewObjectType(page, 'palette New object…');
+    await mustDaily(page, '2026-10-14', 'palette New object…');
     assert.deepEqual(await writeCalls(core), [], 'nothing written');
   });
 

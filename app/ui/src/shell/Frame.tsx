@@ -109,7 +109,7 @@ export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canFo
           <Icon name="forward" />
         </button>
       </div>
-      <div className="tabs" role="tablist" aria-label={t('frame.tabs')} data-tauri-drag-region>
+      <div className="titlebar-tabs" role="tablist" aria-label={t('frame.tabs')} data-tauri-drag-region>
         <span className="tab" role="tab" aria-selected="true" tabIndex={0} data-command="tab.current">
           <Icon name={icon} />
           <span className="tab-name">{name}</span>
@@ -214,7 +214,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   onGo: (r: Route) => void;
   /** D-759: the `Search` button opens the `search` route with the caret in its field. */
   onSearch: () => void;
-  onNewObject: () => void;
+  onNewObject: (anchor?: HTMLElement | null) => void;
   /** Open conflicts; the entry shows only while there are some (FR-SYN-04 AC-6, D-177). */
   conflicts?: number;
 }) {
@@ -273,7 +273,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
       <div className="sidebar-scroll" ref={scroller}>
         {/* D-759 (boards Main, TagsAll): a filled `New object` button and the `Search` icon button on one row. */}
         <div className="sidebar-top">
-          <button tabIndex={0} type="button" className="sidebar-new" aria-label={t('cmd.newObject')} data-command="object.new" onClick={(e) => { e.currentTarget.focus(); onNewObject(); }}>
+          <button tabIndex={0} type="button" className="sidebar-new" aria-label={t('cmd.newObject')} data-command="object.new" onClick={(e) => { e.currentTarget.focus(); onNewObject(e.currentTarget); }}>
             <Icon name="plus" size={14} />
             <span className="entry-label">{t('cmd.newObject')}</span>
             <kbd>{keysOf('object.new')}</kbd>

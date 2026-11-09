@@ -10,6 +10,7 @@ import { join, relative, resolve } from 'node:path';
 import { loadFixtureVault, newEmptyVault, setPreviewMode, type CallRecord, type FakeVault } from '../ui/test/fake-core';
 import { absent, mustBeDraft, mustBeOn, nonReadCalls, openNote, paletteDialog, pseudoLocale, runCommand, sidebar, searchQueryField, start } from './helpers';
 import { axeContrast, colourLeaks, sourceRegion, ui } from './read-helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import {
   E, REPO, TITLES, argText, block, blockMenu, blocksOf, bodyOf, caretIn, copyOrCut, deletedAlert, editorBody, editorVault,
   eventually, fileText, idOf, keyTimes, kindsOf, linkSuggestions, mergeDialog, must, mustBeSaved, noModified, openEditor,
@@ -103,8 +104,9 @@ const LEAVES: Leave[] = [
   { name: 'switcher', act: (p) => openNote(p, 'Cíl'), next: (c) => c.cmd === 'note_read' && (c.args as any).path === E.cil },
   { name: 'link', act: async (p) => { await editorBody(p).getByRole('link', { name: 'Cíl' }).first().click(); }, next: (c) => c.cmd === 'note_read' && (c.args as any).path === E.cil },
   { name: 'type_page', act: (p) => runCommand(p, 'Go to type: Pages'), next: (c) => c.cmd === 'index_list' },
-  // D-520: ⌘N leaves the note for an unsaved draft, which prepares the new object's bytes (`type_template`).
-  { name: 'new_object', act: async (p) => { await p.keyboard.press('Meta+n'); }, next: (c) => c.cmd === 'type_template' },
+  // D-520: ⌘N leaves the note for an unsaved draft, which prepares the new object's bytes (`type_template`). D-1431: the
+  // type picker opens first (the route doesn't change); ⏎ in it takes the default and leaves.
+  { name: 'new_object', act: async (p) => { await pressNewObject(p, '⌘N'); }, next: (c) => c.cmd === 'type_template' },
   { name: 'back', setup: async (p) => { await openNote(p, 'Cíl'); await openNote(p, 'Deset bloků'); await must(editorBody(p), 'editor'); }, act: (p) => p.keyboard.press('Meta+BracketLeft'), next: (c) => c.cmd === 'note_read' && (c.args as any).path === E.cil },
   { name: 'route', act: (p) => runCommand(p, 'Go to Search'), next: (c) => c.cmd === 'index_search' || (c.cmd === 'nav_opened') },
   { name: 'open_vault', act: async (p) => { await runCommand(p, 'Open vault…'); await p.getByRole('main', { name: 'Choose a vault' }).getByRole('button', { name: 'Open existing folder' }).click({ timeout: 3000 }).catch(() => {}); }, next: (c) => c.cmd === 'vault_open', opts: { pickDir: '/fake/Druhý', dirs: { '/fake/Druhý': newEmptyVault('Druhý') } } },
@@ -834,7 +836,7 @@ test('fr_ux_03_ac14_writing_by_keyboard_only', async ({ page }) => {
     w.__pointerEvents = 0;
     for (const t of ['pointerdown', 'mousedown', 'click']) window.addEventListener(t, (e) => { if ((e as MouseEvent).detail > 0 || t === 'pointerdown') w.__pointerEvents++; }, true);
   });
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, 'New object'); // D-1431: ⏎ in the type picker (keyboard only)
   await mustBeDraft(page, 'New object'); // D-520: an unsaved draft with the caret in its empty title
   await page.keyboard.type('Klávesnice');
   await page.keyboard.press('Enter'); // ⏎ creates the note and moves the caret to the body (D-522)

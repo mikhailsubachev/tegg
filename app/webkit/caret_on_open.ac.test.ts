@@ -13,6 +13,7 @@ import {
 } from './editor-helpers';
 import { goToQuery, searchCreateButton } from './helpers'; // D-1345: the Search page's results and create buttons (D-1340)
 import { escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import { setPreviewMode } from '../ui/test/fake-core';
 
 async function focusTarget(page: Page): Promise<string | null> {
@@ -196,7 +197,7 @@ async function titleCaretAtEnd(page: Page): Promise<{ inTitle: boolean; atEnd: b
 
 test('fr_edt_01_ac12_new_object_opens_with_the_title_in_edit_mode', async ({ page }) => {
   const core = await openEditor(page, E.deset);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N');
   await mustBeDraft(page, '⌘N');
   await sleep(300);
   assert.deepEqual(await titleCaretAtEnd(page), { inTitle: true, atEnd: true, collapsed: true }, 'the empty title in edit mode, caret in it, nothing selected');

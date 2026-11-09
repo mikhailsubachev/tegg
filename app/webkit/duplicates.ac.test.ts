@@ -6,6 +6,7 @@
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mustBeDraft, escPreview, mustPreview, switchPreviewMode } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import { ui as linksUi } from './links-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { B, description, editorBody, eventually, fileText, flat, gotoNote, isDisabled, main, must, mustBeOn, openLinks, props, runCommand, seen, sleep, swap, writeCalls } from './links-helpers';
@@ -162,7 +163,7 @@ test.describe('Duplicate titles page', () => {
 test('fr_lnk_14_ac10_new_object_never_takes_a_stem_in_use', async ({ page }) => {
   // D-949: the chip is opened with a single click, so the steps run under preview.mode = off.
   const core = await openLinks(page, B.osamela, setPreviewMode('off', { uiState: linksUi() }));
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, 'New object'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'New object'); // D-520: an unsaved draft; the title is typed there and ↩ creates it
   await page.keyboard.type('Jana Nováková');
   await page.keyboard.press('Enter');

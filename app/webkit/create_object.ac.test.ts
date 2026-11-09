@@ -7,6 +7,7 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { createFromDraft, mainName, switcherDialog } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import {
   P, callsOf, eventually, gotoTypePage, main, must, openTypes, props, runCommand, sleep, typeFile, typesVault, swap, dialog,
 } from './types-helpers';
@@ -69,7 +70,7 @@ test('fr_typ_03_ac12_type_page_new_projekt_and_schuzka', async ({ page }) => {
 test('fr_typ_03_ac12_cmd_n_creates_the_default_type_quick_note_unreviewed', async ({ page }) => {
   await clock(page);
   const core = await openTypes(page);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await createFromDraft(page, 'Rychlý nápad', 'draft');
   const c = await created(core);
   await onePathCalls(core, 'quick-note');

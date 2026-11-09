@@ -8,7 +8,7 @@ import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   CHANGED_OUTSIDE, FIX_FILE, ID, NEWER, P, PINS, VALID_ROWS, alertBox, click, contextMenu, description, drag, emptyArea, eventually, flat,
-  gapAfter, header, menuItem, moreBtn, moreMenu, must, mustBeOn, nfc, notice, openPinned, otherWrites, pinnedVault, pinsFx, pinsText, rowAt,
+  gapAfter, header, list, menuItem, moreBtn, moreMenu, must, mustBeOn, nfc, notice, openPinned, otherWrites, pinnedVault, pinsFx, pinsText, rowAt,
   rowMenu, rows, rowsAre, runCommand, searchRow, section, seen, sleep, typesEntry, typeEntryMenu, unreadableVariants,
 } from './pinned-helpers';
 
@@ -222,7 +222,8 @@ test('fr_syn_03_ac27_external_and_synced_pins_changes', async ({ page }) => {
   const want = ['#offsite', '#účty', 'Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', 'Projekty'];
   assert.deepEqual(await rowsAre(page, want, 2000), want, 'an atomic replace shows the new order and row within 2 s');
   await core.setFile(PINS, null);
-  assert.ok(await seen(emptyArea(page), 2000), 'deleting the file shows the empty area');
+  assert.equal(await eventually(() => header(page).getAttribute('aria-expanded'), (v) => v === 'false', 2000), 'false', 'deleting the file shows the section empty, collapsed (D-1429)');
+  assert.equal(await list(page).count(), 0, 'no rows');
   await sleep(500);
   assert.equal(await pinsText(core), null, 'nothing is created');
   await core.setFile(PINS, pinsFx('valid.yml'), { silent: true });

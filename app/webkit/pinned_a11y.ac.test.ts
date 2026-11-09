@@ -1,6 +1,6 @@
 // Slice PIN, L5 (WebKit + fake core): keyboard, VoiceOver, themes, strings and the sidebar order:
 // docs/acceptance/pinned.md FR-UX-03 AC-39, AC-40, FR-UX-08 AC-16, FR-UX-05 AC-19, NFR-OTH-02 AC-16, FR-NAV-04 AC-9,
-// AC-10 (R132, R133, R136, R137; AP-1232, AP-1242, AP-1243). Interface docs/contracts/v1-pinned.md §3.2…§3.4 (and §7 =
+// AC-10, AC-11 (R132, R133, R136, R137; AP-1232, AP-1242, AP-1243; D-1430 for AC-11). Interface docs/contracts/v1-pinned.md §3.2…§3.4 (and §7 =
 // D-1392 for the Types entry menu name). Written from the ACs and the contract only (D-61). Lookups go through `must`
 // (TS-I1).
 import { test } from '@playwright/test';
@@ -11,7 +11,7 @@ import {
   rowMenu, rows, rowsAre, runCommand, searchRow, section, seen, sidebar, sleep, typeEntryMenu, typesEntry, ui,
 } from './pinned-helpers';
 import { pseudoLocale } from './helpers';
-import { axeContrast, colourLeaks } from './read-helpers';
+import { axeContrast, colourLeaks, tokenColour } from './read-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -165,6 +165,7 @@ test('fr_ux_05_ac19_pins_in_both_themes', async ({ page }) => {
     await ctx.close();
   }
   await openPinned(page, { route: 'inbox', theme: 'dark' });
+  await click(header(page), 'open the empty section (D-1429)');
   await must(emptyArea(page), 'empty area');
   assert.deepEqual(await axeContrast(page), [], 'dark: the empty area passes color-contrast');
 });
@@ -239,3 +240,41 @@ test('fr_nav_04_ac10_pinned_route_removed', async ({ page }) => {
   }
   assert.equal(names[0], names[1], `\`pinned\` lands like an unknown route (${names.join(' / ')})`);
 });
+
+// ------------------------------------------------------------------------------------------------ FR-NAV-04 AC-11
+
+/** The computed style of the element that holds the sidebar header text `label` (case-insensitive match of the source
+ *  text, so an uppercase rendering is still found), with its rendered text (`innerText` applies `text-transform`). */
+async function sectionHeader(page: Parameters<typeof sidebar>[0], label: string) {
+  return sidebar(page).evaluate((sb, want) => {
+    const walk = document.createTreeWalker(sb, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if ((n.textContent ?? '').trim().toLowerCase() !== want.toLowerCase()) continue;
+      const el = n.parentElement!;
+      if (el.getClientRects().length === 0) continue;
+      // Not an entry or a list item (the `Types` list's entries, `Tags`): a section header.
+      if (el.closest('li, a, [role="link"], [role="listitem"], [role="menu"]')) continue;
+      const s = getComputedStyle(el);
+      return { text: el.innerText.trim(), transform: s.textTransform, spacing: s.letterSpacing, size: s.fontSize, weight: s.fontWeight, color: s.color };
+    }
+    return null;
+  }, label);
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`fr_nav_04_ac11_section_headers_in_sentence_case: ${theme}`, async ({ page }) => {
+    await openPinned(page, { pins: 'valid.yml', route: 'inbox', theme });
+    assert.equal(await eventually(() => page.evaluate(() => document.documentElement.dataset.theme), (t) => t === theme), theme, `theme ${theme}`);
+    const muted = await tokenColour(page, 'muted');
+    assert.ok(muted, 'the theme has a --muted token');
+    for (const label of ['Pinned', 'Types']) {
+      const h = await sectionHeader(page, label);
+      assert.ok(h, `${theme}: the sidebar's ${label} section header is shown`);
+      assert.deepEqual(
+        { text: h!.text, transform: h!.transform, spacing: h!.spacing, size: h!.size, weight: h!.weight, color: h!.color },
+        { text: label, transform: 'none', spacing: 'normal', size: '12px', weight: '600', color: muted },
+        `${theme}: ${label} reads "${label}" (not ${label.toUpperCase()}), 12 px, 600, --muted, no letter spacing (D-1430)`,
+      );
+    }
+  });
+}
