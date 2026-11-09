@@ -97,6 +97,7 @@ export const en: Catalog = {
   'cmd.goBack': 'Go back',
   'cmd.goForward': 'Go forward',
   'cmd.newObject': 'New object',
+  'cmd.newObjectPick': 'New object…',
   'cmd.toggleSidebar': 'Toggle sidebar',
   'cmd.toggleRightPanel': 'Toggle right panel',
   'cmd.toggleFocus': 'Toggle focus mode',
@@ -945,6 +946,17 @@ export const en: Catalog = {
 
   // 4B (daily-notes.md R17–R19, ms4-daily §7.1).
   'daily.notSaved': 'Not saved yet. Start typing to create this note.',
+  // D-1431 (board NewObjectPicker): ⌘N asks for a type.
+  'newPicker.title': 'New object',
+  'newPicker.field': 'Choose a type',
+  'newPicker.placeholder': 'Choose a type…',
+  'newPicker.types': 'Types',
+  'newPicker.default': 'Default',
+  'newPicker.noMatch': 'No type matches “{query}”.',
+  'newPicker.hintChoose': 'Choose',
+  'newPicker.hintCreate': 'Create',
+  'newPicker.hintCancel': 'Cancel',
+  'newPicker.escKey': 'esc',
   'newObject.notSaved': 'Not saved yet. Start typing to create this note.',
   'newObject.untitled': 'Untitled',
   'daily.titleReadonly': "A Daily Note's title is its date",

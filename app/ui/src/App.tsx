@@ -56,6 +56,7 @@ import { TrashPage } from './trash/TrashPage';
 import { TrashMessages } from './trash/toast';
 import { moveToTrash, trashRequest } from './trash/moveToTrash';
 import { TypeMenu } from './shell/TypeMenu';
+import { NewObjectPicker } from './shell/NewObjectPicker';
 import { setDateTimeSetting } from './i18n/dates';
 import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
@@ -98,7 +99,7 @@ const QUICK_ADD = 'main [data-quick-add] input';
 /** The task views' search: Schedule and Kanban (D-1280), or All tasks' type-page filter. */
 const TASK_SEARCH = 'main [data-command="tasks.search"], main input.type-filter';
 
-type Dialog = 'palette' | 'newType' | 'starter' | null;
+type Dialog = 'palette' | 'newType' | 'starter' | 'newObject' | null;
 type PanelTab = 'backlinks' | 'outline' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
@@ -121,6 +122,9 @@ export function App() {
   const [route, setRoute] = useState<Route | null>(null);
   const [chooser, setChooser] = useState<{ form: boolean } | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const returnRange = useRef<Range | null>(null);
+  const pendingRange = useRef<Range | null>(null);
+  const [newPicker, setNewPicker] = useState<{ types: TypeDefDto[]; defaultKey: string | null; at: { left: number; top: number } | null } | null>(null);
   const [defineValue, setDefineValue] = useState<string | null>(null); // D-251: New type for an undefined value
   const [ui, setUi] = useState<UiState>(initialUi);
   /** D-520 (ms5-tasks §12.2): the unsaved new object shown on `new/<type>` (`route`: its route string). */
@@ -632,10 +636,24 @@ export function App() {
       // Also when Search is already shown: the caret goes to its field with the query selected (D-760).
       requestAnimationFrame(() => { const i = searchInput.current; if (i && !live.current.dialog) { i.focus({ preventScroll: true }); i.select(); } });
     },
-    // D-520: New object opens an unsaved object of the vault's default type (D-131); a Daily Note opens today's
-    // (D-353), a Task the quick-add row.
-    newObject: () => {
-      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null).then((key) => newOf(key ?? 'page'));
+    // D-1431, D-1432: New object asks for a type first, the vault's default preselected; the choice then opens an
+    // unsaved object of that type (D-520); a Daily Note opens today's (D-353), a Task the quick-add row.
+    newObject: (anchor?: HTMLElement | null) => {
+      const box = anchor?.getBoundingClientRect();
+      void Promise.all([
+        ipc.vaultTypes().catch(() => [] as TypeDefDto[]),
+        ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null),
+      ]).then(([all, key]) => {
+        if (live.current.dialog) return;
+        returnFocus.current = document.activeElement as HTMLElement | null;
+        // Focusing the editor again doesn't bring its caret back: keep the text range to restore on close (AC-12).
+        const sel = window.getSelection();
+        const r = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+        returnRange.current = r && returnFocus.current?.isContentEditable && returnFocus.current.contains(r.startContainer) ? r.cloneRange() : null;
+        pendingFocus.current = false;
+        setNewPicker({ types: all, defaultKey: key, at: box ? { left: box.left, top: box.bottom + 4 } : null });
+        setDialog('newObject');
+      });
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
@@ -845,6 +863,8 @@ export function App() {
 
   // Focus returns to where it was as soon as the dialog is gone, before the next key (D-139).
   const closeDialog = useCallback(() => {
+    pendingRange.current = returnRange.current;
+    returnRange.current = null;
     pendingReturn.current = returnFocus.current;
     returnFocus.current = null;
     setDialog(null);
@@ -852,11 +872,16 @@ export function App() {
   useLayoutEffect(() => {
     if (dialog) return;
     const back = pendingReturn.current;
+    const range = pendingRange.current;
     pendingReturn.current = null;
+    pendingRange.current = null;
     // A command that moved the focus itself (a mindmap's Map / List, D-776) keeps it; otherwise it goes back.
     const now = document.activeElement;
     if (now && now !== document.body && now.isConnected) return;
-    if (back?.isConnected) back.focus();
+    if (back?.isConnected) {
+      back.focus();
+      if (range && back.contains(range.startContainer)) { const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range); }
+    }
   }, [dialog]);
 
   // ------------------------------------------------------------------ keyboard (FR-UX-03 AC-9, D-137)
@@ -1334,6 +1359,10 @@ export function App() {
         <TypeMenu at={draftType.at} current={route?.id === 'new/<type>' ? route.param : undefined}
           onClose={() => { setDraftType(null); noteApi.current?.placeFocus(); }}
           onChoose={(ty) => { setDraftType(null); carryTitle.current = noteApi.current?.title() ?? null; noteApi.current?.discardDraft(); void go({ id: 'new/<type>', param: ty.key }); }} />
+      )}
+      {dialog === 'newObject' && newPicker && (
+        <NewObjectPicker types={newPicker.types} defaultKey={newPicker.defaultKey} at={newPicker.at} onClose={closeDialog}
+          onChoose={(key) => { closeDialog(); newOf(key); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
     </div>

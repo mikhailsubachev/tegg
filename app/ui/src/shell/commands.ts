@@ -15,7 +15,7 @@ export type ShellActions = {
   openPalette: () => void;
   /** D-760: the `search` route with the caret in its field and the query selected (⇧⌘F, the sidebar `Search`). */
   openSearch: () => void;
-  newObject: () => void;
+  newObject: (anchor?: HTMLElement | null) => void;
   toggleSidebar: () => void;
   toggleRightPanel: () => void;
   toggleFocus: () => void;
@@ -171,7 +171,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'app.palette', title: 'cmd.palette', section: 'app', shortcut: '⌘K', needsVault: false, run: (c) => a(c)?.openPalette() },
     { id: 'nav.back', title: 'cmd.goBack', section: 'navigate', shortcut: shortcutOf('nav.back'), needsVault: true, run: (c) => a(c)?.back() },
     { id: 'nav.forward', title: 'cmd.goForward', section: 'navigate', shortcut: shortcutOf('nav.forward'), needsVault: true, run: (c) => a(c)?.forward() },
-    { id: 'object.new', title: 'cmd.newObject', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
+    { id: 'object.new', title: 'cmd.newObjectPick', section: 'create', shortcut: shortcutOf('object.new'), needsVault: true, run: (c) => a(c)?.newObject() },
     { id: 'help.shortcuts', title: 'cmd.keyboardShortcuts', section: 'app', shortcut: shortcutOf('help.shortcuts'), needsVault: false, run: (c) => a(c)?.go({ id: 'help/shortcuts' }) },
   ];
   for (const r of ROUTES) {
