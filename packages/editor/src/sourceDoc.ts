@@ -101,7 +101,8 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
 
   const items: Item[] = []
   const used = new Set<number>()
-  pmDoc.forEach((node) => {
+  pmDoc.forEach((shown) => {
+    const node = writable(shown)
     const src = node.attrs.srcIndex as number | null
     const original = src !== null && src < originals.length && !used.has(src) ? originals[src] : null
     if (src !== null && original) used.add(src)
@@ -161,6 +162,42 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     if (!opts.forceVerifyFailure && verify(out, items)) return { text: out, changed: out !== doc.text, changedBlocks }
   }
   throw new VerifyError()
+}
+
+/**
+ * An empty item that opens a nested list right under its parent's text can't be written: a bare `-` there reads as a
+ * setext heading underline and `1.` as more text. Like an empty paragraph, it lives only in the editor until it has
+ * text (D-1428, as D-765 (b) for mindmaps); `node` is returned unchanged when it holds none.
+ */
+function writable(node: PMNode): PMNode {
+  if (!/List$/.test(node.type.name)) return node
+  let found = false
+  // An item with no box whose first child is an empty paragraph; what it holds after that paragraph (a deeper list)
+  // takes its place in the file, so no text is lost (its children read one level up until the item has text).
+  const emptyHead = (j: JSONContent) => j.type === 'listItem' && (j.attrs?.checked ?? null) === null && j.content?.[0]?.type === 'paragraph' && !j.content[0].content?.length
+  const strip = (j: JSONContent): JSONContent => {
+    if (!j.content) return j
+    let content = j.content.map(strip)
+    if (j.type === 'listItem' && !j.attrs?.spread) {
+      const out: JSONContent[] = []
+      for (const c of content) {
+        const prev = out[out.length - 1]
+        if (prev?.type !== 'paragraph' || !/List$/.test(c.type ?? '') || !c.content?.length || !emptyHead(c.content[0])) { out.push(c); continue }
+        const kids = [...c.content]
+        const lifted: JSONContent[] = []
+        while (kids.length && emptyHead(kids[0]) && !lifted.length) { lifted.push(...kids.shift()!.content!.slice(1)); found = true }
+        out.push(...lifted)
+        if (kids.length) out.push({ ...c, content: kids })
+      }
+      content = out
+    }
+    return { ...j, content }
+  }
+  // A lifted list can open with an empty item too, so repeat until nothing changes.
+  let json = node.toJSON()
+  let any = false
+  do { found = false; json = strip(json); any ||= found } while (found)
+  return any ? node.type.schema.nodeFromJSON(json) : node
 }
 
 function hasAtoms(node: PMNode): boolean {
