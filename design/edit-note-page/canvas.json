@@ -400,6 +400,14 @@
       "w": 1760,
       "x": 1840,
       "y": 0
+    },
+    "NewObjectPicker.dc.html": {
+      "h": 1240,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-new-object",
+      "title": "New object · type picker (proposal)"
     }
   },
   "createdOnFiles": {
@@ -457,7 +465,8 @@
     "SidebarPinned.dc.html",
     "SidebarPinnedDark.dc.html",
     "ObjectPreview.dc.html",
-    "ObjectPreviewDark.dc.html"
+    "ObjectPreviewDark.dc.html",
+    "NewObjectPicker.dc.html"
   ],
   "pages": [
     {
@@ -495,6 +504,10 @@
     {
       "id": "page-previews",
       "name": "Object preview (P)"
+    },
+    {
+      "id": "page-new-object",
+      "name": "New object (type picker)"
     }
   ],
   "title": "Tegg – Edit note page"
