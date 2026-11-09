@@ -116,6 +116,8 @@ function initialUi(): UiState {
 export function App() {
   const [vault, setVault] = useState<VaultInfo | null | undefined>(undefined);
   const [types, setTypes] = useState<TypeDefDto[]>([]);
+  const typesRef = useRef(types);
+  typesRef.current = types;
   // 4E-1: the move status texts name types by their folder (R99 B2).
   useEffect(() => { setMoveTypes(types.map((x) => ({ key: x.key, name: x.name, plural: x.plural, folder: x.folder }))); }, [types]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -124,7 +126,7 @@ export function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const returnRange = useRef<Range | null>(null);
   const pendingRange = useRef<Range | null>(null);
-  const [newPicker, setNewPicker] = useState<{ types: TypeDefDto[]; defaultKey: string | null; at: { left: number; top: number } | null } | null>(null);
+  const [newPicker, setNewPicker] = useState<{ types: TypeDefDto[]; defaultKey: string | null | undefined; at: { left: number; top: number } | null } | null>(null);
   const [defineValue, setDefineValue] = useState<string | null>(null); // D-251: New type for an undefined value
   const [ui, setUi] = useState<UiState>(initialUi);
   /** D-520 (ms5-tasks §12.2): the unsaved new object shown on `new/<type>` (`route`: its route string). */
@@ -639,21 +641,27 @@ export function App() {
     // D-1431, D-1432: New object asks for a type first, the vault's default preselected; the choice then opens an
     // unsaved object of that type (D-520); a Daily Note opens today's (D-353), a Task the quick-add row.
     newObject: (anchor?: HTMLElement | null) => {
-      const box = anchor?.getBoundingClientRect();
-      void Promise.all([
-        ipc.vaultTypes().catch(() => [] as TypeDefDto[]),
-        ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null),
-      ]).then(([all, key]) => {
-        if (live.current.dialog) return;
-        returnFocus.current = document.activeElement as HTMLElement | null;
+      const open = live.current.dialog;
+      if (open && open !== 'palette') return; // one picker at a time (AC-12)
+      // From the palette (D-139): the focus to give back is the one the palette would have given back.
+      returnFocus.current = open === 'palette' ? pendingReturn.current : document.activeElement as HTMLElement | null;
+      returnRange.current = open === 'palette' ? pendingRange.current : null;
+      if (open === 'palette') { pendingReturn.current = null; pendingRange.current = null; }
+      else {
         // Focusing the editor again doesn't bring its caret back: keep the text range to restore on close (AC-12).
         const sel = window.getSelection();
         const r = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
         returnRange.current = r && returnFocus.current?.isContentEditable && returnFocus.current.contains(r.startContainer) ? r.cloneRange() : null;
-        pendingFocus.current = false;
-        setNewPicker({ types: all, defaultKey: key, at: box ? { left: box.left, top: box.bottom + 4 } : null });
-        setDialog('newObject');
-      });
+      }
+      pendingFocus.current = false;
+      // Open at once with the loaded types, so keys typed right after ⌘N reach the picker, not the note; the default
+      // type follows (`undefined` until known: ⏎ waits for it).
+      const box = anchor?.getBoundingClientRect();
+      const at = box ? { left: box.left, top: box.bottom + 4 } : null;
+      setNewPicker({ types: typesRef.current, defaultKey: undefined, at });
+      setDialog('newObject');
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
+        .then((key) => setNewPicker((p) => (p ? { ...p, defaultKey: key } : p)));
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },

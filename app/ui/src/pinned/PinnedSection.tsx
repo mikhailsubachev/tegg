@@ -100,7 +100,8 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
   const over = !!drag?.over;
   // D-1429 (v0.120 feedback): with nothing pinned the section shows collapsed, whatever is stored; a click on the
   // header shows the hint until something is pinned (not stored). With pins, the stored collapse applies (AC-15).
-  const isEmpty = n === 0 && pins?.state !== 'unreadable';
+  // While the pins load, the stored collapse applies (no flash); an unreadable file keeps it too (its notice shows).
+  const isEmpty = !!pins && n === 0 && pins.state !== 'unreadable';
   const shut = isEmpty ? !emptyOpen : collapsed;
   const listed = !shut && n > 0;
   const empty = !shut && isEmpty;

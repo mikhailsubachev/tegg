@@ -33,21 +33,29 @@ export function pickerTypes(types: TypeDefDto[], defaultKey: string | null): Typ
 
 export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
   types: TypeDefDto[];
-  defaultKey: string | null;
+  /** `undefined` while it is being read: ⏎ then waits for it. */
+  defaultKey: string | null | undefined;
   /** Under the sidebar button; without it, the palette's place. */
   at?: { left: number; top: number } | null;
   onChoose: (key: string) => void;
   onClose: () => void;
 }) {
-  const all = useMemo(() => pickerTypes(types, defaultKey), [types, defaultKey]);
+  const all = useMemo(() => pickerTypes(types, defaultKey ?? null), [types, defaultKey]);
   const [q, setQ] = useState('');
   const shown = useMemo(() => all.filter((x) => typeMatches(x.name, q)), [all, q]);
   const startAt = () => { const i = shown.findIndex((x) => x.key === defaultKey); return q.trim() || i < 0 ? 0 : i; };
   const [sel, setSel] = useState(startAt);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
-  useEffect(() => setSel(startAt()), [q, all]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setSel(startAt()), [q, all, defaultKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pendingEnter = useRef(false);
 
+  useEffect(() => {
+    if (defaultKey === undefined || !pendingEnter.current) return;
+    pendingEnter.current = false;
+    const d = all.find((x) => x.key === defaultKey) ?? all[0];
+    if (d) onChoose(d.key);
+  }, [defaultKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const n = shown.length;
   const current = n ? shown[Math.min(sel, n - 1)] : undefined;
   const optionId = (key: string) => `new-object-type-${encodeURIComponent(key)}`;
@@ -59,7 +67,8 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      if (current) onChoose(current.key);
+      if (defaultKey === undefined && !q.trim()) pendingEnter.current = true; // ⌘N ⏎ before the default is known
+      else if (current) onChoose(current.key);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -72,7 +81,7 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
   const style: React.CSSProperties | undefined = at ? { position: 'fixed', left: at.left, top: at.top } : undefined;
   return (
     <div className={`overlay ${at ? 'anchored' : ''}`} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
-      <div className="dialog new-object-picker" role="dialog" aria-label={t('newPicker.title')} style={style}
+      <div className="dialog new-object-picker" role="dialog" aria-modal="true" aria-label={t('newPicker.title')} style={style}
         onMouseDown={(e) => e.stopPropagation()} onKeyDown={keys}>
         <div className="nop-field">
           <Icon name="plus" size={14} />

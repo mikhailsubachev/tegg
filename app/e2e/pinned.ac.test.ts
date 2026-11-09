@@ -176,8 +176,10 @@ test('fr_hom_02_ac5_pin_from_more_creates_the_file_once_in_the_real_app', { time
   const c = fresh('ac5', null);
   try {
     let d = await launch(c, `note/${P.rozpocet}`);
-    assert.ok(await textShown(d, 'Drag things here', 5000), 'the empty area');
+    await need(d, 'Pinned', 5000);
+    assert.equal(await textShown(d, 'Drag things here', 1000), false, 'nothing pinned: the section shows collapsed, no area (D-1429)');
     await (await need(d, 'Pinned')).click();
+    assert.ok(await textShown(d, 'Drag things here', 3000), 'a click on the header shows the empty area');
     await (await need(d, 'Pinned')).click();
     d = await relaunch(c, `note/${P.rozpocet}`);
     assert.equal(read(c, YML), null, 'no .tegg/pinned.yml after launching, collapsing and relaunching');
@@ -329,7 +331,8 @@ test('fr_syn_03_ac27_external_and_synced_pins_changes_in_the_real_app', { timeou
     externalReplace(c, YML, fx('valid.yml').replace('  - tag: offsite\n', '').replace('pins:\n', 'pins:\n  - tag: offsite\n  - tag: účty\n'));
     assert.ok(await waitFor(() => rowsInOrder(d, ['#offsite', '#účty', 'Rozpočet 2027']), 2500), 'an atomic replace: the new order within 2 s');
     external('delete', join(c.vault, YML));
-    assert.ok(await textShown(d, 'Drag things here', 2500), 'deleted: the empty area');
+    assert.ok(await waitFor(async () => !(await shown(d, 'Rozpočet 2027', 300)), 2500), 'deleted: the rows are gone within 2 s');
+    assert.equal(await textShown(d, 'Drag things here', 500), false, 'deleted: the section shows empty and collapsed, no area (D-1429)');
     await sleep(800);
     assert.equal(read(c, YML), null, 'nothing is created');
     assert.deepEqual([stamp(c, copyA), stamp(c, copyB)], copies, 'conflict copies: bytes, mtime and inode unchanged');

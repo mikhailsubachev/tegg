@@ -170,7 +170,8 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
  * text (D-1428, as D-765 (b) for mindmaps); `node` is returned unchanged when it holds none.
  */
 function writable(node: PMNode): PMNode {
-  if (!/List$/.test(node.type.name)) return node
+  // Lists at any depth: in a quote or a callout too.
+  if (node.isTextblock || node.isAtom) return node
   let found = false
   // An item with no box whose first child is an empty paragraph; what it holds after that paragraph (a deeper list)
   // takes its place in the file, so no text is lost (its children read one level up until the item has text).
@@ -186,8 +187,11 @@ function writable(node: PMNode): PMNode {
         const kids = [...c.content]
         const lifted: JSONContent[] = []
         while (kids.length && emptyHead(kids[0]) && !lifted.length) { lifted.push(...kids.shift()!.content!.slice(1)); found = true }
+        // A lifted list of the same kind as the rest continues it: `c` and `d` stay one list.
+        const last = lifted[lifted.length - 1]
+        if (kids.length && last?.type === c.type) lifted[lifted.length - 1] = { ...last, content: [...(last.content ?? []), ...kids] }
+        else if (kids.length) lifted.push({ ...c, content: kids })
         out.push(...lifted)
-        if (kids.length) out.push({ ...c, content: kids })
       }
       content = out
     }

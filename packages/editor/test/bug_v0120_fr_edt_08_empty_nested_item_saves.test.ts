@@ -51,3 +51,36 @@ test('bug_v0120_fr_edt_08_empty_nested_item_between_text_saves', async () => {
   const out = await saveOf(ed)
   assert.equal(await body(out || text), await body(text), 'the empty nested item is not written')
 })
+
+// QA review: an empty item that holds deeper items (and has siblings after it) lifts them one level up, and no text
+// is lost. Built as editor content, since no key sequence reaches every shape.
+const P = (t?: string) => ({ type: 'paragraph', ...(t ? { content: [{ type: 'text', text: t }] } : {}) })
+const LI = (...c: any[]) => ({ type: 'listItem', attrs: { spread: false, checked: null }, content: c })
+const UL = (...c: any[]) => ({ type: 'bulletList', attrs: { spread: false }, content: c })
+const OL = (...c: any[]) => ({ type: 'orderedList', attrs: { spread: false, start: 1 }, content: c })
+for (const [name, list, written] of [
+  ['lifted_items_join_the_next_sibling', UL(LI(P('a'), UL(LI(P(), UL(LI(P('c')))), LI(P('d'))))), '- a\n  - c\n  - d\n'],
+  ['an_empty_sibling_after_the_lift_is_kept', UL(LI(P('a'), UL(LI(P(), UL(LI(P('c')))), LI(P()), LI(P('d'))))), '- a\n  - c\n  -\n  - d\n'],
+  ['a_lifted_list_of_another_kind_stays_its_own', UL(LI(P('a'), UL(LI(P(), OL(LI(P('c')))), LI(P('d'))))), '- a\n  1. c\n  - d\n'],
+] as const) {
+  test(`bug_v0120_fr_edt_08_empty_nested_item_with_children_${name}`, async () => {
+    const text = NOTE('- a\n')
+    const ed: any = await open(text)
+    const doc = ed.editor.getJSON()
+    doc.content[1] = { ...list, attrs: { ...list.attrs, srcIndex: 1 } }
+    ed.editor.commands.setContent(doc)
+    const out = await saveOf(ed)
+    assert.equal(await body(out), `Úvod\n\n${written}`, 'written with every text kept')
+  })
+}
+
+test('bug_v0120_fr_edt_08_empty_nested_item_in_a_quote_saves', async () => {
+  const text = NOTE('> - a\n')
+  const ed: any = await open(text)
+  const doc = ed.editor.getJSON()
+  const quote = doc.content[1]
+  quote.content[0] = UL(LI(P('a'), UL(LI(P()))))
+  ed.editor.commands.setContent(doc)
+  const out = await saveOf(ed)
+  assert.equal(await body(out || text), await body(text), 'the empty nested item inside the quote is not written')
+})
