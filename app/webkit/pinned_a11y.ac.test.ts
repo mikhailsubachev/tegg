@@ -165,6 +165,7 @@ test('fr_ux_05_ac19_pins_in_both_themes', async ({ page }) => {
     await ctx.close();
   }
   await openPinned(page, { route: 'inbox', theme: 'dark' });
+  await click(header(page), 'open the empty section (D-1429)');
   await must(emptyArea(page), 'empty area');
   assert.deepEqual(await axeContrast(page), [], 'dark: the empty area passes color-contrast');
 });

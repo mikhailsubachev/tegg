@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.153, for review                                            |
+| **Document status** | Draft v1.154, for review                                            |
 | **Date**            | 2026-11-01                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -167,6 +167,7 @@
 | v1.151  | 2026-11-07 | Slice PIN (Pinned items in the sidebar, FR-HOM-02, FR-NAV-04; boards `SidebarPinned`, `SidebarPinnedDark`): D-1370…D-1392 (AP-1227…AP-1248, as proposed): `.tegg/pinned.yml`, pins by `id` + `path`, renames patch pins, no automatic removal, Pinned above Types (amends D-761, D-125, D-563), saved-query pins reserved, built now as a v1.0 slice |
 | v1.152  | 2026-11-07 | Slice PIN red-test decisions D-1393…D-1404 (AP-1250…AP-1261, as proposed): duplicates, the last unpin, Rust stubs, the perf test nightly, the merge job patches pins, row shape |
 | v1.153  | 2026-11-07 | Slice PIN build and test points D-1405…D-1427 (AP-1262…AP-1284): red-test defects fixed with AC-Test-Change, type names are user content in the pseudo-locale, renames don't add ids, the core's contract choices accepted |
+| v1.154  | 2026-11-09 | Preview v0.120 feedback D-1428…D-1432 (AP-1285…AP-1289, `docs/feedback/ms6-v0120.md`): an empty nested item lives only in the editor, sentence-case sidebar headers, the empty Pinned section collapsed, ⌘N asks for a type (board `NewObjectPicker`), the default type preselected |
 
 ---
 
@@ -1421,6 +1422,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1425 | Slice PIN test point (AP-1282): the chip lookup in FR-HOM-02 AC-13 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test finds the `[[Plán (2)]]` chip by its title `Plán`, taking the match furthest right (the editor, not a sidebar row) |
 | D-1426 | Slice PIN test point (AP-1283): the vault key in FR-HOM-02 AC-15 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test reads `vaults[…]` under the vault's real path (`realpathSync`, NFC), as the core opens it |
 | D-1427 | Slice PIN test point (AP-1284): pinning in FR-SYN-06 AC-43 (L6) (owner, 2026-11-07: "Approve"; slice PIN real-app run, build 2e750ef) | The test pins through the Types entry's `<Type> actions` menu; the palette helper's paste + ↩ is issue #115's |
+| D-1428 | An empty nested item that can't be written (AP-1285, owner, 2026-11-09: "Accept all"; preview v0.120 feedback, `docs/feedback/ms6-v0120.md` F5) | An empty item that opens a nested list right under its parent's text (a bare `-` there reads as a setext underline, `1.` as more text) lives only in the editor until it has text, like an empty paragraph and as D-765 (b) for mindmaps; the rest of the change is saved at once. Deeper items it holds are written in its place, one level up, until it has text: no text is lost. Other empty items are written as before (bare marker). FR-EDT-08, FR-FMT-07; regression tests `bug_v0120_fr_edt_08_empty_nested_*`. |
+| D-1429 | The Pinned section while nothing is pinned (AP-1287, owner, 2026-11-09: "Accept all"; preview v0.120 feedback, `docs/feedback/ms6-v0120.md` F4; changes FR-HOM-02 AC-14, board `SidebarPinned` F) | With nothing pinned (no file, `pins: []`, or only `query:` / skipped items) the section shows collapsed: header `Pinned`, chevron right, `aria-expanded="false"`, no area, whatever collapse is stored. A click or ⏎/Space on the header opens it with the hint `Drag things here, or use ⋯ › Pin to sidebar.` until something is pinned; that open state isn't stored. Dropping on the header still pins at position 1. With pins, the stored collapse applies (AC-15, default expanded), so the first pin shows its row. The pins alert shows even while the section is empty. |
+| D-1430 | Sidebar section headers in sentence case (AP-1286, owner, 2026-11-09: "Accept all"; preview v0.120 feedback, `docs/feedback/ms6-v0120.md` F3; boards) | The sidebar headers read `Pinned` and `Types` as written: 12 px, weight 600, `--muted`, no letter spacing (was 11 px uppercase). Every board's sidebar is updated. Menu group headers and the graph panel's filter groups stay uppercase. FR-NAV-04. |
+| D-1431 | ⌘N asks for a type (AP-1288, owner, 2026-11-09: "Accept all"; preview v0.120 feedback, `docs/feedback/ms6-v0120.md` F1; board `NewObjectPicker` A–E; supersedes D-520's "no type asked" for ⌘N, D-131) | ⌘N, the sidebar's `New object` button and a palette command `New object…` open one picker: a filter field (`Choose a type…`) over the D-550 type list (Page, Task, Quick Note, then user types A–Z; no Daily Note, Tag, Image, PDF). Typing filters by the start of any word of the name, case- and accent-insensitive; the first match is selected. ↑/↓ move, ⏎ or a click creates, Esc closes and returns the focus. Then as D-520 and D-367: the unsaved new object of that type opens with its `Title` field in edit mode. ⌘N and the palette show it at the palette's place; the button shows it under itself. A type page's `New <Name>` and the palette's `New <Name>` still create at once. FR-VLT-05. |
+| D-1432 | The preselected type in the ⌘N picker (AP-1289, owner, 2026-11-09: "Accept all"; preview v0.120 feedback, `docs/feedback/ms6-v0120.md` F1) | The vault's default type (FR-VLT-05, D-541, D-353), marked `Default`, is selected when the picker opens, so ⌘N ⏎ stays one step. |
 
 ---
 

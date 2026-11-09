@@ -125,7 +125,8 @@ test('fr_hom_02_ac4_duplicate_titles_resolve_by_id', async ({ page }) => {
 test('fr_hom_02_ac5_pin_from_more_creates_the_file_once', async ({ page }) => {
   const core = await openPinned(page, { route: `note/${P.rozpocet}` });
   assert.equal(await pinsText(core), null, 'no pins file before the first pin');
-  assert.ok(await seen(emptyArea(page)), 'the empty area');
+  assert.equal(await header(page).getAttribute('aria-expanded'), 'false', 'nothing pinned: the section shows collapsed (D-1429)');
+  assert.equal(await seen(emptyArea(page), 300), false, 'and no empty area');
   await click(moreBtn(page), 'More');
   await must(moreMenu(page), 'menu More');
   assert.equal(flat(await moreMenu(page).getByRole('menuitem').first().innerText()), PIN, '`Pin to sidebar` first');
@@ -137,7 +138,8 @@ test('fr_hom_02_ac5_pin_from_more_creates_the_file_once', async ({ page }) => {
   assert.equal(await eventually(() => pinsText(core), (t) => t !== null), pinsFx('expected/created.yml'), 'created byte-identical to expected/created.yml');
   const calls = await core.pinCalls();
   assert.deepEqual(calls.map((c) => [c.op, c.base]), [[{ op: 'pin', target: { kind: 'object', path: nfc(P.rozpocet) }, at: null }, null]], 'one pins_apply, base none (exclusive create)');
-  assert.deepEqual(await rowsAre(page, ['Rozpočet 2027']), ['Rozpočet 2027'], 'the row replaces the empty area');
+  assert.deepEqual(await rowsAre(page, ['Rozpočet 2027']), ['Rozpočet 2027'], 'the first pin shows its row (D-1429)');
+  assert.equal(await header(page).getAttribute('aria-expanded'), 'true', 'the section is expanded');
   assert.equal(await seen(emptyArea(page), 300), false, 'no empty area');
   assert.ok(await liveSays(page, 'Pinned Rozpočet 2027'), 'VoiceOver hears `Pinned Rozpočet 2027`');
   await click(moreBtn(page), 'More');
@@ -399,7 +401,7 @@ test('fr_hom_02_ac11_reorder_by_keyboard', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-14
 
-test('fr_hom_02_ac14_empty_area_until_something_is_pinned', async ({ page }) => {
+test('fr_hom_02_ac14_collapsed_until_something_is_pinned', async ({ page }) => {
   for (const pins of [null, 'expected/valid-after-unpin-all.yml', { text: `${pinsFx('expected/created.yml').split('  - id:')[0]}  - query: Jen dotaz\n  - x-route: inbox\n` }] as const) {
     const ctx = await page.context().browser()!.newContext({ timezoneId: 'Europe/Prague' });
     const p = await ctx.newPage();
@@ -407,20 +409,32 @@ test('fr_hom_02_ac14_empty_area_until_something_is_pinned', async ({ page }) => 
     const h = header(p);
     assert.match(flat(await h.innerText()), /^pinned$/i, `${JSON.stringify(pins)}: header without a count`);
     assert.equal(await description(h), '', 'no description at 0');
+    assert.equal(await h.getAttribute('aria-expanded'), 'false', `${JSON.stringify(pins)}: collapsed while nothing is pinned (D-1429)`);
+    assert.equal(await seen(emptyArea(p), 300), false, 'no area while collapsed');
+    await click(h, 'open the empty section');
+    assert.equal(await h.getAttribute('aria-expanded'), 'true', 'a click opens it');
     const area = await must(emptyArea(p), 'the dashed empty area');
     assert.equal(flat(await area.innerText()), EMPTY_TEXT, 'its text');
     assert.deepEqual(await area.evaluate((e) => [e.getAttribute('role'), e.tabIndex, getComputedStyle(e).borderTopStyle]), [null, -1, 'dashed'], 'no role, not focusable, dashed');
+    await h.focus();
+    await p.keyboard.press('Space');
+    assert.equal(await h.getAttribute('aria-expanded'), 'false', 'Space closes it again');
+    assert.equal(await seen(emptyArea(p), 300), false, 'and hides the area');
     await ctx.close();
   }
   const core = await openPinned(page, { route: 'inbox' });
   await page.keyboard.press('Meta+Shift+f');
   await page.getByRole('searchbox', { name: 'Search query' }).fill('Čajovna');
-  await drag(page, searchRow(page, 'Čajovna'), emptyArea(page), { what: 'Search result Čajovna' });
-  assert.deepEqual(await rowsAre(page, ['Čajovna']), ['Čajovna'], 'dropping on the area pins at position 1');
-  assert.equal(await seen(emptyArea(page), 300), false, 'the row replaces the area');
+  const writes = await core.writes();
+  await drag(page, searchRow(page, 'Čajovna'), header(page), { what: 'Search result Čajovna' });
+  assert.deepEqual(await rowsAre(page, ['Čajovna']), ['Čajovna'], 'dropping on the collapsed header pins at position 1');
+  assert.equal(await header(page).getAttribute('aria-expanded'), 'true', 'the first pin shows its row');
+  assert.equal(await seen(emptyArea(page), 300), false, 'no area');
+  assert.ok((await core.writes()) > writes, 'the drop wrote the pins file');
   await (await must(rowAt(page, 0), 'row')).hover();
   await click(unpinBtn(page, 'Čajovna'), 'Unpin Čajovna');
-  assert.ok(await seen(emptyArea(page)), 'unpinning the last row brings the area back');
+  assert.equal(await eventually(() => header(page).getAttribute('aria-expanded'), (v) => v === 'false'), 'false', 'unpinning the last row collapses the section');
+  assert.equal(await seen(emptyArea(page), 300), false, 'with no area');
   assert.match(String(await pinsText(core)), /^pins: \[\]$/m, 'pins: []');
 });
 
