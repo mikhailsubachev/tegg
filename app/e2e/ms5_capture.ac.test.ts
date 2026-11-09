@@ -610,6 +610,8 @@ test('fr_vlt_05_ac2_cmd_n_and_the_hotkey_follow_default_napad', { timeout: 300_0
   try {
     const d = await launch(c);
     press('n', ['command']);
+    assert.ok(await shown(d, 'Choose a type'), 'the New object type picker (D-1431)');
+    press('enter'); // D-1431, D-1432: Nápad is preselected
     assert.ok(await waitMark(c.log, 'route-ready:new/nápad', 3000), '⌘N opens new/nápad');
     paste('Nápad z klávesnice');
     press('enter');

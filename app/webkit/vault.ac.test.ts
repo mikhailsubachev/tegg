@@ -11,6 +11,7 @@ import {
   searchQueryField,
 } from './helpers';
 import { goToQuery } from './helpers'; // D-760: the Search page's Go to list replaces ⌘O
+import { pickNewObjectType, pressNewObject } from './helpers'; // D-1431: ⌘N / New object open the type picker first
 
 const chooser = (page: Page) => page.getByRole('main', { name: 'Choose a vault' });
 const form = (page: Page) => page.getByRole('form', { name: 'New vault' });
@@ -168,6 +169,7 @@ test('fr_ux_07_ac7_indexing_progress_without_modal', async ({ page }) => {
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await mustBeOn(page, 'Inbox', 'sidebar works while indexing');
   await sidebar(page).getByRole('button', { name: 'New object' }).click();
+  await pickNewObjectType(page, 'New object while indexing'); // D-1431: the type picker, ⏎ takes the default
   assert.ok(await isDraft(page), 'New object works while indexing (D-520: it opens an unsaved draft)');
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await core.emit('index:progress', { done: 500, total: 500, state: 'done' });
@@ -182,6 +184,7 @@ test('fr_ux_07_ac7_indexing_progress_without_modal', async ({ page }) => {
 const mask = (s: string) => s.replace(/^(id|created|modified):.*$/gm, '$1: *');
 
 // FR-NAV-01 AC-13 (changed by D-520…D-523): ⌘N and the sidebar's `New object` open the unsaved draft `new/quick-note`.
+// D-1431: they open the type picker first, with the default selected; ⏎ in it does this AC (capture.md FR-VLT-05 AC-10).
 const QN_NEW = 'Quick Notes/Nový nápad.md';
 /** Writes are checked twice: no `note_create`/`note_write` reached the fake vault, and no non-read command was sent. */
 async function noWrites(core: Awaited<ReturnType<typeof start>>, how: string) {
@@ -197,6 +200,7 @@ test('fr_nav_01_ac13_cmd_n_and_sidebar_open_an_unsaved_draft_and_leaving_it_writ
   for (const open of ['shortcut', 'button'] as const) {
     if (open === 'shortcut') await page.keyboard.press('Meta+n');
     else await sidebar(page).getByRole('button', { name: 'New object' }).click();
+    await pickNewObjectType(page, open);
     await mustBeDraft(page, `${open}`);
     assert.ok(await absent(newObjectDialog(page), 300), `${open}: no New object dialog`);
     await sleep(500);
@@ -211,7 +215,7 @@ test('fr_nav_01_ac13_cmd_n_and_sidebar_open_an_unsaved_draft_and_leaving_it_writ
 
 test('fr_nav_01_ac13_d_typing_a_title_deleting_it_and_leaving_writes_nothing', async ({ page }) => {
   const core = await start(page);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, '⌘N');
   await page.keyboard.type('Smazaný nápad');
   await sleep(300);
@@ -226,7 +230,7 @@ test('fr_nav_01_ac13_d_typing_a_title_deleting_it_and_leaving_writes_nothing', a
 test('fr_nav_01_ac13_a_nfd_title_writes_nothing_until_enter_then_one_nfc_file_like_the_switcher', async ({ page, browser }) => {
   const core = await start(page);
   const before = await core.files();
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, '⌘N');
   await page.evaluate(() => { (window as any).__teggSamePage = 'kept'; });
   await page.keyboard.insertText('Nový nápad'.normalize('NFD'));
@@ -257,7 +261,7 @@ test('fr_nav_01_ac13_a_nfd_title_writes_nothing_until_enter_then_one_nfc_file_li
 
 test('fr_nav_01_ac13_b_a_title_in_use_gets_a_suffix_and_leaves_ctvrtek_untouched', async ({ page }) => {
   const core = await start(page);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, '⌘N');
   await page.keyboard.type('Nápad na čtvrtek');
   await page.keyboard.press('Enter');

@@ -528,6 +528,8 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
     const tree0 = tree(vaultA);
     const files0 = Object.keys(tree0);
     press('n', ['command']);
+    assert.ok(await shown(d, 'Choose a type'), 'the New object type picker (D-1431)');
+    press('enter'); // D-1431, D-1432: ⏎ in the picker takes the default type
     assert.ok(await shown(d, 'Title'), 'the draft\'s Title field');
     await sleep(500);
     paste('Nový nápad'.normalize('NFD'));
@@ -538,6 +540,8 @@ test('fr_nav_01_ac13_new_object_on_the_real_core', { timeout: 240_000 }, async (
     while (Date.now() < end1 && !existsSync(join(vaultA, 'Quick Notes/Nový nápad.md'))) await sleep(100);
     assert.ok(existsSync(join(vaultA, 'Quick Notes/Nový nápad.md')), '(a) ↩ writes the note');
     press('n', ['command']);
+    assert.ok(await shown(d, 'Choose a type'), 'the New object type picker (D-1431)');
+    press('enter'); // D-1431, D-1432: ⏎ in the picker takes the default type
     assert.ok(await shown(d, 'Title'), 'the second draft\'s Title field');
     await sleep(500);
     paste('Nápad na čtvrtek');
@@ -585,6 +589,8 @@ test('fr_typ_09_ac17_d_cmd_q_writes_an_uncommitted_draft_title_once', { timeout:
     assert.ok(await waitMark(log, 'ui-ready'), 'ui-ready');
     const files0 = Object.keys(tree(vault));
     press('n', ['command']);
+    assert.ok(await shown(d, 'Choose a type'), 'the New object type picker (D-1431)');
+    press('enter'); // D-1431, D-1432: ⏎ in the picker takes the default type
     assert.ok(await shown(d, 'Title'), 'the draft\'s Title field');
     await sleep(500);
     paste('Rozepsaný nápad');

@@ -23,6 +23,7 @@ import {
 import { callsOf, click, description, fileText, fileWhen, flat, focusName, inboxEntry, inboxVault, main, nfc, startMain, vaultWrites } from './capture-helpers';
 import { editorBody, titleField, saveState } from './editor-helpers';
 import { cmdD } from './daily-helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import { axeContrast, colourLeaks } from './read-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -205,7 +206,7 @@ test('fr_set_02_ac6_present_on_note_routes_and_absent_elsewhere', async ({ page 
   await needGroup(page, 'Bez hlavičky');
   await cmdD(page, TODAY);
   await needGroup(page, `daily/${TODAY} (virtual)`);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'new/quick-note');
   await needGroup(page, 'new/quick-note');
   const failures: string[] = [];
@@ -302,7 +303,7 @@ test('fr_set_02_ac7_a_choice_made_in_the_read_view_shows_in_the_editor_and_the_s
 
 test('fr_set_02_ac8_a_draft_stores_nothing_until_it_is_created', async ({ page }) => {
   const core = await startShell(page);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'new/quick-note');
   await needGroup(page, 'draft');
   await mustBeWidth(page, 'normal', 'the draft opens with the vault default');
@@ -327,7 +328,7 @@ test('fr_set_02_ac8_a_draft_stores_nothing_until_it_is_created', async ({ page }
 
 test('fr_set_02_ac8_an_abandoned_wide_draft_stores_nothing', async ({ page }) => {
   const core = await startShell(page);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'new/quick-note');
   await needGroup(page, 'draft');
   await choose(page, 'Wide');
@@ -339,7 +340,7 @@ test('fr_set_02_ac8_an_abandoned_wide_draft_stores_nothing', async ({ page }) =>
   assert.equal((await uiSets(core)).length, n0, 'leaving the draft stores nothing');
   assert.deepEqual(await noteWidthOf(core) ?? {}, {}, 'no entry');
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'the next new/quick-note');
   await mustBeWidth(page, 'normal', 'the next draft opens with the vault default');
 });
@@ -645,7 +646,7 @@ test('fr_set_01_ac13_the_vault_default_applies_to_notes_without_a_choice_live', 
   await mustBeWidth(page, 'wide', 'Bez hlavičky (no entry) follows the default wide');
   await openNote(page, PORADA);
   await mustBeWidth(page, 'normal', 'Porada with the entry "normal" opens Normal');
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'new/quick-note');
   await mustBeWidth(page, 'wide', 'the draft opens Wide');
   await cmdD(page, TODAY);
@@ -773,7 +774,7 @@ test('fr_syn_06_ac35_zero_vault_writes_from_switching_and_one_file_from_the_sett
     ['Porada', () => openNote(page, PORADA)],
     ['Bez hlavičky', () => openNote(page, BEZ)],
     [`daily/${TODAY}`, () => cmdD(page, TODAY)],
-    ['new/quick-note', async () => { await page.keyboard.press('Meta+n'); await mustBeDraft(page, 'draft'); }],
+    ['new/quick-note', async () => { await pressNewObject(page, '⌘N'); await mustBeDraft(page, 'draft'); }], // D-1431
   ];
   const n0 = (await uiSets(core)).length;
   let expectSets = n0;
@@ -846,7 +847,7 @@ test('fr_ux_03_ac17_palette_lists_and_runs_the_width_commands_on_note_routes', a
   await mustBeWidth(page, 'normal', 'Page width: Normal from the palette');
   await cmdD(page, TODAY);
   await listed(`daily/${TODAY}`);
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker takes the default
   await mustBeDraft(page, 'new/quick-note');
   await listed('new/quick-note');
   assert.deepEqual(await vaultWrites(core), [], 'nothing written');

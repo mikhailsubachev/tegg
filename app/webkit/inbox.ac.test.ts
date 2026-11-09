@@ -13,6 +13,7 @@ import {
   sidebarCount, sleep, startInbox, startMain, swap, vaultWrites, zero,
 } from './capture-helpers';
 import { goToQuery, pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import { ui as captureUi } from './capture-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { axeContrast } from './read-helpers';
@@ -272,7 +273,7 @@ test('fr_inb_03_ac1_the_review_row_matches_the_card', async ({ page }) => {
 test('fr_inb_03_ac2_every_quick_note_path_writes_unreviewed', async ({ page }) => {
   const core = await startMain(page);
   // ⌘N draft's first write.
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N', undefined, 5000); // D-1431: ⏎ in the type picker takes the default
   await must(page.getByRole('textbox', { name: 'Title', exact: true }), 'draft title', 5000);
   await page.keyboard.insertText('Z kláves');
   await page.keyboard.press('Enter');

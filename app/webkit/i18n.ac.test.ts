@@ -8,6 +8,7 @@ import {
   switcherDialog, settled,
   searchQueryField,
 } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker first
 
 /** Visible text outside ⟦ ⟧ that isn't user content, whitespace, digits, punctuation or symbols. */
 async function unmarked(page: Page): Promise<string[]> {
@@ -66,7 +67,7 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
       continue;
     }
     if (row.id === 'new/<type>') { // D-520: New object (⌘N) opens an unsaved draft instead of a dialog
-      await page.keyboard.press('Meta+n');
+      await pressNewObject(page, 'new/<type>'); // D-1431: ⏎ in the type picker (⟦New object⟧) takes the default
       if (await seen(page.getByRole('textbox', { name: /^⟦?Title⟧?$/ }), 1500)) { await sleep(300); await check('New object draft'); } else failures.push('new/<type>: no draft');
       continue;
     }

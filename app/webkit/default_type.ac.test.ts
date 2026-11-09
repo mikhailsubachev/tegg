@@ -12,7 +12,7 @@ import {
   callsOf, click, eventually, fileText, flat, inboxVault, main, must, runCommand, seen, sleep, startCapture, startMain, swap, typeBtn,
   vaultWrites, type FakeCoreHandle,
 } from './capture-helpers';
-import { mustBeDraft, searchQueryField, settledFirstResult } from './helpers';
+import { mustBeDraft, pressNewObject, searchQueryField, settledFirstResult } from './helpers';
 import { editorBody, linkSuggestions } from './editor-helpers';
 import { createOffer } from './links-helpers';
 
@@ -29,7 +29,7 @@ function vault(defaultType?: string, edit?: (f: Record<string, string>) => void)
 }
 const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}`) });
 async function newDraft(page: Page) {
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N', undefined, 5000); // D-1431, D-1432: ⏎ in the type picker takes the default
   await mustBeDraft(page, '⌘N', 5000);
 }
 async function creates(core: FakeCoreHandle) {

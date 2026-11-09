@@ -16,6 +16,7 @@ import {
   type FakeCoreHandle,
 } from './trash-media-helpers';
 import { goToQuery, gotoType, openNote, pseudoLocale, searchResultsList } from './helpers';
+import { pressNewObject } from './helpers'; // D-1431: ⌘N opens the type picker; ⏎ in it takes the default
 import { axeContrast } from './read-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -163,7 +164,7 @@ test('fr_his_01_ac3_nothing_to_delete_on_virtual_or_unsaved_objects', async ({ p
   assert.equal(await isDisabled(opt), true, 'aria-disabled on a virtual Daily Note');
   assert.match(await description(opt), /Nothing to delete yet\./, 'reason Nothing to delete yet.');
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+n');
+  await pressNewObject(page, '⌘N'); // D-1431: ⏎ in the type picker opens the default type's draft
   await sleep(300);
   await page.keyboard.press('Meta+k');
   await page.getByRole('combobox', { name: 'Command query' }).fill('Move to trash');
