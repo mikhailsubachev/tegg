@@ -27,7 +27,7 @@ pub use text::fold;
 use text::{contains_item, contains_item_exact, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 5; // 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
+const SCHEMA_VERSION: i64 = 6; // 6: the `saved:` names of query fences (slice Q, v1-queries §1.3); 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
 // 4: link positions and block texts (4A, ms4-links §2.3)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
@@ -63,6 +63,25 @@ pub struct ObjectInfo {
     /// MS4 4B (ms4-daily §2, D-334, AP-264): a Daily Note's stored `title:` text when it differs from its `date`
     /// (the displayed title is the date). STUB: always `None` until 4B is built.
     pub stored_title: Option<String>,
+}
+
+/// Slice Q (v1-queries §1.6): one indexed object as the query evaluator reads it (`Index::with_query_objects`).
+#[derive(Debug, Clone)]
+pub struct QueryObject<'a> {
+    pub path: &'a str,
+    pub id: Option<&'a str>,
+    /// The matched type key (D-239).
+    pub r#type: &'a str,
+    pub title: &'a str,
+    /// Tag keys (frontmatter and inline).
+    pub tags: &'a [String],
+    /// The frontmatter as JSON.
+    pub attributes: &'a Value,
+    /// A Daily Note's date.
+    pub daily: Option<NaiveDate>,
+    /// Each link that resolves to a note (D-291, from the note's own path): the frontmatter key it is in (None: the
+    /// body) and the target's path. Self-links included.
+    pub links: Vec<(Option<&'a str>, &'a str)>,
 }
 
 /// Slice PIN (v1-pinned §1.3): `Index::pin_lookup`'s answer.
@@ -315,6 +334,9 @@ struct Stored {
     /// False when the bytes aren't UTF-8 (the editor opens it read-only, NFR-REL-03).
     #[serde(default = "yes")]
     utf8: bool,
+    /// Slice Q (v1-queries §1.3, D-1465): the `saved:` names of the note's query fences (NFC, file order, repeats kept).
+    #[serde(default)]
+    queries: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -674,6 +696,7 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         frontmatter_error: ex.frontmatter_error.is_some(),
         hash: Some(version.hash),
         utf8: std::str::from_utf8(bytes).is_ok(),
+        queries: tegg_format::query_fences(&raw).into_iter().filter_map(|f| f.saved).collect(),
     };
     Some(Prepared { path: path.to_string(), mtime_ns: version.mtime_ns as i64, size: version.size as i64, stored, raw, fts })
 }
@@ -1589,6 +1612,59 @@ impl Index {
     /// ms4-daily §2: a Daily Note's valid date, if the note is one.
     pub fn daily_date_of(&self, path: &str) -> Option<NaiveDate> {
         self.meta(path).and_then(|m| m.daily)
+    }
+
+    /// Slice Q (v1-queries §1.3, FR-QRY-06 AC-16): indexed note paths with a query fence whose `saved:` name has the
+    /// name key `name_key` (trimmed, NFC, lower case; D-1434), in path order.
+    pub fn query_usages(&self, name_key: &str) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .metas
+            .values()
+            .filter(|m| m.s.queries.iter().any(|q| nfc(q.trim_matches(char::is_whitespace)).to_lowercase() == name_key))
+            .map(|m| m.path.clone())
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// Slice Q (v1-queries §1.6, D-1448): every indexed object as the query evaluator reads it, borrowed for one call of
+    /// `f` (one index lock for a whole evaluation), with a resolver of link targets from the vault root (FR-LNK-14).
+    pub fn with_query_objects<R>(&self, f: impl FnOnce(&[QueryObject<'_>], &dyn Fn(&str) -> Option<String>) -> R) -> R {
+        self.with_links(|l| {
+            let objs: Vec<QueryObject<'_>> = self
+                .metas
+                .values()
+                .map(|m| {
+                    let res = l.resolved.get(&m.path);
+                    let links = m
+                        .s
+                        .links
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, _)| match res.and_then(|r| r.get(i)) {
+                            Some(Resolved::Note(p) | Resolved::Daily(p)) => Some((m.s.link_attrs.get(i).and_then(|a| a.as_deref()), p.as_str())),
+                            _ => None,
+                        })
+                        .collect();
+                    QueryObject {
+                        path: &m.path,
+                        id: m.s.id.as_deref(),
+                        r#type: &m.s.r#type,
+                        title: &m.s.title,
+                        tags: &m.s.tags,
+                        attributes: &m.s.attributes,
+                        daily: m.daily,
+                        links,
+                    }
+                })
+                .collect();
+            f(&objs, &|t: &str| resolve(l, t))
+        })
+    }
+
+    /// Slice Q (v1-queries §1.7): the matched type key of every indexed object, by path (`query:stale`'s "before").
+    pub fn types_by_path(&self) -> Vec<(String, String)> {
+        self.metas.values().map(|m| (m.path.clone(), m.s.r#type.clone())).collect()
     }
 
     /// FR-FMT-09 AC-2: daily notes are recognized by their `date` attribute, whatever the file name.

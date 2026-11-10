@@ -40,6 +40,8 @@ pub enum PinTarget {
     Tag { key: String },
     /// NFC, as the `type/<type>` route.
     Type { key: String },
+    /// v1-queries §1.9 (slice Q, D-1484): a saved query by name (NFC, trimmed); resolved by its name key (D-1434).
+    Query { name: String },
 }
 
 /// One listed pin (R131's read rules passed, not a `query:` item), in file order.
@@ -120,7 +122,7 @@ pub enum PinRequest {
     Object { path: String },
     Tag { key: String },
     Type { key: String },
-    /// v1-queries §1.9 (slice Q): a saved query by name (compile-only stub until the build).
+    /// v1-queries §1.9 (slice Q): a saved query by name; pinnable while a live query has that name.
     Query { name: String },
 }
 
@@ -167,9 +169,12 @@ fn path_ok(p: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Kind {
     Pin(PinTarget),
-    /// Reserved for saved queries (AP-1233): kept, not listed.
-    Query,
     Skip,
+}
+
+/// D-1434: query names compare trimmed, NFC, case-insensitively.
+fn query_key(s: &str) -> String {
+    nfc(trim_ws(s)).to_lowercase()
 }
 
 fn has(y: &Yaml, k: &str) -> bool {
@@ -185,7 +190,11 @@ fn kind_of(y: &Yaml) -> Kind {
         return Kind::Skip;
     }
     if has(y, "query") {
-        return Kind::Query;
+        // v1-queries §1.9: a non-blank string is a listed pin now (R131's read rules otherwise unchanged).
+        return match y["query"].as_str().map(|s| nfc(trim_ws(s))) {
+            Some(name) if !name.is_empty() => Kind::Pin(PinTarget::Query { name }),
+            _ => Kind::Skip,
+        };
     }
     if has(y, "tag") {
         return match y["tag"].as_str().map(tag_key) {
@@ -221,6 +230,7 @@ fn kind_of(y: &Yaml) -> Kind {
 fn same_target(a: &PinTarget, b: &PinTarget) -> bool {
     match (a, b) {
         (PinTarget::Tag { key: x }, PinTarget::Tag { key: y }) | (PinTarget::Type { key: x }, PinTarget::Type { key: y }) => x == y,
+        (PinTarget::Query { name: x }, PinTarget::Query { name: y }) => nfc(x) == nfc(y),
         (PinTarget::Object { id: ia, path: pa }, PinTarget::Object { id: ib, path: pb }) => {
             if let (Some(x), Some(y)) = (ia, ib) {
                 if x == y {
@@ -267,6 +277,9 @@ fn stored(t: &PinTarget) -> Yaml {
         }
         PinTarget::Type { key } => {
             h.insert(ystr("type"), ystr(key));
+        }
+        PinTarget::Query { name } => {
+            h.insert(ystr("query"), ystr(&nfc(name)));
         }
     }
     Yaml::Hash(h)
@@ -480,6 +493,7 @@ fn item_lines(t: &PinTarget, dash: usize, keys: usize) -> Vec<String> {
     match t {
         PinTarget::Tag { key } => vec![format!("{d}-{gap}tag: {}", scalar(&nfc(key)))],
         PinTarget::Type { key } => vec![format!("{d}-{gap}type: {}", scalar(&nfc(key)))],
+        PinTarget::Query { name } => vec![format!("{d}-{gap}query: {}", scalar(&nfc(name)))],
         PinTarget::Object { id: Some(i), path: Some(p) } => vec![format!("{d}-{gap}id: {}", scalar(i)), format!("{k}path: {}", scalar(&nfc(p)))],
         PinTarget::Object { id: Some(i), path: None } => vec![format!("{d}-{gap}id: {}", scalar(i))],
         PinTarget::Object { id: None, path } => vec![format!("{d}-{gap}path: {}", scalar(&nfc(path.as_deref().unwrap_or(""))))],
@@ -706,6 +720,11 @@ fn find_value(lines: &[Line], item: &ItemAt, key: &str) -> Option<ValueAt> {
 
 /// The `tag` value of a one-line flow mapping (`- {tag: účty}`): the byte range of its token in `body`.
 fn flow_tag_value(body: &str, item: &ItemAt) -> Option<std::ops::Range<usize>> {
+    flow_value(body, item, "tag")
+}
+
+/// The value of `want` in a one-line flow mapping (`- {query: x}`): the byte range of its token in `body`.
+fn flow_value(body: &str, item: &ItemAt, want: &str) -> Option<std::ops::Range<usize>> {
     let b = body.as_bytes();
     let mut i = item.keys + 1; // after `{`
     loop {
@@ -721,7 +740,7 @@ fn flow_tag_value(body: &str, item: &ItemAt) -> Option<std::ops::Range<usize>> {
             Some(&q) if q == b'"' || q == b'\'' => v + closing_quote(&body[v..], q as char)? + 1,
             _ => v + body[v..].find([',', '}']).map(|e| body[v..v + e].trim_end().len())?,
         };
-        if k == "tag" {
+        if k == want {
             return Some(v..end);
         }
         let next = end + body[end..].find(',')?;
@@ -851,6 +870,27 @@ pub fn patch_text(text: &str, file: &PinsFile, patches: &[PinPatch]) -> Option<S
                     };
                     ok.then(|| PinTarget::Tag { key: to })
                 }
+                (PinPatch::QueryRenamed { from, to }, PinTarget::Query { name }) if query_key(name) == query_key(from) => {
+                    let to = nfc(trim_ws(to));
+                    let ok = if item.flow {
+                        match flow_value(&lines[item.start].body, &item, "query") {
+                            Some(r) => {
+                                lines[item.start].body.replace_range(r, &scalar(&to));
+                                true
+                            }
+                            None => false,
+                        }
+                    } else {
+                        match find_value(&lines, &item, "query") {
+                            Some(v) => {
+                                lines[v.line].body = format!("{}{}{}", v.prefix, scalar(&to), v.tail);
+                                true
+                            }
+                            None => false,
+                        }
+                    };
+                    ok.then_some(PinTarget::Query { name: to })
+                }
                 (PinPatch::Moved { from, to, id }, PinTarget::Object { id: tid, path: tpath }) => {
                     let by_id = tid.is_some() && id.as_ref().map(|i| nfc(trim_ws(i))) == *tid;
                     let by_path = tid.is_none() && tpath.as_deref() == Some(nfc(from).as_str());
@@ -956,7 +996,7 @@ impl Core {
                     paths.extend(path.iter().cloned());
                 }
                 PinTarget::Type { .. } => type_pins = true,
-                PinTarget::Tag { .. } => {}
+                PinTarget::Tag { .. } | PinTarget::Query { .. } => {}
             }
         }
         let defined: HashSet<String> = if type_pins { self.types().into_iter().map(|t| t.key).collect() } else { HashSet::new() };
@@ -1004,6 +1044,19 @@ impl Core {
                     }
                 }
                 PinTarget::Tag { key } => row.state = if look.tags.contains(key) { PinState::Ok } else { PinState::NoObjects },
+                // v1-queries §1.9 (D-1484, D-1498): resolved from the files, never pending.
+                PinTarget::Query { name } => {
+                    let (lookup, title, path) = self.query_pin(name);
+                    row.state = match lookup {
+                        crate::queries_q::Lookup::Trashed => PinState::Trashed,
+                        crate::queries_q::Lookup::Missing => PinState::Missing,
+                        _ => PinState::Ok,
+                    };
+                    row.title = title;
+                    row.path = path;
+                    rows.push(row);
+                    continue;
+                }
                 PinTarget::Type { key } => {
                     let def = defined.contains(key);
                     row.state = if def || look.types.contains(key) { PinState::Ok } else { PinState::Missing };
@@ -1085,8 +1138,8 @@ impl Core {
     /// note is never written); a Tag object is stored as its tag (D-1382).
     fn pin_target(&self, req: &PinRequest) -> Result<PinTarget, PinError> {
         match req {
-            // v1-queries §1.9 (slice Q): compile-only stub; the build pins live queries.
-            PinRequest::Query { .. } => Err(PinError::NotPinnable),
+            // v1-queries §1.9: only a live query; the stored value is its file's name.
+            PinRequest::Query { name } => self.query_live_name(name).map(|name| PinTarget::Query { name }).ok_or(PinError::NotPinnable),
             PinRequest::Tag { key } => Some(tag_key(key)).filter(|k| !k.is_empty()).map(|key| PinTarget::Tag { key }).ok_or(PinError::NotPinnable),
             PinRequest::Type { key } => Some(type_key_of(key)).filter(|k| !k.is_empty()).map(|key| PinTarget::Type { key }).ok_or(PinError::NotPinnable),
             PinRequest::Object { path } => {

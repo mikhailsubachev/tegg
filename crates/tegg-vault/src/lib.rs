@@ -46,6 +46,18 @@ pub enum FsEntry {
 pub trait VaultFs: Send + Sync {
     /// Recursive listing, including hidden files.
     fn list(&self) -> io::Result<Vec<FsEntry>>;
+    /// Slice Q (v1-queries §1.5): the entries directly in `dir` (vault-relative paths); a missing folder has none.
+    /// Default: `list` filtered; a file system that can list one folder overrides it.
+    fn list_dir(&self, dir: &str) -> io::Result<Vec<FsEntry>> {
+        let prefix = format!("{}/", dir.trim_matches('/'));
+        Ok(self
+            .list()?
+            .into_iter()
+            .filter(|e| match e {
+                FsEntry::File { path } | FsEntry::Dir { path } => nfc(path).strip_prefix(&prefix).is_some_and(|r| !r.is_empty() && !r.contains('/')),
+            })
+            .collect())
+    }
     fn read(&self, path: &str) -> io::Result<(Vec<u8>, FileVersion)>;
     /// None when the file doesn't exist.
     fn version(&self, path: &str) -> io::Result<Option<FileVersion>>;
@@ -625,6 +637,11 @@ impl Vault {
     /// temporary files, `.trash/`, `.obsidian/`, `.git/` or other files (`.docx`, `.txt`).
     pub fn managed_files(&self) -> Result<Vec<String>, VaultError> {
         Ok(self.files()?.into_iter().filter(|p| is_managed(p)).collect())
+    }
+
+    /// Slice Q (v1-queries §1.5): the files directly in `dir` (vault-relative, NFC), without walking the vault.
+    pub fn list_dir(&self, dir: &str) -> Result<Vec<String>, VaultError> {
+        Ok(self.fs.list_dir(&nfc(dir))?.into_iter().filter_map(|e| if let FsEntry::File { path } = e { Some(nfc(&path)) } else { None }).collect())
     }
 
     /// All files in the vault (vault-relative, NFC), for the index (read-only).

@@ -14,6 +14,7 @@ mod shell4e;
 mod shellg1;
 mod shellg3;
 mod shellpin;
+mod shellq;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -197,7 +198,7 @@ fn test_drop(app: &AppHandle) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None, query: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
@@ -378,8 +379,10 @@ fn forward_events(app: AppHandle, core: &Core) {
                     let _ = app.emit_to("main", "note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
-                // v1-queries §1.7 (slice Q): `query:stale`, compile-only stub until the build.
-                CoreEvent::QueryStale { .. } => {}
+                // v1-queries §1.7 (slice Q): the changed objects' types before and after.
+                CoreEvent::QueryStale { types, paths } => {
+                    let _ = app.emit_to("main", "query:stale", shellq::QueryStaleDto { types, paths });
+                }
                 // ms4-jobs §4 (4C).
                 CoreEvent::JobProgress(p) => {
                     let _ = app.emit_to("main", "job:progress", progress_dto(&p));
@@ -1034,7 +1037,7 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::BuiltIn => err("BuiltIn", "built-in properties can't be removed"),
         JobError::UnknownProperty => err("UnknownProperty", "no such property"),
         JobError::Core(m) => err("Io", m),
-        // v1-queries §1.8 (slice Q): compile-only stubs until the build.
+        // v1-queries §1.8 (slice Q).
         JobError::QueryExists { name } => err("NameTaken", format!("{name} already exists")),
         JobError::QueryUnreadable => err("Unreadable", "the query can't be read"),
     }
@@ -1757,7 +1760,9 @@ pub fn run() {
             shell4d::merge_start, shell4d::job_plan, shell4d::backup_reveal,
             shellg1::graph_neighbourhood,
             shellg3::graph_presets_get, shellg3::graph_presets_apply,
-            shellpin::pins_get, shellpin::pins_apply
+            shellpin::pins_get, shellpin::pins_apply,
+            shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
+            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages
         ])
         .build(context())
         .expect("error while building Tegg")

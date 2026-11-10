@@ -261,6 +261,11 @@ pub struct IpcError {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     #[ts(skip)]
     pub pins: Option<crate::shellpin::PinsErrorExtra>,
+    /// Slice Q (v1-queries §2): with `Conflict` from `query_apply` / `query_revert`, `disk: QueryDto`. Flattened and kept
+    /// out of the generated types: the UI types them in `app/ui/src/ipc/queries.ts`.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub query: Option<crate::shellq::QueryErrorExtra>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the
@@ -580,6 +585,19 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "Record<string, unknown>")]
     pub vaults: Option<std::collections::BTreeMap<String, serde_json::Value>>,
+    /// Slice Q (v1-queries §4.6, D-1485): the Queries page's sort (`created-desc` | `created-asc` | `updated-desc` |
+    /// `updated-asc` | `title`); missing reads as `created-desc`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub queries: Option<QueriesUiDto>,
+}
+
+/// Slice Q (v1-queries §4.6): machine-local state of the Queries page.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+pub struct QueriesUiDto {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sort: Option<String>,
 }
 
 /// Slice P (v1-previews §1): `mode` `click` | `hover` | `off` (anything else reads as `click` in the UI), `hoverDelay`
@@ -1101,7 +1119,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None }
     }
 }
 
@@ -1488,6 +1506,7 @@ pub fn typescript() -> String {
         RecentVaultDto::decl(),
         RightPanelDto::decl(),
         TypeSortDto::decl(),
+        QueriesUiDto::decl(),
         UiStateDto::decl(),
         LinkTargetDto::decl(),
         AtDto::decl(),

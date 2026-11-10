@@ -38,7 +38,7 @@ pub enum JobKind {
     Inbox,
     /// ms4-tags §5.3 (4D-lite): restoring a backup zip (Settings › Backups).
     Restore,
-    /// v1-queries §1.8 (slice Q): renaming a saved query (compile-only stub until the build).
+    /// v1-queries §1.8 (slice Q, D-1468): renaming a saved query: its file, the `saved:` lines of its usages, its pins.
     QueryRename,
 }
 
@@ -71,6 +71,8 @@ impl JobKind {
             JobKind::Inbox => KindFlags { needs_confirm: false, backup: false, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
             // ms4-tags §4.1: the UI's dialog confirms a restore; it backs up the current state first.
             JobKind::Restore => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // v1-queries §1.8: no confirm (the rename dialog is the UI's), a backup zip, undoable.
+            JobKind::QueryRename => KindFlags { needs_confirm: false, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
             // ms4-jobs §14.1 (D-812): no confirm step (the mapping dialog is the UI's, D-805 has none); a single type move
             // makes no zip (a bulk one does, like the inbox convert); both are undoable.
             JobKind::TypeMove => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
@@ -155,7 +157,7 @@ pub enum JobOp {
     /// ms4-tags §5.3 (4D-lite): restore the backup zip `name` (a file name in the open vault's backup folder). The
     /// op's name is a red-test point (AP-671): the contract names only the IPC command `backup_restore(name)`.
     Restore { name: String },
-    /// v1-queries §1.8 (slice Q): rename the saved query `name` to `title` (compile-only stub until the build).
+    /// v1-queries §1.8 (slice Q): rename the saved query `name` (as listed) to `title` (as typed; trimmed, NFC by the core).
     QueryRename { name: String, title: String },
 }
 
@@ -311,6 +313,9 @@ pub enum TextOp {
     /// ms4-jobs §14.4, §14.9.2 (4E-2, D-814): removes the frontmatter entry `key` with its value lines; full-line
     /// comments above it stay; no `modified` change.
     RemoveKey { key: String },
+    /// v1-queries §3.1 (slice Q): in every query fence, each `saved:` value with `from`'s name key gets `to`; no
+    /// `modified` change. `@tegg/doc` `{ op: 'rename-saved-query', from, to }`.
+    RenameSavedQuery { from: String, to: String },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -464,7 +469,7 @@ pub enum JobError {
     UnknownProperty,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),
-    /// v1-queries §1.8 (slice Q): the new name is another query's name (compile-only stub until the build).
+    /// v1-queries §1.8 (slice Q): the new name is another query's name (`name`: that query's).
     QueryExists { name: String },
     /// v1-queries §1.8 (slice Q): the query file is unreadable or newer; nothing is renamed.
     QueryUnreadable,

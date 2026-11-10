@@ -2,6 +2,7 @@
 //! and event hub, so this crate stays below the core (AR-03) and never edits Markdown itself (D-82).
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::{FileVersion, JobProgress, TextOp};
 
@@ -214,6 +215,68 @@ pub trait Host: Send + Sync {
         let _ = patches;
         Ok(None)
     }
+
+    // -------------------------------------------------------------------------------- slice Q (v1-queries §1.8)
+    // Default bodies: nothing found, nothing written.
+
+    /// `.tegg/queries/*.yml`.
+    fn query_files(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Notes and templates that use the saved query `name`, no `.trash/`.
+    fn query_usage_paths(&self, name: &str) -> Vec<String> {
+        let _ = name;
+        Vec::new()
+    }
+    /// Patches every query file a patch matches (`queries_q::patch_job_text`), each base-checked against the version it
+    /// just read.
+    fn patch_queries(&self, patches: &[QueryPatch]) -> Vec<(String, Result<Option<FileWrite>, WriteError>)> {
+        let _ = patches;
+        Vec::new()
+    }
+    /// The `query-rename` job's refusals before the job (§1.8) and its plan: the query file before and after its
+    /// `title:` patch and the usages with their versions at the scan.
+    fn query_rename_plan(&self, name: &str, title: &str) -> Result<QueryRenamePlan, crate::JobError> {
+        let _ = (name, title);
+        Err(crate::JobError::NotImplemented)
+    }
+}
+
+/// v1-queries §1.8: a change a job hands to the query files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueryPatch {
+    /// A note moved (4C rename, 4E-1 type and folder moves): `"[[…]]"` filter values resolving to `from` (D-291 rules
+    /// from the vault root, with `paths` = the note paths before the job) get `to`'s D-184 text; `|alias` / `#sub` kept.
+    ObjectMoved { from: String, to: String, paths: Arc<Vec<String>> },
+    /// D-1434's FR-TYP-04 patches; no job emits them in this slice (D-1469).
+    OptionRenamed { r#type: String, key: String, from: String, to: String },
+    KeyRenamed { r#type: String, from: String, to: String },
+    TypeKeyRenamed { from: String, to: String },
+}
+
+/// One file a host patch wrote (a job's byte row, ms4-jobs §7).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileWrite {
+    pub path: String,
+    pub pre: Vec<u8>,
+    pub pre_v: FileVersion,
+    pub post: Vec<u8>,
+    pub post_v: FileVersion,
+}
+
+/// v1-queries §1.8: what `query-rename` plans: the file rename `from` → `to` with `post` (only `title:` changed), and
+/// every usage with its version at the scan.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QueryRenamePlan {
+    pub from: String,
+    pub to: String,
+    /// The query's name before and after (file stems, NFC).
+    pub from_name: String,
+    pub to_name: String,
+    pub pre: Vec<u8>,
+    pub pre_v: FileVersion,
+    pub post: Vec<u8>,
+    pub usages: Vec<(String, FileVersion)>,
 }
 
 /// The pins file (v1-pinned §1.1): a job row with this path is the pin patch (§1.6).
@@ -229,6 +292,8 @@ pub enum PinPatch {
     /// D-1402 (AP-1259): the object at `from` (with `from_id`) was merged into the object at `to` (with `id`); a pin of
     /// it now pins the kept object.
     Merged { from: String, from_id: Option<String>, to: String, id: Option<String> },
+    /// v1-queries §1.9: a saved query renamed (names); a `query:` pin of `from`'s name key gets `to`.
+    QueryRenamed { from: String, to: String },
 }
 
 /// What `Host::patch_pins` wrote: the bytes and versions before and after, for the job's undo record (a byte row,

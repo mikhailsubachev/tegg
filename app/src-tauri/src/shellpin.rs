@@ -19,6 +19,8 @@ pub enum PinStoredDto {
     Object { id: Option<String>, path: Option<String> },
     Tag { key: String },
     Type { key: String },
+    /// v1-queries §1.9 (slice Q).
+    Query { name: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -58,6 +60,7 @@ pub enum PinRequestDto {
     Object { path: String },
     Tag { key: String },
     Type { key: String },
+    Query { name: String },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,6 +83,7 @@ fn target_dto(t: PinTarget) -> PinStoredDto {
         PinTarget::Object { id, path } => PinStoredDto::Object { id, path },
         PinTarget::Tag { key } => PinStoredDto::Tag { key },
         PinTarget::Type { key } => PinStoredDto::Type { key },
+        PinTarget::Query { name } => PinStoredDto::Query { name },
     }
 }
 
@@ -118,6 +122,7 @@ fn op_from(op: PinOpDto) -> PinOp {
                 PinRequestDto::Object { path } => PinRequest::Object { path },
                 PinRequestDto::Tag { key } => PinRequest::Tag { key },
                 PinRequestDto::Type { key } => PinRequest::Type { key },
+                PinRequestDto::Query { name } => PinRequest::Query { name },
             },
             at,
         },
