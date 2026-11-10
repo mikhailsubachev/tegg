@@ -796,3 +796,18 @@ None needed for the interface. §9 lists the ACs to correct before the red tests
    `Úkoly z této schůzky` (e.g. in Porada 14) instead.
 5. **FR-QRY-06 AC-10 "creates `Untitled query (2).yml` … and writes the fence `saved: Untitled query`"**: when the name
    is taken, the fence must name the created query, `saved: Untitled query (2)`. Proposal: read it so (§4.4).
+
+
+## 10. Red-test decisions (D-1496…D-1504, owner 2026-11-10)
+
+These override the sections above where they differ.
+
+- **D-1496** A usage changed after the rename job's scan: The `query-rename` job stops before any write when a usage note changed since its scan (FR-QRY-06 AC-6 as approved); contract §1.8's "skip as `changed`" is replaced. Nothing is written; the dialog says which note changed.
+- **D-1497** FR-QRY-06 AC-9's count: The block inserted in Lisabon shows three results (the host is never its own result, D-1441); the AC said four.
+- **D-1498** Query pins while the index loads: pinned.md FR-HOM-02 AC-20 covers object pins only: a `query:` pin is resolved without the index and a missing one shows `Not found` at once (D-1484). The AC-20 tests run without the query item.
+- **D-1499** The read view's placeholder list: The `query` row leaves read-view R5 (`IN_NOTE_PLACEHOLDERS` empty), as note embeds did in 4F; contract §3.2's "null: the R5 placeholder" is dropped.
+- **D-1500** The twin's own tests: The fake twin's conformance tests live in `app/test/fake_queries.contract.test.ts` (as `fake_pins.contract`), not in an AC file; `queries_twin.ac.test.ts` keeps FR-FMT-06 AC-4 only. Contract §6.1 is read so.
+- **D-1501** Query pins in the pins fake: The build adds `query:` pins to `app/ui/test/fake-pins.ts` (§1.9); it is test infrastructure, not an AC test, so no trailer.
+- **D-1502** Slice Q speed tests: As slice PIN: the `nfr_perf_*` timings of slice Q are reported and enforced only with `TEGG_PERF_STRICT` / `TEGG_PERF_REF=1` at the release gate, so debug builds don't fail a push.
+- **D-1503** The `query-ready` mark: A performance mark `query-ready` is written once when every query block of the opened note has painted its first rows (NFR-PERF-05 AC-5).
+- **D-1504** A byte copy of a query file: A copy made outside Tegg keeps its `title:`, so its row shows that title (two rows may share it; names stay unique by file stem); FR-QRY-06 AC-17 checks counts and that the copy is untouched.

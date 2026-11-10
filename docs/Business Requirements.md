@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.156, for review                                            |
+| **Document status** | Draft v1.157, for review                                            |
 | **Date**            | 2026-11-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -170,6 +170,7 @@
 | v1.154  | 2026-11-09 | Preview v0.120 feedback D-1428…D-1432 (AP-1285…AP-1289, `docs/feedback/ms6-v0120.md`): an empty nested item lives only in the editor, sentence-case sidebar headers, the empty Pinned section collapsed, ⌘N asks for a type (board `NewObjectPicker`), the default type preselected |
 | v1.155  | 2026-11-10 | Slice Q (saved queries and the query block, v1.0): D-1433…D-1447 (AP-1290…AP-1304, `docs/acceptance/queries.md`, boards `QueriesAll`, `QueryPage`, `QueryBlock`): saved queries are files `.tegg/queries/<name>.yml` used by reference from ```` ```query ```` blocks (`saved: <name>`), renamed by a job, trashed into `.trash/.tegg/queries/`; List and Table views only; sidebar entry `Queries` |
 | v1.156  | 2026-11-10 | Slice Q contract decisions D-1448…D-1490 (`docs/contracts/v1-queries.md` §8) and AC fixes D-1491…D-1495 (§9) |
+| v1.157  | 2026-11-10 | Slice Q red-test decisions D-1496…D-1504 (red tests 6f0c59f, 146782b) |
 
 ---
 
@@ -1492,6 +1493,15 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1493 | Slice Q strings (owner, 2026-11-10: "Accept all"; slice Q AC problems, `docs/contracts/v1-queries.md` §9) | R145 takes the keys of the contract's §4.5 with the `query.` prefix (D-1481), including the texts the ACs need that R145 lacked; R145's `picker.title` no longer collides with the existing key. NFR-OTH-02 AC-17. |
 | D-1494 | A second table usage in FR-QRY-05 AC-6 (owner, 2026-11-10: "Accept all"; slice Q AC problems, `docs/contracts/v1-queries.md` §9) | The check that another usage follows a header-click sort uses a second fence of `Úkoly z této schůzky` added to Porada 14 during the test (the fixture uses that table only on Porada 7). |
 | D-1495 | The fence for a taken `Untitled query` (owner, 2026-11-10: "Accept all"; slice Q AC problems, `docs/contracts/v1-queries.md` §9) | When `Untitled query` is taken, the new file is `Untitled query (2).yml` and the fence written is `saved: Untitled query (2)`; FR-QRY-06 AC-10. |
+| D-1496 | A usage changed after the rename job's scan (owner, 2026-11-10: "Accept all"; slice Q red tests) | The `query-rename` job stops before any write when a usage note changed since its scan (FR-QRY-06 AC-6 as approved); contract §1.8's "skip as `changed`" is replaced. Nothing is written; the dialog says which note changed. |
+| D-1497 | FR-QRY-06 AC-9's count (owner, 2026-11-10: "Accept all"; slice Q red tests) | The block inserted in Lisabon shows three results (the host is never its own result, D-1441); the AC said four. |
+| D-1498 | Query pins while the index loads (owner, 2026-11-10: "Accept all"; slice Q red tests) | pinned.md FR-HOM-02 AC-20 covers object pins only: a `query:` pin is resolved without the index and a missing one shows `Not found` at once (D-1484). The AC-20 tests run without the query item. |
+| D-1499 | The read view's placeholder list (owner, 2026-11-10: "Accept all"; slice Q red tests) | The `query` row leaves read-view R5 (`IN_NOTE_PLACEHOLDERS` empty), as note embeds did in 4F; contract §3.2's "null: the R5 placeholder" is dropped. |
+| D-1500 | The twin's own tests (owner, 2026-11-10: "Accept all"; slice Q red tests) | The fake twin's conformance tests live in `app/test/fake_queries.contract.test.ts` (as `fake_pins.contract`), not in an AC file; `queries_twin.ac.test.ts` keeps FR-FMT-06 AC-4 only. Contract §6.1 is read so. |
+| D-1501 | Query pins in the pins fake (owner, 2026-11-10: "Accept all"; slice Q red tests) | The build adds `query:` pins to `app/ui/test/fake-pins.ts` (§1.9); it is test infrastructure, not an AC test, so no trailer. |
+| D-1502 | Slice Q speed tests (owner, 2026-11-10: "Accept all"; slice Q red tests) | As slice PIN: the `nfr_perf_*` timings of slice Q are reported and enforced only with `TEGG_PERF_STRICT` / `TEGG_PERF_REF=1` at the release gate, so debug builds don't fail a push. |
+| D-1503 | The `query-ready` mark (owner, 2026-11-10: "Accept all"; slice Q red tests) | A performance mark `query-ready` is written once when every query block of the opened note has painted its first rows (NFR-PERF-05 AC-5). |
+| D-1504 | A byte copy of a query file (owner, 2026-11-10: "Accept all"; slice Q red tests) | A copy made outside Tegg keeps its `title:`, so its row shows that title (two rows may share it; names stay unique by file stem); FR-QRY-06 AC-17 checks counts and that the copy is untouched. |
 
 ---
 
