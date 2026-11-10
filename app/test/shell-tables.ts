@@ -36,7 +36,10 @@ export const R1: R1Row[] = [
   { id: 'tags', page: 'Tags', built: true, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'TagsAll', goto: 'Go to Tags' },
   { id: 'tag/<key>', page: 'Tag page', built: true, due: d('MS4'), reqs: 'FR-TAG-06', design: 'TagPage', goto: null },
   // Slice PIN (pinned.md FR-NAV-04 AC-10, AP-1232 = D-1375): the `pinned` route and `Go to Pinned` are removed.
-  { id: 'saved-queries', page: 'Saved queries', built: false, due: d('v1.0'), reqs: 'FR-QRY-06', design: null, goto: 'Go to Saved queries' },
+  // Slice Q (queries.md "Existing criteria this slice changes", AP-1304 = D-1447; v1-queries §4.1): `saved-queries` is
+  // removed; `queries` (board QueriesAll) and `query/<name>` (board QueryPage) are built.
+  { id: 'queries', page: 'Queries', built: true, due: d('v1.0'), reqs: 'FR-QRY-06, FR-NAV-04', design: 'QueriesAll', goto: 'Go to Queries' },
+  { id: 'query/<name>', page: 'Query', built: true, due: d('v1.0'), reqs: 'FR-QRY-06', design: 'QueryPage', goto: null },
   { id: 'note/<path>', page: 'Edit note', built: true, due: d('MS3'), reqs: '', design: 'Main', goto: null },
   // D-520 (5A-1 feedback, ms5-tasks §12.2): the unsaved draft of a new object; no sidebar entry, no Go to command.
   { id: 'new/<type>', page: 'New object', built: true, due: d('MS5'), reqs: 'FR-TYP-09, FR-EDT-01', design: 'Main', goto: null },
@@ -238,10 +241,10 @@ export const MILESTONE_ORDER = ['MS1', 'MS2', 'MS3', 'MS4', 'MS5', 'MS6', 'MS7',
 /** 4F (D-431, R32): the `embed-note` row is built and removed. 6A (D-630): `embed-image` and `embed-pdf` are retired
  *  (trash-media.md R77 renders images and PDF cards) and `embed-other` is a built card (file name, `Reveal in Finder`). */
 /** Slice MM (D-679): the `mindmap` row is removed; a mindmap is a `[!mindmap]` callout drawn by Tegg. */
+/** Slice Q (queries.md "Existing criteria this slice changes": read-view R5's `query` row becomes built, the block of
+ *  R141): like 4F's `embed-note` row, it leaves the placeholder table, which is now empty. */
 export type R5Row = { id: 'query'; due: Due; reqs: string };
-export const R5: R5Row[] = [
-  { id: 'query', due: d('v1.0'), reqs: 'FR-QRY-01, FR-FMT-06' },
-];
+export const R5: R5Row[] = [];
 
 // ------------------------------------------------------------------------------------------------ slice 3D tables
 // R10–R14 of docs/acceptance/types.md, transcribed for the 3D AC tests (D-61). Test data only.

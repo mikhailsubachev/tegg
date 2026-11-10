@@ -57,6 +57,10 @@ fn tgt(t: &PinTarget) -> String {
         PinTarget::Object { id, path } => format!("object {} {}", id.clone().unwrap_or_default(), path.clone().unwrap_or_default()),
         PinTarget::Tag { key } => format!("tag {key}"),
         PinTarget::Type { key } => format!("type {key}"),
+        // Slice Q (v1-queries §1.9): `PinTarget::Query { name }` is a listed pin now; read through Debug so this file
+        // compiles before and after the variant exists.
+        #[allow(unreachable_patterns)]
+        other => format!("{other:?}"),
     }
 }
 /// (stored target, state, live path, title) per row.
@@ -84,6 +88,9 @@ fn yml_only() -> Vec<String> {
     vec![YML.to_string()]
 }
 const VALID_TITLES: [&str; 5] = ["Rozpočet 2027", "Výjezd Lisabon 2026", "2026-10-07 Týdenní porada", "", ""];
+/// Slice Q (queries.md FR-HOM-02 AC-29, D-1484): valid.yml's `query: Otevřené úkoly tento týden` is a listed pin now (no
+/// such query in these vaults, so its row is `missing`), as `tgt` reads it.
+const Q_TGT: &str = "Query { name: \"Otevřené úkoly tento týden\" }";
 
 // ------------------------------------------------------------------------------------------------ R131 read rules
 
@@ -92,9 +99,9 @@ fn fr_hom_02_ac1_valid_lists_five_pins_in_file_order() {
     let f = pinned::read(&fx("valid.yml"));
     assert_eq!(file_st(&f.state), "ok", "valid.yml reads");
     let t: Vec<String> = f.items.iter().map(|i| tgt(&i.target)).collect();
-    assert_eq!(t, vec![format!("object {} {ROZPOCET}", id("01")), format!("object {} {LISABON}", id("02")), format!("object {} {PORADA}", id("03")), "tag offsite".into(), "type projekt".into()], "five listed pins; the query item isn't listed (AP-1233)");
+    assert_eq!(t, vec![format!("object {} {ROZPOCET}", id("01")), format!("object {} {LISABON}", id("02")), format!("object {} {PORADA}", id("03")), "tag offsite".into(), "type projekt".into(), Q_TGT.into()], "six listed pins; slice Q lists the query item (FR-HOM-02 AC-29)");
     let lines: Vec<(usize, usize)> = f.items.iter().map(|i| (i.lines.start, i.lines.end)).collect();
-    assert_eq!(lines, vec![(3, 5), (5, 7), (7, 9), (9, 10), (10, 11)], "0-based line ranges, `- ` line first");
+    assert_eq!(lines, vec![(3, 5), (5, 7), (7, 9), (9, 10), (10, 11), (11, 12)], "0-based line ranges, `- ` line first");
     assert!(f.patchable, "patchable");
 }
 
@@ -192,10 +199,10 @@ fn fr_hom_02_ac17_trashed_targets_stay_pinned() {
     std::fs::rename(root.join(PORADA), root.join(format!(".trash/{PORADA}"))).expect("setup: trash Porada");
     reread(&core, &[PORADA, &format!(".trash/{PORADA}")]);
     let p = core.pins();
-    assert_eq!(states(&p), vec!["ok", "ok", "trashed", "ok", "ok"], "Porada trashed, still pinned");
+    assert_eq!(states(&p), vec!["ok", "ok", "trashed", "ok", "ok", "missing"], "Porada trashed, still pinned (slice Q: the query pin is missing)");
     std::fs::rename(root.join(format!(".trash/{PORADA}")), root.join(PORADA)).expect("setup: restore");
     reread(&core, &[PORADA, &format!(".trash/{PORADA}")]);
-    assert_eq!(states(&core.pins()), vec!["ok"; 5], "restored");
+    assert_eq!(states(&core.pins()), vec!["ok", "ok", "ok", "ok", "ok", "missing"], "restored (slice Q: the query pin stays missing)");
     std::fs::remove_file(root.join(PORADA)).expect("setup: delete");
     reread(&core, &[PORADA]);
     assert_eq!(states(&core.pins())[2], "missing", "deleted: missing, never removed (AP-1231)");
@@ -332,7 +339,7 @@ fn fr_hom_02_ac24_skipped_entries_are_kept() {
         let core = open(&root, &sb.dirs);
         let p = core.pins();
         let t: Vec<String> = p.rows.iter().map(|r| tgt(&r.target)).collect();
-        assert_eq!(t, vec![format!("object {} {ROZPOCET}", id("01")), "tag offsite".into(), "type schůzka".into()], "three listed");
+        assert_eq!(t, vec![format!("object {} {ROZPOCET}", id("01")), "tag offsite".into(), "type schůzka".into(), Q_TGT.into()], "four listed (slice Q: the query item too)");
         ok!(core.pins_apply(p.version.clone(), op), name);
         assert_eq!(disk(&root, YML), Some(fx(&format!("expected/entries-after-{name}.yml"))), "{name}: expected/entries-after-{name}.yml");
     }
@@ -343,7 +350,9 @@ fn fr_hom_02_ac26_query_entries_are_kept_not_shown() {
     let sb = sandbox();
     let root = vault_fx(&sb, "valid.yml");
     let core = open(&root, &sb.dirs);
-    assert_eq!(core.pins().rows.len(), 5, "the query item isn't a row");
+    // Slice Q (queries.md: AC-26 is superseded by FR-HOM-02 AC-28…AC-31): the query item is a row now; every write still
+    // keeps it byte for byte.
+    assert_eq!(core.pins().rows.len(), 6, "the query item is a row (slice Q)");
     ok!(apply_fresh(&core, mv(1, 3)), "move");
     ok!(apply_fresh(&core, pin_tag("účty", None)), "pin at the end");
     ok!(apply_fresh(&core, unpin(0)), "unpin");
@@ -402,7 +411,7 @@ fn fr_syn_03_ac27_external_and_synced_pins_changes() {
     assert_eq!(disk(&root, YML), Some(fx("valid.yml")), "no file replaced");
     replace_atomically(&root, YML, copy.as_bytes());
     reread(&core, &[YML]);
-    assert_eq!(core.pins().rows.len(), 6, "an atomic replace is read at once (no cache)");
+    assert_eq!(core.pins().rows.len(), 7, "an atomic replace is read at once (no cache; slice Q: the query item is a row)");
     ok!(apply_fresh(&core, mv(0, 1)), "a move");
     assert_eq!((stamp(&root, COPY_A), stamp(&root, COPY_B)), copies, "conflict copies: bytes, mtime and inode unchanged");
 }
@@ -547,10 +556,10 @@ fn fr_fmt_12_ac8_pins_are_nfc() {
     let root = vault_fx(&sb, "nfd.yml");
     let core = open(&root, &sb.dirs);
     let p = core.pins();
-    assert_eq!(states(&p), vec!["ok"; 5], "all five NFD rows resolve");
+    assert_eq!(states(&p), vec!["ok", "ok", "ok", "ok", "ok", "missing"], "all five NFD rows resolve (slice Q: and the query pin, missing)");
     assert_eq!(tgt(&p.rows[1].target), format!("object {} {LISABON}", id("02")), "stored targets are NFC");
     let r = ok!(apply_fresh(&core, pin_obj(&nfd(LISABON), None)), "pin Lisabon again (NFD)");
-    assert_eq!(r.rows.len(), 5, "the NFD path matches as NFC: no second item");
+    assert_eq!(r.rows.len(), 6, "the NFD path matches as NFC: no second item (six rows with the query pin, slice Q)");
     ok!(apply_fresh(&core, pin_obj(&nfd(CAJOVNA), None)), "pin Čajovna (NFD file name)");
     assert!(disk_s(&root, YML).is_some_and(|t| t.ends_with(&format!("    path: {CAJOVNA}\n"))), "written NFC");
     let nfd_bytes = fxs("nfd.yml");

@@ -25,7 +25,8 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
     // Slice PIN (pinned.md FR-NAV-04 AC-9, D-1375): the Pinned section's header between Tasks and the Types section.
     ['Pinned', sb.getByRole('button', { name: 'Pinned', exact: true })],
     ['Types', sb.getByRole('list', { name: 'Types' })], ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })],
-    ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')], ['logo', sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true })],
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    ['Queries', sb.getByRole('link', { name: 'Queries', exact: true })], ['Trash', entry(page, 'Trash')], ['logo', sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true })],
   ];
   let last = -1;
   for (const [name, loc] of parts) {
@@ -36,8 +37,8 @@ test('fr_nav_04_ac1_entries_and_order', async ({ page }) => {
   }
   assert.equal(await sidebarCount(page), '13', 'Inbox with its count');
   assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
-  // Slice PIN (D-1375): Pinned is built; Saved queries stays TBD v1.0.
-  for (const e of ['Saved queries']) assert.match(await description(entry(page, e)), /Coming in v1\.0/, `${e}: Coming in v1.0`);
+  // Slice PIN (D-1375): Pinned is built. Slice Q (D-1447): Queries is built too, no longer TBD v1.0.
+  assert.doesNotMatch(await description(sb.getByRole('link', { name: 'Queries', exact: true })), /Coming in v1\.0/, 'Queries: not Coming in v1.0');
   const types = (await sb.getByRole('list', { name: 'Types' }).getByRole('listitem').allInnerTexts()).map(flat);
   assert.ok(!types.some((t) => /^Tasks\b/.test(t)), 'no Task in the Types section (D-516)');
 });
@@ -120,9 +121,10 @@ test('fr_nav_04_ac5_registry_in_the_ui', async ({ page }) => {
     assert.equal(await main(page).getByText(/Coming in MS\d/).count(), 0, `${cmd}: no Coming in MS…`);
   }
   // 6A (D-613): `Go to Home` is removed. Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `Go to Pinned` too; Saved queries
-  // stays TBD v1.0.
-  await runCommand(page, 'Go to Saved queries');
-  assert.ok(await seen(main(page).getByText(/Coming in v1\.0/), 2000), 'Saved queries: Coming in v1.0');
+  // became the built `Queries` page in slice Q (AP-1304 = D-1447).
+  await runCommand(page, 'Go to Queries');
+  await must(main(page).getByRole('heading', { name: 'Queries', exact: true }), 'Go to Queries: the built page');
+  assert.equal(await main(page).getByText(/Coming in v1\.0/).count(), 0, 'Queries: no Coming in v1.0');
 });
 
 test('fr_nav_02_ac1_every_5b_command_is_listed_found_and_runs', async ({ page }) => {

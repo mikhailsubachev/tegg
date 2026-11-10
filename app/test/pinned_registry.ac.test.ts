@@ -97,7 +97,8 @@ test('fr_nav_04_ac10_pinned_route_removed', async () => {
   assert.equal((reg.ROUTES as any[]).find((r) => r.id === 'pinned'), undefined, 'no `pinned` route');
   const titles = (cmd.commands({ vault: VAULT, types: [], counts: {} }) as any[]).map((c) => cat.t(c.title, c.vars ?? {}));
   assert.ok(!titles.includes('Go to Pinned'), 'no `Go to Pinned`');
-  assert.ok(titles.includes('Go to Saved queries'), '`Saved queries` stays (TBD v1.0)');
+  // Slice Q (AP-1304 = D-1447): `Saved queries` became the built `Queries` page.
+  assert.ok(titles.includes('Go to Queries'), '`Go to Queries` (slice Q, was `Go to Saved queries`)');
   for (const k of ['route.pinned', 'purpose.pinned', 'cmd.goto.pinned']) assert.ok(!(k in cat.en), `catalog key ${k} removed (§3.3)`);
   const parse = reg.parseRoute ?? reg.routeOf;
   if (typeof parse === 'function') assert.deepEqual(parse('pinned'), parse('no-such-route'), '`pinned` parses like an unknown route');

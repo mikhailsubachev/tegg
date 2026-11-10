@@ -68,12 +68,13 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
     sb.getByRole('list', { name: 'Types' }),
     // D-761 (tags.md R83, FR-NAV-04 AC-8): one `Tags` entry after the Types list.
     sb.getByRole('link', { name: 'Tags', exact: true }),
-    sb.getByText('Saved queries', { exact: true }),
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    sb.getByRole('link', { name: 'Queries', exact: true }),
     sb.getByText('Trash', { exact: true }),
     sb.getByRole('button', { name: 'Tegg: About and Settings', exact: true }),
   ];
   // 6A (trash-media.md FR-NAV-04 AC-6, D-613): no Home; Trash at the bottom.
-  const names = ['New object', 'Search', 'Inbox', 'Today', 'Tasks', 'Pinned', 'New type', 'Types list', 'Tags entry', 'Saved queries', 'Trash', 'logo button'];
+  const names = ['New object', 'Search', 'Inbox', 'Today', 'Tasks', 'Pinned', 'New type', 'Types list', 'Tags entry', 'Queries', 'Trash', 'logo button'];
   const tops: number[] = [];
   for (let i = 0; i < parts.length; i++) {
     const b = await box(parts[i]);
@@ -87,7 +88,7 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   // 5B (inbox.md R62, FR-NAV-04 AC-2, D-515): the Inbox shows its count; Home and Pinned are labelled v1.0.
   // D-588: Tasks shows its open tasks (tasks.md FR-TSK-04 AC-18), so it isn't checked here.
   // Slice PIN (D-1375): Pinned is a built section (its count is FR-HOM-02's), no longer a TBD entry.
-  for (const e of ['Today', 'Saved queries', 'Trash']) { // 6A: Trash shows no count (AP-534)
+  for (const e of ['Today', 'Trash']) { // 6A: Trash shows no count (AP-534); slice Q: Queries shows its count (R143, D-1447)
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const text = (await row.innerText()).replace(e, '').replace('⌘D', '');
     assert.ok(!/\d/.test(text), `${e} shows a count: ${text}`);
@@ -97,10 +98,10 @@ test('fr_ux_02_ac2_sidebar_content_and_order', async ({ page }) => {
   const inboxText = (await inboxRow.innerText()).replace('Inbox', '').trim();
   assert.equal(inboxText.replace(/\D/g, ''), members > 0 ? String(members) : '', `Inbox shows its count (${members}): ${inboxText}`);
   assert.equal(await sb.getByText('Home', { exact: true }).count(), 0, 'no Home entry (D-613)');
-  for (const e of ['Saved queries']) { // slice PIN (D-1375): Pinned is built
+  for (const e of ['Queries']) { // slice PIN (D-1375): Pinned is built; slice Q (D-1447): Queries is built too
     const row = sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText(e, { exact: true }) }).first();
     const label = await row.evaluate((el) => [el.getAttribute('aria-description'), ...(el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent ?? ''), el.getAttribute('title')].filter(Boolean).join(' '));
-    assert.match(label, /Coming in v1\.0/, `${e} is labelled Coming in v1.0: ${label}`);
+    assert.doesNotMatch(label, /Coming in v1\.0/, `${e} is built, not labelled Coming in v1.0: ${label}`);
   }
   assert.match(await sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Today', { exact: true }) }).first().innerText(), /⌘D/);
   // D-220: the logo is a button at the bottom left, no longer a link home.
@@ -302,7 +303,7 @@ test('fr_ux_02_ac11_tbd_routes_render_placeholders_and_are_reachable', async ({ 
   }
   // Other means from the "Reached by" column.
   // 6A (D-613): no Home entry; Trash is reached from the sidebar (R75).
-  const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Saved queries', 'saved-queries']]; // slice PIN: no `pinned` route (D-1375)
+  const viaSidebar: [string, string][] = [['Trash', 'trash'], ['Inbox', 'inbox'], ['Today', 'today'], ['Tasks', 'tasks'], ['Queries', 'queries']]; // slice PIN: no `pinned` route (D-1375); slice Q: `queries` (D-1447)
   for (const [entry, id] of viaSidebar) {
     await sidebar(page).getByText(entry, { exact: true }).first().click().catch(() => failures.push(`${id}: sidebar entry ${entry} missing`));
     await check(R1.find((r) => r.id === id)!, `sidebar ${entry}`);

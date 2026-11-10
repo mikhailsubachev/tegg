@@ -95,8 +95,9 @@ test('fr_tag_07_ac6_one_tags_entry_with_icon_and_count', async ({ page }) => {
   const types = await rectOf(sidebar(page).getByRole('list', { name: 'Types', exact: true }), 'Types list');
   const tags = await rectOf(tagsEntry(page), 'Tags');
   // Slice PIN (pinned.md FR-NAV-04 AC-9, D-1375): the Pinned section moved above the Types section.
-  const saved = await rectOf(sidebar(page).getByText('Saved queries', { exact: true }), 'Saved queries');
-  assert.ok(tags.top >= types.bottom - 0.5 && tags.bottom <= saved.top + 0.5, 'between the Types list and Saved queries');
+  // Slice Q (AP-1304 = D-1447): `Saved queries` is now the `Queries` entry (aria-label `Queries`, v1-queries §4.3).
+  const saved = await rectOf(sidebar(page).getByRole('link', { name: 'Queries', exact: true }), 'Queries');
+  assert.ok(tags.top >= types.bottom - 0.5 && tags.bottom <= saved.top + 0.5, 'between the Types list and Queries');
   assert.equal(await sidebar(page).getByRole('link', { name: /^#/ }).count(), 0, 'no #<tag> link in the sidebar');
   assert.equal(await sidebar(page).getByText(/All \d+ ›/).count(), 0, 'no "All 10 ›" text');
   assert.equal(await sidebar(page).getByRole('button', { name: /^Tags, all \d+$/ }).count(), 0, 'no D-700 section header');
@@ -149,7 +150,8 @@ test('fr_nav_04_ac8_sidebar_order_new_object_search_and_the_tags_entry', async (
     ['Pinned', sb.getByRole('button', { name: 'Pinned', exact: true })],
     ['Types', sb.getByRole('list', { name: 'Types', exact: true })],
     ['Tags', tagsEntry(page)],
-    ['Saved queries', sb.getByText('Saved queries', { exact: true })],
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became `Queries`.
+    ['Queries', sb.getByRole('link', { name: 'Queries', exact: true })],
     ['Trash', sb.getByText('Trash', { exact: true })],
   ];
   const tops: number[] = [];

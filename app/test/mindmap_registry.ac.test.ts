@@ -76,7 +76,8 @@ test('fr_mmp_01_ac8_slash_mindmap_is_built_without_a_milestone', async () => {
 
 test('fr_mmp_01_ac8_in_note_placeholders_are_query_only', async () => {
   const { reg } = await mods();
-  assert.deepEqual((reg.IN_NOTE_PLACEHOLDERS as { id: string }[]).map((p) => p.id), ['query'], 'R5 has no mindmap row (D-679)');
+  // Slice Q (queries.md: read-view R5's `query` row is built, the block of R141): the table is now empty.
+  assert.deepEqual((reg.IN_NOTE_PLACEHOLDERS as { id: string }[]).map((p) => p.id), [], 'R5 has no mindmap row (D-679), and no query row after slice Q');
 });
 
 test('fr_mmp_01_ac8_catalog_has_no_ph_mindmap', async () => {

@@ -4,7 +4,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { R1, R2 } from '../test/shell-tables';
 import {
-  absent, gotoTagPage, must, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, shellVaultWithTag, sidebar, sleep, start,
+  absent, gotoQueryPage, gotoTagPage, must, onPage, openNote, panel, paletteDialog, pseudoLocale, seen, shellVaultWithQuery, shellVaultWithTag, sidebar, sleep, start,
   switcherDialog, settled,
   searchQueryField,
 } from './helpers';
@@ -44,7 +44,8 @@ async function go(page: Page, query: string) {
 
 test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }) => {
   test.setTimeout(240_000);
-  await start(page, { prelude: pseudoLocale, placeholders: 3, vault: shellVaultWithTag() }); // AP-685 (D-747): a tag for tag/<key>
+  // AP-685 (D-747): a tag for tag/<key>; slice Q (D-1447): a saved query for query/<name>.
+  await start(page, { prelude: pseudoLocale, placeholders: 3, vault: shellVaultWithQuery(shellVaultWithTag()) });
   const failures: string[] = [];
   const check = async (what: string) => { const u = await unmarked(page); if (u.length) failures.push(`${what}: ${u.slice(0, 12).join(' ')}`); };
   await must(sidebar(page), 'frame');
@@ -56,6 +57,12 @@ test('nfr_oth_02_ac3_pseudo_locale_marks_every_visible_ui_text', async ({ page }
       const name = await gotoTagPage(page).catch(() => { failures.push('tag/<key>: not opened'); return ''; });
       if (name && !(await onPage(page, name, 2000))) failures.push(`tag/<key>: not reached`);
       await check('tag page');
+      continue;
+    }
+    if (row.id === 'query/<name>') { // slice Q (D-1447): query/Porady through Go to Queries and its row; its title is user content
+      const name = await gotoQueryPage(page).catch(() => { failures.push('query/<name>: not opened'); return ''; });
+      if (name && !(await onPage(page, name, 2000))) failures.push('query/<name>: not reached');
+      await check('query page');
       continue;
     }
     if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada').catch(() => failures.push('note: not opened')); await check('note page'); continue; }

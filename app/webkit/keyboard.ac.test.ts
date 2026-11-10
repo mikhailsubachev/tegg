@@ -4,8 +4,8 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { R1, R4, STATIC_COMMANDS } from '../test/shell-tables';
 import {
-  absent, draftStatus, eventually, focused, gotoTagPage, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
-  paletteDialog, paletteOptions, runCommand, seen, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
+  absent, draftStatus, eventually, focused, gotoQueryPage, gotoTagPage, gotoType, isDraft, mainName, must, mustBeDraft, mustBeOn, newObjectDialog, nonReadCalls, onPage, openNote, panel,
+  paletteDialog, paletteOptions, runCommand, seen, shellVaultWithQuery, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
   searchQueryField,
 } from './helpers';
 import { pressNewObject, typePickerField } from './helpers'; // D-1431: ⌘N / New object… open the type picker first
@@ -20,8 +20,10 @@ async function reached(page: Page, name: string, ms: number): Promise<boolean> {
   return name === DRAFT ? isDraft(page, ms) : onPage(page, name, ms);
 }
 
-/** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-685, D-747: `tag/účty`). */
-const startFor = (page: Page, row: (typeof R1)[number]) => start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : {});
+/** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-685, D-747: `tag/účty`), `query/<name>` one with a
+ *  saved query (slice Q, D-1447: `query/Porady`). */
+const startFor = (page: Page, row: (typeof R1)[number]) =>
+  start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : row.id === 'query/<name>' ? { vault: shellVaultWithQuery() } : {});
 
 /** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
 async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
@@ -29,6 +31,7 @@ async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {
   if (row.id === 'new/<type>') { await pressNewObject(page, 'route new/<type>'); return DRAFT; } // D-520: New object (⌘N); D-1431: ⏎ in the type picker
   if (row.id === 'type/<type>') { await gotoType(page, 'Quick Notes'); return 'Quick Notes'; }
   if (row.id === 'tag/<key>') return gotoTagPage(page); // AP-685 (D-747): tag/účty, on startFor's vault
+  if (row.id === 'query/<name>') return gotoQueryPage(page); // slice Q (D-1447): query/Porady, on startFor's vault
   if (row.id === 'note/<path>') { await openNote(page, '2026-10-07 Porada'); return '2026-10-07 Porada'; }
   // Slice G1 (D-1022): `graph/<path>` has no Go to command; it is the full view of a note, opened with ⌘⇧G.
   if (row.id === 'graph/<path>') { await openNote(page, '2026-10-07 Porada'); await page.keyboard.press('Meta+Shift+g'); return 'Graph · 2026-10-07 Porada'; }
@@ -373,7 +376,7 @@ test('fr_ux_03_ac10_keyboard_only_tour_with_visible_focus', async ({ page }) => 
     assert.fail(`keyboard tour: could not reach ${what} with Tab / ⇧Tab`);
   };
   // Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `Pinned` is a section, not a route entry.
-  for (const e of ['Inbox', 'Today', 'Tasks', 'Tags', 'Saved queries', 'Trash']) { // 6A: no Home (D-613), Trash added (R75)
+  for (const e of ['Inbox', 'Today', 'Tasks', 'Tags', 'Queries', 'Trash']) { // 6A: no Home (D-613), Trash added (R75); slice Q: Queries (D-1447)
     await tabTo(new RegExp(`^${e}\\b`), `sidebar ${e}`);
     await page.keyboard.press('Enter');
     await mustBeOn(page, e === 'Today' ? new Date().toLocaleDateString('sv') : e, `keyboard: sidebar ${e}`); // 4B: named by its date

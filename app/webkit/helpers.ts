@@ -284,6 +284,24 @@ export async function gotoTagPage(page: Page): Promise<string> {
   return `#${TAG_ROUTE_KEY}`;
 }
 
+/** `query/<name>`'s example parameter in the R1 route tours (slice Q, queries.md "Existing criteria this slice changes",
+ *  D-1447): the shell fixture plus one saved query `Porady` (R138, no `this`). */
+export const QUERY_ROUTE_NAME = 'Porady';
+export function shellVaultWithQuery(base: FakeVault = shellVault()): FakeVault {
+  const files = { ...base.files };
+  files[`.tegg/queries/${QUERY_ROUTE_NAME}.yml`] = `version: 1\ntitle: ${QUERY_ROUTE_NAME}\ntypes: []\nview: list\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-01T09:00:00+02:00\n`;
+  return { ...base, files };
+}
+/** Opens `query/Porady` the app's way: `Go to Queries`, then its row (R143: a click opens it). Returns the centre-pane
+ *  name, the query's title (R143 `h1`). */
+export async function gotoQueryPage(page: Page): Promise<string> {
+  await runCommand(page, 'Go to Queries');
+  const row = page.getByRole('main').locator(`[data-query-row="${QUERY_ROUTE_NAME}"]`);
+  await must(row, `Queries row ${QUERY_ROUTE_NAME}`, 5000);
+  await row.first().click();
+  return QUERY_ROUTE_NAME;
+}
+
 /** Visible Types list entries as [label, count] (count = last integer in the entry, 0 if none). */
 export async function typeEntries(page: Page): Promise<[string, number][]> {
   const items = await typesList(page).getByRole('listitem').allInnerTexts();

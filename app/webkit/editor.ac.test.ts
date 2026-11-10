@@ -561,11 +561,12 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
   const menu = await must(slashMenu(page), 'menu');
   const n0 = (await core.calls()).length;
   // 5A-2 (R53, D-499): `Task` is built; 6A (trash-media.md R75): `Image` and `PDF` are built; the other disabled items stay.
-  for (const name of ['Image', 'PDF']) {
+  // Slice Q (queries.md: editor R6 `Advanced › Query` is built, R144): `Query` is enabled too.
+  for (const name of ['Image', 'PDF', 'Query']) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
-    assert.notEqual(await o.getAttribute('aria-disabled'), 'true', `${name} is enabled from 6A`);
+    assert.notEqual(await o.getAttribute('aria-disabled'), 'true', `${name} is enabled (Image, PDF from 6A; Query from slice Q)`);
   }
-  for (const [name, ms] of [['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
+  for (const [name, ms] of [['Block embed', 'v1.0']]) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);
