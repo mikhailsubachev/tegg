@@ -570,6 +570,10 @@
     {
       "id": "page-new-object",
       "name": "New object (type picker)"
+    },
+    {
+      "id": "page-queries",
+      "name": "Queries"
     }
   ],
   "title": "Tegg – Edit note page"
