@@ -18,7 +18,8 @@ const PATHS: Record<string, string> = {
   pdf: 'M6 3h8l4 4v14H6zM9 13h6M9 17h6',
   tag: 'M3 12V4h8l9 9-8 8zM7 8h.01',
   pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v7',
-  query: 'M4 6h16M7 12h10M10 18h4',
+  query: 'M4 6h16l-6 7v6l-4-2v-4z', // the funnel (slice Q, board QueryBlock)
+  pencil: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', // `Edit query` (board QueryBlock A)
   sidebar: 'M4 5h16v14H4zM9 5v14',
   panel: 'M4 5h16v14H4zM15 5v14',
   focus: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
@@ -100,7 +101,7 @@ export function Icon({ name, size = 16, dataIcon }: { name: string; size?: numbe
 /** The icon of a route id (R1). */
 export function routeIcon(id: string): string {
   const head = id.split('/')[0];
-  return ({ home: 'home', inbox: 'inbox', today: 'calendar', daily: 'calendar', tasks: 'task', search: 'search', type: 'type', 'type-settings': 'gear', tags: 'tag', pinned: 'pin', 'saved-queries': 'query', note: 'file', graph: 'graph', trash: 'trash', import: 'import', conflicts: 'conflict', capture: 'capture', settings: 'gear', chooser: 'vault' } as Record<string, string>)[head] ?? 'dot';
+  return ({ home: 'home', inbox: 'inbox', today: 'calendar', daily: 'calendar', tasks: 'task', search: 'search', type: 'type', 'type-settings': 'gear', tags: 'tag', pinned: 'pin', queries: 'query', query: 'query', note: 'file', graph: 'graph', trash: 'trash', import: 'import', conflicts: 'conflict', capture: 'capture', settings: 'gear', chooser: 'vault' } as Record<string, string>)[head] ?? 'dot';
 }
 
 /** The icon of a type: the R14 `icon` of its definition when given and known (D-236), else by key (3A). */

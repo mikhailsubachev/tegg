@@ -23,6 +23,7 @@ import { PinnedSection } from '../pinned/PinnedSection';
 import { PinContextMenu } from '../pinned/PinMenu';
 import { pinDragSource } from '../pinned/drag';
 import { useTags } from '../tags/store';
+import { useQueries } from '../queries/store';
 
 /** D-219: the open vault in the title bar; its menu lists the recent vaults and the vault actions (FR-VLT-01 AC-16). */
 export type VaultSwitcherProps = {
@@ -141,7 +142,6 @@ const TOP: Entry[] = [
   { id: 'tasks', label: 'route.tasks', icon: 'task' },
 ];
 const BOTTOM: Entry[] = [
-  { id: 'saved-queries', label: 'route.savedQueries', icon: 'query' },
   // 6A (D-618): the Trash, last, without a count.
   { id: 'trash', label: 'route.trash', icon: 'trash' },
 ];
@@ -159,6 +159,23 @@ function SidebarTags({ route, onGo }: { route: Route; onGo: (r: Route) => void }
         aria-label={t('frame.tags')} aria-description={t('tags.sidebarCount', { count })} onClick={(ev) => { ev.preventDefault(); onGo({ id: 'tags' }); }}>
         <Icon name="hash" dataIcon="tags" />
         <span className="entry-label">{t('frame.tags')}</span>
+        <span className="count">{count}</span>
+      </a>
+    </div>
+  );
+}
+
+/** Slice Q (queries.md R143, FR-NAV-04 AC-12): `Queries` with the number of listed queries (unreadable included, trash
+ *  excluded), after Tags and before Trash; current on `queries` and every `query/<name>`. */
+function SidebarQueries({ route, onGo }: { route: Route; onGo: (r: Route) => void }) {
+  const count = useQueries()?.length ?? 0;
+  const current = route.id === 'queries' || route.id === 'query/<name>';
+  return (
+    <div className="sidebar-group">
+      <a tabIndex={0} href="#" className={`entry ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} data-command="queries.go"
+        aria-label={t('queries.title')} aria-description={t('queries.count', { count })} onClick={(ev) => { ev.preventDefault(); onGo({ id: 'queries' }); }}>
+        <span className="query-entry-icon"><Icon name="query" dataIcon="query" /></span>
+        <span className="entry-label">{t('queries.title')}</span>
         <span className="count">{count}</span>
       </a>
     </div>
@@ -340,6 +357,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
             onClose={() => { const a = typeMenu.anchor; setTypeMenu(null); if (a.isConnected) a.focus(); }} />
         )}
         <SidebarTags route={route} onGo={onGo} />
+        <SidebarQueries route={route} onGo={onGo} />
         <div className="sidebar-group">{BOTTOM.map(link)}</div>
       </div>
       <LogoMenu onAbout={onAbout} onSettings={() => onGo({ id: 'settings/appearance' })} />

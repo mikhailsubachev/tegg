@@ -1,6 +1,6 @@
 // Read view: the formatted, read-only note body (FR-EDT-02 display, slice 3B; docs/contracts/ms3-shell.md §11.3).
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
-// it, math and footnotes are shown as source text. Queries are R5 placeholders (D-144); a mindmap is drawn (slice MM).
+// it, math and footnotes are shown as source text. Query fences are query blocks (slice Q); a mindmap is drawn (slice MM).
 import { cloneElement, Fragment, isValidElement, useMemo, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
@@ -13,7 +13,7 @@ import type { LinkTargetDto } from '../ipc/types';
 import type { EmbedTree } from '../embeds/tree';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
-import { InNotePlaceholder } from './InNotePlaceholder';
+import { QueryBlock } from '../queries/QueryBlock';
 import { MediaView } from '../media/MediaView';
 import { openDate } from '../daily/open';
 import { useReference, type ReferenceOpts } from '../preview/useReference';
@@ -559,13 +559,9 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       return <blockquote key={key}>{blocks(c, n.children)}</blockquote>;
     case 'code': {
       const lang = n.lang ? String(n.lang) : null;
-      if (lang?.toLowerCase() === 'query') {
-        return (
-          <InNotePlaceholder key={key} id="query">
-            <CodeBlock lang="query">{n.value}</CodeBlock>
-          </InNotePlaceholder>
-        );
-      }
+      // Slice Q (R140, R141, D-1464, D-1499): a fence whose info string's first word is exactly `query` is a query
+      // block at any depth; the host is the note shown (an embed's own note, FR-QRY-03 AC-6).
+      if (lang === 'query') return <QueryBlock key={key} source={{ kind: 'fence', body: String(n.value ?? '') }} host={c.path} />;
       return <CodeBlock key={key} lang={lang}>{n.value}</CodeBlock>;
     }
     case 'math':

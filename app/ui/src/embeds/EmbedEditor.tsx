@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parse as parseDoc } from '@tegg/doc';
 import { mindmapUi } from '../mindmap/mount';
 import { noteTitle } from '../read/ReadView';
+import { mountQueryBlock, openQueryBlockAt } from '../queries/mount';
 import { createEditor, type EditorUi, type TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -92,6 +93,9 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
         onTag: (k) => store.host?.onTag(k),
         onExternal: (u) => store.host?.onExternal(u),
       }),
+      // Slice Q (FR-QRY-03 AC-6): a query block of the embedded note runs with `this` = the embedded note.
+      query: (source, dom, ctl) => mountQueryBlock(source, dom, ctl, { path: () => path, dropDraft: (pos) => { edRef.current?.commands.dropQueryDraft(pos); } }),
+      onQueryKey: (pos) => openQueryBlockAt(pos),
       // Depth-2 embeds inside an editable embed are shown read-only (D-421).
       embed: (source, dom) => mountEmbed(store, source, dom, () => undefined, (value, k) => childEmbeds(value)[k] ?? null),
       embedChip: (value) => {

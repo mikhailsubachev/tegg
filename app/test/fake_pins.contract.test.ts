@@ -19,6 +19,8 @@ const VALID: PinStoredDto[] = [
   { kind: 'tag', key: 'offsite' }, { kind: 'type', key: 'projekt' },
 ];
 const CAJ = O('04', 'Pages/Čajovna.md');
+/** Slice Q (v1-queries §1.9, D-1501): the samples' `query:` item is listed now, last. */
+const QPIN: PinStoredDto = { kind: 'query', name: 'Otevřené úkoly tento týden' };
 function step(text: string | null, edit: PinEditDto): string {
   const r = pinsPatch(text, edit);
   assert.ok(!('error' in r), `${JSON.stringify(edit)}: ${JSON.stringify(r)}`);
@@ -33,10 +35,10 @@ const vault = () => {
 };
 
 test('the sample files list the README rows', () => {
-  assert.deepEqual(pinsRead(fx('valid.yml')).items.map((i) => i.target), VALID);
-  assert.deepEqual(pinsRead(fx('valid.yml')).items.map((i) => i.lines), [[3, 5], [5, 7], [7, 9], [9, 10], [10, 11]]);
-  assert.deepEqual(pinsRead(fx('nfd.yml')).items.map((i) => i.target), VALID);
-  assert.deepEqual(pinsRead(fx('entries.yml')).items.map((i) => i.target), [VALID[0], { kind: 'tag', key: 'offsite' }, { kind: 'type', key: 'schůzka' }]);
+  assert.deepEqual(pinsRead(fx('valid.yml')).items.map((i) => i.target), [...VALID, QPIN]);
+  assert.deepEqual(pinsRead(fx('valid.yml')).items.map((i) => i.lines), [[3, 5], [5, 7], [7, 9], [9, 10], [10, 11], [11, 12]]);
+  assert.deepEqual(pinsRead(fx('nfd.yml')).items.map((i) => i.target), [...VALID, QPIN]);
+  assert.deepEqual(pinsRead(fx('entries.yml')).items.map((i) => i.target), [VALID[0], { kind: 'tag', key: 'offsite' }, { kind: 'type', key: 'schůzka' }, QPIN]);
   assert.equal(pinsRead(fx('newer-version.yml')).state, 'newer');
   assert.deepEqual(pinsRead(fx('invalid-yaml.yml')).error?.line, 5);
   for (const f of ['unknown-keys.yml', 'unknown-keys-crlf.yml', 'unknown-keys-no-newline.yml']) {
@@ -45,8 +47,9 @@ test('the sample files list the README rows', () => {
   }
   const rows = pinsResolve(pinsRead(fx('stale.yml')), vault(), true).map((r) => r.state);
   assert.deepEqual(rows, ['ok', 'ok', 'trashed', 'missing', 'missing', 'noObjects', 'missing']);
-  assert.deepEqual(pinsResolve(pinsRead(fx('valid.yml')), vault(), true).map((r) => r.state), ['ok', 'ok', 'ok', 'ok', 'ok']);
-  assert.deepEqual(pinsResolve(pinsRead(fx('valid.yml')), vault(), false).map((r) => r.state), ['pending', 'pending', 'pending', 'pending', 'ok']);
+  // The pinned fixture has no saved query of that name: `missing`, never `pending` (D-1498).
+  assert.deepEqual(pinsResolve(pinsRead(fx('valid.yml')), vault(), true).map((r) => r.state), ['ok', 'ok', 'ok', 'ok', 'ok', 'missing']);
+  assert.deepEqual(pinsResolve(pinsRead(fx('valid.yml')), vault(), false).map((r) => r.state), ['pending', 'pending', 'pending', 'pending', 'ok', 'missing']);
 });
 
 test('every expected file is the twin\'s output', () => {
@@ -85,10 +88,10 @@ test('every expected file is the twin\'s output', () => {
 });
 
 test('the expected files parse with the yaml package to the listed pins', () => {
-  const asYaml = (t: PinStoredDto) => (t.kind === 'object' ? { ...(t.id ? { id: t.id } : {}), ...(t.path ? { path: t.path } : {}) } : t.kind === 'tag' ? { tag: t.key } : { type: t.key });
+  const asYaml = (t: PinStoredDto) => (t.kind === 'object' ? { ...(t.id ? { id: t.id } : {}), ...(t.path ? { path: t.path } : {}) } : t.kind === 'tag' ? { tag: t.key } : t.kind === 'query' ? { query: t.name } : { type: t.key });
   for (const f of ['valid.yml', 'expected/created.yml', 'expected/valid-after-move.yml', 'expected/valid-after-pin-at-2.yml', 'expected/unknown-keys-after-pin.yml', 'expected/unknown-keys-crlf-after-move.yml']) {
     const doc = parse(fx(f)) as { pins: unknown[] };
     const listed = pinsRead(fx(f)).items.map((i) => asYaml(i.target));
-    assert.deepEqual(doc.pins.filter((p) => listed.some((l) => JSON.stringify(l) === JSON.stringify(Object.fromEntries(Object.entries(p as object).filter(([k]) => ['id', 'path', 'tag', 'type'].includes(k)))))).length, listed.length, f);
+    assert.deepEqual(doc.pins.filter((p) => listed.some((l) => JSON.stringify(l) === JSON.stringify(Object.fromEntries(Object.entries(p as object).filter(([k]) => ['id', 'path', 'tag', 'type', 'query'].includes(k)))))).length, listed.length, f);
   }
 });

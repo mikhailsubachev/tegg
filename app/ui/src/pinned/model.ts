@@ -17,10 +17,14 @@ export type RowView = {
   opens: 'route' | 'trash' | 'alert' | 'none';
   /** Drawn muted (pending, trashed, missing). */
   muted: boolean;
+  /** A colour token for the icon other than a type colour (a query's funnel in `--link`, slice Q). */
+  colorVar?: string;
 };
 
 const nfc = (s: string) => s.normalize('NFC');
 const stem = (p: string) => (p.split('/').pop() ?? p).replace(/\.md$/i, '');
+/** D-1434: query names compare trimmed, NFC, case-insensitively. */
+export const queryNameKey = (s: string) => nfc(s.trim()).toLowerCase();
 export const tagKey = (s: string) => nfc(s.trim()).replace(/^#/, '').toLowerCase();
 
 export function rowView(row: PinRowDto, types: PinTypeEntry[], tagLook: PinTagLook): RowView {
@@ -45,6 +49,19 @@ export function rowView(row: PinRowDto, types: PinTypeEntry[], tagLook: PinTagLo
     }
     const st = state === 'pending' ? 'pinned.state.pending' : 'pinned.state.missing';
     return { label: key, icon: 'type', color: null, description: tail(t('pinned.kind.type'), t(st)), tooltip: key, route: null, opens: state === 'pending' ? 'none' : 'alert', muted: true };
+  }
+  // Slice Q (v1-queries §4.2, D-1484): a saved query; the funnel in `--link`, opens `query/<name>`.
+  if (row.target.kind === 'query') {
+    const name = row.target.name;
+    const fileName = row.path ? (row.path.split('/').pop() ?? '').replace(/\.yml$/i, '').normalize('NFC') : name;
+    const label = state === 'ok' || state === 'trashed' ? (row.title ?? fileName) : name;
+    if (state === 'ok') {
+      return { label, icon: 'query', color: null, colorVar: 'var(--link)', description: t('pinned.kind.query'), tooltip: label, route: { id: 'query/<name>', param: fileName }, opens: 'route', muted: false };
+    }
+    if (state === 'trashed') {
+      return { label, icon: 'query', color: null, description: tail(t('pinned.kind.query'), t('pinned.state.trashed')), tooltip: label, route: { id: 'trash' }, opens: 'trash', muted: true };
+    }
+    return { label, icon: 'query', color: null, description: tail(t('pinned.kind.query'), t('pinned.state.missing')), tooltip: label, route: null, opens: 'alert', muted: true };
   }
   // An object.
   const stored = row.target.path ?? row.path ?? '';
@@ -83,6 +100,8 @@ export function findPin(pins: PinsDto | null, target: PinRequestDto | null, tagO
       if (tagKey(s.key) === tagKey(want.key)) return r.index;
     } else if (want.kind === 'type' && s.kind === 'type') {
       if (nfc(s.key) === nfc(want.key)) return r.index;
+    } else if (want.kind === 'query' && s.kind === 'query') {
+      if (queryNameKey(s.name) === queryNameKey(want.name)) return r.index; // D-1434: name keys
     }
   }
   return null;
@@ -98,6 +117,7 @@ export function targetOfRoute(route: (Route & { path?: string | null; date?: str
     case 'tag/<key>': return route.param ? { kind: 'tag', key: route.param } : null;
     case 'type/<type>': return route.param ? { kind: 'type', key: route.param } : null;
     case 'new/<type>': return 'unsaved';
+    case 'query/<name>': return route.param ? { kind: 'query', name: nfc(route.param) } : null;
     default: return null;
   }
 }

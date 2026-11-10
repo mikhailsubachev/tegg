@@ -365,7 +365,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       };
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), queryBlocks: () => ed.queryBlocks(), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
     syncHead();
     requestAnimationFrame(() => {
       // D-140: `#Heading` scrolls once the editor's content exists (the link or embed `Open` that opened it).

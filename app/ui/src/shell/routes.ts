@@ -11,6 +11,9 @@ export type Route = {
   at?: { line: number; byte: number }; attr?: string;
   /** 5A-1 (D-486): the note opens with the first block embed of this path selected at the top. */
   selectEmbedOf?: string;
+  /** Slice Q (v1-queries §4.4, D-1490): a draft `new/<type>` from a query block's footer starts with these values
+   *  (`[key, value]`), written with its first write; not part of the route string. */
+  prefill?: [string, unknown][];
 };
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];
@@ -28,6 +31,8 @@ export function parseRoute(s: string): Route | null {
       try { key = decodeURIComponent(rest); } catch { /* a literal % */ }
       return key ? { id: 'tag/<key>', param: key.normalize('NFC').toLowerCase() } : null;
     }
+    // Slice Q (v1-queries §4.1, D-1480): the NFC name, unencoded (names never hold `/` or `#`).
+    if (head === 'query') return rest ? { id: 'query/<name>', param: rest } : null;
     // 4B (D-321): a valid date only.
     if (head === 'daily') return parseDate(rest) ? { id: 'daily/YYYY-MM-DD', param: rest } : null;
     if (PARAM_ROUTES.includes(head)) {

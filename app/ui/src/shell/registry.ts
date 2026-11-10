@@ -31,7 +31,7 @@ const tbd = (milestone: Milestone, slice?: Slice) => ({ built: false as const, d
 
 export const IN_NOTE_PLACEHOLDERS: InNotePlaceholderDef[] = [
   // 6A (D-630): `embed-image` and `embed-pdf` are retired (trash-media.md R77 renders them); `embed-other` is a built card.
-  { id: 'query', name: 'ph.query', due: { milestone: 'v1.0' }, reqs: ['FR-QRY-01', 'FR-FMT-06'] },
+  // Slice Q (queries.md: read-view R5's `query` row is built, the block of R141; D-1499): no row is left.
 ];
 
 export const ROUTES: RouteDef[] = [
@@ -50,7 +50,9 @@ export const ROUTES: RouteDef[] = [
   // 4D-lite (tags.md R87): All tags, the tag page (D-703) and Settings › Backups (D-705).
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
   { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },
-  { id: 'saved-queries', name: 'route.savedQueries', purpose: 'purpose.savedQueries', status: tbd('v1.0'), reqs: ['FR-QRY-06'], design: null },
+  // Slice Q (queries.md R143, v1-queries §4.1, D-1447): `saved-queries` is gone; the Queries page and the query page.
+  { id: 'queries', name: 'route.queries', purpose: 'purpose.queries', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-QRY-06', 'FR-NAV-04'], design: 'QueriesAll' },
+  { id: 'query/<name>', name: 'route.query', purpose: 'purpose.query', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-QRY-06'], design: 'QueryPage' },
   { id: 'note/<path>', name: 'route.note', purpose: 'purpose.note', status: built, reqs: [], design: 'Main' },
   // D-520 (ms5-tasks §12.2): an unsaved new object; becomes `note/<path>` on its first write.
   { id: 'new/<type>', name: 'route.new', purpose: 'purpose.new', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TYP-09', 'FR-EDT-01'], design: 'Main' },
@@ -192,7 +194,7 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('image', 'media', ['FR-ATT-01', 'FR-ATT-03']), // built in 6A (R75)
   slash('pdf', 'media', ['FR-ATT-02']),
   slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
-  slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06'], d('v1.0')),
+  slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06']), // built in slice Q (R144)
   slash('mindmap', 'advanced', ['FR-MMP-01']),
 ];
 

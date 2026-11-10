@@ -79,9 +79,44 @@ import type { GraphViewStateDto } from './graph/types';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
 import type { PreviewTarget, PreviewUiDto } from './preview/types';
 import { editorLinkAction } from './preview/editorLink';
+import { setAttribute as setFmAttribute } from '@tegg/doc';
+import { QueriesPage } from './queries/QueriesPage';
+import { QueryPage, type QueryPageCommand } from './queries/QueryPage';
+import { QueryDialogs } from './queries/QueryDialogs';
+import { QueryEditorHost } from './queries/QueryEditor';
+import { QueryPicker } from './queries/QueryPicker';
+import { QueryNotices } from './queries/QueryNotices';
+import { queriesForVault, useQueries, type QueriesSort } from './queries/store';
+import { setPendingEdit, setQueryNav } from './queries/nav';
+import { openNameDialog } from './queries/dialogs';
+import { selectedQueryBlock } from './queries/selection';
 import { forgetPreviewCaches } from './preview/load';
 
 const DAILY = 'daily/YYYY-MM-DD';
+/** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
+const browserNav = (() => {
+  let idx = 0;
+  let skip = 0;
+  const h = typeof window !== 'undefined' ? window.history : null;
+  try { h?.replaceState({ teggNav: 0 }, ''); } catch { /* no history */ }
+  return {
+    push() { idx++; try { h?.pushState({ teggNav: idx }, ''); } catch { /* no history */ } },
+    move(dir: 'back' | 'forward') {
+      if (!h) return;
+      skip++;
+      idx += dir === 'back' ? -1 : 1;
+      if (dir === 'back') h.back(); else h.forward();
+    },
+    pop(e: PopStateEvent): 'back' | 'forward' | null {
+      const i = (e.state as { teggNav?: number } | null)?.teggNav;
+      if (skip > 0) { skip--; if (typeof i === 'number') idx = i; return null; }
+      if (typeof i !== 'number' || i === idx) return null;
+      const d = i < idx ? 'back' : 'forward';
+      idx = i;
+      return d;
+    },
+  };
+})();
 /** D-321: `today` is a redirect to the daily route of the local date. */
 const todayRoute = (): Route => ({ id: DAILY, param: localDate(Date.now()) });
 /** A route that shows a note page: a note, a Daily Note or an unsaved new object (D-520). */
@@ -210,6 +245,11 @@ export function App() {
   const taskCommandState = useRef<((id: string) => string | null) | null>(null);
   const inboxCommand = useRef<((id: string) => void) | null>(null);
   const trashCommand = useRef<((id: 'restore' | 'delete') => void) | null>(null);
+  /** Slice Q (v1-queries §4.6): the query page's commands and status. */
+  const queryCommand = useRef<((id: QueryPageCommand) => void) | null>(null);
+  const queryStatus = useRef<(() => { name: string; editable: boolean; title: string } | null) | null>(null);
+  /** Slice Q (D-1490): the pre-filled values of the next `new/<type>` draft (a query block's footer). */
+  const pendingPrefill = useRef<{ type: string; values: [string, unknown][] } | null>(null);
   const uiRef = useRef<UiState | null>(null);
 
   // ------------------------------------------------------------------ theme and machine-local UI state (D-128)
@@ -356,6 +396,7 @@ export function App() {
     headingFocus.current = !!o.heading;
     history.current.saveScroll(centreScroll(), centreCaret());
     history.current.push(r, o.graph);
+    browserNav.push();
     setHandover(o.graph ?? null);
     setHistTick((n) => n + 1);
     setNavKey((n) => n + 1);
@@ -364,8 +405,9 @@ export function App() {
   }, []);
   const goRef = useRef(go);
   goRef.current = go;
-  const step = useCallback(async (dir: 'back' | 'forward') => {
+  const step = useCallback(async (dir: 'back' | 'forward', fromBrowser = false) => {
     if (dir === 'back' ? !history.current.canBack() : !history.current.canForward()) return;
+    if (!fromBrowser) browserNav.move(dir);
     await flushNote();
     history.current.saveScroll(centreScroll(), centreCaret());
     const e = dir === 'back' ? history.current.back() : history.current.forward();
@@ -383,6 +425,13 @@ export function App() {
     setHandover(e.graph ?? null);
     setRoute(e.route);
   }, []);
+  // The webview's own history follows the app's (one entry per navigation), so the browser's Back / Forward (and a test
+  // driver's goBack) step the app's history instead of leaving the page (slice Q tests navigate so).
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => { const d = browserNav.pop(e); if (d) void step(d, true); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [step]);
   // A focus the user makes before the new page is ready wins over the pending heading focus.
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
@@ -421,6 +470,16 @@ export function App() {
     return () => setPreviewHost(null);
   }, [openNote, openDay, go, updateUi]);
   useEffect(() => { setDateHandler(openDay); return () => setDateHandler(null); }, [openDay]);
+  // Slice Q: blocks (also inside editors and embeds) open notes, queries and pre-filled drafts through this.
+  useEffect(() => {
+    setQueryNav({
+      openNote: (p) => openNote(p),
+      openQuery: (name, o) => { if (o?.edit) setPendingEdit(name); void go({ id: 'query/<name>', param: name.normalize('NFC') }); },
+      openNew: (type, values) => { pendingPrefill.current = { type, values }; void go({ id: 'new/<type>', param: type.normalize('NFC') }); },
+      go: (r) => { void go(r); },
+    });
+    return () => setQueryNav(null);
+  }, [openNote, go]);
   useEffect(() => {
     setSourceHandler((src, task) => { void go({ id: 'note/<path>', param: src.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); });
     return () => setSourceHandler(null);
@@ -522,7 +581,14 @@ export function App() {
       };
       const carried = carryTitle.current ?? '';
       carryTitle.current = null;
-      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text: p.render(carried, stamp), stamp, onCreate } });
+      let text = p.render(carried, stamp);
+      // Slice Q (D-1490): a query block's `New <type>` starts with its values (written with the draft's first write).
+      const pre = pendingPrefill.current;
+      pendingPrefill.current = null;
+      if (pre && pre.type.normalize('NFC') === key.normalize('NFC')) {
+        for (const [k, v] of pre.values) { try { text = setFmAttribute(parseDoc(text), k, v as never); } catch { /* invalid frontmatter: as rendered */ } }
+      }
+      setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text, stamp, onCreate } });
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
@@ -545,6 +611,7 @@ export function App() {
   const taskBadge = useTaskBadge(refresh, !!vault);
   const inboxCount = useInboxCount(refresh, !!vault);
   const tagList = useTags();
+  const queryList = useQueries();
   // Slice PIN: re-render (and re-list `Pin to sidebar` / `Unpin from sidebar`) when the pins change.
   const pinsState = usePins().pins;
   /** Slice G1 (D-987): the file of the object a route shows (a note, a day with its note, a tag with its Tag file). */
@@ -552,6 +619,8 @@ export function App() {
     r?.id === 'note/<path>' || r?.id === 'graph/<path>' ? (r.param ?? null)
       : r?.id === DAILY ? (noteDaily && noteDaily.date === r.param ? noteDaily.path : dailyFile && dailyFile.date === r.param ? dailyFile.path : null)
       : r?.id === 'tag/<key>' ? (tagList.find((x) => x.key === r.param)?.file?.path ?? null) : null;
+  /** Slice Q: a query's title from the list (its name until known). */
+  const queryTitleOf = (name: string) => queryList?.find((q) => q.name.normalize('NFC') === name.normalize('NFC'))?.title ?? name;
   /** Slice PIN (D-1382): what the route can pin; `unsaved` for `new/<type>` and a virtual day. */
   const pinRequestOf = (r: Route | null | undefined): PinRequestDto | 'unsaved' | null => {
     if (!r) return null;
@@ -560,6 +629,8 @@ export function App() {
     if (r.id === 'type/<type>') return r.param ? { kind: 'type', key: r.param } : null;
     if (r.id === 'note/<path>') return r.param ? { kind: 'object', path: r.param.normalize('NFC') } : null;
     if (r.id === DAILY) { const p = objectPathOf(r); return p ? { kind: 'object', path: p.normalize('NFC') } : 'unsaved'; }
+    // Slice Q (v1-queries §1.9): a query page pins its query by name.
+    if (r.id === 'query/<name>') return r.param ? { kind: 'query', name: r.param.normalize('NFC') } : null;
     return null;
   };
   /** The label `Pinned …` / `Unpinned …` names (R133's label for the route's target). */
@@ -568,6 +639,7 @@ export function App() {
     if (r.id === 'tag/<key>') return `#${tagList.find((x) => x.key === r.param)?.name ?? r.param ?? ''}`;
     if (r.id === 'type/<type>') return types.find((x) => x.key === r.param)?.plural ?? r.param ?? null;
     if (r.id === DAILY) return r.param ?? null;
+    if (r.id === 'query/<name>') return queryTitleOf(r.param ?? '');
     return meta?.title ?? (r.param ? r.param.split('/').pop()!.replace(/\.md$/, '') : null);
   };
   // D-987: a day route's note file (null: a virtual day), for `Open graph`.
@@ -591,6 +663,8 @@ export function App() {
   useEffect(() => { if (vault) void refreshTags(); }, [vault?.path, refresh]);
   // Slice PIN (§2): the pins of the open vault; a vault switch forgets the last vault's.
   useEffect(() => { pinsForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
+  // Slice Q (§2.2): the vault's saved queries.
+  useEffect(() => { queriesForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
   const isDaily = route?.id === DAILY;
   const isObject = isNoteRoute(route);
   const available = width - (ui.sidebarOpen ? SIDEBAR_W : 0);
@@ -806,7 +880,32 @@ export function App() {
     },
     movePinned: (dir) => moveFocusedPinned(dir),
     pinnedRowFocused: () => focusedPinnedRow() !== null,
-  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile, meta?.title, types, pinsState]);
+    // Slice Q (v1-queries §4.6): the query page's query or the note's selected query block.
+    queryStatus: () => {
+      if (route?.id === 'query/<name>') {
+        const st = queryStatus.current?.() ?? null;
+        return st ? { name: st.name, editable: st.editable } : route.param ? { name: route.param, editable: true } : null;
+      }
+      if (!isNoteRoute(route)) return null;
+      const b = selectedQueryBlock();
+      return b ? { name: b.name ?? '', editable: b.editable } : null;
+    },
+    editQuery: () => {
+      if (route?.id === 'query/<name>') { setTimeout(() => queryCommand.current?.('edit'), 0); return; }
+      const b = selectedQueryBlock();
+      if (b) setTimeout(() => b.edit(), 0);
+    },
+    renameQuery: () => { if (route?.id === 'query/<name>') setTimeout(() => queryCommand.current?.('rename'), 0); },
+    trashQuery: () => { if (route?.id === 'query/<name>') setTimeout(() => queryCommand.current?.('trash'), 0); },
+    insertQuery: () => { if (isNoteRoute(route)) setTimeout(() => noteApi.current?.edit('insertQuery'), 0); },
+    newQuery: () => { setTimeout(() => openNameDialog({ kind: 'new', returnFocus: document.activeElement as HTMLElement | null }), 0); },
+    editorFocused: () => {
+      // With the palette open, the focus it gives back (D-139) is what counts.
+      const inDialog = !!(document.activeElement as HTMLElement | null)?.closest?.('[role="dialog"]');
+      const el = (inDialog ? returnFocus.current : document.activeElement) as HTMLElement | null;
+      return !!el?.closest?.('main [contenteditable="true"]');
+    },
+  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile, meta?.title, types, pinsState, queryList]);
 
   // Slice G2 (v1-graph §15.2): the right panel's Graph tab, around the page's object (D-1038: no file on new/<type>
   // and a virtual day).
@@ -984,12 +1083,14 @@ export function App() {
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
       : route?.id === 'tag/<key>' ? `#${tagList.find((x) => x.key === route.param)?.name ?? route.param ?? ''}`
+      // Slice Q (R143): the query page is named by its title.
+      : route?.id === 'query/<name>' ? queryTitleOf(route.param ?? '')
       // Slice G1 (D-914): `Graph · <title>`.
       : route?.id === 'graph/<path>' ? t('graph.tabTitle', { title: graphTitle?.route === routeKey ? graphTitle.title : (route.param ?? '').split('/').pop()!.replace(/\.md$/, '') })
         // FR-VLT-05 AC-4: an unwritten draft's tab names its type (`New Nápad`).
         : route?.id === 'new/<type>' && route.param ? t('cmd.newOfType', { name: types.find((x) => x.key === route.param?.normalize('NFC'))?.name ?? route.param })
         : def ? t(def.name) : '';
-  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY || route?.id === 'tag/<key>';
+  const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY || route?.id === 'tag/<key>' || route?.id === 'query/<name>';
 
   // Focus moves to the new page's heading after navigation (D-130); `route-ready:` marks for Appium (§1).
   useEffect(() => {
@@ -1152,6 +1253,18 @@ export function App() {
         onOpen={(k) => { void go({ id: 'tag/<key>', param: tagKey(k) }); }} commandRef={newTagCommand} />
     );
     if (pendingNewTag.current) { pendingNewTag.current = false; setTimeout(() => newTagCommand.current?.(), 0); }
+  } else if (route?.id === 'queries' && vault) {
+    body = <QueriesPage heading={heading} sort={(ui as { queries?: { sort?: QueriesSort } }).queries?.sort}
+      onSort={(x) => updateUi((u) => ({ ...u, queries: { ...((u as { queries?: object }).queries ?? {}), sort: x } }))}
+      onOpen={(name) => { void go({ id: 'query/<name>', param: name.normalize('NFC') }); }} />;
+  } else if (route?.id === 'query/<name>' && route.param && vault) {
+    const name = route.param;
+    body = (
+      <QueryPage key={`${name}\n${navKey}`} name={name} heading={heading} commandRef={queryCommand} statusRef={queryStatus}
+        onAll={() => { void go({ id: 'queries' }); }}
+        onRenamed={(n) => { if (shownRoute.current === routeString({ id: 'query/<name>', param: name })) replaceRoute({ id: 'query/<name>', param: n.normalize('NFC') }); }}
+        onTrashed={() => { if (shownRoute.current !== routeString({ id: 'query/<name>', param: name })) return; if (history.current.canBack()) void step('back'); else void go({ id: 'queries' }); }} />
+    );
   } else if (route?.id === 'tag/<key>' && route.param && vault) {
     const key = route.param;
     body = (
@@ -1373,6 +1486,11 @@ export function App() {
           onChoose={(key) => { closeDialog(); newOf(key); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
+      {/* Slice Q: the query editor, the name dialogs, the `Choose a query` picker, the live region and the alert. */}
+      <QueryEditorHost types={types} />
+      <QueryDialogs />
+      <QueryPicker />
+      <QueryNotices />
     </div>
     </PreviewProvider>
   );
