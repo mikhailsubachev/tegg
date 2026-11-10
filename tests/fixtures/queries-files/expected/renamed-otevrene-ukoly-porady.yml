@@ -1,0 +1,19 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Otevřené úkoly z této schůzky.
+version: 1
+title: Otevřené úkoly porady
+types: [task]
+match: all
+filters:
+  - links_to: this
+  - status: { is_not: Done }
+  - group:
+      match: any
+      filters:
+        - due: { within_next_days: 14 }
+        - priority: High
+sort: { by: due, order: asc }
+limit: 50
+view: list
+columns: [status, due]
+created: 2026-10-19T09:00:00+02:00
+modified: 2026-11-02T14:30:00+01:00
