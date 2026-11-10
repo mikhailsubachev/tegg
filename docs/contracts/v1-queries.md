@@ -727,7 +727,7 @@ No new `qa.config.json` step: every file lives in a package that already has one
 
 None needed for the interface. §9 lists the ACs to correct before the red tests (owner approval of AC text).
 
-## 8. Contract decisions (proposed D-1448…)
+## 8. Contract decisions (D-1448…D-1490, accepted by the owner 2026-11-10)
 
 1. **D-1448** The module is `tegg-core::queries_q` plus `tegg-format::query_fence`; the evaluator runs in the core over one index lock, never in the UI.
 2. **D-1449** The core never reads the clock, zone or region for a query: the UI sends `QueryEnvDto { today, zone, weekStart, locale }` and `now` for writes.
@@ -773,7 +773,7 @@ None needed for the interface. §9 lists the ACs to correct before the red tests
 42. **D-1489** Trashed query rows in the Trash view use `pinned.kind.query` as their kind label.
 43. **D-1490** The new-object footer passes its pre-filled values as `Route.prefill` on `new/<type>` (not in the route string), written with the draft's first write.
 
-## 9. AC problems
+## 9. AC problems (fixed in the ACs as D-1491…D-1495, owner 2026-11-10)
 
 1. **FR-QRY-09 AC-3 names jobs that don't exist.** Renaming a **used** option is refused (`Renaming used options comes
    in v1.0`, D-227, D-473; AP-771 kept it out of 4E), renaming an attribute key is W (D-806), and type keys are fixed
