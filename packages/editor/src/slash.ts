@@ -23,7 +23,8 @@ const ITEMS: SlashItem[] = [
   { id: 'image', group: 'media', label: 'Image' },
   { id: 'pdf', group: 'media', label: 'PDF' },
   { id: 'blockEmbed', group: 'advanced', label: 'Block embed', due: { milestone: 'v1.0' } },
-  { id: 'query', group: 'advanced', label: 'Query', due: { milestone: 'v1.0' } },
+  // Slice Q (D-1447, v1-queries §3.2): built; no SLASH_BLOCK entry, the app opens the query picker (R144).
+  { id: 'query', group: 'advanced', label: 'Query' },
   { id: 'mindmap', group: 'advanced', label: 'Mindmap' },
 ]
 

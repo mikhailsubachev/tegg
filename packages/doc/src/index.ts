@@ -220,3 +220,7 @@ export { mediaInfo, mediaNames, mediaObject, isGenericName, pastedImageName, typ
 
 export { tagName, tagFile, setTagColor, type TagNameResult } from './tags.js'
 export { mindmapTree, wrapMindmap, unwrapMindmap, setMindmapLayout, layoutOf, calloutHead, calloutBody, isMindmapBlock, isMindmapHint, type MindInline, type MindItem, type MindRoot, type MindmapTree, type MindmapLayout } from './mindmap.js'
+
+// ---------------------------------------------------------------- slice Q (v1-queries §3.1)
+
+export { queryFences, savedName, withSavedName, referenceFence, newQueryFence, queryNameKey, type QueryFence } from './queryfence.js'

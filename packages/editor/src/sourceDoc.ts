@@ -102,6 +102,7 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
   const items: Item[] = []
   const used = new Set<number>()
   pmDoc.forEach((shown) => {
+    if (shown.type.name === 'rawBlock' && shown.attrs.draft) return // D-1471: a draft query block lives only in the editor
     const node = writable(shown)
     const src = node.attrs.srcIndex as number | null
     const original = src !== null && src < originals.length && !used.has(src) ? originals[src] : null

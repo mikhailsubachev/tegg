@@ -11,12 +11,12 @@ import { closeHistory, undoDepth } from '@tiptap/pm/history'
 import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
 import { conversionUnit as unitOf, replaceUnitWithEmbed, type ConvertUnit, type Doc } from '@tegg/doc'
-import { calloutHead, unwrapMindmap, wrapMindmap } from '@tegg/doc'
+import { calloutHead, newQueryFence, unwrapMindmap, wrapMindmap } from '@tegg/doc'
 import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { chipAtCaret as chipAt, focusedMindmap, hintElement, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, uiRefresh, type EditorUi } from './present'
+import { chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, querySource, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions, wikiLabel } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -61,7 +61,13 @@ export interface EditorOptions {
   guardEmbedRemoval?(embeds: { pos: number; source: string }[]): Promise<boolean> | null
   /** 5A-2 (ms5-tasks §11.5): hint shown in an empty body, never saved (the Task card's `Add details…`). */
   emptyHint?: string
+  /** Slice Q (v1-queries §3.2, R144): ⌘↩ on a selected query block at `pos` (the app opens its query editor). Return
+   *  true when handled. Falls back to `ui.onQueryKey`. */
+  onQueryKey?(pos: number, key: 'open'): boolean
 }
+
+/** Slice Q (v1-queries §3.2, L5 `queryBlocks()`): a query block of the open editor. */
+export type QueryBlockInfo = { pos: number; source: string; nested: boolean; draft: boolean }
 
 /** 5A-2 (ms5-tasks §11.3): what a conversion step remembers for undo / redo. */
 export type ConversionRecord = { path: string; created: string; type: string; title: string }
@@ -109,6 +115,8 @@ export interface TeggEditor {
   selectedEmbed(): { pos: number; index: number; source: string } | null
   /** 5A-2 (ms5-tasks §11.3): the conversion unit of the current selection, or null. */
   conversionUnit(): ConvertUnit | null
+  /** Slice Q (v1-queries §3.2): the query blocks in document order (the app's `__TEGG_TEST__.queryBlocks()`). */
+  queryBlocks(): QueryBlockInfo[]
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     /** Slice MM (mm-mindmap §3.2): switch the mindmap block holding the caret; false elsewhere. */
@@ -154,6 +162,12 @@ export interface TeggEditor {
     /** Deletes `from…to` and turns the caret's block into / inserts `kind` after it (slash menu, FR-EDT-03 AC-4). */
     slashInsert(from: number, to: number, kind: string, opts?: { level?: number }): boolean
     setCalloutType(type: string): boolean
+    /** Slice Q (v1-queries §3.2, FR-QRY-06 AC-9, AC-10): deletes `from…to` (the typed `/quer`) and inserts after the
+     *  caret's block (in place of an empty paragraph) a query block `newQueryFence(name)`, or with `name: null` an
+     *  empty `draft` block that is never written; the block is selected; one undo step. */
+    insertQuery(from: number, to: number, name: string | null): boolean
+    /** Slice Q (D-1471): removes the draft query block at `pos` without a history entry; false when there is none. */
+    dropQueryDraft(pos: number): boolean
     undo(): boolean
     redo(): boolean
   }
@@ -423,11 +437,13 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     // Slice MM: the map is drawn once the document is loaded (the load's own node views are replaced right after).
     mindmap: opts.ui.mindmap && ((dom, ctl) => (loading ? null : opts.ui!.mindmap!(dom, ctl))),
     media: opts.ui.media && ((source, dom, getPos) => (loading ? PENDING_EMBED : opts.ui!.media!(source, dom, getPos))),
+    // Slice Q: as embeds, the app's query block is mounted once the document is loaded.
+    query: opts.ui.query && ((source, dom, ctl) => (loading ? PENDING_EMBED : opts.ui!.query!(source, dom, ctl))),
   }
 
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([embedKeys(() => api), MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), QueryGuard, MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     editable: opts.editable ?? true,
     enableInputRules: false,
@@ -706,7 +722,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
 
   function inSourceBlock(state: EditorState): boolean {
     const sel = state.selection
-    if (sel instanceof NodeSelection && sel.node.type.name === 'rawBlock') return true
+    if (sel instanceof NodeSelection && (sel.node.type.name === 'rawBlock' || isQueryCode(sel.node))) return true
+    // Slice Q (D-1470): typing never edits a nested query fence.
+    if (isQueryCode(sel.$from.parent) || isQueryCode(sel.$to.parent)) return true
     return false
   }
 
@@ -784,7 +802,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       const n = editor.state.doc.child(k)
       const i = n.attrs.srcIndex as number | null
       if (i !== null && loaded.originals[i] && n.eq(loaded.originals[i]!)) out.push(loaded.doc.blocks[i].raw.replace(/\r\n/g, '\n'))
-      else if (n.type.name === 'rawBlock') out.push(String(n.attrs.source))
+      else if (n.type.name === 'rawBlock') { if (!n.attrs.draft) out.push(String(n.attrs.source)) }
       else out.push(renderBlock(pmToBlock(n.toJSON())))
     }
     return out.join('\n\n')
@@ -1377,6 +1395,37 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: index, head: index }))
       return true
     },
+    insertQuery(from, to, name) {
+      if (!view.editable) return false
+      const tr = editor.state.tr.delete(from, to)
+      const k = topIndex(editor.state.apply(tr), tr.mapping.map(from))
+      const node = tr.doc.child(k)
+      const at = blockPos(tr.doc, k)
+      const block = name === null
+        ? editor.schema.nodes.rawBlock.create({ source: '```query\n```', kind: 'query', draft: true })
+        : editor.schema.nodes.rawBlock.create({ source: newQueryFence(name), kind: 'query' })
+      let blockAt: number
+      if (node.type.name === 'paragraph' && node.textContent.trim() === '' && !hasInline(node)) {
+        tr.replaceWith(at, at + node.nodeSize, block)
+        blockAt = at
+      } else {
+        blockAt = at + node.nodeSize
+        tr.insert(blockAt, block)
+      }
+      tr.setSelection(NodeSelection.create(tr.doc, blockAt))
+      tr.setMeta(blockSelKey, null)
+      dispatch(closeHistory(tr).scrollIntoView())
+      return true
+    },
+    dropQueryDraft(pos) {
+      const node = editor.state.doc.nodeAt(pos)
+      if (!node || node.type.name !== 'rawBlock' || node.attrs.kind !== 'query' || !node.attrs.draft) return false
+      const tr = editor.state.tr
+      if (editor.state.doc.childCount === 1) tr.replaceWith(pos, pos + node.nodeSize, editor.schema.nodes.paragraph.create())
+      else tr.delete(pos, pos + node.nodeSize)
+      dispatch(tr.setMeta('addToHistory', false).setMeta('teggEmptyBlock', true))
+      return true
+    },
     slashInsert(from, to, kind, o = {}) {
       dispatch(editor.state.tr.delete(from, to))
       return commands.insertBlock(kind, o)
@@ -1418,6 +1467,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       if (f && f.isConnected && (f.contains(active) || !view.hasFocus())) dom = f
     }
     return dom ? mindmapViews.get(dom) : undefined
+  }
+
+  /** Slice Q (R144): the selected query block (a node selection, or one block selected as a block), or null. */
+  function selectedQuery(): { pos: number } | null {
+    const sel = editor.state.selection
+    if (sel instanceof NodeSelection && isQueryNode(sel.node)) return { pos: sel.from }
+    const s = blockSel()
+    if (s && s.anchor === s.head && s.anchor < editor.state.doc.childCount && isQueryNode(editor.state.doc.child(s.anchor))) return { pos: blockPos(editor.state.doc, s.anchor) }
+    return null
   }
 
   function selectedEmbed(): { pos: number; index: number; source: string } | null {
@@ -1475,13 +1533,23 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     return true
   }
 
-  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; opts: EditorOptions } = {
+  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; opts: EditorOptions; selectedQuery(): { pos: number } | null } = {
     opts,
     atEdge,
     intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
     hasBlockSel: () => !!blockSel(),
     selectedEmbed,
+    selectedQuery,
     conversionUnit,
+    queryBlocks() {
+      const out: QueryBlockInfo[] = []
+      editor.state.doc.descendants((n, pos) => {
+        if (!isQueryNode(n)) return true
+        out.push({ pos, source: querySource(n), nested: n.type.name !== 'rawBlock', draft: !!n.attrs.draft })
+        return false
+      })
+      return out
+    },
     view,
     editor,
     async save() {
@@ -1739,13 +1807,19 @@ const MindmapKeys = Extension.create({
 })
 
 /** 4F (D-428): keys on a selected block embed, and leaving a nested editor. Runs before every other keymap. */
-function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {
+function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; selectedQuery(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {
   return Extension.create({
     name: 'teggEmbedKeys',
     priority: 1000,
     addKeyboardShortcuts() {
       const key = (k: 'enter' | 'open' | 'preview') => () => {
         const a = get()
+        // Slice Q (R144): ⌘↩ on a selected query block opens its editor in the app.
+        if (k === 'open') {
+          const q = a.selectedQuery()
+          const onKey = a.opts.onQueryKey ?? a.opts.ui?.onQueryKey
+          if (q && onKey) return !!onKey(q.pos, 'open')
+        }
         const e = a.selectedEmbed()
         return !!e && !!a.opts.onEmbedKey?.(e.pos, k)
       }
@@ -1769,6 +1843,20 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
     },
   })
 }
+
+/** Slice Q (D-1470): the caret never rests inside a nested query fence; a collapsed selection there selects the block. */
+const QueryGuard = Extension.create({
+  name: 'teggQueryGuard',
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      appendTransaction: (_trs, _old, state) => {
+        const sel = state.selection
+        if (!(sel instanceof TextSelection) || !sel.empty || !isQueryCode(sel.$from.parent)) return null
+        return state.tr.setSelection(NodeSelection.create(state.doc, sel.$from.before())).setMeta('addToHistory', false)
+      },
+    })]
+  },
+})
 
 /** 5A-2 (ms5-tasks §11.5): the hint of an empty body without the app's presentation (`emptyHint`): a widget, never
  *  part of the text. */

@@ -6,8 +6,9 @@ import { Extension } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state'
 import { redo, undo } from '@tiptap/pm/history'
-import { Decoration, DecorationSet, type EditorView, type NodeView } from '@tiptap/pm/view'
-import { displayTable, isAttachmentTarget, layoutOf, markdownTree, renderBlock, type MindmapLayout } from '@tegg/doc'
+import { Decoration, DecorationSet, type EditorView, type NodeView, type NodeViewConstructor } from '@tiptap/pm/view'
+import { displayTable, isAttachmentTarget, layoutOf, markdownTree, queryFences, renderBlock, type MindmapLayout } from '@tegg/doc'
+import { closeHistory } from '@tiptap/pm/history'
 import type { RootContent } from 'mdast'
 import type { JSONContent } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
@@ -112,6 +113,27 @@ export interface EditorUi {
   /** 6A (ms6-trash-media §6.1, FR-ATT-01 AC-1): called first by `handlePaste` when the clipboard has files (image
    *  items win over text); `true` consumes the paste. 6A stub: never called yet. */
   onFiles?(files: File[], pos: number): boolean
+  /** Slice Q (v1-queries §3.2, D-1470): draws a query block into `dom`: a top-level fence (`rawBlock` kind `query`,
+   *  `source` is the fence as written) or a nested one (`codeBlock` language `query`, `source` is the fence rebuilt
+   *  without container prefixes). Null (or no hook) shows the fence's text as a source block (D-1499: no placeholder). */
+  query?(source: string, dom: HTMLElement, ctl: QueryCtl): EmbedHandle | null
+  /** Slice Q (R144): ⌘↩ on a selected query block at `pos`; true when handled. `EditorOptions.onQueryKey` wins. */
+  onQueryKey?(pos: number, key: 'open'): boolean
+}
+
+/** Slice Q (v1-queries §3.2): what the app's query block gets from the editor. */
+export type QueryCtl = {
+  /** The block's position (the rawBlock or the nested codeBlock); undefined once it is gone. */
+  getPos(): number | undefined
+  /** Inside a list, quote or callout (a `codeBlock` language `query`). */
+  readonly nested: boolean
+  /** An unsaved block from `insertQuery(…, null)`: never written (D-1471). Read live. */
+  readonly draft: boolean
+  /** Replaces the fence's text (a whole fence; for a nested block its body is used) as one transaction and one undo
+   *  step, and clears `draft`. False when the block is gone or the editor is read-only. */
+  setSource(source: string): boolean
+  /** Selects the block as a node (the caret leaves the text). */
+  select(): void
 }
 
 /** 4F (ms4-embeds §7): the app's handle on a rendered block embed. */
@@ -235,7 +257,7 @@ class RawBlockView implements NodeView {
   dom: HTMLElement
   private handle: EmbedHandle | null = null
   private table: { destroy(): void } | null = null
-  constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined) {
+  constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined, private view?: EditorView) {
     this.dom = document.createElement('div')
     this.dom.contentEditable = 'false'
     this.dom.setAttribute('draggable', 'false')
@@ -245,6 +267,21 @@ class RawBlockView implements NodeView {
     const { node, ui } = this
     const kind = String(node.attrs.kind)
     const source = String(node.attrs.source)
+    // Slice Q (v1-queries §3.2): a query block is drawn by the app.
+    if (kind === 'query' && ui.query && this.view) {
+      if (this.handle && this.handle !== PENDING_EMBED) {
+        this.handle.update(source)
+        return
+      }
+      this.dom.className = 'query-block'
+      this.dom.removeAttribute('role')
+      this.dom.removeAttribute('aria-label')
+      this.dom.removeAttribute('data-placeholder')
+      this.dom.replaceChildren()
+      const view = this.view
+      this.handle = ui.query(source, this.dom, queryCtl(view, this.getPos, () => this.node, false))
+      if (this.handle) return
+    }
     // 4F (ms4-embeds §7): a note embed is rendered by the app.
     if (kind === 'embed' && ui.embed && noteEmbed(source) !== null) {
       if (this.handle && this.handle !== PENDING_EMBED) {
@@ -281,7 +318,8 @@ class RawBlockView implements NodeView {
     this.table?.destroy()
     this.table = null
     this.dom.replaceChildren()
-    if (kind === 'embed' || kind === 'query' || kind === 'mindmap') {
+    // D-1499: a query block without the app's hook is shown as its source text, never as an R5 placeholder.
+    if (kind === 'embed' || kind === 'mindmap') {
       const ph = ui.placeholder(kind as 'embed', source)
       this.dom.setAttribute('role', 'region')
       this.dom.setAttribute('aria-label', ph.name)
@@ -337,7 +375,8 @@ class RawBlockView implements NodeView {
   }
   update(node: PMNode) {
     if (node.type !== this.node.type) return false
-    if (this.handle && String(node.attrs.kind) !== 'embed') return false
+    if (this.handle && String(node.attrs.kind) !== String(this.node.attrs.kind)) return false
+    if (this.handle && this.handle !== PENDING_EMBED && String(node.attrs.kind) === 'query' && node.attrs.source === this.node.attrs.source) { this.node = node; return true }
     // D-606: a read-only table keeps its rendered root while its source is the same.
     if (this.table && node.attrs.source === this.node.attrs.source && node.attrs.kind === this.node.attrs.kind) { this.node = node; return true }
     this.node = node
@@ -366,6 +405,134 @@ class RawBlockView implements NodeView {
       return e.type.startsWith('key') || !!el?.closest?.('[data-embed-body], button, a, [role="menu"], [role="link"]')
     }
     return e.type === 'keydown' || e.type === 'beforeinput' || e.type === 'paste' || (e.type === 'click' && !!(e.target as HTMLElement | null)?.closest?.('.link-chip'))
+  }
+  ignoreMutation() {
+    return true
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ slice Q
+
+/** A nested query fence: a `codeBlock` whose language is exactly `query` (R140, D-1470). */
+export function isQueryCode(node: PMNode | null | undefined): boolean {
+  return !!node && node.type.name === 'codeBlock' && node.attrs.language === 'query'
+}
+
+/** A query block: a top-level `rawBlock` kind `query` or a nested query `codeBlock`. */
+export function isQueryNode(node: PMNode | null | undefined): boolean {
+  return !!node && ((node.type.name === 'rawBlock' && node.attrs.kind === 'query') || isQueryCode(node))
+}
+
+/** The fence text of a query block: a rawBlock's source as written; a nested codeBlock's fence rebuilt without
+ *  container prefixes (```` ```query[ meta]\n<body>\n``` ````). */
+export function querySource(node: PMNode): string {
+  if (node.type.name === 'rawBlock') return String(node.attrs.source)
+  const meta = node.attrs.meta ? ` ${String(node.attrs.meta)}` : ''
+  const body = node.textContent
+  return '```query' + meta + '\n' + (body ? body + '\n' : '') + '```'
+}
+
+/** The body a `setSource` gives a nested block: the fence's body when `source` is a fence, else `source` itself. */
+function bodyFrom(source: string): string {
+  if (/^[ \t]*(`{3,}|~{3,})/.test(source)) {
+    const f = queryFences(source)[0]
+    if (f) return f.body.replace(/\r\n?/g, '\n')
+    return source.replace(/^[^\n]*\n?/, '').replace(/\n?[ \t]*(`{3,}|~{3,})[ \t]*\n?$/, '')
+  }
+  return source.replace(/\r\n?/g, '\n')
+}
+
+/** Replaces the query block at `pos` with `source` as one transaction and one undo step; clears `draft`. */
+export function setQuerySource(view: EditorView, pos: number, source: string): boolean {
+  if (!view.editable) return false
+  const node = view.state.doc.nodeAt(pos)
+  if (!node || !isQueryNode(node)) return false
+  const tr = closeHistory(view.state.tr)
+  if (node.type.name === 'rawBlock') {
+    if (node.attrs.source === source && !node.attrs.draft) return true
+    tr.setNodeMarkup(pos, undefined, { ...node.attrs, source, draft: false })
+  } else {
+    const body = bodyFrom(source)
+    if (body === node.textContent) return true
+    tr.replaceWith(pos + 1, pos + node.nodeSize - 1, body ? view.state.schema.text(body) : [])
+  }
+  view.dispatch(tr)
+  return true
+}
+
+function queryCtl(view: EditorView, getPos: () => number | undefined, node: () => PMNode, nested: boolean): QueryCtl {
+  const live = (): number | undefined => {
+    const pos = getPos()
+    return pos !== undefined && isQueryNode(view.state.doc.nodeAt(pos)) ? pos : undefined
+  }
+  return {
+    getPos: live,
+    nested,
+    get draft() { return !nested && !!node().attrs.draft },
+    setSource(source) {
+      const pos = live()
+      return pos !== undefined && setQuerySource(view, pos, source)
+    },
+    select() {
+      const pos = live()
+      if (pos === undefined) return
+      view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)))
+    },
+  }
+}
+
+/** Slice Q (D-1470): a nested query fence drawn by the app; no content DOM, so the caret never enters it. */
+class QueryCodeView implements NodeView {
+  dom: HTMLElement
+  private handle: EmbedHandle | null = null
+  constructor(private node: PMNode, private ui: EditorUi, private getPos: () => number | undefined, private view: EditorView) {
+    this.dom = document.createElement('div')
+    this.dom.contentEditable = 'false'
+    this.dom.setAttribute('draggable', 'false')
+    this.render()
+  }
+  private render() {
+    const source = querySource(this.node)
+    if (this.handle && this.handle !== PENDING_EMBED) {
+      this.handle.update(source)
+      return
+    }
+    this.dom.className = 'query-block'
+    this.dom.removeAttribute('role')
+    this.dom.removeAttribute('aria-label')
+    this.dom.replaceChildren()
+    this.handle = this.ui.query!(source, this.dom, queryCtl(this.view, this.getPos, () => this.node, true))
+    if (this.handle) return
+    this.dom.className = 'source-block'
+    this.dom.setAttribute('role', 'group')
+    this.dom.setAttribute('aria-label', this.ui.sourceBlock)
+    const pre = document.createElement('pre')
+    pre.textContent = source
+    this.dom.appendChild(pre)
+  }
+  update(node: PMNode) {
+    if (!isQueryCode(node)) return false
+    const same = node.textContent === this.node.textContent && node.attrs.meta === this.node.attrs.meta
+    this.node = node
+    if (!same) this.render()
+    return true
+  }
+  selectNode() {
+    this.dom.classList.add('ProseMirror-selectednode')
+    this.handle?.selected(true)
+  }
+  deselectNode() {
+    this.dom.classList.remove('ProseMirror-selectednode')
+    this.handle?.selected(false)
+  }
+  destroy() {
+    this.handle?.destroy()
+    this.handle = null
+  }
+  stopEvent(e: Event) {
+    const el = e.target as HTMLElement | null
+    if (el === this.dom) return false
+    return e.type.startsWith('key') || e.type === 'beforeinput' || e.type === 'paste' || !!el?.closest?.('button, a, input, select, textarea, [role="menu"], [role="link"]')
   }
   ignoreMutation() {
     return true
@@ -1108,7 +1275,10 @@ export function presentation(ui: EditorUi) {
             },
             nodeViews: {
               callout: (node, view, getPos) => new CalloutView(node, view, getPos as () => number | undefined, ui),
-              rawBlock: (node, _view, getPos) => new RawBlockView(node, ui, getPos as () => number | undefined),
+              rawBlock: (node, view, getPos) => new RawBlockView(node, ui, getPos as () => number | undefined, view),
+              // Slice Q (D-1470): a nested `query` fence is drawn through the same hook, with no content DOM.
+              codeBlock: ((node: PMNode, view: EditorView, getPos: () => number | undefined) =>
+                (isQueryCode(node) && ui.query ? new QueryCodeView(node, ui, getPos, view) : null)) as unknown as NodeViewConstructor,
               wikiLink: (node) => new WikiLinkView(node, ui),
               listItem: (node, view, getPos) => new ListItemView(node, view, getPos as () => number | undefined, ui.checkbox ?? 'Done'),
             },
