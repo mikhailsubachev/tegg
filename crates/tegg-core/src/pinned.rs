@@ -120,6 +120,8 @@ pub enum PinRequest {
     Object { path: String },
     Tag { key: String },
     Type { key: String },
+    /// v1-queries §1.9 (slice Q): a saved query by name (compile-only stub until the build).
+    Query { name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1083,6 +1085,8 @@ impl Core {
     /// note is never written); a Tag object is stored as its tag (D-1382).
     fn pin_target(&self, req: &PinRequest) -> Result<PinTarget, PinError> {
         match req {
+            // v1-queries §1.9 (slice Q): compile-only stub; the build pins live queries.
+            PinRequest::Query { .. } => Err(PinError::NotPinnable),
             PinRequest::Tag { key } => Some(tag_key(key)).filter(|k| !k.is_empty()).map(|key| PinTarget::Tag { key }).ok_or(PinError::NotPinnable),
             PinRequest::Type { key } => Some(type_key_of(key)).filter(|k| !k.is_empty()).map(|key| PinTarget::Type { key }).ok_or(PinError::NotPinnable),
             PinRequest::Object { path } => {

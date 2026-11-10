@@ -51,6 +51,8 @@ pub enum CoreEvent {
     /// ms4-jobs §2.2, §9: a file for the UI's `@tegg/doc` worker; `live` when the file is open in an editor (D-386),
     /// whose transaction and autosave then write it.
     JobTransform { request: u64, source: String, text: String, ops: Vec<tegg_jobs::TextOp>, live: bool },
+    /// v1-queries §1.7 (slice Q): after a `VaultChanged` with `.md` paths, the changed objects' type keys before and after.
+    QueryStale { types: Vec<String>, paths: Vec<String> },
 }
 
 #[derive(Debug)]
@@ -89,6 +91,8 @@ pub enum CoreError {
     Preset(PresetError),
     /// v1-pinned §1.4 (slice PIN): a pin operation the core refuses; nothing was written.
     Pin(pinned::PinError),
+    /// v1-queries §1.1 (slice Q): a query operation the core refuses; nothing was written.
+    Query(queries_q::QueryError),
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -1136,5 +1140,7 @@ pub use tegg_index::PauseHook;
 pub mod graph_presets;
 // docs/contracts/v1-pinned.md §1: sidebar pins in `.tegg/pinned.yml` (`pinned.rs`).
 pub mod pinned;
+// docs/contracts/v1-queries.md §1: saved queries in `.tegg/queries/` and the evaluator (`queries_q.rs`).
+pub mod queries_q;
 mod yaml_text;
 pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};

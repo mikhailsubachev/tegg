@@ -38,6 +38,8 @@ pub enum JobKind {
     Inbox,
     /// ms4-tags §5.3 (4D-lite): restoring a backup zip (Settings › Backups).
     Restore,
+    /// v1-queries §1.8 (slice Q): renaming a saved query (compile-only stub until the build).
+    QueryRename,
 }
 
 impl JobKind {
@@ -56,6 +58,7 @@ impl JobKind {
             JobKind::TestBackup => "test-backup",
             JobKind::Inbox => "inbox",
             JobKind::Restore => "restore",
+            JobKind::QueryRename => "query-rename",
         }
     }
 
@@ -152,6 +155,8 @@ pub enum JobOp {
     /// ms4-tags §5.3 (4D-lite): restore the backup zip `name` (a file name in the open vault's backup folder). The
     /// op's name is a red-test point (AP-671): the contract names only the IPC command `backup_restore(name)`.
     Restore { name: String },
+    /// v1-queries §1.8 (slice Q): rename the saved query `name` to `title` (compile-only stub until the build).
+    QueryRename { name: String, title: String },
 }
 
 /// ms4-jobs §14.2 (D-813): one schema property of the old type; only schema properties are mapped.
@@ -459,6 +464,10 @@ pub enum JobError {
     UnknownProperty,
     /// A core error, as text (`CoreError` lives in tegg-core, which depends on this crate).
     Core(String),
+    /// v1-queries §1.8 (slice Q): the new name is another query's name (compile-only stub until the build).
+    QueryExists { name: String },
+    /// v1-queries §1.8 (slice Q): the query file is unreadable or newer; nothing is renamed.
+    QueryUnreadable,
 }
 
 /// Named points of a running job where the L4 sync simulator injects external changes (rename.md "Test layers",

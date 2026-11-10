@@ -7,11 +7,14 @@ pub mod excerpt;
 pub mod date;
 /// MS4 slice 4B (docs/contracts/ms4-daily.md §5, §6.1): daily file names and the daily template.
 pub mod daily;
+/// v1.0 slice Q (docs/contracts/v1-queries.md §1.3): ```query fences in a note.
+pub mod query_fence;
 
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;
 
 pub use extract::{body_start, parse_yaml_value, tag_key, Extracted, FrontmatterError, Link};
+pub use query_fence::{query_fences, QueryFence};
 pub use excerpt::{At, BlockKind, BlockText, Excerpt, LinkTargetInfo, Mark, RSeg, Segment, TargetKind};
 
 /// D-51, D-52, D-68, D-80, FR-FMT-08, NFR-POR-02: title → file stem (no extension).

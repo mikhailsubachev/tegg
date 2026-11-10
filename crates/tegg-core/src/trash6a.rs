@@ -23,6 +23,8 @@ pub enum TrashKind {
     Object,
     File,
     Folder,
+    /// v1-queries §1.10 (slice Q): a trashed `.trash/.tegg/queries/*.yml` (compile-only stub until the build).
+    Query,
 }
 
 /// One row of the Trash page (ms6-trash-media §1.2).

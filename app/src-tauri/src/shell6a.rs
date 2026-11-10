@@ -109,6 +109,8 @@ pub(crate) async fn trash_list(state: State<'_, AppState>) -> Result<Vec<TrashEn
                 TrashKind::Object => "object",
                 TrashKind::File => "file",
                 TrashKind::Folder => "folder",
+                // v1-queries §1.10 (slice Q): compile-only stub until the build.
+                TrashKind::Query => "query",
             }
             .into(),
             original: e.original,

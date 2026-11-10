@@ -378,6 +378,8 @@ fn forward_events(app: AppHandle, core: &Core) {
                     let _ = app.emit_to("main", "note:conflict", c);
                 }
                 CoreEvent::Placeholders { .. } => {}
+                // v1-queries §1.7 (slice Q): `query:stale`, compile-only stub until the build.
+                CoreEvent::QueryStale { .. } => {}
                 // ms4-jobs §4 (4C).
                 CoreEvent::JobProgress(p) => {
                     let _ = app.emit_to("main", "job:progress", progress_dto(&p));
@@ -1032,6 +1034,9 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::BuiltIn => err("BuiltIn", "built-in properties can't be removed"),
         JobError::UnknownProperty => err("UnknownProperty", "no such property"),
         JobError::Core(m) => err("Io", m),
+        // v1-queries §1.8 (slice Q): compile-only stubs until the build.
+        JobError::QueryExists { name } => err("NameTaken", format!("{name} already exists")),
+        JobError::QueryUnreadable => err("Unreadable", "the query can't be read"),
     }
 }
 
