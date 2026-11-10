@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Úkoly z této schůzky.
+version: 1
+title: Úkoly z této schůzky
+types: [task]
+match: all
+filters:
+  - links_to: this
+sort: { by: due, order: asc }
+limit: 50
+view: table
+columns: [status, priority, due, modified]
+created: 2026-10-07T12:00:00+02:00
+modified: 2026-10-07T12:00:00+02:00

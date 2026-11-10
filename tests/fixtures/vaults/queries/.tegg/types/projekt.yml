@@ -1,0 +1,25 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Projekt
+plural: Projekty
+system: false
+folder: Projekty
+icon: folder
+color: orange
+review: false
+preview: [stav]
+attributes:
+  - key: stav
+    name: Stav
+    type: select
+    options:
+      - { label: Aktivní, color: green }
+      - { label: Pozastaveno, color: yellow }
+      - { label: Hotovo, color: gray }
+  - key: rozpočet
+    name: Rozpočet
+    type: number
+  - key: vlastník
+    name: Vlastník
+    type: relation
+    to: [osoba]

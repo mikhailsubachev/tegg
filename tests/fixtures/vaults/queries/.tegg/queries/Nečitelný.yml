@@ -1,0 +1,10 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Nečitelný.
+version: 1
+title: Nečitelný
+types: [task]
+match: all: any
+filters:
+  - status: To do
+sort: { by: title, order: asc }
+created: 2026-07-15T09:00:00+02:00
+modified: 2026-07-15T09:00:00+02:00

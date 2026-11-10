@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Úkoly po termínu.
+version: 1
+title: Úkoly po termínu
+types: [task]
+match: all
+filters:
+  - due: { overdue: true }
+sort: { by: due, order: asc }
+limit: 50
+view: list
+columns: [status, due]
+created: 2026-08-12T09:00:00+02:00
+modified: 2026-08-12T09:00:00+02:00

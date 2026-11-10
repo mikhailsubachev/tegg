@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Zrušené úkoly.
+version: 1
+title: Zrušené úkoly
+types: [task]
+match: all
+filters:
+  - status: Cancelled
+sort: { by: modified, order: desc }
+limit: 50
+view: list
+columns: [status, due]
+created: 2026-08-28T09:00:00+02:00
+modified: 2026-10-09T09:00:00+02:00
