@@ -8,6 +8,7 @@ icon: users
 color: teal
 review: false
 preview: [datum]
+template: _templates/Schůzka/Schůzka.md
 attributes:
   - key: datum
     name: Datum

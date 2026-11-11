@@ -40,7 +40,7 @@ Key order: `id, type, title, <attributes>, source, tags, created, modified`. Ids
 
 ## Types
 
-`schůzka.yml` (Schůzka / Schůzky, `users`, teal; `datum` date, `účastníci` relation to `osoba`, multiple), `projekt.yml` (Projekt / Projekty, `folder`, orange; `stav` select Aktivní / Pozastaveno / Hotovo, `rozpočet` number, `vlastník` relation to `osoba`), `osoba.yml` (Osoba / Osoby, `user`, purple; `firma` text), `kniha.yml` (Kniha / Knihy, `book`, yellow; `autor` text, `přečteno` checkbox; **no** `hodnocení`).
+`schůzka.yml` (Schůzka / Schůzky, `users`, teal; default template `_templates/Schůzka/Schůzka.md` (D-232, FR-TPL-04 AC-1); `datum` date, `účastníci` relation to `osoba`, multiple), `projekt.yml` (Projekt / Projekty, `folder`, orange; `stav` select Aktivní / Pozastaveno / Hotovo, `rozpočet` number, `vlastník` relation to `osoba`), `osoba.yml` (Osoba / Osoby, `user`, purple; `firma` text), `kniha.yml` (Kniha / Knihy, `book`, yellow; `autor` text, `přečteno` checkbox; **no** `hodnocení`).
 
 ## Queries (`.tegg/queries/`)
 
