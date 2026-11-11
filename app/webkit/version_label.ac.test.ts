@@ -1,11 +1,10 @@
 // MS5 slice 5B feedback round 2, L5 (WebKit + fake core): the version label instead of the in-app logo (FR-UX-01 AC-5,
-// D-597) and the capture Saved panel without a logo (FR-CAP-01 AC-13, L5 part; R55 "Saved panel").
+// D-597, D-1512; AC-test change D-1513) and the capture Saved panel without a logo (FR-CAP-01 AC-13, L5 part; R55 "Saved panel").
 // Written from docs/acceptance/app-shell.md (FR-UX-01 AC-5), docs/acceptance/capture.md (FR-CAP-01 AC-13, R55) and
-// docs/contracts/ms3-shell.md §12.3, §12.5 only (D-61). Every lookup goes through `must`/`seen` and node:assert, so a
+// docs/contracts/ms3-shell.md §1 "Release build", §12.3, §12.5 only (D-61). Every lookup goes through `must`/`seen` and node:assert, so a
 // missing element is an AssertionError (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { eventually, focused, must, mustBeOn, onPage, runCommand, sidebar, start, theme } from './helpers';
@@ -13,7 +12,7 @@ import { ui, watchNetwork } from './read-helpers';
 import { click, seen, sleep, startCapture } from './capture-helpers';
 
 const LABEL = 'Tegg: About and Settings';
-const PATTERN = /^v0\.(\d+|dev)$/;
+const PATTERN = /^(v\d+\.\d+\.\d+|dev)$/;
 const versionButton = (page: Page) => sidebar(page).getByRole('button', { name: LABEL, exact: true });
 const aboutMenu = (page: Page) => page.getByRole('menu', { name: 'About and Settings' });
 
@@ -45,14 +44,13 @@ async function buttonInfo(page: Page) {
   });
 }
 
-/** The label the build should show: `versionLabel` over this checkout's `git log --format=%s` of HEAD (ms3-shell §12.3). */
+/** The label the build should show: `versionLabel(process.env.TEGG_VERSION)`, the version the test build was built with
+ * (ms3-shell §12.3; `dev` when it has none). */
 async function expectedLabel(): Promise<string> {
-  const subjects = execFileSync('git', ['log', '--format=%s', 'HEAD'], { cwd: resolve(import.meta.dirname, '..'), encoding: 'utf8', maxBuffer: 64 << 20 })
-    .split('\n').filter((s) => s !== '');
   let m: Record<string, any> | null = null;
   try { m = await import(pathToFileURL(resolve(import.meta.dirname, '../ui/src/version.ts')).href); } catch { m = null; }
   assert.ok(m && typeof m.versionLabel === 'function', 'app/ui/src/version.ts exports versionLabel (ms3-shell §12.3)');
-  return m!.versionLabel(subjects);
+  return m!.versionLabel(process.env.TEGG_VERSION);
 }
 
 // ------------------------------------------------------------------------------------------------ FR-UX-01 AC-5
@@ -66,7 +64,7 @@ test('fr_ux_01_ac5_button_shows_the_version_and_no_image_in_light_and_dark', asy
   assert.equal(light.svgs, 0, 'no svg in the button (D-597)');
   assert.equal(light.bgImage, false, 'no background image in the button (D-597)');
   assert.equal(light.texts.length, 1, `one visible text, got ${JSON.stringify(light.texts)}`);
-  assert.match(light.texts[0], PATTERN, 'the visible text is v0.<N>');
+  assert.match(light.texts[0], PATTERN, 'the visible text is v<MAJOR.MINOR.PATCH> or dev');
   assert.equal(light.inner, light.texts[0], 'the button shows only the version');
   assert.equal(light.ariaLabel, LABEL, 'the accessible name stays "Tegg: About and Settings"');
 
@@ -85,14 +83,14 @@ test('fr_ux_01_ac5_button_starting_in_dark_shows_the_version', async ({ page }) 
   const info = await buttonInfo(page);
   assert.equal(info.imgs + info.svgs, 0, 'no img or svg in the button in dark (D-597)');
   assert.equal(info.texts.length, 1, `one visible text, got ${JSON.stringify(info.texts)}`);
-  assert.match(info.texts[0], PATTERN, 'the visible text is v0.<N>');
+  assert.match(info.texts[0], PATTERN, 'the visible text is v<MAJOR.MINOR.PATCH> or dev');
 });
 
 test('fr_ux_01_ac5_version_is_the_builds_version_label', async ({ page }) => {
   await start(page, { uiState: ui('light') });
   const info = await buttonInfo(page);
   assert.equal(info.texts.length, 1, `one visible text, got ${JSON.stringify(info.texts)}`);
-  assert.equal(info.texts[0], await expectedLabel(), 'the button shows versionLabel(git log --format=%s HEAD) (ms3-shell §12.3)');
+  assert.equal(info.texts[0], await expectedLabel(), 'the button shows versionLabel(TEGG_VERSION) (ms3-shell §12.3)');
 });
 
 test('fr_ux_01_ac5_version_button_keeps_its_name_and_menu', async ({ page }) => {

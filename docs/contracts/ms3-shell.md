@@ -14,7 +14,7 @@ Until a part is implemented it exists as a stub that compiles and returns a deli
 
 Unchanged from ms2-shell §1, plus:
 
-- **Preview build (D-118):** `cd app && npm run app:preview` builds and installs `~/Applications/Tegg Preview.app`, bundle id `app.tegg.preview`, ad-hoc signed, with Application Support root `~/Library/Application Support/Tegg Preview/`. The test build (`app:build`, `app.tegg.desktop`) is unchanged.
+- **Release build (D-118, D-1514, D-1512):** `cd app && npm run app:release -- <MAJOR.MINOR.PATCH>` builds the app and DMG with the feature `preview` and `tauri.preview.conf.json` (product name `Tegg`, bundle id `app.tegg.preview`, bundle version and `TEGG_VERSION` = the given version), ad-hoc signed, with Application Support root `~/Library/Application Support/Tegg Preview/`, and installs `~/Applications/Tegg.app` (removing `~/Applications/Tegg Preview.app`). The test build (`app:build`, `app.tegg.desktop`, folder `Tegg`) is unchanged.
 - **Minimum window size:** 800 × 500 pt, set on the native window (AP-80, FR-UX-02 AC-18).
 - **Test environment** (only with `TEGG_TEST=1`), added in 3A:
   - `TEGG_TEST_PICK_DIR=<dir>`: the folder dialog returns `<dir>` without showing NSOpenPanel; an empty value means the user cancelled (AP-79).
@@ -433,7 +433,7 @@ export function createHistory(): {
 ### 12.3 Logo (D-164)
 
 - *(D-597: the in-app logo assets are removed; the mark lives only in `src-tauri/icons/` for the app icon and the status item.)*
-- The button `Tegg: About and Settings` at the bottom left of the sidebar (D-220, §12.5) shows the text `__TEGG_VERSION__` (D-597): a Vite `define` set at build time from `versionLabel(subjects)` in `app/ui/src/version.ts` over `git log --format=%s` of HEAD (newest first: `v0.<N>` for the first `Merge pull request #N`, else `v0.dev`); its `aria-label` stays `Tegg: About and Settings`.
+- The button `Tegg: About and Settings` at the bottom left of the sidebar (D-220, §12.5) shows the text `__TEGG_VERSION__` (D-597, D-1512): a Vite `define` set at build time from `versionLabel(process.env.TEGG_VERSION)` in `app/ui/src/version.ts`. `versionLabel(version: string | undefined): string` returns `v<version>` when `version` is `MAJOR.MINOR.PATCH` (each part `0` or a number without a leading zero), else `dev`. Its `aria-label` stays `Tegg: About and Settings`.
 
 ### 12.5 Vault switcher and logo menu (D-219, D-220)
 

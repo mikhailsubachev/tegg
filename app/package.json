@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build --bundles app",
-    "app:preview": "tauri build --bundles app --config src-tauri/tauri.preview.conf.json --features preview && mkdir -p ~/Applications && rm -rf ~/Applications/'Tegg Preview.app' && ditto 'src-tauri/target/release/bundle/macos/Tegg Preview.app' ~/Applications/'Tegg Preview.app'",
+    "app:release": "node scripts/release.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "vitest run",
     "test:webkit": "playwright test",

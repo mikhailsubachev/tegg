@@ -45,15 +45,17 @@ pub(crate) fn test_var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
-/// The app name: window title and Application Support folder (D-118: the preview keeps its own data).
-pub(crate) const APP_NAME: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
-/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549).
+/// The app name shown in the window title and menus: Tegg in every build (D-1514).
+pub(crate) const APP_NAME: &str = "Tegg";
+/// The Application Support folder: the release build (feature `preview`) keeps the preview's own data (D-118, D-1514).
+const SUPPORT_FOLDER: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
+/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549, D-1514).
 pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
 fn app_dirs() -> AppDirs {
     let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_default();
-        PathBuf::from(home).join("Library/Application Support").join(APP_NAME)
+        PathBuf::from(home).join("Library/Application Support").join(SUPPORT_FOLDER)
     });
     AppDirs { root }
 }
