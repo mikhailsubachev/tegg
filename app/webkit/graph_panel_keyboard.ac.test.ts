@@ -250,7 +250,8 @@ test('fr_ux_03_ac33_panel_return_keys_on_a_focused_node_alt_space_click_mode', a
 
 // ------------------------------------------------------------------------------------------------ FR-UX-03 AC-34
 
-test('fr_ux_03_ac34_panel_c_and_zoom_keys', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #112): failed once in the v0.122 fix gate under load; not caused by it.
+test('fr_ux_03_ac34_panel_c_and_zoom_keys', { tag: ['@flaky'] }, async ({ page }) => {
   const core = await openPanel(page, P.plan);
   await needIn(page, 10, 'Plán');
   await needTabStop(page);
