@@ -208,6 +208,8 @@ test('fr_ux_03_ac33_panel_return_keys_on_a_focused_node', async ({ page }) => {
   const d = await mustPreview(page, 'Plán čtvrtletí', '⏎ on the centre previews it');
   assert.ok((await eventually(async () => flat(await d.innerText()), (t) => t.includes('Page · 9 connections'), 2000)).includes('Page · 9 connections'), 'Plán\'s preview');
   await page.keyboard.press('Escape');
+  // #112: Back's own route marks can arrive after the nodes are drawn when frames lag; they are not caused by ⌘⏎.
+  for (let n = -1, m = (await routeMarks(core)).length, i = 0; n !== m && i < 20; i++) { n = m; await sleep(300); m = (await routeMarks(core)).length; }
   const n1 = await navs(core), r1 = (await routeMarks(core)).length;
   for (const k of ['Meta+Enter', 'Meta+Shift+Enter']) { await focusOn(page, P.plan); await page.keyboard.press(k); }
   await sleep(600);
