@@ -63,7 +63,9 @@ const SURFACES: Surface[] = [
 for (const s of SURFACES) {
   test(`fr_nav_03_ac8_a_horizontal_scroll_never_navigates_${s.name}`, async ({ page }) => {
     if (s.readView) await page.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
-    const core = await start(page);
+    // D-1511: AC-8 holds while the macOS setting is off (`nav_swipe_scroll` answers `false` from the start).
+    const core = await start(page, { swipeScroll: false });
+    await core.swipeScroll(false);
     await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-614)');
     // The surface S, then another route, then one Back: S has a Back entry (Inbox) and a Forward entry.
     const name = await s.reach(page);
