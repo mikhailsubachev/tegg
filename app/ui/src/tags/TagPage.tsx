@@ -20,7 +20,7 @@ import { appZone } from '../zone';
 import { tagChipStyle } from './chip';
 import { DEFAULT_TAG_PAGE, summary, tagPageRows, typeOptions, type TagPageSort, type TagPageUi } from './model';
 import { ColourPopover, DeleteTagDialog, RenameTagDialog } from './TagDialogs';
-import { refreshTags, useTags } from './store';
+import { useTags, syncTags } from './store';
 
 export type TagPageProps = {
   tagKey: string;
@@ -48,7 +48,7 @@ const COLUMNS: { key: TagPageSort['column']; label: string }[] = [
 
 export function TagPage(p: TagPageProps) {
   const tags = useTags();
-  useEffect(() => { void refreshTags(); }, []);
+  useEffect(() => { void syncTags(); }, []);
   const row = tags.find((x) => x.key === p.tagKey) ?? null;
   const name = row?.name ?? p.tagKey;
   const [objects, setObjects] = useState<TagObjectRowDto[] | null>(null);

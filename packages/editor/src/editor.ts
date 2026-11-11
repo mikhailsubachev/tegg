@@ -441,9 +441,11 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     query: opts.ui.query && ((source, dom, ctl) => (loading ? PENDING_EMBED : opts.ui!.query!(source, dom, ctl))),
   }
 
+  /** The `scrollAskKey` state the view last scrolled for (see `handleScrollToSelection`). */
+  let scrolledFor: object = NO_SCROLL_ASK
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([embedKeys(() => api), QueryGuard, MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), QueryGuard, ScrollAsk, MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     editable: opts.editable ?? true,
     enableInputRules: false,
@@ -477,7 +479,16 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       },
       handleTextInput: (view) => inSourceBlock(view.state) || inEmbedDom(view),
       // A DOM without layout (no Range.getClientRects, as jsdom) has nothing to scroll to.
-      handleScrollToSelection: () => typeof Range === 'undefined' || typeof Range.prototype.getClientRects !== 'function',
+      // Issue 112 b (D-255): only a transaction that asks for it scrolls the caret into view. ProseMirror also scrolls
+      // when it puts its selection back after a focus (DOMObserver.flush, "the browser reset the selection"): that
+      // moved a note off the scroll position Back had just restored.
+      handleScrollToSelection: (view) => {
+        if (typeof Range === 'undefined' || typeof Range.prototype.getClientRects !== 'function') return true
+        const asked = scrollAskKey.getState(view.state) ?? NO_SCROLL_ASK
+        if (asked === NO_SCROLL_ASK || asked === scrolledFor) return true
+        scrolledFor = asked
+        return false
+      },
       // 4F (AP-349): a click on a block embed's frame (outside its controls and content) selects it as a block.
       handleClickOn: (view, _pos, node, nodePos, event, direct) => {
         const el = event.target as HTMLElement | null
@@ -1876,6 +1887,17 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
     },
   })
 }
+
+/** Issue 112 b: a new value for every transaction that asked to scroll the selection into view (`tr.scrollIntoView()`),
+ *  so the view can tell their scroll from ProseMirror's own after a focus (`handleScrollToSelection`). */
+const NO_SCROLL_ASK: object = {}
+const scrollAskKey = new PluginKey<object>('teggScrollAsk')
+const ScrollAsk = Extension.create({
+  name: 'teggScrollAsk',
+  addProseMirrorPlugins() {
+    return [new Plugin<object>({ key: scrollAskKey, state: { init: () => NO_SCROLL_ASK, apply: (tr, last) => (tr.scrolledIntoView ? {} : last) } })]
+  },
+})
 
 /** Slice Q (D-1470): the caret never rests inside a nested query fence; a collapsed selection there selects the block. */
 const QueryGuard = Extension.create({

@@ -175,10 +175,20 @@ export class EmbedStore {
  */
 let lastFix: { top: number; by: object } | null = null;
 
+/**
+ * Issue 112 c: while a note that Back/Forward returned to still restores its scroll position (NotePage), that restore
+ * owns the centre pane's scroll. The correction below measured a note whose embeds had no height yet, at a scroll
+ * position that was the previous page's, and moved the note away from the position being restored.
+ */
+let scrollRestoring: (() => boolean) | null = null;
+export function setScrollRestoring(f: (() => boolean) | null): void {
+  scrollRestoring = f;
+}
+
 /** Notes the first body block on screen and, once the change has painted, scrolls so it is where it was (D-456). */
 function keepOnScreen(): () => void {
   const main = typeof document !== 'undefined' ? document.querySelector('main') : null;
-  if (!main || main.scrollTop === 0) return () => {};
+  if (!main || main.scrollTop === 0 || scrollRestoring?.()) return () => {};
   const top = main.getBoundingClientRect().top;
   const blocks = [...main.querySelectorAll<HTMLElement>('.editor-host .ProseMirror > *, article.read-view > *')];
   // The first block that starts on screen: a block cut by the top edge may itself be the one changing size.

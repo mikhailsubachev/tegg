@@ -11,8 +11,7 @@ test.use({ timezoneId: 'Europe/Prague' });
 
 const top = (page: Page) => page.evaluate(() => document.querySelector('main')?.scrollTop ?? -1);
 
-// Quarantined (@flaky, test-strategy §8.4, #112): failed once in the v0.122 fix gate under load; not caused by that change.
-test('bug_102_fr_emb_02_a_scroll_right_after_back_stays', { tag: ['@flaky'] }, async ({ page }) => {
+test('bug_102_fr_emb_02_a_scroll_right_after_back_stays', async ({ page }) => {
   await openEmbeds(page, M.rezimy, setPreviewMode('off', { uiState: embedsUi() }));
   await needEmbeds(main(page), 12, 'the host note');
   await (await needTop(main(page), 4, 'Saturnin link-mode embed')).click();

@@ -592,8 +592,7 @@ test('fr_lnk_11_ac22_off_a_click_on_a_link_inside_opens_resting_does_nothing', a
 });
 
 for (const mode of ['click', 'hover', 'off'] as const) {
-  // Quarantined (test-strategy §8.4, issue #112): the click mode flakes in the gate.
-  test(`fr_lnk_11_ac22_enter_and_alt_space_on_a_focused_link_inside_${mode}`, { tag: mode === 'click' ? ['@flaky'] : [] }, async ({ page }) => {
+  test(`fr_lnk_11_ac22_enter_and_alt_space_on_a_focused_link_inside_${mode}`, async ({ page }) => {
     const core = await startPreviews(page, { at: PV.odkazy, mode, hoverDelay: mode === 'hover' ? 400 : undefined, readView: true });
     const show = async () => {
       const chip = await rozpocetChip(page);

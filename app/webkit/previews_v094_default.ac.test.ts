@@ -295,8 +295,7 @@ function cmdWheel(page: Page, at: Locator, deltaY: number) {
   }, deltaY);
 }
 
-// Quarantined (@flaky, test-strategy §8.4, #112): failed in two gates on load (slice Q, v0.122 fix); not caused by them.
-test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_write_nothing', { tag: ['@flaky'] }, async ({ page }) => {
+test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_write_nothing', async ({ page }) => {
   test.setTimeout(240_000);
   // D-1187: the tour starts on tasks/kanban with the panel open on Graph and the Kanban view stored before the start, so
   // reaching them writes no `ui_state` (the app stores `tasks` when the view is shown without it).
@@ -359,8 +358,10 @@ test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_writ
       const loc = await get();
       await loc.scrollIntoViewIfNeeded();
       const b = (await loc.boundingBox())!;
-      const x = what.includes('card') ? b.x + b.width - 12 : b.x + b.width / 2, y = what.includes('card') ? b.y + 12 : b.y + b.height / 2;
-      if (dbl) await page.mouse.dblclick(x, y); else await page.mouse.click(x, y);
+      // Issue 112: the same point, relative to the element, clicked through the locator: Playwright takes the element's
+      // place at the moment of the click. A point measured before was stale once Back's scroll restore moved the note.
+      const position = what.includes('card') ? { x: b.width - 12, y: 12 } : { x: b.width / 2, y: b.height / 2 };
+      if (dbl) await loc.dblclick({ position }); else await loc.click({ position });
       await sleep(300);
       await eventually(async () => mainName(page), (n) => n !== 'Vložení', 3000);
       assert.notEqual(await mainName(page), 'Vložení', `${what}: a ${dbl ? 'double-click' : 'click'} opens it (D-1166)`);

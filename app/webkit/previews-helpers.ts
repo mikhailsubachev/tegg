@@ -9,9 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtureVault, type CallRecord, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
-import { READ_COMMANDS, absent, eventually, mainName, must, mustBeOn, runCommand, seen, sidebar, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { READ_COMMANDS, absent, eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sidebar, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
 
-export { absent, eventually, mainName, must, mustBeOn, runCommand, seen, sidebar, sleep };
+export { absent, eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sidebar, sleep };
 export type { CallRecord, FakeCoreHandle, FakeVault };
 
 export const nfc = (s: string) => s.normalize('NFC');
@@ -455,6 +455,7 @@ export async function selectedBlocks(page: Page): Promise<number[]> {
  *  embed as a block. D-1166: embeds are previewed this way (⌥Space) now that a click opens them. */
 export async function selectHostBlock(page: Page, n: number, what: string) {
   const first = editorBody(page).locator(':scope > *').first();
+  await focusSettled(page); // issue 112: after Esc gave the focus back to the editor, the click below keeps its caret
   await first.scrollIntoViewIfNeeded();
   const fb = (await first.boundingBox())!;
   await page.mouse.click(fb.x + fb.width - 4, fb.y + fb.height / 2);

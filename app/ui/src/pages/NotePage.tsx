@@ -5,7 +5,7 @@
 import { listen } from '@tauri-apps/api/event';
 import { MediaObjectView } from '../media/MediaObjectView';
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Ref } from 'react';
-import { EmbedStore } from '../embeds/store';
+import { EmbedStore, setScrollRestoring } from '../embeds/store';
 import { Embed } from '../embeds/Embed';
 import { restampDraft } from '../daily/stamp';
 import { noteReady } from '../readiness';
@@ -554,6 +554,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     for (const e of inputs) window.addEventListener(e, acted, { capture: true, passive: true });
     return () => { for (const e of inputs) window.removeEventListener(e, acted, { capture: true }); };
   }, []);
+  // Issue 112 c: until the last of those restores (or the reader's first action) the embeds' own scroll correction
+  // (D-456) stays out: it would move the note off the position being restored.
+  const restoreDone = useRef(false);
+  useLayoutEffect(() => {
+    if (restoreAtOpen.current === undefined) return;
+    const restoring = () => !readerActed.current && !restoreDone.current;
+    setScrollRestoring(restoring);
+    return () => setScrollRestoring(null);
+  }, []);
   useEffect(() => {
     const target = restoreAtOpen.current;
     if (restoredAfterEmbeds.current || target === undefined || !embedSnap.tree) return;
@@ -562,7 +571,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const main = root.current?.closest('main');
       if (!readerActed.current && main && Math.abs(main.scrollTop - target) > 1) main.scrollTop = target;
     };
-    requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); for (const ms of [100, 300, 600]) setTimeout(apply, ms); });
+    requestAnimationFrame(() => {
+      apply();
+      requestAnimationFrame(apply);
+      for (const ms of [100, 300]) setTimeout(apply, ms);
+      setTimeout(() => { apply(); restoreDone.current = true; }, 600);
+    });
   }, [embedSnap.version]);
   // A type's default changed (FR-EMB-02 AC-7, AC-10).
   const typesSig = types.map((x) => `${x.key}:${(x as { embed?: string }).embed ?? ''}:${x.icon}:${x.preview.join(',')}`).join('|');

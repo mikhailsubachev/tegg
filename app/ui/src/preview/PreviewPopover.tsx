@@ -188,7 +188,10 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       const title = modelRef.current ? plainTitle(modelRef.current, stack[stack.length - 1].target) : null;
       setStack((s) => [...s.slice(0, -1), { ...s[s.length - 1], scrollTop, title }, { target, scrollTop: 0, title: null }]);
       // A hover preview never takes the focus (FR-LNK-12 AC-2), also when a link inside replaced it (D-1170).
-      if (originRef.current !== 'hover') requestAnimationFrame(() => box.current?.focus({ preventScroll: true }));
+      // Issue 112 d: at once, not a frame later. The link that had the focus goes away with the old content; when that
+      // happened before the next frame, the focus was on the page and Esc didn't reach the popover (and a late frame
+      // took the focus back from a link the reader had reached meanwhile).
+      if (originRef.current !== 'hover') box.current?.focus({ preventScroll: true });
     });
     return () => setInside(null);
   }, [stack]);

@@ -40,6 +40,16 @@ export async function start(page: Page, o: StartOptions = {}): Promise<FakeCoreH
   return core;
 }
 
+/**
+ * Issue 112: lets the editor's focus settle before a pointer selection. ProseMirror puts its own selection back into
+ * the DOM 20 ms after its view gets the focus (prosemirror-view's focus handler); a click or double-click made inside
+ * those 20 ms (after Esc gave the focus back to the editor) lost its caret or word selection. No reader clicks 20 ms
+ * after a key; a test does. Waits for a page timer that is due after ProseMirror's.
+ */
+export async function focusSettled(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((r) => setTimeout(r, 40)));
+}
+
 export async function seen(loc: Locator, ms = 3000): Promise<boolean> {
   try {
     await loc.first().waitFor({ state: 'visible', timeout: ms });

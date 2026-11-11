@@ -12,7 +12,7 @@ import { pseudoLocale, paletteOptions, paletteDialog } from './helpers';
 import {
   ISO_MODIFIED, ODK, PV, anyPreview, axeContrastIn, block, callCount, callsFrom, caretAt, caretRel, chipIn, cmdsFrom, colourLeaksIn,
   controlsWithoutCommand, createOffer, editLinkDialog, editorBody, eventually, field, fieldValue, fileText, fileWhen, flat, focusInside,
-  focusOutline, focusedName, keydowns, linkMenu, linkSuggestions, main, mainName, menuItems, must, mustBeOn, mustBeSaved, mustCaret,
+  focusOutline, focusSettled, focusedName, keydowns, linkMenu, linkSuggestions, main, mainName, menuItems, must, mustBeOn, mustBeSaved, mustCaret,
   needPreview, nfc, noModified, nodeSelected, noteWrites, openPv, original, pathOf, previewCount, previewOf, recordKeydowns, rightClick,
   runCommand, seen, selectionMenu, sleep, tabTo, tokenColour, unmarkedIn, wordPoint, writeCmds,
 } from './previews-editor-helpers';
@@ -110,6 +110,7 @@ test('fr_lnk_13_ac1_a_click_beside_a_chip_places_the_caret_and_shows_no_preview'
   await chip.click();
   await needPreview(page, 'Projekt Alfa', 'a click on the chip');
   await page.keyboard.press('Escape');
+  await focusSettled(page); // issue 112: Esc gave the focus back to the editor; a click 20 ms later loses its caret
   // … then a click on the text beside it places the caret there, as in any text.
   const pt = await wordPoint(block(page, 7), 'Projekt ');
   assert.ok(pt, 'the text "Projekt " beside the chip');
@@ -245,6 +246,7 @@ test('fr_lnk_13_ac5_right_click_on_a_chip_opens_the_link_menu_in_order', async (
   assert.match(flat(await show.innerText()), /⌥\s*(Space|␣)$/, 'Show preview shows ⌥Space');
   // A right-click on a text selection keeps the Selection menu (editor.md FR-EDT-05 AC-7).
   await page.keyboard.press('Escape');
+  await focusSettled(page); // issue 112: Esc gave the focus back to the editor; a double-click 20 ms later loses its selection
   const pt = await wordPoint(block(page, 1), 'Hlavní');
   assert.ok(pt, 'the word "Hlavní"');
   await page.mouse.dblclick(pt!.x, pt!.y);

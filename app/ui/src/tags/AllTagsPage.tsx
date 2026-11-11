@@ -12,7 +12,7 @@ import { dateTimeText } from '../types/util';
 import { tagChipStyle } from './chip';
 import { DEFAULT_TAGS_SORT, allTagsRows, type TagsSort } from './model';
 import { NewTagDialog } from './TagDialogs';
-import { refreshTags, useTags } from './store';
+import { useTags, syncTags } from './store';
 
 const COLUMNS: { key: TagsSort['column']; label: string; menu: string }[] = [
   { key: 'name', label: 'tags.col.tag', menu: 'tags.sort.name' },
@@ -29,7 +29,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
   commandRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const tags = useTags();
-  useEffect(() => { void refreshTags(); }, []);
+  useEffect(() => { void syncTags(); }, []);
   const sort = sort0 ?? DEFAULT_TAGS_SORT;
   const [find, setFind] = useState('');
   const [menu, setMenu] = useState(false);

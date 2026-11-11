@@ -19,8 +19,23 @@ function publish(next: TagRowDto[]) {
   applyColours(rows);
 }
 
+/** The newest request still out; an older one that answers later is dropped, so rows never go back in time. */
+let flight: Promise<TagRowDto[]> | null = null;
+
+/** A fresh read (after a change): always asks the core. */
 export function refreshTags(): Promise<TagRowDto[]> {
-  return ipc.tags().then((r) => { publish(r); return r; }, () => rows);
+  const mine: Promise<TagRowDto[]> = ipc.tags().then(
+    (r) => { if (flight === mine) { flight = null; publish(r); return r; } return flight ?? rows; },
+    () => { if (flight === mine) flight = null; return rows; },
+  );
+  flight = mine;
+  return mine;
+}
+
+/** The first load (bug 112h): every surface mounted before the first answer shares one read. */
+export function loadTags(): Promise<TagRowDto[]> {
+  if (loaded) return Promise.resolve(rows);
+  return flight ?? refreshTags();
 }
 
 function listen() {
@@ -35,6 +50,11 @@ function listen() {
   void events.progress((p) => { if (p.state === 'done') later(); }).catch(() => {});
 }
 
+/** For a surface or vault that wants fresh tags on open: the shared first load before any answer, a fresh read after. */
+export function syncTags(): Promise<TagRowDto[]> {
+  return loaded ? refreshTags() : loadTags();
+}
+
 /** The current rows (empty before the first answer). */
 export function tagRows(): TagRowDto[] {
   return rows;
@@ -45,7 +65,7 @@ export function useTags(): TagRowDto[] {
   useEffect(() => {
     subs.add(setR);
     listen();
-    if (!loaded) void refreshTags();
+    if (!loaded) void loadTags();
     else setR(rows);
     return () => { subs.delete(setR); };
   }, []);

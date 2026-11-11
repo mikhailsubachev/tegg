@@ -64,7 +64,7 @@ import { setSourceHandler } from './tasks/sourceNav';
 import type { InterruptedDto } from './ipc/types';
 import { TagPage } from './tags/TagPage';
 import { AllTagsPage } from './tags/AllTagsPage';
-import { refreshTags, tagOfFile, useTags } from './tags/store';
+import { tagOfFile, useTags, loadTags, refreshTags } from './tags/store';
 import { findPin, editReason } from './pinned/model';
 import { pinsForVault, pinsNow, pinTarget, unpin, usePins } from './pinned/store';
 import { focusedPinnedRow, moveFocusedPinned } from './pinned/PinnedSection';
@@ -394,7 +394,14 @@ export function App() {
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
     headingFocus.current = !!o.heading;
-    history.current.saveScroll(centreScroll(), centreCaret());
+    // Issue 112 a: a Back/Forward step's scroll position and caret belong to the page that step returned to. A page
+    // left before it had restored them keeps them in its entry, and the page opened now never takes them (a link
+    // clicked right after Back opened at Back's scroll position, not at its `#Heading`).
+    const unrestored = pendingScroll.current;
+    const unrestoredCaret = pendingCaret.current;
+    pendingScroll.current = null;
+    pendingCaret.current = null;
+    history.current.saveScroll(unrestored ?? centreScroll(), unrestored !== null ? unrestoredCaret : centreCaret());
     history.current.push(r, o.graph);
     browserNav.push();
     setHandover(o.graph ?? null);
@@ -660,7 +667,16 @@ export function App() {
     const k = tagOfFile(route.param);
     if (k) replaceRoute({ id: 'tag/<key>', param: k });
   }, [routeKey, tagList]);
-  useEffect(() => { if (vault) void refreshTags(); }, [vault?.path, refresh]);
+  // Bug 112h: at start (vault still unknown → known) the tags' first load is shared with every surface; a vault opened
+  // from the chooser, a vault switch and a refresh read again.
+  const tagsVault = useRef<VaultInfo | null | undefined>(undefined);
+  const tagsRefresh = useRef(refresh);
+  useEffect(() => {
+    const atStart = tagsVault.current === undefined && tagsRefresh.current === refresh;
+    if (vault !== undefined) tagsVault.current = vault;
+    tagsRefresh.current = refresh;
+    if (vault) void (atStart ? loadTags() : refreshTags());
+  }, [vault?.path, vault === null, refresh]);
   // Slice PIN (§2): the pins of the open vault; a vault switch forgets the last vault's.
   useEffect(() => { pinsForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
   // Slice Q (§2.2): the vault's saved queries.

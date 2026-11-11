@@ -10,9 +10,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { loadFixtureVault, type CallRecord, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
-import { READ_COMMANDS, eventually, mainName, must, mustBeOn, runCommand, seen, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
+import { READ_COMMANDS, eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
 
-export { eventually, mainName, must, mustBeOn, runCommand, seen, sleep };
+export { eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sleep };
 export type { CallRecord, FakeCoreHandle };
 
 export const REPO = resolve(import.meta.dirname, '../..');
@@ -171,7 +171,11 @@ export async function rightClick(page: Page, at: Locator | null): Promise<boolea
       const a = sel.anchorNode;
       node = a ? (a.nodeType === 3 ? a.parentElement : (a as Element)) : null;
     } else if (node) {
-      const r = node.getBoundingClientRect();
+      // Issue 112: a right-click needs its target on screen (the menu opens at the pointer). Right after Back the
+      // target can still be outside the window, before the scroll position is restored: scroll to it first, in this
+      // same task, so nothing moves between the scroll and the event.
+      let r = node.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) { node.scrollIntoView({ block: 'center' }); r = node.getBoundingClientRect(); }
       x = r.left + Math.min(6, r.width / 2); y = r.top + r.height / 2;
     }
     const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 2, buttons: 2 });
