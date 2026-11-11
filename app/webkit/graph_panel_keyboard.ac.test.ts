@@ -250,14 +250,20 @@ test('fr_ux_03_ac33_panel_return_keys_on_a_focused_node_alt_space_click_mode', a
 
 // ------------------------------------------------------------------------------------------------ FR-UX-03 AC-34
 
-// Quarantined (@flaky, test-strategy §8.4, #112): failed once in the v0.122 fix gate under load; not caused by it.
-test('fr_ux_03_ac34_panel_c_and_zoom_keys', { tag: ['@flaky'] }, async ({ page }) => {
+test('fr_ux_03_ac34_panel_c_and_zoom_keys', async ({ page }) => {
   const core = await openPanel(page, P.plan);
   await needIn(page, 10, 'Plán');
   await needTabStop(page);
   const s = await pScale(page, P.plan);
   assert.ok(Math.abs(s - 1) < 0.01, `the first-paint scale is 100 % for Plán at 260 px (${s})`);
   await focusOn(page, P.rozpocet);
+  // #112: the page's own start-up marks (`ui-ready`, `note-ready`, `route-ready`, and `graph-ready` / `embeds-painted`,
+  // each two frames after their paint) can come after the nodes are drawn when frames lag; they are not requests of
+  // `C`. Wait for them, and for the call log to stand still, before counting.
+  const boot = ['ui-ready', `route-ready:${noteRoute(P.plan)}`, 'note-ready', 'graph-ready', 'embeds-painted'];
+  const sent = await eventually(() => marks(core), (m) => boot.every((b) => m.map(nfc).includes(b)), 8000);
+  assert.deepEqual(boot.filter((b) => !sent.map(nfc).includes(b)), [], 'the page sent its start-up marks before `C` is pressed');
+  for (let n = -1, m = (await core.calls()).length, i = 0; n !== m && i < 20; i++) { n = m; await sleep(300); m = (await core.calls()).length; }
   const c0 = (await core.calls()).length, r0 = (await routeMarks(core)).length, n0 = await navs(core);
   for (const k of ['c', 'Shift+C']) await page.keyboard.press(k);
   await sleep(500);
