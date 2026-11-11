@@ -346,8 +346,16 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     handleQueries(cmd, args, files, invalid, ready)).catch(() => {});
   // Search page redesign (v1-search §2): `index_search` in Node (fake-search.ts) with the real @tegg/doc.
   await page.exposeFunction('__teggSearch', (cmd: string, args: unknown, files: Record<string, string>) => handleSearch(cmd, args, files)).catch(() => {});
-  await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
-    handleTags(cmd, args, files, vers as any)).catch(() => {});
+  // #112: `index_tags` over unchanged files is answered once. The app asks it several times at start (every `useTags`
+  // surface mounted before the first answer, and the shell), and each answer parses every file in Node: ~270 ms for the
+  // 1,400-file hub vault, so under the gate's load the frame missed `start`'s 10 s.
+  let tagsMemo: { key: string; answer: ReturnType<typeof handleTags> } | null = null;
+  await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) => {
+    if (cmd !== 'index_tags') return handleTags(cmd, args, files, vers as any);
+    const key = JSON.stringify([files, vers]);
+    if (tagsMemo?.key !== key) tagsMemo = { key, answer: handleTags(cmd, args, files, vers as any) };
+    return tagsMemo.answer;
+  }).catch(() => {});
   // §3.6: `window.__TEGG_MEDIA_BASE__` points here; the fake serves its in-memory files with the sniffed type, 404 else.
   await page.route(/\/__media\//, async (route) => {
     const url = new URL(route.request().url());
