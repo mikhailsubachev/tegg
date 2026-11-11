@@ -255,6 +255,7 @@ export type TypeSortDto = { column: string,
  * `asc` or `desc`.
  */
 dir: string, };
+export type QueriesUiDto = { sort?: string, };
 export type UiStateDto = { version: number, 
 /**
  * `system`, `light` or `dark`.
@@ -315,7 +316,12 @@ typeColumnWidths?: { [key in string]?: { [key in string]?: number } },
  * Per-vault state by the vault's NFC path, kept as the UI wrote it: the graph views (v1-graph §5) and the Pinned
  * section's collapse (v1-pinned §4, D-1383). Machine-local, never in the vault.
  */
-vaults?: Record<string, unknown>, };
+vaults?: Record<string, unknown>, 
+/**
+ * Slice Q (v1-queries §4.6, D-1485): the Queries page's sort (`created-desc` | `created-asc` | `updated-desc` |
+ * `updated-asc` | `title`); missing reads as `created-desc`.
+ */
+queries?: QueriesUiDto, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

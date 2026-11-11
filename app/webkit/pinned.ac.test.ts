@@ -6,7 +6,7 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  EMPTY_TEXT, ID, NOT_SAVED, P, PINS, VALID_ROWS, VAULT_PATH, anyPreview, box, click, contextMenu, description, drag,
+  EMPTY_TEXT, ID, NOT_SAVED, P, PINS, QUERY_PIN, VALID_ROWS, VAULT_PATH, anyPreview, box, click, contextMenu, description, drag,
   emptyArea, eventually, flat, focusName, header, inboxEntry, labels, list, liveSays, main, menuItem, menuNamed, moreBtn, moreMenu, must, mustBeOn,
   nfc, openPinned, otherWrites, paletteDialog, paletteOptions, pinnedVault, pinsFx, pinsText, pinsWrites, retitle, rowAt, rowMenu, rowNamed, rows,
   rowsAre, runCommand, searchRow, seen, sidebar, sleep, tagRow, tokenColor, typeEntryMenu, typeRow, typesEntry,
@@ -25,10 +25,12 @@ test('fr_hom_02_ac1_section_place_and_rows', async ({ page }) => {
   await openPinned(page, { pins: 'valid.yml', route: 'inbox' });
   const h = header(page);
   assert.equal(await h.getAttribute('aria-expanded'), 'true', 'header aria-expanded="true"');
-  assert.match(flat(await h.innerText()), /^pinned\s*5$/i, 'visible text PINNED and the count 5');
-  assert.equal(await description(h), '5 pinned items', 'description `5 pinned items`');
-  assert.deepEqual(await rowsAre(page, VALID_ROWS), VALID_ROWS, 'five rows in file order');
-  assert.equal(await list(page).getByRole('listitem').count(), 5, 'one listitem per row');
+  // Slice Q (queries.md "Existing criteria this slice changes": pinned.md AC-1; FR-HOM-02 AC-29): the fixture's query item is
+  // drawn now, as `Not found`, so the count is 6.
+  assert.match(flat(await h.innerText()), /^pinned\s*6$/i, 'visible text PINNED and the count 6');
+  assert.equal(await description(h), '6 pinned items', 'description `6 pinned items`');
+  assert.deepEqual(await rowsAre(page, VALID_ROWS), VALID_ROWS, 'six rows in file order');
+  assert.equal(await list(page).getByRole('listitem').count(), 6, 'one listitem per row');
   const sb = sidebar(page);
   const parts: [string, ReturnType<typeof sb.getByRole>][] = [
     ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
@@ -39,7 +41,8 @@ test('fr_hom_02_ac1_section_place_and_rows', async ({ page }) => {
   for (const [name, loc] of parts) { const b = await box(loc); assert.ok(b, `${name} shown`); ys.push(b!.y); }
   assert.ok(Math.abs(ys[0] - ys[1]) <= 1, 'New object and Search share a row');
   for (let i = 2; i < ys.length; i++) assert.ok(ys[i] > ys[i - 1], `${parts[i][0]} below ${parts[i - 1][0]}`);
-  assert.equal(await sb.getByText('Otevřené úkoly tento týden').count(), 0, 'the query: item is neither drawn nor counted (AP-1233)');
+  const q = (await rows(page))[5];
+  assert.deepEqual([q?.label, q?.state], [QUERY_PIN, 'missing'], 'the query: item is the sixth row, `Not found` (slice Q, FR-HOM-02 AC-29)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-2
@@ -50,7 +53,8 @@ test('fr_hom_02_ac2_rows_keep_type_icon_and_colour', async ({ page }) => {
   const r = await rows(page);
   const orange = await tokenColor(page, '--type-orange');
   const teal = await tokenColor(page, '--type-teal');
-  assert.deepEqual(r.map((x) => [x.label, x.icon, x.color, x.description]), [
+  // Slice Q: the sixth row is valid.yml's query item (FR-HOM-02 AC-29, its own criteria); R133's object, tag and type rows here.
+  assert.deepEqual(r.slice(0, 5).map((x) => [x.label, x.icon, x.color, x.description]), [
     ['Rozpočet 2027', 'folder', orange, 'Projekt'], ['Výjezd Lisabon 2026', 'folder', orange, 'Projekt'],
     ['2026-10-07 Týdenní porada', 'users', teal, 'Schůzka'], ['#offsite', r[3]?.icon, teal, 'Tag'], ['Projekty', 'folder', orange, 'Type page'],
   ], 'icons, colours and descriptions per R133');
@@ -313,21 +317,25 @@ test('fr_hom_02_ac8_focus_after_unpin_and_unpin_all', async ({ page }) => {
   await page.keyboard.press('Tab');
   assert.equal((await focusName(page)).name, 'Unpin Výjezd Lisabon 2026', 'Tab reaches the row\'s Unpin');
   await page.keyboard.press('Space');
-  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite', 'Projekty']);
+  // Slice Q (FR-HOM-02 AC-29): valid.yml's query item is the last row now, and is unpinned like any row.
+  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite', 'Projekty', QUERY_PIN]);
   assert.equal(await page.evaluate(() => (document.activeElement as HTMLElement)?.getAttribute('title')?.split('\n')[0]), '2026-10-07 Týdenní porada', 'focus on the next row\'s link');
-  await (await must(rowAt(page, 3), 'last row')).focus();
+  await (await must(rowAt(page, 4), 'last row')).focus();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
-  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite']);
-  assert.equal(await page.evaluate(() => (document.activeElement as HTMLElement)?.getAttribute('title')?.split('\n')[0]), '#offsite', 'last row: focus on the previous row');
-  for (let n = 3; n > 0; n--) {
+  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite', 'Projekty']);
+  assert.equal(await page.evaluate(() => (document.activeElement as HTMLElement)?.getAttribute('title')?.split('\n')[0]), 'Projekty', 'last row: focus on the previous row');
+  for (let n = 4; n > 0; n--) {
     await (await must(rowAt(page, 0), 'first row')).focus();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Space');
     await eventually(() => labels(page), (l) => l.length === n - 1);
   }
   assert.equal((await focusName(page)).name.replace(/[⟦⟧]/g, ''), 'Pinned', 'none left: focus on the header');
-  assert.equal(await eventually(() => pinsText(core), (t) => t === pinsFx('expected/valid-after-unpin-all.yml')), pinsFx('expected/valid-after-unpin-all.yml'), 'expected/valid-after-unpin-all.yml; the file isn\'t deleted');
+  // Slice Q: the query item was unpinned too, so nothing is left: `pins: []` (as the last unpin of AC-8), the header kept.
+  const head = pinsFx('expected/valid-after-unpin-all.yml').split('pins:')[0];
+  const t = await eventually(() => pinsText(core), (x) => !!x && /^pins: \[\]$/m.test(x));
+  assert.ok(t !== null && t.startsWith(head) && /^pins: \[\]$/m.test(t) && !t.includes('query:'), `every row unpinned: \`pins: []\`, the file isn't deleted: ${JSON.stringify(t)}`);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-9
@@ -341,7 +349,7 @@ test('fr_hom_02_ac9_grip_and_unpin_on_hover_and_focus', async ({ page }) => {
   }));
   await (await must(rowAt(page, 1), 'row Lisabon')).hover();
   await sleep(150);
-  assert.deepEqual(await visibleParts(), [[false, false], [true, true], [false, false], [false, false], [false, false]], 'only the hovered row shows grip and Unpin');
+  assert.deepEqual(await visibleParts(), [[false, false], [true, true], [false, false], [false, false], [false, false], [false, false]], 'only the hovered row shows grip and Unpin (six rows with the query item, slice Q)');
   const grip = page.locator('.sidebar-pinned li').nth(1).locator('.pin-grip');
   assert.equal(await grip.getAttribute('title'), 'Drag to reorder', 'grip tooltip');
   assert.equal(await grip.getAttribute('aria-hidden'), 'true', 'grip aria-hidden');
@@ -351,7 +359,7 @@ test('fr_hom_02_ac9_grip_and_unpin_on_hover_and_focus', async ({ page }) => {
   await page.mouse.move(1000, 800);
   await (await must(header(page), 'header')).focus();
   const seq: string[] = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < VALID_ROWS.length * 2; i++) { // slice Q: six rows
     await page.keyboard.press('Tab');
     const f = await page.evaluate(() => { const a = document.activeElement as HTMLElement; return a.getAttribute('aria-label') ?? a.getAttribute('title')?.split('\n')[0] ?? ''; });
     seq.push(nfc(f));
@@ -369,24 +377,25 @@ test('fr_hom_02_ac11_reorder_by_keyboard', async ({ page }) => {
   await rowsAre(page, VALID_ROWS);
   await (await must(rowAt(page, 1), 'row Lisabon')).focus();
   await page.keyboard.press('Alt+Meta+ArrowDown');
-  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', 'Výjezd Lisabon 2026', '#offsite', 'Projekty']);
-  assert.ok(await liveSays(page, 'Moved to position 3 of 5'), '`Moved to position 3 of 5`');
+  // Slice Q (FR-HOM-02 AC-29): valid.yml's query item is a sixth row, last.
+  await rowsAre(page, ['Rozpočet 2027', '2026-10-07 Týdenní porada', 'Výjezd Lisabon 2026', '#offsite', 'Projekty', QUERY_PIN]);
+  assert.ok(await liveSays(page, 'Moved to position 3 of 6'), '`Moved to position 3 of 6`');
   assert.equal(await page.evaluate(() => (document.activeElement as HTMLElement)?.getAttribute('title')?.split('\n')[0]), 'Výjezd Lisabon 2026', 'the focus stays on the moved row');
   await page.keyboard.press('Alt+Meta+ArrowDown');
   assert.equal(await eventually(() => pinsText(core), (t) => t === pinsFx('expected/valid-after-move.yml')), pinsFx('expected/valid-after-move.yml'), 'second press: expected/valid-after-move.yml');
-  assert.ok(await liveSays(page, 'Moved to position 4 of 5'), '`Moved to position 4 of 5`');
+  assert.ok(await liveSays(page, 'Moved to position 4 of 6'), '`Moved to position 4 of 6`');
   assert.equal((await core.pinCalls()).length, 2, 'each press writes once');
   await (await must(rowAt(page, 0), 'first row')).focus();
   await page.keyboard.press('Alt+Meta+ArrowUp');
-  await (await must(rowAt(page, 4), 'last row')).focus();
+  await (await must(rowAt(page, 5), 'last row')).focus();
   await page.keyboard.press('Alt+Meta+ArrowDown');
   await sleep(300);
   assert.equal((await core.pinCalls()).length, 2, '⌥⌘↑ on the first and ⌥⌘↓ on the last write nothing');
   await contextMenu(rowAt(page, 0), 'first row');
   assert.equal(await menuItem(rowMenu(page), 'Move up').getAttribute('aria-disabled'), 'true', 'Move up aria-disabled on the first row');
   await click(menuItem(rowMenu(page), 'Move down'), 'Move down');
-  await rowsAre(page, ['2026-10-07 Týdenní porada', 'Rozpočet 2027', '#offsite', 'Výjezd Lisabon 2026', 'Projekty']);
-  await contextMenu(rowAt(page, 4), 'last row');
+  await rowsAre(page, ['2026-10-07 Týdenní porada', 'Rozpočet 2027', '#offsite', 'Výjezd Lisabon 2026', 'Projekty', QUERY_PIN]);
+  await contextMenu(rowAt(page, 5), 'last row');
   assert.equal(await menuItem(rowMenu(page), 'Move down').getAttribute('aria-disabled'), 'true', 'Move down aria-disabled on the last row');
   await page.keyboard.press('Escape');
   const n = (await core.pinCalls()).length;
@@ -402,7 +411,10 @@ test('fr_hom_02_ac11_reorder_by_keyboard', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-14
 
 test('fr_hom_02_ac14_collapsed_until_something_is_pinned', async ({ page }) => {
-  for (const pins of [null, 'expected/valid-after-unpin-all.yml', { text: `${pinsFx('expected/created.yml').split('  - id:')[0]}  - query: Jen dotaz\n  - x-route: inbox\n` }] as const) {
+  // Slice Q (queries.md: pinned.md AC-14 changes): a file holding only `query:` items is no longer empty, so the cases are
+  // no file, a file whose list is empty, and a file with only a skipped item.
+  const header0 = pinsFx('expected/created.yml').split('  - id:')[0];
+  for (const pins of [null, { text: header0.replace('pins:\n', 'pins: []\n') }, { text: `${header0}  - x-route: inbox\n` }] as const) {
     const ctx = await page.context().browser()!.newContext({ timezoneId: 'Europe/Prague' });
     const p = await ctx.newPage();
     await openPinned(p, { pins, route: 'inbox' });
@@ -446,7 +458,7 @@ test('fr_hom_02_ac15_collapse_is_remembered_per_vault', async ({ page }) => {
   const n0 = (await core.calls()).filter((c) => c.cmd === 'ui_state_set').length;
   await click(header(page), 'header');
   assert.equal(await header(page).getAttribute('aria-expanded'), 'false', 'aria-expanded="false"');
-  assert.match(flat(await header(page).innerText()), /5$/, 'the count 5 stays');
+  assert.match(flat(await header(page).innerText()), /6$/, 'the count 6 stays (with the query item, slice Q)');
   assert.equal(await list(page).count(), 0, 'the rows are gone');
   const sets = (await core.calls()).filter((c) => c.cmd === 'ui_state_set').slice(n0);
   assert.equal(sets.length, 1, 'one ui_state_set');
@@ -454,7 +466,7 @@ test('fr_hom_02_ac15_collapse_is_remembered_per_vault', async ({ page }) => {
   assert.deepEqual(await core.writesTo(), [], 'no vault file written');
   await click(moreBtn(page), 'More');
   await click(menuItem(moreMenu(page), PIN), PIN);
-  assert.match(flat(await eventually(() => header(page).innerText(), (t) => /6$/.test(flat(t)))), /6$/, 'pinning while collapsed updates the count to 6');
+  assert.match(flat(await eventually(() => header(page).innerText(), (t) => /7$/.test(flat(t)))), /7$/, 'pinning while collapsed updates the count to 7');
   assert.equal(await header(page).getAttribute('aria-expanded'), 'false', 'still collapsed');
   await page.keyboard.press('Control+Meta+s');
   await page.keyboard.press('Control+Meta+s');

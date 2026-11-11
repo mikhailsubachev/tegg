@@ -23,6 +23,8 @@ pub enum TrashKind {
     Object,
     File,
     Folder,
+    /// v1-queries §1.10 (slice Q, D-1435): a trashed `.trash/.tegg/queries/*.yml`.
+    Query,
 }
 
 /// One row of the Trash page (ms6-trash-media §1.2).
@@ -384,6 +386,21 @@ impl Core {
                 trashed_ns: ns(f),
             });
         }
+        // v1-queries §1.10: one row per trashed query file; no other `.trash/.tegg/` file is listed.
+        for (p, title) in self.query_trash_rows() {
+            let file = p.rsplit('/').next().unwrap_or(&p).to_string();
+            rows.push(TrashEntry {
+                path: p.clone(),
+                kind: TrashKind::Query,
+                original: format!("{}/{file}", crate::queries_q::QUERIES_DIR),
+                folder: crate::queries_q::QUERIES_DIR.into(),
+                title,
+                type_key: None,
+                files: vec![p.clone()],
+                count: 1,
+                trashed_ns: ns(&p),
+            });
+        }
         rows.sort_by(|a, b| b.trashed_ns.cmp(&a.trashed_ns).then_with(|| fold(&a.path).cmp(&fold(&b.path))));
         rows
     }
@@ -518,6 +535,14 @@ impl Core {
         let path = nfc(path.trim_end_matches('/'));
         if !path.starts_with(".trash/") {
             return Err(CoreError::Invalid { reason: "not in the trash".into() });
+        }
+        // v1-queries §1.10: a trashed query goes back as `query_restore` moves it (a free name, same bytes).
+        if let Some(file) = path.strip_prefix(&format!("{}/", crate::queries_q::TRASHED_QUERIES_DIR)) {
+            if !file.contains('/') && file.ends_with(".yml") {
+                let stem = file.strip_suffix(".yml").unwrap_or(file).to_string();
+                let r = self.query_restore_path(&path, &stem)?;
+                return Ok(vec![Moved { from: path, to: r.path }]);
+            }
         }
         let vault = &self.shared.vault;
         let is_dir = vault.entries()?.into_iter().any(|e| matches!(e, FsEntry::Dir { path: p } if nfc(&p) == path));

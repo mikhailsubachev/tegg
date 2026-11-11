@@ -22,6 +22,7 @@ const sameRoute = (a: Route | null, b: Route) => !!a && a.id === b.id && (a.para
 /** The glyph drawn for a row (the view's icon name is what `data-icon` carries). */
 function glyph(row: PinRowDto, v: RowView): string {
   if (row.target.kind === 'tag') return 'hash';
+  if (row.target.kind === 'query') return 'query';
   if (row.state === 'missing' || row.state === 'pending') return v.icon;
   if (row.target.kind === 'type') return typeIconName(row.target.key, v.icon);
   return typeIconName(row.type ?? 'page', v.icon);
@@ -139,7 +140,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
                   onClick={(e) => { e.preventDefault(); open(i); }}
                   onContextMenu={(e) => { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); }}
                   onKeyDown={(e) => { if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); } }}>
-                  <span className="type-icon" style={{ ['--type' as string]: v.muted ? 'var(--muted)' : v.color ? `var(--type-${v.color})` : r.target.kind === 'tag' ? 'var(--tag-default, var(--muted))' : 'var(--muted)' }}>
+                  <span className="type-icon" style={{ ['--type' as string]: v.muted ? 'var(--muted)' : v.colorVar ? v.colorVar : v.color ? `var(--type-${v.color})` : r.target.kind === 'tag' ? 'var(--tag-default, var(--muted))' : 'var(--muted)' }}>
                     <Icon name={glyph(r, v)} dataIcon={v.icon} />
                   </span>
                   <span className="entry-label" data-label="" data-user-content>{v.label}</span>

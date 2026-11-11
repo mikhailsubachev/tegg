@@ -7,7 +7,7 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  CHANGED_OUTSIDE, FIX_FILE, ID, NEWER, P, PINS, VALID_ROWS, alertBox, click, contextMenu, description, drag, emptyArea, eventually, flat,
+  CHANGED_OUTSIDE, FIX_FILE, ID, NEWER, P, PINS, QUERY_PIN, VALID_ROWS, alertBox, click, contextMenu, description, drag, emptyArea, eventually, flat,
   gapAfter, header, list, menuItem, moreBtn, moreMenu, must, mustBeOn, nfc, notice, openPinned, otherWrites, pinnedVault, pinsFx, pinsText, rowAt,
   rowMenu, rows, rowsAre, runCommand, searchRow, section, seen, sleep, typesEntry, typeEntryMenu, unreadableVariants,
 } from './pinned-helpers';
@@ -118,8 +118,9 @@ test('fr_hom_02_ac24_skipped_entries_are_kept', async ({ page }) => {
     const ctx = await page.context().browser()!.newContext({ timezoneId: 'Europe/Prague' });
     const p = await ctx.newPage();
     const core = await openPinned(p, { pins: 'entries.yml', route: 'inbox' });
-    assert.deepEqual(await rowsAre(p, ['Rozpočet 2027', '#offsite', 'Schůzky']), ['Rozpočet 2027', '#offsite', 'Schůzky'], 'three rows');
-    assert.match(flat(await header(p).innerText()), /3$/, 'count 3');
+    // Slice Q (FR-HOM-02 AC-29): entries.yml's last item, `query: Otevřené úkoly tento týden`, is a row now.
+    assert.deepEqual(await rowsAre(p, ['Rozpočet 2027', '#offsite', 'Schůzky', QUERY_PIN]), ['Rozpočet 2027', '#offsite', 'Schůzky', QUERY_PIN], 'four rows');
+    assert.match(flat(await header(p).innerText()), /4$/, 'count 4');
     await act(p);
     const want = pinsFx(`expected/entries-after-${name}.yml`);
     assert.equal(await eventually(() => pinsText(core), (t) => t === want), want, `${name}: expected/entries-after-${name}.yml`);
@@ -159,8 +160,10 @@ test('fr_hom_02_ac25_many_pins_one_read', async ({ page }) => {
 test('fr_hom_02_ac26_query_entries_are_kept_not_shown', async ({ page }) => {
   const core = await openPinned(page, { pins: 'valid.yml', route: 'inbox' });
   await rowsAre(page, VALID_ROWS);
-  assert.equal(await section(page).getByText('Otevřené úkoly tento týden').count(), 0, 'the query item isn\'t drawn');
-  assert.match(flat(await header(page).innerText()), /5$/, 'nor counted');
+  // Slice Q (queries.md: AC-26 is superseded by FR-HOM-02 AC-28…AC-31): the query item is drawn and counted now; every
+  // write below still keeps it byte for byte.
+  assert.equal((await rows(page))[5]?.label, QUERY_PIN, 'the query item is the sixth row');
+  assert.match(flat(await header(page).innerText()), /6$/, 'and counted');
   await (await must(rowAt(page, 1), 'Lisabon')).focus();
   await page.keyboard.press('Alt+Meta+ArrowDown');
   await page.keyboard.press('Alt+Meta+ArrowDown');
@@ -219,7 +222,7 @@ test('fr_syn_03_ac27_external_and_synced_pins_changes', async ({ page }) => {
   assert.deepEqual(await rowsAre(page, VALID_ROWS), VALID_ROWS, 'conflict copies are never listed');
   const reordered = pinsFx('valid.yml').replace(`  - tag: offsite\n`, '').replace('pins:\n', 'pins:\n  - tag: offsite\n  - tag: účty\n');
   await core.setFile(PINS, reordered);
-  const want = ['#offsite', '#účty', 'Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', 'Projekty'];
+  const want = ['#offsite', '#účty', 'Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', 'Projekty', QUERY_PIN]; // slice Q: the query item is a row
   assert.deepEqual(await rowsAre(page, want, 2000), want, 'an atomic replace shows the new order and row within 2 s');
   await core.setFile(PINS, null);
   assert.equal(await eventually(() => header(page).getAttribute('aria-expanded'), (v) => v === 'false', 2000), 'false', 'deleting the file shows the section empty, collapsed (D-1429)');

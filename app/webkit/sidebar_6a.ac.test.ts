@@ -24,7 +24,9 @@ test('fr_nav_04_ac6_sidebar_without_home', async ({ page }) => {
     // Slice PIN (pinned.md FR-NAV-04 AC-9, D-1375): the Pinned section's header between Tasks and the Types section.
     ['Pinned', sb.getByRole('button', { name: 'Pinned', exact: true })], ['Types', sb.getByRole('list', { name: 'Types' })],
     // D-761 (tags.md FR-NAV-04 AC-8, R83): one `Tags` entry after the Types list.
-    ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })], ['Saved queries', entry(page, 'Saved queries')], ['Trash', entry(page, 'Trash')],
+    ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })],
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    ['Queries', sb.getByRole('link', { name: 'Queries', exact: true })], ['Trash', entry(page, 'Trash')],
   ];
   let last = -1;
   for (const [name, loc] of parts) {

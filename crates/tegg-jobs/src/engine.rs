@@ -16,7 +16,7 @@ mod movejobs;
 #[path = "deletejobs.rs"]
 mod deletejobs;
 
-use crate::host::{Host, PinPatch, ReadError, WriteError, Wrote, PINS_PATH};
+use crate::host::{Host, PinPatch, QueryPatch, QueryRenamePlan, ReadError, WriteError, Wrote, PINS_PATH};
 use crate::{
     InboxJobChange,
     Counts, FileVersion, Interrupted, JobError, JobId, JobKind, JobOp, JobPlan, JobPoint,
@@ -429,6 +429,11 @@ fn enqueue_in(inner: &Arc<Inner>, op: JobOp, from_title: Option<String>) -> Resu
             JobOp::TagDelete { tag, .. } => tagjobs::check_delete(host.as_ref(), tag)?,
             JobOp::Merge { keep, others } => tagjobs::check_merge(host.as_ref(), keep, others)?,
             JobOp::Restore { name } => tagjobs::check_restore(host.as_ref(), name)?,
+            // v1-queries §1.8: every refusal before the job (FR-SYN-03 AC-29).
+            JobOp::QueryRename { name, title } => {
+                host.query_rename_plan(name, title)?;
+                JobKind::QueryRename
+            }
             _ => return Err(JobError::NotImplemented),
         };
         let mut s = lock(&inner.state);
@@ -573,16 +578,23 @@ struct Run {
     type_base: Option<(String, FileVersion)>,
     /// §14.9.3 (D-815): a type delete skipped an object, so the definition and templates stayed.
     kept_type: bool,
+    /// v1-queries §1.8: the `query-rename` plan's query file (before and after).
+    query: Option<QueryRenamePlan>,
 }
 
 impl Run {
     /// The pins file's row (v1-pinned §1.6) is listed in the report but not counted (FR-UX-07 AC-8).
     fn counts(&self) -> Counts {
         Counts {
-            written: self.written.iter().filter(|p| *p != PINS_PATH).count(),
+            written: self.written.iter().filter(|p| !self.side_row(p)).count(),
             unchanged: self.unchanged.len(),
-            skipped: self.skipped.iter().filter(|s| s.path != PINS_PATH).count(),
+            skipped: self.skipped.iter().filter(|s| !self.side_row(&s.path)).count(),
         }
+    }
+    /// The pins file's row and the query files' link patch rows (v1-queries §1.8) are listed but not counted; a
+    /// `query-rename`'s own file counts.
+    fn side_row(&self, p: &str) -> bool {
+        p == PINS_PATH || (self.kind != JobKind::QueryRename && p.starts_with(".tegg/queries/"))
     }
     fn skip(&mut self, path: &str, reason: SkipReason) {
         self.skipped.push(Skipped {
@@ -668,6 +680,7 @@ impl Inner {
             moved: tagjobs::Moved::default(),
             type_base: None,
             kept_type: false,
+            query: None,
         };
         let result = self.execute(&mut run, &op, from_title);
         if result.is_ok() {
@@ -713,7 +726,7 @@ impl Inner {
                     }
                 }
             }
-            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. } | JobOp::TypeMove { .. } | JobOp::FolderMove { .. } | JobOp::ValueRemove { .. } | JobOp::TypeDelete { .. });
+            let undoable = phase == Phase::Done && matches!(op, JobOp::NoteRename { .. } | JobOp::TypeMove { .. } | JobOp::FolderMove { .. } | JobOp::ValueRemove { .. } | JobOp::TypeDelete { .. } | JobOp::QueryRename { .. });
             if undoable && !run.undo.files.is_empty() {
                 s.last_undoable = Some(id);
             }
@@ -783,6 +796,7 @@ impl Inner {
             JobOp::FolderMove { r#type, to_folder } => self.plan_folder_move(id, run, r#type.as_deref(), to_folder.as_deref()),
             JobOp::ValueRemove { r#type, key } => self.plan_value_remove(id, run, r#type, key),
             JobOp::TypeDelete { r#type } => self.plan_type_delete(id, r#type),
+            JobOp::QueryRename { name, title } => self.plan_query_rename(id, run, name, title)?,
             _ => return Err("NotImplemented".into()),
         };
         let mut plan = plan;
@@ -873,6 +887,7 @@ impl Inner {
             // §14.9.4: `false` is a cancel while writing, after its rows were reversed.
             JobOp::ValueRemove { r#type, key } if !self.write_value_remove(run, &plan, r#type, key)? => return Ok(Phase::Cancelled),
             JobOp::TypeDelete { r#type } if !self.write_type_delete(run, &plan, r#type)? => return Ok(Phase::Cancelled),
+            JobOp::QueryRename { .. } => self.write_query_rename(run, &plan)?,
             _ => {}
         }
         Ok(Phase::Done)
@@ -1121,9 +1136,79 @@ impl Inner {
             }
             self.step(id, i + 1);
         }
+        // v1-queries §1.8 (FR-LNK-03 AC-23): query files' link values follow the note, before its pins.
+        if let (Some((from, to)), TextOp::RetargetLinks { paths, .. }) = (run.renamed.clone(), &ops[1]) {
+            self.write_queries(run, &[QueryPatch::ObjectMoved { from, to, paths: Arc::new(paths.clone()) }], true);
+        }
         // v1-pinned §1.6 (FR-LNK-03 AC-22): last, the pin of the renamed note follows its final path and `id`.
         let patches = self.moved_patches(run.renamed.iter().cloned());
         self.write_pins(run, &patches, true);
+    }
+
+    // -------------------------------------------------------------------------------------------- query rename (slice Q)
+
+    /// v1-queries §1.8: the plan of `query-rename`: the usages at their scan versions, the file rename.
+    fn plan_query_rename(&self, id: JobId, run: &mut Run, name: &str, title: &str) -> Result<JobPlan, String> {
+        let q = self.host().query_rename_plan(name, title).map_err(|e| format!("{e:?}"))?;
+        let op = TextOp::RenameSavedQuery { from: q.from_name.clone(), to: q.to_name.clone() };
+        let files: Vec<PlannedFile> = q.usages.iter().map(|(p, v)| PlannedFile { path: p.clone(), version: v.clone(), ops: vec![op.clone()] }).collect();
+        let n = files.len() + 1;
+        let renames = vec![(q.from.clone(), q.to.clone())];
+        run.query = Some(q);
+        Ok(JobPlan { job: id, kind: JobKind::QueryRename, files, renames, creates: Vec::new(), trashes: Vec::new(), counts: PlanCounts { files: n, links: n - 1, ..Default::default() }, warnings: Vec::new() })
+    }
+
+    /// D-1496: nothing is written when the query file or a usage changed since the scan; then the file rename (only its
+    /// `title:` line changed), every usage's `saved:` lines through the transformer, and last the pins.
+    fn write_query_rename(&self, run: &mut Run, plan: &JobPlan) -> Result<(), String> {
+        let host = self.host().clone();
+        let Some(q) = run.query.take() else { return Err("NotFound".into()) };
+        let unchanged = |p: &str, v: &crate::FileVersion| host.version(p).is_some_and(|now| now.same_content(v));
+        if !unchanged(&q.from, &q.pre_v) {
+            run.skip(&q.from, SkipReason::Changed);
+            return Err(format!("Changed: {}", q.from));
+        }
+        if let Some(f) = plan.files.iter().find(|f| !unchanged(&f.path, &f.version)) {
+            run.skip(&f.path, SkipReason::Changed);
+            return Err(format!("Changed: {}", f.path));
+        }
+        self.point(run.id, JobPoint::AfterRead { path: q.from.clone() });
+        let post_v = host.rename(&q.from, &q.to, &q.post, &q.pre_v).map_err(|e| format!("{e:?}"))?;
+        run.renamed = Some((q.from.clone(), q.to.clone()));
+        run.written.push(q.to.clone());
+        run.undo.files.push(Written { before: q.from.clone(), after: q.to.clone(), pre: q.pre.clone(), pre_v: q.pre_v.clone(), post: q.post.clone(), post_v, via_op: false, direct: true, trashed: None });
+        run.undo.op = Some(TextOp::RenameSavedQuery { from: q.from_name.clone(), to: q.to_name.clone() });
+        self.step(run.id, 1);
+        for (i, f) in plan.files.iter().enumerate() {
+            self.write_one(run, f);
+            self.step(run.id, i + 2);
+        }
+        self.write_pins(run, &[PinPatch::QueryRenamed { from: q.from_name, to: q.to_name }], false);
+        Ok(())
+    }
+
+    /// v1-queries §1.8 (FR-LNK-03 AC-23): the query files' link patch, as the pins row: listed in `written`, byte rows of
+    /// the undo record, journal entries of a single-note job, a conflict skipped, never a job failure.
+    fn write_queries(&self, run: &mut Run, patches: &[QueryPatch], journal: bool) {
+        if patches.is_empty() {
+            return;
+        }
+        let host = self.host().clone();
+        for (path, r) in host.patch_queries(patches) {
+            match r {
+                Ok(Some(w)) => {
+                    if journal {
+                        let entry = crate::journal::Entry { at: w.path.clone(), to: w.path.clone(), pre: w.pre.clone(), target: Some(w.post.clone()) };
+                        crate::journal::add_entry(host.as_ref(), run.id, &entry);
+                        crate::journal::progress(host.as_ref(), run.id, &w.path, &w.path, &w.post_v);
+                    }
+                    run.written.push(w.path.clone());
+                    run.undo.files.push(Written { before: w.path.clone(), after: w.path, pre: w.pre, pre_v: w.pre_v, post: w.post, post_v: w.post_v, via_op: false, direct: true, trashed: None });
+                }
+                Ok(None) => {}
+                Err(e) => run.skip(&path, write_reason(&e)),
+            }
+        }
     }
 
     // -------------------------------------------------------------------------------------------- pins (v1-pinned §1.6)
@@ -1668,6 +1753,7 @@ fn reversed(op: &TextOp) -> TextOp {
             to_path: from_path.clone(),
             paths: paths.iter().map(|p| if nfc(p) == nfc(from_path) { to_path.clone() } else { p.clone() }).collect(),
         },
+        TextOp::RenameSavedQuery { from, to } => TextOp::RenameSavedQuery { from: to.clone(), to: from.clone() },
         other => other.clone(),
     }
 }

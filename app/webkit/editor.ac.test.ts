@@ -202,10 +202,10 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
-  // 4F (D-431): a note embed is an embed now (embeds.md); queries stay R5 placeholders (slice MM, D-679: the mindmap row
+  // 4F (D-431): a note embed is an embed now (embeds.md); queries were R5 placeholders until slice Q (slice MM, D-679: the mindmap row
   // is gone). 6A (D-630): image embeds are media blocks (trash-media.md R77), no longer placeholders.
-  const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 1, 'the query is an R5 placeholder');
+  // Slice Q (D-1499): the query row left R5; the inline fence is a query block (v1-queries §4.3), not a placeholder.
+  assert.ok(await seen(editorBody(page).locator('figure[data-query-block]'), 3000), 'the query fence is a query block');
   assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();
@@ -561,11 +561,12 @@ test('fr_edt_03_ac5_disabled_items_send_nothing', async ({ page }) => {
   const menu = await must(slashMenu(page), 'menu');
   const n0 = (await core.calls()).length;
   // 5A-2 (R53, D-499): `Task` is built; 6A (trash-media.md R75): `Image` and `PDF` are built; the other disabled items stay.
-  for (const name of ['Image', 'PDF']) {
+  // Slice Q (queries.md: editor R6 `Advanced › Query` is built, R144): `Query` is enabled too.
+  for (const name of ['Image', 'PDF', 'Query']) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
-    assert.notEqual(await o.getAttribute('aria-disabled'), 'true', `${name} is enabled from 6A`);
+    assert.notEqual(await o.getAttribute('aria-disabled'), 'true', `${name} is enabled (Image, PDF from 6A; Query from slice Q)`);
   }
-  for (const [name, ms] of [['Query', 'v1.0'], ['Block embed', 'v1.0']]) {
+  for (const [name, ms] of [['Block embed', 'v1.0']]) {
     const o = await must(menu.getByRole('option', { name, exact: true }), name);
     assert.equal(await o.getAttribute('aria-disabled'), 'true', `${name} aria-disabled`);
     assert.match(await described(o), new RegExp(`Coming in ${ms.replace('.', '\\.')}`), `${name}: Coming in ${ms}`);

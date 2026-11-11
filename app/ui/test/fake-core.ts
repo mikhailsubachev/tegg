@@ -20,6 +20,7 @@ import { handle as handlePresets } from './fake-presets';
 import type { PresetOpDto } from '../src/graph/types';
 import { handle as handleSearch } from './fake-search';
 import { handle as handlePins, type PinOpDto } from './fake-pins';
+import { handle as handleQueries } from './fake-queries';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -170,6 +171,17 @@ export type FakeCoreHandle = {
   /** While on, `pins_get` answers `indexReady: false` with §1.3's pending rule (an empty index, as the first build runs);
    *  turning it off emits `index:progress` with `state: 'done'`. */
   pinsNotReady(on: boolean): Promise<void>;
+  // ---------------------------------------------------------------- slice Q (v1-queries §5)
+  /** The writing query calls in order (`query_apply`, `query_revert`, `query_create`, `query_duplicate`, `query_rename`,
+   *  `query_trash`, `query_restore`), each with its arguments and whether it succeeded. */
+  queryCalls(): Promise<{ cmd: string; args: any; ok: boolean | undefined; at: number | undefined }[]>;
+  /** The `query_run` calls in order. */
+  queryRuns(): Promise<{ source: any; host: string | null; env: any; at: number | undefined }[]>;
+  /** The next `cmd` (a §2 query command) fails with `kind` (`Io`, `Conflict`, `Gone`, …) without writing. */
+  queriesFail(cmd: string, kind: string): Promise<void>;
+  /** While on, `query_run` answers `indexReady: false` with no rows (the first index build runs); turning it off emits
+   *  `index:progress` with `state: 'done'`. */
+  queriesNotReady(on: boolean): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -329,6 +341,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   // Slice PIN (v1-pinned §5): the pins twin of `.tegg/pinned.yml` and its resolution in Node (fake-pins.ts).
   await page.exposeFunction('__teggPins', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[], ready: boolean) =>
     handlePins(cmd, args, files, invalid, ready)).catch(() => {});
+  // Slice Q (v1-queries §5): the queries twin in Node (fake-queries.ts): reads, commits, the evaluator, usages.
+  await page.exposeFunction('__teggQueries', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[], ready: boolean) =>
+    handleQueries(cmd, args, files, invalid, ready)).catch(() => {});
   // Search page redesign (v1-search §2): `index_search` in Node (fake-search.ts) with the real @tegg/doc.
   await page.exposeFunction('__teggSearch', (cmd: string, args: unknown, files: Record<string, string>) => handleSearch(cmd, args, files)).catch(() => {});
   await page.exposeFunction('__teggTags', (cmd: string, args: any, files: Record<string, string>, vers: Record<string, unknown>) =>
@@ -445,6 +460,20 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
       if (was && !o) return f.emit('index:progress', { done: 1, total: 1, state: 'done' });
       return undefined;
     }, on).then(() => undefined),
+    // Slice Q (v1-queries §5).
+    queryCalls: () => ev(() => (window as any).__teggFake.calls
+      .filter((c: any) => ['query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore'].includes(c.cmd))
+      .map((c: any) => ({ cmd: c.cmd, args: c.args, ok: c.ok, at: c.at }))),
+    queryRuns: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'query_run')
+      .map((c: any) => ({ source: c.args?.source ?? null, host: c.args?.host ?? null, env: c.args?.env ?? null, at: c.at }))),
+    queriesFail: (cmd, kind) => page.evaluate(([c, k]) => { const f = (window as any).__teggFake; (f.queriesFail ??= {})[c] = k; }, [cmd, kind] as const).then(() => undefined),
+    queriesNotReady: (on) => page.evaluate((o) => {
+      const f = (window as any).__teggFake;
+      const was = !!f.queriesNotReady;
+      f.queriesNotReady = o;
+      if (was && !o) return f.emit('index:progress', { done: 1, total: 1, state: 'done' });
+      return undefined;
+    }, on).then(() => undefined),
   };
 }
 
@@ -481,6 +510,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
     'graph_presets_get', // G3 (v1-graph §16.2): read-only
     'pins_get', // slice PIN (v1-pinned §2): read-only
+    'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
   ]);
   const opts = init.opts;
@@ -673,6 +703,36 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
   };
   w.__teggFake = state;
+  // Slice Q (v1-queries §1.7, §5): `query:stale { types, paths }` after every `vault:changed` that holds `.md` paths; the
+  // types are the matched type keys of those objects before and after the change.
+  {
+    const emit0 = state.emit;
+    const known: Record<string, string | null> = {};
+    let seeded = false;
+    const seed = async () => {
+      if (seeded || !state.vault || typeof w.__teggQueries !== 'function') return;
+      seeded = true;
+      const files = state.vault.files;
+      Object.assign(known, (await w.__teggQueries('query_types_of', { paths: Object.keys(files).filter((p) => p.endsWith('.md')) }, files, [], true))?.result ?? {});
+    };
+    // Only once the app runs a query (the first `query_run`), so other slices' tests pay nothing for it.
+    (state as any).querySeed = () => seed().catch(() => { seeded = false; });
+    state.emit = (event: string, payload: unknown) => {
+      const out = emit0(event, payload);
+      const paths = event === 'vault:changed' ? (((payload as any)?.paths ?? []) as string[]).map((p) => String(p).normalize('NFC')).filter((p) => p.endsWith('.md')) : [];
+      if (paths.length && seeded && state.vault && opts.window !== 'capture' && typeof w.__teggQueries === 'function') {
+        const files = state.vault.files;
+        void (async () => {
+          await seed();
+          const now = ((await w.__teggQueries('query_types_of', { paths }, files, [], true))?.result ?? {}) as Record<string, string | null>;
+          const types = new Set<string>();
+          for (const p of paths) { if (known[p]) types.add(known[p]!); if (now[p]) types.add(now[p]!); known[p] = now[p] ?? null; }
+          await emit0('query:stale', { types: [...types].sort(), paths });
+        })();
+      }
+      return out;
+    };
+  }
   state.watch();
   state.refreshCount();
   // The theme the Rust side injects before the first paint (contract §3.5); its name is not in the contract yet.
@@ -814,6 +874,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   x.stagedBytes = {} as Record<string, string>;
   x.idSeq = 0;
   x.pinsNotReady = !!w.__teggPinsNotReadyAtStart; // slice PIN (v1-pinned §5): `pinsNotReady` from the first answer
+  x.queriesNotReady = !!w.__teggQueriesNotReadyAtStart; // slice Q (v1-queries §5): `queriesNotReady` from the first answer
+  x.queriesFail = {} as Record<string, string>;
   x.lastOptions = null as any;
   const changed6a = (paths: string[]) => {
     void state.emit('vault:changed', { paths });
@@ -968,6 +1030,24 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     undo?.push({ before: PINS, after: PINS, pre, post, direct: true });
   };
   const idIn = (text: string | undefined) => /^id:[ \t]*(\S+)/m.exec(/^---\r?\n([\s\S]*?)\r?\n---/.exec(text ?? '')?.[1] ?? '')?.[1] ?? null;
+  // Slice Q (v1-queries §1.8, §5): a job's link patch of `.tegg/queries/*.yml` (4C rename, 4E-1 moves), before the pins;
+  // rows of the job (written, undo), never counted in done / total, `modified` untouched.
+  const queriesJob = async (moves: [string, string][], pathsBefore: string[], report: any, undo: { before: string; after: string; pre: string; post: string; direct?: boolean }[] | null) => {
+    if (!moves.length) return;
+    const files = state.vault!.files;
+    const patches = moves.map(([from, to]) => ({ kind: 'objectMoved', from, to, paths: pathsBefore }));
+    const r = await w.__teggQueries('queries_job', { patches }, files, Object.keys(state.invalid), true);
+    for (const [p, post] of Object.entries((r?.writes ?? {}) as Record<string, string>)) {
+      const pre = files[p];
+      if (pre === undefined || pre === post) continue;
+      files[p] = post;
+      state.touch(p);
+      state.writtenPaths.push(p);
+      void state.emit('vault:changed', { paths: [p] });
+      report.written.push(p);
+      undo?.push({ before: p, after: p, pre, post, direct: true });
+    }
+  };
 
   // 4C (ms4-jobs §11): the in-page job runner.
   const jobs = {
@@ -1043,6 +1123,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         await jobs.progress(jobId, 'writing', ++done, total);
       }
+      // Slice Q (v1-queries §1.8): query files' `"[[…]]"` values follow the renamed note, before its pins.
+      if (plan.toPath !== path) await queriesJob([[path, plan.toPath]], [...Object.keys(files).filter((q) => q.endsWith('.md') && q !== plan.toPath), path], report, undo);
       // Slice PIN (v1-pinned §1.6): the pin of the renamed note follows it, last.
       await pinsJob([{ kind: 'moved', from: path, to: plan.toPath, id: idIn(files[plan.toPath]) }], report, undo);
       state.undo[jobId] = { op: plan.op, files: undo };
@@ -1419,6 +1501,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         }
         if (!folderMove) await progress('writing', ++n, total);
       }
+      // Slice Q (v1-queries §1.8, D-1466): each move that happened patches query files' link values, before the pins.
+      {
+        const moved: [string, string][] = done.renames.map(([from, to]: string[]) => [from, to] as [string, string]);
+        const after = Object.keys(files).filter((q) => q.endsWith('.md'));
+        const before = after.map((q) => moved.find(([, t]) => t === q)?.[0] ?? q);
+        await queriesJob(moved, before, report, undo);
+      }
       // Slice PIN (v1-pinned §1.6): the moves that really happened patch their pins, last.
       await pinsJob(done.renames.map(([from, to]: string[]) => ({ kind: 'moved', from, to, id: idIn(files[to]) })), report, undo);
       state.undo[jobId] = { op: null, kind: plan.kind, ids: o.folder ? {} : plan.ids ?? {}, files: undo };
@@ -1530,6 +1619,41 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     state.tidyDue = false;
     void startTidy();
   }, 1000);
+
+  // ---------------------------------------------------------------- slice Q (v1-queries §2, §5)
+  const viaQueries = async (cmd: string, a: any) => {
+    if (!state.vault) throw err('NoVault', 'fake: no vault');
+    const r = await w.__teggQueries(cmd, a ?? {}, state.vault.files, Object.keys(state.invalid), !x.queriesNotReady);
+    if (r?.error) throw r.error;
+    return r as { result?: unknown; writes?: Record<string, string | null>; moves?: { from: string; to: string }[] };
+  };
+  const qWithVersion = (q: any) => (q && typeof q === 'object' ? { ...q, version: q.state === 'ok' || q.state === 'newer' || q.state === 'unreadable' ? state.ver(q.path) : null } : q);
+  /** `queriesFail(cmd, kind)`: the next call of `cmd` fails without writing. */
+  const qFail = (cmd: string) => {
+    const k = x.queriesFail?.[cmd];
+    if (k) { delete x.queriesFail[cmd]; throw err(k, `fake: ${cmd} fails (${k})`); }
+  };
+  /** D-175: the version last read as base; same bytes with only a new mtime is no conflict. */
+  const qBase = async (name: string, base: VersionDto | null | undefined) => {
+    const now = await viaQueries('query_get', { name });
+    const q = now.result as any;
+    if (q.state === 'missing' || q.state === 'trashed') throw err('Gone', `fake: the query ${name} is gone`);
+    const v = state.ver(q.path);
+    if (!base || !v || base.size !== v.size || base.hash !== v.hash) throw { ...err('Conflict', `fake: ${q.path} changed`), disk: qWithVersion(q) };
+  };
+  const qWrite = (writes: Record<string, string | null> | undefined) => {
+    if (!writes) return;
+    const paths: string[] = [];
+    for (const [p, t] of Object.entries(writes)) {
+      if (t === null) { delete state.vault!.files[p]; delete state.mtimes[p]; } else { state.vault!.files[p] = t; delete state.invalid[p]; state.touch(p); state.writtenPaths.push(p); }
+      paths.push(p);
+    }
+    if (paths.length) void state.emit('vault:changed', { paths });
+  };
+  const qMove = (moves: { from: string; to: string }[] | undefined, kind: 'trash' | 'restore') => {
+    for (const m of moves ?? []) if (state.vault!.files[m.from] !== undefined) moveRaw(m.from, m.to, state.vault!.files[m.from], kind);
+  };
+  const QTRASH = '.trash/.tegg/queries/';
 
   const handlers: Record<string, (a: any) => unknown> = {
     vault_current: () => info(),
@@ -1809,6 +1933,112 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       if (r.error) throw r.error.disk ? { ...r.error, disk: { ...r.error.disk, version: state.ver(PINS) } } : r.error;
       return { ...r.result, version: state.ver(PINS) };
+    },
+    // Slice Q (v1-queries §2, §5): the queries twin in Node; versions and base checks here (they need the mtimes).
+    queries_list: async () => {
+      const r = await viaQueries('queries_list', {});
+      return (r.result as any[]).map((q) => ({ ...q, version: state.ver(q.path) }));
+    },
+    query_get: async (a) => qWithVersion((await viaQueries('query_get', { name: a.name })).result),
+    query_run: async (a) => {
+      await x.querySeed?.();
+      const r = await viaQueries('query_run', { source: a.source, host: a.host ?? null, env: a.env });
+      const { _path, ...res } = r.result as any;
+      if (x.queriesNotReady) return { ...res, indexReady: false, rows: [], total: 0 };
+      return { ...res, version: _path ? state.ver(_path) : null };
+    },
+    query_usages: async (a) => (await viaQueries('query_usages', { name: a.name })).result,
+    query_apply: async (a) => {
+      qFail('query_apply');
+      await qBase(String(a.name), a.base);
+      const r = await viaQueries('query_apply', a);
+      qWrite(r.writes);
+      return { query: qWithVersion((r.result as any).query), undo: (r.result as any).undo };
+    },
+    query_revert: async (a) => {
+      qFail('query_revert');
+      await qBase(String(a.name), a.base);
+      const r = await viaQueries('query_revert', a);
+      qWrite(r.writes);
+      return qWithVersion(r.result);
+    },
+    query_create: async (a) => {
+      qFail('query_create');
+      const r = await viaQueries('query_create', a);
+      qWrite(r.writes);
+      return qWithVersion(r.result);
+    },
+    query_duplicate: async (a) => {
+      qFail('query_duplicate');
+      const r = await viaQueries('query_duplicate', a);
+      qWrite(r.writes);
+      return qWithVersion(r.result);
+    },
+    query_trash: async (a) => {
+      qFail('query_trash');
+      const r = await viaQueries('query_trash', a);
+      qMove(r.moves, 'trash');
+      return r.result;
+    },
+    query_restore: async (a) => {
+      qFail('query_restore');
+      const r = await viaQueries('query_restore', a);
+      qMove(r.moves, 'restore');
+      return qWithVersion(r.result);
+    },
+    // §1.8 `query-rename` (D-1468): refusals before the job; a backup zip, the file rename with its `title:` patch, every
+    // usage's `saved:` line through @tegg/doc (`rename-saved-query`; open notes through their editor), the pins last.
+    query_rename: async (a) => {
+      qFail('query_rename');
+      // §11 (D-1510, FR-QRY-06 AC-22): no rename until the first index build has ended; nothing written, no job.
+      if (x.queriesNotReady) throw err('IndexNotReady', 'fake: the index is still loading');
+      const plan = (await viaQueries('query_rename_plan', { name: a.name, title: a.title })).result as any;
+      const jobId = ++state.jobSeq;
+      const { report, progress, finish } = jobRun(jobId, 'query-rename', plan);
+      void (async () => {
+        const total = 1 + plan.usages.length;
+        const files = state.vault!.files;
+        const undo: { before: string; after: string; pre: string; post: string; direct?: boolean }[] = [];
+        await progress('planning', 0, total);
+        await jobs.hold('planning');
+        const pre: Record<string, string> = Object.fromEntries((plan.usages as string[]).map((p) => [p, files[p]]));
+        await progress('backup', 0, total);
+        await jobs.hold('backup');
+        const zip = makeZip('query-rename', jobId, { key: 'backup.queryRename', args: { from: plan.fromName, to: plan.toName } }, { renames: [[plan.from, plan.to]], creates: [], trashes: [] });
+        await progress('writing', 0, total);
+        await jobs.hold('writing');
+        if (files[plan.from] !== plan.pre) { report.skipped.push({ path: plan.from, reason: files[plan.from] === undefined ? 'missing' : 'changed' }); await finish('failed', total, zip, 'QueryChanged'); return; }
+        if (plan.to !== plan.from) { moveRaw(plan.from, plan.to, plan.post, null); report.renamed = { from: plan.from, to: plan.to }; } else jobs.write(plan.from, plan.post);
+        report.written.push(plan.to);
+        undo.push({ before: plan.from, after: plan.to, pre: plan.pre, post: plan.post, direct: true });
+        let n = 1;
+        for (const p of plan.usages as string[]) {
+          const skip = state.jobSkips[p];
+          const cur = files[p];
+          const op = { op: 'rename-saved-query', from: plan.fromName, to: plan.toName };
+          if (skip) { delete state.jobSkips[p]; report.skipped.push({ path: p, reason: skip }); }
+          else if (cur === undefined) report.skipped.push({ path: p, reason: 'missing' });
+          else if (cur !== pre[p]) report.skipped.push({ path: p, reason: 'changed' });
+          else if (state.editors.has(p)) {
+            const rr = await jobs.live(p, [op]);
+            if (rr === 'written') { report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: files[p], direct: true }); } else report.skipped.push({ path: p, reason: 'changed' });
+          } else {
+            const out = (await w.__teggQueries('query_usage_patch', { path: p, text: cur, from: plan.fromName, to: plan.toName }, files, [], true))?.result ?? null;
+            if (out === null || out === cur) report.unchanged.push(p);
+            else { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out, direct: true }); }
+          }
+          await progress('writing', ++n, total);
+        }
+        // v1-pinned §1.9 `QueryRenamed`: the pins file's `query:` items of the old name, last.
+        const PIN = '.tegg/pinned.yml';
+        if (files[PIN] !== undefined && !(PIN in state.invalid)) {
+          const post = (await w.__teggQueries('pins_query_renamed', { text: files[PIN], from: plan.fromName, to: plan.toName }, files, [], true))?.result ?? null;
+          if (typeof post === 'string' && post !== files[PIN]) { const before = files[PIN]; jobs.write(PIN, post); report.written.push(PIN); undo.push({ before: PIN, after: PIN, pre: before, post, direct: true }); }
+        }
+        state.undo[jobId] = { op: null, kind: 'query-rename', files: undo };
+        await finish('done', total, zip, undefined, { renames: [[plan.from, plan.to, '']], creates: [], trashes: [], written: [] });
+      })();
+      return { jobId };
     },
     tag_objects: (a) => viaTags('tag_objects', { key: a.key }),
     index_tagged_objects: () => viaTags('index_tagged_objects', {}), // D-784 (§1.6)
@@ -2151,7 +2381,14 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return { jobId };
     },
     // ---------------------------------------------------------------- 6A (ms6-trash-media §4, §9.2)
-    trash_list: async () => (await viaTrash('trash_list', {})).result,
+    trash_list: async () => {
+      const rows = (await viaTrash('trash_list', {})).result as any[];
+      // Slice Q (v1-queries §1.10, D-1435): one `query` row per `.trash/.tegg/queries/*.yml`.
+      const q = ((await viaQueries('query_trash_rows', {})).result as any[]).map((r) => ({ ...r, trashedAt: x.trashedAt[r.path] ?? '2026-10-01T00:00:00+02:00' }));
+      const t = (r: any) => Date.parse(r.trashedAt);
+      const low = (v: string) => v.normalize('NFC').toLowerCase();
+      return [...rows, ...q].sort((a1, b1) => t(b1) - t(a1) || (low(a1.path) < low(b1.path) ? -1 : low(a1.path) > low(b1.path) ? 1 : 0));
+    },
     object_trash: async (a) => {
       const p = String(a.path).normalize('NFC');
       if (!state.vault) throw err('NoVault', 'fake: no vault');
@@ -2166,14 +2403,22 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       return r.result;
     },
     trash_restore: async (a) => {
+      if (String(a.path).normalize('NFC').startsWith(QTRASH)) {
+        const r = await viaQueries('query_restore', { name: '', path: String(a.path).normalize('NFC') });
+        qMove(r.moves, 'restore');
+        return r.moves;
+      }
       const r = await viaTrash('trash_restore', { path: String(a.path).normalize('NFC') });
       applyMoves(r.moves, 'restore');
       return r.result;
     },
     trash_delete: async (a) => {
-      const r = removable(await viaTrash('trash_delete', { paths: ((a.paths ?? []) as string[]).map((q) => String(q).normalize('NFC')) }));
-      removeAll(r.remove, r.entries);
-      return r.result;
+      const all = ((a.paths ?? []) as string[]).map((q) => String(q).normalize('NFC'));
+      // Slice Q (§1.10): a trashed query's row goes to the system trash as one file.
+      const qs = all.filter((q) => q.startsWith(QTRASH) && state.vault?.files[q] !== undefined);
+      const r = removable(await viaTrash('trash_delete', { paths: all.filter((q) => !qs.includes(q)) }));
+      removeAll([...r.remove, ...qs], [...r.entries, ...qs]);
+      return { ...r.result, removed: [...r.result.removed, ...qs] };
     },
     trash_empty: async () => {
       const r = removable(await viaTrash('trash_empty', {}));

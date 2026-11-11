@@ -38,6 +38,8 @@ pub fn op_json(op: &TextOp) -> Value {
         TextOp::Relink { moves, paths, files } => json!({ "op": "relink", "moves": moves.iter().map(|(f, t)| json!({ "from": f, "to": t })).collect::<Vec<_>>(), "paths": &**paths, "files": &**files }),
         // ms4-jobs §14.9.2 (4E-2).
         TextOp::RemoveKey { key } => json!({ "op": "remove-key", "key": key }),
+        // v1-queries §3.1 (slice Q).
+        TextOp::RenameSavedQuery { from, to } => json!({ "op": "rename-saved-query", "from": from, "to": to }),
     }
 }
 
@@ -95,6 +97,7 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
             paths: v["paths"].as_array()?.iter().filter_map(|p| p.as_str().map(str::to_string)).collect(),
         }),
         "remove-key" => Some(TextOp::RemoveKey { key: s("key")? }),
+        "rename-saved-query" => Some(TextOp::RenameSavedQuery { from: s("from")?, to: s("to")? }),
         "change-type" => Some(TextOp::ChangeType { r#type: s("type")?, now: v["now"].as_str().map(str::to_string), id: v["id"].as_str().map(str::to_string) }),
         _ => None,
     }

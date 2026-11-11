@@ -418,6 +418,34 @@ impl Host for CoreHost {
         })
     }
 
+    // ---------------------------------------------------------------- slice Q (v1-queries §1.8)
+
+    fn query_files(&self) -> Vec<String> {
+        self.shared.vault.list_dir(crate::queries_q::QUERIES_DIR).unwrap_or_default().into_iter().filter(|p| crate::queries_q::is_query_path(p)).collect()
+    }
+
+    fn query_usage_paths(&self, name: &str) -> Vec<String> {
+        crate::queries_q::QCore { shared: &self.shared }.query_usage_paths(name)
+    }
+
+    fn patch_queries(&self, patches: &[tegg_jobs::host::QueryPatch]) -> Vec<(String, Result<Option<tegg_jobs::host::FileWrite>, WriteError>)> {
+        crate::queries_q::QCore { shared: &self.shared }.patch_query_files(patches)
+    }
+
+    fn query_rename_plan(&self, name: &str, title: &str) -> Result<tegg_jobs::host::QueryRenamePlan, tegg_jobs::JobError> {
+        use crate::queries_q::QueryError;
+        let q = crate::queries_q::QCore { shared: &self.shared };
+        q.query_rename_plan(name, title).map_err(|e| match e {
+            QueryError::NotFound => tegg_jobs::JobError::NotFound,
+            QueryError::NewerVersion | QueryError::Unreadable => tegg_jobs::JobError::QueryUnreadable,
+            QueryError::NameTaken => tegg_jobs::JobError::QueryExists { name: q.query_name_taken_by(title, name).unwrap_or_default() },
+            QueryError::EmptyName => tegg_jobs::JobError::InvalidName { error: "empty".into(), char: None },
+            QueryError::NothingToDo => tegg_jobs::JobError::NothingToDo,
+            QueryError::Limit => tegg_jobs::JobError::Core("Limit".into()),
+            QueryError::IndexNotReady => tegg_jobs::JobError::IndexNotReady,
+        })
+    }
+
     /// v1-pinned §1.6: `pinned::read` + `pinned::patch_text`, written against the version just read (a conflict is the
     /// job's `changed` skip). Never creates the file; an unreadable, newer or unpatchable file is left alone.
     fn patch_pins(&self, patches: &[tegg_jobs::host::PinPatch]) -> Result<Option<tegg_jobs::host::PinsWrite>, WriteError> {

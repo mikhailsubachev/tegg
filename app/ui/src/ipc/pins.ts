@@ -4,7 +4,9 @@ import type { VersionDto } from './types';
 export type PinStoredDto =
   | { kind: 'object'; id: string | null; path: string | null }
   | { kind: 'tag'; key: string }
-  | { kind: 'type'; key: string };
+  | { kind: 'type'; key: string }
+  /** Slice Q (v1-queries §1.9, D-1484): a saved query by name (NFC). */
+  | { kind: 'query'; name: string };
 export type PinState = 'ok' | 'pending' | 'trashed' | 'missing' | 'noObjects';
 /** One row of the section: a listed pin and what it resolves to (R131, R133). `index` is 0-based among listed pins. */
 export type PinRowDto = {
@@ -21,7 +23,7 @@ export type PinsDto = {
   indexReady: boolean;
   rows: PinRowDto[];
 };
-export type PinRequestDto = { kind: 'object'; path: string } | { kind: 'tag'; key: string } | { kind: 'type'; key: string };
+export type PinRequestDto = { kind: 'object'; path: string } | { kind: 'tag'; key: string } | { kind: 'type'; key: string } | { kind: 'query'; name: string };
 /** `at` / `to` are 0-based final positions among listed pins; `at: null` is the end. */
 export type PinOpDto =
   | { op: 'pin'; target: PinRequestDto; at: number | null }

@@ -1,0 +1,14 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Knihy s hodnocením.
+version: 1
+title: Knihy s hodnocením
+types: [kniha]
+match: all
+filters:
+  - hodnocení: { gt: 3 }
+  - přečteno: true
+sort: { by: title, order: asc }
+limit: 50
+view: list
+columns: [autor]
+created: 2026-09-03T09:00:00+02:00
+modified: 2026-10-02T09:00:00+02:00

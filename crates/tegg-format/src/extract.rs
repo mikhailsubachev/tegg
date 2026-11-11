@@ -632,7 +632,7 @@ fn scan_tags(text: &str, body_start: usize, excluded: &[Range<usize>], out: &mut
 
 // ------------------------------------------------------------------ positions, Markdown links, blocks (ms4-links §2.1)
 
-fn md_options() -> Options {
+pub(crate) fn md_options() -> Options {
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
     opts.insert(Options::ENABLE_FOOTNOTES);

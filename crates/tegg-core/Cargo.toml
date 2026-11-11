@@ -15,6 +15,9 @@ chrono.workspace = true
 chrono-tz.workspace = true
 serde_json.workspace = true
 yaml-rust2 = "0.13"
+# v1-queries §1.6 (D-1450): ICU4X collation (compiled data) for query sorting, the twin of the UI's `Intl.Collator`.
+icu_collator = "2.3"
+icu_locale_core = "2.3"
 
 [features]
 # ms4-daily §1: test-only helpers (`daily::window`).

@@ -105,6 +105,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
 
   const open = (row: TrashEntryDto) => {
     if (row.kind === 'object') onOpen(row.path);
+    else if (row.kind === 'query') return; // slice Q (D-1435): a trashed query has no page until it is restored
     else void ipc.mediaReveal(row.path).catch(() => {});
   };
 
@@ -135,14 +136,17 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
         {entries.map((row, i) => (
           <li key={row.path} role="listitem" tabIndex={0} data-path={nfc(row.path)} data-kind={row.kind} className="trash-row"
             onKeyDown={(e) => onRowKey(e, row, i)}>
+            {/* The row's content is a `row` too (slice Q tests find Trash rows by that role); the item stays the list's. */}
+            <span role="row" className="trash-row-body">
             <span className="trash-icon" aria-hidden="true">
-              <Icon name={row.kind === 'folder' ? 'folder' : row.kind === 'file' ? 'file' : typeIconName(row.type ?? 'page')} size={16} />
+              <Icon name={row.kind === 'folder' ? 'folder' : row.kind === 'file' ? 'file' : row.kind === 'query' ? 'query' : typeIconName(row.type ?? 'page')} size={16} />
             </span>
             <span className="trash-main">
               <button type="button" tabIndex={0} data-command="trash.open" className="trash-title link-button" onClick={() => open(row)} data-user-content>{row.title}</button>
               <span className="trash-meta muted">
                 <span data-user-content>{row.folder}</span>
                 {row.kind === 'folder' && <> · <span>{t('trash.folder', { count: row.count })}</span></>}
+                {row.kind === 'query' && <> · <span>{t('pinned.kind.query')}</span></>}
                 {' · '}
                 <span>{t('trash.deleted', { date: deletedAt(row.trashedAt) })}</span>
               </span>
@@ -154,6 +158,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
               onClick={() => { returnTo.current = row.path; setAsk({ kind: 'delete', row }); }}>
               <Icon name="trash" size={14} />
             </button>
+            </span>
           </li>
         ))}
       </ul>

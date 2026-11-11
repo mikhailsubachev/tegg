@@ -99,6 +99,18 @@ export type ShellActions = {
   unpinCurrent?: () => void;
   movePinned?: (dir: -1 | 1) => void;
   pinnedRowFocused?: () => boolean;
+  /** Slice Q (v1-queries §4.6): the query of `query/<name>` or of the note's selected query block (null: none); whether
+   *  it can be written (not unreadable, not newer). */
+  queryStatus?: () => { name: string; editable: boolean } | null;
+  editQuery?: () => void;
+  renameQuery?: () => void;
+  trashQuery?: () => void;
+  /** `Insert query` (R144): the `Choose a query` picker at the editor's caret. */
+  insertQuery?: () => void;
+  /** `New query…` (R144): the `New query` dialog. */
+  newQuery?: () => void;
+  /** Whether the note's editor had the focus (before the palette opened): `Insert query` is listed only then. */
+  editorFocused?: () => boolean;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -115,7 +127,7 @@ export type GraphStatus = {
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider' | 'insertQuery';
 
 export type ShellContext = {
   vault: VaultInfo | null;
@@ -162,7 +174,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'tasks.sort': 'tasks.sort',
 };
 
-const NO_GOTO = new Set(['tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD', 'graph/<path>']);
+const NO_GOTO = new Set(['queries', 'query/<name>', 'tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD', 'graph/<path>']);
 const gotoKey = (id: string) => `cmd.goto.${id.replace(/^settings\//, 'settings.').replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`;
 
 export function commands(ctx: ShellContext): Command[] {
@@ -266,6 +278,28 @@ export function commands(ctx: ShellContext): Command[] {
         ['tag.groupType', 'cmd.tagGroupType', 'view'], ['tag.groupNone', 'cmd.tagGroupNone', 'view'],
       ] as const).map(([id, title, section]): Command => ({ id, title, section, needsVault: true, run: onTag(id) })),
     );
+  }
+  // Slice Q (queries.md R144, v1-queries §4.6; no shortcuts): Queries and New query… everywhere with a vault; Insert query
+  // on a note or daily route with the editor focused; the query commands on `query/<name>` (Edit query also on a note
+  // with a selected query block).
+  list.push(
+    { id: 'queries.go', title: 'cmd.goQueries', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'queries' }) },
+    { id: 'queries.new', title: 'cmd.newQuery', section: 'create', needsVault: true, run: (c) => a(c)?.newQuery?.() },
+  );
+  const onNoteQ = ctx.route?.id === 'note/<path>' || ctx.route?.id === 'daily/YYYY-MM-DD';
+  if (onNoteQ && a(ctx)?.insertQuery && (a(ctx)?.editorFocused?.() ?? true)) {
+    list.push({ id: 'editor.insertQuery', title: 'cmd.insertQuery', section: 'edit', needsVault: true, run: (c) => a(c)?.insertQuery?.() });
+  }
+  const qs = a(ctx)?.queryStatus?.() ?? null;
+  if (ctx.route?.id === 'query/<name>' || (onNoteQ && qs)) {
+    const readOnly = () => (a(ctx)?.queryStatus?.()?.editable === false ? t('query.block.readOnly') : null);
+    list.push({ id: 'query.edit', title: 'query.edit', section: 'edit', needsVault: true, disabled: () => null, run: (c) => a(c)?.editQuery?.() });
+    if (ctx.route?.id === 'query/<name>') {
+      list.push(
+        { id: 'query.rename', title: 'cmd.renameQuery', section: 'edit', needsVault: true, disabled: readOnly, run: (c) => a(c)?.renameQuery?.() },
+        { id: 'query.trash', title: 'cmd.trashQuery', section: 'edit', needsVault: true, disabled: () => null, run: (c) => a(c)?.trashQuery?.() },
+      );
+    }
   }
   if (ctx.route?.id === 'duplicate-titles') {
     list.push({ id: 'duplicates.merge', title: 'duplicates.merge', section: 'edit', needsVault: true, run: (c) => a(c)?.mergeFocused?.() });

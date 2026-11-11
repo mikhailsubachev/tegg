@@ -408,6 +408,62 @@
       "y": 0,
       "page": "page-new-object",
       "title": "New object · type picker (proposal)"
+    },
+    "QueryBlock.dc.html": {
+      "h": 3720,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-queries",
+      "title": "Query block · embedded in a note (list and table)"
+    },
+    "QueryBlockDark.dc.html": {
+      "h": 3720,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-queries",
+      "title": "Query block · embedded (dark)"
+    },
+    "QueriesAll.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 0,
+      "y": 3800,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Queries · all queries (sidebar entry)"
+    },
+    "QueryPage.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 1520,
+      "y": 3800,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Query page · Open tasks from this meeting"
+    },
+    "QueriesAllDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 0,
+      "y": 5000,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Queries · all queries (dark)"
+    },
+    "QueryPageDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "w": 1440,
+      "x": 1520,
+      "y": 5000,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Query page (dark)"
     }
   },
   "createdOnFiles": {
@@ -466,7 +522,13 @@
     "SidebarPinnedDark.dc.html",
     "ObjectPreview.dc.html",
     "ObjectPreviewDark.dc.html",
-    "NewObjectPicker.dc.html"
+    "NewObjectPicker.dc.html",
+    "QueryBlock.dc.html",
+    "QueryBlockDark.dc.html",
+    "QueriesAll.dc.html",
+    "QueryPage.dc.html",
+    "QueriesAllDark.dc.html",
+    "QueryPageDark.dc.html"
   ],
   "pages": [
     {
@@ -508,6 +570,10 @@
     {
       "id": "page-new-object",
       "name": "New object (type picker)"
+    },
+    {
+      "id": "page-queries",
+      "name": "Queries"
     }
   ],
   "title": "Tegg – Edit note page"

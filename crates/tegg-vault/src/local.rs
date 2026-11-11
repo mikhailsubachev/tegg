@@ -79,6 +79,22 @@ impl VaultFs for LocalFs {
         Ok(out)
     }
 
+    fn list_dir(&self, dir: &str) -> io::Result<Vec<FsEntry>> {
+        let dir = dir.trim_matches('/');
+        let rd = match fs::read_dir(self.abs(dir)) {
+            Ok(rd) => rd,
+            Err(e) if e.kind() == io::ErrorKind::NotFound || e.kind() == io::ErrorKind::NotADirectory => return Ok(Vec::new()),
+            Err(e) => return Err(e),
+        };
+        let mut out = Vec::new();
+        for e in rd {
+            let e = e?;
+            let path = tegg_format::nfc(&format!("{dir}/{}", e.file_name().to_string_lossy()));
+            out.push(if e.file_type()?.is_dir() { FsEntry::Dir { path } } else { FsEntry::File { path } });
+        }
+        Ok(out)
+    }
+
     fn read(&self, path: &str) -> io::Result<(Vec<u8>, FileVersion)> {
         let abs = self.abs(path);
         let bytes = fs::read(&abs)?;

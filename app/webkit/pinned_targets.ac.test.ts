@@ -8,7 +8,7 @@ import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   ID, P, PINS, VALID_ROWS, alertBox, click, description, eventually, flat, menuItem, moreBtn, moreMenu, must, mustBeOn, openPinned, pinnedVault,
-  pinsFx, pinsText, retitle, rowAt, rows, rowsAre, runCommand, sleep, tagActionsBtn, tagActionsMenu, tagRow, textOf,
+  pinsFx, pinsText, retitle, rowAt, rows, rowsAre, runCommand, sleep, tagActionsBtn, tagActionsMenu, tagRow, textOf, validWithoutQuery,
 } from './pinned-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -102,7 +102,9 @@ test('fr_hom_02_ac18_missing_targets_are_never_unpinned_silently', async ({ page
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-20
 
 test('fr_hom_02_ac20_pending_never_shows_missing', async ({ page }) => {
-  const core = await openPinned(page, { pins: 'valid.yml', route: 'inbox', notReady: true });
+  // Slice Q (D-1484): a query pin is never pending and shows `Not found` when no such query exists, so this criterion about
+  // object pins during the first index build runs on valid.yml without its query item.
+  const core = await openPinned(page, { pins: { text: validWithoutQuery() }, route: 'inbox', notReady: true });
   const seenStates = new Set<string>();
   const watch = setInterval(() => { void rows(page).then((r) => r.forEach((x) => seenStates.add(String(x.state)))); }, 50);
   try {
@@ -117,7 +119,7 @@ test('fr_hom_02_ac20_pending_never_shows_missing', async ({ page }) => {
     assert.equal(await alertBox(page).count(), 0, 'and shows no alert');
     await sleep(3000);
     await core.pinsNotReady(false);
-    assert.deepEqual(await rowsAre(page, VALID_ROWS, 3000), VALID_ROWS, 'titles once the first scan ends');
+    assert.deepEqual(await rowsAre(page, VALID_ROWS.slice(0, 5), 3000), VALID_ROWS.slice(0, 5), 'titles once the first scan ends');
   } finally { clearInterval(watch); }
   assert.ok(!seenStates.has('missing'), `no row showed Not found at any time (${[...seenStates].join(', ')})`);
 });

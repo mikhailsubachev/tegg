@@ -7,6 +7,7 @@
 // Values come from the `yaml` package (YAML 1.2); positions from a line scanner (the graph presets twin's rules, D-1122,
 // D-1124, D-1129), so a write changes only the operated item's lines (AP-1228 = D-1371).
 import { parse, parseAllDocuments, isMap, isScalar, isSeq } from 'yaml';
+import { findLive, findTrashed, queryRead } from './fake-queries';
 
 // ------------------------------------------------------------------------------------------------ DTOs (contract §2)
 
@@ -14,7 +15,9 @@ export type VersionDto = { mtimeNs: string; size: number; hash: string };
 export type PinStoredDto =
   | { kind: 'object'; id: string | null; path: string | null }
   | { kind: 'tag'; key: string }
-  | { kind: 'type'; key: string };
+  | { kind: 'type'; key: string }
+  /** Slice Q (v1-queries §1.9, D-1484, D-1501): a saved query by name (NFC). */
+  | { kind: 'query'; name: string };
 export type PinState = 'ok' | 'pending' | 'trashed' | 'missing' | 'noObjects';
 export type PinRowDto = {
   index: number;
@@ -34,7 +37,7 @@ export type PinsDto = {
   indexReady: boolean;
   rows: PinRowDto[];
 };
-export type PinRequestDto = { kind: 'object'; path: string } | { kind: 'tag'; key: string } | { kind: 'type'; key: string };
+export type PinRequestDto = { kind: 'object'; path: string } | { kind: 'tag'; key: string } | { kind: 'type'; key: string } | { kind: 'query'; name: string };
 export type PinOpDto =
   | { op: 'pin'; target: PinRequestDto; at: number | null }
   | { op: 'unpin'; index: number }
@@ -94,14 +97,21 @@ function errorLine(text: string, offset: number | null, reported: number | null)
   return depth > 0 && opened >= 0 ? text.slice(0, opened).split('\n').length : reported;
 }
 
-/** R131's item rules: the stored target of a raw item, `'query'` for a kept saved-query item, or null when skipped. */
-function targetOf(raw: unknown): PinStoredDto | 'query' | null {
+/** D-1434: query names compare trimmed, NFC, case-insensitively. */
+export const queryNameKey = (s: string) => nfc(trimWs(s)).toLowerCase();
+/** R131's item rules (slice Q: a `query:` item with a non-blank string is listed, §1.9): the stored target, or null when
+ *  skipped. */
+function targetOf(raw: unknown): PinStoredDto | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   const has = (k: string) => Object.prototype.hasOwnProperty.call(o, k);
   const kinds = [has('id') || has('path'), has('tag'), has('type'), has('query')].filter(Boolean).length;
   if (kinds !== 1) return null;
-  if (has('query')) return 'query';
+  if (has('query')) {
+    if (typeof o.query !== 'string') return null;
+    const name = nfc(trimWs(o.query));
+    return name === '' ? null : { kind: 'query', name };
+  }
   if (has('tag')) {
     if (typeof o.tag !== 'string') return null;
     const key = tagKey(o.tag);
@@ -135,6 +145,7 @@ function duplicateOf(t: PinStoredDto, listed: PinStoredDto[]): boolean {
   return listed.some((x) => {
     if (t.kind === 'tag' && x.kind === 'tag') return t.key === x.key;
     if (t.kind === 'type' && x.kind === 'type') return t.key === x.key;
+    if (t.kind === 'query' && x.kind === 'query') return queryNameKey(t.name) === queryNameKey(x.name);
     if (t.kind === 'object' && x.kind === 'object') {
       if (t.id !== null && x.id !== null && t.id === x.id) return true;
       return (t.id === null || x.id === null) && t.path !== null && t.path === x.path;
@@ -314,7 +325,7 @@ function parsed(text: string | null, utf8 = true): Parsed {
   const listedRaw: number[] = [];
   raw.forEach((r, i) => {
     const t = targetOf(r);
-    if (t === null || t === 'query' || duplicateOf(t, listed)) return;
+    if (t === null || duplicateOf(t, listed)) return;
     listed.push(t);
     listedRaw.push(i);
   });
@@ -333,7 +344,7 @@ function parsed(text: string | null, utf8 = true): Parsed {
 /** R131's listed targets of raw `pins` items. */
 function listedOf(raw: unknown[]): PinStoredDto[] {
   const listed: PinStoredDto[] = [];
-  for (const r of raw) { const t = targetOf(r); if (t !== null && t !== 'query' && !duplicateOf(t, listed)) listed.push(t); }
+  for (const r of raw) { const t = targetOf(r); if (t !== null && !duplicateOf(t, listed)) listed.push(t); }
   return listed;
 }
 
@@ -359,6 +370,7 @@ function itemLines(t: PinStoredDto, dash: number, keys: number): string[] {
   switch (t.kind) {
     case 'tag': return [`${d}-${gap}tag: ${scalar(nfc(t.key))}`];
     case 'type': return [`${d}-${gap}type: ${scalar(nfc(t.key))}`];
+    case 'query': return [`${d}-${gap}query: ${scalar(nfc(t.name))}`];
     case 'object':
       if (t.id !== null && t.path !== null) return [`${d}-${gap}id: ${scalar(t.id)}`, `${k}path: ${scalar(nfc(t.path))}`];
       if (t.id !== null) return [`${d}-${gap}id: ${scalar(t.id)}`];
@@ -391,7 +403,7 @@ function put(L: Line[], at: number, add: Line[], nl: string) {
 
 type Target = { raw: unknown[]; listed: PinStoredDto[] };
 const stored = (t: PinStoredDto): Record<string, string> =>
-  (t.kind === 'object' ? { ...(t.id !== null ? { id: t.id } : {}), ...(t.path !== null ? { path: nfc(t.path) } : {}) } : t.kind === 'tag' ? { tag: t.key } : { type: t.key });
+  (t.kind === 'object' ? { ...(t.id !== null ? { id: t.id } : {}), ...(t.path !== null ? { path: nfc(t.path) } : {}) } : t.kind === 'tag' ? { tag: t.key } : t.kind === 'query' ? { query: t.name } : { type: t.key });
 
 /** R131 write rules: the next text after `edit` (`text` null: no file), `text: null` when the bytes stay equal, or the
  *  refusal. */
@@ -592,6 +604,7 @@ function front(text: string): Record<string, string> {
   return out;
 }
 const stem = (p: string) => p.split('/').pop()!.replace(/\.md$/, '');
+const stemOf = (p: string) => nfc(p.split('/').pop()!.replace(/\.yml$/i, ''));
 function typeDefs(files: Record<string, string>): Record<string, { folder: string | null }> {
   const out: Record<string, { folder: string | null }> = {};
   for (const [p, t] of Object.entries(files)) {
@@ -660,6 +673,20 @@ export function pinsResolve(read: PinsRead, files: Record<string, string>, index
       if (!indexReady) return { ...row, state: 'pending' };
       return { ...row, state: tags.has(t.key) ? 'ok' : 'noObjects' };
     }
+    // Slice Q (§1.9, D-1498): a query pin is resolved from the files, never pending.
+    if (t.kind === 'query') {
+      const live = findLive(files, t.name);
+      if (live) {
+        const r = queryRead(files[live], true, stemOf(live));
+        return { ...row, state: 'ok', path: live, title: r.state === 'unreadable' ? stemOf(live) : r.def.title, type: null };
+      }
+      const tr = findTrashed(files, t.name);
+      if (tr) {
+        const r = queryRead(files[tr], true, stemOf(tr));
+        return { ...row, state: 'trashed', path: tr, title: r.state === 'unreadable' ? stemOf(tr) : r.def.title, type: null };
+      }
+      return row;
+    }
     if (defs[t.key]) return { ...row, state: 'ok' };
     if (!indexReady) return { ...row, state: 'pending' };
     return { ...row, state: live.some((o) => o.type === t.key) ? 'ok' : 'missing' };
@@ -682,6 +709,7 @@ function dto(read: PinsRead, files: Record<string, string>, indexReady: boolean)
 export function requestTarget(req: PinRequestDto, files: Record<string, string>): PinStoredDto | null {
   if (req.kind === 'tag') { const key = tagKey(req.key ?? ''); return key ? { kind: 'tag', key } : null; }
   if (req.kind === 'type') { const key = nfc(trimWs(req.key ?? '')); return key ? { kind: 'type', key } : null; }
+  if (req.kind === 'query') { const live = findLive(files, req.name ?? ''); return live ? { kind: 'query', name: stemOf(live) } : null; }
   const path = nfc(req.path ?? '');
   const segs = path.split('/');
   if (!path.endsWith('.md') || ['.tegg', '.trash', '_templates'].includes(segs[0]) || files[path] === undefined) return null;

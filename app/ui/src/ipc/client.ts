@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
+import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto } from './queries';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
@@ -157,6 +158,18 @@ export const ipc = {
   hotkeys: () => invoke<HotkeyStateDto[]>('hotkeys'),
   hotkeysRetry: (id: string) => invoke<HotkeyStateDto[]>('hotkeys_retry', { id }),
   captureOpen: (kind: 'default' | 'task') => invoke<void>('capture_open', { kind }),
+  // Slice Q (v1-queries §2): saved queries and the query block. Reads never write; each write is one atomic write.
+  queriesList: () => invoke<QuerySummaryDto[]>('queries_list'),
+  queryGet: (name: string) => invoke<QueryDto>('query_get', { name }),
+  queryRun: (source: QuerySourceDto, host: string | null, env: QueryEnvDto) => invoke<QueryResultDto>('query_run', { source, host, env }),
+  queryApply: (name: string, base: VersionDto | null, def: QueryDefDto, now: string) => invoke<{ query: QueryDto; undo: string | null }>('query_apply', { name, base, def, now }),
+  queryRevert: (name: string, base: VersionDto | null, text: string) => invoke<QueryDto>('query_revert', { name, base, text }),
+  queryCreate: (title: string, def: QueryDefDto | null, fence: string | null, free: boolean, now: string) => invoke<QueryDto>('query_create', { title, def, fence, free, now }),
+  queryDuplicate: (name: string, now: string) => invoke<QueryDto>('query_duplicate', { name, now }),
+  queryRename: (name: string, title: string) => invoke<JobIdDto>('query_rename', { name, title }),
+  queryTrash: (name: string) => invoke<{ trashed: string }>('query_trash', { name }),
+  queryRestore: (name: string) => invoke<QueryDto>('query_restore', { name }),
+  queryUsages: (name: string) => invoke<QueryUsageDto[]>('query_usages', { name }),
 };
 
 /** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */
@@ -177,6 +190,8 @@ export const events = {
   inboxCount: (f: (n: number) => void): Promise<UnlistenFn> => listen<{ count: number }>('inbox:count', (e) => f(e.payload.count)),
   hotkeysState: (f: (s: HotkeyStateDto[]) => void): Promise<UnlistenFn> => listen<HotkeyStateDto[]>('hotkeys:state', (e) => f(e.payload)),
   shellRoute: (f: (route: string) => void): Promise<UnlistenFn> => listen<{ route: string }>('shell:route', (e) => f(e.payload.route)),
+  /** Slice Q (v1-queries §1.7): objects changed; their types before and after. */
+  queryStale: (f: (s: QueryStaleDto) => void): Promise<UnlistenFn> => listen<QueryStaleDto>('query:stale', (e) => f(e.payload)),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */

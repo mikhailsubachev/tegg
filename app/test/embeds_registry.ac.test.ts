@@ -39,7 +39,8 @@ test('fr_emb_01_ac1_in_note_placeholders_lose_embed_note', async () => {
   const { reg } = await mods();
   const ids = (reg.IN_NOTE_PLACEHOLDERS as { id: string }[]).map((d) => d.id);
   // 6A (D-630): the media placeholders are retired too; slice MM (D-679) removes the mindmap row.
-  assert.deepEqual(ids, ['query'], 'R5 without the embed-note row (R32), the media rows (D-630) and the mindmap row (D-679)');
+  // Slice Q (queries.md: read-view R5's `query` row is built): no row is left.
+  assert.deepEqual(ids, [], 'R5 without the embed-note row (R32), the media rows (D-630), the mindmap row (D-679) and the query row (slice Q)');
   const ms4 = (reg.overdue('MS4') as string[]).join('\n');
   assert.ok(!ms4.includes('embed-note'), `overdue('MS4') lists no embed-note:\n${ms4}`);
 });

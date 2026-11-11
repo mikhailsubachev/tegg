@@ -393,7 +393,8 @@ test('fr_edt_02_ac13_r5_placeholders_render_with_their_parts', async () => {
   const od = [...odkazy.article.querySelectorAll('[data-placeholder]')] as HTMLElement[];
   // 6A (D-630): the media placeholders are retired; slice MM (D-679): the Mermaid mindmap fence is code, so Bloky keeps
   // query only (a remote image is never loaded).
-  assert.deepEqual(blIds, ['query'], 'Bloky: query');
+  // Slice Q (queries.md: read-view R5's `query` row is built): the fence is a query block (R141), not a placeholder.
+  assert.deepEqual(blIds, [], 'Bloky: no placeholder (the query fence is a block since slice Q)');
   // 4F (D-431): note embeds are no longer placeholders; without the embed renderer they are link-mode embeds.
   // 6A (D-630, trash-media.md R77): Odkazy's media are no longer placeholders.
   assert.deepEqual(od.map((p) => p.dataset.placeholder), [], 'Odkazy: no media placeholder');

@@ -6,14 +6,15 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  ID, P, VALID_ROWS, backlinkEntry, box, chip, click, drag, dragChip, dropLine, editorBody, eventually, gapAfter, inboxEntry, kanbanCard, lifted,
+  ID, P, QUERY_PIN, VALID_ROWS, backlinkEntry, box, chip, click, drag, dragChip, dropLine, editorBody, eventually, gapAfter, inboxEntry, kanbanCard, lifted,
   main, must, mustBeOn, openPinned, otherWrites, pinsFx, pinsText, placeholder, rowAt, rows, rowsAre, runCommand, searchRow, section, seen, sleep,
   tagRow, tagsEntry, typeRow, typesEntry, typesList,
 } from './pinned-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
-const AFTER_MOVE = ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite', 'Výjezd Lisabon 2026', 'Projekty'];
+// Slice Q (FR-HOM-02 AC-29): valid.yml's query item is drawn, the last row.
+const AFTER_MOVE = ['Rozpočet 2027', '2026-10-07 Týdenní porada', '#offsite', 'Výjezd Lisabon 2026', 'Projekty', QUERY_PIN];
 const overSection = (page: Page) => section(page).evaluate((s) => s.hasAttribute('data-drop-over')).catch(() => false);
 
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-10
@@ -71,7 +72,7 @@ test('fr_hom_02_ac12_drag_in_from_search_at_the_line', async ({ page }) => {
   // Dropping an already pinned target moves its row (AP-1236).
   await drag(page, searchRow(page, 'Čajovna'), await gapAfter(page, 4), { what: 'Čajovna again' });
   await eventually(async () => (await rows(page)).map((r) => r.label), (l) => l[4] === 'Čajovna');
-  assert.deepEqual((await rows(page)).map((r) => r.label), ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Čajovna', 'Projekty'], 'moved, not added twice');
+  assert.deepEqual((await rows(page)).map((r) => r.label), ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Čajovna', 'Projekty', QUERY_PIN], 'moved, not added twice');
   assert.equal((String(await pinsText(core)).match(/Pages\/Čajovna\.md/g) ?? []).length, 1, 'one item for Čajovna');
   const n = (await core.pinCalls()).length;
   // AP-1267 (D-1410): Plán must be in the results first.

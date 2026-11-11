@@ -43,6 +43,8 @@ import { conversionHooks, convert as runConvert, type ConvertHost } from '../con
 import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 import { tagChipStyle } from '../theme/tagChip';
 import { mindmapUi } from '../mindmap/mount';
+import { mountQueryBlock, openQueryBlockAt, refreshQueryBlocks } from '../queries/mount';
+import { openQueryPicker } from '../queries/QueryPicker';
 import { noteTitle } from '../read/ReadView';
 import { editLinkAtCaret, editorChips, type EditorChipsHost } from '../preview/editorChips';
 import { editorLinkAction } from '../preview/editorLink';
@@ -51,7 +53,7 @@ import { getCurrent as currentPreview, show as showPreview } from '../preview/st
 export type EditAction =
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike' | 'code' | 'highlight' | 'link' | 'moveBlockUp' | 'moveBlockDown'
   | 'blockMenu' | 'selectBlock' | 'openOrToggle' | 'pastePlain' | 'saveNow' | 'embedObject' | 'openEmbed' | 'displayEmbedAs'
-  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider';
+  | 'turnIntoTask' | 'turnIntoObject' | 'addMedia' | 'mindmapMap' | 'mindmapList' | 'mindmapLayoutRight' | 'mindmapLayoutSpider' | 'insertQuery';
 
 export type EditorPaneApi = {
   ed: TeggEditor | null; run: (a: EditAction) => void; focus: () => void; slashOpen: () => boolean;
@@ -85,7 +87,7 @@ function chipExtraOf(info: LinkInfo): ChipExtra | null {
 }
 
 /** R94: the second line of a slash row (board Main). */
-const SLASH_DESC: Record<string, string> = { mindmap: 'slash.mindmap.description' };
+const SLASH_DESC: Record<string, string> = { mindmap: 'slash.mindmap.description', query: 'slash.query.description' };
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -243,6 +245,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       // Slice P (v1-previews §5.1, R103): chips and tags map their gestures to the preview, the open or the offer.
       ...chips,
       onExternal: (url) => cb.current.onExternal(url),
+      // Slice Q (v1-queries §3.2): query blocks are drawn by the app; ⌘↩ on a selected one opens its editor (R144).
+      query: (source, dom, ctl) => mountQueryBlock(source, dom, ctl, { path: () => pathRef.current, dropDraft: (pos) => { edRef.current?.commands.dropQueryDraft(pos); } }),
+      onQueryKey: (pos) => openQueryBlockAt(pos),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,
       // 6A (R77, D-622): file embeds as figures, PDF cards and placeholders, re-drawn when their links resolve.
@@ -290,6 +295,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       ed.destroy();
     };
   }, []);
+
+  // Slice Q: a renamed host (the page follows it) gives its query blocks the new path for `this`.
+  useEffect(() => { refreshQueryBlocks(); }, [path]);
 
   // Link chips: one link_resolve call for the note's targets, then one per new target (NFR-PERF-05 AC-3).
   const resolving = useRef(false);
@@ -551,7 +559,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const before = sel.empty && $f.parent.isTextblock ? $f.parent.textBetween(0, $f.parentOffset, undefined, '￼') : '';
     const key = `${$f.pos}`;
     // Slash menu: `/` at a block start or after a space (FR-EDT-03 AC-1).
-    const sm = !inCode && sel.empty ? /(^|\s)\/([^\s/￼]*)$/.exec(before) : null;
+    const sm = !inCode && sel.empty ? /(^|[\s.,;:!?)])\/([^\s/￼]*)$/.exec(before) : null;
     if (sm && $f.parent.type.name !== 'calloutTitle') {
       const from = $f.pos - sm[2].length - 1;
       if (dismissed.current !== `s${from}`) {
@@ -821,6 +829,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (tg) void pickMedia(tg, item.id === 'pdf' ? 'pdf' : 'image');
       return;
     }
+    // Slice Q (R144): `/query` opens `Choose a query` at the caret; the typed `/quer` goes when a query is chosen.
+    if (item.id === 'query') {
+      setSlash(null);
+      openQueryPickerAt(s.from, e.view.state.selection.from);
+      return;
+    }
     if (item.id === 'embedObject') {
       setSlash(null);
       dismissed.current = `s${s.from}`;
@@ -841,6 +855,32 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     setSlash(null);
     e.commands.slashInsert(s.from, e.view.state.selection.from, b.kind, { level: b.level });
     focusEditor();
+  };
+
+  /** Slice Q (R144): `Choose a query` for `from…to` (the typed `/quer`, or the caret): a saved query inserts its
+   *  reference fence, `New query` an empty draft whose editor opens at once; Esc removes the typed text only. */
+  const openQueryPickerAt = (from: number, to: number) => {
+    const e = edRef.current;
+    if (!e) return;
+    const c = e.view.coordsAtPos(Math.min(to, e.view.state.doc.content.size));
+    const track = e.trackPos(from);
+    const len = to - from;
+    openQueryPicker({
+      at: { left: c.left, top: c.bottom + 4 },
+      onChoose: (name) => {
+        const ed = edRef.current;
+        const at = track();
+        if (!ed || at === null) return;
+        ed.view.focus();
+        ed.commands.insertQuery(at, at + len, name);
+      },
+      onCancel: () => {
+        const ed = edRef.current;
+        const at = track();
+        if (ed && at !== null && len > 0) ed.view.dispatch(ed.view.state.tr.delete(at, at + len).setMeta('addToHistory', false));
+        focusEditor();
+      },
+    });
   };
 
   const prepared = useRef<{ key: string; p: Prepared | null } | null>(null);
@@ -1030,6 +1070,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         // D-209, D-428: ⌘↩ on a selected block embed opens its target.
         const sel = e.selectedEmbed();
         if (sel) { embedKey(sel.pos, 'open'); break; }
+        // Slice Q (R144): ⌘↩ on a selected query block opens its editor.
+        const ns = e.view.state.selection as { node?: { type: { name: string }; attrs: Record<string, unknown> }; from: number };
+        if (ns.node && ((ns.node.type.name === 'rawBlock' && ns.node.attrs.kind === 'query') || (ns.node.type.name === 'codeBlock' && ns.node.attrs.language === 'query'))) { openQueryBlockAt(ns.from); break; }
         const $f = e.view.state.selection.$from;
         if ($f.parent.type.name === 'codeBlock') { leaveCodeBlock(e.view.state, e.view.dispatch, false); break; } // D-1356
         const n = [$f.nodeBefore, $f.nodeAfter].find((x) => x?.type.name === 'wikiLink');
@@ -1054,6 +1097,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         break;
       }
       case 'saveNow': cbSave.current?.(); break; // the note page flushes (FR-EDT-08 AC-9)
+      // Slice Q (R144): `Insert query`: the picker at the caret, as `/query`.
+      case 'insertQuery': { const at = e.view.state.selection.from; openQueryPickerAt(at, at); break; }
       // 6A (R75): ⇧⌘A / palette `Add image or PDF…`.
       case 'addMedia': { const tg = mediaTarget(); if (tg) void pickMedia(tg, 'any'); break; }
       // 4F (R32, D-428).
@@ -1118,6 +1163,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if ((e.target as HTMLElement).closest?.('.embed-block') && host.current?.contains((e.target as HTMLElement).closest('.embed-block'))) return;
     // Slice MM: keys on a mindmap's map or header (its nodes, Map / List) are the map's own (D-770), never the text's.
     if ((e.target as HTMLElement).closest?.('[data-map-area], .mindmap-header')) return;
+    // Slice Q: keys on a query block's own controls (its buttons, results, menus) are the block's.
+    if ((e.target as HTMLElement).closest?.('.query-mount')) return;
     const L = live.current;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
     // Slice P (FR-LNK-09 AC-6, AC-7; D-928, D-938): ⌥Space on a selected embed or figure previews its target.

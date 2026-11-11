@@ -1,0 +1,12 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Starý dotaz.
+version: 1
+title: Starý dotaz
+types: [osoba]
+match: all
+filters: []
+sort: { by: title, order: asc }
+limit: 50
+view: list
+columns: [firma]
+created: 2026-06-01T09:00:00+02:00
+modified: 2026-06-01T09:00:00+02:00

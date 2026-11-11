@@ -51,6 +51,8 @@ pub enum CoreEvent {
     /// ms4-jobs §2.2, §9: a file for the UI's `@tegg/doc` worker; `live` when the file is open in an editor (D-386),
     /// whose transaction and autosave then write it.
     JobTransform { request: u64, source: String, text: String, ops: Vec<tegg_jobs::TextOp>, live: bool },
+    /// v1-queries §1.7 (slice Q): after a `VaultChanged` with `.md` paths, the changed objects' type keys before and after.
+    QueryStale { types: Vec<String>, paths: Vec<String> },
 }
 
 #[derive(Debug)]
@@ -89,6 +91,8 @@ pub enum CoreError {
     Preset(PresetError),
     /// v1-pinned §1.4 (slice PIN): a pin operation the core refuses; nothing was written.
     Pin(pinned::PinError),
+    /// v1-queries §1.1 (slice Q): a query operation the core refuses; nothing was written.
+    Query(queries_q::QueryError),
 }
 
 /// D-198: a note as read, with whether its bytes are valid UTF-8 (D-180).
@@ -169,6 +173,9 @@ struct Shared {
     graph_ready: AtomicBool,
     /// G1 (v1-graph §1.5, D-995): the running graph request's flag per window.
     graph_flags: Mutex<HashMap<String, tegg_index::CancelFlag>>,
+    /// Slice Q (v1-queries §1.7): the matched type key of every indexed object as last reported, for `query:stale`'s
+    /// "before" (filled after each catch-up, kept up to date by every `VaultChanged`).
+    seen_types: Mutex<HashMap<String, String>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -177,6 +184,49 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 impl Shared {
     fn emit(&self, e: CoreEvent) {
+        // v1-queries §1.7: every `VaultChanged` holding `.md` paths is followed by `QueryStale`.
+        let stale = match &e {
+            CoreEvent::VaultChanged { paths } => self.query_stale(paths),
+            _ => None,
+        };
+        self.emit_one(e);
+        if let Some(s) = stale {
+            self.emit_one(s);
+        }
+    }
+
+    /// `QueryStale` for the `.md` paths of a `VaultChanged`: the matched type keys of those objects before (as last
+    /// seen) and after (the index now), sorted, deduplicated.
+    fn query_stale(&self, paths: &[String]) -> Option<CoreEvent> {
+        let md: Vec<String> = paths.iter().filter(|p| p.ends_with(".md")).cloned().collect();
+        if md.is_empty() {
+            return None;
+        }
+        let now: Vec<Option<String>> = {
+            let idx = lock(&self.index);
+            md.iter().map(|p| idx.object(p).map(|o| o.r#type)).collect()
+        };
+        let mut types: BTreeSet<String> = BTreeSet::new();
+        let mut seen = lock(&self.seen_types);
+        for (p, after) in md.iter().zip(now) {
+            let key = nfc(p);
+            if let Some(before) = seen.get(&key) {
+                types.insert(before.clone());
+            }
+            match after {
+                Some(t) => {
+                    types.insert(t.clone());
+                    seen.insert(key, t);
+                }
+                None => {
+                    seen.remove(&key);
+                }
+            }
+        }
+        Some(CoreEvent::QueryStale { types: types.into_iter().collect(), paths: md })
+    }
+
+    fn emit_one(&self, e: CoreEvent) {
         let mut hub = lock(&self.hub);
         if hub.buffer.len() == EVENT_BUFFER {
             hub.buffer.pop_front();
@@ -285,6 +335,7 @@ impl Core {
             files: Mutex::new(None),
             graph_ready,
             graph_flags: Mutex::new(HashMap::new()),
+            seen_types: Mutex::new(HashMap::new()),
             jobs: Mutex::new(tx),
         });
         shared.load_default_type();
@@ -707,6 +758,9 @@ fn catch_up(s: &Shared, listing: Option<Vec<String>>) {
         cancelled
     });
     let d = done.load(Ordering::SeqCst);
+    // v1-queries §1.7: the types `query:stale` reports as "before".
+    let types = lock(&s.index).types_by_path();
+    *lock(&s.seen_types) = types.into_iter().map(|(p, t)| (nfc(&p), t)).collect();
     drop(ready);
     if cancelled {
         s.emit(CoreEvent::IndexProgress { done: d, total, state: ProgressState::Cancelled });
@@ -739,7 +793,11 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
         if paths.contains(pinned::PINNED_YML) {
             changed.insert(pinned::PINNED_YML.to_string());
         }
+        // Slice Q (v1-queries §1.7, D-1472): query files (direct children, not dot or temp files; conflict copies too).
+        changed.extend(paths.iter().filter(|p| queries_q::is_query_path(p)).cloned());
     }
+    // v1-queries §1.7: template changes are reported (a template is a query usage, FR-TPL-04 AC-2).
+    changed.extend(paths.iter().filter(|p| p.starts_with("_templates/") && p.ends_with(".md")).cloned());
     let mut read: Vec<String> = Vec::new();
     let mut folders: Vec<String> = Vec::new();
     let known: HashMap<String, (i128, u64)> = match lock(&s.index).versions() {
@@ -1136,5 +1194,7 @@ pub use tegg_index::PauseHook;
 pub mod graph_presets;
 // docs/contracts/v1-pinned.md §1: sidebar pins in `.tegg/pinned.yml` (`pinned.rs`).
 pub mod pinned;
+// docs/contracts/v1-queries.md §1: saved queries in `.tegg/queries/` and the evaluator (`queries_q.rs`).
+pub mod queries_q;
 mod yaml_text;
 pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};

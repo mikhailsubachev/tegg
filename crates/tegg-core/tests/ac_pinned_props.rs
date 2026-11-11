@@ -67,6 +67,10 @@ fn tgt(t: &PinTarget) -> String {
         PinTarget::Object { id, path } => format!("object {} {}", id.clone().unwrap_or_default(), path.clone().unwrap_or_default()),
         PinTarget::Tag { key } => format!("tag {key}"),
         PinTarget::Type { key } => format!("type {key}"),
+        // Slice Q (v1-queries §1.9): generated `query:` items are listed pins now (`PinTarget::Query { name }`); read
+        // through Debug so this file compiles before and after the variant exists.
+        #[allow(unreachable_patterns)]
+        other => format!("{other:?}"),
     }
 }
 

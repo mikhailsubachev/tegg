@@ -1,0 +1,857 @@
+{
+  "reads": {
+    ".tegg/queries/Otevřené úkoly z této schůzky.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Otevřené úkoly z této schůzky",
+        "types": [
+          "task"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "links_to",
+            "op": "is",
+            "value": "this",
+            "src": [
+              0
+            ]
+          },
+          {
+            "kind": "filter",
+            "key": "status",
+            "op": "is_not",
+            "value": "Done",
+            "src": [
+              1
+            ]
+          },
+          {
+            "kind": "group",
+            "match": "any",
+            "filters": [
+              {
+                "kind": "filter",
+                "key": "due",
+                "op": "within_next_days",
+                "value": 14,
+                "src": [
+                  2,
+                  0
+                ]
+              },
+              {
+                "kind": "filter",
+                "key": "priority",
+                "op": "is",
+                "value": "High",
+                "src": [
+                  2,
+                  1
+                ]
+              }
+            ],
+            "src": [
+              2
+            ]
+          }
+        ],
+        "sort": {
+          "by": "due",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "status",
+          "due"
+        ]
+      },
+      "broken": [],
+      "usesThis": true
+    },
+    ".tegg/queries/Úkoly z této schůzky.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Úkoly z této schůzky",
+        "types": [
+          "task"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "links_to",
+            "op": "is",
+            "value": "this",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "due",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "table",
+        "columns": [
+          "status",
+          "priority",
+          "due",
+          "modified"
+        ]
+      },
+      "broken": [],
+      "usesThis": true
+    },
+    ".tegg/queries/Vše, co sem odkazuje.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Vše, co sem odkazuje",
+        "types": [],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "links_to",
+            "op": "is",
+            "value": "this",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "modified",
+          "order": "desc"
+        },
+        "limit": 50,
+        "view": "table",
+        "columns": [
+          "type",
+          "tags",
+          "modified"
+        ]
+      },
+      "broken": [],
+      "usesThis": true
+    },
+    ".tegg/queries/Projekty v běhu.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Projekty v běhu",
+        "types": [
+          "projekt"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "stav",
+            "op": "is",
+            "value": "Aktivní",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "title",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "table",
+        "columns": [
+          "stav",
+          "rozpočet",
+          "modified"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Knihy s hodnocením.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Knihy s hodnocením",
+        "types": [
+          "kniha"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "hodnocení",
+            "op": "gt",
+            "value": 3,
+            "src": [
+              0
+            ]
+          },
+          {
+            "kind": "filter",
+            "key": "přečteno",
+            "op": "is",
+            "value": true,
+            "src": [
+              1
+            ]
+          }
+        ],
+        "sort": {
+          "by": "title",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "autor"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Zrušené úkoly.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Zrušené úkoly",
+        "types": [
+          "task"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "status",
+            "op": "is",
+            "value": "Cancelled",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "modified",
+          "order": "desc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "status",
+          "due"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Úkoly po termínu.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Úkoly po termínu",
+        "types": [
+          "task"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "due",
+            "op": "overdue",
+            "value": true,
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "due",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "status",
+          "due"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Vytvořeno v tento den.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Vytvořeno v tento den",
+        "types": [],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "created",
+            "op": "is",
+            "value": "this",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "created",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "type",
+          "modified"
+        ]
+      },
+      "broken": [],
+      "usesThis": true
+    },
+    ".tegg/queries/Komentáře a neznámé klíče.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Komentáře a neznámé klíče",
+        "types": [
+          "projekt"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "stav",
+            "op": "is_not",
+            "value": "Hotovo",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": {
+          "by": "title",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "stav"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Nečitelný.yml": {
+      "state": "unreadable",
+      "line": 5,
+      "def": null,
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Novější verze.yml": {
+      "state": "newer",
+      "line": null,
+      "def": {
+        "title": "Novější verze",
+        "types": [
+          "osoba"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": {
+          "by": "title",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "firma"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".trash/.tegg/queries/Starý dotaz.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Starý dotaz",
+        "types": [
+          "osoba"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": {
+          "by": "title",
+          "order": "asc"
+        },
+        "limit": 50,
+        "view": "list",
+        "columns": [
+          "firma"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    }
+  },
+  "fences": {
+    "Schůzky/2026-10-07 Týdenní porada.md": [
+      {
+        "range": [
+          359,
+          414
+        ],
+        "saved": "Otevřené úkoly z této schůzky",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          415,
+          459
+        ],
+        "saved": "Úkoly z této schůzky",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ],
+    "Schůzky/2026-10-14 Týdenní porada.md": [
+      {
+        "range": [
+          207,
+          262
+        ],
+        "saved": "Otevřené úkoly z této schůzky",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ],
+    "Projekty/Výjezd Lisabon 2026.md": [
+      {
+        "range": [
+          264,
+          306
+        ],
+        "saved": "Vše, co sem odkazuje",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ],
+    "Daily/2026-11-10.md": [
+      {
+        "range": [
+          181,
+          224
+        ],
+        "saved": "Vytvořeno v tento den",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ],
+    "Pages/Přehled dotazů.md": [
+      {
+        "range": [
+          184,
+          221
+        ],
+        "saved": "Projekty v běhu",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          222,
+          262
+        ],
+        "saved": "Knihy s hodnocením",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          263,
+          300
+        ],
+        "saved": "Zrušené úkoly",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          301,
+          342
+        ],
+        "saved": "Neexistující dotaz",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          343,
+          376
+        ],
+        "saved": "Starý dotaz",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          377,
+          486
+        ],
+        "saved": null,
+        "nested": false,
+        "form": "inline",
+        "line": null
+      },
+      {
+        "range": [
+          487,
+          517
+        ],
+        "saved": null,
+        "nested": false,
+        "form": "unreadable",
+        "line": 1
+      },
+      {
+        "range": [
+          518,
+          557
+        ],
+        "saved": "Úkoly po termínu",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      },
+      {
+        "range": [
+          558,
+          590
+        ],
+        "saved": "Nečitelný",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ],
+    "_templates/Schůzka/Schůzka.md": [
+      {
+        "range": [
+          11,
+          66
+        ],
+        "saved": "Otevřené úkoly z této schůzky",
+        "nested": false,
+        "form": "reference",
+        "line": null
+      }
+    ]
+  },
+  "results": [
+    {
+      "query": "Otevřené úkoly z této schůzky",
+      "host": "Schůzky/2026-10-07 Týdenní porada.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Poslat návrh rozpočtu Janě.md",
+        "Tasks/Zarezervovat místo v Lisabonu.md",
+        "Tasks/Připravit program výjezdu.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Otevřené úkoly z této schůzky",
+      "host": "Schůzky/2026-10-14 Týdenní porada.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Úkol z druhé porady.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Otevřené úkoly z této schůzky",
+      "host": "_templates/Schůzka/Schůzka.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Otevřené úkoly z této schůzky",
+      "host": null,
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [],
+      "state": "needsHost",
+      "broken": []
+    },
+    {
+      "query": "Úkoly z této schůzky",
+      "host": "Schůzky/2026-10-07 Týdenní porada.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Uzavřít zápis z porady.md",
+        "Tasks/Poslat návrh rozpočtu Janě.md",
+        "Tasks/Zarezervovat místo v Lisabonu.md",
+        "Tasks/Připravit program výjezdu.md",
+        "Tasks/Zeptat se Jany na limit cest.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Vše, co sem odkazuje",
+      "host": "Projekty/Výjezd Lisabon 2026.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Quick Notes/Dotaz na rozpočet.md",
+        "Tasks/Zarezervovat místo v Lisabonu.md",
+        "Schůzky/2026-10-07 Týdenní porada.md",
+        "Pages/Bez hlavičky.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Projekty v běhu",
+      "host": "Pages/Přehled dotazů.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Projekty/Cesta do Brna.md",
+        "Projekty/Čajovna na nábřeží.md",
+        "Projekty/Malý projekt.md",
+        "Projekty/Výjezd Lisabon 2026.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Projekty v běhu",
+      "host": null,
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Projekty/Cesta do Brna.md",
+        "Projekty/Čajovna na nábřeží.md",
+        "Projekty/Malý projekt.md",
+        "Projekty/Výjezd Lisabon 2026.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Projekty v běhu",
+      "host": "Pages/Přehled dotazů.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 7,
+        "locale": "en-US"
+      },
+      "paths": [
+        "Projekty/Čajovna na nábřeží.md",
+        "Projekty/Cesta do Brna.md",
+        "Projekty/Malý projekt.md",
+        "Projekty/Výjezd Lisabon 2026.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Knihy s hodnocením",
+      "host": "Pages/Přehled dotazů.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Knihy/Krakatit.md"
+      ],
+      "state": "ok",
+      "broken": [
+        {
+          "reason": "notAttribute",
+          "at": [
+            0
+          ],
+          "key": "hodnocení",
+          "type": "kniha"
+        }
+      ]
+    },
+    {
+      "query": "Zrušené úkoly",
+      "host": "Pages/Přehled dotazů.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Úkoly po termínu",
+      "host": "Pages/Přehled dotazů.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Zaplatit zálohu.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Vytvořeno v tento den",
+      "host": "Daily/2026-11-10.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Zaplatit zálohu.md",
+        "Knihy/Krakatit.md",
+        "Quick Notes/Dotaz na rozpočet.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Vytvořeno v tento den",
+      "host": "Daily/2026-11-10.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "America/New_York",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Quick Notes/Dotaz na rozpočet.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Vytvořeno v tento den",
+      "host": "Daily/2026-11-10.md",
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Pacific/Kiritimati",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Tasks/Zaplatit zálohu.md",
+        "Knihy/Krakatit.md",
+        "Quick Notes/Dotaz na rozpočet.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Komentáře a neznámé klíče",
+      "host": null,
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Projekty/Cesta do Brna.md",
+        "Projekty/Čajovna na nábřeží.md",
+        "Projekty/Malý projekt.md",
+        "Projekty/Výjezd Lisabon 2026.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Novější verze",
+      "host": null,
+      "env": {
+        "today": "2026-11-10",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Osoby/Jana Nováková.md"
+      ],
+      "state": "ok",
+      "broken": []
+    }
+  ]
+}

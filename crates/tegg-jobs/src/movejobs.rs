@@ -448,6 +448,9 @@ impl Inner {
             let left: Vec<String> = host.local_exempt_paths().into_iter().filter(|p| !paths.contains(&key(p))).collect();
             host.set_local_exempt_paths(&left);
         }
+        // v1-queries §1.8 (D-1466): query files' link values follow every move that happened, before the pins.
+        let qp: Vec<crate::host::QueryPatch> = real.iter().map(|(from, to)| crate::host::QueryPatch::ObjectMoved { from: from.clone(), to: to.clone(), paths: paths_before.clone() }).collect();
+        self.write_queries(run, &qp, single);
         // v1-pinned §1.6 (FR-LNK-03 AC-22): last, pins of the moved notes follow the moves that really happened.
         let patches = self.moved_patches(real.iter().cloned());
         self.write_pins(run, &patches, single);

@@ -153,7 +153,8 @@ export const RawBlock = Node.create({
   selectable: true,
   draggable: true,
   addAttributes() {
-    return { source: { default: '' }, kind: { default: 'raw', rendered: false } }
+    // Slice Q (D-1471): `draft` marks an unsaved query block (`insertQuery(…, null)`), never serialized.
+    return { source: { default: '' }, kind: { default: 'raw', rendered: false }, draft: { default: false, rendered: false } }
   },
   parseHTML() {
     return [{ tag: 'pre[data-raw-block]', getAttrs: (el) => ({ source: el.textContent ?? '' }) }]

@@ -39,7 +39,12 @@ export const P = {
 } as const;
 export const VYPLN = Array.from({ length: 10 }, (_, i) => `Pages/Výplň ${String(i + 1).padStart(2, '0')}.md`);
 /** `valid`'s five rows, in file order (README "Expected rows"). */
-export const VALID_ROWS = ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Projekty'];
+/** Slice Q (queries.md FR-HOM-02 AC-29, D-1484): valid.yml's last item `query: Otevřené úkoly tento týden` is drawn now, as a
+ *  `Not found` row (no such query in the pinned fixture), labelled by its stored name. */
+export const QUERY_PIN = 'Otevřené úkoly tento týden';
+export const VALID_ROWS = ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Projekty', QUERY_PIN];
+/** valid.yml without its `query:` item (slice Q): the five object, tag and type pins only, for criteria about them alone. */
+export const validWithoutQuery = () => pinsFx('valid.yml').replace(`  - query: ${QUERY_PIN}\n`, '');
 
 /** `tests/fixtures/pinned-files/<name>` as text (`valid.yml`, `expected/created.yml`, …). */
 export const pinsFx = (name: string) => readFileSync(join(PINS_FX, name), 'utf8');

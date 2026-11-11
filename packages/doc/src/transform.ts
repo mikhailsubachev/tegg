@@ -8,6 +8,7 @@ import { wikilinks } from './links.js'
 import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
+import { renameSavedQueryPatches } from './queryfence.js'
 import { isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node as YamlNode, type Pair } from 'yaml'
 
 export type TextOp =
@@ -40,6 +41,9 @@ export type TextOp =
   // comments above it stay; `modified` is not touched. Any entry it is given goes, empty or not (D-843: the planner
   // never gives it an empty one).
   | { op: 'remove-key'; key: string }
+  // Slice Q (v1-queries §3.1, D-1468): the `query-rename` job's usages: every `saved:` line of a query fence (any depth)
+  // naming `from` (name key: NFC, case-insensitive) gets `to`; nothing else, no `modified` change.
+  | { op: 'rename-saved-query'; from: string; to: string }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -106,6 +110,7 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
     else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))
     else if (op.op === 'remove-tag') patches.push(...removeTagPatches(doc, op.key))
     else if (op.op === 'remove-key') patches.push(...removeKeyPatches(doc, op.key))
+    else if (op.op === 'rename-saved-query') patches.push(...renameSavedQueryPatches(text, op.from, op.to))
   }
   const changed = patches.filter((p) => text.slice(p.range[0], p.range[1]) !== p.text)
   if (changed.length === 0) return { kind: 'unchanged' }

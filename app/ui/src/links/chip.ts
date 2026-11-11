@@ -89,6 +89,8 @@ export function chipSuffix(s: ChipState): HTMLElement | null {
       const d = document.createElement('span');
       d.className = 'chip-date';
       d.dataset.tone = s.task.tone;
+      // A date is the region's text, not a catalog string (NFR-OTH-02); `Today` (tone `today`) is the catalog's.
+      if (s.task.tone !== 'today') d.setAttribute('data-user-content', '');
       d.textContent = s.task.date;
       el.appendChild(d);
       const dot = document.createElement('span');

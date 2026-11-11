@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Vytvořeno v tento den.
+version: 1
+title: Vytvořeno v tento den
+types: []
+match: all
+filters:
+  - created: { is: this }
+sort: { by: created, order: asc }
+limit: 50
+view: list
+columns: [type, modified]
+created: 2026-11-01T09:00:00+01:00
+modified: 2026-11-01T09:00:00+01:00

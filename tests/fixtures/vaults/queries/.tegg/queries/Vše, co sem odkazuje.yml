@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Vše, co sem odkazuje.
+version: 1
+title: Vše, co sem odkazuje
+types: []
+match: all
+filters:
+  - links_to: this
+sort: { by: modified, order: desc }
+limit: 50
+view: table
+columns: [type, tags, modified]
+created: 2026-10-02T09:00:00+02:00
+modified: 2026-10-19T10:00:00+02:00

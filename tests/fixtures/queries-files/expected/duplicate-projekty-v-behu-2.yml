@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Projekty v běhu.
+version: 1
+title: Projekty v běhu (2)
+types: [projekt]
+match: all
+filters:
+  - stav: Aktivní
+sort: { by: title, order: asc }
+limit: 50
+view: table
+columns: [stav, rozpočet, modified]
+created: 2026-11-10T10:00:00+01:00
+modified: 2026-11-10T10:00:00+01:00

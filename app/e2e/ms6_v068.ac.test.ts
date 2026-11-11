@@ -40,7 +40,8 @@ test('fr_nav_04_ac8_sidebar_order_new_object_search_and_tags_in_the_real_app', {
     d = await session(testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: 'inbox', TEGG_NOW: NOW4D }));
     assert.ok(await waitRoute(log, 'inbox'), 'inbox shown');
     // Slice PIN (pinned.md FR-NAV-04 AC-9, AP-1232 = D-1375): the Pinned section sits between Tasks and the Types section.
-    const order = ['New object', 'Search', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Tags', 'Saved queries', 'Trash'];
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    const order = ['New object', 'Search', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Tags', 'Queries', 'Trash'];
     const ys: number[] = [];
     for (const label of order) {
       const e = await need(d, label, 3000);

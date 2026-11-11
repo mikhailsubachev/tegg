@@ -1436,6 +1436,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "icu_collator"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08984ed58ac439ebf3e13d2cf26b0c46a60afcd21721c1d14087c0b240344dda"
+dependencies = [
+ "icu_collator_data",
+ "icu_collections",
+ "icu_locale_core",
+ "icu_locale_fallback",
+ "icu_normalizer",
+ "icu_properties",
+ "icu_provider",
+ "smallvec",
+ "utf16_iter",
+ "utf8_iter",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_collator_data"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7d7e54efdddeb1208c08dd5d32b53a879ac00d2d3d051b2255fd26821d16368"
+
+[[package]]
 name = "icu_collections"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1457,10 +1482,31 @@ checksum = "d56e28588da92eee5c3201a6eff33fabdd49b62269c8938d4ff050ce4d900deb"
 dependencies = [
  "displaydoc",
  "litemap",
+ "serde",
  "tinystr",
  "writeable",
  "zerovec",
 ]
+
+[[package]]
+name = "icu_locale_fallback"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "251af8e57c9400e3eb58242fe5b8b1152b2a64fdf4cf632f923c38ccee6f2fa9"
+dependencies = [
+ "icu_locale_core",
+ "icu_locale_fallback_data",
+ "icu_provider",
+ "potential_utf",
+ "tinystr",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_locale_fallback_data"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "decf2a22ec8fa68f1a0c1129a3f8583f8f8bc24e8b9ccbe98ead99f62a4dc3a8"
 
 [[package]]
 name = "icu_normalizer"
@@ -1473,6 +1519,9 @@ dependencies = [
  "icu_properties",
  "icu_provider",
  "smallvec",
+ "utf16_iter",
+ "utf8_iter",
+ "write16",
  "zerovec",
 ]
 
@@ -1511,6 +1560,8 @@ checksum = "d27bbb9d3abbefac45d55f647c9de1d44aafcd1186eb91879afef17c396c3e73"
 dependencies = [
  "displaydoc",
  "icu_locale_core",
+ "serde",
+ "stable_deref_trait",
  "writeable",
  "yoke",
  "zerofrom",
@@ -2524,6 +2575,8 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d83eb9bc6d8e5cf568e7a1101d60ee05e81ed50ea106026f3d18deeb046d7661"
 dependencies = [
+ "serde_core",
+ "writeable",
  "zerovec",
 ]
 
@@ -3661,6 +3714,8 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "icu_collator",
+ "icu_locale_core",
  "serde_json",
  "tegg-format",
  "tegg-index",
@@ -3823,6 +3878,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1e27c91459209c2986af3dcf603a5a74a4368754ce37414f59acc971167f643"
 dependencies = [
  "displaydoc",
+ "serde_core",
  "zerovec",
 ]
 
@@ -4135,10 +4191,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "utf16_iter"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c7de35d9d8757dbc1f5125dc8b51438c68b4430546a735c3a9b91aaaaf9a18a"
+dependencies = [
+ "utf_types",
+]
+
+[[package]]
 name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "utf_types"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
 
 [[package]]
 name = "uuid"
@@ -4753,6 +4824,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
+name = "write16"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1890f4022759daae28ed4fe62859b1236caebfc61ede2f63ed4e695f3f6d936"
+
+[[package]]
 name = "writeable"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4887,6 +4964,7 @@ dependencies = [
  "displaydoc",
  "yoke",
  "zerofrom",
+ "zerovec",
 ]
 
 [[package]]
@@ -4895,6 +4973,7 @@ version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb0464e17806c1d976d5cba29399c7f08e516e279e2ba493f63123b5fca67dd8"
 dependencies = [
+ "serde",
  "yoke",
  "zerofrom",
  "zerovec-derive",

@@ -101,17 +101,18 @@ test('fr_ux_08_ac16_pins_for_voiceover', async ({ page }) => {
   await sleep(500);
   assert.equal(await liveText(page), '', 'nothing announced on load');
   const h = header(page);
-  assert.deepEqual([await h.getAttribute('aria-expanded'), await description(h)], ['true', '6 pinned items'], 'header: expanded, `6 pinned items`');
-  assert.equal(await list(page).getByRole('listitem').count(), 6, 'list `Pinned` with 6 items');
+  // Slice Q (FR-HOM-02 AC-29): valid.yml's query item is a row too (the sixth), so Starý plán is the seventh.
+  assert.deepEqual([await h.getAttribute('aria-expanded'), await description(h)], ['true', '7 pinned items'], 'header: expanded, `7 pinned items`');
+  assert.equal(await list(page).getByRole('listitem').count(), 7, 'list `Pinned` with 7 items');
   const r = await rows(page);
   assert.deepEqual([r[1].label, r[1].description], ['Výjezd Lisabon 2026', 'Projekt'], '`Výjezd Lisabon 2026, link, Projekt`');
-  assert.deepEqual([r[5].label, r[5].description], ['Starý plán', 'Page, In the trash'], '`Starý plán, link, Page, In the trash`');
+  assert.deepEqual([r[6].label, r[6].description], ['Starý plán', 'Page, In the trash'], '`Starý plán, link, Page, In the trash`');
   assert.equal(await rowAt(page, 1).evaluate((a) => a.tagName), 'A', 'the row is a link');
   assert.equal(await section(page).locator('.pin-grip[aria-hidden="true"]').count(), await section(page).locator('.pin-grip').count(), 'the grip is hidden from the accessibility tree');
   assert.equal(await rowAt(page, 1).evaluate((a) => a.querySelector('.sr-only')?.textContent?.trim() ?? ''), 'Projekt', 'span.sr-only repeats the description');
   await (await must(rowAt(page, 1), 'row')).focus();
   await page.keyboard.press('Alt+Meta+ArrowDown');
-  assert.ok(await liveSays(page, 'Moved to position 3 of 6'), 'moved announced');
+  assert.ok(await liveSays(page, 'Moved to position 3 of 7'), 'moved announced (seven rows with the query pin, slice Q)');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
   assert.ok(await liveSays(page, 'Unpinned Výjezd Lisabon 2026'), 'unpinned announced');
@@ -151,7 +152,7 @@ test('fr_ux_05_ac19_pins_in_both_themes', async ({ page }) => {
     await drag(p, rowAt(p, 1), await gapAfter(p, 3), { hold: true, what: 'reorder' });
     await axe('a reorder drag');
     await p.keyboard.press('Escape'); await p.mouse.up();
-    await click(rowAt(p, 6), 'missing row');
+    await click(rowAt(p, 7), 'missing row'); // slice Q: Smazaný is the eighth row, after valid.yml's query item
     await must(alertBox(p), 'alert');
     await axe('the alert');
     await contextMenu(rowAt(p, 0), 'row menu');
@@ -174,7 +175,7 @@ test('fr_ux_05_ac19_pins_in_both_themes', async ({ page }) => {
 
 test('nfr_oth_02_ac16_pins_strings', async ({ page }) => {
   await openPinned(page, { pins: { text: `${pinsFx('valid.yml')}  - path: Pages/Smazaný.md\n` }, route: `note/${P.cajovna}`, prelude: pseudoLocale });
-  await eventually(() => rows(page), (r) => r.length === 6);
+  await eventually(() => rows(page), (r) => r.length === 7); // slice Q: valid.yml's query item is a row (FR-HOM-02 AC-29)
   const wrapped = (s: string) => /^⟦[\s\S]*⟧$/.test(s.trim());
   assert.ok(wrapped(await header(page).getAttribute('aria-label') ?? ''), 'header name in ⟦ ⟧');
   assert.ok(wrapped(await description(header(page))), 'header description in ⟦ ⟧');
@@ -190,7 +191,7 @@ test('nfr_oth_02_ac16_pins_strings', async ({ page }) => {
     assert.deepEqual(unwrappedParts(x.description).filter((w) => !typeNames.has(w.normalize('NFC'))), [], `${x.label}: description words outside ⟦ ⟧ are only type names (${x.description})`);
   }
   assert.ok(r.filter((x) => x.state !== 'ok' || x.label.startsWith('#') || x.label === 'Projekty').every((x) => /⟦/.test(x.description)), 'kind and state words wrapped');
-  await click(rowAt(page, 5), 'missing row');
+  await click(rowAt(page, 6), 'missing row'); // slice Q: Smazaný, after valid.yml's query item
   assert.match(await (await must(alertBox(page), 'alert')).innerText(), /⟦/, 'the alert is wrapped');
   await contextMenu(rowAt(page, 0), 'row menu');
   const items = await page.getByRole('menu').last().getByRole('menuitem').allInnerTexts();
@@ -209,7 +210,8 @@ test('fr_nav_04_ac9_order_with_pinned_section', async ({ page }) => {
     ['New object', sb.getByRole('button', { name: /^New object/ })], ['Search', sb.getByRole('button', { name: 'Search', exact: true })],
     ['Inbox', sb.getByText('Inbox', { exact: true })], ['Today', sb.getByText('Today', { exact: true })], ['Tasks', sb.getByText('Tasks', { exact: true }).first()],
     ['Pinned', header(page)], ['Types', sb.getByRole('list', { name: 'Types', exact: true })], ['Tags', sb.getByRole('link', { name: 'Tags', exact: true })],
-    ['Saved queries', sb.getByText('Saved queries', { exact: true })], ['Trash', sb.getByText('Trash', { exact: true })],
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    ['Queries', sb.getByRole('link', { name: 'Queries', exact: true })], ['Trash', sb.getByText('Trash', { exact: true })],
   ] as const;
   const ys: number[] = [];
   for (const [name, loc] of parts) { const b = await box(loc); assert.ok(b, `${name} shown`); ys.push(b!.y); }
@@ -217,7 +219,7 @@ test('fr_nav_04_ac9_order_with_pinned_section', async ({ page }) => {
   for (let i = 2; i < ys.length; i++) assert.ok(ys[i] > ys[i - 1], `${parts[i][0]} below ${parts[i - 1][0]}`);
   const tbd = sb.locator('a, button, [role="link"], [role="button"]').filter({ hasText: /Pinned/ });
   for (let i = 0; i < await tbd.count(); i++) assert.doesNotMatch(await description(tbd.nth(i)), /Coming in v1\.0/, 'no `Pinned` entry with `Coming in v1.0`');
-  assert.match(await description(sb.locator('a, button, [role="link"], [role="button"]').filter({ has: page.getByText('Saved queries', { exact: true }) }).first()), /Coming in v1\.0/, 'Saved queries stays TBD v1.0');
+  assert.doesNotMatch(await description(sb.getByRole('link', { name: 'Queries', exact: true })), /Coming in v1\.0/, 'Queries is built (slice Q), no longer TBD v1.0');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-NAV-04 AC-10

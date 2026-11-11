@@ -33,7 +33,12 @@ const P = {
   rozpocet: 'Projekty/Rozpočet 2027.md', lisabon: 'Projekty/Výjezd Lisabon 2026.md', porada: 'Schůzky/2026-10-07 Týdenní porada.md',
   odkazy: 'Pages/Odkazy.md', cajovna: 'Pages/Čajovna.md',
 };
-const ROWS = ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Projekty'];
+// Slice Q (queries.md FR-HOM-02 AC-29, D-1484): valid.yml's last item `query: Otevřené úkoly tento týden` is drawn now, as
+// a `Not found` row (no such query in the pinned fixture).
+const QUERY_PIN = 'Otevřené úkoly tento týden';
+const ROWS = ['Rozpočet 2027', 'Výjezd Lisabon 2026', '2026-10-07 Týdenní porada', '#offsite', 'Projekty', QUERY_PIN];
+/** valid.yml without its `query:` item: for the criteria about object pins going missing or pending (slice Q). */
+const validWithoutQuery = () => fx('valid.yml').replace(`  - query: ${QUERY_PIN}\n`, '');
 
 /** A temp copy of tests/fixtures/vaults/pinned (without README.md) plus new-empty/.tegg, Čajovna renamed to its NFD name
  *  (fixture README), and, when given, a pinned-files sample as `.tegg/pinned.yml`. */
@@ -136,8 +141,8 @@ test('fr_hom_02_ac1_section_place_and_rows_in_the_real_app', { timeout: 300_000 
   try {
     const d = await launch(c);
     assert.ok(await shown(d, 'Pinned', 5000), 'the header `Pinned`');
-    assert.ok(await rowsInOrder(d, ROWS), 'five rows in file order');
-    assert.equal(await textShown(d, 'Otevřené úkoly tento týden', 500), false, 'the query item isn\'t drawn');
+    assert.ok(await rowsInOrder(d, ROWS), 'six rows in file order (slice Q: the query item last)');
+    assert.ok(await textShown(d, 'Not found', 3000), 'the query item is drawn as `Not found` (slice Q, FR-HOM-02 AC-29)');
   } finally { await cleanup(c); }
 });
 
@@ -146,7 +151,8 @@ test('fr_nav_04_ac9_order_with_pinned_section_in_the_real_app', { timeout: 300_0
   const c = fresh('nav9', 'valid.yml');
   try {
     const d = await launch(c);
-    const order = ['Inbox', 'Today', 'Tasks', 'Pinned', 'Rozpočet 2027', 'Pages', 'Tags', 'Saved queries', 'Trash'];
+    // Slice Q (queries.md FR-NAV-04 AC-12, AP-1304 = D-1447): `Saved queries` became the built `Queries` entry.
+    const order = ['Inbox', 'Today', 'Tasks', 'Pinned', 'Rozpočet 2027', 'Pages', 'Tags', 'Queries', 'Trash'];
     const ys: number[] = [];
     for (const l of order) ys.push((await rect(d, l)).y);
     for (let i = 1; i < ys.length; i++) assert.ok(ys[i] > ys[i - 1], `${order[i]} below ${order[i - 1]} (${ys.join(', ')})`);
@@ -160,7 +166,7 @@ test('fr_ux_08_ac16_pins_for_voiceover_in_the_real_app', { timeout: 300_000 }, a
     const d = await launch(c);
     await need(d, 'Pinned', 5000);
     // D-1424: the description is the hidden text after the header (span.sr-only), as the Inbox entry's (R62).
-    assert.ok(await textShown(d, '5 pinned items', 3000), "the header's description `5 pinned items` in the tree (span.sr-only)");
+    assert.ok(await textShown(d, '6 pinned items', 3000), "the header's description `6 pinned items` in the tree (span.sr-only; slice Q: the query item counts)");
     for (const [label, desc] of [['Výjezd Lisabon 2026', 'Projekt'], ['#offsite', 'Tag'], ['Projekty', 'Type page']]) {
       assert.ok(await shown(d, label, 3000), `${label} in the tree`);
       assert.ok(await textShown(d, desc, 3000), `its description ${desc} in the tree (span.sr-only)`);
@@ -262,19 +268,21 @@ test('fr_hom_02_ac15_collapse_is_remembered_after_a_relaunch', { timeout: 300_00
 test('fr_hom_02_ac18_missing_targets_are_never_unpinned_silently_in_the_real_app', { timeout: 300_000 }, async () => {
   await ready();
   const c = fresh('ac18', 'valid.yml');
+  // Slice Q (D-1484): valid.yml's query item would show `Not found` from the start; this criterion is about an object pin.
+  writeFileSync(join(c.vault, YML), validWithoutQuery());
   try {
     const d = await launch(c);
-    assert.ok(await rowsInOrder(d, ROWS), 'rows');
+    assert.ok(await rowsInOrder(d, ROWS.slice(0, 5)), 'rows');
     const porada = readFileSync(join(c.vault, P.porada));
     external('delete', join(c.vault, P.porada));
     assert.ok(await textShown(d, 'Not found', 2000), 'Porada: `Not found` within 2 s');
     await (await need(d, '2026-10-07 Týdenní porada')).click();
     assert.ok(await textShown(d, 'can\'t be found. It was deleted, or moved outside Tegg.', 2000), 'the alert');
     await sleep(1000);
-    assert.equal(read(c, YML), fx('valid.yml'), 'the item is never removed by Tegg');
+    assert.equal(read(c, YML), validWithoutQuery(), 'the item is never removed by Tegg');
     externalWrite(c, P.porada, porada);
     assert.ok(await waitFor(async () => !(await textShown(d, 'Not found', 300)), 2000), 'the file comes back: the row is restored within 2 s');
-    assert.equal(read(c, YML), fx('valid.yml'), 'pins file untouched throughout');
+    assert.equal(read(c, YML), validWithoutQuery(), 'pins file untouched throughout');
   } finally { await cleanup(c); }
 });
 
@@ -283,6 +291,9 @@ test('fr_hom_02_ac18_missing_targets_are_never_unpinned_silently_in_the_real_app
 test('fr_hom_02_ac20_pending_never_shows_missing_in_the_real_app', { timeout: 300_000 }, async () => {
   await ready();
   const c = fresh('ac20', 'valid.yml');
+  // Slice Q (D-1484): a query pin is never pending and shows `Not found` when no such query exists; this criterion is about
+  // object pins during the first index build, so it runs without valid.yml's query item.
+  writeFileSync(join(c.vault, YML), validWithoutQuery());
   try {
     const d = await launch(c, 'inbox', { TEGG_TEST_HOLD: 'first-index:4000' });
     let missingSeen = false;
@@ -291,7 +302,7 @@ test('fr_hom_02_ac20_pending_never_shows_missing_in_the_real_app', { timeout: 30
     while (Date.now() < until) { if (await textShown(d, 'Not found', 100)) missingSeen = true; await sleep(200); }
     assert.ok(pendingSeen, 'rows show `Loading` while the first index build runs');
     assert.equal(missingSeen, false, 'no row shows `Not found` at any time');
-    assert.ok(await rowsInOrder(d, ROWS), 'then their titles');
+    assert.ok(await rowsInOrder(d, ROWS.slice(0, 5)), 'then their titles');
   } finally { await cleanup(c); }
 });
 

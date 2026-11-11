@@ -47,7 +47,9 @@ test('nfr_oth_02_ac16_pins_strings', async () => {
   }
   assert.deepEqual(bad, [], 'R137\'s keys with their English texts');
   const keys = new Set(R137.map(([k]) => k));
-  const extra = Object.keys(en).filter((k) => k.startsWith('pinned.') && !keys.has(k));
+  // Slice Q adds `pinned.kind.query` `Query` (queries.md R145, D-1489, D-1493); no other `pinned.*` key.
+  assert.equal('pinned.kind.query' in en ? cat.t('pinned.kind.query', {}) : 'missing', 'Query', 'pinned.kind.query (R145)');
+  const extra = Object.keys(en).filter((k) => k.startsWith('pinned.') && !keys.has(k) && k !== 'pinned.kind.query');
   assert.deepEqual(extra, [], 'no other `pinned.*` key');
   for (const k of ['route.pinned', 'purpose.pinned', 'cmd.goto.pinned']) assert.ok(!(k in en), `${k} removed with the route`);
   const cmd = await load('../ui/src/shell/commands.ts');

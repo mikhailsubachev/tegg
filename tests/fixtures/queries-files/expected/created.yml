@@ -1,0 +1,12 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Úkoly na víkend.
+version: 1
+title: Úkoly na víkend
+types: []
+match: all
+filters: []
+sort: { by: modified, order: desc }
+limit: 50
+view: list
+columns: [type, modified]
+created: 2026-11-10T10:00:00+01:00
+modified: 2026-11-10T10:00:00+01:00
