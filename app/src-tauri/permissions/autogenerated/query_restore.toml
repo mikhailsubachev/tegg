@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-query-restore"
+description = "Enables the query_restore command without any pre-configured scope."
+commands.allow = ["query_restore"]
+
+[[permission]]
+identifier = "deny-query-restore"
+description = "Denies the query_restore command without any pre-configured scope."
+commands.deny = ["query_restore"]

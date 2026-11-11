@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-move-plan"
+description = "Enables the type_move_plan command without any pre-configured scope."
+commands.allow = ["type_move_plan"]
+
+[[permission]]
+identifier = "deny-type-move-plan"
+description = "Denies the type_move_plan command without any pre-configured scope."
+commands.deny = ["type_move_plan"]

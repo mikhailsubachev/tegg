@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-query-revert"
+description = "Enables the query_revert command without any pre-configured scope."
+commands.allow = ["query_revert"]
+
+[[permission]]
+identifier = "deny-query-revert"
+description = "Denies the query_revert command without any pre-configured scope."
+commands.deny = ["query_revert"]

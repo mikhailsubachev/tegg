@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-delete-start"
+description = "Enables the type_delete_start command without any pre-configured scope."
+commands.allow = ["type_delete_start"]
+
+[[permission]]
+identifier = "deny-type-delete-start"
+description = "Denies the type_delete_start command without any pre-configured scope."
+commands.deny = ["type_delete_start"]

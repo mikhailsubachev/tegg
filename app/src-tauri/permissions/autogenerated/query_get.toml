@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-query-get"
+description = "Enables the query_get command without any pre-configured scope."
+commands.allow = ["query_get"]
+
+[[permission]]
+identifier = "deny-query-get"
+description = "Denies the query_get command without any pre-configured scope."
+commands.deny = ["query_get"]
