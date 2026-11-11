@@ -442,6 +442,7 @@ impl Host for CoreHost {
             QueryError::EmptyName => tegg_jobs::JobError::InvalidName { error: "empty".into(), char: None },
             QueryError::NothingToDo => tegg_jobs::JobError::NothingToDo,
             QueryError::Limit => tegg_jobs::JobError::Core("Limit".into()),
+            QueryError::IndexNotReady => tegg_jobs::JobError::IndexNotReady,
         })
     }
 

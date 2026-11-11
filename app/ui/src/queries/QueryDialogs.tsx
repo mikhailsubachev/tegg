@@ -2,7 +2,9 @@
 // rendered once by the App from the dialogs store. `New query` creates with `free: false` (D-1477) and opens the query page
 // with its editor; `Save as query…` creates from the inline fence, then the caller rewrites the fence; `Rename query`
 // starts the `query-rename` job. A taken name (`NameTaken`, also when another program created it first, RENAME_EXCL) or a
-// blank one says `query.newQuery.taken` under the field; nothing is written.
+// blank one says `query.newQuery.taken` under the field; nothing is written. While the first index build runs, a rename
+// is refused with `IndexNotReady` (§11, D-1510, FR-QRY-06 AC-22): the dialog says `query.rename.notReady`, stays open
+// and keeps the typed name; Rename can be pressed again later.
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
@@ -27,6 +29,7 @@ export function QueryDialogs() {
 function NameDialog({ req }: { req: NameDialogRequest }) {
   const [value, setValue] = useState(req.kind === 'saveAs' ? req.initial : req.kind === 'rename' ? req.title : '');
   const [error, setError] = useState(false);
+  const [notReady, setNotReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement | null>(null);
   const restore = useRef(true);
@@ -41,6 +44,7 @@ function NameDialog({ req }: { req: NameDialogRequest }) {
     if (busy || blank) return;
     const title = value.trim().normalize('NFC');
     setBusy(true);
+    setNotReady(false);
     try {
       if (req.kind === 'rename') {
         const id = await runConfirmed(() => ipc.queryRename(req.name, title), {
@@ -62,6 +66,7 @@ function NameDialog({ req }: { req: NameDialogRequest }) {
     } catch (e) {
       const k = errorKind(e);
       if (k === 'NameTaken' || k === 'EmptyName') setError(true);
+      else if (k === 'IndexNotReady' && req.kind === 'rename') setNotReady(true);
       else if (k === 'NothingToDo') close();
       else { close(); queryAlert(t('query.saveFailed')); }
     } finally {
@@ -75,11 +80,12 @@ function NameDialog({ req }: { req: NameDialogRequest }) {
       <label className="field">
         <span>{t('query.newQuery.field')}</span>
         <input ref={input} type="text" aria-label={t('query.newQuery.field')} value={value} spellCheck={false} autoComplete="off"
-          aria-invalid={error || undefined} aria-describedby={error ? 'query-name-error' : undefined}
-          onChange={(e) => { setValue(e.target.value); setError(false); }}
+          aria-invalid={error || undefined} aria-describedby={error ? 'query-name-error' : notReady ? 'query-name-not-ready' : undefined}
+          onChange={(e) => { setValue(e.target.value); setError(false); setNotReady(false); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(); } }} />
       </label>
       {error && <p id="query-name-error" role="alert" className="field-error">{t('query.newQuery.taken')}</p>}
+      {notReady && <p id="query-name-not-ready" role="status" className="field-error">{t('query.rename.notReady')}</p>}
       <div className="dialog-buttons">
         <button tabIndex={0} type="button" className="text-button" onClick={() => close()}>{t('query.newQuery.cancel')}</button>
         <button tabIndex={0} type="button" className="text-button primary" disabled={blank} onClick={() => void submit()}>

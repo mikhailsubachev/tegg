@@ -1040,6 +1040,7 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         // v1-queries §1.8 (slice Q).
         JobError::QueryExists { name } => err("NameTaken", format!("{name} already exists")),
         JobError::QueryUnreadable => err("Unreadable", "the query can't be read"),
+        JobError::IndexNotReady => err("IndexNotReady", "the index is still loading"),
     }
 }
 

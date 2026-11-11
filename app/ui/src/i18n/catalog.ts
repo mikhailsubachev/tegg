@@ -1778,6 +1778,8 @@ export const en: Catalog = {
   'query.newQuery.taken': 'A query with this name already exists.',
   'query.newQuery.create': 'Create',
   'query.newQuery.cancel': 'Cancel',
+  // v1-queries §11 (D-1510, FR-QRY-06 AC-22).
+  'query.rename.notReady': 'Queries can be renamed once the vault has finished loading.',
   'query.op.is': 'is',
   'query.op.is_not': 'is not',
   'query.op.contains': 'contains',

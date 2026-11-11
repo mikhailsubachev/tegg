@@ -374,6 +374,7 @@ pub(crate) fn query_err(core: &Core, name: &str, e: CoreError) -> IpcError {
             QueryError::NotFound => err("NotFound", "no such query"),
             QueryError::Limit => err("Limit", "the limit is outside 1…1000"),
             QueryError::NothingToDo => err("NothingToDo", "nothing to do"),
+            QueryError::IndexNotReady => err("IndexNotReady", "the index is still loading"),
         },
         // Everything else is `Io` (§2.1): the UI shows `query.saveFailed`.
         other => match core_err(other) {
@@ -387,6 +388,8 @@ fn job_refusal(e: JobError) -> IpcError {
     match e {
         JobError::QueryExists { name } => IpcError { name: Some(name.clone()), ..err("NameTaken", format!("{name} already exists")) },
         JobError::QueryUnreadable => err("Unreadable", "the query can't be read"),
+        // §11 (D-1510, FR-QRY-06 AC-22).
+        JobError::IndexNotReady => err("IndexNotReady", "the index is still loading"),
         JobError::NotFound => err("NotFound", "no such query"),
         JobError::NothingToDo => err("NothingToDo", "the same name"),
         JobError::InvalidName { .. } => err("EmptyName", "a query needs a name"),

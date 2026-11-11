@@ -387,6 +387,8 @@ pub enum QueryError {
     NotFound,
     Limit,
     NothingToDo,
+    /// §11 (D-1510): the first index build after open hasn't ended; a rename waits for it (FR-QRY-06 AC-22).
+    IndexNotReady,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2701,6 +2703,11 @@ impl QCore<'_> {
 
     /// §1.8: the rename job's refusals and plan (the query file before and after, the usages at scan time).
     pub(crate) fn query_rename_plan(&self, name: &str, title: &str) -> Result<tegg_jobs::host::QueryRenamePlan, QueryError> {
+        // §11 (D-1510, FR-QRY-06 AC-22): refused at once while the first index build runs; the flag is read without the
+        // index lock, so the refusal never waits for the build.
+        if !self.shared.graph_ready.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(QueryError::IndexNotReady);
+        }
         let defs = self.defs();
         let p = self.find_live(name).ok_or(QueryError::NotFound)?;
         let (bytes, v) = self.shared.vault.read(&p).map_err(|_| QueryError::NotFound)?;

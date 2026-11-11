@@ -473,6 +473,8 @@ pub enum JobError {
     QueryExists { name: String },
     /// v1-queries §1.8 (slice Q): the query file is unreadable or newer; nothing is renamed.
     QueryUnreadable,
+    /// v1-queries §11 (D-1510): the first index build after open hasn't ended; no job, nothing written.
+    IndexNotReady,
 }
 
 /// Named points of a running job where the L4 sync simulator injects external changes (rename.md "Test layers",

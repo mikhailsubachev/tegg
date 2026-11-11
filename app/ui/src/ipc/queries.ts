@@ -43,4 +43,4 @@ export type QueryResultDto = {
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** `query:stale` (§1.7): the changed objects' types before and after, and their paths. */
 export type QueryStaleDto = { types: string[]; paths: string[] };
-export type QueryErrorKind = 'Conflict' | 'Gone' | 'NewerVersion' | 'Unreadable' | 'NameTaken' | 'EmptyName' | 'NotFound' | 'Limit' | 'NothingToDo' | 'Io' | 'NoVault';
+export type QueryErrorKind = 'Conflict' | 'Gone' | 'NewerVersion' | 'Unreadable' | 'NameTaken' | 'EmptyName' | 'NotFound' | 'Limit' | 'NothingToDo' | 'Io' | 'NoVault' | 'IndexNotReady';
