@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mustCaret } from './embeds-helpers';
 import { linkMenu, rightClick } from './previews-editor-helpers';
 import {
-  PV, ZONE, anyContent, back, chipNamed, description, editorBody, embedLoadsSince, eventually, fileWhen, frame, linkEmbed, main, mainName,
+  PV, ZONE, anyContent, back, chipNamed, description, editorBody, embedLoadsSince, eventually, fileWhen, focusSettled, frame, linkEmbed, main, mainName,
   mainScrollTop, mark, mustBeOn, navsSince, need, needClosed, needPreview, nfc, previewCount, previewNames, readArticle, selectedBlocks, sleep,
   startPreviews, topEmbed, topInScroller, writesSince, type FakeCoreHandle, type PreviewMode,
 } from './previews-helpers';
@@ -55,16 +55,13 @@ const fullEmbed = (page: Page) => need(topEmbed(editorBody(page), 0), 'the full 
 const sectionEmbed = (page: Page) => need(topEmbed(editorBody(page), 3), 'the section embed ![[Rozpočet 2027#Rozsah]]');
 const headerOf = (embed: Locator) => embed.locator(':scope > *').first();
 
-/** A point on the card outside its strip values (its top-right corner area, as slice P's card tests). */
+/** A point on the card outside its strip values (its top-right corner area, as slice P's card tests), relative to the
+ *  card. Issue 112: the clicks go through the locator with this position, so Playwright takes the card's place at the
+ *  moment of the click; a point measured earlier was stale once Back's scroll restore or an embed above moved the card. */
 async function cardPoint(card: Locator) {
   await card.scrollIntoViewIfNeeded();
   const b = (await card.boundingBox())!;
-  return { x: b.x + b.width - 12, y: b.y + 12 };
-}
-async function cmdClick(page: Page, x: number, y: number) {
-  await page.keyboard.down('Meta');
-  await page.mouse.click(x, y);
-  await page.keyboard.up('Meta');
+  return { x: b.width - 12, y: 12 };
 }
 /** Asserts the open of `title` (`path`): the centre pane, exactly one `nav_opened` since `n0`, no preview seen. */
 async function opened(page: Page, core: FakeCoreHandle, n0: number, title: string, path: string, how: string) {
@@ -78,6 +75,7 @@ async function opened(page: Page, core: FakeCoreHandle, n0: number, title: strin
  *  (embeds.md FR-EMB-02 AC-14's keyboard selection, as slice P's FR-LNK-09 AC-7 test). */
 async function selectBlock(page: Page, n: number, what: string) {
   const first = editorBody(page).locator(':scope > *').first();
+  await focusSettled(page); // issue 112: after Esc gave the focus back to the editor, the click below keeps its caret
   await first.scrollIntoViewIfNeeded();
   const fb = (await first.boundingBox())!;
   await page.mouse.click(fb.x + fb.width - 4, fb.y + fb.height / 2);
@@ -110,28 +108,29 @@ async function modeDescriptions(loc: Locator): Promise<string[]> {
 // ------------------------------------------------------------------------------------------------ FR-LNK-09 AC-8
 
 for (const m of AC8_MODES) {
-  // Quarantined (test-strategy §8.4, issue #112): the click mode flakes about 1 in 100 runs, on main too.
-  test(`fr_lnk_09_ac8_a_card_opens_on_a_click_in_every_mode_${m.tag}`, { tag: m.tag === 'click' ? ['@flaky'] : [] }, async ({ page }) => {
+  test(`fr_lnk_09_ac8_a_card_opens_on_a_click_in_every_mode_${m.tag}`, async ({ page }) => {
     const core = await startPreviews(page, { at: PV.vlozeni, ...opts(m) });
     const tag = `${m.tag}: Jana's card`;
-    let p = await cardPoint(await janaCard(page));
+    let card = await janaCard(page);
+    let p = await cardPoint(card);
     const top0 = await mainScrollTop(page);
     await watchPreviews(page);
     let n0 = await mark(core);
-    await page.mouse.click(p.x, p.y);
+    await card.click({ position: p });
     await opened(page, core, n0, 'Jana Nováková', PV.jana, `${tag}: a click`);
     await back(page, 'Vložení', `${tag}: Back after the click (one history entry)`);
     const top1 = await eventually(() => mainScrollTop(page), (t) => Math.abs(t - top0) <= 24, 2000);
     assert.ok(Math.abs(top1 - top0) <= 24, `${tag}: Back returns to Vložení at its scroll position ± one line (${top0} → ${top1})`);
 
-    p = await cardPoint(await janaCard(page));
+    card = await janaCard(page);
+    p = await cardPoint(card);
     await watchPreviews(page);
     n0 = await mark(core);
-    await page.mouse.dblclick(p.x, p.y);
+    await card.dblclick({ position: p });
     await opened(page, core, n0, 'Jana Nováková', PV.jana, `${tag}: a double-click (one open)`);
     await back(page, 'Vložení', `${tag}: Back after the double-click`);
 
-    const card = await janaCard(page);
+    card = await janaCard(page);
     await card.focus();
     await watchPreviews(page);
     n0 = await mark(core);
@@ -139,10 +138,11 @@ for (const m of AC8_MODES) {
     await opened(page, core, n0, 'Jana Nováková', PV.jana, `${tag}: ⏎ on the focused card`);
     await back(page, 'Vložení', `${tag}: Back after ⏎`);
 
-    p = await cardPoint(await janaCard(page));
+    card = await janaCard(page);
+    p = await cardPoint(card);
     await watchPreviews(page);
     n0 = await mark(core);
-    await cmdClick(page, p.x, p.y);
+    await card.click({ position: p, modifiers: ['Meta'] });
     await opened(page, core, n0, 'Jana Nováková', PV.jana, `${tag}: ⌘-click`);
     assert.deepEqual(await writesSince(core, 0), [], `${tag}: nothing is written`);
   });
@@ -310,8 +310,7 @@ for (const m of AC11_MODES) {
 // ------------------------------------------------------------------------------------------------ FR-LNK-09 AC-12
 
 for (const m of ALL_MODES) {
-  // Quarantined (test-strategy §8.4, issue #112): flakes in several modes, on main too.
-  test(`fr_lnk_09_ac12_still_previewed_on_request_${m.tag}`, { tag: ['@flaky'] }, async ({ page }) => {
+  test(`fr_lnk_09_ac12_still_previewed_on_request_${m.tag}`, async ({ page }) => {
     const core = await startPreviews(page, { at: PV.vlozeni, ...opts(m) });
     // Jana's card selected as a block: ⌥Space previews it with the focus in it; Esc selects the card again (AC-7).
     await janaCard(page);
