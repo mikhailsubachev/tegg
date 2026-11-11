@@ -49,3 +49,12 @@
 .query-name-dialog { width: min(420px, 92vw) !important; }
 .query-name-dialog .field { display: flex; flex-direction: column; gap: 4px; }
 .query-name-dialog .field input { height: 30px; }
+
+/* Bug v0.123: the shared `.type-table` aligns cells to the top and adds its own sort arrow; this table centres its rows
+   and writes the arrow in the header's text. */
+.type-table.queries-table td { vertical-align: middle; }
+.type-table.queries-table th[aria-sort]::after { content: none; }
+.query-row:hover td:first-child { background: var(--hover); }
+.type-table.queries-table td { padding-top: 0; padding-bottom: 0; line-height: 24px; }
+.type-table.queries-table td > .query-chip { display: flex; width: fit-content; }
+.type-table.queries-table td > .query-chip + .query-unreadable { display: block; }
