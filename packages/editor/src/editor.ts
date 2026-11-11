@@ -530,6 +530,21 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   editor.schema.nodes.wikiLink.spec.leafText = (n) => wikiLabel(String(n.attrs.value), !!n.attrs.embed)
   let plainNext = false
   const view = editor.view
+  // Bug v0.123 (FR-EDT-08): ProseMirror redraws the whole document when the document node's attributes change (its
+  // view only updates in place for the same markup). The `frontmatter` attribute changes after every save (`modified:`,
+  // `syncHead`) and with every panel edit (`applyFrontmatter`, its undo and redo), so each autosave destroyed and
+  // rebuilt every block and node view of the note: query blocks, drawn a moment later, made the note jump while typing.
+  // The document node has no DOM of its own to redraw, so its view takes the new attributes before the update.
+  // A load still goes through ProseMirror's own update (`load`): its redraw replaces the node views made while loading.
+  const updateState = view.updateState.bind(view)
+  view.updateState = (state) => {
+    const docView = (view as unknown as { docView?: { node: PMNode } | null }).docView
+    const shown = docView?.node
+    if (docView && shown && shown !== state.doc && shown.type === state.doc.type && !shown.sameMarkup(state.doc)) {
+      docView.node = shown.type.create(state.doc.attrs, shown.content, state.doc.marks)
+    }
+    updateState(state)
+  }
   // 4F (FR-EMB-01 AC-9, D-419): a top-level paragraph that becomes a sole note embed is a block embed.
   editor.registerPlugin(new Plugin({
     appendTransaction: (trs, _old, state) => {
@@ -749,7 +764,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     const d = editor.state.doc
     const withHead = d.type.create({ ...d.attrs, frontmatter: headOf(text) }, d.content, d.marks)
     const fresh = EditorState.create({ doc: withHead, plugins: editor.state.plugins, selection: TextSelection.atStart(withHead) })
-    view.updateState(fresh)
+    // ProseMirror's own update: the new `frontmatter` attribute redraws the document, which replaces the node views
+    // made while loading (embeds, media, mindmaps and query blocks are mounted by the app only after the load).
+    updateState(fresh)
     dirty = false
   }
   load(opts.text)
