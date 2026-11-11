@@ -51,5 +51,5 @@ lto = true
 opt-level = 2
 
 [features]
-# Tegg Preview build (D-118): own name and Application Support folder.
+# The release build (D-118, D-1511): installs as Tegg.app with its own bundle id and Application Support folder.
 preview = []

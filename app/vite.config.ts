@@ -1,24 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { versionLabel } from './ui/src/version';
-
-/** D-597: the version label from the commit subjects (no git, or not a checkout: `v0.dev`). */
-function buildVersion(): string {
-  try {
-    return versionLabel(execFileSync('git', ['log', '--format=%s', '-n', '2000'], { cwd: __dirname, encoding: 'utf8' }).split('\n'));
-  } catch {
-    return versionLabel([]);
-  }
-}
 
 // The UI lives in ui/; @tegg/doc is the one text engine (D-82), imported from packages/doc; @tegg/editor from
 // packages/editor (D-83).
 export default defineConfig({
   root: resolve(__dirname, 'ui'),
   plugins: [react()],
-  define: { __TEGG_VERSION__: JSON.stringify(buildVersion()) },
+  // D-1512: the release version from `npm run app:release -- <version>`, else `dev`.
+  define: { __TEGG_VERSION__: JSON.stringify(versionLabel(process.env.TEGG_VERSION)) },
   clearScreen: false,
   resolve: { alias: { '@tegg/doc': resolve(__dirname, '../packages/doc/src/index.ts'), '@tegg/editor': resolve(__dirname, '../packages/editor/src/index.ts'), '@tegg/schema': resolve(__dirname, '../packages/schema/src/index.ts') } },
   server: { port: 5176, strictPort: true, fs: { allow: [resolve(__dirname, '..')] } },
