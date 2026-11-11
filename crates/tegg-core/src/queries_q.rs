@@ -1339,7 +1339,9 @@ fn resolve_root(target: &str, paths: &[String]) -> Option<String> {
 }
 
 /// The job patches of §1.8: `"[[…]]"` value tokens replaced in place; None when nothing matches or the file is Newer /
-/// Unreadable.
+/// Unreadable. Full-line comments and trailing comments are never rewritten, a single-quoted value stays single-quoted
+/// (FR-FMT-07), and the result is read back first (D-1458, FR-LNK-03 AC-23): unless it reads as the same query with only
+/// the intended link values changed, nothing is written (None).
 pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> Option<String> {
     let _ = file;
     let read = read_text(text);
@@ -1349,6 +1351,7 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
     let l = &read.layout;
     let f = l.keys.iter().find(|k| k.key == "filters")?;
     let mut lines = l.lines.clone();
+    let mut want = read.def.clone();
     let mut changed = false;
     for p in patches {
         let QueryPatch::ObjectMoved { from, to, paths } = p else { continue };
@@ -1356,30 +1359,88 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
         let (from, to) = (nfc(from), nfc(to));
         let after: Vec<String> = before.iter().map(|x| if *x == from { to.clone() } else { x.clone() }).collect();
         let to_text = link_text(&to, &after);
+        // The new inner text of a link whose target resolves to `from`, keeping its `|alias` / `#heading` part.
+        let moved = |inner: &str| -> Option<String> {
+            let cut = inner.find(['|', '#']);
+            let (target, rest) = match cut {
+                Some(i) => (&inner[..i], &inner[i..]),
+                None => (inner, ""),
+            };
+            (resolve_root(target, &before).as_deref() == Some(from.as_str())).then(|| format!("{to_text}{rest}"))
+        };
         for line in lines.iter_mut().take(f.end).skip(f.start) {
-            let (new, hit) = replace_links(&line.body, |inner| {
-                let cut = inner.find(['|', '#']);
-                let (target, rest) = match cut {
-                    Some(i) => (&inner[..i], &inner[i..]),
-                    None => (inner, ""),
-                };
-                (resolve_root(target, &before).as_deref() == Some(from.as_str())).then(|| serde_json::to_string(&format!("[[{to_text}{rest}]]")).unwrap_or_default())
+            // A full-line comment is never rewritten; on a value line only the part before a trailing comment is.
+            if comment(&line.body) {
+                continue;
+            }
+            let cut = trailing_comment_at(&line.body, 0).unwrap_or(line.body.len());
+            let (code, tail) = line.body.split_at(cut);
+            let (new, hit) = replace_links(code, |inner, q| {
+                moved(inner).map(|n| {
+                    let link = format!("[[{n}]]");
+                    if q == '\'' {
+                        format!("'{}'", link.replace('\'', "''"))
+                    } else {
+                        serde_json::to_string(&link).unwrap_or_default()
+                    }
+                })
             });
             if hit {
-                line.body = new;
+                line.body = format!("{new}{tail}");
                 changed = true;
             }
+        }
+        for item in want.filters.iter_mut() {
+            move_links_in(item, &moved);
         }
     }
     if !changed {
         return None;
     }
     let next = format!("{}{}", if l.bom { "\u{FEFF}" } else { "" }, join(&lines));
+    // Read-back check (D-1458): the same query, only the intended link values changed, nothing else.
+    let back = read_text(&next);
+    let ok = back.state == FileState::Ok
+        && back.layout.readable
+        && back.def == want
+        && back.broken == read.broken
+        && back.uses_this == read.uses_this
+        && back.created == read.created
+        && back.modified == read.modified
+        && back.layout.present == read.layout.present
+        && back.layout.lines.len() == read.layout.lines.len();
+    if !ok {
+        return None;
+    }
     (next != text).then_some(next)
 }
 
+/// The values a job patch must change in `item`: each string `[[inner]]` for which `moved(inner)` answers.
+fn move_links_in(item: &mut FilterItem, moved: &impl Fn(&str) -> Option<String>) {
+    fn value(v: &mut Value, moved: &impl Fn(&str) -> Option<String>) {
+        match v {
+            Value::String(s) => {
+                if let Some(inner) = s.strip_prefix("[[").and_then(|x| x.strip_suffix("]]")) {
+                    if !inner.contains(']') {
+                        if let Some(n) = moved(inner) {
+                            *s = format!("[[{n}]]");
+                        }
+                    }
+                }
+            }
+            Value::Array(a) => a.iter_mut().for_each(|x| value(x, moved)),
+            _ => {}
+        }
+    }
+    match item {
+        FilterItem::Filter { value: v, .. } => value(v, moved),
+        FilterItem::Group { filters, .. } => filters.iter_mut().for_each(|x| move_links_in(x, moved)),
+        FilterItem::Raw { .. } => {}
+    }
+}
+
 /// Replaces each quoted `"[[…]]"` / `'[[…]]'` token of `s` for which `f(inner)` answers a replacement.
-fn replace_links(s: &str, f: impl Fn(&str) -> Option<String>) -> (String, bool) {
+fn replace_links(s: &str, f: impl Fn(&str, char) -> Option<String>) -> (String, bool) {
     let mut out = String::new();
     let mut rest = s;
     let mut hit = false;
@@ -1392,7 +1453,7 @@ fn replace_links(s: &str, f: impl Fn(&str) -> Option<String>) -> (String, bool) 
             Some(j) if !after[..j].contains(']') => {
                 let inner = &after[..j];
                 out.push_str(&rest[..i]);
-                match f(inner) {
+                match f(inner, q) {
                     Some(r) => {
                         out.push_str(&r);
                         hit = true;

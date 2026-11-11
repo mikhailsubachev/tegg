@@ -9,7 +9,7 @@ import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/d
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto } from '../ipc/queries';
-import type { TypeDto, TypeRowDto } from '../ipc/types';
+import type { TypeDto, TypeRowDto, VersionDto } from '../ipc/types';
 import { chipIcon, chipTypes, onChipTypes, typeNameOf } from '../links/icons';
 import { chipParts } from '../links/ChipParts';
 import { RefElement } from '../preview/useReference';
@@ -154,7 +154,7 @@ export function QueryBlock(p: QueryBlockProps) {
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsBtn = useRef<HTMLButtonElement | null>(null);
   const [newProp, setNewProp] = useState(false);
-  const undo = useRef<{ name: string; text: string; el: HTMLElement | null } | null>(null);
+  const undo = useRef<{ name: string; text: string; base: VersionDto; el: HTMLElement | null } | null>(null);
 
   // D-1503: `query-ready` once every block of the opened note has painted its first rows.
   const ready = useRef<ReturnType<typeof blockMounted> | null>(null);
@@ -179,7 +179,9 @@ export function QueryBlock(p: QueryBlockProps) {
       def: draft ? DRAFT_DEF() : null,
       onResult: (r) => setLive(r),
       onCommitted: ({ query, undo: before }) => {
-        if (before !== null && query.name) undo.current = { name: query.name, text: before, el: ret };
+        // The version `query_apply` wrote is the undo's base: a change outside Tegg since then is a Conflict, never
+        // overwritten (NFR-REL-02, FR-SYN-03, D-1476).
+        if (before !== null && query.name && query.version) undo.current = { name: query.name, text: before, base: query.version, el: ret };
         run.rerun();
         // One polite announcement per commit (FR-UX-08 AC-18): the committed query's count.
         void ipc.queryRun({ kind: 'saved', name: query.name }, p.host, queryEnv()).then((r) => announceQuery(t('query.editor.results', { count: r.total })), () => {});
@@ -246,8 +248,7 @@ export function QueryBlock(p: QueryBlockProps) {
       undo.current = null;
       void (async () => {
         try {
-          const q = await ipc.queryGet(u.name);
-          await ipc.queryRevert(u.name, q.version, u.text);
+          await ipc.queryRevert(u.name, u.base, u.text);
         } catch { queryAlert(t('query.editor.changedOutside')); }
         run.rerun();
       })();

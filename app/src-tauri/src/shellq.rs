@@ -344,7 +344,9 @@ fn usage_dto(u: QueryUsage) -> QueryUsageDto {
 
 fn env_from(e: &QueryEnvDto) -> Result<QueryEnv, IpcError> {
     let today = chrono::NaiveDate::parse_from_str(&e.today, "%Y-%m-%d").map_err(|_| err("Io", "malformed date"))?;
-    let tz: chrono_tz::Tz = e.zone.parse().unwrap_or(chrono_tz::UTC);
+    // D-104, D-1449: dates compare in the zone the UI sends; an unknown zone is refused, never read as UTC
+    // (`Io`, as a malformed date: v1-queries §2's kinds).
+    let tz: chrono_tz::Tz = e.zone.parse().map_err(|_| err("Io", "malformed zone"))?;
     let week_start = match e.week_start {
         2 => chrono::Weekday::Tue,
         3 => chrono::Weekday::Wed,
@@ -491,6 +493,8 @@ mod tests {
         assert!(matches!(src, QuerySourceDto::Fence { .. }));
         let env: QueryEnvDto = serde_json::from_value(serde_json::json!({ "today": "2026-11-10", "zone": "Europe/Prague", "weekStart": 7, "locale": "cs" })).expect("env");
         assert_eq!(env_from(&env).map(|e| e.week_start).ok(), Some(chrono::Weekday::Sun));
+        let bad: QueryEnvDto = serde_json::from_value(serde_json::json!({ "today": "2026-11-10", "zone": "Mars/Olympus", "weekStart": 1, "locale": "cs" })).expect("env");
+        assert_eq!(env_from(&bad).err().map(|e| e.kind), Some("Io".to_string()), "an unknown zone is an error, not UTC (D-104)");
         let e = IpcError { query: Some(QueryErrorExtra { disk: None }), ..err("Gone", "x") };
         let v = serde_json::to_value(&e).expect("serializes");
         assert!(v.get("disk").is_none(), "{v}");

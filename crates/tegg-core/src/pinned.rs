@@ -243,6 +243,16 @@ fn same_target(a: &PinTarget, b: &PinTarget) -> bool {
     }
 }
 
+/// D-1379 with D-1434: pinning a target that is already listed moves (or keeps) that item. Query names compare by
+/// their trimmed, NFC, case-insensitive key there, so pinning `Projekty v běhu` finds `- query: projekty V BĚHU`.
+/// The listing itself keeps every NFC-distinct item as its own row (FR-HOM-02 AC-29), so it uses `same_target`.
+fn same_pin(a: &PinTarget, b: &PinTarget) -> bool {
+    match (a, b) {
+        (PinTarget::Query { name: x }, PinTarget::Query { name: y }) => query_key(x) == query_key(y),
+        _ => same_target(a, b),
+    }
+}
+
 /// R131: the listed targets of raw items, with each one's raw index.
 fn listed_of(raw: &[Yaml]) -> Vec<(usize, PinTarget)> {
     let mut out: Vec<(usize, PinTarget)> = Vec::new();
@@ -1105,7 +1115,7 @@ impl Core {
             PinOp::Pin { target, at } => {
                 let t = self.pin_target(&target).map_err(CoreError::Pin)?;
                 // D-1379: a target already listed is moved to `at` instead.
-                match parsed.listed.iter().position(|(_, x)| same_target(x, &t)) {
+                match parsed.listed.iter().position(|(_, x)| same_pin(x, &t)) {
                     Some(from) => PinEdit::Move { from, to: at.unwrap_or(n - 1).min(n - 1) },
                     None => PinEdit::Insert { target: t, at },
                 }
@@ -1166,6 +1176,14 @@ mod tests {
 
     fn t(s: &str) -> String {
         s.to_string()
+    }
+
+    #[test]
+    fn query_pins_match_case_insensitively() {
+        let q = |n: &str| PinTarget::Query { name: t(n) };
+        assert!(same_pin(&q("projekty V BĚHU"), &q("Projekty v běhu")), "D-1434: pinning finds the other-case item");
+        assert!(same_pin(&q("Projekty v be\u{30c}hu"), &q("Projekty v běhu")), "and the NFD one");
+        assert!(!same_target(&q("projekty V BĚHU"), &q("Projekty v běhu")), "the listing keeps both rows (FR-HOM-02 AC-29)");
     }
 
     #[test]
