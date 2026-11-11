@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "index_type_counts",
     "index_list",
     "nav_opened",
+    "nav_swipe_scroll",
     "ui_state_get",
     "ui_state_set",
     "link_resolve",

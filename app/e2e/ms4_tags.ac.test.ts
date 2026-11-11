@@ -260,7 +260,7 @@ test('fr_lnk_14_ac12_merge_in_the_real_app', { timeout: 300_000 }, async () => {
 
 test('fr_syn_06_ac31_a_browsing_tour_of_tags_writes_nothing', { timeout: 600_000 }, async () => {
   await ready();
-  const c = fresh('syn06ac31');
+  const c = fresh('syn06ac31', { preview: { mode: 'off' } }); // D-949: a row click opens the tag page (D-937: in click mode it previews)
   try {
     const d = await launch(c, 'tags');
     const before = tree(c.vault);

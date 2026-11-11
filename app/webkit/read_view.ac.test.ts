@@ -467,6 +467,7 @@ test('fr_edt_02_ac13_placeholders_send_nothing_and_note_embed_opens', async ({ p
     'jobs_ready', // 4E-1 (D-819): the transform bridge says it listens, once at startup
     'index_tags', 'tag_objects', // 4D-lite (D-700, D-703; AP-685/D-747): the sidebar's Tags section and the tag page read
     'pins_get', // slice PIN (D-1374, D-1420): the sidebar's Pinned section, one read when the vault opens
+    'nav_swipe_scroll', // D-1511: the macOS swipe setting, read at start and when the window gets the focus
     'queries_list']); // slice Q (D-1447, v1-queries §2.2): the sidebar's Queries count, read when the vault opens
   assert.deepEqual(sent.filter((c) => !allowed.has(c)), [], 'no other IPC command while rendering placeholders');
   const reads = (await uiCalls(core, 'note_read')).map((c) => nfc(String((c.args as any)?.path)));

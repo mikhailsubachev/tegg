@@ -10,7 +10,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { writeHub } from '../../tests/fixtures/vaults/graph/make-hub.mjs';
@@ -75,22 +75,24 @@ async function textShown(d: Driver, text: string, ms = 3000): Promise<boolean> {
     return false;
   }, ms);
 }
-/** A control inside the group named `group` whose name starts with `prefix` (a type row is `<Plural> <count>`). */
+/** A checkbox inside the group named `group` whose name starts with `prefix` (a type row is `<Plural> <count>`, D-1002).
+ *  Checkboxes only (elementType 12): the sidebar's `Types` list has links that start with the same plural. */
 async function needStarting(d: Driver, group: string, prefix: string, ms = 3000): Promise<any> {
   const g = group.replace(/"/g, '\\"'), p = prefix.replace(/"/g, '\\"');
   const endAt = Date.now() + ms;
   while (Date.now() < endAt) {
     for (const box of await d.$$(`-ios predicate string:label ==[c] "${g}"`).catch(() => [] as any[])) {
-      for (const e of await box.$$(`-ios predicate string:label BEGINSWITH "${p}" OR title BEGINSWITH "${p}"`).catch(() => [] as any[])) {
+      for (const e of await box.$$(`-ios predicate string:elementType == 12 AND (label BEGINSWITH "${p}" OR title BEGINSWITH "${p}")`).catch(() => [] as any[])) {
         if (await e.isDisplayed().catch(() => false)) return e;
       }
     }
     await sleep(100);
   }
-  assert.fail(`a control starting "${prefix}" in the group "${group}" is shown`);
+  assert.fail(`a checkbox starting "${prefix}" in the group "${group}" is shown`);
 }
 const uiState = (sup: string) => (existsSync(join(sup, 'ui-state.json')) ? JSON.parse(readFileSync(join(sup, 'ui-state.json'), 'utf8')) : null);
-const full = (sup: string, vault: string) => uiState(sup)?.vaults?.[vault.normalize('NFC')]?.graph?.full ?? null;
+// D-1426: the app keys `vaults` by the vault's real path (the core opens it canonical), not the tmpdir() alias.
+const full = (sup: string, vault: string) => uiState(sup)?.vaults?.[realpathSync(vault).normalize('NFC')]?.graph?.full ?? null;
 const vaultFiles = (a: ReturnType<typeof tree>, b: ReturnType<typeof tree>) => changedPaths(a, b);
 
 // ------------------------------------------------------------------------------------------------ FR-GRP-01

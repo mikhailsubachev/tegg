@@ -680,7 +680,7 @@ class ListItemView implements NodeView {
 // ------------------------------------------------------------------------------------------------ slice MM
 
 /** The node views of the open mindmap blocks, by their DOM, for `mindmapView` (mm-mindmap §3.2). */
-export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list'; setLayout(l: MindmapLayout): boolean }>()
+export const mindmapViews = new WeakMap<HTMLElement, { setView(v: 'map' | 'list', focus?: boolean): void; current(): 'map' | 'list'; setLayout(l: MindmapLayout): boolean; redraw(): void }>()
 /** The figure of the map that last had the focus, per editor (the palette's commands act on it, FR-UX-03 AC-15). */
 export const focusedMindmap = new WeakMap<EditorView, HTMLElement>()
 
@@ -716,6 +716,8 @@ class CalloutView implements NodeView {
   private view: 'map' | 'list' = 'map'
   folded = false
   private handle: MindmapHandle | null = null
+  /** Bug v0.123: the document's attributes changed in place (the note's title is the map's root); draw again. */
+  redraw(): void { this.handle?.update() }
   private titleEl: HTMLElement | null = null
   private mapBtn: HTMLButtonElement | null = null
   private listBtn: HTMLButtonElement | null = null
