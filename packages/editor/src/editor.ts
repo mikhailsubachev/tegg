@@ -542,6 +542,10 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     const shown = docView?.node
     if (docView && shown && shown !== state.doc && shown.type === state.doc.type && !shown.sameMarkup(state.doc)) {
       docView.node = shown.type.create(state.doc.attrs, shown.content, state.doc.marks)
+      updateState(state)
+      // The redraw used to re-create every mindmap, which is how a map's root followed the note's title (FR-MMP-02 AC-2).
+      view.dom.querySelectorAll<HTMLElement>('figure').forEach((f) => mindmapViews.get(f)?.redraw())
+      return
     }
     updateState(state)
   }
