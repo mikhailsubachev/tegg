@@ -120,6 +120,26 @@ const COMMANDS: &[&str] = &[
     // Slice PIN (v1-pinned §2).
     "pins_get",
     "pins_apply",
+    // 4E (ms4-jobs §14): type moves, tidy and delete jobs (bug v0.122: they were registered but not in the manifest).
+    "type_move_plan",
+    "type_move",
+    "folder_move_preview",
+    "tidy_now",
+    "jobs_ready",
+    "value_remove_start",
+    "type_delete_start",
+    // Slice Q (v1-queries §2, D-1479).
+    "queries_list",
+    "query_get",
+    "query_run",
+    "query_apply",
+    "query_revert",
+    "query_create",
+    "query_duplicate",
+    "query_rename",
+    "query_trash",
+    "query_restore",
+    "query_usages",
 ];
 
 fn main() {

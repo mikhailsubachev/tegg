@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-query-trash"
+description = "Enables the query_trash command without any pre-configured scope."
+commands.allow = ["query_trash"]
+
+[[permission]]
+identifier = "deny-query-trash"
+description = "Denies the query_trash command without any pre-configured scope."
+commands.deny = ["query_trash"]

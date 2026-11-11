@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-jobs-ready"
+description = "Enables the jobs_ready command without any pre-configured scope."
+commands.allow = ["jobs_ready"]
+
+[[permission]]
+identifier = "deny-jobs-ready"
+description = "Denies the jobs_ready command without any pre-configured scope."
+commands.deny = ["jobs_ready"]

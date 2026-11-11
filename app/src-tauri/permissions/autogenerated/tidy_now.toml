@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tidy-now"
+description = "Enables the tidy_now command without any pre-configured scope."
+commands.allow = ["tidy_now"]
+
+[[permission]]
+identifier = "deny-tidy-now"
+description = "Denies the tidy_now command without any pre-configured scope."
+commands.deny = ["tidy_now"]
