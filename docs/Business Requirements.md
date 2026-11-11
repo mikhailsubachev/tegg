@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.157, for review                                            |
+| **Document status** | Draft v1.158, for review                                            |
 | **Date**            | 2026-11-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -171,6 +171,7 @@
 | v1.155  | 2026-11-10 | Slice Q (saved queries and the query block, v1.0): D-1433…D-1447 (AP-1290…AP-1304, `docs/acceptance/queries.md`, boards `QueriesAll`, `QueryPage`, `QueryBlock`): saved queries are files `.tegg/queries/<name>.yml` used by reference from ```` ```query ```` blocks (`saved: <name>`), renamed by a job, trashed into `.trash/.tegg/queries/`; List and Table views only; sidebar entry `Queries` |
 | v1.156  | 2026-11-10 | Slice Q contract decisions D-1448…D-1490 (`docs/contracts/v1-queries.md` §8) and AC fixes D-1491…D-1495 (§9) |
 | v1.157  | 2026-11-10 | Slice Q red-test decisions D-1496…D-1504 (red tests 6f0c59f, 146782b) |
+| v1.158  | 2026-11-11 | Slice Q test-triage decisions D-1505…D-1509 (dates by region, starting sort, the new task, duplicate titles and links, full embeds) |
 
 ---
 
@@ -1502,6 +1503,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1502 | Slice Q speed tests (owner, 2026-11-10: "Accept all"; slice Q red tests) | As slice PIN: the `nfr_perf_*` timings of slice Q are reported and enforced only with `TEGG_PERF_STRICT` / `TEGG_PERF_REF=1` at the release gate, so debug builds don't fail a push. |
 | D-1503 | The `query-ready` mark (owner, 2026-11-10: "Accept all"; slice Q red tests) | A performance mark `query-ready` is written once when every query block of the opened note has painted its first rows (NFR-PERF-05 AC-5). |
 | D-1504 | A byte copy of a query file (owner, 2026-11-10: "Accept all"; slice Q red tests) | A copy made outside Tegg keeps its `title:`, so its row shows that title (two rows may share it; names stay unique by file stem); FR-QRY-06 AC-17 checks counts and that the copy is untouched. |
+| D-1505 | Dates in query rows follow the region (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | Task chips and table cells show due dates in the region's short date format (R44, as Backlinks chips, D-781): under region `cs` T1 reads `čt 12. 11.`, not `Thu 12 Nov`. FR-QRY-05 AC-1, FR-UX-08 AC-18; R146's dates are shown in en-US for readability. |
+| D-1506 | FR-QRY-05 AC-6's starting order (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | `Úkoly z této schůzky` is already sorted by due ascending in the fixture, so the first header click on Due sorts descending (one write) and the second ascending (one write). |
+| D-1507 | FR-QRY-08 AC-1's new task (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | The pre-filled new task (status To do) must also match the query's group to appear, so the check gives it a due date within 14 days; a task without due date or priority doesn't match `Otevřené úkoly z této schůzky`. |
+| D-1508 | Duplicate titles and links in FR-QRY-02 AC-6 (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | A duplicate in `Pages/` changes where a stem link resolves (dialect: same folder, then shortest path, FR-LNK-14), so the fixture's duplicate lives in `Pages/Archiv/` and the AC checks that the duplicate title alone changes nothing. |
+| D-1509 | FR-QRY-03 AC-6's embed (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | Notes of user types embed as cards, so the check uses a full embed (`|full`) of a Schůzka note; inside it, `this` is the embedded note. The fixture's Schůzka type names its template (`template: _templates/Schůzka/Schůzka.md`, D-232) for FR-TPL-04 AC-1. |
 
 ---
 
