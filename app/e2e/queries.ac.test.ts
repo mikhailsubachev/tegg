@@ -510,7 +510,12 @@ test('fr_ux_08_ac18_queries_for_voiceover_in_the_real_app', { timeout: 300_000 }
     ].join(' | ');
     assert.match(said, /3 results/, `the block reads its result count \`3 results\` (aria-description): ${said}`);
     assert.deepEqual(await blockShows(d, OPEN, [T.t1, T.t2, T.t3], ALL_TASKS, 3000), [T.t1, T.t2, T.t3], 'its three rows by title');
-    for (const s of ['Thu 12 Nov', 'To do', 'In progress']) assert.ok(await blockHas(d, OPEN, s), `a row reads ${s} (task due date and status)`);
+    // The due date is the region's short date (R44, as Backlinks chips; D-1505): the real app uses the machine's region.
+    const due = [undefined, 'cs', 'en-US', 'en-GB'].map((r) => new Intl.DateTimeFormat(r, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 12)));
+    let dueShown = false;
+    for (const s of due) if (!dueShown && (await blockHas(d, OPEN, s))) dueShown = true;
+    assert.ok(dueShown, `a row reads T1's due date in the region's short format (one of ${due.join(', ')})`);
+    for (const s of ['To do', 'In progress']) assert.ok(await blockHas(d, OPEN, s), `a row reads ${s} (task status)`);
     const table = await blockOf(d, UKOLY, 3000);
     assert.ok(table, `the second block "Query: ${UKOLY}"`);
     for (const h of ['Title', 'Status', 'Priority', 'Due date', 'Modified']) assert.ok(await blockHas(d, UKOLY, h), `the table's column header ${h}`);

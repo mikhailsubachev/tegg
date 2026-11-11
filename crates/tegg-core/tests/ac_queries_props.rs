@@ -86,7 +86,9 @@ struct Obj {
 }
 
 fn fold(s: &str) -> String {
-    nfd(&nfc(s)).chars().filter(|c| !('\u{300}'..='\u{36F}').contains(c)).flat_map(|c| c.to_lowercase()).collect()
+    // Lower case first: the helper's `nfd` table holds every lower-case Czech letter but not all upper-case ones (Ý, Ť,
+    // Ů, Ň, Ď), so folding `ŽLUŤOUČKÝ KŮŇ` must not depend on it (D-109).
+    nfd(&nfc(s).to_lowercase()).chars().filter(|c| !('\u{300}'..='\u{36F}').contains(c)).flat_map(|c| c.to_lowercase()).collect()
 }
 fn tag_key(s: &str) -> String {
     nfc(s.trim_start_matches('#')).to_lowercase()
@@ -323,6 +325,11 @@ fn eval(ctx: &Ctx, i: &FilterItem, c: usize) -> Option<bool> {
                         "poznámka" => o.poznamka.clone(),
                         _ => o.stav.clone(),
                     };
+                    // R139: Select (`stav`) has `is`, `is not`, `is any of`, `is empty` only; `is_not_empty` on it is a broken
+                    // operator, ignored as if absent (D-1442).
+                    if key == "stav" && *op == Op::IsNotEmpty {
+                        return None;
+                    }
                     let empty = x.as_deref().is_none_or(|s| s.trim().is_empty());
                     let fx = x.as_deref().map(fold).unwrap_or_default();
                     match op {
@@ -738,7 +745,8 @@ fn patch_seed(seed: u64, cases: usize) -> Vec<String> {
             }
         }
         // A replaced one-line key keeps its trailing comment.
-        for l in lines.iter().filter(|l| edited.contains(&l.owner) && l.text.contains(" # ")) {
+        // Full-line comments inside a replaced block are lost by design (D-1436), so only key lines are checked.
+        for l in lines.iter().filter(|l| edited.contains(&l.owner) && l.text.contains(" # ") && !l.text.trim_start().starts_with('#')) {
             let tail = &l.text[l.text.find(" # ").map(|i| l.text[..i].trim_end().len()).unwrap_or(0)..];
             if !out.split(nl).any(|o| o.ends_with(tail) && o.starts_with(&l.text[..l.text.find(':').unwrap_or(0)])) {
                 bad.push(format!("seed {seed} case {case}: the trailing comment of {:?} is lost", l.text));

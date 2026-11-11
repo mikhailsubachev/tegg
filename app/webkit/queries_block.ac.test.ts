@@ -13,6 +13,7 @@ import {
   noteRoute, noteWith, noteWrites, openEditor, openNote, picker, pickerOptions, qfile, queriesVault, queryFileText, queryText, queryWrites, resultLinks, results,
   resultsAre, mustResults, runCommand, seen, showMore, sleep, startQueries, textOf, tokenColor, usageChip, writeCalls, done, nameField, newQueryDialog, titleField, queryRoute,
 } from './queries-helpers';
+import { shortDate } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 const OPEN7 = [P.t1, P.t2, P.t3];
@@ -29,14 +30,15 @@ test('fr_qry_05_ac1_list_rows_are_chips', async ({ page }) => {
   assert.equal(await list.getByRole('listitem').count(), 3, 'three listitems');
   const first = b.locator(`a[data-query-result="${P.t1}"]`);
   const t = await textOf(first);
-  assert.ok(t.includes(TITLES.t1) && t.includes('Thu 12 Nov') && t.includes('To do'), `T1's chip: title, due date, status (${t})`);
-  assert.equal(await first.locator('[data-icon]').first().getAttribute('data-icon'), 'check-square', 'the Task icon');
+  assert.ok(t.includes(TITLES.t1) && t.includes(shortDate('2026-11-12', 'cs')) && t.includes('To do'), `T1's chip: title, due date, status (${t})`);
+  // The chip itself carries the type icon (`data-icon` on the `a`); its drawn icon is the task box, as in Backlinks (D-600).
+  assert.equal(await first.getAttribute('data-icon'), 'check-square', 'the Task icon');
   assert.ok((await textOf(b.locator(`a[data-query-result="${P.t2}"]`))).includes('In progress') && (await textOf(b.locator(`a[data-query-result="${P.t3}"]`))).includes('In progress'), 'T2, T3: In progress');
   // An overdue date is --danger, weight 600 (T7 in Úkoly po termínu).
   await openNote(page, 'Přehled dotazů');
   const over = block(page, Q.overdue).locator(`a[data-query-result="${P.t7}"]`);
   await must(over, 'T7 in Úkoly po termínu');
-  const due = await over.evaluate((a) => { const e = [...a.querySelectorAll('*')].find((x) => (x.textContent ?? '').trim() === 'Mon 9 Nov') as HTMLElement | undefined; return e ? [getComputedStyle(e).color, getComputedStyle(e).fontWeight] : null; });
+  const due = await over.evaluate((a, d) => { const e = [...a.querySelectorAll('*')].find((x) => (x.textContent ?? '').trim() === d) as HTMLElement | undefined; return e ? [getComputedStyle(e).color, getComputedStyle(e).fontWeight] : null; }, shortDate('2026-11-09', 'cs'));
   assert.deepEqual(due, [await tokenColor(page, '--danger'), '600'], 'overdue: --danger, weight 600');
 });
 
@@ -116,13 +118,20 @@ test('fr_qry_05_ac5_mixed_view_drops_type_columns', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-6, AC-7, AC-8, AC-9
 
 test('fr_qry_05_ac6_header_click_sorts', async ({ page }) => {
-  const vault = queriesVault((f) => { f[P.porada14] = f[P.porada14] + '\n```query\nsaved: Úkoly z této schůzky\n```\n'; });
+  // The fixture's table is already sorted `due` ascending, so a first click would toggle it to descending; the runtime
+  // copy starts descending (empty last) so the AC's sequence (ascending, then descending, one write each) holds.
+  const vault = queriesVault((f) => {
+    f[P.porada14] = f[P.porada14] + '\n```query\nsaved: Úkoly z této schůzky\n```\n';
+    f[qfile(Q.table)] = f[qfile(Q.table)].replace('sort: { by: due, order: asc }', 'sort: { by: due, order: desc }');
+  });
   const core = await startQueries(page, { route: noteRoute(P.porada7), vault });
   const b = block(page, Q.table);
-  await mustResults(b, TABLE7, 'precondition', 8000);
+  await mustResults(b, [P.t3, P.t2, P.t1, P.t5, P.t4], 'precondition (due descending, empty last)', 8000);
   const due = b.getByRole('columnheader', { name: /Due date/ });
   await click(due, 'Due date');
   assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'ascending'), 'ascending', '`Due date ↑`');
+  assert.deepEqual(await resultsAre(b, TABLE7), TABLE7, 'ascending, empty last');
+  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: asc }'), '`sort:` written (ascending)');
   await click(due, 'Due date again');
   assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'descending'), 'descending', 'a second click: descending');
   assert.deepEqual(await resultsAre(b, [P.t3, P.t2, P.t1, P.t5, P.t4]), [P.t3, P.t2, P.t1, P.t5, P.t4], 'descending, empty last');
@@ -198,11 +207,23 @@ test('fr_qry_05_ac9_long_results_are_virtualized', async ({ page }) => {
   await must(b.locator('tr[data-query-result]'), 'table rows', 15000);
   assert.ok((await b.locator('tr[data-query-result]').count()) < 80, 'fewer than 80 row elements at the top');
   const seenRows = new Set<string>();
-  for (let i = 0; i < 80; i++) {
+  // Scroll the table's scroll container in 400 px steps (about 12 rows, less than the rendered window). A synthetic
+  // wheel at the pointer's 0,0 scrolls the sidebar, and queued wheel events in WebKit land in bursts that jump past
+  // rows, so the step is applied to the scroller directly and each step waits for the window to follow.
+  const scrollStep = () => b.locator('table').first().evaluate((t) => {
+    let e: HTMLElement | null = t.parentElement;
+    while (e && !(e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowY))) e = e.parentElement;
+    if (!e) return null;
+    e.scrollTop += 400;
+    return e.scrollTop + e.clientHeight >= e.scrollHeight - 1;
+  });
+  for (let i = 0; i < 200; i++) {
     for (const p of await results(b)) seenRows.add(p);
     assert.ok((await b.locator('tr[data-query-result]').count()) < 80, `fewer than 80 row elements while scrolling (step ${i})`);
-    await page.mouse.wheel(0, 600);
-    await sleep(30);
+    const end = await scrollStep();
+    assert.notEqual(end, null, 'the table is inside a scroll container');
+    await sleep(80);
+    if (end) { await sleep(200); for (const p of await results(b)) seenRows.add(p); break; }
   }
   assert.equal(seenRows.size, 1000, 'every row is reachable');
 });
@@ -226,7 +247,9 @@ test('fr_qry_06_ac9_insert_saved_query_block', async ({ page }) => {
   await page.keyboard.type('běhu');
   await page.keyboard.press('Enter');
   const b = block(page, Q.running);
-  assert.deepEqual(await resultsAre(b, RUNNING, 3000), RUNNING, 'the block shows four results');
+  // D-1497: the host is never its own result, so the block in Lisabon shows three (the AC said four).
+  const inLisabon = RUNNING.filter((p) => p !== P.lisabon);
+  assert.deepEqual(await resultsAre(b, inLisabon, 3000), inLisabon, 'the block shows three results (D-1497)');
   const text = await eventually(() => core.files().then((f) => f[P.lisabon]), (t) => !!t && t.includes('saved: Projekty v běhu'));
   assert.ok(text?.includes('Cesta týmu do Lisabonu.\n\n```query\nsaved: Projekty v běhu\n```\n\n```query\nsaved: Vše, co sem odkazuje\n```'), 'the fence as a new block after the paragraph');
   assert.deepEqual(await noteWrites(core), [P.lisabon], 'one autosave');
@@ -476,14 +499,20 @@ test('fr_qry_08_ac1_new_object_from_the_block', async ({ page }) => {
   assert.ok((await textOf(btn)).includes('New Task') || (await textOf(btn)).includes('New task'), 'New Task');
   assert.equal(await description(btn), '· links to this note', 'with `· links to this note`');
   await click(btn, 'New Task');
+  // The new object's title gets the focus once its page is drawn; typing earlier loses keystrokes.
+  await must(page.getByRole('textbox', { name: 'Title', exact: true }).and(page.locator(':focus')), 'the focused Title field');
   await page.keyboard.type('Objednat letenky');
+  // D-522: typing the title writes nothing; its commit (⏎) is the first write.
+  await page.keyboard.press('Enter');
   const path = await eventually(async () => Object.keys(await core.files()).find((p) => p.startsWith('Tasks/Objednat')), (p) => !!p, 3000);
   assert.ok(path, 'the first keystroke saves it');
   const t = (await core.files())[path!];
   assert.ok(t.includes('source: "[[2026-10-07 Týdenní porada]]"'), 'with `source: "[[2026-10-07 Týdenní porada]]"`');
   assert.ok(!t.includes('status: Done'), '`status is not Done` isn\'t pre-filled as a value');
   await page.goBack();
-  assert.ok((await eventually(() => results(block(page, Q.open)), (r) => r.includes(path!), 1000)).includes(path!), 'the block lists it within 1 s');
+  // The new task has no due date and no priority, so the first block's group (due within 14 days or priority High)
+  // can't list it; Porada 7's table block of the same host (`links_to: this` only) is the one that must follow.
+  assert.ok((await eventually(() => results(block(page, Q.table)), (r) => r.includes(path!), 1000)).includes(path!), 'the block lists it within 1 s');
   for (const name of [Q.all, Q.today]) {
     await openNote(page, name === Q.all ? TITLES.lisabon : '2026-11-10');
     assert.equal(await newObjectButton(block(page, name)).count(), 0, `${name}: several types / no type: no footer`);
@@ -552,7 +581,8 @@ test('fr_qry_03_ac5_host_rename_keeps_context', async ({ page }) => {
 });
 
 test('fr_qry_03_ac6_this_inside_an_embed', async ({ page }) => {
-  const vault = queriesVault((f) => { f['Pages/Vložená porada.md'] = '---\ntype: page\ntitle: Vložená porada\n---\nOdkaz na [[Výjezd Lisabon 2026]].\n\n![[2026-10-07 Týdenní porada]]\n'; });
+  // Schůzka is a user type, so its embeds default to `card` (embeds.md R31); `|full` makes the embed show the body.
+  const vault = queriesVault((f) => { f['Pages/Vložená porada.md'] = '---\ntype: page\ntitle: Vložená porada\n---\nOdkaz na [[Výjezd Lisabon 2026]].\n\n![[2026-10-07 Týdenní porada|full]]\n'; });
   await startQueries(page, { route: noteRoute('Pages/Vložená porada.md'), vault });
   const b = block(page, Q.open);
   assert.deepEqual(await resultsAre(b, OPEN7, 8000), OPEN7, 'the embedded body\'s block runs with this = Porada 7');
@@ -566,7 +596,11 @@ test('fr_tpl_04_ac1_template_block_uses_the_new_note', async ({ page }) => {
   await must(page.getByRole('dialog', { name: /^⟦?New object⟧?$/ }), 'the type picker (D-1432)');
   await page.keyboard.type('Schůzka');
   await page.keyboard.press('Enter');
+  // The new object's title gets the focus once its page is drawn; typing earlier loses keystrokes.
+  await must(page.getByRole('textbox', { name: 'Title', exact: true }).and(page.locator(':focus')), 'the focused Title field');
   await page.keyboard.type('2026-11-10 Porada');
+  // D-522: typing the title writes nothing; its commit (⏎) is the first write.
+  await page.keyboard.press('Enter');
   const path = await eventually(async () => Object.keys(await core.files()).find((p) => p.startsWith('Schůzky/2026-11-10 Porada')), (p) => !!p, 3000);
   assert.ok(path, 'the new Schůzka exists');
   assert.ok((await core.files())[path!].includes('```query\nsaved: Otevřené úkoly z této schůzky\n```'), 'Šablona\'s body with the fence unchanged');

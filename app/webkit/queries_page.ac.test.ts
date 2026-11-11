@@ -66,7 +66,8 @@ test('fr_qry_06_ac2_find_and_sort_queries', async ({ page }) => {
   assert.deepEqual((await eventually(() => queryRows(page), (r) => r.length === 2)).map((r) => r.name).sort(), [Q.open, Q.table].sort(), '`TÉTO`: the two with `této`');
   await find.fill('');
   await click(queriesTable(page).getByRole('columnheader', { name: /Updated/ }), 'header Updated');
-  const byModified = [Q.open, Q.all, Q.books, Q.running, Q.cancelled, Q.table, Q.today, Q.overdue, Q.comments, Q.newer, Q.broken];
+  // The fixture's `modified:` values: 11-02, 11-01, 10-19, 10-15, 10-09, 10-07, 10-02, 08-12, 08-01, 07-01; Nečitelný last.
+  const byModified = [Q.open, Q.today, Q.all, Q.running, Q.cancelled, Q.table, Q.books, Q.overdue, Q.comments, Q.newer, Q.broken];
   assert.deepEqual(await rowNamesAre(page, byModified), byModified, 'Updated: `modified` descending, the unreadable last');
   assert.equal(await queriesTable(page).getByRole('columnheader', { name: /Updated/ }).getAttribute('aria-sort'), 'descending', 'aria-sort');
   await click(queriesTable(page).getByRole('columnheader', { name: /Updated/ }), 'header Updated again');
@@ -318,11 +319,13 @@ test('fr_fmt_12_ac9_query_names_are_nfc', async ({ page }) => {
   await openNote(page, 'NFD');
   assert.deepEqual(await resultsAre(block(page, Q.running), [P.cesta, P.cajovna, P.maly, P.lisabon], 5000), [P.cesta, P.cajovna, P.maly, P.lisabon], 'an NFD `saved:` line resolves');
   // New query writes NFC names.
+  const seeded = Object.keys(await core.files()).filter((p) => p !== p.normalize('NFC'));
   await runCommand(page, 'New query…');
   await (await must(nameField(page), 'Query name')).fill(NFD('Čtení na víkend'));
   await click(newQueryDialog(page).getByRole('button', { name: /^⟦?Create⟧?$/ }), 'Create');
   assert.ok(await eventually(() => core.files(), (f) => f[qfile('Čtení na víkend')] !== undefined), 'the file name is NFC');
-  assert.ok(!Object.keys(await core.files()).some((p) => p !== p.normalize('NFC')), 'no NFD path written');
+  // The only NFD path is the copy this test seeded.
+  assert.deepEqual(Object.keys(await core.files()).filter((p) => p !== p.normalize('NFC')), seeded, 'no NFD path written');
 });
 // ------------------------------------------------------------------------------------------------ FR-HOM-02 AC-28…AC-31
 

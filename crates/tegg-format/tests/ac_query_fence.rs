@@ -106,7 +106,7 @@ fn fr_fmt_06_ac4_fence_forms_and_containers() {
     assert_eq!(query_fences(&d2).first().and_then(|f| f.saved.clone()), Some("Otevřené úkoly z této schůzky".to_string()), "saved is NFC");
     let crlf = "Úvod.\r\n\r\n```query\r\nsaved: Projekty v běhu\r\n```\r\n";
     let c = query_fences(crlf);
-    assert_eq!(c.iter().map(|f| (f.range.start, f.range.end, f.saved.clone())).collect::<Vec<_>>(), vec![(11, crlf.len(), Some("Projekty v běhu".to_string()))], "CRLF: the range includes the CRLF");
+    assert_eq!(c.iter().map(|f| (f.range.start, f.range.end, f.saved.clone())).collect::<Vec<_>>(), vec![("Úvod.\r\n\r\n".len(), crlf.len(), Some("Projekty v běhu".to_string()))], "CRLF: the range includes the CRLF");
 }
 
 #[test]

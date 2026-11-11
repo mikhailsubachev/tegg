@@ -17,6 +17,12 @@ import {
 
 test.use({ timezoneId: 'Europe/Prague' });
 const OPEN7 = [P.t1, P.t2, P.t3];
+/** `openNote` goes through the Search page (D-1340), so going back passes its entry first: back twice. */
+async function backTwice(page: Parameters<typeof main>[0], title: string, how: string) {
+  await page.goBack();
+  await page.goBack();
+  await mustBeOn(page, title, how);
+}
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-09 AC-1
 
@@ -27,23 +33,25 @@ test('fr_qry_09_ac1_tegg_edits_update_results', async ({ page }) => {
   // T4's due through its own page (the attribute panel), then back.
   await openNote(page, TITLES.t4);
   await click(main(page).getByRole('button', { name: /Due date/ }).first(), 'T4\'s Due date');
+  // The picker opens with the focus on a day (date-picker.md R89); a typed date goes into its `Date` field.
+  await click(page.getByRole('dialog', { name: 'Pick date' }).getByRole('textbox', { name: 'Date' }), 'the picker\'s Date field');
   await page.keyboard.type('2026-11-20');
   await page.keyboard.press('Enter');
   await sleep(1200);
-  await page.goBack();
+  await backTwice(page, TITLES.porada7, 'back on Porada 7');
   assert.deepEqual(await resultsAre(block(page, Q.open), [P.t1, P.t2, P.t4, P.t3], 1000), [P.t1, P.t2, P.t4, P.t3], 'T4 due 2026-11-20: 4 results, by due');
   await openNote(page, TITLES.t2);
-  await click(main(page).getByRole('button', { name: /Status/ }).first(), 'T2\'s Status');
+  await click(main(page).getByRole('combobox', { name: 'Status' }).first(), 'T2\'s Status'); // a Select is a combobox (ms3-shell §14.7.3)
   await click(page.getByRole('option', { name: /^Done$/ }).first(), 'Done');
   await sleep(1200);
-  await page.goBack();
+  await backTwice(page, TITLES.porada7, 'back on Porada 7');
   assert.ok(!(await eventually(() => results(block(page, Q.open)), (r) => !r.includes(P.t2), 1000)).includes(P.t2), 'T2 Done: removed');
   await openNote(page, TITLES.t6);
   await (await must(editorBody(page), 'T6 body')).click();
   await page.keyboard.press('Meta+ArrowDown');
   await page.keyboard.type(' [[2026-10-07 Týdenní porada]]');
   await sleep(1200);
-  await page.goBack();
+  await backTwice(page, TITLES.porada7, 'back on Porada 7');
   assert.ok((await eventually(() => results(block(page, Q.open)), (r) => r.includes(P.t6), 1000)).includes(P.t6), 'a link to Porada 7 in T6\'s body adds T6');
 });
 
@@ -71,16 +79,20 @@ test('fr_qry_09_ac4_relative_dates_follow_the_clock', async ({ page }) => {
   const vault = queriesVault((f) => {
     f[qfile('Dnes')] = queryText({ title: 'Dnes', types: ['task'], filters: ['due: { today: true }'], columns: ['due'] });
     f[P.t4] = f[P.t4].replace('priority: Low\n', 'priority: Low\ndue: 2026-11-25\n');
+    // T2 (Medium) due 9 Dec: outside `within next 14 days` on 24 Nov (to 8 Dec), inside on 25 Nov (to 9 Dec). Without it the
+    // open block's results are T1, T4, T3 on both days (T1 and T3 are High, T4 due 25 Nov is within both windows).
+    f[P.t2] = f[P.t2].replace('due: 2026-11-14\n', 'due: 2026-12-09\n');
     f[P.porada7] = f[P.porada7] + '\n```query\nsaved: Dnes\n```\n';
   });
   await startQueries(page, { route: noteRoute(P.porada7), vault, install: true, now: '2026-11-24T23:59:50+01:00' });
   const today = block(page, 'Dnes');
   assert.equal(await blockStateIs(today, 'noResults', 8000), 'noResults', 'before midnight: nothing due today');
   const open = block(page, Q.open);
-  const before = await results(open);
+  const before = await resultsAre(open, [P.t1, P.t4, P.t3]);
+  assert.deepEqual(before, [P.t1, P.t4, P.t3], 'before midnight: T1, T4, T3');
   await page.clock.runFor(20_000);
   assert.deepEqual(await resultsAre(today, [P.t4], 1000 + 30_000), [P.t4], 'after local midnight: T4 (due 25 Nov) within 1 s, without a vault change');
-  assert.notDeepEqual(await results(open), before, '`within next 14 days` moves with the day');
+  assert.deepEqual(await resultsAre(open, [P.t1, P.t4, P.t3, P.t2], 1000), [P.t1, P.t4, P.t3, P.t2], '`within next 14 days` moves with the day: T2 (due 9 Dec) joins');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-09 AC-5
@@ -183,6 +195,8 @@ test('fr_lnk_03_ac23_renames_patch_query_files', async ({ page }) => {
   for (const name of [Q.open, Q.table, Q.all, Q.running, Q.books, Q.cancelled, Q.overdue, Q.today, Q.comments, Q.newer, Q.broken]) {
     assert.equal(await queryFileText(core, name), others[qfile(name)], `${name}: untouched`);
   }
+  // `openNote` went through the Search page (D-1340): ⌘[ passes its entry first.
+  await page.keyboard.press('Meta+BracketLeft');
   await page.keyboard.press('Meta+BracketLeft');
   await mustBeOn(page, 'Výjezd Lisabon 2027', 'back on the renamed note');
   await runCommand(page, 'Undo rename');

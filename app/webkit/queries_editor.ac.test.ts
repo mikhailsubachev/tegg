@@ -289,7 +289,9 @@ test('fr_qry_02_ac4_tags_any_all_none', async ({ page }) => {
 test('fr_qry_02_ac6_links_to_and_linked_from', async ({ page }) => {
   const vault = queriesVault((f) => {
     f[qfile('Odkazy')] = queryText({ title: 'Odkazy', types: [] });
-    f['Pages/Výjezd Lisabon 2026.md'] = '---\ntype: page\ntitle: Výjezd Lisabon 2026\n---\nStejný název.\n';
+    // A duplicate in `Pages/` would take the sources' stem links `[[Výjezd Lisabon 2026]]` itself (dialect §6: same
+    // folder, then the shortest path), so the duplicate title lives at a longer path that resolves none of them.
+    f['Pages/Archiv/Výjezd Lisabon 2026.md'] = '---\ntype: page\ntitle: Výjezd Lisabon 2026\n---\nStejný název.\n';
   });
   const core = await startQueries(page, { route: queryRoute('Odkazy'), vault });
   await click(editQueryButton(page), 'Edit query');

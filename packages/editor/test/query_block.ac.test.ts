@@ -119,8 +119,9 @@ test('fr_edt_02_ac25_query_block_undo_and_reload', async () => {
     const changed = await ed.save();
     assert.ok(changed && (await body(changed)) !== origBody, `${step}: the body changed`);
     assert.equal(ed.commands.undo(), true, `${step}: one undo applies`);
-    const back = await ed.save();
-    assert.equal(back && (await body(back)), origBody, `${step}: ⌘Z restores the exact previous bytes`);
+    // save() compares with the opened text (markSaved isn't called), so after the undo it is null: nothing to write.
+    const back = (await ed.save()) ?? orig;
+    assert.equal(await body(back), origBody, `${step}: ⌘Z restores the exact previous bytes`);
     ed.destroy();
   }
 });
@@ -220,16 +221,23 @@ test('fr_fmt_07_ac30_notes_with_query_blocks_round_trip', async () => {
     const ed = await openWith(orig, rec);
     assert.ok(rec.queries.length >= 1, `${path}: its blocks are query blocks`);
     assert.equal(await ed.save(), null, `${path}: open and save with no edit writes nothing`);
-    // An edit in the paragraph or heading next to a block changes only that block's bytes.
+    // An edit in the paragraph or heading next to a block changes only that block's bytes. The block is a plain-text
+    // one (no link chips or marks, whose textContent isn't their source) whose text ends exactly one source line.
+    const origBody = await body(orig);
     let k = -1;
-    ed.view.state.doc.forEach((n: any, _o: number, i: number) => { if (k < 0 && (n.type.name === 'paragraph' || n.type.name === 'heading') && n.textContent) k = i; });
-    assert.ok(k >= 0, `${path}: has a text block`);
-    const before = ed.view.state.doc.child(k).textContent as string;
+    ed.view.state.doc.forEach((n: any, _o: number, i: number) => {
+      if (k >= 0 || (n.type.name !== 'paragraph' && n.type.name !== 'heading') || !n.textContent) return;
+      let plain = true;
+      n.forEach((c: any) => { if (!c.isText || c.marks.length) plain = false; });
+      if (plain && origBody.split(`${n.textContent}\n`).length === 2) k = i;
+    });
+    assert.ok(k >= 0, `${path}: has a plain text block`);
+    const before = `${ed.view.state.doc.child(k).textContent as string}\n`;
     caret(ed, k);
     type(ed, ' x');
     const out = await ed.save();
     assert.ok(out, `${path}: the edit is saved`);
-    assert.equal(await body(out!), (await body(orig)).replace(before, `${before} x`), `${path}: only that block's bytes change`);
+    assert.equal(await body(out!), origBody.replace(before, `${before.slice(0, -1)} x\n`), `${path}: only that block's bytes change`);
     for (const q of rec.queries) assert.ok(out!.includes(q.source.trimEnd()), `${path}: the fence bytes stay`);
     ed.destroy();
   }

@@ -112,7 +112,7 @@ test('fr_ux_08_ac16_pins_for_voiceover', async ({ page }) => {
   assert.equal(await rowAt(page, 1).evaluate((a) => a.querySelector('.sr-only')?.textContent?.trim() ?? ''), 'Projekt', 'span.sr-only repeats the description');
   await (await must(rowAt(page, 1), 'row')).focus();
   await page.keyboard.press('Alt+Meta+ArrowDown');
-  assert.ok(await liveSays(page, 'Moved to position 3 of 6'), 'moved announced');
+  assert.ok(await liveSays(page, 'Moved to position 3 of 7'), 'moved announced (seven rows with the query pin, slice Q)');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
   assert.ok(await liveSays(page, 'Unpinned Výjezd Lisabon 2026'), 'unpinned announced');

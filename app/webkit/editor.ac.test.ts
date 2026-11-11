@@ -202,10 +202,10 @@ test('fr_edt_01_ac8_source_blocks_and_placeholders', async ({ page }) => {
   const texts = await groups.allInnerTexts();
   assert.ok(texts.some((x) => x.includes('<summary>Více</summary>')), 'HTML text exact');
   assert.ok(texts.some((x) => x.includes('LIST FROM #projekt')), 'dataview text exact');
-  // 4F (D-431): a note embed is an embed now (embeds.md); queries stay R5 placeholders (slice MM, D-679: the mindmap row
+  // 4F (D-431): a note embed is an embed now (embeds.md); queries were R5 placeholders until slice Q (slice MM, D-679: the mindmap row
   // is gone). 6A (D-630): image embeds are media blocks (trash-media.md R77), no longer placeholders.
-  const regions = editorBody(page).getByRole('region');
-  assert.ok((await regions.count()) >= 1, 'the query is an R5 placeholder');
+  // Slice Q (D-1499): the query row left R5; the inline fence is a query block (v1-queries §4.3), not a placeholder.
+  assert.ok(await seen(editorBody(page).locator('figure[data-query-block]'), 3000), 'the query fence is a query block');
   assert.ok((await editorBody(page).locator('[data-embed-mode]').count()) >= 1, 'the note embed is rendered as an embed');
   // Typing and pasting inside a source block changes nothing.
   await groups.first().click();

@@ -362,6 +362,7 @@ export const READ_COMMANDS = new Set([
   'index_path_by_id', // slice P (v1-previews §2): read-only, no recency
   'graph_presets_get', // G3 (v1-graph §16.2): read-only, never creates `.tegg/graph.yml`
   'pins_get', // slice PIN (v1-pinned §2; AP-1270, D-1413): read-only, never creates `.tegg/pinned.yml`
+  'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only (the sidebar's Queries count reads on every route)
 ]);
 export async function nonReadCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !c.startsWith('plugin:event|'));

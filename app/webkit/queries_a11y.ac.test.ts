@@ -13,6 +13,7 @@ import {
   openNote, runCommand, seen, sidebar, sleep, startQueries, textOf, viewChoice, PINS, blockColumns, editorButton, actionsMenu,
 } from './queries-helpers';
 import { axeContrast, colourLeaks } from './read-helpers';
+import { shortDate } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -46,6 +47,8 @@ test('fr_ux_03_ac41_query_commands', async ({ page }) => {
   assert.ok((await palette(page, 'Pin')).includes('Pin to sidebar'), 'query/<name>: Pin to sidebar');
   // Insert query only with the editor focused.
   await openNote(page, TITLES.porada7);
+  // Opening a note puts the caret in its body, so move the focus out of the editor first (to the sidebar).
+  await (await must(sidebar(page).getByRole('button', { name: 'Search' }), 'the sidebar\'s Search button')).focus();
   assert.ok(!(await palette(page, 'Insert query')).includes('Insert query'), 'a note without the editor focused: no Insert query');
   await (await must(editorBody(page), 'Note body')).click();
   assert.ok((await palette(page, 'Insert query')).includes('Insert query'), 'with the editor focused: Insert query');
@@ -98,7 +101,10 @@ test('fr_ux_03_ac42_queries_without_the_pointer', async ({ page }) => {
   const b = block(page, 'Klávesnice');
   await must(b, 'the block in Lisabon');
   assert.ok(await eventually(() => core.files().then((f) => f[P.lisabon]), (x) => !!x && x.includes('saved: Klávesnice')), 'the fence is written');
-  // Switch it to Table and add a column (Tab to Columns, Space).
+  // Switch it to Table and add a column (Tab to Columns, Space). ⌘↩ acts on the selected block once the picker has
+  // closed and the editor has the focus back with the new block selected.
+  await must(b.locator('[data-query-result]'), 'the inserted block\'s results', 3000);
+  assert.ok(await eventually(() => page.evaluate(() => !!document.querySelector('.ProseMirror-selectednode') && !!document.activeElement?.classList.contains('ProseMirror')), (v) => v, 2000), 'the inserted block is selected in the focused editor');
   await page.keyboard.press('Meta+Enter');
   await must(editor(page), 'the editor by ⌘↩');
   await (await must(viewChoice(page, 'Table'), 'Table')).focus();
@@ -115,8 +121,11 @@ test('fr_ux_03_ac42_queries_without_the_pointer', async ({ page }) => {
   assert.ok(await eventually(() => queryFileText(core, 'Klávesnice'), (x) => !!x && x.includes('view: table') && /columns: \[[^\]]*,/.test(x)), 'Table and one more column written');
   // Open a result (⏎ on a row).
   for (let i = 0; i < 20 && !(await page.evaluate(() => !!document.activeElement?.closest('[data-query-result]'))); i++) await page.keyboard.press('Tab');
+  // The first row reached depends on the default sort (`modified` desc, R138): open whichever row has the focus.
+  const row = await page.evaluate(() => document.activeElement?.closest('[data-query-result]')?.getAttribute('data-query-result') ?? '');
+  assert.ok([P.t1, P.t3, P.t7].includes(row as any), `a result row has the focus (${row})`);
   await page.keyboard.press('Enter');
-  await mustBeOn(page, TITLES.t1, '⏎ on a row opens it');
+  await mustBeOn(page, row.split('/').pop()!.replace(/\.md$/, ''), '⏎ on a row opens it');
   // Rename the query and pin it (`⋯` via ⇧F10 on its row).
   await runCommand(page, 'Go to Queries');
   await (await must(queryRow(page, 'Klávesnice'), 'row Klávesnice')).focus();
@@ -146,7 +155,7 @@ test('fr_ux_08_ac18_queries_for_voiceover', async ({ page }) => {
   const list = b.getByRole('list', { name: Q.open });
   assert.equal(await list.getByRole('listitem').count(), 3, '`list, 3 items`');
   const row = await textOf(b.locator(`a[data-query-result="${P.t1}"]`));
-  assert.ok(row.includes(TITLES.t1) && row.includes('Thu 12 Nov') && row.includes('To do'), 'a row reads its title, due date and status');
+  assert.ok(row.includes(TITLES.t1) && row.includes(shortDate('2026-11-12', 'cs')) && row.includes('To do'), 'a row reads its title, due date and status');
   const tb = block(page, Q.table);
   assert.equal(await tb.getByRole('columnheader', { name: /Due date/ }).getAttribute('aria-sort'), 'ascending', 'columnheaders with aria-sort where sorted');
   await openEditor(b, page);
@@ -158,12 +167,14 @@ test('fr_ux_08_ac18_queries_for_voiceover', async ({ page }) => {
   const w = await dlg.evaluate((d) => (d as HTMLElement).getBoundingClientRect().width);
   assert.ok(Math.abs(w - 640) <= 2, `640 px wide (${w})`);
   // One polite announcement per commit, not while editing.
+  // Several polite regions share the contract's selector (the pins have their own, v1-pinned §4.3), so read them all.
   const live = liveRegion(page);
+  const liveText = () => live.evaluateAll((es) => es.map((e) => e.textContent ?? '').join(' '));
   await click(dlg.getByRole('button', { name: /^⟦?Remove group⟧?$/ }), 'Remove group');
   await sleep(500);
-  assert.equal((await textOf(live, 300)).includes('4 results'), false, 'no announcement while editing');
+  assert.equal((await liveText()).includes('4 results'), false, 'no announcement while editing');
   await click(editorButton(page, 'Done'), 'Done');
-  assert.ok(await eventually(() => textOf(live, 200), (t) => t.includes('4 results'), 2000), 'the commit announces `4 results` once');
+  assert.ok(await eventually(liveText, (t) => t.includes('4 results'), 2000), 'the commit announces `4 results` once');
   // A broken row adds `Ignored: …`.
   await runCommand(page, 'Go to Queries');
   await click(queryRow(page, Q.books), Q.books);

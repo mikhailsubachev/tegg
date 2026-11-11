@@ -54,10 +54,12 @@ const view = async (row: PinRowDto) => { const m = await model(); return run('ro
 test('fr_hom_02_ac2_rows_keep_type_icon_and_colour', async () => {
   const d = dtoOf(fx('valid.yml'));
   const v = await Promise.all(d.rows.map(view));
-  assert.deepEqual(v.map((x: any) => [x.label, x.icon, x.color, x.description]), [
+  assert.deepEqual(v.slice(0, 5).map((x: any) => [x.label, x.icon, x.color, x.description]), [
     ['Rozpočet 2027', 'folder', 'orange', 'Projekt'], ['Výjezd Lisabon 2026', 'folder', 'orange', 'Projekt'],
     ['2026-10-07 Týdenní porada', 'users', 'teal', 'Schůzka'], ['#offsite', v[3]?.icon, 'teal', 'Tag'], ['Projekty', 'folder', 'orange', 'Type page'],
   ], 'R133 per kind');
+  // Slice Q (queries.md FR-HOM-02 AC-29, D-1484, D-1501): valid.yml's `query:` item is a sixth row, `Not found` here.
+  assert.deepEqual(v.slice(5).map((x: any) => [x.label, x.icon, x.description]), [['Otevřené úkoly tento týden', 'query', 'Query, Not found']], 'the query pin is listed (slice Q)');
   assert.equal(v[0].tooltip, 'Rozpočet 2027\nProjekty/Rozpočet 2027.md', 'object tooltip: label, newline, path (§8 14)');
   assert.equal(v[3].tooltip, '#offsite', 'tag tooltip: the label');
   const recoloured = await (await model()).rowView(d.rows[0], TYPES.map((t) => (t.key === 'projekt' ? { ...t, color: 'blue' } : t)), tagLook);
@@ -70,9 +72,10 @@ test('fr_hom_02_ac3_rows_open_their_targets', async () => {
   assert.deepEqual(v.map((x: any) => [x.opens, x.route?.id ?? null, x.route?.param ?? null]), [
     ['route', 'note/<path>', 'Projekty/Rozpočet 2027.md'], ['route', 'note/<path>', 'Projekty/Výjezd Lisabon 2026.md'],
     ['route', 'note/<path>', 'Schůzky/2026-10-07 Týdenní porada.md'], ['route', 'tag/<key>', 'offsite'], ['route', 'type/<type>', 'projekt'],
+    ['alert', null, null], // slice Q (D-1484, D-1501): valid.yml's missing `query:` pin shows the alert
     ['route', 'daily/YYYY-MM-DD', '2026-10-07'], ['route', 'note/<path>', 'Images/Graf.md'],
   ], 'each row\'s route (Den on daily/<date>, Graf on its Image page)');
-  assert.equal(v[5].icon, 'calendar', 'Den: the Daily Note icon');
+  assert.equal(v[6].icon, 'calendar', 'Den: the Daily Note icon');
 });
 
 test('fr_hom_02_ac4_duplicate_titles_resolve_by_id', async () => {

@@ -511,7 +511,8 @@ fn fr_syn_02_ac9_pinned_yml_atomic_writes_survive_sigkill() {
             bad.push(format!("cycle {cycle}: torn file ({} bytes)", now.len()));
         }
         let rows = pinned::read(&now).items.len();
-        if rows != 5 {
+        // Slice Q (FR-HOM-02 AC-29, D-1484): valid.yml's query item is a listed pin, so six.
+        if rows != 6 {
             bad.push(format!("cycle {cycle}: {rows} listed pins"));
         }
     }
@@ -617,7 +618,7 @@ fn fr_sto_06_ac2_pins_are_a_vault_file_only() {
     let root = vault_fx(&sb, "valid.yml");
     let core = open(&root, &sb.dirs);
     let want = rows(&core.pins());
-    assert_eq!(want.len(), 5, "five rows");
+    assert_eq!(want.len(), 6, "six rows (slice Q: the query item is a row, D-1484)");
     drop(core);
     let copy = sb.base.join("Kopie");
     copy_dir(&root, &copy, &[]);
