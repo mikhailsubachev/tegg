@@ -394,7 +394,14 @@ export function App() {
     pendingReturn.current = null; // navigation moves the focus to the new page, not back (D-130)
     pendingFocus.current = true;
     headingFocus.current = !!o.heading;
-    history.current.saveScroll(centreScroll(), centreCaret());
+    // Issue 112 a: a Back/Forward step's scroll position and caret belong to the page that step returned to. A page
+    // left before it had restored them keeps them in its entry, and the page opened now never takes them (a link
+    // clicked right after Back opened at Back's scroll position, not at its `#Heading`).
+    const unrestored = pendingScroll.current;
+    const unrestoredCaret = pendingCaret.current;
+    pendingScroll.current = null;
+    pendingCaret.current = null;
+    history.current.saveScroll(unrestored ?? centreScroll(), unrestored !== null ? unrestoredCaret : centreCaret());
     history.current.push(r, o.graph);
     browserNav.push();
     setHandover(o.graph ?? null);
