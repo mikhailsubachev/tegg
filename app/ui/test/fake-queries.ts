@@ -62,7 +62,7 @@ export type QueryPatchDto =
   | { kind: 'optionRenamed'; type: string; key: string; from: string; to: string }
   | { kind: 'keyRenamed'; type: string; from: string; to: string }
   | { kind: 'typeKeyRenamed'; from: string; to: string };
-export type QueriesErrKind = 'Conflict' | 'Gone' | 'NewerVersion' | 'Unreadable' | 'NameTaken' | 'EmptyName' | 'NotFound' | 'Limit' | 'NothingToDo' | 'Io' | 'NoVault';
+export type QueriesErrKind = 'Conflict' | 'Gone' | 'NewerVersion' | 'Unreadable' | 'NameTaken' | 'EmptyName' | 'NotFound' | 'Limit' | 'NothingToDo' | 'Io' | 'NoVault' | 'IndexNotReady';
 export type QueriesErr = { kind: QueriesErrKind; message: string; disk?: QueryDto };
 
 export const QUERIES_DIR = '.tegg/queries';

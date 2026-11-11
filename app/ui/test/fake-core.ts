@@ -1990,6 +1990,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     // usage's `saved:` line through @tegg/doc (`rename-saved-query`; open notes through their editor), the pins last.
     query_rename: async (a) => {
       qFail('query_rename');
+      // §11 (D-1510, FR-QRY-06 AC-22): no rename until the first index build has ended; nothing written, no job.
+      if (x.queriesNotReady) throw err('IndexNotReady', 'fake: the index is still loading');
       const plan = (await viaQueries('query_rename_plan', { name: a.name, title: a.title })).result as any;
       const jobId = ++state.jobSeq;
       const { report, progress, finish } = jobRun(jobId, 'query-rename', plan);
