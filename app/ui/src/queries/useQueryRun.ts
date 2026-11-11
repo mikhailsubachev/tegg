@@ -2,8 +2,8 @@
 // `query_run` once on mount and again, debounced 300 ms and coalesced, when (a) `vault:changed` holds its query file (or
 // any query file while the query is missing / trashed / unreadable, or a type file); (b) `query:stale` names one of its
 // types, or a path in its targets, rows or host (a query over all types: only when the change can reach its result);
-// (c) the local date changes (checked every 30 s, D-327) and it uses relative dates. Never while the host is being typed
-// in (FR-QRY-09 AC-5): a re-run waits until the typing pauses. An answer equal to the drawn one redraws nothing.
+// (c) the local date changes (checked every 30 s, D-327) and it uses relative dates. Never while a note body is being
+// typed in (FR-QRY-09 AC-5): a re-run waits until the typing pauses. An answer equal to the drawn one redraws nothing.
 import { useEffect, useRef, useState } from 'react';
 import { events, ipc } from '../ipc/client';
 import type { QueryResultDto, QuerySourceDto, QueryStaleDto } from '../ipc/queries';
@@ -16,18 +16,22 @@ const stemOf = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.yml$/i, '
 const QUERIES = '.tegg/queries/';
 const TRASHED = '.trash/.tegg/queries/';
 
-// Typing in any editor (contenteditable) postpones re-runs until it pauses.
-let lastTyped = 0;
+// Typing in a note body (a ProseMirror editor, FR-QRY-09 AC-5) postpones re-runs until it pauses. Other editable fields
+// (the Title field, whose ⏎ is a new note's first write, D-522) don't. The pause is a timer, not a difference of
+// wall-clock times: a clock that stands still or is set back must never hold the re-runs for good (§2.3).
+const TYPING_PAUSE = 1200;
+let typing: ReturnType<typeof setTimeout> | null = null;
 let typingWatch = false;
 function watchTyping() {
   if (typingWatch || typeof document === 'undefined') return;
   typingWatch = true;
   document.addEventListener('keydown', (e) => {
     const el = e.target as HTMLElement | null;
-    if (el?.isContentEditable && !e.metaKey && !e.ctrlKey) lastTyped = Date.now();
+    if (!el?.isContentEditable || !el.closest('.ProseMirror') || e.metaKey || e.ctrlKey) return;
+    if (typing) clearTimeout(typing);
+    typing = setTimeout(() => { typing = null; }, TYPING_PAUSE);
   }, true);
 }
-const TYPING_PAUSE = 1200;
 
 export type RunState = { result: QueryResultDto | null; loading: boolean; error: boolean };
 
@@ -63,8 +67,7 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;
-        const wait = lastTyped + TYPING_PAUSE - Date.now();
-        if (wait > 0) { later(wait); return; }
+        if (typing) { later(TYPING_PAUSE / 4); return; }
         go();
       }, ms);
     };

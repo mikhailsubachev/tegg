@@ -1527,15 +1527,47 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return true
     }
     if (!s) return false
-    // From a selected embed to the neighbouring block's text.
     const at = blockPos(doc, k)
+    // From a selected embed to a neighbouring atom block (a query block): that block, as a whole (FR-EDT-02 AC-24).
+    if (n.isAtom && !n.isInline && NodeSelection.isSelectable(n)) {
+      dispatch(editor.state.tr.setSelection(NodeSelection.create(doc, at)).setMeta(blockSelKey, null))
+      return true
+    }
+    // From a selected embed to the neighbouring block's text.
     dispatch(editor.state.tr.setSelection(dir === 'down' ? TextSelection.near(doc.resolve(at + 1)) : TextSelection.near(doc.resolve(at + n.nodeSize - 1), -1)).setMeta(blockSelKey, null))
     return true
   }
 
-  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; opts: EditorOptions; selectedQuery(): { pos: number } | null } = {
+  /**
+   * Slice Q (FR-EDT-02 AC-24): ↑ / ↓ on a selected top-level atom block (a query block) whose neighbour is another atom
+   * block select that neighbour as a whole (a block embed as a block, D-428), the way ↑ from a paragraph's start selects
+   * the block above, instead of stopping on a gap cursor between the two. Other neighbours: the default (their text).
+   */
+  function atomStep(dir: 'up' | 'down'): boolean {
+    const sel = editor.state.selection
+    if (!(sel instanceof NodeSelection) || sel.$from.depth !== 0 || !sel.node.isAtom || blockSel()) return false
+    const doc = editor.state.doc
+    const k = sel.$from.index(0) + (dir === 'down' ? 1 : -1)
+    if (k < 0 || k >= doc.childCount) return false
+    const n = doc.child(k)
+    if (!n.isAtom || n.isInline || !NodeSelection.isSelectable(n)) return false
+    if (n.type.name === 'rawBlock' && n.attrs.kind === 'embed' && opts.onEmbedKey && noteEmbedAt(k)) {
+      dispatch(editor.state.tr.setMeta(blockSelKey, { anchor: k, head: k }))
+      return true
+    }
+    dispatch(editor.state.tr.setSelection(NodeSelection.create(doc, blockPos(doc, k))).scrollIntoView())
+    return true
+  }
+  /** A block embed of a note (not an attachment), which is selected as a block (D-428). */
+  function noteEmbedAt(k: number): boolean {
+    const source = String(editor.state.doc.child(k).attrs.source)
+    return !isAttachmentTarget(linkTargetOf(source.trim().replace(/^!\[\[|\]\]$/g, '')))
+  }
+
+  const api: TeggEditor & { atEdge(dir: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(dir: 'up' | 'down'): boolean; atomStep(dir: 'up' | 'down'): boolean; opts: EditorOptions; selectedQuery(): { pos: number } | null } = {
     opts,
     atEdge,
+    atomStep,
     intoEmbed: (d) => (opts.onEmbedKey ? intoEmbed(d) : false),
     hasBlockSel: () => !!blockSel(),
     selectedEmbed,
@@ -1807,7 +1839,7 @@ const MindmapKeys = Extension.create({
 })
 
 /** 4F (D-428): keys on a selected block embed, and leaving a nested editor. Runs before every other keymap. */
-function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; selectedQuery(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean }) {
+function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: number } | null; selectedQuery(): { pos: number } | null; atEdge(d: 'up' | 'down'): boolean; hasBlockSel(): boolean; intoEmbed(d: 'up' | 'down'): boolean; atomStep(d: 'up' | 'down'): boolean }) {
   return Extension.create({
     name: 'teggEmbedKeys',
     priority: 1000,
@@ -1825,6 +1857,7 @@ function embedKeys(get: () => { opts: EditorOptions; selectedEmbed(): { pos: num
       }
       const leave = (how: 'up' | 'down') => () => {
         const a = get()
+        if (a.atomStep(how)) return true
         if (a.intoEmbed(how)) return true
         return !!a.opts.onLeave && a.atEdge(how) && a.opts.onLeave(how)
       }

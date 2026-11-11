@@ -5,7 +5,7 @@
 // sorts and the Columns menu writing the query file once, D-1444, AP-1294), `Show more` paging in memory (D-1443) and
 // the new-object footer (D-1439). Used by the read view, the editor (`EditorUi.query`), embeds and the query page.
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
-import { newQueryFence, referenceFence, withSavedName } from '@tegg/doc';
+import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto } from '../ipc/queries';
@@ -141,6 +141,9 @@ export function QueryBlock(p: QueryBlockProps) {
   const state = stateOf(result, draft, run.loading);
   const def = result?.def ?? (draft ? DRAFT_DEF() : null);
   const name = result?.name ?? (p.source.kind === 'saved' ? p.source.name : null);
+  // R144: ⌘↩ (and `Edit query`) on a block still drawing its first rows opens the editor at once, on the reference
+  // fence's `saved:` name; the editor reads the query itself (and closes when it can't, as for any missing query).
+  const editName = name ?? (state === 'loading' && p.source.kind === 'fence' ? savedName(p.source.body) : null);
   const form = draft ? 'empty' : result?.form ?? (p.source.kind === 'saved' ? 'reference' : null);
   const inline = form === 'inline';
   const readOnly = result?.lookup === 'newer' || p.query?.state === 'newer';
@@ -161,13 +164,13 @@ export function QueryBlock(p: QueryBlockProps) {
   /** Opens the editor (R142). */
   const edit = (o: { anchor?: HTMLElement | null; returnFocus?: HTMLElement | null; focusFilter?: number[] | null } = {}) => {
     if (readOnly || inline) return;
-    if (!draft && (!name || state === 'notFound' || state === 'trashed' || state === 'unreadable')) return;
+    if (!draft && (!editName || state === 'notFound' || state === 'trashed' || state === 'unreadable')) return;
     const ret = o.returnFocus ?? editBtn.current ?? figure.current;
     editing.current = true;
     // The block's own editor (anchored at the block) closes with the block; the query page's stays with its page.
     ownAnchor.current = !o.anchor || o.anchor === figure.current;
     openQueryEditor({
-      name: draft ? null : name,
+      name: draft ? null : editName,
       host: p.host,
       anchor: o.anchor ?? figure.current,
       returnFocus: ret,
@@ -224,11 +227,11 @@ export function QueryBlock(p: QueryBlockProps) {
   const sel = useRef<SelectedBlock | null>(null);
   useEffect(() => {
     if (!p.selected) return;
-    const b: SelectedBlock = { name: draft ? null : name, editable: !readOnly && !inline && state !== 'unreadable', edit: () => editRef.current() };
+    const b: SelectedBlock = { name: draft ? null : editName, editable: !readOnly && !inline && state !== 'unreadable', edit: () => editRef.current() };
     sel.current = b;
     setSelectedQueryBlock(b);
     return () => clearSelectedQueryBlock(b);
-  }, [p.selected, name, readOnly, inline, state, draft]);
+  }, [p.selected, editName, readOnly, inline, state, draft]);
 
   // ⌘Z right after a commit, while the block's `Edit query` (or the page's) still has the focus: one `query_revert`
   // with the bytes before (D-1476).
