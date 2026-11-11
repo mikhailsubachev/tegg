@@ -118,29 +118,31 @@ test('fr_qry_05_ac5_mixed_view_drops_type_columns', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-6, AC-7, AC-8, AC-9
 
 test('fr_qry_05_ac6_header_click_sorts', async ({ page }) => {
-  // The fixture's table is already sorted `due` ascending, so a first click would toggle it to descending; the runtime
-  // copy starts descending (empty last) so the AC's sequence (ascending, then descending, one write each) holds.
+  // D-1506: the fixture's table is already sorted `due` ascending, so the first click on `Due date` sorts descending (one
+  // write) and the second ascending (one write). A second fence of the query in Porada 14 follows (D-1494).
   const vault = queriesVault((f) => {
     f[P.porada14] = f[P.porada14] + '\n```query\nsaved: Úkoly z této schůzky\n```\n';
-    f[qfile(Q.table)] = f[qfile(Q.table)].replace('sort: { by: due, order: asc }', 'sort: { by: due, order: desc }');
   });
   const core = await startQueries(page, { route: noteRoute(P.porada7), vault });
   const b = block(page, Q.table);
-  await mustResults(b, [P.t3, P.t2, P.t1, P.t5, P.t4], 'precondition (due descending, empty last)', 8000);
+  await mustResults(b, TABLE7, 'precondition (the fixture: due ascending, empty last)', 8000);
+  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: asc }'), 'precondition: `sort:` ascending in the fixture');
   const due = b.getByRole('columnheader', { name: /Due date/ });
+  assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'ascending'), 'ascending', 'precondition: `Due date ↑`');
   await click(due, 'Due date');
-  assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'ascending'), 'ascending', '`Due date ↑`');
+  assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'descending'), 'descending', 'the first click: `Due date ↓`');
+  assert.deepEqual(await resultsAre(b, [P.t3, P.t2, P.t1, P.t5, P.t4]), [P.t3, P.t2, P.t1, P.t5, P.t4], 'descending, empty last');
+  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: desc }'), '`sort:` written (descending)');
+  assert.equal((await eventually(() => queryWrites(core), (w) => w.length === 1)).length, 1, 'the first click writes once');
+  await click(due, 'Due date again');
+  assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'ascending'), 'ascending', 'a second click: `Due date ↑`');
   assert.deepEqual(await resultsAre(b, TABLE7), TABLE7, 'ascending, empty last');
   assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: asc }'), '`sort:` written (ascending)');
-  await click(due, 'Due date again');
-  assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'descending'), 'descending', 'a second click: descending');
-  assert.deepEqual(await resultsAre(b, [P.t3, P.t2, P.t1, P.t5, P.t4]), [P.t3, P.t2, P.t1, P.t5, P.t4], 'descending, empty last');
-  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: desc }'), '`sort:` written');
-  assert.equal((await queryWrites(core)).length, 2, 'each click writes once');
+  assert.equal((await eventually(() => queryWrites(core), (w) => w.length === 2)).length, 2, 'each click writes once');
   await openNote(page, '2026-10-14 Týdenní porada');
   const b14 = block(page, Q.table);
   assert.deepEqual(await resultsAre(b14, [P.t6], 1000), [P.t6], 'the second fence of the query in Porada 14 follows (D-1494)');
-  assert.equal(await b14.getByRole('columnheader', { name: /Due date/ }).getAttribute('aria-sort'), 'descending', 'with the same sort');
+  assert.equal(await b14.getByRole('columnheader', { name: /Due date/ }).getAttribute('aria-sort'), 'ascending', 'with the same sort');
   // ⏎ / Space on a focused header do the same.
   const pr = b14.getByRole('columnheader', { name: /Priority/ });
   await (await must(pr, 'Priority header')).focus();
@@ -509,10 +511,17 @@ test('fr_qry_08_ac1_new_object_from_the_block', async ({ page }) => {
   const t = (await core.files())[path!];
   assert.ok(t.includes('source: "[[2026-10-07 Týdenní porada]]"'), 'with `source: "[[2026-10-07 Týdenní porada]]"`');
   assert.ok(!t.includes('status: Done'), '`status is not Done` isn\'t pre-filled as a value');
+  // D-1507: the block's group needs `due within 14 days` or `priority High`, so the new task gets a due date within 14
+  // days (2026-11-20; the clock is 2026-11-10) through its attribute panel before it can appear in the same block.
+  await click(main(page).getByRole('button', { name: /Due date/ }).first(), 'the new task\'s Due date');
+  await click(page.getByRole('dialog', { name: 'Pick date' }).getByRole('textbox', { name: 'Date' }), 'the picker\'s Date field');
+  await page.keyboard.type('2026-11-20');
+  await page.keyboard.press('Enter');
+  assert.ok((await eventually(() => core.files().then((f) => f[path!]), (x) => !!x && /^due: 2026-11-20$/m.test(x), 3000))?.match(/^due: 2026-11-20$/m), '`due: 2026-11-20` written');
   await page.goBack();
-  // The new task has no due date and no priority, so the first block's group (due within 14 days or priority High)
-  // can't list it; Porada 7's table block of the same host (`links_to: this` only) is the one that must follow.
-  assert.ok((await eventually(() => results(block(page, Q.table)), (r) => r.includes(path!), 1000)).includes(path!), 'the block lists it within 1 s');
+  await mustBeOn(page, '2026-10-07 Týdenní porada', 'back on Porada 7');
+  // FR-QRY-08 AC-1: the block that created it lists it within 1 s.
+  assert.ok((await eventually(() => results(block(page, Q.open)), (r) => r.includes(path!), 1000)).includes(path!), '`Otevřené úkoly z této schůzky` lists it within 1 s');
   for (const name of [Q.all, Q.today]) {
     await openNote(page, name === Q.all ? TITLES.lisabon : '2026-11-10');
     assert.equal(await newObjectButton(block(page, name)).count(), 0, `${name}: several types / no type: no footer`);
