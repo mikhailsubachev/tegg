@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.159, for review                                            |
+| **Document status** | Draft v1.160, for review                                            |
 | **Date**            | 2026-11-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -173,6 +173,7 @@
 | v1.157  | 2026-11-10 | Slice Q red-test decisions D-1496…D-1504 (red tests 6f0c59f, 146782b) |
 | v1.158  | 2026-11-11 | Slice Q test-triage decisions D-1505…D-1509 (dates by region, starting sort, the new task, duplicate titles and links, full embeds) |
 | v1.159  | 2026-11-11 | D-1510: no query rename while the index loads (slice Q QA review) |
+| v1.160  | 2026-11-11 | D-1511: the two-finger swipe between pages is back, following the macOS setting; scrollable things scroll instead (v0.123 feedback; amends D-1168) |
 
 ---
 
@@ -1510,6 +1511,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1508 | Duplicate titles and links in FR-QRY-02 AC-6 (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | A duplicate in `Pages/` changes where a stem link resolves (dialect: same folder, then shortest path, FR-LNK-14), so the fixture's duplicate lives in `Pages/Archiv/` and the AC checks that the duplicate title alone changes nothing. |
 | D-1509 | FR-QRY-03 AC-6's embed (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | Notes of user types embed as cards, so the check uses a full embed (`|full`) of a Schůzka note; inside it, `this` is the embedded note. The fixture's Schůzka type names its template (`template: _templates/Schůzka/Schůzka.md`, D-232) for FR-TPL-04 AC-1. |
 | D-1510 | No query rename while the index loads (owner, 2026-11-11: "yes, go with your proposal for renaming"; slice Q QA review, `qa/reviews/slice-q-build.md` #6) | The rename job takes its usages from the index, so until the first scan after the vault opens has finished, `query_rename` is refused (`IndexNotReady`), nothing is written, and the dialog says `Queries can be renamed once the vault has finished loading.` FR-QRY-06 AC-22. |
+| D-1511 | Two-finger swipe between pages, as in the browser (owner, 2026-11-11: "copy a browser behavior … inside horizontally scrollable component it scrolls … on the component that does not have horizontal scrolling it works as back or forward"; preview v0.123 feedback; amends D-1168, D-165) | When macOS's `Swipe between pages` is set to scroll with two fingers (`NSEvent.isSwipeTrackingFromScrollEventsEnabled`), a two-finger horizontal swipe goes Back (fingers move right, `deltaX` < 0) or Forward. Where the pointer is over something that scrolls sideways (its content is wider than its box: a wide table, the Kanban, a code block) or pans (the graph), the swipe scrolls or pans it and never navigates, at its edges too. Elsewhere a swipe navigates when the gesture starts mostly horizontal and travels at least 120 px; one step per gesture (its momentum included), nothing while the palette or a dialog is open, nothing when there is no entry that way. With the setting off or three-finger only, two-finger scrolling never navigates (D-1168 as before); the native three-finger swipe and the mouse buttons are unchanged. FR-NAV-03 AC-8 changes, AC-11…AC-14 added (`docs/acceptance/app-shell.md`); contract ms3-shell §12.2: the shell command `nav_swipe_scroll` answers the setting, read at start and when the window gets the focus. |
 
 ---
 
