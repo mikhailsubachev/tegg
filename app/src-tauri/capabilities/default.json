@@ -25,6 +25,7 @@
     "allow-index-type-counts",
     "allow-index-list",
     "allow-nav-opened",
+    "allow-nav-swipe-scroll",
     "allow-ui-state-get",
     "allow-ui-state-set",
     "allow-link-resolve",

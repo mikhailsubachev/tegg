@@ -136,6 +136,24 @@ fn watch_mouse_buttons(app: AppHandle) {
 #[cfg(not(target_os = "macos"))]
 fn watch_mouse_buttons(_app: AppHandle) {}
 
+/// macOS's `Swipe between pages` set to scroll with two fingers (D-1511, FR-NAV-03 AC-14): only then the UI turns a
+/// two-finger horizontal scroll into Back / Forward. Always `false` off macOS.
+#[cfg(target_os = "macos")]
+pub(crate) fn swipe_scroll_enabled() -> bool {
+    objc2_app_kit::NSEvent::isSwipeTrackingFromScrollEventsEnabled()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn swipe_scroll_enabled() -> bool {
+    false
+}
+
+/// D-1511 (ms3-shell §12.2): the UI asks at start and each time the window gets the focus.
+#[tauri::command]
+fn nav_swipe_scroll() -> bool {
+    swipe_scroll_enabled()
+}
+
 /// The UI's answer to `app:quit-requested`: everything is saved, or the user confirmed (D-179, D-196).
 #[tauri::command]
 fn app_quit(app: AppHandle) {
@@ -1739,7 +1757,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create, vault_pick_dir,
-            vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, ui_state_get, ui_state_set,
+            vault_last, vault_recent, app_about, vault_types, index_type_counts, index_list, nav_opened, nav_swipe_scroll, ui_state_get, ui_state_set,
             link_resolve, embed_load, index_path_by_id, open_external, note_write, note_create_exact, note_trash, note_discard, index_tags, index_conflicts, app_quit, type_get,
             type_create, type_patch, type_delete, type_template, type_usage, index_type_rows, starter_plan, starter_add,
             index_backlinks, index_broken_links, index_duplicate_titles, link_create_plan, link_create,
@@ -1804,5 +1822,17 @@ mod bug_ms5b_fr_nav_03_swipe_goes_back {
         assert_eq!(nav_of(NavInput::Swipe(1.0)), Some("back"), "a swipe with deltaX > 0 goes back, as in Safari and Chromium");
         assert_eq!(nav_of(NavInput::Swipe(-1.0)), Some("forward"));
         assert_eq!(nav_of(NavInput::Swipe(0.0)), None, "a vertical swipe isn't navigation");
+    }
+
+    /// D-1511 (FR-NAV-03 AC-14): the command answers what the shell reads from AppKit (`false` off macOS). The
+    /// setting itself is the machine's, so only the agreement is checked.
+    #[test]
+    fn fr_nav_03_nav_swipe_scroll_answers_the_macos_setting() {
+        let read = super::swipe_scroll_enabled();
+        assert_eq!(super::nav_swipe_scroll(), read);
+        #[cfg(target_os = "macos")]
+        assert_eq!(read, objc2_app_kit::NSEvent::isSwipeTrackingFromScrollEventsEnabled());
+        #[cfg(not(target_os = "macos"))]
+        assert!(!read, "no swipe setting off macOS");
     }
 }

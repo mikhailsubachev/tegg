@@ -32,6 +32,8 @@ export const ipc = {
   /** 3D (ms3-shell §14.3): the one creation path's write; the core picks the type's folder and the file name. */
   noteCreate: (type: string, title: string, text: string) => invoke<string>('note_create', { type, title, text }),
   navOpened: (path: string | null, route?: string) => invoke<void>('nav_opened', route ? { path, route } : { path }),
+  /** D-1511 (ms3-shell §12.2): macOS's `Swipe between pages` scrolls with two fingers; asked at start and at window focus. */
+  navSwipeScroll: () => invoke<boolean>('nav_swipe_scroll'),
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),

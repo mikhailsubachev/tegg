@@ -24,6 +24,7 @@ import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
 import { eventKeys } from './shell/keys';
 import { createHistory } from './shell/history';
+import { installNavSwipe } from './shell/navSwipe';
 import { Palette } from './shell/Palette';
 import { Placeholder } from './shell/Placeholder';
 import { ROUTES, SHORTCUTS, routeDef } from './shell/registry';
@@ -1066,8 +1067,8 @@ export function App() {
   }, []);
 
 
-  // Mouse back/forward buttons and the shell's native navigation events (FR-NAV-03, ms3-shell §12.2). A horizontal wheel
-  // or trackpad scroll never navigates: it scrolls what is under the pointer (D-1168).
+  // Mouse back/forward buttons and the shell's native navigation events (FR-NAV-03, ms3-shell §12.2). The two-finger
+  // swipe is the next effect (D-1511).
   useEffect(() => {
     // The page's mouseup (where the webview passes it) and the shell's native event (where it doesn't, 3C feedback)
     // may both report one press: the second within 300 ms is ignored.
@@ -1091,6 +1092,27 @@ export function App() {
     };
   }, [step]);
 
+  // The two-finger swipe between pages (D-1511, FR-NAV-03 AC-11…AC-14): only while macOS's `Swipe between pages` scrolls
+  // with two fingers, which the shell answers at start and each time the window gets the focus (ms3-shell §12.2).
+  const swipeStep = useRef(step);
+  swipeStep.current = step;
+  useEffect(() => {
+    let on = false;
+    let asked = 0;
+    const ask = () => {
+      const n = ++asked;
+      void ipc.navSwipeScroll().then((v) => { if (n === asked) on = v === true; }).catch(() => {});
+    };
+    ask();
+    window.addEventListener('focus', ask);
+    const off = installNavSwipe({ enabled: () => on, blocked: () => !!live.current.dialog, step: (dir) => { void swipeStep.current(dir); } });
+    return () => {
+      asked++;
+      window.removeEventListener('focus', ask);
+      off();
+    };
+  }, []);
+
   // ------------------------------------------------------------------ the current page
   const def = route ? routeDef(route.id) : undefined;
   const typeEntry = route?.id === 'type/<type>' ? typeEntries(types, counts).find((e) => e.key === route.param) : undefined;
@@ -1109,6 +1131,8 @@ export function App() {
   const userNamed = route?.id === 'note/<path>' || route?.id === 'type/<type>' || route?.id === DAILY || route?.id === 'tag/<key>' || route?.id === 'query/<name>';
 
   // Focus moves to the new page's heading after navigation (D-130); `route-ready:` marks for Appium (§1).
+  const markedRoute = useRef<string | null>(null);
+  useEffect(() => { markedRoute.current = null; }, [routeKey]);
   useEffect(() => {
     if (!route || chooserShown) return;
     let tries = 0;
@@ -1146,7 +1170,14 @@ export function App() {
       }
       // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
       // The Tasks page and the graph (v1-graph §3: after its first graph or state) mark themselves.
-      if (route.id !== 'tasks' && route.id !== 'tasks/kanban' && route.id !== 'graph/<path>') void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
+      if (route.id === 'tasks' || route.id === 'tasks/kanban' || route.id === 'graph/<path>') return;
+      // A page that doesn't wait for a note is shown once per arrival: the note left behind clearing its `meta` reruns
+      // this effect and must not mark the route a second time (D-1511: a step is one route shown, FR-NAV-03 AC-12).
+      if (!isNote && route.id !== DAILY) {
+        if (markedRoute.current === routeKey) return;
+        markedRoute.current = routeKey;
+      }
+      void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
