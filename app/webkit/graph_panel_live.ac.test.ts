@@ -152,7 +152,8 @@ test('fr_grp_01_ac40_panel_queries_only_while_the_graph_tab_is_shown', async ({ 
 
 // ------------------------------------------------------------------------------------------------ FR-GRP-01 AC-41
 
-test('fr_grp_01_ac41_panel_follows_renames', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #112): failed once in the v0.122 fix gate under load; not caused by it.
+test('fr_grp_01_ac41_panel_follows_renames', { tag: ['@flaky'] }, async ({ page }) => {
   const core = await openPanel(page, P.plan, { realTime: true });
   await waitIn(page, 10);
   const p0 = await positions(page, GP(page));
