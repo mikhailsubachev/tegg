@@ -60,6 +60,7 @@ const R145: Row[] = [
   ['queries.sortLabel', {}, 'Sort queries'], ['queries.sort.createdDesc', {}, 'Created ↓'], ['queries.sort.createdAsc', {}, 'Created ↑'],
   ['queries.sort.updatedDesc', {}, 'Updated ↓'], ['queries.sort.updatedAsc', {}, 'Updated ↑'], ['queries.sort.title', {}, 'Title A–Z'],
   ['queries.renameDialog', {}, 'Rename query'], ['queries.trashed', { name: 'Projekty v běhu' }, 'Moved “Projekty v běhu” to the trash'],
+  ['query.rename.notReady', {}, 'Queries can be renamed once the vault has finished loading.'], // D-1510, FR-QRY-06 AC-22
   ['query.saveFailed', {}, 'The query couldn\'t be saved.'], ['query.block.readOnly', {}, 'Made by a newer version of Tegg. Read-only.'],
   ['query.block.brokenFilter', { attribute: 'stav' }, 'The filter stav can\'t be used as written, so it is ignored.'],
   ['query.block.taskReadOnly', {}, 'Edit the task to change it.'], ['query.block.newObject', { type: 'Task' }, 'New Task'],
