@@ -372,6 +372,15 @@ export function GraphPanel(p: GraphPanelProps) {
   useEffect(() => { if (res && !drawable) { shown.current = null; clearSelection(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [res, drawable]);
 
 
+  // Issue 112 g (FR-GRP-01 AC-41): the footer shows only beside a graph, so the canvas box changes height with the state.
+  // The observer above reports that a frame later, and a graph coming back from Loading was drawn once around the
+  // taller box's centre (every node 13 px low) and laid out for it. Measure in the commit that changes the footer.
+  const footerShown = state === 'graph' && !!model;
+  useLayoutEffect(() => {
+    const b = canvasBox.current;
+    if (b && b.clientHeight > 0) setHeight((h) => (h === b.clientHeight ? h : b.clientHeight));
+  }, [footerShown]);
+
   // ------------------------------------------------------------------ selection and the preview popover (§15.4)
   const lines = (n: GraphNodeDto, r: GraphResultDto): string[] => {
     const first = t('graph.preview.connections', { type: typeNameOf(n.typeKey), count: n.degree });
@@ -886,7 +895,7 @@ export function GraphPanel(p: GraphPanelProps) {
           </div>
         )}
       </div>
-      {state === 'graph' && model && <p className="graph-panel-footer">{footerText(model.nodes.length, mode)}</p>}
+      {footerShown && <p className="graph-panel-footer">{footerText(model.nodes.length, mode)}</p>}
     </div>
   );
 }
