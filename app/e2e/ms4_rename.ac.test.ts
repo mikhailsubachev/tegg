@@ -97,7 +97,8 @@ async function waitFile(path: string, ok: (t: string | null) => boolean, ms: num
 
 type Env = Record<string, string>;
 function testEnv(appSupport: string, perfLog: string, extra: Env = {}): Env {
-  return { TEGG_TEST: '1', TEGG_APP_SUPPORT: appSupport, TEGG_PERF_LOG: perfLog, ...extra };
+  // D-835: the tidy job (D-805) is off in real-app tests; this fixture keeps objects outside their type's folder.
+  return { TEGG_TEST: '1', TEGG_APP_SUPPORT: appSupport, TEGG_PERF_LOG: perfLog, TEGG_TEST_TIDY: '0', ...extra };
 }
 function spawnApp(env: Env): ChildProcess {
   const clean = { ...process.env };

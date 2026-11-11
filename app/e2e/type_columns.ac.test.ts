@@ -64,6 +64,14 @@ async function dragBy(d: Driver, label: string, dx: number) {
   await d.execute('macos: clickAndDrag', { startX: sx, startY: sy, endX: sx + dx, endY: sy, duration: 1 });
   await sleep(400);
 }
+/** Moves the keyboard focus to the control named `label` with Tab (type-columns.md AC-31: each header is followed by its
+ *  resize handle in the Tab order). A press on a handle starts a drag and doesn't take the focus. */
+async function tabTo(d: Driver, label: string, max = 80) {
+  const e = await need(d, label, 5000);
+  const focused = async () => ['true', '1'].includes(String(await e.getAttribute('focused').catch(() => '')).toLowerCase());
+  for (let i = 0; i < max && !(await focused()); i++) { press('tab'); await sleep(80); }
+  assert.ok(await focused(), `Tab reaches "${label}" (within ${max} presses)`);
+}
 const near = (a: number, b: number, tol = 2) => Math.abs(a - b) <= tol;
 const teggFiles = (vault: string) => readdirSync(join(vault, '.tegg'), { recursive: true }).map(String).sort();
 
@@ -84,7 +92,7 @@ test('fr_typ_09_ac30_a_real_pointer_drag_resizes_datum_and_ac32_widths_survive_a
     assert.ok(near(w1, 260), `AC-30: a real drag of 100 px makes Datum 260 wide (${w1})`);
     assert.ok(await waitFor(() => widthsOf(c.sup, 'schůzka')?.datum === 260, 2000), `ui-state.json: typeColumnWidths.schůzka.datum 260 (${JSON.stringify(uiState(c.sup)?.typeColumnWidths)})`);
     d = await launchOn(c, typeRoute('nápad'));
-    await (await need(d, 'Resize Hodnocení', 5000)).click();
+    await tabTo(d, 'Resize Hodnocení');
     for (let i = 0; i < 4; i++) press('right');
     assert.ok(await waitFor(() => widthsOf(c.sup, 'nápad')?.['hodnocení'] === 200, 1500), 'Hodnocení 200 by keyboard, stored within 1 s');
     await end(c.d);

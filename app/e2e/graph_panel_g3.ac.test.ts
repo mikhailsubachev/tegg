@@ -11,7 +11,7 @@
 // app/e2e/helpers/capture.ts, app/e2e/helpers/graph.ts.
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   REPO, appiumDown, changedPaths, marks, need, needInGroup, needMenuItem, palette, paste, press, ready, shown, sleep, support, tmp, tree, typeAscii,
@@ -36,7 +36,8 @@ function freshPanel(name: string, presets: string | null, o: { panel?: Record<st
   const base = tmp(`g3p-${name}`);
   const vault = graphCopy(base, { hub: o.hub });
   if (presets !== null) writeFileSync(join(vault, YML), presets);
-  const vaults = o.panel ? { vaults: { [vault.normalize('NFC')]: { graph: { panel: o.panel } } } } : {};
+  // D-1426: seeded under the vault's real path, the key the app reads.
+  const vaults = o.panel ? { vaults: { [realpathSync(vault).normalize('NFC')]: { graph: { panel: o.panel } } } } : {};
   const sup = support(base, { ui: { rightPanel: { open: true, tab: o.tab ?? 'graph' }, ...vaults } });
   return { base, vault, sup, log: join(base, 'perf-0.jsonl'), runs: 0 };
 }
@@ -54,7 +55,8 @@ async function presetMenu(d: Awaited<ReturnType<typeof launchOn>>, current: stri
 }
 async function apply(d: Awaited<ReturnType<typeof launchOn>>, current: string, name: string) {
   await presetMenu(d, current);
-  await (await needMenuItem(d, name)).click();
+  // The `Default` item's accessible name includes its muted text `built-in` (graph.md, the menu row of R119).
+  await (await needMenuItem(d, name === 'Default' ? 'Default built-in' : name)).click();
   await sleep(500);
 }
 async function saveAs(d: Awaited<ReturnType<typeof launchOn>>, current: string, name: string) {

@@ -100,6 +100,16 @@ async function allShown(d: Driver, label: string): Promise<any[]> {
   }
   return out;
 }
+/** The shown elements labelled `label`, one per text line (a chip and the text inside it share a line), top to bottom. */
+async function shownLines(d: Driver, label: string): Promise<any[]> {
+  const rows: { y: number; e: any }[] = [];
+  for (const e of await allShown(d, label)) {
+    const r = await d.getElementRect(e.elementId);
+    const y = r.y + r.height / 2;
+    if (!rows.some((o) => Math.abs(o.y - y) < 8)) rows.push({ y, e });
+  }
+  return rows.sort((a, b) => a.y - b.y).map((o) => o.e);
+}
 /** The first of `labels` that is shown. */
 async function needAny(d: Driver, labels: string[], ms = 3000): Promise<any> {
   const endAt = Date.now() + ms;
@@ -140,6 +150,18 @@ async function previewAndClose(d: Driver, el: any, title: string | null, what: s
   if (dlg) await scrollIn(d, dlg);
   press('escape');
   assert.ok(await noPreview(d), `${what}: Esc closes the preview`);
+}
+/** The slider (XCUIElementTypeSlider, 33) named `label`: its visible label is a static text with the same text. */
+async function needSlider(d: Driver, label: string, ms = 3000): Promise<any> {
+  const endAt = Date.now() + ms;
+  while (true) {
+    for (const e of await d.$$(`-ios predicate string:elementType == 33 AND (label == "${label}" OR title == "${label}")`).catch(() => [] as any[])) {
+      if (await e.isDisplayed().catch(() => false)) return e;
+    }
+    if (Date.now() > endAt) break;
+    await sleep(100);
+  }
+  assert.fail(`the slider "${label}" is shown`);
 }
 function radioOn(v: unknown): boolean {
   return String(v) === '1' || String(v).toLowerCase() === 'true';
@@ -193,7 +215,7 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
     // Every resolved link of Odkazy, by click (a section, block or missing-heading chip may show its heading).
     const chips: [string[], string | null, number][] = [
       [['Rozpočet 2027'], 'Rozpočet 2027', 0], [['rozpočet'], 'Rozpočet 2027', 0],
-      [['Rozpočet 2027 › Rozsah', 'Rozpočet 2027#Rozsah', 'Rozsah'], null, 0], [['Rozpočet 2027#^otazka1', 'Rozpočet 2027 › ^otazka1', '^otazka1'], null, 0],
+      [['Rozpočet 2027 › Rozsah', 'Rozpočet 2027#Rozsah', 'Rozsah'], null, 0], [['Rozpočet 2027'], 'Rozpočet 2027', -1], // the block-link chip shows the title only (no `^id`): the second line with it
       [['Rozpočet 2027 › Neexistující nadpis', 'Rozpočet 2027#Neexistující nadpis', 'Neexistující nadpis'], null, 0],
       [['Jana Nováková'], 'Jana Nováková', 0], [['Petr Dvořák'], 'Petr Dvořák', 0], [['Projekt Alfa'], 'Projekt Alfa', 0],
       [['Zavolat Janě'], 'Zavolat Janě', 0], [['2026-10-07'], '2026-10-07', 0], [['2026-10-30'], '2026-10-30', 0],
@@ -205,6 +227,12 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
     for (const [labels, title, n] of chips) {
       let el: any;
       if (n === 0) el = await needAny(d, labels);
+      else if (n === -1) {
+        // `Hlavní [[Rozpočet 2027]].` is the first line that shows this title, `Blok [[Rozpočet 2027#^otazka1]].` the second.
+        const lines = await shownLines(d, labels[0]);
+        assert.ok(lines.length >= 2, `${labels[0]}: a second line shows it (the block-link chip): ${lines.length}`);
+        el = lines[1];
+      }
       else { const all = await allShown(d, labels[0]); assert.ok(all.length > n, `${labels[0]}: instance ${n + 1} is shown`); el = all[n]; }
       await previewAndClose(d, el, title, `click on ${labels[0]}`);
     }
@@ -351,14 +379,14 @@ test('fr_set_07_ac2_hover_and_600_ms_survive_a_relaunch_and_apply_in_another_vau
     d = await launch(c, 'settings/previews');
     const hover = await need(d, 'Hover to preview, click to open', 5000);
     assert.ok(radioOn(await hover.getAttribute('value')), 'after a relaunch Hover to preview is checked');
-    const sl = await need(d, 'Hover delay');
+    const sl = await needSlider(d, 'Hover delay');
     assert.match(String(await sl.getAttribute('value')), /600/, 'after a relaunch the delay is 600 ms');
     await end(d); c.d = undefined;
     // Another vault in the same app (same Application Support).
     d = await launch({ ...c, vault: other } as Ctx, 'settings/previews');
     c.d = d;
     assert.ok(radioOn(await (await need(d, 'Hover to preview, click to open', 5000)).getAttribute('value')), 'the other vault: Hover to preview');
-    assert.match(String(await (await need(d, 'Hover delay')).getAttribute('value')), /600/, 'the other vault: 600 ms');
+    assert.match(String(await (await needSlider(d, 'Hover delay')).getAttribute('value')), /600/, 'the other vault: 600 ms');
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'the first vault is still untouched');
     const p = uiStateOf(c.sup)?.preview;
     assert.deepEqual({ mode: p?.mode, hoverDelay: p?.hoverDelay }, { mode: 'hover', hoverDelay: 600 }, 'still stored machine-local');
