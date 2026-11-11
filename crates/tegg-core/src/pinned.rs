@@ -664,16 +664,41 @@ pub fn apply_text(text: Option<&str>, file: &PinsFile, edit: &PinEdit) -> Result
         }
         PinEdit::Move { from, to } => {
             let skip = listed_raw[*from];
-            let it = layout.items[skip];
-            let size = it.end - it.start + 1;
-            let shift = |i: usize| if i > it.end { i - size } else { i };
-            let at = place_for(*to, Some(skip)).map(shift).unwrap_or_else(|| shift(end_of_list(Some(skip)) - 1) + 1);
-            let moved = cut(&mut lines, it.start, it.end);
-            put(&mut lines, at, moved, &eol);
-            let r = want.remove(skip);
-            let left: Vec<usize> = listed_raw.iter().copied().filter(|x| *x != skip).map(|x| if x > skip { x - 1 } else { x }).collect();
-            let pos = left.get(*to).copied().unwrap_or(want.len());
-            want.insert(pos, r);
+            let target = &p.listed[*from].1;
+            let left: Vec<usize> = listed_raw.iter().copied().filter(|x| *x != skip).collect();
+            let dest = left.get(*to).copied();
+            // A skipped duplicate of the moved target (AP-1236) that would end up before it would be listed in its
+            // place (R131 lists the first one), so it travels with the moved item, right after it, byte for byte.
+            let group: Vec<usize> = std::iter::once(skip)
+                .chain((skip + 1..dest.unwrap_or(layout.items.len())).filter(|r| {
+                    !listed_raw.contains(r) && matches!(kind_of(&p.raw[*r]), Kind::Pin(t) if same_target(&t, target))
+                }))
+                .collect();
+            // The insertion line in the original numbering: before the destination item, else after the list's last
+            // item outside the group.
+            let at0 = match dest {
+                Some(r) => layout.items[r].start,
+                None => match layout.items.iter().enumerate().filter(|(i, _)| !group.contains(i)).last() {
+                    Some((_, it)) => it.end + 1,
+                    None => layout.pins.map_or(0, |p| p + 1),
+                },
+            };
+            let shift: usize = group.iter().map(|r| layout.items[*r]).filter(|it| it.end < at0).map(|it| it.end - it.start + 1).sum();
+            let mut blocks: Vec<Vec<Line>> = Vec::new();
+            for r in group.iter().rev() {
+                let it = layout.items[*r];
+                blocks.push(cut(&mut lines, it.start, it.end));
+            }
+            let moved: Vec<Line> = blocks.into_iter().rev().flatten().collect();
+            put(&mut lines, at0 - shift, moved, &eol);
+            let carried: Vec<Yaml> = group.iter().map(|r| p.raw[*r].clone()).collect();
+            for r in group.iter().rev() {
+                want.remove(*r);
+            }
+            let pos = dest.map_or(want.len(), |d| d - group.iter().filter(|r| **r < d).count());
+            for (k, y) in carried.into_iter().enumerate() {
+                want.insert(pos + k, y);
+            }
         }
     }
     if !p.has_version {
