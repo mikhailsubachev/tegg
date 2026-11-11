@@ -811,3 +811,7 @@ These override the sections above where they differ.
 - **D-1502** Slice Q speed tests: As slice PIN: the `nfr_perf_*` timings of slice Q are reported and enforced only with `TEGG_PERF_STRICT` / `TEGG_PERF_REF=1` at the release gate, so debug builds don't fail a push.
 - **D-1503** The `query-ready` mark: A performance mark `query-ready` is written once when every query block of the opened note has painted its first rows (NFR-PERF-05 AC-5).
 - **D-1504** A byte copy of a query file: A copy made outside Tegg keeps its `title:`, so its row shows that title (two rows may share it; names stay unique by file stem); FR-QRY-06 AC-17 checks counts and that the copy is untouched.
+
+## 11. QA decision D-1510 (owner 2026-11-11)
+
+- `Core::query_rename` (and the `query-rename` job plan) refuses with `QueryError::IndexNotReady` while `index_ready` is false (the first index build after open hasn't ended); nothing is written, no job, no backup. IPC: `query_rename` answers error kind `IndexNotReady`. UI: the rename dialog shows the catalog string `query.rename.notReady` = `Queries can be renamed once the vault has finished loading.` and keeps the typed name. The fake core refuses the same way while `queriesNotReady(true)`. FR-QRY-06 AC-22.

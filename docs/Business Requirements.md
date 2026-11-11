@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.158, for review                                            |
+| **Document status** | Draft v1.159, for review                                            |
 | **Date**            | 2026-11-10                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -172,6 +172,7 @@
 | v1.156  | 2026-11-10 | Slice Q contract decisions D-1448…D-1490 (`docs/contracts/v1-queries.md` §8) and AC fixes D-1491…D-1495 (§9) |
 | v1.157  | 2026-11-10 | Slice Q red-test decisions D-1496…D-1504 (red tests 6f0c59f, 146782b) |
 | v1.158  | 2026-11-11 | Slice Q test-triage decisions D-1505…D-1509 (dates by region, starting sort, the new task, duplicate titles and links, full embeds) |
+| v1.159  | 2026-11-11 | D-1510: no query rename while the index loads (slice Q QA review) |
 
 ---
 
@@ -1508,6 +1509,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1507 | FR-QRY-08 AC-1's new task (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | The pre-filled new task (status To do) must also match the query's group to appear, so the check gives it a due date within 14 days; a task without due date or priority doesn't match `Otevřené úkoly z této schůzky`. |
 | D-1508 | Duplicate titles and links in FR-QRY-02 AC-6 (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | A duplicate in `Pages/` changes where a stem link resolves (dialect: same folder, then shortest path, FR-LNK-14), so the fixture's duplicate lives in `Pages/Archiv/` and the AC checks that the duplicate title alone changes nothing. |
 | D-1509 | FR-QRY-03 AC-6's embed (owner, 2026-11-11: "Approve all"; slice Q test triage, `qa/reviews/slice-q-test-triage.md`) | Notes of user types embed as cards, so the check uses a full embed (`|full`) of a Schůzka note; inside it, `this` is the embedded note. The fixture's Schůzka type names its template (`template: _templates/Schůzka/Schůzka.md`, D-232) for FR-TPL-04 AC-1. |
+| D-1510 | No query rename while the index loads (owner, 2026-11-11: "yes, go with your proposal for renaming"; slice Q QA review, `qa/reviews/slice-q-build.md` #6) | The rename job takes its usages from the index, so until the first scan after the vault opens has finished, `query_rename` is refused (`IndexNotReady`), nothing is written, and the dialog says `Queries can be renamed once the vault has finished loading.` FR-QRY-06 AC-22. |
 
 ---
 

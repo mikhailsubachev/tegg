@@ -341,6 +341,7 @@ Changes apply to the results live (in memory); the query file is written **once 
 - **AC-19** **The block in the read and source views.** With the note's Markdown source shown (⌥⌘U, D-146) the fence's text appears as written. A note in `.trash/` opened from the Trash view shows its blocks with results and writes nothing. *(L5)* Test: `fr_qry_06_ac19_block_in_source_and_trash_views`
 - **AC-20** **Query menus by keyboard (FR-UX-03).** On a `queries` row, ⇧F10 opens `Query actions` (`Pin to sidebar`, `Rename…`, `Duplicate`, `Move to trash`); ↑/↓, ⏎ and Esc work, and Esc returns the focus to the row. The same menu opens from `⋯` on the query page. *(L5)* Test: `fr_qry_06_ac20_query_actions_by_keyboard`
 - **AC-21** [manual] **Design review.** The owner compares the following with the boards `QueriesAll`, `QueryPage`, `QueryBlock` A–G and their Dark variants, and records each deviation as an issue or accepts it: the Queries page with eleven rows and a hovered row's `⋯` menu; a query page with and without `this`; the block in List and Table, mixed, empty, broken, not found, trashed, unreadable and with `Show more`; the editor with a group; the `/query` picker and the empty draft; the Columns menu in both table kinds. *(manual)*
+- **AC-22** **No rename while the index loads (D-1510; T2).** [L4, L5] Until the index has finished its first scan after the vault opens, `query_rename` is refused with `IndexNotReady` and writes nothing (no file, note or pins change, no job or backup). The rename dialog shows `Queries can be renamed once the vault has finished loading.` and keeps the typed name; after the first scan ends, the same rename runs as AC-6.
 
 ### FR-QRY-08 New objects from a query (only if AP-1296 is accepted)
 
@@ -460,6 +461,10 @@ Changes apply to the results live (in memory); the query file is written **once 
 | AP-1303 → D-1446 | **Editing a shared query from a block.** Under A an edit in one note changes the query everywhere; board B says "Changes apply live; Esc closes". | The editor shows `Used on <n> notes. Changes apply everywhere.` when n ≥ 2; results update live in memory and the file is written **once** on close (Done, Esc or click outside), with Undo; `Duplicate` in the menu makes a separate copy. | (b) Write on every change (many writes and sync uploads, FR-SYN-06). (c) Ask "Change for all n notes or make a copy?" on each commit. | R142, FR-QRY-01 AC-5, FR-QRY-06 AC-5 |
 | AP-1304 → D-1447 | **Sidebar entry and AC-test changes.** FR-NAV-04 and D-1375 name a `Saved queries` entry (TBD v1.0) with a `saved-queries` route; the boards name it `Queries` with a count, under Tags, and show single queries in the sidebar only when pinned. | Rename the entry to `Queries` with its count, route `queries` (plus `query/<name>`); FR-QRY-06's "shown in the sidebar" is met by pinning. Approve the test changes under "Existing criteria this slice changes", committed with `AC-Test-Change: slice Q builds saved queries (FR-QRY-06); approved-by: owner`. | (b) Also list every saved query under the entry, collapsible like Types. | R143, FR-NAV-04 AC-12, app-shell R1/R4, pinned.md, tags.md |
 
+
+## Changes after the QA review
+
+- **D-1510** A query can't be renamed until the index has finished its first scan (FR-QRY-06 AC-22).
 
 ## Changes from the test triage (D-1505…D-1509, owner 2026-11-11: "Approve all"; `qa/reviews/slice-q-test-triage.md`)
 

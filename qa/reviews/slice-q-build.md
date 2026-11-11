@@ -11,7 +11,7 @@ Branch `claude/jolly-cartwright-4bb871`, head 8470286 (tree e22c6c6), reviewed 2
 | 3 | major | `app/webkit/queries_block.ac.test.ts:494-515` | `fr_qry_08_ac1` doesn't follow D-1507: it should check that the footer's own block lists the new task. | Test fixed to follow D-1507 (covered by the D-1505…D-1509 approval). |
 | 4 | major | triage P3 | With the date picker open, typed keys go into the note body and are saved. Not caused by slice Q. | Proposed as its own bug-fix session, with a `bug_…_fr_typ_02_…` regression test. |
 | 5 | minor | `crates/tegg-core/src/pinned.rs:233` | `same_target` compares query pins by exact NFC; D-1434 makes names case-insensitive. | Fixed. |
-| 6 | minor | `crates/tegg-core/src/queries_q.rs:2669` | A rename while the first index scan runs can miss usages not yet indexed. | Open: needs an owner decision (refuse rename until the index is ready). |
+| 6 | minor | `crates/tegg-core/src/queries_q.rs:2669` | A rename while the first index scan runs can miss usages not yet indexed. | Decided D-1510 (owner): refused until the first scan ends; FR-QRY-06 AC-22. |
 | 7 | minor | `crates/tegg-core/src/queries_q.rs:1343-1379` | `patch_job_text` has no read-back check, touches `[[…]]` in comments, and turns single quotes into double quotes. | Fixed. |
 | 8 | minor | `app/src-tauri/src/shellq.rs:347` | An unparsable zone silently falls back to UTC. | Fixed: it is an error. |
 | 9 | minor | `app/webkit/queries_block.ac.test.ts:120-126` | `fr_qry_05_ac6`'s click order is the reverse of D-1506's text. | Test follows D-1506. |
